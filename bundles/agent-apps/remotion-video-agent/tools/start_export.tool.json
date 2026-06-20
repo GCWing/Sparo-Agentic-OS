@@ -1,0 +1,28 @@
+{
+  "name": "start_export",
+  "description": "Start an MP4 export for a Remotion composition through the workspace Remotion toolchain.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "workspacePath": { "type": "string" },
+      "entryPoint": { "type": "string" },
+      "compositionId": { "type": "string" },
+      "composition": { "type": "string" },
+      "frameRange": {
+        "type": "array",
+        "items": { "type": "integer" }
+      },
+      "scale": { "type": "number" },
+      "outputPath": { "type": "string" },
+      "timeoutMs": { "type": "integer" },
+      "inputProps": { "type": "object" }
+    }
+  },
+  "runtime": "javascript",
+  "entry": "tools/start_export.js",
+  "readonly": false,
+  "permissions": {},
+  "timeoutMs": 700000,
+  "maxOutputBytes": 60000
+}

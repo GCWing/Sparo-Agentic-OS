@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Remotion Agent Action Input",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "context": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "workspacePath": { "type": "string" },
+        "projectName": { "type": "string" },
+        "entryPoint": { "type": "string" },
+        "compositionId": { "type": "string" },
+        "frame": { "type": "integer", "minimum": 0 },
+        "fps": { "type": "number" },
+        "durationInFrames": { "type": "integer" },
+        "size": {
+          "type": "object",
+          "properties": {
+            "width": { "type": "number" },
+            "height": { "type": "number" }
+          }
+        },
+        "previewMode": { "type": "string", "enum": ["player", "studio", "still"] },
+        "selectedVideoContext": { "$ref": "./selected-video-context.schema.json" },
+        "sourceHints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "file": { "type": "string" },
+              "role": { "type": "string" },
+              "confidence": { "type": "number" }
+            }
+          }
+        },
+        "recentError": { "type": "string" }
+      }
+    },
+    "userIntent": { "type": "string" },
+    "question": { "type": "string" },
+    "constraints": { "type": "array", "items": { "type": "string" } },
+    "frames": { "type": "array", "items": { "type": "integer" } }
+  }
+}

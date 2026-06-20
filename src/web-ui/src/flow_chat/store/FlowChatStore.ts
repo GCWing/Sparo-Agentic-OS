@@ -65,7 +65,10 @@ function descriptorFromSessionMetadata(
 ): SessionDescriptor {
   const liveAppWorkbench = metadata.customMetadata?.liveAppWorkbench;
   if (liveAppWorkbench) {
-    return getLiveAppWorkbenchSessionDescriptor();
+    const agentAppId = liveAppWorkbench.chat?.agentAppId;
+    return getLiveAppWorkbenchSessionDescriptor(
+      typeof agentAppId === 'string' ? agentAppId : undefined,
+    );
   }
   return descriptorFromAgentType(metadata.agentType || fallbackAgentType);
 }

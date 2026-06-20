@@ -1,0 +1,75 @@
+// remotion-live :: state.js (auto-split from ui.js; do not hand-merge)
+
+import { normalizeRoute } from './constants.js';
+
+const previewFrameCache = new Map();
+
+const previewClipCache = new Map();
+
+
+const state = {
+  locale: navigator.language || 'en-US',
+  route: normalizeRoute(document.documentElement.dataset.route || '/preview'),
+  tabId: null,
+  sessionId: null,
+  workspacePath: null,
+  loading: false,
+  error: null,
+  status: 'idle',
+  project: null,
+  manifest: null,
+  activeCompositionId: null,
+  frame: 0,
+  frameModel: null,
+  playerFrameModel: null,
+  selectedElementId: null,
+  previewFrame: null,
+  previewLoading: false,
+  previewError: null,
+  previewInFlightKey: null,
+  previewQueuedKey: null,
+  previewScale: 1,
+  previewClip: null,
+  previewClipLoading: false,
+  previewClipError: null,
+  previewClipInFlightKey: null,
+  previewClipScale: 0.25,
+  previewClipSeconds: 3,
+  previewMode: 'player',
+  playerHost: null,
+  playerHostLoading: false,
+  playerHostError: null,
+  playerHostPollTimer: null,
+  playerRuntimeReady: false,
+  playerPendingCommand: null,
+  playerHandshakeTimer: null,
+  playerCommandFallbackTimer: null,
+  playerControlEpoch: 0,
+  playerReloadNonce: 0,
+  playerRuntimeFrame: null,
+  playerRuntimePlaying: false,
+  previewServer: null,
+  previewServerLoading: false,
+  previewServerError: null,
+  previewServerPollTimer: null,
+  frameTouched: false,
+  playing: false,
+  playTimer: null,
+  selectionGuard: false,
+  selectionPointerDown: false,
+  renderQueued: false,
+  lastStill: null,
+  detection: null,
+  detecting: false,
+  selectedEntry: null,
+  selection: null,
+  selectionDragging: false,
+  selectionDraft: null,
+  exportRun: null,
+  exportConfirmOpen: false,
+  exportPollTimer: null,
+  tlZoom: 1,
+};
+
+
+export { previewClipCache, previewFrameCache, state };

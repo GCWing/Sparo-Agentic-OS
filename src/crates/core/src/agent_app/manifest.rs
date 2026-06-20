@@ -80,6 +80,7 @@ pub struct AgentAppManifest {
     pub category: String,
     #[serde(default)]
     pub tags: Vec<String>,
+    #[serde(default = "default_level")]
     pub level: AgentAppLevel,
     #[serde(default = "default_model")]
     pub model: String,
@@ -195,6 +196,10 @@ fn default_icon() -> String {
 
 fn default_category() -> String {
     "custom".to_string()
+}
+
+fn default_level() -> AgentAppLevel {
+    AgentAppLevel::User
 }
 
 pub(crate) fn default_model() -> String {

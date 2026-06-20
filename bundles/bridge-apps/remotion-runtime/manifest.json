@@ -43,6 +43,7 @@
         "detectProject",
         "compileProject",
         "getCompositionManifest",
+        "getFrameContext",
         "evaluateFrame",
         "renderPreviewFrame",
         "renderPreviewClip",
@@ -118,6 +119,19 @@
     {
       "name": "evaluateFrame",
       "description": "Evaluate a composition frame into Sparo's native preview layer model.",
+      "inputSchema": {
+        "type": "object"
+      },
+      "outputSchema": {
+        "type": "object"
+      },
+      "streaming": false,
+      "cancelable": false,
+      "resumable": true
+    },
+    {
+      "name": "getFrameContext",
+      "description": "Read the current Remotion frame context for preview selection and agent handoff.",
       "inputSchema": {
         "type": "object"
       },
@@ -321,6 +335,7 @@
         "detectProject",
         "compileProject",
         "getCompositionManifest",
+        "getFrameContext",
         "evaluateFrame",
         "renderPreviewFrame",
         "renderPreviewClip",

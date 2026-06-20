@@ -113,7 +113,7 @@ pub async fn list_agent_apps(
     request: ListAgentAppsRequest,
 ) -> Result<Vec<AgentAppInfo>, String> {
     let workspace = workspace_root_from_request(request.workspace_path.as_deref());
-    AgentAppManager::seed_builtin_file_agent_apps().map_err(|e| e.to_string())?;
+    AgentAppManager::seed_builtin_agent_apps().map_err(|e| e.to_string())?;
     AgentAppManager::register_all(workspace.as_deref()).map_err(|e| e.to_string())?;
     AgentAppManager::register_runtime_tools(workspace.as_deref())
         .await
@@ -148,7 +148,7 @@ pub async fn get_agent_app(
     request: GetAgentAppRequest,
 ) -> Result<AgentAppPackage, String> {
     let workspace = workspace_root_from_request(request.workspace_path.as_deref());
-    AgentAppManager::get(&request.id, Some(AgentAppLevel::User), workspace.as_deref())
+    AgentAppManager::get(&request.id, request.level, workspace.as_deref())
         .map_err(|e| e.to_string())
 }
 
@@ -169,7 +169,6 @@ pub async fn create_agent_app(
 ) -> Result<AgentAppPackage, String> {
     let workspace = workspace_root_from_request(request.workspace_path.as_deref());
     let mut manifest = request.manifest;
-    manifest.level = AgentAppLevel::User;
     AgentAppManager::validate_manifest(&mut manifest).map_err(|e| e.to_string())?;
     validate_selected_tools(&manifest).await?;
     let package = AgentAppManager::create_or_update(
@@ -208,12 +207,7 @@ pub async fn delete_agent_app(
     request: DeleteAgentAppRequest,
 ) -> Result<(), String> {
     let workspace = workspace_root_from_request(request.workspace_path.as_deref());
-    if request.level == AgentAppLevel::Project {
-        return Err(
-            "Project Agent Apps are not supported; Agent Apps are user-level only".to_string(),
-        );
-    }
-    AgentAppManager::delete(&request.id, AgentAppLevel::User, workspace.as_deref())
+    AgentAppManager::delete(&request.id, request.level, workspace.as_deref())
         .await
         .map_err(|e| e.to_string())
 }
@@ -232,7 +226,6 @@ pub async fn validate_agent_app_package(
     request: SaveAgentAppRequest,
 ) -> Result<Value, String> {
     let mut manifest = request.manifest;
-    manifest.level = AgentAppLevel::User;
     AgentAppManager::validate_manifest(&mut manifest).map_err(|e| e.to_string())?;
     if request.prompt.trim().is_empty() {
         return Err("Agent App prompt cannot be empty".to_string());
@@ -275,6 +268,7 @@ pub async fn create_agent_app_js_tool(
 #[serde(rename_all = "camelCase")]
 pub struct TestAgentAppJsToolRequest {
     pub app_id: String,
+    pub level: Option<AgentAppLevel>,
     pub tool_name: String,
     pub input: Value,
     pub workspace_path: Option<String>,
@@ -290,6 +284,7 @@ pub async fn test_agent_app_js_tool(
         &request.app_id,
         &request.tool_name,
         &request.input,
+        request.level,
         workspace.as_deref(),
     )
     .await
@@ -302,9 +297,8 @@ pub async fn export_agent_app(
     request: GetAgentAppRequest,
 ) -> Result<Value, String> {
     let workspace = workspace_root_from_request(request.workspace_path.as_deref());
-    let package =
-        AgentAppManager::get(&request.id, Some(AgentAppLevel::User), workspace.as_deref())
-            .map_err(|e| e.to_string())?;
+    let package = AgentAppManager::get(&request.id, request.level, workspace.as_deref())
+        .map_err(|e| e.to_string())?;
     let app_dir = PathBuf::from(&package.path);
     let tools_dir = app_dir.join("tools");
     let mut js_tools = Vec::new();
@@ -348,7 +342,6 @@ pub async fn import_agent_app(
             .ok_or_else(|| "manifest is required".to_string())?,
     )
     .map_err(|e| e.to_string())?;
-    manifest.level = AgentAppLevel::User;
     AgentAppManager::validate_manifest(&mut manifest).map_err(|e| e.to_string())?;
     validate_selected_tools(&manifest).await?;
     let prompt = request
