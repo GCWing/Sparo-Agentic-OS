@@ -3,7 +3,6 @@ import { FolderOpen, ListChecks, MessageSquare, Sparkles } from 'lucide-react';
 import { Dialog, Search, SelectableRow, SparoAgentIcon } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
-import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import { findWorkspaceForSession } from '@/flow_chat/utils/workspaceScope';
 import { openMainSession } from '@/flow_chat/services/childSessionPanels';
@@ -14,6 +13,7 @@ import { sessionAPI } from '@/infrastructure/api';
 import { liveAppAPI, type LiveAppMeta } from '@/infrastructure/api/service-api/LiveAppAPI';
 import { APP_REGISTRY } from '@/app/scenes/apps/appRegistry';
 import { resolveLiveAppMeta } from '@/app/scenes/apps/live-app/liveAppI18n';
+import { openLiveApp } from '@/app/scenes/apps/live-app/liveAppWorkbenchService';
 import {
   NewWorkDialog,
   type NewWorkAgentChoice,
@@ -39,6 +39,7 @@ interface SearchResultItem {
   sublabel?: string;
   workspaceId?: string;
   agentChoice?: NewWorkAgentChoice;
+  liveApp?: LiveAppMeta;
 }
 
 const MAX_PER_GROUP = 20;
@@ -153,7 +154,7 @@ const APP_TO_AGENT_CHOICE: Record<string, NewWorkAgentChoice> = {
 const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }) => {
   const { t } = useI18n('common');
   const { t: tApps, currentLanguage } = useI18n('scenes/apps');
-  const { openedWorkspacesList, rememberWorkspace } = useWorkspaceContext();
+  const { openedWorkspacesList, rememberWorkspace, lastUsedWorkspace } = useWorkspaceContext();
   const { projections } = useWorks();
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
@@ -355,6 +356,7 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
         id: app.id,
         label: displayMeta.name,
         sublabel: displayMeta.description || displayMeta.tags.join(' · '),
+        liveApp: app,
       });
     }
 
@@ -431,7 +433,10 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
     }
 
     if (item.kind === 'live-app') {
-      openWorkspaceScene(`live-app:${item.id}`);
+      void openLiveApp(item.liveApp || item.id, {
+        workspacePath: lastUsedWorkspace?.rootPath,
+        locale: currentLanguage,
+      });
       return;
     }
 
@@ -440,6 +445,8 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
       activateWorkspace: item.workspaceId ? rememberWorkspace : undefined,
     });
   }, [
+    currentLanguage,
+    lastUsedWorkspace?.rootPath,
     onClose,
     rememberWorkspace,
   ]);

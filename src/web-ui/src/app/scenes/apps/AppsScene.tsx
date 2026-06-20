@@ -65,7 +65,7 @@ import {
   type BridgeAppPackage,
   type BridgeAppRunResult,
 } from '@/infrastructure/api/service-api/BridgeAppAPI';
-import { openWorkspaceHome, openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
+import { openWorkspaceHome } from '@/app/navigation/workspaceNavigation';
 import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
 import type { WorkspaceSceneId } from '@/app/navigation/workspaceSceneTypes';
 import { useLastUsedWorkspace, useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
@@ -85,6 +85,7 @@ import {
 } from './live-app/liveAppRuntimeModel';
 import { renderLiveAppIcon } from './live-app/liveAppIconHelpers';
 import { resolveLiveAppMeta } from './live-app/liveAppI18n';
+import { openLiveApp } from './live-app/liveAppWorkbenchService';
 import { AppDetailScene } from './app-detail/AppDetailScene';
 import './AppsScene.scss';
 
@@ -108,6 +109,10 @@ type ManageAppItem =
 
 function appItemId(item: DiscoverRecommendationItem | ManageAppItem): string {
   return item.type === 'bridge-app' ? item.app.manifest.id : item.app.id;
+}
+
+function isCatalogBridgeApp(app: BridgeAppPackage): boolean {
+  return app.manifest.surfaces?.launchableApp === true;
 }
 
 function appName(app: AppCardModel, t: (key: string, options?: Record<string, unknown>) => string): string {
@@ -951,7 +956,11 @@ const AppsHomeView: React.FC<{
   const handleOpenLiveApp = (appId: string) => {
     setSelectedLiveApp(null);
     openLiveAppInStore(appId);
-    openWorkspaceScene(`live-app:${appId}` as WorkspaceSceneId);
+    const app = liveApps.find(app => app.id === appId);
+    void openLiveApp(app || appId, {
+      workspacePath: workspacePath || undefined,
+      locale: currentLocale,
+    });
   };
 
   const handleOpenStudio = useCallback(async () => {
@@ -1102,9 +1111,13 @@ const AppsHomeView: React.FC<{
   const refetchBridgeApps = useCallback(async () => {
     setBridgeLoading(true);
     try {
-      const apps = await bridgeAppAPI.listBridgeApps();
+      const apps = (await bridgeAppAPI.listBridgeApps()).filter(isCatalogBridgeApp);
       setBridgeApps(apps);
-      setSelectedBridgeAppId((current) => current ?? apps[0]?.manifest.id ?? null);
+      setSelectedBridgeAppId((current) =>
+        current && apps.some((app) => app.manifest.id === current)
+          ? current
+          : apps[0]?.manifest.id ?? null
+      );
     } catch (error) {
       log.error('Bridge App list failed', { error });
     } finally {

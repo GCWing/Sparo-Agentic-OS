@@ -10,5 +10,8 @@ export { UserMessageItem } from './UserMessageItem';
 export { ModelRoundItem } from './ModelRoundItem';
 export { FlowChatHeader } from './FlowChatHeader';
 export type { FlowChatHeaderProps } from './FlowChatHeader';
+export { FlowChatSidecarActions } from './FlowChatSidecarActions';
+export { useSessionSidecarActions } from './useSessionSidecarActions';
+export type { FlowChatSidecarActionViewModel } from './useSessionSidecarActions';
 export { FlowChatContext, useFlowChatContext } from './FlowChatContext';
 export type { FlowChatContextValue } from './FlowChatContext';

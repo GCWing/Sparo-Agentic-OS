@@ -623,6 +623,9 @@ impl BridgeAppManager {
     }
 
     pub fn get(app_id: &str) -> BitFunResult<BridgeAppPackage> {
+        if let Err(error) = super::builtin::ensure_builtin_bridge_app_current(app_id) {
+            log::warn!("refresh built-in bridge app '{}' failed: {}", app_id, error);
+        }
         let dir = bridge_app_dir(app_id);
         if dir.join(BRIDGE_APP_MANIFEST).exists() {
             return Self::load_package_from_dir(&dir);

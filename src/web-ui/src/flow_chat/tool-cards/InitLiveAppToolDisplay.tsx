@@ -5,8 +5,7 @@ import React, { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppWindow, ChevronRight, ExternalLink } from 'lucide-react';
 import type { ToolCardProps } from '../types/flow-chat';
-import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
-import type { WorkspaceSceneId } from '@/app/navigation/workspaceSceneTypes';
+import { openLiveApp } from '@/app/scenes/apps/live-app/liveAppWorkbenchService';
 import { ToolActionGroup } from './ToolActionGroup';
 import { ToolErrorBlock } from './ToolErrorBlock';
 import { ToolStructuredDetails } from './ToolStructuredDetails';
@@ -124,7 +123,7 @@ export const InitLiveAppDisplay: React.FC<ToolCardProps> = ({ toolItem, sessionI
               key: 'open-live-app',
               label: t('toolCards.initLiveApp.openInLiveApp'),
               icon: <ExternalLink size={12} />,
-              onClick: () => openWorkspaceScene(`live-app:${appId}` as WorkspaceSceneId),
+              onClick: () => void openLiveApp(appId),
               title: t('toolCards.initLiveApp.openInLiveAppTitle'),
             }]}
           />

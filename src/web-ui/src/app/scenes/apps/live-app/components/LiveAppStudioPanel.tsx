@@ -25,8 +25,6 @@ import type { LiveApp } from '@/infrastructure/api/service-api/LiveAppAPI';
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
 import { useI18n } from '@/infrastructure/i18n';
-import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
-import type { WorkspaceSceneId } from '@/app/navigation/workspaceSceneTypes';
 import {
   Alert,
   Button,
@@ -50,6 +48,7 @@ import {
   summarizeLiveAppPermissions,
 } from '../liveAppRuntimeModel';
 import { resolveLiveAppMeta } from '../liveAppI18n';
+import { openLiveApp } from '../liveAppWorkbenchService';
 import LiveAppRunner from './LiveAppRunner';
 import './LiveAppStudioPanel.scss';
 
@@ -145,26 +144,24 @@ const IssueRow: React.FC<IssueRowProps> = ({
               <Button
                 variant="accent"
                 size="small"
-                className="studio-issue__action is-primary"
                 onClick={() => onFixWithAi(diagText)}
               >
                 {t('liveAppStudio.diagnostics.fixWithAi')}
               </Button>
             ) : null}
             {issue.severity === 'fatal' ? (
-              <Button variant="secondary" size="small" className="studio-issue__action" onClick={onRecompile}>
+              <Button variant="secondary" size="small" onClick={onRecompile}>
                 {t('liveAppStudio.panel.menu.recompile')}
               </Button>
             ) : null}
             {issue.severity === 'fatal' ? (
-              <Button variant="secondary" size="small" className="studio-issue__action" onClick={onRestart}>
+              <Button variant="secondary" size="small" onClick={onRestart}>
                 {t('liveApp.actions.restartWorker')}
               </Button>
             ) : null}
             <IconButton
               variant="ghost"
               size="xs"
-              className="studio-issue__action"
               onClick={() => onCopy(diagText)}
               tooltip={t('liveAppStudio.diagnostics.copy')}
               aria-label={t('liveAppStudio.diagnostics.copy')}
@@ -423,8 +420,13 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
   );
 
   const handleOpenInApps = useCallback(() => {
-    if (appId) openWorkspaceScene(`live-app:${appId}` as WorkspaceSceneId);
-  }, [appId]);
+    if (appId) {
+      void openLiveApp(app || appId, {
+        workspacePath: workspacePath || undefined,
+        locale: currentLanguage,
+      });
+    }
+  }, [app, appId, currentLanguage, workspacePath]);
 
   const handleReloadUi = useCallback(() => {
     setReloadNonce((v) => v + 1);
@@ -617,7 +619,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
     <div className={`live-app-studio-panel${dockState === 'collapsed' ? ' is-dock-collapsed' : ''}`}>
       {/* ── Status Bar ─────────────────────────────────────────────────── */}
       <div className="studio-statusbar">
-        <div className="studio-statusbar__left">
+        <div className="studio-statusbar__identity">
           <span className={`studio-statusbar__dot ${runtimeDotClass}`} />
           <span className="studio-statusbar__name">{displayMeta?.name || t('liveAppStudio.panel.title')}</span>
           {runtimeSummary?.runtimeLabel ? (
@@ -662,6 +664,8 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
             </Button>
           ) : null}
         </div>
+
+        <span className="studio-statusbar__sep" aria-hidden="true" />
 
         <div className="studio-statusbar__actions">
           <IconButton
@@ -792,7 +796,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
         {/* Body — only when open */}
         {dockState === 'open' ? (
           <div className="studio-dock__body">
-            {/* Tabs */}
+            {/* Tab bar: Issues | Logs */}
             <div className="studio-dock__tabs">
               <Button
                 variant="ghost"
@@ -820,30 +824,31 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
                   </span>
                 ) : null}
               </Button>
-
-              {runtimeView === 'logs' ? (
-                <div className="studio-dock__log-controls">
-                  <FilterPillGroup className="studio-dock__log-filter-group">
-                    {(['all', 'error', 'warn', 'info'] as LogLevel[]).map((level) => (
-                      <FilterPill
-                        key={level}
-                        label={t(`liveAppStudio.diagnostics.filter${level.charAt(0).toUpperCase()}${level.slice(1)}`)}
-                        active={logFilter === level}
-                        onClick={() => setLogFilter(level)}
-                      />
-                    ))}
-                  </FilterPillGroup>
-                  <Search
-                    className="studio-dock__log-search-field"
-                    value={logSearch}
-                    onChange={setLogSearch}
-                    placeholder={t('liveAppStudio.diagnostics.searchPlaceholder')}
-                    size="small"
-                    enterToSearch={false}
-                  />
-                </div>
-              ) : null}
             </div>
+
+            {/* Log filter controls — only shown in Logs view, as a distinct toolbar row */}
+            {runtimeView === 'logs' ? (
+              <div className="studio-dock__log-controls">
+                <FilterPillGroup className="studio-dock__log-filter-group">
+                  {(['all', 'error', 'warn', 'info'] as LogLevel[]).map((level) => (
+                    <FilterPill
+                      key={level}
+                      label={t(`liveAppStudio.diagnostics.filter${level.charAt(0).toUpperCase()}${level.slice(1)}`)}
+                      active={logFilter === level}
+                      onClick={() => setLogFilter(level)}
+                    />
+                  ))}
+                </FilterPillGroup>
+                <Search
+                  className="studio-dock__log-search-field"
+                  value={logSearch}
+                  onChange={setLogSearch}
+                  placeholder={t('liveAppStudio.diagnostics.searchPlaceholder')}
+                  size="small"
+                  enterToSearch={false}
+                />
+              </div>
+            ) : null}
 
             {/* List */}
             <div

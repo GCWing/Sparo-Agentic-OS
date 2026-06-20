@@ -78,6 +78,47 @@ export interface LiveAppBackendBinding {
   actions: LiveAppBackendActionBinding[];
 }
 
+export type LiveAppInteractionMode = 'standalone' | 'composite';
+export type LiveAppInteractionProfile = 'live-app-workbench' | (string & {});
+export type LiveAppInteractionText = string | Record<string, string>;
+
+export interface LiveAppInteractionChat {
+  backendId?: string;
+  agentAppId?: string;
+  sessionPolicy?: LiveAppBackendSessionPolicy;
+  memoryScope?: LiveAppBackendMemoryScope;
+  initialPromptKey?: string;
+  allowUserPrompt?: boolean;
+}
+
+export interface LiveAppInteractionTab {
+  id: string;
+  type: 'liveApp'
+    | 'live-app'
+    | 'liveAppRunner'
+    | 'live-app-runner'
+    | 'liveAppWorkbenchTab'
+    | 'live-app-workbench-tab'
+    | 'backendRuns'
+    | 'liveAppDiagnostics'
+    | 'liveAppDataView'
+    | (string & {});
+  title?: LiveAppInteractionText;
+  titleKey?: string;
+  route?: string;
+  default?: boolean;
+  developerOnly?: boolean;
+  data?: Record<string, unknown>;
+}
+
+export interface LiveAppInteraction {
+  mode: LiveAppInteractionMode;
+  profile?: LiveAppInteractionProfile;
+  title?: LiveAppInteractionText;
+  chat?: LiveAppInteractionChat;
+  tabs?: LiveAppInteractionTab[];
+}
+
 // ─── AI Types ─────────────────────────────────────────────────────────────────
 
 export interface AiCompleteOptions {
@@ -163,6 +204,7 @@ export interface LiveAppMeta {
   updated_at: number;
   permissions: LiveAppPermissions;
   backends?: LiveAppBackendBinding[];
+  interaction?: LiveAppInteraction;
   permission_rationale?: string;
   runtime?: LiveAppRuntimeState;
 }
@@ -187,6 +229,7 @@ export interface CreateLiveAppRequest {
   source: LiveAppSource;
   permissions?: LiveAppPermissions;
   backends?: LiveAppBackendBinding[];
+  interaction?: LiveAppInteraction;
   ai_context?: { original_prompt: string };
   permission_rationale?: string;
 }
@@ -201,6 +244,7 @@ export interface UpdateLiveAppRequest {
   source?: LiveAppSource;
   permissions?: LiveAppPermissions;
   backends?: LiveAppBackendBinding[];
+  interaction?: LiveAppInteraction;
   permission_rationale?: string;
 }
 

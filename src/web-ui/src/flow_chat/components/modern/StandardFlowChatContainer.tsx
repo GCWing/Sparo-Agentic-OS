@@ -21,6 +21,7 @@ import {
   type FlowChatContextValue,
 } from './FlowChatContext';
 import { useFlowChatCore, type UseFlowChatCoreOptions } from './useFlowChatCore';
+import { useSessionSidecarActions } from './useSessionSidecarActions';
 import { getDefaultSessionDescriptor } from '../../domain/sessionDescriptor';
 import './ModernFlowChatContainer.scss';
 
@@ -77,6 +78,7 @@ export const StandardFlowChatContainer: React.FC<StandardFlowChatContainerProps>
     () => ({ ...staticContextValue, ...viewContextValue }),
     [staticContextValue, viewContextValue],
   );
+  const sidecarActions = useSessionSidecarActions();
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
   useShortcut(
@@ -152,6 +154,7 @@ export const StandardFlowChatContainer: React.FC<StandardFlowChatContainerProps>
               searchOpenRequest={searchOpenRequest}
               turnListOpen={turnListOpen}
               onTurnListOpenChange={setTurnListOpen}
+              sidecarActions={sidecarActions}
             />
 
             <div className="modern-flowchat-container__body">

@@ -14,7 +14,7 @@ pub mod runtime_ui_kit;
 pub mod storage;
 pub mod types;
 
-pub use builtin::seed_builtin_live_apps;
+pub use builtin::{ensure_builtin_live_app_current, seed_builtin_live_apps};
 pub use exporter::{ExportCheckResult, ExportOptions, ExportResult, ExportTarget, LiveAppExporter};
 pub use host_dispatch::{dispatch_host, is_host_primitive};
 pub use js_worker_pool::{InstallResult, JsWorkerPool};
@@ -28,8 +28,10 @@ pub use storage::LiveAppStorage;
 pub use types::{
     AiPermissions, EsmDep, FsPermissions, LiveApp, LiveAppAiContext, LiveAppBackendActionBinding,
     LiveAppBackendBinding, LiveAppBackendKind, LiveAppBackendMemoryScope,
-    LiveAppBackendSessionPolicy, LiveAppBuildMode, LiveAppEntry, LiveAppI18n, LiveAppLocalizedMeta,
-    LiveAppMeta, LiveAppPermissions, LiveAppRuntimeIssue, LiveAppRuntimeIssueSeverity,
-    LiveAppRuntimeLog, LiveAppRuntimeLogLevel, LiveAppSource, LiveAppSourceFile,
-    LiveAppSourceFileKind, NetPermissions, NodePermissions, NpmDep, PathScope, ShellPermissions,
+    LiveAppBackendSessionPolicy, LiveAppBuildMode, LiveAppEntry, LiveAppI18n, LiveAppInteraction,
+    LiveAppInteractionChat, LiveAppInteractionMode, LiveAppInteractionTab, LiveAppInteractionText,
+    LiveAppLocalizedMeta, LiveAppMeta, LiveAppPermissions, LiveAppRuntimeIssue,
+    LiveAppRuntimeIssueSeverity, LiveAppRuntimeLog, LiveAppRuntimeLogLevel, LiveAppSource,
+    LiveAppSourceFile, LiveAppSourceFileKind, NetPermissions, NodePermissions, NpmDep, PathScope,
+    ShellPermissions,
 };

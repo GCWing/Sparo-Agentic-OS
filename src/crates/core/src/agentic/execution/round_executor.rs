@@ -188,9 +188,11 @@ impl RoundExecutor {
                     // Treat it like a failed attempt: a truncated answer poisons
                     // downstream consumers (e.g. JSON contracts), so retry the
                     // round instead of committing the fragment.
-                    let truncated_partial = result.partial_recovery_reason.is_some()
-                        && result.tool_calls.is_empty();
-                    if (no_effective_output || truncated_partial) && attempt_index < max_attempts - 1 {
+                    let truncated_partial =
+                        result.partial_recovery_reason.is_some() && result.tool_calls.is_empty();
+                    if (no_effective_output || truncated_partial)
+                        && attempt_index < max_attempts - 1
+                    {
                         let delay_ms = Self::retry_delay_ms(attempt_index);
                         warn!(
                             "Retrying stream: session_id={}, round_id={}, attempt={}/{}, delay_ms={}, reason={}",
@@ -666,7 +668,9 @@ mod tests {
         assert!(RoundExecutor::is_retryable_round_error(
             "some upstream hiccup nobody classified"
         ));
-        assert!(RoundExecutor::is_retryable_round_error("rate limit: 429 too many requests"));
+        assert!(RoundExecutor::is_retryable_round_error(
+            "rate limit: 429 too many requests"
+        ));
     }
 
     #[test]
@@ -683,11 +687,15 @@ mod tests {
 
     #[test]
     fn rejects_cancellation_and_policy_errors() {
-        assert!(!RoundExecutor::is_retryable_round_error("Execution cancelled"));
+        assert!(!RoundExecutor::is_retryable_round_error(
+            "Execution cancelled"
+        ));
         assert!(!RoundExecutor::is_retryable_round_error(
             "request blocked by content policy"
         ));
-        assert!(!RoundExecutor::is_retryable_round_error("prompt is too long: 250000 tokens"));
+        assert!(!RoundExecutor::is_retryable_round_error(
+            "prompt is too long: 250000 tokens"
+        ));
     }
 
     #[test]
@@ -695,7 +703,9 @@ mod tests {
         for attempt in 0..8 {
             let delay = RoundExecutor::retry_delay_ms(attempt);
             assert!(delay >= RoundExecutor::RETRY_BASE_DELAY_MS / 2);
-            assert!(delay <= RoundExecutor::RETRY_MAX_DELAY_MS + RoundExecutor::RETRY_MAX_DELAY_MS / 4);
+            assert!(
+                delay <= RoundExecutor::RETRY_MAX_DELAY_MS + RoundExecutor::RETRY_MAX_DELAY_MS / 4
+            );
         }
     }
 }

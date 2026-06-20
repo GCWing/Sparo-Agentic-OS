@@ -61,6 +61,10 @@ const LiveAppStudioPanel = React.lazy(() =>
   import('@/app/scenes/apps/live-app/components/LiveAppStudioPanel')
 );
 
+const LiveAppRunnerPanel = React.lazy(() =>
+  import('@/app/scenes/apps/live-app/components/LiveAppRunnerPanel')
+);
+
 const AgentAppStudioPanel = React.lazy(() =>
   import('@/app/scenes/apps/agent-app/components/AgentAppStudioPanel')
 );
@@ -571,6 +575,48 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
               appId={studioData.appId}
             />
           </React.Suspense>
+        );
+      }
+
+      case 'live-app-runner': {
+        const runnerData = content.data || {};
+        return (
+          <React.Suspense fallback={<PanelLoadingFallback>{t('flexiblePanel.loading.liveAppRunner')}</PanelLoadingFallback>}>
+            <LiveAppRunnerPanel
+              appId={runnerData.appId}
+              workspacePath={runnerData.workspacePath || workspacePath}
+              route={runnerData.route}
+              tabId={runnerData.tabId}
+              sessionId={runnerData.sessionId}
+              liveAppWorkbench={runnerData.liveAppWorkbench}
+            />
+          </React.Suspense>
+        );
+      }
+
+      case 'live-app-workbench-tab': {
+        const workbenchData = content.data || {};
+        return (
+          <React.Suspense fallback={<PanelLoadingFallback>{t('flexiblePanel.loading.liveAppRunner')}</PanelLoadingFallback>}>
+            <LiveAppRunnerPanel
+              appId={workbenchData.appId}
+              sessionId={workbenchData.sessionId}
+              tabId={workbenchData.tabId}
+              route={workbenchData.route}
+              workspacePath={workbenchData.workspacePath || workspacePath}
+              liveAppWorkbench={workbenchData.liveAppWorkbench}
+            />
+          </React.Suspense>
+        );
+      }
+
+      case 'live-app-diagnostics': {
+        return (
+          <div className="sparo-flexible-panel__empty-state">
+            <AlertCircle size={24} />
+            <h3>{t('flexiblePanel.liveAppDiagnostics.title')}</h3>
+            <p>{t('flexiblePanel.liveAppDiagnostics.description')}</p>
+          </div>
         );
       }
 

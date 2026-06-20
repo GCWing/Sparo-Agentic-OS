@@ -416,6 +416,7 @@ Returns app_id and the app root directory. Use the root directory and file names
                 Vec::new(),
                 None,
                 None,
+                None,
                 context.workspace_root(),
             )
             .await

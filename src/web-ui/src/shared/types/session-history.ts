@@ -22,6 +22,34 @@ export type TriggerSource =
   | 'cli'
   | 'remote_relay';
 
+export type LiveAppWorkbenchPanelType =
+  | 'live-app-runner'
+  | 'live-app-workbench-tab'
+  | 'live-app-diagnostics';
+
+export interface LiveAppWorkbenchTabMetadata {
+  id: string;
+  type: LiveAppWorkbenchPanelType;
+  title: string;
+  route?: string;
+  default?: boolean;
+  developerOnly?: boolean;
+  data?: Record<string, unknown>;
+}
+
+export interface LiveAppWorkbenchSessionMetadata {
+  appId: string;
+  appName: string;
+  entityId?: string | null;
+  profile: 'live-app-workbench' | string;
+  version?: number;
+  sourceRevision?: string;
+  interactionTitle?: string;
+  workspacePath?: string | null;
+  chat?: Record<string, unknown>;
+  tabs: LiveAppWorkbenchTabMetadata[];
+}
+
 export interface SessionCustomMetadata extends Record<string, unknown> {
   kind?: SessionKind;
   parentSessionId?: string | null;
@@ -34,6 +62,7 @@ export interface SessionCustomMetadata extends Record<string, unknown> {
     turnIndex?: number | null;
   } | null;
   lastFinishedAt?: number | null;
+  liveAppWorkbench?: LiveAppWorkbenchSessionMetadata;
 }
 
 export interface SessionMetadata {

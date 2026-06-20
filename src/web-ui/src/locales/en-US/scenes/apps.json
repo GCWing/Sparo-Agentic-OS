@@ -153,6 +153,10 @@
     "agentAppStudio": {
       "name": "Agent App Builder",
       "description": "A standalone Agent app for creating FlowChat-native Agent Apps with prompts, permissions, examples, and JavaScript runtime tool definitions."
+    },
+    "liveAppWorkbench": {
+      "name": "Live App Workbench",
+      "description": "A composite Live App surface with FlowChat on the left and app-owned tools on the right."
     }
   },
   "appDetail": {

@@ -1,6 +1,6 @@
 import type { SessionStorageScope } from '@/shared/types/session-history';
 
-export type SessionHostKind = 'system-agentic-os' | 'agent-app' | 'evolution-lab';
+export type SessionHostKind = 'system-agentic-os' | 'agent-app' | 'evolution-lab' | 'live-app-workbench';
 
 export type SessionProfileId =
   | 'agentic-os'
@@ -9,7 +9,8 @@ export type SessionProfileId =
   | 'design'
   | 'deep-research'
   | 'live-app-studio'
-  | 'agent-app-studio';
+  | 'agent-app-studio'
+  | 'live-app-workbench';
 
 export type SessionIdentityId =
   | 'agentic-os'
@@ -18,7 +19,8 @@ export type SessionIdentityId =
   | 'design'
   | 'deep-research'
   | 'live-app-studio'
-  | 'agent-app-studio';
+  | 'agent-app-studio'
+  | 'live-app-workbench';
 
 export interface SessionAgentPolicy {
   defaultAgentId: string;
@@ -104,6 +106,14 @@ export const SESSION_DESCRIPTORS = {
     agentPolicy: createPolicy('AgentAppStudio'),
     storageScope: 'agentic_os',
   },
+  liveAppWorkbench: {
+    hostKind: 'live-app-workbench',
+    profileId: 'live-app-workbench',
+    identityId: 'live-app-workbench',
+    labelKey: 'apps.liveAppWorkbench.name',
+    agentPolicy: createPolicy('agentic'),
+    storageScope: 'agentic_os',
+  },
 } satisfies Record<string, SessionDescriptor>;
 
 const cloneDescriptor = (
@@ -126,6 +136,10 @@ export function getAgenticOsSessionDescriptor(): SessionDescriptor {
   return cloneDescriptor(SESSION_DESCRIPTORS.agenticOs);
 }
 
+export function getLiveAppWorkbenchSessionDescriptor(): SessionDescriptor {
+  return cloneDescriptor(SESSION_DESCRIPTORS.liveAppWorkbench);
+}
+
 export function descriptorFromAgentType(agentType?: string | null): SessionDescriptor {
   const rawAgentType = agentType?.trim();
   const normalized = rawAgentType?.toLowerCase();
@@ -140,8 +154,15 @@ export function descriptorFromAgentType(agentType?: string | null): SessionDescr
   if (normalized === 'cowork') return cloneDescriptor(SESSION_DESCRIPTORS.cowork);
   if (normalized === 'design') return cloneDescriptor(SESSION_DESCRIPTORS.design);
   if (normalized === 'deepresearch') return cloneDescriptor(SESSION_DESCRIPTORS.deepResearch);
-  if (normalized === 'liveappstudio') return cloneDescriptor(SESSION_DESCRIPTORS.liveAppStudio);
-  if (normalized === 'agentappstudio') return cloneDescriptor(SESSION_DESCRIPTORS.agentAppStudio);
+  if (normalized === 'liveappstudio' || normalized === 'live-app-studio') {
+    return cloneDescriptor(SESSION_DESCRIPTORS.liveAppStudio);
+  }
+  if (normalized === 'agentappstudio' || normalized === 'agent-app-studio') {
+    return cloneDescriptor(SESSION_DESCRIPTORS.agentAppStudio);
+  }
+  if (normalized === 'liveappworkbench' || normalized === 'live-app-workbench') {
+    return cloneDescriptor(SESSION_DESCRIPTORS.liveAppWorkbench);
+  }
   if (normalized === 'plan') return cloneDescriptor(SESSION_DESCRIPTORS.coding, 'Plan');
   if (normalized === 'debug') return cloneDescriptor(SESSION_DESCRIPTORS.coding, 'debug');
   if (normalized === 'team') return cloneDescriptor(SESSION_DESCRIPTORS.coding, 'Team');

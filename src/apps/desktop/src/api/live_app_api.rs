@@ -18,9 +18,10 @@ use bitfun_core::bridge_app::{
 };
 use bitfun_core::infrastructure::events::{emit_global_event, BackendEvent};
 use bitfun_core::live_app::{
-    dispatch_host, is_host_primitive, InstallResult as CoreInstallResult, LiveApp,
-    LiveAppAiContext, LiveAppBackendBinding, LiveAppBackendKind, LiveAppBuildMode, LiveAppEntry,
-    LiveAppI18n, LiveAppMeta, LiveAppPermissions, LiveAppRuntimeIssue, LiveAppRuntimeIssueSeverity,
+    dispatch_host, ensure_builtin_live_app_current, is_host_primitive, seed_builtin_live_apps,
+    InstallResult as CoreInstallResult, LiveApp, LiveAppAiContext, LiveAppBackendBinding,
+    LiveAppBackendKind, LiveAppBuildMode, LiveAppEntry, LiveAppI18n, LiveAppInteraction,
+    LiveAppMeta, LiveAppPermissions, LiveAppRuntimeIssue, LiveAppRuntimeIssueSeverity,
     LiveAppRuntimeLog, LiveAppRuntimeLogLevel, LiveAppSource, LiveAppSourceFile,
     LiveAppSourceFileKind,
 };
@@ -55,6 +56,7 @@ pub struct CreateLiveAppRequest {
     pub permissions: LiveAppPermissions,
     #[serde(default)]
     pub backends: Vec<LiveAppBackendBinding>,
+    pub interaction: Option<LiveAppInteraction>,
     pub ai_context: Option<LiveAppAiContext>,
     pub permission_rationale: Option<String>,
     #[serde(default)]
@@ -198,6 +200,7 @@ pub struct UpdateLiveAppRequest {
     pub source: Option<LiveAppSourceDto>,
     pub permissions: Option<LiveAppPermissions>,
     pub backends: Option<Vec<LiveAppBackendBinding>>,
+    pub interaction: Option<LiveAppInteraction>,
     pub ai_context: Option<LiveAppAiContext>,
     pub permission_rationale: Option<String>,
     #[serde(default)]
@@ -493,6 +496,10 @@ async fn ensure_worker_dependencies(
 
 #[tauri::command]
 pub async fn list_live_apps(state: State<'_, AppState>) -> Result<Vec<LiveAppMeta>, String> {
+    if let Err(e) = seed_builtin_live_apps(&state.live_app_manager).await {
+        log::warn!("list_live_apps: refresh built-in live apps failed: {}", e);
+    }
+
     state
         .live_app_manager
         .list()
@@ -526,6 +533,15 @@ pub async fn get_live_app(
     state: State<'_, AppState>,
     request: GetLiveAppRequest,
 ) -> Result<LiveApp, String> {
+    if let Err(e) = ensure_builtin_live_app_current(&state.live_app_manager, &request.app_id).await
+    {
+        log::warn!(
+            "get_live_app: refresh built-in live app '{}' failed: {}",
+            request.app_id,
+            e
+        );
+    }
+
     let mut app = state
         .live_app_manager
         .get(&request.app_id)
@@ -566,6 +582,7 @@ pub async fn create_live_app(
             source,
             request.permissions,
             request.backends,
+            request.interaction,
             request.ai_context,
             request.permission_rationale,
             workspace_root.as_deref(),
@@ -597,6 +614,7 @@ pub async fn update_live_app(
             request.source.map(Into::into),
             request.permissions,
             request.backends,
+            request.interaction,
             request.ai_context,
             request.permission_rationale,
             workspace_root.as_deref(),

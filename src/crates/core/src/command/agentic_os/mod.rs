@@ -2,9 +2,7 @@ pub mod background_process;
 pub mod snapshot;
 pub mod work;
 
-pub use background_process::{
-    list_background_processes_command, run_background_process_command,
-};
+pub use background_process::{list_background_processes_command, run_background_process_command};
 pub use snapshot::{
     get_snapshot, get_snapshot_without_config, AgenticOsAppRow, AgenticOsMemoryRow,
     AgenticOsSessionRow, AgenticOsSnapshot, AgenticOsSnapshotRequest, AgenticOsTaskRow,

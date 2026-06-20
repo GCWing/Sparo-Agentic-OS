@@ -36,6 +36,33 @@ export const liveAppStudioProfile: SessionProfile = {
     exclusiveTabTypes: ['live-app-studio'],
   },
 
+  sidecarActions(sessionId, extra) {
+    const duplicateCheckKey = `live-app-studio:${sessionId}`;
+    return [
+      {
+        id: 'live-app-studio',
+        labelKey: 'flowChatHeader.sidecar.liveAppStudio',
+        defaultLabel: 'Live App Builder',
+        icon: 'app-window',
+        order: 10,
+        panel: {
+          type: 'live-app-studio',
+          title: (extra?.tabTitle as string | undefined) ?? 'Live App Builder',
+          data: {
+            sessionId,
+            appId: extra?.appId,
+          },
+          metadata: {
+            liveAppStudioSessionId: sessionId,
+            duplicateCheckKey,
+          },
+          duplicateCheckKey,
+          replaceExisting: true,
+        },
+      },
+    ];
+  },
+
   capabilities: {
     canSwitchAgents: false,
     showWelcomePanel: false,

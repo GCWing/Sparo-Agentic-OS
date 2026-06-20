@@ -757,7 +757,13 @@ mod tests {
     fn builtin_skill_wins_same_name_collision_regardless_of_scan_order() {
         // A user-installed fork keeps `name: ppt-design` in its frontmatter while living
         // in a differently named directory next to the managed built-in skill.
-        let fork = candidate("ppt-design", "third-party-ppt", SkillLocation::User, false, 4);
+        let fork = candidate(
+            "ppt-design",
+            "third-party-ppt",
+            SkillLocation::User,
+            false,
+            4,
+        );
         let builtin = candidate("ppt-design", "ppt-design", SkillLocation::User, true, 4);
 
         for order in [

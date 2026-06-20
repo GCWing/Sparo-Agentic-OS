@@ -18,6 +18,7 @@ import {
   MessageSquareQuote,
   Palette,
   AppWindow,
+  Activity,
 } from 'lucide-react';
 import { PanelContentType, PanelContentConfig } from './types';
 
@@ -214,6 +215,30 @@ export const PANEL_CONTENT_CONFIGS: Record<PanelContentType, PanelContentConfig>
     type: 'live-app-studio',
     displayName: 'Live App Builder',
     icon: AppWindow,
+    supportsCopy: false,
+    supportsDownload: false,
+    showHeader: false
+  },
+  'live-app-runner': {
+    type: 'live-app-runner',
+    displayName: 'Live App',
+    icon: AppWindow,
+    supportsCopy: false,
+    supportsDownload: false,
+    showHeader: false
+  },
+  'live-app-workbench-tab': {
+    type: 'live-app-workbench-tab',
+    displayName: 'Live App Workbench',
+    icon: AppWindow,
+    supportsCopy: false,
+    supportsDownload: false,
+    showHeader: false
+  },
+  'live-app-diagnostics': {
+    type: 'live-app-diagnostics',
+    displayName: 'Live App Diagnostics',
+    icon: Activity,
     supportsCopy: false,
     supportsDownload: false,
     showHeader: false

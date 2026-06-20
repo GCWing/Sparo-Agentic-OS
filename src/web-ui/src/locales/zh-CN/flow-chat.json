@@ -327,7 +327,15 @@
     "resetHistory": "重置历史",
     "moreMenu": "更多",
     "showCompletedThinkingInConversation": "显示／隐藏思考",
-    "resetSession": "重置会话"
+    "resetSession": "重置会话",
+    "sidecar": {
+      "groupLabel": "会话面板",
+      "more": "更多面板",
+      "designs": "设计产物",
+      "designTokens": "设计令牌",
+      "liveAppStudio": "Live App 构建器",
+      "agentAppStudio": "Agent App 构建器"
+    }
   },
   "turnList": {
     "timeFilterTooltip": "按时间筛选",

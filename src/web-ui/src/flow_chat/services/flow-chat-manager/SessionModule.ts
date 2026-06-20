@@ -79,7 +79,8 @@ type SessionDisplayMode =
   | 'design'
   | 'agentic-os'
   | 'liveappstudio'
-  | 'agentappstudio';
+  | 'agentappstudio'
+  | 'liveappworkbench';
 
 const normalizeSessionDisplayMode = (
   descriptor?: SessionDescriptor,
@@ -91,6 +92,8 @@ const normalizeSessionDisplayMode = (
       return 'liveappstudio';
     case 'agent-app-studio':
       return 'agentappstudio';
+    case 'live-app-workbench':
+      return 'liveappworkbench';
     case 'cowork':
       return 'cowork';
     case 'design':
@@ -224,7 +227,9 @@ export async function createChatSession(
     const agentType = getBackendAgentType(descriptor);
 
     const creationKey =
-      storageScope === 'agentic_os'
+      config.creationDeduplicationKey?.trim()
+        ? config.creationDeduplicationKey.trim()
+        : storageScope === 'agentic_os'
         ? `${descriptor.hostKind}:${descriptor.identityId}`
         : workspace?.id?.trim()
         ? workspace.id
@@ -239,18 +244,21 @@ export async function createChatSession(
       Array.from(context.flowChatStore.getState().sessions.values()).filter(
         session => normalizeSessionDisplayMode(session.descriptor) === sessionMode
       ).length + 1;
-    const sessionName =
+    const generatedSessionName =
       sessionMode === 'cowork'
         ? i18nService.t('flow-chat:session.newCoworkWithIndex', { count: sameModeCount })
         : sessionMode === 'design'
           ? i18nService.t('flow-chat:session.newDesignWithIndex', { count: sameModeCount })
           : sessionMode === 'agentic-os'
-              ? i18nService.t('flow-chat:session.agenticOs')
-              : sessionMode === 'liveappstudio'
-                ? i18nService.t('flow-chat:session.newLiveAppStudioWithIndex', { count: sameModeCount })
-                : sessionMode === 'agentappstudio'
-                  ? i18nService.t('flow-chat:session.newAgentAppStudioWithIndex', { count: sameModeCount })
+            ? i18nService.t('flow-chat:session.agenticOs')
+            : sessionMode === 'liveappstudio'
+              ? i18nService.t('flow-chat:session.newLiveAppStudioWithIndex', { count: sameModeCount })
+              : sessionMode === 'agentappstudio'
+                ? i18nService.t('flow-chat:session.newAgentAppStudioWithIndex', { count: sameModeCount })
+                : sessionMode === 'liveappworkbench'
+                  ? i18nService.t('flow-chat:session.newLiveAppWorkbenchWithIndex', { count: sameModeCount })
                   : i18nService.t('flow-chat:session.newCodeWithIndex', { count: sameModeCount });
+    const sessionName = config.sessionName?.trim() || generatedSessionName;
     
     const maxContextTokens = await getModelMaxTokens(config.modelName);
 
