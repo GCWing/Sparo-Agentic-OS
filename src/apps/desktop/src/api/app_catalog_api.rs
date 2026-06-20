@@ -27,7 +27,7 @@ pub async fn list_app_catalog(state: State<'_, AppState>) -> Result<Vec<AppCatal
         });
     }
 
-    AgentAppManager::seed_builtin_file_agent_apps().map_err(|e| e.to_string())?;
+    AgentAppManager::seed_builtin_agent_apps().map_err(|e| e.to_string())?;
     AgentAppManager::register_all(None).map_err(|e| e.to_string())?;
     for app in AgentAppManager::list(None).map_err(|e| e.to_string())? {
         entries.push(AppCatalogEntry {

@@ -10,7 +10,7 @@
     "video",
     "preview"
   ],
-  "version": 12,
+  "version": 15,
   "created_at": 0,
   "updated_at": 0,
   "permissions": {
@@ -92,7 +92,7 @@
           "name": "getCompositionManifest"
         },
         {
-          "name": "evaluateFrame"
+          "name": "getFrameContext"
         },
         {
           "name": "renderPreviewFrame"
@@ -123,6 +123,12 @@
         },
         {
           "name": "startExport"
+        },
+        {
+          "name": "getExportStatus"
+        },
+        {
+          "name": "cancelExport"
         }
       ]
     },
@@ -135,10 +141,13 @@
       "memoryScope": "appInstance",
       "actions": [
         {
-          "name": "reviseComposition"
+          "name": "understandVideoProject"
         },
         {
-          "name": "explainPreview"
+          "name": "reviseVideoComposition"
+        },
+        {
+          "name": "renderReviewArtifact"
         }
       ]
     }

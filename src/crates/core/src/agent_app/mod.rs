@@ -1,5 +1,7 @@
 //! Agent App packages for Sparo-native agent customization.
 
+pub mod builtin;
+pub mod js_runtime;
 pub mod manager;
 pub mod manifest;
 

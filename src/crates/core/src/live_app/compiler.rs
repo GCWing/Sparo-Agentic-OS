@@ -239,7 +239,11 @@ fn build_embedded_esm_entry(
         .map(|(path, code)| (path.clone(), javascript_data_url(code)))
         .collect();
 
-    for _ in 0..8 {
+    // Fixpoint: each pass rewrites every module's relative import specifiers to the
+    // data-URL of the referenced module. An acyclic graph of depth D converges in D
+    // passes; the early break stops as soon as the URL map is stable. The bound is a
+    // safety cap for deep module graphs (and prevents runaway on accidental cycles).
+    for _ in 0..64 {
         let mut changed = false;
         let next_urls: HashMap<String, String> = modules
             .iter()

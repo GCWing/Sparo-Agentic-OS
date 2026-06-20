@@ -313,6 +313,8 @@ pub struct LiveAppInteractionTab {
     #[serde(rename = "type")]
     pub tab_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub route: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<LiveAppInteractionText>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title_key: Option<String>,

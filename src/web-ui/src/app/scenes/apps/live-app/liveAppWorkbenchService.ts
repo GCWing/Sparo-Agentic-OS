@@ -6,6 +6,7 @@ import type { WorkspaceSceneId } from '@/app/navigation/workspaceSceneTypes';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import {
+  getBackendAgentType,
   getLiveAppWorkbenchSessionDescriptor,
   type SessionDescriptor,
 } from '@/flow_chat/domain/sessionDescriptor';
@@ -27,8 +28,15 @@ export interface OpenLiveAppOptions {
   theme?: string | null;
 }
 
-function liveAppWorkbenchDescriptor(): SessionDescriptor {
-  return getLiveAppWorkbenchSessionDescriptor();
+function agentAppIdFromWorkbenchMetadata(metadata: LiveAppWorkbenchSessionMetadata): string | null {
+  const value = metadata.chat?.agentAppId;
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function liveAppWorkbenchDescriptor(metadata?: LiveAppWorkbenchSessionMetadata): SessionDescriptor {
+  return getLiveAppWorkbenchSessionDescriptor(
+    metadata ? agentAppIdFromWorkbenchMetadata(metadata) : undefined,
+  );
 }
 
 function normalizeWorkspaceIdentity(workspacePath?: string | null): string {
@@ -114,6 +122,8 @@ function updateSessionWorkbenchMetadata(
   sessionId: string,
   metadata: LiveAppWorkbenchSessionMetadata
 ): void {
+  const descriptor = liveAppWorkbenchDescriptor(metadata);
+  const backendAgentType = getBackendAgentType(descriptor);
   flowChatStore.setState(prev => {
     const session = prev.sessions.get(sessionId);
     if (!session) return prev;
@@ -121,10 +131,12 @@ function updateSessionWorkbenchMetadata(
     const nextSessions = new Map(prev.sessions);
     nextSessions.set(sessionId, {
       ...session,
+      descriptor,
       title: metadata.interactionTitle || metadata.appName || session.title,
       workspacePath: metadata.workspacePath || session.workspacePath,
       config: {
         ...session.config,
+        agentType: backendAgentType,
         workspacePath: metadata.workspacePath || session.config.workspacePath,
         sessionName: metadata.interactionTitle || metadata.appName || session.config.sessionName,
         customMetadata: {
@@ -183,7 +195,7 @@ export async function ensureLiveAppWorkbenchSession(
     locale: options.locale,
     workspacePath: options.workspacePath,
   });
-  const descriptor = liveAppWorkbenchDescriptor();
+  const descriptor = liveAppWorkbenchDescriptor(metadata);
   const existingSessionId = await findExistingWorkbenchSessionId(metadata);
   if (existingSessionId) {
     updateSessionWorkbenchMetadata(existingSessionId, metadata);

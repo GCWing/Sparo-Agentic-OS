@@ -136,8 +136,15 @@ export function getAgenticOsSessionDescriptor(): SessionDescriptor {
   return cloneDescriptor(SESSION_DESCRIPTORS.agenticOs);
 }
 
-export function getLiveAppWorkbenchSessionDescriptor(): SessionDescriptor {
-  return cloneDescriptor(SESSION_DESCRIPTORS.liveAppWorkbench);
+export function getLiveAppWorkbenchSessionDescriptor(agentAppId?: string | null): SessionDescriptor {
+  const normalizedAgentAppId = agentAppId?.trim();
+  if (!normalizedAgentAppId) {
+    return cloneDescriptor(SESSION_DESCRIPTORS.liveAppWorkbench);
+  }
+  return {
+    ...cloneDescriptor(SESSION_DESCRIPTORS.liveAppWorkbench, normalizedAgentAppId),
+    agentPolicy: createPolicy(normalizedAgentAppId),
+  };
 }
 
 export function descriptorFromAgentType(agentType?: string | null): SessionDescriptor {

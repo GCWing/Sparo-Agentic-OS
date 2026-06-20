@@ -1,8 +1,8 @@
 //! Agent App packages for FlowChat-native reusable work applications.
 
 use crate::agent_app::manifest::{
-    default_model, default_tools, AgentAppInfo, AgentAppJsToolManifest, AgentAppLevel,
-    AgentAppManifest, AgentAppPackage,
+    default_model, default_tools, AgentAppBridgeCapabilityRef, AgentAppInfo,
+    AgentAppJsToolManifest, AgentAppLevel, AgentAppManifest, AgentAppPackage,
 };
 use crate::agentic::agents::{Agent, PromptBuilder, PromptBuilderContext, RequestContextPolicy};
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
@@ -16,9 +16,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
-use std::process::Stdio;
 use std::sync::Arc;
-use tokio::process::Command;
+
+use super::js_runtime;
 
 pub const AGENT_APP_SCHEMA_VERSION: u32 = 1;
 pub const AGENT_APP_MANIFEST: &str = "manifest.json";
@@ -109,9 +109,10 @@ pub struct AgentAppAgent {
 
 impl AgentAppAgent {
     pub fn new(manifest: AgentAppManifest, prompt: String, path: String) -> Self {
+        let composed = compose_agent_prompt(&prompt, Path::new(&path), &manifest);
         Self {
             manifest,
-            prompt,
+            prompt: composed,
             path,
         }
     }
@@ -173,26 +174,21 @@ impl Agent for AgentAppAgent {
 pub struct AgentAppManager;
 
 impl AgentAppManager {
-    pub fn seed_builtin_file_agent_apps() -> BitFunResult<Vec<AgentAppInfo>> {
+    pub fn seed_builtin_agent_apps() -> BitFunResult<Vec<AgentAppInfo>> {
         Self::remove_obsolete_builtin_file_agent_apps()?;
+        let app_ids = super::builtin::seed_builtin_agent_apps()?;
         let mut seeded = Vec::new();
-        for (manifest, prompt) in builtin_file_agent_apps() {
-            let dir = agent_app_dir(AgentAppLevel::User, &manifest.id, None)?;
-            let manifest_path = dir.join(AGENT_APP_MANIFEST);
-            let should_write = if manifest_path.exists() {
-                should_refresh_builtin_agent_app(&manifest_path, &manifest)?
-            } else {
-                true
-            };
-            if should_write {
-                let package =
-                    Self::create_or_update(manifest, prompt, None, manifest_path.exists())?;
-                seeded.push(package_to_info(&package));
-            } else {
-                let _ = Self::load_package_from_dir(&dir)?;
+        for app_id in app_ids {
+            match Self::get(&app_id, Some(AgentAppLevel::User), None) {
+                Ok(package) => seeded.push(package_to_info(&package)),
+                Err(e) => warn!("Failed to load seeded Agent App '{}': {}", app_id, e),
             }
         }
         Ok(seeded)
+    }
+
+    pub fn seed_builtin_file_agent_apps() -> BitFunResult<Vec<AgentAppInfo>> {
+        Self::seed_builtin_agent_apps()
     }
 
     fn remove_obsolete_builtin_file_agent_apps() -> BitFunResult<()> {
@@ -209,9 +205,13 @@ impl AgentAppManager {
     }
 
     pub fn list(workspace_root: Option<&Path>) -> BitFunResult<Vec<AgentAppInfo>> {
-        let _ = workspace_root;
         let mut apps = Vec::new();
         Self::load_from_root(AgentAppLevel::User, None, &mut apps)?;
+        if workspace_root.is_some() {
+            let mut project_apps = Vec::new();
+            Self::load_from_root(AgentAppLevel::Project, workspace_root, &mut project_apps)?;
+            merge_agent_app_infos(&mut apps, project_apps);
+        }
         apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
         Ok(apps)
     }
@@ -244,15 +244,22 @@ impl AgentAppManager {
         level: Option<AgentAppLevel>,
         workspace_root: Option<&Path>,
     ) -> BitFunResult<AgentAppPackage> {
-        let _ = workspace_root;
-        if level == Some(AgentAppLevel::Project) {
-            return Err(BitFunError::validation(
-                "Project Agent Apps are not supported; Agent Apps are user-level only",
-            ));
-        }
-        let dir = agent_app_dir(AgentAppLevel::User, app_id, None)?;
-        if dir.join(AGENT_APP_MANIFEST).exists() {
-            return Self::load_package_from_dir(&dir);
+        let levels = match level {
+            Some(level) => vec![level],
+            None => {
+                if workspace_root.is_some() {
+                    vec![AgentAppLevel::Project, AgentAppLevel::User]
+                } else {
+                    vec![AgentAppLevel::User]
+                }
+            }
+        };
+
+        for level in levels {
+            let dir = agent_app_dir(level, app_id, workspace_root)?;
+            if dir.join(AGENT_APP_MANIFEST).exists() {
+                return Self::load_package_from_dir(&dir);
+            }
         }
         Err(BitFunError::NotFound(format!(
             "Agent App not found: {app_id}"
@@ -265,13 +272,11 @@ impl AgentAppManager {
         workspace_root: Option<&Path>,
         overwrite: bool,
     ) -> BitFunResult<AgentAppPackage> {
-        let _ = workspace_root;
-        manifest.level = AgentAppLevel::User;
         Self::validate_manifest(&mut manifest)?;
         if prompt.trim().is_empty() {
             return Err(BitFunError::validation("Agent App prompt cannot be empty"));
         }
-        let dir = agent_app_dir(AgentAppLevel::User, &manifest.id, None)?;
+        let dir = agent_app_dir(manifest.level, &manifest.id, workspace_root)?;
         if dir.exists() && !overwrite {
             return Err(BitFunError::validation(format!(
                 "Agent App '{}' already exists",
@@ -292,13 +297,7 @@ impl AgentAppManager {
         level: AgentAppLevel,
         workspace_root: Option<&Path>,
     ) -> BitFunResult<()> {
-        let _ = workspace_root;
-        if level == AgentAppLevel::Project {
-            return Err(BitFunError::validation(
-                "Project Agent Apps are not supported; Agent Apps are user-level only",
-            ));
-        }
-        let dir = agent_app_dir(AgentAppLevel::User, app_id, None)?;
+        let dir = agent_app_dir(level, app_id, workspace_root)?;
         if !dir.exists() {
             return Err(BitFunError::NotFound(format!(
                 "Agent App not found: {app_id}"
@@ -307,11 +306,12 @@ impl AgentAppManager {
         Self::unregister_runtime_tools(app_id).await;
         std::fs::remove_dir_all(&dir)?;
         crate::agentic::agents::get_agent_registry().remove_agent_app(app_id)?;
+        Self::register_all(workspace_root)?;
+        Self::register_runtime_tools(workspace_root).await?;
         Ok(())
     }
 
     pub fn register_all(workspace_root: Option<&Path>) -> BitFunResult<Vec<AgentAppInfo>> {
-        let _ = workspace_root;
         let packages = Self::load_packages(workspace_root)?;
         let registry = crate::agentic::agents::get_agent_registry();
         for package in &packages {
@@ -323,7 +323,6 @@ impl AgentAppManager {
     pub async fn register_runtime_tools(
         workspace_root: Option<&Path>,
     ) -> BitFunResult<Vec<String>> {
-        let _ = workspace_root;
         let packages = Self::load_packages(workspace_root)?;
         let mut registered = Vec::new();
         let registry = get_global_tool_registry();
@@ -346,6 +345,7 @@ impl AgentAppManager {
                 let tool = AgentAppRuntimeToolAdapter::new(
                     package.manifest.id.clone(),
                     app_dir.clone(),
+                    package.manifest.bridge_capabilities.clone(),
                     manifest,
                 );
                 let name = tool.name().to_string();
@@ -389,16 +389,22 @@ impl AgentAppManager {
         app_id: &str,
         tool_name: &str,
         input: &Value,
+        level: Option<AgentAppLevel>,
         workspace_root: Option<&Path>,
     ) -> BitFunResult<Value> {
-        let package = Self::get(app_id, None, workspace_root)?;
-        let app_dir = PathBuf::from(package.path);
+        let package = Self::get(app_id, level, workspace_root)?;
+        let app_dir = PathBuf::from(&package.path);
         let manifest_path = app_dir
             .join("tools")
             .join(format!("{}.tool.json", tool_name));
         let manifest: AgentAppJsToolManifest = read_json_file(&manifest_path)?;
         validate_js_tool_manifest(&manifest)?;
-        let tool = AgentAppRuntimeToolAdapter::new(app_id.to_string(), app_dir, manifest);
+        let tool = AgentAppRuntimeToolAdapter::new(
+            app_id.to_string(),
+            app_dir,
+            package.manifest.bridge_capabilities.clone(),
+            manifest,
+        );
         let context = ToolUseContext {
             tool_call_id: None,
             agent_type: Some("AgentAppStudio".to_string()),
@@ -419,9 +425,17 @@ impl AgentAppManager {
     }
 
     fn load_packages(workspace_root: Option<&Path>) -> BitFunResult<Vec<AgentAppPackage>> {
-        let _ = workspace_root;
         let mut packages = Vec::new();
         Self::load_packages_from_root(AgentAppLevel::User, None, &mut packages)?;
+        if workspace_root.is_some() {
+            let mut project_packages = Vec::new();
+            Self::load_packages_from_root(
+                AgentAppLevel::Project,
+                workspace_root,
+                &mut project_packages,
+            )?;
+            merge_agent_app_packages(&mut packages, project_packages);
+        }
         Ok(packages)
     }
 
@@ -487,7 +501,6 @@ impl AgentAppManager {
     }
 
     pub fn validate_manifest(manifest: &mut AgentAppManifest) -> BitFunResult<()> {
-        manifest.level = AgentAppLevel::User;
         if manifest.schema_version == 0 {
             manifest.schema_version = AGENT_APP_SCHEMA_VERSION;
         }
@@ -516,8 +529,11 @@ impl AgentAppManager {
         Ok(())
     }
 
-    pub fn bash_allowlist_for(agent_id: &str) -> Option<Vec<String>> {
-        let package = Self::get(agent_id, Some(AgentAppLevel::User), None).ok()?;
+    pub fn bash_allowlist_for(
+        agent_id: &str,
+        workspace_root: Option<&Path>,
+    ) -> Option<Vec<String>> {
+        let package = Self::get(agent_id, None, workspace_root).ok()?;
         package
             .manifest
             .tool_policies
@@ -526,17 +542,48 @@ impl AgentAppManager {
     }
 }
 
-fn should_refresh_builtin_agent_app(
-    manifest_path: &Path,
-    builtin: &AgentAppManifest,
-) -> BitFunResult<bool> {
-    let _ = manifest_path;
-    let _ = builtin;
-    Ok(false)
-}
+/// Compose the effective Agent App system prompt by appending the package's own
+/// routing guide and declared skill files. This keeps `agent.md` short while making
+/// the bundled `skills/*.md` library actually reachable by the agent at runtime.
+/// Only skills declared in `manifest.skills` are loaded, and only by simple file name,
+/// so a package cannot read outside its own `skills/` directory.
+fn compose_agent_prompt(base: &str, dir: &Path, manifest: &AgentAppManifest) -> String {
+    let mut sections: Vec<String> = Vec::new();
 
-fn builtin_file_agent_apps() -> Vec<(AgentAppManifest, String)> {
-    Vec::new()
+    let routing_path = dir.join("routing.md");
+    if let Ok(routing) = std::fs::read_to_string(&routing_path) {
+        let routing = routing.trim();
+        if !routing.is_empty() {
+            sections.push(format!("# Routing\n\n{}", routing));
+        }
+    }
+
+    let mut skill_sections: Vec<String> = Vec::new();
+    for key in &manifest.skills {
+        let safe = key.trim();
+        if safe.is_empty() || safe.contains('/') || safe.contains('\\') || safe.contains("..") {
+            continue;
+        }
+        let skill_path = dir.join("skills").join(format!("{}.md", safe));
+        if let Ok(content) = std::fs::read_to_string(&skill_path) {
+            let content = content.trim();
+            if !content.is_empty() {
+                skill_sections.push(format!("## Skill: {}\n\n{}", safe, content));
+            }
+        }
+    }
+    if !skill_sections.is_empty() {
+        sections.push(format!(
+            "# Skill Library\n\n{}",
+            skill_sections.join("\n\n")
+        ));
+    }
+
+    if sections.is_empty() {
+        base.trim_end().to_string()
+    } else {
+        format!("{}\n\n{}", base.trim_end(), sections.join("\n\n"))
+    }
 }
 
 fn package_to_info(package: &AgentAppPackage) -> AgentAppInfo {
@@ -558,6 +605,38 @@ fn package_to_info(package: &AgentAppPackage) -> AgentAppInfo {
         bridge_capabilities: package.manifest.bridge_capabilities.clone(),
         examples: package.manifest.examples.clone(),
         path: package.path.clone(),
+    }
+}
+
+fn merge_agent_app_infos(out: &mut Vec<AgentAppInfo>, incoming: Vec<AgentAppInfo>) {
+    let mut by_id = out
+        .iter()
+        .enumerate()
+        .map(|(index, app)| (app.id.clone(), index))
+        .collect::<HashMap<_, _>>();
+    for app in incoming {
+        if let Some(index) = by_id.get(&app.id).copied() {
+            out[index] = app;
+        } else {
+            by_id.insert(app.id.clone(), out.len());
+            out.push(app);
+        }
+    }
+}
+
+fn merge_agent_app_packages(out: &mut Vec<AgentAppPackage>, incoming: Vec<AgentAppPackage>) {
+    let mut by_id = out
+        .iter()
+        .enumerate()
+        .map(|(index, package)| (package.manifest.id.clone(), index))
+        .collect::<HashMap<_, _>>();
+    for package in incoming {
+        if let Some(index) = by_id.get(&package.manifest.id).copied() {
+            out[index] = package;
+        } else {
+            by_id.insert(package.manifest.id.clone(), out.len());
+            out.push(package);
+        }
     }
 }
 
@@ -592,16 +671,23 @@ fn validate_js_tool_manifest(manifest: &AgentAppJsToolManifest) -> BitFunResult<
 pub struct AgentAppRuntimeToolAdapter {
     app_id: String,
     app_dir: PathBuf,
+    bridge_capabilities: Vec<AgentAppBridgeCapabilityRef>,
     manifest: AgentAppJsToolManifest,
     tool_name: String,
 }
 
 impl AgentAppRuntimeToolAdapter {
-    pub fn new(app_id: String, app_dir: PathBuf, manifest: AgentAppJsToolManifest) -> Self {
+    pub fn new(
+        app_id: String,
+        app_dir: PathBuf,
+        bridge_capabilities: Vec<AgentAppBridgeCapabilityRef>,
+        manifest: AgentAppJsToolManifest,
+    ) -> Self {
         let tool_name = format!("agentapp__{}__{}", app_id, manifest.name);
         Self {
             app_id,
             app_dir,
+            bridge_capabilities,
             manifest,
             tool_name,
         }
@@ -641,45 +727,13 @@ impl Tool for AgentAppRuntimeToolAdapter {
     ) -> BitFunResult<Vec<ToolResult>> {
         validate_js_input_subset(&self.manifest.input_schema, input)?;
         let workspace_root = context.workspace_root().map(Path::to_path_buf);
-        let bridge = build_js_bridge_script(
+        let value = js_runtime::run_js_tool(
             &self.app_dir,
             &self.manifest,
             input,
             workspace_root.as_deref(),
-        )?;
-        let child = Command::new(resolve_js_runtime())
-            .arg("-e")
-            .arg(bridge)
-            .current_dir(&self.app_dir)
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|e| BitFunError::tool(format!("Failed to start JS runtime: {e}")))?;
-
-        let timeout = std::time::Duration::from_millis(self.manifest.timeout_ms);
-        let output = tokio::time::timeout(timeout, child.wait_with_output())
-            .await
-            .map_err(|_| {
-                BitFunError::Timeout("Agent App JS runtime tool timed out".to_string())
-            })??;
-        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-        if !output.status.success() {
-            return Err(BitFunError::tool(format!(
-                "Agent App JS tool failed: {}",
-                stderr.trim()
-            )));
-        }
-        if stdout.len() > self.manifest.max_output_bytes {
-            return Err(BitFunError::tool(format!(
-                "Agent App JS tool output exceeded {} bytes",
-                self.manifest.max_output_bytes
-            )));
-        }
-        let value: Value = serde_json::from_str(stdout.trim()).map_err(|e| {
-            BitFunError::tool(format!("Agent App JS tool returned invalid JSON: {e}"))
-        })?;
+        )
+        .await?;
         if let Some(bridge_call) = value.get("bridgeCall").or_else(|| value.get("bridge_call")) {
             return self.execute_bridge_call(bridge_call, context, &value).await;
         }
@@ -720,6 +774,12 @@ impl AgentAppRuntimeToolAdapter {
             .get("action")
             .and_then(Value::as_str)
             .ok_or_else(|| BitFunError::validation("bridgeCall.action is required"))?;
+        if !self.allows_bridge_capability(bridge_id, capability_id) {
+            return Err(BitFunError::validation(format!(
+                "Agent App '{}' is not allowed to use Bridge capability '{}:{}'",
+                self.app_id, bridge_id, capability_id
+            )));
+        }
         let payload = bridge_call
             .get("input")
             .cloned()
@@ -765,6 +825,12 @@ impl AgentAppRuntimeToolAdapter {
             }),
             Some(summary),
         )])
+    }
+
+    fn allows_bridge_capability(&self, bridge_id: &str, capability_id: &str) -> bool {
+        self.bridge_capabilities.iter().any(|capability| {
+            capability.bridge_id == bridge_id && capability.capability_id == capability_id
+        })
     }
 }
 
@@ -824,127 +890,4 @@ fn validate_js_input_subset(schema: &Value, input: &Value) -> BitFunResult<()> {
         }
     }
     Ok(())
-}
-
-fn resolve_js_runtime() -> String {
-    if which::which("node").is_ok() {
-        "node".to_string()
-    } else if which::which("bun").is_ok() {
-        "bun".to_string()
-    } else {
-        "node".to_string()
-    }
-}
-
-fn build_js_bridge_script(
-    app_dir: &Path,
-    manifest: &AgentAppJsToolManifest,
-    input: &Value,
-    workspace_root: Option<&Path>,
-) -> BitFunResult<String> {
-    let entry_json = serde_json::to_string(&app_dir.join(&manifest.entry).to_string_lossy())?;
-    let input_json = serde_json::to_string(input)?;
-    let permissions_json = serde_json::to_string(&manifest.permissions)?;
-    let workspace_json = serde_json::to_string(
-        &workspace_root
-            .map(|p| p.to_string_lossy().to_string())
-            .unwrap_or_default(),
-    )?;
-    let readonly_json = serde_json::to_string(&manifest.readonly)?;
-    Ok(format!(
-        r#"
-const fs = require('fs/promises');
-const path = require('path');
-const child_process = require('child_process');
-const input = {input_json};
-const permissions = {permissions_json};
-const workspaceRoot = {workspace_json};
-const entry = {entry_json};
-const readonly = {readonly_json};
-
-function expandRoot(root) {{
-  return String(root || '').replace('{{workspace}}', workspaceRoot).replace('{{app}}', path.dirname(entry));
-}}
-function within(target, root) {{
-  if (!root) return false;
-  const rel = path.relative(path.resolve(root), path.resolve(target));
-  return rel === '' || (!!rel && !rel.startsWith('..') && !path.isAbsolute(rel));
-}}
-function allowed(target, roots) {{
-  return (roots || []).some((root) => within(target, expandRoot(root)));
-}}
-function assertRead(target) {{
-  if (!allowed(target, permissions.fs && permissions.fs.read)) throw new Error('Read path is not allowed: ' + target);
-}}
-function assertWrite(target) {{
-  if (!allowed(target, permissions.fs && permissions.fs.write)) throw new Error('Write path is not allowed: ' + target);
-}}
-async function walk(dir, suffix, out) {{
-  assertRead(dir);
-  const entries = await fs.readdir(dir, {{ withFileTypes: true }});
-  for (const entry of entries) {{
-    const p = path.join(dir, entry.name);
-    if (entry.isDirectory()) await walk(p, suffix, out);
-    else if (!suffix || p.endsWith(suffix)) out.push(p);
-  }}
-}}
-const context = {{
-  fs: {{
-    readText: async (p) => {{ assertRead(p); return fs.readFile(p, 'utf8'); }},
-    writeText: async (p, text) => {{ assertWrite(p); await fs.mkdir(path.dirname(p), {{ recursive: true }}); return fs.writeFile(p, text, 'utf8'); }},
-    glob: async (pattern) => {{
-      const base = pattern.includes('**') ? pattern.slice(0, pattern.indexOf('**')) : path.dirname(pattern);
-      const suffix = pattern.includes('*') ? pattern.slice(pattern.lastIndexOf('*') + 1) : '';
-      const out = [];
-      await walk(path.resolve(base || '.'), suffix, out);
-      return out;
-    }}
-  }},
-  shell: {{
-    exec: async (command) => new Promise((resolve, reject) => {{
-      const allow = (permissions.shell && permissions.shell.allow) || [];
-      if (!allow.includes(command)) return reject(new Error('Shell command is not allowed: ' + command));
-      child_process.exec(command, {{ cwd: workspaceRoot || path.dirname(entry), timeout: 30000 }}, (error, stdout, stderr) => {{
-        if (error) reject(error); else resolve({{ stdout, stderr }});
-      }});
-    }})
-  }},
-  net: {{
-    fetch: async (url, options) => {{
-      const allow = (permissions.net && permissions.net.allow) || [];
-      if (!allow.some((prefix) => String(url).startsWith(prefix))) throw new Error('Network URL is not allowed: ' + url);
-      return fetch(url, options);
-    }}
-  }},
-  log: {{
-    info: (...args) => console.error('[info]', ...args),
-    warn: (...args) => console.error('[warn]', ...args),
-    error: (...args) => console.error('[error]', ...args)
-  }},
-  storage: {{
-    get: async (key) => {{
-      const file = path.join(path.dirname(entry), '..', 'storage.json');
-      try {{ return JSON.parse(await fs.readFile(file, 'utf8'))[key]; }} catch {{ return undefined; }}
-    }},
-    set: async (key, value) => {{
-      if (readonly) throw new Error('Readonly Agent App JS tools cannot write storage');
-      const file = path.join(path.dirname(entry), '..', 'storage.json');
-      let data = {{}};
-      try {{ data = JSON.parse(await fs.readFile(file, 'utf8')); }} catch {{}}
-      data[key] = value;
-      await fs.writeFile(file, JSON.stringify(data, null, 2));
-    }}
-  }}
-}};
-(async () => {{
-  const mod = require(entry);
-  if (!mod || typeof mod.run !== 'function') throw new Error('JS runtime tool must export async run(input, context)');
-  const result = await mod.run(input, context);
-  process.stdout.write(JSON.stringify(result || {{}}));
-}})().catch((error) => {{
-  console.error(error && error.stack ? error.stack : String(error));
-  process.exit(1);
-}});
-"#
-    ))
 }

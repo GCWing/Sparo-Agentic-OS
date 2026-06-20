@@ -17,8 +17,10 @@ fn workspace_root(context: &ToolUseContext) -> Option<PathBuf> {
 }
 
 fn parse_level(value: Option<&Value>) -> AgentAppLevel {
-    let _ = value;
-    AgentAppLevel::User
+    match value.and_then(Value::as_str).unwrap_or("user") {
+        "project" => AgentAppLevel::Project,
+        _ => AgentAppLevel::User,
+    }
 }
 
 fn examples_from_value(value: Option<&Value>) -> Vec<AgentAppExample> {
@@ -64,8 +66,12 @@ fn manifest_from_input(input: &Value, context: &ToolUseContext) -> BitFunResult<
         .cloned()
         .and_then(|v| serde_json::from_value(v).ok())
         .unwrap_or_default();
-    let _ = context;
-    let level = AgentAppLevel::User;
+    let level = parse_level(input.get("level"));
+    if level == AgentAppLevel::Project && workspace_root(context).is_none() {
+        return Err(BitFunError::validation(
+            "Project Agent Apps require a workspace path",
+        ));
+    }
     Ok(AgentAppManifest {
         schema_version: AGENT_APP_SCHEMA_VERSION,
         id,
@@ -138,7 +144,7 @@ fn agent_app_schema(required_prompt: bool) -> Value {
         "required": required,
         "properties": {
             "id": { "type": "string", "description": "Stable id. Defaults to a slug from name." },
-            "level": { "type": "string", "enum": ["user"], "description": "Agent Apps are user-level." },
+            "level": { "type": "string", "enum": ["user", "project"], "description": "Install scope. Project Agent Apps require a workspace path." },
             "name": { "type": "string" },
             "description": { "type": "string" },
             "prompt": { "type": "string" },
@@ -261,7 +267,7 @@ impl Tool for GetAgentAppTool {
         Ok("Read a complete Agent App package manifest and prompt.".to_string())
     }
     fn input_schema(&self) -> Value {
-        json!({ "type": "object", "additionalProperties": false, "required": ["id"], "properties": { "id": { "type": "string" }, "level": { "type": "string", "enum": ["user"] } } })
+        json!({ "type": "object", "additionalProperties": false, "required": ["id"], "properties": { "id": { "type": "string" }, "level": { "type": "string", "enum": ["user", "project"] } } })
     }
     fn is_readonly(&self) -> bool {
         true
@@ -455,7 +461,7 @@ impl Tool for CreateAgentAppJsToolTool {
             "required": ["appId", "manifest", "source"],
             "properties": {
                 "appId": { "type": "string" },
-                "level": { "type": "string", "enum": ["user"] },
+                "level": { "type": "string", "enum": ["user", "project"] },
                 "manifest": { "type": "object" },
                 "source": { "type": "string" }
             }
@@ -518,6 +524,7 @@ impl Tool for TestAgentAppJsToolTool {
             "required": ["appId", "toolName", "input"],
             "properties": {
                 "appId": { "type": "string" },
+                "level": { "type": "string", "enum": ["user", "project"] },
                 "toolName": { "type": "string" },
                 "input": { "type": "object" }
             }
@@ -544,6 +551,7 @@ impl Tool for TestAgentAppJsToolTool {
             app_id,
             tool_name,
             tool_input,
+            input.get("level").map(|v| parse_level(Some(v))),
             workspace_root(context).as_deref(),
         )
         .await?;

@@ -52,8 +52,8 @@ pub async fn initialize_agentic_runtime(
     ));
 
     if options.register_agent_apps {
-        if let Err(e) = crate::agent_app::AgentAppManager::seed_builtin_file_agent_apps() {
-            log::warn!("Failed to seed built-in Files Agent Apps at startup: {}", e);
+        if let Err(e) = crate::agent_app::AgentAppManager::seed_builtin_agent_apps() {
+            log::warn!("Failed to seed built-in Agent Apps at startup: {}", e);
         }
         if let Err(e) = crate::agent_app::AgentAppManager::register_all(None) {
             log::warn!("Failed to register user Agent Apps at startup: {}", e);

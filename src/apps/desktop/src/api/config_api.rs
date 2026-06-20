@@ -1,7 +1,7 @@
 //! Configuration API
 
 use crate::api::app_state::AppState;
-use bitfun_core::agent_app::{AgentAppLevel, AgentAppManager};
+use bitfun_core::agent_app::AgentAppManager;
 use bitfun_core::agentic::agents::AgentCategory;
 use bitfun_core::agentic::tools::get_all_registered_tool_names;
 use bitfun_core::command::config as core_config_command;
@@ -367,10 +367,9 @@ async fn update_agent_app_capability_profile(
     request: UpdateAgentCapabilityProfileRequest,
     workspace: Option<&std::path::Path>,
 ) -> Result<(), String> {
-    let package = AgentAppManager::get(&request.agent_id, Some(AgentAppLevel::User), workspace)
-        .map_err(|e| e.to_string())?;
+    let package =
+        AgentAppManager::get(&request.agent_id, None, workspace).map_err(|e| e.to_string())?;
     let mut manifest = package.manifest;
-    manifest.level = AgentAppLevel::User;
 
     if let Some(enabled) = request.enabled {
         manifest.enabled = enabled;
