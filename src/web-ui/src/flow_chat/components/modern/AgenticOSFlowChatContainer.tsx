@@ -37,6 +37,8 @@ type AgenticOSFlowChatContainerProps = UseFlowChatCoreOptions & {
 
 export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProps> = ({
   className = '',
+  sessionId,
+  workspacePath,
   config,
   onFileViewRequest,
   onTabOpen,
@@ -47,6 +49,8 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
 
   const core = useFlowChatCore({
     initialTurnListOpen: false,
+    sessionId,
+    workspacePath,
     config,
     onFileViewRequest,
     onTabOpen,

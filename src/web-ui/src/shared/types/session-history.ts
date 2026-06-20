@@ -16,6 +16,7 @@ export type TriggerSource =
   | 'desktop_ui'
   | 'desktop_api'
   | 'agent_session'
+  | 'goal'
   | 'work_message'
   | 'scheduled_job'
   | 'bot'

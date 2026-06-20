@@ -229,6 +229,9 @@ pub fn run() {
             api::agentic_api::guide_queued_dialog_turn,
             api::agentic_api::resume_queued_dialog_turns,
             api::agentic_api::compact_session,
+            api::goal_api::submit_session_goal,
+            api::goal_api::get_session_goal,
+            api::goal_api::control_session_goal,
             api::agentic_api::cancel_dialog_turn,
             api::agentic_api::cancel_session,
             api::agentic_api::delete_session,
@@ -672,6 +675,7 @@ fn spawn_boot_pipeline(
         });
         app_handle.manage(agentic.coordinator.clone());
         app_handle.manage(agentic.scheduler.clone());
+        app_handle.manage(agentic.goal_service.clone());
         app_handle.manage(crate::api::terminal_api::TerminalState::new());
 
         // Terminal event loop needs an AppHandle clone, not the container.

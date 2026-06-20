@@ -98,6 +98,7 @@ export function ComposerCommandPicker({
               <SelectableRow
                 key={action.id}
                 className={`sparo-chat-input__slash-command-item ${index === state.selectedIndex ? 'sparo-chat-input__slash-command-item--selected' : ''}`}
+                data-testid={`slash-command-action-${action.id}`}
                 description={<span className="sparo-chat-input__slash-command-label">{action.label}</span>}
                 onClick={() => onSelectAction(action.id)}
                 {...getItemHoverHandlers(index)}
@@ -140,6 +141,7 @@ export function ComposerCommandPicker({
                 <SelectableRow
                   key={`${item.kind}-${item.id}`}
                   className={`sparo-chat-input__slash-command-item ${index === state.selectedIndex ? 'sparo-chat-input__slash-command-item--selected' : ''} ${isActiveMode ? 'sparo-chat-input__slash-command-item--active' : ''}`}
+                  data-testid={`slash-command-${item.kind}-${item.id}`}
                   description={(
                     <span className="sparo-chat-input__slash-command-label">
                       {isAgent
@@ -200,6 +202,7 @@ export function ComposerCommandPicker({
             <SelectableRow
               key={agent.id}
               className={`sparo-chat-input__slash-command-item ${index === state.selectedIndex ? 'sparo-chat-input__slash-command-item--selected' : ''} ${agent.id === currentAgent ? 'sparo-chat-input__slash-command-item--active' : ''}`}
+              data-testid={`slash-command-agent-${agent.id}`}
               description={<span className="sparo-chat-input__slash-command-label">{agent.name}</span>}
               meta={agent.id === currentAgent ? <Badge className="sparo-chat-input__slash-command-current" variant="accent">{labels.current}</Badge> : undefined}
               onClick={() => onSelectAgent(agent.id)}

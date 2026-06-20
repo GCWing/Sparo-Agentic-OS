@@ -81,9 +81,41 @@ pub struct StartDialogTurnRequest {
     pub workspace_path: Option<String>,
     pub turn_id: Option<String>,
     #[serde(default)]
+    pub trigger_source: Option<DialogTriggerSourceDto>,
+    #[serde(default)]
     pub persist_agent_type: Option<bool>,
     #[serde(default)]
     pub image_contexts: Option<Vec<ImageContextData>>,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DialogTriggerSourceDto {
+    DesktopUi,
+    DesktopApi,
+    AgentSession,
+    Goal,
+    WorkMessage,
+    ScheduledJob,
+    RemoteRelay,
+    Bot,
+    Cli,
+}
+
+impl From<DialogTriggerSourceDto> for DialogTriggerSource {
+    fn from(value: DialogTriggerSourceDto) -> Self {
+        match value {
+            DialogTriggerSourceDto::DesktopUi => DialogTriggerSource::DesktopUi,
+            DialogTriggerSourceDto::DesktopApi => DialogTriggerSource::DesktopApi,
+            DialogTriggerSourceDto::AgentSession => DialogTriggerSource::AgentSession,
+            DialogTriggerSourceDto::Goal => DialogTriggerSource::Goal,
+            DialogTriggerSourceDto::WorkMessage => DialogTriggerSource::WorkMessage,
+            DialogTriggerSourceDto::ScheduledJob => DialogTriggerSource::ScheduledJob,
+            DialogTriggerSourceDto::RemoteRelay => DialogTriggerSource::RemoteRelay,
+            DialogTriggerSourceDto::Bot => DialogTriggerSource::Bot,
+            DialogTriggerSourceDto::Cli => DialogTriggerSource::Cli,
+        }
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -434,12 +466,17 @@ pub async fn start_dialog_turn(
         system_reminder_override,
         workspace_path,
         turn_id,
+        trigger_source,
         persist_agent_type,
         image_contexts,
     } = request;
 
-    let policy = DialogSubmissionPolicy::for_source(DialogTriggerSource::DesktopUi)
-        .with_persist_agent_type(persist_agent_type.unwrap_or(true));
+    let policy = DialogSubmissionPolicy::for_source(
+        trigger_source
+            .map(DialogTriggerSource::from)
+            .unwrap_or(DialogTriggerSource::DesktopUi),
+    )
+    .with_persist_agent_type(persist_agent_type.unwrap_or(true));
     let resolved_images = if let Some(image_contexts) = image_contexts
         .as_ref()
         .filter(|images| !images.is_empty())

@@ -27,6 +27,7 @@ use bitfun_transport::{TauriTransportAdapter, TransportAdapter};
 pub struct AgenticHandles {
     pub coordinator: Arc<bitfun_core::agentic::coordination::ConversationCoordinator>,
     pub scheduler: Arc<bitfun_core::agentic::coordination::DialogScheduler>,
+    pub goal_service: Arc<bitfun_core::agentic::goal::GoalService>,
     pub event_queue: Arc<bitfun_core::agentic::events::EventQueue>,
     pub event_router: Arc<bitfun_core::agentic::events::EventRouter>,
 }
@@ -52,6 +53,7 @@ pub async fn initialize_agentic(
 
     let coordinator = runtime.coordinator.clone();
     let scheduler = runtime.scheduler.clone();
+    let goal_service = runtime.goal_service.clone();
     let session_manager = runtime.session_manager.clone();
     let event_queue = runtime.event_queue.clone();
     let event_router = runtime.event_router.clone();
@@ -248,6 +250,7 @@ pub async fn initialize_agentic(
     Ok(AgenticHandles {
         coordinator,
         scheduler,
+        goal_service,
         event_queue,
         event_router,
     })

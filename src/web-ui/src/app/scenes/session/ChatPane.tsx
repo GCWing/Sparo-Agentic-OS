@@ -7,6 +7,7 @@
 
 import React, { useCallback, memo } from 'react';
 import { FlowChatContainer, ChatInput } from '../../../flow_chat';
+import ActiveGoalBanner from '@/flow_chat/components/goal/ActiveGoalBanner';
 import { useCanvasStore } from '../../components/panels/content-canvas/stores/canvasStore';
 import type { LineRange } from '@/shared/markdown';
 import path from 'path-browserify';
@@ -76,8 +77,11 @@ const ChatPaneInner: React.FC<ChatPaneProps> = ({
       data-shortcut-scope="chat"
       data-fullscreen={isFullscreen}
     >
+      <ActiveGoalBanner sessionId={sessionId} workspacePath={workspacePath} />
       <FlowChatContainer
         className="sparo-chat-pane__chat-container"
+        sessionId={sessionId}
+        workspacePath={workspacePath}
         onOpenVisualization={(type, data) => {
           log.info('Opening visualization', { type, data });
         }}

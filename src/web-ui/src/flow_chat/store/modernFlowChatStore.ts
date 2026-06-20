@@ -6,12 +6,14 @@
  * store only publishes the active projection result and visible-turn state.
  */
 
+import { useMemo } from 'react';
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import { immer } from 'zustand/middleware/immer';
 import type { Session } from '../types/flow-chat';
 import type { SessionDescriptor } from '../domain/sessionDescriptor';
 import { flowChatStore } from './FlowChatStore';
+import { useFlowChatStoreSelector } from '../hooks/useFlowChatStoreSelector';
 import {
   clearProjectionScheduler,
   getProjectionVersion,
@@ -46,8 +48,25 @@ export interface ActiveSessionMeta {
   descriptor?: SessionDescriptor;
   workspaceId?: string;
   workspacePath?: string;
+  storageScope?: Session['storageScope'];
   createdAt?: number;
   lastFinishedAt?: number;
+}
+
+export function sessionToActiveSessionMeta(session: Session | null | undefined): ActiveSessionMeta {
+  if (!session) {
+    return {};
+  }
+
+  return {
+    sessionId: session.sessionId,
+    descriptor: session.descriptor,
+    workspaceId: session.workspaceId,
+    workspacePath: session.workspacePath,
+    storageScope: session.storageScope,
+    createdAt: session.createdAt,
+    lastFinishedAt: session.lastFinishedAt,
+  };
 }
 
 interface ModernFlowChatState {
@@ -124,20 +143,22 @@ export const useActiveSession = () =>
 
 export const useActiveSessionMeta = () =>
   useModernFlowChatStore(useShallow(state => {
-    const session = state.activeSession;
-    if (!session) {
-      return {};
-    }
-
-    return {
-      sessionId: session.sessionId,
-      descriptor: session.descriptor,
-      workspaceId: session.workspaceId,
-      workspacePath: session.workspacePath,
-      createdAt: session.createdAt,
-      lastFinishedAt: session.lastFinishedAt,
-    };
+    return sessionToActiveSessionMeta(state.activeSession);
   }));
+
+export function useScopedSession(sessionId?: string | null): Session | null {
+  const sessions = useFlowChatStoreSelector(state => state.sessions);
+  const activeSessionId = useFlowChatStoreSelector(state => state.activeSessionId);
+  const requestedSessionId = sessionId?.trim() ?? '';
+
+  return useMemo(() => {
+    const targetSessionId = requestedSessionId || activeSessionId || '';
+    if (!targetSessionId) {
+      return null;
+    }
+    return sessions.get(targetSessionId) ?? null;
+  }, [activeSessionId, requestedSessionId, sessions]);
+}
 
 export const useVisibleTurnInfo = () =>
   useModernFlowChatStore(state => state.visibleTurnInfo);

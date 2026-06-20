@@ -79,6 +79,7 @@ pub struct ForkAgentExecutionRequest {
     pub prompt_messages: Vec<Message>,
     pub context: HashMap<String, String>,
     pub runtime_tool_restrictions: ToolRuntimeRestrictions,
+    pub enable_tools_override: Option<bool>,
     pub max_turns: Option<usize>,
 }
 
@@ -96,6 +97,7 @@ impl ForkAgentExecutionRequest {
 /// Result returned by a completed semantic fork-agent run.
 #[derive(Debug, Clone)]
 pub struct ForkAgentExecutionResult {
+    pub session_id: String,
     pub text: String,
     pub inherited_message_count: usize,
     pub prompt_message_count: usize,
@@ -154,5 +156,24 @@ mod tests {
         );
         assert_eq!(child_config.model_id.as_deref(), Some("primary"));
         assert_eq!(child_config.max_turns, 7);
+    }
+
+    #[test]
+    fn fork_request_can_disable_model_tools() {
+        let parent = parent_session();
+        let snapshot =
+            ForkAgentContextSnapshot::from_parent_session(&parent, Vec::new()).expect("snapshot");
+        let request = ForkAgentExecutionRequest {
+            snapshot,
+            agent_type: "agentic".to_string(),
+            description: "No tools fork".to_string(),
+            prompt_messages: vec![Message::user("classify".to_string())],
+            context: HashMap::new(),
+            runtime_tool_restrictions: ToolRuntimeRestrictions::default(),
+            enable_tools_override: Some(false),
+            max_turns: Some(1),
+        };
+
+        assert_eq!(request.enable_tools_override, Some(false));
     }
 }

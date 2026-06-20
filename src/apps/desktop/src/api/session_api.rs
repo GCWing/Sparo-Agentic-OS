@@ -226,21 +226,22 @@ async fn build_tool_definitions_for_budget(
     }
 
     let tool_ordering: HashMap<String, usize> = [
-        ("Task", 1),
-        ("Bash", 2),
-        ("TerminalControl", 3),
-        ("Glob", 4),
-        ("Grep", 5),
-        ("Read", 6),
-        ("Edit", 7),
-        ("Write", 8),
-        ("Delete", 9),
-        ("WebFetch", 10),
-        ("WebSearch", 11),
-        ("TodoWrite", 12),
-        ("Skill", 13),
-        ("Log", 14),
-        ("ComputerUse", 15),
+        ("Goal", 1),
+        ("Task", 2),
+        ("Bash", 3),
+        ("TerminalControl", 4),
+        ("Glob", 5),
+        ("Grep", 6),
+        ("Read", 7),
+        ("Edit", 8),
+        ("Write", 9),
+        ("Delete", 10),
+        ("WebFetch", 11),
+        ("WebSearch", 12),
+        ("TodoWrite", 13),
+        ("Skill", 14),
+        ("Log", 15),
+        ("ComputerUse", 16),
     ]
     .into_iter()
     .map(|(k, v)| (k.to_string(), v))

@@ -18,6 +18,8 @@ import type { FlowChatConfig } from '../../types/flow-chat';
 
 interface ModernFlowChatContainerProps {
   className?: string;
+  sessionId?: string | null;
+  workspacePath?: string | null;
   config?: Partial<FlowChatConfig>;
   onFileViewRequest?: (filePath: string, fileName: string, lineRange?: LineRange) => void;
   onTabOpen?: (tabInfo: any, sessionId?: string, panelType?: string) => void;

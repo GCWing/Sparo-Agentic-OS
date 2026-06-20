@@ -497,6 +497,7 @@ export class FlowChatManager {
       systemReminderOverride?: string;
       metadata?: Record<string, any>;
       triggerSource?: import('@/shared/types/session-history').TriggerSource;
+      localDialogTurnId?: string;
     }
   ): Promise<void> {
     const targetSessionId = sessionId || this.context.flowChatStore.getState().activeSessionId;

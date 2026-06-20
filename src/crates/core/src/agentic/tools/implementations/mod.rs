@@ -30,6 +30,7 @@ pub mod file_write_tool;
 pub mod generative_ui_tool;
 pub mod get_file_diff_tool;
 pub mod glob_tool;
+pub mod goal_tool;
 pub mod grep_tool;
 pub mod live_app_init_tool;
 pub mod live_app_studio_tools;
@@ -85,6 +86,7 @@ pub use file_write_tool::FileWriteTool;
 pub use generative_ui_tool::GenerativeUITool;
 pub use get_file_diff_tool::GetFileDiffTool;
 pub use glob_tool::GlobTool;
+pub use goal_tool::GoalTool;
 pub use grep_tool::GrepTool;
 pub use live_app_init_tool::InitLiveAppTool;
 pub use live_app_studio_tools::{

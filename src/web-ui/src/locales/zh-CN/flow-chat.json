@@ -335,6 +335,21 @@
       "designTokens": "设计令牌",
       "liveAppStudio": "Live App 构建器",
       "agentAppStudio": "Agent App 构建器"
+    },
+    "goalPanel": {
+      "open": "目标详情",
+      "close": "关闭目标详情",
+      "title": "目标",
+      "status": "状态",
+      "revision": "版本",
+      "extraction": "提取",
+      "judge": "评审",
+      "noExtraction": "尚未提取",
+      "noJudgment": "尚未评审",
+      "fallbackMessage": "AI 提取失败，已使用你的输入作为目标。",
+      "gaps": "剩余缺口",
+      "noGaps": "暂无记录的缺口",
+      "judgments": "{{count}} 次评审"
     }
   },
   "turnList": {

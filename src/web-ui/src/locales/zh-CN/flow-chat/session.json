@@ -27,5 +27,61 @@
   "switchSession": "切换会话",
   "create": "创建新会话",
   "more": "更多会话",
-  "restoreMain": "恢复主窗口"
+  "restoreMain": "恢复主窗口",
+  "goal": {
+    "ariaLabel": "当前目标",
+    "label": "目标",
+    "pendingObjective": "正在提取目标...",
+    "pause": "暂停",
+    "resume": "继续",
+    "review": "复核",
+    "clear": "清除",
+    "gap": "{{count}} 个缺口",
+    "gap_plural": "{{count}} 个缺口",
+    "budget": "{{used}}/{{max}} 轮",
+    "revision": "r{{revision}}",
+    "status": {
+      "active": "进行中",
+      "judging": "评审中",
+      "waiting_user": "等待用户",
+      "paused": "已暂停",
+      "blocked": "已阻塞",
+      "budget_limited": "预算受限",
+      "completed": "已完成",
+      "cancelled": "已取消"
+    },
+    "phase": {
+      "extracting": "提取中",
+      "judging": "评审中",
+      "active": "进行中",
+      "waiting_user": "等待用户",
+      "paused": "已暂停",
+      "blocked": "已阻塞",
+      "budget_limited": "预算受限",
+      "completed": "已完成",
+      "cancelled": "已取消",
+      "failed": "失败",
+      "needs_clarification": "需澄清",
+      "rejected": "已拒绝"
+    },
+    "extractionStatus": {
+      "queued": "排队中",
+      "running": "运行中",
+      "accepted": "已接受",
+      "needs_clarification": "需澄清",
+      "rejected": "已拒绝",
+      "failed": "失败"
+    },
+    "judgeStatus": {
+      "queued": "排队中",
+      "running": "运行中",
+      "decided": "已判定",
+      "rejected": "已拒绝",
+      "failed": "失败",
+      "pass": "通过",
+      "continue": "进行中",
+      "needs_user": "需用户确认",
+      "blocked": "受阻"
+    }
+  }
 }

@@ -92,6 +92,7 @@ impl ToolRegistry {
     /// Register all tools
     fn register_all_tools(&mut self) {
         // Agentic OS Work control-plane tool.
+        self.register_tool(Arc::new(GoalTool::new()));
         self.register_tool(Arc::new(WorkTool::new()));
         self.register_tool(Arc::new(CapabilityRegistryTool::new()));
 

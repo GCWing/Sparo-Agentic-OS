@@ -57,6 +57,7 @@ const BridgeCallToolCard = lazy(() => import('./BridgeCallToolCard').then(module
 const WorkToolCard = lazy(() => import('./WorkToolCard').then(module => ({ default: module.WorkToolCard })));
 const OutcomeReviewToolCard = lazy(() => import('./OutcomeReviewToolCard').then(module => ({ default: module.OutcomeReviewToolCard })));
 const MemoryToolCard = lazy(() => import('./MemoryToolCard').then(module => ({ default: module.MemoryToolCard })));
+const GoalToolCard = lazy(() => import('./GoalToolCard').then(module => ({ default: module.GoalToolCard })));
 
 const TaskToolDisplay = lazy(() =>
   import('./TaskToolDisplay').then(module => ({ default: module.TaskToolDisplay })),
@@ -426,6 +427,17 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     primaryColor: 'var(--ds-tool-family-agent-app-fg)'
   },
 
+  'Goal': {
+    toolName: 'Goal',
+    displayName: 'Goal',
+    icon: 'GL',
+    requiresConfirmation: false,
+    resultDisplayType: 'detailed',
+    description: 'Report goal progress, evidence, blockers, or a completion claim',
+    displayMode: 'compact',
+    primaryColor: 'var(--ds-tool-family-planning-fg)'
+  },
+
   'SessionHistory': {
     toolName: 'SessionHistory',
     displayName: 'Read session history',
@@ -638,6 +650,7 @@ const EXACT_TOOL_UI_REGISTRY: Record<string, ToolUiRegistryEntry> = {
   SessionControl: { component: SessionControlToolCard, template: 'compact', family: 'session' },
   SessionMessage: { component: SessionMessageToolCard, template: 'compact', family: 'session' },
   Work: { component: WorkToolCard, template: 'compact', family: 'work' },
+  Goal: { component: GoalToolCard, template: 'compact', family: 'goal' },
   Memory: { component: MemoryToolCard, template: 'compact', family: 'memory' },
 
   // Detail panel family.

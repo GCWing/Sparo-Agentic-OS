@@ -16,6 +16,7 @@ import { useApp } from '../../hooks/useApp';
 import { useSessionProfile } from '../../session-profiles';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
+import { useSessionGoalSnapshot } from '@/flow_chat/store/sessionGoalStore';
 import ChatPane from './ChatPane';
 import AuxPane, { type AuxPaneRef } from './AuxPane';
 
@@ -51,6 +52,10 @@ const SessionScene: React.FC<SessionSceneProps> = ({
   const { t } = useTranslation('flow-chat');
   const { state, updateRightPanelWidth, toggleRightPanel } = useApp();
   const { profile } = useSessionProfile();
+  const goalSnapshot = useSessionGoalSnapshot(surfaceSessionId);
+  // Once the goal is completed the session returns to its normal look: drop the
+  // focus frame. The banner stays (neutral) so the result is still visible/clearable.
+  const hasGoalMode = goalSnapshot.phase !== 'none' && goalSnapshot.phase !== 'completed';
   const auxPaneRef = useRef<AuxPaneRef>(null);
 
   const [isDragging, setIsDragging] = useState(false);
@@ -225,10 +230,12 @@ const SessionScene: React.FC<SessionSceneProps> = ({
       className={[
         'sparo-session-scene',
         isDragging && 'sparo-session-scene--dragging',
+        hasGoalMode && 'sparo-session-scene--goal-mode',
         isEntering && 'layout-entering',
       ].filter(Boolean).join(' ')}
       data-agent={profile.theme.dataAgent}
       data-testid="session-scene"
+      data-goal-phase={goalSnapshot.phase}
       style={rootStyle}
     >
       {/* ChatPane �?FlowChat conversation */}

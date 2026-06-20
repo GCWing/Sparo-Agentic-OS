@@ -54,7 +54,9 @@ import { useComposerTokenUsage } from './composer/hooks/useComposerTokenUsage';
 import { ComposerHandoffStatus } from './composer/ComposerHandoffStatus';
 import { ComposerQueueTray } from './composer/ComposerQueueTray';
 import type { ChatInputTarget, ComposerSlashCommandState } from './composer/model/composerState';
+import type { BuiltinSlashCommandContext } from './composer/model/builtinSlashCommands';
 import { deriveComposerOsHandoffState } from '../domain/osHandoffIntent';
+import { supportsSessionGoal } from '../domain/goalSupport';
 import './ChatInput.scss';
 
 export interface ChatInputProps {
@@ -220,6 +222,24 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const workspaceFilesTargetPath = profile.workspaceScope.kind === 'global'
     ? null
     : (effectiveTargetSession?.workspacePath?.trim() || workspacePath || null);
+  const builtinCommandContext = useMemo<BuiltinSlashCommandContext>(() => ({
+    isBtwSession,
+    supportsGoal: supportsSessionGoal({
+      workspacePath: effectiveTargetSession?.workspacePath?.trim() || workspacePath || null,
+      workspaceScopeKind: profile.workspaceScope.kind,
+      storageScope: effectiveTargetSession?.storageScope ?? effectiveTargetSession?.descriptor.storageScope,
+      descriptor: effectiveTargetSession?.descriptor,
+      agentId: currentAgent,
+    }),
+  }), [
+    currentAgent,
+    effectiveTargetSession?.descriptor,
+    effectiveTargetSession?.storageScope,
+    effectiveTargetSession?.workspacePath,
+    isBtwSession,
+    profile.workspaceScope.kind,
+    workspacePath,
+  ]);
   const handleOpenWorkspaceFiles = useCallback(() => {
     openWorkspaceScene('file-viewer', { workspacePath: workspaceFilesTargetPath });
   }, [workspaceFilesTargetPath]);
@@ -306,7 +326,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     resolveTypedMcpPromptCommand,
   } = useComposerCommandCatalog({
     t,
-    isBtwSession,
+    builtinCommandContext,
     canSwitchAgents,
     incrementalCodeAgents,
     mcpPromptCommands,
@@ -371,6 +391,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const handleInputChange = useComposerTextInput({
     contexts,
     derivedState: derivedState ?? null,
+    builtinCommandContext,
     dispatchInput,
     inputIsActive: inputState.isActive,
     inputValueRef,
@@ -391,11 +412,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   } = useComposerAgentActions({
     canSwitchAgents,
     currentAgent,
+    builtinCommandContext,
     dispatchInput,
     dispatchMode,
     effectiveTargetSessionId,
     inputValue: inputState.value,
-    isBtwSession,
     richTextInputRef,
     setQueuedInput,
     setSlashCommandState,

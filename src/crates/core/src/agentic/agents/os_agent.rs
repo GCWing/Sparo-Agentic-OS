@@ -101,6 +101,7 @@ mod tests {
         assert!(tools.contains(&"ComputerUse".to_string()));
         assert!(tools.contains(&"Skill".to_string()));
         assert!(tools.contains(&"Memory".to_string()));
+        assert!(!tools.contains(&"Goal".to_string()));
         assert!(!tools.contains(&"WorkRead".to_string()));
         assert!(!tools.contains(&"WorkStart".to_string()));
         assert!(!tools.contains(&"WorkAdvance".to_string()));

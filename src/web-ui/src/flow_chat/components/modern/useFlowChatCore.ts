@@ -15,9 +15,11 @@ import { useFlowChatSync } from './useFlowChatSync';
 import { useFlowChatToolActions } from './useFlowChatToolActions';
 import { useFlowChatSearch } from './useFlowChatSearch';
 import {
-  useVirtualItems,
   useActiveSessionMeta,
+  useScopedSession,
   useVisibleTurnInfo,
+  getSessionVirtualItems,
+  sessionToActiveSessionMeta,
   type VisibleTurnInfo,
 } from '../../store/modernFlowChatStore';
 import type { FlowChatConfig } from '../../types/flow-chat';
@@ -39,6 +41,8 @@ import type {
 
 export interface UseFlowChatCoreOptions {
   initialTurnListOpen?: boolean;
+  sessionId?: string | null;
+  workspacePath?: string | null;
   config?: Partial<FlowChatConfig>;
   onFileViewRequest?: (filePath: string, fileName: string, lineRange?: LineRange) => void;
   onTabOpen?: (tabInfo: any, sessionId?: string, panelType?: string) => void;
@@ -49,6 +53,8 @@ export interface UseFlowChatCoreOptions {
 export function useFlowChatCore(options: UseFlowChatCoreOptions = {}) {
   const {
     initialTurnListOpen = false,
+    sessionId,
+    workspacePath: scopedWorkspacePath,
     config,
     onFileViewRequest,
     onTabOpen,
@@ -57,10 +63,26 @@ export function useFlowChatCore(options: UseFlowChatCoreOptions = {}) {
   } = options;
 
   const { t } = useTranslation('flow-chat');
-  const virtualItems = useVirtualItems();
-  const activeSession = useActiveSessionMeta();
-  const visibleTurnInfo = useVisibleTurnInfo();
-  const { workspacePath, openedWorkspacesList } = useWorkspaceContext();
+  const scopedSession = useScopedSession(sessionId);
+  const activeSession = useMemo(
+    () => sessionToActiveSessionMeta(scopedSession),
+    [scopedSession],
+  );
+  const virtualItems = useMemo(
+    () => getSessionVirtualItems(scopedSession),
+    [scopedSession],
+  );
+  const modernActiveSession = useActiveSessionMeta();
+  const rawVisibleTurnInfo = useVisibleTurnInfo();
+  const visibleTurnInfo = activeSession.sessionId === modernActiveSession.sessionId
+    ? rawVisibleTurnInfo
+    : null;
+  const {
+    workspacePath: currentWorkspacePath,
+    openedWorkspacesList,
+  } = useWorkspaceContext();
+  const effectiveWorkspacePath =
+    activeSession.workspacePath ?? scopedWorkspacePath ?? currentWorkspacePath;
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [pendingHeaderTurnId, setPendingHeaderTurnId] = useState<string | null>(null);
@@ -83,7 +105,10 @@ export function useFlowChatCore(options: UseFlowChatCoreOptions = {}) {
   } = useExploreGroupState(virtualItems);
 
   const { handleToolConfirm, handleToolReject } = useFlowChatToolActions();
-  const { handleFileViewRequest } = useFlowChatFileActions({ workspacePath, onFileViewRequest });
+  const { handleFileViewRequest } = useFlowChatFileActions({
+    workspacePath: effectiveWorkspacePath,
+    onFileViewRequest,
+  });
 
   useFlowChatSync();
   useFlowChatCopyDialog();
@@ -319,7 +344,7 @@ export function useFlowChatCore(options: UseFlowChatCoreOptions = {}) {
     setTurnListSearchFocusRequest,
 
     // Workspace
-    workspacePath,
+    workspacePath: effectiveWorkspacePath,
     workspaceDisplayName,
 
     // Pre-built context values

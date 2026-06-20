@@ -20,6 +20,7 @@ pub mod cron_api;
 pub mod diff_api;
 pub mod dto;
 pub mod global_milestone_api;
+pub mod goal_api;
 pub mod host_scan_api;
 pub mod i18n_api;
 pub mod live_app_api;
