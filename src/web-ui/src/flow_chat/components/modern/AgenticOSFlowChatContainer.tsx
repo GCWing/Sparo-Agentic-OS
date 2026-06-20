@@ -24,6 +24,7 @@ import {
 } from './FlowChatContext';
 import { useAgenticOsTimeline } from '../../hooks/useAgenticOsTimeline';
 import { useFlowChatCore, type UseFlowChatCoreOptions } from './useFlowChatCore';
+import { useSessionSidecarActions } from './useSessionSidecarActions';
 import { createLogger } from '@/shared/utils/logger';
 import { getAgenticOsSessionDescriptor } from '../../domain/sessionDescriptor';
 import './ModernFlowChatContainer.scss';
@@ -75,6 +76,7 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
     () => ({ ...staticContextValue, ...viewContextValue }),
     [staticContextValue, viewContextValue],
   );
+  const sidecarActions = useSessionSidecarActions();
 
   // ── Agentic OS-specific state ─────────────────────────────────────────────
   const agenticOsTimeline = useAgenticOsTimeline();
@@ -433,6 +435,7 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
               turnListTooltipOverride={t('agenticOsTimeline.toggleTooltip', {
                 defaultValue: 'Timeline',
               })}
+              sidecarActions={sidecarActions}
             />
 
             <div className="modern-flowchat-container__body modern-flowchat-container__body--agentic-os">

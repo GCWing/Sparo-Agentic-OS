@@ -405,7 +405,7 @@ pub fn build_csp_content(permissions: &LiveAppPermissions) -> String {
         .map(|v| v.iter().map(|d| d.as_str()).collect::<Vec<_>>())
         .unwrap_or_default();
 
-    let connect_src = if net_allow.is_empty() {
+    let external_src = if net_allow.is_empty() {
         "'self'".to_string()
     } else if net_allow.contains(&"*") {
         "'self' *".to_string()
@@ -423,8 +423,8 @@ pub fn build_csp_content(permissions: &LiveAppPermissions) -> String {
     };
 
     format!(
-        "default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' data: https:; style-src 'self' 'unsafe-inline' https:; connect-src 'self' {}; img-src 'self' data: https:; font-src 'self' https:; object-src 'none'; base-uri 'self';",
-        connect_src
+        "default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' data: https:; style-src 'self' 'unsafe-inline' https:; connect-src {}; frame-src {}; child-src {}; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; font-src 'self' data: https:; worker-src 'self' blob:; object-src 'none'; base-uri 'self';",
+        external_src, external_src, external_src
     )
 }
 

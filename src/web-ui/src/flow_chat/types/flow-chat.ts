@@ -3,7 +3,13 @@
  * Supports mixed streaming output.
  */
 
-import type { DialogTurnKind, SessionKind, SessionStorageScope, TriggerSource } from '@/shared/types/session-history';
+import type {
+  DialogTurnKind,
+  SessionCustomMetadata,
+  SessionKind,
+  SessionStorageScope,
+  TriggerSource,
+} from '@/shared/types/session-history';
 import type { ExecutionNodeActivity, ExecutionNodeStatus, ToolRuntimeState } from '../runtime/statusModel';
 import type { SessionDescriptor } from '../domain/sessionDescriptor';
 
@@ -323,6 +329,9 @@ export interface Session {
   /** Persistence namespace for this session. Identity comes from descriptor, not storage scope. */
   storageScope?: SessionStorageScope;
 
+  /** Durable app/workbench-specific metadata kept with the session history record. */
+  customMetadata?: SessionCustomMetadata;
+
   /**
    * Optional parent session id for hierarchical sessions.
    * Used by transient child sessions such as /btw and /scan_host.
@@ -386,6 +395,12 @@ export interface SessionConfig {
   /** Binds session to `WorkspaceInfo.id` (path alone is insufficient for remotes). */
   workspaceId?: string;
   storageScope?: SessionStorageScope;
+  /** Optional initial persisted title for product-owned sessions. */
+  sessionName?: string;
+  /** Optional key used to deduplicate session creation for app-scoped workbenches. */
+  creationDeduplicationKey?: string;
+  /** Metadata persisted with the session, used by profile-owned workbench panels. */
+  customMetadata?: SessionCustomMetadata;
 }
 
 export interface QueuedMessage {

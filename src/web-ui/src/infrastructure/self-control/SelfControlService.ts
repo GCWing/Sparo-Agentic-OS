@@ -17,6 +17,7 @@ import { openWorkspaceHome, openWorkspaceScene } from '@/app/navigation/workspac
 import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
 import { useSettingsStore } from '@/app/scenes/settings/settingsStore';
 import { useLiveAppStore } from '@/app/scenes/apps/live-app/liveAppStore';
+import { openLiveApp as openLiveAppWorkbench } from '@/app/scenes/apps/live-app/liveAppWorkbenchService';
 import { configManager } from '@/infrastructure/config';
 import { getModelDisplayName } from '@/infrastructure/config/services/modelConfigs';
 import { matchProviderCatalogItemByBaseUrl } from '@/infrastructure/config/services/providerCatalog';
@@ -863,8 +864,11 @@ export class SelfControlService {
         ],
       );
     }
+    const activeSurface = useWorkspaceSurfaceStore.getState().activeSurface;
+    const workspacePath =
+      activeSurface.kind === 'scene' ? activeSurface.workspacePath : undefined;
     useLiveAppStore.getState().openApp(id);
-    openWorkspaceScene(`live-app:${id}` as any);
+    void openLiveAppWorkbench(known, { workspacePath });
     return `Opened live app "${known.name}" (id=${id})`;
   }
 

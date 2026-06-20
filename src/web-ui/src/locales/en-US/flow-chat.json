@@ -327,7 +327,15 @@
     "resetHistory": "Reset history",
     "moreMenu": "More",
     "showCompletedThinkingInConversation": "Show/hide thinking",
-    "resetSession": "Reset session"
+    "resetSession": "Reset session",
+    "sidecar": {
+      "groupLabel": "Session panels",
+      "more": "More panels",
+      "designs": "Designs",
+      "designTokens": "Design Tokens",
+      "liveAppStudio": "Live App Builder",
+      "agentAppStudio": "Agent App Builder"
+    }
   },
   "turnList": {
     "timeFilterTooltip": "Filter by time",

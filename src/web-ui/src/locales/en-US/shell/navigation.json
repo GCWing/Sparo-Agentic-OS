@@ -385,6 +385,7 @@
     "resultCount": "{{count}} results",
     "executor": {
       "systemGroup": "Built-in executors",
+      "liveAppGroup": "Live Apps",
       "extensionGroup": "Extensions",
       "systemBadge": "Built-in",
       "primeBuilder": "Prime Builder",

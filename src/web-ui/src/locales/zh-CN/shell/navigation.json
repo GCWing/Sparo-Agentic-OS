@@ -385,6 +385,7 @@
     "resultCount": "{{count}} 个结果",
     "executor": {
       "systemGroup": "内置执行者",
+      "liveAppGroup": "灵动应用",
       "extensionGroup": "扩展",
       "systemBadge": "内置",
       "primeBuilder": "构造师",

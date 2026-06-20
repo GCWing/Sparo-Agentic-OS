@@ -275,6 +275,69 @@ pub struct LiveAppBackendActionBinding {
     pub allow_state_patch: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum LiveAppInteractionMode {
+    Standalone,
+    Composite,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum LiveAppInteractionText {
+    Plain(String),
+    Localized(HashMap<String, String>),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveAppInteractionChat {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub backend_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_app_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_policy: Option<LiveAppBackendSessionPolicy>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub memory_scope: Option<LiveAppBackendMemoryScope>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub initial_prompt_key: Option<String>,
+    #[serde(default)]
+    pub allow_user_prompt: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveAppInteractionTab {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub tab_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<LiveAppInteractionText>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title_key: Option<String>,
+    #[serde(default)]
+    pub default: bool,
+    #[serde(default)]
+    pub developer_only: bool,
+    #[serde(default, skip_serializing_if = "serde_json::Value::is_null")]
+    pub data: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveAppInteraction {
+    pub mode: LiveAppInteractionMode,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<LiveAppInteractionText>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chat: Option<LiveAppInteractionChat>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tabs: Vec<LiveAppInteractionTab>,
+}
+
 /// AI context for iteration (stored in meta, not in compiled HTML).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LiveAppAiContext {
@@ -376,6 +439,9 @@ pub struct LiveApp {
     pub backends: Vec<LiveAppBackendBinding>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub interaction: Option<LiveAppInteraction>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub ai_context: Option<LiveAppAiContext>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub permission_rationale: Option<String>,
@@ -426,6 +492,8 @@ pub struct LiveAppMeta {
     #[serde(default)]
     pub backends: Vec<LiveAppBackendBinding>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub interaction: Option<LiveAppInteraction>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub ai_context: Option<LiveAppAiContext>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub permission_rationale: Option<String>,
@@ -448,6 +516,7 @@ impl From<&LiveApp> for LiveAppMeta {
             updated_at: app.updated_at,
             permissions: app.permissions.clone(),
             backends: app.backends.clone(),
+            interaction: app.interaction.clone(),
             ai_context: app.ai_context.clone(),
             permission_rationale: app.permission_rationale.clone(),
             runtime: app.runtime.clone(),

@@ -58,6 +58,10 @@ interface RuntimeLogPayload {
   timestampMs?: number;
 }
 
+interface LiveAppBridgeOptions {
+  workspacePath?: string | null;
+}
+
 const NOOP_BRIDGE_METHODS = new Set([
   // Emitted by the injected scroll-boundary script when iframe scrolling reaches an edge.
   'sparo/sandbox-wheel',
@@ -79,6 +83,7 @@ function errorMessage(error: unknown): string {
 export function useLiveAppBridge(
   iframeRef: RefObject<HTMLIFrameElement>,
   app: LiveApp,
+  options: LiveAppBridgeOptions = {},
 ) {
   const { workspacePath } = useLastUsedWorkspace();
   const { theme: currentTheme } = useTheme();
@@ -87,8 +92,8 @@ export function useLiveAppBridge(
   themeRef.current = currentTheme;
   const localeRef = useRef(currentLanguage);
   localeRef.current = currentLanguage;
-  const workspacePathRef = useRef(workspacePath);
-  workspacePathRef.current = workspacePath;
+  const workspacePathRef = useRef(options.workspacePath || workspacePath);
+  workspacePathRef.current = options.workspacePath || workspacePath;
   const agenticSessionIdsRef = useRef<Set<string>>(new Set());
 
   const appIdRef = useRef(app.id);

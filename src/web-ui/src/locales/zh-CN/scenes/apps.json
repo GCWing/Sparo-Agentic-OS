@@ -153,6 +153,10 @@
     "agentAppStudio": {
       "name": "智能应用构建器",
       "description": "用于创建 FlowChat 原生智能应用，包含 prompt、权限、示例和 JavaScript runtime 工具定义。"
+    },
+    "liveAppWorkbench": {
+      "name": "灵动应用工作台",
+      "description": "左侧 FlowChat、右侧应用工具面板的复合灵动应用界面。"
     }
   },
   "appDetail": {

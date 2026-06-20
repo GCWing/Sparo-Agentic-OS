@@ -14,6 +14,7 @@ import { coworkProfile } from './profiles/coworkProfile';
 import { designProfile } from './profiles/designProfile';
 import { deepResearchProfile } from './profiles/deepResearchProfile';
 import { liveAppStudioProfile } from './profiles/liveAppStudioProfile';
+import { liveAppWorkbenchProfile } from './profiles/liveAppWorkbenchProfile';
 import { agentAppStudioProfile } from './profiles/agentAppStudioProfile';
 import type { SessionProfileId } from '@/flow_chat/domain/sessionDescriptor';
 
@@ -23,6 +24,7 @@ import type { SessionProfileId } from '@/flow_chat/domain/sessionDescriptor';
  */
 const PROFILES: readonly SessionProfile[] = [
   agenticOsProfile,
+  liveAppWorkbenchProfile,
   liveAppStudioProfile,
   agentAppStudioProfile,
   coworkProfile,

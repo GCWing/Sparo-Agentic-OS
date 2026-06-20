@@ -509,7 +509,9 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
 
   const handleOpenSurface = useCallback(async (work: WorkRecord, surface: WorkSurfaceRef) => {
     try {
-      await openWorkSurface(surface, work.id);
+      await openWorkSurface(surface, work.id, {
+        workspacePath: work.scope.kind === 'workspace' ? work.scope.workspacePath : undefined,
+      });
     } catch (error) {
       log.error('Failed to open work surface from Work Center', { workId: work.id, surfaceKind: surface.kind, error });
       notificationService.error(t('errors.openSurfaceFailed'));

@@ -34,6 +34,33 @@ export const agentAppStudioProfile: SessionProfile = {
     exclusiveTabTypes: ['agent-app-studio'],
   },
 
+  sidecarActions(sessionId, extra) {
+    const duplicateCheckKey = `agent-app-studio:${sessionId}`;
+    return [
+      {
+        id: 'agent-app-studio',
+        labelKey: 'flowChatHeader.sidecar.agentAppStudio',
+        defaultLabel: 'Agent App Builder',
+        icon: 'app-window',
+        order: 10,
+        panel: {
+          type: 'agent-app-studio',
+          title: (extra?.tabTitle as string | undefined) ?? 'Agent App Builder',
+          data: {
+            sessionId,
+            appId: extra?.appId,
+          },
+          metadata: {
+            agentAppStudioSessionId: sessionId,
+            duplicateCheckKey,
+          },
+          duplicateCheckKey,
+          replaceExisting: true,
+        },
+      },
+    ];
+  },
+
   capabilities: {
     canSwitchAgents: false,
     showWelcomePanel: true,

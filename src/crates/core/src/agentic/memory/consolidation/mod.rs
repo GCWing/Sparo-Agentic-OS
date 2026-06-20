@@ -4,6 +4,6 @@ mod state;
 
 pub use runner::{
     get_global_memory_consolidation_service, set_global_memory_consolidation_service,
-    ManualMemoryConsolidationRequest, MemoryConsolidationService, MemoryConsolidationStatusSnapshot,
-    MemoryConsolidationSummary,
+    ManualMemoryConsolidationRequest, MemoryConsolidationService,
+    MemoryConsolidationStatusSnapshot, MemoryConsolidationSummary,
 };

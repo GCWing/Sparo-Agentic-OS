@@ -49,6 +49,10 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
     primaryGroup,
     secondaryGroup,
     addTab,
+    findTabByMetadata,
+    promoteTab,
+    switchToTab,
+    updateTabContent,
   } = useCanvasStore();
 
   const { state, toggleRightPanel, updateRightPanelWidth } = useApp();
@@ -169,19 +173,23 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
     const extra: Record<string, unknown> = {
       appId: studioAppId,
       tabTitle,
+      liveAppWorkbench: activeSession.customMetadata?.liveAppWorkbench,
+      customMetadata: activeSession.customMetadata,
     };
 
-    const descriptor = profile.auxTabs.autoOpen(activeSession.sessionId, extra);
-    if (!descriptor) return;
+    const autoOpenResult = profile.auxTabs.autoOpen(activeSession.sessionId, extra);
+    if (!autoOpenResult) return;
+    const descriptors = Array.isArray(autoOpenResult) ? autoOpenResult : [autoOpenResult];
+    if (descriptors.length === 0) return;
 
     log.debug('Auto-opening profile tab', {
       profileId: profile.id,
       sessionId: activeSession.sessionId,
-      tabType: descriptor.type,
+      tabTypes: descriptors.map(descriptor => descriptor.type),
     });
 
-    addTab(
-      {
+    descriptors.forEach((descriptor) => {
+      const content = {
         type: descriptor.type,
         title: descriptor.title,
         data: descriptor.data,
@@ -189,11 +197,37 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
           ...descriptor.metadata,
           duplicateCheckKey: descriptor.duplicateCheckKey,
         },
-      },
-      'active',
-    );
+      };
+
+      if (descriptor.duplicateCheckKey) {
+        const existing = findTabByMetadata({ duplicateCheckKey: descriptor.duplicateCheckKey });
+        if (existing) {
+          if (descriptor.replaceExisting) {
+            updateTabContent(existing.tab.id, existing.groupId, content);
+          }
+          switchToTab(existing.tab.id, existing.groupId);
+          if (existing.tab.state === 'preview') {
+            promoteTab(existing.tab.id, existing.groupId);
+          }
+          return;
+        }
+      }
+
+      addTab(content, 'active');
+    });
     expandPanel();
-  }, [activeSession?.sessionId, profile, studioAppId, addTab, expandPanel]);
+  }, [
+    activeSession?.customMetadata,
+    activeSession?.sessionId,
+    addTab,
+    expandPanel,
+    findTabByMetadata,
+    profile,
+    promoteTab,
+    studioAppId,
+    switchToTab,
+    updateTabContent,
+  ]);
 
   /**
    * Profile-driven exclusive tab cleanup: when the profile changes (user switches
@@ -215,6 +249,44 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
     // stored. The actual close happens on the next profile change.
     lastCleanedProfileIdRef.current = profile.id;
   }, [profile.id, profile.auxTabs.exclusiveTabTypes]);
+
+  useEffect(() => {
+    if (!isInitializedRef.current) return;
+    if (!activeSession?.sessionId) return;
+
+    const workbenchTabTypes = [
+      'live-app-runner',
+      'live-app-workbench-tab',
+      'live-app-diagnostics',
+    ];
+    const currentOwnedTypes = profile.auxTabs.exclusiveTabTypes || [];
+    const maxPasses = 48;
+    const groupIds: EditorGroupId[] = ['primary', 'secondary', 'tertiary'];
+    for (let pass = 0; pass < maxPasses; pass++) {
+      const store = useAgentCanvasStore.getState() as any;
+      let closedOne = false;
+      for (const groupId of groupIds) {
+        const group =
+          groupId === 'primary'
+            ? store.primaryGroup
+            : groupId === 'secondary'
+              ? store.secondaryGroup
+              : store.tertiaryGroup;
+        const tab = group?.tabs?.find((t: any) => {
+          if (!workbenchTabTypes.includes(t.content.type)) return false;
+          const bound = t.content.metadata?.boundSessionId;
+          const ownedByCurrentProfile = currentOwnedTypes.includes(t.content.type);
+          return !ownedByCurrentProfile || (typeof bound === 'string' && bound !== activeSession.sessionId);
+        });
+        if (tab) {
+          store.closeTab(tab.id, groupId, { forceRemove: true });
+          closedOne = true;
+          break;
+        }
+      }
+      if (!closedOne) break;
+    }
+  }, [activeSession?.sessionId, profile]);
 
   /**
    * Non-LiveAppStudio sessions: close any live-app-studio tabs that don't belong

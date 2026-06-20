@@ -72,11 +72,38 @@
   // ==================== Search (right-aligned strip; does not span full header) ====================
   &__search-action,
   &__thinking-toggle,
-  &__more-menu-trigger {
+  &__more-menu-trigger,
+  &__sidecar-action,
+  &__sidecar-more {
     flex: 0 0 auto;
 
     &:not(:disabled):hover {
       background: color-mix(in srgb, var(--ds-chat-surface-muted) 82%, transparent);
+    }
+  }
+
+  &__sidecar-actions {
+    display: flex;
+    align-items: center;
+    gap: $size-gap-1;
+    flex: 0 0 auto;
+  }
+
+  &__sidecar-more-wrap {
+    position: relative;
+    flex: 0 0 auto;
+  }
+
+  &__sidecar-action {
+    color: var(--ds-chat-text-secondary);
+
+    &--open {
+      background: color-mix(in srgb, var(--ds-chat-surface-muted) 68%, transparent);
+    }
+
+    &--active {
+      color: var(--ds-chat-text-primary);
+      background: color-mix(in srgb, var(--ds-chat-surface-muted) 86%, transparent);
     }
   }
 

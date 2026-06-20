@@ -43,6 +43,7 @@ import {
   descriptorFromAgentType,
   getBackendAgentType,
   getDefaultSessionDescriptor,
+  getLiveAppWorkbenchSessionDescriptor,
   isEvolutionLabSession,
   isSystemAgenticOsSession,
   withActiveAgentId,
@@ -57,6 +58,17 @@ type ToolItemLocation = {
   itemId: string;
   item: FlowItem;
 };
+
+function descriptorFromSessionMetadata(
+  metadata: SessionMetadata,
+  fallbackAgentType: string
+): SessionDescriptor {
+  const liveAppWorkbench = metadata.customMetadata?.liveAppWorkbench;
+  if (liveAppWorkbench) {
+    return getLiveAppWorkbenchSessionDescriptor();
+  }
+  return descriptorFromAgentType(metadata.agentType || fallbackAgentType);
+}
 
 export interface FlowChatSessionHeader {
   sessionId: string;
@@ -437,6 +449,7 @@ export class FlowChatStore {
         workspacePath,
         workspaceId: config.workspaceId,
         storageScope: storageScope ?? config.storageScope ?? descriptor.storageScope,
+        customMetadata: config.customMetadata,
         parentSessionId: relationship.parentSessionId,
         sessionKind: relationship.sessionKind,
         btwThreads: [],
@@ -469,6 +482,7 @@ export class FlowChatStore {
       sessionKind?: SessionKind;
       btwOrigin?: Session['btwOrigin'];
       isTransient?: boolean;
+      customMetadata?: Session['customMetadata'];
     },
     storageScope?: import('@/shared/types/session-history').SessionStorageScope
   ): void {
@@ -503,6 +517,7 @@ export class FlowChatStore {
         isHistorical: false,
         workspacePath,
         storageScope: storageScope ?? descriptor.storageScope,
+        customMetadata: meta?.customMetadata,
         parentSessionId: relationship.parentSessionId,
         sessionKind: relationship.sessionKind,
         btwThreads: [],
@@ -1942,7 +1957,10 @@ export class FlowChatStore {
         this.setState(prev => {
           const currentSession = prev.sessions.get(metadata.sessionId);
           if (!currentSession) return prev;
-          const descriptor = descriptorFromAgentType(metadata.agentType || getBackendAgentType(currentSession.descriptor));
+          const descriptor = descriptorFromSessionMetadata(
+            metadata,
+            getBackendAgentType(currentSession.descriptor),
+          );
 
           const nextSessions = new Map(prev.sessions);
           nextSessions.set(metadata.sessionId, {
@@ -1959,6 +1977,7 @@ export class FlowChatStore {
             todos: metadata.todos || currentSession.todos || [],
             workspacePath: metadata.workspacePath || currentSession.workspacePath || workspacePath,
             storageScope: metadata.storageScope || currentSession.storageScope || storageScope || descriptor.storageScope,
+            customMetadata: metadata.customMetadata || currentSession.customMetadata,
             parentSessionId: relationship.parentSessionId,
             sessionKind: relationship.sessionKind,
             btwOrigin: relationship.btwOrigin,
@@ -2011,7 +2030,7 @@ export class FlowChatStore {
         }
 
         const rawAgentType = metadata.agentType || 'agentic';
-        const descriptor = descriptorFromAgentType(rawAgentType);
+        const descriptor = descriptorFromSessionMetadata(metadata, rawAgentType);
         const backendAgentType = getBackendAgentType(descriptor);
 
         const session: Session = {
@@ -2035,6 +2054,7 @@ export class FlowChatStore {
           descriptor,
           workspacePath: metadata.workspacePath || workspacePath,
           storageScope: metadata.storageScope || storageScope || descriptor.storageScope,
+          customMetadata: metadata.customMetadata,
           parentSessionId: relationship.parentSessionId,
           sessionKind: relationship.sessionKind,
           btwThreads: [],

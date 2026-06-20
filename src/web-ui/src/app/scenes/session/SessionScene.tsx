@@ -228,6 +228,7 @@ const SessionScene: React.FC<SessionSceneProps> = ({
         isEntering && 'layout-entering',
       ].filter(Boolean).join(' ')}
       data-agent={profile.theme.dataAgent}
+      data-testid="session-scene"
       style={rootStyle}
     >
       {/* ChatPane �?FlowChat conversation */}

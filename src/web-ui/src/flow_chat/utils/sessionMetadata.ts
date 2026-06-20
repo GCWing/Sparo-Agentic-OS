@@ -158,13 +158,19 @@ export function calculateSessionStats(
 }
 
 function buildSessionCustomMetadata(
-  session: Pick<Session, 'sessionKind' | 'parentSessionId' | 'btwOrigin' | 'lastFinishedAt'>,
+  session: Pick<Session, 'sessionKind' | 'parentSessionId' | 'btwOrigin' | 'lastFinishedAt' | 'customMetadata'>,
   existingCustomMetadata?: SessionCustomMetadata
 ): SessionCustomMetadata {
   const normalized = normalizeSessionRelationship(session);
   const nextCustomMetadata: SessionCustomMetadata = {};
 
   for (const [key, value] of Object.entries(existingCustomMetadata || {})) {
+    if (!RELATIONSHIP_METADATA_KEYS.has(key)) {
+      nextCustomMetadata[key] = value;
+    }
+  }
+
+  for (const [key, value] of Object.entries(session.customMetadata || {})) {
     if (!RELATIONSHIP_METADATA_KEYS.has(key)) {
       nextCustomMetadata[key] = value;
     }
@@ -215,6 +221,7 @@ export function buildSessionMetadata(
     | 'parentSessionId'
     | 'btwOrigin'
     | 'lastFinishedAt'
+    | 'customMetadata'
     | 'hasUnreadCompletion'
     | 'needsUserAttention'
   >,
@@ -257,6 +264,7 @@ export function buildSessionMetadata(
         parentSessionId: session.parentSessionId,
         btwOrigin: session.btwOrigin,
         lastFinishedAt: session.lastFinishedAt,
+        customMetadata: session.customMetadata,
       },
       existingMetadata?.customMetadata
     ),

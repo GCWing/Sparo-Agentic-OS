@@ -8,6 +8,7 @@ import {
   useWorkspaceContext,
 } from '@/infrastructure/contexts/WorkspaceContext';
 import { agentAppAPI, type AgentAppInfo } from '@/infrastructure/api/service-api/AgentAppAPI';
+import { liveAppAPI, type LiveAppMeta } from '@/infrastructure/api/service-api/LiveAppAPI';
 import { descriptorFromAgentType, getBackendAgentType, type SessionDescriptor } from '@/flow_chat/domain/sessionDescriptor';
 import { createOsHandoffMetadata } from '@/flow_chat/domain/osHandoffIntent';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
@@ -19,6 +20,8 @@ import type { WorkRecord } from '@/app/agentic-os/work/domain/workTypes';
 import type { WorkspaceInfo } from '@/shared/types';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
+import { isCompositeLiveApp } from '@/app/scenes/apps/live-app/liveAppInteraction';
+import { resolveLiveAppMeta } from '@/app/scenes/apps/live-app/liveAppI18n';
 import './NewWorkDialog.scss';
 
 const log = createLogger('NewWorkDialog');
@@ -27,6 +30,7 @@ const LS_AGENT = 'sparo.newWorkDialog.agent';
 const LS_WORKSPACE = 'sparo.newWorkDialog.workspaceId';
 const SYSTEM_WORKSPACE_VALUE = '__system_work__';
 const BROWSED_WORKSPACE_VALUE = '__browsed_workspace__';
+const LIVE_APP_CHOICE_PREFIX = 'live-app:';
 
 type NewWorkStartMode = 'manual' | 'agentic-os';
 
@@ -45,7 +49,23 @@ export interface NewWorkDialogProps {
   initialAgentChoice?: NewWorkAgentChoice;
 }
 
+function liveAppWorkChoice(appId: string): NewWorkAgentChoice {
+  return `${LIVE_APP_CHOICE_PREFIX}${appId}` as NewWorkAgentChoice;
+}
+
+function parseLiveAppWorkChoice(agentChoice: NewWorkAgentChoice): string | null {
+  const raw = String(agentChoice);
+  if (!raw.startsWith(LIVE_APP_CHOICE_PREFIX)) return null;
+  const appId = raw.slice(LIVE_APP_CHOICE_PREFIX.length).trim();
+  return appId || null;
+}
+
 function labelForChoice(agentChoice: NewWorkAgentChoice): string {
+  const liveAppId = parseLiveAppWorkChoice(agentChoice);
+  if (liveAppId) {
+    return `${liveAppId} Work`;
+  }
+
   switch (agentChoice) {
     case 'agentic':
       return 'Code Work';
@@ -129,6 +149,45 @@ export async function launchWorkForChoice(params: {
   objective?: string;
 }): Promise<WorkRecord> {
   const { agentChoice, workspace, rememberWorkspace, title, objective } = params;
+  const liveAppId = parseLiveAppWorkChoice(agentChoice);
+  if (liveAppId) {
+    const explicitTitle = title?.trim();
+    const explicitObjective = objective?.trim();
+    let liveAppName = liveAppId;
+
+    try {
+      const app = await liveAppAPI.getLiveApp(liveAppId, undefined, workspace?.rootPath);
+      liveAppName = resolveLiveAppMeta(app).name || app.name || liveAppId;
+    } catch (error) {
+      log.warn('Failed to resolve Live App name for work creation', { liveAppId, error });
+    }
+
+    const work = await useWorkStore.getState().createWork({
+      kind: 'app_workflow',
+      title: explicitTitle || liveAppName,
+      objective: explicitObjective || liveAppName,
+      scope: workspace
+        ? { kind: 'workspace', workspacePath: workspace.rootPath }
+        : { kind: 'system' },
+      visibility: 'primary',
+      primarySurfacePolicy: 'live_app',
+      liveAppId,
+      titleState: explicitTitle
+        ? { source: 'user', locked: true }
+        : { source: 'live_app', locked: false, subjectRef: liveAppId },
+      assignment: {
+        kind: 'application',
+        applicationId: liveAppId,
+      },
+    });
+
+    if (workspace) {
+      await rememberWorkspace(workspace.id);
+    }
+    await openWork(work);
+    return work;
+  }
+
   const descriptor = resolveDescriptorFromChoice(agentChoice);
   const backendAgentType = getBackendAgentType(descriptor);
   const explicitTitle = title?.trim();
@@ -169,7 +228,7 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
   onClose,
   initialAgentChoice,
 }) => {
-  const { t } = useI18n('common');
+  const { t, currentLanguage } = useI18n('common');
   const {
     openedWorkspacesList,
     recentWorkspaces,
@@ -185,19 +244,29 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
   const [objective, setObjective] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [userAgentApps, setUserAgentApps] = useState<AgentAppInfo[]>([]);
+  const [liveAppChoices, setLiveAppChoices] = useState<LiveAppMeta[]>([]);
 
   const knownBuiltinChoices = useMemo<Set<string>>(
     () => new Set(['agentic', 'Cowork', 'Design', 'DeepResearch', 'LiveAppStudio', 'AgentAppStudio']),
     []
   );
 
-  const resetDefaults = useCallback((loadedApps?: AgentAppInfo[]) => {
+  const resetDefaults = useCallback((loadedApps?: AgentAppInfo[], loadedLiveApps?: LiveAppMeta[]) => {
     const apps = loadedApps ?? userAgentApps;
+    const choiceLiveApps = loadedLiveApps ?? liveAppChoices;
     let storedAgent: NewWorkAgentChoice | null = null;
     let storedWorkspaceId: string | null = null;
     try {
       const rawAgent = localStorage.getItem(LS_AGENT) as NewWorkAgentChoice | null;
-      if (rawAgent && (knownBuiltinChoices.has(rawAgent) || apps.some((app) => app.id === rawAgent))) {
+      const liveAppId = rawAgent ? parseLiveAppWorkChoice(rawAgent) : null;
+      if (
+        rawAgent &&
+        (
+          knownBuiltinChoices.has(rawAgent) ||
+          apps.some((app) => app.id === rawAgent) ||
+          (liveAppId && choiceLiveApps.some((app) => app.id === liveAppId))
+        )
+      ) {
         storedAgent = rawAgent;
       }
       storedWorkspaceId = localStorage.getItem(LS_WORKSPACE);
@@ -216,6 +285,7 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
     initialAgentChoice,
     knownBuiltinChoices,
     lastUsedWorkspace,
+    liveAppChoices,
     openedWorkspacesList,
     recentWorkspaces,
     userAgentApps,
@@ -224,14 +294,21 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
-    agentAppAPI.listAgentApps().then((apps) => {
+    Promise.all([
+      agentAppAPI.listAgentApps(),
+      liveAppAPI.listLiveApps(),
+    ]).then(([apps, liveApps]) => {
       if (cancelled) return;
       setUserAgentApps(apps);
-      resetDefaults(apps);
+      const compositeLiveApps = liveApps.filter(isCompositeLiveApp);
+      setLiveAppChoices(compositeLiveApps);
+      resetDefaults(apps, compositeLiveApps);
     }).catch((error) => {
       if (cancelled) return;
-      log.error('Failed to load agent apps', { error });
-      resetDefaults([]);
+      log.error('Failed to load work executors', { error });
+      setUserAgentApps([]);
+      setLiveAppChoices([]);
+      resetDefaults([], []);
     });
     return () => {
       cancelled = true;
@@ -308,6 +385,15 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
         description: t('nav.workDock.executor.agentAppBuilderDescription'),
         group: t('nav.workDock.executor.systemGroup'),
       },
+      ...liveAppChoices.map((app) => {
+        const displayMeta = resolveLiveAppMeta(app, currentLanguage);
+        return {
+          value: liveAppWorkChoice(app.id),
+          label: displayMeta.name,
+          description: displayMeta.description,
+          group: t('nav.workDock.executor.liveAppGroup'),
+        };
+      }),
       ...userAgentApps.filter((app) => app.enabled).map((app) => ({
         value: app.id,
         label: app.name,
@@ -315,7 +401,7 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
         group: t('nav.workDock.executor.extensionGroup'),
       })),
     ],
-    [t, userAgentApps]
+    [currentLanguage, liveAppChoices, t, userAgentApps]
   );
 
   const startModeOptions = useMemo<Array<{
@@ -517,7 +603,7 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
       showCloseButton
       closeOnOverlayClick={false}
     >
-      <div className="new-work-dialog">
+      <div className="new-work-dialog" data-testid="new-work-dialog">
         <header className="new-work-dialog__masthead">
           <div className="new-work-dialog__intent-line">
             <span className="new-work-dialog__intent-prefix">{t('nav.workDock.intentPrefix')}</span>
@@ -591,6 +677,7 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
                 </div>
                 <div className="new-work-dialog__control">
                   <Select
+                    id="new-work-agent-select"
                     size="medium"
                     options={agentOptions}
                     value={agentChoice}
@@ -666,6 +753,7 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
             isLoading={submitting}
             onClick={() => void handleConfirm()}
             disabled={!canSubmit}
+            data-testid="new-work-confirm"
           >
             {startMode === 'agentic-os'
               ? t('nav.workDock.confirmDispatch')

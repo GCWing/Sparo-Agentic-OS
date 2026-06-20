@@ -19,6 +19,8 @@ import { useI18n } from '@/infrastructure/i18n';
 import { useLiveAppActions } from './live-app/hooks/useLiveAppActions';
 import { useHeaderStore } from '@/app/stores/headerStore';
 import { resolveLiveAppMeta } from './live-app/liveAppI18n';
+import { isCompositeLiveApp } from './live-app/liveAppInteraction';
+import { openLiveApp } from './live-app/liveAppWorkbenchService';
 import './LiveAppScene.scss';
 
 const log = createLogger('LiveAppScene');
@@ -63,6 +65,16 @@ const LiveAppScene: React.FC<LiveAppSceneProps> = ({ appId }) => {
     try {
       const theme = themeType ?? 'dark';
       const loaded = await liveAppAPI.getLiveApp(id, theme, workspacePath || undefined);
+      if (isCompositeLiveApp(loaded)) {
+        setApp(null);
+        setError(null);
+        await openLiveApp(loaded, {
+          workspacePath: workspacePath || undefined,
+          locale: currentLanguage,
+          theme,
+        });
+        return;
+      }
       setApp(loaded);
       setError(null);
     } catch (err) {
@@ -71,7 +83,7 @@ const LiveAppScene: React.FC<LiveAppSceneProps> = ({ appId }) => {
     } finally {
       setLoading(false);
     }
-  }, [themeType, workspacePath]);
+  }, [currentLanguage, themeType, workspacePath]);
 
   useEffect(() => {
     if (appId) void load(appId);
@@ -152,7 +164,7 @@ const LiveAppScene: React.FC<LiveAppSceneProps> = ({ appId }) => {
   );
 
   return (
-    <div className="live-app-scene">
+    <div className="live-app-scene" data-testid="live-app-scene">
       <div className="live-app-scene__content">
         {loading && !app ? (
           <div className="live-app-scene__loading">

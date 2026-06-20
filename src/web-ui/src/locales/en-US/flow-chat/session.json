@@ -9,6 +9,7 @@
   "newDesignWithIndex": "New Designer Session {{count}}",
   "newLiveAppStudioWithIndex": "Live App Builder {{count}}",
   "newAgentAppStudioWithIndex": "Agent App Builder {{count}}",
+  "newLiveAppWorkbenchWithIndex": "Live App Workbench {{count}}",
   "agenticOs": "Agentic OS",
   "title": "Session",
   "chatWithAgent": "Chat with {{name}}",

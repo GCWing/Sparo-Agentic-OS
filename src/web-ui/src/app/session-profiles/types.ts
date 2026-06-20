@@ -20,7 +20,42 @@ export interface TabAutoOpenDescriptor {
   /** Prevent duplicate tabs of the same key. */
   duplicateCheckKey?: string;
   replaceExisting?: boolean;
+  targetGroup?: 'primary' | 'secondary';
+  enableSplitView?: boolean;
 }
+
+export type TabAutoOpenResult =
+  | TabAutoOpenDescriptor
+  | readonly TabAutoOpenDescriptor[]
+  | null;
+
+export type SessionSidecarActionAvailability = 'enabled' | 'disabled' | 'hidden';
+
+export type SessionSidecarIconId =
+  | 'activity'
+  | 'app-window'
+  | 'palette'
+  | 'play'
+  | 'settings';
+
+export interface SessionSidecarActionDescriptor {
+  /** Stable action id within a session profile. */
+  id: string;
+  /** Optional i18n key in the flow-chat namespace. */
+  labelKey?: string;
+  /** Already-resolved label, useful for app-declared tabs. */
+  label?: string;
+  /** Fallback label when labelKey is missing or unresolved. */
+  defaultLabel: string;
+  icon: SessionSidecarIconId;
+  order?: number;
+  availability?: SessionSidecarActionAvailability;
+  panel: TabAutoOpenDescriptor;
+}
+
+export type SessionSidecarActionResult =
+  | readonly SessionSidecarActionDescriptor[]
+  | null;
 
 /**
  * Full description of a session class.
@@ -45,13 +80,22 @@ export interface SessionProfile {
      * Called when a session of this profile becomes active.
      * Return a TabAutoOpenDescriptor to auto-open a tab, or null to skip.
      */
-    autoOpen?: (sessionId: string, extra?: Record<string, unknown>) => TabAutoOpenDescriptor | null;
+    autoOpen?: (sessionId: string, extra?: Record<string, unknown>) => TabAutoOpenResult;
     /**
      * Tab types that belong exclusively to this profile.
      * When switching away from this profile these tab types are closed.
      */
     exclusiveTabTypes?: readonly PanelContentType[];
   };
+
+  /**
+   * Header actions that open profile-owned right-side sidecar panels.
+   * This is the extension point for app/agent-specific preview panels.
+   */
+  readonly sidecarActions?: (
+    sessionId: string,
+    extra?: Record<string, unknown>
+  ) => SessionSidecarActionResult;
 
   readonly capabilities: {
     /** Whether the mode-switch UI (agentic/plan/debug) is available. Replaces FIXED_AGENT_MODE_IDS. */

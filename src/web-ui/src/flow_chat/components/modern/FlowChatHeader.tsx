@@ -14,8 +14,10 @@ import { DropdownMenu, IconButton, Input } from '@/design-system';
 import type { DropdownMenuEntry } from '@/design-system';
 import { useTranslation } from 'react-i18next';
 import { SessionFilesBadge } from './SessionFilesBadge';
+import { FlowChatSidecarActions } from './FlowChatSidecarActions';
 import { aiExperienceConfigService, type AIExperienceSettings } from '@/infrastructure/config/services/AIExperienceConfigService';
 import { createLogger } from '@/shared/utils/logger';
+import type { FlowChatSidecarActionViewModel } from './useSessionSidecarActions';
 import './FlowChatHeader.scss';
 
 const log = createLogger('FlowChatHeader');
@@ -73,6 +75,9 @@ export interface FlowChatHeaderProps {
    * resetting history rather than "new session".
    */
   onResetHistory?: () => void;
+
+  /** Profile-declared right-panel actions for this session. */
+  sidecarActions?: FlowChatSidecarActionViewModel[];
 }
 export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
   visible,
@@ -92,6 +97,7 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
   forceTurnListEnabled = false,
   turnListTooltipOverride,
   onResetHistory,
+  sidecarActions = [],
 }) => {
   const { t } = useTranslation('flow-chat');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -333,6 +339,9 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
           >
             {keepThinkingItemEnabled ? <Eye size={14} /> : <EyeOff size={14} />}
           </IconButton>
+        ) : null}
+        {!turnListOpen && !isSearchOpen && sidecarActions.length > 0 ? (
+          <FlowChatSidecarActions actions={sidecarActions} />
         ) : null}
         {!turnListOpen && !isSearchOpen && (
           <IconButton

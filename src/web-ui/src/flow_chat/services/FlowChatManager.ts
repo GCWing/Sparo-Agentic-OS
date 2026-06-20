@@ -436,6 +436,10 @@ export class FlowChatManager {
     return switchChatSessionModule(this.context, sessionId);
   }
 
+  async persistSessionMetadata(sessionId: string): Promise<void> {
+    return updateSessionMetadata(this.context, sessionId);
+  }
+
   async deleteChatSession(sessionId: string): Promise<void> {
     return deleteChatSessionModule(this.context, sessionId);
   }

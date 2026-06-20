@@ -594,6 +594,7 @@
       "markdownEditorMissingPath": "无法加载Markdown编辑器：缺少文件路径或初始内容",
       "planViewerMissingPath": "无法加载Plan查看器：缺少文件路径",
       "terminalMissingSessionId": "无法加载终端：缺少会话ID",
+      "liveAppRunnerMissingAppId": "无法加载灵动应用：缺少应用 ID",
       "gitPanelRemoved": "此版本已移除 Git 集成。"
     },
     "placeholder": {
@@ -604,7 +605,8 @@
     "actions": {
       "copyContent": "复制内容",
       "downloadContent": "下载内容",
-      "close": "关闭"
+      "close": "关闭",
+      "retry": "重试"
     },
     "loading": {
       "gitDiff": "加载Git差异...",
@@ -615,7 +617,13 @@
       "taskDetail": "加载任务详情...",
       "dependencyGraph": "加载依赖关系图...",
       "planViewer": "加载计划...",
-      "terminal": "加载终端..."
+      "terminal": "加载终端...",
+      "liveAppRunner": "加载灵动应用...",
+      "liveAppRunnerUpdating": "正在更新..."
+    },
+    "liveAppDiagnostics": {
+      "title": "灵动应用诊断",
+      "description": "此工作台的后端运行与运行时诊断会显示在这里。"
     },
     "aiSession": {
       "title": "AI会话: {{sessionId}}",
