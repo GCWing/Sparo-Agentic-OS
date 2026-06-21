@@ -1,5 +1,8 @@
 //! Snapshot Service API
 
+use bitfun_core::agentic::coordination::{
+    DialogScheduler, SessionControlActor, TurnCancellationReason,
+};
 use bitfun_core::infrastructure::try_get_path_manager_arc;
 use bitfun_core::service::snapshot::{
     ensure_snapshot_manager_for_workspace, get_snapshot_manager_for_workspace,
@@ -8,7 +11,7 @@ use bitfun_core::service::snapshot::{
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Arc, time::Duration};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, State};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SnapshotInitRequest {
@@ -320,6 +323,7 @@ pub async fn rollback_session(
 #[tauri::command]
 pub async fn rollback_to_turn(
     app_handle: AppHandle,
+    scheduler: State<'_, Arc<DialogScheduler>>,
     request: RollbackTurnRequest,
 ) -> Result<Vec<String>, String> {
     {
@@ -327,15 +331,20 @@ pub async fn rollback_to_turn(
 
         if let Some(coordinator) = get_global_coordinator() {
             coordinator.cancel_auto_memory_for_session(&request.session_id);
-            if let Err(e) = coordinator
-                .cancel_active_turn_for_session(&request.session_id, Duration::from_secs(2))
-                .await
-            {
-                warn!(
-                    "Failed to cancel active turn before rollback: session_id={}, turn_index={}, error={}",
-                    request.session_id, request.turn_index, e
-                );
-            }
+        }
+        if let Err(e) = scheduler
+            .cancel_active_turn_for_session(
+                &request.session_id,
+                TurnCancellationReason::UserRequested,
+                SessionControlActor::User,
+                Duration::from_secs(2),
+            )
+            .await
+        {
+            warn!(
+                "Failed to cancel active turn before rollback: session_id={}, turn_index={}, error={}",
+                request.session_id, request.turn_index, e
+            );
         }
     }
 

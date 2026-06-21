@@ -4,6 +4,11 @@
   "toolExecution": {
     "sectionTitle": "工具执行行为"
   },
+  "goalMode": {
+    "maxContinuationTurns": "Goal 自动推进预算",
+    "maxContinuationTurnsDesc": "每个新目标最多可由 Goal 模式自动排队推进的轮数。",
+    "turns": "轮"
+  },
   "computerUse": {
     "sectionTitle": "Computer use（桌面自动化）",
     "enable": "启用 Computer use",

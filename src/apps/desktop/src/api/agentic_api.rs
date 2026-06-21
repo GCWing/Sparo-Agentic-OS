@@ -12,7 +12,7 @@ use crate::api::session_storage_path::{
 use bitfun_core::agentic::coordination::{
     ConversationCoordinator, DialogGuidedTurnSnapshot, DialogQueuePauseSnapshot,
     DialogQueuedTurnSnapshot, DialogScheduler, DialogSubmissionPolicy, DialogSubmitOutcome,
-    DialogTriggerSource,
+    DialogTriggerSource, SessionControlActor, TurnCancellationReason,
 };
 use bitfun_core::agentic::core::*;
 use bitfun_core::agentic::image_analysis::ImageContextData;
@@ -750,11 +750,16 @@ fn resolve_missing_image_payloads(
 
 #[tauri::command]
 pub async fn cancel_dialog_turn(
-    coordinator: State<'_, Arc<ConversationCoordinator>>,
+    scheduler: State<'_, Arc<DialogScheduler>>,
     request: CancelDialogTurnRequest,
 ) -> Result<(), String> {
-    coordinator
-        .cancel_dialog_turn(&request.session_id, &request.dialog_turn_id)
+    scheduler
+        .cancel_dialog_turn(
+            &request.session_id,
+            &request.dialog_turn_id,
+            TurnCancellationReason::UserRequested,
+            SessionControlActor::User,
+        )
         .await
         .map_err(|e| {
             log::error!(
@@ -769,7 +774,7 @@ pub async fn cancel_dialog_turn(
 
 #[tauri::command]
 pub async fn cancel_session(
-    coordinator: State<'_, Arc<ConversationCoordinator>>,
+    scheduler: State<'_, Arc<DialogScheduler>>,
     request: CancelSessionRequest,
 ) -> Result<(), String> {
     let session_id = request.session_id.trim();
@@ -777,7 +782,7 @@ pub async fn cancel_session(
         return Err("session_id is required".to_string());
     }
 
-    let Some(session) = coordinator.get_session_manager().get_session(session_id) else {
+    let Some(session) = scheduler.session_manager().get_session(session_id) else {
         return Ok(());
     };
 
@@ -788,8 +793,13 @@ pub async fn cancel_session(
         return Ok(());
     };
 
-    coordinator
-        .cancel_dialog_turn(session_id, &current_turn_id)
+    scheduler
+        .cancel_dialog_turn(
+            session_id,
+            &current_turn_id,
+            TurnCancellationReason::UserRequested,
+            SessionControlActor::User,
+        )
         .await
         .map_err(|e| {
             log::error!(

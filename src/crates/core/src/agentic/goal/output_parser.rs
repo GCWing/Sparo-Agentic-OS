@@ -42,10 +42,7 @@ impl GoalStructuredOutputParser {
         let value = Self::extract_json_value(text)?;
         let obj = value.as_object()?;
 
-        let state = Self::read_state(obj)?;
-        let summary =
-            Self::read_string(obj, &["summary", "reasonSummary", "reason"]).unwrap_or_default();
-        let next_steering = Self::read_string(
+        if Self::has_any_key(
             obj,
             &[
                 "nextSteering",
@@ -54,8 +51,13 @@ impl GoalStructuredOutputParser {
                 "displayText",
                 "instructions",
             ],
-        )
-        .unwrap_or_default();
+        ) {
+            return None;
+        }
+
+        let state = Self::read_state(obj)?;
+        let summary =
+            Self::read_string(obj, &["summary", "reasonSummary", "reason"]).unwrap_or_default();
         let user_question = Self::read_string(obj, &["userQuestion", "user_question", "question"]);
         let confidence = Self::read_f32(obj, &["confidence"]).unwrap_or(0.7);
         let criteria = Self::read_criteria(obj);
@@ -66,7 +68,6 @@ impl GoalStructuredOutputParser {
             summary,
             criteria,
             remaining_gaps,
-            next_steering,
             user_question,
             confidence,
         })
@@ -177,6 +178,10 @@ impl GoalStructuredOutputParser {
         None
     }
 
+    fn has_any_key(map: &serde_json::Map<String, Value>, keys: &[&str]) -> bool {
+        keys.iter().any(|key| map.contains_key(*key))
+    }
+
     fn read_f32(map: &serde_json::Map<String, Value>, keys: &[&str]) -> Option<f32> {
         for key in keys {
             if let Some(number) = map.get(*key).and_then(Value::as_f64) {
@@ -249,7 +254,6 @@ mod tests {
           "summary": "All good",
           "criteria": ["c1", {"id": "c2", "status": "passed"}],
           "remainingGaps": ["nothing", {"description": "tidy up"}],
-          "nextSteering": "ship it",
           "confidence": 0.9
         }"#;
         let verdict = GoalStructuredOutputParser::parse_verdict_loose(text).expect("verdict");
@@ -257,7 +261,18 @@ mod tests {
         assert_eq!(verdict.criteria.len(), 2);
         assert!(verdict.criteria[1].met);
         assert_eq!(verdict.remaining_gaps.len(), 2);
-        assert_eq!(verdict.next_steering, "ship it");
+    }
+
+    #[test]
+    fn verdict_loose_rejects_next_action_fields() {
+        let text = r#"{
+          "state": "continue",
+          "summary": "Still incomplete",
+          "remainingGaps": ["missing evidence"],
+          "nextSteering": "inspect the file",
+          "confidence": 0.9
+        }"#;
+        assert!(GoalStructuredOutputParser::parse_verdict_loose(text).is_none());
     }
 
     #[test]

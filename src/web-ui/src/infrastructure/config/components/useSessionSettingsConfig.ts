@@ -19,6 +19,9 @@ export const IS_TAURI_DESKTOP = typeof window !== 'undefined' && ('__TAURI_INTER
 export const AGENT_SESSION_TITLE = 'session-title-func-agent';
 const PRIME_BUILDER_DEBUG_CONFIG_PATH = 'smart_apps.apps.coding-app.debug';
 const LEGACY_DEBUG_CONFIG_PATH = 'ai.debug_mode_config';
+const DEFAULT_GOAL_MAX_CONTINUATION_TURNS = 100;
+const MIN_GOAL_MAX_CONTINUATION_TURNS = 1;
+const MAX_GOAL_MAX_CONTINUATION_TURNS = 1000;
 
 type ComputerUseStatusPayload = {
   computerUseEnabled: boolean;
@@ -63,6 +66,7 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
   const [skipToolConfirmation, setSkipToolConfirmation] = useState(false);
   const [executionTimeout, setExecutionTimeout] = useState('');
   const [confirmationTimeout, setConfirmationTimeout] = useState('');
+  const [goalMaxContinuationTurns, setGoalMaxContinuationTurns] = useState(DEFAULT_GOAL_MAX_CONTINUATION_TURNS);
   const [toolExecConfigLoading, setToolExecConfigLoading] = useState(false);
 
   const [computerUseEnabled, setComputerUseEnabled] = useState(false);
@@ -138,6 +142,7 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
         skipConfirm,
         execTimeout,
         confirmTimeout,
+        goalMaxContinuationTurnsConfig,
         debugConfigData,
         computerUseCfg,
       ] = await Promise.all([
@@ -147,6 +152,7 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
         configManager.getConfig<boolean>('ai.skip_tool_confirmation'),
         configManager.getConfig<number | null>('ai.tool_execution_timeout_secs'),
         configManager.getConfig<number | null>('ai.tool_confirmation_timeout_secs'),
+        configManager.getConfig<number | null>('ai.goal_mode.max_continuation_turns'),
         loadPrimeBuilderDebugConfig(),
         configManager.getConfig<boolean>('ai.computer_use_enabled'),
       ]);
@@ -158,6 +164,7 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
       setSkipToolConfirmation(skipConfirm || false);
       setExecutionTimeout(execTimeout != null ? String(execTimeout) : '');
       setConfirmationTimeout(confirmTimeout != null ? String(confirmTimeout) : '');
+      setGoalMaxContinuationTurns(goalMaxContinuationTurnsConfig ?? DEFAULT_GOAL_MAX_CONTINUATION_TURNS);
       if (debugConfigData) setDebugConfig(debugConfigData);
 
       if (IS_TAURI_DESKTOP && loadDesktopStatus) {
@@ -374,6 +381,25 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
     }
   };
 
+  const handleGoalMaxContinuationTurnsChange = async (value: number) => {
+    const nextValue = Math.max(
+      MIN_GOAL_MAX_CONTINUATION_TURNS,
+      Math.min(MAX_GOAL_MAX_CONTINUATION_TURNS, Math.round(value)),
+    );
+    setGoalMaxContinuationTurns(nextValue);
+    setToolExecConfigLoading(true);
+    try {
+      await configManager.setConfig('ai.goal_mode.max_continuation_turns', nextValue);
+      const { globalEventBus } = await import('@/infrastructure/event-bus');
+      globalEventBus.emit('agent:config:updated');
+    } catch (error) {
+      log.error('Failed to save goal continuation budget config', error);
+      notificationService.error(tTools('messages.saveFailed'));
+    } finally {
+      setToolExecConfigLoading(false);
+    }
+  };
+
   const updateDebugConfig = useCallback((updates: Partial<DebugModeConfig>) => {
     setDebugConfig(prev => ({ ...prev, ...updates }));
     setDebugHasChanges(true);
@@ -503,6 +529,7 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
     skipToolConfirmation,
     executionTimeout,
     confirmationTimeout,
+    goalMaxContinuationTurns,
     toolExecConfigLoading,
     computerUseEnabled,
     computerUseAccess,
@@ -533,6 +560,7 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
     handleBrowserControlCreateLauncher,
     setBrowserRestartPrompt,
     handleToolTimeoutChange,
+    handleGoalMaxContinuationTurnsChange,
     updateDebugConfig,
     saveDebugConfig,
     cancelDebugChanges,

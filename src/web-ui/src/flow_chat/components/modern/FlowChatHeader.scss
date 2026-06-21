@@ -57,6 +57,9 @@
     align-items: center;
     gap: $size-gap-1;
     flex-shrink: 0;
+    grid-row: 1;
+    position: relative;
+    z-index: var(--ds-z-local);
 
     &--left {
       grid-column: 1;
@@ -68,6 +71,7 @@
       justify-self: end;
     }
   }
+
 
   // ==================== Search (right-aligned strip; does not span full header) ====================
   &__search-action,

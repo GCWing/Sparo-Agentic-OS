@@ -11,10 +11,13 @@ use crate::agentic::events::{EventQueue, EventRouter};
 use crate::agentic::execution::{ExecutionEngine, RoundExecutor, StreamProcessor};
 use crate::agentic::goal::{
     install_global_goal_service, test_e2e_runner_enabled, CoordinatorGoalForkRunner,
-    DeterministicGoalForkRunner, GoalEventSubscriber, GoalForkRunner, GoalService, GoalStore,
+    DeterministicGoalForkRunner, GoalForkRunner, GoalService, GoalSessionExtension, GoalStore,
 };
 use crate::agentic::persistence::PersistenceManager;
 use crate::agentic::session::{ContextCompressor, SessionContextStore, SessionManager};
+use crate::agentic::session_hooks::{
+    SchedulerSessionDriver, SessionDriver, SessionHookBus, ToolSessionHookSubscriber,
+};
 use crate::agentic::tools::computer_use_host::ComputerUseHostRef;
 use crate::agentic::tools::pipeline::{ToolPipeline, ToolStateManager};
 use crate::agentic::tools::registry::get_global_tool_registry;
@@ -33,6 +36,7 @@ pub struct AgenticRuntime {
     pub session_manager: Arc<SessionManager>,
     pub event_queue: Arc<EventQueue>,
     pub event_router: Arc<EventRouter>,
+    pub session_hook_bus: Arc<SessionHookBus>,
     pub tool_pipeline: Arc<ToolPipeline>,
     pub persistence_manager: Arc<PersistenceManager>,
     pub goal_service: Arc<GoalService>,
@@ -43,6 +47,7 @@ pub async fn initialize_agentic_runtime(
 ) -> anyhow::Result<AgenticRuntime> {
     let event_queue = Arc::new(EventQueue::new(Default::default()));
     let event_router = Arc::new(EventRouter::new());
+    let session_hook_bus = SessionHookBus::new();
 
     let path_manager = try_get_path_manager_arc()
         .map_err(|e| anyhow::anyhow!("try_get_path_manager_arc: {}", e))?;
@@ -105,6 +110,7 @@ pub async fn initialize_agentic_runtime(
         tool_pipeline.clone(),
         event_queue.clone(),
         event_router.clone(),
+        session_hook_bus.clone(),
     ));
 
     coordinator.install_self_arc();
@@ -114,7 +120,11 @@ pub async fn initialize_agentic_runtime(
         coordinator.clone(),
         session_manager.clone(),
         event_queue.clone(),
+        session_hook_bus.clone(),
     );
+    let session_driver: Arc<dyn SessionDriver> =
+        Arc::new(SchedulerSessionDriver::new(scheduler.clone()));
+    session_hook_bus.set_driver(session_driver.clone()).await;
     coordinator.set_scheduler_notifier(scheduler.outcome_sender());
     coordinator.set_round_preempt_source(scheduler.preempt_monitor());
 
@@ -131,14 +141,15 @@ pub async fn initialize_agentic_runtime(
     };
     let goal_service = Arc::new(GoalService::new(
         goal_store,
-        scheduler.clone(),
         goal_fork_runner,
+        session_driver,
     ));
     let _ = install_global_goal_service(goal_service.clone());
     event_router.subscribe_internal(
-        "agentic_goal".to_string(),
-        Arc::new(GoalEventSubscriber::new(goal_service.clone())),
+        "session_hooks".to_string(),
+        Arc::new(ToolSessionHookSubscriber::new(session_hook_bus.clone())),
     );
+    session_hook_bus.register_extension(Arc::new(GoalSessionExtension::new(goal_service.clone())));
 
     Ok(AgenticRuntime {
         coordinator,
@@ -146,6 +157,7 @@ pub async fn initialize_agentic_runtime(
         session_manager,
         event_queue,
         event_router,
+        session_hook_bus,
         tool_pipeline,
         persistence_manager,
         goal_service,

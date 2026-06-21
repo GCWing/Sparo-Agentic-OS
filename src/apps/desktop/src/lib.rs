@@ -232,6 +232,7 @@ pub fn run() {
             api::goal_api::submit_session_goal,
             api::goal_api::get_session_goal,
             api::goal_api::control_session_goal,
+            api::goal_api::update_session_goal,
             api::agentic_api::cancel_dialog_turn,
             api::agentic_api::cancel_session,
             api::agentic_api::delete_session,

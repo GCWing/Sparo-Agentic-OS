@@ -25,6 +25,7 @@ pub mod coordination;
 // Shared-context fork-agent execution module
 pub mod fork_agent;
 pub mod goal;
+pub mod session_hooks;
 
 /// Round-boundary yield when user queues a message during an active turn
 pub mod round_preempt;
@@ -55,5 +56,6 @@ pub use round_preempt::{
     DialogRoundPreemptSource, NoopDialogRoundPreemptSource, SessionRoundYieldFlags,
 };
 pub use session::*;
+pub use session_hooks::*;
 pub use side_question::*;
 pub use workspace::WorkspaceBinding;

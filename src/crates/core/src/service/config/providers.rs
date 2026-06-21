@@ -71,6 +71,17 @@ impl ConfigProvider for AIConfigProvider {
                     ));
                 }
             }
+            if ai_config.goal_mode.max_continuation_turns == 0 {
+                return Err(BitFunError::validation(
+                    "AI goal_mode.max_continuation_turns must be greater than 0".to_string(),
+                ));
+            }
+            if ai_config.goal_mode.max_continuation_turns > 1000 {
+                return Err(BitFunError::validation(
+                    "AI goal_mode.max_continuation_turns must be less than or equal to 1000"
+                        .to_string(),
+                ));
+            }
 
             validate_auto_memory_scope_config("global", &ai_config.auto_memory.global)?;
             validate_auto_memory_scope_config("workspace", &ai_config.auto_memory.workspace)?;

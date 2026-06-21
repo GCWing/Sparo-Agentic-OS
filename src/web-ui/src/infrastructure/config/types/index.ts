@@ -204,7 +204,12 @@ export interface AIConfig {
   tool_confirmation_timeout_secs?: number | null;
   skip_tool_confirmation?: boolean;
   auto_memory?: AutoMemoryConfig;
+  goal_mode?: GoalModeConfig;
   computer_use_enabled?: boolean;
+}
+
+export interface GoalModeConfig {
+  max_continuation_turns: number;
 }
 
 export interface AutoMemoryConfig {

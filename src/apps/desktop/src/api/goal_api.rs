@@ -1,5 +1,6 @@
 use bitfun_core::agentic::goal::{
-    GoalControlRequest, GoalResponse, GoalService, GoalStatusRequest, GoalUserRequest,
+    GoalControlRequest, GoalEditRequest, GoalResponse, GoalService, GoalStatusRequest,
+    GoalUserRequest,
 };
 use bitfun_core::agentic::{coordination::DialogScheduler, core::SessionStorageScope};
 use std::sync::Arc;
@@ -58,6 +59,26 @@ pub async fn control_session_goal(
 ) -> Result<GoalResponse, String> {
     goal_service
         .control(request)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn update_session_goal(
+    goal_service: State<'_, Arc<GoalService>>,
+    scheduler: State<'_, Arc<DialogScheduler>>,
+    request: GoalEditRequest,
+) -> Result<GoalResponse, String> {
+    if is_agentic_os_goal_unsupported(
+        &scheduler,
+        &request.session_id,
+        request.agent_type.as_deref().unwrap_or_default(),
+    ) {
+        return Err("Goal mode is not supported in Agentic OS sessions".to_string());
+    }
+
+    goal_service
+        .update_from_user_edit(request)
         .await
         .map_err(|error| error.to_string())
 }

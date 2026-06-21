@@ -9,7 +9,7 @@
 use serde::{Deserialize, Serialize};
 
 pub const GOAL_EXTRACTION_SCHEMA_VERSION: &str = "goal.extraction.v2";
-pub const GOAL_JUDGE_SCHEMA_VERSION: &str = "goal.judge.v1";
+pub const GOAL_JUDGE_SCHEMA_VERSION: &str = "goal.judge.v2";
 
 fn default_true() -> bool {
     true
@@ -48,6 +48,12 @@ impl GoalStatus {
     /// Whether the loop should drive (judge / continue) this goal.
     pub fn is_loop_active(&self) -> bool {
         matches!(self, Self::Active)
+    }
+
+    /// Whether the durable goal authorization still exists and the driver is
+    /// allowed to reconcile an interrupted or idle attempt back into work.
+    pub fn is_driver_authorized(&self) -> bool {
+        matches!(self, Self::Active | Self::Judging)
     }
 
     pub fn is_terminal(&self) -> bool {
@@ -181,11 +187,46 @@ pub struct GoalBudgets {
 impl Default for GoalBudgets {
     fn default() -> Self {
         Self {
-            max_continuation_turns: 16,
+            max_continuation_turns: 100,
             max_judge_runs: 40,
             max_no_progress_streak: 3,
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// Durable driver state
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum GoalDriverPhase {
+    Idle,
+    Recovering,
+    Judging,
+    ContinuationQueued,
+    OwnerTurnRunning,
+}
+
+impl Default for GoalDriverPhase {
+    fn default() -> Self {
+        Self::Idle
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GoalDriverState {
+    #[serde(default)]
+    pub phase: GoalDriverPhase,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_turn_id: Option<String>,
+    #[serde(default)]
+    pub interrupted_attempts: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub updated_at_ms: Option<i64>,
 }
 
 // ---------------------------------------------------------------------------
@@ -376,7 +417,7 @@ pub struct GoalExtractionSummary {
 pub enum GoalVerdictState {
     /// The goal is done.
     Pass,
-    /// Not done; keep working with `next_steering`.
+    /// Not done; keep working from the reported remaining gaps.
     Continue,
     /// The loop needs the user (a real decision/input).
     NeedsUser,
@@ -405,8 +446,6 @@ pub struct GoalVerdict {
     pub criteria: Vec<GoalCriterionVerdict>,
     #[serde(default)]
     pub remaining_gaps: Vec<String>,
-    #[serde(default)]
-    pub next_steering: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub user_question: Option<String>,
     #[serde(default)]
@@ -443,6 +482,8 @@ pub enum GoalJudgeTrigger {
     TurnCompleted,
     UserReview,
     Resume,
+    UserEdit,
+    Recovery,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -536,6 +577,8 @@ pub struct GoalRecord {
     pub contract: GoalContract,
     pub context: GoalContextSnapshot,
     pub progress: GoalProgress,
+    #[serde(default)]
+    pub driver: GoalDriverState,
     pub budgets: GoalBudgets,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub latest_extraction: Option<GoalExtractionSummary>,
@@ -571,6 +614,20 @@ pub struct GoalControlRequest {
     pub session_id: String,
     pub workspace_path: String,
     pub action: GoalControlAction,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_goal_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_revision: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GoalEditRequest {
+    pub session_id: String,
+    pub workspace_path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_type: Option<String>,
+    pub edited_objective: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expected_goal_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -627,6 +684,13 @@ pub enum GoalStoreEvent {
         objective: String,
         extraction_id: String,
     },
+    Updated {
+        goal_id: String,
+        revision: u64,
+        previous_objective: String,
+        objective: String,
+        extraction_id: String,
+    },
     StatusChanged {
         goal_id: String,
         revision: u64,
@@ -659,6 +723,12 @@ pub enum GoalStoreEvent {
         goal_id: String,
         revision: u64,
         decision: String,
+        reason: String,
+    },
+    DriverReconciled {
+        goal_id: String,
+        revision: u64,
+        phase: GoalDriverPhase,
         reason: String,
     },
     ContinuationQueued {

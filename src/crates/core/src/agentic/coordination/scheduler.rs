@@ -11,7 +11,9 @@
 //! - Queue paused on failed/cancelled turns until the user resumes
 
 use super::coordinator::{ConversationCoordinator, DialogTriggerSource};
-use super::turn_outcome::{TurnOutcome, TurnOutcomeQueueAction};
+use super::turn_outcome::{
+    SessionControlActor, TurnCancellationReason, TurnOutcome, TurnOutcomeQueueAction,
+};
 use crate::agentic::core::{PromptEnvelope, SessionState};
 use crate::agentic::events::{AgenticEvent, EventQueue};
 use crate::agentic::image_analysis::ImageContextData;
@@ -19,6 +21,10 @@ use crate::agentic::round_preempt::{
     DialogRoundPreemptSource, DialogTurnGuidance, SessionRoundYieldFlags,
 };
 use crate::agentic::session::SessionManager;
+use crate::agentic::session_hooks::{
+    SessionDriverSubmit, SessionHook, SessionHookBus, SessionHookKind, SessionTurnOutcome,
+    SessionWorkOwner, SessionWorkOwnerMatcher,
+};
 use dashmap::DashMap;
 use log::{debug, info, warn};
 use serde::Serialize;
@@ -121,6 +127,7 @@ pub struct AgentSessionReplyRoute {
 struct ActiveTurn {
     turn_id: String,
     workspace_path: Option<String>,
+    owner: SessionWorkOwner,
     policy: DialogSubmissionPolicy,
     reply_route: Option<AgentSessionReplyRoute>,
 }
@@ -130,6 +137,7 @@ impl ActiveTurn {
         Self {
             turn_id,
             workspace_path: turn.workspace_path.clone(),
+            owner: turn.owner.clone(),
             policy: turn.policy,
             reply_route: turn.reply_route.clone(),
         }
@@ -158,12 +166,20 @@ pub struct QueuedTurn {
     pub agent_type: String,
     pub system_reminder_override: Option<String>,
     pub workspace_path: Option<String>,
+    pub owner: SessionWorkOwner,
     pub policy: DialogSubmissionPolicy,
     pub reply_route: Option<AgentSessionReplyRoute>,
     pub image_contexts: Option<Vec<ImageContextData>>,
     pub extra_metadata: Option<serde_json::Value>,
     #[allow(dead_code)]
     pub enqueued_at: SystemTime,
+}
+
+#[derive(Debug, Clone)]
+pub struct ActiveTurnSnapshot {
+    pub turn_id: String,
+    pub workspace_path: Option<String>,
+    pub owner: SessionWorkOwner,
 }
 
 impl QueuedTurn {
@@ -267,6 +283,8 @@ pub struct DialogScheduler {
     queue_pauses: Arc<DashMap<String, DialogQueuePause>>,
     /// Currently active turn metadata keyed by target session ID
     active_turns: Arc<DashMap<String, ActiveTurn>>,
+    /// Session extension hook bus.
+    hook_bus: Arc<SessionHookBus>,
     /// Turns whose cancelled auto-reply should be suppressed because the source
     /// agent explicitly cancelled its own outstanding SessionMessage request.
     suppressed_cancelled_replies: Arc<DashMap<(String, String), ()>>,
@@ -286,6 +304,7 @@ impl DialogScheduler {
         coordinator: Arc<ConversationCoordinator>,
         session_manager: Arc<SessionManager>,
         event_queue: Arc<EventQueue>,
+        hook_bus: Arc<SessionHookBus>,
     ) -> Arc<Self> {
         let (outcome_tx, outcome_rx) = mpsc::channel(128);
 
@@ -296,6 +315,7 @@ impl DialogScheduler {
             queues: Arc::new(DashMap::new()),
             queue_pauses: Arc::new(DashMap::new()),
             active_turns: Arc::new(DashMap::new()),
+            hook_bus,
             suppressed_cancelled_replies: Arc::new(DashMap::new()),
             outcome_tx,
             round_yield_flags: Arc::new(SessionRoundYieldFlags::default()),
@@ -393,12 +413,58 @@ impl DialogScheduler {
             agent_type,
             system_reminder_override,
             workspace_path,
+            owner: SessionWorkOwner::from_trigger_source(policy.trigger_source),
             policy,
             reply_route,
             image_contexts,
             extra_metadata,
             enqueued_at: SystemTime::now(),
         };
+        self.submit_queued_turn(session_id, queued_turn, resolved_turn_id)
+            .await
+    }
+
+    pub async fn submit_driver_turn(
+        &self,
+        request: SessionDriverSubmit,
+    ) -> Result<DialogSubmitOutcome, String> {
+        let resolved_turn_id = request
+            .turn_id
+            .clone()
+            .unwrap_or_else(|| Uuid::new_v4().to_string());
+        let queued_turn = QueuedTurn {
+            user_input: request.user_input,
+            original_user_input: request.original_user_input,
+            turn_id: Some(resolved_turn_id.clone()),
+            agent_type: request.agent_type,
+            system_reminder_override: request.system_reminder_override,
+            workspace_path: Some(request.workspace_path),
+            owner: request.owner,
+            policy: DialogSubmissionPolicy::for_source(DialogTriggerSource::Goal)
+                .with_queue_priority(request.queue_priority)
+                .with_skip_tool_confirmation(request.skip_tool_confirmation),
+            reply_route: None,
+            image_contexts: None,
+            extra_metadata: request.metadata,
+            enqueued_at: SystemTime::now(),
+        };
+        self.submit_queued_turn(request.session_id, queued_turn, resolved_turn_id)
+            .await
+    }
+
+    async fn submit_queued_turn(
+        &self,
+        session_id: String,
+        queued_turn: QueuedTurn,
+        resolved_turn_id: String,
+    ) -> Result<DialogSubmitOutcome, String> {
+        self.publish_turn_submitted(
+            &session_id,
+            &resolved_turn_id,
+            queued_turn.owner.clone(),
+            queued_turn.policy.trigger_source,
+        );
+
         let state = self
             .session_manager
             .get_session(&session_id)
@@ -514,6 +580,16 @@ impl DialogScheduler {
             })
     }
 
+    pub fn active_turn_snapshot(&self, session_id: &str) -> Option<ActiveTurnSnapshot> {
+        self.active_turns
+            .get(session_id)
+            .map(|active| ActiveTurnSnapshot {
+                turn_id: active.turn_id.clone(),
+                workspace_path: active.workspace_path.clone(),
+                owner: active.owner.clone(),
+            })
+    }
+
     pub async fn update_queued_turn(
         &self,
         session_id: &str,
@@ -570,9 +646,10 @@ impl DialogScheduler {
         true
     }
 
-    pub async fn delete_queued_goal_turns(
+    pub async fn delete_queued_owner_turns(
         &self,
         session_id: &str,
+        owner: SessionWorkOwnerMatcher,
         except_turn_id: Option<&str>,
     ) -> usize {
         let deleted = {
@@ -584,8 +661,7 @@ impl DialogScheduler {
             let mut index = 0;
             while index < queue.len() {
                 let should_delete = queue.get(index).is_some_and(|turn| {
-                    turn.policy.trigger_source == DialogTriggerSource::Goal
-                        && turn.turn_id() != except_turn_id
+                    owner.matches(&turn.owner) && turn.turn_id() != except_turn_id
                 });
                 if should_delete {
                     if let Some(removed) = queue.remove(index) {
@@ -736,6 +812,67 @@ impl DialogScheduler {
         self.try_start_next_queued(session_id).await
     }
 
+    pub async fn cancel_dialog_turn(
+        &self,
+        session_id: &str,
+        dialog_turn_id: &str,
+        reason: TurnCancellationReason,
+        actor: SessionControlActor,
+    ) -> crate::util::errors::BitFunResult<()> {
+        let Some(session) = self.session_manager.get_session(session_id) else {
+            return Ok(());
+        };
+        let SessionState::Processing {
+            current_turn_id, ..
+        } = &session.state
+        else {
+            return Ok(());
+        };
+        if current_turn_id != dialog_turn_id {
+            debug!(
+                "Ignoring cancel request for non-active turn: session_id={}, requested_turn_id={}, active_turn_id={}",
+                session_id, dialog_turn_id, current_turn_id
+            );
+            return Ok(());
+        }
+        let owner = self
+            .active_turns
+            .get(session_id)
+            .filter(|active_turn| active_turn.turn_id == dialog_turn_id)
+            .map(|active_turn| active_turn.owner.clone());
+        self.publish_turn_cancellation_requested(session_id, dialog_turn_id, owner, reason, actor)
+            .await;
+        self.coordinator
+            .cancel_dialog_turn_with_reason(session_id, dialog_turn_id, reason, actor)
+            .await
+    }
+
+    pub async fn cancel_active_turn_for_session(
+        &self,
+        session_id: &str,
+        reason: TurnCancellationReason,
+        actor: SessionControlActor,
+        wait_timeout: Duration,
+    ) -> crate::util::errors::BitFunResult<Option<String>> {
+        let Some(session) = self.session_manager.get_session(session_id) else {
+            return Ok(None);
+        };
+        let SessionState::Processing {
+            current_turn_id, ..
+        } = session.state
+        else {
+            return Ok(None);
+        };
+
+        self.cancel_dialog_turn(session_id, &current_turn_id, reason, actor)
+            .await?;
+
+        self.coordinator
+            .wait_until_turn_inactive(session_id, &current_turn_id, wait_timeout)
+            .await;
+        Ok(Some(current_turn_id))
+    }
+
     /// Cancel the target session's active turn on behalf of a requester session.
     ///
     /// If the requester is the same source session that originally sent the
@@ -766,8 +903,12 @@ impl DialogScheduler {
         }
 
         match self
-            .coordinator
-            .cancel_active_turn_for_session(target_session_id, wait_timeout)
+            .cancel_active_turn_for_session(
+                target_session_id,
+                TurnCancellationReason::UserRequested,
+                SessionControlActor::AgentSession,
+                wait_timeout,
+            )
             .await
         {
             Ok(cancelled_turn_id) => {
@@ -790,6 +931,41 @@ impl DialogScheduler {
     }
 
     // ── Private helpers ──────────────────────────────────────────────────────
+
+    /// Cancel the currently active turn only when its owner matches the caller's
+    /// authorization. A fallback turn id lets an extension cancel the original
+    /// user-visible trigger turn that became extension-owned after intake.
+    pub async fn cancel_owned_active_turn(
+        &self,
+        session_id: &str,
+        owner: SessionWorkOwnerMatcher,
+        fallback_turn_id: Option<&str>,
+        reason: TurnCancellationReason,
+        actor: SessionControlActor,
+        wait_timeout: Duration,
+    ) -> crate::util::errors::BitFunResult<Option<String>> {
+        let Some(session) = self.session_manager.get_session(session_id) else {
+            return Ok(None);
+        };
+        let SessionState::Processing {
+            current_turn_id, ..
+        } = session.state
+        else {
+            return Ok(None);
+        };
+
+        let active_is_owned = self
+            .active_turns
+            .get(session_id)
+            .is_some_and(|active_turn| owner.matches(&active_turn.owner));
+        let active_is_fallback_turn = fallback_turn_id == Some(current_turn_id.as_str());
+        if !active_is_owned && !active_is_fallback_turn {
+            return Ok(None);
+        }
+
+        self.cancel_active_turn_for_session(session_id, reason, actor, wait_timeout)
+            .await
+    }
 
     fn snapshot_queued_turn(
         session_id: &str,
@@ -821,7 +997,163 @@ impl DialogScheduler {
         }
     }
 
-    async fn emit_queue_queued(&self, snapshot: &DialogQueuedTurnSnapshot, queue_depth: usize) {
+    fn workspace_path_for_session(&self, session_id: &str) -> Option<String> {
+        self.session_manager
+            .get_session(session_id)
+            .and_then(|session| session.config.workspace_path)
+    }
+
+    async fn publish_hook(&self, session_id: &str, kind: SessionHookKind) {
+        self.hook_bus
+            .publish(SessionHook::new(
+                session_id.to_string(),
+                self.workspace_path_for_session(session_id),
+                kind,
+            ))
+            .await;
+    }
+
+    fn publish_hook_background(&self, session_id: &str, kind: SessionHookKind) {
+        self.hook_bus.publish_background(SessionHook::new(
+            session_id.to_string(),
+            self.workspace_path_for_session(session_id),
+            kind,
+        ));
+    }
+
+    fn publish_turn_submitted(
+        &self,
+        session_id: &str,
+        turn_id: &str,
+        owner: SessionWorkOwner,
+        source: DialogTriggerSource,
+    ) {
+        self.publish_hook_background(
+            session_id,
+            SessionHookKind::TurnSubmitted {
+                turn_id: turn_id.to_string(),
+                owner,
+                source: Self::trigger_source_label(source).to_string(),
+            },
+        );
+    }
+
+    fn publish_turn_queued(
+        &self,
+        session_id: &str,
+        turn_id: &str,
+        owner: SessionWorkOwner,
+        queue_depth: usize,
+    ) {
+        self.publish_hook_background(
+            session_id,
+            SessionHookKind::TurnQueued {
+                turn_id: turn_id.to_string(),
+                owner,
+                queue_depth,
+            },
+        );
+    }
+
+    fn publish_turn_started(&self, session_id: &str, turn_id: &str, owner: SessionWorkOwner) {
+        self.publish_hook_background(
+            session_id,
+            SessionHookKind::TurnStarted {
+                turn_id: turn_id.to_string(),
+                owner,
+            },
+        );
+    }
+
+    fn trigger_source_label(source: DialogTriggerSource) -> &'static str {
+        match source {
+            DialogTriggerSource::DesktopUi => "desktop_ui",
+            DialogTriggerSource::DesktopApi => "desktop_api",
+            DialogTriggerSource::AgentSession => "agent_session",
+            DialogTriggerSource::Goal => "goal",
+            DialogTriggerSource::WorkMessage => "work_message",
+            DialogTriggerSource::ScheduledJob => "scheduled_job",
+            DialogTriggerSource::RemoteRelay => "remote_relay",
+            DialogTriggerSource::Bot => "bot",
+            DialogTriggerSource::Cli => "cli",
+        }
+    }
+
+    async fn publish_turn_cancellation_requested(
+        &self,
+        session_id: &str,
+        turn_id: &str,
+        owner: Option<SessionWorkOwner>,
+        reason: TurnCancellationReason,
+        actor: SessionControlActor,
+    ) {
+        let kind = SessionHookKind::TurnCancellationRequested {
+            turn_id: turn_id.to_string(),
+            owner,
+            reason,
+            actor,
+            surface_mode: crate::agentic::events::SessionSurfaceMode::UserVisible,
+        };
+        if matches!(actor, SessionControlActor::Goal) {
+            self.publish_hook_background(session_id, kind);
+        } else {
+            self.publish_hook(session_id, kind).await;
+        }
+    }
+
+    async fn publish_turn_finished(
+        &self,
+        session_id: &str,
+        owner: Option<SessionWorkOwner>,
+        outcome: &TurnOutcome,
+    ) {
+        let hook_outcome = match outcome {
+            TurnOutcome::Completed { .. } => SessionTurnOutcome::Completed,
+            TurnOutcome::Failed { error, .. } => SessionTurnOutcome::Failed {
+                error: error.clone(),
+            },
+            TurnOutcome::Cancelled { reason, actor, .. } => SessionTurnOutcome::Cancelled {
+                reason: *reason,
+                actor: *actor,
+            },
+        };
+        self.publish_hook(
+            session_id,
+            SessionHookKind::TurnFinished {
+                turn_id: outcome.turn_id().to_string(),
+                owner,
+                outcome: hook_outcome,
+                hidden_session: false,
+                surface_mode: crate::agentic::events::SessionSurfaceMode::UserVisible,
+            },
+        )
+        .await;
+    }
+
+    async fn publish_queue_changed(
+        &self,
+        session_id: &str,
+        reason: impl Into<String>,
+        turn_id: Option<String>,
+        error: Option<String>,
+    ) {
+        self.publish_hook_background(
+            session_id,
+            SessionHookKind::QueueChanged {
+                reason: reason.into(),
+                turn_id,
+                error,
+                queue_depth: self.queue_depth(session_id),
+            },
+        );
+    }
+
+    async fn emit_queue_queued(
+        &self,
+        snapshot: &DialogQueuedTurnSnapshot,
+        owner: SessionWorkOwner,
+        queue_depth: usize,
+    ) {
         self.emit_event(AgenticEvent::DialogTurnQueued {
             session_id: snapshot.session_id.clone(),
             turn_id: snapshot.turn_id.clone(),
@@ -835,6 +1167,14 @@ impl DialogScheduler {
             image_count: snapshot.image_count,
         })
         .await;
+        self.publish_turn_queued(&snapshot.session_id, &snapshot.turn_id, owner, queue_depth);
+        self.publish_queue_changed(
+            &snapshot.session_id,
+            "queued",
+            Some(snapshot.turn_id.clone()),
+            None,
+        )
+        .await;
     }
 
     async fn emit_queue_updated(&self, snapshot: &DialogQueuedTurnSnapshot, queue_depth: usize) {
@@ -847,6 +1187,13 @@ impl DialogScheduler {
             updated_at_ms: system_time_ms(SystemTime::now()),
         })
         .await;
+        self.publish_queue_changed(
+            &snapshot.session_id,
+            "updated",
+            Some(snapshot.turn_id.clone()),
+            None,
+        )
+        .await;
     }
 
     async fn emit_queue_deleted(&self, session_id: &str, turn_id: &str, queue_depth: usize) {
@@ -856,6 +1203,8 @@ impl DialogScheduler {
             queue_depth,
         })
         .await;
+        self.publish_queue_changed(session_id, "deleted", Some(turn_id.to_string()), None)
+            .await;
     }
 
     async fn emit_queue_dispatching(&self, session_id: &str, turn_id: &str, queue_depth: usize) {
@@ -873,6 +1222,8 @@ impl DialogScheduler {
             queue_depth: self.queue_depth(session_id),
         })
         .await;
+        self.publish_queue_changed(session_id, "queue_resumed", None, None)
+            .await;
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -928,11 +1279,13 @@ impl DialogScheduler {
         self.emit_event(AgenticEvent::DialogTurnQueuePaused {
             session_id: session_id.to_string(),
             reason: reason.as_str().to_string(),
-            turn_id,
-            error,
+            turn_id: turn_id.clone(),
+            error: error.clone(),
             queue_depth,
         })
         .await;
+        self.publish_queue_changed(session_id, reason.as_str(), turn_id, error)
+            .await;
     }
 
     async fn enqueue(&self, session_id: &str, queued_turn: QueuedTurn) -> Result<(), String> {
@@ -982,7 +1335,8 @@ impl DialogScheduler {
             session_id, new_len, queued_turn.policy.queue_priority
         );
         if let Some(snapshot) = queued_snapshot.as_ref() {
-            self.emit_queue_queued(snapshot, new_len).await;
+            self.emit_queue_queued(snapshot, queued_turn.owner.clone(), new_len)
+                .await;
         }
         Ok(())
     }
@@ -1136,6 +1490,7 @@ impl DialogScheduler {
             session_id.to_string(),
             ActiveTurn::from_queued_turn(queued_turn, resolved.clone()),
         );
+        self.publish_turn_started(session_id, &resolved, queued_turn.owner.clone());
 
         Ok(resolved)
     }
@@ -1262,6 +1617,12 @@ Status: {status}"
                         .await;
                 }
             }
+            self.publish_turn_finished(
+                &session_id,
+                active_turn.as_ref().map(|turn| turn.owner.clone()),
+                &outcome,
+            )
+            .await;
 
             let status = outcome.status();
             match outcome.queue_action() {
@@ -1329,6 +1690,7 @@ mod tests {
         ActiveTurn {
             turn_id: "turn_1".to_string(),
             workspace_path: Some("/workspace".to_string()),
+            owner: SessionWorkOwner::AgentSession,
             policy: DialogSubmissionPolicy::for_source(DialogTriggerSource::AgentSession),
             reply_route: Some(AgentSessionReplyRoute {
                 source_session_id: source_session_id.to_string(),
@@ -1348,6 +1710,8 @@ mod tests {
     fn cancelled_reply_is_skipped_only_when_suppressed() {
         let cancelled = TurnOutcome::Cancelled {
             turn_id: "turn_1".to_string(),
+            reason: TurnCancellationReason::UserRequested,
+            actor: SessionControlActor::User,
         };
         let completed = TurnOutcome::Completed {
             turn_id: "turn_1".to_string(),

@@ -20,6 +20,7 @@ const PermissionsConfig: React.FC = () => {
     skipToolConfirmation,
     confirmationTimeout,
     executionTimeout,
+    goalMaxContinuationTurns,
     toolExecConfigLoading,
     computerUseEnabled,
     computerUseAccess,
@@ -40,6 +41,7 @@ const PermissionsConfig: React.FC = () => {
     handleBrowserControlCreateLauncher,
     setBrowserRestartPrompt,
     handleToolTimeoutChange,
+    handleGoalMaxContinuationTurnsChange,
     tTools,
   } = useSessionSettingsConfig();
 
@@ -108,6 +110,25 @@ const PermissionsConfig: React.FC = () => {
                 unit={tTools('config.seconds')}
                 size="small"
                 variant="compact"
+              />
+            </div>
+          </ConfigPageRow>
+          <ConfigPageRow
+            label={t('goalMode.maxContinuationTurns')}
+            description={t('goalMode.maxContinuationTurnsDesc')}
+            align="center"
+          >
+            <div className="sparo-func-agent-config__row-control">
+              <NumberField
+                value={goalMaxContinuationTurns}
+                onChange={handleGoalMaxContinuationTurnsChange}
+                min={1}
+                max={1000}
+                step={5}
+                unit={t('goalMode.turns')}
+                size="small"
+                variant="compact"
+                disabled={toolExecConfigLoading}
               />
             </div>
           </ConfigPageRow>

@@ -261,10 +261,11 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
         <SessionFilesBadge sessionId={sessionId} />
       </div>
 
+      {!turnListOpen && !isSearchOpen && !onResetHistory ? (
+        <GoalHeaderControl sessionId={sessionId} workspacePath={workspacePath} />
+      ) : null}
+
       <div className="flowchat-header__actions">
-        {!turnListOpen && !isSearchOpen && !onResetHistory ? (
-          <GoalHeaderControl sessionId={sessionId} workspacePath={workspacePath} />
-        ) : null}
         {!turnListOpen && isSearchOpen ? (
           <div className="flowchat-header__search" role="search" data-testid="flowchat-header-search-bar">
             <Input
