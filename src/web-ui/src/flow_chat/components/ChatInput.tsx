@@ -23,8 +23,10 @@ import { useInputHistoryStore } from '../store/inputHistoryStore';
 import { useSessionTurnQueueStore } from '../store/sessionTurnQueueStore';
 import { useSessionProfile } from '@/app/session-profiles';
 import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
+import { resolveComposerActionModel } from './composer/actions/composerActionResolver';
+import type { ComposerActionDescriptor } from './composer/actions/composerActionTypes';
 import { ComposerActions } from './composer/ComposerActions';
-import { ComposerBoostMenu } from './composer/ComposerBoostMenu';
+import { ComposerActionMenu } from './composer/ComposerActionMenu';
 import { ComposerEditorArea } from './composer/ComposerEditorArea';
 import { ComposerIntentChips } from './composer/ComposerIntentChips';
 import { ComposerSendAction } from './composer/ComposerSendAction';
@@ -68,6 +70,7 @@ import {
   composerSessionTargetFromIntent,
 } from './composer/model/composerIntentState';
 import type { ComposerCommandContext } from './composer/model/composerCommandRegistry';
+import { resolveComposerSessionProfile } from './composer/model/composerSessionProfile';
 import { deriveComposerOsHandoffState } from '../domain/osHandoffIntent';
 import { supportsSessionGoal } from '../domain/goalSupport';
 import { useSessionGoalSnapshot } from '../store/sessionGoalStore';
@@ -77,6 +80,11 @@ export interface ChatInputProps {
   className?: string;
   targetSessionId?: string | null;
   onSendMessage?: (message: string) => void;
+  onDispatchComposerAppAction?: (action: {
+    providerId: string;
+    actionId: string;
+    payload?: unknown;
+  }) => void;
 }
 
 function shouldIgnoreGlobalActivateTarget(target: EventTarget | null): boolean {
@@ -121,7 +129,8 @@ function formatContextPercent(percent: number): string {
 export const ChatInput: React.FC<ChatInputProps> = ({
   className = '',
   targetSessionId,
-  onSendMessage
+  onSendMessage,
+  onDispatchComposerAppAction,
 }) => {
   const { t } = useTranslation('flow-chat');
 
@@ -171,7 +180,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     imageCount: currentImageCount,
   });
 
-  const { profile } = useSessionProfile();
+  const { profile: surfaceProfile } = useSessionProfile();
   const {
     activeBtwSessionTitle,
     activeSessionDescriptor,
@@ -188,6 +197,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     setInputTarget: setComposerTarget,
     t,
   });
+  const profile = useMemo(
+    () => resolveComposerSessionProfile({
+      surfaceProfile,
+      targetDescriptor: activeSessionDescriptor,
+    }),
+    [activeSessionDescriptor, surfaceProfile],
+  );
   const queuedTurnCount = useSessionTurnQueueStore(state =>
     effectiveTargetSessionId ? state.queuesBySession[effectiveTargetSessionId]?.length ?? 0 : 0
   );
@@ -240,59 +256,35 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       ? `${contextUsagePercentText}%`
       : t('input.contextUsageLoading', { defaultValue: 'Context' });
   const currentAgent = modeState.current;
-  const agentPolicy = activeSessionDescriptor?.agentPolicy;
-  const canSwitchAgents =
-    profile.capabilities.canSwitchAgents &&
-    (agentPolicy?.switchableAgentIds.length ?? 0) > 1;
   const workspaceFilesTargetPath = profile.workspaceScope.kind === 'global'
     ? null
     : (effectiveTargetSession?.workspacePath?.trim() || workspacePath || null);
+  const effectiveWorkspacePath = effectiveTargetSession?.workspacePath?.trim() || workspacePath || null;
+  const supportsGoalForComposer = supportsSessionGoal({
+    workspacePath: effectiveWorkspacePath,
+    workspaceScopeKind: profile.workspaceScope.kind,
+    storageScope: effectiveTargetSession?.storageScope ?? effectiveTargetSession?.descriptor.storageScope,
+    descriptor: effectiveTargetSession?.descriptor,
+    agentId: currentAgent,
+  });
   const commandContext = useMemo<ComposerCommandContext>(() => ({
-    canSwitchAgents,
     currentAgent,
     hasCurrentSession: Boolean(currentSessionId),
     hasTargetSession: Boolean(effectiveTargetSessionId),
     isBtwSession,
     isProcessing: Boolean(derivedState?.isProcessing),
-    supportsGoal: supportsSessionGoal({
-      workspacePath: effectiveTargetSession?.workspacePath?.trim() || workspacePath || null,
-      workspaceScopeKind: profile.workspaceScope.kind,
-      storageScope: effectiveTargetSession?.storageScope ?? effectiveTargetSession?.descriptor.storageScope,
-      descriptor: effectiveTargetSession?.descriptor,
-      agentId: currentAgent,
-    }),
+    supportsGoal: supportsGoalForComposer,
   }), [
-    canSwitchAgents,
     currentAgent,
     currentSessionId,
     derivedState?.isProcessing,
     effectiveTargetSessionId,
-    effectiveTargetSession?.descriptor,
-    effectiveTargetSession?.storageScope,
-    effectiveTargetSession?.workspacePath,
     isBtwSession,
-    profile.workspaceScope.kind,
-    workspacePath,
+    supportsGoalForComposer,
   ]);
   const handleOpenWorkspaceFiles = useCallback(() => {
     openWorkspaceScene('file-viewer', { workspacePath: workspaceFilesTargetPath });
   }, [workspaceFilesTargetPath]);
-
-  // Session-level mode policy: fixed-purpose sessions are not available as incremental mode switches.
-  const switchableAgents = useMemo(
-    () =>
-      modeState.available.filter(agent =>
-        agent.enabled &&
-        (agentPolicy?.switchableAgentIds.includes(agent.id) ?? false)
-      ),
-    [agentPolicy?.switchableAgentIds, modeState.available]
-  );
-
-  /** Code session: agents switchable on top of default agentic */
-  const incrementalCodeAgents = useMemo(
-    () => switchableAgents.filter(m => m.id === 'Plan' || m.id === 'debug' || m.id === 'Team'),
-    [switchableAgents]
-  );
 
   const {
     boostPanelSkills,
@@ -334,6 +326,43 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     mcpPromptCommands,
     mcpPromptCommandsLoading,
   } = useComposerMcpPromptCommands();
+  const composerActionModel = useMemo(() => resolveComposerActionModel({
+    t,
+    profile,
+    descriptor: activeSessionDescriptor,
+    targetSessionId: effectiveTargetSessionId ?? null,
+    workspacePath: effectiveWorkspacePath,
+    storageScope: effectiveTargetSession?.storageScope ?? activeSessionDescriptor?.storageScope,
+    customMetadata: effectiveTargetSession?.customMetadata,
+    availableAgents: modeState.available,
+    currentAgent,
+    isComposerActive: inputState.isActive,
+    hasCurrentSession: Boolean(currentSessionId),
+    hasTargetSession: Boolean(effectiveTargetSessionId),
+    isBtwSession,
+    isProcessing: Boolean(derivedState?.isProcessing),
+    supportsGoal: supportsGoalForComposer,
+    mcpPromptCommands,
+  }), [
+    activeSessionDescriptor,
+    currentAgent,
+    currentSessionId,
+    derivedState?.isProcessing,
+    effectiveTargetSession?.customMetadata,
+    effectiveTargetSession?.storageScope,
+    effectiveTargetSessionId,
+    effectiveWorkspacePath,
+    inputState.isActive,
+    isBtwSession,
+    mcpPromptCommands,
+    modeState.available,
+    profile,
+    supportsGoalForComposer,
+    t,
+  ]);
+  const canSwitchAgents = composerActionModel.canSwitchAgents;
+  const switchableAgents = composerActionModel.switchableAgents;
+  const defaultAgentId = composerActionModel.defaultAgentId;
   const recommendationContext = useComposerRecommendations({
     effectiveTargetSessionId,
     isProcessing: !!derivedState?.isProcessing,
@@ -370,20 +399,18 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     composerIntent.operation !== null ||
     composerIntent.promptTemplate !== null ||
     hasActiveGoalChip ||
-    (canSwitchAgents && modeState.current !== 'agentic');
+    (canSwitchAgents && modeState.current !== defaultAgentId);
   const useStackedComposerLayout = isInputMultiline || showTargetSwitcher || hasComposerIntentChips;
 
   const {
     commandOptions,
     resolveCommandOption,
   } = useComposerCommandOptions({
-    t,
+    actions: composerActionModel.actions,
     commandContext,
     commandState,
     inputDetection,
-    incrementalAgents: incrementalCodeAgents,
     loadMcpPromptCommands,
-    mcpPromptCommands,
   });
 
   const {
@@ -420,7 +447,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   useComposerAgentSync({
     activeSessionDescriptor,
-    currentAgent,
     dispatchMode,
     effectiveTargetSessionId,
   });
@@ -480,6 +506,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     inputDetection,
     inputValue: inputState.value,
     onSwitchAgent: requestAgentChange,
+    onDispatchAppAction: onDispatchComposerAppAction,
     resolveCommandOption,
     setCommandState,
     setInputDetection,
@@ -647,6 +674,71 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     t,
   });
 
+  const handleComposerActionSelect = useCallback((
+    action: ComposerActionDescriptor,
+    event: React.MouseEvent,
+  ) => {
+    event.stopPropagation();
+    if (action.availability.state !== 'enabled') return;
+
+    switch (action.select.type) {
+      case 'open-context-picker':
+        handleBoostOpenAtContext(event);
+        break;
+      case 'pick-image':
+        handleBoostPickImage(event);
+        break;
+      case 'set-target':
+        if (action.select.target === 'btw-draft') {
+          handleBoostStartBtw(event);
+        } else {
+          intentActions.setTarget(action.select.target);
+          dispatchMode({ type: 'CLOSE_DROPDOWN' });
+          focusRichTextInputSoon();
+        }
+        break;
+      case 'add-modifier':
+        intentActions.addModifier(action.select.modifier);
+        dispatchMode({ type: 'CLOSE_DROPDOWN' });
+        focusRichTextInputSoon();
+        break;
+      case 'set-operation':
+        intentActions.setOperation(action.select.operation);
+        dispatchMode({ type: 'CLOSE_DROPDOWN' });
+        focusRichTextInputSoon();
+        break;
+      case 'switch-agent':
+        requestAgentChange(action.select.agentId);
+        break;
+      case 'set-prompt-template':
+        intentActions.setPromptTemplate(action.select.prompt);
+        dispatchMode({ type: 'CLOSE_DROPDOWN' });
+        focusRichTextInputSoon();
+        break;
+      case 'dispatch-app-action':
+        onDispatchComposerAppAction?.({
+          providerId: action.select.providerId,
+          actionId: action.select.actionId,
+          payload: action.select.payload,
+        });
+        dispatchMode({ type: 'CLOSE_DROPDOWN' });
+        focusRichTextInputSoon();
+        break;
+      case 'open-skills-flyout':
+      default:
+        break;
+    }
+  }, [
+    dispatchMode,
+    focusRichTextInputSoon,
+    handleBoostOpenAtContext,
+    handleBoostPickImage,
+    handleBoostStartBtw,
+    intentActions,
+    onDispatchComposerAppAction,
+    requestAgentChange,
+  ]);
+
   useComposerOutsideInteractions({
     agentBoostRef,
     containerRef,
@@ -683,9 +775,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   const handleResetAgentFromChip = useCallback((event: React.MouseEvent) => {
     event.stopPropagation();
-    applyAgentChange('agentic');
+    applyAgentChange(defaultAgentId);
     dispatchMode({ type: 'CLOSE_DROPDOWN' });
-  }, [applyAgentChange, dispatchMode]);
+  }, [applyAgentChange, defaultAgentId, dispatchMode]);
 
   const editorArea = (
     <>
@@ -693,6 +785,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         intent={composerIntent}
         activeGoalSnapshot={activeGoalSnapshot}
         currentAgent={modeState.current}
+        defaultAgentId={defaultAgentId}
         canSwitchAgents={canSwitchAgents}
         getAgentName={(agentId) => getAgentDisplayName(agentId)}
         labels={{
@@ -764,62 +857,40 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     <ComposerActions
       left={(
         <>
-          <ComposerBoostMenu
-            hostRef={agentBoostRef}
-            skillsHostRef={skillsHostRef}
-            canSwitchAgents={canSwitchAgents}
-            currentAgent={modeState.current}
-            incrementalAgents={incrementalCodeAgents}
-            dropdownOpen={modeState.dropdownOpen}
-            skillsFlyoutOpen={skillsFlyoutOpen}
-            skillsFlyoutLeft={skillsFlyoutLeft}
-            skillsFlyoutUp={skillsFlyoutUp}
-            skillsTooltipSuppressed={skillsTooltipSuppressed}
-            boostPanelSkills={boostPanelSkills}
-            boostSkillsLoading={boostSkillsLoading}
-            currentSessionId={currentSessionId || undefined}
-            isBtwSession={isBtwSession}
-            labels={{
-              addBoostTooltip: t('chatInput.addBoostTooltip'),
-              resetToAgentic: t('chatInput.resetToAgentic'),
-              current: t('chatInput.current'),
-              noIncrementalAgents: t('chatInput.noIncrementalAgents'),
-              boostAddContext: t('chatInput.boostAddContext'),
-              addImage: t('input.addImage'),
-              boostSkills: t('chatInput.boostSkills'),
-              boostSkillsLoading: t('chatInput.boostSkillsLoading'),
-              boostSkillsEmpty: t('chatInput.boostSkillsEmpty'),
-              openSkillsLibrary: t('chatInput.openSkillsLibrary'),
-              boostStartBtw: t('chatInput.boostStartBtw'),
-            }}
-            getAgentName={agent =>
-              getAgentDisplayName(agent)
-            }
-            getAgentDescription={agent =>
-              t(`chatInput.agentDescriptions.${agent.id}`, { defaultValue: '' }) ||
-              agent.description ||
-              agent.name
-            }
-            onToggleDropdown={e => {
-              e.stopPropagation();
-              dispatchMode({ type: 'TOGGLE_DROPDOWN' });
-            }}
-            onRequestAgentChange={(agentId, e) => {
-              e.stopPropagation();
-              requestAgentChange(agentId);
-            }}
-            onOpenContext={handleBoostOpenAtContext}
-            onPickImage={handleBoostPickImage}
-            onOpenSkillsFlyout={openSkillsFlyout}
-            onCloseSkillsFlyout={closeSkillsFlyout}
-            onSkillsListScroll={handleSkillsListScroll}
-            onInsertSkill={(skillName, e) => {
-              e.stopPropagation();
-              insertSkillIntoInput(skillName);
-            }}
-            onOpenSkillsLibrary={handleOpenSkillsLibrary}
-            onStartBtw={handleBoostStartBtw}
-          />
+          {composerActionModel.actionButtonVisible && composerActionModel.menuSections.length > 0 ? (
+            <ComposerActionMenu
+              hostRef={agentBoostRef}
+              skillsHostRef={skillsHostRef}
+              sections={composerActionModel.menuSections}
+              dropdownOpen={modeState.dropdownOpen}
+              skillsFlyoutOpen={skillsFlyoutOpen}
+              skillsFlyoutLeft={skillsFlyoutLeft}
+              skillsFlyoutUp={skillsFlyoutUp}
+              skillsTooltipSuppressed={skillsTooltipSuppressed}
+              boostPanelSkills={boostPanelSkills}
+              boostSkillsLoading={boostSkillsLoading}
+              labels={{
+                addBoostTooltip: t('chatInput.addBoostTooltip'),
+                current: t('chatInput.current'),
+                boostSkillsLoading: t('chatInput.boostSkillsLoading'),
+                boostSkillsEmpty: t('chatInput.boostSkillsEmpty'),
+                openSkillsLibrary: t('chatInput.openSkillsLibrary'),
+              }}
+              onToggleDropdown={e => {
+                e.stopPropagation();
+                dispatchMode({ type: 'TOGGLE_DROPDOWN' });
+              }}
+              onSelectAction={handleComposerActionSelect}
+              onOpenSkillsFlyout={openSkillsFlyout}
+              onCloseSkillsFlyout={closeSkillsFlyout}
+              onSkillsListScroll={handleSkillsListScroll}
+              onInsertSkill={(skillName, e) => {
+                e.stopPropagation();
+                insertSkillIntoInput(skillName);
+              }}
+              onOpenSkillsLibrary={handleOpenSkillsLibrary}
+            />
+          ) : null}
         </>
       )}
       sendAction={(
@@ -868,6 +939,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       isStacked={useStackedComposerLayout}
       isTargeting={showTargetSwitcher}
       isProcessing={!!derivedState?.isProcessing}
+      showCollapsedActionButton={composerActionModel.actionButtonVisible}
       recommendationContext={recommendationContext}
       sessionActivity={
         hasQueueActivity || composerHandoffState ? (

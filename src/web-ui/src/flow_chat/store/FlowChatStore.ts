@@ -47,6 +47,7 @@ import {
   getLiveAppWorkbenchSessionDescriptor,
   isEvolutionLabSession,
   isSystemAgenticOsSession,
+  normalizeSessionDescriptor,
   withActiveAgentId,
   type SessionDescriptor,
 } from '../domain/sessionDescriptor';
@@ -72,6 +73,21 @@ function descriptorFromSessionMetadata(
     );
   }
   return descriptorFromAgentType(metadata.agentType || fallbackAgentType);
+}
+
+function sameSessionDescriptor(left: SessionDescriptor, right: SessionDescriptor): boolean {
+  return (
+    left.hostKind === right.hostKind &&
+    left.profileId === right.profileId &&
+    left.identityId === right.identityId &&
+    left.storageScope === right.storageScope &&
+    left.agentPolicy.defaultAgentId === right.agentPolicy.defaultAgentId &&
+    left.agentPolicy.activeAgentId === right.agentPolicy.activeAgentId &&
+    left.agentPolicy.switchableAgentIds.length === right.agentPolicy.switchableAgentIds.length &&
+    left.agentPolicy.switchableAgentIds.every((agentId, index) => (
+      agentId === right.agentPolicy.switchableAgentIds[index]
+    ))
+  );
 }
 
 export interface FlowChatSessionHeader {
@@ -447,6 +463,7 @@ export class FlowChatStore {
     workspacePath?: string,
     storageScope?: import('@/shared/types/session-history').SessionStorageScope
   ): void {
+    const normalizedDescriptor = normalizeSessionDescriptor(descriptor);
     import('../state-machine').then(({ stateMachineManager }) => {
       stateMachineManager.getOrCreate(sessionId);
     });
@@ -461,7 +478,7 @@ export class FlowChatStore {
         status: 'idle',
         config: {
           ...config,
-          agentType: getBackendAgentType(descriptor),
+          agentType: getBackendAgentType(normalizedDescriptor),
         },
         createdAt: Date.now(),
         lastActiveAt: Date.now(),
@@ -469,10 +486,10 @@ export class FlowChatStore {
         error: null,
         loadPhase: 'live',
         maxContextTokens: maxContextTokens || 128128,
-        descriptor,
+        descriptor: normalizedDescriptor,
         workspacePath,
         workspaceId: config.workspaceId,
-        storageScope: storageScope ?? config.storageScope ?? descriptor.storageScope,
+        storageScope: storageScope ?? config.storageScope ?? normalizedDescriptor.storageScope,
         customMetadata: config.customMetadata,
         parentSessionId: relationship.parentSessionId,
         sessionKind: relationship.sessionKind,
@@ -509,6 +526,7 @@ export class FlowChatStore {
     },
     storageScope?: import('@/shared/types/session-history').SessionStorageScope
   ): void {
+    const normalizedDescriptor = normalizeSessionDescriptor(descriptor);
     import('../state-machine').then(({ stateMachineManager }) => {
       stateMachineManager.getOrCreate(sessionId);
     });
@@ -529,17 +547,17 @@ export class FlowChatStore {
           maxContextTokens: 128128,
           autoCompact: true,
           enableTools: true,
-          agentType: getBackendAgentType(descriptor),
+          agentType: getBackendAgentType(normalizedDescriptor),
         } as any,
         createdAt: Date.now(),
         lastActiveAt: Date.now(),
         lastFinishedAt: undefined,
         error: null,
         maxContextTokens: 128128,
-        descriptor,
+        descriptor: normalizedDescriptor,
         loadPhase: 'live',
         workspacePath,
-        storageScope: storageScope ?? descriptor.storageScope,
+        storageScope: storageScope ?? normalizedDescriptor.storageScope,
         customMetadata: meta?.customMetadata,
         parentSessionId: relationship.parentSessionId,
         sessionKind: relationship.sessionKind,
@@ -591,17 +609,17 @@ export class FlowChatStore {
     workspacePath?: string,
     storageScope?: SessionStorageScope
   ): void {
+    const normalizedDescriptor = normalizeSessionDescriptor(descriptor);
     this.setState(prev => {
       const session = prev.sessions.get(sessionId);
       if (!session) return prev;
 
-      const backendAgentType = getBackendAgentType(descriptor);
+      const backendAgentType = getBackendAgentType(normalizedDescriptor);
       const nextWorkspacePath = workspacePath || session.workspacePath;
-      const nextStorageScope = storageScope ?? session.storageScope ?? descriptor.storageScope;
+      const nextStorageScope = storageScope ?? session.storageScope ?? normalizedDescriptor.storageScope;
 
       if (
-        session.descriptor.profileId === descriptor.profileId &&
-        session.descriptor.agentPolicy.activeAgentId === descriptor.agentPolicy.activeAgentId &&
+        sameSessionDescriptor(session.descriptor, normalizedDescriptor) &&
         session.config.agentType === backendAgentType &&
         session.workspacePath === nextWorkspacePath &&
         session.storageScope === nextStorageScope
@@ -611,7 +629,7 @@ export class FlowChatStore {
 
       const updatedSession = {
         ...session,
-        descriptor,
+        descriptor: normalizedDescriptor,
         config: {
           ...session.config,
           agentType: backendAgentType,
@@ -643,6 +661,7 @@ export class FlowChatStore {
       const descriptor = withActiveAgentId(session.descriptor, agentId);
       const backendAgentType = getBackendAgentType(descriptor);
       if (
+        sameSessionDescriptor(session.descriptor, descriptor) &&
         session.descriptor.agentPolicy.activeAgentId === backendAgentType &&
         session.config.agentType === backendAgentType
       ) {

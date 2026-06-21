@@ -14,6 +14,7 @@ import type { FlowThinkingItem } from '../types/flow-chat';
 import { useTypewriter } from '../hooks/useTypewriter';
 import { useFlowLayoutMutationContract } from '../scroll/useFlowLayoutMutationContract';
 import { useNestedFlowScrollController } from '../scroll/adapters/useNestedFlowScrollController';
+import type { MarkdownLayoutMutationDetail } from '@/shared/markdown';
 import { Markdown } from '@/shared/markdown/Markdown';
 import { aiExperienceConfigService } from '@/infrastructure/config/services/AIExperienceConfigService';
 import { deriveThinkingBlockState } from '../runtime/statusModel';
@@ -47,7 +48,7 @@ export const ModelThinkingDisplay: React.FC<ModelThinkingDisplayProps> = ({ thin
     };
   });
   const userToggledRef = useRef(false);
-  const { applyExpandedState } = useFlowLayoutMutationContract({
+  const { applyExpandedState, invalidateLayout } = useFlowLayoutMutationContract({
     toolId: thinkingItem.id,
     toolName: 'thinking',
     getCardHeight: () => {
@@ -56,6 +57,13 @@ export const ModelThinkingDisplay: React.FC<ModelThinkingDisplayProps> = ({ thin
       return contentScrollHeight ?? wrapperHeight;
     },
   });
+  const handleMarkdownLayoutMutation = useCallback((detail: MarkdownLayoutMutationDetail) => {
+    invalidateLayout({
+      ...detail,
+      source: 'thinking-markdown-table-resize',
+      thinkingItemId: thinkingItem.id,
+    });
+  }, [invalidateLayout, thinkingItem.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -158,6 +166,8 @@ export const ModelThinkingDisplay: React.FC<ModelThinkingDisplayProps> = ({ thin
             <Markdown
               content={renderedContent}
               isStreaming={isActive}
+              enableTableColumnResize={!isActive}
+              onLayoutMutation={handleMarkdownLayoutMutation}
               className="thinking-markdown"
             />
           </div>

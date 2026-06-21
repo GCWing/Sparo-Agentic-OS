@@ -1274,6 +1274,18 @@ export const TiptapEditor = React.forwardRef<TiptapEditorHandle, TiptapEditorPro
       .run();
   }, []);
 
+  const sourceBackedBlockLabels = {
+    preview: t('markdown.tiptap.rawHtml.preview'),
+    sandbox: t('markdown.tiptap.rawHtml.sandbox'),
+    source: t('markdown.tiptap.rawHtml.source'),
+    editSource: t('markdown.tiptap.rawHtml.editSource'),
+    html: t('markdown.tiptap.rawHtml.html'),
+    details: t('markdown.tiptap.rawHtml.details'),
+    frontmatter: t('markdown.tiptap.rawHtml.frontmatter'),
+    footnote: t('markdown.tiptap.rawHtml.footnote'),
+    markdown: t('markdown.tiptap.rawHtml.markdown'),
+  };
+
   const editor = useEditor({
     immediatelyRender: false,
     autofocus,
@@ -1321,9 +1333,11 @@ export const TiptapEditor = React.forwardRef<TiptapEditorHandle, TiptapEditorPro
       // Keep raw/render-only fallbacks for HTML we still can't round-trip safely.
       RenderOnlyBlock.configure({
         basePath,
+        labels: sourceBackedBlockLabels,
       }),
       RawHtmlBlock.configure({
         basePath,
+        labels: sourceBackedBlockLabels,
       }),
       RawHtmlInline.configure({
         label: t('markdown.tiptap.rawHtml.inlineLabel'),

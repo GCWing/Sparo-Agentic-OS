@@ -1,4 +1,9 @@
 export type {
+  SessionComposerActionProviderId,
+  SessionComposerActionAvailability,
+  SessionComposerAgentSwitching,
+  SessionComposerBuiltinActionId,
+  SessionComposerPolicy,
   SessionProfile,
   SessionSidecarActionDescriptor,
   SessionSidecarActionResult,

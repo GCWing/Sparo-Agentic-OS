@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useMemo } from 'react';
-import type { TFunction } from 'i18next';
-import type { AgentInfo } from '../../../reducers/agentReducer';
-import type { ComposerMcpPromptCommand } from '../model/composerCommands';
+import type { ComposerActionDescriptor } from '../actions/composerActionTypes';
 import {
   getComposerCommandOptions,
   resolveComposerCommandOption,
@@ -11,21 +9,17 @@ import type { ComposerCommandInteractionState } from '../model/composerState';
 import type { ComposerInputDetection } from '../model/composerInputDetection';
 
 export function useComposerCommandOptions({
-  t,
+  actions,
   commandContext,
   commandState,
   inputDetection,
-  incrementalAgents,
   loadMcpPromptCommands,
-  mcpPromptCommands,
 }: {
-  t: TFunction<'flow-chat'>;
+  actions: ComposerActionDescriptor[];
   commandContext: ComposerCommandContext;
   commandState: ComposerCommandInteractionState;
   inputDetection: ComposerInputDetection;
-  incrementalAgents: AgentInfo[];
   loadMcpPromptCommands: () => Promise<void>;
-  mcpPromptCommands: ComposerMcpPromptCommand[];
 }) {
   useEffect(() => {
     if (commandContext.isProcessing) return;
@@ -39,20 +33,14 @@ export function useComposerCommandOptions({
   ]);
 
   const allCommandOptions = useMemo(() => getComposerCommandOptions({
-    t,
-    context: commandContext,
-    incrementalAgents,
-    mcpPromptCommands,
+    actions,
     query: '',
-  }), [commandContext, incrementalAgents, mcpPromptCommands, t]);
+  }), [actions]);
 
   const commandOptions = useMemo(() => getComposerCommandOptions({
-    t,
-    context: commandContext,
-    incrementalAgents,
-    mcpPromptCommands,
+    actions,
     query: commandState.query,
-  }), [commandContext, commandState.query, incrementalAgents, mcpPromptCommands, t]);
+  }), [actions, commandState.query]);
 
   const resolveCommandOption = useCallback((rawToken: string) => (
     resolveComposerCommandOption(allCommandOptions, rawToken)

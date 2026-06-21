@@ -14,8 +14,22 @@ export const codingProfile: SessionProfile = {
     // No auto-opened tabs; user opens editor/diff tabs via tool calls.
   },
 
+  composer: {
+    visibility: {
+      showActionButtonWhenCollapsed: true,
+      showActionButtonWhenActive: true,
+      showActionButtonWhenProcessing: false,
+    },
+    agentSwitching: {
+      mode: 'in-session',
+      source: 'session-policy',
+      includeDefaultAgent: false,
+      showCurrentAgent: true,
+      order: ['Plan', 'debug', 'Team'],
+    },
+  },
+
   capabilities: {
-    canSwitchAgents: true,
     showWelcomePanel: true,
     showAgenticOsModelRoundUI: false,
   },

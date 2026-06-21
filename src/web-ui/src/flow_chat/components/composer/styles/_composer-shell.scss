@@ -127,6 +127,52 @@
       display: none;
     }
 
+    &.sparo-chat-input--collapsed-action-visible {
+      .sparo-chat-input__box {
+        overflow: visible;
+      }
+
+      .sparo-chat-input__input-area {
+        left: 44px;
+        right: 18px;
+        width: auto;
+        transform: translateY(-50%);
+      }
+
+      .sparo-chat-input__actions {
+        position: absolute;
+        top: 0;
+        left: 12px;
+        bottom: 0;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        z-index: var(--ds-z-content);
+      }
+
+      .sparo-chat-input__actions-left,
+      .sparo-chat-input__agent-boost {
+        display: flex;
+        align-items: center;
+      }
+
+      .sparo-chat-input__actions-right {
+        display: none;
+      }
+
+      .sparo-chat-input__agent-boost-add {
+        color: var(--ds-chat-text-secondary);
+        background: color-mix(in srgb, var(--ds-chat-text-primary) 7%, transparent);
+        opacity: 0.78;
+
+        &:hover {
+          color: var(--ds-chat-text-primary);
+          background: var(--ds-chat-surface-hover);
+          opacity: 1;
+        }
+      }
+    }
+
     .sparo-chat-input__input-area {
       position: absolute;
       top: 50%;
@@ -895,6 +941,10 @@
 
     & > * {
       pointer-events: auto;
+    }
+
+    &:has(.sparo-chat-input__agent-boost--open) {
+      z-index: var(--ds-z-popover);
     }
   }
 

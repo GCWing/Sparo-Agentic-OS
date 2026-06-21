@@ -38,6 +38,11 @@ type TiptapMarkdownOptions = {
   preserveTrailingNewline?: boolean;
 };
 
+type MarkdownFrontmatterRegion = {
+  source: string;
+  bodyMarkdown: string;
+};
+
 export type MarkdownEditabilityMode = 'lossless' | 'canonicalizable' | 'unsafe';
 
 export interface MarkdownEditabilityAnalysis {
@@ -200,6 +205,10 @@ function createRenderOnlyBlock(markdown: string, kind: string): JSONContent {
       kind,
     },
   };
+}
+
+function createFrontmatterBlock(source: string): JSONContent {
+  return createRenderOnlyBlock(source, 'frontmatter');
 }
 
 function withBlockAttrs(node: JSONContent, align: string | null, alignGroup: number | null): JSONContent {
@@ -696,15 +705,16 @@ function renderMarkdownImageBase(node: JSONContent): string {
   return `![${alt}](${src}${title})`;
 }
 
-function walkMdast(node: MdastNode | null | undefined, visit: (current: MdastNode) => void): void {
+function containsFootnoteNode(node: MdastNode | null | undefined): boolean {
   if (!node) {
-    return;
+    return false;
   }
 
-  visit(node);
-  (node.children ?? []).forEach(child => {
-    walkMdast(child, visit);
-  });
+  if (node.type === 'footnoteDefinition' || node.type === 'footnoteReference') {
+    return true;
+  }
+
+  return (node.children ?? []).some(child => containsFootnoteNode(child));
 }
 
 function parseMarkdownTree(markdown: string): MdastNode {
@@ -714,8 +724,24 @@ function parseMarkdownTree(markdown: string): MdastNode {
     .parse(markdown) as MdastNode;
 }
 
-function hasMarkdownFrontmatter(markdown: string): boolean {
-  return /^(---|\+\+\+)\r?\n[\s\S]*?\r?\n\1(?:\r?\n|$)/.test(markdown);
+function splitMarkdownFrontmatter(markdown: string): MarkdownFrontmatterRegion | null {
+  const match = markdown.match(/^(---|\+\+\+)\r?\n[\s\S]*?\r?\n\1(?=\r?\n|$)/);
+  if (!match) {
+    return null;
+  }
+
+  const source = match[0];
+  let bodyMarkdown = markdown.slice(source.length);
+  if (bodyMarkdown.startsWith('\r\n')) {
+    bodyMarkdown = bodyMarkdown.slice(2);
+  } else if (bodyMarkdown.startsWith('\n')) {
+    bodyMarkdown = bodyMarkdown.slice(1);
+  }
+
+  return {
+    source,
+    bodyMarkdown,
+  };
 }
 
 function normalizeComparableJson(
@@ -726,7 +752,20 @@ function normalizeComparableJson(
   if (Array.isArray(value)) {
     const normalizedArray = value.map(item => normalizeComparableJson(item, keysToStrip, currentKey));
     if (currentKey === 'marks') {
-      return [...normalizedArray].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+      const seen = new Set<string>();
+      return [...normalizedArray]
+        .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+        .filter((item) => {
+          const key = JSON.stringify(item);
+          if (seen.has(key)) {
+            return false;
+          }
+          seen.add(key);
+          return true;
+        });
+    }
+    if (currentKey === 'content') {
+      return mergeEquivalentTextNodes(normalizedArray);
     }
     return normalizedArray;
   }
@@ -757,6 +796,40 @@ function normalizeComparableJson(
   return result;
 }
 
+function mergeEquivalentTextNodes(items: ComparableJsonValue[]): ComparableJsonValue[] {
+  const merged: ComparableJsonValue[] = [];
+
+  items.forEach((item) => {
+    const previous = merged[merged.length - 1];
+    if (
+      previous &&
+      item &&
+      !Array.isArray(previous) &&
+      !Array.isArray(item) &&
+      typeof previous === 'object' &&
+      typeof item === 'object'
+    ) {
+      const previousObject = previous as Record<string, ComparableJsonValue>;
+      const itemObject = item as Record<string, ComparableJsonValue>;
+
+      if (
+        previousObject.type === 'text' &&
+        itemObject.type === 'text' &&
+        typeof previousObject.text === 'string' &&
+        typeof itemObject.text === 'string' &&
+        JSON.stringify(previousObject.marks ?? []) === JSON.stringify(itemObject.marks ?? [])
+      ) {
+        previousObject.text += itemObject.text;
+        return;
+      }
+    }
+
+    merged.push(item);
+  });
+
+  return merged;
+}
+
 function normalizeTiptapDoc(doc: JSONContent): ComparableJsonValue {
   return normalizeComparableJson(doc as ComparableJsonValue, new Set(['blockId', 'alignGroup']));
 }
@@ -783,6 +856,20 @@ function getNodeStartOffset(node: MdastNode | null | undefined): number | null {
 function getNodeEndOffset(node: MdastNode | null | undefined): number | null {
   const offset = node?.position?.end?.offset;
   return typeof offset === 'number' ? offset : null;
+}
+
+function createSourceBackedNodeFromMarkdownSlice(
+  node: MdastNode,
+  markdown: string,
+  kind: string,
+): JSONContent | null {
+  const startOffset = getNodeStartOffset(node);
+  const endOffset = getNodeEndOffset(node);
+  if (startOffset === null || endOffset === null || endOffset <= startOffset) {
+    return null;
+  }
+
+  return createRenderOnlyBlock(markdown.slice(startOffset, endOffset), kind);
 }
 
 function applyHtmlTagTokens(stack: string[], html: string): string[] {
@@ -1230,18 +1317,6 @@ export function analyzeMarkdownEditability(markdown: string): MarkdownEditabilit
     softIssues.add('multipleTrailingBlankLines');
   }
 
-  if (hasMarkdownFrontmatter(markdown)) {
-    hardIssues.add('frontmatter');
-  }
-
-  const tree = parseMarkdownTree(markdown);
-
-  walkMdast(tree, (node) => {
-    if (node.type === 'footnoteDefinition' || node.type === 'footnoteReference') {
-      hardIssues.add('footnote');
-    }
-  });
-
   if (!textEqual) {
     softIssues.add('roundTripMismatch');
   }
@@ -1450,6 +1525,18 @@ function convertRootMarkdownChildren(children: MdastNode[], markdown: string): J
 
     if (child.type === 'html' && child.value && parseAlignmentDirective(child.value, alignmentState)) {
       continue;
+    }
+
+    if (containsFootnoteNode(child)) {
+      const footnoteNode = createSourceBackedNodeFromMarkdownSlice(child, markdown, 'footnote');
+      if (footnoteNode) {
+        content.push(withBlockAttrs(
+          footnoteNode,
+          alignmentState.activeAlign,
+          alignmentState.activeGroupId,
+        ));
+        continue;
+      }
     }
 
     if (child.type === 'html' && child.value) {
@@ -1679,9 +1766,14 @@ function wrapAlignedMarkdownBlocks(markdownBlocks: string[], align: string | nul
 }
 
 export function markdownToTiptapDoc(markdown: string): JSONContent {
-  const tree = parseMarkdownTree(markdown);
+  const frontmatter = splitMarkdownFrontmatter(markdown);
+  const markdownBody = frontmatter?.bodyMarkdown ?? markdown;
+  const tree = parseMarkdownTree(markdownBody);
 
-  const content = withTopLevelBlockIds(convertRootMarkdownChildren(tree.children ?? [], markdown));
+  const content = withTopLevelBlockIds([
+    ...(frontmatter ? [createFrontmatterBlock(frontmatter.source)] : []),
+    ...convertRootMarkdownChildren(tree.children ?? [], markdownBody),
+  ]);
 
   return {
     type: 'doc',

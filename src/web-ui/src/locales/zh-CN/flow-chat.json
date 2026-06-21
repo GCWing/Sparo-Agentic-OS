@@ -87,6 +87,8 @@
   },
   "contextMenu": {
     "copySelection": "复制选中内容",
+    "selectionCopied": "已复制",
+    "copySelectionFailed": "复制选中内容失败",
     "addSelectionToChat": "添加到 Chat",
     "createSideQuestionFromSelection": "新建侧问",
     "selectionActions": "选中内容操作",

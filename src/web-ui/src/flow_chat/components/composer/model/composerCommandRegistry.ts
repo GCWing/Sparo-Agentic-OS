@@ -1,5 +1,8 @@
-import type { TFunction } from 'i18next';
-import type { AgentInfo } from '../../../reducers/agentReducer';
+import type {
+  ComposerActionCommandGroup,
+  ComposerActionDescriptor,
+  ComposerActionSelect,
+} from '../actions/composerActionTypes';
 import type { ComposerMcpPromptCommand } from './composerCommands';
 import type { ComposerOperationIntent, ComposerTargetIntent } from './composerIntentState';
 
@@ -8,20 +11,18 @@ export type ComposerCommandKind =
   | 'modifier'
   | 'operation'
   | 'agent-switch'
-  | 'prompt-template';
+  | 'prompt-template'
+  | 'app-action';
 
-export type ComposerCommandGroup =
-  | 'target'
-  | 'send-with'
-  | 'session-action'
-  | 'template';
+export type ComposerCommandGroup = ComposerActionCommandGroup;
 
 export type ComposerCommandSelect =
   | { type: 'set-target'; target: ComposerTargetIntent }
   | { type: 'add-modifier'; modifier: 'goal' }
   | { type: 'set-operation'; operation: ComposerOperationIntent }
   | { type: 'switch-agent'; agentId: string }
-  | { type: 'set-prompt-template'; prompt: ComposerMcpPromptCommand };
+  | { type: 'set-prompt-template'; prompt: ComposerMcpPromptCommand }
+  | { type: 'dispatch-app-action'; providerId: string; actionId: string; payload?: unknown };
 
 export interface ComposerCommandOption {
   id: string;
@@ -36,7 +37,6 @@ export interface ComposerCommandOption {
 }
 
 export interface ComposerCommandContext {
-  canSwitchAgents: boolean;
   currentAgent: string;
   hasCurrentSession: boolean;
   hasTargetSession: boolean;
@@ -46,10 +46,7 @@ export interface ComposerCommandContext {
 }
 
 export interface GetComposerCommandOptionsInput {
-  t: TFunction<'flow-chat'>;
-  context: ComposerCommandContext;
-  incrementalAgents: AgentInfo[];
-  mcpPromptCommands: ComposerMcpPromptCommand[];
+  actions: ComposerActionDescriptor[];
   query: string;
 }
 
@@ -57,18 +54,9 @@ const GROUP_ORDER: Record<ComposerCommandGroup, number> = {
   target: 1,
   'send-with': 2,
   'session-action': 3,
-  template: 4,
+  app: 4,
+  template: 5,
 };
-
-function groupLabel(t: TFunction<'flow-chat'>, group: ComposerCommandGroup): string {
-  const defaults: Record<ComposerCommandGroup, string> = {
-    target: 'Target',
-    'send-with': 'Send with',
-    'session-action': 'Session action',
-    template: 'Prompt template',
-  };
-  return t(`chatInput.composerCommands.groups.${group}`, { defaultValue: defaults[group] });
-}
 
 function normalizeQuery(query: string): string {
   return query.trim().replace(/^\//, '').toLowerCase();
@@ -85,127 +73,60 @@ function optionMatchesQuery(option: ComposerCommandOption, query: string): boole
   );
 }
 
-function builtInCommandOptions(
-  t: TFunction<'flow-chat'>,
-  context: ComposerCommandContext,
-): ComposerCommandOption[] {
-  const options: ComposerCommandOption[] = [];
-
-  if (context.hasCurrentSession && !context.isBtwSession) {
-    options.push({
-      id: 'target:btw-draft',
-      command: '/btw',
-      title: t('btw.title', { defaultValue: 'Side question' }),
-      description: t('chatInput.composerCommands.btwDescription', {
-        defaultValue: 'Ask in a focused side thread',
-      }),
-      group: 'target',
-      groupLabel: groupLabel(t, 'target'),
-      kind: 'target',
-      select: { type: 'set-target', target: 'btw-draft' },
-    });
-  }
-
-  if (context.supportsGoal) {
-    options.push({
-      id: 'modifier:goal',
-      command: '/goal',
-      title: t('chatInput.goalAction', { defaultValue: 'Goal mode' }),
-      description: t('chatInput.composerCommands.goalDescription', {
-        defaultValue: 'Track this request until completion',
-      }),
-      group: 'send-with',
-      groupLabel: groupLabel(t, 'send-with'),
-      kind: 'modifier',
-      select: { type: 'add-modifier', modifier: 'goal' },
-    });
-  }
-
-  if (context.hasTargetSession && !context.isProcessing) {
-    options.push(
-      {
-        id: 'operation:compact',
-        command: '/compact',
-        title: t('chatInput.compactAction', { defaultValue: 'Compact session' }),
-        description: t('chatInput.composerCommands.compactDescription', {
-          defaultValue: 'Compress the current session context',
-        }),
-        group: 'session-action',
-        groupLabel: groupLabel(t, 'session-action'),
-        kind: 'operation',
-        select: { type: 'set-operation', operation: 'compact' },
-      },
-      {
-        id: 'operation:init',
-        command: '/init',
-        title: t('chatInput.initAction', { defaultValue: 'Generate AGENTS.md' }),
-        description: t('chatInput.composerCommands.initDescription', {
-          defaultValue: 'Generate or update workspace instructions',
-        }),
-        group: 'session-action',
-        groupLabel: groupLabel(t, 'session-action'),
-        kind: 'operation',
-        select: { type: 'set-operation', operation: 'init' },
-      },
-    );
-  }
-
-  return options;
+function isCommandKind(kind: ComposerActionDescriptor['kind']): kind is ComposerCommandKind {
+  return (
+    kind === 'target' ||
+    kind === 'modifier' ||
+    kind === 'operation' ||
+    kind === 'agent-switch' ||
+    kind === 'prompt-template' ||
+    kind === 'app-action'
+  );
 }
 
-function agentCommandOptions(
-  t: TFunction<'flow-chat'>,
-  context: ComposerCommandContext,
-  incrementalAgents: AgentInfo[],
-): ComposerCommandOption[] {
-  if (!context.canSwitchAgents) return [];
-
-  return incrementalAgents.map(agent => ({
-    id: `agent:${agent.id}`,
-    command: `/${agent.id}` as `/${string}`,
-    title: t(`chatInput.agentNames.${agent.id}`, { defaultValue: agent.name }) || agent.name,
-    description:
-      t(`chatInput.agentDescriptions.${agent.id}`, { defaultValue: '' }) ||
-      agent.description ||
-      agent.name,
-    group: 'send-with',
-    groupLabel: groupLabel(t, 'send-with'),
-    kind: 'agent-switch',
-    current: agent.id === context.currentAgent,
-    select: { type: 'switch-agent', agentId: agent.id },
-  }));
+function isCommandSelect(select: ComposerActionSelect): select is ComposerCommandSelect {
+  return (
+    select.type === 'set-target' ||
+    select.type === 'add-modifier' ||
+    select.type === 'set-operation' ||
+    select.type === 'switch-agent' ||
+    select.type === 'set-prompt-template' ||
+    select.type === 'dispatch-app-action'
+  );
 }
 
-function promptCommandOptions(
-  t: TFunction<'flow-chat'>,
-  mcpPromptCommands: ComposerMcpPromptCommand[],
-): ComposerCommandOption[] {
-  return mcpPromptCommands.map(prompt => ({
-    id: `prompt:${prompt.id}`,
-    command: prompt.command as `/${string}`,
-    title: prompt.promptName,
-    description: prompt.description?.trim() || `${prompt.serverName} / ${prompt.label}`,
-    group: 'template',
-    groupLabel: groupLabel(t, 'template'),
-    kind: 'prompt-template',
-    select: { type: 'set-prompt-template', prompt },
-  }));
+function actionToCommandOption(action: ComposerActionDescriptor): ComposerCommandOption | null {
+  if (
+    !action.command ||
+    !action.commandGroup ||
+    !action.commandGroupLabel ||
+    action.availability.state !== 'enabled' ||
+    !isCommandKind(action.kind) ||
+    !isCommandSelect(action.select)
+  ) {
+    return null;
+  }
+
+  return {
+    id: action.id,
+    command: action.command,
+    title: action.label,
+    description: action.description,
+    group: action.commandGroup,
+    groupLabel: action.commandGroupLabel,
+    kind: action.kind,
+    current: action.current,
+    select: action.select,
+  };
 }
 
 export function getComposerCommandOptions({
-  t,
-  context,
-  incrementalAgents,
-  mcpPromptCommands,
+  actions,
   query,
 }: GetComposerCommandOptionsInput): ComposerCommandOption[] {
-  const options = [
-    ...builtInCommandOptions(t, context),
-    ...agentCommandOptions(t, context, incrementalAgents),
-    ...promptCommandOptions(t, mcpPromptCommands),
-  ];
-
-  return options
+  return actions
+    .map(actionToCommandOption)
+    .filter((option): option is ComposerCommandOption => option !== null)
     .filter(option => optionMatchesQuery(option, query))
     .sort((a, b) => {
       const groupDelta = GROUP_ORDER[a.group] - GROUP_ORDER[b.group];

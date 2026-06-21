@@ -19,6 +19,7 @@ export function useComposerCommandInteraction({
   inputDetection,
   inputValue,
   onSwitchAgent,
+  onDispatchAppAction,
   resolveCommandOption,
   setCommandState,
   setInputDetection,
@@ -32,6 +33,7 @@ export function useComposerCommandInteraction({
   inputDetection: ComposerInputDetection;
   inputValue: string;
   onSwitchAgent: (agentId: string) => void;
+  onDispatchAppAction?: (action: { providerId: string; actionId: string; payload?: unknown }) => void;
   resolveCommandOption: (rawToken: string) => ComposerCommandOption | null;
   setCommandState: Dispatch<SetStateAction<ComposerCommandInteractionState>>;
   setInputDetection: (detection: ComposerInputDetection) => void;
@@ -45,6 +47,12 @@ export function useComposerCommandInteraction({
   const consumeCommandOption = useCallback((option: ComposerCommandOption) => {
     if (option.select.type === 'switch-agent') {
       onSwitchAgent(option.select.agentId);
+    } else if (option.select.type === 'dispatch-app-action') {
+      onDispatchAppAction?.({
+        providerId: option.select.providerId,
+        actionId: option.select.actionId,
+        payload: option.select.payload,
+      });
     } else {
       applyCommandOption(option);
     }
@@ -61,6 +69,7 @@ export function useComposerCommandInteraction({
     focusInputSoon,
     inputDetection,
     inputValue,
+    onDispatchAppAction,
     onSwitchAgent,
     setInputDetection,
     setInputValue,
@@ -80,9 +89,10 @@ export function useComposerCommandInteraction({
       exactOption &&
       (
         inputDetection.hasWhitespaceAfterToken ||
-        exactOption.kind === 'operation' ||
-        exactOption.kind === 'agent-switch' ||
-        (
+          exactOption.kind === 'operation' ||
+          exactOption.kind === 'agent-switch' ||
+          exactOption.kind === 'app-action' ||
+          (
           exactOption.select.type === 'set-prompt-template' &&
           exactOption.select.prompt.arguments.length === 0
         )

@@ -23,6 +23,7 @@ interface ComposerShellProps {
   isStacked: boolean;
   isTargeting: boolean;
   isProcessing: boolean;
+  showCollapsedActionButton: boolean;
   recommendationContext: RecommendationContext | null;
   sessionActivity?: React.ReactNode;
   targetSwitcher: React.ReactNode;
@@ -94,6 +95,7 @@ export function ComposerShell({
   isStacked,
   isTargeting,
   isProcessing,
+  showCollapsedActionButton,
   recommendationContext,
   sessionActivity,
   targetSwitcher,
@@ -126,7 +128,7 @@ export function ComposerShell({
     >
       <div
         ref={containerRef}
-        className={`sparo-chat-input ${isActive ? 'sparo-chat-input--active' : 'sparo-chat-input--collapsed'} ${isExpanded ? 'sparo-chat-input--expanded' : ''} ${isAwakening ? 'sparo-chat-input--awakening' : ''} ${isStacked ? 'sparo-chat-input--multiline' : ''} ${isTargeting ? 'sparo-chat-input--targeting' : ''} ${isProcessing ? 'sparo-chat-input--processing' : ''} ${className}`}
+        className={`sparo-chat-input ${isActive ? 'sparo-chat-input--active' : 'sparo-chat-input--collapsed'} ${isExpanded ? 'sparo-chat-input--expanded' : ''} ${isAwakening ? 'sparo-chat-input--awakening' : ''} ${isStacked ? 'sparo-chat-input--multiline' : ''} ${isTargeting ? 'sparo-chat-input--targeting' : ''} ${isProcessing ? 'sparo-chat-input--processing' : ''} ${showCollapsedActionButton ? 'sparo-chat-input--collapsed-action-visible' : ''} ${className}`}
         onClick={!isActive ? onActivate : undefined}
         data-testid="chat-input-container"
       >

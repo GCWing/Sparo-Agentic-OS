@@ -18,6 +18,7 @@ import { Button, IconButton } from '@/design-system';
 import { Check, Copy } from 'lucide-react';
 import { MermaidBlock } from './MermaidBlock';
 import { ReproductionStepsBlock } from './ReproductionStepsBlock';
+import { ResizableMarkdownTable, type MarkdownLayoutMutationDetail } from './ResizableMarkdownTable';
 import { globalAPI, systemAPI, workspaceAPI } from '@/infrastructure/api';
 import { getPrismLanguageFromAlias } from '@/infrastructure/language-detection';
 import { useTheme } from '@/infrastructure/theme';
@@ -577,7 +578,9 @@ export interface MarkdownProps {
   basePath?: string;
   className?: string;
   isStreaming?: boolean;
+  enableTableColumnResize?: boolean;
   expandDetailsByDefault?: boolean;
+  onLayoutMutation?: (detail: MarkdownLayoutMutationDetail) => void;
   onOpenVisualization?: (visualization: any) => void;
   onFileViewRequest?: (filePath: string, fileName: string, lineRange?: LineRange) => void;
   onTabOpen?: (tabInfo: any) => void;
@@ -589,7 +592,9 @@ export const Markdown = React.memo<MarkdownProps>(({
   basePath,
   className = '',
   isStreaming = false,
+  enableTableColumnResize = false,
   expandDetailsByDefault = false,
+  onLayoutMutation,
   onOpenVisualization,
   onFileViewRequest,
   onTabOpen,
@@ -943,6 +948,14 @@ export const Markdown = React.memo<MarkdownProps>(({
     },
     
     table({ children }: any) {
+      if (enableTableColumnResize) {
+        return (
+          <ResizableMarkdownTable onLayoutMutation={onLayoutMutation}>
+            {children}
+          </ResizableMarkdownTable>
+        );
+      }
+
       return (
         <div className="table-wrapper">
           <table>{children}</table>
@@ -990,6 +1003,7 @@ export const Markdown = React.memo<MarkdownProps>(({
     }
   }), [
     basePath,
+    enableTableColumnResize,
     expandDetailsByDefault,
     isStreaming,
     linkMap,
@@ -997,6 +1011,7 @@ export const Markdown = React.memo<MarkdownProps>(({
     handleRevealInExplorer,
     handleOpenVisualization,
     handleTabOpen,
+    onLayoutMutation,
     parseLineRange,
     syntaxTheme,
     isLight

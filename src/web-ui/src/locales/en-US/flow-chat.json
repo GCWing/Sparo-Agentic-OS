@@ -87,8 +87,10 @@
   },
   "contextMenu": {
     "copySelection": "Copy Selection",
+    "selectionCopied": "Copied",
+    "copySelectionFailed": "Failed to copy selection",
     "addSelectionToChat": "Add to chat",
-    "createSideQuestionFromSelection": "New side question",
+    "createSideQuestionFromSelection": "Side question",
     "selectionActions": "Selection actions",
     "copyFullContent": "Copy Full Content",
     "copyContent": "Copy Content",

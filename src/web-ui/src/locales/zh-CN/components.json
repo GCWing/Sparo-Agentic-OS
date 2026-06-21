@@ -35,7 +35,9 @@
   },
   "markdown": {
     "copySuccess": "复制成功",
-    "copyCode": "复制代码"
+    "copyCode": "复制代码",
+    "resizeColumn": "调整第 {{index}} 列宽度",
+    "resetColumnWidths": "双击或按 Enter 重置列宽"
   },
   "mermaidBlock": {
     "renderFailed": "图表渲染失败",

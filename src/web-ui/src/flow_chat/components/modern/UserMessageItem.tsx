@@ -25,6 +25,7 @@ import { snapshotAPI } from '@/infrastructure/api';
 import { notificationService } from '@/shared/notification-system';
 import { globalEventBus } from '@/infrastructure/event-bus';
 import { Badge, DotMatrixLoader, IconButton, confirmDanger } from '@/design-system';
+import type { MarkdownLayoutMutationDetail } from '@/shared/markdown';
 import { ReproductionStepsBlock } from '@/shared/markdown';
 import { Markdown } from '@/shared/markdown/Markdown';
 import { createLogger } from '@/shared/utils/logger';
@@ -35,6 +36,7 @@ import {
 } from '../../services/UserMessageEditService';
 import { UserMessageEditComposer } from './UserMessageEditComposer';
 import { incrementFlowChatCounter } from '../../performance/flowChatPerf';
+import { invalidateFlowLayout } from '../../scroll/FlowLayoutMutationEvents';
 import './UserMessageItem.scss';
 
 const log = createLogger('UserMessageItem');
@@ -365,6 +367,14 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
       if (!isTruncated && !expanded) return;
       setExpanded(prev => !prev);
     }, [isTruncated, expanded]);
+
+    const handleMarkdownLayoutMutation = useCallback((detail: MarkdownLayoutMutationDetail) => {
+      invalidateFlowLayout({
+        ...detail,
+        source: 'user-message-markdown-table-resize',
+        turnId,
+      });
+    }, [turnId]);
     
     // Fill content into the input (failed state only).
     const handleFillToInput = useCallback((e: React.MouseEvent) => {
@@ -504,7 +514,12 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
           </div>
           {expanded && (
             <div className="user-message-item__expanded-body">
-              <Markdown content={displayText} className="user-message-item__expanded-markdown" />
+              <Markdown
+                content={displayText}
+                className="user-message-item__expanded-markdown"
+                enableTableColumnResize
+                onLayoutMutation={handleMarkdownLayoutMutation}
+              />
             </div>
           )}
         </div>
@@ -618,7 +633,12 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
         {/* Expanded full content */}
         {expanded && (
           <div className="user-message-item__expanded-body">
-            <Markdown content={displayText} className="user-message-item__expanded-markdown" />
+            <Markdown
+              content={displayText}
+              className="user-message-item__expanded-markdown"
+              enableTableColumnResize
+              onLayoutMutation={handleMarkdownLayoutMutation}
+            />
           </div>
         )}
 

@@ -105,6 +105,10 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 // ─────────────────────────────────────────────── Tauri entrypoint ───
 
+fn is_embedded_webdriver_mode() -> bool {
+    cfg!(debug_assertions) && std::env::var_os("SPARO_WEBDRIVER_PORT").is_some()
+}
+
 /// Tauri application entry point. Called from `main()`.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -127,8 +131,9 @@ pub fn run() {
     let container_setup = container.clone();
     let container_close = container.clone();
 
-    let run_result = tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(
+    let mut builder = tauri::Builder::default();
+    if !is_embedded_webdriver_mode() {
+        builder = builder.plugin(tauri_plugin_single_instance::init(
             move |app, _args, _cwd| {
                 if let Some(window) = app.get_webview_window(WINDOW_MAIN) {
                     let _ = window.unminimize();
@@ -136,7 +141,10 @@ pub fn run() {
                     let _ = window.set_focus();
                 }
             },
-        ))
+        ));
+    }
+
+    let run_result = builder
         .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(logging::build_log_plugin(log_targets))
         .plugin(tauri_plugin_opener::init())

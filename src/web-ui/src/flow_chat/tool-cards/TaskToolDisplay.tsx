@@ -12,6 +12,7 @@ import {
 
 import { useTranslation } from 'react-i18next';
 import { Button, Tooltip } from '@/design-system';
+import type { MarkdownLayoutMutationDetail } from '@/shared/markdown';
 import { Markdown } from '@/shared/markdown/Markdown';
 import type { FlowItem, FlowTextItem, FlowThinkingItem, FlowToolItem, ToolCardProps } from '../types/flow-chat';
 import { taskCollapseStateManager } from '../store/TaskCollapseStateManager';
@@ -62,10 +63,17 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
   );
   const isCompleted = toolViewState.phase === 'result';
   
-  const { cardRootRef, applyExpandedState } = useFlowLayoutMutationContract({
+  const { cardRootRef, applyExpandedState, invalidateLayout } = useFlowLayoutMutationContract({
     toolId,
     toolName: toolItem.toolName,
   });
+  const handleMarkdownLayoutMutation = useCallback((detail: MarkdownLayoutMutationDetail) => {
+    invalidateLayout({
+      ...detail,
+      source: 'task-markdown-table-resize',
+      toolId,
+    });
+  }, [invalidateLayout, toolId]);
   
   const prevPhaseRef = useRef(toolViewState.phase);
 
@@ -372,6 +380,8 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
                 <Markdown
                   content={taskInput!.prompt}
                   isStreaming={false}
+                  enableTableColumnResize
+                  onLayoutMutation={handleMarkdownLayoutMutation}
                   className="thinking-markdown"
                 />
               </div>
@@ -412,6 +422,8 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
               <Markdown
                 content={taskInput!.prompt}
                 isStreaming={false}
+                enableTableColumnResize
+                onLayoutMutation={handleMarkdownLayoutMutation}
                 className="thinking-markdown"
               />
             </div>

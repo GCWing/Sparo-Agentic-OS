@@ -98,6 +98,7 @@ export const StreamingMarkdownRenderer = React.memo<StreamingMarkdownRendererPro
       {document.blocks.map(block => (
         <MarkdownBlockRenderer
           key={block.id}
+          textItemId={textItemId}
           block={block}
           streaming={streaming}
           onFileViewRequest={onFileViewRequest}

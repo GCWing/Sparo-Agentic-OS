@@ -14,7 +14,6 @@ export const agenticOsProfile: SessionProfile = {
   },
 
   capabilities: {
-    canSwitchAgents: false,
     showWelcomePanel: false,
     showAgenticOsModelRoundUI: true,
   },

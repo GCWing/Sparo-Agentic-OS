@@ -296,7 +296,7 @@
       "documentSections": "Document sections",
       "viewModeLabel": "Markdown editor mode",
       "notice": {
-        "sourcePreviewFallback": "This document contains HTML fragments that are not safely editable in visual mode. Edit in source mode or switch to preview."
+        "sourcePreviewFallback": "This document contains content that cannot be safely represented in visual mode. Edit in source mode or switch to preview."
       }
     },
     "planViewer": {
@@ -328,7 +328,16 @@
         "title": "Sections"
       },
       "rawHtml": {
-        "inlineLabel": "HTML"
+        "inlineLabel": "HTML",
+        "preview": "Preview",
+        "sandbox": "Sandbox",
+        "source": "Source",
+        "editSource": "Edit source",
+        "html": "HTML",
+        "details": "Details",
+        "frontmatter": "Frontmatter",
+        "footnote": "Footnote",
+        "markdown": "Markdown"
       },
       "details": {
         "summaryPlaceholder": "Summary"

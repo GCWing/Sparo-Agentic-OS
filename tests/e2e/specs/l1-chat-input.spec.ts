@@ -3,13 +3,37 @@
  * Tests input behavior, validation, and message sending without AI interaction.
  */
 
-import { browser, expect } from '@wdio/globals';
+import { $, browser, expect } from '@wdio/globals';
 import { ChatPage } from '../page-objects/ChatPage';
 import { ChatInput } from '../page-objects/components/ChatInput';
 import { Header } from '../page-objects/components/Header';
 import { StartupPage } from '../page-objects/StartupPage';
 import { ensureCodeSessionOpen, openWorkspace } from '../helpers/workspace-helper';
 import { saveScreenshot, saveFailureScreenshot, saveStepScreenshot } from '../helpers/screenshot-utils';
+
+interface ComposerAgentSnapshot {
+  activeAgentId: string | null;
+  configAgentType: string | null;
+  targetSessionId: string | null;
+}
+
+async function getComposerAgentSnapshot(): Promise<ComposerAgentSnapshot> {
+  return browser.execute(async () => {
+    const { flowChatManager } = await import('/src/flow_chat/services/FlowChatManager.ts');
+    const { flowChatStore } = await import('/src/flow_chat/store/FlowChatStore.ts');
+    const { useWorkspaceSurfaceStore } = await import('/src/app/navigation/workspaceSurfaceStore.ts');
+    const managerStore = ((flowChatManager as any).context?.flowChatStore ?? flowChatStore) as typeof flowChatStore;
+    const surfaceState = useWorkspaceSurfaceStore.getState();
+    const targetSessionId = surfaceState.composerTargetSessionId || surfaceState.focusedSessionId;
+    const session = targetSessionId ? managerStore.getState().sessions.get(targetSessionId) : null;
+
+    return {
+      activeAgentId: session?.descriptor.agentPolicy.activeAgentId ?? null,
+      configAgentType: session?.config.agentType ?? null,
+      targetSessionId: targetSessionId ?? null,
+    };
+  });
+}
 
 describe('L1 Chat Input Validation', () => {
   let chatPage: ChatPage;
@@ -88,6 +112,70 @@ describe('L1 Chat Input Validation', () => {
       expect(placeholder).toBeDefined();
       expect(placeholder.length).toBeGreaterThan(0);
       console.log('[L1] Placeholder text:', placeholder);
+    });
+
+    it('composer action menu should expose and apply coding agent switches', async function () {
+      if (!hasWorkspace) {
+        this.skip();
+        return;
+      }
+
+      const addButton = await $('.sparo-chat-input__agent-boost-add');
+      await addButton.waitForDisplayed({
+        timeout: 5000,
+        timeoutMsg: 'Composer action button was not visible',
+      });
+      await addButton.click();
+
+      const dropdown = await $('.sparo-chat-input__mode-dropdown--agent-boost');
+      await dropdown.waitForDisplayed({
+        timeout: 5000,
+        timeoutMsg: 'Composer action menu did not open',
+      });
+
+      for (const agentId of ['Plan', 'debug', 'Team']) {
+        const action = await $(`[data-testid="composer-action-agent:${agentId}"]`);
+        await action.waitForExist({
+          timeout: 5000,
+          timeoutMsg: `Missing composer agent switch action: ${agentId}`,
+        });
+      }
+
+      const planAction = await $('[data-testid="composer-action-agent:Plan"]');
+      await planAction.waitForClickable({
+        timeout: 5000,
+        timeoutMsg: 'Plan agent switch action was not clickable',
+      });
+      await planAction.click();
+
+      await browser.waitUntil(async () => {
+        const snapshot = await getComposerAgentSnapshot();
+        return snapshot.activeAgentId === 'Plan' && snapshot.configAgentType === 'Plan';
+      }, {
+        timeout: 5000,
+        timeoutMsg: 'Composer Plan switch did not update the active session agent',
+      });
+
+      const planSnapshot = await getComposerAgentSnapshot();
+      expect(planSnapshot.activeAgentId).toBe('Plan');
+      expect(planSnapshot.configAgentType).toBe('Plan');
+
+      const resetAgent = await $('[data-testid="composer-agent-reset"]');
+      await resetAgent.waitForClickable({
+        timeout: 5000,
+        timeoutMsg: 'Composer agent reset chip was not clickable after switching to Plan',
+      });
+      await resetAgent.click();
+
+      await browser.waitUntil(async () => {
+        const snapshot = await getComposerAgentSnapshot();
+        return snapshot.activeAgentId === 'agentic' && snapshot.configAgentType === 'agentic';
+      }, {
+        timeout: 5000,
+        timeoutMsg: 'Composer agent reset did not restore the default agent',
+      });
+
+      console.log('[L1] Composer action menu applies coding agent switches');
     });
   });
 

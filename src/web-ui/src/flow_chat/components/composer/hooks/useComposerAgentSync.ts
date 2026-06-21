@@ -9,7 +9,6 @@ const log = createLogger('ComposerAgentSync');
 
 interface UseComposerAgentSyncParams {
   activeSessionDescriptor?: SessionDescriptor;
-  currentAgent: string;
   dispatchMode: Dispatch<AgentAction>;
   effectiveTargetSessionId?: string | null;
 }
@@ -24,10 +23,12 @@ function persistLastMode(mode: string) {
 
 export function useComposerAgentSync({
   activeSessionDescriptor,
-  currentAgent,
   dispatchMode,
   effectiveTargetSessionId,
 }: UseComposerAgentSyncParams) {
+  const activeAgentId = activeSessionDescriptor?.agentPolicy.activeAgentId;
+  const activeProfileId = activeSessionDescriptor?.profileId;
+
   useEffect(() => {
     const fetchAvailableAgents = async () => {
       try {
@@ -73,16 +74,16 @@ export function useComposerAgentSync({
   }, [dispatchMode]);
 
   useEffect(() => {
-    const nextMode = activeSessionDescriptor?.agentPolicy.activeAgentId;
+    const nextMode = activeAgentId;
 
     if (nextMode) {
       log.debug('Syncing mode with workspace and session', {
         sessionId: effectiveTargetSessionId,
         mode: nextMode,
-        profileId: activeSessionDescriptor?.profileId,
+        profileId: activeProfileId,
       });
       dispatchMode({ type: 'SET_CURRENT_AGENT', payload: nextMode });
       persistLastMode(nextMode);
     }
-  }, [activeSessionDescriptor, currentAgent, dispatchMode, effectiveTargetSessionId]);
+  }, [activeAgentId, activeProfileId, dispatchMode, effectiveTargetSessionId]);
 }

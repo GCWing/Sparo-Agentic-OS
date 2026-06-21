@@ -123,7 +123,22 @@ describe('tiptap markdown compatibility', () => {
     expect(getUnsupportedTiptapMarkdownFeatures(markdown)).toContain('roundTripMismatch');
   });
 
-  it('treats frontmatter as unsafe for the IR editor', () => {
+  it('treats equivalent adjacent marks in tables as semantic matches', () => {
+    const markdown = [
+      '| id | gap |',
+      '| --- | --- |',
+      '| P1-7 | **DialogTurnQueue* events are invisible** |',
+    ].join('\n');
+
+    const analysis = analyzeMarkdownEditability(markdown);
+
+    expect(analysis.mode).toBe('canonicalizable');
+    expect(analysis.semanticEqual).toBe(true);
+    expect(analysis.hardIssues).toEqual([]);
+    expect(getUnsupportedTiptapMarkdownFeatures(markdown)).toEqual(['roundTripMismatch']);
+  });
+
+  it('keeps frontmatter as a source-backed block in the IR editor', () => {
     const markdown = [
       '---',
       'title: Demo',
@@ -134,10 +149,37 @@ describe('tiptap markdown compatibility', () => {
       '# Body',
     ].join('\n');
 
+    const doc = markdownToTiptapDoc(markdown);
+    const serialized = tiptapDocToMarkdown(doc);
     const analysis = analyzeMarkdownEditability(markdown);
 
-    expect(analysis.mode).toBe('unsafe');
-    expect(analysis.hardIssues).toContain('frontmatter');
+    expect(serialized).toBe(markdown);
+    expect(analysis.mode).toBe('lossless');
+    expect(analysis.containsRenderOnlyBlocks).toBe(true);
+    expect(analysis.hardIssues).toEqual([]);
+    expect(doc.content?.[0]?.type).toBe('renderOnlyBlock');
+    expect(doc.content?.[0]?.attrs?.kind).toBe('frontmatter');
+  });
+
+  it('keeps footnotes as source-backed blocks in the IR editor', () => {
+    const markdown = [
+      'Text with a footnote.[^1]',
+      '',
+      '[^1]: Footnote body',
+    ].join('\n');
+
+    const doc = markdownToTiptapDoc(markdown);
+    const serialized = tiptapDocToMarkdown(doc);
+    const analysis = analyzeMarkdownEditability(markdown);
+
+    expect(serialized).toBe(markdown);
+    expect(analysis.mode).toBe('lossless');
+    expect(analysis.containsRenderOnlyBlocks).toBe(true);
+    expect(analysis.hardIssues).toEqual([]);
+    expect(doc.content?.[0]?.type).toBe('renderOnlyBlock');
+    expect(doc.content?.[0]?.attrs?.kind).toBe('footnote');
+    expect(doc.content?.[1]?.type).toBe('renderOnlyBlock');
+    expect(doc.content?.[1]?.attrs?.kind).toBe('footnote');
   });
 
   it('upgrades simple details regions into structured details nodes', () => {

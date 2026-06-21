@@ -1,0 +1,80 @@
+.table-wrapper.markdown-resizable-table {
+  position: relative;
+  max-width: 100%;
+  overflow: hidden;
+
+  table {
+    max-width: 100%;
+  }
+
+  th,
+  td {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
+
+  th .inline-code,
+  td .inline-code {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  &--resizing {
+    cursor: col-resize;
+    user-select: none;
+  }
+
+  &--custom-widths table {
+    width: 100%;
+  }
+}
+
+.markdown-resizable-table__handles {
+  position: absolute;
+  inset: 0 auto 0 0;
+  min-width: 100%;
+  pointer-events: none;
+}
+
+.markdown-resizable-table__handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 11px;
+  padding: 0;
+  transform: translateX(-50%);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  cursor: col-resize;
+  pointer-events: auto;
+  touch-action: none;
+  z-index: var(--ds-z-local);
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 5px;
+    width: 1px;
+    background: transparent;
+    transition: background var(--ds-motion-fast) var(--ds-easing-standard),
+      box-shadow var(--ds-motion-fast) var(--ds-easing-standard);
+  }
+
+  &:hover::before,
+  &:focus-visible::before,
+  &--active::before {
+    background: var(--ds-color-border-strong);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--ds-color-bg-panel) 70%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ds-color-accent-500);
+    outline-offset: -2px;
+  }
+}

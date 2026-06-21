@@ -1,25 +1,18 @@
 import { describe, expect, it } from 'vitest';
+import { codingProfile } from '@/app/session-profiles';
+import { SESSION_DESCRIPTORS, type SessionDescriptor } from '@/flow_chat/domain/sessionDescriptor';
 import type { AgentInfo } from '../../../reducers/agentReducer';
+import { resolveComposerActionModel } from '../actions/composerActionResolver';
+import type { ComposerActionDescriptor } from '../actions/composerActionTypes';
 import type { ComposerMcpPromptCommand } from './composerCommands';
 import {
   getComposerCommandOptions,
   resolveComposerCommandOption,
-  type ComposerCommandContext,
 } from './composerCommandRegistry';
 
 const t = ((_key: string, options?: { defaultValue?: string }) => (
   options?.defaultValue ?? _key
 )) as any;
-
-const baseContext: ComposerCommandContext = {
-  canSwitchAgents: true,
-  currentAgent: 'agentic',
-  hasCurrentSession: true,
-  hasTargetSession: true,
-  isBtwSession: false,
-  isProcessing: false,
-  supportsGoal: true,
-};
 
 const debugAgent: AgentInfo = {
   id: 'debug',
@@ -42,13 +35,45 @@ const promptCommand: ComposerMcpPromptCommand = {
   arguments: [{ name: 'topic', required: true }],
 };
 
+function resolveActions({
+  descriptor = SESSION_DESCRIPTORS.coding,
+  agents = [debugAgent],
+  prompts = [promptCommand],
+  isBtwSession = false,
+  isProcessing = false,
+  supportsGoal = true,
+}: {
+  descriptor?: SessionDescriptor;
+  agents?: AgentInfo[];
+  prompts?: ComposerMcpPromptCommand[];
+  isBtwSession?: boolean;
+  isProcessing?: boolean;
+  supportsGoal?: boolean;
+} = {}): ComposerActionDescriptor[] {
+  return resolveComposerActionModel({
+    t,
+    profile: codingProfile,
+    descriptor,
+    targetSessionId: 'session-1',
+    workspacePath: 'D:/workspace/example',
+    storageScope: 'workspace',
+    customMetadata: undefined,
+    availableAgents: agents,
+    currentAgent: descriptor.agentPolicy.activeAgentId,
+    isComposerActive: true,
+    hasCurrentSession: true,
+    hasTargetSession: true,
+    isBtwSession,
+    isProcessing,
+    supportsGoal,
+    mcpPromptCommands: prompts,
+  }).actions;
+}
+
 describe('composerCommandRegistry', () => {
-  it('returns semantic command options instead of input text mutations', () => {
+  it('projects semantic action descriptors into slash command options', () => {
     const options = getComposerCommandOptions({
-      t,
-      context: baseContext,
-      incrementalAgents: [debugAgent],
-      mcpPromptCommands: [promptCommand],
+      actions: resolveActions(),
       query: '',
     });
 
@@ -70,32 +95,85 @@ describe('composerCommandRegistry', () => {
     });
   });
 
+  it('keeps agent commands data-driven instead of filtering to legacy ids', () => {
+    const reviewerAgent: AgentInfo = {
+      id: 'Reviewer',
+      name: 'Reviewer',
+      description: 'Review changes',
+      isReadonly: false,
+      toolCount: 1,
+      enabled: true,
+    };
+    const descriptor: SessionDescriptor = {
+      ...SESSION_DESCRIPTORS.coding,
+      agentPolicy: {
+        defaultAgentId: 'agentic',
+        activeAgentId: 'agentic',
+        switchableAgentIds: ['agentic', 'Reviewer'],
+      },
+    };
+
+    const options = getComposerCommandOptions({
+      actions: resolveActions({ descriptor, agents: [reviewerAgent], prompts: [] }),
+      query: '',
+    });
+
+    expect(options.map(option => option.command)).toContain('/Reviewer');
+  });
+
   it('filters by query across command token and visible text', () => {
     const options = getComposerCommandOptions({
-      t,
-      context: baseContext,
-      incrementalAgents: [debugAgent],
-      mcpPromptCommands: [promptCommand],
+      actions: resolveActions(),
       query: 'brief',
     });
 
     expect(options.map(option => option.command)).toEqual(['/server:brief']);
   });
 
-  it('applies availability from command context', () => {
+  it('applies availability from resolved actions', () => {
     const options = getComposerCommandOptions({
-      t,
-      context: {
-        ...baseContext,
+      actions: resolveActions({
         isBtwSession: true,
         supportsGoal: false,
         isProcessing: true,
-      },
-      incrementalAgents: [],
-      mcpPromptCommands: [],
+        agents: [],
+        prompts: [],
+      }),
       query: '',
     });
 
     expect(options.map(option => option.command)).toEqual([]);
+  });
+
+  it('projects app actions when providers expose slash commands', () => {
+    const appAction: ComposerActionDescriptor = {
+      id: 'app:diagnostics',
+      providerId: 'profile',
+      label: 'Send diagnostics',
+      description: 'Send diagnostics to the current app',
+      kind: 'app-action',
+      icon: 'app',
+      order: 400,
+      availability: { state: 'enabled' },
+      select: {
+        type: 'dispatch-app-action',
+        providerId: 'profile',
+        actionId: 'send-diagnostics',
+        payload: { diagnosticsId: 'diag-1' },
+      },
+      command: '/diagnostics',
+      commandGroup: 'app',
+      commandGroupLabel: 'App action',
+      menu: { section: 'app', control: 'row', order: 10 },
+    };
+
+    const options = getComposerCommandOptions({
+      actions: [appAction],
+      query: '',
+    });
+
+    expect(options).toHaveLength(1);
+    expect(options[0]?.kind).toBe('app-action');
+    expect(resolveComposerCommandOption(options, '/diagnostics')?.select).toEqual(appAction.select);
   });
 });

@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useImperativeHandle, forwardRef, useMemo, useRef } from 'react'
+﻿import React, { useCallback, useEffect, useImperativeHandle, forwardRef, useRef } from 'react'
 import { createLogger } from '@/shared/utils/logger'
 import { activeEditTargetService } from '@/tools/editor/services/ActiveEditTargetService'
 import { useEditor } from '../hooks/useEditor'
@@ -7,7 +7,6 @@ import { TiptapEditor, TiptapEditorHandle } from './TiptapEditor'
 import { Preview } from './Preview'
 import type { EditorOptions, EditorInstance } from '../types'
 import { useI18n } from '@/infrastructure/i18n'
-import { analyzeMarkdownEditability } from '../utils/tiptapMarkdown'
 import './MarkdownEditingSurface.scss'
 
 void createLogger('MarkdownEditingSurface')
@@ -83,10 +82,7 @@ export const MarkdownEditingSurface = forwardRef<EditorInstance, MarkdownEditing
   } = useEditor(controlledValue ?? defaultValue, onChange)
 
   const tiptapEditorRef = useRef<TiptapEditorHandle>(null)
-  const editability = useMemo(() => analyzeMarkdownEditability(value), [value])
-  const effectiveMode = mode === 'ir' && editability.containsRenderOnlyBlocks
-    ? (readonly ? 'preview' : 'split')
-    : mode
+  const effectiveMode = mode
 
   useEffect(() => {
     currentValueRef.current = value

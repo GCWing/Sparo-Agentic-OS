@@ -22,6 +22,7 @@ interface ComposerIntentChipsProps {
   intent: ComposerIntentState;
   activeGoalSnapshot: SessionGoalSnapshot;
   currentAgent: string;
+  defaultAgentId: string;
   canSwitchAgents: boolean;
   getAgentName: (agentId: string) => string;
   labels: ComposerIntentChipLabels;
@@ -58,6 +59,7 @@ export function ComposerIntentChips({
   intent,
   activeGoalSnapshot,
   currentAgent,
+  defaultAgentId,
   canSwitchAgents,
   getAgentName,
   labels,
@@ -69,7 +71,7 @@ export function ComposerIntentChips({
 }: ComposerIntentChipsProps) {
   const hasGoalModifier = intent.modifiers.includes('goal');
   const goalStatusLabel = hasGoalModifier ? null : activeGoalLabel(activeGoalSnapshot, labels);
-  const showAgentChip = canSwitchAgents && currentAgent !== 'agentic';
+  const showAgentChip = canSwitchAgents && currentAgent !== defaultAgentId;
 
   if (
     intent.target === 'main' &&
@@ -177,6 +179,7 @@ export function ComposerIntentChips({
           <IconButton
             aria-label={labels.resetAgent}
             className="sparo-chat-input__intent-chip-remove"
+            data-testid="composer-agent-reset"
             onClick={onResetAgent}
             size="xs"
             tooltip={labels.resetAgent}

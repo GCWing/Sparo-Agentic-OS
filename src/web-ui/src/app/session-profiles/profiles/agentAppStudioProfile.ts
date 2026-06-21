@@ -62,7 +62,6 @@ export const agentAppStudioProfile: SessionProfile = {
   },
 
   capabilities: {
-    canSwitchAgents: false,
     showWelcomePanel: true,
     showAgenticOsModelRoundUI: false,
   },
