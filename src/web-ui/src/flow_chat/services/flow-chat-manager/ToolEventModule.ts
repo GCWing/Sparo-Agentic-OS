@@ -23,6 +23,7 @@ import type {
   ProgressToolEvent,
   StartedToolEvent,
 } from '../EventBatcher';
+import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
 
 const log = createLogger('ToolEventModule');
 const pendingTerminalSessionIds = new Map<string, string>();
@@ -769,9 +770,8 @@ function handleConfirmationNeeded(
     },
   } as any);
 
-  const state = store.getState();
-  const activeSessionId = state.activeSessionId;
-  if (sessionId !== activeSessionId) {
+  const focusedSessionId = useWorkspaceSurfaceStore.getState().focusedSessionId;
+  if (sessionId !== focusedSessionId) {
     const attentionKind = toolEvent.tool_name === 'AskUserQuestion' ? 'ask_user' : 'tool_confirm';
     store.setSessionNeedsAttention(sessionId, attentionKind);
   }

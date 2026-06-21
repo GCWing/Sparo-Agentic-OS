@@ -96,18 +96,6 @@
       background: color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent);
     }
 
-    .sparo-chat-input__agent-capsule {
-      max-width: 148px;
-      align-items: center;
-      line-height: normal;
-    }
-
-    .sparo-chat-input__agent-capsule-close {
-      width: 20px;
-      height: 20px;
-      margin-right: -1px;
-    }
-
   }
 
   &--awakening {

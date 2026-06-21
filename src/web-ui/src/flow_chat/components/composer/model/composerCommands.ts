@@ -1,20 +1,7 @@
 import type { MCPPromptMessage } from '@/infrastructure/api/service-api/MCPAPI';
 
-export type SlashActionItem = {
-  kind: 'action';
-  id: string;
-  command: string;
-  label: string;
-};
-
-export type SlashAgentItem = {
-  kind: 'agent';
-  id: string;
-  name: string;
-};
-
-export type SlashMcpPromptItem = {
-  kind: 'mcpPrompt';
+export type ComposerMcpPromptCommand = {
+  kind: 'prompt-template';
   id: string;
   command: string;
   label: string;
@@ -28,8 +15,6 @@ export type SlashMcpPromptItem = {
     description?: string;
   }>;
 };
-
-export type SlashPickerItem = SlashActionItem | SlashAgentItem | SlashMcpPromptItem;
 
 export function buildMcpPromptSlashCommand(serverId: string, promptName: string): string {
   return `/${serverId}:${promptName}`;

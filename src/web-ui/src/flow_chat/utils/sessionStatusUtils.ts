@@ -1,6 +1,6 @@
 /**
  * Session status helpers
- * Session.status is derived from the state machine and activeSessionId.
+ * Session.status is derived from the state machine and focusedSessionId.
  */
 
 import { stateMachineManager } from '../state-machine';
@@ -10,15 +10,15 @@ import { SessionExecutionState } from '../state-machine/types';
  * Compute the derived session status.
  *
  * @param sessionId Session ID
- * @param activeSessionId Active session ID
+ * @param focusedSessionId Focused session ID
  * @returns Derived session status
  */
 export function deriveSessionStatus(
   sessionId: string,
-  activeSessionId: string | null
+  focusedSessionId: string | null
 ): 'active' | 'idle' | 'error' {
-  // Active session takes priority.
-  if (sessionId === activeSessionId) {
+  // Focused session takes priority.
+  if (sessionId === focusedSessionId) {
     return 'active';
   }
   

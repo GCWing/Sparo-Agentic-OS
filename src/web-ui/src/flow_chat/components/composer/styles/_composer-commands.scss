@@ -275,6 +275,19 @@
     @include flow.flow-chat-soft-scrollbar;
   }
 
+  &__slash-command-entry {
+    display: contents;
+  }
+
+  &__slash-command-group {
+    padding: 7px 12px 3px;
+    font-size: var(--flowchat-font-size-xxs);
+    color: var(--ds-chat-text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0;
+  }
+
   &__slash-command-hover-highlight {
     position: absolute;
     top: 0;
@@ -404,6 +417,83 @@
     text-align: center;
     font-size: var(--flowchat-font-size-2xs);
     color: var(--ds-chat-text-muted);
+  }
+
+  &__intent-chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 0 2px 6px;
+  }
+
+  &__intent-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    max-width: min(220px, 100%);
+    min-height: 22px;
+    padding: 2px 4px 2px 7px;
+    border: 1px solid var(--ds-chat-border);
+    border-radius: var(--ds-radius-full);
+    background: var(--ds-chat-surface-muted);
+    color: var(--ds-chat-text-secondary);
+    font-size: var(--flowchat-font-size-xxs);
+    font-weight: 500;
+    line-height: 1.2;
+
+    > span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    svg {
+      flex: 0 0 auto;
+    }
+
+    &--goal {
+      border-color: color-mix(in srgb, var(--ds-status-surface-warning-fg) 32%, var(--ds-chat-border));
+      color: var(--ds-status-surface-warning-fg);
+      background: color-mix(in srgb, var(--ds-status-surface-warning-fg) 10%, transparent);
+    }
+
+    &--target {
+      border-color: color-mix(in srgb, var(--ds-status-surface-info-fg) 30%, var(--ds-chat-border));
+      color: var(--ds-status-surface-info-fg);
+      background: color-mix(in srgb, var(--ds-status-surface-info-fg) 10%, transparent);
+    }
+
+    &--operation {
+      border-color: color-mix(in srgb, var(--ds-chat-accent) 28%, var(--ds-chat-border));
+      color: var(--ds-chat-accent);
+      background: color-mix(in srgb, var(--ds-chat-accent) 10%, transparent);
+    }
+
+    &--prompt,
+    &--agent {
+      border-color: color-mix(in srgb, var(--ds-status-surface-success-fg) 26%, var(--ds-chat-border));
+      color: var(--ds-status-surface-success-fg);
+      background: color-mix(in srgb, var(--ds-status-surface-success-fg) 9%, transparent);
+    }
+
+    &--readonly {
+      padding-right: 8px;
+    }
+  }
+
+  &__intent-chip-remove.icon-btn {
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    color: currentColor;
+    opacity: 0.72;
+
+    &:hover:not(:disabled) {
+      opacity: 1;
+      background: color-mix(in srgb, currentColor 12%, transparent);
+    }
   }
 
   // Popovers: heavy blur + dark shadows read as gray/black on light theme

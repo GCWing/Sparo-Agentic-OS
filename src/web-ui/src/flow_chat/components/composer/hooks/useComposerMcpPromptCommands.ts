@@ -3,13 +3,13 @@ import MCPAPI, { type MCPPrompt, type MCPServerInfo } from '@/infrastructure/api
 import { createLogger } from '@/shared/utils/logger';
 import {
   buildMcpPromptSlashCommand,
-  type SlashMcpPromptItem,
+  type ComposerMcpPromptCommand,
 } from '../model/composerCommands';
 
 const log = createLogger('ComposerMcpPromptCommands');
 
 export function useComposerMcpPromptCommands() {
-  const [mcpPromptCommands, setMcpPromptCommands] = useState<SlashMcpPromptItem[]>([]);
+  const [mcpPromptCommands, setMcpPromptCommands] = useState<ComposerMcpPromptCommand[]>([]);
   const [mcpPromptCommandsLoading, setMcpPromptCommandsLoading] = useState(false);
 
   const loadMcpPromptCommands = useCallback(async () => {
@@ -29,7 +29,7 @@ export function useComposerMcpPromptCommands() {
               refresh: true,
             });
             return prompts.map((prompt: MCPPrompt) => ({
-              kind: 'mcpPrompt' as const,
+              kind: 'prompt-template' as const,
               id: `${server.id}:${prompt.name}`,
               command: buildMcpPromptSlashCommand(server.id, prompt.name),
               label:
@@ -50,7 +50,7 @@ export function useComposerMcpPromptCommands() {
               serverId: server.id,
               error,
             });
-            return [] as SlashMcpPromptItem[];
+            return [] as ComposerMcpPromptCommand[];
           }
         })
       );

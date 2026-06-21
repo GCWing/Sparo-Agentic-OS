@@ -7,6 +7,7 @@ import {
   getAgenticOsSessionDescriptor,
   isSystemAgenticOsSession,
 } from '@/flow_chat/domain/sessionDescriptor';
+import type { WorkspaceSurfaceContext } from './workspaceSurfaceTypes';
 
 function isAgenticOsSession(sessionId: string): boolean {
   const session = flowChatStore.getState().sessions.get(sessionId);
@@ -24,6 +25,11 @@ function findLatestAgenticOsSessionId(): string | null {
 
 export interface OpenWorkspaceSceneOptions {
   workspacePath?: string | null;
+  context?: WorkspaceSurfaceContext | null;
+}
+
+export interface OpenWorkspaceSessionOptions {
+  context?: WorkspaceSurfaceContext | null;
 }
 
 export function openWorkspaceScene(
@@ -34,11 +40,16 @@ export function openWorkspaceScene(
     kind: 'scene',
     sceneId,
     workspacePath: options.workspacePath,
+  }, {
+    context: options.context,
   });
 }
 
-export async function openWorkspaceSession(sessionId: string): Promise<void> {
-  if (flowChatStore.getState().activeSessionId === sessionId) {
+export async function openWorkspaceSession(
+  sessionId: string,
+  options: OpenWorkspaceSessionOptions = {}
+): Promise<void> {
+  if (useWorkspaceSurfaceStore.getState().focusedSessionId === sessionId) {
     syncSessionToModernStore(sessionId);
   } else {
     await flowChatManager.switchChatSession(sessionId);
@@ -49,11 +60,16 @@ export async function openWorkspaceSession(sessionId: string): Promise<void> {
     useWorkspaceSurfaceStore.getState().openSurface({
       kind: 'agentic-os-home',
       agenticOsSessionId: sessionId,
+    }, {
+      context: options.context,
     });
     return;
   }
 
-  useWorkspaceSurfaceStore.getState().openSurface({ kind: 'session', sessionId });
+  useWorkspaceSurfaceStore.getState().openSurface(
+    { kind: 'session', sessionId },
+    { context: options.context }
+  );
 }
 
 export async function openWorkspaceHome(): Promise<string> {

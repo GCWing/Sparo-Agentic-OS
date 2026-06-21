@@ -30,6 +30,7 @@ import { useI18n } from '@/infrastructure/i18n';
 import { consumeDeferredNewSessionWorkspace } from '../utils/deferredWorkspaceSession';
 import { appRuntime, runtimePolicy } from '@/infrastructure/app-runtime';
 import { descriptorFromAgentType } from '@/flow_chat/domain/sessionDescriptor';
+import { useWorkspaceSurfaceStore } from '../navigation/workspaceSurfaceStore';
 import './AppLayout.scss';
 
 const log = createLogger('AppLayout');
@@ -195,11 +196,12 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
           }
         );
 
-        const { flowChatStore } = await import('@/flow_chat/store/FlowChatStore');
+        const surfaceState = useWorkspaceSurfaceStore.getState();
         const workspaceScopedActiveId =
           initialization.createdSessionId ||
-          initialization.activeSessionId ||
-          flowChatStore.getState().activeSessionId;
+          surfaceState.composerTargetSessionId ||
+          surfaceState.focusedSessionId ||
+          initialization.focusedSessionId;
 
         const pendingDescription = sessionStorage.getItem('pendingProjectDescription');
         if (pendingDescription && pendingDescription.trim()) {
@@ -208,7 +210,11 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
 
           setTimeout(async () => {
             try {
-              const targetSessionId = pendingTargetSessionId || flowChatStore.getState().activeSessionId;
+              const latestSurfaceState = useWorkspaceSurfaceStore.getState();
+              const targetSessionId =
+                pendingTargetSessionId ||
+                latestSurfaceState.composerTargetSessionId ||
+                latestSurfaceState.focusedSessionId;
 
               if (!targetSessionId) {
                 log.error('Cannot find active session ID');

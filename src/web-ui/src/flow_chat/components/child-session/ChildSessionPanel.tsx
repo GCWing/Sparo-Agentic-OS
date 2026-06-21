@@ -27,6 +27,7 @@ import { globalEventBus } from '@/infrastructure/event-bus';
 import { projectStreamingOutput } from '../../projections/streamingOutputProjection';
 import { projectProcessingAffordance } from '../../projections/processingAffordanceProjection';
 import { useStableProcessingAffordance } from '../modern/useStableProcessingAffordance';
+import { canHydrateSession } from '../../domain/sessionLoadPhase';
 import './ChildSessionPanel.scss';
 
 export interface ChildSessionPanelProps {
@@ -81,7 +82,7 @@ export const ChildSessionPanel: React.FC<ChildSessionPanelProps> = ({
   const isLoadingRef = useRef(false);
   useEffect(() => {
     if (!childSessionId || !childSession) return;
-    if (!childSession.isHistorical) return;
+    if (!canHydrateSession(childSession)) return;
     if (isLoadingRef.current) return;
 
     const pathValue = workspacePath ?? childSession.workspacePath;

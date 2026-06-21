@@ -1,0 +1,76 @@
+import { useCallback } from 'react';
+import type { Dispatch, MutableRefObject } from 'react';
+import type { ContextItem } from '../../../../shared/types/context';
+import type { InputAction } from '../../../reducers/inputReducer';
+import type { SessionDerivedState } from '../../../state-machine/types';
+import {
+  detectComposerInput,
+  type ComposerInputDetection,
+} from '../model/composerInputDetection';
+
+export function useComposerInputDetection({
+  contexts,
+  derivedState,
+  dispatchInput,
+  inputIsActive,
+  inputValueRef,
+  isImeComposingRef,
+  prunePendingLargePastes,
+  removeContext,
+  setInputDetection,
+  setQueuedInput,
+  shouldQueueDraft,
+}: {
+  contexts: ContextItem[];
+  derivedState: SessionDerivedState | null;
+  dispatchInput: Dispatch<InputAction>;
+  inputIsActive: boolean;
+  inputValueRef: MutableRefObject<string>;
+  isImeComposingRef: MutableRefObject<boolean>;
+  prunePendingLargePastes: (text: string) => void;
+  removeContext: (id: string) => void;
+  setInputDetection: (detection: ComposerInputDetection) => void;
+  setQueuedInput: (value: string | null) => void;
+  shouldQueueDraft: (text: string) => boolean;
+}) {
+  return useCallback((text: string, activeContexts: ContextItem[]) => {
+    if (!inputIsActive && text.length > 0) {
+      dispatchInput({ type: 'ACTIVATE' });
+    }
+
+    const activeContextIds = new Set(activeContexts.map(context => context.id));
+    contexts.forEach(context => {
+      if (context.type === 'image') return;
+      if (!activeContextIds.has(context.id)) {
+        removeContext(context.id);
+      }
+    });
+
+    prunePendingLargePastes(text);
+    dispatchInput({ type: 'SET_VALUE', payload: text });
+    inputValueRef.current = text;
+
+    if (derivedState?.isProcessing && shouldQueueDraft(text)) {
+      setQueuedInput(text);
+    }
+
+    setInputDetection(detectComposerInput({
+      text,
+      selectionStart: text.length,
+      selectionEnd: text.length,
+      isComposing: isImeComposingRef.current,
+    }));
+  }, [
+    contexts,
+    derivedState?.isProcessing,
+    dispatchInput,
+    inputIsActive,
+    inputValueRef,
+    isImeComposingRef,
+    prunePendingLargePastes,
+    removeContext,
+    setInputDetection,
+    setQueuedInput,
+    shouldQueueDraft,
+  ]);
+}

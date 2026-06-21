@@ -7,12 +7,14 @@
 import { flowChatStore } from '../store/FlowChatStore';
 import { useModernFlowChatStore } from '../store/modernFlowChatStore';
 import { createLogger } from '@/shared/utils/logger';
+import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
+import type { Session } from '../types/flow-chat';
 
 const log = createLogger('StoreSync');
 
 function isSessionAlreadySynced(
   sessionId: string,
-  session: object,
+  session: Session,
   modernStore: ReturnType<typeof useModernFlowChatStore.getState>
 ): boolean {
   return (
@@ -49,17 +51,9 @@ export function syncSessionToModernStore(sessionId: string): void {
  */
 export function startAutoSync(): () => void {
   let lastSyncedSessionId: string | null = null;
-  let lastSyncedSession: object | null = null;
+  let lastSyncedSession: Session | null = null;
 
-  const unsubscribe = flowChatStore.subscribeSelector((state) => {
-    const session = state.activeSessionId
-      ? state.sessions.get(state.activeSessionId) ?? null
-      : null;
-    return {
-      sessionId: state.activeSessionId,
-      session,
-    };
-  }, (active) => {
+  const syncFocusedSession = (active: { sessionId: string | null; session: Session | null }) => {
     const modernStore = useModernFlowChatStore.getState();
 
     if (active.sessionId) {
@@ -73,20 +67,40 @@ export function startAutoSync(): () => void {
       lastSyncedSession = null;
       modernStore.clear();
     }
-  }, (left, right) => left.sessionId === right.sessionId && left.session === right.session);
+  };
 
-  const currentState = flowChatStore.getState();
-  if (currentState.activeSessionId) {
-    const session = currentState.sessions.get(currentState.activeSessionId);
-    if (session) {
-      lastSyncedSessionId = currentState.activeSessionId;
-      lastSyncedSession = session;
-      const modernStore = useModernFlowChatStore.getState();
-      if (!isSessionAlreadySynced(currentState.activeSessionId, session, modernStore)) {
-        modernStore.setActiveSession(session);
-      }
+  const getFocusedSnapshot = () => {
+    const sessionId = useWorkspaceSurfaceStore.getState().focusedSessionId;
+    const session = sessionId
+      ? flowChatStore.getState().sessions.get(sessionId) ?? null
+      : null;
+    return {
+      sessionId,
+      session,
+    };
+  };
+
+  const unsubscribeFlowChat = flowChatStore.subscribeSelector(
+    getFocusedSnapshot,
+    syncFocusedSession,
+    (left, right) => left.sessionId === right.sessionId && left.session === right.session,
+  );
+  const unsubscribeSurface = useWorkspaceSurfaceStore.subscribe(() => {
+    syncFocusedSession(getFocusedSnapshot());
+  });
+
+  const current = getFocusedSnapshot();
+  if (current.sessionId && current.session) {
+    lastSyncedSessionId = current.sessionId;
+    lastSyncedSession = current.session;
+    const modernStore = useModernFlowChatStore.getState();
+    if (!isSessionAlreadySynced(current.sessionId, current.session, modernStore)) {
+      modernStore.setActiveSession(current.session);
     }
   }
 
-  return unsubscribe;
+  return () => {
+    unsubscribeFlowChat();
+    unsubscribeSurface();
+  };
 }

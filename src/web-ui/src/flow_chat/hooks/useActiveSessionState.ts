@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { stateMachineManager } from '../state-machine';
 import { ProcessingPhase } from '../state-machine/types';
 import { useFlowChatStoreSelector } from './useFlowChatStoreSelector';
+import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
 
 export interface ActiveSessionState {
   sessionId: string | null;
@@ -17,9 +18,10 @@ export interface ActiveSessionState {
 }
 
 export const useActiveSessionState = (): ActiveSessionState => {
+  const focusedSessionId = useWorkspaceSurfaceStore(state => state.focusedSessionId);
   const activeSessionSnapshot = useFlowChatStoreSelector((state) => {
-    const session = state.activeSessionId
-      ? state.sessions.get(state.activeSessionId)
+    const session = focusedSessionId
+      ? state.sessions.get(focusedSessionId)
       : undefined;
     return {
       sessionId: session?.sessionId || null,

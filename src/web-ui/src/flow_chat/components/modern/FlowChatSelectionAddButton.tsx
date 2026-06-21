@@ -6,6 +6,7 @@ import { createLogger } from '@/shared/utils/logger';
 import { createTransientBtwSession } from '../../services/BtwThreadService';
 import { openBtwSessionInAuxPane } from '../../services/childSessionPanels';
 import { flowChatStore } from '../../store/FlowChatStore';
+import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
 import { resolveSessionRelationship } from '../../utils/sessionMetadata';
 import './FlowChatSelectionAddButton.scss';
 
@@ -177,7 +178,7 @@ export const FlowChatSelectionAddButton: React.FC<FlowChatSelectionAddButtonProp
 
     try {
       const storeState = flowChatStore.getState();
-      const parentSessionId = storeState.activeSessionId;
+      const parentSessionId = useWorkspaceSurfaceStore.getState().focusedSessionId;
       const parentSession = parentSessionId ? storeState.sessions.get(parentSessionId) : undefined;
 
       if (!parentSessionId || !parentSession) {

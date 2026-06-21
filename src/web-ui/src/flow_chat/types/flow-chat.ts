@@ -276,8 +276,14 @@ export interface DialogTurn {
 
 export interface FlowChatState {
   sessions: Map<string, Session>;
-  activeSessionId: string | null;
 }
+
+export type SessionLoadPhase =
+  | 'metadata-only'
+  | 'hydrating'
+  | 'hydrated'
+  | 'hydrate-failed'
+  | 'live';
 
 export interface TodoItem {
   id: string;
@@ -293,7 +299,7 @@ export interface Session {
   dialogTurns: DialogTurn[];
   
   // Derived status from deriveSessionStatus():
-  // - 'active': sessionId === activeSessionId
+  // - 'active': sessionId === focusedSessionId
   // - 'error': state machine state === ERROR
   // - 'idle': otherwise
   status: 'active' | 'idle' | 'error';
@@ -307,8 +313,8 @@ export interface Session {
   // Persist the last error; real-time errors come from context.errorMessage.
   error: string | null;
   
-  // Historical sessions are persisted and require lazy loading.
-  isHistorical?: boolean;
+  /** Authoritative loading phase for the session record and transcript hydration. */
+  loadPhase: SessionLoadPhase;
   
   todos?: TodoItem[];
   

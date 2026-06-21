@@ -13,12 +13,13 @@ import type { WorkspaceInfo } from '@/shared/types';
 import type { FlowChatContext, SessionConfig } from './types';
 import { touchSessionActivity, cleanupSaveState } from './PersistenceModule';
 import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
+import { resolveSessionTypeDefinitionForDescriptor } from '@/app/session-profiles';
 import {
   getBackendAgentType,
   getDefaultSessionDescriptor,
-  isSystemAgenticOsSession,
   type SessionDescriptor,
 } from '../../domain/sessionDescriptor';
+import { canHydrateSession } from '../../domain/sessionLoadPhase';
 
 const log = createLogger('SessionModule');
 const pendingSessionCreations = new Map<string, Promise<string>>();
@@ -36,7 +37,7 @@ async function hydrateHistoricalSession(
 
   const loadPromise = (async () => {
     const session = context.flowChatStore.getState().sessions.get(sessionId);
-    if (!session?.isHistorical) {
+    if (!session || !canHydrateSession(session)) {
       return;
     }
 
@@ -72,39 +73,6 @@ async function hydrateHistoricalSession(
     }
   }
 }
-
-type SessionDisplayMode =
-  | 'code'
-  | 'cowork'
-  | 'design'
-  | 'agentic-os'
-  | 'liveappstudio'
-  | 'agentappstudio'
-  | 'liveappworkbench';
-
-const normalizeSessionDisplayMode = (
-  descriptor?: SessionDescriptor,
-  _workspace?: WorkspaceInfo | null
-): SessionDisplayMode => {
-  const profileId = descriptor?.profileId as string | undefined;
-  switch (profileId) {
-    case 'live-app-studio':
-      return 'liveappstudio';
-    case 'agent-app-studio':
-      return 'agentappstudio';
-    case 'live-app-workbench':
-      return 'liveappworkbench';
-    case 'cowork':
-      return 'cowork';
-    case 'design':
-      return 'design';
-    case 'agentic-os':
-    case 'dispatcher':
-      return 'agentic-os';
-    default:
-      return 'code';
-  }
-};
 
 const resolveSessionWorkspacePath = (
   context: FlowChatContext,
@@ -218,12 +186,13 @@ export async function createChatSession(
     const workspacePath = resolveSessionWorkspacePath(context, config);
     const workspace = resolveSessionWorkspace(context, config);
     const storageScope = config.storageScope ?? descriptor.storageScope;
+    const sessionType = resolveSessionTypeDefinitionForDescriptor(descriptor);
 
     if (!workspacePath && storageScope !== 'agentic_os') {
       throw new Error('Workspace path is required to create a session');
     }
 
-    const sessionMode = normalizeSessionDisplayMode(descriptor, workspace);
+    const sessionMode = sessionType.lifecycle.displayMode;
     const agentType = getBackendAgentType(descriptor);
 
     const creationKey =
@@ -242,22 +211,9 @@ export async function createChatSession(
 
     const sameModeCount =
       Array.from(context.flowChatStore.getState().sessions.values()).filter(
-        session => normalizeSessionDisplayMode(session.descriptor) === sessionMode
+        session => resolveSessionTypeDefinitionForDescriptor(session.descriptor).lifecycle.displayMode === sessionMode
       ).length + 1;
-    const generatedSessionName =
-      sessionMode === 'cowork'
-        ? i18nService.t('flow-chat:session.newCoworkWithIndex', { count: sameModeCount })
-        : sessionMode === 'design'
-          ? i18nService.t('flow-chat:session.newDesignWithIndex', { count: sameModeCount })
-          : sessionMode === 'agentic-os'
-            ? i18nService.t('flow-chat:session.agenticOs')
-            : sessionMode === 'liveappstudio'
-              ? i18nService.t('flow-chat:session.newLiveAppStudioWithIndex', { count: sameModeCount })
-              : sessionMode === 'agentappstudio'
-                ? i18nService.t('flow-chat:session.newAgentAppStudioWithIndex', { count: sameModeCount })
-                : sessionMode === 'liveappworkbench'
-                  ? i18nService.t('flow-chat:session.newLiveAppWorkbenchWithIndex', { count: sameModeCount })
-                  : i18nService.t('flow-chat:session.newCodeWithIndex', { count: sameModeCount });
+    const generatedSessionName = i18nService.t(sessionType.lifecycle.titleKey, { count: sameModeCount });
     const sessionName = config.sessionName?.trim() || generatedSessionName;
     
     const maxContextTokens = await getModelMaxTokens(config.modelName);
@@ -295,11 +251,18 @@ export async function createChatSession(
         storageScope
       );
 
-      useWorkspaceSurfaceStore.getState().openSurface(
-        isSystemAgenticOsSession(descriptor)
-          ? { kind: 'agentic-os-home', agenticOsSessionId: response.sessionId }
-          : { kind: 'session', sessionId: response.sessionId }
-      );
+      const surfacePolicy = sessionType.lifecycle.defaultSurface;
+      if (surfacePolicy === 'agentic-os-home') {
+        useWorkspaceSurfaceStore.getState().openSurface({
+          kind: 'agentic-os-home',
+          agenticOsSessionId: response.sessionId,
+        });
+      } else if (surfacePolicy === 'session') {
+        useWorkspaceSurfaceStore.getState().openSurface({
+          kind: 'session',
+          sessionId: response.sessionId,
+        });
+      }
 
       return response.sessionId;
     })();
@@ -334,6 +297,7 @@ export async function switchChatSession(
 
     // Switch UI immediately so the user sees the new session without waiting for history load.
     context.flowChatStore.switchSession(sessionId);
+    useWorkspaceSurfaceStore.getState().focusSession(sessionId);
 
     touchSessionActivity(
       sessionId,
@@ -343,7 +307,7 @@ export async function switchChatSession(
       log.debug('Failed to touch session activity', { sessionId, error });
     });
 
-    if (session?.isHistorical) {
+    if (canHydrateSession(session)) {
       // Load history in the background — do not block the UI.
       void hydrateHistoricalSession(context, sessionId, true);
     }
@@ -370,6 +334,7 @@ export async function deleteChatSession(
       context.processingManager.clearSessionStatus(id);
       cleanupSaveState(context, id);
     });
+    useWorkspaceSurfaceStore.getState().forgetSessions(removedSessionIds);
   } catch (error) {
     log.error('Failed to delete chat session', { sessionId, error });
     notificationService.error('Failed to delete session', {
@@ -479,7 +444,7 @@ export async function ensureBackendSession(
     return;
   }
 
-  if (session.isHistorical) {
+  if (canHydrateSession(session)) {
     await hydrateHistoricalSession(context, sessionId, false);
   }
 
@@ -490,23 +455,16 @@ export async function ensureBackendSession(
     latestSession.storageScope
   );
 
-  const isHistoricalSession = latestSession.isHistorical === true;
+  const isMetadataOnlySession = canHydrateSession(latestSession);
   const isFirstTurn = latestSession.dialogTurns.length <= 1;
-  const needsBackendSetup = isHistoricalSession || isFirstTurn;
+  const needsBackendSetup = isMetadataOnlySession || isFirstTurn;
   /** Avoid createSession when historical data is already loaded but backend files are missing (e.g. new SSH connection id). */
   const allowRecreateOnCoordinatorFailure =
-    needsBackendSetup && !(isHistoricalSession && latestSession.dialogTurns.length > 1);
+    needsBackendSetup && !(isMetadataOnlySession && latestSession.dialogTurns.length > 1);
 
-  const clearHistoricalFlag = () => {
-    if (!isHistoricalSession) return;
-    context.flowChatStore.setState(prev => {
-      const newSessions = new Map(prev.sessions);
-      const sess = newSessions.get(sessionId);
-      if (sess) {
-        newSessions.set(sessionId, { ...sess, isHistorical: false });
-      }
-      return { ...prev, sessions: newSessions };
-    });
+  const markLiveIfMetadataOnly = () => {
+    if (!isMetadataOnlySession) return;
+    context.flowChatStore.setSessionLoadPhase(sessionId, 'live');
   };
 
   try {
@@ -515,7 +473,7 @@ export async function ensureBackendSession(
       workspacePath,
       storageScope: latestSession.storageScope,
     });
-    clearHistoricalFlag();
+    markLiveIfMetadataOnly();
   } catch (e: any) {
     if (!allowRecreateOnCoordinatorFailure) {
       const raw = typeof e?.message === 'string' ? e.message : String(e);
@@ -540,7 +498,7 @@ export async function ensureBackendSession(
         storageScope: latestSession.storageScope,
       }
     });
-    clearHistoricalFlag();
+    markLiveIfMetadataOnly();
   }
 }
 

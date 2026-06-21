@@ -6,7 +6,18 @@ export type {
   TabAutoOpenDescriptor,
   TabAutoOpenResult,
 } from './types';
-export { resolveProfile, PROFILES } from './SessionProfileRegistry';
+export type {
+  SessionDefaultSurface,
+  SessionDisplayMode,
+  SessionTypeDefinition,
+} from './SessionProfileRegistry';
+export {
+  resolveProfile,
+  resolveSessionTypeDefinition,
+  resolveSessionTypeDefinitionForDescriptor,
+  PROFILES,
+  SESSION_TYPE_DEFINITIONS,
+} from './SessionProfileRegistry';
 export { SessionProfileProvider } from './SessionProfileProvider';
 export { useSessionProfile } from './useSessionProfile';
 export { openSessionSidecarPanel } from './sidecarActionController';

@@ -23,6 +23,7 @@
   "goalNoSession": "当前没有可用于 /goal 的会话",
   "goalUnsupported": "此会话不支持目标模式。",
   "goalFailed": "目标指令执行失败",
+  "goalEmpty": "请先描述要完成的目标。",
   "initNoSession": "当前没有可用于 /init 的会话",
   "initBusy": "请等待当前会话空闲后再使用 /init。",
   "initUsage": "请直接使用 /init，不要附加额外参数。",
@@ -34,6 +35,32 @@
   "noMatchingCommand": "没有匹配的命令",
   "selectHint": "↑↓ 选择 · Enter 确认 · Esc 取消",
   "current": "当前",
+  "loadingMcpPrompts": "正在加载 MCP prompts...",
+  "mcpPromptMissingArgs": "这个 MCP prompt 需要参数：{{args}}",
+  "mcpPromptFailed": "MCP prompt 执行失败",
+  "composerCommands": {
+    "title": "命令",
+    "groups": {
+      "target": "目标",
+      "send-with": "随消息发送",
+      "session-action": "会话操作",
+      "template": "Prompt 模板"
+    },
+    "btwDescription": "在聚焦的侧线程中提问",
+    "goalDescription": "持续跟踪这个请求直到完成",
+    "compactDescription": "压缩当前会话上下文",
+    "initDescription": "生成或更新工作区指令"
+  },
+  "intentChips": {
+    "remove": "移除",
+    "targetBtwDraft": "侧问",
+    "targetBtwThread": "侧会话",
+    "goalDraft": "目标模式",
+    "goalActive": "目标进行中",
+    "goalPaused": "目标已暂停",
+    "goalPending": "目标处理中",
+    "promptTemplate": "Prompt"
+  },
   "professionalMode": "专业模式",
   "designMode": "设计师模式",
   "wip": "开发中",

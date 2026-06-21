@@ -1,5 +1,5 @@
 import type { Session } from '../types/flow-chat';
-import type { SessionDescriptor } from './sessionDescriptor';
+import { isSystemAgenticOsSession, type SessionDescriptor } from './sessionDescriptor';
 
 type WorkspaceScopeKind = 'workspace' | 'global';
 
@@ -26,8 +26,7 @@ export function supportsSessionGoal(target: GoalSupportTarget): boolean {
   if (
     target.storageScope === 'agentic_os' ||
     descriptor?.storageScope === 'agentic_os' ||
-    descriptor?.profileId === 'agentic-os' ||
-    descriptor?.hostKind === 'system-agentic-os'
+    (descriptor ? isSystemAgenticOsSession(descriptor) : false)
   ) {
     return false;
   }

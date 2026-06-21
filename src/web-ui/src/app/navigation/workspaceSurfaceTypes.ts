@@ -1,5 +1,8 @@
 import type { WorkspaceSceneId } from './workspaceSceneTypes';
 
+export type WorkspaceSurfaceContext =
+  | { kind: 'work'; workId: string };
+
 export type WorkspaceSurface =
   | { kind: 'agentic-os-home'; agenticOsSessionId: string | null }
   | { kind: 'scene'; sceneId: WorkspaceSceneId; workspacePath?: string | null }

@@ -2,29 +2,22 @@ import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import type { Session } from '@/flow_chat/types/flow-chat';
 import { isSamePath } from '@/shared/utils/pathUtils';
 import type { WorkspaceInfo } from '@/shared/types';
-import { descriptorFromAgentType, isEvolutionLabSession } from '@/flow_chat/domain/sessionDescriptor';
+import { descriptorFromAgentType } from '@/flow_chat/domain/sessionDescriptor';
+import { canHydrateSession } from '@/flow_chat/domain/sessionLoadPhase';
+import {
+  resolveSessionTypeDefinitionForDescriptor,
+  type SessionDisplayMode,
+} from '@/app/session-profiles';
 
-type SessionDisplayBucket = 'code' | 'cowork' | 'design' | 'liveappstudio';
+type SessionDisplayBucket = SessionDisplayMode;
 
 function sessionDisplayBucket(session: Session): SessionDisplayBucket {
-  if (session.descriptor.profileId === 'cowork') {
-    return 'cowork';
-  }
-  if (session.descriptor.profileId === 'design') {
-    return 'design';
-  }
-  if (session.descriptor.profileId === 'live-app-studio') {
-    return 'liveappstudio';
-  }
-  return 'code';
+  return resolveSessionTypeDefinitionForDescriptor(session.descriptor).lifecycle.displayMode;
 }
 
 function targetDisplayBucket(requestedMode: string | undefined): SessionDisplayBucket {
   const descriptor = descriptorFromAgentType(requestedMode);
-  if (descriptor.profileId === 'cowork') return 'cowork';
-  if (descriptor.profileId === 'design') return 'design';
-  if (descriptor.profileId === 'live-app-studio') return 'liveappstudio';
-  return 'code';
+  return resolveSessionTypeDefinitionForDescriptor(descriptor).lifecycle.displayMode;
 }
 
 function sessionBelongsToWorkspace(session: Session, workspace: WorkspaceInfo): boolean {
@@ -44,7 +37,7 @@ function isEmptyReusableSession(session: Session, workspace: WorkspaceInfo, buck
   if (session.sessionKind !== 'normal') {
     return false;
   }
-  if (session.isHistorical) {
+  if (canHydrateSession(session)) {
     return false;
   }
   if (session.dialogTurns.length > 0) {
@@ -89,13 +82,13 @@ export function findReusableEmptyLiveAppStudioSessionId(): string | null {
     if (session.sessionKind !== 'normal') {
       continue;
     }
-    if (session.isHistorical) {
+    if (canHydrateSession(session)) {
       continue;
     }
     if (session.dialogTurns.length > 0) {
       continue;
     }
-    if (!isEvolutionLabSession(session.descriptor) || session.descriptor.profileId !== 'live-app-studio') {
+    if (sessionDisplayBucket(session) !== 'liveappstudio') {
       continue;
     }
     if (!best || session.lastActiveAt > best.lastActiveAt) {

@@ -2,26 +2,18 @@ import { useCallback, type Dispatch, type RefObject, type SetStateAction } from 
 import type React from 'react';
 import type { SessionDerivedState } from '../../../state-machine/types';
 import type { RichTextInputHandle } from '../../RichTextInput';
-import type { SlashPickerItem } from '../model/composerCommands';
-import { matchesBuiltinSlashCommand } from '../model/builtinSlashCommands';
-import type { ChatInputTarget, ComposerSlashCommandState } from '../model/composerState';
-
-type ComposerKeyboardItemsGetter<T> = () => T[];
+import type { ChatInputTarget } from '../model/composerState';
 
 interface UseComposerKeyboardParams {
   editorRef: RefObject<RichTextInputHandle | null>;
   isImeComposingRef: RefObject<boolean>;
-  slashCommandState: ComposerSlashCommandState;
-  setSlashCommandState: Dispatch<SetStateAction<ComposerSlashCommandState>>;
-  canSwitchAgents: boolean;
-  getFilteredIncrementalAgents: ComposerKeyboardItemsGetter<{ id: string }>;
-  getFilteredActions: ComposerKeyboardItemsGetter<{ id: string }>;
-  getSlashPickerItems: ComposerKeyboardItemsGetter<SlashPickerItem>;
-  selectSlashCommandAgent: (agentId: string) => void;
-  selectSlashCommandAction: (actionId: string) => void;
-  selectSlashPromptCommand: (item: Extract<SlashPickerItem, { kind: 'mcpPrompt' }>) => void;
+  commandPickerOpen: boolean;
+  commandOptionCount: number;
+  moveCommandSelection: (delta: number) => void;
+  selectCurrentCommandOption: () => void;
+  closeCommandPicker: () => void;
   showTargetSwitcher: boolean;
-  setInputTarget: Dispatch<SetStateAction<ChatInputTarget>>;
+  setInputTarget: (target: ChatInputTarget | ((previous: ChatInputTarget) => ChatInputTarget)) => void;
   inputHistory: string[];
   historyIndex: number;
   setHistoryIndex: Dispatch<SetStateAction<number>>;
@@ -32,8 +24,9 @@ interface UseComposerKeyboardParams {
   activateInput: () => void;
   focusInputSoon: () => void;
   onBtwShortcutBlocked: () => boolean;
-  submitBtwFromInput: () => void;
+  onBtwShortcutDraft: (draft: string) => void;
   handleSendOrCancel: () => void;
+  hasSubmitIntent: boolean;
   derivedState: SessionDerivedState | null;
   cancelGeneration: () => void;
 }
@@ -73,15 +66,11 @@ function isCursorAtEditorEnd(range: Range, editor: HTMLDivElement): boolean {
 export function useComposerKeyboard({
   editorRef,
   isImeComposingRef,
-  slashCommandState,
-  setSlashCommandState,
-  canSwitchAgents,
-  getFilteredIncrementalAgents,
-  getFilteredActions,
-  getSlashPickerItems,
-  selectSlashCommandAgent,
-  selectSlashCommandAction,
-  selectSlashPromptCommand,
+  commandPickerOpen,
+  commandOptionCount,
+  moveCommandSelection,
+  selectCurrentCommandOption,
+  closeCommandPicker,
   showTargetSwitcher,
   setInputTarget,
   inputHistory,
@@ -94,44 +83,12 @@ export function useComposerKeyboard({
   activateInput,
   focusInputSoon,
   onBtwShortcutBlocked,
-  submitBtwFromInput,
+  onBtwShortcutDraft,
   handleSendOrCancel,
+  hasSubmitIntent,
   derivedState,
   cancelGeneration,
 }: UseComposerKeyboardParams) {
-  const selectCurrentSlashItem = useCallback((items: Array<{ id: string } | SlashPickerItem>) => {
-    if (items.length === 0) {
-      return;
-    }
-
-    if (slashCommandState.kind === 'agents') {
-      const agent = items[slashCommandState.selectedIndex] as { id: string };
-      selectSlashCommandAgent(agent.id);
-      return;
-    }
-
-    if (slashCommandState.kind === 'actions') {
-      const action = items[slashCommandState.selectedIndex] as { id: string };
-      selectSlashCommandAction(action.id);
-      return;
-    }
-
-    const item = items[slashCommandState.selectedIndex] as SlashPickerItem;
-    if (item.kind === 'agent') {
-      selectSlashCommandAgent(item.id);
-    } else if (item.kind === 'mcpPrompt') {
-      selectSlashPromptCommand(item);
-    } else {
-      selectSlashCommandAction(item.id);
-    }
-  }, [
-    selectSlashCommandAction,
-    selectSlashCommandAgent,
-    selectSlashPromptCommand,
-    slashCommandState.kind,
-    slashCommandState.selectedIndex,
-  ]);
-
   return useCallback((e: React.KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.altKey && !e.shiftKey && e.key.toLowerCase() === 'b') {
       e.preventDefault();
@@ -142,66 +99,47 @@ export function useComposerKeyboard({
       }
 
       const selected = (window.getSelection?.()?.toString() ?? '').trim();
-      const initial = selected ? `/btw Explain this:\n\n${selected}` : '/btw ';
+      onBtwShortcutDraft(selected ? `Explain this:\n\n${selected}` : '');
       activateInput();
-      setInputValue(initial);
       focusInputSoon();
       return;
     }
 
-    if (slashCommandState.isActive) {
-      if (!(slashCommandState.kind === 'agents' && !canSwitchAgents)) {
-        const items =
-          slashCommandState.kind === 'agents'
-            ? getFilteredIncrementalAgents()
-            : slashCommandState.kind === 'actions'
-              ? getFilteredActions()
-              : getSlashPickerItems();
-        const maxIndex = Math.max(0, items.length - 1);
+    if (commandPickerOpen) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        moveCommandSelection(1);
+        return;
+      }
 
-        if (e.key === 'ArrowDown') {
-          e.preventDefault();
-          setSlashCommandState(prev => ({
-            ...prev,
-            selectedIndex: Math.min(prev.selectedIndex + 1, maxIndex),
-          }));
-          return;
-        }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        moveCommandSelection(-1);
+        return;
+      }
 
-        if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          setSlashCommandState(prev => ({
-            ...prev,
-            selectedIndex: Math.max(prev.selectedIndex - 1, 0),
-          }));
-          return;
+      if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab') {
+        e.preventDefault();
+        if (commandOptionCount > 0) {
+          selectCurrentCommandOption();
         }
+        return;
+      }
 
-        if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab') {
-          e.preventDefault();
-          selectCurrentSlashItem(items);
-          return;
-        }
-
-        if (e.key === 'Escape') {
-          e.preventDefault();
-          const kind = slashCommandState.kind;
-          setSlashCommandState({ isActive: false, kind: 'agents', query: '', selectedIndex: 0 });
-          if (kind !== 'actions') {
-            setInputValue('');
-          }
-          return;
-        }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeCommandPicker();
+        return;
       }
     }
 
-    if (showTargetSwitcher && e.key === 'Tab' && !e.shiftKey && !slashCommandState.isActive) {
+    if (showTargetSwitcher && e.key === 'Tab' && !e.shiftKey && !commandPickerOpen) {
       e.preventDefault();
       setInputTarget(prev => prev === 'main' ? 'btw' : 'main');
       return;
     }
 
-    if (!slashCommandState.isActive && inputHistory.length > 0) {
+    if (!commandPickerOpen && inputHistory.length > 0) {
       const selection = window.getSelection();
       const editor = editorRef.current?.element;
 
@@ -249,15 +187,7 @@ export function useComposerKeyboard({
 
       e.preventDefault();
 
-      const isBtwCommand = matchesBuiltinSlashCommand(inputValue, 'btw');
-      if (isBtwCommand) {
-        submitBtwFromInput();
-        return;
-      }
-
-      if (derivedState?.isProcessing) {
-        if (!inputValue.trim()) return;
-        handleSendOrCancel();
+      if (derivedState?.isProcessing && !inputValue.trim() && !hasSubmitIntent) {
         return;
       }
 
@@ -270,29 +200,28 @@ export function useComposerKeyboard({
     }
   }, [
     activateInput,
-    canSwitchAgents,
     cancelGeneration,
+    closeCommandPicker,
+    commandOptionCount,
+    commandPickerOpen,
     derivedState,
     editorRef,
     focusInputSoon,
-    getFilteredActions,
-    getFilteredIncrementalAgents,
-    getSlashPickerItems,
     handleSendOrCancel,
+    hasSubmitIntent,
     historyIndex,
     inputHistory,
     inputValue,
     isImeComposingRef,
+    moveCommandSelection,
     onBtwShortcutBlocked,
+    onBtwShortcutDraft,
     savedDraft,
-    selectCurrentSlashItem,
+    selectCurrentCommandOption,
     setHistoryIndex,
     setInputTarget,
     setInputValue,
     setSavedDraft,
-    setSlashCommandState,
     showTargetSwitcher,
-    slashCommandState,
-    submitBtwFromInput,
   ]);
 }

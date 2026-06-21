@@ -200,7 +200,9 @@ const SessionRow: React.FC<SessionRowProps> = ({
     className={[
       'agentic-os-timeline__session',
       isActive ? 'is-active' : '',
-      session.isHistorical ? 'is-historical' : '',
+      session.loadPhase === 'metadata-only' ? 'is-metadata-only' : '',
+      session.loadPhase === 'hydrating' ? 'is-hydrating' : '',
+      session.loadPhase === 'hydrate-failed' ? 'is-hydrate-failed' : '',
       isSearchHighlighted ? 'is-search-match' : '',
     ]
       .filter(Boolean)
