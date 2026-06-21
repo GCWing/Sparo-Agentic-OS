@@ -6,6 +6,7 @@ import { stateMachineManager } from '../state-machine';
 import type { Session } from '../types/flow-chat';
 import { buildSessionMetadata } from '../utils/sessionMetadata';
 import { descriptorFromAgentType, getBackendAgentType } from '../domain/sessionDescriptor';
+import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
 
 const log = createLogger('BtwThreadService');
 
@@ -292,7 +293,8 @@ export async function startBtwThread(params: {
     return { requestId, childSessionId };
   } catch (error) {
     stateMachineManager.delete(childSessionId);
-    flowChatStore.removeSession(childSessionId);
+    const removedSessionIds = flowChatStore.removeSession(childSessionId);
+    useWorkspaceSurfaceStore.getState().forgetSessions(removedSessionIds);
     throw error;
   }
 }

@@ -18,13 +18,14 @@ import { useWorkspaceSurfaceStore } from '../navigation/workspaceSurfaceStore';
 
 export const SessionProfileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const activeSurface = useWorkspaceSurfaceStore((state) => state.activeSurface);
+  const focusedSessionId = useWorkspaceSurfaceStore((state) => state.focusedSessionId);
   const profileId = useFlowChatStoreSelector((state) => {
     const sessionId =
       activeSurface.kind === 'agentic-os-home'
-        ? activeSurface.agenticOsSessionId
+        ? activeSurface.agenticOsSessionId ?? focusedSessionId
         : activeSurface.kind === 'session'
           ? activeSurface.sessionId
-          : state.activeSessionId;
+          : focusedSessionId;
     return sessionId ? state.sessions.get(sessionId)?.descriptor?.profileId : undefined;
   });
 

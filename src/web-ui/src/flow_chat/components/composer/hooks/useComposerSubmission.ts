@@ -13,16 +13,15 @@ import { useSessionGoalStore } from '../../../store/sessionGoalStore';
 import {
   parseSlashArguments,
   renderMcpPromptMessages,
-  type SlashMcpPromptItem,
 } from '../model/composerCommands';
 import {
-  isExactBuiltinSlashCommand,
-  matchesBuiltinSlashCommand,
-} from '../model/builtinSlashCommands';
-import type { ComposerSlashCommandState } from '../model/composerState';
+  hasComposerGoalModifier,
+  type ComposerIntentState,
+  type ComposerTargetIntent,
+} from '../model/composerIntentState';
 import { createLogger } from '@/shared/utils/logger';
 
-const log = createLogger('ComposerSubmitActions');
+const log = createLogger('ComposerSubmission');
 
 type ComposerSendMessageOptions = {
   displayMessage?: string;
@@ -32,16 +31,16 @@ type ComposerSendMessageOptions = {
   localDialogTurnId?: string;
 };
 
-interface UseComposerSubmitActionsParams {
+interface UseComposerSubmissionParams {
   t: TFunction<'flow-chat'>;
+  intent: ComposerIntentState;
   inputValue: string;
   setInputValue: (value: string) => void;
   activateInput: () => void;
   clearInput: () => void;
   setQueuedInput: (value: string | null) => void;
-  setSlashCommandState: (state: ComposerSlashCommandState) => void;
+  resetIntentAfterSubmit: (keepTarget?: ComposerTargetIntent) => void;
   currentSessionId?: string | null;
-  currentSession?: Session;
   currentSessionModelId: string;
   effectiveTargetSessionId?: string | null;
   effectiveTargetSession?: Session;
@@ -58,26 +57,8 @@ interface UseComposerSubmitActionsParams {
   getCharacterCount: (text: string) => number;
   snapshotPendingLargePastes: () => Record<string, string>;
   restorePendingLargePastes: (snapshot: Record<string, string>) => void;
-  loadMcpPromptCommands: () => Promise<void>;
-  resolveTypedMcpPromptCommand: (text: string) => SlashMcpPromptItem | null;
+  activeGoalId?: string | null;
   onBtwStarted?: () => void;
-}
-
-const closedSlashState: ComposerSlashCommandState = {
-  isActive: false,
-  kind: 'agents',
-  query: '',
-  selectedIndex: 0,
-};
-
-const GOAL_CONTROL_COMMANDS = new Set(['', 'status', 'pause', 'resume', 'clear', 'cancel', 'review']);
-
-function stripGoalCommand(message: string): string {
-  return message.trim().replace(/^\/goal\b/i, '').trim();
-}
-
-function isGoalControlCommand(body: string): boolean {
-  return GOAL_CONTROL_COMMANDS.has(body.trim().toLowerCase());
 }
 
 function createGoalTurnId(): string {
@@ -96,14 +77,15 @@ function goalInitialSystemReminder(): string {
   ].join('\n');
 }
 
-export function useComposerSubmitActions({
+export function useComposerSubmission({
   t,
+  intent,
   inputValue,
   setInputValue,
   activateInput,
   clearInput,
   setQueuedInput,
-  setSlashCommandState,
+  resetIntentAfterSubmit,
   currentSessionId,
   currentSessionModelId,
   effectiveTargetSessionId,
@@ -121,12 +103,49 @@ export function useComposerSubmitActions({
   getCharacterCount,
   snapshotPendingLargePastes,
   restorePendingLargePastes,
-  loadMcpPromptCommands,
-  resolveTypedMcpPromptCommand,
+  activeGoalId,
   onBtwStarted,
-}: UseComposerSubmitActionsParams) {
-  const submitBtwFromInput = useCallback(async () => {
-    if (!derivedState) return;
+}: UseComposerSubmissionParams) {
+  const validateMessageSize = useCallback((message: string): boolean => {
+    const messageCharCount = getCharacterCount(message);
+    if (messageCharCount <= CHAT_INPUT_CONFIG.largePaste.maxMessageChars) {
+      return true;
+    }
+
+    notificationService.error(t('input.messageTooLarge', {
+      max: CHAT_INPUT_CONFIG.largePaste.maxMessageChars,
+      count: messageCharCount,
+      defaultValue: 'Message exceeds the maximum length of {{max}} characters ({{count}} provided).',
+    }), { duration: 4000 });
+    return false;
+  }, [getCharacterCount, t]);
+
+  const clearDraftForSubmit = useCallback(() => {
+    resetHistoryDraft();
+    clearInput();
+    clearPendingLargePastes();
+    setQueuedInput(null);
+  }, [clearInput, clearPendingLargePastes, resetHistoryDraft, setQueuedInput]);
+
+  const restoreDraftAfterFailure = useCallback((
+    originalMessage: string,
+    pendingLargePastes: Record<string, string>,
+  ) => {
+    restorePendingLargePastes(pendingLargePastes);
+    activateInput();
+    setInputValue(originalMessage);
+    if (derivedState?.isProcessing) {
+      setQueuedInput(originalMessage);
+    }
+  }, [
+    activateInput,
+    derivedState?.isProcessing,
+    restorePendingLargePastes,
+    setInputValue,
+    setQueuedInput,
+  ]);
+
+  const submitBtwDraft = useCallback(async () => {
     if (!currentSessionId) {
       notificationService.error(t('btw.noSession', { defaultValue: 'No active session for /btw' }));
       return;
@@ -137,35 +156,19 @@ export function useComposerSubmitActions({
     }
 
     const originalMessage = inputValue.trim();
-    const originalPendingLargePastes = snapshotPendingLargePastes();
-    const message = expandPendingLargePastes(originalMessage).trim();
-    const messageCharCount = getCharacterCount(message);
-    const question = message.replace(/^\/btw\b/i, '').trim();
-
-    clearInput();
-    clearPendingLargePastes();
-    setQueuedInput(null);
-    setSlashCommandState(closedSlashState);
+    const pendingLargePastes = snapshotPendingLargePastes();
+    const question = expandPendingLargePastes(originalMessage).trim();
 
     if (!question) {
-      notificationService.warning(t('btw.empty', { defaultValue: 'Please provide a question after /btw' }));
+      notificationService.warning(t('btw.empty', { defaultValue: 'Please provide a side question.' }));
+      return;
+    }
+    if (!validateMessageSize(question)) {
+      restorePendingLargePastes(pendingLargePastes);
       return;
     }
 
-    if (messageCharCount > CHAT_INPUT_CONFIG.largePaste.maxMessageChars) {
-      notificationService.error(
-        t('input.messageTooLarge', {
-          max: CHAT_INPUT_CONFIG.largePaste.maxMessageChars,
-          count: messageCharCount,
-          defaultValue: 'Message exceeds the maximum length of {{max}} characters ({{count}} provided).',
-        }),
-        { duration: 4000 }
-      );
-      restorePendingLargePastes(originalPendingLargePastes);
-      activateInput();
-      setInputValue(originalMessage);
-      return;
-    }
+    clearDraftForSubmit();
 
     try {
       const { childSessionId } = await startBtwThread({
@@ -180,35 +183,34 @@ export function useComposerSubmitActions({
         workspacePath: workspacePath || '',
         expand: true,
       });
+      resetIntentAfterSubmit('btw-thread');
       onBtwStarted?.();
-    } catch (e) {
-      log.error('Failed to start /btw thread', { e });
-      activateInput();
-      restorePendingLargePastes(originalPendingLargePastes);
-      setInputValue(originalMessage);
+    } catch (error) {
+      log.error('Failed to start side question thread', { error });
+      restoreDraftAfterFailure(originalMessage, pendingLargePastes);
+      notificationService.error(error instanceof Error ? error.message : t('error.unknown'), {
+        title: t('btw.startFailed', { defaultValue: 'Side question failed' }),
+        duration: 5000,
+      });
     }
   }, [
-    activateInput,
-    clearInput,
-    clearPendingLargePastes,
+    clearDraftForSubmit,
     currentSessionId,
     currentSessionModelId,
-    derivedState,
     expandPendingLargePastes,
-    getCharacterCount,
     inputValue,
     isBtwSession,
+    onBtwStarted,
+    resetIntentAfterSubmit,
+    restoreDraftAfterFailure,
     restorePendingLargePastes,
-    setInputValue,
-    setQueuedInput,
-    setSlashCommandState,
     snapshotPendingLargePastes,
     t,
+    validateMessageSize,
     workspacePath,
-    onBtwStarted,
   ]);
 
-  const submitCompactFromInput = useCallback(async () => {
+  const submitCompact = useCallback(async () => {
     if (!effectiveTargetSessionId || !effectiveTargetSession) {
       notificationService.error(t('chatInput.compactNoSession', { defaultValue: 'No active session for /compact' }));
       return;
@@ -217,16 +219,13 @@ export function useComposerSubmitActions({
       notificationService.warning(t('chatInput.compactBusy', { defaultValue: 'Wait until the session is idle before using /compact.' }));
       return;
     }
-
-    const message = inputValue.trim();
-    if (!/^\/compact\s*$/i.test(message)) {
+    if (inputValue.trim()) {
       notificationService.warning(t('chatInput.compactUsage', { defaultValue: 'Use /compact without extra arguments.' }));
       return;
     }
 
-    clearInput();
-    setQueuedInput(null);
-    setSlashCommandState(closedSlashState);
+    clearDraftForSubmit();
+    resetIntentAfterSubmit();
 
     try {
       const { agentAPI } = await import('@/infrastructure/api');
@@ -236,17 +235,25 @@ export function useComposerSubmitActions({
         storageScope: effectiveTargetSession.storageScope,
       });
     } catch (error) {
-      log.error('Failed to trigger /compact', { error, sessionId: effectiveTargetSessionId });
+      log.error('Failed to compact session', { error, sessionId: effectiveTargetSessionId });
       activateInput();
-      setInputValue(message);
       notificationService.error(error instanceof Error ? error.message : t('error.unknown'), {
         title: t('chatInput.compactFailed', { defaultValue: 'Session compaction failed' }),
         duration: 5000,
       });
     }
-  }, [activateInput, clearInput, derivedState?.isProcessing, effectiveTargetSession, effectiveTargetSessionId, inputValue, setInputValue, setQueuedInput, setSlashCommandState, t]);
+  }, [
+    activateInput,
+    clearDraftForSubmit,
+    derivedState?.isProcessing,
+    effectiveTargetSession,
+    effectiveTargetSessionId,
+    inputValue,
+    resetIntentAfterSubmit,
+    t,
+  ]);
 
-  const submitInitFromInput = useCallback(async () => {
+  const submitInit = useCallback(async () => {
     if (!effectiveTargetSessionId || !effectiveTargetSession) {
       notificationService.error(t('chatInput.initNoSession', { defaultValue: 'No active session for /init' }));
       return;
@@ -255,9 +262,7 @@ export function useComposerSubmitActions({
       notificationService.warning(t('chatInput.initBusy', { defaultValue: 'Wait until the session is idle before using /init.' }));
       return;
     }
-
-    const message = inputValue.trim();
-    if (!/^\/init\s*$/i.test(message)) {
+    if (inputValue.trim()) {
       notificationService.warning(t('chatInput.initUsage', { defaultValue: 'Use /init without extra arguments.' }));
       return;
     }
@@ -266,30 +271,38 @@ export function useComposerSubmitActions({
       defaultValue: 'Please generate or update AGENTS.md so it matches the current project. Write it in English and keep the English version complete.',
     });
 
-    clearInput();
-    setQueuedInput(null);
-    setSlashCommandState(closedSlashState);
+    clearDraftForSubmit();
+    resetIntentAfterSubmit();
 
     try {
       await FlowChatManager.getInstance().sendMessage(
         initInstruction,
         effectiveTargetSessionId,
         initInstruction,
-        'Init'
+        'Init',
       );
       onSendMessage?.(initInstruction);
     } catch (error) {
-      log.error('Failed to trigger /init', { error, sessionId: effectiveTargetSessionId });
+      log.error('Failed to initialize workspace instructions', { error, sessionId: effectiveTargetSessionId });
       activateInput();
-      setInputValue(message);
       notificationService.error(error instanceof Error ? error.message : t('error.unknown'), {
         title: t('chatInput.initFailed', { defaultValue: 'Session init failed' }),
         duration: 5000,
       });
     }
-  }, [activateInput, clearInput, derivedState?.isProcessing, effectiveTargetSession, effectiveTargetSessionId, inputValue, onSendMessage, setInputValue, setQueuedInput, setSlashCommandState, t]);
+  }, [
+    activateInput,
+    clearDraftForSubmit,
+    derivedState?.isProcessing,
+    effectiveTargetSession,
+    effectiveTargetSessionId,
+    inputValue,
+    onSendMessage,
+    resetIntentAfterSubmit,
+    t,
+  ]);
 
-  const submitGoalFromInput = useCallback(async () => {
+  const submitGoalDraft = useCallback(async () => {
     if (!effectiveTargetSessionId || !effectiveTargetSession) {
       notificationService.error(t('chatInput.goalNoSession', { defaultValue: 'No active session for /goal' }));
       return;
@@ -307,57 +320,46 @@ export function useComposerSubmitActions({
     }
 
     const originalMessage = inputValue.trim();
-    const originalPendingLargePastes = snapshotPendingLargePastes();
-    const message = expandPendingLargePastes(originalMessage).trim();
-    const messageCharCount = getCharacterCount(message);
-
-    if (messageCharCount > CHAT_INPUT_CONFIG.largePaste.maxMessageChars) {
-      notificationService.error(t('input.messageTooLarge', {
-        max: CHAT_INPUT_CONFIG.largePaste.maxMessageChars,
-        count: messageCharCount,
-        defaultValue: 'Message exceeds the maximum length of {{max}} characters ({{count}} provided).',
-      }), { duration: 4000 });
-      restorePendingLargePastes(originalPendingLargePastes);
-      activateInput();
-      setInputValue(originalMessage);
+    const pendingLargePastes = snapshotPendingLargePastes();
+    const goalBody = expandPendingLargePastes(originalMessage).trim();
+    if (!goalBody) {
+      notificationService.warning(t('chatInput.goalEmpty', { defaultValue: 'Describe the goal before sending.' }));
+      return;
+    }
+    if (!validateMessageSize(goalBody)) {
+      restorePendingLargePastes(pendingLargePastes);
       return;
     }
 
-    const goalBody = stripGoalCommand(message);
-    const isControlCommand = isGoalControlCommand(goalBody);
+    const rawInput = `/goal ${goalBody}`;
     const goalTurnId = createGoalTurnId();
 
     addToHistory(effectiveTargetSessionId, originalMessage);
-    resetHistoryDraft();
-    clearInput();
-    clearPendingLargePastes();
-    setQueuedInput(null);
-    setSlashCommandState(closedSlashState);
+    clearDraftForSubmit();
 
     let goalTurnSubmitted = false;
     try {
       const { goalAPI } = await import('@/infrastructure/api');
-      if (!isControlCommand) {
-        await sendMessage(goalBody, {
-          displayMessage: goalBody,
-          triggerSource: 'goal',
-          systemReminderOverride: goalInitialSystemReminder(),
-          localDialogTurnId: goalTurnId,
-          metadata: {
-            goal: {
-              kind: 'initial',
-              rawInput: message,
-            },
+      await sendMessage(goalBody, {
+        displayMessage: goalBody,
+        triggerSource: 'goal',
+        systemReminderOverride: goalInitialSystemReminder(),
+        localDialogTurnId: goalTurnId,
+        metadata: {
+          goal: {
+            kind: 'initial',
+            rawInput,
           },
-        });
-        goalTurnSubmitted = true;
-      }
+        },
+      });
+      goalTurnSubmitted = true;
+
       const response = await goalAPI.submitSessionGoal({
         sessionId: effectiveTargetSessionId,
         workspacePath: goalWorkspacePath,
-        rawInput: message,
+        rawInput,
         agentType: effectiveTargetSession.descriptor.agentPolicy.activeAgentId,
-        turnId: isControlCommand ? `goal-command-${Date.now()}` : goalTurnId,
+        turnId: goalTurnId,
         skipInitialContinuation: true,
       });
       useSessionGoalStore.getState().applyGoalResponse({
@@ -365,12 +367,11 @@ export function useComposerSubmitActions({
         workspacePath: goalWorkspacePath,
         response,
       });
+      resetIntentAfterSubmit();
     } catch (error) {
-      log.error('Failed to trigger /goal', { error, sessionId: effectiveTargetSessionId });
+      log.error('Failed to submit goal', { error, sessionId: effectiveTargetSessionId });
       if (!goalTurnSubmitted) {
-        restorePendingLargePastes(originalPendingLargePastes);
-        activateInput();
-        setInputValue(originalMessage);
+        restoreDraftAfterFailure(originalMessage, pendingLargePastes);
       }
       notificationService.error(error instanceof Error ? error.message : t('error.unknown'), {
         title: t('chatInput.goalFailed', { defaultValue: 'Goal command failed' }),
@@ -378,41 +379,30 @@ export function useComposerSubmitActions({
       });
     }
   }, [
-    activateInput,
     addToHistory,
-    clearInput,
-    clearPendingLargePastes,
+    clearDraftForSubmit,
     effectiveTargetSession,
     effectiveTargetSessionId,
     expandPendingLargePastes,
-    getCharacterCount,
     inputValue,
-    resetHistoryDraft,
+    resetIntentAfterSubmit,
+    restoreDraftAfterFailure,
     restorePendingLargePastes,
     sendMessage,
-    setInputValue,
-    setQueuedInput,
-    setSlashCommandState,
     snapshotPendingLargePastes,
     t,
+    validateMessageSize,
     workspacePath,
   ]);
 
-  const submitMcpPromptFromInput = useCallback(async () => {
+  const submitMcpPrompt = useCallback(async () => {
+    const command = intent.promptTemplate;
+    if (!command) return;
+
     const originalMessage = inputValue.trim();
-    let command = resolveTypedMcpPromptCommand(originalMessage);
-
-    if (!command) {
-      await loadMcpPromptCommands();
-      command = resolveTypedMcpPromptCommand(originalMessage);
-    }
-
-    if (!command) {
-      notificationService.warning(t('chatInput.noMatchingCommand', { defaultValue: 'No matching command' }));
-      return;
-    }
-
-    const argValues = parseSlashArguments(originalMessage.slice(command.command.length).trim());
+    const pendingLargePastes = snapshotPendingLargePastes();
+    const expandedArguments = expandPendingLargePastes(originalMessage).trim();
+    const argValues = parseSlashArguments(expandedArguments);
     const requiredArgs = command.arguments.filter(argument => argument.required);
     if (argValues.length < requiredArgs.length) {
       notificationService.warning(t('chatInput.mcpPromptMissingArgs', {
@@ -422,15 +412,11 @@ export function useComposerSubmitActions({
       return;
     }
 
-    const originalPendingLargePastes = snapshotPendingLargePastes();
+    const displayMessage = `${command.command}${originalMessage ? ` ${originalMessage}` : ''}`;
     if (effectiveTargetSessionId) {
-      addToHistory(effectiveTargetSessionId, originalMessage);
+      addToHistory(effectiveTargetSessionId, displayMessage);
     }
-    resetHistoryDraft();
-    clearInput();
-    clearPendingLargePastes();
-    setQueuedInput(null);
-    setSlashCommandState(closedSlashState);
+    clearDraftForSubmit();
 
     try {
       const promptArguments = command.arguments.reduce<Record<string, string>>((acc, argument, index) => {
@@ -452,114 +438,135 @@ export function useComposerSubmitActions({
         throw new Error('MCP prompt returned no displayable content');
       }
 
-      await sendMessage(renderedPrompt, { displayMessage: originalMessage });
+      await sendMessage(renderedPrompt, { displayMessage });
+      resetIntentAfterSubmit();
     } catch (error) {
-      log.error('Failed to run MCP prompt command', { command: originalMessage, error });
-      restorePendingLargePastes(originalPendingLargePastes);
-      activateInput();
-      setInputValue(originalMessage);
+      log.error('Failed to run MCP prompt command', { command: command.command, error });
+      restoreDraftAfterFailure(originalMessage, pendingLargePastes);
       notificationService.error(error instanceof Error ? error.message : t('error.unknown'), {
         title: t('chatInput.mcpPromptFailed', { defaultValue: 'MCP prompt failed' }),
         duration: 5000,
       });
     }
-  }, [activateInput, addToHistory, clearInput, clearPendingLargePastes, effectiveTargetSessionId, inputValue, loadMcpPromptCommands, resetHistoryDraft, resolveTypedMcpPromptCommand, restorePendingLargePastes, sendMessage, setInputValue, setQueuedInput, setSlashCommandState, snapshotPendingLargePastes, t]);
+  }, [
+    addToHistory,
+    clearDraftForSubmit,
+    effectiveTargetSessionId,
+    expandPendingLargePastes,
+    inputValue,
+    intent.promptTemplate,
+    resetIntentAfterSubmit,
+    restoreDraftAfterFailure,
+    sendMessage,
+    snapshotPendingLargePastes,
+    t,
+  ]);
 
   const handleCancelGeneration = useCallback(async () => {
     if (!effectiveTargetSessionId) return;
     await FlowChatManager.getInstance().cancelTaskForSession(effectiveTargetSessionId);
   }, [effectiveTargetSessionId]);
 
-  const handleSendOrCancel = useCallback(async () => {
-    if (!derivedState) return;
+  const submitNormalMessage = useCallback(async () => {
+    const originalMessage = inputValue.trim();
+    if (!originalMessage) return;
 
-    const { sendButtonMode } = derivedState;
-    const draftTrimmed = inputValue.trim();
-    if (sendButtonMode === 'cancel' && !draftTrimmed) {
-      await handleCancelGeneration();
-      return;
-    }
-    if (sendButtonMode === 'retry') {
-      await transition(SessionExecutionEvent.RESET);
-    }
-    if (!draftTrimmed) return;
-
-    const originalMessage = draftTrimmed;
-    const originalPendingLargePastes = snapshotPendingLargePastes();
+    const pendingLargePastes = snapshotPendingLargePastes();
     const message = expandPendingLargePastes(originalMessage).trim();
-    const messageCharCount = getCharacterCount(message);
-
-    if (matchesBuiltinSlashCommand(message, 'btw')) {
-      await submitBtwFromInput();
-      return;
-    }
-    if (isExactBuiltinSlashCommand(message, 'compact')) {
-      await submitCompactFromInput();
-      return;
-    }
-    if (isExactBuiltinSlashCommand(message, 'init')) {
-      await submitInitFromInput();
-      return;
-    }
-    if (matchesBuiltinSlashCommand(message, 'goal')) {
-      await submitGoalFromInput();
-      return;
-    }
-    if (resolveTypedMcpPromptCommand(message)) {
-      await submitMcpPromptFromInput();
+    if (!validateMessageSize(message)) {
+      restorePendingLargePastes(pendingLargePastes);
       return;
     }
 
-    if (matchesBuiltinSlashCommand(message, 'compact')) {
-      notificationService.warning(t('chatInput.compactUsage', { defaultValue: 'Use /compact without extra arguments.' }));
-      return;
-    }
-    if (matchesBuiltinSlashCommand(message, 'init')) {
-      notificationService.warning(t('chatInput.initUsage', { defaultValue: 'Use /init without extra arguments.' }));
-      return;
-    }
     if (effectiveTargetSessionId) {
       addToHistory(effectiveTargetSessionId, message);
     }
-    resetHistoryDraft();
-    clearInput();
-    clearPendingLargePastes();
-    setQueuedInput(null);
-
-    if (messageCharCount > CHAT_INPUT_CONFIG.largePaste.maxMessageChars) {
-      notificationService.error(t('input.messageTooLarge', {
-        max: CHAT_INPUT_CONFIG.largePaste.maxMessageChars,
-        count: messageCharCount,
-        defaultValue: 'Message exceeds the maximum length of {{max}} characters ({{count}} provided).',
-      }), { duration: 4000 });
-      restorePendingLargePastes(originalPendingLargePastes);
-      activateInput();
-      setInputValue(originalMessage);
-      return;
-    }
+    clearDraftForSubmit();
+    resetIntentAfterSubmit(intent.target === 'btw-thread' ? 'btw-thread' : undefined);
 
     try {
-      await sendMessage(message);
+      await sendMessage(message, activeGoalId ? {
+        metadata: {
+          goal: {
+            kind: 'active',
+            goalId: activeGoalId,
+          },
+        },
+      } : undefined);
       clearPendingLargePastes();
       clearInput();
     } catch (error) {
       log.error('Failed to send message', { error });
-      restorePendingLargePastes(originalPendingLargePastes);
-      activateInput();
-      setInputValue(originalMessage);
-      if (derivedState?.isProcessing) {
-        setQueuedInput(originalMessage);
-      }
+      restoreDraftAfterFailure(originalMessage, pendingLargePastes);
     }
-  }, [activateInput, addToHistory, clearInput, clearPendingLargePastes, derivedState, effectiveTargetSessionId, expandPendingLargePastes, getCharacterCount, handleCancelGeneration, inputValue, resetHistoryDraft, resolveTypedMcpPromptCommand, restorePendingLargePastes, sendMessage, setInputValue, setQueuedInput, snapshotPendingLargePastes, submitBtwFromInput, submitCompactFromInput, submitGoalFromInput, submitInitFromInput, submitMcpPromptFromInput, t, transition]);
+  }, [
+    activeGoalId,
+    addToHistory,
+    clearDraftForSubmit,
+    clearInput,
+    clearPendingLargePastes,
+    effectiveTargetSessionId,
+    expandPendingLargePastes,
+    inputValue,
+    intent.target,
+    resetIntentAfterSubmit,
+    restoreDraftAfterFailure,
+    restorePendingLargePastes,
+    sendMessage,
+    snapshotPendingLargePastes,
+    validateMessageSize,
+  ]);
+
+  const handleSendOrCancel = useCallback(async () => {
+    if (!derivedState) return;
+
+    const draftTrimmed = inputValue.trim();
+    if (derivedState.sendButtonMode === 'cancel' && !draftTrimmed && !intent.operation) {
+      await handleCancelGeneration();
+      return;
+    }
+    if (derivedState.sendButtonMode === 'retry') {
+      await transition(SessionExecutionEvent.RESET);
+    }
+
+    if (intent.operation === 'compact') {
+      await submitCompact();
+      return;
+    }
+    if (intent.operation === 'init') {
+      await submitInit();
+      return;
+    }
+    if (intent.target === 'btw-draft') {
+      await submitBtwDraft();
+      return;
+    }
+    if (intent.promptTemplate) {
+      await submitMcpPrompt();
+      return;
+    }
+    if (hasComposerGoalModifier(intent)) {
+      await submitGoalDraft();
+      return;
+    }
+
+    await submitNormalMessage();
+  }, [
+    derivedState,
+    handleCancelGeneration,
+    inputValue,
+    intent,
+    submitBtwDraft,
+    submitCompact,
+    submitGoalDraft,
+    submitInit,
+    submitMcpPrompt,
+    submitNormalMessage,
+    transition,
+  ]);
 
   return {
     handleCancelGeneration,
     handleSendOrCancel,
-    submitBtwFromInput,
-    submitCompactFromInput,
-    submitGoalFromInput,
-    submitInitFromInput,
-    submitMcpPromptFromInput,
   };
 }

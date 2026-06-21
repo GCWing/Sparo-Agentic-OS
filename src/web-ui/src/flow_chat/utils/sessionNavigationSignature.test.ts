@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { FlowChatState, Session } from '../types/flow-chat';
+import { getDefaultSessionDescriptor } from '../domain/sessionDescriptor';
 import { getSessionNavigationSignature } from './sessionNavigationSignature';
 
 function createSession(overrides: Partial<Session> = {}): Session {
@@ -44,14 +45,15 @@ function createSession(overrides: Partial<Session> = {}): Session {
     createdAt: 1,
     lastActiveAt: 1,
     error: null,
+    loadPhase: 'live',
+    descriptor: getDefaultSessionDescriptor(),
     sessionKind: 'normal',
     ...overrides,
   };
 }
 
-function createState(session: Session, activeSessionId = 'session-1'): FlowChatState {
+function createState(session: Session): FlowChatState {
   return {
-    activeSessionId,
     sessions: new Map([[session.sessionId, session]]),
   };
 }
@@ -90,8 +92,8 @@ describe('getSessionNavigationSignature', () => {
     expect(getSessionNavigationSignature(createState(renamed))).not.toBe(
       getSessionNavigationSignature(createState(initial))
     );
-    expect(getSessionNavigationSignature(createState(initial, 'other-session'))).not.toBe(
-      getSessionNavigationSignature(createState(initial))
+    expect(getSessionNavigationSignature(createState(initial), 'other-session')).not.toBe(
+      getSessionNavigationSignature(createState(initial), 'session-1')
     );
   });
 });

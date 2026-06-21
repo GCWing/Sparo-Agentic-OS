@@ -5,6 +5,7 @@ import { createLogger } from '@/shared/utils/logger';
 import path from 'path-browserify';
 import { fileTabManager } from '@/shared/services/FileTabManager';
 import { notificationService } from '@/shared/notification-system';
+import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
 
 const log = createLogger('widgetInteraction');
 
@@ -39,11 +40,14 @@ export interface WidgetInteractionDetail {
 }
 
 function getActiveSessionId(): string | null {
-  return flowChatStore.getState().activeSessionId;
+  const surfaceState = useWorkspaceSurfaceStore.getState();
+  return surfaceState.composerTargetSessionId ?? surfaceState.focusedSessionId;
 }
 
 function getActiveWorkspacePath(): string | undefined {
-  return flowChatStore.getActiveSession()?.workspacePath;
+  const sessionId = getActiveSessionId();
+  if (!sessionId) return undefined;
+  return flowChatStore.getState().sessions.get(sessionId)?.workspacePath;
 }
 
 function stringifyPayload(payload: unknown): string {

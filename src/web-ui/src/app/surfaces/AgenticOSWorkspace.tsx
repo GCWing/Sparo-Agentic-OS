@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { appRuntime } from '@/infrastructure/app-runtime';
-import { FlowChatStore } from '@/flow_chat/store/FlowChatStore';
 import { useDialogCompletionNotify } from '../hooks/useDialogCompletionNotify';
 import { useSessionProfile } from '../session-profiles';
 import { useWorkspaceSurfaceStore } from '../navigation/workspaceSurfaceStore';
@@ -20,6 +19,7 @@ const AgenticOSWorkspace: React.FC<AgenticOSWorkspaceProps> = ({
   isEntering = false,
 }) => {
   const activeSurface = useWorkspaceSurfaceStore((s) => s.activeSurface);
+  const focusedSessionId = useWorkspaceSurfaceStore((s) => s.focusedSessionId);
   const { profile } = useSessionProfile();
   const { workspace: lastUsedWorkspace } = useLastUsedWorkspace();
 
@@ -27,11 +27,12 @@ const AgenticOSWorkspace: React.FC<AgenticOSWorkspaceProps> = ({
 
   useEffect(() => {
     return appRuntime.diagnostics.registerContext(() => {
-      const flowState = FlowChatStore.getInstance().getState();
       const activeSessionId =
         activeSurface.kind === 'session'
           ? activeSurface.sessionId
-          : flowState.activeSessionId ?? undefined;
+          : activeSurface.kind === 'agentic-os-home'
+            ? activeSurface.agenticOsSessionId ?? focusedSessionId ?? undefined
+            : focusedSessionId ?? undefined;
 
       return {
         activeSceneId: activeSurface.kind === 'scene' ? activeSurface.sceneId : undefined,
@@ -39,7 +40,7 @@ const AgenticOSWorkspace: React.FC<AgenticOSWorkspaceProps> = ({
         activeSessionId: activeSessionId ?? undefined,
       };
     });
-  }, [activeSurface, lastUsedWorkspace?.rootPath]);
+  }, [activeSurface, focusedSessionId, lastUsedWorkspace?.rootPath]);
 
   const workspaceClassName = [
     'agentic-os-workspace',

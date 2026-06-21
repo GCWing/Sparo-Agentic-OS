@@ -13,7 +13,9 @@ import { descriptorFromAgentType, getBackendAgentType, type SessionDescriptor } 
 import { createOsHandoffMetadata } from '@/flow_chat/domain/osHandoffIntent';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
 import { openAgenticOsSession } from '@/flow_chat/services/openAgenticOsSession';
+import { resolveSessionTypeDefinitionForDescriptor } from '@/app/session-profiles';
 import { useSessionModeStore } from '@/app/stores/sessionModeStore';
+import type { SessionMode } from '@/app/stores/sessionModeStore';
 import { useWorkStore } from '@/app/agentic-os/work/data/workStore';
 import { openWork } from '@/app/agentic-os/work/navigation/openWork';
 import type { WorkRecord } from '@/app/agentic-os/work/domain/workTypes';
@@ -126,17 +128,15 @@ function resolveDescriptorFromChoice(agentChoice: NewWorkAgentChoice): SessionDe
 }
 
 function syncSessionModeStore(descriptor: SessionDescriptor): void {
-  if (descriptor.profileId === 'cowork') {
-    useSessionModeStore.getState().setMode('cowork');
-  } else if (descriptor.profileId === 'design') {
-    useSessionModeStore.getState().setMode('design');
-  } else if (descriptor.profileId === 'live-app-studio') {
-    useSessionModeStore.getState().setMode('liveappstudio');
-  } else if (descriptor.profileId === 'agent-app-studio') {
-    useSessionModeStore.getState().setMode('agentappstudio');
-  } else {
-    useSessionModeStore.getState().setMode('code');
-  }
+  const displayMode = resolveSessionTypeDefinitionForDescriptor(descriptor).lifecycle.displayMode;
+  const sessionMode: SessionMode =
+    displayMode === 'cowork' ||
+    displayMode === 'design' ||
+    displayMode === 'liveappstudio' ||
+    displayMode === 'agentappstudio'
+      ? displayMode
+      : 'code';
+  useSessionModeStore.getState().setMode(sessionMode);
 }
 
 // Re-exported for other modules; HMR is fine without fast-refresh for this non-component.

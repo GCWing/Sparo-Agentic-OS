@@ -26,8 +26,10 @@ import {
 } from '../BtwThreadService';
 import { finalizeFlowTurn } from '../../runtime/finalizers';
 import { getBackendAgentType } from '../../domain/sessionDescriptor';
+import { canHydrateSession, isSessionHydrating } from '../../domain/sessionLoadPhase';
 import { useSessionTurnQueueStore } from '../../store/sessionTurnQueueStore';
 import type { Session } from '../../types/flow-chat';
+import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
 
 const log = createLogger('MessageModule');
 
@@ -306,7 +308,9 @@ export async function sendMessage(
     globalEventBus.emit(FLOWCHAT_PIN_TURN_TO_TOP_EVENT, pinRequest, 'MessageModule');
 
     const isRestoringHistoricalSession =
-      readySession.isHistorical || context.pendingHistoryLoads.has(sessionId);
+      canHydrateSession(readySession) ||
+      isSessionHydrating(readySession) ||
+      context.pendingHistoryLoads.has(sessionId);
     if (isRestoringHistoricalSession) {
       context.processingManager.clearSessionStatus(sessionId);
       context.flowChatStore.deleteDialogTurn(sessionId, dialogTurnId);
@@ -472,9 +476,10 @@ export async function cancelTaskForSession(
 }
 
 export async function cancelCurrentTask(context: FlowChatContext): Promise<boolean> {
-  const sessionId = context.flowChatStore.getState().activeSessionId;
+  const sessionId = useWorkspaceSurfaceStore.getState().composerTargetSessionId ||
+    useWorkspaceSurfaceStore.getState().focusedSessionId;
   if (!sessionId) {
-    log.debug('No active session to cancel');
+    log.debug('No focused session to cancel');
     return false;
   }
   return cancelTaskForSession(context, sessionId);

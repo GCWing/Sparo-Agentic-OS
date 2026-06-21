@@ -8,6 +8,7 @@ import { SessionExecutionState } from '../state-machine/types';
 import { flowChatStore } from '../store/FlowChatStore';
 import type { DialogTurn } from '../types/flow-chat';
 import { FlowChatManager } from './FlowChatManager';
+import { isSessionTranscriptReady } from '../domain/sessionLoadPhase';
 
 const log = createLogger('UserMessageEditService');
 
@@ -73,7 +74,7 @@ function getSessionTurn(sessionId: string, turnId: string): {
     throw new Error(`Session does not exist: ${sessionId}`);
   }
 
-  if (session.isHistorical) {
+  if (!isSessionTranscriptReady(session)) {
     throw new Error('Session history is still loading. Try again after it finishes.');
   }
 

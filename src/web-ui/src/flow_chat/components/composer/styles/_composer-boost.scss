@@ -27,63 +27,6 @@
     }
   }
 
-  &__agent-capsule {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    height: var(--sparo-chat-input-control-size);
-    max-width: 148px;
-    padding: 0 4px 0 10px;
-    border-radius: 999px;
-    border: none;
-    font-size: var(--flowchat-font-size-xxs);
-    font-weight: 500;
-    letter-spacing: 0.02em;
-    color: var(--ds-chat-text-secondary);
-    background: color-mix(in srgb, var(--ds-chat-text-muted) 14%, transparent);
-
-    &--Plan {
-      background: color-mix(in srgb, var(--ds-chat-warning) 15%, transparent);
-      color: var(--ds-chat-warning);
-    }
-
-    &--debug {
-      background: color-mix(in srgb, var(--ds-chat-danger) 14%, var(--ds-chat-warning-bg));
-      color: var(--ds-chat-warning);
-    }
-  }
-
-  &__agent-capsule-label {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    min-width: 0;
-    line-height: 1.35;
-  }
-
-  &__agent-capsule-close {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    width: 18px;
-    height: 18px;
-    margin: 0 -2px 0 0;
-    padding: 0;
-    border: none;
-    border-radius: 50%;
-    background: transparent;
-    color: inherit;
-    cursor: pointer;
-    opacity: 0.9;
-    transition: opacity 0.15s ease, background 0.15s ease;
-
-    &:hover {
-      opacity: 1;
-      background: color-mix(in srgb, currentColor 14%, transparent);
-    }
-  }
-
   &__agent-boost-empty {
     padding: 12px 14px;
     font-size: var(--flowchat-font-size-2xs);
@@ -142,7 +85,7 @@
   }
 
   &__boost-section--motion:hover > &__boost-motion-highlight,
-  &__boost-submenu-panel--motion:hover > &__boost-motion-highlight {
+  &__boost-submenu-panel--motion &__boost-motion-highlight--visible {
     opacity: 1;
   }
 
@@ -382,10 +325,11 @@
   &__boost-submenu-manage {
     position: relative;
     flex-shrink: 0;
-    width: calc(100% - 8px);
+    width: 100%;
     margin: 0;
-    padding: 6px 10px 7px;
-    border-top: 0;
+    padding: 9px 12px 10px;
+    border: 0;
+    border-top: 1px solid var(--ds-chat-border);
     background: transparent;
     font-size: var(--flowchat-font-size-xxs);
     font-weight: 500;
@@ -393,8 +337,7 @@
     cursor: pointer;
     text-align: center;
     user-select: none;
-    border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
-    margin-inline: 4px;
+    border-radius: 0;
     transition: background 0.15s ease, color 0.15s ease;
 
     &:hover {
@@ -406,8 +349,7 @@
   &__boost-submenu-manage {
     justify-content: center;
     height: auto;
-    min-height: 0;
-    border: none;
+    min-height: 34px;
     box-shadow: none;
     font-size: var(--flowchat-font-size-xxs);
   }
@@ -417,8 +359,7 @@
   &__boost-section--motion &__boost-context-row:hover,
   &__boost-section--motion &__boost-submenu-trigger:hover:not(:disabled),
   &__boost-section--motion &__boost-submenu-trigger:active:not(:disabled),
-  &__boost-submenu-panel--motion &__boost-submenu-entry:hover,
-  &__boost-submenu-panel--motion &__boost-submenu-manage:hover {
+  &__boost-submenu-panel--motion &__boost-submenu-entry:hover {
     background: transparent;
   }
 

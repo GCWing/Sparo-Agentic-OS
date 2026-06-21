@@ -23,6 +23,7 @@
   "goalNoSession": "No active session for /goal",
   "goalUnsupported": "Goal mode is not supported in this session.",
   "goalFailed": "Goal command failed",
+  "goalEmpty": "Describe the goal before sending.",
   "initNoSession": "No active session for /init",
   "initBusy": "Wait until the session is idle before using /init.",
   "initUsage": "Use /init without extra arguments.",
@@ -34,6 +35,32 @@
   "noMatchingCommand": "No matching command",
   "selectHint": "↑↓ Select · Enter Confirm · Esc Cancel",
   "current": "Current",
+  "loadingMcpPrompts": "Loading MCP prompts...",
+  "mcpPromptMissingArgs": "This MCP prompt requires arguments: {{args}}",
+  "mcpPromptFailed": "MCP prompt failed",
+  "composerCommands": {
+    "title": "Commands",
+    "groups": {
+      "target": "Target",
+      "send-with": "Send with",
+      "session-action": "Session action",
+      "template": "Prompt template"
+    },
+    "btwDescription": "Ask in a focused side thread",
+    "goalDescription": "Track this request until completion",
+    "compactDescription": "Compress the current session context",
+    "initDescription": "Generate or update workspace instructions"
+  },
+  "intentChips": {
+    "remove": "Remove",
+    "targetBtwDraft": "Side question",
+    "targetBtwThread": "Side session",
+    "goalDraft": "Goal mode",
+    "goalActive": "Goal active",
+    "goalPaused": "Goal paused",
+    "goalPending": "Goal pending",
+    "promptTemplate": "Prompt"
+  },
   "professionalMode": "Expert Mode",
   "designMode": "Designer Mode",
   "wip": "WIP",

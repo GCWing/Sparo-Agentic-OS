@@ -6,6 +6,7 @@ import type {
   FlowToolItem,
   ModelRound,
   Session,
+  SessionLoadPhase,
 } from '../types/flow-chat';
 import {
   EXPLORE_TOOL_CATEGORY_ORDER,
@@ -92,7 +93,7 @@ export interface AgenticOsTimelineSession {
   sortTimestamp: number;
   createdAt: number;
   isActive: boolean;
-  isHistorical: boolean;
+  loadPhase: SessionLoadPhase;
   /** Turns with a non-empty userMessage (renderable as nodes). */
   turns: AgenticOsTimelineTurn[];
   raw: Session;
@@ -245,14 +246,17 @@ function buildAgenticOsTimelineSession(
     sortTimestamp: getSessionSortTimestamp(session),
     createdAt: session.createdAt,
     isActive: session.sessionId === activeSessionId,
-    isHistorical: session.isHistorical === true,
+    loadPhase: session.loadPhase,
     turns,
     raw: session,
   };
 }
 
-export function getAgenticOsTimelineSignature(state: FlowChatState): string {
-  const parts = [String(state.activeSessionId ?? '')];
+export function getAgenticOsTimelineSignature(
+  state: FlowChatState,
+  focusedSessionId: string | null = null
+): string {
+  const parts = [String(focusedSessionId ?? '')];
   for (const session of state.sessions.values()) {
     if (!isAgenticOsSession(session)) {
       continue;
@@ -265,14 +269,17 @@ export function getAgenticOsTimelineSignature(state: FlowChatState): string {
       session.lastActiveAt ?? 0,
       session.lastFinishedAt ?? 0,
       session.dialogTurns.length,
-      session.isHistorical === true ? 'historical' : 'live',
+      session.loadPhase,
     ].join(':'));
   }
   return parts.join('|');
 }
 
-export function getAgenticOsTimelineProjection(state: FlowChatState): AgenticOsTimelineData {
-  const signature = getAgenticOsTimelineSignature(state);
+export function getAgenticOsTimelineProjection(
+  state: FlowChatState,
+  focusedSessionId: string | null = null
+): AgenticOsTimelineData {
+  const signature = getAgenticOsTimelineSignature(state, focusedSessionId);
   if (agenticOsTimelineCache.signature === signature) {
     return agenticOsTimelineCache.timeline;
   }
@@ -303,7 +310,7 @@ export function getAgenticOsTimelineProjection(state: FlowChatState): AgenticOsT
     let totalTurns = 0;
 
     for (const session of agenticOsSessions) {
-      const entry = buildAgenticOsTimelineSession(session, state.activeSessionId);
+      const entry = buildAgenticOsTimelineSession(session, focusedSessionId);
       totalTurns += entry.turns.length;
 
       const bucketInfo = bucketForTimestamp(
@@ -330,7 +337,7 @@ export function getAgenticOsTimelineProjection(state: FlowChatState): AgenticOsT
 
     const buckets = bucketOrder.map(id => bucketMap.get(id)!).filter(Boolean);
 
-    const signatureParts: string[] = [String(state.activeSessionId ?? '')];
+    const signatureParts: string[] = [String(focusedSessionId ?? '')];
     for (const bucket of buckets) {
       signatureParts.push(bucket.id);
       for (const s of bucket.sessions) {

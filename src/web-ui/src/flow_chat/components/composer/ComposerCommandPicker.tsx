@@ -1,219 +1,118 @@
 import type React from 'react';
 import { Badge, SelectableRow } from '@/design-system';
 import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
-import type { AgentInfo } from '../../reducers/agentReducer';
-import type { SlashActionItem, SlashPickerItem, SlashMcpPromptItem } from './model/composerCommands';
-
-export interface ComposerCommandPickerState {
-  isActive: boolean;
-  kind: 'agents' | 'actions' | 'all';
-  selectedIndex: number;
-}
+import type { ComposerCommandOption } from './model/composerCommandRegistry';
+import type { ComposerCommandInteractionState } from './model/composerState';
 
 interface ComposerCommandPickerLabels {
-  quickAction: string;
   commands: string;
-  addAgentMenuTitle: string;
   selectHint: string;
   noMatchingCommand: string;
-  noMatchingAgent: string;
   loadingMcpPrompts: string;
   current: string;
 }
 
 interface ComposerCommandPickerProps {
-  state: ComposerCommandPickerState;
-  canSwitchAgents: boolean;
-  currentAgent: string;
+  state: ComposerCommandInteractionState;
+  options: ComposerCommandOption[];
   mcpPromptCommandsLoading: boolean;
   labels: ComposerCommandPickerLabels;
-  actions: SlashActionItem[];
-  allItems: SlashPickerItem[];
-  filteredAgents: AgentInfo[];
-  onSelectAction: (id: string) => void;
-  onSelectAgent: (id: string) => void;
-  onSelectPrompt: (item: SlashMcpPromptItem) => void;
+  onSelectOption: (option: ComposerCommandOption) => void;
   onHoverIndex: (index: number) => void;
 }
 
 export function ComposerCommandPicker({
   state,
-  canSwitchAgents,
-  currentAgent,
+  options,
   mcpPromptCommandsLoading,
   labels,
-  actions,
-  allItems,
-  filteredAgents,
-  onSelectAction,
-  onSelectAgent,
-  onSelectPrompt,
+  onSelectOption,
   onHoverIndex,
 }: ComposerCommandPickerProps) {
-  const slashHover = useMovingHoverHighlight<HTMLDivElement>();
+  const commandHover = useMovingHoverHighlight<HTMLDivElement>();
 
-  if (!state.isActive) {
+  if (!state.isOpen) {
     return null;
   }
 
   const renderHoverHighlight = () => (
     <div
-      className={`sparo-chat-input__slash-command-hover-highlight ${slashHover.highlight.visible ? 'sparo-chat-input__slash-command-hover-highlight--visible' : ''}`}
+      className={`sparo-chat-input__slash-command-hover-highlight ${commandHover.highlight.visible ? 'sparo-chat-input__slash-command-hover-highlight--visible' : ''}`}
       style={{
-        '--sparo-slash-hover-top': `${slashHover.highlight.top}px`,
-        '--sparo-slash-hover-left': `${slashHover.highlight.left}px`,
-        '--sparo-slash-hover-width': `${slashHover.highlight.width}px`,
-        '--sparo-slash-hover-height': `${slashHover.highlight.height}px`,
-        '--sparo-slash-hover-stretch-x': slashHover.highlight.stretchX,
-        '--sparo-slash-hover-stretch-y': slashHover.highlight.stretchY,
+        '--sparo-slash-hover-top': `${commandHover.highlight.top}px`,
+        '--sparo-slash-hover-left': `${commandHover.highlight.left}px`,
+        '--sparo-slash-hover-width': `${commandHover.highlight.width}px`,
+        '--sparo-slash-hover-height': `${commandHover.highlight.height}px`,
+        '--sparo-slash-hover-stretch-x': commandHover.highlight.stretchX,
+        '--sparo-slash-hover-stretch-y': commandHover.highlight.stretchY,
       } as React.CSSProperties}
     />
   );
 
   const getItemHoverHandlers = (index: number) => ({
     onMouseEnter: (event: React.MouseEvent<HTMLElement>) => {
-      slashHover.updateHighlight(event.currentTarget);
+      commandHover.updateHighlight(event.currentTarget);
       onHoverIndex(index);
     },
     onPointerEnter: (event: React.PointerEvent<HTMLElement>) => {
-      slashHover.updateHighlight(event.currentTarget);
+      commandHover.updateHighlight(event.currentTarget);
     },
   });
 
-  if (state.kind === 'actions') {
-    return (
-      <div className="sparo-chat-input__slash-command-picker">
-        <div className="sparo-chat-input__slash-command-header">
-          <span>{labels.quickAction}</span>
-          <span className="sparo-chat-input__slash-command-hint">{labels.selectHint}</span>
-        </div>
-        <div
-          ref={slashHover.surfaceRef}
-          className="sparo-chat-input__slash-command-list sparo-chat-input__slash-command-list--motion"
-          {...slashHover.getSurfaceHandlers('.sparo-chat-input__slash-command-item')}
-        >
-          {renderHoverHighlight()}
-          {actions.length > 0 ? (
-            actions.map((action, index) => (
-              <SelectableRow
-                key={action.id}
-                className={`sparo-chat-input__slash-command-item ${index === state.selectedIndex ? 'sparo-chat-input__slash-command-item--selected' : ''}`}
-                data-testid={`slash-command-action-${action.id}`}
-                description={<span className="sparo-chat-input__slash-command-label">{action.label}</span>}
-                onClick={() => onSelectAction(action.id)}
-                {...getItemHoverHandlers(index)}
-                selected={index === state.selectedIndex}
-                title={<span className="sparo-chat-input__slash-command-name">{action.command}</span>}
-              />
-            ))
-          ) : (
-            <div className="sparo-chat-input__slash-command-empty">
-              {labels.noMatchingCommand}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  if (state.kind === 'all') {
-    return (
-      <div className="sparo-chat-input__slash-command-picker">
-        <div className="sparo-chat-input__slash-command-header">
-          <span>{labels.commands}</span>
-          <span className="sparo-chat-input__slash-command-hint">{labels.selectHint}</span>
-        </div>
-        <div
-          ref={slashHover.surfaceRef}
-          className="sparo-chat-input__slash-command-list sparo-chat-input__slash-command-list--motion"
-          {...slashHover.getSurfaceHandlers('.sparo-chat-input__slash-command-item')}
-        >
-          {renderHoverHighlight()}
-          {mcpPromptCommandsLoading && allItems.length === 0 ? (
-            <div className="sparo-chat-input__slash-command-empty">
-              {labels.loadingMcpPrompts}
-            </div>
-          ) : allItems.length > 0 ? (
-            allItems.map((item, index) => {
-              const isAgent = item.kind === 'agent';
-              const isActiveMode = isAgent && item.id === currentAgent;
-              return (
-                <SelectableRow
-                  key={`${item.kind}-${item.id}`}
-                  className={`sparo-chat-input__slash-command-item ${index === state.selectedIndex ? 'sparo-chat-input__slash-command-item--selected' : ''} ${isActiveMode ? 'sparo-chat-input__slash-command-item--active' : ''}`}
-                  data-testid={`slash-command-${item.kind}-${item.id}`}
-                  description={(
-                    <span className="sparo-chat-input__slash-command-label">
-                      {isAgent
-                        ? item.name
-                        : item.kind === 'mcpPrompt'
-                          ? `${item.serverName} / ${item.label}`
-                          : item.label}
-                    </span>
-                  )}
-                  meta={isActiveMode ? <Badge className="sparo-chat-input__slash-command-current" variant="accent">{labels.current}</Badge> : undefined}
-                  onClick={() => {
-                    if (item.kind === 'agent') {
-                      onSelectAgent(item.id);
-                    } else if (item.kind === 'mcpPrompt') {
-                      onSelectPrompt(item);
-                    } else {
-                      onSelectAction(item.id);
-                    }
-                  }}
-                  {...getItemHoverHandlers(index)}
-                  selected={index === state.selectedIndex}
-                  title={(
-                    <span className="sparo-chat-input__slash-command-name">
-                      {isAgent ? `/${item.id}` : item.command}
-                    </span>
-                  )}
-                />
-              );
-            })
-          ) : (
-            <div className="sparo-chat-input__slash-command-empty">
-              {labels.noMatchingCommand}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  if (!canSwitchAgents) {
-    return null;
-  }
+  let lastGroup = '';
 
   return (
     <div className="sparo-chat-input__slash-command-picker">
       <div className="sparo-chat-input__slash-command-header">
-        <span>{labels.addAgentMenuTitle}</span>
+        <span>{labels.commands}</span>
         <span className="sparo-chat-input__slash-command-hint">{labels.selectHint}</span>
       </div>
       <div
-        ref={slashHover.surfaceRef}
+        ref={commandHover.surfaceRef}
         className="sparo-chat-input__slash-command-list sparo-chat-input__slash-command-list--motion"
-        {...slashHover.getSurfaceHandlers('.sparo-chat-input__slash-command-item')}
+        {...commandHover.getSurfaceHandlers('.sparo-chat-input__slash-command-item')}
       >
         {renderHoverHighlight()}
-        {filteredAgents.length > 0 ? (
-          filteredAgents.map((agent, index) => (
-            <SelectableRow
-              key={agent.id}
-              className={`sparo-chat-input__slash-command-item ${index === state.selectedIndex ? 'sparo-chat-input__slash-command-item--selected' : ''} ${agent.id === currentAgent ? 'sparo-chat-input__slash-command-item--active' : ''}`}
-              data-testid={`slash-command-agent-${agent.id}`}
-              description={<span className="sparo-chat-input__slash-command-label">{agent.name}</span>}
-              meta={agent.id === currentAgent ? <Badge className="sparo-chat-input__slash-command-current" variant="accent">{labels.current}</Badge> : undefined}
-              onClick={() => onSelectAgent(agent.id)}
-              {...getItemHoverHandlers(index)}
-              selected={index === state.selectedIndex}
-              title={<span className="sparo-chat-input__slash-command-name">/{agent.id}</span>}
-            />
-          ))
+        {mcpPromptCommandsLoading && options.length === 0 ? (
+          <div className="sparo-chat-input__slash-command-empty">
+            {labels.loadingMcpPrompts}
+          </div>
+        ) : options.length > 0 ? (
+          options.map((option, index) => {
+            const shouldRenderGroup = option.groupLabel !== lastGroup;
+            lastGroup = option.groupLabel;
+
+            return (
+              <div key={option.id} className="sparo-chat-input__slash-command-entry">
+                {shouldRenderGroup && (
+                  <div className="sparo-chat-input__slash-command-group">
+                    {option.groupLabel}
+                  </div>
+                )}
+                <SelectableRow
+                  className={`sparo-chat-input__slash-command-item ${index === state.selectedIndex ? 'sparo-chat-input__slash-command-item--selected' : ''} ${option.current ? 'sparo-chat-input__slash-command-item--active' : ''}`}
+                  data-testid={`composer-command-${option.id}`}
+                  description={(
+                    <span className="sparo-chat-input__slash-command-label">
+                      {option.description}
+                    </span>
+                  )}
+                  meta={option.current ? <Badge className="sparo-chat-input__slash-command-current" variant="accent">{labels.current}</Badge> : undefined}
+                  onClick={() => onSelectOption(option)}
+                  {...getItemHoverHandlers(index)}
+                  selected={index === state.selectedIndex}
+                  title={(
+                    <span className="sparo-chat-input__slash-command-name">
+                      {option.command}
+                    </span>
+                  )}
+                />
+              </div>
+            );
+          })
         ) : (
           <div className="sparo-chat-input__slash-command-empty">
-            {labels.noMatchingAgent}
+            {labels.noMatchingCommand}
           </div>
         )}
       </div>

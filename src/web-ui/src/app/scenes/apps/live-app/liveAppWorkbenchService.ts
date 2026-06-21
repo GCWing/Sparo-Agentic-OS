@@ -12,6 +12,7 @@ import {
 } from '@/flow_chat/domain/sessionDescriptor';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
+import type { WorkspaceSurfaceContext } from '@/app/navigation/workspaceSurfaceTypes';
 import type { LiveAppWorkbenchSessionMetadata, SessionMetadata } from '@/shared/types/session-history';
 import {
   buildLiveAppWorkbenchMetadata,
@@ -26,6 +27,7 @@ export interface OpenLiveAppOptions {
   locale?: string | null;
   workspacePath?: string | null;
   theme?: string | null;
+  context?: WorkspaceSurfaceContext | null;
 }
 
 function agentAppIdFromWorkbenchMetadata(metadata: LiveAppWorkbenchSessionMetadata): string | null {
@@ -200,7 +202,7 @@ export async function ensureLiveAppWorkbenchSession(
   if (existingSessionId) {
     updateSessionWorkbenchMetadata(existingSessionId, metadata);
     await flowChatManager.persistSessionMetadata(existingSessionId);
-    await openWorkspaceSession(existingSessionId);
+    await openWorkspaceSession(existingSessionId, { context: options.context });
     return existingSessionId;
   }
 
@@ -220,7 +222,7 @@ export async function ensureLiveAppWorkbenchSession(
 
   updateSessionWorkbenchMetadata(sessionId, metadata);
   await flowChatManager.persistSessionMetadata(sessionId);
-  await openWorkspaceSession(sessionId);
+  await openWorkspaceSession(sessionId, { context: options.context });
   return sessionId;
 }
 
@@ -234,6 +236,7 @@ export async function openLiveApp(
   if (!isCompositeLiveApp(app)) {
     openWorkspaceScene(`live-app:${app.id}` as WorkspaceSceneId, {
       workspacePath: options.workspacePath,
+      context: options.context,
     });
     return;
   }

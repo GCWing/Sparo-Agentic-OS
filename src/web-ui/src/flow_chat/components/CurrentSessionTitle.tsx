@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
 import { IconButton, Tooltip } from '@/design-system';
 import { useFlowChatStoreSelector } from '../hooks/useFlowChatStoreSelector';
+import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
 import './CurrentSessionTitle.scss';
 
 interface CurrentSessionTitleProps {
@@ -15,9 +16,10 @@ interface CurrentSessionTitleProps {
  */
 const CurrentSessionTitle: React.FC<CurrentSessionTitleProps> = ({ onCreateSession }) => {
   const { t } = useTranslation('flow-chat');
+  const focusedSessionId = useWorkspaceSurfaceStore(state => state.focusedSessionId);
   const titleValue = useFlowChatStoreSelector((state) => {
-    const activeSession = state.activeSessionId
-      ? state.sessions.get(state.activeSessionId)
+    const activeSession = focusedSessionId
+      ? state.sessions.get(focusedSessionId)
       : undefined;
     return {
       hasSession: Boolean(activeSession),

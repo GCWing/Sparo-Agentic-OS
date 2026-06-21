@@ -1137,8 +1137,8 @@
 }
 
 // ?? Discover layout ????????????????????????????????????????????????????????
-// Vertically centre a single fixed-height block so typing / search never reflows
-// the hero + composer. Lower pane keeps constant outer height; only inner content swaps.
+// Keep the prompt area visually stable; the lower recommendation pane should
+// not pull the primary prompt upward as it fills with cards.
 
 .apps-discover {
   // section head (~32) + list row (136) + internal section gap (12)
@@ -1154,7 +1154,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   min-height: 0;
   overflow-y: auto;
   padding: var(--ds-space-8) var(--ds-space-6);
@@ -1162,14 +1162,20 @@
 }
 
 .apps-discover__main {
-  flex: 0 0 auto;
+  flex: 1 0 auto;
   width: min(760px, 100%);
-  display: flex;
-  flex-direction: column;
-  gap: var(--ds-space-5);
+  min-height: 100%;
+  display: grid;
+  grid-template-rows:
+    minmax(clamp(112px, 18vh, 240px), auto)
+    auto
+    var(--ds-space-5)
+    auto
+    minmax(var(--ds-space-8), 1fr);
 }
 
 .apps-discover__stage {
+  grid-row: 2;
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
@@ -1291,6 +1297,7 @@
 }
 
 .apps-discover__lower {
+  grid-row: 4;
   flex: 0 0 var(--apps-discover-lower-height);
   width: 100%;
   height: var(--apps-discover-lower-height);
@@ -1760,6 +1767,19 @@
 
   .apps-discover__stage {
     gap: 20px;
+  }
+
+  .apps-discover__main {
+    flex: 0 0 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--ds-space-5);
+  }
+
+  .apps-discover__stage,
+  .apps-discover__lower {
+    grid-row: auto;
   }
 
   .apps-discover__lower {

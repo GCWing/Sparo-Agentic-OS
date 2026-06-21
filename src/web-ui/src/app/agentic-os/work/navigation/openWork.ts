@@ -4,6 +4,7 @@ import { useWorkDockStore } from '@/app/stores/workDockStore';
 import type { WorkRecord, WorkSurfaceRef } from '../domain/workTypes';
 import { resolveWorkSurface } from './workSurfaceResolver';
 import { openLiveApp } from '@/app/scenes/apps/live-app/liveAppWorkbenchService';
+import type { WorkspaceSurfaceContext } from '@/app/navigation/workspaceSurfaceTypes';
 
 export function openWorkCenterHome(): void {
   const store = useWorkDockStore.getState();
@@ -35,21 +36,24 @@ export async function openWorkSurface(
   fallbackWorkId: string,
   options: { workspacePath?: string | null } = {}
 ): Promise<void> {
+  const context: WorkspaceSurfaceContext = { kind: 'work', workId: fallbackWorkId };
+
   switch (surface.kind) {
     case 'work_session':
     case 'agent_session':
-      await openMainSession(surface.sessionId);
+      await openMainSession(surface.sessionId, { context });
       return;
     case 'live_app':
       await openLiveApp(surface.appId, {
         workspacePath: options.workspacePath,
+        context,
       });
       return;
     case 'work_center':
       openWorkInCenter(surface.workId);
       return;
     case 'application_surface':
-      openWorkspaceScene('apps');
+      openWorkspaceScene('apps', { context });
       return;
     case 'os_agent_home':
       openWorkInCenter(fallbackWorkId);

@@ -26,6 +26,7 @@ import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
 import { ComposerActions } from './composer/ComposerActions';
 import { ComposerBoostMenu } from './composer/ComposerBoostMenu';
 import { ComposerEditorArea } from './composer/ComposerEditorArea';
+import { ComposerIntentChips } from './composer/ComposerIntentChips';
 import { ComposerSendAction } from './composer/ComposerSendAction';
 import { ComposerShell } from './composer/ComposerShell';
 import { ComposerTargetSwitcher } from './composer/ComposerTargetSwitcher';
@@ -33,11 +34,13 @@ import { useComposerLargePaste } from './composer/hooks/useComposerLargePaste';
 import { useComposerLayout } from './composer/hooks/useComposerLayout';
 import { useComposerBoostActions } from './composer/hooks/useComposerBoostActions';
 import { useComposerBoostSkills } from './composer/hooks/useComposerBoostSkills';
-import { useComposerCommandCatalog } from './composer/hooks/useComposerCommandCatalog';
-import { useComposerCommandPreload } from './composer/hooks/useComposerCommandPreload';
+import { useComposerCommandInteraction } from './composer/hooks/useComposerCommandInteraction';
+import { useComposerCommandOptions } from './composer/hooks/useComposerCommandOptions';
 import { useComposerExternalEvents } from './composer/hooks/useComposerExternalEvents';
 import { useComposerHeightObserver } from './composer/hooks/useComposerHeightObserver';
 import { useComposerInputActions } from './composer/hooks/useComposerInputActions';
+import { useComposerInputDetection } from './composer/hooks/useComposerInputDetection';
+import { useComposerIntent } from './composer/hooks/useComposerIntent';
 import { useComposerInputLifecycle } from './composer/hooks/useComposerInputLifecycle';
 import { useComposerKeyboard } from './composer/hooks/useComposerKeyboard';
 import { useComposerMediaInput } from './composer/hooks/useComposerMediaInput';
@@ -48,15 +51,26 @@ import { useComposerOutsideInteractions } from './composer/hooks/useComposerOuts
 import { useComposerQueuedInputRestore } from './composer/hooks/useComposerQueuedInputRestore';
 import { useComposerRecommendations } from './composer/hooks/useComposerRecommendations';
 import { useComposerSessionTarget } from './composer/hooks/useComposerSessionTarget';
-import { useComposerSubmitActions } from './composer/hooks/useComposerSubmitActions';
-import { useComposerTextInput } from './composer/hooks/useComposerTextInput';
+import { useComposerSubmission } from './composer/hooks/useComposerSubmission';
 import { useComposerTokenUsage } from './composer/hooks/useComposerTokenUsage';
 import { ComposerHandoffStatus } from './composer/ComposerHandoffStatus';
 import { ComposerQueueTray } from './composer/ComposerQueueTray';
-import type { ChatInputTarget, ComposerSlashCommandState } from './composer/model/composerState';
-import type { BuiltinSlashCommandContext } from './composer/model/builtinSlashCommands';
+import {
+  CLOSED_COMPOSER_COMMAND_INTERACTION,
+  type ChatInputTarget,
+  type ComposerCommandInteractionState,
+} from './composer/model/composerState';
+import {
+  NO_COMPOSER_INPUT_DETECTION,
+  type ComposerInputDetection,
+} from './composer/model/composerInputDetection';
+import {
+  composerSessionTargetFromIntent,
+} from './composer/model/composerIntentState';
+import type { ComposerCommandContext } from './composer/model/composerCommandRegistry';
 import { deriveComposerOsHandoffState } from '../domain/osHandoffIntent';
 import { supportsSessionGoal } from '../domain/goalSupport';
+import { useSessionGoalSnapshot } from '../store/sessionGoalStore';
 import './ChatInput.scss';
 
 export interface ChatInputProps {
@@ -123,10 +137,23 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   // History navigation state
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [savedDraft, setSavedDraft] = useState('');
-  const [inputTarget, setInputTarget] = useState<ChatInputTarget>('main');
   const [isAwakening, setIsAwakening] = useState(false);
   const { addMessage: addToHistory, getSessionHistory } = useInputHistoryStore();
   const containerRef = useRef<HTMLDivElement>(null);
+  const {
+    intent: composerIntent,
+    intentActions,
+    applyCommandOption,
+    hasSubmitIntent,
+  } = useComposerIntent();
+  const inputTarget = composerSessionTargetFromIntent(composerIntent.target);
+  const setComposerTarget = useCallback((
+    target: ChatInputTarget | ((previous: ChatInputTarget) => ChatInputTarget),
+  ) => {
+    const previous = composerSessionTargetFromIntent(composerIntent.target);
+    const next = typeof target === 'function' ? target(previous) : target;
+    intentActions.setTarget(next === 'btw' ? 'btw-thread' : 'main');
+  }, [composerIntent.target, intentActions]);
 
   const contexts = useContextStore(state => state.contexts);
   const addContext = useContextStore(state => state.addContext);
@@ -148,7 +175,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const {
     activeBtwSessionTitle,
     activeSessionDescriptor,
-    currentSession,
     currentSessionId,
     currentSessionModelId,
     currentSessionTitle,
@@ -159,10 +185,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   } = useComposerSessionTarget({
     explicitSessionId: targetSessionId,
     inputTarget,
-    setInputTarget,
+    setInputTarget: setComposerTarget,
     t,
   });
-  const useStackedComposerLayout = isInputMultiline || showTargetSwitcher;
   const queuedTurnCount = useSessionTurnQueueStore(state =>
     effectiveTargetSessionId ? state.queuesBySession[effectiveTargetSessionId]?.length ?? 0 : 0
   );
@@ -222,8 +247,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const workspaceFilesTargetPath = profile.workspaceScope.kind === 'global'
     ? null
     : (effectiveTargetSession?.workspacePath?.trim() || workspacePath || null);
-  const builtinCommandContext = useMemo<BuiltinSlashCommandContext>(() => ({
+  const commandContext = useMemo<ComposerCommandContext>(() => ({
+    canSwitchAgents,
+    currentAgent,
+    hasCurrentSession: Boolean(currentSessionId),
+    hasTargetSession: Boolean(effectiveTargetSessionId),
     isBtwSession,
+    isProcessing: Boolean(derivedState?.isProcessing),
     supportsGoal: supportsSessionGoal({
       workspacePath: effectiveTargetSession?.workspacePath?.trim() || workspacePath || null,
       workspaceScopeKind: profile.workspaceScope.kind,
@@ -232,7 +262,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       agentId: currentAgent,
     }),
   }), [
+    canSwitchAgents,
     currentAgent,
+    currentSessionId,
+    derivedState?.isProcessing,
+    effectiveTargetSessionId,
     effectiveTargetSession?.descriptor,
     effectiveTargetSession?.storageScope,
     effectiveTargetSession?.workspacePath,
@@ -312,25 +346,44 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     startOffset: 0,
   });
 
-  const [slashCommandState, setSlashCommandState] = useState<ComposerSlashCommandState>({
-    isActive: false,
-    kind: 'agents',
-    query: '',
-    selectedIndex: 0,
-  });
+  const [inputDetection, setInputDetection] = useState<ComposerInputDetection>(
+    NO_COMPOSER_INPUT_DETECTION,
+  );
+  const [commandState, setCommandState] = useState<ComposerCommandInteractionState>(
+    CLOSED_COMPOSER_COMMAND_INTERACTION,
+  );
+  const activeGoalSnapshot = useSessionGoalSnapshot(effectiveTargetSessionId);
+  const hasActiveGoalChip = (
+    activeGoalSnapshot.phase === 'extracting' ||
+    activeGoalSnapshot.phase === 'judging' ||
+    activeGoalSnapshot.phase === 'active' ||
+    activeGoalSnapshot.phase === 'waiting_user' ||
+    activeGoalSnapshot.phase === 'paused' ||
+    activeGoalSnapshot.phase === 'blocked' ||
+    activeGoalSnapshot.phase === 'budget_limited' ||
+    activeGoalSnapshot.phase === 'failed' ||
+    activeGoalSnapshot.phase === 'needs_clarification'
+  );
+  const hasComposerIntentChips =
+    composerIntent.target !== 'main' ||
+    composerIntent.modifiers.length > 0 ||
+    composerIntent.operation !== null ||
+    composerIntent.promptTemplate !== null ||
+    hasActiveGoalChip ||
+    (canSwitchAgents && modeState.current !== 'agentic');
+  const useStackedComposerLayout = isInputMultiline || showTargetSwitcher || hasComposerIntentChips;
 
   const {
-    getFilteredActions,
-    getFilteredIncrementalAgents,
-    getSlashPickerItems,
-    resolveTypedMcpPromptCommand,
-  } = useComposerCommandCatalog({
+    commandOptions,
+    resolveCommandOption,
+  } = useComposerCommandOptions({
     t,
-    builtinCommandContext,
-    canSwitchAgents,
-    incrementalCodeAgents,
+    commandContext,
+    commandState,
+    inputDetection,
+    incrementalAgents: incrementalCodeAgents,
+    loadMcpPromptCommands,
     mcpPromptCommands,
-    query: slashCommandState.query,
   });
 
   const {
@@ -365,13 +418,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     t,
   });
 
-  useComposerCommandPreload({
-    isProcessing: !!derivedState?.isProcessing,
-    loadMcpPromptCommands,
-    slashKind: slashCommandState.kind,
-    slashPickerOpen: slashCommandState.isActive,
-  });
-
   useComposerAgentSync({
     activeSessionDescriptor,
     currentAgent,
@@ -388,39 +434,57 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     richTextInputRef,
   });
 
-  const handleInputChange = useComposerTextInput({
+  const shouldQueueDraft = useCallback((text: string) => {
+    if (!derivedState?.isProcessing) return false;
+    if (composerIntent.target === 'btw-draft') return false;
+    if (composerIntent.operation) return false;
+    if (composerIntent.modifiers.includes('goal')) return false;
+    return text.trim().length > 0;
+  }, [composerIntent.modifiers, composerIntent.operation, composerIntent.target, derivedState?.isProcessing]);
+
+  const handleInputChange = useComposerInputDetection({
     contexts,
     derivedState: derivedState ?? null,
-    builtinCommandContext,
     dispatchInput,
     inputIsActive: inputState.isActive,
     inputValueRef,
+    isImeComposingRef,
     prunePendingLargePastes,
     removeContext,
-    resolveTypedMcpPromptCommand,
+    setInputDetection,
     setQueuedInput,
-    setSlashCommandState,
-    slashCommandState,
+    shouldQueueDraft,
   });
 
   const {
     applyAgentChange,
     requestAgentChange,
-    selectSlashCommandAction,
-    selectSlashCommandAgent,
-    selectSlashPromptCommand,
   } = useComposerAgentActions({
     canSwitchAgents,
     currentAgent,
-    builtinCommandContext,
-    dispatchInput,
     dispatchMode,
     effectiveTargetSessionId,
-    inputValue: inputState.value,
-    richTextInputRef,
-    setQueuedInput,
-    setSlashCommandState,
     switchableAgents,
+  });
+
+  const {
+    closeCommandPicker,
+    moveCommandSelection,
+    selectCommandOption,
+    selectCurrentCommandOption,
+  } = useComposerCommandInteraction({
+    applyCommandOption,
+    commandOptions,
+    commandState,
+    focusInputSoon: focusRichTextInputSoon,
+    inputDetection,
+    inputValue: inputState.value,
+    onSwitchAgent: requestAgentChange,
+    resolveCommandOption,
+    setCommandState,
+    setInputDetection,
+    setInputValue: setComposerInputValue,
+    setQueuedInput,
   });
 
   const handleImeCompositionStart = useCallback(() => {
@@ -450,7 +514,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     clearPendingLargePastes,
     activateInput: activateComposerInput,
     setInputValue: setComposerInputValue,
-    setInputTarget,
+    setInputTarget: setComposerTarget,
     addContext,
     t,
   });
@@ -499,17 +563,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const {
     handleCancelGeneration,
     handleSendOrCancel,
-    submitBtwFromInput,
-  } = useComposerSubmitActions({
+  } = useComposerSubmission({
     t,
+    intent: composerIntent,
     inputValue: inputState.value,
     setInputValue: setComposerInputValue,
     activateInput: activateComposerInput,
     clearInput: clearComposerInput,
     setQueuedInput,
-    setSlashCommandState,
+    resetIntentAfterSubmit: intentActions.resetTransient,
     currentSessionId,
-    currentSession,
     currentSessionModelId,
     effectiveTargetSessionId,
     effectiveTargetSession,
@@ -526,25 +589,20 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     getCharacterCount,
     snapshotPendingLargePastes,
     restorePendingLargePastes,
-    loadMcpPromptCommands,
-    resolveTypedMcpPromptCommand,
-    onBtwStarted: () => setInputTarget('btw'),
+    activeGoalId: activeGoalSnapshot.goal?.goalId,
+    onBtwStarted: () => intentActions.setTarget('btw-thread'),
   });
 
   const handleKeyDown = useComposerKeyboard({
     editorRef: richTextInputRef,
     isImeComposingRef,
-    slashCommandState,
-    setSlashCommandState,
-    canSwitchAgents,
-    getFilteredIncrementalAgents,
-    getFilteredActions,
-    getSlashPickerItems,
-    selectSlashCommandAgent,
-    selectSlashCommandAction,
-    selectSlashPromptCommand,
+    commandPickerOpen: commandState.isOpen,
+    commandOptionCount: commandOptions.length,
+    moveCommandSelection,
+    selectCurrentCommandOption,
+    closeCommandPicker,
     showTargetSwitcher,
-    setInputTarget,
+    setInputTarget: setComposerTarget,
     inputHistory,
     historyIndex,
     setHistoryIndex,
@@ -555,12 +613,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     activateInput: activateComposerInput,
     focusInputSoon: focusRichTextInputSoon,
     onBtwShortcutBlocked: isBtwShortcutBlocked,
-    submitBtwFromInput: () => {
-      void submitBtwFromInput();
+    onBtwShortcutDraft: (draft) => {
+      intentActions.setTarget('btw-draft');
+      setComposerInputValue(draft);
     },
     handleSendOrCancel: () => {
       void handleSendOrCancel();
     },
+    hasSubmitIntent,
     derivedState: derivedState ?? null,
     cancelGeneration: () => {
       void handleCancelGeneration();
@@ -582,8 +642,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     handleImageInput,
     inputValue: inputState.value,
     isBtwSession,
+    onStartSideQuestionDraft: () => intentActions.setTarget('btw-draft'),
     richTextInputRef,
-    selectSlashCommandAction,
     t,
   });
 
@@ -592,9 +652,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     containerRef,
     dispatchMode,
     dropdownOpen: modeState.dropdownOpen,
-    slashCommandOpen: slashCommandState.isActive,
+    slashCommandOpen: commandState.isOpen,
     setSkillsFlyoutOpen,
-    setSlashCommandState,
+    setCommandState,
   });
 
   const isCollapsedProcessing = !inputState.isActive && !!derivedState?.isProcessing;
@@ -608,63 +668,96 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       currentSessionTitle={currentSessionTitle}
       activeBtwSessionTitle={activeBtwSessionTitle}
       value={inputTarget}
-      onChange={setInputTarget}
+      onChange={setComposerTarget}
     />
   ) : null;
 
+  const getAgentDisplayName = useCallback((agent: { id: string; name: string } | string) => {
+    if (typeof agent === 'string') {
+      return t(`chatInput.agentNames.${agent}`, { defaultValue: '' }) ||
+        modeState.available.find(item => item.id === agent)?.name ||
+        agent;
+    }
+    return t(`chatInput.agentNames.${agent.id}`, { defaultValue: '' }) || agent.name;
+  }, [modeState.available, t]);
+
+  const handleResetAgentFromChip = useCallback((event: React.MouseEvent) => {
+    event.stopPropagation();
+    applyAgentChange('agentic');
+    dispatchMode({ type: 'CLOSE_DROPDOWN' });
+  }, [applyAgentChange, dispatchMode]);
+
   const editorArea = (
-    <ComposerEditorArea
-      editorRef={richTextInputRef}
-      value={inputState.value}
-      contexts={contexts}
-      imageContexts={imageContexts}
-      mentionState={mentionState}
-      workspacePath={workspacePath}
-      slashCommandState={slashCommandState}
-      canSwitchAgents={canSwitchAgents}
-      currentAgent={modeState.current}
-      mcpPromptCommandsLoading={mcpPromptCommandsLoading}
-      actions={getFilteredActions()}
-      allItems={getSlashPickerItems()}
-      filteredAgents={getFilteredIncrementalAgents()}
-      labels={{
-        placeholder: t('input.placeholder'),
-        spaceToActivate: (
-          <Trans
-            t={t}
-            i18nKey="input.spaceToActivate"
-            components={{
-              space: <span className="sparo-chat-input__space-key" />,
-            }}
-          />
-        ),
-        removeImage: t('input.removeImage', { defaultValue: 'Remove image' }),
-        quickAction: t('chatInput.quickAction', { defaultValue: 'Quick action' }),
-        commands: t('chatInput.quickAction', { defaultValue: 'Commands' }),
-        addAgentMenuTitle: t('chatInput.addAgentMenuTitle'),
-        selectHint: t('chatInput.selectHint'),
-        noMatchingCommand: t('chatInput.noMatchingCommand', { defaultValue: 'No matching command' }),
-        noMatchingAgent: t('chatInput.noMatchingAgent'),
-        loadingMcpPrompts: t('chatInput.loadingMcpPrompts', { defaultValue: 'Loading MCP prompts...' }),
-        current: t('chatInput.current'),
-      }}
-      onChange={handleInputChange}
-      onLargePaste={createLargePastePlaceholder}
-      onKeyDown={handleKeyDown}
-      onCompositionStart={handleImeCompositionStart}
-      onCompositionEnd={handleImeCompositionEnd}
-      onRemoveContext={removeContext}
-      onMentionStateChange={setMentionState}
-      onAddContext={addContext}
-      onCloseMention={() => {
-        richTextInputRef.current?.closeMention();
-        setMentionState({ isActive: false, query: '', startOffset: 0 });
-      }}
-      onSelectAction={selectSlashCommandAction}
-      onSelectAgent={selectSlashCommandAgent}
-      onSelectPrompt={selectSlashPromptCommand}
-      onHoverCommandIndex={(index) => setSlashCommandState(prev => ({ ...prev, selectedIndex: index }))}
-    />
+    <>
+      <ComposerIntentChips
+        intent={composerIntent}
+        activeGoalSnapshot={activeGoalSnapshot}
+        currentAgent={modeState.current}
+        canSwitchAgents={canSwitchAgents}
+        getAgentName={(agentId) => getAgentDisplayName(agentId)}
+        labels={{
+          remove: t('chatInput.intentChips.remove', { defaultValue: 'Remove' }),
+          resetAgent: t('chatInput.resetToAgentic'),
+          targetBtwDraft: t('chatInput.intentChips.targetBtwDraft', { defaultValue: 'Side question' }),
+          targetBtwThread: t('chatInput.intentChips.targetBtwThread', { defaultValue: 'Side session' }),
+          goalDraft: t('chatInput.intentChips.goalDraft', { defaultValue: 'Goal mode' }),
+          goalActive: t('chatInput.intentChips.goalActive', { defaultValue: 'Goal active' }),
+          goalPaused: t('chatInput.intentChips.goalPaused', { defaultValue: 'Goal paused' }),
+          goalPending: t('chatInput.intentChips.goalPending', { defaultValue: 'Goal pending' }),
+          operationCompact: t('chatInput.compactAction', { defaultValue: 'Compact session' }),
+          operationInit: t('chatInput.initAction', { defaultValue: 'Generate AGENTS.md' }),
+          promptTemplate: t('chatInput.intentChips.promptTemplate', { defaultValue: 'Prompt' }),
+        }}
+        onClearTarget={() => intentActions.setTarget('main')}
+        onClearGoalModifier={() => intentActions.removeModifier('goal')}
+        onClearOperation={intentActions.clearOperation}
+        onClearPromptTemplate={intentActions.clearPromptTemplate}
+        onResetAgent={handleResetAgentFromChip}
+      />
+      <ComposerEditorArea
+        editorRef={richTextInputRef}
+        value={inputState.value}
+        contexts={contexts}
+        imageContexts={imageContexts}
+        mentionState={mentionState}
+        workspacePath={workspacePath}
+        commandState={commandState}
+        commandOptions={commandOptions}
+        mcpPromptCommandsLoading={mcpPromptCommandsLoading}
+        labels={{
+          placeholder: t('input.placeholder'),
+          spaceToActivate: (
+            <Trans
+              t={t}
+              i18nKey="input.spaceToActivate"
+              components={{
+                space: <span className="sparo-chat-input__space-key" />,
+              }}
+            />
+          ),
+          removeImage: t('input.removeImage', { defaultValue: 'Remove image' }),
+          commands: t('chatInput.composerCommands.title', { defaultValue: 'Commands' }),
+          selectHint: t('chatInput.selectHint'),
+          noMatchingCommand: t('chatInput.noMatchingCommand', { defaultValue: 'No matching command' }),
+          loadingMcpPrompts: t('chatInput.loadingMcpPrompts', { defaultValue: 'Loading MCP prompts...' }),
+          current: t('chatInput.current'),
+        }}
+        onChange={handleInputChange}
+        onLargePaste={createLargePastePlaceholder}
+        onKeyDown={handleKeyDown}
+        onCompositionStart={handleImeCompositionStart}
+        onCompositionEnd={handleImeCompositionEnd}
+        onRemoveContext={removeContext}
+        onMentionStateChange={setMentionState}
+        onAddContext={addContext}
+        onCloseMention={() => {
+          richTextInputRef.current?.closeMention();
+          setMentionState({ isActive: false, query: '', startOffset: 0 });
+        }}
+        onSelectCommandOption={selectCommandOption}
+        onHoverCommandIndex={(index) => setCommandState(prev => ({ ...prev, selectedIndex: index }))}
+      />
+    </>
   );
 
   const actions = (
@@ -676,7 +769,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             skillsHostRef={skillsHostRef}
             canSwitchAgents={canSwitchAgents}
             currentAgent={modeState.current}
-            availableAgents={modeState.available}
             incrementalAgents={incrementalCodeAgents}
             dropdownOpen={modeState.dropdownOpen}
             skillsFlyoutOpen={skillsFlyoutOpen}
@@ -701,9 +793,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               boostStartBtw: t('chatInput.boostStartBtw'),
             }}
             getAgentName={agent =>
-              typeof agent === 'string'
-                ? t(`chatInput.agentNames.${agent}`, { defaultValue: '' })
-                : t(`chatInput.agentNames.${agent.id}`, { defaultValue: '' }) || agent.name
+              getAgentDisplayName(agent)
             }
             getAgentDescription={agent =>
               t(`chatInput.agentDescriptions.${agent.id}`, { defaultValue: '' }) ||
@@ -713,12 +803,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             onToggleDropdown={e => {
               e.stopPropagation();
               dispatchMode({ type: 'TOGGLE_DROPDOWN' });
-            }}
-            onCloseDropdown={() => dispatchMode({ type: 'CLOSE_DROPDOWN' })}
-            onResetAgent={e => {
-              e.stopPropagation();
-              applyAgentChange('agentic');
-              dispatchMode({ type: 'CLOSE_DROPDOWN' });
             }}
             onRequestAgentChange={(agentId, e) => {
               e.stopPropagation();

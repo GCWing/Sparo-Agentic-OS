@@ -38,8 +38,11 @@ import {
 } from '../RemoteConnectDialog/remoteConnectDisclaimerStorage';
 import { useHeaderStore } from '../../stores/headerStore';
 import { useWorkDockStore } from '../../stores/workDockStore';
+import { useWorkStore } from '@/app/agentic-os/work/data/workStore';
 import { useSessionProfile } from '../../session-profiles';
 import { getWorkspaceSceneDef } from '../../navigation/workspaceSceneRegistry';
+import { resolveWorkContextForSurface } from '../../navigation/workspaceTopBarContext';
+import { useWorkspaceSurfaceStore } from '../../navigation/workspaceSurfaceStore';
 import { useShortcut } from '@/infrastructure/hooks/useShortcut';
 import { ALL_SHORTCUTS } from '@/shared/constants/shortcuts';
 import { createLogger } from '@/shared/utils/logger';
@@ -96,11 +99,18 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
   const sessionContext = useHeaderStore((s) => s.sessionContext);
   const contextNavOverrides = useHeaderStore((s) => s.contextNavOverrides);
   const requestOpenWorkDock = useWorkDockStore((s) => s.requestOpenWorkDock);
+  const works = useWorkStore((s) => s.works);
+  const surfaceContext = useWorkspaceSurfaceStore((s) => s.surfaceContext);
+  const clearSurfaceContext = useWorkspaceSurfaceStore((s) => s.clearSurfaceContext);
   const { profile } = useSessionProfile();
   const hasWindowControls = !!(onMinimize && onMaximize && onClose);
   const activeSceneId = activeSurface.kind === 'scene' ? activeSurface.sceneId : null;
   const hasSceneSurface = activeSurface.kind === 'scene';
-  const hasSurfaceContext = activeSurface.kind !== 'agentic-os-home';
+  const workContext = useMemo(
+    () => resolveWorkContextForSurface(surfaceContext, works),
+    [surfaceContext, works]
+  );
+  const hasSurfaceContext = activeSurface.kind !== 'agentic-os-home' || !!workContext;
   const showWorkListControl = activeSurface.kind === 'scene';
 
   const [searchOpen, setSearchOpen] = useState(false);
@@ -217,25 +227,50 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
     return p.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? p;
   }, [sessionContext?.workspacePath, sessionContext?.workspaceDisplayName]);
 
+  const sessionCategoryLabel = useMemo(() => {
+    return sessionContext ? tApps(sessionContext.descriptor.labelKey) : '';
+  }, [sessionContext, tApps]);
+
   const sessionTitle = useMemo(() => {
-    if (!sessionContext) return '';
+    if (!sessionCategoryLabel) return '';
     if (!profile.topBar.showContextNav) return '';
-    const label = tApps(sessionContext.descriptor.labelKey);
-    return sessionWorkspaceName ? `${label} / ${sessionWorkspaceName}` : label;
-  }, [profile.topBar.showContextNav, sessionContext, sessionWorkspaceName, tApps]);
+    if (sessionWorkspaceName && profile.topBar.showWorkspaceName) {
+      return `${sessionCategoryLabel} / ${sessionWorkspaceName}`;
+    }
+    return sessionCategoryLabel;
+  }, [
+    profile.topBar.showContextNav,
+    profile.topBar.showWorkspaceName,
+    sessionCategoryLabel,
+    sessionWorkspaceName,
+  ]);
 
   const showContextNav = hasSurfaceContext && (
-    !!contextNavOverride
+    !!workContext
+    || !!contextNavOverride
     || activeSurface.kind === 'scene'
     || (!!sessionContext && profile.topBar.showContextNav)
   );
-  const contextTitle = contextNavOverride?.title ?? (activeSurface.kind === 'scene' ? sceneTitle : sessionTitle);
+  const contextTitle =
+    workContext?.title ??
+    contextNavOverride?.title ??
+    (activeSurface.kind === 'scene' ? sceneTitle : sessionTitle);
+  const showSessionWorkspace =
+    !workContext &&
+    !hasSceneSurface &&
+    !!sessionWorkspaceName &&
+    profile.topBar.showWorkspaceName;
+  const showSessionCategoryPrefix =
+    !hasSceneSurface &&
+    !!sessionCategoryLabel &&
+    (showSessionWorkspace || !!workContext);
   const contextActions = contextNavOverride?.actions ?? [];
   const backTooltip = tCommon('overlay.returnToAgenticOS');
 
   const handleContextBack = useCallback(() => {
+    clearSurfaceContext();
     void openWorkspaceHome();
-  }, []);
+  }, [clearSurfaceContext]);
 
   // ── Window drag ───────────────────────────────────────────────────────────
 
@@ -422,15 +457,15 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
                     <span className="unified-top-bar__context-capsule-split" aria-hidden="true" />
                     <div className="unified-top-bar__context-capsule-title">
                       <div className="unified-top-bar__context-title">
-                        {!hasSceneSurface && sessionWorkspaceName && profile.topBar.showWorkspaceName && (
+                        {showSessionCategoryPrefix && (
                           <span className="unified-top-bar__context-mode">
-                            {sessionContext ? tApps(sessionContext.descriptor.labelKey) : ''}
+                            {sessionCategoryLabel}
                           </span>
                         )}
-                        {!hasSceneSurface && sessionWorkspaceName && profile.topBar.showWorkspaceName && (
+                        {showSessionCategoryPrefix && (
                           <span className="unified-top-bar__context-sep" aria-hidden="true">/</span>
                         )}
-                        {!hasSceneSurface && sessionWorkspaceName && profile.topBar.showWorkspaceName ? (
+                        {showSessionWorkspace ? (
                           <span className="unified-top-bar__context-workspace">
                             <FolderOpen size={11} aria-hidden="true" />
                             <span>{sessionWorkspaceName}</span>

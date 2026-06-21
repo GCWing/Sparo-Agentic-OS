@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import type { Dispatch, SetStateAction } from 'react';
 import type { TFunction } from 'i18next';
 import { useAgentCanvasStore } from '@/app/components/panels/content-canvas/stores';
 import { useActiveSessionState } from '../../../hooks/useActiveSessionState';
@@ -9,11 +8,12 @@ import {
 import { resolveSessionRelationship } from '../../../utils/sessionMetadata';
 import type { ChatInputTarget } from '../model/composerState';
 import { useFlowChatStoreSelector } from '../../../hooks/useFlowChatStoreSelector';
+import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
 
 interface UseComposerSessionTargetParams {
   explicitSessionId?: string | null;
   inputTarget: ChatInputTarget;
-  setInputTarget: Dispatch<SetStateAction<ChatInputTarget>>;
+  setInputTarget: (target: ChatInputTarget) => void;
   t: TFunction<'flow-chat'>;
 }
 
@@ -24,12 +24,18 @@ export function useComposerSessionTarget({
   t,
 }: UseComposerSessionTargetParams) {
   const activeSessionState = useActiveSessionState();
+  const composerTargetSessionId = useWorkspaceSurfaceStore(state => state.composerTargetSessionId);
+  const focusedSessionId = useWorkspaceSurfaceStore(state => state.focusedSessionId);
   const activeBtwSessionTab = useAgentCanvasStore(
     state => selectActiveSideThreadSessionTab(state)
   );
 
   const explicitTargetSessionId = explicitSessionId?.trim() || null;
-  const currentSessionId = explicitTargetSessionId ?? activeSessionState.sessionId;
+  const currentSessionId =
+    explicitTargetSessionId ??
+    composerTargetSessionId ??
+    focusedSessionId ??
+    activeSessionState.sessionId;
   const activeBtwSessionData = activeBtwSessionTab?.content.data as
     | { childSessionId: string; parentSessionId: string; workspacePath?: string }
     | undefined;
@@ -67,10 +73,10 @@ export function useComposerSessionTarget({
   );
 
   useEffect(() => {
-    if (!showTargetSwitcher || !activeBtwSessionId) {
+    if (inputTarget === 'btw' && (!showTargetSwitcher || !activeBtwSessionId)) {
       setInputTarget('main');
     }
-  }, [activeBtwSessionId, setInputTarget, showTargetSwitcher]);
+  }, [activeBtwSessionId, inputTarget, setInputTarget, showTargetSwitcher]);
 
   return {
     activeBtwSessionId,

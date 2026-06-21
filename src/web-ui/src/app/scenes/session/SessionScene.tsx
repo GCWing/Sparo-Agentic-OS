@@ -17,6 +17,7 @@ import { useSessionProfile } from '../../session-profiles';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import { useSessionGoalSnapshot } from '@/flow_chat/store/sessionGoalStore';
+import { useWorkspaceSurfaceStore } from '../../navigation/workspaceSurfaceStore';
 import ChatPane from './ChatPane';
 import AuxPane, { type AuxPaneRef } from './AuxPane';
 
@@ -76,8 +77,10 @@ const SessionScene: React.FC<SessionSceneProps> = ({
     const targetSessionId = surfaceSessionId?.trim();
     if (!targetSessionId) return;
 
+    useWorkspaceSurfaceStore.getState().focusSession(targetSessionId);
+
     const flowState = flowChatStore.getState();
-    if (flowState.activeSessionId === targetSessionId || !flowState.sessions.has(targetSessionId)) {
+    if (!flowState.sessions.has(targetSessionId)) {
       return;
     }
 

@@ -14,6 +14,7 @@ import type { Session } from '../types/flow-chat';
 import type { SessionDescriptor } from '../domain/sessionDescriptor';
 import { flowChatStore } from './FlowChatStore';
 import { useFlowChatStoreSelector } from '../hooks/useFlowChatStoreSelector';
+import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
 import {
   clearProjectionScheduler,
   getProjectionVersion,
@@ -85,8 +86,9 @@ function getInitialModernState(): Pick<
   'activeSession' | 'virtualItems' | 'visibleTurnInfo'
 > {
   const legacyState = flowChatStore.getState();
-  const activeSession = legacyState.activeSessionId
-    ? legacyState.sessions.get(legacyState.activeSessionId) ?? null
+  const focusedSessionId = useWorkspaceSurfaceStore.getState().focusedSessionId;
+  const activeSession = focusedSessionId
+    ? legacyState.sessions.get(focusedSessionId) ?? null
     : null;
 
   return {
@@ -148,16 +150,16 @@ export const useActiveSessionMeta = () =>
 
 export function useScopedSession(sessionId?: string | null): Session | null {
   const sessions = useFlowChatStoreSelector(state => state.sessions);
-  const activeSessionId = useFlowChatStoreSelector(state => state.activeSessionId);
+  const focusedSessionId = useWorkspaceSurfaceStore(state => state.focusedSessionId);
   const requestedSessionId = sessionId?.trim() ?? '';
 
   return useMemo(() => {
-    const targetSessionId = requestedSessionId || activeSessionId || '';
+    const targetSessionId = requestedSessionId || focusedSessionId || '';
     if (!targetSessionId) {
       return null;
     }
     return sessions.get(targetSessionId) ?? null;
-  }, [activeSessionId, requestedSessionId, sessions]);
+  }, [focusedSessionId, requestedSessionId, sessions]);
 }
 
 export const useVisibleTurnInfo = () =>

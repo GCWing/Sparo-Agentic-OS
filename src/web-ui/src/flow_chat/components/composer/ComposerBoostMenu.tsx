@@ -1,5 +1,5 @@
 import type React from 'react';
-import { BookOpen, ChevronRight, Files, Image, MessageSquarePlus, Plus, Sparkles, X } from 'lucide-react';
+import { BookOpen, ChevronRight, Files, Image, MessageSquarePlus, Plus, Sparkles } from 'lucide-react';
 import { Badge, Button, IconButton, SelectableRow, Spinner, Tooltip } from '@/design-system';
 import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
 import type { SkillInfo } from '@/infrastructure/config/types';
@@ -10,7 +10,6 @@ interface ComposerBoostMenuProps {
   skillsHostRef: React.Ref<HTMLDivElement>;
   canSwitchAgents: boolean;
   currentAgent: string;
-  availableAgents: AgentInfo[];
   incrementalAgents: AgentInfo[];
   dropdownOpen: boolean;
   skillsFlyoutOpen: boolean;
@@ -37,8 +36,6 @@ interface ComposerBoostMenuProps {
   getAgentName: (mode: AgentInfo | string) => string;
   getAgentDescription: (mode: AgentInfo) => string;
   onToggleDropdown: (event: React.MouseEvent) => void;
-  onCloseDropdown: () => void;
-  onResetAgent: (event: React.MouseEvent) => void;
   onRequestAgentChange: (agentId: string, event: React.MouseEvent) => void;
   onOpenContext: (event: React.MouseEvent) => void;
   onPickImage: (event: React.MouseEvent) => void;
@@ -55,7 +52,6 @@ export function ComposerBoostMenu({
   skillsHostRef,
   canSwitchAgents,
   currentAgent,
-  availableAgents,
   incrementalAgents,
   dropdownOpen,
   skillsFlyoutOpen,
@@ -70,7 +66,6 @@ export function ComposerBoostMenu({
   getAgentName,
   getAgentDescription,
   onToggleDropdown,
-  onResetAgent,
   onRequestAgentChange,
   onOpenContext,
   onPickImage,
@@ -100,26 +95,6 @@ export function ComposerBoostMenu({
           <Plus size={14} strokeWidth={2.25} />
         </IconButton>
       </Tooltip>
-
-      {canSwitchAgents && currentAgent !== 'agentic' && (
-        <div
-          className={`sparo-chat-input__agent-capsule sparo-chat-input__agent-capsule--${currentAgent === 'debug' ? 'debug' : currentAgent}`}
-        >
-          <span className="sparo-chat-input__agent-capsule-label">
-            {getAgentName(currentAgent) ||
-              availableAgents.find(m => m.id === currentAgent)?.name ||
-              currentAgent}
-          </span>
-          <IconButton
-            aria-label={labels.resetToAgentic}
-            className="sparo-chat-input__agent-capsule-close"
-            onClick={onResetAgent}
-            size="xs"
-          >
-            <X size={12} strokeWidth={2.5} />
-          </IconButton>
-        </div>
-      )}
 
       {dropdownOpen && (
         <div className="sparo-chat-input__mode-dropdown sparo-chat-input__mode-dropdown--agent-boost">
@@ -250,7 +225,7 @@ export function ComposerBoostMenu({
                 <div
                   ref={skillsPanelHover.surfaceRef}
                   className="sparo-chat-input__boost-submenu-panel sparo-chat-input__boost-submenu-panel--motion"
-                  {...skillsPanelHover.getSurfaceHandlers('.sparo-chat-input__boost-submenu-entry, .sparo-chat-input__boost-submenu-manage')}
+                  {...skillsPanelHover.getSurfaceHandlers('.sparo-chat-input__boost-submenu-entry')}
                 >
                   <div
                     className={`sparo-chat-input__boost-motion-highlight ${skillsPanelHover.highlight.visible ? 'sparo-chat-input__boost-motion-highlight--visible' : ''}`}
@@ -299,7 +274,8 @@ export function ComposerBoostMenu({
                   )}
                   <Button
                     className="sparo-chat-input__boost-submenu-manage"
-                    {...skillsPanelHover.getItemHandlers()}
+                    onMouseEnter={skillsPanelHover.hideHighlight}
+                    onPointerEnter={skillsPanelHover.hideHighlight}
                     onClick={onOpenSkillsLibrary}
                     size="small"
                     variant="ghost"

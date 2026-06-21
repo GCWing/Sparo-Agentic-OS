@@ -52,7 +52,7 @@ function isTargetInsideChatShortcutScope(target: EventTarget | null): boolean {
 }
 
 function isActiveSessionProcessing(): boolean {
-  const sid = flowChatStore.getState().activeSessionId;
+  const sid = useWorkspaceSurfaceStore.getState().focusedSessionId;
   if (!sid) return false;
   return stateMachineManager.getCurrentState(sid) === SessionExecutionState.PROCESSING;
 }
@@ -76,7 +76,7 @@ export function installGlobalSurfaceEscapeToHome(): void {
       if (!eventMatchesEscapeToAgenticBinding(event)) return;
       if (shouldDeferForNestedEscapeUi(event)) return;
 
-      const { activeSurface } = useWorkspaceSurfaceStore.getState();
+      const { activeSurface, focusedSessionId } = useWorkspaceSurfaceStore.getState();
       if (activeSurface.kind !== 'agentic-os-home') {
         event.preventDefault();
         event.stopImmediatePropagation();
@@ -85,7 +85,7 @@ export function installGlobalSurfaceEscapeToHome(): void {
       }
 
       const state = flowChatStore.getState();
-      const session = state.activeSessionId ? state.sessions.get(state.activeSessionId) ?? null : null;
+      const session = focusedSessionId ? state.sessions.get(focusedSessionId) ?? null : null;
       if (isAgenticOsHomeSession(session)) {
         return;
       }

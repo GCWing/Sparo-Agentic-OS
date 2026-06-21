@@ -4,6 +4,7 @@
  */
 
 import { FlowChatStore } from '../../store/FlowChatStore';
+import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
 import { stateMachineManager } from '../../state-machine';
 import { SessionExecutionEvent, SessionExecutionState } from '../../state-machine/types';
 import { useSessionTurnQueueStore } from '../../store/sessionTurnQueueStore';
@@ -89,8 +90,8 @@ export function isAppWindowFocused(): boolean {
 }
 
 function shouldMarkUnreadCompletion(sessionId: string): boolean {
-  const activeSessionId = FlowChatStore.getInstance().getState().activeSessionId;
-  return sessionId !== activeSessionId || !isAppWindowFocused();
+  const focusedSessionId = useWorkspaceSurfaceStore.getState().focusedSessionId;
+  return sessionId !== focusedSessionId || !isAppWindowFocused();
 }
 
 function logDroppedDataEvent(
@@ -745,6 +746,7 @@ function handleSessionDeleted(context: FlowChatContext, event: any): void {
     cleanupSessionBuffers(context, id);
   });
   store.removeSession(sessionId);
+  useWorkspaceSurfaceStore.getState().forgetSessions(removedSessionIds);
 }
 
 /**

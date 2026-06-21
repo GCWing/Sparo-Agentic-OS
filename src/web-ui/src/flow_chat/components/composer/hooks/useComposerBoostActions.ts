@@ -17,8 +17,8 @@ export function useComposerBoostActions({
   handleImageInput,
   inputValue,
   isBtwSession,
+  onStartSideQuestionDraft,
   richTextInputRef,
-  selectSlashCommandAction,
   t,
 }: {
   currentSessionId?: string | null;
@@ -29,8 +29,8 @@ export function useComposerBoostActions({
   handleImageInput: () => void;
   inputValue: string;
   isBtwSession: boolean;
+  onStartSideQuestionDraft: () => void;
   richTextInputRef: RefObject<RichTextInputHandle | null>;
-  selectSlashCommandAction: (actionId: string) => void;
   t: TFunction<'flow-chat'>;
 }) {
   const insertSkillIntoInput = useCallback(
@@ -89,10 +89,12 @@ export function useComposerBoostActions({
         );
         return;
       }
-      selectSlashCommandAction('btw');
+      onStartSideQuestionDraft();
+      dispatchInput({ type: 'ACTIVATE' });
       dispatchMode({ type: 'CLOSE_DROPDOWN' });
+      focusInputSoon();
     },
-    [currentSessionId, dispatchMode, isBtwSession, selectSlashCommandAction, t],
+    [currentSessionId, dispatchInput, dispatchMode, focusInputSoon, isBtwSession, onStartSideQuestionDraft, t],
   );
 
   return {

@@ -14,6 +14,7 @@ import {
   AnyFlowItem,
   FlowToolItem,
   SessionConfig,
+  type SessionLoadPhase,
 } from '../types/flow-chat';
 import { createLogger } from '@/shared/utils/logger';
 import { i18nService } from '@/infrastructure/i18n/core/I18nService';
@@ -81,7 +82,7 @@ export interface FlowChatSessionHeader {
   descriptor: SessionDescriptor;
   lastActiveAt?: number;
   lastFinishedAt?: number;
-  isHistorical?: boolean;
+  loadPhase: SessionLoadPhase;
   isTransient?: boolean;
   parentSessionId?: string;
   sessionKind?: SessionKind;
@@ -166,7 +167,6 @@ export class FlowChatStore {
     this.clearOldStorage();
     this.state = {
       sessions: new Map(),
-      activeSessionId: null
     };
   }
 
@@ -220,13 +220,33 @@ export class FlowChatStore {
       descriptor: session.descriptor,
       lastActiveAt: session.lastActiveAt,
       lastFinishedAt: session.lastFinishedAt,
-      isHistorical: session.isHistorical,
+      loadPhase: session.loadPhase,
       isTransient: session.isTransient,
       parentSessionId: session.parentSessionId,
       sessionKind: session.sessionKind,
       workspacePath: session.workspacePath,
       storageScope: session.storageScope,
     };
+  }
+
+  public setSessionLoadPhase(sessionId: string, loadPhase: SessionLoadPhase): void {
+    this.setState(prev => {
+      const session = prev.sessions.get(sessionId);
+      if (!session || session.loadPhase === loadPhase) {
+        return prev;
+      }
+
+      const newSessions = new Map(prev.sessions);
+      newSessions.set(sessionId, {
+        ...session,
+        loadPhase,
+      });
+
+      return {
+        ...prev,
+        sessions: newSessions,
+      };
+    });
   }
 
   public getActiveTurnTail(sessionId: string): FlowChatActiveTurnTail | null {
@@ -447,6 +467,7 @@ export class FlowChatStore {
         lastActiveAt: Date.now(),
         lastFinishedAt: undefined,
         error: null,
+        loadPhase: 'live',
         maxContextTokens: maxContextTokens || 128128,
         descriptor,
         workspacePath,
@@ -466,7 +487,6 @@ export class FlowChatStore {
       return {
         ...prev,
         sessions: newSessions,
-        activeSessionId: sessionId
       };
     });
   }
@@ -517,7 +537,7 @@ export class FlowChatStore {
         error: null,
         maxContextTokens: 128128,
         descriptor,
-        isHistorical: false,
+        loadPhase: 'live',
         workspacePath,
         storageScope: storageScope ?? descriptor.storageScope,
         customMetadata: meta?.customMetadata,
@@ -557,7 +577,6 @@ export class FlowChatStore {
       return {
         ...prev,
         sessions: newSessions,
-        activeSessionId: sessionId
       };
     });
     
@@ -910,16 +929,9 @@ export class FlowChatStore {
         }
       });
 
-      let newActiveSessionId = prev.activeSessionId;
-      if (prev.activeSessionId && removedSessionIdSet.has(prev.activeSessionId)) {
-        const remainingSessions = Array.from(newSessions.keys());
-        newActiveSessionId = remainingSessions.length > 0 ? remainingSessions[0] : null;
-      }
-
       return {
         ...prev,
         sessions: newSessions,
-        activeSessionId: newActiveSessionId
       };
     });
 
@@ -927,7 +939,7 @@ export class FlowChatStore {
   }
 
   public clearSession(sessionId?: string): void {
-    const targetSessionId = sessionId || this.state.activeSessionId;
+    const targetSessionId = sessionId;
     if (!targetSessionId) return;
 
     this.setState(prev => {
@@ -994,21 +1006,10 @@ export class FlowChatStore {
       return {
         ...prev,
         sessions: newSessions,
-        activeSessionId:
-          prev.activeSessionId && removedSessionIdSet.has(prev.activeSessionId)
-            ? null
-            : prev.activeSessionId
       };
     });
 
     return removedSessionIds;
-  }
-
-  public getActiveSession(): Session | null {
-    if (!this.state.activeSessionId) {
-      return null;
-    }
-    return this.state.sessions.get(this.state.activeSessionId) || null;
   }
 
   private indexToolItem(sessionId: string, dialogTurnId: string, item: FlowItem): void {
@@ -1079,6 +1080,63 @@ export class FlowChatStore {
     return dialogTurn.modelRounds.some(modelRound =>
       modelRound.items.some(item => item.type === 'tool')
     );
+  }
+
+  private isLiveDialogTurn(dialogTurn: DialogTurn): boolean {
+    return (
+      dialogTurn.status === 'pending' ||
+      dialogTurn.status === 'image_analyzing' ||
+      dialogTurn.status === 'processing' ||
+      dialogTurn.status === 'finishing' ||
+      dialogTurn.status === 'cancelling' ||
+      dialogTurn.modelRounds.some(round =>
+        round.isStreaming ||
+        round.status === 'pending' ||
+        round.status === 'streaming'
+      )
+    );
+  }
+
+  private getDialogTurnSortTime(dialogTurn: DialogTurn): number {
+    return dialogTurn.startTime ?? dialogTurn.userMessage?.timestamp ?? 0;
+  }
+
+  private mergeHydratedDialogTurns(
+    existingDialogTurns: DialogTurn[],
+    persistedDialogTurns: DialogTurn[]
+  ): DialogTurn[] {
+    if (existingDialogTurns.length === 0) {
+      return persistedDialogTurns;
+    }
+    if (persistedDialogTurns.length === 0) {
+      return existingDialogTurns;
+    }
+
+    const orderByTurnId = new Map<string, number>();
+    const mergedByTurnId = new Map<string, DialogTurn>();
+
+    persistedDialogTurns.forEach((turn, index) => {
+      orderByTurnId.set(turn.id, index);
+      mergedByTurnId.set(turn.id, turn);
+    });
+
+    existingDialogTurns.forEach((turn, index) => {
+      if (!orderByTurnId.has(turn.id)) {
+        orderByTurnId.set(turn.id, persistedDialogTurns.length + index);
+        mergedByTurnId.set(turn.id, turn);
+        return;
+      }
+
+      if (this.isLiveDialogTurn(turn)) {
+        mergedByTurnId.set(turn.id, turn);
+      }
+    });
+
+    return Array.from(mergedByTurnId.values()).sort((left, right) => {
+      const timeDiff = this.getDialogTurnSortTime(left) - this.getDialogTurnSortTime(right);
+      if (timeDiff !== 0) return timeDiff;
+      return (orderByTurnId.get(left.id) ?? 0) - (orderByTurnId.get(right.id) ?? 0);
+    });
   }
 
   public addDialogTurn(sessionId: string, dialogTurn: DialogTurn): void {
@@ -1987,7 +2045,7 @@ export class FlowChatStore {
             hasUnreadCompletion: metadata.unreadCompletion,
             needsUserAttention: metadata.needsUserAttention,
             isTransient: false,
-            isHistorical: currentSession.dialogTurns.length === 0 ? true : currentSession.isHistorical,
+            loadPhase: currentSession.loadPhase,
           });
           return {
             ...prev,
@@ -2051,7 +2109,7 @@ export class FlowChatStore {
           lastFinishedAt,
           updatedAt: metadata.lastActiveAt ?? metadata.createdAt,
           error: null,
-          isHistorical: true,
+          loadPhase: 'metadata-only',
           todos: metadata.todos || [],
           maxContextTokens,
           descriptor,
@@ -2106,6 +2164,7 @@ export class FlowChatStore {
     limit?: number,
     storageScope?: import('@/shared/types/session-history').SessionStorageScope
   ): Promise<void> {
+    this.setSessionLoadPhase(sessionId, 'hydrating');
     try {
       const { stateMachineManager } = await import('../state-machine');
       stateMachineManager.getOrCreate(sessionId);
@@ -2125,16 +2184,22 @@ export class FlowChatStore {
         storageScope
       );
       
-      const dialogTurns = this.convertToDialogTurns(turns);
+      const persistedDialogTurns = this.convertToDialogTurns(turns);
+      let hydratedDialogTurns = persistedDialogTurns;
       
       this.setState(prev => {
         const session = prev.sessions.get(sessionId);
         if (!session) return prev;
+
+        hydratedDialogTurns = this.mergeHydratedDialogTurns(
+          session.dialogTurns,
+          persistedDialogTurns
+        );
         
         const updatedSession = {
           ...session,
-          dialogTurns,
-          isHistorical: false,
+          dialogTurns: hydratedDialogTurns,
+          loadPhase: 'hydrated' as const,
           storageScope: session.storageScope ?? storageScope,
         };
         
@@ -2147,8 +2212,9 @@ export class FlowChatStore {
         };
       });
       this.markSessionHistoryWarmed(sessionId);
-      await this.hydrateExecutionProjections(dialogTurns);
+      await this.hydrateExecutionProjections(hydratedDialogTurns);
     } catch (error) {
+      this.setSessionLoadPhase(sessionId, 'hydrate-failed');
       log.error('Failed to load session history', { sessionId, error });
       throw error;
     }

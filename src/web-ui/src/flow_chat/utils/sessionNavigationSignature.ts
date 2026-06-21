@@ -27,7 +27,7 @@ function sessionSignature(session: Session): string {
     session.sessionKind,
     session.createdAt,
     session.lastFinishedAt ?? '',
-    session.isHistorical ? 'h' : '',
+    session.loadPhase,
     session.isTransient ? 't' : '',
     session.hasUnreadCompletion ?? '',
     session.needsUserAttention ?? '',
@@ -36,9 +36,12 @@ function sessionSignature(session: Session): string {
   ].join('|');
 }
 
-export function getSessionNavigationSignature(state: FlowChatState): string {
+export function getSessionNavigationSignature(
+  state: FlowChatState,
+  focusedSessionId: string | null = null
+): string {
   return [
-    state.activeSessionId ?? '',
+    focusedSessionId ?? '',
     state.sessions.size,
     ...Array.from(state.sessions.values()).map(sessionSignature),
   ].join('\n');

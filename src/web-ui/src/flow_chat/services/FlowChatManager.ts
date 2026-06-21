@@ -14,6 +14,7 @@ import { stateMachineManager } from '../state-machine';
 import { EventBatcher } from './EventBatcher';
 import { createLogger } from '@/shared/utils/logger';
 import type { WorkspaceInfo } from '@/shared/types';
+import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
 import {
   compareSessionsForDisplay,
   sessionBelongsToWorkspaceNavRow,
@@ -47,6 +48,8 @@ import {
   isSystemAgenticOsSession,
   type SessionDescriptor,
 } from '../domain/sessionDescriptor';
+import { canHydrateSession } from '../domain/sessionLoadPhase';
+import { resolveSessionTypeDefinitionForDescriptor } from '@/app/session-profiles';
 
 const log = createLogger('FlowChatManager');
 const RECENT_WORKSPACE_PRELOAD_LIMIT = 7;
@@ -59,8 +62,8 @@ type PreloadWorkspaceScope = Pick<WorkspaceInfo, 'id' | 'name' | 'rootPath'>;
 interface FlowChatInitializationResult {
   workspacePath: string;
   hasWorkspaceSessions: boolean;
-  activeSessionId: string | null;
-  hasActiveWorkspaceSession: boolean;
+  focusedSessionId: string | null;
+  hasFocusedWorkspaceSession: boolean;
 }
 
 interface EnsureWorkspaceSessionOptions {
@@ -137,20 +140,26 @@ export class FlowChatManager {
         this.sessionMatchesWorkspaceRow(session, workspacePath)
       );
       const hasWorkspaceSessions = workspaceSessions.length > 0;
-      const activeSession = state.activeSessionId
-        ? state.sessions.get(state.activeSessionId) ?? null
+      const focusedSessionId = useWorkspaceSurfaceStore.getState().focusedSessionId;
+      const focusedSession = focusedSessionId
+        ? state.sessions.get(focusedSessionId) ?? null
         : null;
-      const activeSessionBelongsToWorkspace =
-        !!activeSession && this.sessionMatchesWorkspaceRow(activeSession, workspacePath);
+      const focusedSessionBelongsToWorkspace =
+        !!focusedSession && this.sessionMatchesWorkspaceRow(focusedSession, workspacePath);
 
       if (
         hasWorkspaceSessions &&
-        !activeSessionBelongsToWorkspace &&
+        !focusedSessionBelongsToWorkspace &&
         !options?.skipAutoSelectSession
       ) {
         const sortedWorkspaceSessions = [...workspaceSessions].sort(compareSessionsForDisplay);
+        const preferredDisplayMode = preferredDescriptor
+          ? resolveSessionTypeDefinitionForDescriptor(preferredDescriptor).lifecycle.displayMode
+          : null;
         const latestSession = (preferredDescriptor
-          ? sortedWorkspaceSessions.find(session => session.descriptor.profileId === preferredDescriptor.profileId)
+          ? sortedWorkspaceSessions.find(session =>
+              resolveSessionTypeDefinitionForDescriptor(session.descriptor).lifecycle.displayMode === preferredDisplayMode
+            )
           : undefined) || sortedWorkspaceSessions[0];
 
         if (!latestSession) {
@@ -158,7 +167,7 @@ export class FlowChatManager {
           return this.buildInitializationResult(workspacePath, hasWorkspaceSessions);
         }
 
-        if (latestSession.isHistorical) {
+        if (canHydrateSession(latestSession)) {
           await this.context.flowChatStore.loadSessionHistory(
             latestSession.sessionId,
             workspacePath,
@@ -168,6 +177,7 @@ export class FlowChatManager {
         }
 
         this.context.flowChatStore.switchSession(latestSession.sessionId);
+        useWorkspaceSurfaceStore.getState().focusSession(latestSession.sessionId);
       }
 
       this.context.workspaceContextPath = workspacePath;
@@ -193,7 +203,7 @@ export class FlowChatManager {
     if (
       options?.createDefaultSession &&
       !options.skipAutoSelectSession &&
-      (!result.hasWorkspaceSessions || !result.hasActiveWorkspaceSession)
+      (!result.hasWorkspaceSessions || !result.hasFocusedWorkspaceSession)
     ) {
       const createdSessionId = await this.createChatSession(
         options.defaultSessionConfig ?? {},
@@ -224,15 +234,16 @@ export class FlowChatManager {
     hasWorkspaceSessions: boolean
   ): FlowChatInitializationResult {
     const state = this.context.flowChatStore.getState();
-    const activeSession = state.activeSessionId
-      ? state.sessions.get(state.activeSessionId) ?? null
+    const focusedSessionId = useWorkspaceSurfaceStore.getState().focusedSessionId;
+    const focusedSession = focusedSessionId
+      ? state.sessions.get(focusedSessionId) ?? null
       : null;
     return {
       workspacePath,
       hasWorkspaceSessions,
-      activeSessionId: state.activeSessionId,
-      hasActiveWorkspaceSession:
-        !!activeSession && this.sessionMatchesWorkspaceRow(activeSession, workspacePath),
+      focusedSessionId,
+      hasFocusedWorkspaceSession:
+        !!focusedSession && this.sessionMatchesWorkspaceRow(focusedSession, workspacePath),
     };
   }
 
@@ -305,7 +316,7 @@ export class FlowChatManager {
 
     const warmedSessionCandidates = Array.from(this.context.flowChatStore.getState().sessions.values())
       .filter(session => {
-        if (!session.isHistorical) return false;
+        if (!canHydrateSession(session)) return false;
         if (isSystemAgenticOsSession(session.descriptor)) return false;
         if (this.context.flowChatStore.hasSessionHistoryWarmed(session.sessionId)) return false;
         return scopedWorkspaces.some(workspace => sessionMatchesWorkspace(session, workspace));
@@ -315,7 +326,7 @@ export class FlowChatManager {
 
     const warmedAgenticOsCandidates = Array.from(this.context.flowChatStore.getState().sessions.values())
       .filter(session => {
-        if (!session.isHistorical) return false;
+        if (!canHydrateSession(session)) return false;
         if (!isSystemAgenticOsSession(session.descriptor)) return false;
         if (this.context.flowChatStore.hasSessionHistoryWarmed(session.sessionId)) return false;
         return true;
@@ -392,7 +403,7 @@ export class FlowChatManager {
     const candidates = Array.from(this.context.flowChatStore.getState().sessions.values())
       .filter(session =>
         isSystemAgenticOsSession(session.descriptor) &&
-        session.isHistorical &&
+        canHydrateSession(session) &&
         !this.context.flowChatStore.hasSessionHistoryWarmed(session.sessionId)
       )
       .sort(compareSessionsForDisplay)
@@ -461,6 +472,7 @@ export class FlowChatManager {
   ): Promise<void> {
     const workspacePath = workspace.rootPath;
     const removedSessionIds = this.context.flowChatStore.removeSessionsForWorkspace(workspace);
+    useWorkspaceSurfaceStore.getState().forgetSessions(removedSessionIds);
 
     removedSessionIds.forEach(sessionId => {
       stateMachineManager.delete(sessionId);
@@ -500,7 +512,11 @@ export class FlowChatManager {
       localDialogTurnId?: string;
     }
   ): Promise<void> {
-    const targetSessionId = sessionId || this.context.flowChatStore.getState().activeSessionId;
+    const surfaceState = useWorkspaceSurfaceStore.getState();
+    const targetSessionId =
+      sessionId ||
+      surfaceState.composerTargetSessionId ||
+      surfaceState.focusedSessionId;
     
     if (!targetSessionId) {
       throw new Error('No active session');
@@ -571,7 +587,10 @@ export class FlowChatManager {
   }
 
   getCurrentSession() {
-    return this.context.flowChatStore.getActiveSession();
+    const sessionId = useWorkspaceSurfaceStore.getState().focusedSessionId;
+    return sessionId
+      ? this.context.flowChatStore.getState().sessions.get(sessionId) ?? null
+      : null;
   }
 
   getAllProcessingStatuses() {

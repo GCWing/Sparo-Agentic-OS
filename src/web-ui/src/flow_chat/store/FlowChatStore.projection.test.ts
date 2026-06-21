@@ -6,7 +6,32 @@ import type { DialogTurn, FlowSubagentExecutionProjection, FlowToolItem } from '
 type ProjectionTestBridge = {
   convertToDialogTurns: (turns: unknown[]) => DialogTurn[];
   hydrateExecutionProjections: (dialogTurns: DialogTurn[]) => Promise<void>;
+  mergeHydratedDialogTurns: (
+    existingDialogTurns: DialogTurn[],
+    persistedDialogTurns: DialogTurn[]
+  ) => DialogTurn[];
 };
+
+function createDialogTurn(
+  id: string,
+  status: DialogTurn['status'],
+  startTime: number,
+  content = id
+): DialogTurn {
+  return {
+    id,
+    sessionId: 'merge-session',
+    userMessage: {
+      id: `user-${id}`,
+      type: 'user',
+      content,
+      timestamp: startTime,
+    },
+    modelRounds: [],
+    status,
+    startTime,
+  } as DialogTurn;
+}
 
 describe('FlowChatStore subagent projection recovery', () => {
   it('recovers parent Task execution projections from persisted session history', async () => {
@@ -99,5 +124,38 @@ describe('FlowChatStore subagent projection recovery', () => {
     expect(executionGraphStore.getNode('projection-session', 'projection-task')).toEqual(
       expect.objectContaining(projection)
     );
+  });
+});
+
+describe('FlowChatStore hydrated history merge', () => {
+  it('merges persisted history without dropping live local turns', () => {
+    const bridge = FlowChatStore.getInstance() as unknown as ProjectionTestBridge;
+    const persistedOld = createDialogTurn('turn-old', 'completed', 10, 'persisted old');
+    const persistedLive = createDialogTurn('turn-live', 'completed', 20, 'persisted live');
+    const existingLive = createDialogTurn('turn-live', 'processing', 20, 'local live');
+    const existingNew = createDialogTurn('turn-new', 'pending', 30, 'local new');
+
+    const merged = bridge.mergeHydratedDialogTurns(
+      [existingLive, existingNew],
+      [persistedOld, persistedLive]
+    );
+
+    expect(merged.map(turn => turn.id)).toEqual(['turn-old', 'turn-live', 'turn-new']);
+    expect(merged[1]).toBe(existingLive);
+    expect(merged[2]).toBe(existingNew);
+  });
+
+  it('uses persisted history for terminal turns with the same id', () => {
+    const bridge = FlowChatStore.getInstance() as unknown as ProjectionTestBridge;
+    const existingTerminal = createDialogTurn('turn-terminal', 'completed', 10, 'local stale');
+    const persistedTerminal = createDialogTurn('turn-terminal', 'completed', 10, 'persisted final');
+
+    const merged = bridge.mergeHydratedDialogTurns(
+      [existingTerminal],
+      [persistedTerminal]
+    );
+
+    expect(merged).toEqual([persistedTerminal]);
+    expect(merged[0]).toBe(persistedTerminal);
   });
 });

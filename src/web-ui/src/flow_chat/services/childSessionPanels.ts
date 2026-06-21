@@ -1,6 +1,7 @@
 import { i18nService } from '@/infrastructure/i18n';
 import { appManager } from '@/app/services/AppManager';
 import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
+import type { WorkspaceSurfaceContext } from '@/app/navigation/workspaceSurfaceTypes';
 import { createTab } from '@/shared/utils/tabUtils';
 import type { PanelContent } from '@/app/components/panels/base/types';
 import { useAgentCanvasStore } from '@/app/components/panels/content-canvas/stores';
@@ -123,6 +124,7 @@ export async function openMainSession(
   options?: {
     workspaceId?: string;
     activateWorkspace?: (workspaceId: string) => void | Promise<unknown>;
+    context?: WorkspaceSurfaceContext | null;
   }
 ): Promise<void> {
   appManager.updateLayout({
@@ -133,7 +135,7 @@ export async function openMainSession(
     await options.activateWorkspace(options.workspaceId);
   }
 
-  if (flowChatStore.getState().activeSessionId === sessionId) {
+  if (useWorkspaceSurfaceStore.getState().focusedSessionId === sessionId) {
     syncSessionToModernStore(sessionId);
   } else {
     await flowChatManager.switchChatSession(sessionId);
@@ -144,7 +146,8 @@ export async function openMainSession(
   useWorkspaceSurfaceStore.getState().openSurface(
     session && isSystemAgenticOsSession(session.descriptor)
       ? { kind: 'agentic-os-home', agenticOsSessionId: sessionId }
-      : { kind: 'session', sessionId }
+      : { kind: 'session', sessionId },
+    { context: options?.context }
   );
 }
 

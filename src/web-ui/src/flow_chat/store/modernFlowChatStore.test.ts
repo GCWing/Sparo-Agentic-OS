@@ -76,10 +76,9 @@ describe('sessionToVirtualItems', () => {
   });
 });
 
-function createFlowChatState(sessions: Session[], activeSessionId: string | null = null): FlowChatState {
+function createFlowChatState(sessions: Session[]): FlowChatState {
   return {
     sessions: new Map(sessions.map(session => [session.sessionId, session])),
-    activeSessionId,
     currentMode: 'chat',
     isLoading: false,
     activeToolExecutions: new Set(),
@@ -107,11 +106,12 @@ function createAgenticOsSession(overrides: Partial<Session> = {}): Session {
 describe('Agentic OS timeline projection', () => {
   it('is owned by the projection scheduler and ignores assistant-only streaming churn', () => {
     const agenticOsSession = createAgenticOsSession();
-    const initialState = createFlowChatState([agenticOsSession], agenticOsSession.sessionId);
+    const focusedSessionId = agenticOsSession.sessionId;
+    const initialState = createFlowChatState([agenticOsSession]);
 
-    const initialTimeline = getAgenticOsTimelineProjection(initialState);
+    const initialTimeline = getAgenticOsTimelineProjection(initialState, focusedSessionId);
     const initialVersion = getProjectionVersion('agenticOsTimeline');
-    const initialSignature = getAgenticOsTimelineSignature(initialState);
+    const initialSignature = getAgenticOsTimelineSignature(initialState, focusedSessionId);
 
     const streamingOnlyState = createFlowChatState([
       {
@@ -134,10 +134,10 @@ describe('Agentic OS timeline projection', () => {
           },
         ],
       } as Session,
-    ], agenticOsSession.sessionId);
+    ]);
 
-    expect(getAgenticOsTimelineSignature(streamingOnlyState)).toBe(initialSignature);
-    expect(getAgenticOsTimelineProjection(streamingOnlyState)).toBe(initialTimeline);
+    expect(getAgenticOsTimelineSignature(streamingOnlyState, focusedSessionId)).toBe(initialSignature);
+    expect(getAgenticOsTimelineProjection(streamingOnlyState, focusedSessionId)).toBe(initialTimeline);
     expect(getProjectionVersion('agenticOsTimeline')).toBe(initialVersion);
 
     const metadataState = createFlowChatState([
@@ -145,9 +145,9 @@ describe('Agentic OS timeline projection', () => {
         ...agenticOsSession,
         title: 'Updated Agentic OS plan',
       } as Session,
-    ], agenticOsSession.sessionId);
+    ]);
 
-    const updatedTimeline = getAgenticOsTimelineProjection(metadataState);
+    const updatedTimeline = getAgenticOsTimelineProjection(metadataState, focusedSessionId);
     expect(updatedTimeline).not.toBe(initialTimeline);
     expect(getProjectionVersion('agenticOsTimeline')).toBe(initialVersion + 1);
   });
