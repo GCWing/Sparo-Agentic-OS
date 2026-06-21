@@ -1,8 +1,5 @@
 {
   "addBoostTooltip": "Add agent, image, or skill",
-  "addModeTooltip": "Add Plan or Debug",
-  "boostSectionAgent": "Agent",
-  "boostSectionContext": "Context",
   "boostStartBtw": "Start side question",
   "boostAddContext": "Reference file or folder",
   "boostSkills": "Skills",
@@ -10,7 +7,6 @@
   "boostSkillsEmpty": "No enabled skills",
   "openSkillsLibrary": "Manage skills…",
   "insertSkillLine": "Please use the Skill tool with command \"{{name}}\".",
-  "addAgentMenuTitle": "Add agent",
   "resetToAgentic": "Back to default agent",
   "quickAction": "Quick action",
   "compactAction": "Compact session",
@@ -38,15 +34,20 @@
   "loadingMcpPrompts": "Loading MCP prompts...",
   "mcpPromptMissingArgs": "This MCP prompt requires arguments: {{args}}",
   "mcpPromptFailed": "MCP prompt failed",
+  "agentUnavailable": "Agent unavailable in this runtime",
   "composerCommands": {
     "title": "Commands",
     "groups": {
       "target": "Target",
       "send-with": "Send with",
       "session-action": "Session action",
+      "app": "App action",
       "template": "Prompt template"
     },
     "btwDescription": "Ask in a focused side thread",
+    "contextDescription": "Attach workspace files or folders",
+    "imageDescription": "Attach an image to the next message",
+    "skillsDescription": "Insert a skill mention",
     "goalDescription": "Track this request until completion",
     "compactDescription": "Compress the current session context",
     "initDescription": "Generate or update workspace instructions"
@@ -95,7 +96,6 @@
   "openFolder": "Open folder…",
   "selectWorkspaceTitle": "Select workspace directory",
   "switchWorkspaceFailed": "Failed to switch workspace: {{error}}",
-  "noIncrementalAgents": "No add-on agents available",
   "switchAgent": "Switch agent",
   "osHandoff": {
     "deciding": "Agentic OS is choosing a path",

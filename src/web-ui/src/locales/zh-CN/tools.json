@@ -296,7 +296,7 @@
       "documentSections": "章节列表",
       "viewModeLabel": "Markdown 编辑器模式",
       "notice": {
-        "sourcePreviewFallback": "该文档包含无法在可视化模式中安全编辑的 HTML 片段。请在源码模式中编辑，或切换到预览查看效果。"
+        "sourcePreviewFallback": "该文档包含无法在可视化模式中安全表示的内容。请在源码模式中编辑，或切换到预览查看效果。"
       }
     },
     "planViewer": {
@@ -328,7 +328,16 @@
         "title": "章节"
       },
       "rawHtml": {
-        "inlineLabel": "HTML"
+        "inlineLabel": "HTML",
+        "preview": "预览",
+        "sandbox": "沙箱",
+        "source": "源码",
+        "editSource": "编辑源码",
+        "html": "HTML",
+        "details": "详情",
+        "frontmatter": "Frontmatter",
+        "footnote": "脚注",
+        "markdown": "Markdown"
       },
       "details": {
         "summaryPlaceholder": "摘要"

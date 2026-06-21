@@ -1,7 +1,9 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { MessageCircleQuestion, MessageSquarePlus } from 'lucide-react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Check, Copy, MessageCircleQuestion, MessageSquarePlus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { Tooltip } from '@/design-system';
 import { notificationService } from '@/shared/notification-system';
+import { copyTextToClipboard } from '@/shared/utils/textSelection';
 import { createLogger } from '@/shared/utils/logger';
 import { createTransientBtwSession } from '../../services/BtwThreadService';
 import { openBtwSessionInAuxPane } from '../../services/childSessionPanels';
@@ -18,10 +20,11 @@ interface SelectionButtonState {
   text: string;
   top: number;
   left: number;
+  anchorX: number;
 }
 
 const BUTTON_SIZE_PX = 32;
-const PILL_WIDTH_PX = 258;
+const PILL_FALLBACK_WIDTH_PX = 300;
 const VIEWPORT_PADDING_PX = 8;
 const SELECTION_GAP_PX = 10;
 const log = createLogger('FlowChatSelectionAddButton');
@@ -60,15 +63,36 @@ export const FlowChatSelectionAddButton: React.FC<FlowChatSelectionAddButtonProp
 }) => {
   const { t } = useTranslation('flow-chat');
   const [buttonState, setButtonState] = useState<SelectionButtonState | null>(null);
+  const [isCopied, setIsCopied] = useState(false);
+  const toolbarRef = useRef<HTMLDivElement | null>(null);
   const buttonStateRef = useRef<SelectionButtonState | null>(null);
+  const copyResetTimerRef = useRef<number | null>(null);
+  const suppressSelectionUpdatesRef = useRef(false);
   const selectionTextRef = useRef('');
 
-  const setResolvedButtonState = useCallback((nextState: SelectionButtonState | null) => {
-    buttonStateRef.current = nextState;
-    setButtonState(nextState);
+  const resetCopyFeedback = useCallback(() => {
+    suppressSelectionUpdatesRef.current = false;
+    if (copyResetTimerRef.current !== null) {
+      window.clearTimeout(copyResetTimerRef.current);
+      copyResetTimerRef.current = null;
+    }
+    setIsCopied(false);
   }, []);
 
+  const setResolvedButtonState = useCallback((nextState: SelectionButtonState | null) => {
+    const previousText = buttonStateRef.current?.text;
+    if (!nextState || nextState.text !== previousText) {
+      resetCopyFeedback();
+    }
+    buttonStateRef.current = nextState;
+    setButtonState(nextState);
+  }, [resetCopyFeedback]);
+
   const updateSelectionButton = useCallback((options: { allowShow: boolean }) => {
+    if (suppressSelectionUpdatesRef.current) {
+      return;
+    }
+
     const container = containerRef.current;
     const selection = window.getSelection();
 
@@ -108,7 +132,8 @@ export const FlowChatSelectionAddButton: React.FC<FlowChatSelectionAddButtonProp
     const top = topCandidate >= VIEWPORT_PADDING_PX
       ? topCandidate
       : rect.bottom + SELECTION_GAP_PX;
-    const left = rect.left + rect.width / 2 - PILL_WIDTH_PX / 2;
+    const anchorX = rect.left + rect.width / 2;
+    const left = anchorX - PILL_FALLBACK_WIDTH_PX / 2;
 
     if (!options.allowShow && !buttonStateRef.current) {
       return;
@@ -118,9 +143,34 @@ export const FlowChatSelectionAddButton: React.FC<FlowChatSelectionAddButtonProp
     setResolvedButtonState({
       text: selectedText,
       top: clamp(top, VIEWPORT_PADDING_PX, window.innerHeight - BUTTON_SIZE_PX - VIEWPORT_PADDING_PX),
-      left: clamp(left, VIEWPORT_PADDING_PX, window.innerWidth - PILL_WIDTH_PX - VIEWPORT_PADDING_PX),
+      left: clamp(left, VIEWPORT_PADDING_PX, window.innerWidth - PILL_FALLBACK_WIDTH_PX - VIEWPORT_PADDING_PX),
+      anchorX,
     });
   }, [containerRef, setResolvedButtonState]);
+
+  useLayoutEffect(() => {
+    if (!buttonState || !toolbarRef.current) {
+      return;
+    }
+
+    const { width } = toolbarRef.current.getBoundingClientRect();
+    if (!width) {
+      return;
+    }
+
+    const nextLeft = clamp(
+      buttonState.anchorX - width / 2,
+      VIEWPORT_PADDING_PX,
+      window.innerWidth - width - VIEWPORT_PADDING_PX
+    );
+
+    if (Math.abs(nextLeft - buttonState.left) > 0.5) {
+      setResolvedButtonState({
+        ...buttonState,
+        left: nextLeft,
+      });
+    }
+  }, [buttonState, setResolvedButtonState]);
 
   useEffect(() => {
     let frameId: number | null = null;
@@ -162,6 +212,47 @@ export const FlowChatSelectionAddButton: React.FC<FlowChatSelectionAddButtonProp
       window.removeEventListener('resize', schedulePassiveUpdate);
     };
   }, [setResolvedButtonState, updateSelectionButton]);
+
+  useEffect(() => () => {
+    if (copyResetTimerRef.current !== null) {
+      window.clearTimeout(copyResetTimerRef.current);
+    }
+  }, []);
+
+  const handleCopySelection = useCallback(async () => {
+    const text = selectionTextRef.current || buttonState?.text;
+    if (!text) return;
+
+    suppressSelectionUpdatesRef.current = true;
+
+    try {
+      const copied = await copyTextToClipboard(text);
+      if (!copied) {
+        suppressSelectionUpdatesRef.current = false;
+        notificationService.error(t('contextMenu.copySelectionFailed', {
+          defaultValue: 'Failed to copy selection',
+        }));
+        return;
+      }
+
+      setIsCopied(true);
+      if (copyResetTimerRef.current !== null) {
+        window.clearTimeout(copyResetTimerRef.current);
+      }
+      copyResetTimerRef.current = window.setTimeout(() => {
+        copyResetTimerRef.current = null;
+        suppressSelectionUpdatesRef.current = false;
+        window.getSelection()?.removeAllRanges();
+        setResolvedButtonState(null);
+      }, 560);
+    } catch (error) {
+      suppressSelectionUpdatesRef.current = false;
+      log.error('Failed to copy selected text', { error });
+      notificationService.error(t('contextMenu.copySelectionFailed', {
+        defaultValue: 'Failed to copy selection',
+      }));
+    }
+  }, [buttonState?.text, setResolvedButtonState, t]);
 
   const handleAddToChat = useCallback(() => {
     const text = selectionTextRef.current || buttonState?.text;
@@ -227,12 +318,16 @@ export const FlowChatSelectionAddButton: React.FC<FlowChatSelectionAddButtonProp
   const addToChatLabel = t('contextMenu.addSelectionToChat', {
     defaultValue: 'Add selection to chat',
   });
+  const copySelectionLabel = isCopied
+    ? t('contextMenu.selectionCopied', { defaultValue: 'Copied' })
+    : t('contextMenu.copySelection', { defaultValue: 'Copy selection' });
   const sideQuestionLabel = t('contextMenu.createSideQuestionFromSelection', {
-    defaultValue: 'New side question',
+    defaultValue: 'Side question',
   });
 
   return (
     <div
+      ref={toolbarRef}
       className="flowchat-selection-add-button"
       role="toolbar"
       aria-label={t('contextMenu.selectionActions', { defaultValue: 'Selection actions' })}
@@ -244,6 +339,19 @@ export const FlowChatSelectionAddButton: React.FC<FlowChatSelectionAddButtonProp
         event.preventDefault();
       }}
     >
+      <Tooltip content={copySelectionLabel} placement="top" delay={180} disabled={isCopied}>
+        <button
+          type="button"
+          className={`flowchat-selection-add-button__action flowchat-selection-add-button__copy-action ${isCopied ? 'flowchat-selection-add-button__action--copied' : ''}`}
+          onClick={handleCopySelection}
+          aria-label={copySelectionLabel}
+        >
+          {isCopied
+            ? <Check size={14} strokeWidth={2.25} aria-hidden />
+            : <Copy size={14} strokeWidth={2.25} aria-hidden />}
+        </button>
+      </Tooltip>
+      <span className="flowchat-selection-add-button__divider" aria-hidden />
       <button
         type="button"
         className="flowchat-selection-add-button__action"

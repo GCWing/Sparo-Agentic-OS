@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
-import { MarkdownRenderer, type MarkdownRendererProps } from '@/shared/markdown';
+import React, { useCallback, useMemo } from 'react';
+import { MarkdownRenderer, type MarkdownLayoutMutationDetail, type MarkdownRendererProps } from '@/shared/markdown';
 import { incrementFlowChatCounter, measureFlowChat } from '../performance/flowChatPerf';
 import { useRenderBudgetReady } from '../render/flowRenderBudgetScheduler';
+import { invalidateFlowLayout } from '../scroll/FlowLayoutMutationEvents';
 import type { StreamingMarkdownBlock } from './streamingMarkdownParser';
 
 const MAX_LIVE_CODE_LINES = 200;
@@ -13,6 +14,7 @@ type MarkdownCallbacks = Pick<
 >;
 
 interface MarkdownBlockRendererProps extends MarkdownCallbacks {
+  textItemId: string;
   block: StreamingMarkdownBlock;
   streaming: boolean;
 }
@@ -160,6 +162,7 @@ const LiveMarkdownBlockRenderer = React.memo<{ block: StreamingMarkdownBlock }>(
 LiveMarkdownBlockRenderer.displayName = 'LiveMarkdownBlockRenderer';
 
 export const MarkdownBlockRenderer = React.memo<MarkdownBlockRendererProps>(({
+  textItemId,
   block,
   streaming,
   onFileViewRequest,
@@ -176,6 +179,14 @@ export const MarkdownBlockRenderer = React.memo<MarkdownBlockRendererProps>(({
   );
 
   const richContent = useMemo(() => block.raw, [block.raw]);
+  const handleLayoutMutation = useCallback((detail: MarkdownLayoutMutationDetail) => {
+    invalidateFlowLayout({
+      ...detail,
+      source: detail.source ?? 'markdown-table-resize',
+      textItemId,
+      blockId: block.id,
+    });
+  }, [block.id, textItemId]);
 
   if (!shouldRenderRich || !richReady) {
     return (
@@ -192,6 +203,8 @@ export const MarkdownBlockRenderer = React.memo<MarkdownBlockRendererProps>(({
         <MarkdownRenderer
           content={richContent}
           isStreaming={streaming && !block.stable}
+          enableTableColumnResize={block.stable}
+          onLayoutMutation={handleLayoutMutation}
           onFileViewRequest={onFileViewRequest}
           onTabOpen={onTabOpen}
           onOpenVisualization={onOpenVisualization}
@@ -201,6 +214,7 @@ export const MarkdownBlockRenderer = React.memo<MarkdownBlockRendererProps>(({
     </div>
   );
 }, (prev, next) => (
+  prev.textItemId === next.textItemId &&
   prev.block === next.block &&
   prev.streaming === next.streaming &&
   prev.onFileViewRequest === next.onFileViewRequest &&

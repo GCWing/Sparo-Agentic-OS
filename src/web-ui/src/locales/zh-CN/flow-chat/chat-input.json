@@ -1,8 +1,5 @@
 {
   "addBoostTooltip": "附加 Agent、图片或 Skill",
-  "addModeTooltip": "附加 Plan 或 Debug",
-  "boostSectionAgent": "智能体",
-  "boostSectionContext": "上下文",
   "boostStartBtw": "发起侧问",
   "boostAddContext": "引用文件或文件夹",
   "boostSkills": "Skills",
@@ -10,7 +7,6 @@
   "boostSkillsEmpty": "暂无已启用的 Skill",
   "openSkillsLibrary": "管理 Skills…",
   "insertSkillLine": "Please use the Skill tool with command \"{{name}}\".",
-  "addAgentMenuTitle": "附加 Agent",
   "resetToAgentic": "恢复默认 Agent",
   "quickAction": "快捷操作",
   "compactAction": "压缩会话",
@@ -38,15 +34,20 @@
   "loadingMcpPrompts": "正在加载 MCP prompts...",
   "mcpPromptMissingArgs": "这个 MCP prompt 需要参数：{{args}}",
   "mcpPromptFailed": "MCP prompt 执行失败",
+  "agentUnavailable": "此运行时不可用该 Agent",
   "composerCommands": {
     "title": "命令",
     "groups": {
       "target": "目标",
       "send-with": "随消息发送",
       "session-action": "会话操作",
+      "app": "应用动作",
       "template": "Prompt 模板"
     },
     "btwDescription": "在聚焦的侧线程中提问",
+    "contextDescription": "附加工作区文件或文件夹",
+    "imageDescription": "把图片附加到下一条消息",
+    "skillsDescription": "插入 Skill 提及",
     "goalDescription": "持续跟踪这个请求直到完成",
     "compactDescription": "压缩当前会话上下文",
     "initDescription": "生成或更新工作区指令"
@@ -95,7 +96,6 @@
   "openFolder": "打开文件夹…",
   "selectWorkspaceTitle": "选择工作区目录",
   "switchWorkspaceFailed": "切换工作区失败：{{error}}",
-  "noIncrementalAgents": "暂无可附加 Agent",
   "switchAgent": "切换 Agent",
   "osHandoff": {
     "deciding": "Agentic OS 正在判断处理方式",

@@ -13,7 +13,8 @@
   isolation: isolate;
   display: inline-flex;
   align-items: center;
-  width: 258px;
+  width: max-content;
+  max-width: calc(100vw - 16px);
   min-height: 32px;
   padding: 3px;
   border: 1px solid transparent;
@@ -52,13 +53,14 @@
 .flowchat-selection-add-button__action {
   position: relative;
   min-width: 0;
-  flex: 1 1 0;
+  flex: 0 1 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 5px;
   height: 26px;
-  padding: 0 8px;
+  max-width: 152px;
+  padding: 0 9px;
   border: 0;
   border-radius: 999px;
   color: var(--ds-color-text-primary);
@@ -66,10 +68,25 @@
   font: var(--ds-font-caption);
   white-space: nowrap;
   cursor: pointer;
+  transition:
+    color 0.14s ease,
+    background-color 0.14s ease;
 }
 
 .flowchat-selection-add-button__action:hover {
   color: var(--ds-color-text-inverse);
+  background: var(--ds-chat-accent);
+}
+
+.flowchat-selection-add-button__copy-action {
+  flex: 0 0 26px;
+  width: 26px;
+  max-width: 26px;
+  padding: 0;
+  background: color-mix(in srgb, var(--ds-chat-accent) 14%, transparent);
+}
+
+.flowchat-selection-add-button__copy-action:hover {
   background: var(--ds-chat-accent);
 }
 
@@ -78,7 +95,14 @@
   outline-offset: 1px;
 }
 
+.flowchat-selection-add-button__action--copied,
+.flowchat-selection-add-button__action--copied:hover {
+  color: var(--ds-color-text-inverse);
+  background: var(--ds-status-surface-success-fg);
+}
+
 .flowchat-selection-add-button__action span {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }

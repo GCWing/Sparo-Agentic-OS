@@ -29,7 +29,7 @@ import { createLogger } from '@/shared/utils/logger';
 import { useI18n } from '@/infrastructure/i18n';
 import { consumeDeferredNewSessionWorkspace } from '../utils/deferredWorkspaceSession';
 import { appRuntime, runtimePolicy } from '@/infrastructure/app-runtime';
-import { descriptorFromAgentType } from '@/flow_chat/domain/sessionDescriptor';
+import { descriptorFromAgentType, getDefaultSessionDescriptor } from '@/flow_chat/domain/sessionDescriptor';
 import { useWorkspaceSurfaceStore } from '../navigation/workspaceSurfaceStore';
 import './AppLayout.scss';
 
@@ -192,7 +192,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
               workspaceId: lastUsedWorkspace.id,
               workspacePath: lastUsedWorkspace.rootPath,
             },
-            defaultSessionDescriptor: initializationPreferredDescriptor ?? descriptorFromAgentType('agentic'),
+            defaultSessionDescriptor: initializationPreferredDescriptor ?? getDefaultSessionDescriptor(),
           }
         );
 

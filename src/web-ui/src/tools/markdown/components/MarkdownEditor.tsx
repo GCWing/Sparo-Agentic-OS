@@ -29,6 +29,9 @@ import {
   isFileMissingFromMetadata,
   isLikelyFileNotFoundError,
 } from '@/shared/utils/fsErrorUtils';
+import {
+  shouldUseDocumentSourcePreviewFallback,
+} from '../utils/markdownEditabilityPolicy';
 import './MarkdownEditor.scss';
 
 import 'katex/dist/katex.min.css';
@@ -290,11 +293,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
       if (!onFileMissingFromDiskChange) {
         return;
       }
-      const isUnsafeSplit =
-        !!filePath &&
-        (editability.mode === 'unsafe' ||
-          editability.containsRenderOnlyBlocks ||
-          editability.containsRawHtmlInlines);
+      const isUnsafeSplit = shouldUseDocumentSourcePreviewFallback(editability, !!filePath);
       if (isUnsafeSplit && unsafeViewModeRef.current === 'source') {
         return;
       }
@@ -304,7 +303,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
       lastReportedMissingRef.current = missing;
       onFileMissingFromDiskChange(missing);
     },
-    [editability.containsRawHtmlInlines, editability.containsRenderOnlyBlocks, editability.mode, filePath, onFileMissingFromDiskChange]
+    [editability, filePath, onFileMissingFromDiskChange]
   );
 
   onContentChangeRef.current = onContentChange;
@@ -610,11 +609,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
     }
   }, [fetchFileMetadata, filePath, isActiveTab, reportFileMissingFromDisk, t, toNormalizedMarkdown]);
 
-  const isUnsafeSplitUi =
-    !!filePath &&
-    (editability.mode === 'unsafe' ||
-      editability.containsRenderOnlyBlocks ||
-      editability.containsRawHtmlInlines);
+  const isUnsafeSplitUi = shouldUseDocumentSourcePreviewFallback(editability, !!filePath);
   const pollMarkdownDisk = !isUnsafeSplitUi || unsafeViewMode !== 'source';
 
   useEffect(() => {
@@ -792,22 +787,14 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
   const notices = useMemo(() => {
     const nextNotices: string[] = [];
 
-    if (filePath && (
-      editability.mode === 'unsafe' ||
-      editability.containsRenderOnlyBlocks ||
-      editability.containsRawHtmlInlines
-    )) {
+    if (shouldUseDocumentSourcePreviewFallback(editability, !!filePath)) {
       nextNotices.push(t('markdown.editor.notice.sourcePreviewFallback'));
     }
 
     return nextNotices;
   }, [editability, filePath, t]);
 
-  const shouldUseSourcePreviewFallback = !!filePath && (
-    editability.mode === 'unsafe' ||
-    editability.containsRenderOnlyBlocks ||
-    editability.containsRawHtmlInlines
-  );
+  const shouldUseSourcePreviewFallback = shouldUseDocumentSourcePreviewFallback(editability, !!filePath);
   const editorLayoutClassName = centeredLayout
     ? 'sparo-markdown-editor__canvas sparo-markdown-editor__canvas--centered'
     : 'sparo-markdown-editor__canvas';
@@ -840,7 +827,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
     );
   }
 
-  if (shouldUseSourcePreviewFallback) {
+  if (shouldUseSourcePreviewFallback && filePath) {
     return (
       <div className={`sparo-markdown-editor ${className}`}>
         {notices.length > 0 && (

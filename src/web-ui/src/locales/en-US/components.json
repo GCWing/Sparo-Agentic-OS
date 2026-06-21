@@ -35,7 +35,9 @@
   },
   "markdown": {
     "copySuccess": "Copied",
-    "copyCode": "Copy code"
+    "copyCode": "Copy code",
+    "resizeColumn": "Resize column {{index}}",
+    "resetColumnWidths": "Double-click or press Enter to reset column widths"
   },
   "mermaidBlock": {
     "renderFailed": "Diagram render failed",

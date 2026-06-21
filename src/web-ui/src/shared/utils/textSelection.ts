@@ -48,27 +48,50 @@ export const clearSelection = (): void => {
   }
 };
 
+const copyWithTextareaFallback = (text: string): boolean => {
+  const selection = window.getSelection();
+  const savedRanges = selection
+    ? Array.from({ length: selection.rangeCount }, (_, index) => selection.getRangeAt(index).cloneRange())
+    : [];
+  const activeElement = document.activeElement instanceof HTMLElement
+    ? document.activeElement
+    : null;
+
+  const textArea = document.createElement('textarea');
+  textArea.value = text;
+  textArea.setAttribute('readonly', '');
+  textArea.style.position = 'fixed';
+  textArea.style.left = '-999999px';
+  textArea.style.top = '-999999px';
+  document.body.appendChild(textArea);
+
+  try {
+    textArea.focus();
+    textArea.select();
+    return document.execCommand('copy');
+  } finally {
+    document.body.removeChild(textArea);
+    if (selection) {
+      selection.removeAllRanges();
+      savedRanges.forEach(range => selection.addRange(range));
+    }
+    activeElement?.focus({ preventScroll: true });
+  }
+};
+
  
 export const copyTextToClipboard = async (text: string): Promise<boolean> => {
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } else {
-      
-      const textArea = document.createElement('textarea');
-      textArea.value = text;
-      textArea.style.position = 'fixed';
-      textArea.style.left = '-999999px';
-      textArea.style.top = '-999999px';
-      document.body.appendChild(textArea);
-      textArea.focus();
-      textArea.select();
-      
-      const result = document.execCommand('copy');
-      document.body.removeChild(textArea);
-      return result;
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch (error) {
+        log.warn('Navigator clipboard write failed, trying textarea fallback', { error });
+      }
     }
+
+    return copyWithTextareaFallback(text);
   } catch (error) {
     log.error('Failed to copy text to clipboard', error);
     return false;

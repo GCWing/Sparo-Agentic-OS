@@ -57,6 +57,60 @@ export type SessionSidecarActionResult =
   | readonly SessionSidecarActionDescriptor[]
   | null;
 
+export type SessionComposerActionAvailability = 'enabled' | 'disabled' | 'hidden';
+
+export type SessionComposerBuiltinActionId =
+  | 'attach-context'
+  | 'attach-image'
+  | 'skills'
+  | 'btw'
+  | 'goal'
+  | 'compact'
+  | 'init'
+  | 'prompt-template';
+
+export type SessionComposerActionProviderId =
+  | 'profile'
+  | 'live-app-workbench'
+  | 'live-app-studio'
+  | 'agent-app-studio';
+
+export type SessionComposerAgentSwitching =
+  | { mode: 'disabled' }
+  | {
+      mode: 'in-session';
+      /** Agent candidates are read from the active SessionDescriptor.agentPolicy. */
+      source?: 'session-policy';
+      /**
+       * Whether to render the descriptor default agent as a switch action.
+       * Code sessions keep the default agent as the reset chip instead.
+       */
+      includeDefaultAgent?: boolean;
+      /** Whether the current agent row should be rendered as selected. */
+      showCurrentAgent?: boolean;
+      /** Optional UI order for agent ids after descriptor policy validation. */
+      order?: readonly string[];
+    };
+
+export interface SessionComposerPolicy {
+  /** Whether the plus action surface is available in each composer state. */
+  readonly visibility?: Partial<{
+    showActionButtonWhenCollapsed: boolean;
+    showActionButtonWhenActive: boolean;
+    showActionButtonWhenProcessing: boolean;
+  }>;
+  /**
+   * Extension point for send-with agent choices in the composer action surface.
+   * The resolver still intersects this with the active session descriptor and
+   * the runtime agent registry.
+   */
+  readonly agentSwitching?: SessionComposerAgentSwitching;
+  /** Per-profile built-in action overrides. Missing keys inherit enabled. */
+  readonly builtIns?: Partial<Record<SessionComposerBuiltinActionId, SessionComposerActionAvailability>>;
+  /** Optional app/profile provider ids resolved after built-in providers. */
+  readonly providers?: readonly SessionComposerActionProviderId[];
+}
+
 /**
  * Full description of a session class.
  * Add fields here when a new customization axis is needed — never add
@@ -97,9 +151,14 @@ export interface SessionProfile {
     extra?: Record<string, unknown>
   ) => SessionSidecarActionResult;
 
+  /**
+   * Composer action surface policy: plus menu, slash command exposure, and
+   * send-with actions are resolved from this capability instead of component
+   * local mode checks.
+   */
+  readonly composer?: SessionComposerPolicy;
+
   readonly capabilities: {
-    /** Whether the mode-switch UI (agentic/plan/debug) is available. Replaces FIXED_AGENT_MODE_IDS. */
-    canSwitchAgents: boolean;
     /** Whether the standard FlowChat welcome panel is shown. */
     showWelcomePanel: boolean;
     /** Whether the Agentic OS-specific model-round UI is rendered. */

@@ -135,7 +135,6 @@ function createLiveAppWorkbenchProfile(
     },
 
     capabilities: {
-      canSwitchAgents: false,
       showWelcomePanel: false,
       showAgenticOsModelRoundUI: false,
     },
