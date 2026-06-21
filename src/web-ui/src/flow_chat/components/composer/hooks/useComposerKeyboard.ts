@@ -3,6 +3,7 @@ import type React from 'react';
 import type { SessionDerivedState } from '../../../state-machine/types';
 import type { RichTextInputHandle } from '../../RichTextInput';
 import type { SlashPickerItem } from '../model/composerCommands';
+import { matchesBuiltinSlashCommand } from '../model/builtinSlashCommands';
 import type { ChatInputTarget, ComposerSlashCommandState } from '../model/composerState';
 
 type ComposerKeyboardItemsGetter<T> = () => T[];
@@ -248,7 +249,7 @@ export function useComposerKeyboard({
 
       e.preventDefault();
 
-      const isBtwCommand = inputValue.trim().toLowerCase().startsWith('/btw');
+      const isBtwCommand = matchesBuiltinSlashCommand(inputValue, 'btw');
       if (isBtwCommand) {
         submitBtwFromInput();
         return;

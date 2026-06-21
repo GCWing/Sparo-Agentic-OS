@@ -9,6 +9,10 @@ use std::sync::Arc;
 use crate::agentic::coordination::{self, ConversationCoordinator, DialogScheduler};
 use crate::agentic::events::{EventQueue, EventRouter};
 use crate::agentic::execution::{ExecutionEngine, RoundExecutor, StreamProcessor};
+use crate::agentic::goal::{
+    install_global_goal_service, test_e2e_runner_enabled, CoordinatorGoalForkRunner,
+    DeterministicGoalForkRunner, GoalEventSubscriber, GoalForkRunner, GoalService, GoalStore,
+};
 use crate::agentic::persistence::PersistenceManager;
 use crate::agentic::session::{ContextCompressor, SessionContextStore, SessionManager};
 use crate::agentic::tools::computer_use_host::ComputerUseHostRef;
@@ -31,6 +35,7 @@ pub struct AgenticRuntime {
     pub event_router: Arc<EventRouter>,
     pub tool_pipeline: Arc<ToolPipeline>,
     pub persistence_manager: Arc<PersistenceManager>,
+    pub goal_service: Arc<GoalService>,
 }
 
 pub async fn initialize_agentic_runtime(
@@ -118,6 +123,23 @@ pub async fn initialize_agentic_runtime(
         let _ = coordination::install_global_scheduler(scheduler.clone());
     }
 
+    let goal_store = Arc::new(GoalStore::new(path_manager.clone()));
+    let goal_fork_runner: Arc<dyn GoalForkRunner> = if test_e2e_runner_enabled() {
+        Arc::new(DeterministicGoalForkRunner)
+    } else {
+        Arc::new(CoordinatorGoalForkRunner::new(coordinator.clone()))
+    };
+    let goal_service = Arc::new(GoalService::new(
+        goal_store,
+        scheduler.clone(),
+        goal_fork_runner,
+    ));
+    let _ = install_global_goal_service(goal_service.clone());
+    event_router.subscribe_internal(
+        "agentic_goal".to_string(),
+        Arc::new(GoalEventSubscriber::new(goal_service.clone())),
+    );
+
     Ok(AgenticRuntime {
         coordinator,
         scheduler,
@@ -126,5 +148,6 @@ pub async fn initialize_agentic_runtime(
         event_router,
         tool_pipeline,
         persistence_manager,
+        goal_service,
     })
 }

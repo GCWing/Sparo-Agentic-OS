@@ -5,6 +5,13 @@ import type { InputAction } from '../../../reducers/inputReducer';
 import type { SessionDerivedState } from '../../../state-machine/types';
 import type { ComposerSlashCommandState } from '../model/composerState';
 import type { SlashMcpPromptItem } from '../model/composerCommands';
+import {
+  parseSlashCommandDraft,
+  resolveTypedBuiltinSlashCommand,
+  shouldKeepInputOutOfTurnQueue,
+  shouldOpenBuiltinActionsWhileProcessing,
+  type BuiltinSlashCommandContext,
+} from '../model/builtinSlashCommands';
 
 const closedSlashState: ComposerSlashCommandState = {
   isActive: false,
@@ -16,6 +23,7 @@ const closedSlashState: ComposerSlashCommandState = {
 export function useComposerTextInput({
   contexts,
   derivedState,
+  builtinCommandContext,
   dispatchInput,
   inputIsActive,
   inputValueRef,
@@ -28,6 +36,7 @@ export function useComposerTextInput({
 }: {
   contexts: ContextItem[];
   derivedState: SessionDerivedState | null;
+  builtinCommandContext: BuiltinSlashCommandContext;
   dispatchInput: Dispatch<InputAction>;
   inputIsActive: boolean;
   inputValueRef: MutableRefObject<string>;
@@ -55,24 +64,21 @@ export function useComposerTextInput({
     dispatchInput({ type: 'SET_VALUE', payload: text });
     inputValueRef.current = text;
 
-    const trimmedLower = text.trim().toLowerCase();
-    const isBtwCommand = trimmedLower.startsWith('/btw');
-    const isCompactCommand = trimmedLower.startsWith('/compact');
     const isProcessing = !!derivedState?.isProcessing;
+    const shouldBypassQueue = shouldKeepInputOutOfTurnQueue(text);
 
-    if (derivedState?.isProcessing && !isBtwCommand && !isCompactCommand) {
+    if (derivedState?.isProcessing && !shouldBypassQueue) {
       setQueuedInput(text);
     }
 
-    if (text.startsWith('/')) {
-      const afterSlash = text.slice(1);
-      const hasWhitespace = /\s/.test(afterSlash);
-      const firstToken = afterSlash.trimStart().split(/\s+/, 1)[0]?.toLowerCase?.() ?? '';
-      const query = firstToken;
+    const slashDraft = parseSlashCommandDraft(text);
+    if (slashDraft.hasLeadingSlash) {
+      const { hasWhitespaceAfterCommandToken, query } = slashDraft;
       const matchedMcpPrompt = resolveTypedMcpPromptCommand(text);
+      const matchedBuiltinCommand = resolveTypedBuiltinSlashCommand(text, builtinCommandContext);
 
       if (isProcessing) {
-        if (!hasWhitespace && (query === '' || query.startsWith('b'))) {
+        if (!hasWhitespaceAfterCommandToken && shouldOpenBuiltinActionsWhileProcessing(query)) {
           setSlashCommandState({
             isActive: true,
             kind: 'actions',
@@ -85,7 +91,7 @@ export function useComposerTextInput({
         return;
       }
 
-      if (!isBtwCommand && !isCompactCommand && !matchedMcpPrompt) {
+      if (!matchedBuiltinCommand && !matchedMcpPrompt) {
         setSlashCommandState({
           isActive: true,
           kind: 'all',
@@ -100,6 +106,7 @@ export function useComposerTextInput({
       setSlashCommandState(closedSlashState);
     }
   }, [
+    builtinCommandContext,
     contexts,
     derivedState?.isProcessing,
     dispatchInput,

@@ -50,6 +50,10 @@ export class ToolAPI {
           toolName: request.toolName,
           input: request.parameters,
           workspacePath: request.workspacePath,
+          sessionId: request.sessionId,
+          dialogTurnId: request.dialogTurnId,
+          agentType: request.agentType,
+          context: request.context,
         }
       });
     } catch (error) {

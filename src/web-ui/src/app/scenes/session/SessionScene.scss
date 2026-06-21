@@ -8,6 +8,13 @@
 
 .sparo-session-scene {
   --sparo-session-surface: var(--ds-color-bg-scene);
+  // Goal-mode focus frame. A single accent draws a crisp hairline plus a slightly
+  // stronger cap on the top edge that crowns the goal header beneath it. Deliberately
+  // no blurred halo; the frame is architectural, not a glow. The accent is the brand
+  // color (the app's signature, not the muted info gray); phase blocks retint it.
+  --sparo-session-goal-accent: var(--ds-color-accent-500, var(--ds-color-info, var(--border-accent)));
+  --sparo-session-goal-radius: var(--ds-radius-md, 8px);
+  --sparo-session-goal-frame-opacity: 1;
 
   display: flex;
   flex-direction: row;
@@ -20,6 +27,49 @@
 
   &[data-agent="agentic-os"] {
     --sparo-session-surface: var(--ds-color-bg-app);
+  }
+
+  // ── Goal phase tones ─────────────────────────────────────────────
+  // Active / extracting / judging / waiting keep the brand accent (default above).
+  // Completed is intentionally absent: the frame is removed entirely on completion
+  // (see SessionScene.tsx) so the session reads as a normal session again.
+  &[data-goal-phase="blocked"],
+  &[data-goal-phase="budget_limited"],
+  &[data-goal-phase="failed"],
+  &[data-goal-phase="rejected"] {
+    --sparo-session-goal-accent: var(--ds-color-warning, var(--color-warning));
+  }
+
+  // Held states recede: muted hue + dimmer frame to read as "on hold".
+  &[data-goal-phase="paused"],
+  &[data-goal-phase="cancelled"] {
+    --sparo-session-goal-accent: var(--ds-color-text-muted, var(--color-text-muted));
+    --sparo-session-goal-frame-opacity: 0.6;
+  }
+
+  &--goal-mode::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    box-sizing: border-box;
+    border-radius: var(--sparo-session-goal-radius);
+    box-shadow:
+      // crisp hairline framing the whole session
+      inset 0 0 0 1px color-mix(in srgb, var(--sparo-session-goal-accent) 30%, transparent),
+      // a slightly stronger 2px cap on the top edge, crowning the goal header
+      inset 0 2px 0 0 color-mix(in srgb, var(--sparo-session-goal-accent) 46%, transparent);
+    opacity: var(--sparo-session-goal-frame-opacity);
+    pointer-events: none;
+    z-index: var(--ds-z-overlay);
+    transition:
+      box-shadow var(--ds-motion-slow, 0.6s) var(--ds-easing-standard, ease),
+      opacity var(--ds-motion-base, 0.3s) var(--ds-easing-standard, ease);
+  }
+
+  // The top cap brightens gently while the system is actively working; calm states hold still.
+  &--goal-mode[data-goal-phase="extracting"]::after,
+  &--goal-mode[data-goal-phase="judging"]::after {
+    animation: sparo-goal-frame-breathe 3.4s var(--ds-easing-standard, ease-in-out) infinite;
   }
 
   &--dragging {
@@ -170,11 +220,23 @@
 }
 
 
+@keyframes sparo-goal-frame-breathe {
+  0%, 100% { opacity: calc(var(--sparo-session-goal-frame-opacity) * 0.72); }
+  50% { opacity: var(--sparo-session-goal-frame-opacity); }
+}
+
+
 @media (prefers-reduced-motion: reduce) {
   .sparo-session-scene,
   .sparo-session-scene__chat-pane,
   .sparo-session-scene__aux-pane {
     transition: none;
+  }
+
+  // functional override: the goal frame breathing is decorative; freeze it but keep
+  // the static phase-tinted frame so the goal context is still visible.
+  .sparo-session-scene--goal-mode::after {
+    animation: none;
   }
 
   .sparo-session-scene__aux-pane--near-collapse {

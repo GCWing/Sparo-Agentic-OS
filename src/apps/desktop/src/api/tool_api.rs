@@ -17,6 +17,9 @@ pub struct ToolExecutionRequest {
     pub tool_name: String,
     pub input: serde_json::Value,
     pub workspace_path: Option<String>,
+    pub session_id: Option<String>,
+    pub dialog_turn_id: Option<String>,
+    pub agent_type: Option<String>,
     pub context: Option<HashMap<String, String>>,
     pub safe_mode: Option<bool>,
 }
@@ -83,19 +86,29 @@ pub struct ToolConfirmationResponse {
     pub message: String,
 }
 
-fn build_tool_context(workspace_path: Option<&str>) -> ToolUseContext {
+fn build_tool_context(
+    workspace_path: Option<&str>,
+    session_id: Option<String>,
+    dialog_turn_id: Option<String>,
+    agent_type: Option<String>,
+    custom_data: Option<HashMap<String, String>>,
+) -> ToolUseContext {
     let normalized_workspace_path = workspace_path
         .map(str::trim)
         .filter(|path| !path.is_empty());
 
     ToolUseContext {
         tool_call_id: None,
-        agent_type: None,
-        session_id: None,
-        dialog_turn_id: None,
+        agent_type,
+        session_id,
+        dialog_turn_id,
         workspace: normalized_workspace_path
             .map(|path| WorkspaceBinding::new(None, PathBuf::from(path))),
-        custom_data: HashMap::new(),
+        custom_data: custom_data
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(key, value)| (key, serde_json::Value::String(value)))
+            .collect(),
         computer_use_host: None,
         cancellation_token: None,
         runtime_tool_restrictions: Default::default(),
@@ -235,7 +248,8 @@ pub async fn validate_tool_input(
                 request.workspace_path.as_deref(),
             )?;
 
-            let context = build_tool_context(request.workspace_path.as_deref());
+            let context =
+                build_tool_context(request.workspace_path.as_deref(), None, None, None, None);
 
             let validation_result = tool.validate_input(&request.input, Some(&context)).await;
 
@@ -266,7 +280,13 @@ pub async fn execute_tool(request: ToolExecutionRequest) -> Result<ToolExecution
                 request.workspace_path.as_deref(),
             )?;
 
-            let context = build_tool_context(request.workspace_path.as_deref());
+            let context = build_tool_context(
+                request.workspace_path.as_deref(),
+                request.session_id.clone(),
+                request.dialog_turn_id.clone(),
+                request.agent_type.clone(),
+                request.context.clone(),
+            );
 
             let validation_result = tool.validate_input(&request.input, Some(&context)).await;
             if !validation_result.result {

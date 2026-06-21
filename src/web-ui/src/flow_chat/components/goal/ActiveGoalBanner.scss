@@ -1,0 +1,194 @@
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
+
+// Goal-mode session header.
+// First principles: the bar answers three things at a glance: what the goal is,
+// what state it is in, and how to steer it. Verbose run details (extraction, judge,
+// revision, raw messages) live in the goal icon's detail panel, not here.
+//
+// One phase accent feeds the medallion, status word and gap chip so the bar reads as
+// a single coherent control; the surrounding focus frame (SessionScene) shares it.
+.active-goal-banner {
+  // Brand accent is the goal identity (the app's signature color, used for all primary
+  // actions); deliberately not the muted "info" gray, which reads washed out.
+  --goal-accent: var(--ds-color-accent-500, var(--ds-color-info, var(--border-accent)));
+
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  min-height: 48px;
+  padding: 7px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--goal-accent) 16%, var(--ds-color-border-subtle, var(--border-subtle)));
+  background: var(--ds-color-bg-panel, var(--color-bg-secondary));
+  color: var(--ds-color-text-primary, var(--color-text-primary));
+  transition: border-color $motion-base $easing-standard;
+
+  // Attention states (problems / limits) speak in the warning hue.
+  &--phase-blocked,
+  &--phase-budget-limited,
+  &--phase-failed,
+  &--phase-rejected {
+    --goal-accent: var(--ds-color-warning, var(--color-warning));
+  }
+
+  // Resolved / held states recede to a calm neutral (no green): the goal is no longer
+  // actively driving the session.
+  &--phase-completed,
+  &--phase-paused,
+  &--phase-cancelled {
+    --goal-accent: var(--ds-color-text-muted, var(--color-text-muted));
+  }
+}
+
+// Status medallion: a tinted icon chip that is the primary at-a-glance signal.
+// Icon shape = lifecycle state, accent color = severity.
+.active-goal-banner__medallion {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  color: var(--goal-accent);
+  background: color-mix(in srgb, var(--goal-accent) 13%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--goal-accent) 22%, transparent);
+
+  svg { display: block; }
+}
+
+// Working states spin the loader icon; "needs you" states gently breathe the chip ring.
+.active-goal-banner--phase-extracting .active-goal-banner__medallion svg,
+.active-goal-banner--phase-judging .active-goal-banner__medallion svg {
+  animation: active-goal-spin 0.9s linear infinite;
+}
+
+.active-goal-banner--phase-waiting-user .active-goal-banner__medallion,
+.active-goal-banner--phase-needs-clarification .active-goal-banner__medallion {
+  animation: active-goal-medallion-pulse 2s $easing-standard infinite;
+}
+
+.active-goal-banner__body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.active-goal-banner__headline {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.active-goal-banner__eyebrow {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: var(--ds-font-weight-semibold);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ds-color-text-muted, var(--color-text-muted));
+}
+
+.active-goal-banner__objective {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-sm);
+  font-weight: var(--ds-font-weight-medium);
+  color: var(--ds-color-text-primary, var(--color-text-primary));
+}
+
+.active-goal-banner__sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: var(--font-size-xs);
+  line-height: 1.3;
+  color: var(--ds-color-text-muted, var(--color-text-muted));
+}
+
+.active-goal-banner__status {
+  flex: 0 0 auto;
+  color: var(--goal-accent);
+  font-weight: var(--ds-font-weight-semibold);
+}
+
+.active-goal-banner__sep {
+  flex: 0 0 auto;
+  opacity: 0.6;
+}
+
+.active-goal-banner__turns {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.active-goal-banner__note {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.active-goal-banner__side {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+// Remaining-gap count is the one piece of run state important enough to live in the
+// bar; it reads as a quiet warning chip.
+.active-goal-banner__gap {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--ds-font-weight-semibold);
+  white-space: nowrap;
+  color: var(--ds-color-warning, var(--color-warning));
+  background: color-mix(in srgb, var(--ds-color-warning, var(--color-warning)) 13%, transparent);
+}
+
+.active-goal-banner__actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+@keyframes active-goal-spin {
+  to { transform: rotate(1turn); }
+}
+
+@keyframes active-goal-medallion-pulse {
+  0%, 100% {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--goal-accent) 22%, transparent),
+      0 0 0 0 color-mix(in srgb, var(--goal-accent) 30%, transparent);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--goal-accent) 30%, transparent),
+      0 0 0 5px color-mix(in srgb, var(--goal-accent) 0%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .active-goal-banner__medallion,
+  .active-goal-banner__medallion svg {
+    animation: none;
+  }
+}
+
+@media (max-width: 720px) {
+  // Drop the eyebrow tag first; the medallion still carries goal identity.
+  .active-goal-banner__eyebrow {
+    display: none;
+  }
+}

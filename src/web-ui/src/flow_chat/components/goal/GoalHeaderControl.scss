@@ -1,0 +1,214 @@
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
+
+.goal-header-control {
+  // Accent mirrors the goal frame + banner (brand color) so the dropdown belongs to
+  // the same field, not the muted info gray.
+  --goal-header-accent: var(--ds-color-accent-500, var(--ds-color-info, var(--border-accent)));
+  --goal-header-accent-soft: color-mix(in srgb, var(--goal-header-accent) 16%, transparent);
+  --goal-header-accent-base: color-mix(in srgb, var(--goal-header-accent) 34%, transparent);
+
+  position: relative;
+  flex: 0 0 auto;
+
+  &[data-goal-phase="blocked"],
+  &[data-goal-phase="budget_limited"],
+  &[data-goal-phase="failed"],
+  &[data-goal-phase="rejected"] {
+    --goal-header-accent: var(--ds-color-warning, var(--color-warning));
+  }
+
+  // Completed joins the calm/neutral group (no green) once the goal is done.
+  &[data-goal-phase="completed"],
+  &[data-goal-phase="paused"],
+  &[data-goal-phase="cancelled"] {
+    --goal-header-accent: var(--ds-color-text-muted, var(--color-text-muted));
+  }
+}
+
+.goal-header-control__button {
+  color: var(--ds-chat-text-secondary);
+
+  &:not(:disabled):hover,
+  &--active {
+    background: color-mix(in srgb, var(--ds-chat-surface-muted) 82%, transparent);
+  }
+
+  &--phase-extracting,
+  &--phase-judging,
+  &--phase-active,
+  &--phase-waiting-user {
+    color: var(--goal-header-accent);
+  }
+
+  &--phase-completed,
+  &--phase-paused {
+    color: var(--ds-color-text-muted, var(--color-text-muted));
+  }
+
+  &--phase-blocked,
+  &--phase-budget-limited,
+  &--phase-failed,
+  &--phase-rejected {
+    color: var(--ds-color-warning, var(--color-warning));
+  }
+
+  &--processing svg {
+    animation: goal-header-spin $motion-slow linear infinite;
+  }
+}
+
+.goal-header-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: min(340px, calc(100vw - 24px));
+  max-height: min(520px, calc(100vh - 80px));
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--ds-chat-border);
+  border-radius: 8px;
+  background: var(--ds-chat-surface);
+  box-shadow:
+    var(--ds-chat-shadow-popover),
+    inset 0 0 0 1px color-mix(in srgb, var(--goal-header-accent-base) 34%, transparent),
+    inset 0 0 22px color-mix(in srgb, var(--goal-header-accent-soft) 54%, transparent);
+  color: var(--ds-chat-text-primary);
+  animation: goal-header-panel-enter $motion-fast $easing-standard both;
+}
+
+.goal-header-panel__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  margin-bottom: 10px;
+}
+
+.goal-header-panel__title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.goal-header-panel__icon {
+  display: inline-flex;
+  color: var(--goal-header-accent);
+}
+
+.goal-header-panel__title {
+  font-size: var(--flowchat-font-size-sm);
+  font-weight: 600;
+}
+
+.goal-header-panel__close {
+  flex: 0 0 auto;
+}
+
+.goal-header-panel__objective {
+  font-size: var(--flowchat-font-size-sm);
+  line-height: 1.45;
+  color: var(--ds-chat-text-primary);
+  overflow-wrap: anywhere;
+  margin-bottom: 12px;
+}
+
+.goal-header-panel__message {
+  margin: -4px 0 12px;
+  padding: 7px 8px;
+  border: 1px solid color-mix(in srgb, var(--goal-header-accent-base) 44%, var(--ds-chat-border));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--goal-header-accent-soft) 24%, transparent);
+  color: var(--ds-chat-text-secondary);
+  font-size: var(--flowchat-font-size-xs);
+  line-height: 1.45;
+}
+
+.goal-header-panel__facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.goal-header-panel__facts > div {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--goal-header-accent-base) 38%, var(--ds-chat-border));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ds-chat-surface-muted) 58%, transparent);
+}
+
+.goal-header-panel__facts dt {
+  margin: 0 0 4px;
+  font-size: var(--flowchat-font-size-xs);
+  color: var(--ds-chat-text-disabled);
+}
+
+.goal-header-panel__facts dd {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--flowchat-font-size-xs);
+  color: var(--ds-chat-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.goal-header-panel__section {
+  padding-top: 10px;
+  border-top: 1px solid var(--ds-chat-border);
+}
+
+.goal-header-panel__section-title {
+  margin-bottom: 6px;
+  font-size: var(--flowchat-font-size-xs);
+  color: var(--ds-chat-text-disabled);
+  font-weight: 600;
+}
+
+.goal-header-panel__gaps {
+  margin: 0;
+  padding-left: 16px;
+  color: var(--ds-chat-text-secondary);
+  font-size: var(--flowchat-font-size-xs);
+  line-height: 1.45;
+}
+
+.goal-header-panel__gaps li + li {
+  margin-top: 4px;
+}
+
+.goal-header-panel__empty {
+  color: var(--ds-chat-text-muted);
+  font-size: var(--flowchat-font-size-xs);
+}
+
+.goal-header-panel__footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  color: var(--ds-chat-text-disabled);
+  font-size: var(--flowchat-font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes goal-header-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes goal-header-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}

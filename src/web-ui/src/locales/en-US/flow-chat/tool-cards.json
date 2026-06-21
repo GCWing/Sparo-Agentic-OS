@@ -75,6 +75,51 @@
       "archived": "Archived"
     }
   },
+  "goal": {
+    "title": "Goal",
+    "untitled": "Active goal",
+    "failed": "Goal update failed: {{error}}",
+    "unknownError": "Unknown error",
+    "cancelled": "Goal update cancelled",
+    "interrupted": "Goal update interrupted",
+    "accepted": "Accepted",
+    "notAccepted": "Not accepted",
+    "revision": "r{{revision}}",
+    "gapCount": "{{count}} gap",
+    "summary": {
+      "get": "Checked goal status",
+      "note": "Recorded a progress note",
+      "blocked": "Reported a blocker"
+    },
+    "pending": {
+      "get": "Checking goal status...",
+      "note": "Recording a note...",
+      "blocked": "Reporting a blocker..."
+    },
+    "sections": {
+      "blocker": "Blocker",
+      "progressNote": "Progress note",
+      "note": "Note",
+      "judgment": "Judgment",
+      "remainingGaps": "Remaining gaps"
+    },
+    "statuses": {
+      "active": "Active",
+      "judging": "Judging",
+      "waiting_user": "Waiting on user",
+      "paused": "Paused",
+      "blocked": "Blocked",
+      "budget_limited": "Budget limited",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "judgeStates": {
+      "pass": "Passed",
+      "continue": "In progress",
+      "needs_user": "Needs user",
+      "blocked": "Blocked"
+    }
+  },
   "memory": {
     "title": "Memory",
     "preparing": "Preparing memory",

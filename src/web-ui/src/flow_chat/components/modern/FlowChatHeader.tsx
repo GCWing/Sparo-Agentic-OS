@@ -15,6 +15,7 @@ import type { DropdownMenuEntry } from '@/design-system';
 import { useTranslation } from 'react-i18next';
 import { SessionFilesBadge } from './SessionFilesBadge';
 import { FlowChatSidecarActions } from './FlowChatSidecarActions';
+import GoalHeaderControl from '../goal/GoalHeaderControl';
 import { aiExperienceConfigService, type AIExperienceSettings } from '@/infrastructure/config/services/AIExperienceConfigService';
 import { createLogger } from '@/shared/utils/logger';
 import type { FlowChatSidecarActionViewModel } from './useSessionSidecarActions';
@@ -35,6 +36,8 @@ export interface FlowChatHeaderProps {
   visible: boolean;
   /** Session ID. */
   sessionId?: string;
+  /** Workspace path for session-scoped goal state. */
+  workspacePath?: string;
   /** Ordered turn summaries used by header navigation. */
   turns?: FlowChatHeaderTurnSummary[];
   /** Jump to a specific turn (used by turn list sidebar). */
@@ -82,6 +85,7 @@ export interface FlowChatHeaderProps {
 export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
   visible,
   sessionId,
+  workspacePath,
   turns = [],
   onJumpToTurn,
   searchQuery = '',
@@ -258,6 +262,9 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
       </div>
 
       <div className="flowchat-header__actions">
+        {!turnListOpen && !isSearchOpen && !onResetHistory ? (
+          <GoalHeaderControl sessionId={sessionId} workspacePath={workspacePath} />
+        ) : null}
         {!turnListOpen && isSearchOpen ? (
           <div className="flowchat-header__search" role="search" data-testid="flowchat-header-search-bar">
             <Input

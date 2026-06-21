@@ -12,6 +12,7 @@ import { useCallback } from 'react';
 import { FlowChatManager } from '../services/FlowChatManager';
 import { notificationService } from '@/shared/notification-system';
 import type { ContextItem, ImageContext } from '@/shared/types/context';
+import type { TriggerSource } from '@/shared/types/session-history';
 import type { AIModelConfig, DefaultModelsConfig } from '@/infrastructure/config/types';
 import { createLogger } from '@/shared/utils/logger';
 import { descriptorFromAgentType } from '../domain/sessionDescriptor';
@@ -59,6 +60,10 @@ interface UseMessageSenderReturn {
     message: string,
     options?: {
       displayMessage?: string;
+      metadata?: Record<string, any>;
+      triggerSource?: TriggerSource;
+      systemReminderOverride?: string;
+      localDialogTurnId?: string;
     }
   ) => Promise<void>;
   /** Whether a send is in progress */
@@ -79,6 +84,10 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
     message: string,
     options?: {
       displayMessage?: string;
+      metadata?: Record<string, any>;
+      triggerSource?: TriggerSource;
+      systemReminderOverride?: string;
+      localDialogTurnId?: string;
     }
   ) => {
     if (!message.trim()) {
@@ -242,7 +251,13 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
         displayMessage,
         undefined,
         undefined,
-        imageContextsForBackend
+        {
+          ...imageContextsForBackend,
+          metadata: options?.metadata,
+          triggerSource: options?.triggerSource,
+          systemReminderOverride: options?.systemReminderOverride,
+          localDialogTurnId: options?.localDialogTurnId,
+        }
       );
 
       onClearContexts();

@@ -14,6 +14,7 @@ import {
   User,
   CornerDownRight,
   Orbit,
+  Flag,
   Pencil,
 } from 'lucide-react';
 import type { DialogTurn } from '../../types/flow-chat';
@@ -47,6 +48,7 @@ function isSystemTrigger(triggerSource: TriggerSource | undefined): boolean {
 function triggerSourceModifier(triggerSource: TriggerSource | undefined, workMessageRole?: string): string {
   switch (triggerSource) {
     case 'agent_session': return 'agent-session';
+    case 'goal': return 'goal';
     case 'work_message': return workMessageRole === 'outcome_review' ? 'outcome-review' : 'work-message';
     case 'scheduled_job': return 'scheduled-job';
     case 'bot': return 'bot';
@@ -61,6 +63,7 @@ function triggerSourceModifier(triggerSource: TriggerSource | undefined, workMes
 function triggerSourceLabel(triggerSource: TriggerSource | undefined, workMessageRole?: string): string {
   switch (triggerSource) {
     case 'agent_session': return 'Agentic OS';
+    case 'goal': return 'Goal';
     case 'work_message': return workMessageRole === 'outcome_review' ? 'Review' : 'Work';
     case 'scheduled_job': return 'Scheduled';
     case 'bot': return 'Bot';
@@ -156,6 +159,7 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
     }, [turnIndex, sessionStartMs, turnStartMs]);
     const isFailed = turnStatus === 'error';
     const isSystem = isSystemTrigger(triggerSource);
+    const isGoalSource = triggerSource === 'goal';
     const canRollback = !!sessionId && turnIndex >= 0 && !isRollingBack && !isSystem && !isFollowUp;
     const editSessionId = sessionId ?? '';
     const editKey = useMemo(() => ({ sessionId: editSessionId, turnId }), [editSessionId, turnId]);
@@ -166,7 +170,7 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
 
     // For agent_session triggered messages, look up the source session's name and agent type.
     const sourceSessionInfo = useMemo(() => {
-      if (!isSystem) return null;
+      if (!isSystem || isGoalSource) return null;
       const sourceSessionId = message?.metadata?.sourceSessionId as string | undefined;
       if (!sourceSessionId) return null;
       const session = flowChatStore.getState().sessions.get(sourceSessionId);
@@ -175,7 +179,7 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
         sessionName: session.title || sourceSessionId.slice(0, 8),
         agentType: session.config?.agentType || session.descriptor.agentPolicy.activeAgentId,
       };
-    }, [isSystem, message?.metadata?.sourceSessionId]);
+    }, [isGoalSource, isSystem, message?.metadata?.sourceSessionId]);
 
     const { displayText, reproductionSteps } = useMemo(() => {
       const reproductionRegex = /<reproduction_steps>([\s\S]*?)<\/reproduction_steps\s*>?/g;
@@ -446,15 +450,20 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
       return (
         <>
         {roundMarker}
-        <div ref={containerRef} className={rootClassName}>
+        <div
+          ref={containerRef}
+          className={rootClassName}
+          data-trigger-source={triggerSource}
+          data-source-label={systemSourceLabel}
+        >
           {/* Line 1: icon + source label (agent type · session name) */}
           <div className="user-message-item__system-header">
             <span
-              className="user-message-item__agentic-os-icon"
+              className={isGoalSource ? 'user-message-item__goal-icon' : 'user-message-item__agentic-os-icon'}
               aria-label={systemSourceLabel}
               title={systemSourceLabel}
             >
-              <Orbit size={12} strokeWidth={2} />
+              {isGoalSource ? <Flag size={12} strokeWidth={2} /> : <Orbit size={12} strokeWidth={2} />}
             </span>
             <span className="user-message-item__source-info">
               {sourceSessionInfo ? (

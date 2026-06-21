@@ -75,6 +75,51 @@
       "archived": "已归档"
     }
   },
+  "goal": {
+    "title": "目标",
+    "untitled": "当前目标",
+    "failed": "目标更新失败：{{error}}",
+    "unknownError": "未知错误",
+    "cancelled": "目标更新已取消",
+    "interrupted": "目标更新已中断",
+    "accepted": "已接受",
+    "notAccepted": "未接受",
+    "revision": "r{{revision}}",
+    "gapCount": "{{count}} 项缺口",
+    "summary": {
+      "get": "已查看目标状态",
+      "note": "已记录进展说明",
+      "blocked": "已报告阻塞"
+    },
+    "pending": {
+      "get": "正在查看目标状态...",
+      "note": "正在记录说明...",
+      "blocked": "正在报告阻塞..."
+    },
+    "sections": {
+      "blocker": "阻塞原因",
+      "progressNote": "进展说明",
+      "note": "说明",
+      "judgment": "评审",
+      "remainingGaps": "剩余缺口"
+    },
+    "statuses": {
+      "active": "进行中",
+      "judging": "评审中",
+      "waiting_user": "等待用户",
+      "paused": "已暂停",
+      "blocked": "已阻塞",
+      "budget_limited": "预算受限",
+      "completed": "已完成",
+      "cancelled": "已取消"
+    },
+    "judgeStates": {
+      "pass": "已通过",
+      "continue": "进行中",
+      "needs_user": "需要用户",
+      "blocked": "受阻"
+    }
+  },
   "memory": {
     "title": "记忆",
     "preparing": "准备保存记忆",

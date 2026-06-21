@@ -5,6 +5,10 @@ import type { InputAction } from '../../../reducers/inputReducer';
 import type { AgentAction, AgentInfo } from '../../../reducers/agentReducer';
 import type { RichTextInputHandle } from '../../RichTextInput';
 import type { SlashMcpPromptItem } from '../model/composerCommands';
+import {
+  buildInputForSelectedBuiltinSlashCommand,
+  type BuiltinSlashCommandContext,
+} from '../model/builtinSlashCommands';
 import type { ComposerSlashCommandState } from '../model/composerState';
 
 const closedSlashState: ComposerSlashCommandState = {
@@ -17,11 +21,11 @@ const closedSlashState: ComposerSlashCommandState = {
 export function useComposerAgentActions({
   canSwitchAgents,
   currentAgent,
+  builtinCommandContext,
   dispatchInput,
   dispatchMode,
   effectiveTargetSessionId,
   inputValue,
-  isBtwSession,
   richTextInputRef,
   setQueuedInput,
   setSlashCommandState,
@@ -29,11 +33,11 @@ export function useComposerAgentActions({
 }: {
   canSwitchAgents: boolean;
   currentAgent: string;
+  builtinCommandContext: BuiltinSlashCommandContext;
   dispatchInput: Dispatch<InputAction>;
   dispatchMode: Dispatch<AgentAction>;
   effectiveTargetSessionId?: string | null;
   inputValue: string;
-  isBtwSession: boolean;
   richTextInputRef: RefObject<RichTextInputHandle | null>;
   setQueuedInput: (value: string | null) => void;
   setSlashCommandState: Dispatch<SetStateAction<ComposerSlashCommandState>>;
@@ -73,31 +77,13 @@ export function useComposerAgentActions({
   }, [dispatchInput, requestAgentChange, setSlashCommandState]);
 
   const selectSlashCommandAction = useCallback((actionId: string) => {
-    const raw = inputValue || '';
-    const lower = raw.trimStart().toLowerCase();
-    let next = raw;
+    const next = buildInputForSelectedBuiltinSlashCommand(
+      actionId,
+      inputValue || '',
+      builtinCommandContext,
+    );
 
-    if (actionId === 'btw') {
-      if (isBtwSession) {
-        return;
-      }
-      if (!lower.startsWith('/btw')) {
-        next = '/btw ';
-      } else {
-        const match = raw.match(/^(\s*)\/btw\b/i);
-        if (match) {
-          const leadingWs = match[1] || '';
-          const rest = raw.slice(match[0].length);
-          next = `${leadingWs}/btw ${rest.trimStart()}`;
-        } else {
-          next = '/btw ';
-        }
-      }
-    } else if (actionId === 'compact') {
-      next = '/compact';
-    } else if (actionId === 'init') {
-      next = '/init';
-    } else {
+    if (next === null) {
       return;
     }
 
@@ -106,9 +92,9 @@ export function useComposerAgentActions({
     setSlashCommandState(closedSlashState);
     window.setTimeout(() => richTextInputRef.current?.focus(), 0);
   }, [
+    builtinCommandContext,
     dispatchInput,
     inputValue,
-    isBtwSession,
     richTextInputRef,
     setQueuedInput,
     setSlashCommandState,

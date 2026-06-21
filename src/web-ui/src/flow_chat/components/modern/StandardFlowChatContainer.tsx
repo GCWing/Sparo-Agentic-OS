@@ -31,6 +31,8 @@ type StandardFlowChatContainerProps = UseFlowChatCoreOptions & {
 
 export const StandardFlowChatContainer: React.FC<StandardFlowChatContainerProps> = ({
   className = '',
+  sessionId,
+  workspacePath,
   config,
   onFileViewRequest,
   onTabOpen,
@@ -39,6 +41,8 @@ export const StandardFlowChatContainer: React.FC<StandardFlowChatContainerProps>
 }) => {
   const core = useFlowChatCore({
     initialTurnListOpen: false,
+    sessionId,
+    workspacePath,
     config,
     onFileViewRequest,
     onTabOpen,
@@ -142,6 +146,7 @@ export const StandardFlowChatContainer: React.FC<StandardFlowChatContainerProps>
             <FlowChatHeader
               visible={!!activeSession}
               sessionId={activeSession?.sessionId}
+              workspacePath={activeSession?.workspacePath ?? workspacePath ?? undefined}
               turns={turnSummaries}
               onJumpToTurn={handleJumpToTurn}
               searchQuery={searchQuery}

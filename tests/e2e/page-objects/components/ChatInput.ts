@@ -8,7 +8,7 @@ export class ChatInput extends BasePage {
   private selectors = {
     container: '[data-testid="chat-input-container"], .bitfun-chat-input, .chat-input-container, .chat-input',
     textarea: '.rich-text-input[contenteditable="true"], [data-testid="chat-input-textarea"], .bitfun-chat-input [contenteditable="true"], .chat-input textarea, textarea[class*="chat"]',
-    sendBtn: '[data-testid="chat-input-send-btn"], button.bitfun-chat-input__send-button, button.chat-input__send-btn, button[class*="send"]',
+    sendBtn: '[data-testid="chat-input-send-btn"], [data-testid="chat-input-queue-btn"], button.bitfun-chat-input__send-button, button.chat-input__send-btn, button[class*="send"]:not([data-testid="chat-input-cancel-btn"])',
     attachmentBtn: '[data-testid="chat-input-attachment-btn"], .chat-input__attachment-btn',
     cancelBtn: '[data-testid="chat-input-cancel-btn"], .bitfun-chat-input__send-button--breathing, .chat-input__cancel-btn, button[class*="cancel"]',
   };
@@ -187,9 +187,10 @@ export class ChatInput extends BasePage {
   async clickSend(): Promise<void> {
     const selectors = [
       '[data-testid="chat-input-send-btn"]',
+      '[data-testid="chat-input-queue-btn"]',
       'button.bitfun-chat-input__send-button',
       'button.chat-input__send-btn',
-      'button[class*="send"]',
+      'button[class*="send"]:not([data-testid="chat-input-cancel-btn"])',
       'button[aria-label*="send" i]',
       'button[aria-label*="发送" i]',
     ];
@@ -222,9 +223,10 @@ export class ChatInput extends BasePage {
   async isSendButtonEnabled(): Promise<boolean> {
     const selectors = [
       '[data-testid="chat-input-send-btn"]',
+      '[data-testid="chat-input-queue-btn"]',
       'button.bitfun-chat-input__send-button',
       'button.chat-input__send-btn',
-      'button[class*="send"]',
+      'button[class*="send"]:not([data-testid="chat-input-cancel-btn"])',
       'button[aria-label*="send" i]',
       'button[aria-label*="发送" i]',
     ];

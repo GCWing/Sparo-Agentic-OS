@@ -335,6 +335,21 @@
       "designTokens": "Design Tokens",
       "liveAppStudio": "Live App Builder",
       "agentAppStudio": "Agent App Builder"
+    },
+    "goalPanel": {
+      "open": "Goal details",
+      "close": "Close goal details",
+      "title": "Goal",
+      "status": "Status",
+      "revision": "Revision",
+      "extraction": "Extraction",
+      "judge": "Judge",
+      "noExtraction": "No extraction yet",
+      "noJudgment": "No judgment yet",
+      "fallbackMessage": "AI goal extraction failed; using your input as the goal.",
+      "gaps": "Remaining gaps",
+      "noGaps": "No recorded gaps",
+      "judgments": "{{count}} judgments"
     }
   },
   "turnList": {

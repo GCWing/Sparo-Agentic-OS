@@ -2,15 +2,18 @@ import { useCallback } from 'react';
 import type { TFunction } from 'i18next';
 import type { AgentInfo } from '../../../reducers/agentReducer';
 import type {
-  SlashActionItem,
   SlashMcpPromptItem,
   SlashAgentItem,
   SlashPickerItem,
 } from '../model/composerCommands';
+import {
+  getBuiltinSlashActionItems,
+  type BuiltinSlashCommandContext,
+} from '../model/builtinSlashCommands';
 
 interface UseComposerCommandCatalogParams {
   t: TFunction<'flow-chat'>;
-  isBtwSession: boolean;
+  builtinCommandContext: BuiltinSlashCommandContext;
   canSwitchAgents: boolean;
   incrementalCodeAgents: AgentInfo[];
   mcpPromptCommands: SlashMcpPromptItem[];
@@ -19,44 +22,15 @@ interface UseComposerCommandCatalogParams {
 
 export function useComposerCommandCatalog({
   t,
-  isBtwSession,
+  builtinCommandContext,
   canSwitchAgents,
   incrementalCodeAgents,
   mcpPromptCommands,
   query,
 }: UseComposerCommandCatalogParams) {
   const getFilteredActions = useCallback(() => {
-    const items: SlashActionItem[] = [
-      ...(isBtwSession
-        ? []
-        : [{
-            kind: 'action' as const,
-            id: 'btw',
-            command: '/btw',
-            label: t('btw.title', { defaultValue: 'Side question' }),
-          }]),
-      {
-        kind: 'action',
-        id: 'compact',
-        command: '/compact',
-        label: t('chatInput.compactAction', { defaultValue: 'Compact session' }),
-      },
-      {
-        kind: 'action',
-        id: 'init',
-        command: '/init',
-        label: t('chatInput.initAction', { defaultValue: 'Generate AGENTS.md' }),
-      },
-    ];
-
-    const q = (query || '').trim().toLowerCase();
-    if (!q) return items;
-
-    return items.filter(i => {
-      const cmd = i.command.slice(1).toLowerCase();
-      return cmd.includes(q) || i.label.toLowerCase().includes(q);
-    });
-  }, [isBtwSession, query, t]);
+    return getBuiltinSlashActionItems(t, builtinCommandContext, query);
+  }, [builtinCommandContext, query, t]);
 
   const getFilteredMcpPromptCommands = useCallback((): SlashMcpPromptItem[] => {
     const q = (query || '').trim().toLowerCase();

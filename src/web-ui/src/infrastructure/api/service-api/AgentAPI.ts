@@ -3,7 +3,7 @@
 import { api } from './ApiClient';
 import { createTauriCommandError } from '../errors/TauriCommandError';
 import type { ImageContextData as ImageInputContextData } from './ImageContextTypes';
-import type { SessionStorageScope } from '@/shared/types/session-history';
+import type { SessionStorageScope, TriggerSource } from '@/shared/types/session-history';
 
 
 
@@ -61,6 +61,7 @@ export interface StartDialogTurnRequest {
   systemReminderOverride?: string;
   persistAgentType?: boolean;
   workspacePath?: string;
+  triggerSource?: TriggerSource;
   /** Optional multimodal image contexts (snake_case fields, aligned with backend ImageContextData). */
   imageContexts?: ImageInputContextData[];
 }

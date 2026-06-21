@@ -7,6 +7,7 @@ import { FlowChatStore } from '../../store/FlowChatStore';
 import { stateMachineManager } from '../../state-machine';
 import { SessionExecutionEvent, SessionExecutionState } from '../../state-machine/types';
 import { useSessionTurnQueueStore } from '../../store/sessionTurnQueueStore';
+import { useSessionGoalStore } from '../../store/sessionGoalStore';
 import { agenticEventListener, type AgenticEventCallbacks } from '../AgenticEventListener';
 import { 
   generateTextChunkKey, 
@@ -367,7 +368,10 @@ export async function initializeEventListeners(
     },
     onSessionModelAutoMigrated: (event) => {
       handleSessionModelAutoMigrated(event);
-    }
+    },
+    onGoalEvent: (event) => {
+      useSessionGoalStore.getState().applyGoalEvent(event);
+    },
   };
 
   await agenticEventListener.startListening(callbacks);

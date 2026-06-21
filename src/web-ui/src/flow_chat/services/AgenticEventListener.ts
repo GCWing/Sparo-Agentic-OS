@@ -8,6 +8,7 @@
  */
 
 import { agentAPI } from '@/infrastructure/api/service-api/AgentAPI';
+import { goalAPI, type GoalLifecycleEvent } from '@/infrastructure/api/service-api/GoalAPI';
 import { api } from '@/infrastructure/api/service-api/ApiClient';
 import type {
   TextChunkEvent,
@@ -61,6 +62,7 @@ export interface AgenticEventCallbacks {
   onContextCompressionFailed?: (event: AgenticEvent) => void;
   onSessionTitleGenerated?: (event: SessionTitleGeneratedEvent) => void;
   onSessionModelAutoMigrated?: (event: SessionModelAutoMigratedEvent) => void;
+  onGoalEvent?: (event: GoalLifecycleEvent) => void;
 }
 
 export class AgenticEventListener {
@@ -308,6 +310,14 @@ export class AgenticEventListener {
         const unlisten = agentAPI.onSessionModelAutoMigrated((event) => {
           logger.info('Session model auto-migrated:', event);
           callbacks.onSessionModelAutoMigrated?.(event);
+        });
+        this.unlistenFunctions.push(unlisten);
+      }
+
+      if (callbacks.onGoalEvent) {
+        const unlisten = goalAPI.onGoalEvent((event) => {
+          logger.debug('Goal lifecycle event:', event);
+          callbacks.onGoalEvent?.(event);
         });
         this.unlistenFunctions.push(unlisten);
       }

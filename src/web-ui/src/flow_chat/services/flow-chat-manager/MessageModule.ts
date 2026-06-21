@@ -88,6 +88,46 @@ async function ensureStartedProjection(sessionId: string, dialogTurnId: string):
   });
 }
 
+function scheduleSubmittedTurnProjectionCheck(
+  context: FlowChatContext,
+  sessionId: string,
+  dialogTurnId: string,
+): void {
+  const checkProjection = async () => {
+    const session = context.flowChatStore.getState().sessions.get(sessionId);
+    if (!session || session.dialogTurns.some(turn => turn.id === dialogTurnId)) {
+      return;
+    }
+
+    const workspacePath = session.workspacePath?.trim();
+    if (!workspacePath) {
+      return;
+    }
+
+    try {
+      await context.flowChatStore.loadSessionHistory(
+        sessionId,
+        workspacePath,
+        undefined,
+        session.storageScope,
+      );
+      log.info('Recovered submitted dialog turn from persisted history', {
+        sessionId,
+        dialogTurnId,
+      });
+    } catch (error) {
+      log.warn('Failed to recover submitted dialog turn projection', {
+        sessionId,
+        dialogTurnId,
+        error,
+      });
+    }
+  };
+
+  globalThis.setTimeout(() => { void checkProjection(); }, 250);
+  globalThis.setTimeout(() => { void checkProjection(); }, 1500);
+}
+
 function normalizeModelSelection(
   modelId: string | undefined,
   models: AIModelConfig[],
@@ -168,6 +208,7 @@ export async function sendMessage(
     systemReminderOverride?: string;
     metadata?: Record<string, any>;
     triggerSource?: import('@/shared/types/session-history').TriggerSource;
+    localDialogTurnId?: string;
   }
 ): Promise<void> {
   const session = context.flowChatStore.getState().sessions.get(sessionId);
@@ -229,7 +270,9 @@ export async function sendMessage(
     }
 
     const isFirstMessage = readySession.dialogTurns.length === 0 && readySession.titleStatus !== 'generated';
-    const dialogTurnId = `dialog_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const dialogTurnId =
+      options?.localDialogTurnId?.trim() ||
+      `dialog_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const hasImages = (options?.imageContexts?.length ?? 0) > 0;
 
     const dialogTurn: DialogTurn = {
@@ -290,6 +333,7 @@ export async function sendMessage(
         systemReminderOverride: options?.systemReminderOverride,
         persistAgentType,
         workspacePath,
+        triggerSource: options?.triggerSource,
         imageContexts: options?.imageContexts,
       });
     } catch (error: any) {
@@ -310,6 +354,7 @@ export async function sendMessage(
           systemReminderOverride: options?.systemReminderOverride,
           persistAgentType,
           workspacePath,
+          triggerSource: options?.triggerSource,
           imageContexts: options?.imageContexts,
         });
       } else {
@@ -350,6 +395,7 @@ export async function sendMessage(
 
       context.contentBuffers.set(sessionId, new Map());
       context.activeTextItems.set(sessionId, new Map());
+      scheduleSubmittedTurnProjectionCheck(context, sessionId, dialogTurnId);
     } else {
       log.info('Dialog turn queued by scheduler', { sessionId, dialogTurnId });
       context.flowChatStore.deleteDialogTurn(sessionId, dialogTurnId);

@@ -128,6 +128,7 @@ async fn archive_session_daily_summary(
 /// Contains the text response after subagent execution
 #[derive(Debug, Clone)]
 pub struct SubagentResult {
+    pub session_id: String,
     /// AI text response
     pub text: String,
 }
@@ -142,6 +143,7 @@ struct HiddenSubagentExecutionRequest {
     subagent_parent_info: Option<SubagentParentInfo>,
     context: HashMap<String, String>,
     runtime_tool_restrictions: ToolRuntimeRestrictions,
+    enable_tools_override: Option<bool>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -156,6 +158,7 @@ pub enum DialogTriggerSource {
     DesktopUi,
     DesktopApi,
     AgentSession,
+    Goal,
     WorkMessage,
     ScheduledJob,
     RemoteRelay,
@@ -1536,6 +1539,7 @@ impl ConversationCoordinator {
                 DialogTriggerSource::DesktopUi => "desktop_ui",
                 DialogTriggerSource::DesktopApi => "desktop_api",
                 DialogTriggerSource::AgentSession => "agent_session",
+                DialogTriggerSource::Goal => "goal",
                 DialogTriggerSource::WorkMessage => "work_message",
                 DialogTriggerSource::ScheduledJob => "scheduled_job",
                 DialogTriggerSource::Bot => "bot",
@@ -1633,6 +1637,7 @@ impl ConversationCoordinator {
                 .as_deref()
                 .map(std::path::Path::new),
         );
+
         let execution_context = ExecutionContext {
             session_id: session_id.clone(),
             dialog_turn_id: turn_id.clone(),
@@ -1991,6 +1996,7 @@ impl ConversationCoordinator {
                     runtime_tool_restrictions: build_session_summary_runtime_restrictions(
                         &summary_path.to_string_lossy().replace('\\', "/"),
                     ),
+                    enable_tools_override: None,
                     max_turns: Some(SESSION_SUMMARY_FORK_MAX_TURNS),
                 },
                 Some(cancel_token),
@@ -2144,6 +2150,7 @@ impl ConversationCoordinator {
                         runtime_tool_restrictions: build_auto_memory_runtime_restrictions(
                             &memory_dir.to_string_lossy(),
                         ),
+                        enable_tools_override: None,
                         max_turns: Some(AUTO_MEMORY_FORK_MAX_TURNS),
                     },
                     Some(cancel_token),
@@ -2437,7 +2444,13 @@ impl ConversationCoordinator {
             subagent_parent_info,
             context,
             runtime_tool_restrictions,
+            enable_tools_override,
         } = request;
+
+        let mut session_config = session_config;
+        if let Some(enable_tools) = enable_tools_override {
+            session_config.enable_tools = enable_tools;
+        }
 
         let session = self
             .create_hidden_subagent_session(
@@ -2500,6 +2513,10 @@ impl ConversationCoordinator {
                 .as_deref()
                 .map(std::path::Path::new),
         );
+        let mut context = context;
+        if let Some(enable_tools) = enable_tools_override {
+            context.insert("enable_tools".to_string(), enable_tools.to_string());
+        }
         let execution_context = ExecutionContext {
             session_id: session.session_id.clone(),
             dialog_turn_id: dialog_turn_id.clone(),
@@ -2571,6 +2588,7 @@ impl ConversationCoordinator {
         }
 
         Ok(SubagentResult {
+            session_id: session.session_id,
             text: response_text,
         })
     }
@@ -3025,12 +3043,14 @@ impl ConversationCoordinator {
                     subagent_parent_info: None,
                     context: request.context,
                     runtime_tool_restrictions: request.runtime_tool_restrictions,
+                    enable_tools_override: request.enable_tools_override,
                 },
                 cancel_token,
             )
             .await?;
 
         Ok(ForkAgentExecutionResult {
+            session_id: child_result.session_id,
             text: child_result.text,
             inherited_message_count,
             prompt_message_count,
@@ -3077,6 +3097,7 @@ impl ConversationCoordinator {
                 subagent_parent_info: Some(subagent_parent_info),
                 context: context.unwrap_or_default(),
                 runtime_tool_restrictions: ToolRuntimeRestrictions::default(),
+                enable_tools_override: None,
             },
             cancel_token,
         )
@@ -3108,6 +3129,7 @@ impl ConversationCoordinator {
                     subagent_parent_info: None,
                     context: HashMap::new(),
                     runtime_tool_restrictions,
+                    enable_tools_override: None,
                 },
                 cancel_token,
             )

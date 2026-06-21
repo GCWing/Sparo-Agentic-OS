@@ -27,5 +27,61 @@
   "switchSession": "Switch Session",
   "create": "Create New Session",
   "more": "More Sessions",
-  "restoreMain": "Restore Main Window"
+  "restoreMain": "Restore Main Window",
+  "goal": {
+    "ariaLabel": "Active goal",
+    "label": "Goal",
+    "pendingObjective": "Extracting goal...",
+    "pause": "Pause",
+    "resume": "Resume",
+    "review": "Review",
+    "clear": "Clear",
+    "gap": "{{count}} gap",
+    "gap_plural": "{{count}} gaps",
+    "budget": "{{used}}/{{max}} turns",
+    "revision": "r{{revision}}",
+    "status": {
+      "active": "Active",
+      "judging": "Judging",
+      "waiting_user": "Waiting",
+      "paused": "Paused",
+      "blocked": "Blocked",
+      "budget_limited": "Budget limited",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "phase": {
+      "extracting": "Extracting",
+      "judging": "Judging",
+      "active": "Active",
+      "waiting_user": "Waiting",
+      "paused": "Paused",
+      "blocked": "Blocked",
+      "budget_limited": "Budget limited",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "failed": "Failed",
+      "needs_clarification": "Needs clarification",
+      "rejected": "Rejected"
+    },
+    "extractionStatus": {
+      "queued": "queued",
+      "running": "running",
+      "accepted": "accepted",
+      "needs_clarification": "needs clarification",
+      "rejected": "rejected",
+      "failed": "failed"
+    },
+    "judgeStatus": {
+      "queued": "queued",
+      "running": "running",
+      "decided": "decided",
+      "rejected": "rejected",
+      "failed": "failed",
+      "pass": "passed",
+      "continue": "in progress",
+      "needs_user": "needs user",
+      "blocked": "blocked"
+    }
+  }
 }

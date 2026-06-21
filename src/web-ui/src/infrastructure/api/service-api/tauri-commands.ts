@@ -81,6 +81,10 @@ export interface ExecuteToolRequest {
   toolName: string;
   parameters: any;
   workspacePath?: string;
+  sessionId?: string;
+  dialogTurnId?: string;
+  agentType?: string;
+  context?: Record<string, string>;
 }
 
 export interface ValidateToolInputRequest {

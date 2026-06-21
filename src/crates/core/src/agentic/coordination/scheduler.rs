@@ -82,6 +82,7 @@ impl DialogSubmissionPolicy {
     pub const fn for_source(trigger_source: DialogTriggerSource) -> Self {
         let (queue_priority, skip_tool_confirmation) = match trigger_source {
             DialogTriggerSource::AgentSession => (DialogQueuePriority::Low, true),
+            DialogTriggerSource::Goal => (DialogQueuePriority::Low, true),
             DialogTriggerSource::WorkMessage => (DialogQueuePriority::Normal, true),
             DialogTriggerSource::ScheduledJob => (DialogQueuePriority::Low, true),
             DialogTriggerSource::DesktopUi
@@ -478,6 +479,10 @@ impl DialogScheduler {
         self.queues.get(session_id).map(|q| q.len()).unwrap_or(0)
     }
 
+    pub fn session_manager(&self) -> &Arc<SessionManager> {
+        &self.session_manager
+    }
+
     /// Drop any queued dialog turns for a session (used when abandoning stale work).
     pub fn clear_session_queue(&self, session_id: &str) {
         self.clear_queue(session_id);
@@ -563,6 +568,58 @@ impl DialogScheduler {
         }
         self.emit_queue_deleted(session_id, turn_id, deleted).await;
         true
+    }
+
+    pub async fn delete_queued_goal_turns(
+        &self,
+        session_id: &str,
+        except_turn_id: Option<&str>,
+    ) -> usize {
+        let deleted = {
+            let Some(mut queue) = self.queues.get_mut(session_id) else {
+                return 0;
+            };
+
+            let mut deleted_turn_ids = Vec::new();
+            let mut index = 0;
+            while index < queue.len() {
+                let should_delete = queue.get(index).is_some_and(|turn| {
+                    turn.policy.trigger_source == DialogTriggerSource::Goal
+                        && turn.turn_id() != except_turn_id
+                });
+                if should_delete {
+                    if let Some(removed) = queue.remove(index) {
+                        if let Some(turn_id) = removed.turn_id {
+                            deleted_turn_ids.push(turn_id);
+                        }
+                    }
+                } else {
+                    index += 1;
+                }
+            }
+
+            let remaining = queue.len();
+            if remaining == 0 {
+                drop(queue);
+                self.queues.remove(session_id);
+            }
+            (deleted_turn_ids, remaining)
+        };
+
+        let (deleted_turn_ids, remaining) = deleted;
+        if deleted_turn_ids.is_empty() {
+            return 0;
+        }
+
+        if remaining == 0 {
+            self.queue_pauses.remove(session_id);
+            self.round_yield_flags.clear(session_id);
+        }
+        for turn_id in &deleted_turn_ids {
+            self.emit_queue_deleted(session_id, turn_id, remaining)
+                .await;
+        }
+        deleted_turn_ids.len()
     }
 
     pub async fn guide_queued_turn(

@@ -222,6 +222,29 @@
   }
 }
 
+.user-message-item--goal {
+  --user-message-goal-accent: var(--border-accent-strong, var(--border-accent));
+  --user-message-goal-bg: var(--border-accent-subtle, var(--ds-chat-surface-muted));
+
+  opacity: 0.9;
+  border-color: color-mix(in srgb, var(--user-message-goal-accent) 20%, transparent);
+  background: color-mix(in srgb, var(--user-message-goal-bg) 54%, transparent);
+
+  &:hover:not(.user-message-item--expanded) {
+    border-color: color-mix(in srgb, var(--user-message-goal-accent) 28%, transparent);
+  }
+
+  .user-message-item__source-agent-type,
+  .user-message-item__source-session-name,
+  .user-message-item__source-sep {
+    color: var(--ds-chat-text-secondary);
+  }
+
+  .user-message-item__system-content {
+    color: var(--ds-chat-text-primary);
+  }
+}
+
 .user-message-item--editing {
   opacity: 1;
   border-color: transparent;
@@ -385,8 +408,22 @@
   }
 }
 
+.user-message-item__goal-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--border-accent-strong, var(--border-accent));
+  user-select: none;
+
+  svg {
+    display: block;
+  }
+}
+
 // All source variants: no distinct colors, handled by --system.
 .user-message-item--agent-session,
+.user-message-item--goal,
 .user-message-item--work-message,
 .user-message-item--outcome-review,
 .user-message-item--scheduled-job,

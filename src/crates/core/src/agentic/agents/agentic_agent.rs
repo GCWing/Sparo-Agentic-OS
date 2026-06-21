@@ -16,6 +16,7 @@ impl AgenticAgent {
     pub fn new() -> Self {
         Self {
             default_tools: vec![
+                "Goal".to_string(),
                 "Task".to_string(),
                 "Read".to_string(),
                 "Write".to_string(),
