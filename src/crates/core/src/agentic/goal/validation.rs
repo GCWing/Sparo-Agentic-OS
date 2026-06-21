@@ -70,7 +70,8 @@ impl GoalValidationGate {
 
     /// Deterministic consistency gate over a judge verdict. This is what keeps a
     /// drifting judge honest: a `pass` must actually mark every required
-    /// criterion as met, and a non-terminal verdict must be actionable.
+    /// criterion as met, and a non-terminal verdict must explain the closure
+    /// gaps that keep the loop from stopping.
     pub fn validate_verdict(record: &GoalRecord, verdict: &GoalVerdict) -> BitFunResult<()> {
         if verdict.confidence < 0.3 {
             return Err(BitFunError::validation("Verdict confidence is too low"));
@@ -102,9 +103,9 @@ impl GoalValidationGate {
                 }
             }
             GoalVerdictState::Continue => {
-                if verdict.next_steering.trim().is_empty() && verdict.remaining_gaps.is_empty() {
+                if verdict.remaining_gaps.is_empty() {
                     return Err(BitFunError::validation(
-                        "Continue verdict must provide next steering or remaining gaps",
+                        "Continue verdict must provide remaining gaps",
                     ));
                 }
             }
@@ -120,7 +121,13 @@ impl GoalValidationGate {
                     ));
                 }
             }
-            GoalVerdictState::Blocked => {}
+            GoalVerdictState::Blocked => {
+                if verdict.remaining_gaps.is_empty() {
+                    return Err(BitFunError::validation(
+                        "Blocked verdict must describe at least one remaining gap",
+                    ));
+                }
+            }
         }
         Ok(())
     }

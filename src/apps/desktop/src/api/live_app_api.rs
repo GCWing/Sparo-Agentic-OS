@@ -8,7 +8,7 @@ use bitfun_core::agent_app::AgentAppManager;
 use bitfun_core::agentic::agents::build_ppt_live_private_prompt;
 use bitfun_core::agentic::coordination::{
     ConversationCoordinator, DialogScheduler, DialogSubmissionPolicy, DialogSubmitOutcome,
-    DialogTriggerSource,
+    DialogTriggerSource, SessionControlActor, TurnCancellationReason,
 };
 use bitfun_core::agentic::core::{SessionConfig, SessionState, SessionStorageScope};
 use bitfun_core::agentic_os::work::{default_work_store, WorkService};
@@ -1706,8 +1706,13 @@ async fn cancel_ppt_live_session_work(
         scheduler.clear_session_queue(session_id);
     }
 
-    let cancelled = coordinator
-        .cancel_active_turn_for_session(session_id, Duration::from_secs(2))
+    let cancelled = scheduler
+        .cancel_active_turn_for_session(
+            session_id,
+            TurnCancellationReason::Superseded,
+            SessionControlActor::System,
+            Duration::from_secs(2),
+        )
         .await
         .map_err(|e| format!("Failed to cancel active PPT Live turn: {}", e))?;
 
@@ -1724,8 +1729,13 @@ async fn cancel_ppt_live_session_work(
     else {
         return Ok(None);
     };
-    coordinator
-        .cancel_dialog_turn(session_id, current_turn_id)
+    scheduler
+        .cancel_dialog_turn(
+            session_id,
+            current_turn_id,
+            TurnCancellationReason::Superseded,
+            SessionControlActor::System,
+        )
         .await
         .map_err(|e| format!("Failed to cancel processing PPT Live turn: {}", e))?;
     Ok(Some(current_turn_id.clone()))
@@ -2296,7 +2306,7 @@ pub async fn live_app_backend_status(
 
 #[tauri::command]
 pub async fn live_app_backend_cancel_run(
-    coordinator: State<'_, Arc<ConversationCoordinator>>,
+    scheduler: State<'_, Arc<DialogScheduler>>,
     state: State<'_, AppState>,
     request: LiveAppBackendRunRequest,
 ) -> Result<Value, String> {
@@ -2338,8 +2348,13 @@ pub async fn live_app_backend_cancel_run(
             "backend.cancelRun requires turnId for Agent App backend runs".to_string()
         })?;
 
-    coordinator
-        .cancel_dialog_turn(session_id, turn_id)
+    scheduler
+        .cancel_dialog_turn(
+            session_id,
+            turn_id,
+            TurnCancellationReason::UserRequested,
+            SessionControlActor::User,
+        )
         .await
         .map_err(|e| format!("Failed to cancel backend run: {}", e))?;
 

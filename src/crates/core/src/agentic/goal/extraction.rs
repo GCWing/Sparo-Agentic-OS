@@ -302,7 +302,6 @@ fn deterministic_verdict(run: &GoalJudgeRun) -> GoalVerdict {
                 })
                 .collect(),
             remaining_gaps: Vec::new(),
-            next_steering: String::new(),
             user_question: None,
             confidence: 0.95,
         }
@@ -323,9 +322,6 @@ fn deterministic_verdict(run: &GoalJudgeRun) -> GoalVerdict {
             remaining_gaps: vec![
                 "Deterministic judge requires the e2e-pass sentinel in the objective.".to_string(),
             ],
-            next_steering:
-                "Continue the goal. Update the objective to include 'e2e-pass' to complete in the e2e profile."
-                    .to_string(),
             user_question: None,
             confidence: 0.9,
         }

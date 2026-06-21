@@ -7,6 +7,7 @@
 //! goal, drop a progress note, or report a blocker) and can never claim
 //! completion.
 
+pub mod extension;
 pub mod extraction;
 pub mod fork_message;
 pub mod goal_loop;
@@ -17,11 +18,11 @@ pub mod output_parser;
 pub mod service;
 pub mod steering;
 pub mod store;
-pub mod subscriber;
 pub mod validation;
 
 use std::sync::{Arc, OnceLock};
 
+pub use extension::GoalSessionExtension;
 pub use extraction::{
     test_e2e_runner_enabled, CoordinatorGoalForkRunner, DeterministicGoalForkRunner,
     GoalExtractionRunOutput, GoalExtractionRunRequest, GoalForkRunner, GoalJudgeRunOutput,
@@ -30,7 +31,6 @@ pub use extraction::{
 pub use model::*;
 pub use service::GoalService;
 pub use store::GoalStore;
-pub use subscriber::GoalEventSubscriber;
 
 static GLOBAL_GOAL_SERVICE: OnceLock<Arc<GoalService>> = OnceLock::new();
 

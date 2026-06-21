@@ -1798,7 +1798,10 @@ impl RemoteExecutionDispatcher {
         session_id: &str,
         requested_turn_id: Option<&str>,
     ) -> std::result::Result<(), String> {
-        use crate::agentic::coordination::get_global_coordinator;
+        use crate::agentic::coordination::{
+            get_global_coordinator, get_global_scheduler, SessionControlActor,
+            TurnCancellationReason,
+        };
 
         let coordinator = get_global_coordinator()
             .ok_or_else(|| "Desktop session system not ready".to_string())?;
@@ -1830,10 +1833,24 @@ impl RemoteExecutionDispatcher {
             (Some(current_turn_id), Some(req_id)) if req_id != current_turn_id => {
                 Err("This task is no longer running.".to_string())
             }
-            (Some(current_turn_id), _) => coordinator
-                .cancel_dialog_turn(session_id, &current_turn_id)
-                .await
-                .map_err(|e| e.to_string()),
+            (Some(current_turn_id), _) => {
+                if let Some(scheduler) = get_global_scheduler() {
+                    scheduler
+                        .cancel_dialog_turn(
+                            session_id,
+                            &current_turn_id,
+                            TurnCancellationReason::UserRequested,
+                            SessionControlActor::User,
+                        )
+                        .await
+                        .map_err(|e| e.to_string())
+                } else {
+                    coordinator
+                        .cancel_dialog_turn(session_id, &current_turn_id)
+                        .await
+                        .map_err(|e| e.to_string())
+                }
+            }
             (None, Some(_)) => Err("This task is already finished.".to_string()),
             (None, None) => Err(format!(
                 "No running task to cancel for session: {}",

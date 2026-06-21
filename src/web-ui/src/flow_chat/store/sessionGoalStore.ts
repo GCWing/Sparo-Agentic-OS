@@ -90,6 +90,17 @@ export function deriveGoalUiPhase(
   extraction?: GoalExtractionRun | null,
   judge?: GoalJudgeRun | null,
 ): GoalUiPhase {
+  if (
+    goal?.status === 'cancelled' ||
+    goal?.status === 'completed' ||
+    goal?.status === 'blocked' ||
+    goal?.status === 'budget_limited'
+  ) {
+    return goal.status;
+  }
+  if (goal?.status === 'paused' || goal?.status === 'waiting_user') {
+    return goal.status;
+  }
   if (judge?.status === 'queued' || judge?.status === 'running') {
     return 'judging';
   }

@@ -12,7 +12,9 @@ use tauri::State;
 
 use crate::api::app_state::AppState;
 
-use bitfun_core::agentic::coordination::ConversationCoordinator;
+use bitfun_core::agentic::coordination::{
+    ConversationCoordinator, DialogScheduler, SessionControlActor, TurnCancellationReason,
+};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -41,7 +43,7 @@ pub struct BtwCancelRequest {
 #[tauri::command]
 pub async fn btw_cancel(
     state: State<'_, AppState>,
-    coordinator: State<'_, Arc<ConversationCoordinator>>,
+    scheduler: State<'_, Arc<DialogScheduler>>,
     request: BtwCancelRequest,
 ) -> Result<(), String> {
     if request.request_id.trim().is_empty() {
@@ -57,8 +59,13 @@ pub async fn btw_cancel(
         .get_btw_turn(&request.request_id)
         .await
     {
-        coordinator
-            .cancel_dialog_turn(&active_turn.session_id, &active_turn.turn_id)
+        scheduler
+            .cancel_dialog_turn(
+                &active_turn.session_id,
+                &active_turn.turn_id,
+                TurnCancellationReason::UserRequested,
+                SessionControlActor::User,
+            )
             .await
             .map_err(|e| e.to_string())?;
         state

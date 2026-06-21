@@ -4,6 +4,11 @@
   "toolExecution": {
     "sectionTitle": "Tool execution behavior"
   },
+  "goalMode": {
+    "maxContinuationTurns": "Goal auto-run budget",
+    "maxContinuationTurnsDesc": "Maximum number of automatic continuation turns Goal mode can queue for each new goal.",
+    "turns": "turns"
+  },
   "computerUse": {
     "sectionTitle": "Computer use (desktop)",
     "enable": "Enable Computer use",

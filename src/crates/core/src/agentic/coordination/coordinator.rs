@@ -2,7 +2,10 @@
 //!
 //! Top-level component that integrates all subsystems and provides a unified interface
 
-use super::{scheduler::DialogSubmissionPolicy, turn_outcome::TurnOutcome};
+use super::{
+    scheduler::DialogSubmissionPolicy,
+    turn_outcome::{SessionControlActor, TurnCancellationReason, TurnOutcome},
+};
 use crate::agentic::agents::get_agent_registry;
 use crate::agentic::core::{
     has_prompt_markup, Message, MessageContent, ProcessingPhase, PromptEnvelope, Session,
@@ -31,6 +34,7 @@ use crate::agentic::memory::{
 };
 use crate::agentic::round_preempt::DialogRoundPreemptSource;
 use crate::agentic::session::SessionManager;
+use crate::agentic::session_hooks::{SessionHook, SessionHookBus, SessionHookKind};
 use crate::agentic::side_question::build_btw_user_input;
 use crate::agentic::tools::pipeline::{SubagentParentInfo, ToolPipeline};
 use crate::agentic::tools::ToolRuntimeRestrictions;
@@ -77,6 +81,23 @@ fn local_date_key_from_unix_ms(timestamp_ms: u64) -> String {
         .unwrap_or_else(chrono::Local::now)
         .format("%Y-%m-%d")
         .to_string()
+}
+
+async fn notify_scheduler_turn_outcome(
+    tx: &mpsc::Sender<(String, TurnOutcome)>,
+    session_id: &str,
+    outcome: TurnOutcome,
+    context: &str,
+) -> bool {
+    let turn_id = outcome.turn_id().to_string();
+    if let Err(error) = tx.send((session_id.to_string(), outcome)).await {
+        warn!(
+            "Failed to notify scheduler of {}: session_id={}, turn_id={}, error={}",
+            context, session_id, turn_id, error
+        );
+        return false;
+    }
+    true
 }
 
 async fn archive_session_daily_summary(
@@ -205,6 +226,7 @@ pub struct ConversationCoordinator {
     auto_memory_manager: Arc<AutoMemoryManager>,
     event_queue: Arc<EventQueue>,
     event_router: Arc<EventRouter>,
+    session_hook_bus: Arc<SessionHookBus>,
     /// Notifies DialogScheduler of turn outcomes; injected after construction
     scheduler_notify_tx: OnceLock<mpsc::Sender<(String, TurnOutcome)>>,
     /// Round-boundary yield (same source as scheduler's yield flags); injected after construction
@@ -471,6 +493,7 @@ impl ConversationCoordinator {
         tool_pipeline: Arc<ToolPipeline>,
         event_queue: Arc<EventQueue>,
         event_router: Arc<EventRouter>,
+        session_hook_bus: Arc<SessionHookBus>,
     ) -> Self {
         Self {
             session_manager,
@@ -479,6 +502,7 @@ impl ConversationCoordinator {
             auto_memory_manager: Arc::new(AutoMemoryManager::new()),
             event_queue,
             event_router,
+            session_hook_bus,
             scheduler_notify_tx: OnceLock::new(),
             round_preempt_source: OnceLock::new(),
             self_weak: OnceLock::new(),
@@ -1178,6 +1202,8 @@ impl ConversationCoordinator {
                 self.session_manager
                     .update_session_state(&session_id, SessionState::Idle)
                     .await?;
+                self.publish_session_execution_changed(&session_id, "idle")
+                    .await;
 
                 self.emit_event(AgenticEvent::DialogTurnCompleted {
                     session_id,
@@ -1218,6 +1244,8 @@ impl ConversationCoordinator {
                 let _ = self
                     .session_manager
                     .update_session_state(&session_id, SessionState::Idle)
+                    .await;
+                self.publish_session_execution_changed(&session_id, "idle")
                     .await;
                 self.emit_event(AgenticEvent::DialogTurnFailed {
                     session_id,
@@ -1726,6 +1754,18 @@ impl ConversationCoordinator {
                     },
                 )
                 .await;
+            if let Some(coord) = coordinator_for_spawn.as_ref() {
+                coord
+                    .publish_session_execution_changed(&session_id_clone, "processing")
+                    .await;
+                coord
+                    .publish_turn_progressed(
+                        &session_id_clone,
+                        &turn_id_clone,
+                        ProcessingPhase::Thinking,
+                    )
+                    .await;
+            }
 
             let workspace_turn_status = match execution_engine
                 .execute_dialog_turn(effective_agent_type_clone, messages, execution_context)
@@ -1759,6 +1799,11 @@ impl ConversationCoordinator {
                     let _ = session_manager
                         .update_session_state(&session_id_clone, SessionState::Idle)
                         .await;
+                    if let Some(coord) = coordinator_for_spawn.as_ref() {
+                        coord
+                            .publish_session_execution_changed(&session_id_clone, "idle")
+                            .await;
+                    }
 
                     let auto_memory_followup = handle_auto_memory_after_completed_turn(
                         session_manager.as_ref(),
@@ -1785,13 +1830,16 @@ impl ConversationCoordinator {
                     }
 
                     if let Some(tx) = &scheduler_notify_tx {
-                        let _ = tx.try_send((
-                            session_id_clone.clone(),
+                        notify_scheduler_turn_outcome(
+                            tx,
+                            &session_id_clone,
                             TurnOutcome::Completed {
                                 turn_id: turn_id_clone.clone(),
                                 final_response,
                             },
-                        ));
+                            "completed turn",
+                        )
+                        .await;
                     }
 
                     Some(crate::service::session::TurnStatus::Completed)
@@ -1829,14 +1877,24 @@ impl ConversationCoordinator {
                         let _ = session_manager
                             .update_session_state(&session_id_clone, SessionState::Idle)
                             .await;
+                        if let Some(coord) = coordinator_for_spawn.as_ref() {
+                            coord
+                                .publish_session_execution_changed(&session_id_clone, "idle")
+                                .await;
+                        }
 
                         if let Some(tx) = &scheduler_notify_tx {
-                            let _ = tx.try_send((
-                                session_id_clone.clone(),
+                            notify_scheduler_turn_outcome(
+                                tx,
+                                &session_id_clone,
                                 TurnOutcome::Cancelled {
                                     turn_id: turn_id_clone.clone(),
+                                    reason: TurnCancellationReason::Unknown,
+                                    actor: SessionControlActor::System,
                                 },
-                            ));
+                                "cancelled turn",
+                            )
+                            .await;
                         }
 
                         Some(crate::service::session::TurnStatus::Cancelled)
@@ -1873,15 +1931,23 @@ impl ConversationCoordinator {
                                 },
                             )
                             .await;
+                        if let Some(coord) = coordinator_for_spawn.as_ref() {
+                            coord
+                                .publish_session_execution_changed(&session_id_clone, "error")
+                                .await;
+                        }
 
                         if let Some(tx) = &scheduler_notify_tx {
-                            let _ = tx.try_send((
-                                session_id_clone.clone(),
+                            notify_scheduler_turn_outcome(
+                                tx,
+                                &session_id_clone,
                                 TurnOutcome::Failed {
                                     turn_id: turn_id_clone.clone(),
                                     error: error_text,
                                 },
-                            ));
+                                "failed turn",
+                            )
+                            .await;
                         }
 
                         Some(crate::service::session::TurnStatus::Error)
@@ -2201,16 +2267,53 @@ impl ConversationCoordinator {
         session_id: &str,
         dialog_turn_id: &str,
     ) -> BitFunResult<()> {
+        self.cancel_dialog_turn_with_reason(
+            session_id,
+            dialog_turn_id,
+            TurnCancellationReason::UserRequested,
+            SessionControlActor::User,
+        )
+        .await
+    }
+
+    pub async fn cancel_dialog_turn_with_reason(
+        &self,
+        session_id: &str,
+        dialog_turn_id: &str,
+        reason: TurnCancellationReason,
+        actor: SessionControlActor,
+    ) -> BitFunResult<()> {
         info!(
             "Received cancel request: dialog_turn_id={}, session_id={}",
             dialog_turn_id, session_id
         );
 
-        let old_state = self
-            .session_manager
-            .get_session(session_id)
-            .map(|s| format!("{:?}", s.state))
-            .unwrap_or_else(|| "Unknown".to_string());
+        let Some(session) = self.session_manager.get_session(session_id) else {
+            debug!(
+                "Ignoring cancel request because session is not loaded: session_id={}, dialog_turn_id={}",
+                session_id, dialog_turn_id
+            );
+            return Ok(());
+        };
+        let SessionState::Processing {
+            current_turn_id, ..
+        } = &session.state
+        else {
+            debug!(
+                "Ignoring cancel request because session has no active turn: session_id={}, dialog_turn_id={}",
+                session_id, dialog_turn_id
+            );
+            return Ok(());
+        };
+        if current_turn_id != dialog_turn_id {
+            debug!(
+                "Ignoring cancel request for non-active turn: session_id={}, requested_turn_id={}, active_turn_id={}",
+                session_id, dialog_turn_id, current_turn_id
+            );
+            return Ok(());
+        }
+
+        let old_state = format!("{:?}", session.state);
         debug!("Current state: {}", old_state);
 
         // Step 1: Immediately update session state to Idle (non-blocking, allows immediate new dialog)
@@ -2218,6 +2321,8 @@ impl ConversationCoordinator {
         self.session_manager
             .update_session_state(session_id, SessionState::Idle)
             .await?;
+        self.publish_session_execution_changed(session_id, "idle")
+            .await;
 
         let new_state = self
             .session_manager
@@ -2240,16 +2345,23 @@ impl ConversationCoordinator {
         // call returns, but by then active_turns will already have been removed, making
         // the second forward_agent_session_reply call a no-op.
         if let Some(tx) = self.scheduler_notify_tx.get() {
-            let _ = tx.try_send((
-                session_id.to_string(),
+            let notified = notify_scheduler_turn_outcome(
+                tx,
+                session_id,
                 TurnOutcome::Cancelled {
                     turn_id: dialog_turn_id.to_string(),
+                    reason,
+                    actor,
                 },
-            ));
-            debug!(
-                "Immediately notified scheduler of cancellation: session_id={}, turn_id={}",
-                session_id, dialog_turn_id
-            );
+                "immediate cancellation",
+            )
+            .await;
+            if notified {
+                debug!(
+                    "Immediately notified scheduler of cancellation: session_id={}, turn_id={}",
+                    session_id, dialog_turn_id
+                );
+            }
         }
 
         // Step 4: Async cleanup of old turn (let it end naturally via cancel token, non-blocking)
@@ -2283,6 +2395,27 @@ impl ConversationCoordinator {
         Ok(())
     }
 
+    pub async fn wait_until_turn_inactive(
+        &self,
+        session_id: &str,
+        turn_id: &str,
+        wait_timeout: Duration,
+    ) {
+        let deadline = Instant::now() + wait_timeout;
+        while self.execution_engine.has_active_turn(turn_id) {
+            if Instant::now() >= deadline {
+                warn!(
+                    "Timed out waiting for active turn cancellation: session_id={}, dialog_turn_id={}, timeout_ms={}",
+                    session_id,
+                    turn_id,
+                    wait_timeout.as_millis()
+                );
+                break;
+            }
+            sleep(Duration::from_millis(50)).await;
+        }
+    }
+
     pub async fn cancel_active_turn_for_session(
         &self,
         session_id: &str,
@@ -2302,19 +2435,8 @@ impl ConversationCoordinator {
         self.cancel_dialog_turn(session_id, &current_turn_id)
             .await?;
 
-        let deadline = Instant::now() + wait_timeout;
-        while self.execution_engine.has_active_turn(&current_turn_id) {
-            if Instant::now() >= deadline {
-                warn!(
-                    "Timed out waiting for active turn cancellation: session_id={}, dialog_turn_id={}, timeout_ms={}",
-                    session_id,
-                    current_turn_id,
-                    wait_timeout.as_millis()
-                );
-                break;
-            }
-            sleep(Duration::from_millis(50)).await;
-        }
+        self.wait_until_turn_inactive(session_id, &current_turn_id, wait_timeout)
+            .await;
 
         Ok(Some(current_turn_id))
     }
@@ -2333,6 +2455,16 @@ impl ConversationCoordinator {
             session_id: session_id.to_string(),
         })
         .await;
+        self.session_hook_bus
+            .publish(SessionHook::new(
+                session_id.to_string(),
+                Some(workspace_path.to_string_lossy().to_string()),
+                SessionHookKind::SessionLifecycleChanged {
+                    state: "deleted".to_string(),
+                    reason: "session_deleted".to_string(),
+                },
+            ))
+            .await;
         Ok(())
     }
 
@@ -2342,9 +2474,20 @@ impl ConversationCoordinator {
         workspace_path: &Path,
         session_id: &str,
     ) -> BitFunResult<Session> {
-        self.session_manager
+        let session = self
+            .session_manager
             .restore_session(workspace_path, session_id)
-            .await
+            .await?;
+        self.session_hook_bus
+            .publish(SessionHook::new(
+                session_id.to_string(),
+                Some(workspace_path.to_string_lossy().to_string()),
+                SessionHookKind::SessionRestored {
+                    reason: "session_restored".to_string(),
+                },
+            ))
+            .await;
+        Ok(session)
     }
 
     /// List all sessions
@@ -3280,6 +3423,58 @@ impl ConversationCoordinator {
             .await;
     }
 
+    async fn publish_session_hook(&self, session_id: &str, kind: SessionHookKind) {
+        let workspace_path = self
+            .session_manager
+            .get_session(session_id)
+            .and_then(|session| session.config.workspace_path);
+        self.session_hook_bus
+            .publish(SessionHook::new(
+                session_id.to_string(),
+                workspace_path,
+                kind,
+            ))
+            .await;
+    }
+
+    async fn publish_session_execution_changed(&self, session_id: &str, new_state: &str) {
+        self.publish_session_hook(
+            session_id,
+            SessionHookKind::SessionExecutionChanged {
+                new_state: new_state.to_string(),
+            },
+        )
+        .await;
+    }
+
+    async fn publish_turn_progressed(
+        &self,
+        session_id: &str,
+        turn_id: &str,
+        phase: ProcessingPhase,
+    ) {
+        self.publish_session_hook(
+            session_id,
+            SessionHookKind::TurnProgressed {
+                turn_id: turn_id.to_string(),
+                owner: None,
+                phase: Self::processing_phase_label(phase).to_string(),
+            },
+        )
+        .await;
+    }
+
+    const fn processing_phase_label(phase: ProcessingPhase) -> &'static str {
+        match phase {
+            ProcessingPhase::Starting => "starting",
+            ProcessingPhase::Compacting => "compacting",
+            ProcessingPhase::Thinking => "thinking",
+            ProcessingPhase::Streaming => "streaming",
+            ProcessingPhase::ToolCalling => "tool_calling",
+            ProcessingPhase::ToolConfirming => "tool_confirming",
+        }
+    }
+
     /// Emit a `SessionModelAutoMigrated` event with `High` priority so the
     /// frontend can refresh its model selector and surface a notice promptly.
     ///
@@ -3372,5 +3567,79 @@ async fn is_ai_session_title_generation_enabled() -> bool {
             .await
             .unwrap_or(true),
         Err(_) => true,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::time::{sleep, Duration};
+
+    #[tokio::test]
+    async fn scheduler_outcome_notification_waits_for_channel_capacity() {
+        let (tx, mut rx) = mpsc::channel(1);
+        tx.send((
+            "filled-session".to_string(),
+            TurnOutcome::Completed {
+                turn_id: "turn-1".to_string(),
+                final_response: "first".to_string(),
+            },
+        ))
+        .await
+        .expect("seed channel");
+
+        let tx_for_task = tx.clone();
+        let notification = tokio::spawn(async move {
+            notify_scheduler_turn_outcome(
+                &tx_for_task,
+                "session-1",
+                TurnOutcome::Completed {
+                    turn_id: "turn-2".to_string(),
+                    final_response: "done".to_string(),
+                },
+                "completed turn",
+            )
+            .await
+        });
+
+        sleep(Duration::from_millis(20)).await;
+        assert!(
+            !notification.is_finished(),
+            "outcome notification must wait for scheduler capacity"
+        );
+
+        let first = rx.recv().await.expect("seeded outcome");
+        assert_eq!(first.0, "filled-session");
+
+        assert!(notification.await.expect("notification task"));
+
+        let second = rx.recv().await.expect("delivered outcome");
+        assert_eq!(second.0, "session-1");
+        assert_eq!(second.1.turn_id(), "turn-2");
+        match second.1 {
+            TurnOutcome::Completed { final_response, .. } => {
+                assert_eq!(final_response, "done");
+            }
+            other => panic!("expected completed outcome, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn scheduler_outcome_notification_reports_closed_receiver() {
+        let (tx, rx) = mpsc::channel(1);
+        drop(rx);
+
+        let notified = notify_scheduler_turn_outcome(
+            &tx,
+            "session-1",
+            TurnOutcome::Failed {
+                turn_id: "turn-1".to_string(),
+                error: "boom".to_string(),
+            },
+            "failed turn",
+        )
+        .await;
+
+        assert!(!notified);
     }
 }

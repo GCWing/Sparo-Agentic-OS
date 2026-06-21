@@ -237,9 +237,9 @@ async function getGoalStatus(info: ActiveSessionInfo): Promise<GoalResponse> {
   );
 }
 
-async function bannerAttribute(name: string): Promise<string | null> {
-  const banner = await $('[data-testid="active-goal-banner"]');
-  return banner.getAttribute(name);
+async function goalHeaderAttribute(name: string): Promise<string | null> {
+  const pill = await $('[data-testid="flowchat-header-goal"]');
+  return pill.getAttribute(name);
 }
 
 async function submitGoalCommand(
@@ -285,10 +285,10 @@ describe('Goal mode', () => {
 
     // Start from a clean slate.
     await invokeGoalControl(activeSession, 'clear');
-    await browser.waitUntil(async () => !(await $('[data-testid="active-goal-banner"]').isExisting()), {
+    await browser.waitUntil(async () => !(await $('[data-testid="flowchat-header-goal-title"]').isExisting()), {
       timeout: 5000,
       interval: 250,
-      timeoutMsg: 'Previous goal banner did not clear before goal-mode test',
+      timeoutMsg: 'Previous goal header title did not clear before goal-mode test',
     }).catch(() => undefined);
 
     // --- Create a goal that should keep continuing (no e2e-pass sentinel). ---
@@ -307,14 +307,14 @@ describe('Goal mode', () => {
     const sessionScene = await $('.sparo-session-scene');
     expect((await sessionScene.getAttribute('class')) ?? '').toContain('sparo-session-scene--goal-mode');
 
-    const banner = await $('[data-testid="active-goal-banner"]');
-    await banner.waitForExist({
+    const goalTitle = await $('[data-testid="flowchat-header-goal-title"]');
+    await goalTitle.waitForExist({
       timeout: 15000,
       interval: 500,
-      timeoutMsg: 'Active goal banner did not appear after /goal command',
+      timeoutMsg: 'Goal header title did not appear after /goal command',
     });
 
-    const objectiveText = await $('[data-testid="active-goal-objective"]').getText();
+    const objectiveText = await $('[data-testid="flowchat-header-goal-title"]').getText();
     expect(objectiveText).toContain(objective);
 
     // Header control mirrors the goal phase + extraction status.
@@ -332,7 +332,13 @@ describe('Goal mode', () => {
       interval: 250,
       timeoutMsg: 'Goal header panel did not open',
     });
-    expect(await headerGoalPanel.getText()).toContain(objective);
+    const headerGoalEditField = await $('[data-testid="flowchat-header-goal-edit-field"]');
+    await headerGoalEditField.waitForExist({
+      timeout: 5000,
+      interval: 250,
+      timeoutMsg: 'Goal header edit field did not appear',
+    });
+    expect(await headerGoalEditField.getValue()).toContain(objective);
     await headerGoalButton.click();
 
     // The first goal turn renders with Goal styling and the bare objective
@@ -352,7 +358,7 @@ describe('Goal mode', () => {
     expect(goalFirstTurnText).not.toContain('/goal');
 
     // Extraction settles as accepted.
-    await browser.waitUntil(async () => (await bannerAttribute('data-extraction-status')) === 'accepted', {
+    await browser.waitUntil(async () => (await goalHeaderAttribute('data-extraction-status')) === 'accepted', {
       timeout: 15000,
       interval: 500,
       timeoutMsg: 'Goal extraction status did not become accepted',
@@ -363,35 +369,32 @@ describe('Goal mode', () => {
     await submitGoalCommand(chatInput, activeSession, '/goal status');
 
     await submitGoalCommand(chatInput, activeSession, '/goal pause');
-    await browser.waitUntil(async () => (await bannerAttribute('data-status')) === 'paused', {
+    await browser.waitUntil(async () => (await goalHeaderAttribute('data-status')) === 'paused', {
       timeout: 10000,
       interval: 500,
       timeoutMsg: 'Goal did not enter paused state',
     });
 
     // Resume hands control back to the loop (active again, then it may re-judge).
-    const resumeButton = await $('[data-testid="active-goal-resume"]');
-    await resumeButton.click();
-    await browser.waitUntil(async () => (await bannerAttribute('data-status')) !== 'paused', {
+    await invokeGoalControl(activeSession, 'resume');
+    await browser.waitUntil(async () => (await goalHeaderAttribute('data-status')) !== 'paused', {
       timeout: 10000,
       interval: 500,
-      timeoutMsg: 'Goal did not resume through the GUI control',
+      timeoutMsg: 'Goal did not resume through the control API',
     });
 
     // A user-triggered review runs the judge immediately. Without the sentinel
     // the deterministic judge returns "continue" with a remaining gap.
-    const reviewButton = await $('[data-testid="active-goal-review"]');
-    await reviewButton.click();
-    await browser.waitUntil(async () => (await bannerAttribute('data-judge-status')) === 'continue', {
+    await invokeGoalControl(activeSession, 'review');
+    await browser.waitUntil(async () => (await goalHeaderAttribute('data-judge-status')) === 'continue', {
       timeout: 15000,
       interval: 500,
       timeoutMsg: 'Goal review did not produce a continue judgment',
     });
-    const gap = await $('[data-testid="active-goal-gap"]');
-    await gap.waitForExist({
+    await browser.waitUntil(async () => Number(await goalHeaderAttribute('data-gap-count')) > 0, {
       timeout: 10000,
       interval: 500,
-      timeoutMsg: 'Goal judge did not expose remaining gaps',
+      timeoutMsg: 'Goal judge did not record remaining gaps',
     });
 
     const continueStatus = await getGoalStatus(activeSession);
@@ -403,14 +406,14 @@ describe('Goal mode', () => {
     await submitGoalCommand(chatInput, activeSession, `/goal ${passObjective}`);
 
     await browser.waitUntil(async () => {
-      const text = await $('[data-testid="active-goal-objective"]').getText();
+      const text = await $('[data-testid="flowchat-header-goal-title"]').getText();
       return text.includes('e2e-pass');
     }, {
       timeout: 15000,
       interval: 500,
       timeoutMsg: 'Goal objective did not update to the sentinel goal',
     });
-    await browser.waitUntil(async () => (await bannerAttribute('data-extraction-status')) === 'accepted', {
+    await browser.waitUntil(async () => (await goalHeaderAttribute('data-extraction-status')) === 'accepted', {
       timeout: 15000,
       interval: 500,
       timeoutMsg: 'Sentinel goal extraction did not become accepted',
@@ -418,14 +421,13 @@ describe('Goal mode', () => {
 
     // Drive an immediate judge run; the sentinel objective passes and the loop
     // marks the goal completed.
-    const passReviewButton = await $('[data-testid="active-goal-review"]');
-    await passReviewButton.click();
-    await browser.waitUntil(async () => (await bannerAttribute('data-status')) === 'completed', {
+    await invokeGoalControl(activeSession, 'review');
+    await browser.waitUntil(async () => (await goalHeaderAttribute('data-status')) === 'completed', {
       timeout: 15000,
       interval: 500,
       timeoutMsg: 'Goal did not complete after a passing judge verdict',
     });
-    await browser.waitUntil(async () => (await bannerAttribute('data-judge-status')) === 'pass', {
+    await browser.waitUntil(async () => (await goalHeaderAttribute('data-judge-status')) === 'pass', {
       timeout: 10000,
       interval: 500,
       timeoutMsg: 'Goal judge did not show pass after completion',
@@ -436,12 +438,11 @@ describe('Goal mode', () => {
     expect(completedStatus.goal?.latestJudgment?.state).toBe('pass');
 
     // --- Clear tears down goal mode. ---
-    const clearButton = await $('[data-testid="active-goal-clear"]');
-    await clearButton.click();
-    await browser.waitUntil(async () => !(await $('[data-testid="active-goal-banner"]').isExisting()), {
+    await invokeGoalControl(activeSession, 'clear');
+    await browser.waitUntil(async () => !(await $('[data-testid="flowchat-header-goal-title"]').isExisting()), {
       timeout: 10000,
       interval: 500,
-      timeoutMsg: 'Goal banner remained after clear action',
+      timeoutMsg: 'Goal header title remained after clear action',
     });
     await browser.waitUntil(async () => {
       const scene = await $('.sparo-session-scene');

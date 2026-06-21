@@ -547,9 +547,21 @@ pub struct AIConfig {
     #[serde(default)]
     pub auto_memory: AutoMemoryConfig,
 
+    /// Goal-mode runtime behavior.
+    #[serde(default)]
+    pub goal_mode: GoalModeConfig,
+
     /// Allow Computer use (desktop automation) when the desktop host is available (all session modes).
     #[serde(default)]
     pub computer_use_enabled: bool,
+}
+
+/// Goal-mode runtime configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct GoalModeConfig {
+    /// Maximum number of system-queued continuation turns for each goal.
+    pub max_continuation_turns: u32,
 }
 
 /// Global auto-memory configuration.
@@ -732,6 +744,10 @@ fn default_tool_confirmation_timeout() -> Option<u64> {
 
 fn default_skip_tool_confirmation() -> bool {
     true
+}
+
+fn default_goal_mode_max_continuation_turns() -> u32 {
+    100
 }
 
 fn default_global_auto_memory_extract_every_eligible_turns() -> u32 {
@@ -1622,7 +1638,16 @@ impl Default for AIConfig {
             skip_tool_confirmation: true,
             debug_mode_config: DebugModeConfig::default(),
             auto_memory: AutoMemoryConfig::default(),
+            goal_mode: GoalModeConfig::default(),
             computer_use_enabled: false,
+        }
+    }
+}
+
+impl Default for GoalModeConfig {
+    fn default() -> Self {
+        Self {
+            max_continuation_turns: default_goal_mode_max_continuation_turns(),
         }
     }
 }
@@ -1974,6 +1999,32 @@ mod tests {
         .expect("config without stream_idle_timeout_secs should deserialize");
 
         assert_eq!(config.stream_idle_timeout_secs, None);
+    }
+
+    #[test]
+    fn default_goal_mode_config_uses_one_hundred_continuation_turns() {
+        let config = AIConfig::default();
+
+        assert_eq!(config.goal_mode.max_continuation_turns, 100);
+    }
+
+    #[test]
+    fn deserializes_missing_goal_mode_with_defaults() {
+        let config: AIConfig = serde_json::from_value(serde_json::json!({
+            "models": [],
+            "agent_models": {},
+            "func_agent_models": {},
+            "default_models": {},
+            "agent_capability_configs": {},
+            "subagent_configs": {},
+            "proxy": {
+                "enabled": false,
+                "url": ""
+            }
+        }))
+        .expect("config without goal_mode should deserialize");
+
+        assert_eq!(config.goal_mode.max_continuation_turns, 100);
     }
 
     #[test]

@@ -33,7 +33,22 @@ export type GoalJudgeStatus =
 
 export type GoalVerdictState = 'pass' | 'continue' | 'needs_user' | 'blocked';
 
-export type GoalJudgeTrigger = 'turn_completed' | 'user_review' | 'resume';
+export type GoalJudgeTrigger = 'turn_completed' | 'user_review' | 'resume' | 'user_edit' | 'recovery';
+
+export type GoalDriverPhase =
+  | 'idle'
+  | 'recovering'
+  | 'judging'
+  | 'continuation_queued'
+  | 'owner_turn_running';
+
+export interface GoalDriverState {
+  phase: GoalDriverPhase;
+  lastReason?: string | null;
+  lastTurnId?: string | null;
+  interruptedAttempts?: number;
+  updatedAtMs?: number | null;
+}
 
 export interface GoalCriterion {
   id: string;
@@ -84,6 +99,7 @@ export interface GoalRecord {
     triggerTurnId?: string | null;
     lastTurnId?: string | null;
   };
+  driver?: GoalDriverState;
   budgets?: {
     maxContinuationTurns: number;
     maxJudgeRuns?: number;
@@ -121,7 +137,6 @@ export interface GoalVerdict {
   summary?: string;
   criteria?: Array<{ id: string; met: boolean; note: string }>;
   remainingGaps?: string[];
-  nextSteering?: string;
   userQuestion?: string | null;
   confidence?: number;
 }
@@ -206,6 +221,21 @@ class GoalAPI {
       return await api.invoke<GoalResponse>('control_session_goal', { request });
     } catch (error) {
       throw createTauriCommandError('control_session_goal', error, request);
+    }
+  }
+
+  async updateSessionGoal(request: {
+    sessionId: string;
+    workspacePath: string;
+    editedObjective: string;
+    agentType?: string;
+    expectedGoalId?: string;
+    expectedRevision?: number;
+  }): Promise<GoalResponse> {
+    try {
+      return await api.invoke<GoalResponse>('update_session_goal', { request });
+    } catch (error) {
+      throw createTauriCommandError('update_session_goal', error, request);
     }
   }
 

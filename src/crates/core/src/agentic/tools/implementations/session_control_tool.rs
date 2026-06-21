@@ -5,6 +5,9 @@
 //! messages that may still run later through the scheduler.
 
 use super::util::normalize_path;
+use crate::agentic::coordination::{
+    get_global_scheduler, SessionControlActor, TurnCancellationReason,
+};
 use crate::agentic::core::SessionConfig;
 use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
@@ -587,18 +590,38 @@ Optional inputs:
                             )
                             .await?
                     }
-                    (Some(_), None) => {
-                        // Scheduler missing — fall back to plain cancellation.
-                        coordinator
-                            .cancel_active_turn_for_session(session_id, CANCEL_WAIT_TIMEOUT)
-                            .await?
+                    (Some(requester_session_id), None) => {
+                        if let Some(scheduler) = get_global_scheduler() {
+                            scheduler
+                                .cancel_active_turn_for_session_from_requester(
+                                    session_id,
+                                    requester_session_id,
+                                    CANCEL_WAIT_TIMEOUT,
+                                )
+                                .await?
+                        } else {
+                            // Isolated tool tests may not install a scheduler.
+                            coordinator
+                                .cancel_active_turn_for_session(session_id, CANCEL_WAIT_TIMEOUT)
+                                .await?
+                        }
                     }
                     (None, _) => {
-                        // SessionControl is expected to run inside a session-aware tool
-                        // context. Fallback to plain cancellation for nonstandard callers.
-                        coordinator
-                            .cancel_active_turn_for_session(session_id, CANCEL_WAIT_TIMEOUT)
-                            .await?
+                        if let Some(scheduler) = get_global_scheduler() {
+                            scheduler
+                                .cancel_active_turn_for_session(
+                                    session_id,
+                                    TurnCancellationReason::UserRequested,
+                                    SessionControlActor::Tool,
+                                    CANCEL_WAIT_TIMEOUT,
+                                )
+                                .await?
+                        } else {
+                            // Isolated tool tests may not install a scheduler.
+                            coordinator
+                                .cancel_active_turn_for_session(session_id, CANCEL_WAIT_TIMEOUT)
+                                .await?
+                        }
                     }
                 };
                 let had_active_turn = cancelled_turn_id.is_some();

@@ -5,7 +5,7 @@ use async_trait::async_trait;
 
 use crate::agentic::coordination::{
     ConversationCoordinator, DialogScheduler, DialogSubmissionPolicy, DialogSubmitOutcome,
-    DialogTriggerSource,
+    DialogTriggerSource, SessionControlActor, TurnCancellationReason,
 };
 use crate::agentic::core::SessionConfig;
 use crate::util::errors::{BitFunError, BitFunResult};
@@ -171,8 +171,13 @@ impl WorkRuntimeBridge for AgenticWorkRuntimeBridge {
     }
 
     async fn cancel_work_session_run(&self, session_id: &str) -> BitFunResult<()> {
-        self.coordinator
-            .cancel_active_turn_for_session(session_id, Duration::from_millis(500))
+        self.scheduler
+            .cancel_active_turn_for_session(
+                session_id,
+                TurnCancellationReason::UserRequested,
+                SessionControlActor::Tool,
+                Duration::from_millis(500),
+            )
             .await?;
         Ok(())
     }

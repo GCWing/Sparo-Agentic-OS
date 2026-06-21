@@ -1,31 +1,35 @@
 use super::extraction::{fallback_extraction_result, GoalExtractionRunRequest, GoalForkRunner};
 use super::fork_message::GoalForkMessageBuilder;
-use super::intake::TextIntakeAnnotator;
+use super::intake::{GoalTextIntake, TextIntakeAnnotator};
 use super::model::*;
 use super::output_parser::GoalStructuredOutputParser;
+use super::steering::GoalReminderBuilder;
 use super::store::GoalStore;
 use super::validation::GoalValidationGate;
-use crate::agentic::coordination::DialogScheduler;
-use crate::agentic::core::SessionState;
-use crate::agentic::events::{AgenticEvent, SessionSurfaceMode, ToolEventData};
+use crate::agentic::coordination::{SessionControlActor, TurnCancellationReason};
+use crate::agentic::events::SessionSurfaceMode;
+use crate::agentic::session_hooks::{
+    SessionDriver, SessionDriverSubmit, SessionDriverSubmitOutcome, SessionHookContext,
+    SessionHookKind, SessionTurnOutcome, SessionWorkOwner, SessionWorkOwnerMatcher,
+};
 use crate::infrastructure::events::{emit_global_event, BackendEvent};
-use crate::service::session::TurnStatus;
 use crate::util::errors::{BitFunError, BitFunResult};
 use serde_json::json;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::{Mutex, OwnedMutexGuard};
 use uuid::Uuid;
 
 pub(super) const GOAL_EXTRACTION_FALLBACK_MESSAGE: &str =
     "AI goal extraction failed; using the user's input as the goal.";
+const GOAL_ACTIVE_TURN_CANCEL_WAIT: Duration = Duration::from_millis(500);
 
 #[derive(Clone)]
 pub struct GoalService {
     pub(super) store: Arc<GoalStore>,
-    pub(super) scheduler: Arc<DialogScheduler>,
+    pub(super) driver: Arc<dyn SessionDriver>,
     pub(super) fork_runner: Arc<dyn GoalForkRunner>,
     /// Per-session write lock. Every mutation of a session's goal goes through
     /// this lock, making the service the single writer and removing the
@@ -36,19 +40,32 @@ pub struct GoalService {
 impl GoalService {
     pub fn new(
         store: Arc<GoalStore>,
-        scheduler: Arc<DialogScheduler>,
         fork_runner: Arc<dyn GoalForkRunner>,
+        driver: Arc<dyn SessionDriver>,
     ) -> Self {
         Self {
             store,
-            scheduler,
             fork_runner,
+            driver,
             locks: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
     pub fn store(&self) -> Arc<GoalStore> {
         self.store.clone()
+    }
+
+    async fn configured_goal_budgets(&self) -> GoalBudgets {
+        let mut budgets = GoalBudgets::default();
+        if let Ok(config_service) = crate::service::config::get_global_config_service().await {
+            if let Ok(goal_mode_config) = config_service
+                .get_config::<crate::service::config::types::GoalModeConfig>(Some("ai.goal_mode"))
+                .await
+            {
+                budgets.max_continuation_turns = goal_mode_config.max_continuation_turns.max(1);
+            }
+        }
+        budgets
     }
 
     pub(super) async fn lock_session(&self, session_id: &str) -> OwnedMutexGuard<()> {
@@ -74,22 +91,133 @@ impl GoalService {
     }
 
     pub async fn status(&self, request: GoalStatusRequest) -> BitFunResult<GoalResponse> {
+        self.status_snapshot(request).await
+    }
+
+    async fn status_snapshot(&self, request: GoalStatusRequest) -> BitFunResult<GoalResponse> {
         let goal = self
             .current(Path::new(&request.workspace_path), &request.session_id)
             .await?;
         Ok(GoalResponse {
             accepted: true,
             message: match &goal {
-                Some(record) => format!(
-                    "Goal {} is {:?} at revision {}",
-                    record.goal_id, record.status, record.revision
-                ),
+                Some(record) => format!("Goal is {:?}", record.status),
                 None => "No active goal for this session".to_string(),
             },
             goal,
             extraction: None,
             judge: None,
         })
+    }
+
+    pub async fn reconcile_active_goal(
+        &self,
+        workspace_path_string: &str,
+        session_id: &str,
+        agent_type: Option<&str>,
+        reason: &str,
+    ) -> BitFunResult<GoalResponse> {
+        let _guard = self.lock_session(session_id).await;
+        let workspace_path = Path::new(workspace_path_string);
+        let Some(mut record) = self.current(workspace_path, session_id).await? else {
+            return Ok(GoalResponse {
+                accepted: true,
+                message: "No active goal for this session".to_string(),
+                goal: None,
+                extraction: None,
+                judge: None,
+            });
+        };
+
+        if !record.status.is_driver_authorized() {
+            return Ok(GoalResponse {
+                accepted: true,
+                message: format!("Goal is {:?}", record.status),
+                goal: Some(record),
+                extraction: None,
+                judge: None,
+            });
+        }
+
+        self.driver
+            .ensure_session_loaded(workspace_path, session_id)
+            .await?;
+
+        let mut snapshot = self.driver.snapshot(session_id).await?;
+        if snapshot.is_processing() {
+            return Ok(GoalResponse {
+                accepted: true,
+                message: "Goal driver is waiting for the active turn".to_string(),
+                goal: Some(record),
+                extraction: None,
+                judge: None,
+            });
+        }
+
+        if let Some(pause) = snapshot.queue_pause.as_ref() {
+            if pause.reason == "user_cancelled" {
+                return Ok(GoalResponse {
+                    accepted: true,
+                    message: "Goal driver is waiting because the user cancelled the queue"
+                        .to_string(),
+                    goal: Some(record),
+                    extraction: None,
+                    judge: None,
+                });
+            }
+            if pause.reason == "run_failed" {
+                let _ = self.driver.resume_queue(session_id).await;
+            }
+        }
+
+        snapshot = self.driver.snapshot(session_id).await?;
+        if snapshot.is_processing() {
+            return Ok(GoalResponse {
+                accepted: true,
+                message: "Goal driver resumed queued session work".to_string(),
+                goal: Some(record),
+                extraction: None,
+                judge: None,
+            });
+        }
+
+        if snapshot.queue_depth > 0 {
+            return Ok(GoalResponse {
+                accepted: true,
+                message: "Goal driver is waiting for queued session input".to_string(),
+                goal: Some(record),
+                extraction: None,
+                judge: None,
+            });
+        }
+
+        record.driver.phase = GoalDriverPhase::Recovering;
+        record.driver.last_reason = Some(reason.to_string());
+        record.driver.last_turn_id = record.progress.last_turn_id.clone();
+        record.driver.interrupted_attempts = record.driver.interrupted_attempts.saturating_add(1);
+        record.driver.updated_at_ms = Some(now_ms());
+        self.store
+            .append_event(
+                workspace_path,
+                session_id,
+                &GoalStoreEvent::DriverReconciled {
+                    goal_id: record.goal_id.clone(),
+                    revision: record.revision,
+                    phase: record.driver.phase.clone(),
+                    reason: reason.to_string(),
+                },
+            )
+            .await?;
+
+        self.run_judge_for_record(
+            workspace_path,
+            workspace_path_string,
+            session_id,
+            record,
+            agent_type,
+            GoalJudgeTrigger::Recovery,
+        )
+        .await
     }
 
     // -- Intake --------------------------------------------------------------
@@ -99,6 +227,46 @@ impl GoalService {
         request: GoalUserRequest,
     ) -> BitFunResult<Option<GoalResponse>> {
         let intake = TextIntakeAnnotator::annotate(request);
+        if let Some(action) = direct_goal_control_action(&intake) {
+            let _guard = self.lock_session(&intake.session_id).await;
+            let workspace_path = Path::new(&intake.workspace_path);
+            if action == GoalControlAction::Status {
+                return Ok(Some(
+                    self.status_snapshot(GoalStatusRequest {
+                        session_id: intake.session_id,
+                        workspace_path: intake.workspace_path,
+                    })
+                    .await?,
+                ));
+            }
+            let response = self
+                .control_locked(
+                    workspace_path,
+                    &intake.workspace_path,
+                    &intake.session_id,
+                    intake.agent_type.as_deref(),
+                    action,
+                    None,
+                    None,
+                )
+                .await?;
+            return Ok(Some(response));
+        }
+
+        let (run, response) = self.start_text_intake(&intake).await?;
+        let service = self.clone();
+        tokio::spawn(async move {
+            if let Err(error) = service.finish_text_intake_extraction(intake, run).await {
+                log::warn!("Goal extraction refinement failed: {}", error);
+            }
+        });
+        Ok(response)
+    }
+
+    async fn start_text_intake(
+        &self,
+        intake: &GoalTextIntake,
+    ) -> BitFunResult<(GoalExtractionRun, Option<GoalResponse>)> {
         let _guard = self.lock_session(&intake.session_id).await;
         let workspace_path = Path::new(&intake.workspace_path);
         let active_goal = self.current(workspace_path, &intake.session_id).await?;
@@ -130,13 +298,164 @@ impl GoalService {
 
         run.status = GoalExtractionStatus::Running;
         run.updated_at_ms = now_ms();
+        let immediate_goal = self
+            .create_immediate_goal_if_needed(workspace_path, intake, &run)
+            .await?;
         self.save_extraction_run(workspace_path, &intake.session_id, &run)
             .await?;
 
+        let response_goal = immediate_goal.or(active_goal);
+        Ok((
+            run.clone(),
+            Some(GoalResponse {
+                accepted: true,
+                message: match response_goal.as_ref() {
+                    Some(record) => {
+                        format!("Goal accepted: {}", record.contract.resolved_objective)
+                    }
+                    None => "Goal refinement started".to_string(),
+                },
+                goal: response_goal,
+                extraction: Some(run),
+                judge: None,
+            }),
+        ))
+    }
+
+    async fn create_immediate_goal_if_needed(
+        &self,
+        workspace_path: &Path,
+        intake: &GoalTextIntake,
+        run: &GoalExtractionRun,
+    ) -> BitFunResult<Option<GoalRecord>> {
+        let Some(_objective) = immediate_goal_objective(intake) else {
+            return Ok(None);
+        };
+        let result = fallback_extraction_result(
+            run,
+            "User-submitted /goal input accepted immediately as the active goal.",
+            Vec::new(),
+        );
+        let contract = result
+            .contract
+            .clone()
+            .ok_or_else(|| BitFunError::validation("Immediate goal contract is required"))?;
+        let context_resolution = result
+            .context_resolution
+            .clone()
+            .ok_or_else(|| BitFunError::validation("Immediate goal context is required"))?;
+        let now = now_ms();
+        let _ = self
+            .driver
+            .delete_queued_turns(
+                &intake.session_id,
+                SessionWorkOwnerMatcher::AnyGoal,
+                Some(&run.trigger_turn_id),
+            )
+            .await?;
+        let record = GoalRecord {
+            goal_id: format!("goal-{}", Uuid::new_v4()),
+            session_id: intake.session_id.clone(),
+            revision: 1,
+            status: GoalStatus::Active,
+            contract,
+            context: GoalContextSnapshot {
+                frozen_context_markdown: context_resolution.frozen_context_markdown,
+            },
+            progress: GoalProgress {
+                trigger_turn_id: Some(run.trigger_turn_id.clone()),
+                ..GoalProgress::default()
+            },
+            driver: GoalDriverState {
+                phase: GoalDriverPhase::OwnerTurnRunning,
+                last_reason: Some("Goal accepted from user input".to_string()),
+                last_turn_id: Some(run.trigger_turn_id.clone()),
+                interrupted_attempts: 0,
+                updated_at_ms: Some(now),
+            },
+            budgets: self.configured_goal_budgets().await,
+            latest_extraction: Some(extraction_summary_from_run(run)),
+            latest_judgment: None,
+            pending_user_question: None,
+            created_at_ms: now,
+            updated_at_ms: now,
+        };
+        self.store
+            .append_event(
+                workspace_path,
+                &intake.session_id,
+                &GoalStoreEvent::Created {
+                    goal_id: record.goal_id.clone(),
+                    revision: record.revision,
+                    objective: record.contract.resolved_objective.clone(),
+                    extraction_id: run.extraction_id.clone(),
+                },
+            )
+            .await?;
+        self.save_current_goal(
+            workspace_path,
+            &intake.session_id,
+            &record,
+            Some("Goal accepted"),
+        )
+        .await?;
+        self.store
+            .save_snapshot(workspace_path, &intake.session_id, &record)
+            .await?;
+        Ok(Some(record))
+    }
+
+    async fn is_current_goal_refinement(
+        &self,
+        workspace_path: &Path,
+        session_id: &str,
+        run: &GoalExtractionRun,
+    ) -> BitFunResult<bool> {
+        let Some(record) = self.current(workspace_path, session_id).await? else {
+            return Ok(false);
+        };
+        Ok(Self::record_matches_extraction(&record, run))
+    }
+
+    async fn update_current_goal_extraction_summary(
+        &self,
+        workspace_path: &Path,
+        session_id: &str,
+        run: &GoalExtractionRun,
+        message: &str,
+    ) -> BitFunResult<Option<GoalRecord>> {
+        let Some(mut record) = self.current(workspace_path, session_id).await? else {
+            return Ok(None);
+        };
+        if !Self::record_matches_extraction(&record, run) {
+            return Ok(Some(record));
+        }
+        record.latest_extraction = Some(extraction_summary_from_run(run));
+        record.revision += 1;
+        record.updated_at_ms = now_ms();
+        self.save_current_goal(workspace_path, session_id, &record, Some(message))
+            .await?;
+        Ok(Some(record))
+    }
+
+    pub(super) fn record_matches_extraction(record: &GoalRecord, run: &GoalExtractionRun) -> bool {
+        record.progress.trigger_turn_id.as_deref() == Some(run.trigger_turn_id.as_str())
+            && record
+                .latest_extraction
+                .as_ref()
+                .is_some_and(|summary| summary.extraction_id == run.extraction_id)
+    }
+
+    async fn finish_text_intake_extraction(
+        &self,
+        intake: GoalTextIntake,
+        mut run: GoalExtractionRun,
+    ) -> BitFunResult<()> {
+        let workspace_path_string = intake.workspace_path.clone();
         let output = match self
             .fork_runner
             .run_extraction(GoalExtractionRunRequest {
-                workspace_path: intake.workspace_path.clone(),
+                workspace_path: workspace_path_string.clone(),
                 agent_type: intake.agent_type.clone(),
                 run: run.clone(),
             })
@@ -144,21 +463,21 @@ impl GoalService {
         {
             Ok(output) => output,
             Err(error) => {
+                let _guard = self.lock_session(&intake.session_id).await;
+                let workspace_path = Path::new(&intake.workspace_path);
                 run.status = GoalExtractionStatus::Failed;
                 run.rejection_reason = Some(error.to_string());
                 run.updated_at_ms = now_ms();
                 self.save_extraction_run(workspace_path, &intake.session_id, &run)
                     .await?;
-                if !intake.entry.has_goal_prefix {
-                    return Ok(None);
-                }
-                return Ok(Some(GoalResponse {
-                    accepted: false,
-                    message: format!("Goal extraction failed: {}", error),
-                    goal: active_goal,
-                    extraction: Some(run),
-                    judge: None,
-                }));
+                self.update_current_goal_extraction_summary(
+                    workspace_path,
+                    &intake.session_id,
+                    &run,
+                    "Goal extraction failed",
+                )
+                .await?;
+                return Ok(());
             }
         };
         run.final_text = Some(output.final_text.clone());
@@ -171,22 +490,22 @@ impl GoalService {
         ) {
             Ok(parsed) => parsed,
             Err(error) => {
+                let _guard = self.lock_session(&intake.session_id).await;
+                let workspace_path = Path::new(&intake.workspace_path);
                 run.status = GoalExtractionStatus::Rejected;
                 run.audit.parser_status = Some("rejected".to_string());
                 run.rejection_reason = Some(error.to_string());
                 run.updated_at_ms = now_ms();
                 self.save_extraction_run(workspace_path, &intake.session_id, &run)
                     .await?;
-                if !intake.entry.has_goal_prefix {
-                    return Ok(None);
-                }
-                return Ok(Some(GoalResponse {
-                    accepted: false,
-                    message: format!("Goal extraction rejected: {}", error),
-                    goal: active_goal,
-                    extraction: Some(run),
-                    judge: None,
-                }));
+                self.update_current_goal_extraction_summary(
+                    workspace_path,
+                    &intake.session_id,
+                    &run,
+                    "Goal extraction rejected",
+                )
+                .await?;
+                return Ok(());
             }
         };
 
@@ -204,6 +523,9 @@ impl GoalService {
             GoalExtractionStatus::Accepted
         };
         run.updated_at_ms = now_ms();
+
+        let _guard = self.lock_session(&intake.session_id).await;
+        let workspace_path = Path::new(&intake.workspace_path);
         self.save_extraction_run_with_message(
             workspace_path,
             &intake.session_id,
@@ -213,33 +535,46 @@ impl GoalService {
         .await?;
 
         match result.intent.kind.clone() {
-            GoalIntentKind::ChatOnly => Ok(None),
-            GoalIntentKind::QueryGoal => Ok(Some(
-                self.status(GoalStatusRequest {
-                    session_id: intake.session_id,
-                    workspace_path: intake.workspace_path,
-                })
-                .await?,
-            )),
+            GoalIntentKind::ChatOnly | GoalIntentKind::QueryGoal => {
+                self.update_current_goal_extraction_summary(
+                    workspace_path,
+                    &intake.session_id,
+                    &run,
+                    "Goal extraction recorded",
+                )
+                .await?;
+            }
             GoalIntentKind::ControlGoal => {
-                let action = result
-                    .intent
-                    .control_action
-                    .clone()
-                    .unwrap_or(GoalControlAction::Status);
-                let mut response = self
-                    .control_locked(
+                if self
+                    .is_current_goal_refinement(workspace_path, &intake.session_id, &run)
+                    .await?
+                {
+                    self.update_current_goal_extraction_summary(
                         workspace_path,
-                        &intake.workspace_path,
                         &intake.session_id,
-                        intake.agent_type.as_deref(),
-                        action,
-                        result.intent.target_goal_id.clone(),
-                        None,
+                        &run,
+                        "Goal extraction recorded",
                     )
                     .await?;
-                response.extraction = Some(run);
-                Ok(Some(response))
+                } else {
+                    let action = result
+                        .intent
+                        .control_action
+                        .clone()
+                        .unwrap_or(GoalControlAction::Status);
+                    let mut response = self
+                        .control_locked(
+                            workspace_path,
+                            &intake.workspace_path,
+                            &intake.session_id,
+                            intake.agent_type.as_deref(),
+                            action,
+                            result.intent.target_goal_id.clone(),
+                            None,
+                        )
+                        .await?;
+                    response.extraction = Some(run);
+                }
             }
             GoalIntentKind::CreateGoal
             | GoalIntentKind::UpdateGoal
@@ -258,38 +593,169 @@ impl GoalService {
                     response.message = message.to_string();
                 }
                 response.extraction = Some(run);
-                Ok(Some(response))
             }
             GoalIntentKind::AskClarification => {
-                let question = result
-                    .intent
-                    .clarification_questions
-                    .first()
-                    .cloned()
-                    .unwrap_or_else(|| "Please clarify the goal before I continue.".to_string());
-                let goal = if let Some(mut record) = active_goal {
-                    record.status = GoalStatus::WaitingUser;
-                    record.pending_user_question = Some(question.clone());
-                    self.save_status(
+                if self
+                    .is_current_goal_refinement(workspace_path, &intake.session_id, &run)
+                    .await?
+                {
+                    self.update_current_goal_extraction_summary(
                         workspace_path,
                         &intake.session_id,
-                        &mut record,
-                        "Goal clarification requested",
+                        &run,
+                        "Goal extraction recorded",
                     )
                     .await?;
-                    Some(record)
                 } else {
-                    None
-                };
-                Ok(Some(GoalResponse {
-                    accepted: true,
-                    message: question,
-                    goal,
-                    extraction: Some(run),
-                    judge: None,
-                }))
+                    let question = result
+                        .intent
+                        .clarification_questions
+                        .first()
+                        .cloned()
+                        .unwrap_or_else(|| {
+                            "Please clarify the goal before I continue.".to_string()
+                        });
+                    if let Some(mut record) =
+                        self.current(workspace_path, &intake.session_id).await?
+                    {
+                        record.status = GoalStatus::WaitingUser;
+                        record.driver.phase = GoalDriverPhase::Idle;
+                        record.driver.last_reason =
+                            Some("Goal clarification requested".to_string());
+                        record.driver.updated_at_ms = Some(now_ms());
+                        record.pending_user_question = Some(question.clone());
+                        self.save_status(
+                            workspace_path,
+                            &intake.session_id,
+                            &mut record,
+                            "Goal clarification requested",
+                        )
+                        .await?;
+                    }
+                }
             }
         }
+        Ok(())
+    }
+
+    pub async fn update_from_user_edit(
+        &self,
+        request: GoalEditRequest,
+    ) -> BitFunResult<GoalResponse> {
+        let edited_objective = request.edited_objective.trim().to_string();
+        if edited_objective.is_empty() {
+            return Err(BitFunError::validation("Edited goal objective is required"));
+        }
+
+        let _guard = self.lock_session(&request.session_id).await;
+        let workspace_path = Path::new(&request.workspace_path);
+        let current = self
+            .store
+            .load_current(workspace_path, &request.session_id)
+            .await?
+            .ok_or_else(|| BitFunError::validation("No goal exists for this session"))?;
+        self.validate_expected(
+            &current,
+            request.expected_goal_id.as_deref(),
+            request.expected_revision,
+        )?;
+
+        let previous_objective = current.contract.resolved_objective.clone();
+        let trigger_turn_id = format!("goal-edit-{}", Uuid::new_v4());
+        let intake = GoalTextIntake {
+            session_id: request.session_id.clone(),
+            workspace_path: request.workspace_path.clone(),
+            agent_type: request.agent_type.clone(),
+            trigger_turn_id,
+            raw_input: edited_objective.clone(),
+            skip_initial_continuation: false,
+            entry: GoalEntryMetadata {
+                source: "goal_edit".to_string(),
+                has_goal_prefix: true,
+                prefix: Some("goal_edit".to_string()),
+            },
+        };
+
+        let extraction_id = format!("goal-extraction-{}", Uuid::new_v4());
+        let request_message = GoalForkMessageBuilder::extraction_request(
+            extraction_id.clone(),
+            &intake,
+            Some(&current),
+        );
+        let now = now_ms();
+        let result =
+            fallback_goal_edit_result(&extraction_id, &intake, &edited_objective, &current.goal_id);
+        let mut run = GoalExtractionRun {
+            extraction_id: extraction_id.clone(),
+            parent_session_id: intake.session_id.clone(),
+            extraction_session_id: None,
+            trigger_turn_id: intake.trigger_turn_id.clone(),
+            raw_input: intake.raw_input.clone(),
+            checkpoint_event_id: intake.trigger_turn_id.clone(),
+            status: GoalExtractionStatus::Accepted,
+            request_message,
+            final_text: serde_json::to_string_pretty(&result).ok(),
+            result: Some(result.clone()),
+            rejection_reason: None,
+            audit: GoalRunAudit {
+                runner_kind: "direct_user_edit".to_string(),
+                enable_tools: false,
+                fork_session_id: None,
+                inherited_message_count: None,
+                prompt_message_count: None,
+                parser_status: Some("accepted".to_string()),
+            },
+            created_at_ms: now,
+            updated_at_ms: now,
+        };
+        run.updated_at_ms = now_ms();
+        self.save_extraction_run_with_message(workspace_path, &intake.session_id, &run, None)
+            .await?;
+
+        let mut response = self
+            .create_or_update_from_extraction(
+                workspace_path,
+                &intake.workspace_path,
+                &intake.session_id,
+                intake.agent_type.as_deref(),
+                &run,
+                result,
+            )
+            .await?;
+        response.message = format!(
+            "Goal updated: {}",
+            response
+                .goal
+                .as_ref()
+                .map(|record| record.contract.resolved_objective.as_str())
+                .unwrap_or(edited_objective.as_str())
+        );
+        response.extraction = Some(run);
+
+        if let Some(record) = response.goal.as_ref() {
+            if let Err(error) = self
+                .queue_goal_edit_steering(
+                    &intake.workspace_path,
+                    &previous_objective,
+                    record,
+                    intake.agent_type.as_deref(),
+                )
+                .await
+            {
+                log::warn!(
+                    "Failed to queue goal edit steering: session_id={} goal_id={} error={}",
+                    intake.session_id,
+                    record.goal_id,
+                    error
+                );
+                response.message = format!(
+                    "Goal updated, but active steering could not be queued: {}",
+                    error
+                );
+            }
+        }
+
+        Ok(response)
     }
 
     // -- Control -------------------------------------------------------------
@@ -335,18 +801,16 @@ impl GoalService {
         match action {
             GoalControlAction::Status => Ok(GoalResponse {
                 accepted: true,
-                message: format!(
-                    "Goal {} is {:?} at revision {}",
-                    record.goal_id, record.status, record.revision
-                ),
+                message: format!("Goal is {:?}", record.status),
                 goal: Some(record),
                 extraction: None,
                 judge: None,
             }),
             GoalControlAction::Review => {
-                self.scheduler
-                    .delete_queued_goal_turns(session_id, None)
-                    .await;
+                let _ = self
+                    .driver
+                    .delete_queued_turns(session_id, SessionWorkOwnerMatcher::AnyGoal, None)
+                    .await?;
                 // A user-requested review is just an immediate judge run.
                 self.run_judge_for_record(
                     workspace_path,
@@ -359,10 +823,17 @@ impl GoalService {
                 .await
             }
             GoalControlAction::Clear => {
-                self.scheduler
-                    .delete_queued_goal_turns(session_id, None)
-                    .await;
+                let _ = self
+                    .driver
+                    .delete_queued_turns(session_id, SessionWorkOwnerMatcher::AnyGoal, None)
+                    .await?;
+                let _ = self
+                    .cancel_current_goal_attempt(session_id, &record)
+                    .await?;
                 record.status = GoalStatus::Cancelled;
+                record.driver.phase = GoalDriverPhase::Idle;
+                record.driver.last_reason = Some("clear requested".to_string());
+                record.driver.updated_at_ms = Some(now_ms());
                 record.revision += 1;
                 record.updated_at_ms = now_ms();
                 self.store
@@ -397,10 +868,17 @@ impl GoalService {
                 })
             }
             GoalControlAction::Pause => {
-                self.scheduler
-                    .delete_queued_goal_turns(session_id, None)
-                    .await;
+                let _ = self
+                    .driver
+                    .delete_queued_turns(session_id, SessionWorkOwnerMatcher::AnyGoal, None)
+                    .await?;
+                let _ = self
+                    .cancel_current_goal_attempt(session_id, &record)
+                    .await?;
                 record.status = GoalStatus::Paused;
+                record.driver.phase = GoalDriverPhase::Idle;
+                record.driver.last_reason = Some("Goal paused by user".to_string());
+                record.driver.updated_at_ms = Some(now_ms());
                 self.save_status(workspace_path, session_id, &mut record, "Goal paused")
                     .await?;
                 Ok(GoalResponse {
@@ -413,6 +891,9 @@ impl GoalService {
             }
             GoalControlAction::Resume => {
                 record.status = GoalStatus::Active;
+                record.driver.phase = GoalDriverPhase::Recovering;
+                record.driver.last_reason = Some("Goal resumed by user".to_string());
+                record.driver.updated_at_ms = Some(now_ms());
                 record.pending_user_question = None;
                 self.save_status(workspace_path, session_id, &mut record, "Goal resumed")
                     .await?;
@@ -429,6 +910,23 @@ impl GoalService {
                 .await
             }
         }
+    }
+
+    async fn cancel_current_goal_attempt(
+        &self,
+        session_id: &str,
+        record: &GoalRecord,
+    ) -> BitFunResult<Option<String>> {
+        self.driver
+            .cancel_active_turn(
+                session_id,
+                SessionWorkOwnerMatcher::AnyGoal,
+                record.progress.trigger_turn_id.as_deref(),
+                TurnCancellationReason::GoalControl,
+                SessionControlActor::Goal,
+                GOAL_ACTIVE_TURN_CANCEL_WAIT,
+            )
+            .await
     }
 
     // -- Agent tool support --------------------------------------------------
@@ -490,6 +988,9 @@ impl GoalService {
         let _guard = self.lock_session(session_id).await;
         let mut record = self.require_current(workspace_path, session_id).await?;
         record.status = GoalStatus::Blocked;
+        record.driver.phase = GoalDriverPhase::Idle;
+        record.driver.last_reason = Some("Agent reported a blocker".to_string());
+        record.driver.updated_at_ms = Some(now_ms());
         push_bounded(
             &mut record.progress.notes,
             format!("Blocker reported: {}", summary),
@@ -522,122 +1023,239 @@ impl GoalService {
         })
     }
 
-    // -- Events --------------------------------------------------------------
+    // -- Session hooks -------------------------------------------------------
 
-    pub async fn handle_event(&self, event: &AgenticEvent) -> BitFunResult<()> {
-        match event {
-            AgenticEvent::DialogTurnCompleted {
-                session_id,
+    pub async fn handle_session_hook(&self, context: SessionHookContext) -> BitFunResult<()> {
+        let session_id = context.hook.session_id.as_str();
+        let workspace_path = match context.workspace_path() {
+            Some(path) => path.to_string(),
+            None => return Ok(()),
+        };
+
+        match &context.hook.kind {
+            SessionHookKind::SessionRestored { reason }
+            | SessionHookKind::DriverReconcile { reason } => {
+                let _ = self
+                    .reconcile_active_goal(&workspace_path, session_id, None, reason)
+                    .await?;
+            }
+            SessionHookKind::SessionLifecycleChanged { state, .. } => {
+                if state == "deleted" {
+                    let _ = self
+                        .driver
+                        .delete_queued_turns(session_id, SessionWorkOwnerMatcher::AnyGoal, None)
+                        .await?;
+                }
+            }
+            SessionHookKind::SessionExecutionChanged { .. } => {}
+            SessionHookKind::TurnFinished {
                 turn_id,
+                owner,
+                outcome,
+                surface_mode,
                 hidden_session,
-                surface_mode,
-                ..
-            } => {
-                if *hidden_session || !matches!(surface_mode, SessionSurfaceMode::UserVisible) {
-                    return Ok(());
-                }
-                self.judge_after_turn(session_id, turn_id).await
-            }
-            AgenticEvent::DialogTurnFailed {
-                session_id,
-                turn_id,
-                surface_mode,
-                error,
-                ..
             } => {
                 if !matches!(surface_mode, SessionSurfaceMode::UserVisible) {
                     return Ok(());
                 }
-                if !self.should_accept_turn_event(session_id, turn_id).await? {
-                    return Ok(());
+                match outcome {
+                    SessionTurnOutcome::Completed => {
+                        if !*hidden_session {
+                            self.judge_after_turn(&workspace_path, session_id, turn_id)
+                                .await?;
+                        }
+                    }
+                    SessionTurnOutcome::Failed { error } => {
+                        if !self
+                            .should_accept_turn_event(&workspace_path, session_id, turn_id)
+                            .await?
+                        {
+                            return Ok(());
+                        }
+                        self.record_event_note(
+                            &workspace_path,
+                            session_id,
+                            format!("Turn {} failed: {}", turn_id, error),
+                        )
+                        .await?;
+                    }
+                    SessionTurnOutcome::Cancelled { reason, actor: _ } => {
+                        if !self
+                            .should_accept_turn_event(&workspace_path, session_id, turn_id)
+                            .await?
+                            && !owner.as_ref().is_some_and(SessionWorkOwner::is_goal)
+                        {
+                            return Ok(());
+                        }
+                        if matches!(
+                            reason,
+                            TurnCancellationReason::UserRequested
+                                | TurnCancellationReason::GoalControl
+                                | TurnCancellationReason::Unknown
+                        ) {
+                            self.pause_goal_after_session_stop(
+                                &workspace_path,
+                                session_id,
+                                "Goal paused because the related turn was cancelled",
+                            )
+                            .await?;
+                        }
+                    }
                 }
-                self.record_event_note(session_id, format!("Turn {} failed: {}", turn_id, error))
-                    .await
             }
-            AgenticEvent::DialogTurnCancelled {
-                session_id,
+            SessionHookKind::TurnCancellationRequested {
                 turn_id,
+                owner,
+                reason,
+                actor: _,
                 surface_mode,
-                ..
             } => {
                 if !matches!(surface_mode, SessionSurfaceMode::UserVisible) {
                     return Ok(());
                 }
-                if !self.should_accept_turn_event(session_id, turn_id).await? {
-                    return Ok(());
-                }
-                self.record_event_note(session_id, format!("Turn {} was cancelled", turn_id))
-                    .await
-            }
-            AgenticEvent::ToolEvent {
-                session_id,
-                turn_id,
-                tool_event,
-                surface_mode,
-                ..
-            } => {
-                if !matches!(surface_mode, SessionSurfaceMode::UserVisible) {
-                    return Ok(());
-                }
-                self.handle_tool_event(session_id, turn_id, tool_event)
-                    .await
-            }
-            _ => Ok(()),
-        }
-    }
-
-    async fn handle_tool_event(
-        &self,
-        session_id: &str,
-        turn_id: &str,
-        tool_event: &ToolEventData,
-    ) -> BitFunResult<()> {
-        match tool_event {
-            ToolEventData::Failed {
-                tool_name, error, ..
-            } => {
-                self.record_event_note(
-                    session_id,
-                    format!("Tool {} failed during goal work: {}", tool_name, error),
-                )
-                .await
-            }
-            ToolEventData::ConfirmationNeeded { tool_name, .. } => {
-                let _guard = self.lock_session(session_id).await;
-                let Some(workspace_path) = self.session_workspace_path(session_id) else {
-                    return Ok(());
-                };
-                let Some(mut record) = self.current(Path::new(&workspace_path), session_id).await?
-                else {
-                    return Ok(());
-                };
-                if !record.status.is_loop_active()
-                    || !Self::record_applies_to_turn(&record, turn_id)
+                if !self
+                    .should_accept_turn_event(&workspace_path, session_id, turn_id)
+                    .await?
+                    && !owner.as_ref().is_some_and(SessionWorkOwner::is_goal)
                 {
                     return Ok(());
                 }
-                record.status = GoalStatus::WaitingUser;
-                self.save_status(
-                    Path::new(&workspace_path),
+                self.record_event_note(
+                    &workspace_path,
                     session_id,
-                    &mut record,
-                    &format!("Tool {} requires confirmation", tool_name),
+                    format!(
+                        "Turn {} cancellation requested: {}",
+                        turn_id,
+                        reason.as_str()
+                    ),
                 )
-                .await
+                .await?;
+                if matches!(
+                    reason,
+                    TurnCancellationReason::UserRequested | TurnCancellationReason::GoalControl
+                ) {
+                    self.pause_goal_after_session_stop(
+                        &workspace_path,
+                        session_id,
+                        "Goal paused because the related turn cancellation was requested",
+                    )
+                    .await?;
+                }
             }
-            _ => Ok(()),
+            SessionHookKind::QueueChanged { reason, .. } => {
+                if reason == "run_failed" {
+                    let _ = self
+                        .reconcile_active_goal(
+                            &workspace_path,
+                            session_id,
+                            None,
+                            "queue_paused_after_run_failed",
+                        )
+                        .await?;
+                }
+            }
+            SessionHookKind::ToolFailed {
+                turn_id,
+                tool_name,
+                error,
+                surface_mode,
+            } => {
+                if !matches!(surface_mode, SessionSurfaceMode::UserVisible) {
+                    return Ok(());
+                }
+                if !self
+                    .should_accept_turn_event(&workspace_path, session_id, turn_id)
+                    .await?
+                {
+                    return Ok(());
+                }
+                self.record_event_note(
+                    &workspace_path,
+                    session_id,
+                    format!("Tool {} failed during goal work: {}", tool_name, error),
+                )
+                .await?;
+            }
+            SessionHookKind::ToolAttentionNeeded {
+                turn_id,
+                tool_name,
+                reason: _,
+                surface_mode,
+            } => {
+                if !matches!(surface_mode, SessionSurfaceMode::UserVisible) {
+                    return Ok(());
+                }
+                self.handle_tool_confirmation(&workspace_path, session_id, turn_id, tool_name)
+                    .await?;
+            }
+            SessionHookKind::TurnSubmitted { .. }
+            | SessionHookKind::TurnQueued { .. }
+            | SessionHookKind::TurnStarted { .. }
+            | SessionHookKind::TurnProgressed { .. } => {}
         }
+
+        Ok(())
+    }
+
+    async fn pause_goal_after_session_stop(
+        &self,
+        workspace_path: &str,
+        session_id: &str,
+        reason: &str,
+    ) -> BitFunResult<()> {
+        let _guard = self.lock_session(session_id).await;
+        let Some(mut record) = self.current(Path::new(workspace_path), session_id).await? else {
+            return Ok(());
+        };
+        if !record.status.is_driver_authorized() && !record.status.is_loop_active() {
+            return Ok(());
+        }
+        let _ = self
+            .driver
+            .delete_queued_turns(session_id, SessionWorkOwnerMatcher::AnyGoal, None)
+            .await?;
+        record.status = GoalStatus::Paused;
+        record.driver.phase = GoalDriverPhase::Idle;
+        record.driver.last_reason = Some(reason.to_string());
+        record.driver.updated_at_ms = Some(now_ms());
+        self.save_status(Path::new(workspace_path), session_id, &mut record, reason)
+            .await
+    }
+
+    async fn handle_tool_confirmation(
+        &self,
+        workspace_path: &str,
+        session_id: &str,
+        turn_id: &str,
+        tool_name: &str,
+    ) -> BitFunResult<()> {
+        let _guard = self.lock_session(session_id).await;
+        let Some(mut record) = self.current(Path::new(workspace_path), session_id).await? else {
+            return Ok(());
+        };
+        if !record.status.is_loop_active() || !Self::record_applies_to_turn(&record, turn_id) {
+            return Ok(());
+        }
+        record.status = GoalStatus::WaitingUser;
+        record.driver.phase = GoalDriverPhase::Idle;
+        record.driver.last_reason = Some(format!("Tool {} requires confirmation", tool_name));
+        record.driver.updated_at_ms = Some(now_ms());
+        self.save_status(
+            Path::new(workspace_path),
+            session_id,
+            &mut record,
+            &format!("Tool {} requires confirmation", tool_name),
+        )
+        .await
     }
 
     pub(super) async fn should_accept_turn_event(
         &self,
+        workspace_path: &str,
         session_id: &str,
         turn_id: &str,
     ) -> BitFunResult<bool> {
-        let Some(workspace_path) = self.session_workspace_path(session_id) else {
-            return Ok(false);
-        };
-        let Some(record) = self.current(Path::new(&workspace_path), session_id).await? else {
+        let Some(record) = self.current(Path::new(workspace_path), session_id).await? else {
             return Ok(false);
         };
         Ok(Self::record_applies_to_turn(&record, turn_id))
@@ -654,18 +1272,20 @@ impl GoalService {
         }
     }
 
-    async fn record_event_note(&self, session_id: &str, note: String) -> BitFunResult<()> {
+    async fn record_event_note(
+        &self,
+        workspace_path: &str,
+        session_id: &str,
+        note: String,
+    ) -> BitFunResult<()> {
         let _guard = self.lock_session(session_id).await;
-        let Some(workspace_path) = self.session_workspace_path(session_id) else {
-            return Ok(());
-        };
         if self
-            .current(Path::new(&workspace_path), session_id)
+            .current(Path::new(workspace_path), session_id)
             .await?
             .is_some()
         {
             let _ = self
-                .record_progress_locked(Path::new(&workspace_path), session_id, note)
+                .record_progress_locked(Path::new(workspace_path), session_id, note)
                 .await?;
         }
         Ok(())
@@ -702,27 +1322,84 @@ impl GoalService {
         };
 
         let deleted_stale_goal_turns = self
-            .scheduler
-            .delete_queued_goal_turns(session_id, Some(&run.trigger_turn_id))
-            .await;
+            .driver
+            .delete_queued_turns(
+                session_id,
+                SessionWorkOwnerMatcher::AnyGoal,
+                Some(&run.trigger_turn_id),
+            )
+            .await?;
+        let configured_budgets = self.configured_goal_budgets().await;
 
-        let record = match self.store.load_current(workspace_path, session_id).await? {
+        let mut previous_objective_for_event: Option<String> = None;
+        let current_goal = self.store.load_current(workspace_path, session_id).await?;
+        if run.request_message.payload.entry.has_goal_prefix
+            && !matches!(
+                result.intent.kind,
+                GoalIntentKind::UpdateGoal | GoalIntentKind::ApplyGuidance
+            )
+            && !current_goal
+                .as_ref()
+                .is_some_and(|record| Self::record_matches_extraction(record, run))
+        {
+            return Ok(GoalResponse {
+                accepted: true,
+                message: "Goal refinement ignored because the goal changed".to_string(),
+                goal: current_goal,
+                extraction: None,
+                judge: None,
+            });
+        }
+
+        let record = match current_goal {
             Some(mut current)
-                if matches!(
-                    result.intent.kind,
-                    GoalIntentKind::UpdateGoal | GoalIntentKind::ApplyGuidance
-                ) =>
+                if Self::record_matches_extraction(&current, run)
+                    || matches!(
+                        result.intent.kind,
+                        GoalIntentKind::UpdateGoal | GoalIntentKind::ApplyGuidance
+                    ) =>
             {
+                let is_initial_refinement = Self::record_matches_extraction(&current, run);
+                let previous_status = current.status.clone();
+                let previous_driver = current.driver.clone();
+                previous_objective_for_event = Some(current.contract.resolved_objective.clone());
                 current.contract = contract;
                 current.context = GoalContextSnapshot {
                     frozen_context_markdown: context_resolution.frozen_context_markdown,
                 };
-                current.status = GoalStatus::Active;
+                if !is_initial_refinement || current.status.is_driver_authorized() {
+                    current.status = GoalStatus::Active;
+                    current.driver = GoalDriverState {
+                        phase: GoalDriverPhase::Recovering,
+                        last_reason: Some(if is_initial_refinement {
+                            "Goal refined from extraction".to_string()
+                        } else {
+                            "Goal updated".to_string()
+                        }),
+                        last_turn_id: Some(run.trigger_turn_id.clone()),
+                        interrupted_attempts: 0,
+                        updated_at_ms: Some(now),
+                    };
+                } else {
+                    current.status = previous_status;
+                    current.driver = previous_driver;
+                }
                 current.pending_user_question = None;
                 current.latest_extraction = Some(latest_extraction);
-                current.progress.trigger_turn_id = Some(run.trigger_turn_id.clone());
-                current.progress.last_turn_id = None;
-                current.progress.remaining_gaps.clear();
+                current.latest_judgment = None;
+                if is_initial_refinement {
+                    current.progress.trigger_turn_id = Some(run.trigger_turn_id.clone());
+                    current.progress.remaining_gaps.clear();
+                    current.progress.no_progress_streak = 0;
+                    current.progress.last_met_count = 0;
+                    current.progress.last_summary = None;
+                } else {
+                    current.progress = GoalProgress {
+                        trigger_turn_id: Some(run.trigger_turn_id.clone()),
+                        ..GoalProgress::default()
+                    };
+                }
+                current.budgets = configured_budgets;
                 current.revision += 1;
                 current.updated_at_ms = now;
                 current
@@ -740,7 +1417,14 @@ impl GoalService {
                     trigger_turn_id: Some(run.trigger_turn_id.clone()),
                     ..GoalProgress::default()
                 },
-                budgets: GoalBudgets::default(),
+                driver: GoalDriverState {
+                    phase: GoalDriverPhase::Recovering,
+                    last_reason: Some("Goal created".to_string()),
+                    last_turn_id: Some(run.trigger_turn_id.clone()),
+                    interrupted_attempts: 0,
+                    updated_at_ms: Some(now),
+                },
+                budgets: configured_budgets,
                 latest_extraction: Some(latest_extraction),
                 latest_judgment: None,
                 pending_user_question: None,
@@ -749,17 +1433,23 @@ impl GoalService {
             },
         };
 
+        let store_event = match previous_objective_for_event {
+            Some(previous_objective) => GoalStoreEvent::Updated {
+                goal_id: record.goal_id.clone(),
+                revision: record.revision,
+                previous_objective,
+                objective: record.contract.resolved_objective.clone(),
+                extraction_id: run.extraction_id.clone(),
+            },
+            None => GoalStoreEvent::Created {
+                goal_id: record.goal_id.clone(),
+                revision: record.revision,
+                objective: record.contract.resolved_objective.clone(),
+                extraction_id: run.extraction_id.clone(),
+            },
+        };
         self.store
-            .append_event(
-                workspace_path,
-                session_id,
-                &GoalStoreEvent::Created {
-                    goal_id: record.goal_id.clone(),
-                    revision: record.revision,
-                    objective: record.contract.resolved_objective.clone(),
-                    extraction_id: run.extraction_id.clone(),
-                },
-            )
+            .append_event(workspace_path, session_id, &store_event)
             .await?;
         let create_message = if run.rejection_reason.is_some() {
             GOAL_EXTRACTION_FALLBACK_MESSAGE
@@ -771,8 +1461,9 @@ impl GoalService {
         self.store
             .save_snapshot(workspace_path, session_id, &record)
             .await?;
-        if deleted_stale_goal_turns > 0 && self.scheduler.queue_depth(session_id) > 0 {
-            if let Err(error) = self.scheduler.resume_queue(session_id).await {
+        let snapshot = self.driver.snapshot(session_id).await?;
+        if deleted_stale_goal_turns > 0 && snapshot.queue_depth > 0 {
+            if let Err(error) = self.driver.resume_queue(session_id).await {
                 log::debug!(
                     "Failed to resume dialog queue after replacing stale goal turns: {}",
                     error
@@ -782,9 +1473,10 @@ impl GoalService {
 
         // If the trigger (owner) turn already finished before the goal existed,
         // judge it now; otherwise its DialogTurnCompleted event will judge it.
-        if self
-            .is_trigger_turn_completed(session_id, &run.trigger_turn_id)
-            .await?
+        if record.status.is_loop_active()
+            && self
+                .is_trigger_turn_completed(session_id, &run.trigger_turn_id)
+                .await?
         {
             // Mark the trigger turn as judged so every later continuation turn
             // is eligible for judging (see `record_applies_to_turn`).
@@ -811,50 +1503,63 @@ impl GoalService {
         })
     }
 
+    async fn queue_goal_edit_steering(
+        &self,
+        workspace_path: &str,
+        previous_objective: &str,
+        record: &GoalRecord,
+        agent_type: Option<&str>,
+    ) -> BitFunResult<()> {
+        if !record.status.is_loop_active() {
+            return Ok(());
+        }
+
+        let steering_text = render_goal_edit_steering(previous_objective, record);
+        let display_text = render_goal_edit_display_message(record);
+        let system_reminder = GoalReminderBuilder::system_reminder(record);
+        let turn_id = format!("goal-edit-steering-{}", Uuid::new_v4());
+        let metadata = json!({
+            "goal": {
+                "kind": "user_edit_steering",
+                "goalId": record.goal_id.clone(),
+                "revision": record.revision,
+                "previousObjective": previous_objective,
+                "newObjective": record.contract.resolved_objective.clone(),
+            }
+        });
+
+        let submit_result = self
+            .driver
+            .submit_turn(SessionDriverSubmit {
+                session_id: record.session_id.clone(),
+                workspace_path: workspace_path.to_string(),
+                user_input: steering_text,
+                original_user_input: Some(display_text),
+                turn_id: Some(turn_id),
+                agent_type: agent_type.unwrap_or("agentic").to_string(),
+                system_reminder_override: Some(system_reminder),
+                owner: SessionWorkOwner::goal(record.goal_id.clone(), record.revision),
+                queue_priority: crate::agentic::coordination::DialogQueuePriority::High,
+                skip_tool_confirmation: true,
+                metadata: Some(metadata),
+            })
+            .await?;
+
+        if let SessionDriverSubmitOutcome::Queued { turn_id, .. } = submit_result {
+            self.driver
+                .guide_queued_turn(&record.session_id, &turn_id)
+                .await?;
+        }
+
+        Ok(())
+    }
+
     pub(super) async fn is_trigger_turn_completed(
         &self,
         session_id: &str,
         turn_id: &str,
     ) -> BitFunResult<bool> {
-        let Some(session) = self.scheduler.session_manager().get_session(session_id) else {
-            return Ok(false);
-        };
-
-        if matches!(
-            session.state,
-            SessionState::Processing {
-                ref current_turn_id,
-                ..
-            } if current_turn_id == turn_id
-        ) {
-            return Ok(false);
-        }
-
-        if self
-            .scheduler
-            .list_queue(session_id)
-            .iter()
-            .any(|queued| queued.turn_id == turn_id)
-        {
-            return Ok(false);
-        }
-
-        let Some(turn_index) = session
-            .dialog_turn_ids
-            .iter()
-            .position(|candidate| candidate == turn_id)
-        else {
-            return Ok(false);
-        };
-        let turns = self
-            .scheduler
-            .session_manager()
-            .load_turns_in_range(session_id, turn_index, turn_index)
-            .await?;
-
-        Ok(turns
-            .iter()
-            .any(|turn| turn.turn_id == turn_id && matches!(turn.status, TurnStatus::Completed)))
+        self.driver.is_turn_completed(session_id, turn_id).await
     }
 
     // -- Persistence helpers (shared with goal_loop) -------------------------
@@ -1059,13 +1764,6 @@ impl GoalService {
         }
         Ok(())
     }
-
-    pub(super) fn session_workspace_path(&self, session_id: &str) -> Option<String> {
-        self.scheduler
-            .session_manager()
-            .get_session(session_id)
-            .and_then(|session| session.config.workspace_path)
-    }
 }
 
 pub(super) fn push_bounded<T>(buffer: &mut Vec<T>, value: T, max_len: usize) {
@@ -1137,6 +1835,122 @@ fn fallback_goal_extraction_parse(
     }
 }
 
+fn fallback_goal_edit_result(
+    extraction_id: &str,
+    intake: &GoalTextIntake,
+    edited_objective: &str,
+    target_goal_id: &str,
+) -> GoalExtractionResult {
+    let objective = edited_objective.trim();
+    let contract = GoalContract {
+        raw_trigger: edited_objective.to_string(),
+        resolved_objective: objective.to_string(),
+        success_criteria: vec![GoalCriterion {
+            id: "criterion-1".to_string(),
+            description: "Deliver the updated goal and verify the final user-visible result."
+                .to_string(),
+            required: true,
+        }],
+        required_checks: Vec::new(),
+        non_goals: Vec::new(),
+        constraints: vec![
+            "The edited goal replaces the previous active goal immediately.".to_string(),
+        ],
+        risk_level: GoalRiskLevel::Medium,
+    };
+    GoalExtractionResult {
+        extraction_id: extraction_id.to_string(),
+        parent_session_id: intake.session_id.clone(),
+        trigger_turn_id: intake.trigger_turn_id.clone(),
+        intent: GoalIntentDecision {
+            kind: GoalIntentKind::UpdateGoal,
+            confidence: 1.0,
+            raw_trigger: edited_objective.to_string(),
+            target_goal_id: Some(target_goal_id.to_string()),
+            control_action: None,
+            reason_summary: "The user edited the active goal.".to_string(),
+            clarification_questions: Vec::new(),
+        },
+        context_resolution: Some(GoalContextResolution {
+            resolved_objective: objective.to_string(),
+            frozen_context_markdown: format!("User-edited goal:\n\n{}", objective),
+            confidence: 1.0,
+            ambiguity_questions: Vec::new(),
+        }),
+        contract: Some(contract),
+        confidence: 1.0,
+        warnings: Vec::new(),
+    }
+}
+
+fn extraction_summary_from_run(run: &GoalExtractionRun) -> GoalExtractionSummary {
+    let result = run.result.as_ref();
+    GoalExtractionSummary {
+        extraction_id: run.extraction_id.clone(),
+        status: run.status.clone(),
+        confidence: result.map(|result| result.confidence).unwrap_or(0.0),
+        intent: result
+            .map(|result| result.intent.kind.clone())
+            .unwrap_or(GoalIntentKind::CreateGoal),
+        warnings: result
+            .map(|result| result.warnings.clone())
+            .unwrap_or_default(),
+        updated_at_ms: run.updated_at_ms,
+    }
+}
+
+fn direct_goal_control_action(intake: &GoalTextIntake) -> Option<GoalControlAction> {
+    let body = goal_command_body(&intake.raw_input)?;
+    match body.trim().to_ascii_lowercase().as_str() {
+        "" | "status" => Some(GoalControlAction::Status),
+        "pause" => Some(GoalControlAction::Pause),
+        "resume" => Some(GoalControlAction::Resume),
+        "clear" | "cancel" => Some(GoalControlAction::Clear),
+        "review" => Some(GoalControlAction::Review),
+        _ => None,
+    }
+}
+
+fn immediate_goal_objective(intake: &GoalTextIntake) -> Option<String> {
+    let body = goal_command_body(&intake.raw_input)?;
+    let objective = body.trim();
+    if objective.is_empty() {
+        return None;
+    }
+    let lower = objective.to_ascii_lowercase();
+    if matches!(
+        lower.as_str(),
+        "status" | "pause" | "resume" | "clear" | "cancel" | "review"
+    ) {
+        return None;
+    }
+    Some(objective.to_string())
+}
+
+fn goal_command_body(raw_input: &str) -> Option<String> {
+    let trimmed = raw_input.trim_start();
+    let prefix = trimmed.get(..5)?;
+    if !prefix.eq_ignore_ascii_case("/goal") {
+        return None;
+    }
+    Some(trimmed.get(5..).unwrap_or_default().trim().to_string())
+}
+
+fn render_goal_edit_steering(previous_objective: &str, record: &GoalRecord) -> String {
+    format!(
+        "User goal update received while this session is active.\n\nPrevious goal:\n{}\n\nNew active goal:\n{}\n\nEffective immediately:\n- Treat the new active goal as the objective for this session.\n- Re-evaluate the current step against the new goal before continuing.\n- Carry over prior work only when it still helps the new goal.\n- Do not claim completion based on the previous goal.",
+        previous_objective.trim(),
+        record.contract.resolved_objective.trim()
+    )
+}
+
+fn render_goal_edit_display_message(record: &GoalRecord) -> String {
+    format!(
+        "Goal updated by user:\n{}",
+        record.contract.resolved_objective.trim()
+    )
+}
+
 pub(super) fn now_ms() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -1200,6 +2014,50 @@ mod tests {
         .to_string()
     }
 
+    fn sample_intake(raw_input: &str) -> GoalTextIntake {
+        GoalTextIntake {
+            session_id: "session-test".to_string(),
+            workspace_path: "workspace-test".to_string(),
+            agent_type: None,
+            trigger_turn_id: "turn-test".to_string(),
+            raw_input: raw_input.to_string(),
+            skip_initial_continuation: false,
+            entry: GoalEntryMetadata {
+                source: "test".to_string(),
+                has_goal_prefix: raw_input.trim_start().starts_with("/goal"),
+                prefix: Some("/goal".to_string()),
+            },
+        }
+    }
+
+    #[test]
+    fn goal_slash_exact_controls_do_not_become_objectives() {
+        let pause = sample_intake("/goal pause");
+        let status = sample_intake("/goal");
+
+        assert_eq!(
+            direct_goal_control_action(&pause),
+            Some(GoalControlAction::Pause)
+        );
+        assert_eq!(
+            direct_goal_control_action(&status),
+            Some(GoalControlAction::Status)
+        );
+        assert_eq!(immediate_goal_objective(&pause), None);
+        assert_eq!(immediate_goal_objective(&status), None);
+    }
+
+    #[test]
+    fn goal_slash_free_text_is_the_immediate_objective() {
+        let intake = sample_intake("/goal pause work on the release and audit the UI");
+
+        assert_eq!(direct_goal_control_action(&intake), None);
+        assert_eq!(
+            immediate_goal_objective(&intake),
+            Some("pause work on the release and audit the UI".to_string())
+        );
+    }
+
     #[test]
     fn explicit_goal_falls_back_when_model_output_shape_drifts() {
         let run = sample_run("/goal analyze architecture", true);
@@ -1224,5 +2082,31 @@ mod tests {
         let run = sample_run("analyze architecture", false);
         let result = parse_goal_extraction_output(&run, &malformed_model_extraction(), false);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn goal_edit_fallback_treats_control_words_as_objective() {
+        let intake = GoalTextIntake {
+            session_id: "session-test".to_string(),
+            workspace_path: "workspace-test".to_string(),
+            agent_type: None,
+            trigger_turn_id: "turn-test".to_string(),
+            raw_input: "pause".to_string(),
+            skip_initial_continuation: false,
+            entry: GoalEntryMetadata {
+                source: "goal_edit".to_string(),
+                has_goal_prefix: true,
+                prefix: Some("goal_edit".to_string()),
+            },
+        };
+
+        let result = fallback_goal_edit_result("goal-extraction-test", &intake, "pause", "goal-1");
+
+        assert_eq!(result.intent.kind, GoalIntentKind::UpdateGoal);
+        assert_eq!(result.intent.target_goal_id, Some("goal-1".to_string()));
+        assert_eq!(
+            result.contract.unwrap().resolved_objective,
+            "pause".to_string()
+        );
     }
 }

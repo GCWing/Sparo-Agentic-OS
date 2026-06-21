@@ -105,6 +105,8 @@ export const SETTINGS_TAB_SEARCH_CONTENT: Record<ConfigTab, readonly SettingsTab
     { ns: 'settings/agentic-tools', key: 'config.confirmTimeoutDesc' },
     { ns: 'settings/agentic-tools', key: 'config.executionTimeout' },
     { ns: 'settings/agentic-tools', key: 'config.executionTimeoutDesc' },
+    { ns: 'settings/permissions', key: 'goalMode.maxContinuationTurns' },
+    { ns: 'settings/permissions', key: 'goalMode.maxContinuationTurnsDesc' },
   ],
   memory: [
     { ns: 'settings/memory', key: 'title' },

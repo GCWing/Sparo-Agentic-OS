@@ -1,109 +1,247 @@
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .goal-header-control {
-  // Accent mirrors the goal frame + banner (brand color) so the dropdown belongs to
-  // the same field, not the muted info gray.
-  --goal-header-accent: var(--ds-color-accent-500, var(--ds-color-info, var(--border-accent)));
-  --goal-header-accent-soft: color-mix(in srgb, var(--goal-header-accent) 16%, transparent);
-  --goal-header-accent-base: color-mix(in srgb, var(--goal-header-accent) 34%, transparent);
+  --goal-header-composer-width: 700px;
+  --goal-header-blue: var(--border-accent-strong, var(--ds-color-accent-500));
+  --goal-header-blue-strong: var(--border-accent-strong, var(--ds-color-accent-600));
+  --goal-header-blue-bg: var(--border-accent-subtle, var(--ds-color-accent-100));
+  --goal-header-accent: var(--goal-header-blue);
+  --goal-header-bg: var(--goal-header-blue-bg);
+  --goal-header-border: color-mix(in srgb, var(--goal-header-accent) 24%, transparent);
+  --goal-header-glow: color-mix(in srgb, var(--goal-header-accent) 12%, transparent);
+  --goal-header-shadow:
+    0 0 0 1px color-mix(in srgb, var(--goal-header-accent) 4%, transparent),
+    0 8px 22px var(--goal-header-glow);
 
+  grid-column: 1 / -1;
+  grid-row: 1;
+  justify-self: center;
   position: relative;
-  flex: 0 0 auto;
+  z-index: var(--ds-z-local);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: 26px;
+  align-items: center;
+  min-width: 0;
+  width: min(var(--goal-header-composer-width), max(220px, calc(100% - 248px)));
+  max-width: min(var(--goal-header-composer-width), max(220px, calc(100% - 248px)));
+  height: 32px;
+  overflow: visible;
+  padding: 2px;
+  border: 1px solid var(--goal-header-border);
+  border-radius: var(--ds-radius-xl, 16px);
+  background: color-mix(in srgb, var(--goal-header-bg) 62%, transparent);
+  box-shadow: var(--goal-header-shadow);
+  backdrop-filter: blur(16px) saturate(145%);
+  -webkit-backdrop-filter: blur(16px) saturate(145%);
+  color: var(--ds-chat-text-primary);
+  pointer-events: auto;
+  will-change: background, box-shadow;
+  transition:
+    background $motion-base $easing-standard,
+    border-color $motion-base $easing-standard,
+    box-shadow $motion-base $easing-standard;
 
-  &[data-goal-phase="blocked"],
-  &[data-goal-phase="budget_limited"],
-  &[data-goal-phase="failed"],
-  &[data-goal-phase="rejected"] {
-    --goal-header-accent: var(--ds-color-warning, var(--color-warning));
+  &[data-open='true'] {
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    z-index: var(--ds-z-dropdown);
   }
 
-  // Completed joins the calm/neutral group (no green) once the goal is done.
-  &[data-goal-phase="completed"],
-  &[data-goal-phase="paused"],
-  &[data-goal-phase="cancelled"] {
-    --goal-header-accent: var(--ds-color-text-muted, var(--color-text-muted));
+  &[data-visual-state='extracting'] {
+    --goal-header-accent: var(--goal-header-blue-strong);
+    --goal-header-bg: var(--goal-header-blue-bg);
+    --goal-header-border: color-mix(in srgb, var(--goal-header-accent) 36%, transparent);
+    --goal-header-glow: color-mix(in srgb, var(--goal-header-accent) 20%, transparent);
+  }
+
+  &[data-visual-state='reviewing'] {
+    --goal-header-accent: var(--goal-header-blue-strong);
+    --goal-header-bg: var(--goal-header-blue-bg);
+    --goal-header-border: color-mix(in srgb, var(--goal-header-accent) 38%, transparent);
+    --goal-header-glow: color-mix(in srgb, var(--goal-header-accent) 22%, transparent);
+  }
+
+  &[data-visual-state='paused'] {
+    --goal-header-accent: var(--ds-chat-text-muted);
+    --goal-header-bg: var(--ds-chat-surface-muted);
+    --goal-header-border: color-mix(in srgb, var(--ds-chat-text-muted) 18%, transparent);
+    --goal-header-glow: transparent;
+  }
+
+  &[data-visual-state='needs_input'] {
+    --goal-header-accent: var(--ds-chat-warning, var(--ds-color-warning));
+    --goal-header-bg: var(--ds-chat-warning-bg, var(--ds-color-warning-bg));
+    --goal-header-border: color-mix(in srgb, var(--goal-header-accent) 34%, transparent);
+    --goal-header-glow: color-mix(in srgb, var(--goal-header-accent) 16%, transparent);
+  }
+
+  &[data-visual-state='completed'] {
+    --goal-header-accent: var(--ds-chat-success, var(--ds-color-success));
+    --goal-header-bg: var(--ds-chat-success-bg, var(--ds-color-success-bg));
+    --goal-header-border: color-mix(in srgb, var(--goal-header-accent) 30%, transparent);
+    --goal-header-glow: color-mix(in srgb, var(--goal-header-accent) 14%, transparent);
+  }
+
+  &[data-visual-state='blocked'],
+  &[data-visual-state='failed'],
+  &[data-visual-state='cancelled'] {
+    --goal-header-accent: var(--ds-chat-danger, var(--ds-color-danger));
+    --goal-header-bg: var(--ds-chat-danger-bg, var(--ds-color-danger-bg));
+    --goal-header-border: color-mix(in srgb, var(--goal-header-accent) 34%, transparent);
+    --goal-header-glow: color-mix(in srgb, var(--goal-header-accent) 16%, transparent);
   }
 }
 
-.goal-header-control__button {
-  color: var(--ds-chat-text-secondary);
+.goal-header-control__summary {
+  position: relative;
+  z-index: var(--ds-z-raised);
+  grid-column: 1;
+  grid-row: 1;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 26px;
+  overflow: hidden;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--flowchat-font-size-sm);
+  font-weight: var(--ds-font-weight-semibold, 600);
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background $motion-base $easing-standard,
+    color $motion-base $easing-standard;
 
-  &:not(:disabled):hover,
-  &--active {
-    background: color-mix(in srgb, var(--ds-chat-surface-muted) 82%, transparent);
+  &:hover,
+  &[aria-expanded='true'] {
+    background: color-mix(in srgb, var(--goal-header-bg) 64%, transparent);
   }
+}
 
-  &--phase-extracting,
-  &--phase-judging,
-  &--phase-active,
-  &--phase-waiting-user {
+.goal-header-control__mark-shell {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  overflow: hidden;
+}
+
+.goal-header-control__mark {
+  flex: 0 0 auto;
+  color: var(--goal-header-accent);
+  filter: none;
+  transform-origin: center;
+  animation: goal-header-mark-enter $motion-fast $easing-standard both;
+  transition:
+    color $motion-fast $easing-standard,
+    filter $motion-fast $easing-standard,
+    opacity $motion-fast $easing-standard;
+}
+
+.goal-header-control[data-visual-state='extracting'] .goal-header-control__mark {
+  animation: goal-header-mark-processing-breath 1500ms $easing-standard infinite;
+}
+
+.goal-header-control[data-visual-state='reviewing'] .goal-header-control__mark {
+  animation: goal-header-mark-processing-breath 1350ms $easing-standard infinite;
+}
+
+.goal-header-control__objective {
+  display: block;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: calc(100% - 28px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.goal-header-control__actions {
+  position: relative;
+  z-index: var(--ds-z-raised);
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  margin-left: 2px;
+  padding-left: 3px;
+  border-left: 1px solid color-mix(in srgb, var(--goal-header-accent) 16%, transparent);
+}
+
+.goal-header-control__action {
+  color: color-mix(in srgb, var(--goal-header-accent) 44%, var(--ds-chat-text-secondary));
+  transition:
+    background $motion-fast $easing-standard,
+    color $motion-fast $easing-standard,
+    opacity $motion-fast $easing-standard;
+
+  &:not(:disabled):hover {
     color: var(--goal-header-accent);
+    background: color-mix(in srgb, var(--goal-header-bg) 64%, transparent);
   }
 
-  &--phase-completed,
-  &--phase-paused {
-    color: var(--ds-color-text-muted, var(--color-text-muted));
+  &:disabled {
+    color: color-mix(in srgb, var(--goal-header-accent) 28%, var(--ds-chat-text-disabled));
   }
 
-  &--phase-blocked,
-  &--phase-budget-limited,
-  &--phase-failed,
-  &--phase-rejected {
-    color: var(--ds-color-warning, var(--color-warning));
-  }
-
-  &--processing svg {
-    animation: goal-header-spin $motion-slow linear infinite;
+  &--clear:not(:disabled):hover {
+    color: var(--ds-color-danger, var(--color-danger));
+    background: color-mix(in srgb, var(--ds-color-danger, var(--color-danger)) 10%, transparent);
   }
 }
 
 .goal-header-panel {
+  --goal-header-panel-max-height: min(520px, calc(100vh - 80px));
+
   position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  width: min(340px, calc(100vw - 24px));
-  max-height: min(520px, calc(100vh - 80px));
+  inset: 0 0 auto;
+  z-index: var(--ds-z-local);
+  box-sizing: border-box;
+  width: 100%;
+  max-height: var(--goal-header-panel-max-height);
   overflow: auto;
-  padding: 12px;
-  border: 1px solid var(--ds-chat-border);
-  border-radius: 8px;
-  background: var(--ds-chat-surface);
+  padding: 38px 12px 12px;
+  border: 1px solid color-mix(in srgb, var(--goal-header-accent) 18%, var(--ds-chat-border-strong));
+  border-radius: var(--ds-radius-xl, 16px);
+  background: color-mix(in srgb, var(--ds-chat-surface-elevated) 96%, transparent);
   box-shadow:
-    var(--ds-chat-shadow-popover),
-    inset 0 0 0 1px color-mix(in srgb, var(--goal-header-accent-base) 34%, transparent),
-    inset 0 0 22px color-mix(in srgb, var(--goal-header-accent-soft) 54%, transparent);
+    var(--ds-shadow-floating),
+    0 0 0 1px color-mix(in srgb, var(--goal-header-accent) 4%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   color: var(--ds-chat-text-primary);
-  animation: goal-header-panel-enter $motion-fast $easing-standard both;
+  transform-origin: top center;
+  animation: goal-header-panel-enter $motion-base $easing-standard both;
 }
 
-.goal-header-panel__top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-width: 0;
-  margin-bottom: 10px;
+.goal-header-panel::before {
+  content: '';
+  position: absolute;
+  top: 30px;
+  left: 12px;
+  right: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--goal-header-accent) 18%, var(--ds-chat-border));
 }
 
-.goal-header-panel__title-row {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.goal-header-panel__icon {
-  display: inline-flex;
-  color: var(--goal-header-accent);
-}
-
-.goal-header-panel__title {
-  font-size: var(--flowchat-font-size-sm);
-  font-weight: 600;
-}
-
-.goal-header-panel__close {
-  flex: 0 0 auto;
+.goal-header-panel > * {
+  animation: goal-header-panel-content-enter $motion-fast $easing-standard both;
 }
 
 .goal-header-panel__objective {
@@ -114,51 +252,80 @@
   margin-bottom: 12px;
 }
 
-.goal-header-panel__message {
-  margin: -4px 0 12px;
-  padding: 7px 8px;
-  border: 1px solid color-mix(in srgb, var(--goal-header-accent-base) 44%, var(--ds-chat-border));
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--goal-header-accent-soft) 24%, transparent);
-  color: var(--ds-chat-text-secondary);
-  font-size: var(--flowchat-font-size-xs);
-  line-height: 1.45;
+.goal-header-panel__edit-form {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: 0;
 }
 
-.goal-header-panel__facts {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin: 0 0 12px;
+.goal-header-panel__edit-form + .goal-header-panel__section {
+  margin-top: 10px;
 }
 
-.goal-header-panel__facts > div {
-  min-width: 0;
-  padding: 8px;
-  border: 1px solid color-mix(in srgb, var(--goal-header-accent-base) 38%, var(--ds-chat-border));
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--ds-chat-surface-muted) 58%, transparent);
+.goal-header-panel__edit-field {
+  width: 100%;
+
+  .ds-textarea__field {
+    min-height: 104px;
+    padding: 11px 48px 46px 12px;
+    resize: none;
+    border: 1px solid color-mix(in srgb, var(--goal-header-accent) 18%, var(--ds-chat-border));
+    border-radius: var(--ds-radius-lg, 12px);
+    background: color-mix(in srgb, var(--goal-header-bg) 34%, var(--ds-chat-surface-elevated));
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--ds-chat-surface-elevated) 74%, transparent),
+      inset 0 -1px 0 color-mix(in srgb, var(--goal-header-accent) 8%, transparent);
+    color: var(--ds-chat-text-primary);
+    font-size: var(--flowchat-font-size-sm);
+    line-height: 1.55;
+    transition:
+      border-color $motion-fast $easing-standard,
+      background $motion-fast $easing-standard,
+      box-shadow $motion-fast $easing-standard;
+
+    &:hover:not(:disabled) {
+      border-color: color-mix(in srgb, var(--goal-header-accent) 28%, var(--ds-chat-border));
+      background: color-mix(in srgb, var(--goal-header-bg) 42%, var(--ds-chat-surface-elevated));
+    }
+
+    &:focus {
+      border-color: color-mix(in srgb, var(--goal-header-accent) 58%, var(--ds-chat-border-strong));
+      background: color-mix(in srgb, var(--goal-header-bg) 38%, var(--ds-chat-surface-elevated));
+      box-shadow:
+        0 0 0 3px color-mix(in srgb, var(--goal-header-accent) 14%, transparent),
+        inset 0 1px 0 color-mix(in srgb, var(--ds-chat-surface-elevated) 80%, transparent);
+    }
+  }
+
+  .ds-textarea__footer {
+    min-height: auto;
+    padding-inline: 2px;
+  }
+
+  .ds-textarea__error-message {
+    color: var(--ds-color-danger, var(--color-danger));
+  }
 }
 
-.goal-header-panel__facts dt {
-  margin: 0 0 4px;
-  font-size: var(--flowchat-font-size-xs);
-  color: var(--ds-chat-text-disabled);
-}
-
-.goal-header-panel__facts dd {
-  margin: 0;
-  min-width: 0;
-  font-size: var(--flowchat-font-size-xs);
-  color: var(--ds-chat-text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.goal-header-panel__edit-actions {
+  position: relative;
+  z-index: var(--ds-z-raised);
+  align-self: flex-end;
+  display: inline-flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin: -40px 8px 8px 0;
 }
 
 .goal-header-panel__section {
   padding-top: 10px;
   border-top: 1px solid var(--ds-chat-border);
+}
+
+.goal-header-panel__section + .goal-header-panel__section {
+  margin-top: 10px;
 }
 
 .goal-header-panel__section-title {
@@ -180,22 +347,26 @@
   margin-top: 4px;
 }
 
-.goal-header-panel__empty {
-  color: var(--ds-chat-text-muted);
+.goal-header-panel__question {
+  color: var(--ds-chat-text-secondary);
   font-size: var(--flowchat-font-size-xs);
-}
-
-.goal-header-panel__footer {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 12px;
-  color: var(--ds-chat-text-disabled);
-  font-size: var(--flowchat-font-size-xs);
-  font-variant-numeric: tabular-nums;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 @keyframes goal-header-panel-enter {
+  from {
+    max-height: 32px;
+    clip-path: inset(0 0 calc(100% - 32px) 0 round var(--ds-radius-xl, 16px));
+  }
+
+  to {
+    max-height: var(--goal-header-panel-max-height);
+    clip-path: inset(0 0 0 0 round var(--ds-radius-xl, 16px));
+  }
+}
+
+@keyframes goal-header-panel-content-enter {
   from {
     opacity: 0;
     transform: translateY(-3px);
@@ -207,8 +378,63 @@
   }
 }
 
-@keyframes goal-header-spin {
+@keyframes goal-header-mark-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+
   to {
-    transform: rotate(1turn);
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes goal-header-mark-processing-breath {
+  0%,
+  100% {
+    opacity: 0.72;
+    filter:
+      brightness(0.86)
+      drop-shadow(0 0 3px color-mix(in srgb, var(--goal-header-accent) 18%, transparent));
+  }
+
+  50% {
+    opacity: 1;
+    filter:
+      brightness(1.18)
+      drop-shadow(0 0 7px color-mix(in srgb, var(--goal-header-accent) 42%, transparent));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .goal-header-control {
+    transition: none;
+  }
+
+  .goal-header-control__mark {
+    animation: none;
+  }
+
+  .goal-header-panel {
+    animation: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .goal-header-control {
+    width: min(420px, max(180px, calc(100% - 168px)));
+    max-width: min(420px, max(180px, calc(100% - 168px)));
+  }
+
+  .goal-header-control__summary {
+    padding-inline: 7px;
+    font-size: var(--flowchat-font-size-xs);
+  }
+
+  .goal-header-control__actions {
+    gap: 0;
+    margin-left: 0;
+    padding-left: 2px;
   }
 }

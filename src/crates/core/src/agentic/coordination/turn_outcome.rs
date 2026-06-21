@@ -10,10 +10,58 @@ pub enum TurnOutcome {
         turn_id: String,
         final_response: String,
     },
-    /// Turn was cancelled by user.
-    Cancelled { turn_id: String },
+    /// Turn was cancelled before producing a final answer.
+    Cancelled {
+        turn_id: String,
+        reason: TurnCancellationReason,
+        actor: SessionControlActor,
+    },
     /// Turn failed with an error.
     Failed { turn_id: String, error: String },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TurnCancellationReason {
+    UserRequested,
+    GoalControl,
+    SessionDeleted,
+    Superseded,
+    SystemShutdown,
+    Unknown,
+}
+
+impl TurnCancellationReason {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::UserRequested => "user_requested",
+            Self::GoalControl => "goal_control",
+            Self::SessionDeleted => "session_deleted",
+            Self::Superseded => "superseded",
+            Self::SystemShutdown => "system_shutdown",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SessionControlActor {
+    User,
+    Goal,
+    System,
+    AgentSession,
+    Tool,
+}
+
+impl SessionControlActor {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::User => "user",
+            Self::Goal => "goal",
+            Self::System => "system",
+            Self::AgentSession => "agent_session",
+            Self::Tool => "tool",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -49,7 +97,7 @@ impl TurnOutcome {
     pub fn turn_id(&self) -> &str {
         match self {
             Self::Completed { turn_id, .. }
-            | Self::Cancelled { turn_id }
+            | Self::Cancelled { turn_id, .. }
             | Self::Failed { turn_id, .. } => turn_id,
         }
     }
@@ -88,7 +136,16 @@ impl TurnOutcome {
     pub fn queue_action(&self) -> TurnOutcomeQueueAction {
         match self {
             Self::Completed { .. } => TurnOutcomeQueueAction::DispatchNext,
-            Self::Cancelled { .. } | Self::Failed { .. } => TurnOutcomeQueueAction::PauseQueue,
+            Self::Failed { .. } => TurnOutcomeQueueAction::PauseQueue,
+            Self::Cancelled { reason, .. } => match reason {
+                TurnCancellationReason::UserRequested | TurnCancellationReason::Unknown => {
+                    TurnOutcomeQueueAction::PauseQueue
+                }
+                TurnCancellationReason::GoalControl
+                | TurnCancellationReason::SessionDeleted
+                | TurnCancellationReason::Superseded
+                | TurnCancellationReason::SystemShutdown => TurnOutcomeQueueAction::DispatchNext,
+            },
         }
     }
 }

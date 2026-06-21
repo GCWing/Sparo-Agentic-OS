@@ -10,6 +10,20 @@ describe('sessionGoalStore', () => {
       .toBe('judging');
   });
 
+  it('prioritizes durable goal states over stale transient runs', () => {
+    expect(deriveGoalUiPhase(
+      { goalId: 'goal-1', sessionId: 'session-1', revision: 1, status: 'paused', contract: { rawTrigger: '/goal ship', resolvedObjective: 'ship', successCriteria: [] }, progress: { remainingGaps: [], continuationTurns: 0 }, updatedAtMs: 1 },
+      { extractionId: 'extract-1', status: 'running' },
+      { judgeId: 'judge-1', status: 'running' },
+    )).toBe('paused');
+
+    expect(deriveGoalUiPhase(
+      { goalId: 'goal-1', sessionId: 'session-1', revision: 2, status: 'completed', contract: { rawTrigger: '/goal ship', resolvedObjective: 'ship', successCriteria: [] }, progress: { remainingGaps: [], continuationTurns: 1 }, updatedAtMs: 2 },
+      null,
+      { judgeId: 'judge-1', status: 'running' },
+    )).toBe('completed');
+  });
+
   it('applies goal lifecycle events and clears a session goal', () => {
     const store = useSessionGoalStore.getState();
     const event: GoalLifecycleEvent = {
