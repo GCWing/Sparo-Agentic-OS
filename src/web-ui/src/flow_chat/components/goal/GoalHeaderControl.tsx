@@ -24,6 +24,12 @@ import {
   useSessionGoalStore,
   type GoalUiPhase,
 } from '@/flow_chat/store/sessionGoalStore';
+import {
+  canEditGoalHeaderObjective,
+  getGoalHeaderControlActions,
+  isTerminalGoalHeaderState,
+  type GoalHeaderVisualState,
+} from './goalHeaderActions';
 import { useSessionGoalPolling } from './useSessionGoalPolling';
 
 import './GoalHeaderControl.scss';
@@ -34,17 +40,6 @@ interface GoalHeaderControlProps {
   sessionId?: string;
   workspacePath?: string;
 }
-
-type GoalHeaderVisualState =
-  | 'extracting'
-  | 'active'
-  | 'reviewing'
-  | 'paused'
-  | 'needs_input'
-  | 'blocked'
-  | 'completed'
-  | 'failed'
-  | 'cancelled';
 
 function deriveGoalHeaderVisualState(input: {
   phase: GoalUiPhase;
@@ -172,7 +167,6 @@ export const GoalHeaderControl: React.FC<GoalHeaderControlProps> = ({
     judgeRunStatus === 'queued' ||
     judgeRunStatus === 'running';
   const isProcessing = isExtractingGoal || isJudgingGoal;
-  const isPaused = goal?.status === 'paused';
   const judgeDisplayStatus =
     judgeRunStatus === 'queued' || judgeRunStatus === 'running'
       ? judgeRunStatus
@@ -210,13 +204,6 @@ export const GoalHeaderControl: React.FC<GoalHeaderControlProps> = ({
     }
   }, [open]);
 
-  useEffect(() => {
-    if (!isEditing) {
-      setDraftObjective(goal?.contract.resolvedObjective ?? '');
-      setEditError(null);
-    }
-  }, [goal?.contract.resolvedObjective, goal?.goalId, goal?.revision, isEditing]);
-
   const gaps = useMemo(() => (
     goal?.progress.remainingGaps?.length
       ? goal.progress.remainingGaps
@@ -234,6 +221,13 @@ export const GoalHeaderControl: React.FC<GoalHeaderControlProps> = ({
     judgmentState,
     pendingQuestion,
   });
+  const canEditObjective = canEditGoalHeaderObjective(visualState);
+  const isTerminalGoal = isTerminalGoalHeaderState(visualState);
+  const goalActions = getGoalHeaderControlActions({ visualState });
+  const showPauseAction = goalActions.includes('pause');
+  const showResumeAction = goalActions.includes('resume');
+  const showReviewAction = goalActions.includes('review');
+  const showClearAction = goalActions.includes('clear');
   const GoalHeaderIcon = goalHeaderIconForState(visualState);
   const trimmedDraftObjective = draftObjective.trim();
   const currentObjective = goal?.contract.resolvedObjective.trim() ?? '';
@@ -243,6 +237,25 @@ export const GoalHeaderControl: React.FC<GoalHeaderControlProps> = ({
   const isReviewing = busyAction === 'review';
   const isReviewBusy = isReviewing || visualState === 'reviewing';
   const isClearing = busyAction === 'clear';
+  const clearActionLabel = isTerminalGoal
+    ? t('flowChatHeader.goalPanel.clear', { defaultValue: 'Clear goal' })
+    : t('flowChatHeader.goalPanel.cancelExecution', {
+        defaultValue: 'Cancel goal execution',
+      });
+
+  useEffect(() => {
+    if (!isEditing) {
+      setDraftObjective(goal?.contract.resolvedObjective ?? '');
+      setEditError(null);
+    }
+  }, [goal?.contract.resolvedObjective, goal?.goalId, goal?.revision, isEditing]);
+
+  useEffect(() => {
+    if (!canEditObjective && isEditing) {
+      setIsEditing(false);
+      setEditError(null);
+    }
+  }, [canEditObjective, isEditing]);
 
   const runAction = useCallback(async (action: GoalControlAction) => {
     if (!goal || !sessionId || !workspacePath) return;
@@ -292,13 +305,13 @@ export const GoalHeaderControl: React.FC<GoalHeaderControlProps> = ({
     if (goal) {
       setDraftObjective(goal.contract.resolvedObjective);
       setEditError(null);
-      setIsEditing(true);
+      setIsEditing(canEditObjective);
     }
-  }, [goal, open]);
+  }, [canEditObjective, goal, open]);
 
   const handleSaveEdit = useCallback(async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!goal || !sessionId || !workspacePath) return;
+    if (!canEditObjective || !goal || !sessionId || !workspacePath) return;
     if (!trimmedDraftObjective) {
       setEditError(t('flowChatHeader.goalPanel.emptyEditError', {
         defaultValue: 'Goal cannot be empty.',
@@ -339,6 +352,7 @@ export const GoalHeaderControl: React.FC<GoalHeaderControlProps> = ({
     }
   }, [
     applyGoalResponse,
+    canEditObjective,
     currentObjective,
     goal,
     sessionId,
@@ -383,11 +397,12 @@ export const GoalHeaderControl: React.FC<GoalHeaderControlProps> = ({
 
       {goal && (
         <div className="goal-header-control__actions" onClick={event => event.stopPropagation()}>
-          {isPaused ? (
+          {showResumeAction && (
             <IconButton
               className="goal-header-control__action"
               variant="ghost"
               size="xs"
+              shape="circle"
               onClick={event => handleActionClick(event, 'resume')}
               disabled={Boolean(busyAction)}
               aria-busy={isResuming || undefined}
@@ -401,11 +416,13 @@ export const GoalHeaderControl: React.FC<GoalHeaderControlProps> = ({
                 <Play size={13} aria-hidden="true" />
               )}
             </IconButton>
-          ) : (
+          )}
+          {showPauseAction && (
             <IconButton
               className="goal-header-control__action"
               variant="ghost"
               size="xs"
+              shape="circle"
               onClick={event => handleActionClick(event, 'pause')}
               disabled={Boolean(busyAction)}
               aria-busy={isPausing || undefined}
@@ -420,44 +437,46 @@ export const GoalHeaderControl: React.FC<GoalHeaderControlProps> = ({
               )}
             </IconButton>
           )}
-          <IconButton
-            className="goal-header-control__action"
-            variant="ghost"
-            size="xs"
-            onClick={event => handleActionClick(event, 'review')}
-            disabled={Boolean(busyAction) || visualState === 'reviewing'}
-            aria-busy={isReviewBusy || undefined}
-            tooltip={t('flowChatHeader.goalPanel.review', { defaultValue: 'Review goal' })}
-            aria-label={t('flowChatHeader.goalPanel.review', { defaultValue: 'Review goal' })}
-            data-testid="flowchat-header-goal-review"
-          >
-            {isReviewBusy ? (
-              <DotMatrixLoader size="tiny" ariaHidden />
-            ) : (
-              <ShieldCheck size={13} aria-hidden="true" />
-            )}
-          </IconButton>
-          <IconButton
-            className="goal-header-control__action goal-header-control__action--clear"
-            variant="ghost"
-            size="xs"
-            onClick={event => handleActionClick(event, 'clear')}
-            disabled={Boolean(busyAction)}
-            aria-busy={isClearing || undefined}
-            tooltip={t('flowChatHeader.goalPanel.cancelExecution', {
-              defaultValue: 'Cancel goal execution',
-            })}
-            aria-label={t('flowChatHeader.goalPanel.cancelExecution', {
-              defaultValue: 'Cancel goal execution',
-            })}
-            data-testid="flowchat-header-goal-clear"
-          >
-            {isClearing ? (
-              <DotMatrixLoader size="tiny" ariaHidden />
-            ) : (
-              <X size={13} aria-hidden="true" />
-            )}
-          </IconButton>
+          {showReviewAction && (
+            <IconButton
+              className="goal-header-control__action"
+              variant="ghost"
+              size="xs"
+              shape="circle"
+              onClick={event => handleActionClick(event, 'review')}
+              disabled={Boolean(busyAction) || visualState === 'reviewing'}
+              aria-busy={isReviewBusy || undefined}
+              tooltip={t('flowChatHeader.goalPanel.review', { defaultValue: 'Review goal' })}
+              aria-label={t('flowChatHeader.goalPanel.review', { defaultValue: 'Review goal' })}
+              data-testid="flowchat-header-goal-review"
+            >
+              {isReviewBusy ? (
+                <DotMatrixLoader size="tiny" ariaHidden />
+              ) : (
+                <ShieldCheck size={13} aria-hidden="true" />
+              )}
+            </IconButton>
+          )}
+          {showClearAction && (
+            <IconButton
+              className="goal-header-control__action goal-header-control__action--clear"
+              variant="ghost"
+              size="xs"
+              shape="circle"
+              onClick={event => handleActionClick(event, 'clear')}
+              disabled={Boolean(busyAction)}
+              aria-busy={isClearing || undefined}
+              tooltip={clearActionLabel}
+              aria-label={clearActionLabel}
+              data-testid="flowchat-header-goal-clear"
+            >
+              {isClearing ? (
+                <DotMatrixLoader size="tiny" ariaHidden />
+              ) : (
+                <X size={13} aria-hidden="true" />
+              )}
+            </IconButton>
+          )}
         </div>
       )}
 

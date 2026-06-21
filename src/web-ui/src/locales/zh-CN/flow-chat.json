@@ -354,6 +354,7 @@
       "pause": "暂停目标",
       "resume": "继续目标",
       "review": "审核目标",
+      "clear": "清除目标",
       "cancelExecution": "取消目标执行"
     }
   },

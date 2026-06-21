@@ -83,6 +83,23 @@ fn local_date_key_from_unix_ms(timestamp_ms: u64) -> String {
         .to_string()
 }
 
+async fn notify_scheduler_turn_outcome(
+    tx: &mpsc::Sender<(String, TurnOutcome)>,
+    session_id: &str,
+    outcome: TurnOutcome,
+    context: &str,
+) -> bool {
+    let turn_id = outcome.turn_id().to_string();
+    if let Err(error) = tx.send((session_id.to_string(), outcome)).await {
+        warn!(
+            "Failed to notify scheduler of {}: session_id={}, turn_id={}, error={}",
+            context, session_id, turn_id, error
+        );
+        return false;
+    }
+    true
+}
+
 async fn archive_session_daily_summary(
     session_id: &str,
     session_manager: &SessionManager,
@@ -1813,21 +1830,16 @@ impl ConversationCoordinator {
                     }
 
                     if let Some(tx) = &scheduler_notify_tx {
-                        if let Err(error) = tx
-                            .send((
-                                session_id_clone.clone(),
-                                TurnOutcome::Completed {
-                                    turn_id: turn_id_clone.clone(),
-                                    final_response,
-                                },
-                            ))
-                            .await
-                        {
-                            warn!(
-                                "Failed to notify scheduler of completed turn: session_id={}, turn_id={}, error={}",
-                                session_id_clone, turn_id_clone, error
-                            );
-                        }
+                        notify_scheduler_turn_outcome(
+                            tx,
+                            &session_id_clone,
+                            TurnOutcome::Completed {
+                                turn_id: turn_id_clone.clone(),
+                                final_response,
+                            },
+                            "completed turn",
+                        )
+                        .await;
                     }
 
                     Some(crate::service::session::TurnStatus::Completed)
@@ -1872,22 +1884,17 @@ impl ConversationCoordinator {
                         }
 
                         if let Some(tx) = &scheduler_notify_tx {
-                            if let Err(error) = tx
-                                .send((
-                                    session_id_clone.clone(),
-                                    TurnOutcome::Cancelled {
-                                        turn_id: turn_id_clone.clone(),
-                                        reason: TurnCancellationReason::Unknown,
-                                        actor: SessionControlActor::System,
-                                    },
-                                ))
-                                .await
-                            {
-                                warn!(
-                                    "Failed to notify scheduler of cancelled turn: session_id={}, turn_id={}, error={}",
-                                    session_id_clone, turn_id_clone, error
-                                );
-                            }
+                            notify_scheduler_turn_outcome(
+                                tx,
+                                &session_id_clone,
+                                TurnOutcome::Cancelled {
+                                    turn_id: turn_id_clone.clone(),
+                                    reason: TurnCancellationReason::Unknown,
+                                    actor: SessionControlActor::System,
+                                },
+                                "cancelled turn",
+                            )
+                            .await;
                         }
 
                         Some(crate::service::session::TurnStatus::Cancelled)
@@ -1931,21 +1938,16 @@ impl ConversationCoordinator {
                         }
 
                         if let Some(tx) = &scheduler_notify_tx {
-                            if let Err(error) = tx
-                                .send((
-                                    session_id_clone.clone(),
-                                    TurnOutcome::Failed {
-                                        turn_id: turn_id_clone.clone(),
-                                        error: error_text,
-                                    },
-                                ))
-                                .await
-                            {
-                                warn!(
-                                    "Failed to notify scheduler of failed turn: session_id={}, turn_id={}, error={}",
-                                    session_id_clone, turn_id_clone, error
-                                );
-                            }
+                            notify_scheduler_turn_outcome(
+                                tx,
+                                &session_id_clone,
+                                TurnOutcome::Failed {
+                                    turn_id: turn_id_clone.clone(),
+                                    error: error_text,
+                                },
+                                "failed turn",
+                            )
+                            .await;
                         }
 
                         Some(crate::service::session::TurnStatus::Error)
@@ -2343,22 +2345,18 @@ impl ConversationCoordinator {
         // call returns, but by then active_turns will already have been removed, making
         // the second forward_agent_session_reply call a no-op.
         if let Some(tx) = self.scheduler_notify_tx.get() {
-            if let Err(error) = tx
-                .send((
-                    session_id.to_string(),
-                    TurnOutcome::Cancelled {
-                        turn_id: dialog_turn_id.to_string(),
-                        reason,
-                        actor,
-                    },
-                ))
-                .await
-            {
-                warn!(
-                    "Failed to notify scheduler of immediate cancellation: session_id={}, turn_id={}, error={}",
-                    session_id, dialog_turn_id, error
-                );
-            } else {
+            let notified = notify_scheduler_turn_outcome(
+                tx,
+                session_id,
+                TurnOutcome::Cancelled {
+                    turn_id: dialog_turn_id.to_string(),
+                    reason,
+                    actor,
+                },
+                "immediate cancellation",
+            )
+            .await;
+            if notified {
                 debug!(
                     "Immediately notified scheduler of cancellation: session_id={}, turn_id={}",
                     session_id, dialog_turn_id
@@ -3569,5 +3567,79 @@ async fn is_ai_session_title_generation_enabled() -> bool {
             .await
             .unwrap_or(true),
         Err(_) => true,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::time::{sleep, Duration};
+
+    #[tokio::test]
+    async fn scheduler_outcome_notification_waits_for_channel_capacity() {
+        let (tx, mut rx) = mpsc::channel(1);
+        tx.send((
+            "filled-session".to_string(),
+            TurnOutcome::Completed {
+                turn_id: "turn-1".to_string(),
+                final_response: "first".to_string(),
+            },
+        ))
+        .await
+        .expect("seed channel");
+
+        let tx_for_task = tx.clone();
+        let notification = tokio::spawn(async move {
+            notify_scheduler_turn_outcome(
+                &tx_for_task,
+                "session-1",
+                TurnOutcome::Completed {
+                    turn_id: "turn-2".to_string(),
+                    final_response: "done".to_string(),
+                },
+                "completed turn",
+            )
+            .await
+        });
+
+        sleep(Duration::from_millis(20)).await;
+        assert!(
+            !notification.is_finished(),
+            "outcome notification must wait for scheduler capacity"
+        );
+
+        let first = rx.recv().await.expect("seeded outcome");
+        assert_eq!(first.0, "filled-session");
+
+        assert!(notification.await.expect("notification task"));
+
+        let second = rx.recv().await.expect("delivered outcome");
+        assert_eq!(second.0, "session-1");
+        assert_eq!(second.1.turn_id(), "turn-2");
+        match second.1 {
+            TurnOutcome::Completed { final_response, .. } => {
+                assert_eq!(final_response, "done");
+            }
+            other => panic!("expected completed outcome, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn scheduler_outcome_notification_reports_closed_receiver() {
+        let (tx, rx) = mpsc::channel(1);
+        drop(rx);
+
+        let notified = notify_scheduler_turn_outcome(
+            &tx,
+            "session-1",
+            TurnOutcome::Failed {
+                turn_id: "turn-1".to_string(),
+                error: "boom".to_string(),
+            },
+            "failed turn",
+        )
+        .await;
+
+        assert!(!notified);
     }
 }

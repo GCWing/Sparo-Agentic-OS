@@ -354,6 +354,7 @@
       "pause": "Pause goal",
       "resume": "Resume goal",
       "review": "Review goal",
+      "clear": "Clear goal",
       "cancelExecution": "Cancel goal execution"
     }
   },
