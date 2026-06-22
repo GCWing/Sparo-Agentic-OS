@@ -28,10 +28,9 @@ import type { ComposerActionDescriptor } from './composer/actions/composerAction
 import { ComposerActions } from './composer/ComposerActions';
 import { ComposerActionMenu } from './composer/ComposerActionMenu';
 import { ComposerEditorArea } from './composer/ComposerEditorArea';
-import { ComposerIntentChips } from './composer/ComposerIntentChips';
+import { ComposerIntentRail } from './composer/ComposerIntentRail';
 import { ComposerSendAction } from './composer/ComposerSendAction';
 import { ComposerShell } from './composer/ComposerShell';
-import { ComposerTargetSwitcher } from './composer/ComposerTargetSwitcher';
 import { useComposerLargePaste } from './composer/hooks/useComposerLargePaste';
 import { useComposerLayout } from './composer/hooks/useComposerLayout';
 import { useComposerBoostActions } from './composer/hooks/useComposerBoostActions';
@@ -63,6 +62,7 @@ import {
   type ComposerCommandInteractionState,
 } from './composer/model/composerState';
 import {
+  getComposerCommandTokenKey,
   NO_COMPOSER_INPUT_DETECTION,
   type ComposerInputDetection,
 } from './composer/model/composerInputDetection';
@@ -182,11 +182,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   const { profile: surfaceProfile } = useSessionProfile();
   const {
-    activeBtwSessionTitle,
     activeSessionDescriptor,
     currentSessionId,
     currentSessionModelId,
-    currentSessionTitle,
     effectiveTargetSession,
     effectiveTargetSessionId,
     isBtwSession,
@@ -381,26 +379,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const [commandState, setCommandState] = useState<ComposerCommandInteractionState>(
     CLOSED_COMPOSER_COMMAND_INTERACTION,
   );
-  const activeGoalSnapshot = useSessionGoalSnapshot(effectiveTargetSessionId);
-  const hasActiveGoalChip = (
-    activeGoalSnapshot.phase === 'extracting' ||
-    activeGoalSnapshot.phase === 'judging' ||
-    activeGoalSnapshot.phase === 'active' ||
-    activeGoalSnapshot.phase === 'waiting_user' ||
-    activeGoalSnapshot.phase === 'paused' ||
-    activeGoalSnapshot.phase === 'blocked' ||
-    activeGoalSnapshot.phase === 'budget_limited' ||
-    activeGoalSnapshot.phase === 'failed' ||
-    activeGoalSnapshot.phase === 'needs_clarification'
+  const slashCommandTokenKey = useMemo(
+    () => getComposerCommandTokenKey(inputDetection),
+    [inputDetection],
   );
-  const hasComposerIntentChips =
-    composerIntent.target !== 'main' ||
-    composerIntent.modifiers.length > 0 ||
-    composerIntent.operation !== null ||
-    composerIntent.promptTemplate !== null ||
-    hasActiveGoalChip ||
-    (canSwitchAgents && modeState.current !== defaultAgentId);
-  const useStackedComposerLayout = isInputMultiline || showTargetSwitcher || hasComposerIntentChips;
+  const activeGoalSnapshot = useSessionGoalSnapshot(effectiveTargetSessionId);
+  const useStackedComposerLayout = isInputMultiline;
 
   const {
     commandOptions,
@@ -745,24 +729,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     dispatchMode,
     dropdownOpen: modeState.dropdownOpen,
     slashCommandOpen: commandState.isOpen,
+    slashCommandTokenKey,
     setSkillsFlyoutOpen,
     setCommandState,
   });
 
   const isCollapsedProcessing = !inputState.isActive && !!derivedState?.isProcessing;
   const composerHandoffState = deriveComposerOsHandoffState(effectiveTargetSession);
-
-  const targetSwitcher = showTargetSwitcher ? (
-    <ComposerTargetSwitcher
-      label={t('chatInput.conversationTarget')}
-      mainLabel={t('chatInput.targetMain')}
-      btwLabel={t('chatInput.targetBtw')}
-      currentSessionTitle={currentSessionTitle}
-      activeBtwSessionTitle={activeBtwSessionTitle}
-      value={inputTarget}
-      onChange={setComposerTarget}
-    />
-  ) : null;
 
   const getAgentDisplayName = useCallback((agent: { id: string; name: string } | string) => {
     if (typeof agent === 'string') {
@@ -772,6 +745,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }
     return t(`chatInput.agentNames.${agent.id}`, { defaultValue: '' }) || agent.name;
   }, [modeState.available, t]);
+  const selectedAgentLabel = canSwitchAgents && modeState.current !== defaultAgentId
+    ? getAgentDisplayName(modeState.current) || modeState.current
+    : null;
 
   const handleResetAgentFromChip = useCallback((event: React.MouseEvent) => {
     event.stopPropagation();
@@ -779,18 +755,20 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     dispatchMode({ type: 'CLOSE_DROPDOWN' });
   }, [applyAgentChange, defaultAgentId, dispatchMode]);
 
+  const handleToggleComposerTarget = useCallback(() => {
+    setComposerTarget(previous => previous === 'main' ? 'btw' : 'main');
+  }, [setComposerTarget]);
+
   const editorArea = (
-    <>
-      <ComposerIntentChips
+    <div className="sparo-chat-input__message-row">
+      <ComposerIntentRail
         intent={composerIntent}
         activeGoalSnapshot={activeGoalSnapshot}
-        currentAgent={modeState.current}
-        defaultAgentId={defaultAgentId}
-        canSwitchAgents={canSwitchAgents}
-        getAgentName={(agentId) => getAgentDisplayName(agentId)}
+        inputTarget={inputTarget}
+        showTargetToggle={showTargetSwitcher}
         labels={{
           remove: t('chatInput.intentChips.remove', { defaultValue: 'Remove' }),
-          resetAgent: t('chatInput.resetToAgentic'),
+          targetMain: t('chatInput.targetMain', { defaultValue: 'Main' }),
           targetBtwDraft: t('chatInput.intentChips.targetBtwDraft', { defaultValue: 'Side question' }),
           targetBtwThread: t('chatInput.intentChips.targetBtwThread', { defaultValue: 'Side session' }),
           goalDraft: t('chatInput.intentChips.goalDraft', { defaultValue: 'Goal mode' }),
@@ -802,10 +780,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           promptTemplate: t('chatInput.intentChips.promptTemplate', { defaultValue: 'Prompt' }),
         }}
         onClearTarget={() => intentActions.setTarget('main')}
+        onToggleTarget={handleToggleComposerTarget}
         onClearGoalModifier={() => intentActions.removeModifier('goal')}
         onClearOperation={intentActions.clearOperation}
         onClearPromptTemplate={intentActions.clearPromptTemplate}
-        onResetAgent={handleResetAgentFromChip}
       />
       <ComposerEditorArea
         editorRef={richTextInputRef}
@@ -850,7 +828,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         onSelectCommandOption={selectCommandOption}
         onHoverCommandIndex={(index) => setCommandState(prev => ({ ...prev, selectedIndex: index }))}
       />
-    </>
+    </div>
   );
 
   const actions = (
@@ -869,9 +847,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               skillsTooltipSuppressed={skillsTooltipSuppressed}
               boostPanelSkills={boostPanelSkills}
               boostSkillsLoading={boostSkillsLoading}
+              selectedAgentLabel={selectedAgentLabel}
               labels={{
                 addBoostTooltip: t('chatInput.addBoostTooltip'),
                 current: t('chatInput.current'),
+                resetAgent: t('chatInput.resetToAgentic'),
+                switchAgent: t('chatInput.switchAgent', { defaultValue: 'Switch Agent' }),
                 boostSkillsLoading: t('chatInput.boostSkillsLoading'),
                 boostSkillsEmpty: t('chatInput.boostSkillsEmpty'),
                 openSkillsLibrary: t('chatInput.openSkillsLibrary'),
@@ -880,6 +861,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 e.stopPropagation();
                 dispatchMode({ type: 'TOGGLE_DROPDOWN' });
               }}
+              onResetAgent={handleResetAgentFromChip}
               onSelectAction={handleComposerActionSelect}
               onOpenSkillsFlyout={openSkillsFlyout}
               onCloseSkillsFlyout={closeSkillsFlyout}
@@ -949,7 +931,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           </>
         ) : null
       }
-      targetSwitcher={targetSwitcher}
+      targetSwitcher={null}
       editorArea={editorArea}
       actions={actions}
       workspaceMeta={workspaceMeta}

@@ -11,7 +11,7 @@ interface UseComposerKeyboardParams {
   commandOptionCount: number;
   moveCommandSelection: (delta: number) => void;
   selectCurrentCommandOption: () => void;
-  closeCommandPicker: () => void;
+  closeCommandPicker: (options?: { suppressCurrentToken?: boolean }) => void;
   showTargetSwitcher: boolean;
   setInputTarget: (target: ChatInputTarget | ((previous: ChatInputTarget) => ChatInputTarget)) => void;
   inputHistory: string[];
@@ -128,7 +128,7 @@ export function useComposerKeyboard({
 
       if (e.key === 'Escape') {
         e.preventDefault();
-        closeCommandPicker();
+        closeCommandPicker({ suppressCurrentToken: true });
         return;
       }
     }

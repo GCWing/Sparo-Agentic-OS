@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import {
+  getComposerCommandTokenKey,
   NO_COMPOSER_INPUT_DETECTION,
   removeComposerInputTriggerToken,
   type ComposerInputDetection,
@@ -8,6 +9,9 @@ import {
 import type { ComposerCommandOption } from '../model/composerCommandRegistry';
 import {
   CLOSED_COMPOSER_COMMAND_INTERACTION,
+  clearComposerCommandInteractionDismissal,
+  closeComposerCommandInteraction,
+  openComposerCommandInteraction,
   type ComposerCommandInteractionState,
 } from '../model/composerState';
 
@@ -40,9 +44,12 @@ export function useComposerCommandInteraction({
   setInputValue: (value: string) => void;
   setQueuedInput: (value: string | null) => void;
 }) {
-  const closeCommandPicker = useCallback(() => {
-    setCommandState(CLOSED_COMPOSER_COMMAND_INTERACTION);
-  }, [setCommandState]);
+  const currentTokenKey = getComposerCommandTokenKey(inputDetection);
+  const closeCommandPicker = useCallback((options?: { suppressCurrentToken?: boolean }) => {
+    setCommandState(prev => closeComposerCommandInteraction(prev, {
+      dismissTokenKey: options?.suppressCurrentToken ? currentTokenKey : null,
+    }));
+  }, [currentTokenKey, setCommandState]);
 
   const consumeCommandOption = useCallback((option: ComposerCommandOption) => {
     if (option.select.type === 'switch-agent') {
@@ -78,8 +85,16 @@ export function useComposerCommandInteraction({
 
   useEffect(() => {
     if (inputDetection.kind !== 'slash-command') {
+      if (commandState.isOpen || commandState.dismissedTokenKey) {
+        setCommandState(clearComposerCommandInteractionDismissal);
+      }
+      return;
+    }
+
+    const tokenKey = getComposerCommandTokenKey(inputDetection);
+    if (tokenKey && commandState.dismissedTokenKey === tokenKey) {
       if (commandState.isOpen) {
-        closeCommandPicker();
+        closeCommandPicker({ suppressCurrentToken: true });
       }
       return;
     }
@@ -104,17 +119,17 @@ export function useComposerCommandInteraction({
     }
 
     if (!inputDetection.hasWhitespaceAfterToken) {
-      setCommandState(prev => ({
-        isOpen: true,
+      setCommandState(prev => openComposerCommandInteraction(prev, {
         query: inputDetection.query,
-        selectedIndex: prev.query === inputDetection.query ? prev.selectedIndex : 0,
+        tokenKey,
       }));
       return;
     }
 
-    closeCommandPicker();
+    setCommandState(CLOSED_COMPOSER_COMMAND_INTERACTION);
   }, [
     closeCommandPicker,
+    commandState.dismissedTokenKey,
     commandState.isOpen,
     consumeCommandOption,
     inputDetection,

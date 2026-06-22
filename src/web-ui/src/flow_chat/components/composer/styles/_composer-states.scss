@@ -11,9 +11,9 @@
   &--active:not(.sparo-chat-input--expanded):not(.sparo-chat-input--multiline) {
     .sparo-chat-input__box {
       display: grid;
-      grid-template-columns: auto minmax(0, 1fr) auto;
+      grid-template-columns: auto auto minmax(0, 1fr) auto;
       align-items: center;
-      gap: 8px;
+      column-gap: 6px;
       min-height: 44px;
       max-height: min(180px, calc(100vh - 178px));
       padding: 5px 8px;
@@ -33,23 +33,35 @@
 
     --sparo-chat-input-control-size: 28px;
 
-    .sparo-chat-input__target-switcher {
-      grid-column: 1 / -1;
-      order: 0;
-      width: 100%;
-      padding: 0 4px 6px;
-      margin: 0 0 2px;
+    .sparo-chat-input__message-row {
+      display: contents;
+    }
+
+    .sparo-chat-input__intent-chips {
+      grid-column: 2;
+      grid-row: 1;
+      justify-self: start;
+      min-width: 0;
+      max-width: min(28vw, 220px);
+      overflow: visible;
     }
 
     .sparo-chat-input__input-area {
-      grid-column: 2;
-      order: 2;
+      grid-column: 3;
+      grid-row: 1;
+      flex: 1 1 auto;
       min-width: 0;
+      width: 100%;
       min-height: 28px;
       max-height: 120px;
       justify-content: center;
       padding: 0;
       overflow: visible;
+    }
+
+    .sparo-chat-input__intent-chip {
+      flex: 0 1 auto;
+      max-width: 150px;
     }
 
     .sparo-chat-input__image-strip {
@@ -58,11 +70,14 @@
 
     .rich-text-input {
       flex: 0 1 auto;
+      min-width: 0;
+      width: 100%;
+      max-width: 100%;
       height: 24px;
       min-height: 24px;
       max-height: 120px;
       line-height: 24px;
-      overflow-y: auto;
+      overflow: hidden;
     }
 
     .sparo-chat-input__expand-control {
@@ -78,6 +93,7 @@
 
     .sparo-chat-input__actions-left {
       grid-column: 1;
+      grid-row: 1;
       order: 1;
       min-width: 0;
       gap: 4px;
@@ -85,15 +101,25 @@
     }
 
     .sparo-chat-input__actions-right {
-      grid-column: 3;
+      grid-column: 4;
+      grid-row: 1;
       order: 3;
       gap: 6px;
       animation: none;
+      justify-self: end;
     }
 
     .sparo-chat-input__agent-boost-add {
       color: var(--ds-chat-text-primary);
       background: color-mix(in srgb, var(--ds-chat-text-primary) 8%, transparent);
+    }
+
+    .sparo-chat-input__action-anchor--agent-selected .sparo-chat-input__agent-boost-add.icon-btn {
+      background: transparent;
+
+      &:hover:not(:disabled) {
+        background: color-mix(in srgb, var(--ds-chat-danger) 18%, transparent);
+      }
     }
 
   }
@@ -124,6 +150,14 @@
   }
 
   &--active.sparo-chat-input--multiline:not(.sparo-chat-input--expanded) {
+    .sparo-chat-input__message-row {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 6px;
+      min-width: 0;
+    }
+
     .sparo-chat-input__input-area {
       max-height: 120px;
     }
