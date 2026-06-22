@@ -3,6 +3,11 @@
 @use '@/flow_chat/styles/flow-chat-style-contract' as flow;
 
 .sparo-chat-input {
+  --sparo-composer-menu-row-height: 28px;
+  --sparo-composer-menu-row-padding-x: 10px;
+  --sparo-composer-menu-row-gap: 8px;
+  --sparo-composer-menu-list-padding-y: 2px;
+
   &__mode-pending-indicator {
     font-size: var(--flowchat-font-size-xxs);
     color: var(--ds-chat-warning);
@@ -26,13 +31,14 @@
     &--agent-boost {
       min-width: 228px;
       max-width: 288px;
-      padding-bottom: 2px;
+      padding: var(--sparo-composer-menu-list-padding-y) 0;
       overflow: visible;
     }
   }
   
   &__mode-option {
-    padding: 7px 12px;
+    min-height: var(--sparo-composer-menu-row-height);
+    padding: 5px var(--sparo-composer-menu-row-padding-x);
     margin: 0 4px;
     border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
     font-size: var(--flowchat-font-size-2xs);
@@ -42,7 +48,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    gap: var(--sparo-composer-menu-row-gap);
+    line-height: 1.25;
     
     &:hover:not(&--disabled) {
       background: var(--ds-chat-surface-muted);
@@ -81,10 +88,12 @@
 
   &__mode-option.ds-action-list-row {
     width: calc(100% - 8px);
-    min-height: 0;
-    padding: 7px 12px;
+    min-height: var(--sparo-composer-menu-row-height);
+    height: var(--sparo-composer-menu-row-height);
+    padding: 0 var(--sparo-composer-menu-row-padding-x);
     border: none;
     background: transparent;
+    gap: var(--sparo-composer-menu-row-gap);
 
     &:hover:not(:disabled) {
       background: var(--ds-chat-surface-muted);
@@ -97,7 +106,14 @@
 
     .ds-action-list-row__title {
       font-size: var(--flowchat-font-size-2xs);
-      line-height: 1.35;
+      line-height: 1.25;
+    }
+
+    .ds-action-list-row__meta {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      line-height: 1;
     }
 
     .ds-action-list-row__selected-icon {
@@ -108,7 +124,7 @@
   &__mode-divider {
     display: flex;
     align-items: center;
-    margin: 4px 12px;
+    margin: 2px 10px;
     position: relative;
   }
   
@@ -128,11 +144,12 @@
   }
   
   &__mode-submenu {
-    margin: 2px 0;
+    margin: 1px 0;
   }
   
   &__mode-submenu-trigger {
-    padding: 7px 12px;
+    min-height: var(--sparo-composer-menu-row-height);
+    padding: 5px var(--sparo-composer-menu-row-padding-x);
     margin: 0 4px;
     border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
     font-size: var(--flowchat-font-size-2xs);
@@ -142,6 +159,7 @@
     display: flex;
     align-items: center;
     gap: 4px;
+    line-height: 1.25;
     
     &:hover {
       background: var(--ds-chat-surface-muted);
@@ -189,7 +207,7 @@
     background: color-mix(in srgb, var(--ds-color-bg-app) 12%, transparent);
     
     .sparo-chat-input__mode-option {
-      padding-left: 24px;
+      padding-left: 20px;
       font-size: var(--flowchat-font-size-xxs);
       
       &:hover:not(&--disabled) {
@@ -249,7 +267,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 12px;
+    padding: 6px 10px;
     border-bottom: 1px solid var(--ds-chat-border);
     font-size: var(--flowchat-font-size-xxs);
     font-weight: 500;
@@ -270,7 +288,7 @@
     position: relative;
     max-height: 240px;
     overflow-y: auto;
-    padding: 4px 0;
+    padding: var(--sparo-composer-menu-list-padding-y) 0;
     
     @include flow.flow-chat-soft-scrollbar;
   }
@@ -280,12 +298,13 @@
   }
 
   &__slash-command-group {
-    padding: 7px 12px 3px;
+    padding: 5px 10px 2px;
     font-size: var(--flowchat-font-size-xxs);
     color: var(--ds-chat-text-muted);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0;
+    line-height: 1.15;
   }
 
   &__slash-command-hover-highlight {
@@ -321,8 +340,9 @@
     position: relative;
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 7px 12px;
+    gap: var(--sparo-composer-menu-row-gap);
+    min-height: var(--sparo-composer-menu-row-height);
+    padding: 5px var(--sparo-composer-menu-row-padding-x);
     margin: 0 4px;
     border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
     cursor: pointer;
@@ -346,11 +366,12 @@
   &__slash-command-item.ds-action-list-row {
     position: relative;
     width: calc(100% - 8px);
-    min-height: 0;
-    padding: 7px 12px;
+    min-height: var(--sparo-composer-menu-row-height);
+    height: var(--sparo-composer-menu-row-height);
+    padding: 0 var(--sparo-composer-menu-row-padding-x);
     border: none;
     background: transparent;
-    gap: 12px;
+    gap: var(--sparo-composer-menu-row-gap);
 
     &:hover:not(:disabled) {
       background: var(--ds-chat-surface-muted);
@@ -362,15 +383,23 @@
     }
 
     .ds-action-list-row__content {
-      display: grid;
-      grid-template-columns: minmax(100px, auto) minmax(0, 1fr);
+      display: flex;
+      flex-direction: row;
       align-items: center;
-      gap: 12px;
+      gap: 0;
+      min-width: 0;
     }
 
-    .ds-action-list-row__title,
-    .ds-action-list-row__description {
-      line-height: 1.35;
+    .ds-action-list-row__title {
+      line-height: 1.25;
+    }
+
+    .ds-action-list-row__meta {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      margin-left: auto;
+      line-height: 1;
     }
 
     .ds-action-list-row__selected-icon {
@@ -413,7 +442,7 @@
   }
   
   &__slash-command-empty {
-    padding: 16px 12px;
+    padding: 12px 10px;
     text-align: center;
     font-size: var(--flowchat-font-size-2xs);
     color: var(--ds-chat-text-muted);
@@ -421,10 +450,67 @@
 
   &__intent-chips {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     gap: 6px;
-    padding: 0 2px 6px;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    padding: 0;
+  }
+
+  &__intent-icon,
+  &__intent-icon.icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 24px;
+    width: 24px;
+    min-width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid var(--ds-chat-border);
+    border-radius: var(--ds-radius-full);
+    background: var(--ds-chat-surface-muted);
+    color: var(--ds-chat-text-secondary);
+    transform: none;
+    transition:
+      background 0.14s ease,
+      border-color 0.14s ease,
+      color 0.14s ease;
+  }
+
+  &__intent-icon.icon-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, currentColor 12%, transparent);
+    transform: none;
+  }
+
+  &__intent-icon.icon-btn:active:not(:disabled) {
+    transform: none;
+  }
+
+  &__intent-icon.icon-btn:focus-visible {
+    outline: 2px solid var(--ds-chat-focus-ring);
+    outline-offset: 1px;
+    transform: none;
+  }
+
+  &__intent-icon--goal,
+  &__intent-icon--goal.icon-btn {
+    border-color: color-mix(in srgb, var(--ds-status-surface-warning-fg) 32%, var(--ds-chat-border));
+    color: var(--ds-status-surface-warning-fg);
+    background: color-mix(in srgb, var(--ds-status-surface-warning-fg) 10%, transparent);
+  }
+
+  &__intent-icon--target,
+  &__intent-icon--target.icon-btn {
+    border-color: color-mix(in srgb, var(--ds-status-surface-info-fg) 30%, var(--ds-chat-border));
+    color: var(--ds-status-surface-info-fg);
+    background: color-mix(in srgb, var(--ds-status-surface-info-fg) 10%, transparent);
+  }
+
+  &__intent-icon--readonly {
+    pointer-events: none;
   }
 
   &__intent-chip {
@@ -432,6 +518,7 @@
     align-items: center;
     gap: 5px;
     max-width: min(220px, 100%);
+    flex: 0 1 auto;
     min-height: 22px;
     padding: 2px 4px 2px 7px;
     border: 1px solid var(--ds-chat-border);
@@ -442,11 +529,26 @@
     font-weight: 500;
     line-height: 1.2;
 
-    > span {
+    .sparo-chat-input__intent-chip-label {
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    button.sparo-chat-input__intent-chip-label {
+      border: none;
+      padding: 0;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+
+      &:focus-visible {
+        outline: 2px solid var(--ds-chat-focus-ring);
+        outline-offset: 1px;
+        border-radius: var(--ds-radius-full);
+      }
     }
 
     svg {

@@ -12,6 +12,7 @@ function getSingleLineEditorWidth(editor: HTMLDivElement) {
   const box = editor.closest('.sparo-chat-input__box');
   const actionsLeft = composer?.querySelector<HTMLElement>('.sparo-chat-input__actions-left');
   const actionsRight = composer?.querySelector<HTMLElement>('.sparo-chat-input__actions-right');
+  const intentRail = composer?.querySelector<HTMLElement>('.sparo-chat-input__intent-chips');
 
   if (!box) {
     return editor.getBoundingClientRect().width;
@@ -25,8 +26,11 @@ function getSingleLineEditorWidth(editor: HTMLDivElement) {
   const sideControlsWidth =
     (actionsLeft?.getBoundingClientRect().width ?? 0) +
     (actionsRight?.getBoundingClientRect().width ?? 0);
+  const intentRailWidth = intentRail?.getBoundingClientRect().width ?? 0;
   const boxWidth = box.getBoundingClientRect().width;
-  const singleLineWidth = boxWidth - paddingX - sideControlsWidth - columnGap * 2;
+  const activeGaps = intentRailWidth > 0 ? 3 : 2;
+  const singleLineWidth =
+    boxWidth - paddingX - sideControlsWidth - intentRailWidth - columnGap * activeGaps;
 
   return Math.max(120, singleLineWidth);
 }

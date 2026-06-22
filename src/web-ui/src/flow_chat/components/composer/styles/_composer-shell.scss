@@ -121,6 +121,7 @@
     .sparo-chat-input__cowork-examples,
     .sparo-chat-input__recommendations,
     .sparo-chat-input__target-switcher,
+    .sparo-chat-input__intent-chips,
     .sparo-chat-input__actions-left,
     .sparo-chat-input__agent-boost,
     .sparo-chat-input__actions-right {
@@ -129,21 +130,32 @@
 
     &.sparo-chat-input--collapsed-action-visible {
       .sparo-chat-input__box {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: center;
+        column-gap: 8px;
         overflow: visible;
+        padding: 0 12px;
       }
 
       .sparo-chat-input__input-area {
-        left: 44px;
-        right: 18px;
+        position: relative;
+        grid-column: 2;
+        grid-row: 1;
+        top: auto;
+        left: auto;
+        right: auto;
         width: auto;
-        transform: translateY(-50%);
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
+        transform: none;
       }
 
       .sparo-chat-input__actions {
-        position: absolute;
-        top: 0;
-        left: 12px;
-        bottom: 0;
+        position: relative;
+        grid-column: 1;
+        grid-row: 1;
         display: flex;
         align-items: center;
         justify-content: flex-start;
@@ -1009,6 +1021,15 @@
       content: '/';
       margin-right: 2px;
     }
+  }
+
+  &__message-row {
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
   }
 
   // IconButton base class supplies semantics; this keeps the floating affordance compact.

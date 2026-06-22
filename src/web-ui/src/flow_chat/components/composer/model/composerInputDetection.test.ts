@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   detectComposerInput,
+  getComposerCommandTokenKey,
   removeComposerInputTriggerToken,
 } from './composerInputDetection';
 
@@ -17,6 +18,7 @@ describe('detectComposerInput', () => {
       hasArguments: true,
       argumentText: 'ship the feature',
     });
+    expect(getComposerCommandTokenKey(detection)).toBe('start:0:5:/goal');
     expect(removeComposerInputTriggerToken('/goal ship the feature', detection)).toBe('ship the feature');
   });
 
@@ -30,6 +32,7 @@ describe('detectComposerInput', () => {
       rawToken: '/btw',
       query: 'btw',
     });
+    expect(getComposerCommandTokenKey(detection)).toBe('line-start:10:14:/btw');
     expect(removeComposerInputTriggerToken(text, detection)).toBe('Context\nexplain this');
   });
 

@@ -30,6 +30,19 @@ export const NO_COMPOSER_INPUT_DETECTION: ComposerNoInputTrigger = {
   kind: 'none',
 };
 
+export function getComposerCommandTokenKey(detection: ComposerInputDetection): string | null {
+  if (detection.kind !== 'slash-command') {
+    return null;
+  }
+
+  return [
+    detection.position,
+    detection.tokenStart,
+    detection.tokenEnd,
+    detection.rawToken,
+  ].join(':');
+}
+
 function clampCursor(text: string, cursor: number | undefined): number {
   if (typeof cursor !== 'number' || Number.isNaN(cursor)) {
     return text.length;

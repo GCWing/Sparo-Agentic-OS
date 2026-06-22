@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import type { Dispatch, RefObject, SetStateAction } from 'react';
 import type { AgentAction } from '../../../reducers/agentReducer';
 import {
-  CLOSED_COMPOSER_COMMAND_INTERACTION,
+  closeComposerCommandInteraction,
   type ComposerCommandInteractionState,
 } from '../model/composerState';
 
@@ -12,6 +12,7 @@ export function useComposerOutsideInteractions({
   dispatchMode,
   dropdownOpen,
   slashCommandOpen,
+  slashCommandTokenKey,
   setCommandState,
   setSkillsFlyoutOpen,
 }: {
@@ -20,6 +21,7 @@ export function useComposerOutsideInteractions({
   dispatchMode: Dispatch<AgentAction>;
   dropdownOpen: boolean;
   slashCommandOpen: boolean;
+  slashCommandTokenKey: string | null;
   setCommandState: Dispatch<SetStateAction<ComposerCommandInteractionState>>;
   setSkillsFlyoutOpen: Dispatch<SetStateAction<boolean>>;
 }) {
@@ -27,6 +29,14 @@ export function useComposerOutsideInteractions({
     const handlePointerOutside = (event: MouseEvent) => {
       const target = event.target as Node;
       const targetElement = target instanceof Element ? target : null;
+      const slashTarget =
+        targetElement?.closest?.('.sparo-chat-input__slash-command-picker, .rich-text-input') ?? null;
+
+      if (slashCommandOpen && !slashTarget) {
+        setCommandState(prev => closeComposerCommandInteraction(prev, {
+          dismissTokenKey: slashCommandTokenKey,
+        }));
+      }
 
       if (dropdownOpen && agentBoostRef.current && !agentBoostRef.current.contains(target)) {
         dispatchMode({ type: 'CLOSE_DROPDOWN' });
@@ -37,9 +47,6 @@ export function useComposerOutsideInteractions({
       if (!containerRef.current?.contains(target)) {
         dispatchMode({ type: 'CLOSE_DROPDOWN' });
         setSkillsFlyoutOpen(false);
-        if (slashCommandOpen) {
-          setCommandState(CLOSED_COMPOSER_COMMAND_INTERACTION);
-        }
       }
     };
 
@@ -54,6 +61,7 @@ export function useComposerOutsideInteractions({
     dropdownOpen,
     setCommandState,
     slashCommandOpen,
+    slashCommandTokenKey,
     setSkillsFlyoutOpen,
   ]);
 }

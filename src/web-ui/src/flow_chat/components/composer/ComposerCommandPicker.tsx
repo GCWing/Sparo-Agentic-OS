@@ -92,11 +92,6 @@ export function ComposerCommandPicker({
                 <SelectableRow
                   className={`sparo-chat-input__slash-command-item ${index === state.selectedIndex ? 'sparo-chat-input__slash-command-item--selected' : ''} ${option.current ? 'sparo-chat-input__slash-command-item--active' : ''}`}
                   data-testid={`composer-command-${option.id}`}
-                  description={(
-                    <span className="sparo-chat-input__slash-command-label">
-                      {option.description}
-                    </span>
-                  )}
                   meta={option.current ? <Badge className="sparo-chat-input__slash-command-current" variant="accent">{labels.current}</Badge> : undefined}
                   onClick={() => onSelectOption(option)}
                   {...getItemHoverHandlers(index)}

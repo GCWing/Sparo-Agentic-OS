@@ -10,10 +10,9 @@ import {
   Image,
   MessageSquarePlus,
   Minimize2,
-  Plus,
   Sparkles,
 } from 'lucide-react';
-import { Badge, Button, IconButton, SelectableRow, Spinner, Tooltip } from '@/design-system';
+import { Badge, Button, SelectableRow, Spinner, Tooltip } from '@/design-system';
 import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
 import type { SkillInfo } from '@/infrastructure/config/types';
 import type {
@@ -21,6 +20,7 @@ import type {
   ComposerActionIconId,
   ComposerActionSection,
 } from './actions/composerActionTypes';
+import { ComposerActionAnchor } from './ComposerActionAnchor';
 
 interface ComposerActionMenuProps {
   hostRef: React.Ref<HTMLDivElement>;
@@ -33,14 +33,18 @@ interface ComposerActionMenuProps {
   skillsTooltipSuppressed: boolean;
   boostPanelSkills: SkillInfo[];
   boostSkillsLoading: boolean;
+  selectedAgentLabel?: string | null;
   labels: {
     addBoostTooltip: string;
     current: string;
+    resetAgent: string;
+    switchAgent: string;
     boostSkillsLoading: string;
     boostSkillsEmpty: string;
     openSkillsLibrary: string;
   };
   onToggleDropdown: (event: React.MouseEvent) => void;
+  onResetAgent: (event: React.MouseEvent) => void;
   onSelectAction: (action: ComposerActionDescriptor, event: React.MouseEvent) => void;
   onOpenSkillsFlyout: () => void;
   onCloseSkillsFlyout: () => void;
@@ -91,8 +95,10 @@ export function ComposerActionMenu({
   skillsTooltipSuppressed,
   boostPanelSkills,
   boostSkillsLoading,
+  selectedAgentLabel,
   labels,
   onToggleDropdown,
+  onResetAgent,
   onSelectAction,
   onOpenSkillsFlyout,
   onCloseSkillsFlyout,
@@ -334,19 +340,17 @@ export function ComposerActionMenu({
       ].filter(Boolean).join(' ')}
       ref={hostRef}
     >
-      <Tooltip content={labels.addBoostTooltip}>
-        <IconButton
-          aria-label={labels.addBoostTooltip}
-          className="sparo-chat-input__agent-boost-add"
-          variant="ghost"
-          size="xs"
-          aria-haspopup="menu"
-          aria-expanded={dropdownOpen}
-          onClick={onToggleDropdown}
-        >
-          <Plus size={14} strokeWidth={2.25} />
-        </IconButton>
-      </Tooltip>
+      <ComposerActionAnchor
+        dropdownOpen={dropdownOpen}
+        selectedAgentLabel={selectedAgentLabel}
+        labels={{
+          addBoostTooltip: labels.addBoostTooltip,
+          resetAgent: labels.resetAgent,
+          switchAgent: labels.switchAgent,
+        }}
+        onToggleDropdown={onToggleDropdown}
+        onResetAgent={onResetAgent}
+      />
 
       {dropdownOpen && (
         <div className="sparo-chat-input__mode-dropdown sparo-chat-input__mode-dropdown--agent-boost">
