@@ -125,7 +125,7 @@
     line-height: $line-height-relaxed;
 
     /* blockId lives on <hr>; do not use paragraph chrome on hr. */
-    > [data-block-id]:not(hr) {
+    > [data-block-id]:not(hr):not(table[data-type='markdown-table']) {
       margin-bottom: $size-gap-2;
       padding: $size-gap-2;
       border-radius: 0;
@@ -559,6 +559,123 @@
       background-color: transparent;
       border-radius: $size-radius-base;
       vertical-align: middle;
+    }
+  }
+
+  .m-editor-table-quick-insert {
+    --m-editor-table-quick-insert-size: 1.35rem;
+
+    position: absolute;
+    z-index: calc(var(--ds-z-local) + 1);
+    pointer-events: none;
+  }
+
+  .m-editor-table-quick-insert__strip {
+    appearance: none;
+    box-sizing: border-box;
+    position: absolute;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: var(--ds-radius-sm);
+    color: var(--ds-color-text-secondary);
+    background: var(--ds-color-element-subtle);
+    box-shadow: none;
+    opacity: 1;
+    line-height: 1;
+    pointer-events: auto;
+    cursor: pointer;
+    transition:
+      color $motion-fast $easing-standard,
+      background $motion-fast $easing-standard;
+
+    &:hover,
+    &:focus-visible {
+      color: var(--ds-color-text-primary);
+      background: color-mix(in srgb, var(--ds-color-element-subtle) 90%, var(--ds-color-text-primary) 10%);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ds-color-accent-500);
+      outline-offset: 2px;
+    }
+  }
+
+  .m-editor-table-quick-insert__strip--top,
+  .m-editor-table-quick-insert__strip--bottom {
+    left: 0;
+    width: 100%;
+    height: var(--m-editor-table-quick-insert-size);
+    min-height: var(--m-editor-table-quick-insert-size);
+    max-height: var(--m-editor-table-quick-insert-size);
+  }
+
+  .m-editor-table-quick-insert__strip--top {
+    top: calc(-1 * var(--m-editor-table-quick-insert-size));
+  }
+
+  .m-editor-table-quick-insert__strip--bottom {
+    bottom: calc(-1 * var(--m-editor-table-quick-insert-size));
+  }
+
+  .m-editor-table-quick-insert__strip--left,
+  .m-editor-table-quick-insert__strip--right {
+    top: 0;
+    width: var(--m-editor-table-quick-insert-size);
+    min-width: var(--m-editor-table-quick-insert-size);
+    max-width: var(--m-editor-table-quick-insert-size);
+    height: 100%;
+  }
+
+  .m-editor-table-quick-insert__strip--left {
+    left: calc(-1 * var(--m-editor-table-quick-insert-size));
+  }
+
+  .m-editor-table-quick-insert__strip--right {
+    right: calc(-1 * var(--m-editor-table-quick-insert-size));
+  }
+
+  .m-editor-table-quick-insert__divider-button {
+    appearance: none;
+    box-sizing: border-box;
+    position: absolute;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    min-width: 1.25rem;
+    min-height: 1.25rem;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    color: var(--ds-color-text-secondary);
+    background: color-mix(in srgb, var(--ds-color-bg-elevated) 92%, transparent);
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--ds-shadow-color-floating) 42%, transparent);
+    line-height: 1;
+    opacity: 0.94;
+    pointer-events: auto;
+    cursor: pointer;
+    transform: translate(-50%, -50%);
+    transition:
+      color $motion-fast $easing-standard,
+      background $motion-fast $easing-standard,
+      opacity $motion-fast $easing-standard,
+      transform $motion-fast $easing-standard;
+
+    &:hover,
+    &:focus-visible {
+      color: var(--ds-color-text-primary);
+      background: var(--ds-color-element-hover);
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1.04);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ds-color-accent-500);
+      outline-offset: 2px;
     }
   }
 

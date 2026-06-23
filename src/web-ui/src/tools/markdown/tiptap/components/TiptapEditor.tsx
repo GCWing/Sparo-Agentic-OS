@@ -13,7 +13,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import TaskItem from '@tiptap/extension-task-item';
 import TaskList from '@tiptap/extension-task-list';
 import Link from '@tiptap/extension-link';
-import { ArrowUp, FileText, ListTodo, ListTree, PenLine } from 'lucide-react';
+import { ArrowUp, FileText, ListTodo, ListTree, PenLine, Plus } from 'lucide-react';
 import type { Editor as TiptapEditorInstance, JSONContent } from '@tiptap/core';
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
 import { Selection, TextSelection } from '@tiptap/pm/state';
@@ -60,6 +60,11 @@ import {
   tiptapDocToMarkdown,
   tiptapDocToTopLevelMarkdownBlocks,
 } from '../utils/tiptapMarkdown';
+import {
+  insertMarkdownTableColumn,
+  insertMarkdownTableRow,
+  type MarkdownTableQuickInsertKind,
+} from '../utils/markdownTableQuickInsert';
 import {
   builtInMarkdownActions,
   buildMarkdownTarget,
@@ -293,6 +298,39 @@ type TopLevelBlockPosition = {
   pos: number;
   nodeSize: number;
   contentSize: number;
+};
+
+type TableQuickInsertOuterControl = {
+  type: 'outer';
+  side: 'top' | 'bottom' | 'left' | 'right';
+  kind: MarkdownTableQuickInsertKind;
+  index: number;
+};
+
+type TableQuickInsertDividerControl = {
+  type: 'divider';
+  axis: 'horizontal' | 'vertical';
+  kind: MarkdownTableQuickInsertKind;
+  index: number;
+  x: number;
+  y: number;
+};
+
+type TableQuickInsertControl = TableQuickInsertOuterControl | TableQuickInsertDividerControl;
+
+type TableQuickInsertOverlay = {
+  blockId: string;
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+  control: TableQuickInsertControl;
+};
+
+type TableQuickInsertAction = {
+  kind: MarkdownTableQuickInsertKind;
+  blockId: string;
+  index: number;
 };
 
 type MarkdownSection = {
@@ -853,6 +891,342 @@ function deleteEmptyMarkdownTableAtSelection(instance: TiptapEditorInstance): bo
   return true;
 }
 
+function getMarkdownTableCellTextPosition(
+  tablePos: number,
+  tableNode: ProseMirrorNode,
+  rowIndex: number,
+  columnIndex: number,
+): number | null {
+  if (tableNode.type.name !== 'markdownTable' || rowIndex < 0 || columnIndex < 0) {
+    return null;
+  }
+
+  let rowPos = tablePos + 1;
+  for (let index = 0; index < tableNode.childCount; index += 1) {
+    const row = tableNode.child(index);
+    if (index === rowIndex) {
+      let cellPos = rowPos + 1;
+      for (let cellIndex = 0; cellIndex < row.childCount; cellIndex += 1) {
+        const cell = row.child(cellIndex);
+        if (cellIndex === columnIndex) {
+          return cellPos + 1;
+        }
+        cellPos += cell.nodeSize;
+      }
+      return null;
+    }
+    rowPos += row.nodeSize;
+  }
+
+  return null;
+}
+
+function applyMarkdownTableQuickInsert(
+  instance: TiptapEditorInstance,
+  action: TableQuickInsertAction,
+): boolean {
+  const block = getTopLevelBlockPositionById(instance, action.blockId);
+  const tableNode = block ? instance.state.doc.nodeAt(block.pos) : null;
+  if (!block || !tableNode || tableNode.type.name !== 'markdownTable') {
+    return false;
+  }
+
+  const mutation = action.kind === 'column'
+    ? insertMarkdownTableColumn(tableNode.toJSON(), action.index)
+    : insertMarkdownTableRow(tableNode.toJSON(), action.index);
+
+  if (!mutation) {
+    return false;
+  }
+
+  let nextTableNode: ProseMirrorNode;
+  try {
+    nextTableNode = instance.schema.nodeFromJSON(mutation.table);
+  } catch (error) {
+    log.warn('Failed to build Markdown table quick insert node', { kind: action.kind, error });
+    return false;
+  }
+
+  const tr = instance.state.tr
+    .replaceWith(block.pos, block.pos + tableNode.nodeSize, nextTableNode)
+    .setMeta('addToHistory', true);
+  const focusPos = getMarkdownTableCellTextPosition(
+    block.pos,
+    nextTableNode,
+    mutation.focusRowIndex,
+    mutation.focusColumnIndex,
+  );
+
+  if (focusPos !== null) {
+    try {
+      tr.setSelection(TextSelection.create(tr.doc, Math.min(focusPos, tr.doc.content.size)));
+    } catch {
+      tr.setSelection(Selection.near(tr.doc.resolve(Math.min(block.pos + 1, tr.doc.content.size))));
+    }
+  }
+
+  instance.view.dispatch(tr.scrollIntoView());
+  focusEditorWithoutScroll(instance);
+  return true;
+}
+
+function getElementFromEventTarget(target: EventTarget | null): HTMLElement | null {
+  return target instanceof HTMLElement ? target : null;
+}
+
+function findMarkdownTableFromTarget(target: EventTarget | null): HTMLTableElement | null {
+  const element = getElementFromEventTarget(target);
+  if (!element || element.closest('.m-editor-table-quick-insert')) {
+    return null;
+  }
+
+  return element.closest<HTMLTableElement>('table[data-type="markdown-table"][data-block-id]');
+}
+
+function findMarkdownTableByBlockId(root: HTMLDivElement, blockId: string): HTMLTableElement | null {
+  const tables = root.querySelectorAll<HTMLTableElement>('table[data-type="markdown-table"][data-block-id]');
+  return Array.from(tables).find(table => table.getAttribute('data-block-id') === blockId) ?? null;
+}
+
+const TABLE_QUICK_INSERT_RAIL_SIZE = 28;
+const TABLE_QUICK_INSERT_REACH_SIZE = 36;
+const TABLE_QUICK_INSERT_DIVIDER_REACH_SIZE = 10;
+const TABLE_QUICK_INSERT_HIDE_DELAY_MS = 180;
+
+function isPointInTableQuickInsertReach(table: HTMLTableElement, clientX: number, clientY: number): boolean {
+  const rect = table.getBoundingClientRect();
+  const x = clientX - rect.left;
+  const y = clientY - rect.top;
+
+  const inHorizontalReach =
+    x >= -TABLE_QUICK_INSERT_REACH_SIZE &&
+    x <= rect.width + TABLE_QUICK_INSERT_REACH_SIZE &&
+    y >= -TABLE_QUICK_INSERT_REACH_SIZE &&
+    y <= rect.height + TABLE_QUICK_INSERT_REACH_SIZE;
+  const inVerticalReach =
+    y >= -TABLE_QUICK_INSERT_REACH_SIZE &&
+    y <= rect.height + TABLE_QUICK_INSERT_REACH_SIZE &&
+    x >= -TABLE_QUICK_INSERT_REACH_SIZE &&
+    x <= rect.width + TABLE_QUICK_INSERT_REACH_SIZE;
+
+  return inHorizontalReach || inVerticalReach;
+}
+
+function getPointDistanceToTable(table: HTMLTableElement, clientX: number, clientY: number): number {
+  const rect = table.getBoundingClientRect();
+  const dx = clientX < rect.left ? rect.left - clientX : clientX > rect.right ? clientX - rect.right : 0;
+  const dy = clientY < rect.top ? rect.top - clientY : clientY > rect.bottom ? clientY - rect.bottom : 0;
+  return Math.hypot(dx, dy);
+}
+
+function findMarkdownTableNearPoint(root: HTMLDivElement, clientX: number, clientY: number): HTMLTableElement | null {
+  const tables = Array.from(root.querySelectorAll<HTMLTableElement>('table[data-type="markdown-table"][data-block-id]'));
+  return tables
+    .filter(table => isPointInTableQuickInsertReach(table, clientX, clientY))
+    .sort((left, right) => (
+      getPointDistanceToTable(left, clientX, clientY) - getPointDistanceToTable(right, clientX, clientY)
+    ))[0] ?? null;
+}
+
+function clampTableQuickInsertCoordinate(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function getNearestTableQuickInsertDivider(
+  rows: HTMLTableRowElement[],
+  firstRowCells: HTMLTableCellElement[],
+  tableRect: DOMRect,
+  pointerX: number,
+  pointerY: number,
+): TableQuickInsertDividerControl | null {
+  if (
+    pointerX < 0 ||
+    pointerX > tableRect.width ||
+    pointerY < 0 ||
+    pointerY > tableRect.height
+  ) {
+    return null;
+  }
+
+  const verticalCandidates = firstRowCells
+    .slice(0, -1)
+    .map((cell, index) => {
+      const cellRect = cell.getBoundingClientRect();
+      const x = cellRect.right - tableRect.left;
+      return {
+        axis: 'vertical' as const,
+        kind: 'column' as const,
+        index: index + 1,
+        x,
+        y: clampTableQuickInsertCoordinate(pointerY, 0, tableRect.height),
+        distance: Math.abs(pointerX - x),
+      };
+    })
+    .filter(candidate => (
+      candidate.distance <= TABLE_QUICK_INSERT_DIVIDER_REACH_SIZE &&
+      pointerY >= 0 &&
+      pointerY <= tableRect.height
+    ));
+
+  const horizontalCandidates = rows
+    .slice(0, -1)
+    .map((row, index) => {
+      const rowRect = row.getBoundingClientRect();
+      const y = rowRect.bottom - tableRect.top;
+      return {
+        axis: 'horizontal' as const,
+        kind: 'row' as const,
+        index: index + 1,
+        x: clampTableQuickInsertCoordinate(pointerX, 0, tableRect.width),
+        y,
+        distance: Math.abs(pointerY - y),
+      };
+    })
+    .filter(candidate => (
+      candidate.distance <= TABLE_QUICK_INSERT_DIVIDER_REACH_SIZE &&
+      pointerX >= 0 &&
+      pointerX <= tableRect.width
+    ));
+
+  const nearest = [...verticalCandidates, ...horizontalCandidates]
+    .sort((left, right) => left.distance - right.distance)[0];
+  if (!nearest) {
+    return null;
+  }
+
+  return {
+    type: 'divider',
+    axis: nearest.axis,
+    kind: nearest.kind,
+    index: nearest.index,
+    x: Math.round(nearest.x),
+    y: Math.round(nearest.y),
+  };
+}
+
+function measureTableQuickInsertOverlay(
+  root: HTMLDivElement,
+  table: HTMLTableElement,
+  pointer: { clientX: number; clientY: number },
+): TableQuickInsertOverlay | null {
+  const blockId = table.getAttribute('data-block-id');
+  const rows = Array.from(table.rows);
+  const firstRowCells = rows[0] ? Array.from(rows[0].cells) : [];
+  if (!blockId || rows.length === 0 || firstRowCells.length === 0) {
+    return null;
+  }
+
+  const rootRect = root.getBoundingClientRect();
+  const tableRect = table.getBoundingClientRect();
+  if (tableRect.width <= 0 || tableRect.height <= 0) {
+    return null;
+  }
+
+  const pointerX = pointer.clientX - tableRect.left;
+  const pointerY = pointer.clientY - tableRect.top;
+  const dividerControl = getNearestTableQuickInsertDivider(
+    rows,
+    firstRowCells,
+    tableRect,
+    pointerX,
+    pointerY,
+  );
+  if (dividerControl) {
+    return {
+      blockId,
+      top: Math.round(tableRect.top - rootRect.top + root.scrollTop),
+      left: Math.round(tableRect.left - rootRect.left + root.scrollLeft),
+      width: Math.round(tableRect.width),
+      height: Math.round(tableRect.height),
+      control: dividerControl,
+    };
+  }
+
+  const sideDistances = [
+    {
+      side: 'top' as const,
+      distance: Math.abs(pointerY),
+      active:
+        pointerX >= -TABLE_QUICK_INSERT_REACH_SIZE &&
+        pointerX <= tableRect.width + TABLE_QUICK_INSERT_REACH_SIZE &&
+        pointerY >= -TABLE_QUICK_INSERT_REACH_SIZE &&
+        pointerY <= TABLE_QUICK_INSERT_RAIL_SIZE,
+    },
+    {
+      side: 'bottom' as const,
+      distance: Math.abs(pointerY - tableRect.height),
+      active:
+        pointerX >= -TABLE_QUICK_INSERT_REACH_SIZE &&
+        pointerX <= tableRect.width + TABLE_QUICK_INSERT_REACH_SIZE &&
+        pointerY >= tableRect.height - TABLE_QUICK_INSERT_RAIL_SIZE &&
+        pointerY <= tableRect.height + TABLE_QUICK_INSERT_REACH_SIZE,
+    },
+    {
+      side: 'left' as const,
+      distance: Math.abs(pointerX),
+      active:
+        pointerY >= -TABLE_QUICK_INSERT_REACH_SIZE &&
+        pointerY <= tableRect.height + TABLE_QUICK_INSERT_REACH_SIZE &&
+        pointerX >= -TABLE_QUICK_INSERT_REACH_SIZE &&
+        pointerX <= TABLE_QUICK_INSERT_RAIL_SIZE,
+    },
+    {
+      side: 'right' as const,
+      distance: Math.abs(pointerX - tableRect.width),
+      active:
+        pointerY >= -TABLE_QUICK_INSERT_REACH_SIZE &&
+        pointerY <= tableRect.height + TABLE_QUICK_INSERT_REACH_SIZE &&
+        pointerX >= tableRect.width - TABLE_QUICK_INSERT_RAIL_SIZE &&
+        pointerX <= tableRect.width + TABLE_QUICK_INSERT_REACH_SIZE,
+    },
+  ];
+  const activeSide = sideDistances
+    .filter(side => side.active)
+    .sort((left, right) => left.distance - right.distance)[0]?.side ?? null;
+
+  if (!activeSide) {
+    return null;
+  }
+
+  const columnCount = firstRowCells.length;
+  const control = activeSide === 'top'
+    ? {
+        type: 'outer' as const,
+        side: activeSide,
+        kind: 'row' as const,
+        index: 1,
+      }
+    : activeSide === 'bottom'
+      ? {
+          type: 'outer' as const,
+          side: activeSide,
+          kind: 'row' as const,
+          index: rows.length,
+        }
+      : activeSide === 'left'
+        ? {
+            type: 'outer' as const,
+            side: activeSide,
+            kind: 'column' as const,
+            index: 0,
+          }
+        : {
+            type: 'outer' as const,
+            side: activeSide,
+            kind: 'column' as const,
+            index: columnCount,
+          };
+
+  return {
+    blockId,
+    top: Math.round(tableRect.top - rootRect.top + root.scrollTop),
+    left: Math.round(tableRect.left - rootRect.left + root.scrollLeft),
+    width: Math.round(tableRect.width),
+    height: Math.round(tableRect.height),
+    control,
+  };
+}
+
 function replaceEditorContentWithoutHistory(
   instance: TiptapEditorInstance,
   markdown: string,
@@ -904,6 +1278,8 @@ export const TiptapEditor = React.forwardRef<TiptapEditorHandle, TiptapEditorPro
   const outlineFocusTimerRef = useRef<number | null>(null);
   const outlineActiveSyncTimerRef = useRef<number | null>(null);
   const outlineActiveSyncPausedRef = useRef(false);
+  const tableQuickInsertOverlayRef = useRef<TableQuickInsertOverlay | null>(null);
+  const tableQuickInsertHideTimerRef = useRef<number | null>(null);
   const [inlineAiState, setInlineAiState] = useState<InlineAiState | null>(null);
   const [sections, setSections] = useState<MarkdownSection[]>([]);
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
@@ -911,6 +1287,7 @@ export const TiptapEditor = React.forwardRef<TiptapEditorHandle, TiptapEditorPro
   const [coauthorDocumentDiff, setCoauthorDocumentDiff] = useState<MarkdownDiffReview | null>(null);
   const [coauthorSelectionBubble, setCoauthorSelectionBubble] = useState<CoauthorSelectionBubble | null>(null);
   const [coauthorSelectionProcessingRange, setCoauthorSelectionProcessingRange] = useState<{ from: number; to: number } | null>(null);
+  const [tableQuickInsertOverlay, setTableQuickInsertOverlay] = useState<TableQuickInsertOverlay | null>(null);
   const [persistedCommentPins, setPersistedCommentPins] = useState<Array<{
     id: string;
     blockId?: string;
@@ -925,6 +1302,10 @@ export const TiptapEditor = React.forwardRef<TiptapEditorHandle, TiptapEditorPro
   const initialContent = useMemo(() => markdownToTiptapDoc(value), [value]);
   const inlineAiTriggerHint = t('markdown.tiptap.inlineAi.triggerHint');
 
+  useEffect(() => {
+    tableQuickInsertOverlayRef.current = tableQuickInsertOverlay;
+  }, [tableQuickInsertOverlay]);
+
   const syncSections = useCallback((instance: TiptapEditorInstance) => {
     const nextSections = collectMarkdownSections(instance);
     setSections(nextSections);
@@ -934,6 +1315,108 @@ export const TiptapEditor = React.forwardRef<TiptapEditorHandle, TiptapEditorPro
         : nextSections[0]?.id ?? null
     ));
   }, []);
+
+  const cancelTableQuickInsertHide = useCallback(() => {
+    if (tableQuickInsertHideTimerRef.current === null) {
+      return;
+    }
+
+    window.clearTimeout(tableQuickInsertHideTimerRef.current);
+    tableQuickInsertHideTimerRef.current = null;
+  }, []);
+
+  const scheduleTableQuickInsertHide = useCallback(() => {
+    cancelTableQuickInsertHide();
+    tableQuickInsertHideTimerRef.current = window.setTimeout(() => {
+      tableQuickInsertHideTimerRef.current = null;
+      setTableQuickInsertOverlay(null);
+    }, TABLE_QUICK_INSERT_HIDE_DELAY_MS);
+  }, [cancelTableQuickInsertHide]);
+
+  const refreshTableQuickInsertOverlay = useCallback(() => {
+    const root = rootRef.current;
+    const current = tableQuickInsertOverlayRef.current;
+    if (!root || !current || readonlyRef.current) {
+      setTableQuickInsertOverlay(null);
+      return;
+    }
+
+    const table = findMarkdownTableByBlockId(root, current.blockId);
+    if (!table) {
+      setTableQuickInsertOverlay(null);
+      return;
+    }
+
+    const rect = table.getBoundingClientRect();
+    const pointer = current.control.type === 'divider'
+      ? {
+          clientX: rect.left + current.control.x,
+          clientY: rect.top + current.control.y,
+        }
+      : current.control.side === 'top'
+        ? { clientX: rect.left + rect.width / 2, clientY: rect.top }
+        : current.control.side === 'bottom'
+          ? { clientX: rect.left + rect.width / 2, clientY: rect.bottom }
+          : current.control.side === 'left'
+            ? { clientX: rect.left, clientY: rect.top + rect.height / 2 }
+            : { clientX: rect.right, clientY: rect.top + rect.height / 2 };
+    setTableQuickInsertOverlay(measureTableQuickInsertOverlay(root, table, pointer));
+  }, []);
+
+  const handleRootPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    cancelTableQuickInsertHide();
+
+    if (readonlyRef.current) {
+      setTableQuickInsertOverlay(null);
+      return;
+    }
+
+    const root = rootRef.current;
+    if (!root) {
+      setTableQuickInsertOverlay(null);
+      return;
+    }
+
+    const targetElement = getElementFromEventTarget(event.target);
+    if (targetElement?.closest('.m-editor-table-quick-insert')) {
+      return;
+    }
+
+    const targetTable = findMarkdownTableFromTarget(event.target);
+    const current = tableQuickInsertOverlayRef.current;
+    const table = targetTable ?? findMarkdownTableNearPoint(root, event.clientX, event.clientY) ?? (
+      current
+        ? findMarkdownTableByBlockId(root, current.blockId)
+        : null
+    );
+    if (!table) {
+      setTableQuickInsertOverlay(null);
+      return;
+    }
+
+    if (!targetTable && !isPointInTableQuickInsertReach(table, event.clientX, event.clientY)) {
+      scheduleTableQuickInsertHide();
+      return;
+    }
+
+    setTableQuickInsertOverlay(measureTableQuickInsertOverlay(root, table, event));
+  }, [cancelTableQuickInsertHide, scheduleTableQuickInsertHide]);
+
+  const handleRootPointerLeave = useCallback(() => {
+    scheduleTableQuickInsertHide();
+  }, [scheduleTableQuickInsertHide]);
+
+  const handleTableQuickInsert = useCallback((action: TableQuickInsertAction) => {
+    const instance = editorRef.current;
+    if (!instance || readonlyRef.current) {
+      return;
+    }
+
+    const applied = applyMarkdownTableQuickInsert(instance, action);
+    if (applied) {
+      window.requestAnimationFrame(refreshTableQuickInsertOverlay);
+    }
+  }, [refreshTableQuickInsertOverlay]);
 
   const getSectionElement = useCallback((section: MarkdownSection): HTMLElement | null => {
     const root = rootRef.current;
@@ -1024,6 +1507,9 @@ export const TiptapEditor = React.forwardRef<TiptapEditorHandle, TiptapEditorPro
       }
       if (outlineActiveSyncTimerRef.current !== null) {
         window.clearTimeout(outlineActiveSyncTimerRef.current);
+      }
+      if (tableQuickInsertHideTimerRef.current !== null) {
+        window.clearTimeout(tableQuickInsertHideTimerRef.current);
       }
     };
   }, []);
@@ -1188,7 +1674,11 @@ export const TiptapEditor = React.forwardRef<TiptapEditorHandle, TiptapEditorPro
 
   useEffect(() => {
     readonlyRef.current = readonly;
-  }, [readonly]);
+    if (readonly) {
+      cancelTableQuickInsertHide();
+      setTableQuickInsertOverlay(null);
+    }
+  }, [cancelTableQuickInsertHide, readonly]);
 
   useEffect(() => {
     filePathRef.current = filePath;
@@ -2518,6 +3008,9 @@ export const TiptapEditor = React.forwardRef<TiptapEditorHandle, TiptapEditorPro
       ref={rootRef}
       className="m-editor-tiptap"
       data-has-outline={showOutline ? 'true' : undefined}
+      onPointerLeave={handleRootPointerLeave}
+      onPointerMove={handleRootPointerMove}
+      onScroll={refreshTableQuickInsertOverlay}
     >
       {coauthorSelectionBubble && (
         <div
@@ -2623,6 +3116,91 @@ export const TiptapEditor = React.forwardRef<TiptapEditorHandle, TiptapEditorPro
               ))}
             </div>
           </nav>
+        </div>
+      )}
+      {tableQuickInsertOverlay && (
+        <div
+          className="m-editor-table-quick-insert"
+          contentEditable={false}
+          style={{
+            top: `${tableQuickInsertOverlay.top}px`,
+            left: `${tableQuickInsertOverlay.left}px`,
+            width: `${tableQuickInsertOverlay.width}px`,
+            height: `${tableQuickInsertOverlay.height}px`,
+          }}
+          onMouseDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onPointerEnter={cancelTableQuickInsertHide}
+          onPointerMove={cancelTableQuickInsertHide}
+          onPointerLeave={scheduleTableQuickInsertHide}
+        >
+          {tableQuickInsertOverlay.control.type === 'outer' ? (
+            <button
+              key={`${tableQuickInsertOverlay.control.side}-${tableQuickInsertOverlay.control.index}`}
+              type="button"
+              className={[
+                'm-editor-table-quick-insert__strip',
+                `m-editor-table-quick-insert__strip--${tableQuickInsertOverlay.control.side}`,
+              ].join(' ')}
+              aria-label={t(`markdown.tiptap.tableQuickInsert.${
+                tableQuickInsertOverlay.control.kind === 'column' ? 'insertColumn' : 'insertRow'
+              }`)}
+              title={t(`markdown.tiptap.tableQuickInsert.${
+                tableQuickInsertOverlay.control.kind === 'column' ? 'insertColumn' : 'insertRow'
+              }`)}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                cancelTableQuickInsertHide();
+                handleTableQuickInsert({
+                  kind: tableQuickInsertOverlay.control.kind,
+                  blockId: tableQuickInsertOverlay.blockId,
+                  index: tableQuickInsertOverlay.control.index,
+                });
+              }}
+              onPointerEnter={cancelTableQuickInsertHide}
+              onPointerMove={cancelTableQuickInsertHide}
+              onPointerLeave={scheduleTableQuickInsertHide}
+            >
+              <Plus size={14} strokeWidth={2.2} aria-hidden="true" />
+            </button>
+          ) : (
+            <button
+              key={`${tableQuickInsertOverlay.control.axis}-${tableQuickInsertOverlay.control.index}`}
+              type="button"
+              className={[
+                'm-editor-table-quick-insert__divider-button',
+                `m-editor-table-quick-insert__divider-button--${tableQuickInsertOverlay.control.axis}`,
+              ].join(' ')}
+              style={{
+                left: `${tableQuickInsertOverlay.control.x}px`,
+                top: `${tableQuickInsertOverlay.control.y}px`,
+              }}
+              aria-label={t(`markdown.tiptap.tableQuickInsert.${
+                tableQuickInsertOverlay.control.kind === 'column' ? 'insertColumn' : 'insertRow'
+              }`)}
+              title={t(`markdown.tiptap.tableQuickInsert.${
+                tableQuickInsertOverlay.control.kind === 'column' ? 'insertColumn' : 'insertRow'
+              }`)}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                cancelTableQuickInsertHide();
+                handleTableQuickInsert({
+                  kind: tableQuickInsertOverlay.control.kind,
+                  blockId: tableQuickInsertOverlay.blockId,
+                  index: tableQuickInsertOverlay.control.index,
+                });
+              }}
+              onPointerEnter={cancelTableQuickInsertHide}
+              onPointerMove={cancelTableQuickInsertHide}
+              onPointerLeave={scheduleTableQuickInsertHide}
+            >
+              <Plus size={13} strokeWidth={2.4} aria-hidden="true" />
+            </button>
+          )}
         </div>
       )}
       <EditorContent editor={editor} />
