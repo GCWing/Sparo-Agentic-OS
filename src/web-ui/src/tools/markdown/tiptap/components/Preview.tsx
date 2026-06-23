@@ -11,7 +11,11 @@ export const Preview: React.FC<PreviewProps> = ({ value, basePath }) => {
   return (
     <div className="m-editor-preview">
       <div className="m-editor-preview-content">
-        <MarkdownRenderer content={value} basePath={basePath} />
+        <MarkdownRenderer
+          content={value}
+          basePath={basePath}
+          className="m-editor-preview-markdown"
+        />
       </div>
     </div>
   );

@@ -19,6 +19,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft,
   FolderOpen,
+  House,
   ListChecks,
   Search,
 } from 'lucide-react';
@@ -39,14 +40,22 @@ import {
 import { useHeaderStore } from '../../stores/headerStore';
 import { useWorkDockStore } from '../../stores/workDockStore';
 import { useWorkStore } from '@/app/agentic-os/work/data/workStore';
+import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import { useSessionProfile } from '../../session-profiles';
 import { getWorkspaceSceneDef } from '../../navigation/workspaceSceneRegistry';
 import { resolveWorkContextForSurface } from '../../navigation/workspaceTopBarContext';
-import { useWorkspaceSurfaceStore } from '../../navigation/workspaceSurfaceStore';
+import {
+  useWorkspaceSurfaceStore,
+  type WorkspaceSceneHistoryEntry,
+} from '../../navigation/workspaceSurfaceStore';
 import { useShortcut } from '@/infrastructure/hooks/useShortcut';
 import { ALL_SHORTCUTS } from '@/shared/constants/shortcuts';
 import { createLogger } from '@/shared/utils/logger';
-import { openWorkspaceHome } from '../../navigation/workspaceNavigation';
+import {
+  goBackWorkspaceScene,
+  openWorkspaceHome,
+  openWorkspaceSceneHistoryEntry,
+} from '../../navigation/workspaceNavigation';
 import {
   remoteConnectAPI,
   type RemoteConnectStatus,
@@ -101,7 +110,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
   const requestOpenWorkDock = useWorkDockStore((s) => s.requestOpenWorkDock);
   const works = useWorkStore((s) => s.works);
   const surfaceContext = useWorkspaceSurfaceStore((s) => s.surfaceContext);
-  const clearSurfaceContext = useWorkspaceSurfaceStore((s) => s.clearSurfaceContext);
+  const sceneHistory = useWorkspaceSurfaceStore((s) => s.sceneHistory);
   const { profile } = useSessionProfile();
   const hasWindowControls = !!(onMinimize && onMaximize && onClose);
   const activeSceneId = activeSurface.kind === 'scene' ? activeSurface.sceneId : null;
@@ -115,6 +124,8 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [logoMenuOpen, setLogoMenuOpen] = useState(false);
+  const [sceneHistoryMenuOpen, setSceneHistoryMenuOpen] = useState(false);
+  const [sceneHistoryCollapsedWidth, setSceneHistoryCollapsedWidth] = useState<number | null>(null);
   const [showRemoteConnect, setShowRemoteConnect] = useState(false);
   const [showRemoteDisclaimer, setShowRemoteDisclaimer] = useState(false);
   const [hasAgreedRemoteDisclaimer, setHasAgreedRemoteDisclaimer] = useState<boolean>(() =>
@@ -123,6 +134,8 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
   const [remoteConnectStatus, setRemoteConnectStatus] = useState<RemoteConnectStatus | null>(null);
 
   const logoMenuAnchorRef = useRef<HTMLDivElement>(null);
+  const sceneHistoryMenuRootRef = useRef<HTMLDivElement>(null);
+  const sceneHistoryOpenFrameRef = useRef<number | null>(null);
   const lastMouseDownTimeRef = useRef<number>(0);
 
   // ── Logo menu item handlers ───────────────────────────────────────────────
@@ -219,6 +232,35 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
   const sceneTitle = sceneDef?.labelKey ? tCommon(sceneDef.labelKey) : (sceneDef?.label ?? '');
   const contextNavOverride = activeSceneId ? contextNavOverrides[activeSceneId] : undefined;
 
+  const getSceneHistoryTitle = useCallback(
+    (entry: WorkspaceSceneHistoryEntry): string => {
+      const entryWorkContext = resolveWorkContextForSurface(entry.context, works);
+      if (entryWorkContext?.title) {
+        return entryWorkContext.title;
+      }
+
+      if (entry.surface.kind === 'session') {
+        const session = flowChatStore.getState().sessions.get(entry.surface.sessionId);
+        const sessionLabel = session?.descriptor?.labelKey
+          ? tApps(session.descriptor.labelKey)
+          : (session?.title?.trim() || entry.surface.sessionId);
+        const workspaceName = session?.workspacePath
+          ?.replace(/\\/g, '/')
+          .split('/')
+          .filter(Boolean)
+          .pop();
+        return workspaceName ? `${sessionLabel} / ${workspaceName}` : sessionLabel;
+      }
+
+      const entrySceneDef = getWorkspaceSceneDef(entry.surface.sceneId);
+      if (!entrySceneDef) {
+        return String(entry.surface.sceneId);
+      }
+      return entrySceneDef.labelKey ? tCommon(entrySceneDef.labelKey) : entrySceneDef.label;
+    },
+    [tApps, tCommon, works],
+  );
+
   const sessionWorkspaceName = useMemo(() => {
     const explicit = sessionContext?.workspaceDisplayName?.trim();
     if (explicit) return explicit;
@@ -254,7 +296,9 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
   const contextTitle =
     workContext?.title ??
     contextNavOverride?.title ??
-    (activeSurface.kind === 'scene' ? sceneTitle : sessionTitle);
+    (activeSurface.kind === 'scene'
+      ? sceneTitle
+      : sessionTitle);
   const showSessionWorkspace =
     !workContext &&
     !hasSceneSurface &&
@@ -265,12 +309,101 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
     !!sessionCategoryLabel &&
     (showSessionWorkspace || !!workContext);
   const contextActions = contextNavOverride?.actions ?? [];
-  const backTooltip = tCommon('overlay.returnToAgenticOS');
+  const canGoBackScene = activeSurface.kind !== 'agentic-os-home' && sceneHistory.length > 0;
+  const showHomeControl = activeSurface.kind !== 'agentic-os-home';
+  const showContextCapsule =
+    (showContextNav || canGoBackScene) && (contextTitle || contextActions.length > 0);
+  const backTooltip = tHeader('backToPreviousScene');
+  const homeTooltip = tHeader('returnToMainDesktop');
+  const sceneHistoryTooltip = tHeader('recentScenes');
 
-  const handleContextBack = useCallback(() => {
-    clearSurfaceContext();
+  const handleSceneBack = useCallback(() => {
+    goBackWorkspaceScene();
+  }, []);
+
+  const handleHome = useCallback(() => {
     void openWorkspaceHome();
-  }, [clearSurfaceContext]);
+  }, []);
+
+  const closeSceneHistoryMenu = useCallback(() => {
+    if (sceneHistoryOpenFrameRef.current !== null) {
+      cancelAnimationFrame(sceneHistoryOpenFrameRef.current);
+      sceneHistoryOpenFrameRef.current = null;
+    }
+    setSceneHistoryMenuOpen(false);
+  }, []);
+
+  const toggleSceneHistoryMenu = useCallback(() => {
+    if (!canGoBackScene) return;
+    if (sceneHistoryMenuOpen) {
+      closeSceneHistoryMenu();
+      return;
+    }
+
+    const width = sceneHistoryMenuRootRef.current?.getBoundingClientRect().width;
+    setSceneHistoryCollapsedWidth(width ? Math.ceil(width) : null);
+    sceneHistoryOpenFrameRef.current = requestAnimationFrame(() => {
+      sceneHistoryOpenFrameRef.current = null;
+      setSceneHistoryMenuOpen(true);
+    });
+  }, [canGoBackScene, closeSceneHistoryMenu, sceneHistoryMenuOpen]);
+
+  useEffect(() => {
+    if (!canGoBackScene) {
+      closeSceneHistoryMenu();
+    }
+  }, [canGoBackScene, closeSceneHistoryMenu]);
+
+  useEffect(() => {
+    if (sceneHistoryMenuOpen) return;
+    const timeoutId = window.setTimeout(() => {
+      setSceneHistoryCollapsedWidth(null);
+    }, 180);
+    return () => window.clearTimeout(timeoutId);
+  }, [sceneHistoryMenuOpen]);
+
+  useEffect(() => {
+    if (!sceneHistoryMenuOpen) return;
+
+    const handleDocumentMouseDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (target instanceof Node && sceneHistoryMenuRootRef.current?.contains(target)) {
+        return;
+      }
+      closeSceneHistoryMenu();
+    };
+
+    const handleDocumentKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeSceneHistoryMenu();
+      }
+    };
+
+    document.addEventListener('mousedown', handleDocumentMouseDown);
+    document.addEventListener('keydown', handleDocumentKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleDocumentMouseDown);
+      document.removeEventListener('keydown', handleDocumentKeyDown);
+    };
+  }, [closeSceneHistoryMenu, sceneHistoryMenuOpen]);
+
+  useEffect(() => () => {
+    if (sceneHistoryOpenFrameRef.current !== null) {
+      cancelAnimationFrame(sceneHistoryOpenFrameRef.current);
+    }
+  }, []);
+
+  const sceneHistoryMenuItems = useMemo(() => (
+    sceneHistory.map((entry, index) => ({
+      id: `scene-history-${index}`,
+      label: getSceneHistoryTitle(entry),
+      onClick: () => {
+        closeSceneHistoryMenu();
+        openWorkspaceSceneHistoryEntry(index);
+      },
+    }))
+  ), [closeSceneHistoryMenu, getSceneHistoryTitle, sceneHistory]);
 
   // ── Window drag ───────────────────────────────────────────────────────────
 
@@ -377,6 +510,15 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
   ]
     .filter(Boolean)
     .join(' ');
+  const contextCapsuleCls = [
+    'unified-top-bar__context-capsule',
+    sceneHistoryMenuOpen && canGoBackScene && 'is-history-open',
+  ].filter(Boolean).join(' ');
+  const contextCapsuleStyle = sceneHistoryCollapsedWidth
+    ? ({
+      '--unified-top-bar-context-collapsed-width': `${sceneHistoryCollapsedWidth}px`,
+    } as React.CSSProperties)
+    : undefined;
 
   return (
     <>
@@ -421,6 +563,21 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
             />
           </div>
 
+          {showHomeControl && (
+            <IconButton
+              size="small"
+              variant="ghost"
+              className="unified-top-bar__home-control"
+              onClick={handleHome}
+              aria-label={homeTooltip}
+              tooltip={homeTooltip}
+              tooltipPlacement="bottom"
+              data-testid="unified-top-bar-home"
+            >
+              <House size={14} strokeWidth={2.25} aria-hidden="true" />
+            </IconButton>
+          )}
+
           {showWorkListControl && (
             <IconButton
               size="small"
@@ -437,67 +594,107 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
             </IconButton>
           )}
 
-          {showContextNav && (
-            <div className="unified-top-bar__context-nav">
-              <div className="unified-top-bar__context-capsule">
-                <Tooltip content={backTooltip} placement="bottom" followCursor>
-                  <IconButton
-                    size="xs"
-                    variant="ghost"
-                    className="unified-top-bar__context-capsule-back"
-                    onClick={handleContextBack}
-                    aria-label={backTooltip}
-                    data-testid="unified-top-bar-back"
-                  >
-                    <ArrowLeft size={14} strokeWidth={2.25} aria-hidden="true" />
-                  </IconButton>
-                </Tooltip>
-                {contextTitle ? (
-                  <>
+          {showContextCapsule && (
+            <div className="unified-top-bar__context-nav" aria-label={tHeader('sceneNavigation')}>
+              <div
+                ref={sceneHistoryMenuRootRef}
+                className={contextCapsuleCls}
+                style={contextCapsuleStyle}
+              >
+                <div className="unified-top-bar__context-capsule-row">
+                  {canGoBackScene ? (
+                    <IconButton
+                      size="xs"
+                      variant="ghost"
+                      className="unified-top-bar__context-capsule-back"
+                      onClick={handleSceneBack}
+                      aria-label={backTooltip}
+                      tooltip={backTooltip}
+                      tooltipPlacement="bottom"
+                      data-testid="unified-top-bar-back"
+                    >
+                      <ArrowLeft size={14} strokeWidth={2.25} aria-hidden="true" />
+                    </IconButton>
+                  ) : null}
+                  {canGoBackScene && contextTitle ? (
                     <span className="unified-top-bar__context-capsule-split" aria-hidden="true" />
+                  ) : null}
+                  {contextTitle ? (
                     <div className="unified-top-bar__context-capsule-title">
-                      <div className="unified-top-bar__context-title">
-                        {showSessionCategoryPrefix && (
-                          <span className="unified-top-bar__context-mode">
-                            {sessionCategoryLabel}
-                          </span>
-                        )}
-                        {showSessionCategoryPrefix && (
-                          <span className="unified-top-bar__context-sep" aria-hidden="true">/</span>
-                        )}
-                        {showSessionWorkspace ? (
-                          <span className="unified-top-bar__context-workspace">
-                            <FolderOpen size={11} aria-hidden="true" />
-                            <span>{sessionWorkspaceName}</span>
-                          </span>
-                        ) : (
-                          <span className="unified-top-bar__context-label">{contextTitle}</span>
-                        )}
+                      <button
+                        type="button"
+                        className="unified-top-bar__context-title-button"
+                        onClick={toggleSceneHistoryMenu}
+                        aria-label={canGoBackScene ? sceneHistoryTooltip : contextTitle}
+                        aria-haspopup={canGoBackScene ? 'menu' : undefined}
+                        aria-expanded={canGoBackScene ? sceneHistoryMenuOpen : undefined}
+                        disabled={!canGoBackScene}
+                        data-testid="unified-top-bar-scene-history"
+                      >
+                        <span className="unified-top-bar__context-title">
+                          {showSessionCategoryPrefix && (
+                            <span className="unified-top-bar__context-mode">
+                              {sessionCategoryLabel}
+                            </span>
+                          )}
+                          {showSessionCategoryPrefix && (
+                            <span className="unified-top-bar__context-sep" aria-hidden="true">/</span>
+                          )}
+                          {showSessionWorkspace ? (
+                            <span className="unified-top-bar__context-workspace">
+                              <FolderOpen size={11} aria-hidden="true" />
+                              <span>{sessionWorkspaceName}</span>
+                            </span>
+                          ) : (
+                            <span className="unified-top-bar__context-label">{contextTitle}</span>
+                          )}
+                        </span>
+                      </button>
+                    </div>
+                  ) : null}
+                  {contextActions.length > 0 ? (
+                    <>
+                      <span className="unified-top-bar__context-capsule-split" aria-hidden="true" />
+                      <div className="unified-top-bar__context-capsule-actions">
+                        {contextActions.map((action) => (
+                          <IconButton
+                            key={action.id}
+                            size="xs"
+                            variant="ghost"
+                            className="unified-top-bar__context-capsule-action"
+                            onClick={action.onClick}
+                            disabled={action.disabled}
+                            aria-label={action.label}
+                            tooltip={action.tooltip ?? action.label}
+                            tooltipPlacement="bottom"
+                          >
+                            {action.icon ?? <span>{action.label}</span>}
+                          </IconButton>
+                        ))}
                       </div>
-                    </div>
-                  </>
-                ) : null}
-                {contextActions.length > 0 ? (
-                  <>
-                    <span className="unified-top-bar__context-capsule-split" aria-hidden="true" />
-                    <div className="unified-top-bar__context-capsule-actions">
-                      {contextActions.map((action) => (
-                        <IconButton
-                          key={action.id}
-                          size="xs"
-                          variant="ghost"
-                          className="unified-top-bar__context-capsule-action"
-                          onClick={action.onClick}
-                          disabled={action.disabled}
-                          aria-label={action.label}
-                          tooltip={action.tooltip ?? action.label}
-                          tooltipPlacement="bottom"
-                        >
-                          {action.icon ?? <span>{action.label}</span>}
-                        </IconButton>
-                      ))}
-                    </div>
-                  </>
+                    </>
+                  ) : null}
+                </div>
+                {sceneHistoryMenuOpen && canGoBackScene ? (
+                  <div
+                    className="unified-top-bar__context-history-list"
+                    role="menu"
+                    aria-label={sceneHistoryTooltip}
+                  >
+                    {sceneHistoryMenuItems.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        role="menuitem"
+                        className="unified-top-bar__context-history-item"
+                        onClick={item.onClick}
+                      >
+                        <span className="unified-top-bar__context-history-label">
+                          {item.label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 ) : null}
               </div>
             </div>

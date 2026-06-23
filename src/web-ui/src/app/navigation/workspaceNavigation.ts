@@ -8,6 +8,7 @@ import {
   isSystemAgenticOsSession,
 } from '@/flow_chat/domain/sessionDescriptor';
 import type { WorkspaceSurfaceContext } from './workspaceSurfaceTypes';
+import type { WorkspaceSurfaceHistoryMode } from './workspaceSurfaceStore';
 
 function isAgenticOsSession(sessionId: string): boolean {
   const session = flowChatStore.getState().sessions.get(sessionId);
@@ -26,6 +27,7 @@ function findLatestAgenticOsSessionId(): string | null {
 export interface OpenWorkspaceSceneOptions {
   workspacePath?: string | null;
   context?: WorkspaceSurfaceContext | null;
+  historyMode?: WorkspaceSurfaceHistoryMode;
 }
 
 export interface OpenWorkspaceSessionOptions {
@@ -42,7 +44,16 @@ export function openWorkspaceScene(
     workspacePath: options.workspacePath,
   }, {
     context: options.context,
+    historyMode: options.historyMode,
   });
+}
+
+export function goBackWorkspaceScene(): boolean {
+  return useWorkspaceSurfaceStore.getState().goBackScene();
+}
+
+export function openWorkspaceSceneHistoryEntry(index: number): boolean {
+  return useWorkspaceSurfaceStore.getState().openSceneHistoryEntry(index);
 }
 
 export async function openWorkspaceSession(

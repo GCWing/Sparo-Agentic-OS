@@ -12,7 +12,7 @@ const PREVIEW_SERVER_BOOT_WAIT_MS = 0;
 const PREVIEW_SERVER_STALE_MS = 120_000;
 const PLAYER_HOST_BOOT_WAIT_MS = 45_000;
 const PLAYER_HOST_STALE_MS = 10 * 60_000;
-const PLAYER_HOST_RUNTIME_VERSION = 5;
+const PLAYER_HOST_RUNTIME_VERSION = 7;
 const ASSET_EXTENSIONS = new Map([
   [".png", "image"],
   [".jpg", "image"],

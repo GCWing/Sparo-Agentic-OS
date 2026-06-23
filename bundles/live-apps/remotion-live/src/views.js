@@ -3,6 +3,7 @@
 import { ICONS } from './constants.js';
 import { compositionDuration, currentComposition, frameLayers, layerBox, layerElementId, layerStyle, previewFrameKey, timelineFramePercent } from './model.js';
 import { playerHostUrl } from './player-dom.js';
+import { playerStageKey } from './preview-controller.js';
 import { playerPreviewReady, studioPreviewReady, useStudioPreview } from './preview-mode.js';
 import { state } from './state.js';
 import { asArray, clamp, escapeHtml, formatSMPTE, previewStageNode, t, workspaceLabel } from './util.js';
@@ -389,6 +390,7 @@ function renderPlayerPreviewContent() {
       <iframe
         class="rl-player-frame"
         data-testid="remotion-player-iframe"
+        data-stage-key="${escapeHtml(playerStageKey())}"
         src="${escapeHtml(playerHostUrl())}"
         title="Remotion Player preview"
         allow="autoplay; fullscreen"

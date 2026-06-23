@@ -10,7 +10,9 @@ use crate::live_app::types::{
 };
 use crate::util::errors::{BitFunError, BitFunResult};
 use base64::{engine::general_purpose, Engine as _};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
+
+const EMBEDDED_ESM_SPECIFIER_PREFIX: &str = "sparo-live-app/";
 
 /// Compile Live App source into full HTML with Import Map, Runtime Adapter, and CSP injected.
 pub fn compile(
@@ -179,8 +181,7 @@ fn build_user_script_tag(source: &LiveAppSource) -> BitFunResult<String> {
         LiveAppBuildMode::NativeEsm | LiveAppBuildMode::Bundled => {
             let entry = source.entry.ui_entry.trim();
             let entry_code = resolve_ui_entry_code(source, entry)?;
-            let code = build_embedded_esm_entry(source, entry, &entry_code)?;
-            Ok(format!("<script type=\"module\">\n{}\n</script>", code))
+            build_embedded_esm_entry(source, entry, &entry_code)
         }
     }
 }
@@ -222,7 +223,7 @@ fn build_embedded_esm_entry(
     entry: &str,
     entry_code: &str,
 ) -> BitFunResult<String> {
-    let mut modules: HashMap<String, String> = source
+    let mut modules: BTreeMap<String, String> = source
         .source_files
         .iter()
         .filter(|file| {
@@ -232,40 +233,33 @@ fn build_embedded_esm_entry(
         })
         .map(|file| (normalize_source_path(&file.path), file.content.clone()))
         .collect();
-    modules.insert(normalize_source_path(entry), entry_code.to_string());
+    let entry_path = normalize_source_path(entry);
+    modules.insert(entry_path.clone(), entry_code.to_string());
 
-    let mut urls: HashMap<String, String> = modules
+    let specifiers: BTreeMap<String, String> = modules
         .iter()
-        .map(|(path, code)| (path.clone(), javascript_data_url(code)))
+        .map(|(path, _code)| (path.clone(), embedded_module_specifier(path)))
         .collect();
 
-    // Fixpoint: each pass rewrites every module's relative import specifiers to the
-    // data-URL of the referenced module. An acyclic graph of depth D converges in D
-    // passes; the early break stops as soon as the URL map is stable. The bound is a
-    // safety cap for deep module graphs (and prevents runaway on accidental cycles).
-    for _ in 0..64 {
-        let mut changed = false;
-        let next_urls: HashMap<String, String> = modules
-            .iter()
-            .map(|(path, code)| {
-                let rewritten = rewrite_relative_imports(path, code, &urls);
-                let url = javascript_data_url(&rewritten);
-                if urls.get(path) != Some(&url) {
-                    changed = true;
-                }
-                (path.clone(), url)
-            })
-            .collect();
-        urls = next_urls;
-        if !changed {
-            break;
-        }
-    }
+    let imports: BTreeMap<String, String> = modules
+        .iter()
+        .map(|(path, code)| {
+            let rewritten = rewrite_relative_imports(path, code, &specifiers);
+            (
+                embedded_module_specifier(path),
+                javascript_data_url(&rewritten),
+            )
+        })
+        .collect();
+    let import_map_json = serde_json::to_string(&serde_json::json!({ "imports": imports }))
+        .map_err(BitFunError::from)?
+        .replace("</script", "<\\/script");
+    let entry_specifier = serde_json::to_string(&embedded_module_specifier(&entry_path))
+        .map_err(BitFunError::from)?;
 
-    Ok(rewrite_relative_imports(
-        &normalize_source_path(entry),
-        entry_code,
-        &urls,
+    Ok(format!(
+        "<script type=\"importmap\">{}</script>\n<script type=\"module\">\nimport {};\n</script>",
+        import_map_json, entry_specifier
     ))
 }
 
@@ -276,13 +270,21 @@ fn javascript_data_url(code: &str) -> String {
     )
 }
 
+fn embedded_module_specifier(path: &str) -> String {
+    format!(
+        "{}{}",
+        EMBEDDED_ESM_SPECIFIER_PREFIX,
+        normalize_source_path(path)
+    )
+}
+
 fn rewrite_relative_imports(
     current_path: &str,
     code: &str,
-    urls: &HashMap<String, String>,
+    replacements: &BTreeMap<String, String>,
 ) -> String {
     let mut out = code.to_string();
-    for (specifier, target) in relative_import_targets(current_path, urls) {
+    for (specifier, target) in relative_import_targets(current_path, replacements) {
         for quote in ["'", "\""] {
             out = out.replace(
                 &format!("{quote}{specifier}{quote}"),
@@ -295,11 +297,13 @@ fn rewrite_relative_imports(
 
 fn relative_import_targets(
     current_path: &str,
-    urls: &HashMap<String, String>,
+    replacements: &BTreeMap<String, String>,
 ) -> Vec<(String, String)> {
-    urls.iter()
-        .filter_map(|(path, url)| {
-            relative_specifier_between(current_path, path).map(|specifier| (specifier, url.clone()))
+    replacements
+        .iter()
+        .filter_map(|(path, replacement)| {
+            relative_specifier_between(current_path, path)
+                .map(|specifier| (specifier, replacement.clone()))
         })
         .collect()
 }
@@ -309,11 +313,39 @@ fn relative_specifier_between(from: &str, to: &str) -> Option<String> {
         return None;
     }
     let from_dir = from.rsplit_once('/').map(|(dir, _)| dir).unwrap_or("");
-    if from_dir.is_empty() {
-        return Some(format!("./{}", to));
+    let from_parts: Vec<&str> = if from_dir.is_empty() {
+        Vec::new()
+    } else {
+        from_dir
+            .split('/')
+            .filter(|part| !part.is_empty())
+            .collect()
+    };
+    let to_parts: Vec<&str> = to.split('/').filter(|part| !part.is_empty()).collect();
+
+    let mut common = 0;
+    while common < from_parts.len()
+        && common < to_parts.len()
+        && from_parts[common] == to_parts[common]
+    {
+        common += 1;
     }
-    to.strip_prefix(&format!("{from_dir}/"))
-        .map(|rest| format!("./{}", rest))
+
+    let mut parts = Vec::new();
+    for _ in common..from_parts.len() {
+        parts.push("..");
+    }
+    parts.extend(to_parts[common..].iter().copied());
+
+    if parts.is_empty() {
+        return None;
+    }
+    let joined = parts.join("/");
+    if joined.starts_with("..") {
+        Some(joined)
+    } else {
+        Some(format!("./{}", joined))
+    }
 }
 
 fn normalize_source_path(path: &str) -> String {
@@ -448,7 +480,7 @@ mod tests {
     }
 
     #[test]
-    fn compile_native_esm_allows_data_modules_and_removes_dev_script() {
+    fn compile_native_esm_embeds_import_map_and_removes_dev_script() {
         let source = LiveAppSource {
             html: r#"<!DOCTYPE html><html><head></head><body><div id="app"></div><script type="module" src="./ui.js"></script></body></html>"#
                 .to_string(),
@@ -482,6 +514,9 @@ mod tests {
 
         assert!(html.contains("script-src 'self' 'unsafe-inline' 'unsafe-eval' data: https:"));
         assert!(!html.contains("src=\"./ui.js\""));
+        assert!(html.contains("<script type=\"importmap\">"));
+        assert!(html.contains("sparo-live-app/ui.js"));
+        assert!(html.contains("sparo-live-app/src/value.js"));
         assert!(html.contains("data:text/javascript;base64"));
     }
 }

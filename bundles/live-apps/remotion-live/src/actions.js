@@ -2,8 +2,9 @@
 
 import { callBackend, entryInput } from './backend.js';
 import { compositionDuration, currentComposition, defaultPreviewFrame, normalizeManifest, previewFrameKey } from './model.js';
-import { resetPlayerRuntimeState, usePlayerPreview, useStudioPreview } from './preview-mode.js';
-import { clearPlayerHostPoll, ensurePlayerPreviewHost, ensurePreviewServer, evaluateCurrentFrame, requestPreviewClip, requestPreviewFrame, sendOrQueuePlayerCommand } from './preview-runtime.js';
+import { getPreviewSnapshot, sendOrQueuePlayerCommand } from './player-protocol.js';
+import { playerPreviewReady, resetPlayerRuntimeState, usePlayerPreview, useStudioPreview } from './preview-mode.js';
+import { clearPlayerHostPoll, ensurePlayerPreviewHost, ensurePreviewServer, evaluateCurrentFrame, requestPreviewClip, requestPreviewFrame } from './preview-runtime.js';
 import { refreshSelectionDom, render, setError, setLoading, updateTimelineDom } from './render-core.js';
 import { buildSelectedVideoContext, hasLiveTextSelection, selectionContextSentence } from './selection-geom.js';
 import { previewClipCache, previewFrameCache, state } from './state.js';
@@ -13,6 +14,11 @@ import { setPlayingState, syncFrameDom } from './views.js';
 function setPreviewMode(mode) {
   const next = mode === 'studio' || mode === 'still' ? mode : 'player';
   if (next === state.previewMode) return;
+  const shouldPausePlayer = usePlayerPreview() && state.playing;
+  if (shouldPausePlayer) {
+    setPlayingState(false);
+    sendOrQueuePlayerCommand('pause', { frame: state.frame });
+  }
   state.previewMode = next;
   state.previewError = null;
   state.previewClipError = null;
@@ -149,6 +155,7 @@ function setFrame(frame, options = {}) {
   state.frame = clamp(Number(frame) || 0, 0, duration - 1);
   if (!options.silent) state.frameTouched = true;
   if (usePlayerPreview()) {
+    if (!playerPreviewReady()) void ensurePlayerPreviewHost();
     sendOrQueuePlayerCommand('seek', { frame: state.frame });
     if (options.fastSync) syncFrameDom();
     else updateTimelineDom();
@@ -173,6 +180,7 @@ function stepFrame(delta) {
 
 function togglePlayback() {
   if (usePlayerPreview()) {
+    if (!playerPreviewReady()) void ensurePlayerPreviewHost();
     if (state.playing) {
       setPlayingState(false);
       sendOrQueuePlayerCommand('pause', { frame: state.frame });
@@ -251,7 +259,10 @@ async function confirmExport() {
 
 async function sendContext() {
   const host = runtime();
+  const snapshot = await getPreviewSnapshot();
   const context = buildSelectedVideoContext();
+  context.previewSnapshotSource = snapshot?.source || 'state';
+  context.previewPlaying = Boolean(snapshot?.playing);
   const sentence = selectionContextSentence(context);
   const basePrompt = t('askPrompt', {
     project: projectName(),
