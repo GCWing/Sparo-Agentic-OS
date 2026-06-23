@@ -293,6 +293,8 @@ pub fn run() {
             api::btw_api::btw_cancel,
             api::markdown_ai_api::markdown_ai_propose_edits,
             api::markdown_ai_api::markdown_ai_cancel,
+            api::markdown_export_api::export_markdown_html,
+            api::markdown_export_api::export_markdown_pdf,
             api::context_upload_api::upload_image_contexts,
             get_all_tools_info,
             get_readonly_tools_info,

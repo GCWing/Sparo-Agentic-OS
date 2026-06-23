@@ -295,6 +295,15 @@
       "centeredLayout": "Centered layout",
       "documentSections": "Document sections",
       "viewModeLabel": "Markdown editor mode",
+      "exportHtml": "Export HTML",
+      "exportPdf": "Export PDF",
+      "exportSaveTitleHtml": "Export Markdown as HTML",
+      "exportSaveTitlePdf": "Export Markdown as PDF",
+      "exportedHtml": "HTML exported to {{path}}",
+      "exportedPdf": "PDF exported to {{path}}",
+      "exportFailed": "Export failed: {{message}}",
+      "revealExport": "Show in folder",
+      "exportNeedsDesktop": "Markdown export is available in the desktop app.",
       "notice": {
         "sourcePreviewFallback": "This document contains content that cannot be safely represented in visual mode. Edit in source mode or switch to preview."
       }

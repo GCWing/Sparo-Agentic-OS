@@ -41,6 +41,7 @@ export interface MermaidBlockProps {
   code: string;
   isStreaming?: boolean;
   className?: string;
+  staticExport?: boolean;
 }
 
 type RenderState = 'streaming' | 'incomplete' | 'loading' | 'rendered' | 'error';
@@ -54,7 +55,8 @@ const isCodeComplete = (code: string): boolean => {
 export const MermaidBlock: React.FC<MermaidBlockProps> = ({
   code,
   isStreaming = false,
-  className = ''
+  className = '',
+  staticExport = false
 }) => {
   const { t } = useI18n('components');
   
@@ -221,27 +223,29 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = ({
               dangerouslySetInnerHTML={{ __html: svgContent }}
             />
             
-            <div className="mermaid-block__actions">
-              <IconButton
-                onClick={() => setShowCode(!showCode)}
-                aria-label={showCode ? t('mermaidBlock.hideCode') : t('mermaidBlock.showCode')}
-                tooltip={showCode ? t('mermaidBlock.hideCode') : t('mermaidBlock.showCode')}
-                size="xs"
-                variant="ghost"
-              >
-                <Code2 size={14} />
-              </IconButton>
-              <IconButton
-                className={copied ? 'mermaid-block__copy-action--copied' : ''}
-                onClick={handleCopy}
-                aria-label={t('mermaidBlock.copyCode')}
-                tooltip={t('mermaidBlock.copyCode')}
-                size="xs"
-                variant="ghost"
-              >
-                {copied ? <Check size={14} /> : <Copy size={14} />}
-              </IconButton>
-            </div>
+            {!staticExport ? (
+              <div className="mermaid-block__actions">
+                <IconButton
+                  onClick={() => setShowCode(!showCode)}
+                  aria-label={showCode ? t('mermaidBlock.hideCode') : t('mermaidBlock.showCode')}
+                  tooltip={showCode ? t('mermaidBlock.hideCode') : t('mermaidBlock.showCode')}
+                  size="xs"
+                  variant="ghost"
+                >
+                  <Code2 size={14} />
+                </IconButton>
+                <IconButton
+                  className={copied ? 'mermaid-block__copy-action--copied' : ''}
+                  onClick={handleCopy}
+                  aria-label={t('mermaidBlock.copyCode')}
+                  tooltip={t('mermaidBlock.copyCode')}
+                  size="xs"
+                  variant="ghost"
+                >
+                  {copied ? <Check size={14} /> : <Copy size={14} />}
+                </IconButton>
+              </div>
+            ) : null}
 
             {showCode && (
               <div className="mermaid-block__source">
@@ -265,18 +269,20 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = ({
                 <code>{code}</code>
               </pre>
             </div>
-            <div className="mermaid-block__actions">
-              <IconButton
-                className={copied ? 'mermaid-block__copy-action--copied' : ''}
-                onClick={handleCopy}
-                aria-label={t('mermaidBlock.copyCode')}
-                tooltip={t('mermaidBlock.copyCode')}
-                size="xs"
-                variant="ghost"
-              >
-                {copied ? <Check size={14} /> : <Copy size={14} />}
-              </IconButton>
-            </div>
+            {!staticExport ? (
+              <div className="mermaid-block__actions">
+                <IconButton
+                  className={copied ? 'mermaid-block__copy-action--copied' : ''}
+                  onClick={handleCopy}
+                  aria-label={t('mermaidBlock.copyCode')}
+                  tooltip={t('mermaidBlock.copyCode')}
+                  size="xs"
+                  variant="ghost"
+                >
+                  {copied ? <Check size={14} /> : <Copy size={14} />}
+                </IconButton>
+              </div>
+            ) : null}
           </div>
         );
 
@@ -286,7 +292,7 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = ({
   };
 
   return (
-    <div className={`mermaid-block mermaid-block--${state} ${className}`}>
+    <div className={`mermaid-block mermaid-block--${state}${staticExport ? ' mermaid-block--static-export' : ''} ${className}`}>
       {renderContent()}
     </div>
   );

@@ -32,6 +32,7 @@ import {
 import {
   shouldUseDocumentSourcePreviewFallback,
 } from '../utils/markdownEditabilityPolicy';
+import { exportMarkdownDocument, type MarkdownExportFormat } from '../export';
 import './MarkdownEditor.scss';
 
 import 'katex/dist/katex.min.css';
@@ -105,6 +106,18 @@ function getPollOffsetMs(filePath: string): number {
   return Math.abs(hash) % 400;
 }
 
+function getMarkdownExportTitle(filePath?: string, fileName?: string): string {
+  if (fileName?.trim()) {
+    return fileName.trim();
+  }
+
+  if (filePath?.trim()) {
+    return filePath.split(/[/\\]/).pop() || 'Markdown Export';
+  }
+
+  return 'Markdown Export';
+}
+
 function renderMarkdownModeToolbar(
   modeToolbarHost: HTMLElement | null | undefined,
   controls: React.ReactNode,
@@ -139,6 +152,11 @@ interface MarkdownEditorMoreMenuProps {
   onToggleOutline: () => void;
   modeToggleLabel: string;
   onToggleMode: () => void;
+  exportHtmlLabel: string;
+  exportPdfLabel: string;
+  exportInProgress: MarkdownExportFormat | null;
+  onExportHtml: () => void;
+  onExportPdf: () => void;
 }
 
 const MarkdownEditorMoreMenu: React.FC<MarkdownEditorMoreMenuProps> = ({
@@ -151,6 +169,11 @@ const MarkdownEditorMoreMenu: React.FC<MarkdownEditorMoreMenuProps> = ({
   onToggleOutline,
   modeToggleLabel,
   onToggleMode,
+  exportHtmlLabel,
+  exportPdfLabel,
+  exportInProgress,
+  onExportHtml,
+  onExportPdf,
 }) => {
   const anchorRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
@@ -177,11 +200,31 @@ const MarkdownEditorMoreMenu: React.FC<MarkdownEditorMoreMenuProps> = ({
       label: modeToggleLabel,
       onClick: onToggleMode,
     },
+    { type: 'separator', id: 'markdown-editor-export-separator' },
+    {
+      type: 'item',
+      id: 'export-html',
+      label: exportInProgress === 'html' ? `${exportHtmlLabel}...` : exportHtmlLabel,
+      disabled: exportInProgress !== null,
+      onClick: onExportHtml,
+    },
+    {
+      type: 'item',
+      id: 'export-pdf',
+      label: exportInProgress === 'pdf' ? `${exportPdfLabel}...` : exportPdfLabel,
+      disabled: exportInProgress !== null,
+      onClick: onExportPdf,
+    },
   ], [
     centeredLayoutEnabled,
     centeredLayoutLabel,
     modeToggleLabel,
+    exportHtmlLabel,
+    exportInProgress,
+    exportPdfLabel,
     onToggleCenteredLayout,
+    onExportHtml,
+    onExportPdf,
     onToggleMode,
     onToggleOutline,
     outlineEnabled,
@@ -272,6 +315,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
   const [unsafeViewMode, setUnsafeViewMode] = useState<'source' | 'preview'>('source');
   const [centeredLayout, setCenteredLayout] = useState(readCenteredLayoutPreference);
   const [outlineEnabled, setOutlineEnabled] = useState(readOutlinePreference);
+  const [exportInProgress, setExportInProgress] = useState<MarkdownExportFormat | null>(null);
   const [loading, setLoading] = useState(!!filePath);
   const [error, setError] = useState<string | null>(null);
   const [editability, setEditability] = useState<MarkdownEditabilityAnalysis>(() => analyzeMarkdownEditability(initialContent));
@@ -371,6 +415,39 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
     }
     return undefined;
   }, [filePath]);
+
+  const handleExportMarkdown = useCallback(async (format: MarkdownExportFormat) => {
+    if (exportInProgress !== null) {
+      return;
+    }
+
+    setExportInProgress(format);
+    try {
+      const isHtml = format === 'html';
+      await exportMarkdownDocument({
+        format,
+        markdown: contentRef.current,
+        filePath,
+        fileName,
+        basePath,
+        title: getMarkdownExportTitle(filePath, fileName),
+        labels: {
+          saveTitle: t(isHtml ? 'markdown.editor.exportSaveTitleHtml' : 'markdown.editor.exportSaveTitlePdf'),
+          exported: (destinationPath) => t(
+            isHtml ? 'markdown.editor.exportedHtml' : 'markdown.editor.exportedPdf',
+            { path: destinationPath },
+          ),
+          failed: (message) => t('markdown.editor.exportFailed', { message }),
+          reveal: t('markdown.editor.revealExport'),
+          desktopRequired: t('markdown.editor.exportNeedsDesktop'),
+        },
+      });
+    } finally {
+      if (!isUnmountedRef.current) {
+        setExportInProgress(null);
+      }
+    }
+  }, [basePath, exportInProgress, fileName, filePath, t]);
 
   useEffect(() => {
     isUnmountedRef.current = false;
@@ -852,6 +929,11 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
             onToggleOutline={toggleOutline}
             modeToggleLabel={unsafeViewMode === 'source' ? t('markdown.editor.preview') : t('markdown.editor.source')}
             onToggleMode={() => setUnsafeViewMode((mode) => (mode === 'source' ? 'preview' : 'source'))}
+            exportHtmlLabel={t('markdown.editor.exportHtml')}
+            exportPdfLabel={t('markdown.editor.exportPdf')}
+            exportInProgress={exportInProgress}
+            onExportHtml={() => void handleExportMarkdown('html')}
+            onExportPdf={() => void handleExportMarkdown('pdf')}
           />,
         )}
         <div className="sparo-markdown-editor__unsafe-body">
@@ -933,15 +1015,20 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
         modeToolbarHost,
         <MarkdownEditorMoreMenu
           label={t('markdown.editor.moreMenu')}
-            centeredLayoutLabel={t('markdown.editor.centeredLayout')}
-            centeredLayoutEnabled={centeredLayout}
-            onToggleCenteredLayout={toggleCenteredLayout}
-            outlineLabel={t('markdown.editor.documentSections')}
-            outlineEnabled={outlineEnabled}
-            onToggleOutline={toggleOutline}
-            modeToggleLabel={viewMode === 'preview' ? t('markdown.editor.source') : t('markdown.editor.livePreview')}
-            onToggleMode={() => setViewMode((mode) => (mode === 'preview' ? 'markdown' : 'preview'))}
-          />,
+          centeredLayoutLabel={t('markdown.editor.centeredLayout')}
+          centeredLayoutEnabled={centeredLayout}
+          onToggleCenteredLayout={toggleCenteredLayout}
+          outlineLabel={t('markdown.editor.documentSections')}
+          outlineEnabled={outlineEnabled}
+          onToggleOutline={toggleOutline}
+          modeToggleLabel={viewMode === 'preview' ? t('markdown.editor.source') : t('markdown.editor.livePreview')}
+          onToggleMode={() => setViewMode((mode) => (mode === 'preview' ? 'markdown' : 'preview'))}
+          exportHtmlLabel={t('markdown.editor.exportHtml')}
+          exportPdfLabel={t('markdown.editor.exportPdf')}
+          exportInProgress={exportInProgress}
+          onExportHtml={() => void handleExportMarkdown('html')}
+          onExportPdf={() => void handleExportMarkdown('pdf')}
+        />,
       )}
       <div className="sparo-markdown-editor__preview-host">
         <MarkdownEditingSurface

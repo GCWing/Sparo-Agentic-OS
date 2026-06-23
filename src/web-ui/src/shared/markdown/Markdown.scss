@@ -18,6 +18,15 @@
   user-select: text;
 }
 
+.markdown-renderer--static-export {
+  cursor: default;
+}
+
+.markdown-renderer--static-export .copy-button,
+.markdown-renderer--static-export .mermaid-block__actions {
+  display: none !important;
+}
+
 
 .markdown-renderer code {
   display: inline;
