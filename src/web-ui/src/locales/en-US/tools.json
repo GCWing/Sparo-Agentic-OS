@@ -351,6 +351,10 @@
       "details": {
         "summaryPlaceholder": "Summary"
       },
+      "tableQuickInsert": {
+        "insertColumn": "Insert column",
+        "insertRow": "Insert row"
+      },
       "insertLinkTextPlaceholder": "Link text",
       "inlineAi": {
         "triggerHint": "Press Space to use AI",

@@ -351,6 +351,10 @@
       "details": {
         "summaryPlaceholder": "摘要"
       },
+      "tableQuickInsert": {
+        "insertColumn": "插入列",
+        "insertRow": "插入行"
+      },
       "insertLinkTextPlaceholder": "链接文本",
       "inlineAi": {
         "triggerHint": "按空格以启用 AI",
