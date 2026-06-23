@@ -8,17 +8,34 @@ import {
   type WorkspaceSurface,
 } from './workspaceSurfaceTypes';
 
+export const WORKSPACE_SCENE_HISTORY_LIMIT = 5;
+
+export type WorkspaceHistorySurface = Exclude<WorkspaceSurface, { kind: 'agentic-os-home' }>;
+
+export interface WorkspaceSceneHistoryEntry {
+  surface: WorkspaceHistorySurface;
+  context: WorkspaceSurfaceContext | null;
+  visitedAt: number;
+}
+
+export type WorkspaceSurfaceHistoryMode = 'push' | 'restore';
+
 interface OpenSurfaceOptions {
   context?: WorkspaceSurfaceContext | null;
+  historyMode?: WorkspaceSurfaceHistoryMode;
 }
 
 interface WorkspaceSurfaceState {
   activeSurface: WorkspaceSurface;
   previousSurface: WorkspaceSurface | null;
+  sceneHistory: WorkspaceSceneHistoryEntry[];
   surfaceContext: WorkspaceSurfaceContext | null;
   focusedSessionId: string | null;
   composerTargetSessionId: string | null;
   openSurface: (surface: WorkspaceSurface, options?: OpenSurfaceOptions) => void;
+  goBackScene: () => boolean;
+  openSceneHistoryEntry: (index: number) => boolean;
+  clearSceneHistory: () => void;
   focusSession: (sessionId: string | null) => void;
   setComposerTargetSession: (sessionId: string | null) => void;
   clearSurfaceContext: () => void;
@@ -47,24 +64,63 @@ function syncSceneNav(surface: WorkspaceSurface): void {
   }
 }
 
+function isSameHistorySurface(
+  a: WorkspaceHistorySurface,
+  b: WorkspaceHistorySurface
+): boolean {
+  return isSameWorkspaceSurface(a, b);
+}
+
+function shouldCaptureCurrentScene(
+  current: WorkspaceSurface,
+  next: WorkspaceSurface,
+  mode: WorkspaceSurfaceHistoryMode
+): current is WorkspaceHistorySurface {
+  if (mode === 'restore') return false;
+  if (current.kind === 'agentic-os-home') return false;
+  return next.kind !== 'agentic-os-home';
+}
+
+function pushSceneHistory(
+  history: WorkspaceSceneHistoryEntry[],
+  surface: WorkspaceHistorySurface,
+  context: WorkspaceSurfaceContext | null
+): WorkspaceSceneHistoryEntry[] {
+  const withoutDuplicate = history.filter(entry => !isSameHistorySurface(entry.surface, surface));
+  return [
+    {
+      surface,
+      context,
+      visitedAt: Date.now(),
+    },
+    ...withoutDuplicate,
+  ].slice(0, WORKSPACE_SCENE_HISTORY_LIMIT);
+}
+
+function getFocusedSessionId(surface: WorkspaceSurface): string | null {
+  return surface.kind === 'session'
+    ? surface.sessionId
+    : surface.kind === 'agentic-os-home'
+      ? surface.agenticOsSessionId
+      : null;
+}
+
 export const useWorkspaceSurfaceStore = create<WorkspaceSurfaceState>((set, get) => ({
   activeSurface: { kind: 'agentic-os-home', agenticOsSessionId: null },
   previousSurface: null,
+  sceneHistory: [],
   surfaceContext: null,
   focusedSessionId: null,
   composerTargetSessionId: null,
 
   openSurface: (surface, options = {}) => {
-    const current = get().activeSurface;
+    const state = get();
+    const current = state.activeSurface;
     const nextSurfaceContext = options.context ?? null;
-    const nextFocusedSessionId =
-      surface.kind === 'session'
-        ? surface.sessionId
-        : surface.kind === 'agentic-os-home'
-          ? surface.agenticOsSessionId
-          : null;
+    const nextFocusedSessionId = getFocusedSessionId(surface);
     if (isSameWorkspaceSurface(current, surface)) {
       set({
+        sceneHistory: surface.kind === 'agentic-os-home' ? [] : state.sceneHistory,
         surfaceContext: nextSurfaceContext,
         focusedSessionId: nextFocusedSessionId,
         composerTargetSessionId: nextFocusedSessionId,
@@ -73,14 +129,54 @@ export const useWorkspaceSurfaceStore = create<WorkspaceSurfaceState>((set, get)
       return;
     }
 
+    const historyMode = options.historyMode ?? 'push';
+    const nextSceneHistory =
+      surface.kind === 'agentic-os-home'
+        ? []
+        : shouldCaptureCurrentScene(current, surface, historyMode)
+          ? pushSceneHistory(state.sceneHistory, current, state.surfaceContext)
+          : state.sceneHistory;
     set({
       activeSurface: surface,
       previousSurface: current,
+      sceneHistory: nextSceneHistory,
       surfaceContext: nextSurfaceContext,
       focusedSessionId: nextFocusedSessionId,
       composerTargetSessionId: nextFocusedSessionId,
     });
     syncSceneNav(surface);
+  },
+
+  goBackScene: () => {
+    const state = get();
+    if (state.activeSurface.kind === 'agentic-os-home') return false;
+    const entry = state.sceneHistory[0];
+    if (!entry) return false;
+    return get().openSceneHistoryEntry(0);
+  },
+
+  openSceneHistoryEntry: (index) => {
+    const state = get();
+    if (state.activeSurface.kind === 'agentic-os-home') return false;
+    const entry = state.sceneHistory[index];
+    if (!entry) return false;
+
+    const nextHistory = state.sceneHistory.filter((_, i) => i !== index);
+    const nextFocusedSessionId = getFocusedSessionId(entry.surface);
+    set({
+      activeSurface: entry.surface,
+      previousSurface: state.activeSurface,
+      sceneHistory: nextHistory,
+      surfaceContext: entry.context,
+      focusedSessionId: nextFocusedSessionId,
+      composerTargetSessionId: nextFocusedSessionId,
+    });
+    syncSceneNav(entry.surface);
+    return true;
+  },
+
+  clearSceneHistory: () => {
+    set({ sceneHistory: [] });
   },
 
   focusSession: (sessionId) => {
@@ -112,9 +208,14 @@ export const useWorkspaceSurfaceStore = create<WorkspaceSurfaceState>((set, get)
             ? { kind: 'agentic-os-home', agenticOsSessionId: null } as WorkspaceSurface
             : state.activeSurface;
 
+      const nextSceneHistory = state.sceneHistory.filter((entry) => (
+        entry.surface.kind !== 'session' || !removedSessionIds.has(entry.surface.sessionId)
+      ));
+
       return {
         activeSurface,
         surfaceContext: activeSurface === state.activeSurface ? state.surfaceContext : null,
+        sceneHistory: activeSurface.kind === 'agentic-os-home' ? [] : nextSceneHistory,
         focusedSessionId:
           state.focusedSessionId && removedSessionIds.has(state.focusedSessionId)
             ? null
@@ -139,4 +240,8 @@ export function selectActiveSceneFromSurface(state: WorkspaceSurfaceState): Work
 
 export function selectIsHomeSurface(state: WorkspaceSurfaceState): boolean {
   return state.activeSurface.kind === 'agentic-os-home';
+}
+
+export function selectCanGoBackScene(state: WorkspaceSurfaceState): boolean {
+  return state.activeSurface.kind !== 'agentic-os-home' && state.sceneHistory.length > 0;
 }

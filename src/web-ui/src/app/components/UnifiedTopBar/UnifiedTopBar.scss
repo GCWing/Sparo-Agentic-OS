@@ -88,23 +88,64 @@
     align-items: center;
     flex-shrink: 0;
     min-width: 0;
+    height: 28px;
+    position: relative;
   }
 
   &__context-capsule {
-    display: inline-flex;
-    align-items: stretch;
+    --unified-top-bar-history-width: min(276px, calc(100vw - 144px));
+    --unified-top-bar-history-radius: var(--ds-radius-lg, 12px);
+
+    position: relative;
+    display: inline-block;
     height: 28px;
+    width: var(--unified-top-bar-context-collapsed-width, auto);
     max-width: min(360px, calc(100vw - 200px));
     border: 1px solid var(--ds-color-border-subtle);
     border-radius: 9999px;
-    overflow: hidden;
+    overflow: visible;
     flex-shrink: 1;
     min-width: 0;
     background: transparent;
+    transition:
+      width var(--ds-motion-fast) var(--ds-easing-standard),
+      border-radius var(--ds-motion-fast) var(--ds-easing-standard),
+      background var(--ds-motion-fast) var(--ds-easing-standard),
+      box-shadow var(--ds-motion-fast) var(--ds-easing-standard);
 
     :root[data-theme-type='light'] & {
       background: color-mix(in srgb, var(--ds-color-bg-panel) 25%, transparent);
     }
+
+    &.is-history-open {
+      width: var(--unified-top-bar-history-width);
+      max-width: var(--unified-top-bar-history-width);
+      border-bottom-color: transparent;
+      border-radius: var(--unified-top-bar-history-radius) var(--unified-top-bar-history-radius) 0 0;
+      background: var(--ds-color-bg-panel);
+      box-shadow: var(--ds-shadow-popover);
+
+      :root[data-theme-type='light'] & {
+        background: var(--ds-color-bg-panel);
+      }
+    }
+  }
+
+  &__context-capsule-row {
+    display: inline-flex;
+    align-items: stretch;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    overflow: hidden;
+    border-radius: inherit;
+    transition:
+      background var(--ds-motion-fast) var(--ds-easing-standard),
+      color var(--ds-motion-fast) var(--ds-easing-standard);
+  }
+
+  &__context-capsule.is-history-open &__context-capsule-row:hover {
+    background: var(--ds-color-element-soft);
   }
 
   &__context-capsule-back {
@@ -128,16 +169,117 @@
     align-items: center;
     min-width: 0;
     flex: 1;
-    padding: 0 10px 0 6px;
     color: var(--ds-color-text-secondary);
     text-align: left;
-    cursor: default;
-    user-select: text;
+    user-select: none;
 
     .unified-top-bar__context-title {
       max-width: 100%;
       min-width: 0;
     }
+  }
+
+  &__context-title-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    height: 100%;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: default;
+
+    &:disabled {
+      opacity: 1;
+      color: inherit;
+      cursor: default;
+    }
+
+    &:not(:disabled) {
+      cursor: pointer;
+
+      &:hover {
+        background: var(--ds-color-element-soft);
+        color: var(--ds-color-text-primary);
+      }
+    }
+
+    .unified-top-bar__context-capsule.is-history-open &:hover {
+      background: transparent;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ds-color-accent-500);
+      outline-offset: -2px;
+    }
+  }
+
+  &__context-history-list {
+    --unified-top-bar-history-max-height: min(220px, calc(100vh - 56px));
+
+    position: absolute;
+    top: calc(100% - 1px);
+    left: -1px;
+    z-index: var(--ds-z-popover);
+    display: grid;
+    gap: 2px;
+    box-sizing: border-box;
+    width: calc(100% + 2px);
+    max-height: var(--unified-top-bar-history-max-height);
+    padding: 4px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    border: 1px solid var(--ds-color-border-subtle);
+    border-top: 0;
+    border-radius: 0 0 var(--unified-top-bar-history-radius) var(--unified-top-bar-history-radius);
+    background: var(--ds-color-bg-panel);
+    box-shadow: var(--ds-shadow-popover);
+    transform-origin: top center;
+    animation: unified-top-bar-history-list-in 170ms var(--ds-easing-standard) 80ms both;
+  }
+
+  &__context-history-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 28px;
+    min-width: 0;
+    padding: 0 8px;
+    border: 0;
+    border-radius: var(--ds-list-row-radius, var(--ds-radius-sm, 6px));
+    background: transparent;
+    color: var(--ds-color-text-secondary);
+    font: inherit;
+    font-size: var(--ds-font-size-xs);
+    text-align: left;
+    cursor: pointer;
+    transition:
+      background var(--ds-motion-fast) var(--ds-easing-standard),
+      color var(--ds-motion-fast) var(--ds-easing-standard);
+
+    &:hover {
+      background: var(--ds-color-element-soft);
+      color: var(--ds-color-text-primary);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ds-color-accent-500);
+      outline-offset: -1px;
+    }
+  }
+
+  &__context-history-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   &__context-capsule-actions {
@@ -153,6 +295,11 @@
   }
 
   &__work-list-control {
+    width: 28px;
+    height: 28px;
+  }
+
+  &__home-control {
     width: 28px;
     height: 28px;
   }
@@ -343,12 +490,36 @@
   }
 }
 
+@keyframes unified-top-bar-history-list-in {
+  from {
+    opacity: 0;
+    max-height: 0;
+    clip-path: inset(0 0 100% 0 round 0 0 var(--unified-top-bar-history-radius) var(--unified-top-bar-history-radius));
+    transform: translateY(-2px);
+  }
+
+  to {
+    opacity: 1;
+    max-height: var(--unified-top-bar-history-max-height);
+    clip-path: inset(0 0 0 0 round 0 0 var(--unified-top-bar-history-radius) var(--unified-top-bar-history-radius));
+    transform: translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .unified-top-bar {
-    &__context-capsule-back,
+    &__context-capsule,
+    &__context-capsule-row,
+    &__home-control,
+    &__context-history-item,
+    &__context-title-button,
     &__work-list-control,
     &__search-trigger {
       transition: none;
+    }
+
+    &__context-history-list {
+      animation: none;
     }
   }
 }

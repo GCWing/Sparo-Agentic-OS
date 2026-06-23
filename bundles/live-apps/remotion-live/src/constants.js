@@ -3,7 +3,7 @@
 const ROUTES = new Set(['/preview']);
 
 
-const PLAYER_HOST_RUNTIME_VERSION = 5;
+const PLAYER_HOST_RUNTIME_VERSION = 7;
 
 const PREVIEW_FRAME_CACHE_LIMIT = 96;
 

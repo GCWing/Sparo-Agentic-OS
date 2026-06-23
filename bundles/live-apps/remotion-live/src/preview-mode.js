@@ -34,6 +34,10 @@ function playerPreviewReady() {
 function resetPlayerRuntimeState() {
   state.playerRuntimeReady = false;
   state.playerPendingCommand = null;
+  state.playerInFlightCommand = null;
+  state.playerInstanceId = null;
+  state.playerStageKey = null;
+  state.playerRenderedStageKey = null;
   state.playerRuntimeFrame = null;
   state.playerRuntimePlaying = false;
   state.playerFrameModel = null;

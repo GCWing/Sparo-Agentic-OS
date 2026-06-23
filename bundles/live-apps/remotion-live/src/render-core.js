@@ -4,6 +4,7 @@ import { callBackend } from './backend.js';
 import { ICONS } from './constants.js';
 import { compositionDuration, currentComposition, previewClipKey, previewFrameKey } from './model.js';
 import { playerFrameNode, requestPlayerHandshake } from './player-dom.js';
+import { playerStageKey } from './preview-controller.js';
 import { playerPreviewReady, studioPreviewReady, usePlayerPreview, useStudioPreview } from './preview-mode.js';
 import { selectionSummary, shouldDeferRenderForSelection } from './selection-geom.js';
 import { state } from './state.js';
@@ -27,11 +28,14 @@ function setError(error) {
 async function renderStill() {
   const composition = currentComposition();
   if (!composition) return;
+  const { getPreviewSnapshot } = await import('./player-protocol.js');
+  const snapshot = await getPreviewSnapshot();
+  const frame = snapshot?.frame ?? state.frame;
   setLoading(true, t('renderStill'));
   try {
     const output = await callBackend('renderStill', {
       compositionId: composition.id,
-      frame: state.frame,
+      frame,
     });
     state.lastStill = output;
     state.status = output?.status || 'completed';
@@ -59,6 +63,49 @@ function updateContextTrayDom() {
   template.innerHTML = html;
   const node = template.content.firstElementChild;
   if (node) tray.replaceWith(node);
+}
+
+
+function renderStatusBar() {
+  if (state.loading) {
+    return '<div class="rl-status-bar"><div class="rl-progress" role="progressbar"><span></span></div></div>';
+  }
+  if (state.error) {
+    return `<div class="rl-status-bar"><div class="rl-error-bar">${escapeHtml(state.error)}</div></div>`;
+  }
+  return '<div class="rl-status-bar"></div>';
+}
+
+
+function patchExportOverlayDom(root) {
+  root.querySelectorAll('.rl-modal-scrim, .rl-export-toast').forEach((node) => node.remove());
+  const html = renderExportOverlay().trim();
+  if (!html) return;
+  const template = document.createElement('template');
+  template.innerHTML = html;
+  const node = template.content.firstElementChild;
+  if (node) root.appendChild(node);
+}
+
+
+function patchStablePlayerRender(root, statusBar) {
+  if (!usePlayerPreview() || !playerPreviewReady()) return false;
+  const frame = playerFrameNode();
+  const stageKey = playerStageKey();
+  if (!frame || frame.dataset.stageKey !== stageKey) return false;
+  if (!root.querySelector('.rl-content .rl-preview')) return false;
+
+  replaceElementHtml('.rl-header', renderHeader());
+  replaceElementHtml('.rl-status-bar', statusBar);
+  updateTimelineDom();
+  syncSelectionOverlayDom();
+  commitSelectionMarkerDom();
+  updateContextTrayDom();
+  patchExportOverlayDom(root);
+  fitPreviewStage();
+  if (!state.playerRuntimeReady) requestPlayerHandshake();
+  ensurePreviewVideoPlayback();
+  return true;
 }
 
 
@@ -315,15 +362,18 @@ function render() {
   document.documentElement.dataset.route = state.route;
 
   // Progress and error both live in the same auto-height row so the grid stays stable.
-  const statusBar = state.loading
-    ? `<div class="rl-status-bar"><div class="rl-progress" role="progressbar"><span></span></div></div>`
-    : state.error
-    ? `<div class="rl-status-bar"><div class="rl-error-bar">${escapeHtml(state.error)}</div></div>`
-    : `<div class="rl-status-bar"></div>`;
+  const statusBar = renderStatusBar();
+
+  if (patchStablePlayerRender(root, statusBar)) return;
 
   root.innerHTML = renderHeader() + statusBar + `<div class="rl-content">${renderRouteContent()}</div>` + renderExportOverlay();
   fitPreviewStage();
   const nextPlayerFrame = playerFrameNode();
+  if (nextPlayerFrame) {
+    const stageKey = playerStageKey();
+    nextPlayerFrame.dataset.stageKey = stageKey;
+    state.playerRenderedStageKey = stageKey;
+  }
   if (nextPlayerFrame && nextPlayerFrame !== previousPlayerFrame) {
     state.playerRuntimeReady = false;
     state.playerRuntimePlaying = false;

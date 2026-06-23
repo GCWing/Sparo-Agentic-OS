@@ -2,15 +2,16 @@
 
 import { confirmExport, dismissExportDialog, dismissExportRun, refreshProject, requestExport, scheduleSelectionGuardRelease, selectEntry, selectPreviewLayer, sendContext, setComposition, setFrame, setPointSelection, setPreviewMode, setRegionSelection, stepFrame, togglePlayback } from './src/actions.js';
 import { normalizeRoute } from './src/constants.js';
-import { compositionDuration, currentComposition, selectedLayer } from './src/model.js';
-import { requestPlayerHandshake, syncPlayerRuntimeDom } from './src/player-dom.js';
+import { compositionDuration } from './src/model.js';
+import { requestPlayerHandshake } from './src/player-dom.js';
+import { handlePlayerHostMessage, sendOrQueuePlayerCommand } from './src/player-protocol.js';
 import { resetPlayerRuntimeState } from './src/preview-mode.js';
-import { clearPlayerCommandFallback, clearPlayerHostPoll, clearPreviewServerPoll, ensurePreviewServer, evaluateCurrentFrame, flushPlayerCommand, sendOrQueuePlayerCommand, stopPreviewServer } from './src/preview-runtime.js';
+import { clearPlayerHostPoll, clearPreviewServerPoll, ensurePlayerPreviewHost, ensurePreviewServer, evaluateCurrentFrame, pollPlayerPreviewHostStatus, stopPreviewServer } from './src/preview-runtime.js';
 import { clearSelection, render, renderStill, updateTimelineDom } from './src/render-core.js';
 import { hasLiveTextSelection, isSelectionStartTarget, pausePlaybackForSelection, stageNormalizedPoint } from './src/selection-geom.js';
 import { previewClipCache, previewFrameCache, state } from './src/state.js';
-import { asArray, clamp, closestElement, runtime } from './src/util.js';
-import { fitPreviewStage, removeDraftMarker, setPlayingState, syncFrameFromPlayer, syncSelectionOverlayDom, updateDraftMarkerDom } from './src/views.js';
+import { clamp, closestElement, runtime } from './src/util.js';
+import { fitPreviewStage, removeDraftMarker, updateDraftMarkerDom } from './src/views.js';
 
 function handleRouteEvent(payload = {}) {
   state.route = normalizeRoute(payload.route || state.route);
@@ -48,11 +49,20 @@ function handleRouteEvent(payload = {}) {
   }
 }
 
+
+function pausePreviewForSelection() {
+  const shouldPausePlayer = state.previewMode === 'player' && (state.playing || state.playerRuntimePlaying);
+  pausePlaybackForSelection();
+  if (shouldPausePlayer) {
+    sendOrQueuePlayerCommand('pause', { frame: state.frame });
+  }
+}
+
 document.addEventListener('pointerdown', (event) => {
   if (!isSelectionStartTarget(event.target)) return;
   state.selectionPointerDown = true;
   state.selectionGuard = true;
-  pausePlaybackForSelection();
+  pausePreviewForSelection();
 }, true);
 
 document.addEventListener('pointerup', () => {
@@ -115,13 +125,13 @@ document.addEventListener('pointerup', (event) => {
 document.addEventListener('selectstart', (event) => {
   if (!isSelectionStartTarget(event.target)) return;
   state.selectionGuard = true;
-  pausePlaybackForSelection();
+  pausePreviewForSelection();
 }, true);
 
 document.addEventListener('selectionchange', () => {
   if (hasLiveTextSelection()) {
     state.selectionGuard = true;
-    pausePlaybackForSelection();
+    pausePreviewForSelection();
     return;
   }
   if (!state.selectionPointerDown) {
@@ -130,70 +140,7 @@ document.addEventListener('selectionchange', () => {
 });
 
 window.addEventListener('message', (event) => {
-  const message = event.data || {};
-  if (message.source !== 'sparo-remotion-player-host') return;
-  const composition = currentComposition();
-  if (message.compositionId && composition?.id && message.compositionId !== composition.id) return;
-  if (message.type === 'ready') {
-    state.playerRuntimeReady = true;
-    state.playerHostError = null;
-    syncFrameFromPlayer(message.frame ?? state.frame);
-    syncPlayerRuntimeDom();
-    flushPlayerCommand();
-  }
-  if (message.type === 'frame') {
-    clearPlayerCommandFallback();
-    syncFrameFromPlayer(message.frame);
-  }
-  if (message.type === 'frameContext') {
-    const frame = clamp(Number(message.frame ?? state.frame) || 0, 0, compositionDuration(composition) - 1);
-    state.playerFrameModel = {
-      ok: true,
-      compositionId: message.compositionId || composition?.id || state.activeCompositionId,
-      frame,
-      timeSeconds: message.timeSeconds ?? (composition?.fps ? frame / composition.fps : null),
-      composition: message.composition || composition || null,
-      measurement: message.measurement || 'player-dom',
-      layers: asArray(message.layers),
-    };
-    if (state.selectedElementId && !selectedLayer()) {
-      state.selectedElementId = null;
-    }
-    if (!syncSelectionOverlayDom()) render();
-  }
-  if (message.type === 'command') {
-    clearPlayerCommandFallback();
-    if (message.frame !== undefined) syncFrameFromPlayer(message.frame);
-  }
-  if (message.type === 'play') {
-    clearPlayerCommandFallback();
-    state.playerRuntimePlaying = true;
-    if (!state.playing) {
-      if (message.frame !== undefined) syncFrameFromPlayer(message.frame);
-      sendOrQueuePlayerCommand('pause', { frame: message.frame ?? state.frame });
-      return;
-    }
-    setPlayingState(true);
-    if (message.frame !== undefined) syncFrameFromPlayer(message.frame);
-  }
-  if (message.type === 'pause') {
-    clearPlayerCommandFallback();
-    state.playerRuntimePlaying = false;
-    setPlayingState(false);
-    if (message.frame !== undefined) syncFrameFromPlayer(message.frame);
-  }
-  if (message.type === 'ended') {
-    state.playerRuntimePlaying = false;
-    setPlayingState(false);
-    if (message.frame !== undefined) syncFrameFromPlayer(message.frame);
-  }
-  if (message.type === 'error') {
-    state.playerHostError = String(message.message || 'Player preview failed.');
-    state.playerRuntimeReady = false;
-    state.playerRuntimePlaying = false;
-    setPlayingState(false);
-    render();
-  }
+  handlePlayerHostMessage(event.data || {});
 });
 
 document.addEventListener('load', (event) => {
@@ -204,6 +151,18 @@ document.addEventListener('load', (event) => {
 }, true);
 
 window.addEventListener('resize', fitPreviewStage);
+
+window.addEventListener('remotion-live:ensure-player-host', (event) => {
+  void ensurePlayerPreviewHost(Boolean(event.detail?.force));
+});
+
+window.addEventListener('remotion-live:poll-player-host-status', () => {
+  void pollPlayerPreviewHostStatus();
+});
+
+window.addEventListener('remotion-live:render-request', () => {
+  render();
+});
 
 document.addEventListener('click', (event) => {
   if (event.target?.classList?.contains('rl-modal-scrim')) {
@@ -290,6 +249,7 @@ document.addEventListener('change', (event) => {
   const node = event.target;
   if (node?.dataset?.action === 'select-composition') setComposition(node.value);
   if (node?.dataset?.action === 'frame-number') setFrame(node.value);
+  if (node?.dataset?.action === 'frame-range') setFrame(node.value);
 });
 
 document.addEventListener('input', (event) => {

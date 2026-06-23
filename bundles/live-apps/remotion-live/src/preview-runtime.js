@@ -3,7 +3,7 @@
 import { callBackend } from './backend.js';
 import { PLAYER_HOST_RUNTIME_VERSION, PREVIEW_CLIP_CACHE_LIMIT, PREVIEW_FRAME_CACHE_LIMIT } from './constants.js';
 import { compositionDuration, currentComposition, previewClipKey, previewFrameKey, selectedLayer } from './model.js';
-import { playerFrameNode, playerHostUrl, postPlayerMessage, requestPlayerHandshake } from './player-dom.js';
+import { playerFrameNode, playerHostUrl, requestPlayerHandshake } from './player-dom.js';
 import { playerPreviewReady, usePlayerPreview, useStudioPreview } from './preview-mode.js';
 import { render } from './render-core.js';
 import { previewClipCache, previewFrameCache, state } from './state.js';
@@ -26,119 +26,6 @@ function reloadPlayerIframe(options = {}) {
   });
   requestPlayerHandshake();
   return true;
-}
-
-
-function clearPlayerCommandFallback() {
-  if (!state.playerCommandFallbackTimer) return;
-  clearTimeout(state.playerCommandFallbackTimer);
-  state.playerCommandFallbackTimer = null;
-}
-
-
-function schedulePlayerCommandFallback(type, payload = {}) {
-  if (!usePlayerPreview() || !playerPreviewReady()) return;
-  clearPlayerCommandFallback();
-
-  const epoch = ++state.playerControlEpoch;
-  const retryPayload = {
-    ...payload,
-    frame: payload.frame ?? state.frame,
-  };
-  const retryCommand = () => {
-    void pollPlayerPreviewHostStatus();
-    postPlayerMessage(type, retryPayload, { requireReady: false });
-    requestPlayerHandshake();
-  };
-
-  if (type === 'pause') {
-    state.playerCommandFallbackTimer = window.setTimeout(() => {
-      state.playerCommandFallbackTimer = null;
-      if (epoch !== state.playerControlEpoch || !playerPreviewReady()) return;
-      if (!state.playing && state.playerRuntimePlaying) {
-        retryCommand();
-      }
-    }, 260);
-    return;
-  }
-
-  if (type !== 'seek' && type !== 'play') return;
-
-  const expectedFrame = clamp(Number(payload.frame ?? state.frame) || 0, 0, compositionDuration() - 1);
-  const startRuntimeFrame = Number(state.playerRuntimeFrame);
-  const hasStartRuntimeFrame = Number.isFinite(startRuntimeFrame);
-  const delay = type === 'play' ? 700 : 300;
-  state.playerCommandFallbackTimer = window.setTimeout(() => {
-    state.playerCommandFallbackTimer = null;
-    if (epoch !== state.playerControlEpoch || !playerPreviewReady()) return;
-    const runtimeFrame = Number(state.playerRuntimeFrame);
-    const hasRuntimeFrame = Number.isFinite(runtimeFrame);
-    if (type === 'seek') {
-      if (!hasRuntimeFrame || Math.abs(runtimeFrame - expectedFrame) > 1) {
-        retryCommand();
-      }
-      return;
-    }
-    if (!state.playing) return;
-    const baselineFrame = hasStartRuntimeFrame ? Math.max(expectedFrame, startRuntimeFrame) : expectedFrame;
-    const advanced = hasRuntimeFrame && runtimeFrame > baselineFrame + 1;
-    if (!advanced) {
-      retryCommand();
-    }
-  }, delay);
-}
-
-
-function queuePlayerCommand(type, payload = {}) {
-  state.playerPendingCommand = {
-    type,
-    payload: {
-      ...payload,
-      frame: payload.frame ?? state.frame,
-    },
-  };
-}
-
-
-function sendOrQueuePlayerCommand(type, payload = {}) {
-  if (postPlayerMessage(type, payload)) {
-    schedulePlayerCommandFallback(type, payload);
-    return true;
-  }
-  queuePlayerCommand(type, payload);
-  if (!playerPreviewReady() && state.workspacePath && currentComposition()) {
-    void ensurePlayerPreviewHost();
-  } else {
-    requestPlayerHandshake();
-    schedulePlayerCommandFallback(type, payload);
-  }
-  return false;
-}
-
-
-function flushPlayerCommand() {
-  if (!state.playerRuntimeReady) return;
-  if (state.playerHandshakeTimer) {
-    clearTimeout(state.playerHandshakeTimer);
-    state.playerHandshakeTimer = null;
-  }
-  const pending = state.playerPendingCommand;
-  state.playerPendingCommand = null;
-  if (pending) {
-    if (postPlayerMessage(pending.type, pending.payload)) {
-      schedulePlayerCommandFallback(pending.type, pending.payload);
-    } else {
-      queuePlayerCommand(pending.type, pending.payload);
-    }
-    return;
-  }
-  if (state.playing) {
-    postPlayerMessage('play', { frame: state.frame });
-  } else if (state.playerRuntimePlaying) {
-    postPlayerMessage('pause', { frame: state.frame });
-  } else {
-    postPlayerMessage('seek', { frame: state.frame });
-  }
 }
 
 
@@ -502,4 +389,4 @@ async function requestPreviewClip(force = false) {
 }
 
 
-export { clearPlayerCommandFallback, clearPlayerHostPoll, clearPreviewServerPoll, ensurePlayerPreviewHost, ensurePreviewServer, evaluateCurrentFrame, flushPlayerCommand, requestPreviewClip, requestPreviewFrame, sendOrQueuePlayerCommand, stopPreviewServer };
+export { clearPlayerHostPoll, clearPreviewServerPoll, ensurePlayerPreviewHost, ensurePreviewServer, evaluateCurrentFrame, pollPlayerPreviewHostStatus, requestPreviewClip, requestPreviewFrame, stopPreviewServer };

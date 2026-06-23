@@ -253,11 +253,149 @@ describe('Live App composite workbench', () => {
       const playerUrl = (previewStatus as any).url as string;
       const playerResponse = await fetch(playerUrl);
       const playerHtml = await playerResponse.text();
+      const compositionId = String((previewStatus as any).compositionId || compositionOptions[0] || 'SparoOSPromo-16x9');
+      const protocolResult = await browser.executeAsync((
+        baseUrl: string,
+        targetCompositionId: string,
+        done: (result: Record<string, unknown>) => void,
+      ) => {
+        const instanceId = `e2e-${Date.now()}`;
+        const url = new URL(baseUrl);
+        url.searchParams.set('compositionId', targetCompositionId);
+        url.searchParams.set('frame', '0');
+        url.searchParams.set('instanceId', instanceId);
+
+        const iframe = document.createElement('iframe');
+        iframe.src = url.toString();
+        iframe.style.position = 'fixed';
+        iframe.style.left = '-10000px';
+        iframe.style.top = '0';
+        iframe.style.width = '320px';
+        iframe.style.height = '180px';
+
+        let readyFrame = 0;
+        let maxFrame = 0;
+        let playAck = false;
+        let pauseAck = false;
+        let seekAck = false;
+        let pauseFrame = 0;
+        let seekTarget = 0;
+        const errors: string[] = [];
+        let timeout = 0;
+        let onMessage: (event: MessageEvent) => void;
+
+        const cleanup = (result: Record<string, unknown>) => {
+          window.removeEventListener('message', onMessage);
+          window.clearTimeout(timeout);
+          iframe.remove();
+          done(result);
+        };
+
+        const post = (type: string, payload: Record<string, unknown> = {}) => {
+          iframe.contentWindow?.postMessage({
+            source: 'sparo-remotion-live',
+            type,
+            compositionId: targetCompositionId,
+            instanceId,
+            ...payload,
+          }, '*');
+        };
+
+        onMessage = (event: MessageEvent) => {
+          const message = event.data || {};
+          if (message.source !== 'sparo-remotion-player-host') return;
+          if (message.instanceId !== instanceId) return;
+          if (message.compositionId !== targetCompositionId) return;
+
+          if (message.type === 'error') {
+            errors.push(String(message.message || 'Player error'));
+          }
+
+          if (message.type === 'ready') {
+            readyFrame = Number(message.frame || 0);
+            maxFrame = readyFrame;
+            post('play', { frame: readyFrame, commandId: 'e2e-play' });
+            window.setTimeout(() => post('snapshot', { requestId: 'after-play' }), 1200);
+            return;
+          }
+
+          if (message.type === 'frame') {
+            maxFrame = Math.max(maxFrame, Number(message.frame || 0));
+            return;
+          }
+
+          if (message.type === 'command') {
+            if (message.command === 'play' && message.commandId === 'e2e-play') playAck = true;
+            if (message.command === 'pause' && message.commandId === 'e2e-pause') pauseAck = true;
+            if (message.command === 'seek' && message.commandId === 'e2e-seek') seekAck = true;
+            return;
+          }
+
+          if (message.type === 'snapshot' && message.requestId === 'after-play') {
+            const frame = Number(message.frame || 0);
+            maxFrame = Math.max(maxFrame, frame);
+            pauseFrame = maxFrame;
+            post('pause', { frame: pauseFrame, commandId: 'e2e-pause' });
+            window.setTimeout(() => post('snapshot', { requestId: 'after-pause' }), 350);
+            return;
+          }
+
+          if (message.type === 'snapshot' && message.requestId === 'after-pause') {
+            pauseFrame = Number(message.frame || pauseFrame);
+            seekTarget = Math.min(pauseFrame + 12, 60);
+            post('seek', { frame: seekTarget, commandId: 'e2e-seek' });
+            window.setTimeout(() => post('snapshot', { requestId: 'after-seek' }), 350);
+            return;
+          }
+
+          if (message.type === 'snapshot' && message.requestId === 'after-seek') {
+            const seekFrame = Number(message.frame || 0);
+            cleanup({
+              ok: true,
+              readyFrame,
+              maxFrame,
+              playAck,
+              pauseAck,
+              seekAck,
+              pauseFrame,
+              seekTarget,
+              seekFrame,
+              playing: Boolean(message.playing),
+              errors,
+            });
+          }
+        };
+
+        timeout = window.setTimeout(() => {
+          cleanup({
+            ok: false,
+            readyFrame,
+            maxFrame,
+            playAck,
+            pauseAck,
+            seekAck,
+            pauseFrame,
+            seekTarget,
+            errors,
+          });
+        }, 10000);
+
+        window.addEventListener('message', onMessage);
+        document.body.appendChild(iframe);
+      }, playerUrl, compositionId) as any;
 
       expect(playerUrl).toContain('http://127.0.0.1:');
       expect(playerResponse.ok).toBe(true);
       expect(playerHtml.toLowerCase()).toContain('remotion');
       expect(compositionOptions.join('|')).toContain('SparoOSPromo-16x9');
+      expect(protocolResult.ok).toBe(true);
+      expect(protocolResult.errors).toEqual([]);
+      expect(protocolResult.playAck).toBe(true);
+      expect(protocolResult.pauseAck).toBe(true);
+      expect(protocolResult.seekAck).toBe(true);
+      expect(protocolResult.maxFrame).toBeGreaterThan(protocolResult.readyFrame + 1);
+      expect(Math.abs(protocolResult.seekFrame - protocolResult.seekTarget)).toBeLessThanOrEqual(1);
+      expect(protocolResult.playing).toBe(false);
     } finally {
       await stopRemotionPreview(remotionFixturePath);
     }

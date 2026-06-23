@@ -58,6 +58,8 @@ const defaultProps = ${defaultProps};
 const componentName = ${JSON.stringify(componentName)};
 const Component = (ComponentModule as Record<string, React.ComponentType<any>>)[componentName] || (ComponentModule as any).default;
 const runtimeVersion = ${PLAYER_HOST_RUNTIME_VERSION};
+const initialParams = new URLSearchParams(window.location.search);
+const instanceId = initialParams.get("instanceId") || "default";
 const componentPath = ${JSON.stringify(composition.componentPath || null)};
 const ELEMENT_SELECTOR = "img,video,canvas,svg,h1,h2,h3,h4,h5,h6,p,span,strong,em,small,div,section,article,main,header,footer,li,button";
 const SKIP_CLASS_PATTERN = /(remotion|player|rl-player|__remotion)/i;
@@ -69,11 +71,12 @@ function clampFrame(value: unknown) {
 
 function post(type: string, payload: Record<string, unknown> = {}) {
   window.parent?.postMessage({
+    ...payload,
     source: "sparo-remotion-player-host",
     runtimeVersion,
     type,
     compositionId: composition.id,
-    ...payload,
+    instanceId,
   }, "*");
 }
 
@@ -198,13 +201,25 @@ function App() {
   const readyPostedRef = useRef(false);
   const frameContextRequestRef = useRef<number | null>(null);
   const pendingCommandsRef = useRef<Array<Record<string, unknown>>>([]);
+  const playingRef = useRef(false);
+  const manualPlaybackFrameRef = useRef<number | null>(null);
+  const manualPlaybackStartedAtRef = useRef(0);
+  const manualPlaybackStartFrameRef = useRef(0);
   const initialFrame = useMemo(() => {
-    const params = new URLSearchParams(window.location.search);
-    return clampFrame(params.get("frame"));
+    return clampFrame(initialParams.get("frame"));
   }, []);
+  const lastKnownFrameRef = useRef(initialFrame);
   const shouldAutoplay = useMemo(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("autoplay") === "1";
+    return initialParams.get("autoplay") === "1";
+  }, []);
+
+  const currentFrame = useCallback(() => {
+    const actual = playerRef.current?.getCurrentFrame?.();
+    const frame = Number.isFinite(Number(actual)) ? clampFrame(actual) : clampFrame(lastKnownFrameRef.current);
+    if (playingRef.current || manualPlaybackFrameRef.current !== null) {
+      lastKnownFrameRef.current = frame;
+    }
+    return playingRef.current ? frame : clampFrame(lastKnownFrameRef.current);
   }, []);
 
   const postFrameContext = useCallback((frame: number) => {
@@ -217,50 +232,171 @@ function App() {
     });
   }, []);
 
-  const seekTo = useCallback((frame: unknown) => {
+  const postSnapshot = useCallback((requestId: unknown) => {
+    const frame = currentFrame();
+    post("snapshot", {
+      requestId,
+      frame,
+      playing: playingRef.current,
+      durationInFrames: composition.durationInFrames,
+      fps: composition.fps,
+      width: composition.width,
+      height: composition.height,
+      frameContext: measureFrameContext(stageRef.current, frame),
+    });
+  }, [currentFrame]);
+
+  const stopManualPlayback = useCallback(() => {
+    if (manualPlaybackFrameRef.current === null) return;
+    window.clearTimeout(manualPlaybackFrameRef.current);
+    manualPlaybackFrameRef.current = null;
+  }, []);
+
+  const postFrame = useCallback((frame: unknown, type = "frame") => {
     const next = clampFrame(frame);
-    playerRef.current?.seekTo(next);
-    post("frame", {frame: next});
+    lastKnownFrameRef.current = next;
+    post(type, {frame: next, playing: playingRef.current});
     postFrameContext(next);
+    return next;
   }, [postFrameContext]);
 
-  const play = useCallback((frame?: unknown) => {
-    if (frame !== undefined && frame !== null) {
-      seekTo(frame);
-    }
+  const forcePausePlayer = useCallback((player: PlayerRef | null = playerRef.current) => {
+    if (!player) return;
+    player.pause();
+    [0, 80, 220].forEach((delay) => {
+      window.setTimeout(() => {
+        if (!playingRef.current) player.pause();
+      }, delay);
+    });
+  }, []);
+
+  const startManualPlayback = useCallback((fromFrame: number) => {
     const player = playerRef.current;
+    if (!player) return;
+    stopManualPlayback();
+    player.pause();
+    manualPlaybackStartFrameRef.current = clampFrame(fromFrame);
+    lastKnownFrameRef.current = manualPlaybackStartFrameRef.current;
+    manualPlaybackStartedAtRef.current = performance.now();
+
+    const tick = () => {
+      const currentPlayer = playerRef.current;
+      if (!playingRef.current || !currentPlayer) {
+        manualPlaybackFrameRef.current = null;
+        return;
+      }
+
+      const elapsedFrames = Math.floor(((performance.now() - manualPlaybackStartedAtRef.current) / 1000) * composition.fps);
+      const nextFrame = clampFrame(manualPlaybackStartFrameRef.current + elapsedFrames);
+      if (currentPlayer.isPlaying?.()) currentPlayer.pause();
+      currentPlayer.seekTo(nextFrame);
+      postFrame(nextFrame);
+
+      if (nextFrame >= composition.durationInFrames - 1) {
+        playingRef.current = false;
+        stopManualPlayback();
+        forcePausePlayer(currentPlayer);
+        post("ended", {frame: nextFrame, playing: false});
+        postFrameContext(nextFrame);
+        return;
+      }
+
+      const delay = Math.max(16, Math.round(1000 / Math.min(60, Number(composition.fps) || 30)));
+      manualPlaybackFrameRef.current = window.setTimeout(tick, delay);
+    };
+
+    manualPlaybackFrameRef.current = window.setTimeout(tick, 0);
+  }, [forcePausePlayer, postFrame, postFrameContext, stopManualPlayback]);
+
+  const seekTo = useCallback((frame: unknown) => {
+    const next = clampFrame(frame);
+    lastKnownFrameRef.current = next;
+    const player = playerRef.current;
+    if (!playingRef.current) {
+      stopManualPlayback();
+      forcePausePlayer(player);
+    }
+    player?.seekTo(next);
+    if (!playingRef.current) {
+      forcePausePlayer(player);
+    } else if (manualPlaybackFrameRef.current !== null) {
+      manualPlaybackStartFrameRef.current = next;
+      manualPlaybackStartedAtRef.current = performance.now();
+    }
+    postFrame(next);
+    return next;
+  }, [forcePausePlayer, postFrame, stopManualPlayback]);
+
+  const play = useCallback((frame?: unknown) => {
+    const player = playerRef.current;
+    const startFrame = frame !== undefined && frame !== null ? seekTo(frame) : currentFrame();
+    playingRef.current = true;
     const result = player?.play();
     if (player) {
       const nextFrame = clampFrame(player.getCurrentFrame());
-      post("play", {frame: nextFrame});
+      post("play", {frame: nextFrame, playing: true});
       postFrameContext(nextFrame);
+      window.setTimeout(() => {
+        if (!playingRef.current) return;
+        const current = clampFrame(player.getCurrentFrame());
+        if (current <= nextFrame + 1) {
+          startManualPlayback(Math.max(startFrame, current));
+        }
+      }, 450);
+    } else {
+      startManualPlayback(startFrame);
     }
     if (result && typeof (result as Promise<void>).catch === "function") {
       (result as Promise<void>).catch((error) => {
+        playingRef.current = false;
+        stopManualPlayback();
         post("error", {message: error instanceof Error ? error.message : String(error)});
       });
     }
-  }, [postFrameContext, seekTo]);
+  }, [currentFrame, postFrameContext, seekTo, startManualPlayback, stopManualPlayback]);
 
   const pause = useCallback(() => {
     const player = playerRef.current;
-    player?.pause();
+    playingRef.current = false;
+    stopManualPlayback();
+    forcePausePlayer(player);
     if (player) {
       const nextFrame = clampFrame(player.getCurrentFrame());
-      post("pause", {frame: nextFrame});
+      post("pause", {frame: nextFrame, playing: false});
       postFrameContext(nextFrame);
     }
-  }, [postFrameContext]);
+  }, [forcePausePlayer, postFrameContext, stopManualPlayback]);
 
   const runCommand = useCallback((message: Record<string, unknown>) => {
-    if (message.type === "seek") seekTo(message.frame);
-    if (message.type === "play") play(message.frame);
-    if (message.type === "pause") pause();
-    if (message.type === "toggle") playerRef.current?.toggle();
-    const nextFrame = clampFrame(playerRef.current?.getCurrentFrame?.() ?? initialFrame);
-    post("command", {command: message.type, frame: nextFrame});
+    if (message.type === "snapshot") {
+      postSnapshot(message.requestId);
+      return;
+    }
+    let commandFrame: number | null = null;
+    if (message.type === "seek") commandFrame = seekTo(message.frame);
+    if (message.type === "play") {
+      play(message.frame);
+      commandFrame = currentFrame();
+    }
+    if (message.type === "pause") {
+      pause();
+      commandFrame = currentFrame();
+    }
+    if (message.type === "toggle") {
+      if (playingRef.current) pause();
+      else play(message.frame);
+      commandFrame = currentFrame();
+    }
+    const nextFrame = commandFrame ?? currentFrame();
+    post("command", {
+      commandId: message.commandId,
+      command: message.type,
+      accepted: true,
+      frame: nextFrame,
+      playing: playingRef.current,
+    });
     postFrameContext(nextFrame);
-  }, [initialFrame, pause, play, postFrameContext, seekTo]);
+  }, [currentFrame, pause, play, postFrameContext, postSnapshot, seekTo]);
 
   const ensurePlayerReady = useCallback(() => {
     const player = playerRef.current;
@@ -271,20 +407,32 @@ function App() {
       const detailFrame = (event as CustomEvent<{frame?: number}>).detail?.frame;
       const frame = detailFrame ?? player.getCurrentFrame();
       const nextFrame = clampFrame(frame);
-      post("frame", {frame: nextFrame});
+      if (!playingRef.current && player.isPlaying?.()) forcePausePlayer(player);
+      post("frame", {frame: nextFrame, playing: playingRef.current});
       postFrameContext(nextFrame);
     };
     const onPlay = () => {
+      if (!playingRef.current) {
+        forcePausePlayer(player);
+        return;
+      }
+      playingRef.current = true;
       const nextFrame = clampFrame(player.getCurrentFrame());
-      post("play", {frame: nextFrame});
+      post("play", {frame: nextFrame, playing: true});
       postFrameContext(nextFrame);
     };
     const onPause = () => {
+      if (playingRef.current) return;
+      playingRef.current = false;
       const nextFrame = clampFrame(player.getCurrentFrame());
-      post("pause", {frame: nextFrame});
+      post("pause", {frame: nextFrame, playing: false});
       postFrameContext(nextFrame);
     };
-    const onEnded = () => post("ended", {frame: composition.durationInFrames - 1});
+    const onEnded = () => {
+      playingRef.current = false;
+      stopManualPlayback();
+      post("ended", {frame: composition.durationInFrames - 1, playing: false});
+    };
     const onError = (event: Event) => {
       const error = (event as CustomEvent<{error?: Error}>).detail?.error;
       post("error", {message: error instanceof Error ? error.message : String(error || "Player error")});
@@ -316,6 +464,7 @@ function App() {
         fps: composition.fps,
         width: composition.width,
         height: composition.height,
+        playing: playingRef.current,
       });
       postFrameContext(frame);
       if (shouldAutoplay) {
@@ -328,6 +477,7 @@ function App() {
         fps: composition.fps,
         width: composition.width,
         height: composition.height,
+        playing: playingRef.current,
       });
       postFrameContext(frame);
     }
@@ -346,6 +496,7 @@ function App() {
       const message = event.data || {};
       if (message.source !== "sparo-remotion-live") return;
       if (message.compositionId && message.compositionId !== composition.id) return;
+      if (message.instanceId && message.instanceId !== instanceId) return;
       if (message.type === "ping") {
         ensurePlayerReady();
         return;
@@ -377,10 +528,11 @@ function App() {
         window.cancelAnimationFrame(frameContextRequestRef.current);
         frameContextRequestRef.current = null;
       }
+      stopManualPlayback();
       cleanupRef.current?.();
       cleanupRef.current = null;
     };
-  }, [ensurePlayerReady]);
+  }, [ensurePlayerReady, stopManualPlayback]);
 
   if (!Component) {
     post("error", {message: "Composition component could not be resolved."});

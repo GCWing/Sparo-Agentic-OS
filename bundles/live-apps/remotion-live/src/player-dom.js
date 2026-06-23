@@ -1,6 +1,7 @@
 // remotion-live :: player-dom.js (auto-split from ui.js; do not hand-merge)
 
 import { currentComposition } from './model.js';
+import { ensurePlayerInstanceId } from './preview-controller.js';
 import { playerPreviewReady } from './preview-mode.js';
 import { state } from './state.js';
 
@@ -27,6 +28,7 @@ function playerHostUrl(options = {}) {
     const url = new URL(host.baseUrl || host.url);
     url.searchParams.set('compositionId', composition.id);
     url.searchParams.set('frame', String(Math.round(Number(state.frame) || 0)));
+    url.searchParams.set('instanceId', ensurePlayerInstanceId());
     if (options.autoplay ?? state.playing) url.searchParams.set('autoplay', '1');
     else url.searchParams.delete('autoplay');
     if (options.cacheBust || state.playerReloadNonce) {
@@ -45,10 +47,11 @@ function postPlayerMessage(type, payload = {}, options = {}) {
   if (!composition || !node?.contentWindow || !playerPreviewReady()) return false;
   if (options.requireReady !== false && !state.playerRuntimeReady) return false;
   node.contentWindow.postMessage({
+    ...payload,
     source: 'sparo-remotion-live',
     type,
     compositionId: composition.id,
-    ...payload,
+    instanceId: ensurePlayerInstanceId(),
   }, playerHostOrigin());
   return true;
 }
