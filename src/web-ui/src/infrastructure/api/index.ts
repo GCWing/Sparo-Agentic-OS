@@ -13,6 +13,7 @@ export * from './service-api/SystemFsAPI';
 export * from './service-api/TokenUsageAPI';
 export * from './service-api/StorageAPI';
 export * from './service-api/GoalAPI';
+export * from './service-api/MarkdownExportAPI';
 
 // Import API modules
 import { workspaceAPI } from './service-api/WorkspaceAPI';
@@ -32,12 +33,13 @@ import { sessionAPI } from './service-api/SessionAPI';
 import { i18nAPI } from './service-api/I18nAPI';
 import { btwAPI } from './service-api/BtwAPI';
 import { markdownAiAPI } from './service-api/MarkdownAiAPI';
+import { markdownExportAPI } from './service-api/MarkdownExportAPI';
 import { tokenUsageAPI } from './service-api/TokenUsageAPI';
 import { storageAPI } from './service-api/StorageAPI';
 import { goalAPI } from './service-api/GoalAPI';
 
 // Export API modules
-export { workspaceAPI, systemFsAPI, pinnedAPI, filesContextAPI, fileWorkbenchAPI, configAPI, aiApi, toolAPI, agentAPI, systemAPI, projectAPI, diffAPI, snapshotAPI, globalAPI, contextAPI, cronAPI, sessionAPI, i18nAPI, btwAPI, markdownAiAPI, tokenUsageAPI, storageAPI, goalAPI };
+export { workspaceAPI, systemFsAPI, pinnedAPI, filesContextAPI, fileWorkbenchAPI, configAPI, aiApi, toolAPI, agentAPI, systemAPI, projectAPI, diffAPI, snapshotAPI, globalAPI, contextAPI, cronAPI, sessionAPI, i18nAPI, btwAPI, markdownAiAPI, markdownExportAPI, tokenUsageAPI, storageAPI, goalAPI };
 
 // Sparo OS API collection: a single access point for all API modules.
 export const sparoAPI = {
@@ -61,6 +63,7 @@ export const sparoAPI = {
   i18n: i18nAPI,
   btw: btwAPI,
   markdownAi: markdownAiAPI,
+  markdownExport: markdownExportAPI,
   tokenUsage: tokenUsageAPI,
   storage: storageAPI,
   goal: goalAPI,

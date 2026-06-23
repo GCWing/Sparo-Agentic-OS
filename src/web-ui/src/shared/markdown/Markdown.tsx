@@ -383,9 +383,10 @@ async function getLocalImageDataUrl(localPath: string): Promise<string> {
 
 interface MarkdownImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   basePath?: string;
+  staticExport?: boolean;
 }
 
-const MarkdownImage: React.FC<MarkdownImageProps> = ({ src, alt, className, basePath, ...imgProps }) => {
+const MarkdownImage: React.FC<MarkdownImageProps> = ({ src, alt, className, basePath, staticExport = false, ...imgProps }) => {
   const rawSrc = typeof src === 'string' ? normalizeExternalImageSrc(src) : '';
   const localPath = useMemo(() => {
     if (!rawSrc || !isLocalAssetPath(rawSrc)) {
@@ -460,7 +461,7 @@ const MarkdownImage: React.FC<MarkdownImageProps> = ({ src, alt, className, base
         loadState === 'loading' ? 'markdown-image markdown-image--loading' : '',
         loadState === 'error' ? 'markdown-image markdown-image--error' : '',
       ].filter(Boolean).join(' ')}
-      loading="lazy"
+      loading={staticExport ? 'eager' : 'lazy'}
       src={resolvedSrc}
     />
   );
@@ -578,6 +579,7 @@ export interface MarkdownProps {
   basePath?: string;
   className?: string;
   isStreaming?: boolean;
+  renderMode?: 'interactive' | 'static-export';
   enableTableColumnResize?: boolean;
   expandDetailsByDefault?: boolean;
   onLayoutMutation?: (detail: MarkdownLayoutMutationDetail) => void;
@@ -592,6 +594,7 @@ export const Markdown = React.memo<MarkdownProps>(({
   basePath,
   className = '',
   isStreaming = false,
+  renderMode = 'interactive',
   enableTableColumnResize = false,
   expandDetailsByDefault = false,
   onLayoutMutation,
@@ -601,6 +604,7 @@ export const Markdown = React.memo<MarkdownProps>(({
   onReproductionProceed
 }) => {
   const { isLight } = useTheme();
+  const isStaticExport = renderMode === 'static-export';
   
   const syntaxTheme = isLight ? vs : vscDarkPlus;
   
@@ -722,6 +726,7 @@ export const Markdown = React.memo<MarkdownProps>(({
           <MermaidBlock
             code={code}
             isStreaming={isStreaming}
+            staticExport={isStaticExport}
           />
         );
       }
@@ -732,7 +737,7 @@ export const Markdown = React.memo<MarkdownProps>(({
         <div className={`code-block-wrapper${hasMultipleLines ? '' : ' code-block-wrapper--single-line'}`}>
           <div className="code-block-toolbar">
             <span className="code-block-lang">{formatCodeLanguageLabel(normalizedLang)}</span>
-            <CopyButton code={code} />
+            {!isStaticExport ? <CopyButton code={code} /> : null}
           </div>
           <div className="code-block-body">
           <SyntaxHighlighter
@@ -781,6 +786,21 @@ export const Markdown = React.memo<MarkdownProps>(({
       const isHttpLink = typeof hrefValue === 'string' &&
         (hrefValue.startsWith('http://') || hrefValue.startsWith('https://'));
       const isMailtoLink = typeof hrefValue === 'string' && hrefValue.startsWith('mailto:');
+
+      if (isStaticExport) {
+        const staticHref = typeof hrefValue === 'string' ? hrefValue : undefined;
+        const isExternalStaticLink = Boolean(staticHref && /^https?:\/\//i.test(staticHref));
+        return (
+          <a
+            href={staticHref}
+            {...props}
+            target={isExternalStaticLink ? '_blank' : props.target}
+            rel={isExternalStaticLink ? 'noreferrer' : props.rel}
+          >
+            {children}
+          </a>
+        );
+      }
 
       if (typeof hrefValue === 'string' && !isVisualizationLink && !isTabLink && !isHttpLink && !isMailtoLink && !isHashLink) {
         let filePath = normalizeFileLikeHref(hrefValue);
@@ -972,7 +992,7 @@ export const Markdown = React.memo<MarkdownProps>(({
     },
 
     img({ node: _node, ...props }: any) {
-      return <MarkdownImage {...props} basePath={basePath} />;
+      return <MarkdownImage {...props} basePath={basePath} staticExport={isStaticExport} />;
     },
     
     blockquote({ children }: any) {
@@ -1006,6 +1026,7 @@ export const Markdown = React.memo<MarkdownProps>(({
     enableTableColumnResize,
     expandDetailsByDefault,
     isStreaming,
+    isStaticExport,
     linkMap,
     handleFileViewRequest,
     handleRevealInExplorer,
@@ -1017,7 +1038,12 @@ export const Markdown = React.memo<MarkdownProps>(({
     isLight
   ]);
   
-  const wrapperClassName = `markdown-renderer ${className} ${isStreaming && contentStr ? 'markdown-renderer--streaming' : ''}`.trim();
+  const wrapperClassName = [
+    'markdown-renderer',
+    className,
+    isStreaming && contentStr ? 'markdown-renderer--streaming' : '',
+    isStaticExport ? 'markdown-renderer--static-export' : '',
+  ].filter(Boolean).join(' ');
 
   return (
     <div className={wrapperClassName}>
@@ -1031,7 +1057,7 @@ export const Markdown = React.memo<MarkdownProps>(({
         </ReactMarkdown>
       </MarkdownErrorBoundary>
       
-      {reproductionSteps && !isStreaming && (
+      {reproductionSteps && !isStreaming && !isStaticExport && (
         <ReproductionStepsBlock 
           steps={reproductionSteps}
           onProceed={onReproductionProceed}

@@ -677,6 +677,7 @@ dependencies = [
  "arc-swap",
  "async-trait",
  "atspi",
+ "base64 0.22.1",
  "bitfun-core",
  "bitfun-transport",
  "bitfun-webdriver",
