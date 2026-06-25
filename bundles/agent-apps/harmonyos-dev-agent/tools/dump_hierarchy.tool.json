@@ -1,0 +1,18 @@
+{
+  "name": "dump_hierarchy",
+  "description": "Capture HarmonyOS UI hierarchy JSON for source mapping when the target-side probe is available.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "workspacePath": { "type": "string" },
+      "targetId": { "type": "string" }
+    }
+  },
+  "runtime": "javascript",
+  "entry": "tools/dump_hierarchy.js",
+  "readonly": true,
+  "permissions": {},
+  "timeoutMs": 30000,
+  "maxOutputBytes": 24000
+}

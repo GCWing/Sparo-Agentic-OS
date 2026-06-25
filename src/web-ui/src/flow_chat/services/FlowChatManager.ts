@@ -49,7 +49,7 @@ import {
   type SessionDescriptor,
 } from '../domain/sessionDescriptor';
 import { canHydrateSession } from '../domain/sessionLoadPhase';
-import { resolveSessionTypeDefinitionForDescriptor } from '@/app/session-profiles';
+import { resolveProfile, resolveSessionTypeDefinitionForDescriptor } from '@/app/session-profiles';
 
 const log = createLogger('FlowChatManager');
 const RECENT_WORKSPACE_PRELOAD_LIMIT = 7;
@@ -522,6 +522,8 @@ export class FlowChatManager {
       throw new Error('No active session');
     }
 
+    const contextualOptions = this.withBoundSessionContext(targetSessionId, options);
+
     return sendMessageModule(
       this.context,
       message,
@@ -529,8 +531,48 @@ export class FlowChatManager {
       displayMessage,
       agentType,
       switchToMode,
-      options
+      contextualOptions
     );
+  }
+
+  private withBoundSessionContext(
+    sessionId: string,
+    options?: {
+      imageContexts?: import('@/infrastructure/api/service-api/ImageContextTypes').ImageContextData[];
+      imageDisplayData?: Array<{ id: string; name: string; dataUrl?: string; imagePath?: string; mimeType?: string }>;
+      persistAgentType?: boolean;
+      systemReminderOverride?: string;
+      metadata?: Record<string, any>;
+      triggerSource?: import('@/shared/types/session-history').TriggerSource;
+      localDialogTurnId?: string;
+    }
+  ): typeof options {
+    const session = this.context.flowChatStore.getState().sessions.get(sessionId);
+    const binding = session?.customMetadata?.agentSessionBinding;
+    if (!session || !binding) {
+      return options;
+    }
+
+    const profile = resolveProfile(session.descriptor.profileId);
+    const hint = profile.buildAgentContextHint?.(session, binding);
+    if (!hint) {
+      return options;
+    }
+
+    const baseReminder = options?.systemReminderOverride?.trim();
+    const hintReminder = hint.systemReminder?.trim();
+    const systemReminderOverride = [baseReminder, hintReminder]
+      .filter(Boolean)
+      .join('\n\n') || undefined;
+
+    return {
+      ...(options || {}),
+      systemReminderOverride,
+      metadata: {
+        ...(hint.metadata || {}),
+        ...(options?.metadata || {}),
+      },
+    };
   }
 
   async cancelCurrentTask(): Promise<boolean> {

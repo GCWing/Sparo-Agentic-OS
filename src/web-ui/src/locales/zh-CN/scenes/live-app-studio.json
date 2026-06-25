@@ -25,6 +25,17 @@
       "language": "语言：{{lang}}"
     }
   },
+  "previewSelection": {
+    "toggleOn": "检查预览元素",
+    "toggleOff": "停止检查",
+    "inspecting": "正在检查元素",
+    "hovering": "正在检查 {{target}}",
+    "contextLabel": "元素",
+    "addContext": "添加上下文",
+    "added": "已将预览元素添加到聊天上下文",
+    "alreadyAdded": "该预览元素已在聊天上下文中",
+    "clear": "清除选择"
+  },
   "diagnostics": {
     "title": "运行时",
     "ok": "运行正常",

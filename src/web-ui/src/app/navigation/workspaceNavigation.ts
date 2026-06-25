@@ -9,6 +9,13 @@ import {
 } from '@/flow_chat/domain/sessionDescriptor';
 import type { WorkspaceSurfaceContext } from './workspaceSurfaceTypes';
 import type { WorkspaceSurfaceHistoryMode } from './workspaceSurfaceStore';
+import type { AppScope } from '@/shared/types/app-scope';
+import {
+  projectRuntimeScopeFromWorkspacePath,
+  runtimeScopeFromAppScope,
+  systemRuntimeScope,
+  type RuntimeScope,
+} from '@/shared/types/runtime-scope';
 
 function isAgenticOsSession(sessionId: string): boolean {
   const session = flowChatStore.getState().sessions.get(sessionId);
@@ -25,13 +32,28 @@ function findLatestAgenticOsSessionId(): string | null {
 }
 
 export interface OpenWorkspaceSceneOptions {
+  scope?: RuntimeScope | null;
   workspacePath?: string | null;
+  appScope?: AppScope | null;
   context?: WorkspaceSurfaceContext | null;
   historyMode?: WorkspaceSurfaceHistoryMode;
 }
 
 export interface OpenWorkspaceSessionOptions {
   context?: WorkspaceSurfaceContext | null;
+}
+
+function resolveSceneScope(options: OpenWorkspaceSceneOptions): RuntimeScope {
+  if (options.scope) {
+    return options.scope;
+  }
+  if (options.appScope) {
+    return runtimeScopeFromAppScope(options.appScope);
+  }
+  if (options.workspacePath === null) {
+    return systemRuntimeScope();
+  }
+  return projectRuntimeScopeFromWorkspacePath(options.workspacePath) ?? systemRuntimeScope();
 }
 
 export function openWorkspaceScene(
@@ -41,7 +63,8 @@ export function openWorkspaceScene(
   useWorkspaceSurfaceStore.getState().openSurface({
     kind: 'scene',
     sceneId,
-    workspacePath: options.workspacePath,
+    scope: resolveSceneScope(options),
+    appScope: options.appScope,
   }, {
     context: options.context,
     historyMode: options.historyMode,
@@ -71,6 +94,7 @@ export async function openWorkspaceSession(
     useWorkspaceSurfaceStore.getState().openSurface({
       kind: 'agentic-os-home',
       agenticOsSessionId: sessionId,
+      scope: systemRuntimeScope(),
     }, {
       context: options.context,
     });
@@ -97,6 +121,7 @@ export async function openWorkspaceHome(): Promise<string> {
   useWorkspaceSurfaceStore.getState().openSurface({
     kind: 'agentic-os-home',
     agenticOsSessionId: newSessionId,
+    scope: systemRuntimeScope(),
   });
   return newSessionId;
 }

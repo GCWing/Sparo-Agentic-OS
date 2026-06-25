@@ -7,6 +7,8 @@
 
 import type { PanelContentType } from '../components/panels/base/types';
 import type { SessionProfileId } from '@/flow_chat/domain/sessionDescriptor';
+import type { Session } from '@/flow_chat/types/flow-chat';
+import type { AgentSessionBindingMetadata } from '@/shared/types/session-history';
 
 /**
  * Descriptor for a tab that a Profile wants to auto-open
@@ -111,6 +113,11 @@ export interface SessionComposerPolicy {
   readonly providers?: readonly SessionComposerActionProviderId[];
 }
 
+export interface SessionAgentContextHint {
+  systemReminder?: string;
+  metadata?: Record<string, unknown>;
+}
+
 /**
  * Full description of a session class.
  * Add fields here when a new customization axis is needed — never add
@@ -150,6 +157,11 @@ export interface SessionProfile {
     sessionId: string,
     extra?: Record<string, unknown>
   ) => SessionSidecarActionResult;
+
+  readonly buildAgentContextHint?: (
+    session: Session,
+    binding: AgentSessionBindingMetadata
+  ) => SessionAgentContextHint | null;
 
   /**
    * Composer action surface policy: plus menu, slash command exposure, and

@@ -22,6 +22,7 @@ import {
   Play,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import {
   Button,
   DetailHeader,
@@ -37,6 +38,18 @@ import {
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
 import { launchWorkForChoice } from '@/app/components/WorkDock/NewWorkDialog';
+import { useWorks } from '@/app/agentic-os/work/hooks/useWorks';
+import { selectBestWorksForApp } from '@/app/agentic-os/work/data/appWorkSelectors';
+import { openWork } from '@/app/agentic-os/work/navigation/openWork';
+import {
+  getAppScopeFolderName,
+  LiveAppScopeDialog,
+} from '@/app/scenes/apps/live-app/components/LiveAppScopeDialog';
+import {
+  appScopeFromWorkspacePath,
+  systemAppScope,
+  type AppScope,
+} from '@/shared/types/app-scope';
 import { APP_ICON_MAP } from '../appVisuals';
 import type { AppCardModel } from '../hooks/useAppsData';
 import type { useAppsData } from '../hooks/useAppsData';
@@ -63,7 +76,8 @@ interface AppDetailSceneProps {
 export const AppDetailScene: React.FC<AppDetailSceneProps> = ({ app, appsData, onBack }) => {
   const { t } = useTranslation('scenes/apps');
   const { workspacePath } = useLastUsedWorkspace();
-  const { rememberWorkspace } = useWorkspaceContext();
+  const { rememberWorkspace, openWorkspace, openedWorkspacesList } = useWorkspaceContext();
+  const { works } = useWorks();
 
   const tab = useAppDetailStore((s) => s.tab);
   const setTab = useAppDetailStore((s) => s.setTab);
@@ -79,6 +93,9 @@ export const AppDetailScene: React.FC<AppDetailSceneProps> = ({ app, appsData, o
   const [subagents, setSubagents] = useState<SubagentInfo[]>([]);
   const [subagentsLoading, setSubagentsLoading] = useState(false);
   const [savingDrafts, setSavingDrafts] = useState(false);
+  const [startScopeDialogOpen, setStartScopeDialogOpen] = useState(false);
+  const [appRunScopeDraft, setAppRunScopeDraft] = useState<AppScope>(() => systemAppScope());
+  const displayName = app.dynamicName ?? t(app.nameKey);
 
   useEffect(() => {
     resetForApp();
@@ -185,22 +202,107 @@ export const AppDetailScene: React.FC<AppDetailSceneProps> = ({ app, appsData, o
     [setTab, setAgentId],
   );
 
-  const handleStartSession = useCallback(async () => {
+  const resolveWorkspaceForAppScope = useCallback(async (scope: AppScope) => {
+    if (scope.kind === 'system') return null;
+    const existing = openedWorkspacesList.find((workspace) => workspace.rootPath === scope.workspacePath);
+    if (existing) return existing;
+    return openWorkspace(scope.workspacePath);
+  }, [openWorkspace, openedWorkspacesList]);
+
+  const handleStartSession = useCallback(() => {
+    const entryAgent = app.includedAgents[0];
+    if (!entryAgent) return;
+    setAppRunScopeDraft(systemAppScope());
+    setStartScopeDialogOpen(true);
+  }, [app.includedAgents]);
+
+  const handleBrowseStartScope = useCallback(async () => {
+    try {
+      const selected = await openFileDialog({
+        directory: true,
+        multiple: false,
+        title: t('liveApp.scopeDialog.folderDialogTitle'),
+      });
+      const selectedPath = Array.isArray(selected) ? selected[0] : selected;
+      if (!selectedPath) return;
+      setAppRunScopeDraft(
+        appScopeFromWorkspacePath(selectedPath) ?? {
+          kind: 'workspace',
+          workspacePath: selectedPath,
+          workspaceName: getAppScopeFolderName(selectedPath),
+        }
+      );
+    } catch (error) {
+      log.error('Browse App start scope failed', { error });
+      notificationService.error(t('liveApp.scopeDialog.browseFailed'));
+    }
+  }, [t]);
+
+  const handleCancelStartScope = useCallback(() => {
+    setStartScopeDialogOpen(false);
+    setAppRunScopeDraft(systemAppScope());
+  }, []);
+
+  const bestAppWorks = useMemo(() => selectBestWorksForApp(
+    works,
+    { kind: 'agent_app', appId: app.id },
+    appRunScopeDraft,
+    5,
+  ).map(({ work }) => {
+    const workspacePath = work.scope.kind === 'workspace' ? work.scope.workspacePath : null;
+    const workspaceLabel = workspacePath
+      ? openedWorkspacesList.find((workspace) => workspace.rootPath === workspacePath)?.name
+        ?? workspacePath
+      : t('liveApp.scopeDialog.systemTitle');
+    return {
+      id: work.id,
+      title: work.title,
+      objective: work.objective,
+      status: work.status,
+      workspaceLabel,
+    };
+  }), [app.id, appRunScopeDraft, openedWorkspacesList, t, works]);
+
+  const handleSelectBestAppWork = useCallback(async (workId: string) => {
+    const work = works.find((item) => item.id === workId);
+    if (!work) return;
+    try {
+      await openWork(work);
+      handleCancelStartScope();
+    } catch (error) {
+      notificationService.error(error instanceof Error ? error.message : String(error));
+    }
+  }, [handleCancelStartScope, works]);
+
+  const handleConfirmStartScope = useCallback(async () => {
     const entryAgent = app.includedAgents[0];
     if (!entryAgent) return;
     try {
+      const workspace = await resolveWorkspaceForAppScope(appRunScopeDraft);
       await launchWorkForChoice({
         agentChoice: entryAgent.id,
-        workspace: null,
+        workspace,
         rememberWorkspace,
+        appRef: { kind: 'agent_app', appId: app.id },
+        title: displayName,
+        objective: displayName,
       });
+      handleCancelStartScope();
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       notificationService.error(`${t('appDetail.actions.startSession')}: ${reason}`);
     }
-  }, [app.includedAgents, rememberWorkspace, t]);
+  }, [
+    app.includedAgents,
+    appRunScopeDraft,
+    app.id,
+    displayName,
+    handleCancelStartScope,
+    rememberWorkspace,
+    resolveWorkspaceForAppScope,
+    t,
+  ]);
 
-  const displayName = app.dynamicName ?? t(app.nameKey);
   const displayDesc = app.dynamicDescription ?? t(app.descriptionKey);
 
   return (
@@ -262,6 +364,21 @@ export const AppDetailScene: React.FC<AppDetailSceneProps> = ({ app, appsData, o
             </Button>
           </div>
         }
+      />
+
+      <LiveAppScopeDialog
+        open={startScopeDialogOpen}
+        mode="open"
+        appName={displayName}
+        workspaces={openedWorkspacesList}
+        selectedScope={appRunScopeDraft}
+        bestWorks={bestAppWorks}
+        onSelectScope={setAppRunScopeDraft}
+        onSelectWork={(workId) => void handleSelectBestAppWork(workId)}
+        onBrowse={handleBrowseStartScope}
+        onCancel={handleCancelStartScope}
+        onConfirm={handleConfirmStartScope}
+        t={t}
       />
 
       <div className="app-detail-scene__body">

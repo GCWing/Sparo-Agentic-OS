@@ -6,6 +6,8 @@ export * from './chat';
 export * from './project-view';
 export * from './code-node';
 export * from './global-state';
+export * from './app-scope';
+export * from './runtime-scope';
 export * from './session-history';
 export * from './tab';
 export * from './tool-display';

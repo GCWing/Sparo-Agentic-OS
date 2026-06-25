@@ -37,6 +37,29 @@ export type WorkScope =
   | { kind: 'system' }
   | { kind: 'workspace'; workspacePath: string };
 
+export type WorkAppKind = 'live_app' | 'agent_app' | 'bridge_app' | 'system_app';
+
+export interface WorkAppRef {
+  kind: WorkAppKind;
+  appId: string;
+}
+
+export type WorkAppIntent = 'use' | 'run' | 'develop' | 'debug' | 'edit' | 'review';
+
+export type WorkSubject =
+  | { kind: 'goal' }
+  | { kind: 'project'; workspacePath: string }
+  | { kind: 'app'; app: WorkAppRef; intent: WorkAppIntent }
+  | { kind: 'artifact'; artifactId: string };
+
+export type WorkAppRelationRole = 'subject' | 'executor' | 'surface' | 'origin' | 'context';
+
+export interface WorkAppRelation {
+  app: WorkAppRef;
+  role: WorkAppRelationRole;
+  surfaceId?: string | null;
+}
+
 export type WorkSurfaceRef =
   | { kind: 'os_agent_home'; agenticOsSessionId?: string | null }
   | { kind: 'work_session'; sessionId: string }
@@ -120,6 +143,8 @@ export interface WorkRecord {
   objective: string;
   status: WorkStatus;
   visibility: WorkVisibility;
+  subject: WorkSubject;
+  appRefs: WorkAppRelation[];
   scope: WorkScope;
   primarySurface: WorkSurfaceRef;
   surfaces: WorkSurfaceRef[];
@@ -140,11 +165,12 @@ export interface CreateWorkRequest {
   kind: WorkKind;
   title: string;
   objective: string;
+  subject: WorkSubject;
+  appRefs?: WorkAppRelation[];
   scope: WorkScope;
   visibility?: WorkVisibility;
   primarySurfacePolicy?: PrimarySurfacePolicy;
   assignment?: WorkAssignmentRef | null;
-  liveAppId?: string | null;
   titleState?: WorkTitleState | null;
 }
 
@@ -153,6 +179,8 @@ export interface StartWorkRequest {
   title: string;
   objective: string;
   instructions: string;
+  subject: WorkSubject;
+  appRefs?: WorkAppRelation[];
   scope: WorkScope;
   visibility?: WorkVisibility;
   primarySurfacePolicy?: 'work_session';
@@ -168,6 +196,26 @@ export interface UpdateWorkRequest {
   status?: WorkStatus;
   primarySurface?: WorkSurfaceRef;
   titleState?: WorkTitleState | null;
+}
+
+export interface ResolveAppWorkRequest {
+  app: WorkAppRef;
+  intent: WorkAppIntent;
+  title: string;
+  objective: string;
+  scope: WorkScope;
+  visibility?: WorkVisibility;
+  primarySurfacePolicy?: PrimarySurfacePolicy;
+  assignment?: WorkAssignmentRef | null;
+  appRefs?: WorkAppRelation[];
+}
+
+export interface LinkSessionToWorkRequest {
+  workId: WorkId;
+  sessionId: string;
+  workspacePath?: string | null;
+  surface?: WorkSurfaceRef | null;
+  setPrimary?: boolean;
 }
 
 export interface AdvanceWorkRequest {

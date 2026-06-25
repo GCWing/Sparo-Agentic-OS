@@ -1,9 +1,13 @@
 import React, { useEffect } from 'react';
-import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { appRuntime } from '@/infrastructure/app-runtime';
 import { useDialogCompletionNotify } from '../hooks/useDialogCompletionNotify';
 import { useSessionProfile } from '../session-profiles';
 import { useWorkspaceSurfaceStore } from '../navigation/workspaceSurfaceStore';
+import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
+import {
+  projectWorkspacePathFromRuntimeScope,
+  runtimeScopeFromSession,
+} from '@/shared/types/runtime-scope';
 import SurfaceRenderer from './SurfaceRenderer';
 import './AgenticOSWorkspace.scss';
 
@@ -21,7 +25,6 @@ const AgenticOSWorkspace: React.FC<AgenticOSWorkspaceProps> = ({
   const activeSurface = useWorkspaceSurfaceStore((s) => s.activeSurface);
   const focusedSessionId = useWorkspaceSurfaceStore((s) => s.focusedSessionId);
   const { profile } = useSessionProfile();
-  const { workspace: lastUsedWorkspace } = useLastUsedWorkspace();
 
   useDialogCompletionNotify();
 
@@ -33,14 +36,21 @@ const AgenticOSWorkspace: React.FC<AgenticOSWorkspaceProps> = ({
           : activeSurface.kind === 'agentic-os-home'
             ? activeSurface.agenticOsSessionId ?? focusedSessionId ?? undefined
             : focusedSessionId ?? undefined;
+      const sessionScope = activeSessionId
+        ? runtimeScopeFromSession(flowChatStore.getState().sessions.get(activeSessionId))
+        : null;
+      const activeWorkspacePath =
+        activeSurface.kind === 'scene'
+          ? projectWorkspacePathFromRuntimeScope(activeSurface.scope)
+          : projectWorkspacePathFromRuntimeScope(sessionScope);
 
       return {
         activeSceneId: activeSurface.kind === 'scene' ? activeSurface.sceneId : undefined,
-        workspacePath: lastUsedWorkspace?.rootPath,
+        workspacePath: activeWorkspacePath,
         activeSessionId: activeSessionId ?? undefined,
       };
     });
-  }, [activeSurface, focusedSessionId, lastUsedWorkspace?.rootPath]);
+  }, [activeSurface, focusedSessionId]);
 
   const workspaceClassName = [
     'agentic-os-workspace',
@@ -54,7 +64,6 @@ const AgenticOSWorkspace: React.FC<AgenticOSWorkspaceProps> = ({
         <div className="agentic-os-workspace__surface-slot">
           <SurfaceRenderer
             surface={activeSurface}
-            workspacePath={lastUsedWorkspace?.rootPath}
             isEntering={isEntering}
           />
         </div>

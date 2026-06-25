@@ -433,6 +433,404 @@ pub fn scroll_boundary_script() -> &'static str {
     r#"<script>(()=>{const d=()=>document.documentElement?.dataset?.sparoScrollBoundary==='none'||document.body?.dataset?.sparoScrollBoundary==='none';const s=(e)=>{for(let n=e.target;n;n=n.parentNode){if(!(n instanceof Element))continue;if(n===document.documentElement||n===document.body)continue;const o=window.getComputedStyle(n).overflowY;if(o==='hidden'||o==='visible')continue;if(e.deltaY<0&&n.scrollTop>0)return false;if(e.deltaY>0&&n.scrollTop+n.clientHeight<n.scrollHeight)return false;}return true};window.addEventListener('wheel',e=>{if(d())return;if(!e.defaultPrevented&&s(e))window.parent.postMessage({jsonrpc:'2.0',method:'sparo/sandbox-wheel',params:{deltaX:e.deltaX,deltaY:e.deltaY,deltaZ:e.deltaZ,deltaMode:e.deltaMode}},'*')},{passive:true});})();</script>"#
 }
 
+/// Preview element inspector script.
+///
+/// Runs inside the sandboxed iframe and implements a DevTools-like element
+/// picker: hover/click are measured against the iframe DOM itself, while the
+/// host only receives bounded, redacted element summaries.
+pub fn preview_element_inspector_script(app_id: &str) -> String {
+    let app_id_esc = escape_js_str(app_id);
+    r#"<script id="sparo-preview-element-inspector-script">
+(()=> {
+  const APP_ID = __APP_ID__;
+  const MAX_TEXT = 180;
+  const MAX_ATTR = 140;
+  const SAFE_ATTRS = new Set(['id','class','role','aria-label','aria-description','title','alt','type','name','placeholder','href','data-testid','data-name']);
+  const SENSITIVE_ATTRS = new Set(['value','password','token','secret','apikey','api-key','authorization','cookie','set-cookie']);
+  const BLOCKED_TAGS = new Set(['html','body','head','script','style','meta','link','noscript','template']);
+  const OVERLAY_ID = 'sparo-preview-element-inspector-overlay';
+  let enabled = false;
+  let listenersAttached = false;
+  let currentRoute = '/';
+  let currentElement = null;
+  let lastHoverKey = '';
+  let overlayRoot = null;
+  let overlayBox = null;
+  let overlayTooltip = null;
+
+  function trimText(value, max = MAX_TEXT) {
+    const text = String(value || '').replace(/\s+/g, ' ').trim();
+    return text.length > max ? `${text.slice(0, max - 1)}...` : text;
+  }
+
+  function cssEscape(value) {
+    if (window.CSS && typeof window.CSS.escape === 'function') return window.CSS.escape(value);
+    return String(value || '').replace(/[^a-zA-Z0-9_-]/g, '\\$&');
+  }
+
+  function isSensitiveAttribute(name) {
+    const lower = String(name || '').toLowerCase();
+    if (SENSITIVE_ATTRS.has(lower)) return true;
+    return lower.includes('password') || lower.includes('token') || lower.includes('secret') || lower.includes('key');
+  }
+
+  function attributeSummary(element) {
+    const summary = {};
+    for (const name of element.getAttributeNames ? element.getAttributeNames() : []) {
+      const lower = name.toLowerCase();
+      if (isSensitiveAttribute(lower)) continue;
+      if (!SAFE_ATTRS.has(lower) && !lower.startsWith('aria-')) continue;
+      const value = element.getAttribute(name);
+      if (!value) continue;
+      if (lower === 'href' && /^\s*javascript:/i.test(value)) continue;
+      summary[name] = trimText(value, MAX_ATTR);
+    }
+    return summary;
+  }
+
+  function inferredRole(element) {
+    const explicit = element.getAttribute('role');
+    if (explicit) return trimText(explicit, 48);
+    const tag = element.tagName.toLowerCase();
+    if (tag === 'button') return 'button';
+    if (tag === 'a' && element.getAttribute('href')) return 'link';
+    if (tag === 'input') return `${element.getAttribute('type') || 'text'} input`;
+    if (tag === 'select') return 'select';
+    if (tag === 'textarea') return 'textarea';
+    return undefined;
+  }
+
+  function elementLabel(element) {
+    const direct = element.getAttribute('aria-label')
+      || element.getAttribute('title')
+      || element.getAttribute('alt')
+      || element.getAttribute('data-name')
+      || element.getAttribute('data-testid')
+      || element.getAttribute('placeholder')
+      || element.getAttribute('name');
+    return trimText(direct || element.textContent || element.tagName.toLowerCase(), MAX_TEXT);
+  }
+
+  function selectorPart(element) {
+    const tag = element.tagName.toLowerCase();
+    const id = element.getAttribute('id');
+    if (id) return `${tag}#${cssEscape(id)}`;
+    const classes = typeof element.className === 'string'
+      ? element.className.split(/\s+/).filter(Boolean).slice(0, 2)
+      : [];
+    let part = tag + classes.map((item) => `.${cssEscape(item)}`).join('');
+    const parent = element.parentElement;
+    if (parent) {
+      const sameTag = Array.from(parent.children).filter((child) => child.tagName === element.tagName);
+      if (sameTag.length > 1) part += `:nth-of-type(${sameTag.indexOf(element) + 1})`;
+    }
+    return part;
+  }
+
+  function selectorPath(element) {
+    const parts = [];
+    let current = element;
+    while (current && current.nodeType === 1 && parts.length < 8) {
+      const tag = current.tagName.toLowerCase();
+      if (tag === 'html' || tag === 'body') break;
+      parts.unshift(selectorPart(current));
+      if (current.getAttribute('id')) break;
+      current = current.parentElement;
+    }
+    return parts.join(' > ');
+  }
+
+  function ancestorPath(element) {
+    const parts = [];
+    let current = element;
+    while (current && current.nodeType === 1 && parts.length < 8) {
+      const tag = current.tagName.toLowerCase();
+      if (tag === 'html' || tag === 'body') break;
+      parts.unshift({
+        tagName: tag,
+        selectorPart: selectorPart(current),
+        role: inferredRole(current),
+        label: elementLabel(current),
+      });
+      current = current.parentElement;
+    }
+    return parts;
+  }
+
+  function normalizedBox(rect) {
+    const width = window.innerWidth || 1;
+    const height = window.innerHeight || 1;
+    const left = Math.max(0, Math.min(width, rect.left));
+    const top = Math.max(0, Math.min(height, rect.top));
+    const right = Math.max(0, Math.min(width, rect.right));
+    const bottom = Math.max(0, Math.min(height, rect.bottom));
+    const round = (value) => Math.round(value * 100) / 100;
+    return {
+      x: round((left / width) * 100),
+      y: round((top / height) * 100),
+      width: round((Math.max(0, right - left) / width) * 100),
+      height: round((Math.max(0, bottom - top) / height) * 100),
+    };
+  }
+
+  function hashText(value) {
+    const text = String(value || '');
+    let hash = 0;
+    for (let index = 0; index < text.length; index += 1) {
+      hash = ((hash << 5) - hash + text.charCodeAt(index)) | 0;
+    }
+    return Math.abs(hash).toString(36);
+  }
+
+  function boxHash(box) {
+    return [box.x, box.y, box.width, box.height].map((value) => Math.round(value * 10) / 10).join(':');
+  }
+
+  function styleSummary(element) {
+    const style = window.getComputedStyle(element);
+    return {
+      display: style.display,
+      position: style.position,
+      fontSize: style.fontSize,
+      fontWeight: style.fontWeight,
+      textAlign: style.textAlign,
+    };
+  }
+
+  function isSelectableElement(element) {
+    if (!(element instanceof HTMLElement) && !(element instanceof SVGElement)) return false;
+    if (overlayRoot && (element === overlayRoot || overlayRoot.contains(element))) return false;
+    const tag = element.tagName.toLowerCase();
+    if (BLOCKED_TAGS.has(tag)) return false;
+    const rect = element.getBoundingClientRect();
+    if (rect.width < 2 || rect.height < 2) return false;
+    const style = window.getComputedStyle(element);
+    if (style.visibility === 'hidden' || style.display === 'none' || Number(style.opacity) === 0) return false;
+    return true;
+  }
+
+  function elementAt(x, y) {
+    const candidates = document.elementsFromPoint(Number(x) || 0, Number(y) || 0);
+    for (const candidate of candidates) {
+      if (isSelectableElement(candidate)) return candidate;
+    }
+    return null;
+  }
+
+  function elementSnapshot(element) {
+    const rect = element.getBoundingClientRect();
+    const box = normalizedBox(rect);
+    const path = selectorPath(element);
+    const text = trimText(element.textContent || '');
+    const selector = selectorPart(element);
+    return {
+      element: {
+        tagName: element.tagName.toLowerCase(),
+        selectorPath: path,
+        selectorPart: selector,
+        role: inferredRole(element),
+        label: elementLabel(element),
+        textContent: text,
+        attributes: attributeSummary(element),
+        normalizedBox: box,
+        computedStyleSummary: styleSummary(element),
+        ancestorPath: ancestorPath(element),
+      },
+      fingerprint: {
+        selectorPath: path,
+        textHash: text ? hashText(text) : undefined,
+        boxHash: boxHash(box),
+      },
+      source: 'iframe-element-inspector',
+      confidence: 'high',
+      timestamp: Date.now(),
+    };
+  }
+
+  function ensureOverlay() {
+    if (overlayRoot && document.body && document.body.contains(overlayRoot)) return true;
+    if (!document.body) return false;
+
+    overlayRoot = document.createElement('div');
+    overlayRoot.id = OVERLAY_ID;
+    overlayRoot.setAttribute('aria-hidden', 'true');
+    overlayRoot.style.cssText = 'position:fixed;inset:0;z-index:2147483647;pointer-events:none;contain:layout style paint;';
+
+    overlayBox = document.createElement('div');
+    overlayBox.style.cssText = 'position:fixed;display:none;box-sizing:border-box;border:2px solid rgba(96,165,250,0.95);background:rgba(96,165,250,0.12);border-radius:2px;box-shadow:0 0 0 1px rgba(15,23,42,0.65),0 0 0 4px rgba(96,165,250,0.18);';
+
+    overlayTooltip = document.createElement('div');
+    overlayTooltip.style.cssText = 'position:fixed;display:none;max-width:320px;padding:3px 6px;border-radius:4px;background:rgba(15,23,42,0.92);color:white;font:11px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 4px 18px rgba(0,0,0,0.22);';
+
+    overlayRoot.appendChild(overlayBox);
+    overlayRoot.appendChild(overlayTooltip);
+    document.body.appendChild(overlayRoot);
+    return true;
+  }
+
+  function hideOverlay() {
+    if (overlayBox) overlayBox.style.display = 'none';
+    if (overlayTooltip) overlayTooltip.style.display = 'none';
+  }
+
+  function updateOverlay(element, state) {
+    if (!element || !ensureOverlay()) {
+      hideOverlay();
+      return;
+    }
+    const rect = element.getBoundingClientRect();
+    if (rect.width < 1 || rect.height < 1) {
+      hideOverlay();
+      return;
+    }
+    const label = elementLabel(element);
+    const tag = element.tagName.toLowerCase();
+    overlayBox.style.display = 'block';
+    overlayBox.style.left = `${Math.max(0, rect.left)}px`;
+    overlayBox.style.top = `${Math.max(0, rect.top)}px`;
+    overlayBox.style.width = `${Math.max(0, rect.width)}px`;
+    overlayBox.style.height = `${Math.max(0, rect.height)}px`;
+    overlayBox.style.borderStyle = state === 'selected' ? 'solid' : 'dashed';
+
+    overlayTooltip.style.display = 'block';
+    overlayTooltip.textContent = label && label !== tag ? `${tag} "${label}"` : tag;
+    const tooltipTop = rect.top > 28 ? rect.top - 24 : rect.bottom + 6;
+    overlayTooltip.style.left = `${Math.max(4, Math.min(window.innerWidth - 28, rect.left))}px`;
+    overlayTooltip.style.top = `${Math.max(4, Math.min(window.innerHeight - 24, tooltipTop))}px`;
+  }
+
+  function postInspectorEvent(name, payload) {
+    window.parent.postMessage({
+      type: 'sparo:preview-element-inspector',
+      appId: APP_ID,
+      route: currentRoute,
+      event: name,
+      payload,
+    }, '*');
+  }
+
+  function updateCurrentElement(element) {
+    if (currentElement === element) {
+      updateOverlay(element, 'hover');
+      return;
+    }
+    currentElement = element;
+    if (!element) {
+      lastHoverKey = '';
+      hideOverlay();
+      postInspectorEvent('hover-cleared', { timestamp: Date.now() });
+      return;
+    }
+
+    updateOverlay(element, 'hover');
+    const snapshot = elementSnapshot(element);
+    const hoverKey = `${snapshot.fingerprint.selectorPath}:${snapshot.fingerprint.boxHash}`;
+    if (hoverKey !== lastHoverKey) {
+      lastHoverKey = hoverKey;
+      postInspectorEvent('hover', snapshot);
+    }
+  }
+
+  function blockInspectorEvent(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+  }
+
+  function handlePointerMove(event) {
+    if (!enabled) return;
+    blockInspectorEvent(event);
+    updateCurrentElement(elementAt(event.clientX, event.clientY));
+  }
+
+  function handlePointerBlock(event) {
+    if (!enabled) return;
+    blockInspectorEvent(event);
+  }
+
+  function handleClick(event) {
+    if (!enabled) return;
+    blockInspectorEvent(event);
+    const element = currentElement || elementAt(event.clientX, event.clientY);
+    if (!element) return;
+    updateOverlay(element, 'selected');
+    postInspectorEvent('selected', elementSnapshot(element));
+  }
+
+  function handleKeyDown(event) {
+    if (!enabled || event.key !== 'Escape') return;
+    blockInspectorEvent(event);
+    setInspectorEnabled(false, currentRoute);
+  }
+
+  function handleLayoutChange() {
+    if (!enabled || !currentElement) return;
+    if (!document.documentElement.contains(currentElement)) {
+      updateCurrentElement(null);
+      return;
+    }
+    updateOverlay(currentElement, 'hover');
+  }
+
+  function attachListeners() {
+    if (listenersAttached) return;
+    listenersAttached = true;
+    document.addEventListener('pointermove', handlePointerMove, { capture: true, passive: false });
+    document.addEventListener('pointerdown', handlePointerBlock, { capture: true, passive: false });
+    document.addEventListener('pointerup', handlePointerBlock, { capture: true, passive: false });
+    document.addEventListener('click', handleClick, { capture: true, passive: false });
+    document.addEventListener('keydown', handleKeyDown, true);
+    window.addEventListener('scroll', handleLayoutChange, true);
+    window.addEventListener('resize', handleLayoutChange);
+  }
+
+  function detachListeners() {
+    if (!listenersAttached) return;
+    listenersAttached = false;
+    document.removeEventListener('pointermove', handlePointerMove, true);
+    document.removeEventListener('pointerdown', handlePointerBlock, true);
+    document.removeEventListener('pointerup', handlePointerBlock, true);
+    document.removeEventListener('click', handleClick, true);
+    document.removeEventListener('keydown', handleKeyDown, true);
+    window.removeEventListener('scroll', handleLayoutChange, true);
+    window.removeEventListener('resize', handleLayoutChange);
+  }
+
+  function setInspectorEnabled(nextEnabled, route) {
+    currentRoute = route || currentRoute || '/';
+    if (nextEnabled === enabled) {
+      if (enabled) ensureOverlay();
+      return;
+    }
+    enabled = Boolean(nextEnabled);
+    currentElement = null;
+    lastHoverKey = '';
+
+    if (enabled) {
+      ensureOverlay();
+      attachListeners();
+      document.documentElement.style.cursor = 'crosshair';
+      postInspectorEvent('enabled', { timestamp: Date.now() });
+    } else {
+      detachListeners();
+      hideOverlay();
+      document.documentElement.style.cursor = '';
+      postInspectorEvent('disabled', { timestamp: Date.now() });
+    }
+  }
+
+  window.addEventListener('message', (event) => {
+    const data = event.data;
+    if (data && data.type === 'sparo:event' && data.event === 'previewElementInspectorSetEnabled') {
+      const payload = data.payload || {};
+      setInspectorEnabled(Boolean(payload.enabled), payload.route || '/');
+    }
+  });
+})();
+</script>"#
+    .replace("__APP_ID__", &app_id_esc)
+}
+
 /// Default theme CSS variables for Live App iframe.
 ///
 /// The host pushes the real theme after the iframe starts, but CSS is evaluated

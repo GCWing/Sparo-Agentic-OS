@@ -8,7 +8,6 @@ import { useLayoutEffect, useRef, useEffect, RefObject } from 'react';
 import { liveAppAPI } from '@/infrastructure/api/service-api/LiveAppAPI';
 import { open as dialogOpen, save as dialogSave, message as dialogMessage } from '@tauri-apps/plugin-dialog';
 import type { LiveApp } from '@/infrastructure/api/service-api/LiveAppAPI';
-import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
 import { useI18n } from '@/infrastructure/i18n';
 import { buildLiveAppThemeVars } from '../buildLiveAppThemeVars';
@@ -16,6 +15,11 @@ import { api } from '@/infrastructure/api/service-api/ApiClient';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import { descriptorFromAgentType } from '@/flow_chat/domain/sessionDescriptor';
 import { useLiveAppStore } from '../liveAppStore';
+import {
+  normalizeAppScope,
+  type AppScope,
+  workspacePathFromAppScope,
+} from '@/shared/types/app-scope';
 
 interface JSONRPC {
   jsonrpc?: string;
@@ -59,7 +63,7 @@ interface RuntimeLogPayload {
 }
 
 interface LiveAppBridgeOptions {
-  workspacePath?: string | null;
+  scope?: AppScope | null;
 }
 
 const NOOP_BRIDGE_METHODS = new Set([
@@ -85,15 +89,14 @@ export function useLiveAppBridge(
   app: LiveApp,
   options: LiveAppBridgeOptions = {},
 ) {
-  const { workspacePath } = useLastUsedWorkspace();
   const { theme: currentTheme } = useTheme();
   const { currentLanguage } = useI18n();
   const themeRef = useRef(currentTheme);
   themeRef.current = currentTheme;
   const localeRef = useRef(currentLanguage);
   localeRef.current = currentLanguage;
-  const workspacePathRef = useRef(options.workspacePath || workspacePath);
-  workspacePathRef.current = options.workspacePath || workspacePath;
+  const workspacePathRef = useRef(workspacePathFromAppScope(options.scope));
+  workspacePathRef.current = workspacePathFromAppScope(normalizeAppScope(options.scope));
   const agenticSessionIdsRef = useRef<Set<string>>(new Set());
 
   const appIdRef = useRef(app.id);

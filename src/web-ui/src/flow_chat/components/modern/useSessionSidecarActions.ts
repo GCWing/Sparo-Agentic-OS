@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCanvasStore } from '@/app/components/panels/content-canvas/stores';
 import { openSessionSidecarPanel, useSessionProfile } from '@/app/session-profiles';
+import { useLiveAppStore } from '@/app/scenes/apps/live-app/liveAppStore';
 import type {
   SessionSidecarActionDescriptor,
   SessionSidecarIconId,
@@ -32,17 +33,27 @@ export function useSessionSidecarActions(): FlowChatSidecarActionViewModel[] {
   const primaryGroup = useCanvasStore(state => state.primaryGroup);
   const secondaryGroup = useCanvasStore(state => state.secondaryGroup);
   const tertiaryGroup = useCanvasStore(state => state.tertiaryGroup);
+  const storeStudioAppId = useLiveAppStore(state =>
+    activeSession?.sessionId ? state.sessionAppIds[activeSession.sessionId] : undefined
+  );
 
   return useMemo(() => {
     if (!activeSession?.sessionId || !profile.sidecarActions) {
       return [];
     }
 
+    const agentSessionBinding = activeSession.customMetadata?.agentSessionBinding;
+    const studioAppId = agentSessionBinding?.subject.kind === 'live-app'
+      ? agentSessionBinding.subject.id
+      : storeStudioAppId;
+
     const extra: Record<string, unknown> = {
+      appId: studioAppId,
       tabTitle:
         profile.id === 'agent-app-studio'
           ? 'Agent App Builder'
           : 'Live App Builder',
+      agentSessionBinding,
       customMetadata: activeSession.customMetadata,
       liveAppWorkbench: activeSession.customMetadata?.liveAppWorkbench,
       workspacePath: activeSession.workspacePath,
@@ -101,6 +112,7 @@ export function useSessionSidecarActions(): FlowChatSidecarActionViewModel[] {
     primaryGroup,
     profile,
     secondaryGroup,
+    storeStudioAppId,
     t,
     tertiaryGroup,
   ]);

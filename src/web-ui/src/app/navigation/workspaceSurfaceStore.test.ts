@@ -4,9 +4,23 @@ import {
   useWorkspaceSurfaceStore,
   WORKSPACE_SCENE_HISTORY_LIMIT,
 } from './workspaceSurfaceStore';
+import type { WorkspaceSceneId } from './workspaceSceneTypes';
 import type { WorkspaceSurface } from './workspaceSurfaceTypes';
+import { systemRuntimeScope } from '@/shared/types/runtime-scope';
 
-const homeSurface: WorkspaceSurface = { kind: 'agentic-os-home', agenticOsSessionId: null };
+const homeSurface: WorkspaceSurface = {
+  kind: 'agentic-os-home',
+  agenticOsSessionId: null,
+  scope: systemRuntimeScope(),
+};
+
+function sceneSurface(sceneId: WorkspaceSceneId): Extract<WorkspaceSurface, { kind: 'scene' }> {
+  return {
+    kind: 'scene',
+    sceneId,
+    scope: systemRuntimeScope(),
+  };
+}
 
 function historyKeys(): string[] {
   return useWorkspaceSurfaceStore.getState().sceneHistory.map((entry) => (
@@ -35,11 +49,11 @@ describe('workspaceSurfaceStore scene history', () => {
   it('clears scene history when returning to Agentic OS home', () => {
     const store = useWorkspaceSurfaceStore.getState();
 
-    store.openSurface({ kind: 'scene', sceneId: 'apps' });
-    store.openSurface({ kind: 'scene', sceneId: 'settings' });
+    store.openSurface(sceneSurface('apps'));
+    store.openSurface(sceneSurface('settings'));
     expect(historyKeys()).toEqual(['apps']);
 
-    store.openSurface({ kind: 'agentic-os-home', agenticOsSessionId: 'agentic-home-1' });
+    store.openSurface({ kind: 'agentic-os-home', agenticOsSessionId: 'agentic-home-1', scope: systemRuntimeScope() });
     expect(useWorkspaceSurfaceStore.getState().sceneHistory).toEqual([]);
     expect(useWorkspaceSurfaceStore.getState().goBackScene()).toBe(false);
     expect(selectCanGoBackScene(useWorkspaceSurfaceStore.getState())).toBe(false);
@@ -49,15 +63,15 @@ describe('workspaceSurfaceStore scene history', () => {
     const store = useWorkspaceSurfaceStore.getState();
 
     useWorkspaceSurfaceStore.setState({
-      activeSurface: { kind: 'agentic-os-home', agenticOsSessionId: 'agentic-home-1' },
+      activeSurface: { kind: 'agentic-os-home', agenticOsSessionId: 'agentic-home-1', scope: systemRuntimeScope() },
       sceneHistory: [{
-        surface: { kind: 'scene', sceneId: 'apps' },
+        surface: sceneSurface('apps') as Exclude<WorkspaceSurface, { kind: 'agentic-os-home' }>,
         context: null,
         visitedAt: 1,
       }],
     });
     expect(useWorkspaceSurfaceStore.getState().goBackScene()).toBe(false);
-    store.openSurface({ kind: 'agentic-os-home', agenticOsSessionId: 'agentic-home-1' });
+    store.openSurface({ kind: 'agentic-os-home', agenticOsSessionId: 'agentic-home-1', scope: systemRuntimeScope() });
     expect(useWorkspaceSurfaceStore.getState().sceneHistory).toEqual([]);
     expect(selectCanGoBackScene(useWorkspaceSurfaceStore.getState())).toBe(false);
   });
@@ -68,7 +82,7 @@ describe('workspaceSurfaceStore scene history', () => {
     store.openSurface({ kind: 'session', sessionId: 'session-1' });
     expect(historyKeys()).toEqual([]);
 
-    store.openSurface({ kind: 'scene', sceneId: 'file-viewer' });
+    store.openSurface(sceneSurface('file-viewer'));
     expect(historyKeys()).toEqual(['session:session-1']);
 
     expect(useWorkspaceSurfaceStore.getState().goBackScene()).toBe(true);
@@ -84,7 +98,7 @@ describe('workspaceSurfaceStore scene history', () => {
   it('records scene surfaces when entering a session surface', () => {
     const store = useWorkspaceSurfaceStore.getState();
 
-    store.openSurface({ kind: 'scene', sceneId: 'apps' });
+    store.openSurface(sceneSurface('apps'));
     store.openSurface({ kind: 'session', sessionId: 'session-1' });
 
     expect(historyKeys()).toEqual(['apps']);
@@ -103,7 +117,7 @@ describe('workspaceSurfaceStore scene history', () => {
     ] as const;
 
     for (const sceneId of sceneIds) {
-      store.openSurface({ kind: 'scene', sceneId });
+      store.openSurface(sceneSurface(sceneId));
     }
 
     const history = useWorkspaceSurfaceStore.getState().sceneHistory;
@@ -120,9 +134,9 @@ describe('workspaceSurfaceStore scene history', () => {
   it('restores a selected history entry without pushing the current scene', () => {
     const store = useWorkspaceSurfaceStore.getState();
 
-    store.openSurface({ kind: 'scene', sceneId: 'apps' });
-    store.openSurface({ kind: 'scene', sceneId: 'settings' });
-    store.openSurface({ kind: 'scene', sceneId: 'memory' });
+    store.openSurface(sceneSurface('apps'));
+    store.openSurface(sceneSurface('settings'));
+    store.openSurface(sceneSurface('memory'));
 
     expect(historyKeys()).toEqual(['settings', 'apps']);
 
@@ -130,6 +144,7 @@ describe('workspaceSurfaceStore scene history', () => {
     expect(useWorkspaceSurfaceStore.getState().activeSurface).toEqual({
       kind: 'scene',
       sceneId: 'apps',
+      scope: systemRuntimeScope(),
     });
     expect(historyKeys()).toEqual(['settings']);
   });

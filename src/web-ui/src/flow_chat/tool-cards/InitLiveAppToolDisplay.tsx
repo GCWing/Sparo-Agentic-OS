@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { AppWindow, ChevronRight, ExternalLink } from 'lucide-react';
 import type { ToolCardProps } from '../types/flow-chat';
 import { openLiveApp } from '@/app/scenes/apps/live-app/liveAppWorkbenchService';
+import { appScopeIdentity } from '@/shared/types/app-scope';
 import { ToolActionGroup } from './ToolActionGroup';
 import { ToolErrorBlock } from './ToolErrorBlock';
 import { ToolStructuredDetails } from './ToolStructuredDetails';
@@ -15,6 +16,7 @@ import {
 } from './templates';
 import { deriveToolRuntimeState } from '../runtime/statusModel';
 import { getToolViewState } from '../runtime/toolViewState';
+import { resolveToolSessionAppScope } from './liveAppToolScope';
 import './InitLiveAppToolDisplay.scss';
 
 export const InitLiveAppDisplay: React.FC<ToolCardProps> = ({ toolItem, sessionId }) => {
@@ -38,11 +40,12 @@ export const InitLiveAppDisplay: React.FC<ToolCardProps> = ({ toolItem, sessionI
   const isLoading = viewState.phase === 'running' || viewState.phase === 'receiving_input' || viewState.phase === 'preparing';
   const isFailed = viewState.phase === 'error' || (isCompleted && toolResult != null && toolResult.success === false);
   const canOpenDebugPanel = isCompleted && success && Boolean(appId);
+  const appScope = useMemo(() => resolveToolSessionAppScope(sessionId), [sessionId]);
 
   const handleOpenDebugPanel = useCallback(() => {
     if (!canOpenDebugPanel || !appId) return;
 
-    const duplicateCheckKey = `live-app-studio:${sessionId ?? appId}`;
+    const duplicateCheckKey = `live-app-studio:${sessionId ?? `${appId}:${appScopeIdentity(appScope)}`}`;
     window.dispatchEvent(new CustomEvent('agent-create-tab', {
       detail: {
         type: 'live-app-studio',
@@ -50,17 +53,19 @@ export const InitLiveAppDisplay: React.FC<ToolCardProps> = ({ toolItem, sessionI
         data: {
           sessionId: sessionId ?? null,
           appId,
+          scope: appScope,
         },
         metadata: {
           liveAppStudioSessionId: sessionId,
           liveAppStudioAppId: appId,
+          appScope,
         },
         checkDuplicate: true,
         duplicateCheckKey,
         replaceExisting: true,
       },
     }));
-  }, [appId, canOpenDebugPanel, sessionId, t]);
+  }, [appId, appScope, canOpenDebugPanel, sessionId, t]);
 
   const getErrorMessage = () => {
     if (toolResult && 'error' in toolResult && toolResult.error) {
@@ -123,7 +128,7 @@ export const InitLiveAppDisplay: React.FC<ToolCardProps> = ({ toolItem, sessionI
               key: 'open-live-app',
               label: t('toolCards.initLiveApp.openInLiveApp'),
               icon: <ExternalLink size={12} />,
-              onClick: () => void openLiveApp(appId),
+              onClick: () => void openLiveApp(appId, { scope: appScope }),
               title: t('toolCards.initLiveApp.openInLiveAppTitle'),
             }]}
           />

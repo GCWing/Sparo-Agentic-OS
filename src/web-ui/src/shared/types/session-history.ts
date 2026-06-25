@@ -4,6 +4,8 @@
  * Used by session lists and persistence metadata in the frontend.
  */
 
+import type { AppScope } from './app-scope';
+
 export type SessionKind = 'normal' | 'btw';
 export type PersistedSessionKind = 'standard' | 'subagent';
 export type SessionStorageScope = 'workspace' | 'agentic_os';
@@ -46,9 +48,52 @@ export interface LiveAppWorkbenchSessionMetadata {
   version?: number;
   sourceRevision?: string;
   interactionTitle?: string;
+  scope: AppScope;
   workspacePath?: string | null;
   chat?: Record<string, unknown>;
   tabs: LiveAppWorkbenchTabMetadata[];
+}
+
+export type AgentSessionBindingMode =
+  | 'create'
+  | 'edit'
+  | 'inspect'
+  | 'debug'
+  | 'run'
+  | (string & {});
+
+export type AgentSessionBoundSubjectKind =
+  | 'live-app'
+  | 'artifact'
+  | 'file'
+  | 'workspace'
+  | 'work'
+  | (string & {});
+
+export interface AgentSessionBindingMetadata {
+  schemaVersion: 1;
+  intent: {
+    agentType: string;
+    mode: AgentSessionBindingMode;
+  };
+  subject: {
+    kind: AgentSessionBoundSubjectKind;
+    id: string;
+    title: string;
+    version?: number | string;
+    revision?: string;
+    data?: Record<string, unknown>;
+  };
+  surface?: {
+    contentType: string;
+    title?: string;
+    data?: Record<string, unknown>;
+    duplicateKey?: string;
+  };
+  scope: AppScope;
+  workspacePath?: string | null;
+  openedFrom?: string;
+  updatedAt: number;
 }
 
 export interface SessionCustomMetadata extends Record<string, unknown> {
@@ -63,6 +108,7 @@ export interface SessionCustomMetadata extends Record<string, unknown> {
     turnIndex?: number | null;
   } | null;
   lastFinishedAt?: number | null;
+  agentSessionBinding?: AgentSessionBindingMetadata;
   liveAppWorkbench?: LiveAppWorkbenchSessionMetadata;
 }
 

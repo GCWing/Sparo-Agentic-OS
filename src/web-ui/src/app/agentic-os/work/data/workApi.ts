@@ -6,15 +6,21 @@ import type {
   ArtifactRef,
   ControlWorkRequest,
   CreateWorkRequest,
+  LinkSessionToWorkRequest,
   MemoryRef,
+  ResolveAppWorkRequest,
   StartWorkRequest,
   UpdateWorkRequest,
   WorkAssignmentRef,
+  WorkAppIntent,
+  WorkAppRef,
+  WorkAppRelation,
   WorkExecutionBinding,
   WorkExecutionSource,
   WorkLifecycle,
   WorkRecord,
   WorkScope,
+  WorkSubject,
   WorkSurfaceRef,
   WorkTitleState,
 } from '../domain/workTypes';
@@ -82,6 +88,23 @@ type RawWorkTitleState = {
   subject_ref?: string | null;
 };
 
+type RawWorkAppRef = {
+  kind: WorkAppRef['kind'];
+  app_id: string;
+};
+
+type RawWorkSubject =
+  | { kind: 'goal' }
+  | { kind: 'project'; workspace_path: string }
+  | { kind: 'app'; app: RawWorkAppRef; intent?: WorkAppIntent | null }
+  | { kind: 'artifact'; artifact_id: string };
+
+type RawWorkAppRelation = {
+  app: RawWorkAppRef;
+  role: WorkAppRelation['role'];
+  surface_id?: string | null;
+};
+
 type RawWorkRecord = {
   id: string;
   kind: WorkRecord['kind'];
@@ -90,6 +113,8 @@ type RawWorkRecord = {
   objective: string;
   status: WorkRecord['status'];
   visibility: WorkRecord['visibility'];
+  subject: RawWorkSubject;
+  app_refs: RawWorkAppRelation[];
   scope: RawWorkScope;
   primary_surface: RawWorkSurfaceRef;
   surfaces: RawWorkSurfaceRef[];
@@ -116,6 +141,56 @@ function fromRawScope(scope: RawWorkScope): WorkScope {
   return scope.kind === 'workspace'
     ? { kind: 'workspace', workspacePath: scope.workspace_path }
     : { kind: 'system' };
+}
+
+function toRawAppRef(app: WorkAppRef): RawWorkAppRef {
+  return { kind: app.kind, app_id: app.appId };
+}
+
+function fromRawAppRef(app: RawWorkAppRef): WorkAppRef {
+  return { kind: app.kind, appId: app.app_id };
+}
+
+function toRawSubject(subject: WorkSubject): RawWorkSubject {
+  switch (subject.kind) {
+    case 'goal':
+      return { kind: 'goal' };
+    case 'project':
+      return { kind: 'project', workspace_path: subject.workspacePath };
+    case 'app':
+      return { kind: 'app', app: toRawAppRef(subject.app), intent: subject.intent };
+    case 'artifact':
+      return { kind: 'artifact', artifact_id: subject.artifactId };
+  }
+}
+
+function fromRawSubject(subject: RawWorkSubject): WorkSubject {
+  switch (subject.kind) {
+    case 'goal':
+      return { kind: 'goal' };
+    case 'project':
+      return { kind: 'project', workspacePath: subject.workspace_path };
+    case 'app':
+      return { kind: 'app', app: fromRawAppRef(subject.app), intent: subject.intent ?? 'use' };
+    case 'artifact':
+      return { kind: 'artifact', artifactId: subject.artifact_id };
+  }
+}
+
+function toRawAppRelation(relation: WorkAppRelation): RawWorkAppRelation {
+  return {
+    app: toRawAppRef(relation.app),
+    role: relation.role,
+    surface_id: relation.surfaceId,
+  };
+}
+
+function fromRawAppRelation(relation: RawWorkAppRelation): WorkAppRelation {
+  return {
+    app: fromRawAppRef(relation.app),
+    role: relation.role,
+    surfaceId: relation.surface_id ?? undefined,
+  };
 }
 
 function toRawSurface(surface: WorkSurfaceRef): RawWorkSurfaceRef {
@@ -265,6 +340,8 @@ export function fromRawWorkRecord(record: RawWorkRecord): WorkRecord {
     objective: record.objective,
     status: record.status,
     visibility: record.visibility,
+    subject: fromRawSubject(record.subject),
+    appRefs: record.app_refs.map(fromRawAppRelation),
     scope: fromRawScope(record.scope),
     primarySurface: fromRawSurface(record.primary_surface),
     surfaces: record.surfaces.map(fromRawSurface),
@@ -285,11 +362,12 @@ function toRawCreateWorkRequest(request: CreateWorkRequest): Record<string, unkn
     kind: request.kind,
     title: request.title,
     objective: request.objective,
+    subject: toRawSubject(request.subject),
+    app_refs: (request.appRefs ?? []).map(toRawAppRelation),
     scope: toRawScope(request.scope),
     visibility: request.visibility ?? 'primary',
     primary_surface_policy: request.primarySurfacePolicy ?? 'work_session',
     assignment: toRawAssignment(request.assignment),
-    live_app_id: request.liveAppId,
     title_state: toRawTitleState(request.titleState),
   };
 }
@@ -300,6 +378,8 @@ function toRawStartWorkRequest(request: StartWorkRequest): Record<string, unknow
     title: request.title,
     objective: request.objective,
     instructions: request.instructions,
+    subject: toRawSubject(request.subject),
+    app_refs: (request.appRefs ?? []).map(toRawAppRelation),
     scope: toRawScope(request.scope),
     visibility: request.visibility ?? 'primary',
     primary_surface_policy: request.primarySurfacePolicy ?? 'work_session',
@@ -321,10 +401,13 @@ function toRawUpdateWorkRequest(request: UpdateWorkRequest): Record<string, unkn
 }
 
 export class AgenticOsWorkApi {
-  async listWorks(request: { workspacePath?: string | null } = {}): Promise<WorkRecord[]> {
+  async listWorks(request: { workspacePath?: string | null; app?: WorkAppRef | null } = {}): Promise<WorkRecord[]> {
     try {
       const response = await api.invoke<{ works: RawWorkRecord[] }>('agentic_os_list_works', {
-        request: { workspace_path: request.workspacePath },
+        request: {
+          workspace_path: request.workspacePath,
+          app: request.app ? toRawAppRef(request.app) : undefined,
+        },
       });
       return response.works.map(fromRawWorkRecord);
     } catch (error) {
@@ -354,6 +437,27 @@ export class AgenticOsWorkApi {
     }
   }
 
+  async resolveAppWork(request: ResolveAppWorkRequest): Promise<{ work: WorkRecord; created: boolean }> {
+    try {
+      const response = await api.invoke<{ work: RawWorkRecord; created: boolean }>('agentic_os_resolve_app_work', {
+        request: {
+          app: toRawAppRef(request.app),
+          intent: request.intent,
+          title: request.title,
+          objective: request.objective,
+          scope: toRawScope(request.scope),
+          visibility: request.visibility ?? 'primary',
+          primary_surface_policy: request.primarySurfacePolicy ?? 'live_app',
+          assignment: toRawAssignment(request.assignment),
+          app_refs: (request.appRefs ?? []).map(toRawAppRelation),
+        },
+      });
+      return { work: fromRawWorkRecord(response.work), created: response.created };
+    } catch (error) {
+      throw createTauriCommandError('agentic_os_resolve_app_work', error, request);
+    }
+  }
+
   async startWork(request: StartWorkRequest): Promise<WorkRecord> {
     try {
       const response = await api.invoke<{ work: RawWorkRecord }>('agentic_os_start_work', {
@@ -373,6 +477,23 @@ export class AgenticOsWorkApi {
       return fromRawWorkRecord(response.work);
     } catch (error) {
       throw createTauriCommandError('agentic_os_update_work', error, request);
+    }
+  }
+
+  async linkSessionToWork(request: LinkSessionToWorkRequest): Promise<WorkRecord> {
+    try {
+      const response = await api.invoke<{ work: RawWorkRecord }>('agentic_os_link_session_to_work', {
+        request: {
+          work_id: request.workId,
+          session_id: request.sessionId,
+          workspace_path: request.workspacePath,
+          surface: request.surface ? toRawSurface(request.surface) : undefined,
+          set_primary: request.setPrimary ?? false,
+        },
+      });
+      return fromRawWorkRecord(response.work);
+    } catch (error) {
+      throw createTauriCommandError('agentic_os_link_session_to_work', error, request);
     }
   }
 

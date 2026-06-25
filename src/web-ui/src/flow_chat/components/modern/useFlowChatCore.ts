@@ -78,11 +78,10 @@ export function useFlowChatCore(options: UseFlowChatCoreOptions = {}) {
     ? rawVisibleTurnInfo
     : null;
   const {
-    workspacePath: currentWorkspacePath,
     openedWorkspacesList,
   } = useWorkspaceContext();
   const effectiveWorkspacePath =
-    activeSession.workspacePath ?? scopedWorkspacePath ?? currentWorkspacePath;
+    activeSession.workspacePath ?? scopedWorkspacePath ?? undefined;
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [pendingHeaderTurnId, setPendingHeaderTurnId] = useState<string | null>(null);

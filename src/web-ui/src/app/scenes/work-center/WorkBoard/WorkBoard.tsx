@@ -31,16 +31,19 @@ import type { WorkProjection } from '@/app/agentic-os/work/projections/workProje
 import type { ScopedWorksResult } from '@/app/agentic-os/work/hooks/useScopedWorks';
 import type { WorkspaceInfo } from '@/shared/types';
 import type {
+  WorkCenterAppFilter,
   WorkCenterGrouping,
   WorkCenterScope,
   WorkCenterWorkspaceFilter,
 } from '@/app/stores/workDockStore';
+import type { WorkAppRef } from '@/app/agentic-os/work/domain/workTypes';
 import {
   getWorkCategory,
   getWorkPriorityGroup,
 } from '@/app/agentic-os/work/domain/workClassification';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
+import { appScopeFromWorkspacePath, systemAppScope } from '@/shared/types/app-scope';
 import BoardHeader from './BoardHeader';
 import './WorkBoard.scss';
 
@@ -54,6 +57,8 @@ interface WorkBoardProps {
   activeWorkspaces: WorkspaceInfo[];
   workspaceCounts: Map<string, { total: number; running: number; attention: number }>;
   workspaceFilter: WorkCenterWorkspaceFilter;
+  appFilter: WorkCenterAppFilter;
+  appOptions: Array<{ app: WorkAppRef; count: number }>;
   result: ScopedWorksResult;
   search: string;
   grouping: WorkCenterGrouping;
@@ -62,6 +67,7 @@ interface WorkBoardProps {
   onSearchChange: (value: string) => void;
   onScopeChange: (scope: WorkCenterScope) => void;
   onWorkspaceFilterChange: (filter: WorkCenterWorkspaceFilter) => void;
+  onAppFilterChange: (filter: WorkCenterAppFilter) => void;
   onGroupingChange: (value: WorkCenterGrouping) => void;
   onToggleGroup: (key: string) => void;
   onSelectedWorkChange: (workId: string | null) => void;
@@ -303,6 +309,8 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
   activeWorkspaces,
   workspaceCounts,
   workspaceFilter,
+  appFilter,
+  appOptions,
   result,
   search,
   grouping,
@@ -311,6 +319,7 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
   onSearchChange,
   onScopeChange,
   onWorkspaceFilterChange,
+  onAppFilterChange,
   onGroupingChange,
   onToggleGroup,
   onSelectedWorkChange,
@@ -510,7 +519,9 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
   const handleOpenSurface = useCallback(async (work: WorkRecord, surface: WorkSurfaceRef) => {
     try {
       await openWorkSurface(surface, work.id, {
-        workspacePath: work.scope.kind === 'workspace' ? work.scope.workspacePath : undefined,
+        scope: work.scope.kind === 'workspace'
+          ? appScopeFromWorkspacePath(work.scope.workspacePath) ?? systemAppScope()
+          : systemAppScope(),
       });
     } catch (error) {
       log.error('Failed to open work surface from Work Center', { workId: work.id, surfaceKind: surface.kind, error });
@@ -619,20 +630,22 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
   const headerTotalCount = showWorkspaceOverview ? visibleWorkspaceCount : result.totalCount;
   const headerRunningCount = showWorkspaceOverview ? activeWorkspaceRunningCount : result.runningCount;
   const hasSearch = search.trim().length > 0;
-  const hasScopedFilter = scope.kind !== 'open' || workspaceFilter.kind !== 'all';
+  const hasScopedFilter = scope.kind !== 'open' || workspaceFilter.kind !== 'all' || appFilter.kind !== 'all';
   const hasBoardFilters = hasSearch || hasScopedFilter;
 
   const handleClearBoardFilters = useCallback(() => {
     onScopeChange({ kind: 'open' });
     onWorkspaceFilterChange({ kind: 'all' });
+    onAppFilterChange({ kind: 'all' });
     onSearchChange('');
-  }, [onScopeChange, onSearchChange, onWorkspaceFilterChange]);
+  }, [onAppFilterChange, onScopeChange, onSearchChange, onWorkspaceFilterChange]);
 
   const handleShowAllWork = useCallback(() => {
     onScopeChange({ kind: 'all' });
     onWorkspaceFilterChange({ kind: 'all' });
+    onAppFilterChange({ kind: 'all' });
     onSearchChange('');
-  }, [onScopeChange, onSearchChange, onWorkspaceFilterChange]);
+  }, [onAppFilterChange, onScopeChange, onSearchChange, onWorkspaceFilterChange]);
 
   const renderWorkDetail = (work: WorkRecord) => {
     const status = resolveEffectiveWorkStatus(work);
@@ -744,6 +757,8 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
                   title: work.title,
                   objective: work.objective,
                   status,
+                  subject: work.subject,
+                  appRefs: work.appRefs,
                   workspacePath: work.scope.kind === 'workspace' ? work.scope.workspacePath : undefined,
                   primarySurface: work.primarySurface,
                   updatedAt: work.updatedAt,
@@ -765,6 +780,8 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
                   title: work.title,
                   objective: work.objective,
                   status,
+                  subject: work.subject,
+                  appRefs: work.appRefs,
                   workspacePath: work.scope.kind === 'workspace' ? work.scope.workspacePath : undefined,
                   primarySurface: work.primarySurface,
                   updatedAt: work.updatedAt,
@@ -1120,6 +1137,8 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
         scope={scope}
         workspaces={workspaces}
         workspaceFilter={workspaceFilter}
+        appFilter={appFilter}
+        appOptions={appOptions}
         totalCount={headerTotalCount}
         runningCount={headerRunningCount}
         search={search}
@@ -1130,6 +1149,7 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
         canClearFilters={hasBoardFilters}
         onSearchChange={onSearchChange}
         onWorkspaceFilterChange={onWorkspaceFilterChange}
+        onAppFilterChange={onAppFilterChange}
         onClearFilters={handleClearBoardFilters}
         onGroupingChange={onGroupingChange}
       />

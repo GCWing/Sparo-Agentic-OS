@@ -18,6 +18,7 @@ import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore
 import { useSettingsStore } from '@/app/scenes/settings/settingsStore';
 import { useLiveAppStore } from '@/app/scenes/apps/live-app/liveAppStore';
 import { openLiveApp as openLiveAppWorkbench } from '@/app/scenes/apps/live-app/liveAppWorkbenchService';
+import { appScopeFromWorkspacePath, systemAppScope } from '@/shared/types/app-scope';
 import { configManager } from '@/infrastructure/config';
 import { getModelDisplayName } from '@/infrastructure/config/services/modelConfigs';
 import { matchProviderCatalogItemByBaseUrl } from '@/infrastructure/config/services/providerCatalog';
@@ -865,10 +866,16 @@ export class SelfControlService {
       );
     }
     const activeSurface = useWorkspaceSurfaceStore.getState().activeSurface;
-    const workspacePath =
-      activeSurface.kind === 'scene' ? activeSurface.workspacePath : undefined;
+    const scope =
+      activeSurface.kind === 'scene'
+        ? activeSurface.appScope ||
+          (activeSurface.scope.kind === 'project'
+            ? appScopeFromWorkspacePath(activeSurface.scope.workspacePath)
+            : null) ||
+          systemAppScope()
+        : systemAppScope();
     useLiveAppStore.getState().openApp(id);
-    void openLiveAppWorkbench(known, { workspacePath });
+    void openLiveAppWorkbench(known, { scope });
     return `Opened live app "${known.name}" (id=${id})`;
   }
 

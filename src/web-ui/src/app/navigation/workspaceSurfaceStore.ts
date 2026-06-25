@@ -7,6 +7,7 @@ import {
   type WorkspaceSurfaceContext,
   type WorkspaceSurface,
 } from './workspaceSurfaceTypes';
+import { systemRuntimeScope } from '@/shared/types/runtime-scope';
 
 export const WORKSPACE_SCENE_HISTORY_LIMIT = 5;
 
@@ -106,7 +107,7 @@ function getFocusedSessionId(surface: WorkspaceSurface): string | null {
 }
 
 export const useWorkspaceSurfaceStore = create<WorkspaceSurfaceState>((set, get) => ({
-  activeSurface: { kind: 'agentic-os-home', agenticOsSessionId: null },
+  activeSurface: { kind: 'agentic-os-home', agenticOsSessionId: null, scope: systemRuntimeScope() },
   previousSurface: null,
   sceneHistory: [],
   surfaceContext: null,
@@ -201,11 +202,11 @@ export const useWorkspaceSurfaceStore = create<WorkspaceSurfaceState>((set, get)
     set((state) => {
       const activeSurface =
         state.activeSurface.kind === 'session' && removedSessionIds.has(state.activeSurface.sessionId)
-          ? { kind: 'agentic-os-home', agenticOsSessionId: null } as WorkspaceSurface
+          ? { kind: 'agentic-os-home', agenticOsSessionId: null, scope: systemRuntimeScope() } as WorkspaceSurface
           : state.activeSurface.kind === 'agentic-os-home' &&
               state.activeSurface.agenticOsSessionId &&
               removedSessionIds.has(state.activeSurface.agenticOsSessionId)
-            ? { kind: 'agentic-os-home', agenticOsSessionId: null } as WorkspaceSurface
+            ? { kind: 'agentic-os-home', agenticOsSessionId: null, scope: systemRuntimeScope() } as WorkspaceSurface
             : state.activeSurface;
 
       const nextSceneHistory = state.sceneHistory.filter((entry) => (
@@ -230,7 +231,7 @@ export const useWorkspaceSurfaceStore = create<WorkspaceSurfaceState>((set, get)
   },
 
   returnHome: (agenticOsSessionId = null) => {
-    get().openSurface({ kind: 'agentic-os-home', agenticOsSessionId });
+    get().openSurface({ kind: 'agentic-os-home', agenticOsSessionId, scope: systemRuntimeScope() });
   },
 }));
 

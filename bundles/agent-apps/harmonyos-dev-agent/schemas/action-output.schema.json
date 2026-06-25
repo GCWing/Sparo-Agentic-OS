@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "summary": { "type": "string" },
+    "evidence": { "type": "array" },
+    "blocked": { "type": "boolean" },
+    "diagnostics": { "type": "array" }
+  }
+}

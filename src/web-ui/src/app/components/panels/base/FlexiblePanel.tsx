@@ -7,6 +7,7 @@ import { MarkdownEditor } from '@/tools/markdown';
 import { useI18n } from '@/infrastructure/i18n';
 import { createLogger } from '@/shared/utils/logger';
 import { globalEventBus } from '@/infrastructure/event-bus';
+import { appScopeFromWorkspacePath } from '@/shared/types/app-scope';
 
 const log = createLogger('FlexiblePanel');
 
@@ -573,6 +574,11 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
             <LiveAppStudioPanel
               sessionId={studioData.sessionId ?? null}
               appId={studioData.appId}
+              scope={
+                studioData.scope ||
+                studioData.agentSessionBinding?.scope ||
+                appScopeFromWorkspacePath(studioData.workspacePath)
+              }
             />
           </React.Suspense>
         );
@@ -584,7 +590,12 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
           <React.Suspense fallback={<PanelLoadingFallback>{t('flexiblePanel.loading.liveAppRunner')}</PanelLoadingFallback>}>
             <LiveAppRunnerPanel
               appId={runnerData.appId}
-              workspacePath={runnerData.workspacePath || workspacePath}
+              scope={
+                runnerData.scope ||
+                runnerData.liveAppWorkbench?.scope ||
+                appScopeFromWorkspacePath(runnerData.workspacePath)
+              }
+              workspacePath={runnerData.workspacePath}
               route={runnerData.route}
               tabId={runnerData.tabId}
               sessionId={runnerData.sessionId}
@@ -603,7 +614,12 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
               sessionId={workbenchData.sessionId}
               tabId={workbenchData.tabId}
               route={workbenchData.route}
-              workspacePath={workbenchData.workspacePath || workspacePath}
+              scope={
+                workbenchData.scope ||
+                workbenchData.liveAppWorkbench?.scope ||
+                appScopeFromWorkspacePath(workbenchData.workspacePath)
+              }
+              workspacePath={workbenchData.workspacePath}
               liveAppWorkbench={workbenchData.liveAppWorkbench}
             />
           </React.Suspense>
@@ -627,6 +643,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
             <AgentAppStudioPanel
               sessionId={studioData.sessionId ?? null}
               appId={studioData.appId}
+              scope={studioData.scope || appScopeFromWorkspacePath(studioData.workspacePath)}
             />
           </React.Suspense>
         );

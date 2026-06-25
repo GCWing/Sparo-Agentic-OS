@@ -2,7 +2,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::agentic_os::work::{
     default_work_store, AdvanceWorkRequest, ControlWorkRequest, CreateWorkRequest,
-    DispatchWorkRequest, StartWorkRequest, UpdateWorkRequest, WorkId, WorkRecord, WorkService,
+    DispatchWorkRequest, LinkSessionToWorkRequest, ResolveAppWorkRequest, StartWorkRequest,
+    UpdateWorkRequest, WorkAppRef, WorkId, WorkRecord, WorkService,
 };
 
 use super::super::{CommandError, CommandResult};
@@ -10,6 +11,8 @@ use super::super::{CommandError, CommandResult};
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct AgenticOsListWorksRequest {
     pub workspace_path: Option<String>,
+    #[serde(default)]
+    pub app: Option<WorkAppRef>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -61,6 +64,29 @@ pub struct AgenticOsUpdateWorkRequest {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct AgenticOsUpdateWorkResponse {
+    pub work: WorkRecord,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct AgenticOsResolveAppWorkRequest {
+    #[serde(flatten)]
+    pub app_work: ResolveAppWorkRequest,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AgenticOsResolveAppWorkResponse {
+    pub work: WorkRecord,
+    pub created: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct AgenticOsLinkSessionToWorkRequest {
+    #[serde(flatten)]
+    pub link: LinkSessionToWorkRequest,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AgenticOsLinkSessionToWorkResponse {
     pub work: WorkRecord,
 }
 
@@ -123,6 +149,9 @@ pub async fn list_works_with_service(
     {
         works.retain(|work| work.scope.workspace_path() == Some(workspace_path));
     }
+    if let Some(app) = request.app.as_ref() {
+        works.retain(|work| work.references_app(app));
+    }
     Ok(AgenticOsListWorksResponse { works })
 }
 
@@ -151,6 +180,27 @@ pub async fn create_work_with_service(
         .await
         .map_err(CommandError::session)?;
     Ok(AgenticOsCreateWorkResponse { work })
+}
+
+pub async fn resolve_app_work(
+    request: AgenticOsResolveAppWorkRequest,
+) -> CommandResult<AgenticOsResolveAppWorkResponse> {
+    let service = WorkService::new(default_work_store().map_err(CommandError::session)?);
+    resolve_app_work_with_service(&service, request).await
+}
+
+pub async fn resolve_app_work_with_service(
+    service: &WorkService,
+    request: AgenticOsResolveAppWorkRequest,
+) -> CommandResult<AgenticOsResolveAppWorkResponse> {
+    let response = service
+        .resolve_app_work(request.app_work)
+        .await
+        .map_err(CommandError::session)?;
+    Ok(AgenticOsResolveAppWorkResponse {
+        work: response.work,
+        created: response.created,
+    })
 }
 
 pub async fn start_work(
@@ -192,6 +242,24 @@ pub async fn update_work_with_service(
         .await
         .map_err(CommandError::session)?;
     Ok(AgenticOsUpdateWorkResponse { work })
+}
+
+pub async fn link_session_to_work(
+    request: AgenticOsLinkSessionToWorkRequest,
+) -> CommandResult<AgenticOsLinkSessionToWorkResponse> {
+    let service = WorkService::new(default_work_store().map_err(CommandError::session)?);
+    link_session_to_work_with_service(&service, request).await
+}
+
+pub async fn link_session_to_work_with_service(
+    service: &WorkService,
+    request: AgenticOsLinkSessionToWorkRequest,
+) -> CommandResult<AgenticOsLinkSessionToWorkResponse> {
+    let work = service
+        .link_session_to_work(request.link)
+        .await
+        .map_err(CommandError::session)?;
+    Ok(AgenticOsLinkSessionToWorkResponse { work })
 }
 
 pub async fn dispatch_work(

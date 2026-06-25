@@ -43,6 +43,10 @@ const WorkspaceBody: React.FC<WorkspaceBodyProps> = ({
 }) => {
   const activeSurface = useWorkspaceSurfaceStore((s) => s.activeSurface);
   useLiveAppCatalogSync();
+  const footerMaskSurface =
+    activeSurface.kind === 'agentic-os-home'
+      ? 'var(--ds-color-bg-app)'
+      : 'var(--ds-color-bg-scene)';
 
   return (
     <SessionProfileProvider>
@@ -74,7 +78,10 @@ const WorkspaceBody: React.FC<WorkspaceBodyProps> = ({
       <WorkDock />
 
       {/* Bottom-left floating: More menu (Agentic OS, Shell, �? */}
-      <div className="sparo-workspace-body__nav-footer">
+      <div
+        className="sparo-workspace-body__nav-footer"
+        style={{ '--sparo-workspace-footer-mask-bg': footerMaskSurface } as React.CSSProperties}
+      >
         <WorkspaceFooterActions />
       </div>
 

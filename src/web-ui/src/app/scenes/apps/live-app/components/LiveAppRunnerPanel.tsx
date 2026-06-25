@@ -7,6 +7,14 @@ import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
 import { useI18n } from '@/infrastructure/i18n';
 import { createLogger } from '@/shared/utils/logger';
 import type { LiveAppWorkbenchSessionMetadata } from '@/shared/types/session-history';
+import {
+  appScopeFromWorkspacePath,
+  appScopeIdentity,
+  normalizeAppScope,
+  systemAppScope,
+  type AppScope,
+  workspacePathFromAppScope,
+} from '@/shared/types/app-scope';
 import { useLiveAppStore } from '../liveAppStore';
 import LiveAppRunner from './LiveAppRunner';
 import './LiveAppRunnerPanel.scss';
@@ -15,6 +23,7 @@ const log = createLogger('LiveAppRunnerPanel');
 
 interface LiveAppRunnerPanelProps {
   appId?: string;
+  scope?: AppScope | null;
   workspacePath?: string;
   route?: string;
   tabId?: string;
@@ -24,6 +33,7 @@ interface LiveAppRunnerPanelProps {
 
 const LiveAppRunnerPanel: React.FC<LiveAppRunnerPanelProps> = ({
   appId,
+  scope,
   workspacePath,
   route,
   tabId,
@@ -38,6 +48,16 @@ const LiveAppRunnerPanel: React.FC<LiveAppRunnerPanelProps> = ({
   const [app, setApp] = useState<LiveApp | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const effectiveScope = useMemo(
+    () => normalizeAppScope(
+      scope ||
+      liveAppWorkbench?.scope ||
+      appScopeFromWorkspacePath(workspacePath) ||
+      systemAppScope(),
+    ),
+    [liveAppWorkbench?.scope, scope, workspacePath],
+  );
+  const effectiveWorkspacePath = workspacePathFromAppScope(effectiveScope);
 
   useEffect(() => {
     if (!appId) return;
@@ -55,7 +75,7 @@ const LiveAppRunnerPanel: React.FC<LiveAppRunnerPanelProps> = ({
       const loaded = await liveAppAPI.getLiveApp(
         appId,
         themeType ?? 'dark',
-        workspacePath,
+        effectiveWorkspacePath,
       );
       setApp(loaded);
       setError(null);
@@ -65,7 +85,7 @@ const LiveAppRunnerPanel: React.FC<LiveAppRunnerPanelProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [appId, themeType, workspacePath]);
+  }, [appId, effectiveWorkspacePath, themeType]);
 
   useEffect(() => {
     void load();
@@ -77,12 +97,12 @@ const LiveAppRunnerPanel: React.FC<LiveAppRunnerPanelProps> = ({
         app.id,
         app.runtime?.source_revision ?? 'runtime',
         themeType ?? 'dark',
-        workspacePath ?? '',
+        appScopeIdentity(effectiveScope),
         route ?? '/',
         tabId ?? '',
       ].join(':')
       : 'empty',
-    [app, route, tabId, themeType, workspacePath],
+    [app, effectiveScope, route, tabId, themeType],
   );
 
   if (!appId) {
@@ -128,7 +148,8 @@ const LiveAppRunnerPanel: React.FC<LiveAppRunnerPanelProps> = ({
             route={route}
             tabId={tabId}
             sessionId={sessionId}
-            workspacePath={workspacePath}
+            scope={effectiveScope}
+            workspacePath={effectiveWorkspacePath}
             liveAppWorkbench={liveAppWorkbench}
           />
         </React.Suspense>

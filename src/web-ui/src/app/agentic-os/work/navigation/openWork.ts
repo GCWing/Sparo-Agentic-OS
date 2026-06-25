@@ -3,13 +3,27 @@ import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
 import { useWorkDockStore } from '@/app/stores/workDockStore';
 import type { WorkRecord, WorkSurfaceRef } from '../domain/workTypes';
 import { resolveWorkSurface } from './workSurfaceResolver';
-import { openLiveApp } from '@/app/scenes/apps/live-app/liveAppWorkbenchService';
+import { openLiveAppSurface } from '@/app/scenes/apps/live-app/liveAppWorkbenchService';
 import type { WorkspaceSurfaceContext } from '@/app/navigation/workspaceSurfaceTypes';
+import { appScopeFromWorkspacePath, systemAppScope, type AppScope } from '@/shared/types/app-scope';
+import type { WorkAppRef } from '../domain/workTypes';
+import {
+  projectRuntimeScopeFromWorkspacePath,
+  systemRuntimeScope,
+  type RuntimeScope,
+} from '@/shared/types/runtime-scope';
+
+function runtimeScopeFromWork(work: WorkRecord): RuntimeScope {
+  return work.scope.kind === 'workspace'
+    ? projectRuntimeScopeFromWorkspacePath(work.scope.workspacePath) ?? systemRuntimeScope()
+    : systemRuntimeScope();
+}
 
 export function openWorkCenterHome(): void {
   const store = useWorkDockStore.getState();
   store.setWorkCenterScope({ kind: 'open' });
   store.setWorkCenterWorkspaceFilter({ kind: 'all' });
+  store.setWorkCenterAppFilter({ kind: 'all' });
   store.setWorkCenterGrouping('priority');
   store.setWorkCenterSelectedWorkId(null);
   openWorkspaceScene('work-center');
@@ -19,22 +33,37 @@ export function openWorkInCenter(workId: string): void {
   const store = useWorkDockStore.getState();
   store.setWorkCenterScope({ kind: 'all' });
   store.setWorkCenterWorkspaceFilter({ kind: 'all' });
+  store.setWorkCenterAppFilter({ kind: 'all' });
   store.setWorkCenterGrouping('priority');
   store.setWorkCenterSelectedWorkId(workId);
   openWorkspaceScene('work-center');
 }
 
+export function openWorkCenterForApp(app: WorkAppRef): void {
+  const store = useWorkDockStore.getState();
+  store.setWorkCenterScope({ kind: 'open' });
+  store.setWorkCenterWorkspaceFilter({ kind: 'all' });
+  store.setWorkCenterAppFilter({ kind: 'app', app });
+  store.setWorkCenterGrouping('priority');
+  store.setWorkCenterSelectedWorkId(null);
+  openWorkspaceScene('work-center');
+}
+
 export async function openWork(work: WorkRecord): Promise<void> {
   const surface = resolveWorkSurface(work);
+  const runtimeScope = runtimeScopeFromWork(work);
   await openWorkSurface(surface, work.id, {
-    workspacePath: work.scope.kind === 'workspace' ? work.scope.workspacePath : undefined,
+    runtimeScope,
+    scope: work.scope.kind === 'workspace'
+      ? appScopeFromWorkspacePath(work.scope.workspacePath) ?? systemAppScope()
+      : systemAppScope(),
   });
 }
 
 export async function openWorkSurface(
   surface: WorkSurfaceRef,
   fallbackWorkId: string,
-  options: { workspacePath?: string | null } = {}
+  options: { scope?: AppScope | null; runtimeScope?: RuntimeScope | null } = {}
 ): Promise<void> {
   const context: WorkspaceSurfaceContext = { kind: 'work', workId: fallbackWorkId };
 
@@ -44,8 +73,8 @@ export async function openWorkSurface(
       await openMainSession(surface.sessionId, { context });
       return;
     case 'live_app':
-      await openLiveApp(surface.appId, {
-        workspacePath: options.workspacePath,
+      await openLiveAppSurface(surface.appId, {
+        scope: options.scope ?? systemAppScope(),
         context,
       });
       return;
@@ -53,7 +82,7 @@ export async function openWorkSurface(
       openWorkInCenter(surface.workId);
       return;
     case 'application_surface':
-      openWorkspaceScene('apps', { context });
+      openWorkspaceScene('apps', { context, scope: options.runtimeScope ?? systemRuntimeScope() });
       return;
     case 'os_agent_home':
       openWorkInCenter(fallbackWorkId);

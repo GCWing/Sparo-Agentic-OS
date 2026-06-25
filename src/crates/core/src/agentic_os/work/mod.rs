@@ -7,6 +7,7 @@ pub mod record;
 pub mod runtime_bridge;
 pub mod service;
 pub mod store;
+pub mod subject;
 pub mod subscriber;
 pub mod surface;
 pub mod title;
@@ -29,10 +30,13 @@ pub use runtime_bridge::{
 pub use service::{
     AdvanceWorkRequest, AdvanceWorkResponse, ControlWorkAction, ControlWorkRequest,
     ControlWorkResponse, CreateWorkRequest, DispatchNewWorkRequest, DispatchWorkRequest,
-    DispatchWorkResponse, PrimarySurfacePolicy, StartWorkRequest, StartWorkResponse,
-    UpdateWorkRequest, WorkService,
+    DispatchWorkResponse, LinkSessionToWorkRequest, PrimarySurfacePolicy, ResolveAppWorkRequest,
+    ResolveAppWorkResponse, StartWorkRequest, StartWorkResponse, UpdateWorkRequest, WorkService,
 };
 pub use store::{default_work_store, FileWorkStore, MemoryWorkStore, WorkStore};
+pub use subject::{
+    WorkAppIntent, WorkAppKind, WorkAppRef, WorkAppRelation, WorkAppRelationRole, WorkSubject,
+};
 pub use subscriber::WorkEventSubscriber;
 pub use surface::WorkSurfaceRef;
 pub use title::{WorkTitleSource, WorkTitleState};

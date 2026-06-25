@@ -18,7 +18,7 @@ import { useSessionModeStore } from '@/app/stores/sessionModeStore';
 import type { SessionMode } from '@/app/stores/sessionModeStore';
 import { useWorkStore } from '@/app/agentic-os/work/data/workStore';
 import { openWork } from '@/app/agentic-os/work/navigation/openWork';
-import type { WorkRecord } from '@/app/agentic-os/work/domain/workTypes';
+import type { WorkAppRef, WorkRecord } from '@/app/agentic-os/work/domain/workTypes';
 import type { WorkspaceInfo } from '@/shared/types';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
@@ -147,8 +147,9 @@ export async function launchWorkForChoice(params: {
   rememberWorkspace: (workspaceId: string) => Promise<WorkspaceInfo>;
   title?: string;
   objective?: string;
+  appRef?: WorkAppRef;
 }): Promise<WorkRecord> {
-  const { agentChoice, workspace, rememberWorkspace, title, objective } = params;
+  const { agentChoice, workspace, rememberWorkspace, title, objective, appRef } = params;
   const liveAppId = parseLiveAppWorkChoice(agentChoice);
   if (liveAppId) {
     const explicitTitle = title?.trim();
@@ -166,12 +167,19 @@ export async function launchWorkForChoice(params: {
       kind: 'app_workflow',
       title: explicitTitle || liveAppName,
       objective: explicitObjective || liveAppName,
+      subject: {
+        kind: 'app',
+        app: { kind: 'live_app', appId: liveAppId },
+        intent: 'run',
+      },
+      appRefs: [
+        { app: { kind: 'live_app', appId: liveAppId }, role: 'executor' },
+      ],
       scope: workspace
         ? { kind: 'workspace', workspacePath: workspace.rootPath }
         : { kind: 'system' },
       visibility: 'primary',
       primarySurfacePolicy: 'live_app',
-      liveAppId,
       titleState: explicitTitle
         ? { source: 'user', locked: true }
         : { source: 'live_app', locked: false, subjectRef: liveAppId },
@@ -199,9 +207,13 @@ export async function launchWorkForChoice(params: {
   syncSessionModeStore(descriptor);
 
   const work = await useWorkStore.getState().createWork({
-    kind: 'multi_step',
+    kind: appRef ? 'app_workflow' : 'multi_step',
     title: workTitle,
     objective: workObjective,
+    subject: appRef
+      ? { kind: 'app', app: appRef, intent: 'run' }
+      : { kind: 'goal' },
+    appRefs: appRef ? [{ app: appRef, role: 'executor' }] : [],
     scope: workspace
       ? { kind: 'workspace', workspacePath: workspace.rootPath }
       : { kind: 'system' },

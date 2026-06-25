@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { WorkCategory } from '@/app/agentic-os/work/domain/workClassification';
+import type { WorkAppRef } from '@/app/agentic-os/work/domain/workTypes';
 
 export type WorkCenterScope =
   | { kind: 'open' }
@@ -14,6 +15,10 @@ export type WorkCenterScope =
 export type WorkCenterWorkspaceFilter =
   | { kind: 'all' }
   | { kind: 'workspace'; id: string };
+
+export type WorkCenterAppFilter =
+  | { kind: 'all' }
+  | { kind: 'app'; app: WorkAppRef };
 
 export type WorkCenterGrouping = 'priority' | 'kind' | 'status' | 'time';
 export type WorkCenterView = 'work' | 'background';
@@ -35,6 +40,9 @@ interface WorkDockStore {
 
   workCenterWorkspaceFilter: WorkCenterWorkspaceFilter;
   setWorkCenterWorkspaceFilter: (filter: WorkCenterWorkspaceFilter) => void;
+
+  workCenterAppFilter: WorkCenterAppFilter;
+  setWorkCenterAppFilter: (filter: WorkCenterAppFilter) => void;
 
   workCenterGrouping: WorkCenterGrouping;
   setWorkCenterGrouping: (grouping: WorkCenterGrouping) => void;
@@ -67,6 +75,9 @@ export const useWorkDockStore = create<WorkDockStore>((set) => ({
 
   workCenterWorkspaceFilter: { kind: 'all' },
   setWorkCenterWorkspaceFilter: (filter) => set({ workCenterWorkspaceFilter: filter }),
+
+  workCenterAppFilter: { kind: 'all' },
+  setWorkCenterAppFilter: (filter) => set({ workCenterAppFilter: filter }),
 
   workCenterGrouping: 'priority',
   setWorkCenterGrouping: (grouping) => set({ workCenterGrouping: grouping }),

@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use super::ids::WorkId;
 use super::record::WorkRecord;
+use super::subject::{WorkAppRelation, WorkSubject};
 use super::surface::WorkSurfaceRef;
 use super::types::{WorkKind, WorkScope, WorkStatus};
 
@@ -12,6 +13,8 @@ pub struct WorkProjection {
     pub title: String,
     pub objective: String,
     pub status: WorkStatus,
+    pub subject: WorkSubject,
+    pub app_refs: Vec<WorkAppRelation>,
     pub scope: WorkScope,
     pub primary_surface: WorkSurfaceRef,
     pub running: bool,
@@ -26,6 +29,8 @@ impl From<&WorkRecord> for WorkProjection {
             title: record.title.clone(),
             objective: record.objective.clone(),
             status: record.status,
+            subject: record.subject.clone(),
+            app_refs: record.app_refs.clone(),
             scope: record.scope.clone(),
             primary_surface: record.primary_surface.clone(),
             running: record

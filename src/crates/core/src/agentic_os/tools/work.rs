@@ -4,7 +4,7 @@ use serde_json::{json, Value};
 use crate::agentic_os::work::{
     AdvanceWorkRequest, ControlWorkAction, ControlWorkRequest, PrimarySurfacePolicy,
     StartWorkRequest, WorkAssignmentKind, WorkAssignmentRef, WorkId, WorkKind, WorkOwnerRef,
-    WorkProjection, WorkRecord, WorkScope, WorkService, WorkStatus, WorkVisibility,
+    WorkProjection, WorkRecord, WorkScope, WorkService, WorkStatus, WorkSubject, WorkVisibility,
 };
 use crate::util::errors::{BitFunError, BitFunResult};
 
@@ -76,13 +76,14 @@ async fn start_work(service: &WorkService, input: WorkInput) -> BitFunResult<Val
             title: required_string(input.title, "title")?,
             objective: required_string(input.objective, "objective")?,
             instructions: required_string(input.instructions, "instructions")?,
+            subject: WorkSubject::Goal,
+            app_refs: Vec::new(),
             scope: input
                 .scope
                 .ok_or_else(|| BitFunError::validation("scope is required for action=start"))?,
             visibility: WorkVisibility::Primary,
             primary_surface_policy: PrimarySurfacePolicy::WorkSession,
             assignment: Some(assignment.unwrap_or_else(|| WorkAssignmentRef::agent("agentic"))),
-            live_app_id: None,
             idempotency_key: None,
             owner: input.owner,
         })

@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "workspacePath": { "type": "string" },
+    "project": { "type": "object" },
+    "target": { "type": ["object", "null"] },
+    "app": { "type": "object" },
+    "build": { "type": ["object", "null"] },
+    "runtime": { "type": ["object", "null"] },
+    "screen": { "type": ["object", "null"] },
+    "selection": { "type": ["object", "null"] },
+    "diagnostics": { "type": "array" }
+  }
+}

@@ -10,6 +10,8 @@ function createWork(): WorkRecord {
     objective: 'Run E2E confirmation',
     status: 'running',
     visibility: 'primary',
+    subject: { kind: 'goal' },
+    appRefs: [],
     scope: { kind: 'system' },
     primarySurface: { kind: 'work_session', sessionId: 'session-1' },
     surfaces: [],

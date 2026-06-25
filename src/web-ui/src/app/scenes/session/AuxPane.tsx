@@ -5,17 +5,18 @@
  * Renamed from panels/ContentPanel. All logic preserved.
  */
 
-import { forwardRef, useEffect, useRef, useImperativeHandle, useCallback } from 'react';
+import { forwardRef, useEffect, useLayoutEffect, useRef, useImperativeHandle, useCallback } from 'react';
 import { ContentCanvas, useCanvasStore } from '../../components/panels/content-canvas';
 import {
   switchAgentCanvasWorkspace,
   removeAgentCanvasSnapshot,
 } from '../../components/panels/content-canvas/stores';
 import { workspaceManager } from '@/infrastructure/services/business/workspaceManager';
-import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
+import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import type { PanelContent as OldPanelContent } from '../../components/panels/base/types';
 import type { PanelContent } from '../../components/panels/content-canvas/types';
 import { createLogger } from '@/shared/utils/logger';
+import { isSamePath } from '@/shared/utils/pathUtils';
 
 import './AuxPane.scss';
 
@@ -36,8 +37,10 @@ interface AuxPaneProps {
 
 const AuxPane = forwardRef<AuxPaneRef, AuxPaneProps>(
   ({ workspacePath, isSceneActive = true }, ref) => {
-    const { workspace } = useLastUsedWorkspace();
-    const workspaceId = workspace?.id;
+    const { openedWorkspacesList } = useWorkspaceContext();
+    const workspaceId = workspacePath
+      ? openedWorkspacesList.find(workspace => isSamePath(workspace.rootPath, workspacePath))?.id
+      : undefined;
 
     const {
       addTab,
@@ -99,7 +102,7 @@ const AuxPane = forwardRef<AuxPaneRef, AuxPaneProps>(
 
     const prevWorkspaceIdRef = useRef<string | undefined>(undefined);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
       const next = workspaceId;
       const prev = prevWorkspaceIdRef.current;
       if (prev === next) return;

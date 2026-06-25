@@ -19,7 +19,10 @@ import type { MenuItem } from '@/shared/context-menu-system/types/menu.types';
 import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
 import { useTerminalSceneStore } from '@/app/stores/terminalSceneStore';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
+import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
+import { projectRuntimeScopeFromWorkspace } from '@/shared/types/runtime-scope';
 import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
+import { isSamePath } from '@/shared/utils/pathUtils';
 import { getTerminalService } from '@/tools/terminal';
 import type { ShellInfo } from '@/tools/terminal';
 import { useShellStore } from './shellStore';
@@ -52,10 +55,14 @@ function resolveShellNavView(manualActive: boolean, agentActive: boolean): Shell
   return 'agent';
 }
 
-const ShellNav: React.FC = () => {
+interface ShellNavProps {
+  workspacePath?: string;
+}
+
+const ShellNav: React.FC<ShellNavProps> = ({ workspacePath }) => {
   const { t: tNav } = useI18n('shell/navigation');
   const { t: tHeader } = useI18n('shell/header');
-  const { lastUsedWorkspace, openedWorkspacesList, workspaceName, rememberWorkspace } = useWorkspaceContext();
+  const { lastUsedWorkspace, openedWorkspacesList, workspaceName } = useWorkspaceContext();
   const activeFilters = useShellStore((s) => s.activeFilters);
   const setActiveFilters = useShellStore((s) => s.setActiveFilters);
   const activeSurface = useWorkspaceSurfaceStore((s) => s.activeSurface);
@@ -81,7 +88,7 @@ const ShellNav: React.FC = () => {
     deleteEntry,
     openEditModal,
     saveEdit,
-  } = useShellEntries();
+  } = useShellEntries(workspacePath);
 
   const manualFilterActive = activeFilters.includes('manual');
   const agentFilterActive = activeFilters.includes('agent');
@@ -131,6 +138,14 @@ const ShellNav: React.FC = () => {
     () => visibleSections.reduce((sum, section) => sum + section.entries.length, 0),
     [visibleSections],
   );
+  const scopedWorkspace = useMemo(() => {
+    if (!workspacePath) {
+      return lastUsedWorkspace;
+    }
+    return openedWorkspacesList.find(workspace => isSamePath(workspace.rootPath, workspacePath)) ?? null;
+  }, [lastUsedWorkspace, openedWorkspacesList, workspacePath]);
+  const scopedWorkspaceName = scopedWorkspace?.name ?? (workspacePath ? '' : workspaceName);
+  const scopedWorkspaceId = scopedWorkspace?.id ?? null;
   const hasMultipleWorkspaces = openedWorkspacesList.length > 1;
   const hasVisibleContent = visibleEntryCount > 0;
   const {
@@ -221,11 +236,16 @@ const ShellNav: React.FC = () => {
 
   const handleSelectWorkspace = useCallback(async (workspaceId: string) => {
     setWorkspaceMenuOpen(false);
-    if (workspaceId === lastUsedWorkspace?.id) {
+    if (workspaceId === scopedWorkspaceId) {
       return;
     }
-    await rememberWorkspace(workspaceId);
-  }, [lastUsedWorkspace?.id, rememberWorkspace, setWorkspaceMenuOpen]);
+    const workspace = openedWorkspacesList.find(candidate => candidate.id === workspaceId);
+    const scope = projectRuntimeScopeFromWorkspace(workspace);
+    if (!scope) {
+      return;
+    }
+    openWorkspaceScene('shell', { scope });
+  }, [openedWorkspacesList, scopedWorkspaceId, setWorkspaceMenuOpen]);
 
   const openContextMenu = useCallback((
     event: React.MouseEvent<HTMLElement>,
@@ -333,12 +353,12 @@ const ShellNav: React.FC = () => {
         <div className="sparo-shell-nav__header-main">
           <span className="sparo-shell-nav__title">{tNav('shell.title')}</span>
           <ShellNavWorkspaceSwitcher
-            workspaceName={workspaceName}
+            workspaceName={scopedWorkspaceName}
             hasMultipleWorkspaces={hasMultipleWorkspaces}
             workspaceMenuOpen={workspaceMenuOpen}
             workspaceMenuPosition={workspaceMenuPosition}
             openedWorkspacesList={openedWorkspacesList}
-            lastUsedWorkspaceId={lastUsedWorkspace?.id}
+            lastUsedWorkspaceId={scopedWorkspaceId ?? undefined}
             workspaceMenuRef={workspaceMenuRef}
             workspaceTriggerRef={workspaceTriggerRef}
             switchWorkspaceLabel={tHeader('switchWorkspace')}

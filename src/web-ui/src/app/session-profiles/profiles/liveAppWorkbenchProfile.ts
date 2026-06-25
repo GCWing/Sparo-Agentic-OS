@@ -52,6 +52,7 @@ function buildWorkbenchTabDescriptor(
       tabId: tab.id,
       route: tab.route,
       workspacePath: binding.workspacePath || undefined,
+      scope: binding.scope,
       liveAppWorkbench: binding,
     },
     metadata: {
@@ -59,6 +60,7 @@ function buildWorkbenchTabDescriptor(
       liveAppWorkbenchSessionId: sessionId,
       liveAppWorkbenchAppId: binding.appId,
       liveAppWorkbenchTabId: tab.id,
+      appScope: binding.scope,
       duplicateCheckKey,
     },
     duplicateCheckKey,

@@ -155,7 +155,7 @@ export function useAppsData() {
     try {
       const toolsPromise = fetchTools();
       const agents = await agentAPI.listAgents().catch(() => []);
-      const generatedAgentApps = await agentAppAPI.listAgentApps(workspacePath || undefined).catch(() => []);
+      const generatedAgentApps = await agentAppAPI.listAgentApps(undefined).catch(() => []);
 
       if (requestId !== loadRequestIdRef.current) return;
 

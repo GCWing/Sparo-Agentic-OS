@@ -3,6 +3,19 @@ import { ProcessingIndicator } from '@/flow_chat/components/modern/ProcessingInd
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import type { WorkspaceSurface } from '../navigation/workspaceSurfaceTypes';
 import type { WorkspaceSceneId } from '../navigation/workspaceSceneTypes';
+import {
+  normalizeAppScope,
+  type AppScope,
+} from '@/shared/types/app-scope';
+import {
+  appScopeFromRuntimeScope,
+  projectWorkspacePathFromRuntimeScope,
+  runtimeScopeFromSession,
+  runtimeScopeIdentity,
+  systemRuntimeScope,
+  type RuntimeScope,
+} from '@/shared/types/runtime-scope';
+import { useFlowChatStoreSelector } from '@/flow_chat/hooks/useFlowChatStoreSelector';
 import SessionScene from '../scenes/session/SessionScene';
 import SettingsScene from '../scenes/settings/SettingsScene';
 import AppsScene from '../scenes/apps/AppsScene';
@@ -20,16 +33,26 @@ const WorkCenterScene = lazy(() => import('../scenes/work-center/WorkCenterScene
 
 interface SurfaceRendererProps {
   surface: WorkspaceSurface;
-  workspacePath?: string;
   isEntering?: boolean;
 }
 
 const SurfaceRenderer: React.FC<SurfaceRendererProps> = ({
   surface,
-  workspacePath,
   isEntering = false,
 }) => {
   const { t } = useI18n('common');
+  const sessionScope = useFlowChatStoreSelector(
+    (state) => {
+      if (surface.kind === 'agentic-os-home') {
+        return systemRuntimeScope();
+      }
+      if (surface.kind !== 'session') {
+        return null;
+      }
+      return runtimeScopeFromSession(state.sessions.get(surface.sessionId));
+    },
+    (left, right) => runtimeScopeIdentity(left) === runtimeScopeIdentity(right),
+  );
 
   return (
     <div className="workspace-surface-renderer">
@@ -46,7 +69,7 @@ const SurfaceRenderer: React.FC<SurfaceRendererProps> = ({
             </div>
           }
         >
-          {renderSurface(surface, workspacePath, isEntering)}
+          {renderSurface(surface, sessionScope, isEntering)}
         </Suspense>
       </div>
     </div>
@@ -55,14 +78,14 @@ const SurfaceRenderer: React.FC<SurfaceRendererProps> = ({
 
 function renderSurface(
   surface: WorkspaceSurface,
-  workspacePath: string | undefined,
+  sessionScope: RuntimeScope | null,
   isEntering: boolean
 ): React.ReactNode {
   switch (surface.kind) {
     case 'agentic-os-home':
       return (
         <SessionScene
-          workspacePath={workspacePath}
+          workspacePath={undefined}
           surfaceSessionId={surface.agenticOsSessionId}
           isEntering={isEntering}
           isActive
@@ -71,21 +94,28 @@ function renderSurface(
     case 'session':
       return (
         <SessionScene
-          workspacePath={workspacePath}
+          workspacePath={projectWorkspacePathFromRuntimeScope(sessionScope)}
           surfaceSessionId={surface.kind === 'session' ? surface.sessionId : undefined}
           isEntering={isEntering}
           isActive
         />
       );
     case 'scene':
-      return renderSceneSurface(
-        surface.sceneId,
-        surface.workspacePath === null ? undefined : surface.workspacePath ?? workspacePath
-      );
+      {
+        const sceneWorkspacePath = projectWorkspacePathFromRuntimeScope(surface.scope);
+        const sceneAppScope = surface.appScope
+          ? normalizeAppScope(surface.appScope)
+          : appScopeFromRuntimeScope(surface.scope);
+        return renderSceneSurface(surface.sceneId, sceneWorkspacePath, sceneAppScope);
+      }
   }
 }
 
-function renderSceneSurface(id: WorkspaceSceneId, workspacePath?: string): React.ReactNode {
+function renderSceneSurface(
+  id: WorkspaceSceneId,
+  workspacePath: string | undefined,
+  appScope: AppScope
+): React.ReactNode {
   switch (id) {
     case 'terminal':
       return <TerminalScene isActive />;
@@ -104,14 +134,20 @@ function renderSceneSurface(id: WorkspaceSceneId, workspacePath?: string): React
     case 'tools':
       return <ToolsScene />;
     case 'shell':
-      return <ShellScene isActive />;
+      return <ShellScene workspacePath={workspacePath} isActive />;
     case 'panel-view':
       return <PanelViewScene workspacePath={workspacePath} />;
     case 'work-center':
       return <WorkCenterScene />;
     default:
       if (typeof id === 'string' && id.startsWith('live-app:')) {
-        return <LiveAppScene appId={id.slice('live-app:'.length)} />;
+        return (
+          <LiveAppScene
+            appId={id.slice('live-app:'.length)}
+            workspacePath={workspacePath}
+            scope={appScope}
+          />
+        );
       }
       return null;
   }

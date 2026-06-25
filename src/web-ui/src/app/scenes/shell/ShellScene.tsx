@@ -54,10 +54,11 @@ function persistShellNavWidth(width: number): void {
 }
 
 interface ShellSceneProps {
+  workspacePath?: string;
   isActive?: boolean;
 }
 
-const ShellScene: React.FC<ShellSceneProps> = ({ isActive = true }) => {
+const ShellScene: React.FC<ShellSceneProps> = ({ workspacePath, isActive = true }) => {
   const { t } = useTranslation('flow-chat');
   const containerRef = useRef<HTMLDivElement>(null);
   const animationFrameRef = useRef<number | null>(null);
@@ -158,7 +159,7 @@ const ShellScene: React.FC<ShellSceneProps> = ({ isActive = true }) => {
         className="sparo-shell-scene__nav"
         style={{ width: navWidth }}
       >
-        <ShellNav />
+        <ShellNav workspacePath={workspacePath} />
       </div>
       <div
         className={[

@@ -10,12 +10,15 @@ pub use snapshot::{
 };
 pub use work::{
     advance_work, advance_work_with_service, control_work, control_work_with_service, create_work,
-    create_work_with_service, dispatch_work, dispatch_work_with_service, get_work, list_works,
-    list_works_with_service, start_work, start_work_with_service, update_work,
-    update_work_with_service, AgenticOsAdvanceWorkRequest, AgenticOsAdvanceWorkResponse,
-    AgenticOsControlWorkRequest, AgenticOsControlWorkResponse, AgenticOsCreateWorkRequest,
-    AgenticOsCreateWorkResponse, AgenticOsDispatchWorkRequest, AgenticOsDispatchWorkResponse,
-    AgenticOsGetWorkRequest, AgenticOsGetWorkResponse, AgenticOsListWorksRequest,
-    AgenticOsListWorksResponse, AgenticOsStartWorkRequest, AgenticOsStartWorkResponse,
+    create_work_with_service, dispatch_work, dispatch_work_with_service, get_work,
+    link_session_to_work, link_session_to_work_with_service, list_works, list_works_with_service,
+    resolve_app_work, resolve_app_work_with_service, start_work, start_work_with_service,
+    update_work, update_work_with_service, AgenticOsAdvanceWorkRequest,
+    AgenticOsAdvanceWorkResponse, AgenticOsControlWorkRequest, AgenticOsControlWorkResponse,
+    AgenticOsCreateWorkRequest, AgenticOsCreateWorkResponse, AgenticOsDispatchWorkRequest,
+    AgenticOsDispatchWorkResponse, AgenticOsGetWorkRequest, AgenticOsGetWorkResponse,
+    AgenticOsLinkSessionToWorkRequest, AgenticOsLinkSessionToWorkResponse,
+    AgenticOsListWorksRequest, AgenticOsListWorksResponse, AgenticOsResolveAppWorkRequest,
+    AgenticOsResolveAppWorkResponse, AgenticOsStartWorkRequest, AgenticOsStartWorkResponse,
     AgenticOsUpdateWorkRequest, AgenticOsUpdateWorkResponse,
 };

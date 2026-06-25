@@ -802,6 +802,56 @@ impl SessionManager {
         self.sessions.get(session_id).map(|s| s.clone())
     }
 
+    pub async fn update_session_workspace_path(
+        &self,
+        session_id: &str,
+        workspace_path: &str,
+    ) -> BitFunResult<()> {
+        let normalized_workspace_path = workspace_path.trim();
+        if normalized_workspace_path.is_empty() {
+            return Err(BitFunError::validation(
+                "workspace_path is required".to_string(),
+            ));
+        }
+
+        let session_to_save = {
+            let Some(mut session) = self.sessions.get_mut(session_id) else {
+                return Err(BitFunError::NotFound(format!(
+                    "Session not found: {}",
+                    session_id
+                )));
+            };
+            session.config.workspace_path = Some(normalized_workspace_path.to_string());
+            session.updated_at = SystemTime::now();
+            session.last_activity_at = SystemTime::now();
+            session.clone()
+        };
+
+        if self.config.enable_persistence && Self::should_persist_session(&session_to_save) {
+            let effective_path =
+                Self::effective_workspace_path_from_config(&session_to_save.config)
+                    .await
+                    .ok_or_else(|| {
+                        BitFunError::Validation(format!(
+                            "Session workspace_path is missing: {}",
+                            session_id
+                        ))
+                    })?;
+            self.session_workspace_index
+                .insert(session_id.to_string(), effective_path.clone());
+            self.persistence_manager
+                .save_session(&effective_path, &session_to_save)
+                .await?;
+        }
+
+        info!(
+            "Session workspace updated: session_id={}, workspace_path={}",
+            session_id, normalized_workspace_path
+        );
+
+        Ok(())
+    }
+
     pub async fn get_effective_workspace_path(&self, session_id: &str) -> Option<PathBuf> {
         self.effective_session_workspace_path(session_id).await
     }

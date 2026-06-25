@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { WorkspaceInfo } from '@/shared/types';
-import type { WorkCenterScope, WorkCenterWorkspaceFilter } from '@/app/stores/workDockStore';
+import type { WorkCenterAppFilter, WorkCenterScope, WorkCenterWorkspaceFilter } from '@/app/stores/workDockStore';
 import { useWorks } from './useWorks';
 import { filterWorkProjections } from '../data/workSelectors';
 import type { WorkProjection } from '../projections/workProjection';
@@ -24,6 +24,7 @@ export interface ScopedWorksResult {
 export function useScopedWorks(
   scope: WorkCenterScope,
   workspaceFilter: WorkCenterWorkspaceFilter,
+  appFilter: WorkCenterAppFilter,
   workspaces: WorkspaceInfo[],
   searchQuery: string
 ): ScopedWorksResult {
@@ -45,6 +46,11 @@ export function useScopedWorks(
       if (workspaceFilter.kind === 'all') return true;
       const workspace = workspaces.find((item) => item.id === workspaceFilter.id);
       return Boolean(workspace && work.workspacePath === workspace.rootPath);
+    }).filter((work) => {
+      if (appFilter.kind === 'all') return true;
+      return work.appRefs.some((relation) => (
+        relation.app.kind === appFilter.app.kind && relation.app.appId === appFilter.app.appId
+      ));
     });
     const all = filterWorkProjections(scoped, searchQuery);
     const map = new Map<WorkProjection['kind'], WorkProjection[]>();
@@ -59,5 +65,5 @@ export function useScopedWorks(
       runningCount: all.filter((work) => isWorkRunningStatus(work.status)).length,
       totalCount: all.length,
     };
-  }, [projections, scope, searchQuery, workspaceFilter, workspaces]);
+  }, [appFilter, projections, scope, searchQuery, workspaceFilter, workspaces]);
 }

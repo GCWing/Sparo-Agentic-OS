@@ -278,6 +278,16 @@
     "all": "All workspaces",
     "searchPlaceholder": "Find workspace"
   },
+  "appFilter": {
+    "all": "All apps",
+    "searchPlaceholder": "Find app",
+    "kind": {
+      "live_app": "{{count}} live app work",
+      "agent_app": "{{count}} agent app work",
+      "bridge_app": "{{count}} bridge app work",
+      "system_app": "{{count}} system app work"
+    }
+  },
   "workspaceOverview": {
     "searchPlaceholder": "Search workspaces...",
     "empty": "No workspaces",
