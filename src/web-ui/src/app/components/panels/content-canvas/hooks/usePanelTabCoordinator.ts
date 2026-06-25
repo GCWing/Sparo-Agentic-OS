@@ -16,12 +16,35 @@ import { useApp } from '@/app/hooks/useApp';
 import { useSessionProfile } from '@/app/session-profiles';
 import { useActiveSession } from '@/flow_chat/store/modernFlowChatStore';
 import { useLiveAppStore } from '@/app/scenes/apps/live-app/liveAppStore';
+import { useWorkStore } from '@/app/agentic-os/work/data/workStore';
+import {
+  appScopeFromWorkspacePath,
+  systemAppScope,
+  type AppScope,
+} from '@/shared/types/app-scope';
 import { TAB_EVENTS } from '../types';
 import { loadPanelWidth, STORAGE_KEYS, RIGHT_PANEL_CONFIG } from '@/app/layout/panelConfig';
 import type { EditorGroupId } from '../types';
 import { createLogger } from '@/shared/utils/logger';
 
 const log = createLogger('usePanelTabCoordinator');
+
+function workSessionScopeToAppScope(
+  sessionId: string | undefined,
+  works: ReturnType<typeof useWorkStore.getState>['works']
+): AppScope | undefined {
+  if (!sessionId) return undefined;
+  const work = works.find((candidate) =>
+    candidate.surfaces.some((surface) =>
+      (surface.kind === 'work_session' || surface.kind === 'agent_session') &&
+      surface.sessionId === sessionId
+    )
+  );
+  if (!work) return undefined;
+  return work.scope.kind === 'workspace'
+    ? appScopeFromWorkspacePath(work.scope.workspacePath) ?? systemAppScope()
+    : systemAppScope();
+}
 
 interface UsePanelTabCoordinatorOptions {
   /** Auto-collapse when all tabs are closed */
@@ -58,6 +81,7 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
   const { state, toggleRightPanel, updateRightPanelWidth } = useApp();
   const { profile } = useSessionProfile();
   const activeSession = useActiveSession();
+  const works = useWorkStore((store) => store.works);
 
   // Use refs to avoid stale closures and add guards
   const rightPanelCollapsedRef = useRef(
@@ -82,10 +106,17 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
     }
   }, [state?.layout, toggleRightPanel]);
 
-  // Read studioAppId for LiveAppStudio profile
-  const studioAppId = useLiveAppStore((s) =>
+  // Read studioAppId for LiveAppStudio profile.
+  const storeStudioAppId = useLiveAppStore((s) =>
     activeSession?.sessionId ? s.sessionAppIds[activeSession.sessionId] : undefined
   );
+  const agentSessionBinding = activeSession?.customMetadata?.agentSessionBinding;
+  const activeSessionAppScope =
+    agentSessionBinding?.scope ??
+    workSessionScopeToAppScope(activeSession?.sessionId, works);
+  const studioAppId = agentSessionBinding?.subject.kind === 'live-app'
+    ? agentSessionBinding.subject.id
+    : storeStudioAppId;
 
   /**
    * Expand right panel (set width first, then expand to avoid flicker).
@@ -173,6 +204,8 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
     const extra: Record<string, unknown> = {
       appId: studioAppId,
       tabTitle,
+      agentSessionBinding,
+      scope: activeSessionAppScope,
       liveAppWorkbench: activeSession.customMetadata?.liveAppWorkbench,
       customMetadata: activeSession.customMetadata,
     };
@@ -224,6 +257,8 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
     findTabByMetadata,
     profile,
     promoteTab,
+    activeSessionAppScope,
+    agentSessionBinding,
     studioAppId,
     switchToTab,
     updateTabContent,

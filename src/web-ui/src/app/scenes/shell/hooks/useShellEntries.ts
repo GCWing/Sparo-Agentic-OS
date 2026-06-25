@@ -33,8 +33,9 @@ export interface UseShellEntriesReturn {
   saveEdit: (input: SaveShellEntryInput) => void;
 }
 
-export function useShellEntries(): UseShellEntriesReturn {
-  const { workspacePath } = useLastUsedWorkspace();
+export function useShellEntries(scopedWorkspacePath?: string): UseShellEntriesReturn {
+  const { workspacePath: defaultWorkspacePath } = useLastUsedWorkspace();
+  const workspacePath = scopedWorkspacePath ?? defaultWorkspacePath;
 
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingTerminal, setEditingTerminal] = useState<EditingTerminalState | null>(null);

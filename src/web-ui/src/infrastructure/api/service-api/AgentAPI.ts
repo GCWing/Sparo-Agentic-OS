@@ -223,6 +223,11 @@ export interface UpdateSessionTitleRequest {
   storageScope?: SessionStorageScope;
 }
 
+export interface UpdateSessionWorkspaceRequest {
+  sessionId: string;
+  workspacePath: string;
+}
+
  
 export interface AgentInfo {
   id: string;
@@ -452,6 +457,14 @@ export class AgentAPI {
       return await api.invoke<string>('update_session_title', { request });
     } catch (error) {
       throw createTauriCommandError('update_session_title', error, request);
+    }
+  }
+
+  async updateSessionWorkspace(request: UpdateSessionWorkspaceRequest): Promise<void> {
+    try {
+      await api.invoke<void>('update_session_workspace', { request });
+    } catch (error) {
+      throw createTauriCommandError('update_session_workspace', error, request);
     }
   }
 

@@ -5,9 +5,11 @@ import { useWorks } from '@/app/agentic-os/work/hooks/useWorks';
 import { useScopedWorks } from '@/app/agentic-os/work/hooks/useScopedWorks';
 import { useWorkDockStore } from '@/app/stores/workDockStore';
 import type {
+  WorkCenterAppFilter,
   WorkCenterScope,
   WorkCenterWorkspaceFilter,
 } from '@/app/stores/workDockStore';
+import type { WorkAppRef } from '@/app/agentic-os/work/domain/workTypes';
 import {
   getWorkCategory,
   isWorkAttentionStatus,
@@ -35,6 +37,8 @@ const WorkCenterScene: React.FC = () => {
   const setScope = useWorkDockStore((state) => state.setWorkCenterScope);
   const workspaceFilter = useWorkDockStore((state) => state.workCenterWorkspaceFilter);
   const setWorkspaceFilter = useWorkDockStore((state) => state.setWorkCenterWorkspaceFilter);
+  const appFilter = useWorkDockStore((state) => state.workCenterAppFilter);
+  const setAppFilter = useWorkDockStore((state) => state.setWorkCenterAppFilter);
   const grouping = useWorkDockStore((state) => state.workCenterGrouping);
   const setGrouping = useWorkDockStore((state) => state.setWorkCenterGrouping);
   const selectedWorkId = useWorkDockStore((state) => state.workCenterSelectedWorkId);
@@ -66,7 +70,31 @@ const WorkCenterScene: React.FC = () => {
     setWorkspaceFilter({ kind: 'all' });
   }, [setWorkspaceFilter, workspaceFilter, workspaces]);
 
-  const scopedWorks = useScopedWorks(scope, workspaceFilter, workspaces, search);
+  const appOptions = useMemo(() => {
+    const map = new Map<string, { app: WorkAppRef; count: number }>();
+    for (const work of projections) {
+      for (const relation of work.appRefs) {
+        const key = `${relation.app.kind}:${relation.app.appId}`;
+        const current = map.get(key);
+        if (current) current.count += 1;
+        else map.set(key, { app: relation.app, count: 1 });
+      }
+    }
+    return Array.from(map.values()).sort((left, right) => (
+      left.app.appId.localeCompare(right.app.appId)
+      || left.app.kind.localeCompare(right.app.kind)
+    ));
+  }, [projections]);
+
+  useEffect(() => {
+    if (appFilter.kind !== 'app') return;
+    if (appOptions.some((option) => option.app.kind === appFilter.app.kind && option.app.appId === appFilter.app.appId)) {
+      return;
+    }
+    setAppFilter({ kind: 'all' });
+  }, [appFilter, appOptions, setAppFilter]);
+
+  const scopedWorks = useScopedWorks(scope, workspaceFilter, appFilter, workspaces, search);
 
   const handleScopeChange = (nextScope: WorkCenterScope) => {
     setWorkCenterView('work');
@@ -94,6 +122,10 @@ const WorkCenterScene: React.FC = () => {
       setScope({ kind: 'open' });
       setGrouping('priority');
     }
+  };
+
+  const handleAppFilterChange = (nextFilter: WorkCenterAppFilter) => {
+    setAppFilter(nextFilter);
   };
 
   const counts = useMemo(() => {
@@ -211,6 +243,8 @@ const WorkCenterScene: React.FC = () => {
             activeWorkspaces={activeWorkspaces}
             workspaceCounts={counts.workspaceCounts}
             workspaceFilter={workspaceFilter}
+            appFilter={appFilter}
+            appOptions={appOptions}
             result={scopedWorks}
             search={search}
             grouping={grouping}
@@ -219,6 +253,7 @@ const WorkCenterScene: React.FC = () => {
             onSearchChange={setSearch}
             onScopeChange={handleScopeChange}
             onWorkspaceFilterChange={handleWorkspaceFilterChange}
+            onAppFilterChange={handleAppFilterChange}
             onGroupingChange={setGrouping}
             onToggleGroup={toggleGroup}
             onSelectedWorkChange={setSelectedWorkId}

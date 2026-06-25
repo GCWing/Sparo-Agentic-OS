@@ -354,7 +354,7 @@ mod tests {
     use super::*;
     use crate::agentic_os::work::{
         WorkAssignmentRef, WorkDelegationContext, WorkId, WorkKind, WorkOwnerRef, WorkScope,
-        WorkStatus, WorkSurfaceRef, WorkVisibility,
+        WorkStatus, WorkSubject, WorkSurfaceRef, WorkVisibility,
     };
 
     fn owned_work(status: WorkStatus) -> WorkRecord {
@@ -364,6 +364,8 @@ mod tests {
             "Audit generated report".to_string(),
             "Decide whether the report is ready to show the user.".to_string(),
             WorkVisibility::Primary,
+            WorkSubject::Goal,
+            Vec::new(),
             WorkScope::System,
             WorkSurfaceRef::WorkSession {
                 session_id: "work-session".to_string(),

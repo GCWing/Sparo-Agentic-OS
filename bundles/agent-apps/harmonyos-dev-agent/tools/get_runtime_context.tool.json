@@ -1,0 +1,18 @@
+{
+  "name": "get_runtime_context",
+  "description": "Read the current HarmonyOS device, build, runtime, screenshot, hierarchy, and diagnostic context.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "workspacePath": { "type": "string" },
+      "includeDiagnostics": { "type": "boolean" }
+    }
+  },
+  "runtime": "javascript",
+  "entry": "tools/get_runtime_context.js",
+  "readonly": true,
+  "permissions": {},
+  "timeoutMs": 30000,
+  "maxOutputBytes": 24000
+}

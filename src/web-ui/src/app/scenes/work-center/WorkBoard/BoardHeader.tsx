@@ -4,16 +4,20 @@ import { Search, Select, type SelectOption } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import type { WorkspaceInfo } from '@/shared/types';
 import type {
+  WorkCenterAppFilter,
   WorkCenterGrouping,
   WorkCenterScope,
   WorkCenterWorkspaceFilter,
 } from '@/app/stores/workDockStore';
+import type { WorkAppRef } from '@/app/agentic-os/work/domain/workTypes';
 import './BoardHeader.scss';
 
 interface BoardHeaderProps {
   scope: WorkCenterScope;
   workspaces: WorkspaceInfo[];
   workspaceFilter: WorkCenterWorkspaceFilter;
+  appFilter: WorkCenterAppFilter;
+  appOptions: Array<{ app: WorkAppRef; count: number }>;
   totalCount: number;
   runningCount: number;
   search: string;
@@ -24,6 +28,7 @@ interface BoardHeaderProps {
   canClearFilters?: boolean;
   onSearchChange: (value: string) => void;
   onWorkspaceFilterChange: (filter: WorkCenterWorkspaceFilter) => void;
+  onAppFilterChange: (filter: WorkCenterAppFilter) => void;
   onClearFilters?: () => void;
   onGroupingChange: (value: WorkCenterGrouping) => void;
 }
@@ -32,6 +37,8 @@ const BoardHeader: React.FC<BoardHeaderProps> = ({
   scope,
   workspaces,
   workspaceFilter,
+  appFilter,
+  appOptions,
   totalCount,
   runningCount,
   search,
@@ -42,6 +49,7 @@ const BoardHeader: React.FC<BoardHeaderProps> = ({
   canClearFilters = false,
   onSearchChange,
   onWorkspaceFilterChange,
+  onAppFilterChange,
   onClearFilters,
   onGroupingChange,
 }) => {
@@ -71,6 +79,24 @@ const BoardHeader: React.FC<BoardHeaderProps> = ({
   ], [t, workspaces]);
 
   const selectedWorkspaceValue = workspaceFilter.kind === 'workspace' ? workspaceFilter.id : 'all';
+  const appSelectOptions = useMemo<SelectOption[]>(() => [
+    { label: t('appFilter.all'), value: 'all' },
+    ...appOptions.map((option) => ({
+      label: option.app.appId,
+      value: `${option.app.kind}:${option.app.appId}`,
+      description: t(`appFilter.kind.${option.app.kind}`, { count: option.count }),
+    })),
+  ], [appOptions, t]);
+  const appSelectByValue = useMemo(() => {
+    const map = new Map<string, WorkAppRef>();
+    for (const option of appOptions) {
+      map.set(`${option.app.kind}:${option.app.appId}`, option.app);
+    }
+    return map;
+  }, [appOptions]);
+  const selectedAppValue = appFilter.kind === 'app'
+    ? `${appFilter.app.kind}:${appFilter.app.appId}`
+    : 'all';
   const resolvedSearchPlaceholder = searchPlaceholder ?? t('search.placeholder');
 
   return (
@@ -121,6 +147,27 @@ const BoardHeader: React.FC<BoardHeaderProps> = ({
                       ? { kind: 'all' }
                       : { kind: 'workspace', id: nextValue }
                   );
+                }}
+              />
+            </>
+          ) : null}
+          {appOptions.length > 0 ? (
+            <>
+              <span className="bh-instrument__rule" aria-hidden="true" />
+              <Select
+                className={[
+                  'bh-workspace-select',
+                  selectedAppValue !== 'all' && 'is-filtered',
+                ].filter(Boolean).join(' ')}
+                size="small"
+                searchable={appOptions.length > 6}
+                options={appSelectOptions}
+                value={selectedAppValue}
+                searchPlaceholder={t('appFilter.searchPlaceholder')}
+                onChange={(value) => {
+                  const nextValue = String(value);
+                  const app = appSelectByValue.get(nextValue);
+                  onAppFilterChange(app ? { kind: 'app', app } : { kind: 'all' });
                 }}
               />
             </>

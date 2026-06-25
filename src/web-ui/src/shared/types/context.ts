@@ -23,7 +23,8 @@ export type ContextItem =
   | TerminalCommandContext
   | GitRefContext
   | URLContext
-  | WebElementContext;
+  | WebElementContext
+  | LiveAppPreviewElementSelectionContext;
 
 export interface FileContext extends BaseContext {
   type: 'file';
@@ -107,6 +108,53 @@ export interface WebElementContext extends BaseContext {
   sourceUrl?: string;
 }
 
+export interface NormalizedPreviewBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface LiveAppPreviewElementAncestorSummary {
+  tagName: string;
+  selectorPart: string;
+  role?: string;
+  label?: string;
+}
+
+export interface LiveAppPreviewElementSummary {
+  tagName: string;
+  selectorPath: string;
+  selectorPart?: string;
+  role?: string;
+  label?: string;
+  textContent?: string;
+  attributes?: Record<string, string>;
+  normalizedBox: NormalizedPreviewBox;
+  computedStyleSummary?: Record<string, string>;
+  ancestorPath?: LiveAppPreviewElementAncestorSummary[];
+}
+
+export interface LiveAppPreviewElementFingerprint {
+  selectorPath: string;
+  textHash?: string;
+  boxHash: string;
+}
+
+export interface LiveAppPreviewElementSelectionContext extends BaseContext {
+  type: 'live-app-preview-element-selection';
+  schemaVersion: 1;
+  appId: string;
+  appName?: string;
+  sessionId?: string | null;
+  route: string;
+  runtimeRevision?: string;
+  element: LiveAppPreviewElementSummary;
+  fingerprint: LiveAppPreviewElementFingerprint;
+  source: 'iframe-element-inspector' | 'runtime-specific';
+  confidence: 'high' | 'medium' | 'low';
+}
+
 /**
  * Convenience alias for the discriminant used by `ContextItem`.
  */
@@ -167,6 +215,12 @@ export function isURLContext(context: ContextItem): context is URLContext {
 
 export function isWebElementContext(context: ContextItem): context is WebElementContext {
   return context.type === 'web-element';
+}
+
+export function isLiveAppPreviewElementSelectionContext(
+  context: ContextItem,
+): context is LiveAppPreviewElementSelectionContext {
+  return context.type === 'live-app-preview-element-selection';
 }
 
  

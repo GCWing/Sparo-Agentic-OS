@@ -60,6 +60,7 @@
     grid-row: 1;
     position: relative;
     z-index: var(--ds-z-local);
+    isolation: isolate;
 
     &--left {
       grid-column: 1;
@@ -72,6 +73,21 @@
     }
   }
 
+  &__actions:not(.flowchat-header__actions--left)::before {
+    content: '';
+    position: absolute;
+    inset: -8px -12px -10px -24px;
+    z-index: var(--ds-z-base);
+    pointer-events: none;
+    background: var(--ds-chat-surface);
+    mask-image: linear-gradient(to left, black 0 64%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to left, black 0 64%, transparent 100%);
+  }
+
+  &__actions > * {
+    position: relative;
+    z-index: var(--ds-z-local);
+  }
 
   // ==================== Search (right-aligned strip; does not span full header) ====================
   &__search-action,

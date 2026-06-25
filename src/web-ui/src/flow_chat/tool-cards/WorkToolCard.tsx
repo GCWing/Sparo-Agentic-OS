@@ -4,6 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { DotMatrixLoader } from '@/design-system';
 import { openWork, openWorkInCenter } from '@/app/agentic-os/work/navigation/openWork';
 import type {
+  WorkAppRef,
+  WorkAppIntent,
+  WorkAppRelation,
+  WorkSubject,
   WorkAssignmentRef,
   WorkRecord,
   WorkScope,
@@ -144,6 +148,65 @@ function normalizeScope(rawValue: unknown): WorkScope {
   return { kind: 'system' };
 }
 
+function normalizeAppRef(rawValue: unknown): WorkAppRef | null {
+  const raw = asRecord(rawValue);
+  const kind = stringValue(raw, 'kind') as WorkAppRef['kind'] | undefined;
+  const appId = stringValue(raw, 'appId', 'app_id');
+  if (!kind || !appId) return null;
+  return { kind, appId };
+}
+
+function normalizeSubject(rawValue: unknown): WorkSubject {
+  const raw = asRecord(rawValue);
+  if (!raw) return { kind: 'goal' };
+  const kind = stringValue(raw, 'kind');
+  switch (kind) {
+    case 'project':
+      return {
+        kind: 'project',
+        workspacePath: stringValue(raw, 'workspacePath', 'workspace_path') ?? '',
+      };
+    case 'app': {
+      const app = normalizeAppRef(raw.app);
+      return app
+        ? {
+            kind: 'app',
+            app,
+            intent: (stringValue(raw, 'intent') ?? 'use') as WorkAppIntent,
+          }
+        : { kind: 'goal' };
+    }
+    case 'artifact':
+      return {
+        kind: 'artifact',
+        artifactId: stringValue(raw, 'artifactId', 'artifact_id') ?? '',
+      };
+    case 'goal':
+    default:
+      return { kind: 'goal' };
+  }
+}
+
+function normalizeAppRelation(rawValue: unknown): WorkAppRelation | null {
+  const raw = asRecord(rawValue);
+  if (!raw) return null;
+  const app = normalizeAppRef(raw.app);
+  const role = stringValue(raw, 'role') as WorkAppRelation['role'] | undefined;
+  if (!app || !role) return null;
+  return {
+    app,
+    role,
+    surfaceId: stringValue(raw, 'surfaceId', 'surface_id') ?? null,
+  };
+}
+
+function normalizeAppRelations(rawValue: unknown): WorkAppRelation[] {
+  if (!Array.isArray(rawValue)) return [];
+  return rawValue
+    .map(normalizeAppRelation)
+    .filter((relation): relation is WorkAppRelation => !!relation);
+}
+
 function normalizeAssignment(rawValue: unknown): WorkAssignmentRef | null {
   const raw = asRecord(rawValue);
   const kind = stringValue(raw, 'kind');
@@ -207,6 +270,8 @@ function normalizeWorkRecord(rawValue: unknown, fallbackWorkId?: string): WorkRe
     objective: stringValue(raw, 'objective') ?? '',
     status: (stringValue(raw, 'status') ?? 'active') as WorkRecord['status'],
     visibility: (stringValue(raw, 'visibility') ?? 'primary') as WorkRecord['visibility'],
+    subject: normalizeSubject(raw.subject),
+    appRefs: normalizeAppRelations(raw.appRefs ?? raw.app_refs),
     scope: normalizeScope(raw.scope),
     primarySurface,
     surfaces,

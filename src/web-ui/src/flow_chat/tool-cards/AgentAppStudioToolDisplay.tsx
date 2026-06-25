@@ -20,6 +20,8 @@ import {
 } from './templates';
 import { deriveToolRuntimeState } from '../runtime/statusModel';
 import { getToolViewState } from '../runtime/toolViewState';
+import { appScopeIdentity } from '@/shared/types/app-scope';
+import { resolveToolSessionAppScope } from './liveAppToolScope';
 import './AgentAppStudioToolDisplay.scss';
 
 const EMPTY_TOOL_RESULT: Record<string, unknown> = {};
@@ -375,10 +377,11 @@ export const AgentAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, s
       (input?.name as string | undefined)
     );
   }, [result, input]);
+  const appScope = useMemo(() => resolveToolSessionAppScope(sessionId), [sessionId]);
 
   const handleOpenStudioPanel = useCallback(() => {
     if (!resolvedAppId) return;
-    const duplicateCheckKey = `agent-app-studio:${sessionId ?? resolvedAppId}`;
+    const duplicateCheckKey = `agent-app-studio:${sessionId ?? `${resolvedAppId}:${appScopeIdentity(appScope)}`}`;
     window.dispatchEvent(new CustomEvent('expand-right-panel'));
     window.dispatchEvent(new CustomEvent('agent-create-tab', {
       detail: {
@@ -387,10 +390,12 @@ export const AgentAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, s
         data: {
           sessionId: sessionId ?? null,
           appId: resolvedAppId,
+          scope: appScope,
         },
         metadata: {
           agentAppStudioSessionId: sessionId,
           agentAppStudioAppId: resolvedAppId,
+          appScope,
         },
         checkDuplicate: true,
         duplicateCheckKey,
@@ -399,9 +404,9 @@ export const AgentAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, s
     }));
     // Notify any mounted AgentAppStudioPanel to refresh / switch app.
     window.dispatchEvent(new CustomEvent('agent-app-updated', {
-      detail: { appId: resolvedAppId },
+      detail: { appId: resolvedAppId, scope: appScope },
     }));
-  }, [resolvedAppId, sessionId, t]);
+  }, [appScope, resolvedAppId, sessionId, t]);
 
   const canOpenStudioPanel =
     label.openable === true &&

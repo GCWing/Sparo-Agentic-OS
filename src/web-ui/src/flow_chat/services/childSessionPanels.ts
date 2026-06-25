@@ -10,6 +10,7 @@ import { flowChatStore } from '../store/FlowChatStore';
 import { flowChatManager } from './FlowChatManager';
 import { syncSessionToModernStore } from './storeSync';
 import { isSystemAgenticOsSession } from '../domain/sessionDescriptor';
+import { systemRuntimeScope } from '@/shared/types/runtime-scope';
 
 export const SIDE_THREAD_SESSION_PANEL_TYPE = 'btw-session' as const;
 export type ChildSessionPanelType = typeof SIDE_THREAD_SESSION_PANEL_TYPE;
@@ -145,7 +146,7 @@ export async function openMainSession(
   const session = flowChatStore.getState().sessions.get(sessionId);
   useWorkspaceSurfaceStore.getState().openSurface(
     session && isSystemAgenticOsSession(session.descriptor)
-      ? { kind: 'agentic-os-home', agenticOsSessionId: sessionId }
+      ? { kind: 'agentic-os-home', agenticOsSessionId: sessionId, scope: systemRuntimeScope() }
       : { kind: 'session', sessionId },
     { context: options?.context }
   );

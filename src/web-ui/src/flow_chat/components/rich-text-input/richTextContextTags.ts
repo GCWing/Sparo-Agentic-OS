@@ -10,6 +10,8 @@ export function getContextDisplayName(context: ContextItem): string {
     case 'git-ref': return context.refValue;
     case 'url': return context.title || context.url;
     case 'web-element': return context.tagName;
+    case 'live-app-preview-element-selection':
+      return context.element.label || context.element.textContent || context.appName || context.appId;
     default: {
       const exhaustive: never = context;
       return String(exhaustive);
@@ -27,6 +29,8 @@ export function getContextTagFormat(context: ContextItem): string {
     case 'git-ref': return `#git:${context.refValue}`;
     case 'url': return `#link:${context.title || context.url}`;
     case 'web-element': return `#element:${context.tagName}`;
+    case 'live-app-preview-element-selection':
+      return `#live-app-element:${context.appName || context.appId}`;
     default: {
       const exhaustive: never = context;
       return String(exhaustive);
@@ -52,6 +56,10 @@ export function getContextFullPath(context: ContextItem): string {
       return context.url;
     case 'web-element':
       return context.path;
+    case 'live-app-preview-element-selection': {
+      const target = context.element.selectorPath || context.element.tagName;
+      return `Live App ${context.appId} @ ${context.route}: ${target}`;
+    }
     default: {
       const exhaustive: never = context;
       return String(exhaustive);

@@ -7,6 +7,8 @@ export function workMatchesQuery(work: WorkProjection, query: string): boolean {
     work.title.toLowerCase().includes(normalized) ||
     work.objective.toLowerCase().includes(normalized) ||
     work.id.toLowerCase().includes(normalized) ||
+    (work.primaryAppRef?.appId.toLowerCase().includes(normalized) ?? false) ||
+    work.appRefs.some((relation) => relation.app.appId.toLowerCase().includes(normalized)) ||
     (work.workspacePath?.toLowerCase().includes(normalized) ?? false)
   );
 }

@@ -71,6 +71,13 @@ pub struct UpdateSessionTitleRequest {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct UpdateSessionWorkspaceRequest {
+    pub session_id: String,
+    pub workspace_path: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StartDialogTurnRequest {
     pub session_id: String,
     pub user_input: String,
@@ -410,6 +417,27 @@ pub async fn update_session_title(
         .update_session_title(session_id, &request.title)
         .await
         .map_err(|e| format!("Failed to update session title: {}", e))
+}
+
+#[tauri::command]
+pub async fn update_session_workspace(
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
+    request: UpdateSessionWorkspaceRequest,
+) -> Result<(), String> {
+    let session_id = request.session_id.trim();
+    if session_id.is_empty() {
+        return Err("session_id is required".to_string());
+    }
+
+    let workspace_path = request.workspace_path.trim();
+    if workspace_path.is_empty() {
+        return Err("workspace_path is required".to_string());
+    }
+
+    coordinator
+        .update_session_workspace_path(session_id, workspace_path)
+        .await
+        .map_err(|e| format!("Failed to update session workspace: {}", e))
 }
 
 /// Load the session into the coordinator process when it exists on disk but is not in memory.

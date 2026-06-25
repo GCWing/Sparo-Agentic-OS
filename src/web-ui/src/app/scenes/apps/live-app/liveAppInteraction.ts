@@ -10,6 +10,11 @@ import type {
   LiveAppWorkbenchSessionMetadata,
   LiveAppWorkbenchTabMetadata,
 } from '@/shared/types/session-history';
+import {
+  normalizeAppScope,
+  type AppScope,
+  workspacePathFromAppScope,
+} from '@/shared/types/app-scope';
 import { resolveLiveAppMeta } from './liveAppI18n';
 
 const DEFAULT_ENTITY_ID = 'default';
@@ -131,11 +136,12 @@ export function buildLiveAppWorkbenchMetadata(
   options: {
     entityId?: string | null;
     locale?: string | null;
-    workspacePath?: string | null;
+    scope?: AppScope | null;
   } = {}
 ): LiveAppWorkbenchSessionMetadata {
   const displayMeta = resolveLiveAppMeta(app, options.locale || undefined);
   const profile = normalizeLiveAppWorkbenchProfile(app.interaction);
+  const scope = normalizeAppScope(options.scope);
   const declaredTabs = (app.interaction?.tabs || [])
     .map(tab => normalizeInteractionTab(tab, displayMeta.name, options.locale))
     .filter((tab): tab is LiveAppWorkbenchTabMetadata => Boolean(tab));
@@ -158,7 +164,8 @@ export function buildLiveAppWorkbenchMetadata(
     version: app.version,
     sourceRevision: app.runtime?.source_revision,
     interactionTitle: resolveInteractionText(app.interaction?.title, options.locale),
-    workspacePath: options.workspacePath || null,
+    scope,
+    workspacePath: workspacePathFromAppScope(scope) ?? null,
     chat: app.interaction?.chat as Record<string, unknown> | undefined,
     tabs,
   };

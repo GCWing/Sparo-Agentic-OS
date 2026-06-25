@@ -20,10 +20,18 @@ import {
 } from 'lucide-react';
 import { LiveAppGlyph } from '@/app/scenes/apps/live-app/liveAppIcons';
 import { createLogger } from '@/shared/utils/logger';
-import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
+import {
+  getWorkspaceDisplayName,
+  useWorkspaceContext,
+} from '@/infrastructure/contexts/WorkspaceContext';
 import type { WorkspaceInfo } from '@/shared/types';
+import { isSamePath } from '@/shared/utils/pathUtils';
 import { resolveSessionTypeDefinition, useSessionProfile } from '@/app/session-profiles';
 import { Button, SparoAgentIcon } from '@/design-system';
+import {
+  fallbackWorkspaceFolderLabel,
+  resolveWorkspaceForSession,
+} from '../utils/sessionOrdering';
 import CoworkExampleCards from './CoworkExampleCards';
 import './WelcomePanel.css';
 
@@ -63,9 +71,16 @@ interface WelcomePanelProps {
   workspacePath?: string;
 }
 
+interface WelcomeWorkspaceTarget {
+  id: string | null;
+  name: string;
+  rootPath: string | null;
+}
+
 export const WelcomePanel: React.FC<WelcomePanelProps> = ({
   onQuickAction,
   className = '',
+  workspacePath,
 }) => {
   const { t } = useTranslation('flow-chat');
   const [workspaceDropdownOpen, setWorkspaceDropdownOpen] = useState(false);
@@ -74,7 +89,6 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
   const { profile } = useSessionProfile();
 
   const {
-    hasWorkspace,
     lastUsedWorkspace,
     openedWorkspacesList,
     openWorkspace,
@@ -83,6 +97,40 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
 
   const sessionType = useMemo(() => resolveSessionTypeDefinition(profile.id), [profile.id]);
   const welcome = sessionType.welcome;
+
+  const sessionWorkspaceTarget = useMemo<WelcomeWorkspaceTarget | null>(() => {
+    const scopedPath = workspacePath?.trim();
+    if (!scopedPath) return null;
+
+    const openedWorkspace = resolveWorkspaceForSession({ workspacePath: scopedPath }, openedWorkspacesList);
+    if (openedWorkspace) {
+      const displayName = getWorkspaceDisplayName(openedWorkspace).trim();
+      return {
+        id: openedWorkspace.id,
+        name: displayName || fallbackWorkspaceFolderLabel(openedWorkspace.rootPath) || openedWorkspace.rootPath,
+        rootPath: openedWorkspace.rootPath,
+      };
+    }
+
+    return {
+      id: null,
+      name: fallbackWorkspaceFolderLabel(scopedPath) || scopedPath,
+      rootPath: scopedPath,
+    };
+  }, [openedWorkspacesList, workspacePath]);
+
+  const welcomeWorkspace = useMemo<WelcomeWorkspaceTarget | null>(() => {
+    if (sessionWorkspaceTarget) return sessionWorkspaceTarget;
+    if (!lastUsedWorkspace) return null;
+    const displayName = getWorkspaceDisplayName(lastUsedWorkspace).trim();
+    return {
+      id: lastUsedWorkspace.id,
+      name: displayName || fallbackWorkspaceFolderLabel(lastUsedWorkspace.rootPath) || lastUsedWorkspace.rootPath,
+      rootPath: lastUsedWorkspace.rootPath,
+    };
+  }, [lastUsedWorkspace, sessionWorkspaceTarget]);
+
+  const hasWelcomeWorkspace = Boolean(welcomeWorkspace);
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
@@ -97,8 +145,13 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
   const aiPartnerKey = welcome.aiPartnerKey;
 
   const otherWorkspaces = useMemo(
-    () => openedWorkspacesList.filter(ws => ws.id !== lastUsedWorkspace?.id),
-    [openedWorkspacesList, lastUsedWorkspace?.id],
+    () => openedWorkspacesList.filter((ws) => {
+      if (!welcomeWorkspace) return true;
+      if (welcomeWorkspace.id && ws.id === welcomeWorkspace.id) return false;
+      if (welcomeWorkspace.rootPath && isSamePath(ws.rootPath, welcomeWorkspace.rootPath)) return false;
+      return true;
+    }),
+    [openedWorkspacesList, welcomeWorkspace],
   );
 
   useEffect(() => {
@@ -182,7 +235,7 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
           <p className="welcome-panel__narrative-text">
             {welcome.narrativeKey ? (
               t(welcome.narrativeKey)
-            ) : !hasWorkspace ? (
+            ) : !hasWelcomeWorkspace ? (
               <>
                 {t('welcome.noWorkspaceHint')}
                 <Button
@@ -214,10 +267,10 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
                         className={`welcome-panel__inline-action welcome-panel__inline-action--interactive${workspaceDropdownOpen ? ' welcome-panel__inline-action--active' : ''}`}
                         onClick={() => setWorkspaceDropdownOpen(v => !v)}
                         disabled={isSelectingWorkspace}
-                        title={lastUsedWorkspace?.rootPath}
+                        title={welcomeWorkspace?.rootPath ?? undefined}
                       >
                         <FolderOpen size={13} className="welcome-panel__inline-icon" />
-                        {lastUsedWorkspace?.name || t('welcome.workspace')}
+                        {welcomeWorkspace?.name || t('welcome.workspace')}
                         <ChevronDown
                           size={11}
                           className={`welcome-panel__inline-chevron${workspaceDropdownOpen ? ' welcome-panel__inline-chevron--open' : ''}`}
@@ -225,16 +278,16 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
                       </Button>
                       {workspaceDropdownOpen && (
                         <div className="welcome-panel__dropdown">
-                          {hasWorkspace && lastUsedWorkspace && (
+                          {welcomeWorkspace && (
                             <div className="welcome-panel__dropdown-current">
                               <Check size={11} />
                               <FolderOpen size={12} />
-                              <span className="welcome-panel__dropdown-name">{lastUsedWorkspace.name}</span>
+                              <span className="welcome-panel__dropdown-name">{welcomeWorkspace.name}</span>
                             </div>
                           )}
                           {otherWorkspaces.length > 0 && (
                             <>
-                              {hasWorkspace && <div className="welcome-panel__dropdown-sep" />}
+                              {hasWelcomeWorkspace && <div className="welcome-panel__dropdown-sep" />}
                               {otherWorkspaces.map(ws => (
                                 <Button
                                   key={ws.id}

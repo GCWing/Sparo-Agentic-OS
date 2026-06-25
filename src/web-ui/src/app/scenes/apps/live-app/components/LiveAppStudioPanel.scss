@@ -192,6 +192,71 @@
   pointer-events: none;
 }
 
+.studio-preview-inspector-status {
+  position: absolute;
+  top: var(--ds-space-3);
+  left: 50%;
+  z-index: var(--ds-z-overlay);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  transform: translateX(-50%);
+  max-width: min(420px, calc(100% - var(--ds-space-6)));
+  padding: var(--ds-space-1) var(--ds-space-2);
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: var(--ds-radius-full);
+  background: color-mix(in srgb, var(--ds-color-bg-panel) 94%, transparent);
+  color: var(--ds-color-text-secondary);
+  box-shadow: var(--ds-shadow-sm);
+  font-size: 11px;
+  line-height: var(--ds-line-height-tight);
+  pointer-events: none;
+  white-space: nowrap;
+
+  > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.studio-preview-selection-tray {
+  position: absolute;
+  left: var(--ds-space-3);
+  right: var(--ds-space-3);
+  bottom: var(--ds-space-3);
+  z-index: var(--ds-z-overlay);
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  min-width: 0;
+  padding: var(--ds-space-2);
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: var(--ds-radius-md);
+  background: color-mix(in srgb, var(--ds-color-bg-panel) 96%, transparent);
+  box-shadow: var(--ds-shadow-popover);
+}
+
+.studio-preview-selection-tray__label {
+  flex-shrink: 0;
+  color: var(--ds-color-text-muted);
+  font-size: 10px;
+  font-weight: var(--ds-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.studio-preview-selection-tray__summary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ds-color-text-primary);
+  font-size: var(--ds-font-size-xs);
+  font-weight: var(--ds-font-weight-medium);
+  line-height: var(--ds-line-height-tight);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 // ─── Diagnostics Dock ─────────────────────────────────────────────────────────
 // The header row is always visible and acts as the toggle control.
 // The body (tabs + list) is only rendered when expanded.

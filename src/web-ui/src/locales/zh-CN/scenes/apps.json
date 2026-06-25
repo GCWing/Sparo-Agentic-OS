@@ -367,9 +367,31 @@
     "actions": {
       "installDeps": "安装依赖",
       "restartWorker": "重启 Worker",
+      "editInStudio": "在 Studio 中编辑",
       "recompile": "重新编译",
       "openAnyway": "仍然打开",
       "refreshCatalog": "刷新列表"
+    },
+    "scopeDialog": {
+      "openTitle": "选择 {{name}} 的运行 Scope",
+      "editTitle": "选择 {{name}} 的编辑 Scope",
+      "recompileTitle": "选择 {{name}} 的重新编译 Scope",
+      "studioTitle": "选择 {{name}} 的 App 存储 Scope",
+      "runTitle": "选择 {{name}} 的运行 Scope",
+      "description": "所选 Scope 会用于 App 运行、Bridge 调用、文件访问、日志和 Studio 编辑。",
+      "ariaLabel": "App Scope",
+      "systemTitle": "全局 App 存储",
+      "systemDescription": "使用 Sparo OS 系统级 App 存储，不绑定项目目录。",
+      "browseFolder": "选择文件夹",
+      "folderDialogTitle": "选择 App Scope 文件夹",
+      "browseFailed": "选择文件夹失败",
+      "bestWorkTitle": "最佳工作",
+      "cancel": "取消",
+      "confirmOpen": "打开",
+      "confirmEdit": "编辑",
+      "confirmRecompile": "重新编译",
+      "confirmStart": "启动",
+      "confirmRun": "运行"
     },
     "detail": {
       "versionMeta": "v{{version}}",
@@ -501,6 +523,7 @@
     "selectHint": "选择一个桥接应用测试能力动作。",
     "empty": "暂无桥接应用。",
     "noWorkspace": "未选择工作区",
+    "scopeSelectedOnRun": "运行时选择 Scope",
     "run": "运行动作",
     "running": "运行中",
     "actions": {

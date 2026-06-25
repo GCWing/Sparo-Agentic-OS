@@ -48,6 +48,18 @@ pub async fn agentic_os_create_work(
 }
 
 #[tauri::command]
+pub async fn agentic_os_resolve_app_work(
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
+    scheduler: State<'_, Arc<DialogScheduler>>,
+    request: agentic_os_command::AgenticOsResolveAppWorkRequest,
+) -> Result<agentic_os_command::AgenticOsResolveAppWorkResponse, String> {
+    let service = work_service(&coordinator, &scheduler)?;
+    agentic_os_command::resolve_app_work_with_service(&service, request)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 pub async fn agentic_os_start_work(
     coordinator: State<'_, Arc<ConversationCoordinator>>,
     scheduler: State<'_, Arc<DialogScheduler>>,
@@ -64,6 +76,15 @@ pub async fn agentic_os_update_work(
     request: agentic_os_command::AgenticOsUpdateWorkRequest,
 ) -> Result<agentic_os_command::AgenticOsUpdateWorkResponse, String> {
     agentic_os_command::update_work(request)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn agentic_os_link_session_to_work(
+    request: agentic_os_command::AgenticOsLinkSessionToWorkRequest,
+) -> Result<agentic_os_command::AgenticOsLinkSessionToWorkResponse, String> {
+    agentic_os_command::link_session_to_work(request)
         .await
         .map_err(|error| error.to_string())
 }

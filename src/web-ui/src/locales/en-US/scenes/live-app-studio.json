@@ -25,6 +25,17 @@
       "language": "Language: {{lang}}"
     }
   },
+  "previewSelection": {
+    "toggleOn": "Inspect preview element",
+    "toggleOff": "Stop inspecting",
+    "inspecting": "Inspecting elements",
+    "hovering": "Inspecting {{target}}",
+    "contextLabel": "Element",
+    "addContext": "Add context",
+    "added": "Selected preview element added to chat context",
+    "alreadyAdded": "Selected preview element is already in chat context",
+    "clear": "Clear selection"
+  },
   "diagnostics": {
     "title": "Runtime",
     "ok": "Runtime OK",

@@ -2,16 +2,17 @@ import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
 import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
 import { useTerminalSceneStore } from '@/app/stores/terminalSceneStore';
 import { createTerminalTab } from '@/shared/utils/tabUtils';
+import { systemRuntimeScope, type RuntimeScope } from '@/shared/types/runtime-scope';
 
 interface OpenShellSessionTargetOptions {
   sessionId: string;
   sessionName: string;
 }
 
-function openStandaloneShellSession(sessionId: string): void {
+function openStandaloneShellSession(sessionId: string, scope: RuntimeScope): void {
   const terminalState = useTerminalSceneStore.getState();
 
-  openWorkspaceScene('shell');
+  openWorkspaceScene('shell', { scope });
 
   // Force a remount when reopening the same session so the terminal view
   // can recover from stale/error state and always reflect the latest selection.
@@ -40,5 +41,8 @@ export function openShellSessionTarget(options: OpenShellSessionTargetOptions): 
     return;
   }
 
-  openStandaloneShellSession(sessionId);
+  openStandaloneShellSession(
+    sessionId,
+    activeSurface.kind === 'scene' ? activeSurface.scope : systemRuntimeScope(),
+  );
 }

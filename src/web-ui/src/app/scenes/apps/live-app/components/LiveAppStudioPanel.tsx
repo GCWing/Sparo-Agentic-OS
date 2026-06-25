@@ -1,4 +1,4 @@
-import React, {
+﻿import React, {
   useCallback,
   useEffect,
   useMemo,
@@ -13,16 +13,17 @@ import {
   Copy,
   ExternalLink,
   MoreHorizontal,
+  MousePointer2,
   RefreshCw,
   ScrollText,
   Send,
   Trash2,
+  X,
 } from 'lucide-react';
 import { DotMatrixLoader } from '@/design-system';
 import { liveAppAPI } from '@/infrastructure/api/service-api/LiveAppAPI';
 import { api } from '@/infrastructure/api/service-api/ApiClient';
 import type { LiveApp } from '@/infrastructure/api/service-api/LiveAppAPI';
-import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
 import { useI18n } from '@/infrastructure/i18n';
 import {
@@ -38,6 +39,8 @@ import {
 import type { DropdownMenuEntry } from '@/design-system';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
 import { notificationService } from '@/shared/notification-system';
+import { useContextStore } from '@/shared/stores/contextStore';
+import type { LiveAppPreviewElementSelectionContext } from '@/shared/types/context';
 import { useLiveAppStore } from '../liveAppStore';
 import { useLiveAppActions } from '../hooks/useLiveAppActions';
 import {
@@ -49,6 +52,18 @@ import {
 } from '../liveAppRuntimeModel';
 import { resolveLiveAppMeta } from '../liveAppI18n';
 import { openLiveApp } from '../liveAppWorkbenchService';
+import {
+  buildLiveAppPreviewElementSelectionContext,
+  summarizeLiveAppPreviewElementSelection,
+  type PreviewElementInspectorPayload,
+} from '../previewSelectionContext';
+import {
+  appScopeIdentity,
+  normalizeAppScope,
+  systemAppScope,
+  type AppScope,
+  workspacePathFromAppScope,
+} from '@/shared/types/app-scope';
 import LiveAppRunner from './LiveAppRunner';
 import './LiveAppStudioPanel.scss';
 
@@ -76,6 +91,7 @@ interface RuntimeLog {
 interface LiveAppStudioPanelProps {
   sessionId: string | null;
   appId?: string;
+  scope?: AppScope | null;
 }
 
 type LogLevel = 'all' | 'error' | 'warn' | 'info';
@@ -101,10 +117,11 @@ interface IssueRowProps {
   onRestart: () => void;
   onFixWithAi: (text: string) => void;
   currentLanguage: string;
+  restartLabel: string;
 }
 
 const IssueRow: React.FC<IssueRowProps> = ({
-  issue, t, onCopy, onRecompile, onRestart, onFixWithAi, currentLanguage,
+  issue, t, onCopy, onRecompile, onRestart, onFixWithAi, currentLanguage, restartLabel,
 }) => {
   const [expanded, setExpanded] = useState(issue.severity === 'fatal');
   const hintKey = inferRuntimeHint(issue.message, issue.category);
@@ -135,7 +152,7 @@ const IssueRow: React.FC<IssueRowProps> = ({
         <div className="studio-issue__detail">
           {hintKey ? (
             <div className="studio-issue__hint">
-              {t(`liveAppStudio.diagnostics.hints.${hintKey}`)}
+              {t(`diagnostics.hints.${hintKey}`)}
             </div>
           ) : null}
           {detailText ? <pre className="studio-issue__pre">{detailText}</pre> : null}
@@ -146,25 +163,25 @@ const IssueRow: React.FC<IssueRowProps> = ({
                 size="small"
                 onClick={() => onFixWithAi(diagText)}
               >
-                {t('liveAppStudio.diagnostics.fixWithAi')}
+                {t('diagnostics.fixWithAi')}
               </Button>
             ) : null}
             {issue.severity === 'fatal' ? (
               <Button variant="secondary" size="small" onClick={onRecompile}>
-                {t('liveAppStudio.panel.menu.recompile')}
+                {t('panel.menu.recompile')}
               </Button>
             ) : null}
             {issue.severity === 'fatal' ? (
               <Button variant="secondary" size="small" onClick={onRestart}>
-                {t('liveApp.actions.restartWorker')}
+                {restartLabel}
               </Button>
             ) : null}
             <IconButton
               variant="ghost"
               size="xs"
               onClick={() => onCopy(diagText)}
-              tooltip={t('liveAppStudio.diagnostics.copy')}
-              aria-label={t('liveAppStudio.diagnostics.copy')}
+              tooltip={t('diagnostics.copy')}
+              aria-label={t('diagnostics.copy')}
             >
               <Copy size={11} />
             </IconButton>
@@ -240,10 +257,9 @@ const LogRow: React.FC<LogRowProps> = ({ entry, onCopy, currentLanguage, copyAri
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appId }) => {
-  const { workspacePath } = useLastUsedWorkspace();
+const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appId, scope }) => {
   const { themeType } = useTheme();
-  const { currentLanguage, t } = useI18n('common');
+  const { currentLanguage, t } = useI18n('scenes/live-app-studio');
   const { t: tApps } = useI18n('scenes/apps');
   const runningWorkerIds = useLiveAppStore((state) => state.runningWorkerIds);
   const runtimeStatus = useLiveAppStore((state) => state.runtimeStatus);
@@ -263,18 +279,27 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
   const [logSearch, setLogSearch] = useState('');
   const [followTail, setFollowTail] = useState(true);
   const [newLogCount, setNewLogCount] = useState(0);
+  const [previewInspectorEnabled, setPreviewInspectorEnabled] = useState(false);
+  const [previewInspectorHover, setPreviewInspectorHover] = useState<PreviewElementInspectorPayload | null>(null);
+  const [previewSelection, setPreviewSelection] = useState<LiveAppPreviewElementSelectionContext | null>(null);
+  const [addingPreviewSelection, setAddingPreviewSelection] = useState(false);
 
   const menuAnchorRef = useRef<HTMLButtonElement>(null);
   const logsEndRef = useRef<HTMLDivElement>(null);
   const logsScrollRef = useRef<HTMLDivElement>(null);
+  const effectiveScope = useMemo(
+    () => normalizeAppScope(scope || systemAppScope()),
+    [scope],
+  );
+  const workspacePath = workspacePathFromAppScope(effectiveScope);
 
-  const actions = useLiveAppActions(appId);
+  const actions = useLiveAppActions(appId, { scope: effectiveScope });
 
   const load = useCallback(async () => {
     if (!appId) return;
     setLoading(true);
     try {
-      const loaded = await liveAppAPI.getLiveApp(appId, themeType ?? 'dark', workspacePath || undefined);
+      const loaded = await liveAppAPI.getLiveApp(appId, themeType ?? 'dark', workspacePath);
       setApp(loaded);
       setError(null);
     } catch (err) {
@@ -291,6 +316,9 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
   useEffect(() => {
     setIssues([]);
     setLogs([]);
+    setPreviewSelection(null);
+    setPreviewInspectorHover(null);
+    setPreviewInspectorEnabled(false);
     if (appId) void load();
   }, [appId, load]);
 
@@ -368,6 +396,73 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
+  const displayMeta = useMemo(
+    () => (app ? resolveLiveAppMeta(app, currentLanguage) : null),
+    [app, currentLanguage],
+  );
+
+  const previewSelectionSummary = useMemo(
+    () => (previewSelection ? summarizeLiveAppPreviewElementSelection(previewSelection) : null),
+    [previewSelection],
+  );
+
+  const previewInspectorHoverLabel = useMemo(() => {
+    const element = previewInspectorHover?.element;
+    if (!element) return null;
+    return element.label || element.textContent || element.selectorPath || element.tagName;
+  }, [previewInspectorHover]);
+
+  const handleTogglePreviewSelection = useCallback(() => {
+    setPreviewInspectorEnabled((enabled) => !enabled);
+    setPreviewInspectorHover(null);
+  }, []);
+
+  const handleClearPreviewSelection = useCallback(() => {
+    setPreviewSelection(null);
+  }, []);
+
+  const handleElementInspectorHover = useCallback((payload: PreviewElementInspectorPayload | null) => {
+    setPreviewInspectorHover(payload);
+  }, []);
+
+  const handleElementInspectorSelect = useCallback(
+    (payload: PreviewElementInspectorPayload) => {
+      if (!app || !appId) return;
+      const context = buildLiveAppPreviewElementSelectionContext({
+        appId,
+        appName: displayMeta?.name,
+        sessionId,
+        route: payload.route || '/',
+        runtimeRevision: app.runtime?.source_revision,
+        payload,
+      });
+      if (context) setPreviewSelection(context);
+    },
+    [app, appId, displayMeta?.name, sessionId],
+  );
+
+  const handleElementInspectorExit = useCallback(() => {
+    setPreviewInspectorEnabled(false);
+    setPreviewInspectorHover(null);
+  }, []);
+
+  const handleAddPreviewSelectionContext = useCallback(async () => {
+    if (!previewSelection || addingPreviewSelection) return;
+    setAddingPreviewSelection(true);
+    try {
+      const exists = useContextStore.getState().contexts.some(context => context.id === previewSelection.id);
+      if (!exists) {
+        useContextStore.getState().addContext(previewSelection);
+        window.dispatchEvent(new CustomEvent('insert-context-tag', { detail: { context: previewSelection } }));
+      }
+      notificationService.success(t(exists ? 'previewSelection.alreadyAdded' : 'previewSelection.added'), { duration: 1800 });
+    } catch (err) {
+      notificationService.error(err instanceof Error ? err.message : String(err), { duration: 4000 });
+    } finally {
+      setAddingPreviewSelection(false);
+    }
+  }, [addingPreviewSelection, previewSelection, t]);
+
   const issueCounts = useMemo(
     () =>
       issues.reduce(
@@ -406,27 +501,23 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
     return buildLiveAppRuntimeSummary(app, { isOpen: false, isRunning, runtimeStatus });
   }, [app, isRunning, runtimeStatus]);
   const permissionSummary = useMemo(() => (app ? summarizeLiveAppPermissions(app.permissions) : null), [app]);
-  const displayMeta = useMemo(
-    () => (app ? resolveLiveAppMeta(app, currentLanguage) : null),
-    [app, currentLanguage],
-  );
 
   const runnerKey = useMemo(
     () =>
       app
-        ? `${app.id}:${app.runtime?.source_revision ?? 'runtime'}:${themeType ?? 'dark'}:${workspacePath ?? ''}:${reloadNonce}`
+        ? `${app.id}:${app.runtime?.source_revision ?? 'runtime'}:${themeType ?? 'dark'}:${appScopeIdentity(effectiveScope)}:${reloadNonce}`
         : `loading:${appId ?? 'none'}:${reloadNonce}`,
-    [app, appId, reloadNonce, themeType, workspacePath],
+    [app, appId, effectiveScope, reloadNonce, themeType],
   );
 
   const handleOpenInApps = useCallback(() => {
     if (appId) {
       void openLiveApp(app || appId, {
-        workspacePath: workspacePath || undefined,
+        scope: effectiveScope,
         locale: currentLanguage,
       });
     }
-  }, [app, appId, currentLanguage, workspacePath]);
+  }, [app, appId, currentLanguage, effectiveScope]);
 
   const handleReloadUi = useCallback(() => {
     setReloadNonce((v) => v + 1);
@@ -452,7 +543,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
     async (text: string) => {
       try {
         await navigator.clipboard.writeText(text);
-        notificationService.success(t('liveAppStudio.diagnostics.copied'), { duration: 1800 });
+        notificationService.success(t('diagnostics.copied'), { duration: 1800 });
       } catch (err) {
         notificationService.error(err instanceof Error ? err.message : String(err));
       }
@@ -504,9 +595,9 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
         await flowChatManager.sendMessage(
           buildIssuePrompt(singleIssueText),
           sessionId,
-          t('liveAppStudio.diagnostics.sendDisplay'),
+          t('diagnostics.sendDisplay'),
         );
-        notificationService.success(t('liveAppStudio.diagnostics.sent'), { duration: 2000 });
+        notificationService.success(t('diagnostics.sent'), { duration: 2000 });
       } catch (err) {
         notificationService.error(err instanceof Error ? err.message : String(err), { duration: 4000 });
       } finally {
@@ -537,7 +628,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
     {
       type: 'item',
       id: 'recompile',
-      label: t('liveAppStudio.panel.menu.recompile'),
+      label: t('panel.menu.recompile'),
       onClick: () => void actions.recompile(),
       disabled: actions.state.recompiling,
     },
@@ -545,7 +636,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
       ? [{
           type: 'item' as const,
           id: 'install',
-          label: t('liveAppStudio.panel.menu.installDeps'),
+          label: t('panel.menu.installDeps'),
           onClick: () => void actions.installDeps(() => void load()),
           disabled: actions.state.installingDeps,
         }]
@@ -554,14 +645,14 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
     {
       type: 'item',
       id: 'open-in-apps',
-      label: t('liveAppStudio.panel.menu.openInApps'),
+      label: t('panel.menu.openInApps'),
       onClick: handleOpenInApps,
       disabled: !appId,
     },
     {
       type: 'item',
       id: 'reload',
-      label: t('liveAppStudio.panel.menu.reload'),
+      label: t('panel.menu.reload'),
       onClick: handleReloadUi,
       disabled: !appId || loading,
     },
@@ -569,7 +660,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
       ? [{
           type: 'item' as const,
           id: 'permissions',
-          label: t('liveAppStudio.panel.menu.viewPermissions'),
+          label: t('panel.menu.viewPermissions'),
           submenu: permissionSubmenu,
         }]
       : []),
@@ -577,12 +668,12 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
     {
       type: 'item',
       id: 'copy-id',
-      label: t('liveAppStudio.panel.menu.copyAppId'),
+      label: t('panel.menu.copyAppId'),
       onClick: () => void (async () => {
         if (!appId) return;
         try {
           await navigator.clipboard.writeText(appId);
-          notificationService.success(t('liveAppStudio.diagnostics.copyAppId'), { duration: 1800 });
+          notificationService.success(t('diagnostics.copyAppId'), { duration: 1800 });
         } catch { /* noop */ }
       })(),
       disabled: !appId,
@@ -591,17 +682,17 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
       type: 'label',
       id: 'meta',
       content: [
-        t('liveAppStudio.panel.menu.theme', { theme: themeType ?? 'dark' }),
-        t('liveAppStudio.panel.menu.language', { lang: currentLanguage }),
+        t('panel.menu.theme', { theme: themeType ?? 'dark' }),
+        t('panel.menu.language', { lang: currentLanguage }),
       ],
     },
   ], [actions, appId, currentLanguage, handleOpenInApps, handleReloadUi, load, loading, permissionSubmenu, permissionSummary, t, themeType]);
 
   // ── Dock status ────────────────────────────────────────────────────────────
   const dockStatusLabel = useMemo(() => {
-    if (issueCounts.fatal > 0) return t('liveAppStudio.diagnostics.fatalCount', { count: issueCounts.fatal });
-    if (issueCounts.warning > 0) return t('liveAppStudio.diagnostics.warningCount', { count: issueCounts.warning });
-    return t('liveAppStudio.diagnostics.ok');
+    if (issueCounts.fatal > 0) return t('diagnostics.fatalCount', { count: issueCounts.fatal });
+    if (issueCounts.warning > 0) return t('diagnostics.warningCount', { count: issueCounts.warning });
+    return t('diagnostics.ok');
   }, [issueCounts, t]);
   const dockStatusClass = issueCounts.fatal > 0 ? 'is-fatal' : issueCounts.warning > 0 ? 'is-warning' : 'is-ok';
 
@@ -621,7 +712,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
       <div className="studio-statusbar">
         <div className="studio-statusbar__identity">
           <span className={`studio-statusbar__dot ${runtimeDotClass}`} />
-          <span className="studio-statusbar__name">{displayMeta?.name || t('liveAppStudio.panel.title')}</span>
+          <span className="studio-statusbar__name">{displayMeta?.name || t('panel.title')}</span>
           {runtimeSummary?.runtimeLabel ? (
             <span className="studio-statusbar__runtime-label">{runtimeSummary.runtimeLabel}</span>
           ) : null}
@@ -669,12 +760,23 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
 
         <div className="studio-statusbar__actions">
           <IconButton
+            variant={previewInspectorEnabled ? 'accent' : 'ghost'}
+            size="xs"
+            onClick={handleTogglePreviewSelection}
+            disabled={!app}
+            tooltip={previewInspectorEnabled ? t('previewSelection.toggleOff') : t('previewSelection.toggleOn')}
+            aria-label={previewInspectorEnabled ? t('previewSelection.toggleOff') : t('previewSelection.toggleOn')}
+            aria-pressed={previewInspectorEnabled}
+          >
+            <MousePointer2 size={13} />
+          </IconButton>
+          <IconButton
             variant="ghost"
             size="xs"
             onClick={handleReloadUi}
             disabled={!appId || loading}
-            tooltip={t('liveAppStudio.panel.menu.reload')}
-            aria-label={t('liveAppStudio.panel.menu.reload')}
+            tooltip={t('panel.menu.reload')}
+            aria-label={t('panel.menu.reload')}
           >
             {loading ? <DotMatrixLoader size="tiny" className="studio-spin" /> : <RefreshCw size={13} />}
           </IconButton>
@@ -683,8 +785,8 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
             size="xs"
             onClick={handleOpenInApps}
             disabled={!appId}
-            tooltip={t('liveAppStudio.panel.menu.openInApps')}
-            aria-label={t('liveAppStudio.panel.menu.openInApps')}
+            tooltip={t('panel.menu.openInApps')}
+            aria-label={t('panel.menu.openInApps')}
           >
             <ExternalLink size={13} />
           </IconButton>
@@ -695,8 +797,8 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
             size="xs"
             onClick={() => setMenuOpen((v) => !v)}
             disabled={!appId}
-            tooltip={t('liveAppStudio.panel.menu.moreActions')}
-            aria-label={t('liveAppStudio.panel.menu.moreActions')}
+            tooltip={t('panel.menu.moreActions')}
+            aria-label={t('panel.menu.moreActions')}
             aria-haspopup="true"
             aria-expanded={menuOpen}
           >
@@ -718,35 +820,82 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
         {!appId ? (
           <div className="studio-preview__empty">
             <AppWindow size={34} strokeWidth={1.5} />
-            <div>{t('liveAppStudio.panel.emptyTitle')}</div>
-            <p>{t('liveAppStudio.panel.emptyDescription')}</p>
+            <div>{t('panel.emptyTitle')}</div>
+            <p>{t('panel.emptyDescription')}</p>
           </div>
         ) : null}
         {appId && loading && !app ? (
           <div className="studio-preview__empty">
             <DotMatrixLoader size="medium" className="studio-spin" />
-            <div>{t('liveAppStudio.panel.loading')}</div>
+            <div>{t('panel.loading')}</div>
           </div>
         ) : null}
         {error && !app ? (
           <div className="studio-preview__empty is-error">
             <AlertTriangle size={28} strokeWidth={1.5} />
-            <div>{t('liveAppStudio.panel.loadFailed')}</div>
+            <div>{t('panel.loadFailed')}</div>
             <p>{error}</p>
             <Button variant="secondary" size="small" onClick={() => void load()}>
-              {t('liveAppStudio.panel.retry')}
+              {t('panel.retry')}
             </Button>
           </div>
         ) : null}
         {app ? (
           <React.Suspense fallback={null}>
-            <LiveAppRunner key={runnerKey} app={app} />
+            <LiveAppRunner
+              key={runnerKey}
+              app={app}
+              scope={effectiveScope}
+              workspacePath={workspacePath}
+              elementInspectorEnabled={previewInspectorEnabled}
+              onElementInspectorHover={handleElementInspectorHover}
+              onElementInspectorSelect={handleElementInspectorSelect}
+              onElementInspectorExit={handleElementInspectorExit}
+            />
           </React.Suspense>
         ) : null}
         {loading && app ? (
           <div className="studio-preview__updating" role="status" aria-live="polite">
             <DotMatrixLoader size="tiny" className="studio-spin" />
-            <span>{t('liveAppStudio.panel.updating')}</span>
+            <span>{t('panel.updating')}</span>
+          </div>
+        ) : null}
+        {app && previewInspectorEnabled ? (
+          <div className="studio-preview-inspector-status" role="status" aria-live="polite">
+            <MousePointer2 size={12} />
+            <span>
+              {previewInspectorHoverLabel
+                ? t('previewSelection.hovering', { target: previewInspectorHoverLabel })
+                : t('previewSelection.inspecting')}
+            </span>
+          </div>
+        ) : null}
+        {previewSelection ? (
+          <div className="studio-preview-selection-tray">
+            <span className="studio-preview-selection-tray__label">
+              {t('previewSelection.contextLabel')}
+            </span>
+            <span className="studio-preview-selection-tray__summary" title={previewSelectionSummary || undefined}>
+              {previewSelectionSummary}
+            </span>
+            <Button
+              variant="accent"
+              size="small"
+              onClick={() => void handleAddPreviewSelectionContext()}
+              disabled={addingPreviewSelection}
+            >
+              {addingPreviewSelection ? <DotMatrixLoader size="tiny" className="studio-spin" /> : null}
+              {t('previewSelection.addContext')}
+            </Button>
+            <IconButton
+              variant="ghost"
+              size="xs"
+              onClick={handleClearPreviewSelection}
+              tooltip={t('previewSelection.clear')}
+              aria-label={t('previewSelection.clear')}
+            >
+              <X size={12} />
+            </IconButton>
           </div>
         ) : null}
       </div>
@@ -762,7 +911,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
             onClick={() => setDockState((s) => (s === 'collapsed' ? 'open' : 'collapsed'))}
             aria-expanded={dockState === 'open'}
           >
-            <span className="studio-dock__title">{t('liveAppStudio.diagnostics.title')}</span>
+            <span className="studio-dock__title">{t('diagnostics.title')}</span>
             <span className={`studio-dock__status ${dockStatusClass}`}>{dockStatusLabel}</span>
             <span className="studio-dock__chevron">
               {dockState === 'open' ? <ChevronDown size={11} /> : <ChevronUp size={11} />}
@@ -775,8 +924,8 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
               size="xs"
               onClick={() => void handleSendIssuesToAi()}
               disabled={!sessionId || (issues.length === 0 && filteredLogs.length === 0) || sendingIssues}
-              tooltip={t('liveAppStudio.diagnostics.sendToAi')}
-              aria-label={t('liveAppStudio.diagnostics.sendToAi')}
+              tooltip={t('diagnostics.sendToAi')}
+              aria-label={t('diagnostics.sendToAi')}
             >
               {sendingIssues ? <DotMatrixLoader size="tiny" className="studio-spin" /> : <Send size={12} />}
             </IconButton>
@@ -785,8 +934,8 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
               size="xs"
               onClick={() => void handleClearIssues()}
               disabled={!appId || (issues.length === 0 && logs.length === 0) || clearingIssues}
-              tooltip={t('liveAppStudio.diagnostics.clear')}
-              aria-label={t('liveAppStudio.diagnostics.clear')}
+              tooltip={t('diagnostics.clear')}
+              aria-label={t('diagnostics.clear')}
             >
               {clearingIssues ? <DotMatrixLoader size="tiny" className="studio-spin" /> : <Trash2 size={12} />}
             </IconButton>
@@ -804,7 +953,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
                 className={`studio-dock__tab${runtimeView === 'issues' ? ' is-active' : ''}`}
                 onClick={() => setRuntimeView('issues')}
               >
-                {t('liveAppStudio.diagnostics.issuesTab')}
+                {t('diagnostics.issuesTab')}
                 {issueCounts.total > 0 ? (
                   <span className={`studio-dock__tab-badge ${issueCounts.fatal > 0 ? 'is-fatal' : 'is-warning'}`}>
                     {issueCounts.total > 99 ? '99+' : issueCounts.total}
@@ -817,7 +966,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
                 className={`studio-dock__tab${runtimeView === 'logs' ? ' is-active' : ''}`}
                 onClick={() => setRuntimeView('logs')}
               >
-                {t('liveAppStudio.diagnostics.logsTab')}
+                {t('diagnostics.logsTab')}
                 {filteredLogs.length > 0 ? (
                   <span className="studio-dock__tab-badge is-neutral">
                     {filteredLogs.length > 99 ? '99+' : filteredLogs.length}
@@ -833,7 +982,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
                   {(['all', 'error', 'warn', 'info'] as LogLevel[]).map((level) => (
                     <FilterPill
                       key={level}
-                      label={t(`liveAppStudio.diagnostics.filter${level.charAt(0).toUpperCase()}${level.slice(1)}`)}
+                      label={t(`diagnostics.filter${level.charAt(0).toUpperCase()}${level.slice(1)}`)}
                       active={logFilter === level}
                       onClick={() => setLogFilter(level)}
                     />
@@ -843,7 +992,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
                   className="studio-dock__log-search-field"
                   value={logSearch}
                   onChange={setLogSearch}
-                  placeholder={t('liveAppStudio.diagnostics.searchPlaceholder')}
+                  placeholder={t('diagnostics.searchPlaceholder')}
                   size="small"
                   enterToSearch={false}
                 />
@@ -858,7 +1007,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
             >
               {runtimeView === 'issues' ? (
                 issues.length === 0 ? (
-                  <div className="studio-dock__empty">{t('liveAppStudio.diagnostics.empty')}</div>
+                  <div className="studio-dock__empty">{t('diagnostics.empty')}</div>
                 ) : (
                   issues.map((issue, index) => (
                     <IssueRow
@@ -870,6 +1019,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
                       onRestart={() => void actions.stopWorker(() => void load())}
                       onFixWithAi={(text) => void handleSendIssuesToAi(text)}
                       currentLanguage={currentLanguage}
+                      restartLabel={tApps('liveApp.actions.restartWorker')}
                     />
                   ))
                 )
@@ -878,7 +1028,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
                   className="studio-dock__logs-empty"
                   image={<ScrollText size={28} strokeWidth={1.5} aria-hidden />}
                   imageSize={28}
-                  description={t('liveAppStudio.diagnostics.logsEmpty')}
+                  description={t('diagnostics.logsEmpty')}
                 />
               ) : (
                 <>
@@ -886,7 +1036,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
                     <Alert
                       type="info"
                       className="studio-dock__truncated-alert"
-                      message={t('liveAppStudio.diagnostics.truncatedHint', {
+                      message={t('diagnostics.truncatedHint', {
                         max: MAX_VISIBLE_LOGS,
                         path: `${workspacePath ?? ''}/.sparo_os/debug.log`,
                       })}
@@ -898,7 +1048,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
                       entry={entry}
                       onCopy={(text) => void copyDiagnostic(text)}
                       currentLanguage={currentLanguage}
-                      copyAriaLabel={t('liveAppStudio.diagnostics.copy')}
+                      copyAriaLabel={t('diagnostics.copy')}
                     />
                   ))}
                   <div ref={logsEndRef} />
@@ -915,7 +1065,7 @@ const LiveAppStudioPanel: React.FC<LiveAppStudioPanelProps> = ({ sessionId, appI
                 className="studio-dock__new-logs-banner"
                 onClick={handleResumeFollow}
               >
-                {t('liveAppStudio.diagnostics.newMessages', { count: newLogCount })}
+                {t('diagnostics.newMessages', { count: newLogCount })}
                 <ChevronDown size={12} />
               </Button>
             ) : null}

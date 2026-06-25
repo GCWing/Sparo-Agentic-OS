@@ -25,14 +25,29 @@
 }
 
 .sparo-workspace-footer {
+  position: relative;
+  isolation: isolate;
   display: flex;
   align-items: center;
   flex-shrink: 0;
   gap: $size-gap-1;
   padding: $size-gap-1 0 0;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -6px -10px -6px -6px;
+    z-index: var(--ds-z-base);
+    pointer-events: none;
+    background: var(--sparo-workspace-footer-mask-bg, var(--ds-color-bg-scene));
+    mask-image: radial-gradient(ellipse 68% 72% at 20px 50%, black 0 48%, transparent 76%);
+    -webkit-mask-image: radial-gradient(ellipse 68% 72% at 20px 50%, black 0 48%, transparent 76%);
+  }
 }
 
 .sparo-workspace-footer__left {
+  position: relative;
+  z-index: var(--ds-z-local);
   display: flex;
   align-items: center;
   gap: $size-gap-1;

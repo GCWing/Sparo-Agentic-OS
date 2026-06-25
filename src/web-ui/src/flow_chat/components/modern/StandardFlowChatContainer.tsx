@@ -76,6 +76,7 @@ export const StandardFlowChatContainer: React.FC<StandardFlowChatContainerProps>
     viewContextValue,
     searchQuery,
     onSearchChange,
+    workspacePath: effectiveWorkspacePath,
   } = core;
 
   const contextValue: FlowChatContextValue = useMemo(
@@ -99,7 +100,10 @@ export const StandardFlowChatContainer: React.FC<StandardFlowChatContainerProps>
       void (async () => {
         try {
           useSessionModeStore.getState().setMode('code');
-          await FlowChatManager.getInstance().createChatSession({}, getDefaultSessionDescriptor());
+          await FlowChatManager.getInstance().createChatSession(
+            { workspacePath: effectiveWorkspacePath || undefined },
+            getDefaultSessionDescriptor()
+          );
         } catch { /* ignore */ }
       })();
     },
@@ -146,7 +150,7 @@ export const StandardFlowChatContainer: React.FC<StandardFlowChatContainerProps>
             <FlowChatHeader
               visible={!!activeSession}
               sessionId={activeSession?.sessionId}
-              workspacePath={activeSession?.workspacePath ?? workspacePath ?? undefined}
+              workspacePath={activeSession?.workspacePath ?? effectiveWorkspacePath ?? undefined}
               turns={turnSummaries}
               onJumpToTurn={handleJumpToTurn}
               searchQuery={searchQuery}

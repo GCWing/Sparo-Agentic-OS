@@ -74,6 +74,7 @@ import { resolveComposerSessionProfile } from './composer/model/composerSessionP
 import { deriveComposerOsHandoffState } from '../domain/osHandoffIntent';
 import { supportsSessionGoal } from '../domain/goalSupport';
 import { useSessionGoalSnapshot } from '../store/sessionGoalStore';
+import { workspacePathFromAppScope } from '@/shared/types/app-scope';
 import './ChatInput.scss';
 
 export interface ChatInputProps {
@@ -232,21 +233,32 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     ? Math.min(999, Math.max(0, (tokenUsage.current / tokenUsage.max) * 100))
     : 0;
   const contextUsagePercentText = formatContextPercent(contextUsagePercent);
+  const liveAppWorkbenchWorkspacePath = workspacePathFromAppScope(
+    effectiveTargetSession?.customMetadata?.liveAppWorkbench?.scope
+  );
+  const sessionWorkspacePath =
+    effectiveTargetSession?.workspacePath?.trim() ||
+    liveAppWorkbenchWorkspacePath ||
+    '';
+  const workspaceScopeKind =
+    profile.workspaceScope.kind === 'global' && liveAppWorkbenchWorkspacePath
+      ? 'workspace'
+      : profile.workspaceScope.kind;
   const workspaceMeta = useMemo(() => {
-    if (profile.workspaceScope.kind === 'global') {
+    if (workspaceScopeKind === 'global') {
       return t('input.globalWorkspace', { defaultValue: 'Global' });
     }
 
     return (
-      effectiveTargetSession?.workspacePath?.trim() ||
+      sessionWorkspacePath ||
       workspacePath ||
       t('input.globalWorkspace', { defaultValue: 'Global' })
     );
   }, [
-    effectiveTargetSession?.workspacePath,
-    profile.workspaceScope.kind,
+    sessionWorkspacePath,
     t,
     workspacePath,
+    workspaceScopeKind,
   ]);
   const contextUsageMeta = tokenUsage.snapshot
     ? `${contextUsagePercentText}%`
@@ -254,13 +266,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       ? `${contextUsagePercentText}%`
       : t('input.contextUsageLoading', { defaultValue: 'Context' });
   const currentAgent = modeState.current;
-  const workspaceFilesTargetPath = profile.workspaceScope.kind === 'global'
+  const workspaceFilesTargetPath = workspaceScopeKind === 'global'
     ? null
-    : (effectiveTargetSession?.workspacePath?.trim() || workspacePath || null);
-  const effectiveWorkspacePath = effectiveTargetSession?.workspacePath?.trim() || workspacePath || null;
+    : (sessionWorkspacePath || workspacePath || null);
+  const effectiveWorkspacePath = sessionWorkspacePath || workspacePath || null;
   const supportsGoalForComposer = supportsSessionGoal({
     workspacePath: effectiveWorkspacePath,
-    workspaceScopeKind: profile.workspaceScope.kind,
+    workspaceScopeKind,
     storageScope: effectiveTargetSession?.storageScope ?? effectiveTargetSession?.descriptor.storageScope,
     descriptor: effectiveTargetSession?.descriptor,
     agentId: currentAgent,
@@ -299,7 +311,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     skillsTooltipSuppressed,
   } = useComposerBoostSkills({
     dropdownOpen: modeState.dropdownOpen,
-    workspacePath,
+    workspacePath: effectiveWorkspacePath ?? undefined,
   });
 
   useComposerHeightObserver(containerRef);
@@ -364,7 +376,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const recommendationContext = useComposerRecommendations({
     effectiveTargetSessionId,
     isProcessing: !!derivedState?.isProcessing,
-    workspacePath,
+    workspacePath: effectiveWorkspacePath ?? undefined,
   });
 
   const [mentionState, setMentionState] = useState<MentionState>({
@@ -791,7 +803,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         contexts={contexts}
         imageContexts={imageContexts}
         mentionState={mentionState}
-        workspacePath={workspacePath}
+        workspacePath={effectiveWorkspacePath ?? undefined}
         commandState={commandState}
         commandOptions={commandOptions}
         mcpPromptCommandsLoading={mcpPromptCommandsLoading}

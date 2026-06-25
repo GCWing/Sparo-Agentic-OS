@@ -57,10 +57,13 @@ import {
 } from '@/infrastructure/services/business/workspaceManager';
 import type { WorkspaceInfo } from '@/shared/types';
 import { createLogger } from '@/shared/utils/logger';
+import { isSamePath } from '@/shared/utils/pathUtils';
 import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
 import { addFileMentionToChat } from '@/shared/utils/chatContext';
 import { openFileInBestTarget } from '@/shared/utils/tabUtils';
 import { openPathAsWorkspace } from '@/shared/utils/openPathAsWorkspace';
+import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
+import { projectRuntimeScopeFromWorkspace } from '@/shared/types/runtime-scope';
 import {
   applyFileSelection,
   buildFileContextPack,
@@ -792,10 +795,15 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
 
   const refreshWorkspaceState = useCallback(() => {
     const state = workspaceManager.getState();
-    setWorkspaces(Array.from(state.openedWorkspaces.values()));
+    const openedWorkspaces = Array.from(state.openedWorkspaces.values());
+    setWorkspaces(openedWorkspaces);
     setRecentWorkspaces(state.recentWorkspaces);
-    setActiveWorkspace(state.lastUsedWorkspace);
-  }, []);
+    setActiveWorkspace(
+      workspacePath
+        ? openedWorkspaces.find(workspace => isSamePath(workspace.rootPath, workspacePath)) ?? null
+        : state.lastUsedWorkspace,
+    );
+  }, [workspacePath]);
 
   const refreshSystemRoots = useCallback(async () => {
     const [nextDrives, nextQuickFolders, pinnedState] = await Promise.all([
@@ -945,14 +953,17 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
   }, [editingAddress]);
 
   const handleSwitchWorkspace = useCallback(async (workspace: WorkspaceInfo) => {
-    await workspaceManager.switchWorkspace(workspace);
-    setMode('workspace');
-    setCurrentPath(workspace.rootPath);
-    setPathDraft(workspace.rootPath);
+    const scope = projectRuntimeScopeFromWorkspace(workspace);
+    if (!scope) return;
+    openWorkspaceScene('file-viewer', { scope });
   }, []);
 
   const handleOpenPathAsWorkspace = useCallback(async (path: string) => {
     const workspace = await openPathAsWorkspace(path);
+    const scope = projectRuntimeScopeFromWorkspace(workspace);
+    if (scope) {
+      openWorkspaceScene('file-viewer', { scope });
+    }
     setMode('workspace');
     setCurrentPath(workspace.rootPath);
     setPathDraft(workspace.rootPath);

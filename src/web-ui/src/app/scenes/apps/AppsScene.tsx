@@ -68,11 +68,14 @@ import {
 import { openWorkspaceHome } from '@/app/navigation/workspaceNavigation';
 import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
 import type { WorkspaceSceneId } from '@/app/navigation/workspaceSceneTypes';
-import { useLastUsedWorkspace, useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
+import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { createLogger } from '@/shared/utils/logger';
 import { useGallerySceneAutoRefresh } from '@/app/hooks/useGallerySceneAutoRefresh';
 import { notificationService } from '@/shared/notification-system';
 import { launchWorkForChoice } from '@/app/components/WorkDock/NewWorkDialog';
+import { useWorks } from '@/app/agentic-os/work/hooks/useWorks';
+import { selectBestWorksForApp } from '@/app/agentic-os/work/data/appWorkSelectors';
+import { openWork } from '@/app/agentic-os/work/navigation/openWork';
 import { getAppCategoryLabel, getStandaloneAppRowMeta } from './appsUtils';
 import { useAppsStore, type AppsHomeView, type AppsTab } from './appsStore';
 import { useAppsData } from './hooks/useAppsData';
@@ -86,6 +89,17 @@ import {
 import { renderLiveAppIcon } from './live-app/liveAppIconHelpers';
 import { resolveLiveAppMeta } from './live-app/liveAppI18n';
 import { openLiveApp } from './live-app/liveAppWorkbenchService';
+import { openLiveAppStudioForApp } from './live-app/openLiveAppStudioForApp';
+import {
+  getAppScopeFolderName,
+  LiveAppScopeDialog,
+} from './live-app/components/LiveAppScopeDialog';
+import {
+  appScopeFromWorkspacePath,
+  systemAppScope,
+  workspacePathFromAppScope,
+  type AppScope,
+} from '@/shared/types/app-scope';
 import { AppDetailScene } from './app-detail/AppDetailScene';
 import './AppsScene.scss';
 
@@ -106,6 +120,18 @@ type ManageAppItem =
   | { type: 'agent-app'; app: AppCardModel }
   | { type: 'live-app'; app: LiveAppMeta }
   | { type: 'bridge-app'; app: BridgeAppPackage };
+type LiveAppScopeAction =
+  | { kind: 'open'; appOrId: LiveAppMeta | string }
+  | { kind: 'edit'; appOrId: LiveAppMeta | string; openedFrom: 'apps-card' | 'apps-detail' }
+  | { kind: 'recompile'; appOrId: LiveAppMeta | string }
+  | { kind: 'start-live-app-studio' }
+  | { kind: 'start-agent-app-studio' };
+type PendingBridgeAppRun = {
+  app: BridgeAppPackage;
+  action: BridgeAppAction;
+  input: Record<string, unknown>;
+  capability?: BridgeAppCapability;
+};
 
 function appItemId(item: DiscoverRecommendationItem | ManageAppItem): string {
   return item.type === 'bridge-app' ? item.app.manifest.id : item.app.id;
@@ -284,6 +310,7 @@ const LiveAppRow: React.FC<{
   runtimeAvailable: boolean;
   onOpenDetails: (app: LiveAppMeta) => void;
   onOpen: (id: string) => void;
+  onEditInStudio: (app: LiveAppMeta) => void;
   onInstallDeps: (id: string) => Promise<void>;
   onRecompile: (id: string) => Promise<void>;
   onStop: (id: string) => Promise<void>;
@@ -295,6 +322,7 @@ const LiveAppRow: React.FC<{
   runtimeAvailable,
   onOpenDetails,
   onOpen,
+  onEditInStudio,
   onInstallDeps,
   onRecompile,
   onStop,
@@ -360,6 +388,10 @@ const LiveAppRow: React.FC<{
           </IconButton>
         ) : null}
         <IconButton className="apps-list-card__action" variant="ghost" size="xs"
+          onClick={() => onEditInStudio(app)} aria-label={t('liveApp.actions.editInStudio')} tooltip={t('liveApp.actions.editInStudio')}>
+          <PencilRuler size={12} />
+        </IconButton>
+        <IconButton className="apps-list-card__action" variant="ghost" size="xs"
           onClick={() => void onRecompile(app.id)} aria-label={t('liveApp.actions.recompile')} tooltip={t('liveApp.actions.recompile')}>
           <RefreshCw size={12} />
         </IconButton>
@@ -410,11 +442,10 @@ const BridgeAppRow: React.FC<{
 
 const BridgeAppRunner: React.FC<{
   app: BridgeAppPackage | null;
-  workspacePath?: string | null;
   onRun: (app: BridgeAppPackage, action: BridgeAppAction, input: Record<string, unknown>, capability?: BridgeAppCapability) => Promise<void>;
   running: boolean;
   result: BridgeAppRunResult | null;
-}> = ({ app, workspacePath, onRun, running, result }) => {
+}> = ({ app, onRun, running, result }) => {
   const { t } = useTranslation('scenes/apps');
   const [actionName, setActionName] = useState('');
   const [prompt, setPrompt] = useState('');
@@ -505,9 +536,7 @@ const BridgeAppRunner: React.FC<{
           </label>
         ) : null}
         <div className="apps-bridge-runner__meta">
-          <Badge variant={workspacePath ? 'info' : 'neutral'}>
-            {workspacePath || t('bridgeApp.noWorkspace')}
-          </Badge>
+          <Badge variant="neutral">{t('bridgeApp.scopeSelectedOnRun')}</Badge>
           <Badge variant="neutral">{mode}</Badge>
         </div>
         {requiresPrompt ? (
@@ -697,19 +726,23 @@ const AppsHomeView: React.FC<{
   const markStopped      = useLiveAppStore((s) => s.markWorkerStopped);
   const openLiveAppInStore = useLiveAppStore((s) => s.openApp);
 
-  const { workspacePath } = useLastUsedWorkspace();
-  const { rememberWorkspace } = useWorkspaceContext();
+  const { rememberWorkspace, openWorkspace, openedWorkspacesList } = useWorkspaceContext();
+  const { works } = useWorks();
   const activeSurface = useWorkspaceSurfaceStore((s) => s.activeSurface);
   const activeSceneId = activeSurface.kind === 'scene' ? activeSurface.sceneId : null;
 
   const [liveSearch, setLiveSearch]           = useState('');
   const [selectedLiveApp, setSelectedLiveApp] = useState<LiveAppMeta | null>(null);
+  const [pendingLiveAppScopeAction, setPendingLiveAppScopeAction] = useState<LiveAppScopeAction | null>(null);
+  const [liveAppScopeDraft, setLiveAppScopeDraft] = useState<AppScope>(() => systemAppScope());
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [bridgeApps, setBridgeApps] = useState<BridgeAppPackage[]>([]);
   const [bridgeLoading, setBridgeLoading] = useState(false);
   const [selectedBridgeAppId, setSelectedBridgeAppId] = useState<string | null>(null);
   const [bridgeRunning, setBridgeRunning] = useState(false);
   const [bridgeRunResult, setBridgeRunResult] = useState<BridgeAppRunResult | null>(null);
+  const [pendingBridgeAppRun, setPendingBridgeAppRun] = useState<PendingBridgeAppRun | null>(null);
+  const [bridgeAppScopeDraft, setBridgeAppScopeDraft] = useState<AppScope>(() => systemAppScope());
   const [intent, setIntent] = useState('');
   const manageContentRef = useRef<HTMLElement | null>(null);
   const [manageRows, setManageRows] = useState(MANAGE_MAX_ROWS);
@@ -952,42 +985,192 @@ const AppsHomeView: React.FC<{
   const selectedLiveAppMeta = selectedLiveApp ? resolveLiveAppMeta(selectedLiveApp, currentLocale) : null;
   const pendingDeleteApp = liveApps.find((app) => app.id === pendingDeleteId);
   const pendingDeleteAppName = pendingDeleteApp ? resolveLiveAppMeta(pendingDeleteApp, currentLocale).name : '';
+  const pendingLiveAppScopeAppName = useMemo(() => {
+    const action = pendingLiveAppScopeAction;
+    if (!action) return '';
+    if (action.kind === 'start-live-app-studio') {
+      return t('liveApp.openStudio');
+    }
+    if (action.kind === 'start-agent-app-studio') {
+      return t('page.newAgentApp');
+    }
+    const appOrId = action.appOrId;
+    if (!appOrId) return '';
+    if (typeof appOrId !== 'string') {
+      return resolveLiveAppMeta(appOrId, currentLocale).name;
+    }
+    const app = liveApps.find((item) => item.id === appOrId);
+    return app ? resolveLiveAppMeta(app, currentLocale).name : appOrId;
+  }, [currentLocale, liveApps, pendingLiveAppScopeAction, t]);
 
-  const handleOpenLiveApp = (appId: string) => {
-    setSelectedLiveApp(null);
-    openLiveAppInStore(appId);
-    const app = liveApps.find(app => app.id === appId);
-    void openLiveApp(app || appId, {
-      workspacePath: workspacePath || undefined,
-      locale: currentLocale,
+  const pendingLiveAppScopeAppId = useMemo(() => {
+    const action = pendingLiveAppScopeAction;
+    if (!action || !('appOrId' in action)) return null;
+    return typeof action.appOrId === 'string' ? action.appOrId : action.appOrId.id;
+  }, [pendingLiveAppScopeAction]);
+
+  const pendingLiveAppBestWorks = useMemo(() => {
+    if (!pendingLiveAppScopeAppId) return [];
+    return selectBestWorksForApp(
+      works,
+      { kind: 'live_app', appId: pendingLiveAppScopeAppId },
+      liveAppScopeDraft,
+      5,
+    ).map(({ work }) => {
+      const workspacePath = work.scope.kind === 'workspace' ? work.scope.workspacePath : null;
+      const workspaceLabel = workspacePath
+        ? openedWorkspacesList.find((workspace) => workspace.rootPath === workspacePath)?.name
+          ?? workspacePath
+        : t('liveApp.scopeDialog.systemTitle');
+      return {
+        id: work.id,
+        title: work.title,
+        objective: work.objective,
+        status: work.status,
+        workspaceLabel,
+      };
     });
-  };
+  }, [liveAppScopeDraft, openedWorkspacesList, pendingLiveAppScopeAppId, t, works]);
 
-  const handleOpenStudio = useCallback(async () => {
+  const requestLiveAppScope = useCallback((action: LiveAppScopeAction) => {
+    setLiveAppScopeDraft(systemAppScope());
+    setPendingLiveAppScopeAction(action);
+  }, []);
+
+  const resolveWorkspaceForAppScope = useCallback(async (scope: AppScope) => {
+    if (scope.kind === 'system') return null;
+    const existing = openedWorkspacesList.find((workspace) => workspace.rootPath === scope.workspacePath);
+    if (existing) return existing;
+    return openWorkspace(scope.workspacePath);
+  }, [openWorkspace, openedWorkspacesList]);
+
+  const handleOpenLiveApp = useCallback((appId: string) => {
+    const app = liveApps.find(app => app.id === appId);
+    requestLiveAppScope({ kind: 'open', appOrId: app || appId });
+  }, [liveApps, requestLiveAppScope]);
+
+  const handleEditLiveAppInStudio = useCallback((
+    appOrId: LiveAppMeta | string,
+    openedFrom: 'apps-card' | 'apps-detail' = 'apps-card',
+  ) => {
+    const app = typeof appOrId === 'string'
+      ? liveApps.find(item => item.id === appOrId) || appOrId
+      : appOrId;
+    requestLiveAppScope({ kind: 'edit', appOrId: app, openedFrom });
+  }, [liveApps, requestLiveAppScope]);
+
+  const handleCancelLiveAppScope = useCallback(() => {
+    setPendingLiveAppScopeAction(null);
+    setLiveAppScopeDraft(systemAppScope());
+  }, []);
+
+  const handleSelectLiveAppWork = useCallback(async (workId: string) => {
+    const work = works.find((item) => item.id === workId);
+    if (!work) return;
     try {
-      await launchWorkForChoice({
-        agentChoice: 'LiveAppStudio',
-        workspace: null,
-        rememberWorkspace,
-      });
+      await openWork(work);
+      setSelectedLiveApp(null);
+      handleCancelLiveAppScope();
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      notificationService.error(`${t('liveApp.openStudio')}: ${reason}`);
+      notificationService.error(reason);
     }
-  }, [rememberWorkspace, t]);
+  }, [handleCancelLiveAppScope, works]);
 
-  const handleOpenAgentAppStudio = useCallback(async () => {
+  const handleBrowseLiveAppScope = useCallback(async () => {
     try {
-      await launchWorkForChoice({
-        agentChoice: 'AgentAppStudio',
-        workspace: null,
-        rememberWorkspace,
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: t('liveApp.scopeDialog.folderDialogTitle'),
       });
+      const selectedPath = Array.isArray(selected) ? selected[0] : selected;
+      if (!selectedPath) return;
+      setLiveAppScopeDraft(
+        appScopeFromWorkspacePath(selectedPath) ?? {
+          kind: 'workspace',
+          workspacePath: selectedPath,
+          workspaceName: getAppScopeFolderName(selectedPath),
+        }
+      );
+    } catch (error) {
+      log.error('Browse Live App scope failed', { error });
+      notificationService.error(t('liveApp.scopeDialog.browseFailed'));
+    }
+  }, [t]);
+
+  const handleConfirmLiveAppScope = useCallback(async () => {
+    const action = pendingLiveAppScopeAction;
+    if (!action) return;
+
+    try {
+      if (action.kind === 'start-live-app-studio' || action.kind === 'start-agent-app-studio') {
+        const workspace = await resolveWorkspaceForAppScope(liveAppScopeDraft);
+        await launchWorkForChoice({
+          agentChoice: action.kind === 'start-live-app-studio' ? 'LiveAppStudio' : 'AgentAppStudio',
+          workspace,
+          rememberWorkspace,
+        });
+        setSelectedLiveApp(null);
+        handleCancelLiveAppScope();
+        return;
+      }
+
+      const appId = typeof action.appOrId === 'string' ? action.appOrId : action.appOrId.id;
+      const app = typeof action.appOrId === 'string'
+        ? liveApps.find(item => item.id === action.appOrId) || action.appOrId
+        : action.appOrId;
+
+      if (action.kind === 'open') {
+        await openLiveApp(app, {
+          scope: liveAppScopeDraft,
+          locale: currentLocale,
+        });
+        openLiveAppInStore(appId);
+      } else if (action.kind === 'edit') {
+        await openLiveAppStudioForApp(app, {
+          scope: liveAppScopeDraft,
+          locale: currentLocale,
+          openedFrom: action.openedFrom,
+        });
+      } else {
+        await liveAppAPI.recompile(appId, undefined, workspacePathFromAppScope(liveAppScopeDraft));
+        notificationService.success(t('liveApp.messages.recompiled'), { duration: 2200 });
+      }
+      setSelectedLiveApp(null);
+      handleCancelLiveAppScope();
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      notificationService.error(`${t('page.newAgentApp')}: ${reason}`);
+      const label = action.kind === 'edit'
+        ? t('liveApp.actions.editInStudio')
+        : action.kind === 'recompile'
+          ? t('liveApp.actions.recompile')
+          : action.kind === 'start-agent-app-studio'
+            ? t('page.newAgentApp')
+          : action.kind === 'start-live-app-studio'
+            ? t('liveApp.openStudio')
+          : t('liveApp.detail.open');
+      notificationService.error(`${label}: ${reason}`);
     }
-  }, [rememberWorkspace, t]);
+  }, [
+    currentLocale,
+    handleCancelLiveAppScope,
+    liveAppScopeDraft,
+    liveApps,
+    openLiveAppInStore,
+    pendingLiveAppScopeAction,
+    rememberWorkspace,
+    resolveWorkspaceForAppScope,
+    t,
+  ]);
+
+  const handleOpenStudio = useCallback(() => {
+    requestLiveAppScope({ kind: 'start-live-app-studio' });
+  }, [requestLiveAppScope]);
+
+  const handleOpenAgentAppStudio = useCallback(() => {
+    requestLiveAppScope({ kind: 'start-agent-app-studio' });
+  }, [requestLiveAppScope]);
 
   const handleUseSuggestion = useCallback((key: string) => {
     setIntent(t(`discover.suggestions.${key}`));
@@ -1025,17 +1208,9 @@ const AppsHomeView: React.FC<{
   }, [setLiveApps, setLiveLoading, t]);
 
   const handleRecompile = useCallback(async (appId: string) => {
-    try {
-      await liveAppAPI.recompile(appId, undefined, workspacePath || undefined);
-      notificationService.success(t('liveApp.messages.recompiled'), { duration: 2200 });
-    } catch (error) {
-      notificationService.error(
-        t('liveApp.messages.recompileFailed', {
-          error: error instanceof Error ? error.message : String(error),
-        }),
-      );
-    }
-  }, [t, workspacePath]);
+    const app = liveApps.find(item => item.id === appId) || appId;
+    requestLiveAppScope({ kind: 'recompile', appOrId: app });
+  }, [liveApps, requestLiveAppScope]);
 
   const handleStopLiveApp = async (appId: string) => {
     const sceneId = `live-app:${appId}` as WorkspaceSceneId;
@@ -1066,7 +1241,7 @@ const AppsHomeView: React.FC<{
       const path = Array.isArray(selected) ? selected[0] : selected;
       if (!path) return;
       setLiveLoading(true);
-      const app = await liveAppAPI.importFromPath(path, workspacePath || undefined);
+      const app = await liveAppAPI.importFromPath(path, undefined);
       setLiveApps([app, ...liveApps]);
       notificationService.success(
         t('liveApp.messages.imported', {
@@ -1147,15 +1322,50 @@ const AppsHomeView: React.FC<{
     input: Record<string, unknown>,
     capability?: BridgeAppCapability,
   ) => {
+    setBridgeRunResult(null);
+    setBridgeAppScopeDraft(systemAppScope());
+    setPendingBridgeAppRun({ app, action, input, capability });
+  }, []);
+
+  const handleBrowseBridgeAppScope = useCallback(async () => {
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: t('liveApp.scopeDialog.folderDialogTitle'),
+      });
+      const selectedPath = Array.isArray(selected) ? selected[0] : selected;
+      if (!selectedPath) return;
+      setBridgeAppScopeDraft(
+        appScopeFromWorkspacePath(selectedPath) ?? {
+          kind: 'workspace',
+          workspacePath: selectedPath,
+          workspaceName: getAppScopeFolderName(selectedPath),
+        }
+      );
+    } catch (error) {
+      log.error('Browse Bridge App scope failed', { error });
+      notificationService.error(t('liveApp.scopeDialog.browseFailed'));
+    }
+  }, [t]);
+
+  const handleCancelBridgeAppScope = useCallback(() => {
+    setPendingBridgeAppRun(null);
+    setBridgeAppScopeDraft(systemAppScope());
+  }, []);
+
+  const handleConfirmBridgeAppScope = useCallback(async () => {
+    const pendingRun = pendingBridgeAppRun;
+    if (!pendingRun) return;
     setBridgeRunning(true);
     setBridgeRunResult(null);
     try {
       const result = await bridgeAppAPI.runBridgeAppAction(
-        app.manifest.id,
-        action.name,
-        input,
-        workspacePath || undefined,
-        capability?.id,
+        pendingRun.app.manifest.id,
+        pendingRun.action.name,
+        pendingRun.input,
+        workspacePathFromAppScope(bridgeAppScopeDraft),
+        pendingRun.capability?.id,
       );
       setBridgeRunResult(result);
       if (result.status === 'completed') {
@@ -1171,8 +1381,9 @@ const AppsHomeView: React.FC<{
       );
     } finally {
       setBridgeRunning(false);
+      handleCancelBridgeAppScope();
     }
-  }, [t, workspacePath]);
+  }, [bridgeAppScopeDraft, handleCancelBridgeAppScope, pendingBridgeAppRun, t]);
 
   const effectiveSearch = activeTab === 'live-app' ? liveSearch : searchQuery;
   const onChangeSearch  = activeTab === 'live-app'
@@ -1497,6 +1708,7 @@ const AppsHomeView: React.FC<{
                               runtimeAvailable={runtimeStatus?.available ?? false}
                               onOpenDetails={setSelectedLiveApp}
                               onOpen={handleOpenLiveApp}
+                              onEditInStudio={handleEditLiveAppInStudio}
                               onInstallDeps={handleInstallDeps}
                               onRecompile={handleRecompile}
                               onStop={handleStopLiveApp}
@@ -1571,6 +1783,7 @@ const AppsHomeView: React.FC<{
                             runtimeAvailable={runtimeStatus?.available ?? false}
                             onOpenDetails={setSelectedLiveApp}
                             onOpen={handleOpenLiveApp}
+                            onEditInStudio={handleEditLiveAppInStudio}
                             onInstallDeps={handleInstallDeps}
                             onRecompile={handleRecompile}
                             onStop={handleStopLiveApp}
@@ -1619,7 +1832,6 @@ const AppsHomeView: React.FC<{
                     </div>
                     <BridgeAppRunner
                       app={selectedBridgeApp}
-                      workspacePath={workspacePath}
                       onRun={handleRunBridgeApp}
                       running={bridgeRunning}
                       result={bridgeRunResult}
@@ -1657,6 +1869,9 @@ const AppsHomeView: React.FC<{
             ) : null}
             <Button variant="secondary" size="small" onClick={() => void handleRecompile(selectedLiveApp.id)}>
               <RefreshCw size={14} />{t('liveApp.actions.recompile')}
+            </Button>
+            <Button variant="secondary" size="small" onClick={() => void handleEditLiveAppInStudio(selectedLiveApp, 'apps-detail')}>
+              <PencilRuler size={14} />{t('liveApp.actions.editInStudio')}
             </Button>
             <Button variant="primary" size="small" onClick={() => handleOpenLiveApp(selectedLiveApp.id)}>
               <Play size={14} />
@@ -1728,6 +1943,39 @@ const AppsHomeView: React.FC<{
           </div>
         ) : null}
       </GalleryDetailModal>
+
+      <LiveAppScopeDialog
+        open={pendingLiveAppScopeAction !== null}
+        mode={
+          pendingLiveAppScopeAction?.kind === 'start-live-app-studio' ||
+          pendingLiveAppScopeAction?.kind === 'start-agent-app-studio'
+            ? 'studio'
+            : pendingLiveAppScopeAction?.kind ?? 'open'
+        }
+        appName={pendingLiveAppScopeAppName}
+        workspaces={openedWorkspacesList}
+        selectedScope={liveAppScopeDraft}
+        bestWorks={pendingLiveAppBestWorks}
+        onSelectScope={setLiveAppScopeDraft}
+        onSelectWork={(workId) => void handleSelectLiveAppWork(workId)}
+        onBrowse={handleBrowseLiveAppScope}
+        onCancel={handleCancelLiveAppScope}
+        onConfirm={handleConfirmLiveAppScope}
+        t={t}
+      />
+
+      <LiveAppScopeDialog
+        open={pendingBridgeAppRun !== null}
+        mode="run"
+        appName={pendingBridgeAppRun?.app.manifest.name ?? t('bridgeApp.title')}
+        workspaces={openedWorkspacesList}
+        selectedScope={bridgeAppScopeDraft}
+        onSelectScope={setBridgeAppScopeDraft}
+        onBrowse={handleBrowseBridgeAppScope}
+        onCancel={handleCancelBridgeAppScope}
+        onConfirm={handleConfirmBridgeAppScope}
+        t={t}
+      />
 
       <ConfirmDialog
         open={pendingDeleteId !== null}

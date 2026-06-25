@@ -1111,6 +1111,11 @@ function extractAgentPersistableState(state: CanvasStore): CanvasStoreState {
   };
 }
 
+function hasVisibleAgentTabs(snapshot: CanvasStoreState): boolean {
+  return [snapshot.primaryGroup, snapshot.secondaryGroup, snapshot.tertiaryGroup]
+    .some(group => group.tabs.some(tab => tab.isHidden !== true));
+}
+
 function rememberAgentSnapshot(key: string, snapshot: CanvasStoreState): void {
   const clone = structuredClone(snapshot);
   clone.draggingTabId = null;
@@ -1161,9 +1166,15 @@ export function switchAgentCanvasWorkspace(
 
   const rawNext = agentWorkspaceSnapshots.get(to);
   const nextSnapshotClone = rawNext ? structuredClone(rawNext) : null;
+  const current = extractAgentPersistableState(useAgentCanvasStore.getState() as CanvasStore);
+
+  if (from === null && hasVisibleAgentTabs(current)) {
+    rememberAgentSnapshot(to, current);
+    lastAgentCanvasSwitchTargetKey = to;
+    return;
+  }
 
   if (from !== null) {
-    const current = extractAgentPersistableState(useAgentCanvasStore.getState() as CanvasStore);
     rememberAgentSnapshot(from, current);
   }
 

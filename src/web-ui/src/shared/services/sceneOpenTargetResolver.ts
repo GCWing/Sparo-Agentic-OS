@@ -66,7 +66,9 @@ export function resolveAndFocusOpenTarget(
     activeSceneId !== resolution.targetSceneId;
 
   if (resolution.targetSceneId !== 'session') {
-    openWorkspaceScene(resolution.targetSceneId as WorkspaceSceneId);
+    openWorkspaceScene(resolution.targetSceneId as WorkspaceSceneId, {
+      scope: activeSurface.kind === 'scene' ? activeSurface.scope : undefined,
+    });
   }
   return { ...resolution, sceneJustOpened };
 }

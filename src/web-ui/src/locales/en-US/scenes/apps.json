@@ -367,9 +367,31 @@
     "actions": {
       "installDeps": "Install deps",
       "restartWorker": "Restart worker",
+      "editInStudio": "Edit in Studio",
       "recompile": "Recompile",
       "openAnyway": "Open anyway",
       "refreshCatalog": "Refresh catalog"
+    },
+    "scopeDialog": {
+      "openTitle": "Choose run scope for {{name}}",
+      "editTitle": "Choose edit scope for {{name}}",
+      "recompileTitle": "Choose recompile scope for {{name}}",
+      "studioTitle": "Choose App storage scope for {{name}}",
+      "runTitle": "Choose run scope for {{name}}",
+      "description": "The selected scope is used for App runs, bridge calls, file access, logs, and Studio edits.",
+      "ariaLabel": "App scope",
+      "systemTitle": "Global App storage",
+      "systemDescription": "Use Sparo OS system App storage, without a project folder.",
+      "browseFolder": "Choose folder",
+      "folderDialogTitle": "Choose App scope folder",
+      "browseFailed": "Failed to choose folder",
+      "bestWorkTitle": "Best work",
+      "cancel": "Cancel",
+      "confirmOpen": "Open",
+      "confirmEdit": "Edit",
+      "confirmRecompile": "Recompile",
+      "confirmStart": "Start",
+      "confirmRun": "Run"
     },
     "detail": {
       "versionMeta": "v{{version}}",
@@ -501,6 +523,7 @@
     "selectHint": "Select a Bridge App to test a capability action.",
     "empty": "No Bridge Apps found.",
     "noWorkspace": "No workspace selected",
+    "scopeSelectedOnRun": "Scope selected on run",
     "run": "Run action",
     "running": "Running",
     "actions": {

@@ -5,6 +5,8 @@ import type {
   AdvanceWorkRequest,
   ControlWorkRequest,
   CreateWorkRequest,
+  LinkSessionToWorkRequest,
+  ResolveAppWorkRequest,
   UpdateWorkRequest,
   WorkRecord,
 } from '../domain/workTypes';
@@ -22,6 +24,8 @@ interface WorkStoreState {
   refreshWorks: () => Promise<void>;
   getWork: (workId: string) => Promise<WorkRecord>;
   createWork: (request: CreateWorkRequest) => Promise<WorkRecord>;
+  resolveAppWork: (request: ResolveAppWorkRequest) => Promise<{ work: WorkRecord; created: boolean }>;
+  linkSessionToWork: (request: LinkSessionToWorkRequest) => Promise<WorkRecord>;
   updateWork: (request: UpdateWorkRequest) => Promise<WorkRecord>;
   advanceWork: (request: AdvanceWorkRequest) => Promise<WorkRecord>;
   controlWork: (request: ControlWorkRequest) => Promise<WorkRecord>;
@@ -58,31 +62,43 @@ export const useWorkStore = create<WorkStoreState>((set, get) => ({
 
   createWork: async (request) => {
     const work = await agenticOsWorkApi.createWork(request);
-    set({ works: upsertWork(get().works, work), loaded: true });
+    set({ works: upsertWork(get().works, work), loaded: true, loading: false, error: null });
     return work;
+  },
+
+  resolveAppWork: async (request) => {
+    const response = await agenticOsWorkApi.resolveAppWork(request);
+    set({ works: upsertWork(get().works, response.work), loaded: true, loading: false, error: null });
+    return response;
   },
 
   getWork: async (workId) => {
     const work = await agenticOsWorkApi.getWork(workId);
-    set({ works: upsertWork(get().works, work), loaded: true });
+    set({ works: upsertWork(get().works, work), loaded: true, loading: false, error: null });
     return work;
   },
 
   updateWork: async (request) => {
     const work = await agenticOsWorkApi.updateWork(request);
-    set({ works: upsertWork(get().works, work), loaded: true });
+    set({ works: upsertWork(get().works, work), loaded: true, loading: false, error: null });
+    return work;
+  },
+
+  linkSessionToWork: async (request) => {
+    const work = await agenticOsWorkApi.linkSessionToWork(request);
+    set({ works: upsertWork(get().works, work), loaded: true, loading: false, error: null });
     return work;
   },
 
   advanceWork: async (request) => {
     const work = await agenticOsWorkApi.advanceWork(request);
-    set({ works: upsertWork(get().works, work), loaded: true });
+    set({ works: upsertWork(get().works, work), loaded: true, loading: false, error: null });
     return work;
   },
 
   controlWork: async (request) => {
     const work = await agenticOsWorkApi.controlWork(request);
-    set({ works: upsertWork(get().works, work), loaded: true });
+    set({ works: upsertWork(get().works, work), loaded: true, loading: false, error: null });
     return work;
   },
 }));

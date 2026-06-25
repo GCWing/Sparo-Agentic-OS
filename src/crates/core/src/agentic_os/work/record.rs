@@ -4,6 +4,7 @@ use super::assignment::WorkAssignmentRef;
 use super::execution_binding::WorkExecutionBinding;
 use super::ids::WorkId;
 use super::lifecycle::{WorkLifecycle, WorkSummary};
+use super::subject::{WorkAppRef, WorkAppRelation, WorkAppRelationRole, WorkSubject};
 use super::surface::WorkSurfaceRef;
 use super::title::WorkTitleState;
 use super::types::{WorkKind, WorkScope, WorkStatus, WorkVisibility};
@@ -58,6 +59,8 @@ pub struct WorkRecord {
     pub objective: String,
     pub status: WorkStatus,
     pub visibility: WorkVisibility,
+    pub subject: WorkSubject,
+    pub app_refs: Vec<WorkAppRelation>,
     pub scope: WorkScope,
     pub primary_surface: WorkSurfaceRef,
     pub surfaces: Vec<WorkSurfaceRef>,
@@ -83,6 +86,8 @@ impl WorkRecord {
         title: String,
         objective: String,
         visibility: WorkVisibility,
+        subject: WorkSubject,
+        app_refs: Vec<WorkAppRelation>,
         scope: WorkScope,
         primary_surface: WorkSurfaceRef,
         now: i64,
@@ -97,6 +102,8 @@ impl WorkRecord {
             objective,
             status: WorkStatus::Active,
             visibility,
+            app_refs: normalize_app_refs(&subject, app_refs),
+            subject,
             scope,
             primary_surface: primary_surface.clone(),
             surfaces: vec![primary_surface],
@@ -139,4 +146,41 @@ impl WorkRecord {
             _ => None,
         })
     }
+
+    pub fn references_app(&self, app: &WorkAppRef) -> bool {
+        self.subject.app_ref() == Some(app)
+            || self.app_refs.iter().any(|relation| &relation.app == app)
+    }
+}
+
+fn normalize_app_refs(
+    subject: &WorkSubject,
+    app_refs: Vec<WorkAppRelation>,
+) -> Vec<WorkAppRelation> {
+    let mut normalized = Vec::new();
+    if let Some(app) = subject.app_ref() {
+        push_app_relation(&mut normalized, WorkAppRelation::subject(app.clone()));
+    }
+    for relation in app_refs {
+        push_app_relation(&mut normalized, relation);
+    }
+    normalized
+}
+
+fn push_app_relation(relations: &mut Vec<WorkAppRelation>, relation: WorkAppRelation) {
+    if relations.iter().any(|existing| {
+        existing.app == relation.app
+            && existing.role == relation.role
+            && existing.surface_id == relation.surface_id
+    }) {
+        return;
+    }
+    if relation.role == WorkAppRelationRole::Subject
+        && relations.iter().any(|existing| {
+            existing.app == relation.app && existing.role == WorkAppRelationRole::Subject
+        })
+    {
+        return;
+    }
+    relations.push(relation);
 }

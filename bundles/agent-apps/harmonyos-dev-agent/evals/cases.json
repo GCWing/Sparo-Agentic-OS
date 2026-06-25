@@ -1,0 +1,10 @@
+[
+  {
+    "name": "detect-bitfun-harmony",
+    "prompt": "Detect this HarmonyOS project and summarize bundle, module, ability, target SDK, and signing status without exposing secrets."
+  },
+  {
+    "name": "selected-ui-edit",
+    "prompt": "Use the selected UI context as a pointer, find the likely ArkUI component, make a scoped spacing edit, and verify with build evidence."
+  }
+]

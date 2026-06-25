@@ -9,7 +9,6 @@ import { liveAppAPI } from '@/infrastructure/api/service-api/LiveAppAPI';
 import { api } from '@/infrastructure/api/service-api/ApiClient';
 import type { LiveApp } from '@/infrastructure/api/service-api/LiveAppAPI';
 import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
-import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { createLogger } from '@/shared/utils/logger';
 import { Button } from '@/design-system';
 import { useSceneManager } from '@/app/hooks/useSceneManager';
@@ -21,6 +20,14 @@ import { useHeaderStore } from '@/app/stores/headerStore';
 import { resolveLiveAppMeta } from './live-app/liveAppI18n';
 import { isCompositeLiveApp } from './live-app/liveAppInteraction';
 import { openLiveApp } from './live-app/liveAppWorkbenchService';
+import {
+  appScopeFromWorkspacePath,
+  appScopeIdentity,
+  normalizeAppScope,
+  systemAppScope,
+  type AppScope,
+  workspacePathFromAppScope,
+} from '@/shared/types/app-scope';
 import './LiveAppScene.scss';
 
 const log = createLogger('LiveAppScene');
@@ -29,14 +36,15 @@ const LiveAppRunner = React.lazy(() => import('./live-app/components/LiveAppRunn
 
 interface LiveAppSceneProps {
   appId: string;
+  workspacePath?: string;
+  scope?: AppScope | null;
 }
 
-const LiveAppScene: React.FC<LiveAppSceneProps> = ({ appId }) => {
+const LiveAppScene: React.FC<LiveAppSceneProps> = ({ appId, workspacePath, scope }) => {
   const openApp = useLiveAppStore((state) => state.openApp);
   const closeApp = useLiveAppStore((state) => state.closeApp);
   const setRecentAppIds = useLiveAppStore((state) => state.setRecentAppIds);
   const { themeType } = useTheme();
-  const { workspacePath } = useLastUsedWorkspace();
   const { closeScene } = useSceneManager();
   const { t, currentLanguage } = useI18n('scenes/apps');
   const setContextNavOverride = useHeaderStore((state) => state.setContextNavOverride);
@@ -46,11 +54,16 @@ const LiveAppScene: React.FC<LiveAppSceneProps> = ({ appId }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
+  const effectiveScope = useMemo(
+    () => normalizeAppScope(scope || appScopeFromWorkspacePath(workspacePath) || systemAppScope()),
+    [scope, workspacePath],
+  );
+  const effectiveWorkspacePath = workspacePathFromAppScope(effectiveScope);
 
   const {
     recompile,
     state: { recompiling },
-  } = useLiveAppActions(appId);
+  } = useLiveAppActions(appId, { scope: effectiveScope });
 
   useEffect(() => {
     openApp(appId);
@@ -64,12 +77,12 @@ const LiveAppScene: React.FC<LiveAppSceneProps> = ({ appId }) => {
     setLoading(true);
     try {
       const theme = themeType ?? 'dark';
-      const loaded = await liveAppAPI.getLiveApp(id, theme, workspacePath || undefined);
+      const loaded = await liveAppAPI.getLiveApp(id, theme, effectiveWorkspacePath);
       if (isCompositeLiveApp(loaded)) {
         setApp(null);
         setError(null);
         await openLiveApp(loaded, {
-          workspacePath: workspacePath || undefined,
+          scope: effectiveScope,
           locale: currentLanguage,
           theme,
         });
@@ -83,7 +96,7 @@ const LiveAppScene: React.FC<LiveAppSceneProps> = ({ appId }) => {
     } finally {
       setLoading(false);
     }
-  }, [currentLanguage, themeType, workspacePath]);
+  }, [currentLanguage, effectiveScope, effectiveWorkspacePath, themeType]);
 
   useEffect(() => {
     if (appId) void load(appId);
@@ -157,10 +170,10 @@ const LiveAppScene: React.FC<LiveAppSceneProps> = ({ appId }) => {
 
   const runnerKey = useMemo(
     () =>
-      app
-        ? `${app.id}:${app.runtime?.source_revision ?? 'runtime'}:${themeType ?? 'dark'}:${workspacePath ?? ''}:${reloadNonce}`
+        app
+        ? `${app.id}:${app.runtime?.source_revision ?? 'runtime'}:${themeType ?? 'dark'}:${appScopeIdentity(effectiveScope)}:${reloadNonce}`
         : `loading:${appId}:${reloadNonce}`,
-    [app, appId, reloadNonce, themeType, workspacePath],
+    [app, appId, effectiveScope, reloadNonce, themeType],
   );
 
   return (
@@ -183,7 +196,12 @@ const LiveAppScene: React.FC<LiveAppSceneProps> = ({ appId }) => {
         ) : null}
         {app ? (
           <React.Suspense fallback={null}>
-            <LiveAppRunner key={runnerKey} app={app} />
+            <LiveAppRunner
+              key={runnerKey}
+              app={app}
+              scope={effectiveScope}
+              workspacePath={effectiveWorkspacePath}
+            />
           </React.Suspense>
         ) : null}
         {(loading || recompiling) && app ? (

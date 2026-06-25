@@ -278,6 +278,16 @@
     "all": "全部工作区",
     "searchPlaceholder": "查找工作区"
   },
+  "appFilter": {
+    "all": "全部应用",
+    "searchPlaceholder": "查找应用",
+    "kind": {
+      "live_app": "{{count}} 个灵动应用工作",
+      "agent_app": "{{count}} 个智能体应用工作",
+      "bridge_app": "{{count}} 个桥接应用工作",
+      "system_app": "{{count}} 个系统应用工作"
+    }
+  },
   "workspaceOverview": {
     "searchPlaceholder": "搜索工作区...",
     "empty": "暂无工作区",

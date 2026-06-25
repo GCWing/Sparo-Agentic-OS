@@ -5,10 +5,15 @@
 import { useCallback, useState } from 'react';
 import { liveAppAPI } from '@/infrastructure/api/service-api/LiveAppAPI';
 import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
-import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { notificationService } from '@/shared/notification-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { useLiveAppStore } from '../liveAppStore';
+import {
+  normalizeAppScope,
+  systemAppScope,
+  type AppScope,
+  workspacePathFromAppScope,
+} from '@/shared/types/app-scope';
 
 export interface LiveAppActionsState {
   recompiling: boolean;
@@ -16,11 +21,14 @@ export interface LiveAppActionsState {
   restartingWorker: boolean;
 }
 
-export function useLiveAppActions(appId: string | undefined) {
+export function useLiveAppActions(
+  appId: string | undefined,
+  options: { scope?: AppScope | null } = {},
+) {
   const { themeType } = useTheme();
-  const { workspacePath } = useLastUsedWorkspace();
   const { t } = useI18n('scenes/apps');
   const markStopped = useLiveAppStore((state) => state.markWorkerStopped);
+  const workspacePath = workspacePathFromAppScope(normalizeAppScope(options.scope || systemAppScope()));
 
   const [recompiling, setRecompiling] = useState(false);
   const [installingDeps, setInstallingDeps] = useState(false);
@@ -30,7 +38,7 @@ export function useLiveAppActions(appId: string | undefined) {
     if (!appId || recompiling) return;
     setRecompiling(true);
     try {
-      await liveAppAPI.recompile(appId, themeType ?? 'dark', workspacePath || undefined);
+      await liveAppAPI.recompile(appId, themeType ?? 'dark', workspacePath);
       notificationService.success(t('liveApp.messages.recompiled'), { duration: 2200 });
       onSuccess?.();
     } catch (err) {

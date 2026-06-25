@@ -4,6 +4,7 @@ export type {
   SessionComposerAgentSwitching,
   SessionComposerBuiltinActionId,
   SessionComposerPolicy,
+  SessionAgentContextHint,
   SessionProfile,
   SessionSidecarActionDescriptor,
   SessionSidecarActionResult,

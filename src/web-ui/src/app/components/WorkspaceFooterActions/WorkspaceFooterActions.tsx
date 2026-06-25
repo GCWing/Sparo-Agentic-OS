@@ -24,6 +24,11 @@ import { openWorkCenterHome } from '@/app/agentic-os/work/navigation/openWork';
 import { createLogger } from '@/shared/utils/logger';
 import { getAgenticOsSessionDescriptor } from '@/flow_chat/domain/sessionDescriptor';
 import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
+import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
+import {
+  projectRuntimeScopeFromWorkspace,
+  systemRuntimeScope,
+} from '@/shared/types/runtime-scope';
 import './WorkspaceFooterActions.scss';
 
 const log = createLogger('WorkspaceFooterActions');
@@ -74,6 +79,7 @@ const FooterAction: React.FC<FooterActionProps> = ({
 const WorkspaceFooterActions: React.FC = () => {
   const { t } = useI18n('common');
   const activeSurface = useWorkspaceSurfaceStore(s => s.activeSurface);
+  const { workspace: defaultWorkspace } = useLastUsedWorkspace();
   const activeSceneId = activeSurface.kind === 'scene' ? activeSurface.sceneId : null;
   const isAgenticOsActive = activeSurface.kind === 'agentic-os-home';
 
@@ -100,6 +106,10 @@ const WorkspaceFooterActions: React.FC = () => {
   const isShellActive = activeSceneId === 'shell';
   const isFileViewerActive = activeSceneId === 'file-viewer';
   const isDevKitChildActive = isSkillsActive || isToolsActive || isSubagentsActive;
+  const defaultProjectScope = useMemo(
+    () => projectRuntimeScopeFromWorkspace(defaultWorkspace) ?? systemRuntimeScope(),
+    [defaultWorkspace],
+  );
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuClosing, setMenuClosing] = useState(false);
@@ -149,13 +159,13 @@ const WorkspaceFooterActions: React.FC = () => {
 
   const handleOpenShell = useCallback(() => {
     closeMenu();
-    openWorkspaceScene('shell');
-  }, [closeMenu]);
+    openWorkspaceScene('shell', { scope: defaultProjectScope });
+  }, [closeMenu, defaultProjectScope]);
 
   const handleOpenFiles = useCallback(() => {
     closeMenu();
-    openWorkspaceScene('file-viewer');
-  }, [closeMenu]);
+    openWorkspaceScene('file-viewer', { scope: defaultProjectScope });
+  }, [closeMenu, defaultProjectScope]);
 
   const handleOpenAgenticOs = useCallback(async () => {
     closeMenu();

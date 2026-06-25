@@ -13,6 +13,7 @@ import type { WorkspaceInfo } from '@/shared/types';
 import type { FlowChatContext, SessionConfig } from './types';
 import { touchSessionActivity, cleanupSaveState } from './PersistenceModule';
 import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
+import { systemRuntimeScope } from '@/shared/types/runtime-scope';
 import { resolveSessionTypeDefinitionForDescriptor } from '@/app/session-profiles';
 import {
   getBackendAgentType,
@@ -78,24 +79,18 @@ const resolveSessionWorkspacePath = (
   context: FlowChatContext,
   config?: SessionConfig
 ): string | null => {
-  if (config?.storageScope === 'agentic_os') {
-    return null;
-  }
   const explicitWorkspacePath = config?.workspacePath?.trim();
   if (explicitWorkspacePath) {
     return explicitWorkspacePath;
+  }
+  if (config?.storageScope === 'agentic_os') {
+    return null;
   }
   const fromFlowChat = context.workspaceContextPath?.trim();
   if (fromFlowChat) {
     return fromFlowChat;
   }
-  // AppLayout may delay FlowChat.initialize; use last opened workspace root when context path is unset.
-  const lastUsed = workspaceManager.getState().lastUsedWorkspace;
-  const root = lastUsed?.rootPath?.trim();
-  if (!root) {
-    return null;
-  }
-  return root;
+  return null;
 };
 
 const resolveSessionWorkspace = (
@@ -115,14 +110,10 @@ const resolveSessionWorkspace = (
     workspace => workspace.rootPath === workspacePath
   );
   if (pathMatches.length === 0) {
-    return state.lastUsedWorkspace;
+    return null;
   }
   if (pathMatches.length === 1) {
     return pathMatches[0];
-  }
-  const cur = state.lastUsedWorkspace;
-  if (cur && pathMatches.some(w => w.id === cur.id)) {
-    return cur;
   }
   return pathMatches[0];
 };
@@ -256,6 +247,7 @@ export async function createChatSession(
         useWorkspaceSurfaceStore.getState().openSurface({
           kind: 'agentic-os-home',
           agenticOsSessionId: response.sessionId,
+          scope: systemRuntimeScope(),
         });
       } else if (surfacePolicy === 'session') {
         useWorkspaceSurfaceStore.getState().openSurface({

@@ -67,6 +67,7 @@ import type { WorkspaceSurface } from '../../navigation/workspaceSurfaceTypes';
 import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
 import { SYSTEM_THEME_ID } from '@/infrastructure/theme/types';
 import { appRuntime, runtimePolicy } from '@/infrastructure/app-runtime';
+import { runtimeScopeLabel } from '@/shared/types/runtime-scope';
 import './UnifiedTopBar.scss';
 
 const log = createLogger('UnifiedTopBar');
@@ -230,6 +231,12 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
 
   const sceneDef = activeSceneId ? getWorkspaceSceneDef(activeSceneId) : null;
   const sceneTitle = sceneDef?.labelKey ? tCommon(sceneDef.labelKey) : (sceneDef?.label ?? '');
+  const sceneScopeLabel = activeSurface.kind === 'scene' && activeSurface.scope.kind === 'project'
+    ? runtimeScopeLabel(activeSurface.scope)
+    : '';
+  const scopedSceneTitle = sceneTitle && sceneScopeLabel
+    ? `${sceneTitle} / ${sceneScopeLabel}`
+    : sceneTitle;
   const contextNavOverride = activeSceneId ? contextNavOverrides[activeSceneId] : undefined;
 
   const getSceneHistoryTitle = useCallback(
@@ -256,7 +263,12 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
       if (!entrySceneDef) {
         return String(entry.surface.sceneId);
       }
-      return entrySceneDef.labelKey ? tCommon(entrySceneDef.labelKey) : entrySceneDef.label;
+      const title = entrySceneDef.labelKey ? tCommon(entrySceneDef.labelKey) : entrySceneDef.label;
+      if (entry.surface.scope.kind !== 'project') {
+        return title;
+      }
+      const scopeLabel = runtimeScopeLabel(entry.surface.scope);
+      return scopeLabel ? `${title} / ${scopeLabel}` : title;
     },
     [tApps, tCommon, works],
   );
@@ -297,7 +309,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
     workContext?.title ??
     contextNavOverride?.title ??
     (activeSurface.kind === 'scene'
-      ? sceneTitle
+      ? scopedSceneTitle
       : sessionTitle);
   const showSessionWorkspace =
     !workContext &&

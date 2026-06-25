@@ -22,9 +22,11 @@ export const agentAppStudioProfile: SessionProfile = {
         data: {
           sessionId,
           appId: extra?.appId,
+          scope: extra?.scope,
         },
         metadata: {
           agentAppStudioSessionId: sessionId,
+          appScope: extra?.scope,
         },
         duplicateCheckKey: `agent-app-studio:${sessionId}`,
         replaceExisting: true,
@@ -49,9 +51,11 @@ export const agentAppStudioProfile: SessionProfile = {
           data: {
             sessionId,
             appId: extra?.appId,
+            scope: extra?.scope,
           },
           metadata: {
             agentAppStudioSessionId: sessionId,
+            appScope: extra?.scope,
             duplicateCheckKey,
           },
           duplicateCheckKey,

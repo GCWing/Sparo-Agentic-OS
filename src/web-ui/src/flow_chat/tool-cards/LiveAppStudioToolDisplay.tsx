@@ -2,6 +2,7 @@ import React, { useCallback, useMemo } from 'react';
 import { AppWindow, Camera, ChevronRight, RefreshCw, ShieldAlert } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
+import { appScopeIdentity } from '@/shared/types/app-scope';
 import { ToolStructuredDetails } from './ToolStructuredDetails';
 import {
   DefaultToolCardTemplate,
@@ -10,6 +11,7 @@ import {
 } from './templates';
 import { deriveToolRuntimeState } from '../runtime/statusModel';
 import { getToolViewState } from '../runtime/toolViewState';
+import { resolveToolSessionAppScope } from './liveAppToolScope';
 import './LiveAppStudioToolDisplay.scss';
 
 const EMPTY_TOOL_RESULT: Record<string, unknown> = {};
@@ -102,11 +104,12 @@ export const LiveAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, se
   const isRunning = viewState.phase === 'preparing' || viewState.phase === 'receiving_input' || viewState.phase === 'running';
   const isFailed = viewState.phase === 'error' || (viewState.phase === 'result' && toolResult != null && toolResult.success === false);
   const canOpenDebugPanel = toolName === 'LiveAppRecompile' && Boolean(appId);
+  const appScope = useMemo(() => resolveToolSessionAppScope(sessionId), [sessionId]);
 
   const handleOpenDebugPanel = useCallback(() => {
     if (!canOpenDebugPanel || !appId) return;
 
-    const duplicateCheckKey = `live-app-studio:${sessionId ?? appId}`;
+    const duplicateCheckKey = `live-app-studio:${sessionId ?? `${appId}:${appScopeIdentity(appScope)}`}`;
     window.dispatchEvent(new CustomEvent('agent-create-tab', {
       detail: {
         type: 'live-app-studio',
@@ -114,17 +117,19 @@ export const LiveAppStudioToolDisplay: React.FC<ToolCardProps> = ({ toolItem, se
         data: {
           sessionId: sessionId ?? null,
           appId,
+          scope: appScope,
         },
         metadata: {
           liveAppStudioSessionId: sessionId,
           liveAppStudioAppId: appId,
+          appScope,
         },
         checkDuplicate: true,
         duplicateCheckKey,
         replaceExisting: true,
       },
     }));
-  }, [appId, canOpenDebugPanel, sessionId, t]);
+  }, [appId, appScope, canOpenDebugPanel, sessionId, t]);
 
   const summary = useMemo(() => {
     if (toolName === 'LiveAppRecompile') {

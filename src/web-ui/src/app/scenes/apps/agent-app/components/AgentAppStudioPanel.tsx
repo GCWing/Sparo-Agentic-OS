@@ -21,13 +21,19 @@ import {
 } from 'lucide-react';
 import { agentAppAPI } from '@/infrastructure/api/service-api/AgentAppAPI';
 import type { AgentAppPackage } from '@/infrastructure/api/service-api/AgentAppAPI';
-import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { useI18n } from '@/infrastructure/i18n';
 import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
 import { Badge, Button, DotMatrixLoader, EmptyState, IconButton, SegmentedControl, SparoAgentIcon } from '@/design-system';
 import { MarkdownEditor } from '@/tools/markdown';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
+import {
+  appScopeIdentity,
+  normalizeAppScope,
+  systemAppScope,
+  type AppScope,
+  workspacePathFromAppScope,
+} from '@/shared/types/app-scope';
 import { getAppCategoryLabel } from '../../appsUtils';
 import './AgentAppStudioPanel.scss';
 
@@ -36,6 +42,7 @@ const log = createLogger('AgentAppStudioPanel');
 interface AgentAppStudioPanelProps {
   sessionId: string | null;
   appId?: string;
+  scope?: AppScope | null;
 }
 
 type StudioTab = 'overview' | 'prompt' | 'tools' | 'examples';
@@ -85,8 +92,10 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({ title, meta, actions }) =
   </div>
 );
 
-const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _sessionId, appId }) => {
-  const { workspacePath } = useLastUsedWorkspace();
+const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _sessionId, appId, scope }) => {
+  const effectiveScope = useMemo(() => normalizeAppScope(scope || systemAppScope()), [scope]);
+  const scopeIdentity = appScopeIdentity(effectiveScope);
+  const workspacePath = workspacePathFromAppScope(effectiveScope);
   const { t } = useI18n('scenes/apps');
 
   const [pkg, setPkg] = useState<AgentAppPackage | null>(null);
@@ -116,7 +125,7 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
   const load = useCallback(async (id: string) => {
     setLoading(true);
     try {
-      const next = await agentAppAPI.getAgentApp(id, workspacePath || undefined, 'user');
+      const next = await agentAppAPI.getAgentApp(id, workspacePath, 'user');
       setPkg(next);
       setError(null);
     } catch (err) {
@@ -148,7 +157,10 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
   // Listen for Agent App Studio tool events to auto-refresh.
   useEffect(() => {
     const handler = (event: Event) => {
-      const detail = (event as CustomEvent<{ appId?: string } | undefined>).detail;
+      const detail = (event as CustomEvent<{ appId?: string; scope?: AppScope } | undefined>).detail;
+      if (detail?.scope && appScopeIdentity(detail.scope) !== scopeIdentity) {
+        return;
+      }
       const nextId = detail?.appId;
       if (nextId) {
         setActiveId(nextId);
@@ -159,7 +171,7 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
     };
     window.addEventListener('agent-app-updated', handler as EventListener);
     return () => window.removeEventListener('agent-app-updated', handler as EventListener);
-  }, [activeId]);
+  }, [activeId, scopeIdentity]);
 
   const manifest = pkg?.manifest;
   const prompt = pkg?.prompt ?? '';
@@ -195,7 +207,7 @@ const AgentAppStudioPanel: React.FC<AgentAppStudioPanelProps> = ({ sessionId: _s
     if (content === null) return;
     setPromptSaving(true);
     try {
-      await agentAppAPI.updateAgentApp(manifest, content, workspacePath || undefined);
+      await agentAppAPI.updateAgentApp(manifest, content, workspacePath);
       setPromptDraft(null);
       setPromptDirty(false);
       setReloadNonce((n) => n + 1);

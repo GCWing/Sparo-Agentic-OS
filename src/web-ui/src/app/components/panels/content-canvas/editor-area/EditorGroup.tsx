@@ -130,8 +130,8 @@ export const EditorGroup: React.FC<EditorGroupProps> = ({
     const tab = group.tabs.find(t => t.id === tabId);
     if (!tab || !tab.content) return;
     usePanelViewCanvasStore.getState().addTab(tab.content as PanelContent, 'active');
-    openWorkspaceScene('panel-view');
-  }, [group.tabs]);
+    openWorkspaceScene('panel-view', { workspacePath: workspacePath ?? null });
+  }, [group.tabs, workspacePath]);
 
   const isDragging = draggingTabId !== null;
 

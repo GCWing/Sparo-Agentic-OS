@@ -686,6 +686,48 @@ impl ConversationCoordinator {
         Ok(())
     }
 
+    pub async fn update_session_workspace_path(
+        &self,
+        session_id: &str,
+        workspace_path: &str,
+    ) -> BitFunResult<()> {
+        let normalized_workspace_path = workspace_path.trim();
+        if normalized_workspace_path.is_empty() {
+            return Err(BitFunError::validation(
+                "workspace_path is required".to_string(),
+            ));
+        }
+
+        self.session_manager
+            .update_session_workspace_path(session_id, normalized_workspace_path)
+            .await?;
+
+        if let Some(session) = self.session_manager.get_session(session_id) {
+            Self::track_session_workspace_activity_best_effort(
+                &session.config,
+                "session_workspace_updated",
+            )
+            .await;
+            self.session_hook_bus
+                .publish(SessionHook::new(
+                    session_id.to_string(),
+                    Some(normalized_workspace_path.to_string()),
+                    SessionHookKind::SessionLifecycleChanged {
+                        state: "workspace_updated".to_string(),
+                        reason: "session_workspace_updated".to_string(),
+                    },
+                ))
+                .await;
+        }
+
+        info!(
+            "Coordinator updated session workspace: session_id={}, workspace_path={}",
+            session_id, normalized_workspace_path
+        );
+
+        Ok(())
+    }
+
     /// Create a new session with explicit creator identity.
     pub async fn create_session_with_workspace_and_creator(
         &self,

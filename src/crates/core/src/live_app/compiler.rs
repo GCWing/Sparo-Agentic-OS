@@ -2,7 +2,7 @@
 
 use crate::live_app::bridge_builder::{
     build_bridge_script, build_csp_content, build_import_map, build_live_app_default_theme_css,
-    scroll_boundary_script,
+    preview_element_inspector_script, scroll_boundary_script,
 };
 use crate::live_app::runtime_ui_kit::{build_runtime_ui_kit_css, build_runtime_ui_kit_script};
 use crate::live_app::types::{
@@ -48,6 +48,7 @@ pub fn compile(
         csp.replace('"', "&quot;")
     );
     let scroll = scroll_boundary_script();
+    let preview_element_inspector = preview_element_inspector_script(app_id);
     let theme_default_style = build_live_app_default_theme_css();
     let runtime_ui_kit_style = build_runtime_ui_kit_css();
     let import_map = build_import_map(&source.esm_dependencies);
@@ -62,11 +63,12 @@ pub fn compile(
     let user_script_tag = build_user_script_tag(source)?;
 
     let head_content = format!(
-        "\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n",
+        "\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n",
         theme_default_style,
         runtime_ui_kit_style,
         csp_tag,
         scroll,
+        preview_element_inspector,
         import_map,
         bridge_script_tag,
         runtime_ui_kit_script,
@@ -475,6 +477,7 @@ mod tests {
         .unwrap();
 
         assert!(html.contains("sparo-runtime-ui-kit"));
+        assert!(html.contains("sparo-preview-element-inspector-script"));
         assert!(html.contains("window.app.ui = ui"));
         assert!(html.contains("btn-primary"));
     }

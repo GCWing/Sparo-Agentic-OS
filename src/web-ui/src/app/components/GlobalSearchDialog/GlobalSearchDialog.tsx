@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FolderOpen, ListChecks, MessageSquare, Sparkles } from 'lucide-react';
 import { Dialog, Search, SelectableRow, SparoAgentIcon } from '@/design-system';
+import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import { useI18n } from '@/infrastructure/i18n';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
@@ -15,6 +16,15 @@ import { APP_REGISTRY } from '@/app/scenes/apps/appRegistry';
 import { resolveLiveAppMeta } from '@/app/scenes/apps/live-app/liveAppI18n';
 import { openLiveApp } from '@/app/scenes/apps/live-app/liveAppWorkbenchService';
 import {
+  appScopeFromWorkspacePath,
+  systemAppScope,
+  type AppScope,
+} from '@/shared/types/app-scope';
+import {
+  getAppScopeFolderName,
+  LiveAppScopeDialog,
+} from '@/app/scenes/apps/live-app/components/LiveAppScopeDialog';
+import {
   NewWorkDialog,
   type NewWorkAgentChoice,
 } from '@/app/components/WorkDock/NewWorkDialog';
@@ -23,6 +33,7 @@ import { filterWorkProjections } from '@/app/agentic-os/work/data/workSelectors'
 import { openWorkInCenter } from '@/app/agentic-os/work/navigation/openWork';
 import type { WorkProjection } from '@/app/agentic-os/work/projections/workProjection';
 import { isSystemAgenticOsSession } from '@/flow_chat/domain/sessionDescriptor';
+import { notificationService } from '@/shared/notification-system';
 import './GlobalSearchDialog.scss';
 
 interface GlobalSearchDialogProps {
@@ -154,13 +165,15 @@ const APP_TO_AGENT_CHOICE: Record<string, NewWorkAgentChoice> = {
 const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }) => {
   const { t } = useI18n('common');
   const { t: tApps, currentLanguage } = useI18n('scenes/apps');
-  const { openedWorkspacesList, rememberWorkspace, lastUsedWorkspace } = useWorkspaceContext();
+  const { openedWorkspacesList, rememberWorkspace } = useWorkspaceContext();
   const { projections } = useWorks();
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   const [liveApps, setLiveApps] = useState<LiveAppMeta[]>([]);
   const [newWorkDialogOpen, setNewWorkDialogOpen] = useState(false);
   const [pendingAgentChoice, setPendingAgentChoice] = useState<NewWorkAgentChoice>('agentic');
+  const [pendingLiveAppScopeItem, setPendingLiveAppScopeItem] = useState<SearchResultItem | null>(null);
+  const [liveAppScopeDraft, setLiveAppScopeDraft] = useState<AppScope>(() => systemAppScope());
   const [flowChatState, setFlowChatState] = useState<FlowChatState>(() => flowChatStore.getState());
   const [persistedOpenWorkspaceSessions, setPersistedOpenWorkspaceSessions] = useState<
     Array<{ meta: SessionMetadata; workspace: WorkspaceInfo }>
@@ -413,6 +426,43 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
     setActiveIndex(0);
   }, [results.length]);
 
+  const handleCancelLiveAppScope = useCallback(() => {
+    setPendingLiveAppScopeItem(null);
+    setLiveAppScopeDraft(systemAppScope());
+  }, []);
+
+  const handleBrowseLiveAppScope = useCallback(async () => {
+    try {
+      const selected = await openFileDialog({
+        directory: true,
+        multiple: false,
+        title: tApps('liveApp.scopeDialog.folderDialogTitle'),
+      });
+      const selectedPath = Array.isArray(selected) ? selected[0] : selected;
+      if (!selectedPath) return;
+      setLiveAppScopeDraft(
+        appScopeFromWorkspacePath(selectedPath) ?? {
+          kind: 'workspace',
+          workspacePath: selectedPath,
+          workspaceName: getAppScopeFolderName(selectedPath),
+        }
+      );
+    } catch {
+      notificationService.error(tApps('liveApp.scopeDialog.browseFailed'));
+    }
+  }, [tApps]);
+
+  const handleConfirmLiveAppScope = useCallback(async () => {
+    const item = pendingLiveAppScopeItem;
+    if (!item) return;
+    setPendingLiveAppScopeItem(null);
+    await openLiveApp(item.liveApp || item.id, {
+      scope: liveAppScopeDraft,
+      locale: currentLanguage,
+    });
+    setLiveAppScopeDraft(systemAppScope());
+  }, [currentLanguage, liveAppScopeDraft, pendingLiveAppScopeItem]);
+
   const handleSelect = useCallback(async (item: SearchResultItem) => {
     onClose();
     if (item.kind === 'workspace') {
@@ -433,10 +483,8 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
     }
 
     if (item.kind === 'live-app') {
-      void openLiveApp(item.liveApp || item.id, {
-        workspacePath: lastUsedWorkspace?.rootPath,
-        locale: currentLanguage,
-      });
+      setPendingLiveAppScopeItem(item);
+      setLiveAppScopeDraft(systemAppScope());
       return;
     }
 
@@ -445,8 +493,6 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
       activateWorkspace: item.workspaceId ? rememberWorkspace : undefined,
     });
   }, [
-    currentLanguage,
-    lastUsedWorkspace?.rootPath,
     onClose,
     rememberWorkspace,
   ]);
@@ -486,7 +532,7 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
     activeElement?.scrollIntoView({ block: 'nearest' });
   }, [activeIndex]);
 
-  if (!open) return null;
+  if (!open && !newWorkDialogOpen && !pendingLiveAppScopeItem) return null;
 
   const workspaceItems = results.filter(result => result.kind === 'workspace');
   const workItems = results.filter(result => result.kind === 'work');
@@ -527,59 +573,73 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
 
   return (
     <>
-      <Dialog
-        open={open}
-        onOpenChange={(nextOpen) => {
-          if (!nextOpen) onClose();
-        }}
-        size="medium"
-        showCloseButton={false}
-        className="sparo-search-dialog__card"
-        overlayClassName="sparo-search-dialog__overlay"
-        closeOnOverlayClick
-        initialFocusRef={inputRef}
-        restoreFocus
-      >
-        <div className="sparo-search-dialog__input-row">
-          <Search
-            ref={inputRef}
-            className="sparo-search-dialog__search"
-            placeholder={t('nav.search.inputPlaceholder')}
-            value={query}
-            onChange={setQuery}
-            onClear={() => setQuery('')}
-            onKeyDown={handleInputKeyDown}
-            clearable
-            size="medium"
-            autoFocus
-          />
-        </div>
-        <div className="sparo-search-dialog__results" ref={listRef}>
-          {results.length === 0 && queryTrimmed ? (
-            <div className="sparo-search-dialog__empty">{t('nav.search.empty')}</div>
-          ) : results.length === 0 ? (
-            <div className="sparo-search-dialog__session-hint" role="status">
-              {t('nav.search.noRecentTasks')}
-            </div>
-          ) : (
-            <>
-              {renderGroup(
-                queryTrimmed ? t('nav.search.groupWorks') : t('nav.search.groupRecentWork'),
-                workItems,
-                () => <ListChecks size={14} />
-              )}
-              {renderGroup(t('nav.search.groupWorkspaces'), workspaceItems, () => <FolderOpen size={14} />)}
-              {renderGroup(t('nav.search.groupAgentApps'), agentAppItems, () => <SparoAgentIcon size={14} />)}
-              {renderGroup(t('nav.search.groupLiveApps'), liveAppItems, () => <Sparkles size={14} />)}
-              {renderGroup(
-                queryTrimmed ? t('nav.search.groupSessions') : t('nav.search.groupRecentTasks'),
-                sessionItems,
-                () => <MessageSquare size={14} />
-              )}
-            </>
-          )}
-        </div>
-      </Dialog>
+      {open ? (
+        <Dialog
+          open={open}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) onClose();
+          }}
+          size="medium"
+          showCloseButton={false}
+          className="sparo-search-dialog__card"
+          overlayClassName="sparo-search-dialog__overlay"
+          closeOnOverlayClick
+          initialFocusRef={inputRef}
+          restoreFocus
+        >
+          <div className="sparo-search-dialog__input-row">
+            <Search
+              ref={inputRef}
+              className="sparo-search-dialog__search"
+              placeholder={t('nav.search.inputPlaceholder')}
+              value={query}
+              onChange={setQuery}
+              onClear={() => setQuery('')}
+              onKeyDown={handleInputKeyDown}
+              clearable
+              size="medium"
+              autoFocus
+            />
+          </div>
+          <div className="sparo-search-dialog__results" ref={listRef}>
+            {results.length === 0 && queryTrimmed ? (
+              <div className="sparo-search-dialog__empty">{t('nav.search.empty')}</div>
+            ) : results.length === 0 ? (
+              <div className="sparo-search-dialog__session-hint" role="status">
+                {t('nav.search.noRecentTasks')}
+              </div>
+            ) : (
+              <>
+                {renderGroup(
+                  queryTrimmed ? t('nav.search.groupWorks') : t('nav.search.groupRecentWork'),
+                  workItems,
+                  () => <ListChecks size={14} />
+                )}
+                {renderGroup(t('nav.search.groupWorkspaces'), workspaceItems, () => <FolderOpen size={14} />)}
+                {renderGroup(t('nav.search.groupAgentApps'), agentAppItems, () => <SparoAgentIcon size={14} />)}
+                {renderGroup(t('nav.search.groupLiveApps'), liveAppItems, () => <Sparkles size={14} />)}
+                {renderGroup(
+                  queryTrimmed ? t('nav.search.groupSessions') : t('nav.search.groupRecentTasks'),
+                  sessionItems,
+                  () => <MessageSquare size={14} />
+                )}
+              </>
+            )}
+          </div>
+        </Dialog>
+      ) : null}
+      <LiveAppScopeDialog
+        open={pendingLiveAppScopeItem !== null}
+        mode="open"
+        appName={pendingLiveAppScopeItem?.label ?? ''}
+        workspaces={openedWorkspacesList}
+        selectedScope={liveAppScopeDraft}
+        onSelectScope={setLiveAppScopeDraft}
+        onBrowse={handleBrowseLiveAppScope}
+        onCancel={handleCancelLiveAppScope}
+        onConfirm={handleConfirmLiveAppScope}
+        t={tApps}
+      />
       <NewWorkDialog
         open={newWorkDialogOpen}
         onClose={() => setNewWorkDialogOpen(false)}
