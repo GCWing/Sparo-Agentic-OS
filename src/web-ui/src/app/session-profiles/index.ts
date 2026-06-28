@@ -34,5 +34,6 @@ export { codingProfile } from './profiles/codingProfile';
 export { coworkProfile } from './profiles/coworkProfile';
 export { designProfile } from './profiles/designProfile';
 export { deepResearchProfile } from './profiles/deepResearchProfile';
-export { liveAppStudioProfile } from './profiles/liveAppStudioProfile';
-export { liveAppWorkbenchProfile } from './profiles/liveAppWorkbenchProfile';
+export { appStudioProfile } from './profiles/appStudioProfile';
+export { componentStudioProfile } from './profiles/componentStudioProfile';
+export { surfaceComponentWorkbenchProfile } from './profiles/surfaceComponentWorkbenchProfile';

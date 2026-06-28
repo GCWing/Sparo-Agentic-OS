@@ -15,14 +15,12 @@ pub enum WorkSurfaceRef {
     AgentSession {
         session_id: String,
     },
-    LiveApp {
-        app_id: String,
-    },
     WorkCenter {
         work_id: WorkId,
     },
     ApplicationSurface {
-        application_id: String,
+        product_app_id: String,
+        surface_component_id: String,
         surface_id: String,
     },
 }

@@ -52,10 +52,10 @@
         
         .code-line--highlighted {
           // functional override: lineProps adds inline highlighting; selected-line state needs stable contrast.
-          background-color: color-mix(in srgb, var(--ds-tool-family-agent-app-fg) 15%, transparent) !important;
+          background-color: color-mix(in srgb, var(--ds-tool-family-agent-fg) 15%, transparent) !important;
           
           &:hover {
-            background-color: color-mix(in srgb, var(--ds-tool-family-agent-app-fg) 20%, transparent) !important;
+            background-color: color-mix(in srgb, var(--ds-tool-family-agent-fg) 20%, transparent) !important;
           }
         }
       }
@@ -102,12 +102,12 @@
     display: inline-block;
     width: 2px;
     height: 14px;
-    background: var(--ds-tool-family-agent-app-fg);
+    background: var(--ds-tool-family-agent-fg);
     margin-left: 2px;
     vertical-align: text-bottom;
     animation: code-preview-cursor-blink 1s ease-in-out infinite;
     border-radius: 1px;
-    box-shadow: 0 0 4px color-mix(in srgb, var(--ds-tool-family-agent-app-fg) 55%, transparent);
+    box-shadow: 0 0 4px color-mix(in srgb, var(--ds-tool-family-agent-fg) 55%, transparent);
   }
 }
 

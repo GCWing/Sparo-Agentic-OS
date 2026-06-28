@@ -224,7 +224,7 @@
     "surface": {
       "workSession": "工作会话",
       "agentSession": "智能体会话",
-      "liveApp": "灵动应用",
+      "surfaceComponent": "灵动应用",
       "application": "应用入口",
       "agentHome": "Agentic OS 首页"
     },
@@ -250,7 +250,6 @@
     "executionSource": {
       "agentSessionRun": "智能体会话运行",
       "delegatedWorkRun": "委派工作",
-      "liveAppWorker": "灵动应用执行器",
       "applicationAction": "应用动作",
       "runtimeSubagentRun": "运行时子智能体",
       "external": "外部执行"
@@ -263,7 +262,7 @@
       "archived": "工作已归档",
       "reopened": "工作已重新打开",
       "statusUpdated": "状态已更新",
-      "liveAppWorkflowStarted": "灵动应用流程已启动",
+      "applicationSurfaceWorkflowStarted": "应用界面流程已启动",
       "currentExecutionCancelled": "当前运行已取消",
       "agentSessionContinued": "智能体会话已继续",
       "agentSessionTurnCompleted": "智能体轮次已完成",
@@ -282,10 +281,7 @@
     "all": "全部应用",
     "searchPlaceholder": "查找应用",
     "kind": {
-      "live_app": "{{count}} 个灵动应用工作",
-      "agent_app": "{{count}} 个智能体应用工作",
-      "bridge_app": "{{count}} 个桥接应用工作",
-      "system_app": "{{count}} 个系统应用工作"
+      "product_app": "{{count}} 个产品应用工作"
     }
   },
   "workspaceOverview": {

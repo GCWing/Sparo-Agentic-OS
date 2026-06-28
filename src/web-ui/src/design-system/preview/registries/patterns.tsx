@@ -214,7 +214,7 @@ export const patternPreviewCategories: PreviewCategory[] = [
               <ItemCardTop>
                 <FolderOpen size={14} />
                 <ItemCardTitle>Extremely-long-application-name-without-breakpoints-for-overflow-checking</ItemCardTitle>
-                <Badge variant="purple">Agent App</Badge>
+                <Badge variant="purple">Agent Component</Badge>
               </ItemCardTop>
               <ItemCardMeta>
                 <ItemCardMetaItem>A compact card for repeated management grids and task boards.</ItemCardMetaItem>

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { WorkspaceInfo } from '@/shared/types';
 import type { WorkCenterAppFilter, WorkCenterScope, WorkCenterWorkspaceFilter } from '@/app/stores/workDockStore';
+import { sameProductAppRef } from '../domain/productAppRefs';
 import { useWorks } from './useWorks';
 import { filterWorkProjections } from '../data/workSelectors';
 import type { WorkProjection } from '../projections/workProjection';
@@ -49,7 +50,7 @@ export function useScopedWorks(
     }).filter((work) => {
       if (appFilter.kind === 'all') return true;
       return work.appRefs.some((relation) => (
-        relation.app.kind === appFilter.app.kind && relation.app.appId === appFilter.app.appId
+        sameProductAppRef(relation.app, appFilter.app)
       ));
     });
     const all = filterWorkProjections(scoped, searchQuery);

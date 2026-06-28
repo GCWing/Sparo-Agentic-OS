@@ -1284,8 +1284,8 @@ fn panel_rows_for_width(
             if snapshot.apps.is_empty() {
                 return empty_panel_rows(
                     theme,
-                    "No Agent, Live, or Bridge Apps are available in this snapshot.",
-                    "Run `sparo apps list`; inspect `sparo tool schema CreateAgentApp --json` or `InitLiveApp --json`.",
+                    "No Product Apps, Agent Components, or Bridge Components are available in this snapshot.",
+                    "Run `sparo apps list`; inspect `sparo tool schema CreateAgentComponent --json` or `CreateProductApp --json`.",
                 );
             }
             let rows = snapshot
@@ -1550,8 +1550,8 @@ fn compact_panel_rows(
             if snapshot.apps.is_empty() {
                 return empty_panel_rows(
                     theme,
-                    "No Agent, Live, or Bridge Apps are available in this snapshot.",
-                    "Run `sparo apps list`; inspect `sparo tool schema CreateAgentApp --json` or `InitLiveApp --json`.",
+                    "No Product Apps, Agent Components, or Bridge Components are available in this snapshot.",
+                    "Run `sparo apps list`; inspect `sparo tool schema CreateAgentComponent --json` or `CreateProductApp --json`.",
                 );
             }
             snapshot
@@ -2302,10 +2302,11 @@ mod tests {
             ),
         );
 
-        assert!(rendered.contains("No Agent, Live, or Bridge Apps are available"));
+        assert!(rendered
+            .contains("No Product Apps, Agent Components, or Bridge Components are available"));
         assert!(rendered.contains("sparo apps list"));
-        assert!(rendered.contains("CreateAgentApp"));
-        assert!(rendered.contains("InitLiveApp"));
+        assert!(rendered.contains("CreateAgentComponent"));
+        assert!(rendered.contains("CreateProductApp"));
         assert!(rendered.contains("sparo tasks list"));
         assert!(rendered.contains("sparo sessions list"));
         assert!(rendered.contains("sparo memory list"));

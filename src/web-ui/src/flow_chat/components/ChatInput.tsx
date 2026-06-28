@@ -233,15 +233,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     ? Math.min(999, Math.max(0, (tokenUsage.current / tokenUsage.max) * 100))
     : 0;
   const contextUsagePercentText = formatContextPercent(contextUsagePercent);
-  const liveAppWorkbenchWorkspacePath = workspacePathFromAppScope(
-    effectiveTargetSession?.customMetadata?.liveAppWorkbench?.scope
+  const surfaceComponentWorkbenchWorkspacePath = workspacePathFromAppScope(
+    effectiveTargetSession?.customMetadata?.surfaceComponentWorkbench?.scope
   );
   const sessionWorkspacePath =
     effectiveTargetSession?.workspacePath?.trim() ||
-    liveAppWorkbenchWorkspacePath ||
+    surfaceComponentWorkbenchWorkspacePath ||
     '';
   const workspaceScopeKind =
-    profile.workspaceScope.kind === 'global' && liveAppWorkbenchWorkspacePath
+    profile.workspaceScope.kind === 'global' && surfaceComponentWorkbenchWorkspacePath
       ? 'workspace'
       : profile.workspaceScope.kind;
   const workspaceMeta = useMemo(() => {

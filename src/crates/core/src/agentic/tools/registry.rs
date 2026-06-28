@@ -99,22 +99,23 @@ impl ToolRegistry {
         // AgentSession-level handoff remains available outside OSAgent Work management.
         self.register_tool(Arc::new(AgentHandoffTool::new()));
 
-        // Agent App Studio tools (FlowChat-native app generation)
-        self.register_tool(Arc::new(ListAgentAppsTool));
-        self.register_tool(Arc::new(GetAgentAppTool));
-        self.register_tool(Arc::new(CreateAgentAppTool));
-        self.register_tool(Arc::new(UpdateAgentAppTool));
-        self.register_tool(Arc::new(ValidateAgentAppPackageTool));
-        self.register_tool(Arc::new(ListAgentAppToolOptionsTool));
-        self.register_tool(Arc::new(CreateAgentAppJsToolTool));
-        self.register_tool(Arc::new(TestAgentAppJsToolTool));
-        self.register_tool(Arc::new(BridgeCallTool::new()));
-        self.register_tool(Arc::new(ListBridgeAppsTool));
-        self.register_tool(Arc::new(GetBridgeAppTool));
-        self.register_tool(Arc::new(ValidateBridgeAppPackageTool));
-        self.register_tool(Arc::new(CreateBridgeAppTool));
-        self.register_tool(Arc::new(UpdateBridgeAppTool));
-        self.register_tool(Arc::new(CreateBridgeAppTemplateTool));
+        // Component Studio tools (FlowChat-native app generation)
+        self.register_tool(Arc::new(ListAgentComponentsTool));
+        self.register_tool(Arc::new(GetAgentComponentTool));
+        self.register_tool(Arc::new(CreateAgentComponentTool));
+        self.register_tool(Arc::new(UpdateAgentComponentTool));
+        self.register_tool(Arc::new(ValidateAgentComponentPackageTool));
+        self.register_tool(Arc::new(ListAgentComponentToolOptionsTool));
+        self.register_tool(Arc::new(CreateAgentComponentJsToolTool));
+        self.register_tool(Arc::new(TestAgentComponentJsToolTool));
+        self.register_tool(Arc::new(CreateComponentPackageTool::new()));
+        self.register_tool(Arc::new(BridgeComponentCallTool::new()));
+        self.register_tool(Arc::new(ListBridgeComponentsTool));
+        self.register_tool(Arc::new(GetBridgeComponentTool));
+        self.register_tool(Arc::new(ValidateBridgeComponentPackageTool));
+        self.register_tool(Arc::new(CreateBridgeComponentTool));
+        self.register_tool(Arc::new(UpdateBridgeComponentTool));
+        self.register_tool(Arc::new(CreateBridgeComponentTemplateTool));
 
         // Basic tool set
         self.register_tool(Arc::new(LSTool::new()));
@@ -178,12 +179,8 @@ impl ToolRegistry {
         // Outcome review submit tool
         self.register_tool(Arc::new(OutcomeReviewTool::new()));
 
-        // Live App tool (InitLiveApp)
-        self.register_tool(Arc::new(InitLiveAppTool::new()));
-        self.register_tool(Arc::new(LiveAppRecompileTool::new()));
-        self.register_tool(Arc::new(LiveAppRuntimeProbeTool::new()));
-        self.register_tool(Arc::new(LiveAppClearRuntimeIssuesTool::new()));
-        self.register_tool(Arc::new(LiveAppScreenshotMatrixTool::new()));
+        // Product App tool (CreateProductApp)
+        self.register_tool(Arc::new(CreateProductAppTool::new()));
 
         // ControlHub — unified browser/terminal/meta control entry point.
         // Local desktop and OS/system Computer Use is exposed as a dedicated tool.
@@ -193,21 +190,21 @@ impl ToolRegistry {
         // Playbook — predefined step-by-step operation guides for common tasks.
         self.register_tool(Arc::new(PlaybookTool::new()));
 
-        self.register_bridge_app_runtime_tools();
+        self.register_bridge_component_runtime_tools();
     }
 
-    pub fn register_bridge_app_runtime_tools(&mut self) {
-        let packages = match crate::bridge_app::BridgeAppManager::list() {
+    pub fn register_bridge_component_runtime_tools(&mut self) {
+        let packages = match crate::bridge_component::BridgeComponentManager::list() {
             Ok(packages) => packages,
             Err(error) => {
-                warn!("Failed to load Bridge App runtime tools: {}", error);
+                warn!("Failed to load Bridge Component runtime tools: {}", error);
                 return;
             }
         };
-        self.unregister_tools_with_prefix("bridgeapp__");
+        self.unregister_tools_with_prefix("bridgecomponent__");
         for package in packages {
             for tool in package.manifest.tools {
-                self.register_tool(Arc::new(BridgeAppRuntimeToolAdapter::new(
+                self.register_tool(Arc::new(BridgeComponentRuntimeToolAdapter::new(
                     package.manifest.id.clone(),
                     tool,
                 )));

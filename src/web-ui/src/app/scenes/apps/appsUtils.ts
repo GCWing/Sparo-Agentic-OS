@@ -1,6 +1,16 @@
-import type { AgentWithCapabilities } from './hooks/useAppsData';
-
 type AppsT = (key: string, options?: Record<string, unknown>) => string;
+
+export interface AgentWithCapabilities {
+  id: string;
+  name: string;
+  enabled: boolean;
+  capabilities: Array<{ category: string; level: number }>;
+  iconKey?: string;
+  toolCount?: number;
+  defaultTools?: string[];
+  model?: string | null;
+  isAgentComponent?: boolean;
+}
 
 function humanizeCategory(value: string): string {
   return value
@@ -48,10 +58,10 @@ export function enrichAgentCapabilities(agent: AgentWithCapabilities): AgentWith
   if (id === 'deepresearch') {
     return { ...agent, capabilities: [{ category: 'Analysis', level: 5 }, { category: 'Documents', level: 4 }] };
   }
-  if (id === 'liveappstudio') {
+  if (id === 'appstudio') {
     return { ...agent, capabilities: [{ category: 'Coding', level: 5 }, { category: 'Creative', level: 4 }] };
   }
-  if (id === 'agentappstudio') {
+  if (id === 'componentstudio') {
     return { ...agent, capabilities: [{ category: 'Coding', level: 5 }, { category: 'Operations', level: 3 }] };
   }
 
@@ -67,7 +77,7 @@ export function enrichAgentCapabilities(agent: AgentWithCapabilities): AgentWith
 
 const STANDALONE_META_MODEL_MAX = 26;
 
-/** Single-line meta for standalone agent app list rows (tools, model, focus, status). */
+/** Single-line meta for standalone core agent list rows (tools, model, focus, status). */
 export function getStandaloneAppRowMeta(
   agent: AgentWithCapabilities,
   t: (key: string, options?: Record<string, unknown>) => string,
@@ -107,7 +117,7 @@ export function getStandaloneAppRowMeta(
     parts.push(labels.join(sep));
   }
 
-  if (agent.isAgentApp) {
+  if (agent.isAgentComponent) {
     parts.push(t('page.standaloneMeta.userApp'));
   }
 

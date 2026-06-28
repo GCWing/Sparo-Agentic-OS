@@ -224,7 +224,7 @@
     "surface": {
       "workSession": "Work session",
       "agentSession": "Agent session",
-      "liveApp": "Live app",
+      "surfaceComponent": "Live app",
       "application": "Application surface",
       "agentHome": "Agentic OS home"
     },
@@ -250,7 +250,6 @@
     "executionSource": {
       "agentSessionRun": "Agent session run",
       "delegatedWorkRun": "Delegated work",
-      "liveAppWorker": "Live app worker",
       "applicationAction": "Application action",
       "runtimeSubagentRun": "Runtime subagent",
       "external": "External execution"
@@ -263,7 +262,7 @@
       "archived": "Work archived",
       "reopened": "Work reopened",
       "statusUpdated": "Status updated",
-      "liveAppWorkflowStarted": "Live app workflow started",
+      "applicationSurfaceWorkflowStarted": "Application surface workflow started",
       "currentExecutionCancelled": "Current run cancelled",
       "agentSessionContinued": "Agent session continued",
       "agentSessionTurnCompleted": "Agent turn completed",
@@ -282,10 +281,7 @@
     "all": "All apps",
     "searchPlaceholder": "Find app",
     "kind": {
-      "live_app": "{{count}} live app work",
-      "agent_app": "{{count}} agent app work",
-      "bridge_app": "{{count}} bridge app work",
-      "system_app": "{{count}} system app work"
+      "product_app": "{{count}} Product App work"
     }
   },
   "workspaceOverview": {

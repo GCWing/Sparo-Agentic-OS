@@ -1,26 +1,4 @@
 {
-  "tabs": {
-    "label": "应用类型",
-    "all": "全部",
-    "agent-app": "智能应用",
-    "live-app": "灵动应用",
-    "bridge-app": "桥接应用",
-    "searchPlaceholder": {
-      "all": "搜索全部应用...",
-      "agent-app": "搜索智能应用...",
-      "live-app": "搜索灵动应用...",
-      "bridge-app": "搜索桥接应用..."
-    }
-  },
-  "hero": {
-    "title": "让 Agentic OS 真正属于你",
-    "subtitle": "智能应用、灵动应用和桥接应用是 Agentic OS 的三类一等公民。选择并配置它们，让整个系统按你的方式工作。"
-  },
-  "view": {
-    "label": "应用中心视图",
-    "discover": "发现",
-    "manage": "管理"
-  },
   "appCategories": {
     "files": "文件",
     "coding": "编程",
@@ -39,100 +17,345 @@
     "mcp": "MCP",
     "daemon": "守护进程"
   },
-  "discover": {
-    "title": "你想让 Sparo 帮你完成什么？",
-    "subtitle": "描述任务或流程，查找已有应用或创建新应用。",
-    "placeholder": "描述一个任务、流程，或你想要的工具...",
-    "suggestionsLabel": "应用意图建议",
-    "suggestions": {
-      "testDiagnosis": "诊断当前项目的测试失败",
-      "dataDashboard": "把数据变成可交互看板",
-      "codeReview": "创建一个代码审查助手",
-      "dailyReport": "把我的日报流程打包成应用"
+  "productSystem": {
+    "eyebrow": "应用系统",
+    "title": "应用",
+    "subtitle": "继续产品工作、启动已安装的产品应用，并检查每个运行时背后的组件图。",
+    "searchLabel": "搜索产品应用",
+    "searchPlaceholder": "搜索应用、工作目标、组件或标签...",
+    "loading": "正在加载产品应用...",
+    "meta": {
+      "apps": "{{count}} 个应用",
+      "components": "{{count}} 个组件"
     },
-    "actions": {
-      "findExisting": "查找已有应用",
-      "generatePlan": "获取 AI 方案",
-      "createAgentApp": "创建智能应用",
-      "createLiveApp": "创建灵动应用"
+    "navigation": {
+      "label": "应用中心视图",
+      "home": "启动",
+      "manage": "管理",
+      "components": "组件"
     },
-    "plan": {
-      "badge": "AI 草案",
-      "title": "基于这个意图创建一个专用应用",
-      "description": "Sparo 会打开智能应用创建 Agent，生成并检查 prompt、权限、示例和行为边界，再由你确认保存。",
-      "capability": "能力方案",
-      "permissions": "权限检查",
-      "boundary": "行为边界"
+    "launch": {
+      "title": "启动应用",
+      "subtitle": "继续正在进行的工作，或直接启动合适的产品应用。",
+      "searchPlaceholder": "搜索应用或进行中的工作...",
+      "continueDescription": "先回到已经展开的工作。",
+      "appsDescription": "启动卡片聚焦开始、继续和打开工作。"
     },
-    "recommendations": {
-      "title": "推荐的已有应用",
-      "manageAll": "管理全部",
-      "empty": "暂时没有明显匹配的已有应用。可以通过应用工作室创建一个新的。"
-    },
-    "recentOpened": {
-      "title": "最近打开",
-      "empty": "暂无最近打开的应用。"
-    },
-    "searchResults": {
-      "title": "搜索结果",
-      "empty": "没有找到匹配的应用。可以创建一个智能应用或灵动应用。"
-    }
-  },
-  "manage": {
-    "title": "管理应用",
-    "subtitle": "查看已安装的智能应用、灵动应用和桥接应用，管理状态、权限、运行时与维护操作。",
-    "sidebarSubtitle": "应用资产",
-    "emptyAll": "没有匹配的应用。",
-    "hints": {
-      "agent-app": "管理具备 prompt、工具定义、技能与 Agent 行为的思考型应用。",
-      "live-app": "管理可运行的生成式应用、运行时、权限与 Worker 状态。",
-      "bridge-app": "把传统桌面软件接入 Sparo OS 的适配应用。"
-    }
-  },
-  "page": {
-    "newAgentApp": "新建",
-    "newBridgeApp": "新建",
-    "heroTitle": "打造属于你的 Agentic OS",
-    "heroSubtitle": "智能应用是 Agentic OS 的一等公民。选择并配置你的思考型应用，让整个系统按你的方式工作。",
-    "searchPlaceholder": "搜索智能应用...",
-    "sectionTitle": "智能应用",
-    "empty": "当前没有可用的智能应用",
-    "containsAgents": "包含 {{count}} 个 Agent",
-    "standaloneOneAgentBadge": "单 Agent 应用",
-    "standaloneMeta": {
-      "separator": " · ",
-      "disabled": "已禁用",
-      "toolsSingular": "{{count}} 个工具定义",
-      "toolsPlural": "{{count}} 个工具定义",
-      "model": "{{model}}",
-      "userApp": "自定义",
-      "capability": {
-        "Coding": "编程",
-        "Documents": "文档",
-        "Analysis": "分析",
-        "Testing": "测试",
-        "Creative": "创意",
-        "Operations": "运维"
+    "manage": {
+      "eyebrow": "应用管理",
+      "title": "管理应用",
+      "subtitle": "查看已安装和可发现的产品应用，以及它们的状态、组件和维护入口。",
+      "searchLabel": "搜索被管理的应用",
+      "searchPlaceholder": "按应用、分类、目标、标签或组件摘要搜索...",
+      "visibleCount": "{{count}} 个可见",
+      "emptyTitle": "没有匹配的应用",
+      "emptyDescription": "调整搜索或筛选条件，查看其他应用组。",
+      "listLabel": "已管理应用列表",
+      "enable": "启用",
+      "disable": "禁用",
+      "moreActions": "更多操作",
+      "uninstall": "卸载",
+      "uninstallTitle": "卸载应用",
+      "uninstallMessage": "这将移除「{{name}}」及其所有本地数据。进行中的工作将被停止。此操作无法撤销。",
+      "uninstallConfirm": "卸载",
+      "uninstalledToast": "{{name}} 已卸载",
+      "enabledToast": "{{name}} 已启用",
+      "disabledToast": "{{name}} 已禁用",
+      "sortLabel": "排序被管理的应用",
+      "sortBy": "排序方式",
+      "sortOptions": {
+        "name": "名称",
+        "status": "状态",
+        "scope": "范围"
       }
     },
-    "directAgentDetail": "直接打开 Agent 详情",
-    "startSession": "启动会话",
-    "pagination": {
-      "ariaLabel": "应用列表分页",
-      "prev": "上一页",
-      "next": "下一页",
-      "pageOf": "第 {{current}} / {{total}} 页"
+    "actions": {
+      "components": "组件",
+      "createComponent": "创建组件",
+      "createApp": "创建应用",
+      "refresh": "刷新",
+      "retry": "重试",
+      "openComponentCenter": "打开组件中心",
+      "details": "详情",
+      "work": "工作",
+      "launch": "启动",
+      "stop": "停止",
+      "newWork": "新建",
+      "continue": "继续",
+      "back": "返回",
+      "cancel": "取消",
+      "inspect": "检查"
+    },
+    "messages": {
+      "noLaunch": "{{name}} 没有启动目标。",
+      "launchFailed": "启动 {{name}} 失败：{{error}}",
+      "stopped": "{{name}} 已停止",
+      "stopFailed": "停止 {{name}} 失败：{{error}}"
+    },
+    "surfaceFallback": "产品应用界面",
+    "filters": {
+      "label": "产品应用筛选",
+      "all": "全部",
+      "installed": "已安装",
+      "discover": "可发现",
+      "conversation": "对话型",
+      "interactive": "交互型"
+    },
+    "continue": {
+      "title": "继续工作",
+      "count": "{{count}} 个进行中",
+      "description": "先回到正在进行的工作，再决定是否启动新的应用。",
+      "viewAll": "全部",
+      "expandRelated": "选择相关工作",
+      "relatedLabel": "相关工作",
+      "emptyTitle": "暂无进行中的工作",
+      "emptyDescription": "启动一个产品应用后，第一条工作实例会显示在这里。"
+    },
+    "myApps": {
+      "title": "我的应用",
+      "count": "{{count}} 个已安装",
+      "description": "选择正确的产品应用，然后启动、查看工作或检查运行边界。",
+      "emptyTitle": "暂无已安装的产品应用",
+      "emptyDescription": "安装或创建一个产品应用后，它会显示在这里。"
+    },
+    "discover": {
+      "title": "发现",
+      "count": "{{count}} 个可用"
+    },
+    "components": {
+      "title": "高级组件",
+      "count": "{{count}} 个组件",
+      "noDependencies": "无组件依赖",
+      "eyebrow": "组件中心",
+      "centerTitle": "组件",
+      "centerSubtitle": "检查共享和应用私有的智能体、桥接、运行时、工具、技能与界面组件。",
+      "searchLabel": "搜索组件",
+      "searchPlaceholder": "搜索组件、能力、所属应用或实现引用...",
+      "filterLabel": "组件类型",
+      "allKinds": "全部类型",
+      "emptyTitle": "未找到组件",
+      "emptyDescription": "调整搜索或筛选条件，查看其他组件组。",
+      "listTitle": "组件包",
+      "listDescription": "产品应用使用的共享和应用私有构建块。",
+      "summaryTitle": "组件摘要",
+      "summaryDescription": "选择一个组件，检查它的包身份、能力和使用关系。",
+      "capabilities": "能力",
+      "noCapabilities": "未声明能力",
+      "usedBy": "被谁使用",
+      "noUsage": "暂无产品应用使用"
+    },
+    "inspector": {
+      "emptyTitle": "选择一个应用",
+      "emptyDescription": "检查器会显示启动范围、最近工作、组件图和维护操作。",
+      "launchPlan": "启动计划",
+      "recentWork": "最近工作",
+      "noRecentWork": "这个应用暂无进行中的工作。",
+      "componentGraph": "组件图",
+      "noComponents": "这个应用没有已解析的组件引用。",
+      "permissions": "权限",
+      "maintenance": "维护"
+    },
+    "componentKinds": {
+      "surface": "界面",
+      "agent": "智能体",
+      "bridge": "桥接",
+      "runtime": "运行时",
+      "tool": "工具",
+      "skill": "技能"
+    },
+    "interaction": {
+      "conversation": "对话型",
+      "interactiveWorkspace": "交互工作区"
+    },
+    "componentSource": {
+      "appPrivate": "应用私有",
+      "shared": "共享"
+    },
+    "componentRefSource": {
+      "private": "私有",
+      "shared": "共享"
+    },
+    "status": {
+      "draft": "草稿",
+      "active": "活跃",
+      "running": "运行中",
+      "waiting_user": "等待用户",
+      "blocked": "受阻",
+      "paused": "已暂停",
+      "completed": "已完成",
+      "cancelled": "已取消",
+      "failed": "失败",
+      "archived": "已归档"
+    },
+    "detail": {
+      "eyebrow": "产品应用",
+      "enabled": "已启用",
+      "disabled": "已禁用",
+      "tabs": {
+        "use": "使用",
+        "capabilities": "能力",
+        "settings": "设置与安全",
+        "overview": "概览",
+        "start": "启动 / 继续",
+        "workObjects": "工作对象",
+        "components": "组件",
+        "permissions": "权限",
+        "runtime": "运行时"
+      },
+      "sections": {
+        "overview": "概览",
+        "components": "组件",
+        "permissions": "权限",
+        "runtime": "运行时",
+        "package": "包信息"
+      },
+      "overview": {
+        "goal": "目标"
+      },
+      "metrics": {
+        "components": "组件",
+        "workObjects": "工作对象",
+        "activeWorks": "活跃工作",
+        "permissions": "权限"
+      },
+      "start": {
+        "launchTitle": "启动目标",
+        "continueTitle": "继续工作",
+        "noWorkTitle": "暂无工作",
+        "noWorkDescription": "从这个应用创建的工作会显示在这里。"
+      },
+      "workObjects": {
+        "emptyTitle": "暂无工作对象",
+        "emptyDescription": "这个产品应用尚未声明持久工作对象类型。"
+      },
+      "components": {
+        "unresolved": "组件包未安装或未解析。"
+      },
+      "permissions": {
+        "appTitle": "应用权限",
+        "componentTitle": "组件能力",
+        "empty": "未声明组件权限。"
+      },
+      "runtime": {
+        "identityTitle": "运行时身份",
+        "graphTitle": "组件图"
+      },
+      "settings": {
+        "packageTitle": "包",
+        "creationTitle": "创建模型",
+        "creationDescription": "产品应用和组件会被创建为带版本的包。运行时状态只引用已解析的锁。"
+      }
+    },
+    "launchKind": {
+      "agentSession": "启动由智能体支持的工作会话。",
+      "applicationSurface": "打开交互式应用界面。",
+      "appStudio": "打开应用工作室。",
+      "componentStudio": "打开组件工作室。",
+      "none": "无启动目标"
+    },
+    "launchScope": {
+      "systemAllowed": "允许系统级启动",
+      "workspaceOptional": "可选工作区",
+      "workspaceRequired": "需要工作区"
+    },
+    "fields": {
+      "id": "ID",
+      "kind": "类型",
+      "version": "版本",
+      "source": "来源",
+      "target": "目标",
+      "surface": "界面",
+      "agent": "智能体",
+      "scope": "范围",
+      "appId": "应用 ID",
+      "lock": "锁",
+      "surfaceMode": "界面模式",
+      "truthSource": "事实来源",
+      "installScope": "安装范围",
+      "visibility": "可见性",
+      "componentLockId": "组件锁 ID"
+    },
+    "workObjectScope": {
+      "global": "全局",
+      "workspace": "工作区",
+      "project": "项目",
+      "asset": "资产",
+      "device": "设备",
+      "runtime": "运行时"
+    },
+    "permission": {
+      "fs": "文件系统",
+      "net": "网络",
+      "shell": "Shell",
+      "gui": "图形界面",
+      "secrets": "密钥",
+      "ai": "模型访问"
+    },
+    "installScope": {
+      "system": "系统",
+      "workspace": "工作区",
+      "project": "项目"
+    },
+    "catalogVisibility": {
+      "discoverable": "可发现",
+      "installedOnly": "仅已安装",
+      "hidden": "隐藏"
+    },
+    "surfaceMode": {
+      "chatPrimary": "以聊天为主",
+      "sidecarLinked": "关联侧边应用",
+      "immersivePrimary": "沉浸式主界面",
+      "embeddedObject": "嵌入式对象"
+    },
+    "truthSource": {
+      "ownedObjectState": "自有对象状态",
+      "runtimeFact": "运行时事实"
+    },
+    "studio": {
+      "eyebrow": "工作室",
+      "createAppTitle": "创建产品应用",
+      "createAppSubtitle": "定义用户目标、工作对象、主界面和组件边界。",
+      "createComponentTitle": "创建组件",
+      "createComponentSubtitle": "将智能体、界面、桥接、运行时、工具或技能打包为可复用组件。",
+      "requiredFields": "请填写必填字段。",
+      "createAppSuccess": "{{name}} 已创建",
+      "createComponentSuccess": "{{name}} 已创建",
+      "createFailed": "创建失败",
+      "fields": {
+        "appId": "应用 ID",
+        "componentId": "组件 ID",
+        "version": "版本",
+        "name": "名称",
+        "agentType": "智能体类型",
+        "goal": "目标",
+        "description": "描述",
+        "surfaceMode": "界面模式",
+        "category": "分类",
+        "tags": "标签",
+        "componentKind": "组件类型",
+        "implementationRef": "实现引用"
+      },
+      "placeholders": {
+        "appId": "例如 my-product-app",
+        "componentId": "例如 my-component",
+        "tags": "creative, video, runtime",
+        "implementationRef": "bundle://components/..."
+      },
+      "sections": {
+        "required": "必填",
+        "optional": "可选详情"
+      }
     }
   },
   "apps": {
     "badges": {
-      "multiAgentApp": "多 Agent",
-      "standaloneAgentApp": "单 Agent",
+      "multiAgentComponent": "多智能体",
+      "standaloneAgentComponent": "单智能体",
       "evolutionLab": "Evolution Lab"
     },
     "coding": {
       "name": "构造师",
-      "description": "面向软件开发的 Agent，擅长规划、编码、调试，并把应用从意图实现到可运行结果。"
+      "description": "面向软件开发的智能体，擅长规划、编码、调试，并把应用从意图实现到可运行结果。"
     },
     "cowork": {
       "name": "办公助理",
@@ -144,298 +367,22 @@
     },
     "deepResearch": {
       "name": "深度研究",
-      "description": "面向开放式研究的独立智能应用，可并行派发 Subagent 并整合带引用的完整报告。"
+      "description": "面向开放式研究的独立智能应用，可并行派发子智能体并整合带引用的完整报告。"
     },
-    "liveAppStudio": {
+    "surfaceComponentWorkbench": {
+      "name": "灵动应用工作台",
+      "description": "左侧 FlowChat、右侧应用工具面板的复合灵动应用界面。"
+    },
+    "appStudio": {
       "name": "灵动应用构建器",
       "description": "面向灵动应用生成、调试与迭代的独立智能应用，用一句话生成可运行的小工具。"
     },
-    "agentAppStudio": {
+    "componentStudio": {
       "name": "智能应用构建器",
-      "description": "用于创建 FlowChat 原生智能应用，包含 prompt、权限、示例和 JavaScript runtime 工具定义。"
-    },
-    "liveAppWorkbench": {
-      "name": "灵动应用工作台",
-      "description": "左侧 FlowChat、右侧应用工具面板的复合灵动应用界面。"
+      "description": "用于创建 FlowChat 原生智能应用，包含 Prompt、权限、示例和 JavaScript 运行时工具定义。"
     }
   },
-  "appDetail": {
-    "loading": "加载中...",
-    "tabs": {
-      "overview": "概览",
-      "agents": "Agents",
-      "shared": "共享",
-      "runtime": "运行时",
-      "history": "历史"
-    },
-    "nav": {
-      "label": "应用详情区段",
-      "heading": "区段"
-    },
-    "actions": {
-      "startSession": "启动会话",
-      "edit": "编辑",
-      "discardChanges": "放弃"
-    },
-    "dirtyBar": {
-      "summaryInAgent_one": "{{agent}} 有 {{count}} 项未保存",
-      "summaryInAgent_other": "{{agent}} 有 {{count}} 项未保存",
-      "summaryAcrossAgents_one": "跨 {{agents}} 个 Agent 有 {{count}} 项未保存",
-      "summaryAcrossAgents_other": "跨 {{agents}} 个 Agent 有 {{count}} 项未保存",
-      "jumpHint": "跳转到第一处未保存修改",
-      "discard": "放弃",
-      "save": "保存",
-      "saveOk": "已保存修改",
-      "saveFailed": "保存修改失败"
-    },
-    "overview": {
-      "agentsTitle": "应用包含的 Agent",
-      "defaultBadge": "默认",
-      "toolCount_one": "{{count}} 个工具定义",
-      "toolCount_other": "{{count}} 个工具定义",
-      "toolCount": "{{count}} 个工具定义",
-      "counts": {
-        "agents": "Agent",
-        "tools": "工具定义",
-        "subagents": "子代理定义",
-        "mcp": "MCP 与连接器"
-      },
-      "about": {
-        "title": "注册到 Agentic OS 的信息",
-        "category": "分类",
-        "tags": "标签",
-        "examples": "示例 Prompt",
-        "serviceActions": "服务 Action"
-      }
-    },
-    "agents": {
-      "switcherLabel": "当前 Agent",
-      "statusDisabled": "已禁用",
-      "readonlyBadge": "只读",
-      "agentBadge": "Agent",
-      "noDescription": "暂无描述",
-      "dirtyHint_one": "有 {{count}} 项未保存",
-      "dirtyHint_other": "有 {{count}} 项未保存",
-      "dirtyHint": "有 {{count}} 项未保存",
-      "actions": {
-        "addAgent": "添加 Agent"
-      },
-      "toc": {
-        "label": "当前 Agent 的配置项",
-        "heading": "本 Agent 配置"
-      },
-      "empty": {
-        "title": "该应用还没有 Agent",
-        "description": "添加一个顶层 Agent，让应用可以被启动。"
-      }
-    },
-    "sections": {
-      "identity": {
-        "title": "身份",
-        "description": "该 Agent 的基本信息以及它在对话切换器中的展示方式。",
-        "fields": {
-          "id": "ID",
-          "name": "显示名",
-          "description": "描述",
-          "capabilities": "能力"
-        }
-      },
-      "persona": {
-        "title": "人设",
-        "description": "基础 system prompt 以及用户固定注入的 prompt 片段。",
-        "placeholder": "针对 {{agent}} 的固定 prompt 和系统提示词覆写会在 prompt 片段 API 上线后可用。"
-      },
-      "tools": {
-        "title": "工具定义",
-        "description": "该 Agent 可调用的工具定义。",
-        "empty": "未启用任何工具定义。"
-      },
-      "skills": {
-        "title": "技能",
-        "description": "启用 Skill 工具定义后该 Agent 可使用的技能。",
-        "empty": "该 Agent 暂无可用技能。",
-        "needsSkillTool": "先在工具定义中启用 Skill，才能管理技能。"
-      },
-      "subagents": {
-        "title": "子代理定义",
-        "description": "该 Agent 可委派的可复用子代理定义。可前往子代理库管理定义本体。",
-        "empty": "暂无可用子代理定义。",
-        "source": {
-          "builtin": "内置",
-          "user": "用户",
-          "project": "项目"
-        }
-      },
-      "model": {
-        "title": "模型",
-        "description": "Provider 与解码参数。未设置时继承应用级默认。",
-        "inherit": "继承应用默认",
-        "fields": {
-          "model": "模型"
-        },
-        "hint": "按 Agent 覆写模型会随 Model schema 上线。"
-      },
-      "memory": {
-        "title": "记忆",
-        "description": "上下文文件、知识库引用、长期记忆开关。",
-        "placeholder": "记忆相关配置会随 Memory schema 上线。"
-      },
-      "guardrails": {
-        "title": "安全边界",
-        "description": "只读状态、危险工具白名单、token 上限等护栏。",
-        "fields": {
-          "readonly": "只读状态"
-        },
-        "readonlyOn": "开启 - 已阻止破坏性工具",
-        "readonlyOff": "关闭 - 允许破坏性工具",
-        "hint": "更细粒度的安全策略会随 Guardrail schema 上线。"
-      }
-    },
-    "skillGroups": {
-      "computerUse": "Computer Use",
-      "office": "Office",
-      "meta": "Meta",
-      "team": "Team",
-      "superpowers": "Superpowers",
-      "other": "其他"
-    },
-    "shared": {
-      "railLabel": "共享资源",
-      "heading": "共享资源",
-      "sections": {
-        "prompts": {
-          "title": "Prompt 片段",
-          "description": "应用内所有 Agent 都能继承的固定 prompt。会随 Shared schema 上线。"
-        },
-        "files": {
-          "title": "文件与知识",
-          "description": "应用范围共享的工作区文件与知识库引用。"
-        },
-        "mcp": {
-          "title": "MCP 与连接器",
-          "description": "向 Agent 暴露的 Model Context Protocol 服务与连接器。"
-        },
-        "model": {
-          "title": "模型默认值",
-          "description": "应用级模型默认配置，可被 Agent 覆写。"
-        },
-        "variables": {
-          "title": "变量",
-          "description": "应用范围共享的模板变量与环境变量。"
-        }
-      }
-    },
-    "runtime": {
-      "title": "运行时",
-      "description": "启动默认、触发器、遥测与权限。会随 Runtime schema 上线。"
-    },
-    "history": {
-      "title": "最近会话",
-      "description": "该应用最近的会话、工具调用与错误。会随会话历史 API 上线。"
-    }
-  },
-  "liveApp": {
-    "title": "灵动应用",
-    "subtitle": "由 Agent 按需生成、以用户为中心的小应用。每个灵动应用都可持续演化、复用与维护。",
-    "searchPlaceholder": "搜索灵动应用...",
-    "openStudio": "打开 Studio",
-    "importFromFolder": "从文件夹导入",
-    "running": "运行中",
-    "allApps": "全部应用",
-    "noRunningApps": "暂无运行中的应用",
-    "all": "全部",
-    "count": "{{count}}",
-    "selectFolderTitle": "选择灵动应用目录（需包含 meta.json 和 source/）",
-    "empty": {
-      "generate": "边聊边生成，马上可用。和 AI 对话来创建你的第一个灵动应用。",
-      "noMatch": "没有匹配的应用。"
-    },
-    "card": {
-      "start": "启动",
-      "stop": "停止",
-      "delete": "删除"
-    },
-    "status": {
-      "open": "已打开",
-      "running": "Worker 运行中",
-      "depsDirty": "需要安装依赖",
-      "restartRequired": "需要重启",
-      "runtimeGeneric": "JS 运行时",
-      "runtimeReady": "{{runtime}} 可用",
-      "runtimeUnavailable": "运行时不可用"
-    },
-    "actions": {
-      "installDeps": "安装依赖",
-      "restartWorker": "重启 Worker",
-      "editInStudio": "在 Studio 中编辑",
-      "recompile": "重新编译",
-      "openAnyway": "仍然打开",
-      "refreshCatalog": "刷新列表"
-    },
-    "scopeDialog": {
-      "openTitle": "选择 {{name}} 的运行 Scope",
-      "editTitle": "选择 {{name}} 的编辑 Scope",
-      "recompileTitle": "选择 {{name}} 的重新编译 Scope",
-      "studioTitle": "选择 {{name}} 的 App 存储 Scope",
-      "runTitle": "选择 {{name}} 的运行 Scope",
-      "description": "所选 Scope 会用于 App 运行、Bridge 调用、文件访问、日志和 Studio 编辑。",
-      "ariaLabel": "App Scope",
-      "systemTitle": "全局 App 存储",
-      "systemDescription": "使用 Sparo OS 系统级 App 存储，不绑定项目目录。",
-      "browseFolder": "选择文件夹",
-      "folderDialogTitle": "选择 App Scope 文件夹",
-      "browseFailed": "选择文件夹失败",
-      "bestWorkTitle": "最佳工作",
-      "cancel": "取消",
-      "confirmOpen": "打开",
-      "confirmEdit": "编辑",
-      "confirmRecompile": "重新编译",
-      "confirmStart": "启动",
-      "confirmRun": "运行"
-    },
-    "detail": {
-      "versionMeta": "v{{version}}",
-      "stop": "停止",
-      "delete": "删除",
-      "open": "打开",
-      "statusTitle": "状态",
-      "permissionsTitle": "权限",
-      "updatedAt": "更新时间",
-      "runtimeUnavailableHint": "这个应用仍可打开，但依赖 Worker 的能力在安装运行时前可能不可用。"
-    },
-    "permissions": {
-      "readWorkspace": "读取工作区",
-      "noWorkspaceRead": "不读工作区",
-      "writeWorkspace": "写入工作区",
-      "noWorkspaceWrite": "不写工作区",
-      "shellEnabled": "已启用 Shell",
-      "shellDisabled": "Shell 关闭",
-      "netEnabled": "已启用网络",
-      "netDisabled": "网络关闭",
-      "aiEnabled": "已启用 AI",
-      "aiDisabled": "AI 关闭",
-      "nodeEnabled": "Node Worker 开启",
-      "nodeDisabled": "仅 Host 模式"
-    },
-    "messages": {
-      "imported": "已导入“{{name}}”，正在打开。",
-      "importFailed": "导入灵动应用失败：{{error}}",
-      "installDepsOk": "依赖安装完成",
-      "installDepsFailed": "安装依赖失败：{{error}}",
-      "installDepsFailedGeneric": "依赖安装失败",
-      "recompiled": "灵动应用已重新编译",
-      "recompileFailed": "重新编译灵动应用失败：{{error}}",
-      "workerStopped": "Worker 已停止",
-      "workerStopFailed": "停止 Worker 失败：{{error}}"
-    },
-    "confirmDelete": {
-      "title": "删除“{{name}}”？",
-      "message": "此操作不可撤销，应用及其数据会被永久删除。{{impact}}",
-      "impactOpenOrRunning": "它当前仍在打开或运行中，因此当前场景和 Worker 也会一并停止。",
-      "impactIdle": "它当前处于空闲状态。",
-      "confirm": "删除",
-      "cancel": "取消"
-    },
+  "surfaceComponent": {
     "scene": {
       "loading": "加载中...",
       "updating": "正在更新预览...",
@@ -444,7 +391,7 @@
       "reload": "刷新"
     }
   },
-  "agentAppStudio": {
+  "componentStudio": {
     "panel": {
       "tablistLabel": "预览分区",
       "promptToolbarLabel": "Prompt 操作",
@@ -454,7 +401,7 @@
       "readonly": "只读",
       "copyId": "复制 ID",
       "refresh": "刷新",
-      "openCatalog": "打开智能应用目录",
+      "openCatalog": "打开组件中心",
       "cancelEdit": "取消",
       "savePrompt": "保存",
       "copied": "已复制",
@@ -474,8 +421,8 @@
         "examples": "示例"
       },
       "empty": {
-        "title": "暂无智能应用",
-        "description": "告诉工作室你想构建什么。创建完成后，最新的智能应用包会显示在这里。"
+        "title": "暂无智能体组件",
+        "description": "告诉工作室你想构建什么。创建完成后，最新的组件包会显示在这里。"
       },
       "stats": {
         "groupLabel": "快捷统计",
@@ -487,7 +434,7 @@
         "charsSuffix": "字符"
       },
       "sections": {
-        "about": "应用信息",
+        "about": "关于此应用",
         "prompt": "系统 Prompt",
         "tools": "工具定义",
         "examples": "起步提示"
@@ -510,49 +457,9 @@
   },
   "messages": {
     "toolUpdateFailed": "工具更新失败",
-    "agentAppStatusUpdateFailed": "智能应用状态更新失败",
+    "componentStatusUpdateFailed": "组件状态更新失败",
     "toolResetFailed": "工具重置失败",
     "skillUpdateFailed": "技能更新失败",
     "subagentUpdateFailed": "子智能体更新失败"
-  },
-  "bridgeApp": {
-    "title": "桥接应用",
-    "comingSoon": "桥接应用用于把外部 CLI、SDK、GUI 或服务接入 Agentic OS。",
-    "actionCount": "{{count}} 个动作",
-    "capabilityCount": "{{count}} 个能力",
-    "selectHint": "选择一个桥接应用测试能力动作。",
-    "empty": "暂无桥接应用。",
-    "noWorkspace": "未选择工作区",
-    "scopeSelectedOnRun": "运行时选择 Scope",
-    "run": "运行动作",
-    "running": "运行中",
-    "actions": {
-      "refresh": "刷新"
-    },
-    "fields": {
-      "action": "动作",
-      "apiKey": "Cursor API Key",
-      "model": "模型",
-      "prompt": "提示词",
-      "repository": "仓库",
-      "mode": "执行模式"
-    },
-    "mode": {
-      "local": "本地",
-      "cloud": "云端"
-    },
-    "kind": {
-      "cli": "CLI",
-      "sdk": "SDK",
-      "gui": "GUI",
-      "service": "服务",
-      "mcp": "MCP",
-      "daemon": "守护进程"
-    },
-    "messages": {
-      "completed": "桥接应用动作已完成。",
-      "failed": "桥接应用动作失败。",
-      "failedWithReason": "桥接应用动作失败：{{error}}"
-    }
   }
 }

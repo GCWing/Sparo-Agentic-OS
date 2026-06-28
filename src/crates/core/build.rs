@@ -7,14 +7,25 @@ fn main() {
         .join("bundles");
     emit_rerun_if_changed(&bundles_root.join("skills"));
     emit_rerun_if_changed(&bundles_root.join("playbooks"));
-    emit_rerun_if_changed(&bundles_root.join("live-apps"));
-    emit_rerun_if_changed(&bundles_root.join("bridge-apps"));
+    emit_rerun_if_changed(&bundles_root.join("apps"));
+    emit_rerun_if_changed(&bundles_root.join("components"));
+    emit_rerun_if_changed(&bundles_root.join("surface-components"));
+    emit_rerun_if_changed(&bundles_root.join("bridge-components"));
 
-    if let Err(message) = validate_live_app_bundles(&bundles_root.join("live-apps")) {
-        panic!("Live App bundle validation failed: {message}");
+    if let Err(message) = validate_product_app_bundles(&bundles_root.join("apps")) {
+        panic!("Product App bundle validation failed: {message}");
     }
-    if let Err(message) = validate_bridge_app_bundles(&bundles_root.join("bridge-apps")) {
-        panic!("Bridge App bundle validation failed: {message}");
+    if let Err(message) = validate_component_bundles(&bundles_root.join("components")) {
+        panic!("Component bundle validation failed: {message}");
+    }
+    if let Err(message) =
+        validate_surface_component_bundles(&bundles_root.join("surface-components"))
+    {
+        panic!("Surface Component bundle validation failed: {message}");
+    }
+    if let Err(message) = validate_bridge_component_bundles(&bundles_root.join("bridge-components"))
+    {
+        panic!("Bridge Component bundle validation failed: {message}");
     }
 
     // Run the build script to embed prompts data
@@ -33,12 +44,86 @@ fn build_embedded_prompts() -> Result<(), Box<dyn std::error::Error>> {
     embed_agents_prompt_data()
 }
 
-fn validate_live_app_bundles(live_apps_root: &std::path::Path) -> Result<(), String> {
-    if !live_apps_root.exists() {
+fn validate_product_app_bundles(apps_root: &std::path::Path) -> Result<(), String> {
+    if !apps_root.exists() {
         return Ok(());
     }
 
-    for entry in std::fs::read_dir(live_apps_root).map_err(|e| e.to_string())? {
+    for app_entry in std::fs::read_dir(apps_root).map_err(|e| e.to_string())? {
+        let app_path = app_entry.map_err(|e| e.to_string())?.path();
+        if !app_path.is_dir() {
+            continue;
+        }
+        for version_entry in std::fs::read_dir(&app_path).map_err(|e| e.to_string())? {
+            let version_path = version_entry.map_err(|e| e.to_string())?.path();
+            if !version_path.is_dir() {
+                continue;
+            }
+            if !version_path.join("app.json").is_file() {
+                return Err(format!(
+                    "missing app.json in Product App package '{}'",
+                    version_path.display()
+                ));
+            }
+            if version_path.join("node_modules").exists() {
+                return Err(format!(
+                    "Product App package '{}' contains node_modules/.",
+                    version_path.display()
+                ));
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_component_bundles(components_root: &std::path::Path) -> Result<(), String> {
+    if !components_root.exists() {
+        return Ok(());
+    }
+
+    for kind_entry in std::fs::read_dir(components_root).map_err(|e| e.to_string())? {
+        let kind_path = kind_entry.map_err(|e| e.to_string())?.path();
+        if !kind_path.is_dir() {
+            continue;
+        }
+        for component_entry in std::fs::read_dir(&kind_path).map_err(|e| e.to_string())? {
+            let component_path = component_entry.map_err(|e| e.to_string())?.path();
+            if !component_path.is_dir() {
+                continue;
+            }
+            for version_entry in std::fs::read_dir(&component_path).map_err(|e| e.to_string())? {
+                let version_path = version_entry.map_err(|e| e.to_string())?.path();
+                if !version_path.is_dir() {
+                    continue;
+                }
+                if !version_path.join("component.json").is_file() {
+                    return Err(format!(
+                        "missing component.json in Component package '{}'",
+                        version_path.display()
+                    ));
+                }
+                if version_path.join("node_modules").exists() {
+                    return Err(format!(
+                        "Component package '{}' contains node_modules/.",
+                        version_path.display()
+                    ));
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_surface_component_bundles(
+    surface_components_root: &std::path::Path,
+) -> Result<(), String> {
+    if !surface_components_root.exists() {
+        return Ok(());
+    }
+
+    for entry in std::fs::read_dir(surface_components_root).map_err(|e| e.to_string())? {
         let path = entry.map_err(|e| e.to_string())?.path();
         if !path.is_dir() {
             continue;
@@ -52,7 +137,7 @@ fn validate_live_app_bundles(live_apps_root: &std::path::Path) -> Result<(), Str
         let bundle_manifest = path.join("bundle.json");
         if !bundle_manifest.is_file() {
             return Err(format!(
-                "missing bundle.json in Live App bundle '{}'",
+                "missing bundle.json in Surface Component bundle '{}'",
                 path.display()
             ));
         }
@@ -60,8 +145,8 @@ fn validate_live_app_bundles(live_apps_root: &std::path::Path) -> Result<(), Str
         let node_modules = path.join("node_modules");
         if node_modules.exists() {
             return Err(format!(
-                "Live App bundle '{}' contains node_modules/. Remove it before building. \
-                 Do not run npm install inside bundles/live-apps/*.",
+                "Surface Component bundle '{}' contains node_modules/. Remove it before building. \
+                 Do not run npm install inside bundles/surface-components/*.",
                 bundle_name
             ));
         }
@@ -70,12 +155,14 @@ fn validate_live_app_bundles(live_apps_root: &std::path::Path) -> Result<(), Str
     Ok(())
 }
 
-fn validate_bridge_app_bundles(bridge_apps_root: &std::path::Path) -> Result<(), String> {
-    if !bridge_apps_root.exists() {
+fn validate_bridge_component_bundles(
+    bridge_components_root: &std::path::Path,
+) -> Result<(), String> {
+    if !bridge_components_root.exists() {
         return Ok(());
     }
 
-    for entry in std::fs::read_dir(bridge_apps_root).map_err(|e| e.to_string())? {
+    for entry in std::fs::read_dir(bridge_components_root).map_err(|e| e.to_string())? {
         let path = entry.map_err(|e| e.to_string())?.path();
         if !path.is_dir() {
             continue;
@@ -89,7 +176,7 @@ fn validate_bridge_app_bundles(bridge_apps_root: &std::path::Path) -> Result<(),
         let bundle_manifest = path.join("bundle.json");
         if !bundle_manifest.is_file() {
             return Err(format!(
-                "missing bundle.json in Bridge App bundle '{}'",
+                "missing bundle.json in Bridge Component bundle '{}'",
                 path.display()
             ));
         }
@@ -97,7 +184,7 @@ fn validate_bridge_app_bundles(bridge_apps_root: &std::path::Path) -> Result<(),
         let node_modules = path.join("node_modules");
         if node_modules.exists() {
             return Err(format!(
-                "Bridge App bundle '{}' contains node_modules/. Remove it before building.",
+                "Bridge Component bundle '{}' contains node_modules/. Remove it before building.",
                 bundle_name
             ));
         }

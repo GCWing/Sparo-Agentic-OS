@@ -2,11 +2,13 @@
 
 use bitfun_core::agentic::side_question::SideQuestionRuntime;
 use bitfun_core::agentic::{agents, tools};
+use bitfun_core::app_platform::seed_builtin_product_app_packages;
 use bitfun_core::infrastructure::ai::{AIClient, AIClientFactory};
-use bitfun_core::live_app::{
-    initialize_global_live_app_manager, seed_builtin_live_apps, JsWorkerPool, LiveAppManager,
-};
 use bitfun_core::service::{announcement, config, filesystem, mcp, token_usage, workspace};
+use bitfun_core::surface_component::{
+    initialize_global_surface_component_manager, seed_builtin_surface_components, JsWorkerPool,
+    SurfaceComponentManager,
+};
 use bitfun_core::util::errors::*;
 
 use serde::{Deserialize, Serialize};
@@ -44,7 +46,7 @@ pub struct AppState {
     pub agent_registry: Arc<agents::AgentRegistry>,
     pub mcp_service: Option<Arc<mcp::MCPService>>,
     pub token_usage_service: Arc<token_usage::TokenUsageService>,
-    pub live_app_manager: Arc<LiveAppManager>,
+    pub surface_component_manager: Arc<SurfaceComponentManager>,
     pub js_worker_pool: Option<Arc<JsWorkerPool>>,
     pub statistics: Arc<RwLock<AppStatistics>>,
     pub macos_edit_menu_mode: Arc<RwLock<crate::macos_menubar::EditMenuMode>>,
@@ -106,12 +108,19 @@ impl AppState {
                 })?,
         );
 
-        let live_app_manager = Arc::new(LiveAppManager::new(path_manager.clone()));
-        initialize_global_live_app_manager(live_app_manager.clone());
-        let seed_manager = live_app_manager.clone();
+        let surface_component_manager =
+            Arc::new(SurfaceComponentManager::new(path_manager.clone()));
+        initialize_global_surface_component_manager(surface_component_manager.clone());
+        let product_app_path_manager = path_manager.clone();
         tauri::async_runtime::spawn(async move {
-            if let Err(e) = seed_builtin_live_apps(&seed_manager).await {
-                log::warn!("Failed to seed built-in live apps: {}", e);
+            if let Err(e) = seed_builtin_product_app_packages(&product_app_path_manager).await {
+                log::warn!("Failed to seed built-in Product App packages: {}", e);
+            }
+        });
+        let seed_manager = surface_component_manager.clone();
+        tauri::async_runtime::spawn(async move {
+            if let Err(e) = seed_builtin_surface_components(&seed_manager).await {
+                log::warn!("Failed to seed built-in Product Apps: {}", e);
             }
         });
 
@@ -123,7 +132,7 @@ impl AppState {
             None => {
                 log::warn!(
                     "worker_host.js not found in any candidate location; \
-                     Live App workers will not start"
+                     Surface Component workers will not start"
                 );
                 std::path::PathBuf::from("worker_host.js")
             }
@@ -175,7 +184,7 @@ impl AppState {
             agent_registry,
             mcp_service,
             token_usage_service,
-            live_app_manager,
+            surface_component_manager,
             js_worker_pool,
             statistics,
             macos_edit_menu_mode: Arc::new(RwLock::new(crate::macos_menubar::EditMenuMode::System)),

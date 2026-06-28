@@ -155,7 +155,7 @@ let agenticOsTimelineCache: AgenticOsTimelineProjectionCache = {
  * Strict filter: only Agentic OS home sessions.
  *
  * We intentionally do NOT include other agentic_os-scoped sessions such as
- * LiveAppStudio so the timeline reflects only the Agentic OS conversation
+ * App Studio so the timeline reflects only the Agentic OS conversation
  * lineage.
  */
 function isAgenticOsSession(session: Session): boolean {

@@ -54,13 +54,13 @@ Sparo OS understands your habits and needs, orchestrates the capabilities inside
 
 ### Builds applications tailored to you
 
-Sparo OS builds applications tailored to your real workflow—ones you can keep using and that keep evolving, rather than one-off artifacts. This intelligent app system is carried by three app forms:
+Sparo OS builds Product Apps tailored to your real workflow—ones you can keep using and that keep evolving, rather than one-off artifacts. Product Apps are user-launchable, while reusable capabilities live in component families:
 
-| Form           | Positioning                       | Description                                                                                                                       |
-| -------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| **Live App**   | Interactive generated apps         | The system generates the interface and capabilities on demand, giving you the interaction surface that best fits your workflow. They have persistent identity and state, and can keep evolving, being reused, and rolled back. |
-| **Agent App**  | Autonomous execution-oriented apps | Settle your methods and workflows into reusable, dedicated agents, using conversation and task flow as the main carrier. Best suited for heavy-execution, light-interaction work. |
-| **Bridge App** | Bridges for existing software       | Adds an operational layer on top of your existing GUI software, bringing legacy software into the same workflow.                  |
+| Form                 | Positioning                       | Description                                                                                                                       |
+| -------------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| **Product App**      | Interactive generated apps         | The system generates the interface and capabilities on demand, giving you the interaction surface that best fits your workflow. Product Apps have persistent identity and state, and can keep evolving, being reused, and rolled back. |
+| **Agent Component**  | Autonomous execution capability    | Settle your methods and workflows into reusable, dedicated agents, using conversation and task flow as the main carrier. Best suited for heavy-execution, light-interaction work. |
+| **Bridge Component** | Bridges for existing software      | Adds an operational layer on top of your existing GUI software, bringing legacy software into the same workflow.                  |
 
 ### Operates your computer
 
@@ -86,9 +86,9 @@ A companion that lives on your desktop shows in real time what the system is doi
 
 ## Built-in Apps
 
-Sparo OS's intelligent apps are first-class citizens, all accessible and manageable from the unified Apps hub. The system ships with ready-to-use apps across all three forms:
+Sparo OS's Product Apps are first-class citizens, accessible and manageable from the unified Apps hub. The system also ships with reusable components that Product Apps and agents can call:
 
-**Agent App (autonomous execution)**
+**Core agents (autonomous execution)**
 
 | App        | Positioning                  | Description                                                                                                                   |
 | ---------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
@@ -96,14 +96,14 @@ Sparo OS's intelligent apps are first-class citizens, all accessible and managea
 | **Cowork** | For office collaboration     | Suitable for organizing requirements, drafting content, and advancing day-to-day tasks and knowledge work.                    |
 | **Design** | For design exploration       | Used for HTML prototypes, visual artifacts, and design collaboration scenarios.                                               |
 
-**Live App (interactive generated)**
+**Product Apps (interactive generated)**
 
 | App           | Positioning            | Description                                                                                                                  |
 | ------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | **PPT Live**  | AI deck creation        | Create an outline, generate designed slides, refine page content, preview, and export editable PPTX or shareable HTML.       |
 | **Spark Board** | AI collaborative ideation | A collaborative AI canvas for sparking ideas, clustering rough notes, and turning selected notes into send-ready drafts.   |
 
-**Bridge App (existing software bridge)**
+**Bridge Components (existing software bridge)**
 
 | App               | Positioning           | Description                                                                                            |
 | ----------------- | --------------------- | ------------------------------------------------------------------------------------------------------ |

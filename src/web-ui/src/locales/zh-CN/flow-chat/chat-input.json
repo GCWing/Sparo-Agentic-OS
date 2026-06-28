@@ -79,7 +79,7 @@
     "Design": "设计师：创建 HTML 原型、视觉稿和更完整的设计交付物",
     "ComputerUse": "独立电脑操作智能体：感知本机环境，操作应用、浏览器与系统界面",
     "DeepResearch": "深度研究：并行派发多个子 Agent 同时调研不同章节，快速生成高质量研究报告",
-    "LiveAppStudio": "灵动应用构建器：面向灵动应用生成、调试和迭代的专用 Agent",
+    "AppStudio": "应用工作室：围绕工作对象、主界面、组件和运行反馈设计 Product App",
     "Team": "虚拟工程团队：CEO、工程经理、设计师、QA 负责人、安全官、发布工程师 — 按完整冲刺流程协同工作"
   },
   "agentNames": {
@@ -90,7 +90,7 @@
     "Design": "设计师",
     "ComputerUse": "Computer Use",
     "DeepResearch": "深度研究",
-    "LiveAppStudio": "灵动应用构建器",
+    "AppStudio": "应用工作室",
     "Team": "Team"
   },
   "openFolder": "打开文件夹…",

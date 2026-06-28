@@ -262,7 +262,7 @@ export interface AgentCapabilitySelection {
   effective: string[];
 }
 
-export type AgentKind = 'agent' | 'agentApp' | 'subagent' | 'hidden';
+export type AgentKind = 'agent' | 'agentComponent' | 'subagent' | 'hidden';
 
 export type AgentCapabilityMutabilityState = 'writable' | 'readonly' | 'unsupported';
 

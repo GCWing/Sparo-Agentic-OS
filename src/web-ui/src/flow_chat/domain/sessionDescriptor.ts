@@ -1,6 +1,6 @@
 import type { SessionStorageScope } from '@/shared/types/session-history';
 
-export type SessionHostKind = 'system-agentic-os' | 'agent-app' | 'evolution-lab' | 'live-app-workbench';
+export type SessionHostKind = 'system-agentic-os' | 'agent-component' | 'evolution-lab' | 'surface-component-workbench';
 
 export type SessionProfileId =
   | 'agentic-os'
@@ -8,9 +8,9 @@ export type SessionProfileId =
   | 'cowork'
   | 'design'
   | 'deep-research'
-  | 'live-app-studio'
-  | 'agent-app-studio'
-  | 'live-app-workbench';
+  | 'app-studio'
+  | 'component-studio'
+  | 'surface-component-workbench';
 
 export type SessionIdentityId =
   | 'agentic-os'
@@ -18,9 +18,9 @@ export type SessionIdentityId =
   | 'cowork'
   | 'design'
   | 'deep-research'
-  | 'live-app-studio'
-  | 'agent-app-studio'
-  | 'live-app-workbench';
+  | 'app-studio'
+  | 'component-studio'
+  | 'surface-component-workbench';
 
 export interface SessionAgentPolicy {
   defaultAgentId: string;
@@ -59,7 +59,7 @@ export const SESSION_DESCRIPTORS = {
     storageScope: 'agentic_os',
   },
   coding: {
-    hostKind: 'agent-app',
+    hostKind: 'agent-component',
     profileId: 'coding',
     identityId: 'code',
     labelKey: 'apps.coding.name',
@@ -67,7 +67,7 @@ export const SESSION_DESCRIPTORS = {
     storageScope: 'workspace',
   },
   cowork: {
-    hostKind: 'agent-app',
+    hostKind: 'agent-component',
     profileId: 'cowork',
     identityId: 'cowork',
     labelKey: 'apps.cowork.name',
@@ -75,7 +75,7 @@ export const SESSION_DESCRIPTORS = {
     storageScope: 'workspace',
   },
   design: {
-    hostKind: 'agent-app',
+    hostKind: 'agent-component',
     profileId: 'design',
     identityId: 'design',
     labelKey: 'apps.design.name',
@@ -83,34 +83,34 @@ export const SESSION_DESCRIPTORS = {
     storageScope: 'workspace',
   },
   deepResearch: {
-    hostKind: 'agent-app',
+    hostKind: 'agent-component',
     profileId: 'deep-research',
     identityId: 'deep-research',
     labelKey: 'apps.deepResearch.name',
     agentPolicy: createPolicy('DeepResearch'),
     storageScope: 'workspace',
   },
-  liveAppStudio: {
+  appStudio: {
     hostKind: 'evolution-lab',
-    profileId: 'live-app-studio',
-    identityId: 'live-app-studio',
-    labelKey: 'apps.liveAppStudio.name',
-    agentPolicy: createPolicy('LiveAppStudio'),
+    profileId: 'app-studio',
+    identityId: 'app-studio',
+    labelKey: 'apps.appStudio.name',
+    agentPolicy: createPolicy('AppStudio'),
     storageScope: 'agentic_os',
   },
-  agentAppStudio: {
+  componentStudio: {
     hostKind: 'evolution-lab',
-    profileId: 'agent-app-studio',
-    identityId: 'agent-app-studio',
-    labelKey: 'apps.agentAppStudio.name',
-    agentPolicy: createPolicy('AgentAppStudio'),
+    profileId: 'component-studio',
+    identityId: 'component-studio',
+    labelKey: 'apps.componentStudio.name',
+    agentPolicy: createPolicy('ComponentStudio'),
     storageScope: 'agentic_os',
   },
-  liveAppWorkbench: {
-    hostKind: 'live-app-workbench',
-    profileId: 'live-app-workbench',
-    identityId: 'live-app-workbench',
-    labelKey: 'apps.liveAppWorkbench.name',
+  surfaceComponentWorkbench: {
+    hostKind: 'surface-component-workbench',
+    profileId: 'surface-component-workbench',
+    identityId: 'surface-component-workbench',
+    labelKey: 'apps.surfaceComponentWorkbench.name',
     agentPolicy: createPolicy('agentic'),
     storageScope: 'agentic_os',
   },
@@ -162,14 +162,14 @@ export function getAgenticOsSessionDescriptor(): SessionDescriptor {
   return cloneDescriptor(SESSION_DESCRIPTORS.agenticOs);
 }
 
-export function getLiveAppWorkbenchSessionDescriptor(agentAppId?: string | null): SessionDescriptor {
-  const normalizedAgentAppId = agentAppId?.trim();
-  if (!normalizedAgentAppId) {
-    return cloneDescriptor(SESSION_DESCRIPTORS.liveAppWorkbench);
+export function getSurfaceComponentWorkbenchSessionDescriptor(agentComponentId?: string | null): SessionDescriptor {
+  const normalizedAgentComponentId = agentComponentId?.trim();
+  if (!normalizedAgentComponentId) {
+    return cloneDescriptor(SESSION_DESCRIPTORS.surfaceComponentWorkbench);
   }
   return {
-    ...cloneDescriptor(SESSION_DESCRIPTORS.liveAppWorkbench, normalizedAgentAppId),
-    agentPolicy: createPolicy(normalizedAgentAppId),
+    ...cloneDescriptor(SESSION_DESCRIPTORS.surfaceComponentWorkbench, normalizedAgentComponentId),
+    agentPolicy: createPolicy(normalizedAgentComponentId),
   };
 }
 
@@ -187,14 +187,14 @@ export function descriptorFromAgentType(agentType?: string | null): SessionDescr
   if (normalized === 'cowork') return cloneDescriptor(SESSION_DESCRIPTORS.cowork);
   if (normalized === 'design') return cloneDescriptor(SESSION_DESCRIPTORS.design);
   if (normalized === 'deepresearch') return cloneDescriptor(SESSION_DESCRIPTORS.deepResearch);
-  if (normalized === 'liveappstudio' || normalized === 'live-app-studio') {
-    return cloneDescriptor(SESSION_DESCRIPTORS.liveAppStudio);
+  if (normalized === 'appstudio' || normalized === 'app-studio') {
+    return cloneDescriptor(SESSION_DESCRIPTORS.appStudio);
   }
-  if (normalized === 'agentappstudio' || normalized === 'agent-app-studio') {
-    return cloneDescriptor(SESSION_DESCRIPTORS.agentAppStudio);
+  if (normalized === 'componentstudio' || normalized === 'component-studio') {
+    return cloneDescriptor(SESSION_DESCRIPTORS.componentStudio);
   }
-  if (normalized === 'liveappworkbench' || normalized === 'live-app-workbench') {
-    return cloneDescriptor(SESSION_DESCRIPTORS.liveAppWorkbench);
+  if (normalized === 'surfacecomponentworkbench' || normalized === 'surface-component-workbench') {
+    return cloneDescriptor(SESSION_DESCRIPTORS.surfaceComponentWorkbench);
   }
   if (normalized === 'agentic' || normalized === 'code' || normalized === 'coding') {
     return getDefaultSessionDescriptor();

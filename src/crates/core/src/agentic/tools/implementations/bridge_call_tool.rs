@@ -1,26 +1,28 @@
-use crate::agent_app::AgentAppManager;
+use crate::agent_component::AgentComponentManager;
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
-use crate::bridge_app::{BridgeAppConsumer, BridgeAppConsumerKind, BridgeAppManager};
+use crate::bridge_component::{
+    BridgeComponentConsumer, BridgeComponentConsumerKind, BridgeComponentManager,
+};
 use crate::util::errors::{BitFunError, BitFunResult};
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
-pub struct BridgeCallTool;
+pub struct BridgeComponentCallTool;
 
-impl BridgeCallTool {
+impl BridgeComponentCallTool {
     pub fn new() -> Self {
         Self
     }
 }
 
 #[async_trait]
-impl Tool for BridgeCallTool {
+impl Tool for BridgeComponentCallTool {
     fn name(&self) -> &str {
-        "BridgeCall"
+        "BridgeComponentCall"
     }
 
     async fn description(&self) -> BitFunResult<String> {
-        Ok("Call a declared Bridge App capability action for an Agent App or internal runtime workflow. Use this for external SDK, CLI, GUI, service, daemon, or MCP bridge capabilities instead of embedding bridge logic in the Agent App.".to_string())
+        Ok("Call a declared Bridge Component capability action for an Agent Component or internal runtime workflow. Use this for external SDK, CLI, GUI, service, daemon, or MCP bridge capabilities instead of embedding bridge logic in the Agent Component.".to_string())
     }
 
     fn input_schema(&self) -> Value {
@@ -39,7 +41,7 @@ impl Tool for BridgeCallTool {
     }
 
     fn user_facing_name(&self) -> String {
-        "Bridge Call".to_string()
+        "Bridge Component Call".to_string()
     }
 
     fn is_concurrency_safe(&self, _input: Option<&Value>) -> bool {
@@ -76,9 +78,9 @@ impl Tool for BridgeCallTool {
         let consumer_id = context
             .agent_type
             .clone()
-            .unwrap_or_else(|| "agent-app".to_string());
+            .unwrap_or_else(|| "agent-component".to_string());
         if let Ok(agent_package) =
-            AgentAppManager::get(&consumer_id, None, context.workspace_root())
+            AgentComponentManager::get(&consumer_id, None, context.workspace_root())
         {
             let declared = agent_package
                 .manifest
@@ -89,19 +91,19 @@ impl Tool for BridgeCallTool {
                 });
             if !declared {
                 return Err(BitFunError::validation(format!(
-                    "Agent App '{}' has not declared Bridge capability '{}:{}'",
+                    "Agent Component '{}' has not declared Bridge capability '{}:{}'",
                     consumer_id, bridge_id, capability_id
                 )));
             }
         }
-        let consumer = BridgeAppConsumer {
-            kind: BridgeAppConsumerKind::AgentApp,
+        let consumer = BridgeComponentConsumer {
+            kind: BridgeComponentConsumerKind::AgentComponent,
             id: consumer_id,
             session_id: context.session_id.clone(),
             turn_id: context.dialog_turn_id.clone(),
         };
 
-        let result = BridgeAppManager::start_run(
+        let result = BridgeComponentManager::start_run(
             bridge_id,
             Some(capability_id),
             action,
@@ -114,7 +116,7 @@ impl Tool for BridgeCallTool {
         Ok(vec![ToolResult::ok(
             json!({
                 "run_id": result.run_id,
-                "bridge_id": result.app_id,
+                "bridge_component_id": result.component_id,
                 "capability_id": result.capability_id,
                 "action": result.action,
                 "status": result.status,

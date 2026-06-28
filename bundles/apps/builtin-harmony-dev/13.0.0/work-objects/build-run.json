@@ -1,0 +1,30 @@
+{
+  "id": "build-run",
+  "label": "Build Run",
+  "scope": "runtime",
+  "identitySchema": {
+    "type": "object",
+    "properties": {
+      "runId": {
+        "type": "string"
+      },
+      "task": {
+        "type": "string"
+      }
+    }
+  },
+  "contextSchema": {
+    "type": "object",
+    "properties": {
+      "status": {
+        "type": "string"
+      },
+      "artifactPath": {
+        "type": "string"
+      },
+      "diagnostics": {
+        "type": "array"
+      }
+    }
+  }
+}

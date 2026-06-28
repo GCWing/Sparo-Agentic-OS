@@ -646,6 +646,7 @@ dependencies = [
  "rustls",
  "rustls-native-certs",
  "schannel",
+ "semver",
  "serde",
  "serde_json",
  "serde_yaml",

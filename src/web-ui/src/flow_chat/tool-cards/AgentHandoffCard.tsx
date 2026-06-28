@@ -133,7 +133,7 @@ const AGENT_TYPE_COLORS: Record<string, string> = {
 };
 
 function AgentBadge({ agentType, compact }: { agentType: string; compact?: boolean }) {
-  const color = AGENT_TYPE_COLORS[agentType] ?? 'var(--ds-tool-family-agent-app-fg)';
+  const color = AGENT_TYPE_COLORS[agentType] ?? 'var(--ds-tool-family-agent-fg)';
   return (
     <span
       className={[

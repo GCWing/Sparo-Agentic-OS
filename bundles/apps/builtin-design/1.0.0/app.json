@@ -1,0 +1,61 @@
+{
+  "id": "builtin-design",
+  "version": "1.0.0",
+  "name": "Design",
+  "description": "Design app for HTML artifacts, prototypes, visual deliverables, and design-token work.",
+  "goal": "Create and refine design artifacts, prototypes, and visual systems from a user brief.",
+  "interactionModel": "conversation",
+  "workObjectKinds": [],
+  "primarySurface": {
+    "componentId": "builtin-design-chat-surface",
+    "surfaceId": "primary"
+  },
+  "primarySurfaceMode": "chatPrimary",
+  "components": [
+    {
+      "componentId": "builtin-design-chat-surface",
+      "kind": "surface",
+      "source": "private",
+      "role": "primarySurface",
+      "capabilities": [
+        "chatPrimary"
+      ]
+    },
+    {
+      "componentId": "builtin-design-agent",
+      "kind": "agent",
+      "source": "private",
+      "role": "assistant",
+      "capabilities": [
+        "createDesignArtifact",
+        "designTokens"
+      ]
+    }
+  ],
+  "componentLockId": "",
+  "permissions": {
+    "fs": true,
+    "net": false,
+    "shell": true,
+    "gui": false,
+    "secrets": false,
+    "ai": true
+  },
+  "installScope": "system",
+  "catalogVisibility": "discoverable",
+  "enabled": true,
+  "icon": "Palette",
+  "category": "creative",
+  "tags": [
+    "built-in",
+    "design",
+    "prototype"
+  ],
+  "launch": {
+    "kind": "agentSession",
+    "targetId": "Design",
+    "scopeRequirement": "workspaceOptional",
+    "agentType": "Design",
+    "surfaceId": "primary"
+  }
+}

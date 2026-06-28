@@ -29,44 +29,44 @@
   "subtitleEveningAgenticOs": "白天的想法，今晚来实现。",
   "subtitleNightAgenticOs": "深夜出没的，都是认真的人。",
   "narrativeAgenticOs": "说出你想要的，我来让它发生。",
-  "aiPartnerLiveAppStudio": "灵动应用构建器",
-  "subtitleMorningLiveAppStudio": "把一个想法变成能立即运行的灵动应用",
-  "subtitleAfternoonLiveAppStudio": "现在很适合搭一个交互原型，让数据、表单和流程先跑起来",
-  "subtitleEveningLiveAppStudio": "把白天的需求收束成一个可用的小应用",
-  "subtitleNightLiveAppStudio": "灵感正在线，做一个轻量但好用的实时应用",
-  "narrativeLiveAppStudio": "描述你想生成的应用：它服务谁、要展示哪些数据、需要哪些交互。我会先搭建可运行版本，再根据反馈继续打磨。",
-  "aiPartnerAgentAppStudio": "智能应用构建器",
-  "subtitleMorningAgentAppStudio": "把常做的事变成一个专属 AI 助手",
-  "subtitleAfternoonAgentAppStudio": "告诉我它要帮谁、做什么、做到什么程度",
-  "subtitleEveningAgentAppStudio": "把你的经验整理成一个点开就能用的助手",
-  "subtitleNightAgentAppStudio": "做一个靠谱的小助手：会问清楚、会守边界、会给结果",
-  "narrativeAgentAppStudio": "描述你想要的 AI 助手：它要帮你处理什么事、需要看哪些资料、最后要交付什么结果、哪些事情不能擅自做。我会把它做成可直接使用的应用，并配好开场示例。",
-  "liveAppPrompts": {
-    "title": "想生成什么样的灵动应用？",
+  "aiPartnerAppStudio": "应用工作室",
+  "subtitleMorningAppStudio": "把一个目标做成带工作对象、界面和组件的 Product App",
+  "subtitleAfternoonAppStudio": "现在很适合梳理工作流、数据和交互模型",
+  "subtitleEveningAppStudio": "把白天的产品想法收束成一个可再次打开的应用包",
+  "subtitleNightAppStudio": "灵感正在线，给它一个能长期演进的产品边界",
+  "narrativeAppStudio": "描述你想创建的 Product App：谁会打开它、它管理什么工作对象、需要哪种交互模型，以及 AI 应如何协作。我会把应用身份和内部组件分清楚。",
+  "aiPartnerComponentStudio": "组件工作室",
+  "subtitleMorningComponentStudio": "为 Product App 创建一个可复用能力组件",
+  "subtitleAfternoonComponentStudio": "定义组件做什么、归谁所有、应用如何引用它",
+  "subtitleEveningComponentStudio": "把一个能力打包成组件，而不是误当成用户应用",
+  "subtitleNightComponentStudio": "做一个边界清晰、集成明确的小组件",
+  "narrativeComponentStudio": "描述你需要的组件：Agent、Surface、Bridge、Runtime、Tool 或 Skill；它会被哪个 Product App 使用；暴露哪些动作；需要哪些权限。",
+  "surfaceComponentPrompts": {
+    "title": "想创建什么样的 Product App？",
     "items": {
       "starter": {
         "title": "从想法开始",
-        "description": "把一个业务场景变成可运行应用",
-        "prompt": "帮我生成一个灵动应用：用于管理一个小团队的每日任务，包含任务列表、负责人、截止时间、状态筛选和新增任务表单。"
+        "description": "把一个业务场景变成 Product App",
+        "prompt": "帮我创建一个 Product App：用于管理一个小团队的每日任务，工作对象是任务集合，主界面是交互型工作空间，包含负责人、截止时间、状态筛选和新增任务表单。"
       },
       "dashboard": {
         "title": "数据看板",
         "description": "展示指标、趋势和可筛选列表",
-        "prompt": "帮我生成一个灵动应用：销售数据看板，包含核心指标卡、趋势图、地区筛选、客户明细表和异常提醒区域。"
+        "prompt": "帮我创建一个 Product App：销售数据看板，包含核心指标卡、趋势图、地区筛选、客户明细表和异常提醒区域。"
       },
       "polish": {
         "title": "打磨体验",
         "description": "优化布局、状态、空页面和视觉细节",
-        "prompt": "帮我生成一个灵动应用：活动报名管理工具，重点打磨表单体验、报名状态、空状态、移动端布局和视觉层次。"
+        "prompt": "帮我创建一个 Product App：活动报名管理工具，重点打磨表单体验、报名状态、空状态、移动端布局和视觉层次。"
       },
       "debug": {
         "title": "修复问题",
         "description": "定位运行时错误并快速迭代",
-        "prompt": "帮我检查当前灵动应用的运行问题，修复报错、交互卡顿或数据显示异常，并说明你改了什么。"
+        "prompt": "帮我检查当前 Product App 界面的运行问题，修复报错、交互卡顿或数据显示异常，并说明你改了什么。"
       }
     }
   },
-  "agentAppPrompts": {
+  "agentComponentPrompts": {
     "title": "你想做一个什么样的 AI 助手？",
     "items": {
       "starter": {

@@ -6,7 +6,7 @@ pub enum WorkTitleSource {
     User,
     Template,
     Session,
-    LiveApp,
+    ApplicationSurface,
     Objective,
     Agent,
 }
@@ -50,8 +50,11 @@ impl WorkTitleState {
         Self::unlocked(WorkTitleSource::Session, Some(session_id.into()))
     }
 
-    pub fn live_app(app_id: impl Into<String>) -> Self {
-        Self::unlocked(WorkTitleSource::LiveApp, Some(app_id.into()))
+    pub fn application_surface(application_id: impl Into<String>) -> Self {
+        Self::unlocked(
+            WorkTitleSource::ApplicationSurface,
+            Some(application_id.into()),
+        )
     }
 
     pub fn agent() -> Self {
@@ -66,7 +69,7 @@ impl WorkTitleState {
         if self.locked
             || matches!(
                 self.source,
-                WorkTitleSource::User | WorkTitleSource::LiveApp
+                WorkTitleSource::User | WorkTitleSource::ApplicationSurface
             )
         {
             return false;
@@ -77,13 +80,13 @@ impl WorkTitleState {
             .map_or(true, |subject| subject == session_id)
     }
 
-    pub fn can_follow_live_app(&self, app_id: &str) -> bool {
+    pub fn can_follow_application_surface(&self, application_id: &str) -> bool {
         !self.locked
-            && self.source == WorkTitleSource::LiveApp
+            && self.source == WorkTitleSource::ApplicationSurface
             && self
                 .subject_ref
                 .as_deref()
-                .map_or(true, |subject| subject == app_id)
+                .map_or(true, |subject| subject == application_id)
     }
 
     fn unlocked(source: WorkTitleSource, subject_ref: Option<String>) -> Self {

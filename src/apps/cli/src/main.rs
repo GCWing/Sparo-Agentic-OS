@@ -185,7 +185,7 @@ enum Commands {
         action: ConfigAction,
     },
 
-    /// Manage Agent, Bridge, and Live Apps
+    /// Manage Agent, Bridge, and Surface Components
     Apps {
         /// Output in JSON format
         #[arg(long, global = true)]
@@ -907,9 +907,9 @@ fn cli_health_value() -> Result<serde_json::Value> {
         "agentic_os_memory": directory_health(&agentic_os_memory_path),
         "workspace_memory": directory_health(&workspace_memory_path),
         "apps": directory_health(&config_dir.join("apps")),
-        "agent_apps": directory_health(&config_dir.join("apps").join("agent_apps")),
-        "bridge_apps": directory_health(&config_dir.join("apps").join("bridge_apps")),
-        "live_apps": directory_health(&config_dir.join("apps").join("liveapps")),
+        "agent_components": directory_health(&config_dir.join("apps").join("agent_components")),
+        "bridge_components": directory_health(&config_dir.join("apps").join("bridge_components")),
+        "surface_components": directory_health(&config_dir.join("apps").join("surface_components")),
         "skills": directory_health(&config_dir.join("skills")),
         "logs": directory_health(&config_dir.join("logs")),
     });
@@ -1481,7 +1481,7 @@ fn cli_error_hint(error: &anyhow::Error) -> Option<&'static str> {
     } else if message.contains("Memory file not found:") {
         Some("Run `sparo memory list` to see available global and project memory files.")
     } else if message.contains("App not found:") {
-        Some("Run `sparo apps list` to see available Agent, Bridge, and Live Apps.")
+        Some("Run `sparo apps list` to see available Agent, Bridge, and Surface Components.")
     } else if message.contains("does not expose a local target to open")
         || message.contains("App target does not exist:")
         || message.contains("Failed to open app target:")
@@ -4276,14 +4276,17 @@ fn app_storage_health_checks() -> Vec<(&'static str, DirectoryHealth)> {
 
     vec![
         (
-            "agent_apps",
-            directory_health(&path_manager.user_agent_apps_dir()),
+            "agent_components",
+            directory_health(&path_manager.user_agent_components_dir()),
         ),
         (
-            "bridge_apps",
-            directory_health(&path_manager.user_bridge_apps_dir()),
+            "bridge_components",
+            directory_health(&path_manager.user_bridge_components_dir()),
         ),
-        ("live_apps", directory_health(&path_manager.live_apps_dir())),
+        (
+            "surface_components",
+            directory_health(&path_manager.surface_components_dir()),
+        ),
     ]
 }
 
@@ -4417,9 +4420,9 @@ fn apps_list_human_lines(
         }
 
         return vec![
-            "No Agent, Bridge, or Live Apps installed.".to_string(),
-            "Create one from chat with Agent App Studio or Live App Studio.".to_string(),
-            "Inspect creation schemas: sparo tool schema CreateAgentApp --json; sparo tool schema InitLiveApp --json".to_string(),
+            "No Product Apps, Agent Components, or Bridge Components installed.".to_string(),
+            "Create one from chat with Agent Component Studio or App Studio.".to_string(),
+            "Inspect creation schemas: sparo tool schema CreateAgentComponent --json; sparo tool schema CreateProductApp --json".to_string(),
             format!("Open app-building chat: sparo chat{}", workspace_arg),
             "Machine output: sparo apps list --json".to_string(),
         ];
@@ -5847,8 +5850,11 @@ mod tests {
             hint: directory_health_hint("inaccessible"),
         };
 
-        assert!(!has_app_storage_problem(&[("agent_apps", missing)]));
-        assert!(has_app_storage_problem(&[("agent_apps", inaccessible)]));
+        assert!(!has_app_storage_problem(&[("agent_components", missing)]));
+        assert!(has_app_storage_problem(&[(
+            "agent_components",
+            inaccessible
+        )]));
     }
 
     #[test]
@@ -6406,7 +6412,12 @@ mod tests {
             .as_object()
             .expect("health checks should be an object");
 
-        for key in ["apps", "agent_apps", "bridge_apps", "live_apps"] {
+        for key in [
+            "apps",
+            "agent_components",
+            "bridge_components",
+            "surface_components",
+        ] {
             assert!(checks.contains_key(key), "missing health check: {key}");
         }
     }
@@ -6557,7 +6568,7 @@ mod tests {
         assert_eq!(cli_error_kind(&missing_app), "execution_error");
         assert_eq!(
             cli_error_hint(&missing_app),
-            Some("Run `sparo apps list` to see available Agent, Bridge, and Live Apps.")
+            Some("Run `sparo apps list` to see available Agent, Bridge, and Surface Components.")
         );
 
         let app_without_target =
@@ -7054,7 +7065,7 @@ mod tests {
             subagent_source: None,
             path: Some("D:\\agents\\debug".to_string()),
             model: None,
-            app_kind: Some("Agent App".to_string()),
+            app_kind: Some("Agent Component".to_string()),
             app_icon: None,
             app_category: None,
             app_path: None,
@@ -7115,8 +7126,8 @@ mod tests {
     #[test]
     fn compact_description_preserves_short_app_descriptions() {
         assert_eq!(
-            compact_description("Open local Bridge Apps from the CLI").as_deref(),
-            Some("Open local Bridge Apps from the CLI")
+            compact_description("Open local Bridge Components from the CLI").as_deref(),
+            Some("Open local Bridge Components from the CLI")
         );
     }
 
@@ -7520,7 +7531,7 @@ mod tests {
     fn app_human_detail_lines_include_open_action_when_target_exists() {
         let app = bitfun_core::command::agentic_os::AgenticOsAppRow {
             id: "bridge app".to_string(),
-            name: "Bridge App".to_string(),
+            name: "Bridge Component".to_string(),
             kind: "BRIDGE APP".to_string(),
             description: "Connects a local tool".to_string(),
             capability: "inspect run".to_string(),
@@ -7561,7 +7572,7 @@ mod tests {
     fn app_open_human_lines_include_followup_actions() {
         let app = bitfun_core::command::agentic_os::AgenticOsAppRow {
             id: "bridge app".to_string(),
-            name: "Bridge App".to_string(),
+            name: "Bridge Component".to_string(),
             kind: "BRIDGE APP".to_string(),
             description: "Connects a local tool".to_string(),
             capability: "inspect run".to_string(),
@@ -7573,7 +7584,7 @@ mod tests {
                 .join("\n");
 
         assert!(output.contains("App Target Opened"));
-        assert!(output.contains("App: Bridge App (BRIDGE APP)"));
+        assert!(output.contains("App: Bridge Component (BRIDGE APP)"));
         assert!(output.contains("Target: D:\\apps\\bridge"));
         assert!(output.contains(
             "Inspect app: sparo apps show --workspace \"D:\\workspace\\my project\" \"bridge app\""
@@ -7589,7 +7600,7 @@ mod tests {
     fn apps_list_human_lines_include_open_next_actions_for_target_apps() {
         let apps = vec![bitfun_core::command::agentic_os::AgenticOsAppRow {
             id: "bridge app".to_string(),
-            name: "Bridge App".to_string(),
+            name: "Bridge Component".to_string(),
             kind: "BRIDGE APP".to_string(),
             description: "Connects a local tool".to_string(),
             capability: "inspect run".to_string(),
@@ -7600,7 +7611,7 @@ mod tests {
             apps_list_human_lines(&apps, Some("D:\\workspace\\my project"), false).join("\n");
 
         assert!(output.contains("Installed Apps (total 1)"));
-        assert!(output.contains("bridge app | BRIDGE APP | Bridge App"));
+        assert!(output.contains("bridge app | BRIDGE APP | Bridge Component"));
         assert!(output.contains("Next actions:"));
         assert!(output.contains(
             "Inspect latest: sparo apps show --workspace \"D:\\workspace\\my project\" \"bridge app\""
@@ -7636,9 +7647,11 @@ mod tests {
         let output =
             apps_list_human_lines(&[], Some("D:\\workspace\\my project"), false).join("\n");
 
-        assert!(output.contains("No Agent, Bridge, or Live Apps installed."));
-        assert!(output.contains("Agent App Studio"));
-        assert!(output.contains("sparo tool schema CreateAgentApp --json"));
+        assert!(
+            output.contains("No Product Apps, Agent Components, or Bridge Components installed.")
+        );
+        assert!(output.contains("Agent Component Studio"));
+        assert!(output.contains("sparo tool schema CreateAgentComponent --json"));
         assert!(output.contains(
             "Open app-building chat: sparo chat --workspace \"D:\\workspace\\my project\""
         ));
@@ -7654,7 +7667,7 @@ mod tests {
         );
         assert!(output.contains("sparo health"));
         assert!(output.contains("Machine output: sparo apps list --json"));
-        assert!(!output.contains("Agent App Studio"));
+        assert!(!output.contains("Agent Component Studio"));
     }
 
     #[test]

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCanvasStore } from '@/app/components/panels/content-canvas/stores';
 import { openSessionSidecarPanel, useSessionProfile } from '@/app/session-profiles';
-import { useLiveAppStore } from '@/app/scenes/apps/live-app/liveAppStore';
+import { useSurfaceComponentStore } from '@/app/scenes/apps/surface-component/surfaceComponentStore';
 import type {
   SessionSidecarActionDescriptor,
   SessionSidecarIconId,
@@ -33,7 +33,7 @@ export function useSessionSidecarActions(): FlowChatSidecarActionViewModel[] {
   const primaryGroup = useCanvasStore(state => state.primaryGroup);
   const secondaryGroup = useCanvasStore(state => state.secondaryGroup);
   const tertiaryGroup = useCanvasStore(state => state.tertiaryGroup);
-  const storeStudioAppId = useLiveAppStore(state =>
+  const storeStudioAppId = useSurfaceComponentStore(state =>
     activeSession?.sessionId ? state.sessionAppIds[activeSession.sessionId] : undefined
   );
 
@@ -43,19 +43,21 @@ export function useSessionSidecarActions(): FlowChatSidecarActionViewModel[] {
     }
 
     const agentSessionBinding = activeSession.customMetadata?.agentSessionBinding;
-    const studioAppId = agentSessionBinding?.subject.kind === 'live-app'
+    const studioAppId = agentSessionBinding?.subject.kind === 'surface-component'
       ? agentSessionBinding.subject.id
       : storeStudioAppId;
 
     const extra: Record<string, unknown> = {
-      appId: studioAppId,
+      ...(profile.id === 'component-studio'
+        ? { componentId: studioAppId }
+        : { appId: studioAppId }),
       tabTitle:
-        profile.id === 'agent-app-studio'
-          ? 'Agent App Builder'
-          : 'Live App Builder',
+        profile.id === 'component-studio'
+          ? 'Component Studio'
+          : 'App Studio',
       agentSessionBinding,
       customMetadata: activeSession.customMetadata,
-      liveAppWorkbench: activeSession.customMetadata?.liveAppWorkbench,
+      surfaceComponentWorkbench: activeSession.customMetadata?.surfaceComponentWorkbench,
       workspacePath: activeSession.workspacePath,
     };
 

@@ -1,0 +1,33 @@
+{
+  "id": "composition",
+  "label": "Composition",
+  "scope": "runtime",
+  "identitySchema": {
+    "type": "object",
+    "required": [
+      "compositionId"
+    ],
+    "properties": {
+      "compositionId": {
+        "type": "string"
+      },
+      "entryPoint": {
+        "type": "string"
+      }
+    }
+  },
+  "contextSchema": {
+    "type": "object",
+    "properties": {
+      "frame": {
+        "type": "number"
+      },
+      "durationInFrames": {
+        "type": "number"
+      },
+      "fps": {
+        "type": "number"
+      }
+    }
+  }
+}

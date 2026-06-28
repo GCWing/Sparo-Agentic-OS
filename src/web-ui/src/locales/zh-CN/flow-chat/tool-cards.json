@@ -57,7 +57,7 @@
       "os_agent_home": "Agentic OS",
       "work_session": "Work 会话",
       "agent_session": "Agent 会话",
-      "live_app": "Live App",
+      "application_surface": "应用界面",
       "work_center": "Work Center",
       "application_surface": "应用"
     },
@@ -325,23 +325,23 @@
     "blame": "追溯",
     "cherryPick": "挑选"
   },
-  "initLiveApp": {
-    "title": "灵动应用",
+  "initSurfaceComponent": {
+    "title": "产品应用界面",
     "operationInit": "初始化",
     "skeletonReady": "已初始化",
     "creatingShort": "…",
     "untitled": "（未命名）",
     "failed": "失败",
-    "createFailed": "无法创建灵动应用",
-    "openInLiveApp": "在灵动应用中打开",
-    "openInLiveAppTitle": "在灵动应用场景中打开",
+    "createFailed": "无法创建产品应用界面",
+    "openInSurfaceComponent": "打开产品应用",
+    "openInSurfaceComponentTitle": "打开产品应用",
     "labelAppId": "app_id",
     "labelPath": "path",
     "nameLabel": "应用：{{name}}"
   },
-  "liveAppStudio": {
-    "title": "灵动应用",
-    "debugPanelTitle": "Live App Builder",
+  "appStudio": {
+    "title": "产品应用界面",
+    "debugPanelTitle": "应用工作室",
     "recompile": "重新编译",
     "probe": "诊断",
     "matrix": "截图矩阵",
@@ -350,13 +350,14 @@
     "probeSummary": "{{fatal}} 致命 · {{warning}} 警告 · {{noise}} 噪声",
     "matrixRequested": "已请求截图矩阵",
     "matrixStates": "{{count}} 个状态",
-    "openDebugPanel": "打开 Live App 调试面板"
+    "openDebugPanel": "打开应用工作室"
   },
-  "agentAppStudio": {
-    "title": "Agent 应用",
+  "componentStudio": {
+    "title": "组件包",
     "list": "目录",
     "inspect": "查看",
     "validate": "校验",
+    "createPackage": "创建组件包",
     "create": "创建",
     "update": "更新",
     "tools": "可选工具",
@@ -373,7 +374,7 @@
     "testingNamed": "正在测试 {{name}}…",
     "testPass": "通过",
     "testFail": "失败",
-    "appsCount": "{{count}} 个 Agent 应用",
+    "appsCount": "{{count}} 个 Agent 组件",
     "toolsCount": "{{count}} 个工具",
     "moreApps": "另有 {{count}} 个应用未展开",
     "moreTools": "另有 {{count}} 个工具未展开",
@@ -381,6 +382,8 @@
     "readonly": "只读",
     "fieldName": "名称",
     "fieldDescription": "描述",
+    "fieldKind": "类型",
+    "fieldVersion": "版本",
     "fieldModel": "模型",
     "fieldCategory": "分类",
     "fieldReadonly": "只读",
@@ -390,9 +393,9 @@
     "fieldPath": "路径",
     "fieldToolName": "工具名",
     "fieldSummary": "摘要",
-    "openAppsPanel": "打开 Agent 应用目录",
-    "openStudioPanel": "打开 Agent 应用预览面板",
-    "previewPanelTitle": "Agent 应用工作室"
+    "openAppsPanel": "打开组件中心",
+    "openStudioPanel": "打开组件工作室",
+    "previewPanelTitle": "组件工作室"
   },
   "bridgeCall": {
     "title": "Bridge",

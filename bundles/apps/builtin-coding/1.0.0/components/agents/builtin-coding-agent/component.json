@@ -1,0 +1,61 @@
+{
+  "id": "builtin-coding-agent",
+  "kind": "agent",
+  "name": "Prime Builder Agent",
+  "description": "Coding agent for scoped repository changes, debugging, verification, and handoff.",
+  "packageSource": "appPrivate",
+  "ownerApp": {
+    "appId": "builtin-coding",
+    "appVersion": "1.0.0"
+  },
+  "capabilities": [
+    {
+      "id": "implementCode",
+      "title": "Implement code",
+      "description": "Read, edit, and write project files to complete user-requested software changes.",
+      "actions": [
+        "read",
+        "edit",
+        "write"
+      ]
+    },
+    {
+      "id": "runChecks",
+      "title": "Run checks",
+      "description": "Run focused commands and tests to verify implementation quality.",
+      "actions": [
+        "bash",
+        "test"
+      ]
+    }
+  ],
+  "permissions": [
+    {
+      "kind": "ai",
+      "summary": "Uses the configured coding agent.",
+      "scopes": [
+        "agentic"
+      ]
+    },
+    {
+      "kind": "fs",
+      "summary": "Reads and modifies workspace files when the user asks for code changes.",
+      "scopes": [
+        "{workspace}"
+      ]
+    },
+    {
+      "kind": "shell",
+      "summary": "Runs workspace verification commands.",
+      "scopes": [
+        "{workspace}"
+      ]
+    }
+  ],
+  "usedByApps": [
+    "builtin-coding"
+  ],
+  "visibility": "appDependency",
+  "dependencies": [],
+  "implementationRef": "agent://agentic"
+}

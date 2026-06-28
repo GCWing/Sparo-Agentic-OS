@@ -51,7 +51,7 @@ function isEmptyReusableSession(session: Session, workspace: WorkspaceInfo, buck
 
 /**
  * If the workspace already has a main session with no dialog turns for the same UI mode
- * (Code / Cowork / Design / LiveAppStudio), return its id so callers can switch instead of creating another.
+ * (Code / Cowork / Design / App Studio), return its id so callers can switch instead of creating another.
  */
 export function findReusableEmptySessionId(
   workspace: WorkspaceInfo,
@@ -72,10 +72,10 @@ export function findReusableEmptySessionId(
 }
 
 /**
- * Reuses an in-memory empty Live App Studio session (any storage), or global agentic_os empty ones.
- * Live App data lives under the app data dir; the chat session is not tied to a user-picked project path.
+ * Reuses an in-memory empty App Studio session (any storage), or global agentic_os empty ones.
+ * Product App data lives under the app data dir; the chat session is not tied to a user-picked project path.
  */
-export function findReusableEmptyLiveAppStudioSessionId(): string | null {
+export function findReusableEmptyAppStudioSessionId(): string | null {
   const sessions = flowChatStore.getState().sessions;
   let best: { id: string; lastActiveAt: number } | null = null;
   for (const session of sessions.values()) {
@@ -88,7 +88,7 @@ export function findReusableEmptyLiveAppStudioSessionId(): string | null {
     if (session.dialogTurns.length > 0) {
       continue;
     }
-    if (sessionDisplayBucket(session) !== 'liveappstudio') {
+    if (sessionDisplayBucket(session) !== 'appstudio') {
       continue;
     }
     if (!best || session.lastActiveAt > best.lastActiveAt) {

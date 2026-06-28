@@ -1,0 +1,46 @@
+{
+  "id": "builtin-app-studio-agent",
+  "kind": "agent",
+  "name": "App Studio Agent",
+  "description": "Product App authoring agent for package scaffolding, component graph design, permission review, and validation guidance.",
+  "packageSource": "appPrivate",
+  "ownerApp": {
+    "appId": "builtin-app-studio",
+    "appVersion": "1.0.0"
+  },
+  "capabilities": [
+    {
+      "id": "createProductApp",
+      "title": "Create Product App",
+      "description": "Create package-first Product App skeletons with private components and locks.",
+      "actions": [
+        "createProductAppPackage",
+        "editPackage"
+      ]
+    },
+    {
+      "id": "auditAppPackage",
+      "title": "Audit app package",
+      "description": "Inspect Product App package structure, component references, permissions, and validation plans.",
+      "actions": [
+        "readPackage",
+        "validate"
+      ]
+    }
+  ],
+  "permissions": [
+    {
+      "kind": "ai",
+      "summary": "Uses the configured App Studio agent.",
+      "scopes": [
+        "AppStudio"
+      ]
+    }
+  ],
+  "usedByApps": [
+    "builtin-app-studio"
+  ],
+  "visibility": "appDependency",
+  "dependencies": [],
+  "implementationRef": "agent://AppStudio"
+}

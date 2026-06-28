@@ -204,21 +204,21 @@ fn capability_guidance(id: &str) -> CapabilityGuidance {
             avoid_for: &["small known facts", "direct local implementation tasks"],
             quality_signal: "Returns sourced findings, uncertainty, and decision implications.",
         },
-        "LiveAppStudio" => CapabilityGuidance {
-            domain: "live_apps",
+        "AppStudio" => CapabilityGuidance {
+            domain: "product_apps",
             best_for: &[
-                "create, repair, inspect, or operate live app experiences",
+                "create, repair, inspect, or operate Product App experiences",
                 "interactive artifact work that needs app runtime awareness",
             ],
-            avoid_for: &["general coding outside live app context"],
-            quality_signal: "Produces or operates a working live experience.",
+            avoid_for: &["general coding outside Product App context"],
+            quality_signal: "Produces or operates a working Product App experience.",
         },
-        "AgentAppStudio" => CapabilityGuidance {
-            domain: "agent_apps",
-            best_for: &["create, repair, package, or improve Agent Apps"],
+        "ComponentStudio" => CapabilityGuidance {
+            domain: "components",
+            best_for: &["create, repair, package, or improve reusable components"],
             avoid_for: &["ordinary chat answers", "unrelated repo edits"],
             quality_signal:
-                "Handles app manifest, tools, packaging, and validation as one outcome.",
+                "Handles component contracts, tools, packaging, and validation as one outcome.",
         },
         _ => CapabilityGuidance {
             domain: "custom_or_specialized",

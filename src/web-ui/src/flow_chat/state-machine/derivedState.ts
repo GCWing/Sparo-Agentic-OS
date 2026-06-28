@@ -196,10 +196,10 @@ function getProgressBarColor(phase: ProcessingPhase | null): string {
       return 'var(--ds-status-surface-info-fg)';
     
     case ProcessingPhase.STREAMING:
-      return 'linear-gradient(90deg, var(--ds-status-surface-info-fg), var(--ds-tool-family-agent-app-fg))';
+      return 'linear-gradient(90deg, var(--ds-status-surface-info-fg), var(--ds-tool-family-agent-fg))';
     
     case ProcessingPhase.TOOL_CALLING:
-      return 'var(--ds-tool-family-agent-app-fg)';
+      return 'var(--ds-tool-family-agent-fg)';
     
     case ProcessingPhase.TOOL_CONFIRMING:
       return 'var(--ds-status-surface-warning-fg)';

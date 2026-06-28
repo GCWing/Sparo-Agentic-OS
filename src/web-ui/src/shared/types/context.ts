@@ -24,7 +24,7 @@ export type ContextItem =
   | GitRefContext
   | URLContext
   | WebElementContext
-  | LiveAppPreviewElementSelectionContext;
+  | SurfaceComponentPreviewElementSelectionContext;
 
 export interface FileContext extends BaseContext {
   type: 'file';
@@ -115,14 +115,14 @@ export interface NormalizedPreviewBox {
   height: number;
 }
 
-export interface LiveAppPreviewElementAncestorSummary {
+export interface SurfaceComponentPreviewElementAncestorSummary {
   tagName: string;
   selectorPart: string;
   role?: string;
   label?: string;
 }
 
-export interface LiveAppPreviewElementSummary {
+export interface SurfaceComponentPreviewElementSummary {
   tagName: string;
   selectorPath: string;
   selectorPart?: string;
@@ -132,25 +132,25 @@ export interface LiveAppPreviewElementSummary {
   attributes?: Record<string, string>;
   normalizedBox: NormalizedPreviewBox;
   computedStyleSummary?: Record<string, string>;
-  ancestorPath?: LiveAppPreviewElementAncestorSummary[];
+  ancestorPath?: SurfaceComponentPreviewElementAncestorSummary[];
 }
 
-export interface LiveAppPreviewElementFingerprint {
+export interface SurfaceComponentPreviewElementFingerprint {
   selectorPath: string;
   textHash?: string;
   boxHash: string;
 }
 
-export interface LiveAppPreviewElementSelectionContext extends BaseContext {
-  type: 'live-app-preview-element-selection';
+export interface SurfaceComponentPreviewElementSelectionContext extends BaseContext {
+  type: 'surface-component-preview-element-selection';
   schemaVersion: 1;
   appId: string;
   appName?: string;
   sessionId?: string | null;
   route: string;
   runtimeRevision?: string;
-  element: LiveAppPreviewElementSummary;
-  fingerprint: LiveAppPreviewElementFingerprint;
+  element: SurfaceComponentPreviewElementSummary;
+  fingerprint: SurfaceComponentPreviewElementFingerprint;
   source: 'iframe-element-inspector' | 'runtime-specific';
   confidence: 'high' | 'medium' | 'low';
 }
@@ -217,10 +217,10 @@ export function isWebElementContext(context: ContextItem): context is WebElement
   return context.type === 'web-element';
 }
 
-export function isLiveAppPreviewElementSelectionContext(
+export function isSurfaceComponentPreviewElementSelectionContext(
   context: ContextItem,
-): context is LiveAppPreviewElementSelectionContext {
-  return context.type === 'live-app-preview-element-selection';
+): context is SurfaceComponentPreviewElementSelectionContext {
+  return context.type === 'surface-component-preview-element-selection';
 }
 
  

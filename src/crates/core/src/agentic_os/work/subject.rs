@@ -3,24 +3,33 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum WorkAppKind {
-    LiveApp,
-    AgentApp,
-    BridgeApp,
-    SystemApp,
+    ProductApp,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorkAppRef {
     pub kind: WorkAppKind,
     pub app_id: String,
+    pub app_version: String,
+    pub component_lock_digest: String,
 }
 
 impl WorkAppRef {
-    pub fn live_app(app_id: impl Into<String>) -> Self {
+    pub fn product_app(
+        app_id: impl Into<String>,
+        app_version: impl Into<String>,
+        component_lock_digest: impl Into<String>,
+    ) -> Self {
         Self {
-            kind: WorkAppKind::LiveApp,
+            kind: WorkAppKind::ProductApp,
             app_id: app_id.into(),
+            app_version: app_version.into(),
+            component_lock_digest: component_lock_digest.into(),
         }
+    }
+
+    pub fn matches_product_app_id(&self, app_id: &str) -> bool {
+        self.kind == WorkAppKind::ProductApp && self.app_id == app_id
     }
 }
 

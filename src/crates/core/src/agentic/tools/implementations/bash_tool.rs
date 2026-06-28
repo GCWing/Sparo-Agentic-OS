@@ -593,14 +593,16 @@ Usage notes:
             .ok_or_else(|| BitFunError::tool("command is required".to_string()))?;
 
         if let Some(agent_type) = context.agent_type.as_deref() {
-            if let Some(allowlist) = crate::agent_app::AgentAppManager::bash_allowlist_for(
-                agent_type,
-                context.workspace_root(),
-            ) {
+            if let Some(allowlist) =
+                crate::agent_component::AgentComponentManager::bash_allowlist_for(
+                    agent_type,
+                    context.workspace_root(),
+                )
+            {
                 if !allowlist.is_empty() && !allowlist.iter().any(|allowed| allowed == command_str)
                 {
                     return Err(BitFunError::validation(format!(
-                        "Command is not allowed for Agent App '{}': {}",
+                        "Command is not allowed for Agent Component '{}': {}",
                         agent_type, command_str
                     )));
                 }

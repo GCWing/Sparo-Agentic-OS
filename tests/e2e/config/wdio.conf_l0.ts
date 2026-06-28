@@ -12,7 +12,7 @@ export const config = createEmbeddedConfig(
     '../specs/l0-theme.spec.ts',
     '../specs/l0-i18n.spec.ts',
     '../specs/l0-notification.spec.ts',
-    '../specs/l0-bridge-app.spec.ts',
+    '../specs/l0-bridge-component.spec.ts',
   ],
   'L0'
 );

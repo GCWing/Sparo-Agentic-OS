@@ -1,50 +1,90 @@
 /**
  * Apps scene navigation store.
  *
- * The scene has two top-level pages: a Home (discover/manage) and an App
- * detail workbench. Per-app workbench state (active tab, active agent, drafts) lives
- * in {@link useAppDetailStore} instead so it resets cleanly when switching
- * apps and so the home page does not need to know about it.
+ * The Apps scene models Product Apps and Components directly. Runtime,
+ * surface, agent, and bridge implementations stay behind component references.
  */
 import { create } from 'zustand';
+import type { ComponentKind } from '@/infrastructure/api/service-api/AppCatalogAPI';
 
-export type AppsScenePage = 'home' | 'app-detail';
-export type AppsTab = 'all' | 'agent-app' | 'live-app' | 'bridge-app';
-export type AppsHomeView = 'discover' | 'manage';
+export type AppsScenePage =
+  | 'home'
+  | 'manage'
+  | 'app-detail'
+  | 'component-center'
+  | 'create-app'
+  | 'create-component';
+
+export type ProductAppFilter =
+  | 'all'
+  | 'installed'
+  | 'discover'
+  | 'conversation'
+  | 'interactive';
+
+export type ManageSortKey = 'name' | 'scope' | 'status';
+
+export type ComponentCenterFilter = 'all' | ComponentKind;
 
 interface AppsStoreState {
-  activeTab: AppsTab;
   page: AppsScenePage;
-  searchQuery: string;
-  homeView: AppsHomeView;
-  homeListPage: number;
+  /** The page that was active before navigating to app-detail, so we can return to it. */
+  detailReturnPage: AppsScenePage;
+  productAppFilter: ProductAppFilter;
+  componentFilter: ComponentCenterFilter;
+  launchSearch: string;
+  manageSearch: string;
+  componentSearch: string;
+  manageSort: ManageSortKey;
   selectedAppId: string | null;
-  setActiveTab: (tab: AppsTab) => void;
-  setSearchQuery: (query: string) => void;
-  setHomeView: (view: AppsHomeView) => void;
-  setHomeListPage: (page: number | ((current: number) => number)) => void;
+  selectedComponentId: string | null;
+  setProductAppFilter: (filter: ProductAppFilter) => void;
+  setComponentFilter: (filter: ComponentCenterFilter) => void;
+  setLaunchSearch: (query: string) => void;
+  setManageSearch: (query: string) => void;
+  setComponentSearch: (query: string) => void;
+  setManageSort: (sort: ManageSortKey) => void;
   openHome: () => void;
+  openManage: (appId?: string | null) => void;
   openAppDetail: (appId: string) => void;
+  openComponentCenter: (componentId?: string | null) => void;
+  openCreateApp: () => void;
+  openCreateComponent: () => void;
 }
 
 export const useAppsStore = create<AppsStoreState>((set) => ({
-  activeTab: 'all',
   page: 'home',
-  searchQuery: '',
-  homeView: 'discover',
-  homeListPage: 0,
+  detailReturnPage: 'home',
+  productAppFilter: 'all',
+  componentFilter: 'all',
+  launchSearch: '',
+  manageSearch: '',
+  componentSearch: '',
+  manageSort: 'name',
   selectedAppId: null,
-  setActiveTab: (activeTab) =>
-    set({ activeTab, page: 'home', selectedAppId: null, homeListPage: 0 }),
-  setSearchQuery: (query) => set({ searchQuery: query, homeListPage: 0 }),
-  setHomeView: (homeView) => set({ homeView }),
-  setHomeListPage: (pageOrUpdater) =>
-    set((state) => ({
-      homeListPage:
-        typeof pageOrUpdater === 'function'
-          ? pageOrUpdater(state.homeListPage)
-          : pageOrUpdater,
-    })),
-  openHome: () => set({ page: 'home', selectedAppId: null }),
-  openAppDetail: (appId) => set({ page: 'app-detail', selectedAppId: appId }),
+  selectedComponentId: null,
+  setProductAppFilter: (productAppFilter) =>
+    set({ productAppFilter, page: 'manage', selectedAppId: null }),
+  setComponentFilter: (componentFilter) =>
+    set({ componentFilter, page: 'component-center' }),
+  setLaunchSearch: (launchSearch) => set({ launchSearch }),
+  setManageSearch: (manageSearch) => set({ manageSearch }),
+  setComponentSearch: (componentSearch) => set({ componentSearch }),
+  setManageSort: (manageSort) => set({ manageSort }),
+  openHome: () => set({ page: 'home', detailReturnPage: 'home', selectedAppId: null, selectedComponentId: null }),
+  openManage: (appId = null) => set({
+    page: 'manage',
+    detailReturnPage: 'manage',
+    selectedAppId: appId ?? null,
+    selectedComponentId: null,
+  }),
+  openAppDetail: (appId) => set((state) => ({
+    page: 'app-detail',
+    selectedAppId: appId,
+    detailReturnPage: state.page === 'app-detail' ? state.detailReturnPage : state.page,
+  })),
+  openComponentCenter: (componentId = null) =>
+    set({ page: 'component-center', selectedComponentId: componentId ?? null }),
+  openCreateApp: () => set({ page: 'create-app', selectedAppId: null }),
+  openCreateComponent: () => set({ page: 'create-component', selectedComponentId: null }),
 }));

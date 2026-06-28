@@ -12,7 +12,7 @@ export type WorkspaceSceneId =
   | 'shell'
   | 'panel-view'
   | 'work-center'
-  | `live-app:${string}`;
+  | `app-surface:${string}`;
 
 export type SceneId = 'session' | WorkspaceSceneId;
 

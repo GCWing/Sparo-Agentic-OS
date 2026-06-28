@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FolderOpen, ListChecks, MessageSquare, Sparkles } from 'lucide-react';
-import { Dialog, Search, SelectableRow, SparoAgentIcon } from '@/design-system';
-import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
+import { AppWindow, Boxes, FolderOpen, ListChecks, MessageSquare } from 'lucide-react';
+import { Dialog, Search, SelectableRow } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
@@ -11,29 +10,25 @@ import type { FlowChatState, Session } from '@/flow_chat/types/flow-chat';
 import type { SessionMetadata } from '@/shared/types/session-history';
 import type { WorkspaceInfo } from '@/shared/types';
 import { sessionAPI } from '@/infrastructure/api';
-import { liveAppAPI, type LiveAppMeta } from '@/infrastructure/api/service-api/LiveAppAPI';
-import { APP_REGISTRY } from '@/app/scenes/apps/appRegistry';
-import { resolveLiveAppMeta } from '@/app/scenes/apps/live-app/liveAppI18n';
-import { openLiveApp } from '@/app/scenes/apps/live-app/liveAppWorkbenchService';
 import {
-  appScopeFromWorkspacePath,
-  systemAppScope,
-  type AppScope,
-} from '@/shared/types/app-scope';
-import {
-  getAppScopeFolderName,
-  LiveAppScopeDialog,
-} from '@/app/scenes/apps/live-app/components/LiveAppScopeDialog';
+  appCatalogAPI,
+  type ComponentDefinition,
+  type ProductAppCatalogEntry,
+} from '@/infrastructure/api/service-api/AppCatalogAPI';
 import {
   NewWorkDialog,
-  type NewWorkAgentChoice,
+  launchWorkForChoice,
+  productAppWorkChoice,
 } from '@/app/components/WorkDock/NewWorkDialog';
+import { productAppRequiresWorkspace } from '@/app/agentic-os/work/domain/productAppLaunchPolicy';
 import { useWorks } from '@/app/agentic-os/work/hooks/useWorks';
 import { filterWorkProjections } from '@/app/agentic-os/work/data/workSelectors';
 import { openWorkInCenter } from '@/app/agentic-os/work/navigation/openWork';
 import type { WorkProjection } from '@/app/agentic-os/work/projections/workProjection';
 import { isSystemAgenticOsSession } from '@/flow_chat/domain/sessionDescriptor';
 import { notificationService } from '@/shared/notification-system';
+import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
+import { useAppsStore } from '@/app/scenes/apps/appsStore';
 import './GlobalSearchDialog.scss';
 
 interface GlobalSearchDialogProps {
@@ -41,7 +36,7 @@ interface GlobalSearchDialogProps {
   onClose: () => void;
 }
 
-type SearchResultKind = 'workspace' | 'work' | 'session' | 'agent-app' | 'live-app';
+type SearchResultKind = 'workspace' | 'work' | 'session' | 'app' | 'component';
 
 interface SearchResultItem {
   kind: SearchResultKind;
@@ -49,8 +44,8 @@ interface SearchResultItem {
   label: string;
   sublabel?: string;
   workspaceId?: string;
-  agentChoice?: NewWorkAgentChoice;
-  liveApp?: LiveAppMeta;
+  productApp?: ProductAppCatalogEntry;
+  component?: ComponentDefinition;
 }
 
 const MAX_PER_GROUP = 20;
@@ -66,6 +61,38 @@ const matchesQuery = (query: string, ...fields: (string | undefined | null)[]): 
   const normalizedQuery = query.toLowerCase();
   return fields.some(field => field && field.toLowerCase().includes(normalizedQuery));
 };
+
+function matchesProductApp(query: string, app: ProductAppCatalogEntry): boolean {
+  return matchesQuery(
+    query,
+    app.id,
+    app.name,
+    app.description,
+    app.goal,
+    app.category,
+    app.dependencySummary,
+    ...(app.tags ?? [])
+  );
+}
+
+function matchesComponent(query: string, component: ComponentDefinition): boolean {
+  return matchesQuery(
+    query,
+    component.id,
+    component.name,
+    component.description,
+    component.kind,
+    component.version,
+    component.implementationRef,
+    ...(component.usedByApps ?? []),
+    ...(component.capabilities ?? []).flatMap(capability => [
+      capability.id,
+      capability.title,
+      capability.description,
+      ...(capability.actions ?? []),
+    ])
+  );
+}
 
 function buildWorkResult(
   work: WorkProjection,
@@ -154,26 +181,16 @@ function buildMergedSessionEntries(
   return mergedEntries;
 }
 
-const APP_TO_AGENT_CHOICE: Record<string, NewWorkAgentChoice> = {
-  'coding-app': 'agentic',
-  'cowork-app': 'Cowork',
-  'design-app': 'Design',
-  'deep-research-app': 'DeepResearch',
-  'live-app-studio-app': 'LiveAppStudio',
-};
-
 const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }) => {
   const { t } = useI18n('common');
-  const { t: tApps, currentLanguage } = useI18n('scenes/apps');
-  const { openedWorkspacesList, rememberWorkspace } = useWorkspaceContext();
+  const { t: tApps } = useI18n('scenes/apps');
+  const { openedWorkspacesList, lastUsedWorkspace, rememberWorkspace } = useWorkspaceContext();
   const { projections } = useWorks();
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
-  const [liveApps, setLiveApps] = useState<LiveAppMeta[]>([]);
-  const [newWorkDialogOpen, setNewWorkDialogOpen] = useState(false);
-  const [pendingAgentChoice, setPendingAgentChoice] = useState<NewWorkAgentChoice>('agentic');
-  const [pendingLiveAppScopeItem, setPendingLiveAppScopeItem] = useState<SearchResultItem | null>(null);
-  const [liveAppScopeDraft, setLiveAppScopeDraft] = useState<AppScope>(() => systemAppScope());
+  const [productApps, setProductApps] = useState<ProductAppCatalogEntry[]>([]);
+  const [workspaceLaunchApp, setWorkspaceLaunchApp] = useState<ProductAppCatalogEntry | null>(null);
+  const [components, setComponents] = useState<ComponentDefinition[]>([]);
   const [flowChatState, setFlowChatState] = useState<FlowChatState>(() => flowChatStore.getState());
   const [persistedOpenWorkspaceSessions, setPersistedOpenWorkspaceSessions] = useState<
     Array<{ meta: SessionMetadata; workspace: WorkspaceInfo }>
@@ -230,20 +247,26 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
 
   useEffect(() => {
     if (!open) {
-      setLiveApps([]);
+      setProductApps([]);
+      setComponents([]);
       return;
     }
 
     let cancelled = false;
-    void liveAppAPI.listLiveApps()
-      .then(items => {
+    void Promise.all([
+      appCatalogAPI.listAppCatalog(),
+      appCatalogAPI.listComponents(),
+    ])
+      .then(([apps, componentItems]) => {
         if (!cancelled) {
-          setLiveApps(items);
+          setProductApps(apps.filter(app => app.enabled));
+          setComponents(componentItems);
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setLiveApps([]);
+          setProductApps([]);
+          setComponents([]);
         }
       });
 
@@ -341,35 +364,29 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
       });
     }
 
-    const filteredAgentApps = APP_REGISTRY
-      .filter(app =>
-        matchesQuery(trimmedQuery, app.id, tApps(app.nameKey), tApps(app.descriptionKey))
-      )
+    const filteredProductApps = productApps
+      .filter(app => matchesProductApp(trimmedQuery, app))
       .slice(0, MAX_PER_GROUP);
-    for (const app of filteredAgentApps) {
+    for (const app of filteredProductApps) {
       items.push({
-        kind: 'agent-app',
+        kind: 'app',
         id: app.id,
-        label: tApps(app.nameKey),
-        sublabel: tApps(app.descriptionKey),
-        agentChoice: APP_TO_AGENT_CHOICE[app.id],
+        label: app.name,
+        sublabel: app.goal || app.description,
+        productApp: app,
       });
     }
 
-    const filteredLiveApps = liveApps
-      .filter(app => {
-        const displayMeta = resolveLiveAppMeta(app, currentLanguage);
-        return matchesQuery(trimmedQuery, app.id, displayMeta.name, displayMeta.description, app.category, ...displayMeta.tags);
-      })
+    const filteredComponents = components
+      .filter(component => matchesComponent(trimmedQuery, component))
       .slice(0, MAX_PER_GROUP);
-    for (const app of filteredLiveApps) {
-      const displayMeta = resolveLiveAppMeta(app, currentLanguage);
+    for (const component of filteredComponents) {
       items.push({
-        kind: 'live-app',
-        id: app.id,
-        label: displayMeta.name,
-        sublabel: displayMeta.description || displayMeta.tags.join(' · '),
-        liveApp: app,
+        kind: 'component',
+        id: `${component.kind}:${component.id}`,
+        label: component.name,
+        sublabel: `${tApps(`productSystem.componentKinds.${component.kind}`)} · ${component.description}`,
+        component,
       });
     }
 
@@ -410,11 +427,11 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
 
     return items;
   }, [
-    currentLanguage,
-    liveApps,
+    components,
     openedWorkspaceIdSet,
     openedWorkspacesList,
     persistedOpenWorkspaceSessions,
+    productApps,
     projections,
     query,
     t,
@@ -425,43 +442,6 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
   useEffect(() => {
     setActiveIndex(0);
   }, [results.length]);
-
-  const handleCancelLiveAppScope = useCallback(() => {
-    setPendingLiveAppScopeItem(null);
-    setLiveAppScopeDraft(systemAppScope());
-  }, []);
-
-  const handleBrowseLiveAppScope = useCallback(async () => {
-    try {
-      const selected = await openFileDialog({
-        directory: true,
-        multiple: false,
-        title: tApps('liveApp.scopeDialog.folderDialogTitle'),
-      });
-      const selectedPath = Array.isArray(selected) ? selected[0] : selected;
-      if (!selectedPath) return;
-      setLiveAppScopeDraft(
-        appScopeFromWorkspacePath(selectedPath) ?? {
-          kind: 'workspace',
-          workspacePath: selectedPath,
-          workspaceName: getAppScopeFolderName(selectedPath),
-        }
-      );
-    } catch {
-      notificationService.error(tApps('liveApp.scopeDialog.browseFailed'));
-    }
-  }, [tApps]);
-
-  const handleConfirmLiveAppScope = useCallback(async () => {
-    const item = pendingLiveAppScopeItem;
-    if (!item) return;
-    setPendingLiveAppScopeItem(null);
-    await openLiveApp(item.liveApp || item.id, {
-      scope: liveAppScopeDraft,
-      locale: currentLanguage,
-    });
-    setLiveAppScopeDraft(systemAppScope());
-  }, [currentLanguage, liveAppScopeDraft, pendingLiveAppScopeItem]);
 
   const handleSelect = useCallback(async (item: SearchResultItem) => {
     onClose();
@@ -475,16 +455,47 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
       return;
     }
 
-    if (item.kind === 'agent-app') {
-      const choice = item.agentChoice ?? 'agentic';
-      setPendingAgentChoice(choice);
-      setNewWorkDialogOpen(true);
+    if (item.kind === 'app' && item.productApp) {
+      const app = item.productApp;
+      try {
+        if (app.launch?.kind === 'applicationSurface' || app.launch?.kind === 'agentSession') {
+          if (productAppRequiresWorkspace(app)) {
+            setWorkspaceLaunchApp(app);
+            return;
+          }
+          await launchWorkForChoice({
+            agentChoice: productAppWorkChoice(app.id),
+            workspace: lastUsedWorkspace,
+            rememberWorkspace,
+            title: app.name,
+            objective: app.goal || app.description,
+          });
+          return;
+        }
+
+        if (app.launch?.kind === 'appStudio') {
+          useAppsStore.getState().openCreateApp();
+          openWorkspaceScene('apps');
+          return;
+        }
+
+        if (app.launch?.kind === 'componentStudio') {
+          useAppsStore.getState().openCreateComponent();
+          openWorkspaceScene('apps');
+          return;
+        }
+      } catch (error) {
+        notificationService.error(error instanceof Error ? error.message : tApps('productSystem.messages.launchFailed', {
+          name: app.name,
+          error: String(error),
+        }));
+      }
       return;
     }
 
-    if (item.kind === 'live-app') {
-      setPendingLiveAppScopeItem(item);
-      setLiveAppScopeDraft(systemAppScope());
+    if (item.kind === 'component' && item.component) {
+      useAppsStore.getState().openComponentCenter(item.component.id);
+      openWorkspaceScene('apps');
       return;
     }
 
@@ -493,8 +504,10 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
       activateWorkspace: item.workspaceId ? rememberWorkspace : undefined,
     });
   }, [
+    lastUsedWorkspace,
     onClose,
     rememberWorkspace,
+    tApps,
   ]);
 
   const handleInputKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -532,12 +545,21 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
     activeElement?.scrollIntoView({ block: 'nearest' });
   }, [activeIndex]);
 
-  if (!open && !newWorkDialogOpen && !pendingLiveAppScopeItem) return null;
+  const workspaceLaunchDialog = (
+    <NewWorkDialog
+      open={Boolean(workspaceLaunchApp)}
+      onClose={() => setWorkspaceLaunchApp(null)}
+      initialAgentChoice={workspaceLaunchApp ? productAppWorkChoice(workspaceLaunchApp.id) : undefined}
+      initialScopeRequirement={workspaceLaunchApp?.launch?.scopeRequirement}
+    />
+  );
+
+  if (!open) return workspaceLaunchApp ? workspaceLaunchDialog : null;
 
   const workspaceItems = results.filter(result => result.kind === 'workspace');
   const workItems = results.filter(result => result.kind === 'work');
-  const agentAppItems = results.filter(result => result.kind === 'agent-app');
-  const liveAppItems = results.filter(result => result.kind === 'live-app');
+  const appItems = results.filter(result => result.kind === 'app');
+  const componentItems = results.filter(result => result.kind === 'component');
   const sessionItems = results.filter(result => result.kind === 'session');
   const queryTrimmed = query.trim();
 
@@ -573,78 +595,60 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
 
   return (
     <>
-      {open ? (
-        <Dialog
-          open={open}
-          onOpenChange={(nextOpen) => {
-            if (!nextOpen) onClose();
-          }}
-          size="medium"
-          showCloseButton={false}
-          className="sparo-search-dialog__card"
-          overlayClassName="sparo-search-dialog__overlay"
-          closeOnOverlayClick
-          initialFocusRef={inputRef}
-          restoreFocus
-        >
-          <div className="sparo-search-dialog__input-row">
-            <Search
-              ref={inputRef}
-              className="sparo-search-dialog__search"
-              placeholder={t('nav.search.inputPlaceholder')}
-              value={query}
-              onChange={setQuery}
-              onClear={() => setQuery('')}
-              onKeyDown={handleInputKeyDown}
-              clearable
-              size="medium"
-              autoFocus
-            />
-          </div>
-          <div className="sparo-search-dialog__results" ref={listRef}>
-            {results.length === 0 && queryTrimmed ? (
-              <div className="sparo-search-dialog__empty">{t('nav.search.empty')}</div>
-            ) : results.length === 0 ? (
-              <div className="sparo-search-dialog__session-hint" role="status">
-                {t('nav.search.noRecentTasks')}
-              </div>
-            ) : (
-              <>
-                {renderGroup(
-                  queryTrimmed ? t('nav.search.groupWorks') : t('nav.search.groupRecentWork'),
-                  workItems,
-                  () => <ListChecks size={14} />
-                )}
-                {renderGroup(t('nav.search.groupWorkspaces'), workspaceItems, () => <FolderOpen size={14} />)}
-                {renderGroup(t('nav.search.groupAgentApps'), agentAppItems, () => <SparoAgentIcon size={14} />)}
-                {renderGroup(t('nav.search.groupLiveApps'), liveAppItems, () => <Sparkles size={14} />)}
-                {renderGroup(
-                  queryTrimmed ? t('nav.search.groupSessions') : t('nav.search.groupRecentTasks'),
-                  sessionItems,
-                  () => <MessageSquare size={14} />
-                )}
-              </>
-            )}
-          </div>
-        </Dialog>
-      ) : null}
-      <LiveAppScopeDialog
-        open={pendingLiveAppScopeItem !== null}
-        mode="open"
-        appName={pendingLiveAppScopeItem?.label ?? ''}
-        workspaces={openedWorkspacesList}
-        selectedScope={liveAppScopeDraft}
-        onSelectScope={setLiveAppScopeDraft}
-        onBrowse={handleBrowseLiveAppScope}
-        onCancel={handleCancelLiveAppScope}
-        onConfirm={handleConfirmLiveAppScope}
-        t={tApps}
-      />
-      <NewWorkDialog
-        open={newWorkDialogOpen}
-        onClose={() => setNewWorkDialogOpen(false)}
-        initialAgentChoice={pendingAgentChoice}
-      />
+      <Dialog
+        open={open}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) onClose();
+        }}
+        size="medium"
+        showCloseButton={false}
+        className="sparo-search-dialog__card"
+        overlayClassName="sparo-search-dialog__overlay"
+        closeOnOverlayClick
+        initialFocusRef={inputRef}
+        restoreFocus
+      >
+        <div className="sparo-search-dialog__input-row">
+          <Search
+            ref={inputRef}
+            className="sparo-search-dialog__search"
+            placeholder={t('nav.search.inputPlaceholder')}
+            value={query}
+            onChange={setQuery}
+            onClear={() => setQuery('')}
+            onKeyDown={handleInputKeyDown}
+            clearable
+            size="medium"
+            autoFocus
+          />
+        </div>
+        <div className="sparo-search-dialog__results" ref={listRef}>
+          {results.length === 0 && queryTrimmed ? (
+            <div className="sparo-search-dialog__empty">{t('nav.search.empty')}</div>
+          ) : results.length === 0 ? (
+            <div className="sparo-search-dialog__session-hint" role="status">
+              {t('nav.search.noRecentTasks')}
+            </div>
+          ) : (
+            <>
+              {renderGroup(
+                queryTrimmed ? t('nav.search.groupWorks') : t('nav.search.groupRecentWork'),
+                workItems,
+                () => <ListChecks size={14} />
+              )}
+              {renderGroup(t('nav.search.groupWorkspaces'), workspaceItems, () => <FolderOpen size={14} />)}
+              {renderGroup(t('nav.search.groupApps'), appItems, () => <AppWindow size={14} />)}
+              {renderGroup(t('nav.search.groupComponents'), componentItems, () => <Boxes size={14} />)}
+              {renderGroup(
+                queryTrimmed ? t('nav.search.groupSessions') : t('nav.search.groupRecentTasks'),
+                sessionItems,
+                () => <MessageSquare size={14} />
+              )}
+            </>
+          )}
+        </div>
+      </Dialog>
+      {workspaceLaunchDialog}
     </>
   );
 };

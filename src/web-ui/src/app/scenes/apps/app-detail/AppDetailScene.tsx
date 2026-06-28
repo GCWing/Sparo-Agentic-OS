@@ -1,486 +1,314 @@
-/**
- * AppDetailScene — the single workbench page for an Agent App.
- *
- * Owns the page chrome (header, tabs), data fetching for cross-tab resources
- * (subagents), and the global Dirty Bar that aggregates Agent drafts.
- *
- * IA:
- *   Overview / Agents / Shared / Runtime / History
- *
- * Agents is where per-agent configuration lives. Each top-level Agent the App
- * ships with appears as one configurable Agent. The other tabs are read-only or scaffolded
- * surfaces tracking the design contract (see appsScene design notes).
- */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import {
-  Activity,
   ArrowLeft,
-  Boxes,
-  History as HistoryIcon,
-  Layers,
-  LayoutDashboard,
   Play,
+  Square,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import {
+  Badge,
   Button,
-  DetailHeader,
-  NavigationList,
-  NavigationListItem,
-  SparoAgentIcon,
+  EmptyState,
+  StatusDot,
+  Tag,
 } from '@/design-system';
-import { SubagentAPI, type SubagentInfo } from '@/infrastructure/api/service-api/SubagentAPI';
-import {
-  useLastUsedWorkspace,
-  useWorkspaceContext,
-} from '@/infrastructure/contexts/WorkspaceContext';
-import { notificationService } from '@/shared/notification-system';
-import { createLogger } from '@/shared/utils/logger';
-import { launchWorkForChoice } from '@/app/components/WorkDock/NewWorkDialog';
-import { useWorks } from '@/app/agentic-os/work/hooks/useWorks';
-import { selectBestWorksForApp } from '@/app/agentic-os/work/data/appWorkSelectors';
-import { openWork } from '@/app/agentic-os/work/navigation/openWork';
-import {
-  getAppScopeFolderName,
-  LiveAppScopeDialog,
-} from '@/app/scenes/apps/live-app/components/LiveAppScopeDialog';
-import {
-  appScopeFromWorkspacePath,
-  systemAppScope,
-  type AppScope,
-} from '@/shared/types/app-scope';
-import { APP_ICON_MAP } from '../appVisuals';
-import type { AppCardModel } from '../hooks/useAppsData';
-import type { useAppsData } from '../hooks/useAppsData';
-import { useAppDetailStore } from './appDetailStore';
-import { APP_DETAIL_TABS, type AppDetailTab } from './types';
-import { OverviewTab } from './tabs/OverviewTab';
-import { AgentsTab } from './tabs/AgentsTab';
-import { SharedTab } from './tabs/SharedTab';
-import { RuntimeTab } from './tabs/RuntimeTab';
-import { HistoryTab } from './tabs/HistoryTab';
-import { DirtyBar, type DirtyEntry } from './components/DirtyBar';
+import type {
+  AppComponentRef,
+  ComponentDefinition,
+  ProductAppCatalogEntry,
+} from '@/infrastructure/api/service-api/AppCatalogAPI';
+import { productAppSupportsMultipleWorks } from '@/app/agentic-os/work/domain/productAppLaunchPolicy';
+import { productAppWorkRef, sameProductAppRef } from '@/app/agentic-os/work/domain/productAppRefs';
+import type { WorkRecord } from '@/app/agentic-os/work/domain/workTypes';
+import { appIconFor } from '../iconUtils';
 import './AppDetailScene.scss';
 
-const log = createLogger('AppDetailScene');
-
-type AppsData = ReturnType<typeof useAppsData>;
+type ProductAppComponent = {
+  ref: AppComponentRef;
+  component: ComponentDefinition | null;
+};
 
 interface AppDetailSceneProps {
-  app: AppCardModel;
-  appsData: AppsData;
+  app: ProductAppCatalogEntry;
+  components: ProductAppComponent[];
+  works: WorkRecord[];
   onBack: () => void;
+  onLaunch: () => void;
+  onStop: () => void;
+  running: boolean;
+  stopping: boolean;
+  onOpenWork: (work: WorkRecord) => void;
+  onOpenComponent: (componentId: string) => void;
 }
 
-export const AppDetailScene: React.FC<AppDetailSceneProps> = ({ app, appsData, onBack }) => {
+function workReferencesApp(work: WorkRecord, app: ProductAppCatalogEntry): boolean {
+  const appRef = productAppWorkRef(app);
+  return (work.subject.kind === 'app' && sameProductAppRef(work.subject.app, appRef))
+    || work.appRefs.some((relation) => sameProductAppRef(relation.app, appRef));
+}
+
+function permissionEntries(app: ProductAppCatalogEntry): Array<{ key: keyof ProductAppCatalogEntry['permissions']; enabled: boolean }> {
+  return (['fs', 'net', 'shell', 'gui', 'secrets', 'ai'] as const).map((key) => ({
+    key,
+    enabled: Boolean(app.permissions?.[key]),
+  }));
+}
+
+export const AppDetailScene: React.FC<AppDetailSceneProps> = ({
+  app,
+  components,
+  works,
+  onBack,
+  onLaunch,
+  onStop,
+  running,
+  stopping,
+  onOpenWork,
+  onOpenComponent,
+}) => {
   const { t } = useTranslation('scenes/apps');
-  const { workspacePath } = useLastUsedWorkspace();
-  const { rememberWorkspace, openWorkspace, openedWorkspacesList } = useWorkspaceContext();
-  const { works } = useWorks();
-
-  const tab = useAppDetailStore((s) => s.tab);
-  const setTab = useAppDetailStore((s) => s.setTab);
-  const setAgentId = useAppDetailStore((s) => s.setAgentId);
-  const toolsDrafts = useAppDetailStore((s) => s.toolsDrafts);
-  const skillsDrafts = useAppDetailStore((s) => s.skillsDrafts);
-  const subagentsDrafts = useAppDetailStore((s) => s.subagentsDrafts);
-  const setToolsDraft = useAppDetailStore((s) => s.setToolsDraft);
-  const setSkillsDraft = useAppDetailStore((s) => s.setSkillsDraft);
-  const setSubagentsDraft = useAppDetailStore((s) => s.setSubagentsDraft);
-  const resetForApp = useAppDetailStore((s) => s.resetForApp);
-
-  const [subagents, setSubagents] = useState<SubagentInfo[]>([]);
-  const [subagentsLoading, setSubagentsLoading] = useState(false);
-  const [savingDrafts, setSavingDrafts] = useState(false);
-  const [startScopeDialogOpen, setStartScopeDialogOpen] = useState(false);
-  const [appRunScopeDraft, setAppRunScopeDraft] = useState<AppScope>(() => systemAppScope());
-  const displayName = app.dynamicName ?? t(app.nameKey);
-
-  useEffect(() => {
-    resetForApp();
-  }, [app.id, resetForApp]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setSubagentsLoading(true);
-    SubagentAPI.listSubagents({ workspacePath: workspacePath || undefined })
-      .then((list) => {
-        if (!cancelled) setSubagents(list);
-      })
-      .catch((error) => {
-        log.warn('Failed to load subagents', { error });
-        if (!cancelled) setSubagents([]);
-      })
-      .finally(() => {
-        if (!cancelled) setSubagentsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [workspacePath, app.id]);
-
-  const dirtyEntries: DirtyEntry[] = useMemo(() => {
-    const entries: DirtyEntry[] = [];
-    for (const agent of app.includedAgents) {
-      const t = toolsDrafts[agent.id];
-      if (t) {
-        entries.push({
-          id: `tools:${agent.id}`,
-          agentId: agent.id,
-          agentName: agent.name,
-          kind: 'tools',
-          count: t.length,
-        });
-      }
-      const s = skillsDrafts[agent.id];
-      if (s) {
-        entries.push({
-          id: `skills:${agent.id}`,
-          agentId: agent.id,
-          agentName: agent.name,
-          kind: 'skills',
-          count: s.length,
-        });
-      }
-      const subagents = subagentsDrafts[agent.id];
-      if (subagents) {
-        entries.push({
-          id: `subagents:${agent.id}`,
-          agentId: agent.id,
-          agentName: agent.name,
-          kind: 'subagents',
-          count: subagents.length,
-        });
-      }
-    }
-    return entries;
-  }, [app.includedAgents, toolsDrafts, skillsDrafts, subagentsDrafts]);
-
-  const handleSaveAll = useCallback(async () => {
-    setSavingDrafts(true);
-    try {
-      const tasks: Array<Promise<void>> = [];
-      for (const [agentId, tools] of Object.entries(toolsDrafts)) {
-        tasks.push(appsData.handleSetTools(agentId, tools));
-      }
-      for (const [agentId, skills] of Object.entries(skillsDrafts)) {
-        tasks.push(appsData.handleSetSkills(agentId, skills));
-      }
-      for (const [agentId, subagentIds] of Object.entries(subagentsDrafts)) {
-        tasks.push(appsData.handleSetSubagents(agentId, subagentIds));
-      }
-      await Promise.all(tasks);
-      for (const agentId of Object.keys(toolsDrafts)) setToolsDraft(agentId, null);
-      for (const agentId of Object.keys(skillsDrafts)) setSkillsDraft(agentId, null);
-      for (const agentId of Object.keys(subagentsDrafts)) setSubagentsDraft(agentId, null);
-      notificationService.success(t('appDetail.dirtyBar.saveOk'), { duration: 2000 });
-    } catch (error) {
-      log.error('Failed to save drafts', { error });
-      notificationService.error(t('appDetail.dirtyBar.saveFailed'));
-    } finally {
-      setSavingDrafts(false);
-    }
-  }, [appsData, toolsDrafts, skillsDrafts, subagentsDrafts, setToolsDraft, setSkillsDraft, setSubagentsDraft, t]);
-
-  const handleDiscardAll = useCallback(() => {
-    for (const agentId of Object.keys(toolsDrafts)) setToolsDraft(agentId, null);
-    for (const agentId of Object.keys(skillsDrafts)) setSkillsDraft(agentId, null);
-    for (const agentId of Object.keys(subagentsDrafts)) setSubagentsDraft(agentId, null);
-  }, [toolsDrafts, skillsDrafts, subagentsDrafts, setToolsDraft, setSkillsDraft, setSubagentsDraft]);
-
-  const handleJumpDraft = useCallback(
-    (entry: DirtyEntry) => {
-      setTab('agents');
-      setAgentId(entry.agentId);
-      requestAnimationFrame(() => {
-        document
-          .getElementById(`app-detail-section-${entry.kind}`)
-          ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
-    },
-    [setTab, setAgentId],
-  );
-
-  const resolveWorkspaceForAppScope = useCallback(async (scope: AppScope) => {
-    if (scope.kind === 'system') return null;
-    const existing = openedWorkspacesList.find((workspace) => workspace.rootPath === scope.workspacePath);
-    if (existing) return existing;
-    return openWorkspace(scope.workspacePath);
-  }, [openWorkspace, openedWorkspacesList]);
-
-  const handleStartSession = useCallback(() => {
-    const entryAgent = app.includedAgents[0];
-    if (!entryAgent) return;
-    setAppRunScopeDraft(systemAppScope());
-    setStartScopeDialogOpen(true);
-  }, [app.includedAgents]);
-
-  const handleBrowseStartScope = useCallback(async () => {
-    try {
-      const selected = await openFileDialog({
-        directory: true,
-        multiple: false,
-        title: t('liveApp.scopeDialog.folderDialogTitle'),
-      });
-      const selectedPath = Array.isArray(selected) ? selected[0] : selected;
-      if (!selectedPath) return;
-      setAppRunScopeDraft(
-        appScopeFromWorkspacePath(selectedPath) ?? {
-          kind: 'workspace',
-          workspacePath: selectedPath,
-          workspaceName: getAppScopeFolderName(selectedPath),
-        }
-      );
-    } catch (error) {
-      log.error('Browse App start scope failed', { error });
-      notificationService.error(t('liveApp.scopeDialog.browseFailed'));
-    }
-  }, [t]);
-
-  const handleCancelStartScope = useCallback(() => {
-    setStartScopeDialogOpen(false);
-    setAppRunScopeDraft(systemAppScope());
-  }, []);
-
-  const bestAppWorks = useMemo(() => selectBestWorksForApp(
-    works,
-    { kind: 'agent_app', appId: app.id },
-    appRunScopeDraft,
-    5,
-  ).map(({ work }) => {
-    const workspacePath = work.scope.kind === 'workspace' ? work.scope.workspacePath : null;
-    const workspaceLabel = workspacePath
-      ? openedWorkspacesList.find((workspace) => workspace.rootPath === workspacePath)?.name
-        ?? workspacePath
-      : t('liveApp.scopeDialog.systemTitle');
-    return {
-      id: work.id,
-      title: work.title,
-      objective: work.objective,
-      status: work.status,
-      workspaceLabel,
-    };
-  }), [app.id, appRunScopeDraft, openedWorkspacesList, t, works]);
-
-  const handleSelectBestAppWork = useCallback(async (workId: string) => {
-    const work = works.find((item) => item.id === workId);
-    if (!work) return;
-    try {
-      await openWork(work);
-      handleCancelStartScope();
-    } catch (error) {
-      notificationService.error(error instanceof Error ? error.message : String(error));
-    }
-  }, [handleCancelStartScope, works]);
-
-  const handleConfirmStartScope = useCallback(async () => {
-    const entryAgent = app.includedAgents[0];
-    if (!entryAgent) return;
-    try {
-      const workspace = await resolveWorkspaceForAppScope(appRunScopeDraft);
-      await launchWorkForChoice({
-        agentChoice: entryAgent.id,
-        workspace,
-        rememberWorkspace,
-        appRef: { kind: 'agent_app', appId: app.id },
-        title: displayName,
-        objective: displayName,
-      });
-      handleCancelStartScope();
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
-      notificationService.error(`${t('appDetail.actions.startSession')}: ${reason}`);
-    }
-  }, [
-    app.includedAgents,
-    appRunScopeDraft,
-    app.id,
-    displayName,
-    handleCancelStartScope,
-    rememberWorkspace,
-    resolveWorkspaceForAppScope,
-    t,
-  ]);
-
-  const displayDesc = app.dynamicDescription ?? t(app.descriptionKey);
+  const supportsMultipleWorks = productAppSupportsMultipleWorks(app);
+  const appWorks = useMemo(() => {
+    if (!supportsMultipleWorks) return [];
+    return works
+      .filter((work) => workReferencesApp(work, app))
+      .sort((left, right) => right.updatedAt - left.updatedAt);
+  }, [app, supportsMultipleWorks, works]);
+  const useStopAction = !supportsMultipleWorks && running;
+  const Icon = appIconFor(app);
+  const permissionList = permissionEntries(app);
+  const componentPermissions = components.flatMap(({ component }) => component?.permissions ?? []);
 
   return (
-    <div className="app-detail-scene">
-      <DetailHeader
-        className="app-detail-scene__header"
-        title={
-          <span className="app-detail-scene__title-row">
-            <Button
-              variant="ghost"
-              size="small"
-              className="app-detail-scene__back"
-              onClick={onBack}
-              aria-label={t('page.sectionTitle')}
-            >
-              <ArrowLeft size={14} aria-hidden="true" />
-              <span>{t('tabs.agent-app')}</span>
-            </Button>
-            <span className="app-detail-scene__title-sep" aria-hidden="true">
-              /
-            </span>
-            <span className="app-detail-scene__app-name">{displayName}</span>
+    <main className="app-detail-scene">
+      <div className="app-detail-scene__content">
+        {/* Back navigation */}
+        <button type="button" className="app-detail-scene__back" onClick={onBack}>
+          <ArrowLeft size={14} aria-hidden />
+          <span>{t('productSystem.actions.back')}</span>
+        </button>
+
+        {/* Hero section */}
+        <section className="app-detail-scene__hero">
+          <span className="app-detail-scene__hero-icon" aria-hidden>
+            <Icon size={22} strokeWidth={1.8} />
           </span>
-        }
-        subtitle={displayDesc}
-        actions={
-          <div className="app-detail-scene__header-actions">
-            {app.includedAgents.length > 0 ? (
-              <nav
-                className="app-detail-scene__agent-rail"
-                aria-label={t('appDetail.agents.switcherLabel')}
-              >
-                {app.includedAgents.map((agent, index) => {
-                  const AgentIcon =
-                    APP_ICON_MAP[(agent.iconKey ?? 'bot') as keyof typeof APP_ICON_MAP] ??
-                    SparoAgentIcon;
-                  return (
-                    <button
-                      key={agent.id}
-                      type="button"
-                      className="app-detail-scene__agent-chip"
-                      data-default={index === 0 ? 'true' : undefined}
-                      onClick={() => {
-                        setAgentId(agent.id);
-                        setTab('agents');
-                      }}
-                      title={agent.description || agent.name}
-                    >
-                      <AgentIcon size={13} strokeWidth={1.75} aria-hidden="true" />
-                      <span>{agent.name}</span>
-                    </button>
-                  );
-                })}
-              </nav>
-            ) : null}
-            <Button variant="primary" size="small" onClick={() => void handleStartSession()}>
-              <Play size={13} />
-              <span>{t('appDetail.actions.startSession')}</span>
+          <div className="app-detail-scene__hero-info">
+            <div className="app-detail-scene__hero-name-row">
+              <h1 className="app-detail-scene__hero-name">{app.name}</h1>
+              <StatusDot
+                tone={app.enabled ? running ? 'success' : 'neutral' : 'warning'}
+                size="medium"
+                pulse={running && app.enabled}
+              />
+            </div>
+            <p className="app-detail-scene__hero-description">{app.description}</p>
+            <div className="app-detail-scene__hero-meta">
+              <span className="app-detail-scene__hero-version">{app.version}</span>
+              <Badge variant={app.interactionModel === 'conversation' ? 'info' : 'accent'}>
+                {t(`productSystem.interaction.${app.interactionModel}`)}
+              </Badge>
+              <Tag size="small" color="gray">{t(`productSystem.installScope.${app.installScope}`)}</Tag>
+              {app.category ? <Tag size="small" color="gray">{app.category}</Tag> : null}
+            </div>
+          </div>
+          <div className="app-detail-scene__hero-actions">
+            <Button
+              variant="primary"
+              size="small"
+              onClick={useStopAction ? onStop : onLaunch}
+              disabled={useStopAction ? stopping : false}
+              aria-busy={(useStopAction && stopping) || undefined}
+            >
+              {useStopAction ? <Square size={14} aria-hidden /> : <Play size={14} aria-hidden />}
+              <span>{useStopAction ? t('productSystem.actions.stop') : t('productSystem.actions.launch')}</span>
             </Button>
           </div>
-        }
-      />
+        </section>
 
-      <LiveAppScopeDialog
-        open={startScopeDialogOpen}
-        mode="open"
-        appName={displayName}
-        workspaces={openedWorkspacesList}
-        selectedScope={appRunScopeDraft}
-        bestWorks={bestAppWorks}
-        onSelectScope={setAppRunScopeDraft}
-        onSelectWork={(workId) => void handleSelectBestAppWork(workId)}
-        onBrowse={handleBrowseStartScope}
-        onCancel={handleCancelStartScope}
-        onConfirm={handleConfirmStartScope}
-        t={t}
-      />
+        {/* Goal */}
+        {app.goal ? (
+          <section className="app-detail-scene__section">
+            <h2 className="app-detail-scene__section-title">{t('productSystem.detail.overview.goal')}</h2>
+            <p className="app-detail-scene__goal-text">{app.goal}</p>
+            {(app.tags ?? []).length ? (
+              <div className="app-detail-scene__tags">
+                {(app.tags ?? []).map((tag) => <Tag key={tag} size="small" color="gray">{tag}</Tag>)}
+              </div>
+            ) : null}
+          </section>
+        ) : null}
 
-      <div className="app-detail-scene__body">
-        <aside
-          className="app-detail-scene__side"
-          aria-label={t('appDetail.nav.label')}
-        >
-          <div className="app-detail-scene__side-inner">
-            <div className="app-detail-scene__side-heading">
-              {t('appDetail.nav.heading')}
+        {/* Metrics */}
+        <section className="app-detail-scene__section">
+          <h2 className="app-detail-scene__section-title">{t('productSystem.detail.sections.overview')}</h2>
+          <div className="app-detail-scene__metrics">
+            <div className="app-detail-scene__metric">
+              <strong>{components.length}</strong>
+              <span>{t('productSystem.detail.metrics.components')}</span>
             </div>
-            <NavigationList variant="plain">
-              {APP_DETAIL_TABS.map((key) => (
-                <NavigationListItem
-                  key={key}
-                  icon={<TabIcon tabKey={key} />}
-                  active={tab === key}
-                  onClick={() => setTab(key)}
-                >
-                  {t(`appDetail.tabs.${key}`)}
-                </NavigationListItem>
-              ))}
-            </NavigationList>
+            <div className="app-detail-scene__metric">
+              <strong>{(app.workObjectKinds ?? []).length}</strong>
+              <span>{t('productSystem.detail.metrics.workObjects')}</span>
+            </div>
+            {supportsMultipleWorks ? (
+              <div className="app-detail-scene__metric">
+                <strong>{appWorks.length}</strong>
+                <span>{t('productSystem.detail.metrics.activeWorks')}</span>
+              </div>
+            ) : null}
+            <div className="app-detail-scene__metric">
+              <strong>{permissionList.filter((item) => item.enabled).length}</strong>
+              <span>{t('productSystem.detail.metrics.permissions')}</span>
+            </div>
           </div>
-        </aside>
-        <div className="app-detail-scene__main">
-          {renderTabBody(tab, {
-            app,
-            appsData,
-            subagents,
-            subagentsLoading,
-          })}
-        </div>
-      </div>
+        </section>
 
-      <DirtyBar
-        entries={dirtyEntries}
-        saving={savingDrafts}
-        onSave={handleSaveAll}
-        onDiscard={handleDiscardAll}
-        onJump={handleJumpDraft}
-      />
-    </div>
+        {/* Continue work */}
+        {supportsMultipleWorks ? (
+          <section className="app-detail-scene__section">
+            <h2 className="app-detail-scene__section-title">{t('productSystem.detail.start.continueTitle')}</h2>
+            {appWorks.length ? (
+              <div className="app-detail-scene__work-list">
+                {appWorks.slice(0, 6).map((work) => (
+                  <button
+                    key={work.id}
+                    type="button"
+                    className="app-detail-scene__work-row"
+                    onClick={() => onOpenWork(work)}
+                  >
+                    <StatusDot
+                      tone={work.status === 'running' ? 'success' : work.status === 'waiting_user' ? 'warning' : 'neutral'}
+                      size="small"
+                      pulse={work.status === 'running'}
+                    />
+                    <span className="app-detail-scene__work-info">
+                      <strong>{work.title}</strong>
+                      <small>{work.objective}</small>
+                    </span>
+                    <Badge variant="neutral" className="app-detail-scene__work-status">
+                      {t(`productSystem.status.${work.status}`, { defaultValue: work.status })}
+                    </Badge>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                imageSize="small"
+                title={t('productSystem.detail.start.noWorkTitle')}
+                description={t('productSystem.detail.start.noWorkDescription')}
+              />
+            )}
+          </section>
+        ) : null}
+
+        {/* Components */}
+        <section className="app-detail-scene__section">
+          <h2 className="app-detail-scene__section-title">{t('productSystem.detail.sections.components')}</h2>
+          {components.length ? (
+            <div className="app-detail-scene__component-list">
+              {components.map(({ ref, component }) => (
+                <button
+                  key={`${ref.kind}:${ref.componentId}:${ref.role}`}
+                  type="button"
+                  className="app-detail-scene__component-row"
+                  onClick={() => onOpenComponent(ref.componentId)}
+                  disabled={!component}
+                >
+                  <div className="app-detail-scene__component-info">
+                    <strong>{component?.name ?? ref.componentId}</strong>
+                    <div className="app-detail-scene__component-meta">
+                      <Badge variant="neutral">{t(`productSystem.componentKinds.${ref.kind}`)}</Badge>
+                      <Tag size="small" color="gray">{ref.role}</Tag>
+                      <Badge variant={ref.source === 'shared' ? 'info' : 'accent'}>
+                        {t(`productSystem.componentRefSource.${ref.source}`)}
+                      </Badge>
+                    </div>
+                  </div>
+                  <span className="app-detail-scene__component-arrow" aria-hidden>→</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="app-detail-scene__muted">{t('productSystem.detail.components.unresolved')}</p>
+          )}
+        </section>
+
+        {/* Permissions */}
+        <section className="app-detail-scene__section">
+          <h2 className="app-detail-scene__section-title">{t('productSystem.detail.sections.permissions')}</h2>
+          <div className="app-detail-scene__permission-grid">
+            {permissionList.map((permission) => (
+              <div
+                key={permission.key}
+                className={`app-detail-scene__permission-chip${permission.enabled ? ' is-enabled' : ''}`}
+              >
+                <StatusDot
+                  tone={permission.enabled ? 'success' : 'neutral'}
+                  size="small"
+                />
+                <span>{t(`productSystem.permission.${permission.key}`)}</span>
+              </div>
+            ))}
+          </div>
+          {componentPermissions.length ? (
+            <div className="app-detail-scene__permission-extra">
+              <h3>{t('productSystem.detail.permissions.componentTitle')}</h3>
+              {componentPermissions.map((perm, index) => (
+                <div key={`${perm.kind}:${index}`} className="app-detail-scene__perm-detail">
+                  <strong>{perm.kind}</strong>
+                  <span>{perm.summary}</span>
+                  <small>{(perm.scopes ?? []).join(', ')}</small>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </section>
+
+        {/* Runtime */}
+        <section className="app-detail-scene__section">
+          <h2 className="app-detail-scene__section-title">{t('productSystem.detail.sections.runtime')}</h2>
+          <dl className="app-detail-scene__facts">
+            <div>
+              <dt>{t('productSystem.fields.appId')}</dt>
+              <dd>{app.id}</dd>
+            </div>
+            <div>
+              <dt>{t('productSystem.fields.lock')}</dt>
+              <dd className="app-detail-scene__mono">{app.componentLockDigest}</dd>
+            </div>
+            <div>
+              <dt>{t('productSystem.fields.surfaceMode')}</dt>
+              <dd>{t(`productSystem.surfaceMode.${app.primarySurfaceMode}`)}</dd>
+            </div>
+            <div>
+              <dt>{t('productSystem.fields.truthSource')}</dt>
+              <dd>{app.truthSource ? t(`productSystem.truthSource.${app.truthSource}`) : '-'}</dd>
+            </div>
+          </dl>
+        </section>
+
+        {/* Package */}
+        <section className="app-detail-scene__section">
+          <h2 className="app-detail-scene__section-title">{t('productSystem.detail.sections.package')}</h2>
+          <dl className="app-detail-scene__facts">
+            <div>
+              <dt>{t('productSystem.fields.installScope')}</dt>
+              <dd>{t(`productSystem.installScope.${app.installScope}`)}</dd>
+            </div>
+            <div>
+              <dt>{t('productSystem.fields.visibility')}</dt>
+              <dd>{t(`productSystem.catalogVisibility.${app.catalogVisibility}`)}</dd>
+            </div>
+            <div>
+              <dt>{t('productSystem.fields.componentLockId')}</dt>
+              <dd className="app-detail-scene__mono">{app.componentLockId}</dd>
+            </div>
+          </dl>
+        </section>
+      </div>
+    </main>
   );
 };
 
-function TabIcon({ tabKey }: { tabKey: AppDetailTab }) {
-  const props = { size: 14, strokeWidth: 1.75 } as const;
-  switch (tabKey) {
-    case 'overview':
-      return <LayoutDashboard {...props} />;
-    case 'agents':
-      return <Layers {...props} />;
-    case 'shared':
-      return <Boxes {...props} />;
-    case 'runtime':
-      return <Activity {...props} />;
-    case 'history':
-      return <HistoryIcon {...props} />;
-    default:
-      return null;
-  }
-}
-
-function renderTabBody(
-  key: AppDetailTab,
-  ctx: {
-    app: AppCardModel;
-    appsData: AppsData;
-    subagents: SubagentInfo[];
-    subagentsLoading: boolean;
-  },
-): React.ReactNode {
-  switch (key) {
-    case 'overview':
-      return (
-        <OverviewTab
-          app={ctx.app}
-          subagents={ctx.subagents}
-          getAgentConfig={ctx.appsData.getAgentConfig}
-          getModelDisplayName={ctx.appsData.getModelDisplayName}
-        />
-      );
-    case 'agents':
-      return (
-        <AgentsTab
-          app={ctx.app}
-          availableTools={ctx.appsData.availableTools}
-          subagentsLoading={ctx.subagentsLoading}
-          getAgentConfig={ctx.appsData.getAgentConfig}
-          getAgentSkills={ctx.appsData.getAgentSkills}
-          getAgentSubagents={ctx.appsData.getAgentSubagents}
-          getModelDisplayName={ctx.appsData.getModelDisplayName}
-        />
-      );
-    case 'shared':
-      return <SharedTab />;
-    case 'runtime':
-      return <RuntimeTab />;
-    case 'history':
-      return <HistoryTab />;
-    default:
-      return null;
-  }
-}
+export default AppDetailScene;

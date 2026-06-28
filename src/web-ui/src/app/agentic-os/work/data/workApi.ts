@@ -37,9 +37,13 @@ type RawWorkSurfaceRef =
     }
   | { kind: 'work_session'; session_id: string }
   | { kind: 'agent_session'; session_id: string }
-  | { kind: 'live_app'; app_id: string }
   | { kind: 'work_center'; work_id: string }
-  | { kind: 'application_surface'; application_id: string; surface_id: string };
+  | {
+      kind: 'application_surface';
+      product_app_id: string;
+      surface_component_id: string;
+      surface_id: string;
+    };
 
 type RawWorkAssignmentRef = {
   kind: WorkAssignmentRef['kind'];
@@ -53,7 +57,6 @@ type RawWorkAssignmentRef = {
 type RawWorkExecutionSource =
   | { source: 'agent_session_run'; session_id: string; turn_id?: string | null }
   | { source: 'delegated_work_run'; parent_work_id: string; child_work_id: string }
-  | { source: 'live_app_worker'; app_id: string; worker_id?: string | null }
   | { source: 'application_action'; application_id: string; action_id: string }
   | { source: 'runtime_subagent_run'; run_id: string }
   | { source: 'external'; label: string; reference: string };
@@ -91,6 +94,8 @@ type RawWorkTitleState = {
 type RawWorkAppRef = {
   kind: WorkAppRef['kind'];
   app_id: string;
+  app_version: string;
+  component_lock_digest: string;
 };
 
 type RawWorkSubject =
@@ -144,11 +149,21 @@ function fromRawScope(scope: RawWorkScope): WorkScope {
 }
 
 function toRawAppRef(app: WorkAppRef): RawWorkAppRef {
-  return { kind: app.kind, app_id: app.appId };
+  return {
+    kind: app.kind,
+    app_id: app.appId,
+    app_version: app.appVersion,
+    component_lock_digest: app.componentLockDigest,
+  };
 }
 
 function fromRawAppRef(app: RawWorkAppRef): WorkAppRef {
-  return { kind: app.kind, appId: app.app_id };
+  return {
+    kind: app.kind,
+    appId: app.app_id,
+    appVersion: app.app_version,
+    componentLockDigest: app.component_lock_digest,
+  };
 }
 
 function toRawSubject(subject: WorkSubject): RawWorkSubject {
@@ -201,14 +216,13 @@ function toRawSurface(surface: WorkSurfaceRef): RawWorkSurfaceRef {
       return { kind: 'work_session', session_id: surface.sessionId };
     case 'agent_session':
       return { kind: 'agent_session', session_id: surface.sessionId };
-    case 'live_app':
-      return { kind: 'live_app', app_id: surface.appId };
     case 'work_center':
       return { kind: 'work_center', work_id: surface.workId };
     case 'application_surface':
       return {
         kind: 'application_surface',
-        application_id: surface.applicationId,
+        product_app_id: surface.productAppId,
+        surface_component_id: surface.surfaceComponentId,
         surface_id: surface.surfaceId,
       };
   }
@@ -225,14 +239,13 @@ function fromRawSurface(surface: RawWorkSurfaceRef): WorkSurfaceRef {
       return { kind: 'work_session', sessionId: surface.session_id };
     case 'agent_session':
       return { kind: 'agent_session', sessionId: surface.session_id };
-    case 'live_app':
-      return { kind: 'live_app', appId: surface.app_id };
     case 'work_center':
       return { kind: 'work_center', workId: surface.work_id };
     case 'application_surface':
       return {
         kind: 'application_surface',
-        applicationId: surface.application_id,
+        productAppId: surface.product_app_id,
+        surfaceComponentId: surface.surface_component_id,
         surfaceId: surface.surface_id,
       };
   }
@@ -272,8 +285,6 @@ function fromRawExecutionSource(source: RawWorkExecutionSource): WorkExecutionSo
         parentWorkId: source.parent_work_id,
         childWorkId: source.child_work_id,
       };
-    case 'live_app_worker':
-      return { source: 'live_app_worker', appId: source.app_id, workerId: source.worker_id };
     case 'application_action':
       return {
         source: 'application_action',
@@ -367,6 +378,7 @@ function toRawCreateWorkRequest(request: CreateWorkRequest): Record<string, unkn
     scope: toRawScope(request.scope),
     visibility: request.visibility ?? 'primary',
     primary_surface_policy: request.primarySurfacePolicy ?? 'work_session',
+    primary_surface: request.primarySurface ? toRawSurface(request.primarySurface) : undefined,
     assignment: toRawAssignment(request.assignment),
     title_state: toRawTitleState(request.titleState),
   };
@@ -447,7 +459,8 @@ export class AgenticOsWorkApi {
           objective: request.objective,
           scope: toRawScope(request.scope),
           visibility: request.visibility ?? 'primary',
-          primary_surface_policy: request.primarySurfacePolicy ?? 'live_app',
+          primary_surface_policy: request.primarySurfacePolicy ?? 'application_surface',
+          primary_surface: request.primarySurface ? toRawSurface(request.primarySurface) : undefined,
           assignment: toRawAssignment(request.assignment),
           app_refs: (request.appRefs ?? []).map(toRawAppRelation),
         },

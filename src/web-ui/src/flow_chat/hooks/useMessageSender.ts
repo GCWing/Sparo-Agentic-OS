@@ -210,9 +210,9 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
               if (ctx.outerHTML) lines.push(`Outer HTML:\n\`\`\`html\n${ctx.outerHTML}\n\`\`\``);
               return lines.join('\n');
             }
-            case 'live-app-preview-element-selection': {
+            case 'surface-component-preview-element-selection': {
               const lines = [
-                `[Live App Preview Element: ${ctx.appName || ctx.appId} @ ${ctx.route}]`,
+                `[Product App Preview Element: ${ctx.appName || ctx.appId} @ ${ctx.route}]`,
                 `Selector: ${ctx.element.selectorPath}`,
                 `Confidence: ${ctx.confidence}`,
                 `Fingerprint: ${JSON.stringify(ctx.fingerprint)}`,

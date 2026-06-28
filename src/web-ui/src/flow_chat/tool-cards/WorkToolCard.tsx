@@ -116,20 +116,17 @@ function normalizeSurface(rawValue: unknown, fallbackWorkId: string): WorkSurfac
       const sessionId = stringValue(raw, 'sessionId', 'session_id');
       return sessionId ? { kind: 'agent_session', sessionId } : null;
     }
-    case 'live_app': {
-      const appId = stringValue(raw, 'appId', 'app_id');
-      return appId ? { kind: 'live_app', appId } : null;
-    }
     case 'work_center':
       return {
         kind: 'work_center',
         workId: stringValue(raw, 'workId', 'work_id') ?? fallbackWorkId,
       };
     case 'application_surface': {
-      const applicationId = stringValue(raw, 'applicationId', 'application_id');
+      const productAppId = stringValue(raw, 'productAppId', 'product_app_id');
+      const surfaceComponentId = stringValue(raw, 'surfaceComponentId', 'surface_component_id');
       const surfaceId = stringValue(raw, 'surfaceId', 'surface_id');
-      return applicationId && surfaceId
-        ? { kind: 'application_surface', applicationId, surfaceId }
+      return productAppId && surfaceComponentId && surfaceId
+        ? { kind: 'application_surface', productAppId, surfaceComponentId, surfaceId }
         : null;
     }
     default:
@@ -152,8 +149,10 @@ function normalizeAppRef(rawValue: unknown): WorkAppRef | null {
   const raw = asRecord(rawValue);
   const kind = stringValue(raw, 'kind') as WorkAppRef['kind'] | undefined;
   const appId = stringValue(raw, 'appId', 'app_id');
-  if (!kind || !appId) return null;
-  return { kind, appId };
+  const appVersion = stringValue(raw, 'appVersion', 'app_version');
+  const componentLockDigest = stringValue(raw, 'componentLockDigest', 'component_lock_digest');
+  if (kind !== 'product_app' || !appId || !appVersion || !componentLockDigest) return null;
+  return { kind, appId, appVersion, componentLockDigest };
 }
 
 function normalizeSubject(rawValue: unknown): WorkSubject {

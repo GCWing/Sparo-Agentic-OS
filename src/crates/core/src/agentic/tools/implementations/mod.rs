@@ -1,12 +1,12 @@
 //! Tool implementation module
 
-pub mod agent_app_tools;
+pub mod agent_component_tools;
 pub mod agent_handoff_tool;
 pub mod agent_session_handoff;
 pub mod ask_user_question_tool;
 pub mod bash_tool;
-pub mod bridge_app_tools;
 pub mod bridge_call_tool;
+pub mod bridge_component_tools;
 pub mod code_review_tool;
 pub mod computer_use_actions;
 pub mod computer_use_input;
@@ -16,6 +16,7 @@ pub mod computer_use_mouse_precise_tool;
 pub mod computer_use_mouse_step_tool;
 pub mod computer_use_result;
 pub mod computer_use_tool;
+pub mod component_package_tool;
 pub mod control_hub;
 pub mod control_hub_tool;
 pub mod create_plan_tool;
@@ -32,8 +33,6 @@ pub mod get_file_diff_tool;
 pub mod glob_tool;
 pub mod goal_tool;
 pub mod grep_tool;
-pub mod live_app_init_tool;
-pub mod live_app_studio_tools;
 pub mod log_tool;
 pub mod ls_tool;
 pub mod mcp_tools;
@@ -47,6 +46,7 @@ pub mod session_history_tool;
 pub mod session_message_tool;
 pub mod skill_tool;
 pub mod skills;
+pub mod surface_component_init_tool;
 pub mod task_tool;
 pub mod terminal_control_tool;
 pub mod todo_write_tool;
@@ -55,24 +55,26 @@ pub mod web_tools;
 pub mod work_tool;
 pub mod work_tool_support;
 
-pub use agent_app_tools::{
-    CreateAgentAppJsToolTool, CreateAgentAppTool, GetAgentAppTool, ListAgentAppToolOptionsTool,
-    ListAgentAppsTool, TestAgentAppJsToolTool, UpdateAgentAppTool, ValidateAgentAppPackageTool,
+pub use agent_component_tools::{
+    CreateAgentComponentJsToolTool, CreateAgentComponentTool, GetAgentComponentTool,
+    ListAgentComponentToolOptionsTool, ListAgentComponentsTool, TestAgentComponentJsToolTool,
+    UpdateAgentComponentTool, ValidateAgentComponentPackageTool,
 };
 pub use agent_handoff_tool::AgentHandoffTool;
 pub use ask_user_question_tool::AskUserQuestionTool;
 pub use bash_tool::BashTool;
-pub use bridge_app_tools::{
-    bridge_app_runtime_tool_name, BridgeAppRuntimeToolAdapter, CreateBridgeAppTemplateTool,
-    CreateBridgeAppTool, GetBridgeAppTool, ListBridgeAppsTool, UpdateBridgeAppTool,
-    ValidateBridgeAppPackageTool,
+pub use bridge_call_tool::BridgeComponentCallTool;
+pub use bridge_component_tools::{
+    bridge_component_runtime_tool_name, BridgeComponentRuntimeToolAdapter,
+    CreateBridgeComponentTemplateTool, CreateBridgeComponentTool, GetBridgeComponentTool,
+    ListBridgeComponentsTool, UpdateBridgeComponentTool, ValidateBridgeComponentPackageTool,
 };
-pub use bridge_call_tool::BridgeCallTool;
 pub use code_review_tool::CodeReviewTool;
 pub use computer_use_mouse_click_tool::ComputerUseMouseClickTool;
 pub use computer_use_mouse_precise_tool::ComputerUseMousePreciseTool;
 pub use computer_use_mouse_step_tool::ComputerUseMouseStepTool;
 pub use computer_use_tool::ComputerUseTool;
+pub use component_package_tool::CreateComponentPackageTool;
 pub use control_hub_tool::ControlHubTool;
 pub use create_plan_tool::CreatePlanTool;
 pub use cron_tool::CronTool;
@@ -88,11 +90,6 @@ pub use get_file_diff_tool::GetFileDiffTool;
 pub use glob_tool::GlobTool;
 pub use goal_tool::GoalTool;
 pub use grep_tool::GrepTool;
-pub use live_app_init_tool::InitLiveAppTool;
-pub use live_app_studio_tools::{
-    LiveAppClearRuntimeIssuesTool, LiveAppRecompileTool, LiveAppRuntimeProbeTool,
-    LiveAppScreenshotMatrixTool,
-};
 pub use log_tool::LogTool;
 pub use ls_tool::LSTool;
 pub use mcp_tools::{
@@ -107,6 +104,7 @@ pub use session_control_tool::SessionControlTool;
 pub use session_history_tool::SessionHistoryTool;
 pub use session_message_tool::SessionMessageTool;
 pub use skill_tool::SkillTool;
+pub use surface_component_init_tool::CreateProductAppTool;
 pub use task_tool::TaskTool;
 pub use terminal_control_tool::TerminalControlTool;
 pub use todo_write_tool::TodoWriteTool;

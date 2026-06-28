@@ -29,8 +29,8 @@ const AGENT_TYPE_LABELS: Record<string, string> = {
   Design: 'Design',
   deepresearch: 'Deep Research',
   DeepResearch: 'Deep Research',
-  liveappstudio: 'Live App',
-  LiveAppStudio: 'Live App',
+  appstudio: 'Surface Component',
+  AppStudio: 'App Studio',
   plan: 'Plan',
   Plan: 'Plan',
   debug: 'Debug',
@@ -54,7 +54,7 @@ const NEW_SESSION_AGENT_TYPES: AgentTypeOption[] = [
   { type: 'Cowork',        labelKey: 'sessions.agentCowork',        descKey: 'sessions.agentCoworkDesc',        badge: 'CW',   badgeColor: '#065F46', needsWorkspace: true  },
   { type: 'Design',        labelKey: 'sessions.agentDesign',        descKey: 'sessions.agentDesignDesc',        badge: 'DS',   badgeColor: '#6D28D9', needsWorkspace: true  },
   { type: 'DeepResearch',  labelKey: 'sessions.agentDeepResearch',  descKey: 'sessions.agentDeepResearchDesc',  badge: 'DR',   badgeColor: '#92400E', needsWorkspace: true  },
-  { type: 'LiveAppStudio', labelKey: 'sessions.agentLiveAppStudio', descKey: 'sessions.agentLiveAppStudioDesc', badge: 'LA',   badgeColor: '#BE123C', needsWorkspace: false },
+  { type: 'AppStudio', labelKey: 'sessions.appStudio', descKey: 'sessions.appStudioDesc', badge: 'AS',   badgeColor: '#BE123C', needsWorkspace: false },
 ];
 
 function agentLabel(agentType: string): string {
@@ -186,7 +186,7 @@ const TasksScene: React.FC<TasksSceneProps> = ({ sessionMgr, onSelectSession }) 
   // Step 1: user picked an agent type from the FAB sheet
   const handlePickAgentType = useCallback(async (option: AgentTypeOption) => {
     if (!option.needsWorkspace) {
-      // LiveAppStudio: no workspace needed, create directly
+      // AppStudio: no workspace needed, create directly
       setFabOpen(false);
       setCreating(true);
       try {

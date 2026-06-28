@@ -45,7 +45,7 @@ pub async fn initialize_agentic(
     set_computer_use_desktop_available(true);
     let runtime = initialize_agentic_runtime(AgenticRuntimeOptions {
         computer_use_host: Some(computer_use_host),
-        register_agent_apps: true,
+        register_agent_components: true,
         install_process_globals: true,
     })
     .await
@@ -225,7 +225,7 @@ pub async fn initialize_agentic(
     let ppt_cleanup_scheduler = scheduler.clone();
     let ppt_cleanup_root = path_manager.agentic_os_runtime_root();
     tokio::spawn(async move {
-        match crate::api::live_app_api::cancel_stale_ppt_live_private_runs_internal(
+        match crate::api::surface_component_api::cancel_stale_ppt_live_private_runs_internal(
             ppt_cleanup_coordinator.as_ref(),
             ppt_cleanup_scheduler.as_ref(),
             ppt_cleanup_root.as_path(),

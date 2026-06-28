@@ -1,0 +1,102 @@
+{
+  "entry": {
+    "title": "应用工作室",
+    "description": "创建带有明确目标、工作对象、主界面和组件图的 Product App。"
+  },
+  "panel": {
+    "title": "应用工作室",
+    "reload": "刷新预览",
+    "openInApps": "打开 Product App",
+    "emptyTitle": "Studio 正在为你打草稿",
+    "emptyDescription": "生成第一个可运行版本后，预览会自动出现在这里。",
+    "loading": "正在加载预览",
+    "loadFailed": "加载预览失败",
+    "retry": "重试",
+    "updating": "正在更新预览…",
+    "menu": {
+      "recompile": "重新编译",
+      "installDeps": "安装依赖",
+      "openInApps": "在应用中打开",
+      "reload": "刷新预览",
+      "viewPermissions": "权限",
+      "copyAppId": "复制 App ID",
+      "moreActions": "更多操作",
+      "theme": "主题：{{theme}}",
+      "language": "语言：{{lang}}"
+    },
+    "actions": {
+      "restartWorker": "重启 Worker",
+      "stop": "停止"
+    }
+  },
+  "permissions": {
+    "readWorkspace": "可读取工作区",
+    "noWorkspaceRead": "不可读取工作区",
+    "writeWorkspace": "可写入工作区",
+    "noWorkspaceWrite": "不可写入工作区",
+    "shellEnabled": "Shell 已启用",
+    "shellDisabled": "Shell 已禁用",
+    "netEnabled": "网络已启用",
+    "netDisabled": "网络已禁用",
+    "aiEnabled": "AI 已启用",
+    "aiDisabled": "AI 已禁用",
+    "nodeEnabled": "Worker 已启用",
+    "nodeDisabled": "Worker 已禁用"
+  },
+  "previewSelection": {
+    "toggleOn": "检查预览元素",
+    "toggleOff": "停止检查",
+    "inspecting": "正在检查元素",
+    "hovering": "正在检查 {{target}}",
+    "contextLabel": "元素",
+    "addContext": "添加上下文",
+    "added": "已将预览元素添加到聊天上下文",
+    "alreadyAdded": "该预览元素已在聊天上下文中",
+    "clear": "清除选择"
+  },
+  "diagnostics": {
+    "title": "运行时",
+    "ok": "运行正常",
+    "empty": "暂无运行时错误",
+    "logsEmpty": "暂无运行日志",
+    "issuesTab": "问题",
+    "logsTab": "日志",
+    "fatalCount": "{{count}} 个错误",
+    "warningCount": "{{count}} 个警告",
+    "sendToAi": "发送给 AI 修复",
+    "sendDisplay": "修复 Product App 运行问题",
+    "sent": "已发送给 AI",
+    "clear": "清除",
+    "expand": "展开",
+    "collapse": "收起",
+    "copy": "复制",
+    "copied": "已复制",
+    "copyAppId": "App ID 已复制",
+    "filterAll": "全部",
+    "filterError": "错误",
+    "filterWarn": "警告",
+    "filterInfo": "信息",
+    "followTail": "跟随",
+    "pauseTail": "已暂停",
+    "newMessages": "{{count}} 条新日志",
+    "searchPlaceholder": "过滤…",
+    "permissionsTitle": "权限",
+    "showStack": "调用栈",
+    "hideStack": "收起调用栈",
+    "fixWithAi": "修复",
+    "truncatedHint": "仅显示最近 {{max}} 条 · 完整日志在 {{path}}",
+    "buildMarker": "— 构建于 {{time}} —",
+    "groups": {
+      "fatal": "致命错误",
+      "warning": "警告",
+      "logs": "运行日志"
+    },
+    "hints": {
+      "runtime-unavailable": "请安装 JS 运行时以启用 Worker 功能。",
+      "deps-install": "执行\"安装依赖\"以解决缺失的包。",
+      "permission": "请检查应用的权限策略。",
+      "workspace-access": "请在应用权限中授予工作区路径。",
+      "unknown-method": "调用的桥接方法当前运行时不支持。"
+    }
+  }
+}

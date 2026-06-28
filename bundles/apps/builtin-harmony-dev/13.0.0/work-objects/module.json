@@ -1,0 +1,30 @@
+{
+  "id": "module",
+  "label": "Module",
+  "scope": "project",
+  "identitySchema": {
+    "type": "object",
+    "required": [
+      "moduleName"
+    ],
+    "properties": {
+      "moduleName": {
+        "type": "string"
+      },
+      "modulePath": {
+        "type": "string"
+      }
+    }
+  },
+  "contextSchema": {
+    "type": "object",
+    "properties": {
+      "targetSdk": {
+        "type": "string"
+      },
+      "mainElement": {
+        "type": "string"
+      }
+    }
+  }
+}

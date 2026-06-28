@@ -1,0 +1,40 @@
+{
+  "id": "builtin-design-chat-surface",
+  "kind": "surface",
+  "name": "Design Chat",
+  "description": "Conversation-first work surface for design artifact and prototype creation.",
+  "packageSource": "appPrivate",
+  "ownerApp": {
+    "appId": "builtin-design",
+    "appVersion": "1.0.0"
+  },
+  "capabilities": [
+    {
+      "id": "chatPrimary",
+      "title": "Primary chat",
+      "description": "Uses the Flow Chat surface as the Product App's primary workspace.",
+      "actions": [
+        "startSession",
+        "continueWork"
+      ]
+    }
+  ],
+  "permissions": [],
+  "usedByApps": [
+    "builtin-design"
+  ],
+  "visibility": "appDependency",
+  "dependencies": [
+    {
+      "componentId": "builtin-design-agent",
+      "kind": "agent",
+      "source": "private",
+      "role": "assistant",
+      "capabilities": [
+        "createDesignArtifact",
+        "designTokens"
+      ]
+    }
+  ],
+  "implementationRef": "app://builtin-design@1.0.0/surfaces/builtin-design-chat-surface"
+}

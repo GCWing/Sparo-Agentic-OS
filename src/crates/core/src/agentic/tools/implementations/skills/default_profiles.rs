@@ -53,10 +53,10 @@ const DESIGN_PROFILE: BuiltinSkillProfile = BuiltinSkillProfile {
     ],
 };
 
-/// Studio only needs the Live App domain skill; other built-ins clutter the Skill tool list.
-const LIVE_APP_STUDIO_PROFILE: BuiltinSkillProfile = BuiltinSkillProfile {
+/// Studio only needs the app development domain skill; other built-ins clutter the Skill tool list.
+const APP_STUDIO_PROFILE: BuiltinSkillProfile = BuiltinSkillProfile {
     default_enabled: false,
-    overridden_skills: &["liveapp-dev"],
+    overridden_skills: &["product-app-dev"],
 };
 
 fn builtin_profile_for_agent(agent_id: &str) -> BuiltinSkillProfile {
@@ -65,7 +65,7 @@ fn builtin_profile_for_agent(agent_id: &str) -> BuiltinSkillProfile {
         "agentic" => AGENTIC_PROFILE,
         "Cowork" => COWORK_PROFILE,
         "Design" => DESIGN_PROFILE,
-        "LiveAppStudio" => LIVE_APP_STUDIO_PROFILE,
+        "AppStudio" => APP_STUDIO_PROFILE,
         _ => ENABLE_ALL_BUILTINS,
     }
 }
@@ -163,14 +163,14 @@ mod tests {
     }
 
     #[test]
-    fn live_app_studio_enables_only_liveapp_dev_builtin() {
-        let liveapp = builtin_skill("liveapp-dev");
+    fn app_studio_enables_only_product_app_dev_builtin() {
+        let product_app = builtin_skill("product-app-dev");
         let pdf = builtin_skill("pdf");
         let tdd = builtin_skill("test-driven-development");
 
-        assert!(is_enabled_by_default_for_agent(&liveapp, "LiveAppStudio"));
-        assert!(!is_enabled_by_default_for_agent(&pdf, "LiveAppStudio"));
-        assert!(!is_enabled_by_default_for_agent(&tdd, "LiveAppStudio"));
+        assert!(is_enabled_by_default_for_agent(&product_app, "AppStudio"));
+        assert!(!is_enabled_by_default_for_agent(&pdf, "AppStudio"));
+        assert!(!is_enabled_by_default_for_agent(&tdd, "AppStudio"));
     }
 
     #[test]

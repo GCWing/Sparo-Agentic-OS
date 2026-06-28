@@ -1,0 +1,33 @@
+{
+  "id": "preview-context",
+  "label": "Preview Context",
+  "scope": "runtime",
+  "identitySchema": {
+    "type": "object",
+    "required": [
+      "workspacePath"
+    ],
+    "properties": {
+      "workspacePath": {
+        "type": "string"
+      },
+      "previewHostId": {
+        "type": "string"
+      }
+    }
+  },
+  "contextSchema": {
+    "type": "object",
+    "properties": {
+      "playerHost": {
+        "type": "object"
+      },
+      "selectedLayer": {
+        "type": "object"
+      },
+      "diagnostics": {
+        "type": "array"
+      }
+    }
+  }
+}

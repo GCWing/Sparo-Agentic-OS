@@ -98,7 +98,7 @@ const WorkspaceFooterActions: React.FC = () => {
   const isMemoryActive = activeSceneId === 'memory';
   const isWorkCenterActive = activeSceneId === 'work-center';
   const isAppsActive = activeSceneId === 'apps'
-    || (typeof activeSceneId === 'string' && activeSceneId.startsWith('live-app:'));
+    || (typeof activeSceneId === 'string' && activeSceneId.startsWith('app-surface:'));
   const isSkillsActive = activeSceneId === 'skills';
   const isToolsActive = activeSceneId === 'tools';
   const isSubagentsActive = activeSceneId === 'subagents';
@@ -341,7 +341,7 @@ const WorkspaceFooterActions: React.FC = () => {
                       movingHoverHandlers={menuHover.getItemHandlers()}
                       onClick={handleOpenApps}
                     >
-                      {t('nav.sections.agentApp')}
+                      {t('nav.sections.agentComponent')}
                     </FooterAction>
 
                     <Button

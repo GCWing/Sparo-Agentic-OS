@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Bundles pptxgenjs, pdf-lib, and jszip with PPT Live export logic for the Live App WebView.
- * Output is committed under bundles/live-apps/ppt-live/src/vendor/ — no Node/Bun at runtime.
+ * Bundles pptxgenjs, pdf-lib, and jszip with PPT Live export logic for the Surface Component WebView.
+ * Output is committed under bundles/surface-components/ppt-live/src/vendor/ — no Node/Bun at runtime.
  */
 import { spawnSync } from 'child_process';
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
@@ -10,7 +10,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
-const BUNDLE_DIR = join(ROOT, 'bundles', 'live-apps', 'ppt-live');
+const BUNDLE_DIR = join(ROOT, 'bundles', 'surface-components', 'ppt-live');
 const STAGING = join(ROOT, 'target', 'ppt-live-export-staging');
 const OUT = join(BUNDLE_DIR, 'src', 'vendor', 'ppt-export.bundle.mjs');
 

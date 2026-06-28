@@ -1,0 +1,84 @@
+{
+  "id": "remotion-video-agent",
+  "version": "1.0.0",
+  "kind": "agent",
+  "name": "Remotion Video Agent",
+  "description": "A Remotion-native video development agent for inspecting compositions, revising React video code, refreshing preview context, rendering stills, and starting exports through the Sparo Video Engine.",
+  "packageSource": "shared",
+  "capabilities": [
+    {
+      "id": "understandVideoProject",
+      "title": "Understand video project",
+      "description": "Detect the Remotion project, read composition structure, and identify the likely source files to change.",
+      "actions": [
+        "detectProject",
+        "getCompositionManifest"
+      ]
+    },
+    {
+      "id": "reviseVideoComposition",
+      "title": "Revise video composition",
+      "description": "Make scoped React and Remotion source edits while preserving preview semantics.",
+      "actions": [
+        "getFrameContext",
+        "refreshPreview"
+      ]
+    },
+    {
+      "id": "renderReviewArtifact",
+      "title": "Render review artifact",
+      "description": "Render stills or export candidates through the workspace Remotion toolchain.",
+      "actions": [
+        "renderStill",
+        "startExport"
+      ]
+    }
+  ],
+  "permissions": [
+    {
+      "kind": "ai",
+      "summary": "Uses configured AI providers through Sparo OS.",
+      "scopes": [
+        "system",
+        "workspace"
+      ]
+    },
+    {
+      "kind": "fs",
+      "summary": "Reads and edits workspace Remotion source files through declared tools.",
+      "scopes": [
+        "{workspace}"
+      ]
+    },
+    {
+      "kind": "shell",
+      "summary": "Uses workspace package managers and Remotion commands through declared tools.",
+      "scopes": [
+        "node",
+        "npm",
+        "npx",
+        "pnpm",
+        "yarn",
+        "bunx",
+        "remotion"
+      ]
+    }
+  ],
+  "usedByApps": [
+    "builtin-remotion-live"
+  ],
+  "visibility": "developer",
+  "dependencies": [
+    {
+      "componentId": "builtin-remotion-runtime",
+      "kind": "bridge",
+      "source": "shared",
+      "role": "videoEngine",
+      "version": "^1.0.0",
+      "capabilities": [
+        "sparo.videoEngine"
+      ]
+    }
+  ],
+  "implementationRef": "bundle://agent-components/remotion-video-agent"
+}

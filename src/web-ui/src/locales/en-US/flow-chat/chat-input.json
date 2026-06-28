@@ -79,7 +79,7 @@
     "Design": "Designer: create HTML prototypes, visual artifacts, and polished design deliverables",
     "ComputerUse": "Dedicated desktop automation agent for perceiving and operating apps, browsers, and OS UI",
     "DeepResearch": "Deep research with parallel sub-agents: dispatches multiple agents to investigate concurrently, producing comprehensive sourced reports",
-    "LiveAppStudio": "Live App Builder: a dedicated agent for generating, debugging, and iterating Live Apps",
+    "AppStudio": "App Studio: designs Product Apps with work objects, surfaces, components, and runtime feedback",
     "Team": "Virtual engineering team: CEO, Eng Manager, Designer, QA Lead, Security Officer, Release Engineer — orchestrated through a full sprint workflow"
   },
   "agentNames": {
@@ -90,7 +90,7 @@
     "Design": "Designer",
     "ComputerUse": "Computer Use",
     "DeepResearch": "Deep Research",
-    "LiveAppStudio": "Live App Builder",
+    "AppStudio": "App Studio",
     "Team": "Team"
   },
   "openFolder": "Open folder…",

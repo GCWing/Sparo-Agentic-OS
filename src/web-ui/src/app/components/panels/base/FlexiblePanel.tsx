@@ -58,16 +58,16 @@ const BtwSessionPanel = React.lazy(() =>
   }))
 );
 
-const LiveAppStudioPanel = React.lazy(() =>
-  import('@/app/scenes/apps/live-app/components/LiveAppStudioPanel')
+const AppStudioPanel = React.lazy(() =>
+  import('@/app/scenes/apps/surface-component/components/AppStudioPanel')
 );
 
-const LiveAppRunnerPanel = React.lazy(() =>
-  import('@/app/scenes/apps/live-app/components/LiveAppRunnerPanel')
+const SurfaceComponentRunnerPanel = React.lazy(() =>
+  import('@/app/scenes/apps/surface-component/components/SurfaceComponentRunnerPanel')
 );
 
-const AgentAppStudioPanel = React.lazy(() =>
-  import('@/app/scenes/apps/agent-app/components/AgentAppStudioPanel')
+const ComponentStudioPanel = React.lazy(() =>
+  import('@/app/scenes/apps/component-studio/components/ComponentStudioPanel')
 );
 
 // CodePreview, ChartRenderer and CodeNode removed - visualization features disabled
@@ -567,11 +567,11 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
           </React.Suspense>
         );
 
-      case 'live-app-studio': {
+      case 'app-studio': {
         const studioData = content.data || {};
         return (
-          <React.Suspense fallback={<PanelLoadingFallback>Loading Live App Builder...</PanelLoadingFallback>}>
-            <LiveAppStudioPanel
+          <React.Suspense fallback={<PanelLoadingFallback>Loading App Studio...</PanelLoadingFallback>}>
+            <AppStudioPanel
               sessionId={studioData.sessionId ?? null}
               appId={studioData.appId}
               scope={
@@ -584,65 +584,65 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
         );
       }
 
-      case 'live-app-runner': {
+      case 'surface-component-runner': {
         const runnerData = content.data || {};
         return (
-          <React.Suspense fallback={<PanelLoadingFallback>{t('flexiblePanel.loading.liveAppRunner')}</PanelLoadingFallback>}>
-            <LiveAppRunnerPanel
+          <React.Suspense fallback={<PanelLoadingFallback>{t('flexiblePanel.loading.surfaceComponentRunner')}</PanelLoadingFallback>}>
+            <SurfaceComponentRunnerPanel
               appId={runnerData.appId}
               scope={
                 runnerData.scope ||
-                runnerData.liveAppWorkbench?.scope ||
+                runnerData.surfaceComponentWorkbench?.scope ||
                 appScopeFromWorkspacePath(runnerData.workspacePath)
               }
               workspacePath={runnerData.workspacePath}
               route={runnerData.route}
               tabId={runnerData.tabId}
               sessionId={runnerData.sessionId}
-              liveAppWorkbench={runnerData.liveAppWorkbench}
+              surfaceComponentWorkbench={runnerData.surfaceComponentWorkbench}
             />
           </React.Suspense>
         );
       }
 
-      case 'live-app-workbench-tab': {
+      case 'surface-component-workbench-tab': {
         const workbenchData = content.data || {};
         return (
-          <React.Suspense fallback={<PanelLoadingFallback>{t('flexiblePanel.loading.liveAppRunner')}</PanelLoadingFallback>}>
-            <LiveAppRunnerPanel
+          <React.Suspense fallback={<PanelLoadingFallback>{t('flexiblePanel.loading.surfaceComponentRunner')}</PanelLoadingFallback>}>
+            <SurfaceComponentRunnerPanel
               appId={workbenchData.appId}
               sessionId={workbenchData.sessionId}
               tabId={workbenchData.tabId}
               route={workbenchData.route}
               scope={
                 workbenchData.scope ||
-                workbenchData.liveAppWorkbench?.scope ||
+                workbenchData.surfaceComponentWorkbench?.scope ||
                 appScopeFromWorkspacePath(workbenchData.workspacePath)
               }
               workspacePath={workbenchData.workspacePath}
-              liveAppWorkbench={workbenchData.liveAppWorkbench}
+              surfaceComponentWorkbench={workbenchData.surfaceComponentWorkbench}
             />
           </React.Suspense>
         );
       }
 
-      case 'live-app-diagnostics': {
+      case 'surface-component-diagnostics': {
         return (
           <div className="sparo-flexible-panel__empty-state">
             <AlertCircle size={24} />
-            <h3>{t('flexiblePanel.liveAppDiagnostics.title')}</h3>
-            <p>{t('flexiblePanel.liveAppDiagnostics.description')}</p>
+            <h3>{t('flexiblePanel.surfaceComponentDiagnostics.title')}</h3>
+            <p>{t('flexiblePanel.surfaceComponentDiagnostics.description')}</p>
           </div>
         );
       }
 
-      case 'agent-app-studio': {
+      case 'component-studio': {
         const studioData = content.data || {};
         return (
-          <React.Suspense fallback={<PanelLoadingFallback>Loading Agent App Builder...</PanelLoadingFallback>}>
-            <AgentAppStudioPanel
+          <React.Suspense fallback={<PanelLoadingFallback>Loading Component Studio...</PanelLoadingFallback>}>
+            <ComponentStudioPanel
               sessionId={studioData.sessionId ?? null}
-              appId={studioData.appId}
+              componentId={studioData.componentId}
               scope={studioData.scope || appScopeFromWorkspacePath(studioData.workspacePath)}
             />
           </React.Suspense>

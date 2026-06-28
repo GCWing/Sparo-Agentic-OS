@@ -1,0 +1,1078 @@
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import {
+  AlertTriangle,
+  AppWindow,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  ExternalLink,
+  MoreHorizontal,
+  MousePointer2,
+  RefreshCw,
+  ScrollText,
+  Send,
+  Trash2,
+  X,
+} from 'lucide-react';
+import { DotMatrixLoader } from '@/design-system';
+import { surfaceComponentAPI } from '@/infrastructure/api/service-api/SurfaceComponentAPI';
+import { api } from '@/infrastructure/api/service-api/ApiClient';
+import type { SurfaceComponent } from '@/infrastructure/api/service-api/SurfaceComponentAPI';
+import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
+import { useI18n } from '@/infrastructure/i18n';
+import {
+  Alert,
+  Button,
+  DropdownMenu,
+  EmptyState,
+  FilterPill,
+  FilterPillGroup,
+  IconButton,
+  Search,
+} from '@/design-system';
+import type { DropdownMenuEntry } from '@/design-system';
+import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
+import { notificationService } from '@/shared/notification-system';
+import { useContextStore } from '@/shared/stores/contextStore';
+import type { SurfaceComponentPreviewElementSelectionContext } from '@/shared/types/context';
+import { useSurfaceComponentStore } from '../surfaceComponentStore';
+import { useSurfaceComponentActions } from '../hooks/useSurfaceComponentActions';
+import {
+  buildSurfaceComponentRuntimeSummary,
+  isBuiltinBundledSurfaceComponent,
+  formatRuntimeTimestamp,
+  inferRuntimeHint,
+  summarizeSurfaceComponentPermissions,
+} from '../surfaceComponentRuntimeModel';
+import { resolveSurfaceComponentMeta } from '../surfaceComponentI18n';
+import { openSurfaceComponent } from '../surfaceComponentWorkbenchService';
+import {
+  buildSurfaceComponentPreviewElementSelectionContext,
+  summarizeSurfaceComponentPreviewElementSelection,
+  type PreviewElementInspectorPayload,
+} from '../previewSelectionContext';
+import {
+  appScopeIdentity,
+  normalizeAppScope,
+  systemAppScope,
+  type AppScope,
+  workspacePathFromAppScope,
+} from '@/shared/types/app-scope';
+import SurfaceComponentRunner from './SurfaceComponentRunner';
+import './AppStudioPanel.scss';
+
+interface RuntimeIssue {
+  appId: string;
+  severity: 'fatal' | 'warning' | 'noise';
+  message: string;
+  source?: string;
+  stack?: string;
+  category?: string;
+  timestampMs: number;
+}
+
+interface RuntimeLog {
+  appId: string;
+  level: 'debug' | 'info' | 'warn' | 'error';
+  category: string;
+  message: string;
+  source?: string;
+  stack?: string;
+  details?: unknown;
+  timestampMs: number;
+}
+
+interface AppStudioPanelProps {
+  sessionId: string | null;
+  appId?: string;
+  scope?: AppScope | null;
+}
+
+type LogLevel = 'all' | 'error' | 'warn' | 'info';
+type DockState = 'collapsed' | 'open';
+
+const MAX_VISIBLE_ISSUES = 20;
+const MAX_VISIBLE_LOGS = 100;
+
+function stringifyDiagnostic(parts: unknown[]): string {
+  return parts
+    .filter((part) => part != null && part !== '')
+    .map((part) => (typeof part === 'string' ? part : JSON.stringify(part, null, 2)))
+    .join('\n');
+}
+
+// ─── Issue Row ────────────────────────────────────────────────────────────────
+
+interface IssueRowProps {
+  issue: RuntimeIssue;
+  t: (key: string, opts?: Record<string, unknown>) => string;
+  onCopy: (text: string) => void;
+  onRecompile: () => void;
+  onRestart: () => void;
+  onFixWithAi: (text: string) => void;
+  currentLanguage: string;
+  restartLabel: string;
+}
+
+const IssueRow: React.FC<IssueRowProps> = ({
+  issue, t, onCopy, onRecompile, onRestart, onFixWithAi, currentLanguage, restartLabel,
+}) => {
+  const [expanded, setExpanded] = useState(issue.severity === 'fatal');
+  const hintKey = inferRuntimeHint(issue.message, issue.category);
+  const detailText = stringifyDiagnostic([issue.source, issue.stack]);
+  const diagText = stringifyDiagnostic([issue.message, detailText]);
+
+  return (
+    <div className={`studio-issue is-${issue.severity}`}>
+      <Button
+        variant="ghost"
+        size="small"
+        className="studio-issue__summary"
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+      >
+        <span className="studio-issue__severity-dot" />
+        <span className="studio-issue__message">{issue.message}</span>
+        <span className="studio-issue__meta">
+          {issue.category ? <span className="studio-issue__category">{issue.category}</span> : null}
+          <span>{formatRuntimeTimestamp(issue.timestampMs, currentLanguage)}</span>
+        </span>
+        <span className="studio-issue__chevron">
+          {expanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+        </span>
+      </Button>
+
+      {expanded ? (
+        <div className="studio-issue__detail">
+          {hintKey ? (
+            <div className="studio-issue__hint">
+              {t(`diagnostics.hints.${hintKey}`)}
+            </div>
+          ) : null}
+          {detailText ? <pre className="studio-issue__pre">{detailText}</pre> : null}
+          <div className="studio-issue__actions">
+            {issue.severity === 'fatal' ? (
+              <Button
+                variant="accent"
+                size="small"
+                onClick={() => onFixWithAi(diagText)}
+              >
+                {t('diagnostics.fixWithAi')}
+              </Button>
+            ) : null}
+            {issue.severity === 'fatal' ? (
+              <Button variant="secondary" size="small" onClick={onRecompile}>
+                {t('panel.menu.recompile')}
+              </Button>
+            ) : null}
+            {issue.severity === 'fatal' ? (
+              <Button variant="secondary" size="small" onClick={onRestart}>
+                {restartLabel}
+              </Button>
+            ) : null}
+            <IconButton
+              variant="ghost"
+              size="xs"
+              onClick={() => onCopy(diagText)}
+              tooltip={t('diagnostics.copy')}
+              aria-label={t('diagnostics.copy')}
+            >
+              <Copy size={11} />
+            </IconButton>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
+// ─── Log Row ──────────────────────────────────────────────────────────────────
+
+interface LogRowProps {
+  entry: RuntimeLog;
+  onCopy: (text: string) => void;
+  currentLanguage: string;
+  copyAriaLabel: string;
+}
+
+const LogRow: React.FC<LogRowProps> = ({ entry, onCopy, currentLanguage, copyAriaLabel }) => {
+  const [expanded, setExpanded] = useState(false);
+  const detailText = stringifyDiagnostic([
+    entry.source,
+    entry.details != null ? entry.details : undefined,
+    entry.stack,
+  ]);
+  const diagText = stringifyDiagnostic([entry.message, detailText]);
+  const hasDetail = Boolean(detailText);
+
+  return (
+    <div className={`studio-log is-${entry.level}`}>
+      <Button
+        variant="ghost"
+        size="small"
+        className="studio-log__summary"
+        onClick={() => hasDetail && setExpanded((v) => !v)}
+        aria-expanded={hasDetail ? expanded : undefined}
+        style={{ cursor: hasDetail ? 'pointer' : 'default' }}
+      >
+        <span className="studio-log__level-bar" />
+        <span className="studio-log__message">{entry.message}</span>
+        <span className="studio-log__meta">
+          <span className="studio-log__category">{entry.level}/{entry.category}</span>
+          <span>{formatRuntimeTimestamp(entry.timestampMs, currentLanguage)}</span>
+        </span>
+        {hasDetail ? (
+          <span className="studio-log__chevron">
+            {expanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+          </span>
+        ) : null}
+      </Button>
+
+      {expanded && detailText ? (
+        <div className="studio-log__detail">
+          <pre className="studio-log__pre">{detailText}</pre>
+          <div className="studio-log__actions">
+            <IconButton
+              type="button"
+              variant="ghost"
+              size="xs"
+              onClick={() => onCopy(diagText)}
+              tooltip={copyAriaLabel}
+              aria-label={copyAriaLabel}
+            >
+              <Copy size={11} />
+            </IconButton>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+const AppStudioPanel: React.FC<AppStudioPanelProps> = ({ sessionId, appId, scope }) => {
+  const { themeType } = useTheme();
+  const { currentLanguage, t } = useI18n('scenes/app-studio');
+  const runningWorkerIds = useSurfaceComponentStore((state) => state.runningWorkerIds);
+  const runtimeStatus = useSurfaceComponentStore((state) => state.runtimeStatus);
+
+  const [app, setApp] = useState<SurfaceComponent | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
+  const [issues, setIssues] = useState<RuntimeIssue[]>([]);
+  const [logs, setLogs] = useState<RuntimeLog[]>([]);
+  const [runtimeView, setRuntimeView] = useState<'issues' | 'logs'>('issues');
+  const [dockState, setDockState] = useState<DockState>('collapsed');
+  const [sendingIssues, setSendingIssues] = useState(false);
+  const [clearingIssues, setClearingIssues] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [logFilter, setLogFilter] = useState<LogLevel>('all');
+  const [logSearch, setLogSearch] = useState('');
+  const [followTail, setFollowTail] = useState(true);
+  const [newLogCount, setNewLogCount] = useState(0);
+  const [previewInspectorEnabled, setPreviewInspectorEnabled] = useState(false);
+  const [previewInspectorHover, setPreviewInspectorHover] = useState<PreviewElementInspectorPayload | null>(null);
+  const [previewSelection, setPreviewSelection] = useState<SurfaceComponentPreviewElementSelectionContext | null>(null);
+  const [addingPreviewSelection, setAddingPreviewSelection] = useState(false);
+
+  const menuAnchorRef = useRef<HTMLButtonElement>(null);
+  const logsEndRef = useRef<HTMLDivElement>(null);
+  const logsScrollRef = useRef<HTMLDivElement>(null);
+  const effectiveScope = useMemo(
+    () => normalizeAppScope(scope || systemAppScope()),
+    [scope],
+  );
+  const workspacePath = workspacePathFromAppScope(effectiveScope);
+
+  const actions = useSurfaceComponentActions(appId, { scope: effectiveScope });
+
+  const load = useCallback(async () => {
+    if (!appId) return;
+    setLoading(true);
+    try {
+      const loaded = await surfaceComponentAPI.getSurfaceComponent(appId, themeType ?? 'dark', workspacePath);
+      setApp(loaded);
+      setError(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
+      void surfaceComponentAPI
+        .reportRuntimeLog({ appId, level: 'error', category: 'studio:preview', message: `Failed to load Product App preview: ${message}` })
+        .catch(() => undefined);
+    } finally {
+      setLoading(false);
+    }
+  }, [appId, themeType, workspacePath]);
+
+  useEffect(() => {
+    setIssues([]);
+    setLogs([]);
+    setPreviewSelection(null);
+    setPreviewInspectorHover(null);
+    setPreviewInspectorEnabled(false);
+    if (appId) void load();
+  }, [appId, load]);
+
+  useEffect(() => {
+    if (!appId) return;
+    const shouldHandle = (payload?: { id?: string }) => payload?.id === appId;
+    const reload = (payload?: { id?: string }) => {
+      if (shouldHandle(payload)) void load();
+    };
+    const reloadAfterRecompile = (payload?: { id?: string }) => {
+      if (!shouldHandle(payload)) return;
+      setIssues([]);
+      reload(payload);
+    };
+    const unlistenUpdated = api.listen<{ id?: string }>('surface-component-updated', reload);
+    const unlistenRecompiled = api.listen<{ id?: string }>('surface-component-recompiled', reloadAfterRecompile);
+    const unlistenIssue = api.listen<RuntimeIssue>('surface-component-runtime-error', (payload) => {
+      if (payload?.appId !== appId || payload.severity === 'noise') return;
+      setIssues((current) => [payload, ...current].slice(0, MAX_VISIBLE_ISSUES));
+      if (payload.severity === 'fatal') setDockState('open');
+    });
+    const unlistenLog = api.listen<RuntimeLog>('surface-component-runtime-log', (payload) => {
+      if (payload?.appId !== appId) return;
+      setLogs((current) => [...current, payload].slice(-MAX_VISIBLE_LOGS));
+      setNewLogCount((n) => (followTail ? 0 : n + 1));
+    });
+    const unlistenCleared = api.listen<{ appId?: string }>('surface-component-runtime-errors-cleared', (payload) => {
+      if (payload?.appId !== appId) return;
+      setIssues([]);
+      setLogs([]);
+      setNewLogCount(0);
+    });
+    const handleWindowUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<{ id?: string; appId?: string }>).detail;
+      const id = detail?.id ?? detail?.appId;
+      if (id !== appId) return;
+      setIssues([]);
+      void load();
+    };
+    window.addEventListener('surface-component-updated', handleWindowUpdated);
+
+    return () => {
+      unlistenUpdated();
+      unlistenRecompiled();
+      unlistenIssue();
+      unlistenLog();
+      unlistenCleared();
+      window.removeEventListener('surface-component-updated', handleWindowUpdated);
+    };
+  }, [appId, followTail, load]);
+
+  // Auto-scroll logs to bottom when following tail
+  useEffect(() => {
+    if (followTail && runtimeView === 'logs') {
+      logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      setNewLogCount(0);
+    }
+  }, [logs, followTail, runtimeView]);
+
+  const handleLogsScroll = useCallback(() => {
+    const el = logsScrollRef.current;
+    if (!el) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+    if (atBottom && !followTail) {
+      setFollowTail(true);
+      setNewLogCount(0);
+    } else if (!atBottom && followTail) {
+      setFollowTail(false);
+    }
+  }, [followTail]);
+
+  const handleResumeFollow = useCallback(() => {
+    setFollowTail(true);
+    setNewLogCount(0);
+    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+
+  const displayMeta = useMemo(
+    () => (app ? resolveSurfaceComponentMeta(app, currentLanguage) : null),
+    [app, currentLanguage],
+  );
+
+  const previewSelectionSummary = useMemo(
+    () => (previewSelection ? summarizeSurfaceComponentPreviewElementSelection(previewSelection) : null),
+    [previewSelection],
+  );
+
+  const previewInspectorHoverLabel = useMemo(() => {
+    const element = previewInspectorHover?.element;
+    if (!element) return null;
+    return element.label || element.textContent || element.selectorPath || element.tagName;
+  }, [previewInspectorHover]);
+
+  const handleTogglePreviewSelection = useCallback(() => {
+    setPreviewInspectorEnabled((enabled) => !enabled);
+    setPreviewInspectorHover(null);
+  }, []);
+
+  const handleClearPreviewSelection = useCallback(() => {
+    setPreviewSelection(null);
+  }, []);
+
+  const handleElementInspectorHover = useCallback((payload: PreviewElementInspectorPayload | null) => {
+    setPreviewInspectorHover(payload);
+  }, []);
+
+  const handleElementInspectorSelect = useCallback(
+    (payload: PreviewElementInspectorPayload) => {
+      if (!app || !appId) return;
+      const context = buildSurfaceComponentPreviewElementSelectionContext({
+        appId,
+        appName: displayMeta?.name,
+        sessionId,
+        route: payload.route || '/',
+        runtimeRevision: app.runtime?.source_revision,
+        payload,
+      });
+      if (context) setPreviewSelection(context);
+    },
+    [app, appId, displayMeta?.name, sessionId],
+  );
+
+  const handleElementInspectorExit = useCallback(() => {
+    setPreviewInspectorEnabled(false);
+    setPreviewInspectorHover(null);
+  }, []);
+
+  const handleAddPreviewSelectionContext = useCallback(async () => {
+    if (!previewSelection || addingPreviewSelection) return;
+    setAddingPreviewSelection(true);
+    try {
+      const exists = useContextStore.getState().contexts.some(context => context.id === previewSelection.id);
+      if (!exists) {
+        useContextStore.getState().addContext(previewSelection);
+        window.dispatchEvent(new CustomEvent('insert-context-tag', { detail: { context: previewSelection } }));
+      }
+      notificationService.success(t(exists ? 'previewSelection.alreadyAdded' : 'previewSelection.added'), { duration: 1800 });
+    } catch (err) {
+      notificationService.error(err instanceof Error ? err.message : String(err), { duration: 4000 });
+    } finally {
+      setAddingPreviewSelection(false);
+    }
+  }, [addingPreviewSelection, previewSelection, t]);
+
+  const issueCounts = useMemo(
+    () =>
+      issues.reduce(
+        (acc, issue) => {
+          if (issue.severity === 'fatal') acc.fatal += 1;
+          if (issue.severity === 'warning') acc.warning += 1;
+          acc.total += 1;
+          return acc;
+        },
+        { fatal: 0, warning: 0, total: 0 },
+      ),
+    [issues],
+  );
+
+  const filteredLogs = useMemo(() => {
+    let result = logs.filter((e) => e.level !== 'debug');
+    if (logFilter !== 'all') {
+      const levels = logFilter === 'error' ? ['error'] : logFilter === 'warn' ? ['warn'] : ['info'];
+      result = result.filter((e) => levels.includes(e.level));
+    }
+    if (logSearch.trim()) {
+      const q = logSearch.toLowerCase();
+      result = result.filter(
+        (e) =>
+          e.message.toLowerCase().includes(q) ||
+          e.category.toLowerCase().includes(q) ||
+          (e.source ?? '').toLowerCase().includes(q),
+      );
+    }
+    return result;
+  }, [logFilter, logSearch, logs]);
+
+  const isRunning = Boolean(appId && runningWorkerIds.includes(appId));
+  const runtimeSummary = useMemo(() => {
+    if (!app) return null;
+    return buildSurfaceComponentRuntimeSummary(app, { isOpen: false, isRunning, runtimeStatus });
+  }, [app, isRunning, runtimeStatus]);
+  const permissionSummary = useMemo(() => (app ? summarizeSurfaceComponentPermissions(app.permissions) : null), [app]);
+
+  const runnerKey = useMemo(
+    () =>
+      app
+        ? `${app.id}:${app.runtime?.source_revision ?? 'runtime'}:${themeType ?? 'dark'}:${appScopeIdentity(effectiveScope)}:${reloadNonce}`
+        : `loading:${appId ?? 'none'}:${reloadNonce}`,
+    [app, appId, effectiveScope, reloadNonce, themeType],
+  );
+
+  const handleOpenInApps = useCallback(() => {
+    if (appId) {
+      void openSurfaceComponent(app || appId, {
+        scope: effectiveScope,
+        locale: currentLanguage,
+      });
+    }
+  }, [app, appId, currentLanguage, effectiveScope]);
+
+  const handleReloadUi = useCallback(() => {
+    setReloadNonce((v) => v + 1);
+    void load();
+  }, [load]);
+
+  const handleClearIssues = useCallback(async () => {
+    if (!appId || clearingIssues) return;
+    setClearingIssues(true);
+    try {
+      await surfaceComponentAPI.clearRuntimeIssues(appId);
+      setIssues([]);
+      setLogs([]);
+      setNewLogCount(0);
+    } catch (err) {
+      notificationService.error(err instanceof Error ? err.message : String(err), { duration: 4000 });
+    } finally {
+      setClearingIssues(false);
+    }
+  }, [appId, clearingIssues]);
+
+  const copyDiagnostic = useCallback(
+    async (text: string) => {
+      try {
+        await navigator.clipboard.writeText(text);
+        notificationService.success(t('diagnostics.copied'), { duration: 1800 });
+      } catch (err) {
+        notificationService.error(err instanceof Error ? err.message : String(err));
+      }
+    },
+    [t],
+  );
+
+  const buildIssuePrompt = useCallback(
+    (singleIssueText?: string) => {
+      if (singleIssueText) {
+        return `Fix the following Product App runtime issue (App: ${app?.name ?? appId ?? 'unknown'}):\n\n${singleIssueText}`;
+      }
+      const appLabel = app ? `${app.name} (${app.id})` : appId ?? 'current Product App';
+      const issueLines = issues.slice(0, MAX_VISIBLE_ISSUES).map((issue, index) => {
+        const detail = stringifyDiagnostic([issue.source, issue.stack]);
+        return [`#${index + 1} [${issue.severity}] ${issue.category ?? 'runtime'}`, `Message: ${issue.message}`, detail]
+          .filter(Boolean)
+          .join('\n');
+      });
+      const logLines = filteredLogs.slice(-40).map((entry, index) => {
+        const detail = stringifyDiagnostic([
+          entry.source,
+          entry.details != null ? entry.details : undefined,
+          entry.stack,
+        ]);
+        return [`#${index + 1} [${entry.level}] ${entry.category}`, `Message: ${entry.message}`, detail]
+          .filter(Boolean)
+          .join('\n');
+      });
+      return [
+        `Fix the current Product App based on its Studio diagnostics. App: ${appLabel}`,
+        '',
+        'Recent issues:',
+        issueLines.length > 0 ? issueLines.join('\n\n---\n\n') : 'No fatal/warning issues.',
+        '',
+        'Recent logs:',
+        logLines.length > 0 ? logLines.join('\n\n---\n\n') : 'No runtime logs.',
+      ].join('\n');
+    },
+    [app, appId, filteredLogs, issues],
+  );
+
+  const handleSendIssuesToAi = useCallback(
+    async (singleIssueText?: string) => {
+      if (!sessionId || sendingIssues) return;
+      if (!singleIssueText && issues.length === 0 && filteredLogs.length === 0) return;
+      setSendingIssues(true);
+      try {
+        await flowChatManager.sendMessage(
+          buildIssuePrompt(singleIssueText),
+          sessionId,
+          t('diagnostics.sendDisplay'),
+        );
+        notificationService.success(t('diagnostics.sent'), { duration: 2000 });
+      } catch (err) {
+        notificationService.error(err instanceof Error ? err.message : String(err), { duration: 4000 });
+      } finally {
+        setSendingIssues(false);
+      }
+    },
+    [buildIssuePrompt, filteredLogs.length, issues.length, sendingIssues, sessionId, t],
+  );
+
+  // ── Permissions submenu entries ────────────────────────────────────────────
+  const permissionSubmenu = useMemo((): DropdownMenuEntry[] => {
+    if (!permissionSummary) return [];
+    const row = (id: string, label: string): DropdownMenuEntry => ({
+      type: 'item', id, label, disabled: true,
+    });
+    return [
+      row('read',  permissionSummary.readsWorkspace  ? t('permissions.readWorkspace')  : t('permissions.noWorkspaceRead')),
+      row('write', permissionSummary.writesWorkspace ? t('permissions.writeWorkspace') : t('permissions.noWorkspaceWrite')),
+      row('shell', permissionSummary.shellEnabled    ? t('permissions.shellEnabled')   : t('permissions.shellDisabled')),
+      row('net',   permissionSummary.netEnabled      ? t('permissions.netEnabled')     : t('permissions.netDisabled')),
+      row('ai',    permissionSummary.aiEnabled       ? t('permissions.aiEnabled')      : t('permissions.aiDisabled')),
+      row('node',  permissionSummary.nodeEnabled     ? t('permissions.nodeEnabled')    : t('permissions.nodeDisabled')),
+    ];
+  }, [permissionSummary, t]);
+
+  // ── Action menu items ──────────────────────────────────────────────────────
+  const menuItems = useMemo((): DropdownMenuEntry[] => [
+    {
+      type: 'item',
+      id: 'recompile',
+      label: t('panel.menu.recompile'),
+      onClick: () => void actions.recompile(),
+      disabled: actions.state.recompiling,
+    },
+    ...(!isBuiltinBundledSurfaceComponent(appId)
+      ? [{
+          type: 'item' as const,
+          id: 'install',
+          label: t('panel.menu.installDeps'),
+          onClick: () => void actions.installDeps(() => void load()),
+          disabled: actions.state.installingDeps,
+        }]
+      : []),
+    { type: 'separator', id: 'sep1' },
+    {
+      type: 'item',
+      id: 'open-in-apps',
+      label: t('panel.menu.openInApps'),
+      onClick: handleOpenInApps,
+      disabled: !appId,
+    },
+    {
+      type: 'item',
+      id: 'reload',
+      label: t('panel.menu.reload'),
+      onClick: handleReloadUi,
+      disabled: !appId || loading,
+    },
+    ...(permissionSummary
+      ? [{
+          type: 'item' as const,
+          id: 'permissions',
+          label: t('panel.menu.viewPermissions'),
+          submenu: permissionSubmenu,
+        }]
+      : []),
+    { type: 'separator', id: 'sep2' },
+    {
+      type: 'item',
+      id: 'copy-id',
+      label: t('panel.menu.copyAppId'),
+      onClick: () => void (async () => {
+        if (!appId) return;
+        try {
+          await navigator.clipboard.writeText(appId);
+          notificationService.success(t('diagnostics.copyAppId'), { duration: 1800 });
+        } catch { /* noop */ }
+      })(),
+      disabled: !appId,
+    },
+    {
+      type: 'label',
+      id: 'meta',
+      content: [
+        t('panel.menu.theme', { theme: themeType ?? 'dark' }),
+        t('panel.menu.language', { lang: currentLanguage }),
+      ],
+    },
+  ], [actions, appId, currentLanguage, handleOpenInApps, handleReloadUi, load, loading, permissionSubmenu, permissionSummary, t, themeType]);
+
+  // ── Dock status ────────────────────────────────────────────────────────────
+  const dockStatusLabel = useMemo(() => {
+    if (issueCounts.fatal > 0) return t('diagnostics.fatalCount', { count: issueCounts.fatal });
+    if (issueCounts.warning > 0) return t('diagnostics.warningCount', { count: issueCounts.warning });
+    return t('diagnostics.ok');
+  }, [issueCounts, t]);
+  const dockStatusClass = issueCounts.fatal > 0 ? 'is-fatal' : issueCounts.warning > 0 ? 'is-warning' : 'is-ok';
+
+  // ── Runtime dot state ──────────────────────────────────────────────────────
+  const runtimeDotClass = useMemo(() => {
+    if (issueCounts.fatal > 0) return 'is-error';
+    if (isRunning) return 'is-running';
+    if (runtimeSummary?.depsDirty || runtimeSummary?.workerRestartRequired) return 'is-warning';
+    // Apps without a node worker are "running" as soon as they are loaded with no issues
+    if (app && runtimeSummary && !runtimeSummary.nodeEnabled) return 'is-running';
+    return 'is-idle';
+  }, [app, isRunning, issueCounts.fatal, runtimeSummary]);
+
+  return (
+    <div className={`app-studio-panel${dockState === 'collapsed' ? ' is-dock-collapsed' : ''}`}>
+      {/* ── Status Bar ─────────────────────────────────────────────────── */}
+      <div className="studio-statusbar">
+        <div className="studio-statusbar__identity">
+          <span className={`studio-statusbar__dot ${runtimeDotClass}`} />
+          <span className="studio-statusbar__name">{displayMeta?.name || t('panel.title')}</span>
+          {runtimeSummary?.runtimeLabel ? (
+            <span className="studio-statusbar__runtime-label">{runtimeSummary.runtimeLabel}</span>
+          ) : null}
+        </div>
+
+        <div className="studio-statusbar__ctas">
+          {runtimeSummary?.depsDirty ? (
+            <Button
+              variant="secondary"
+              size="small"
+              className="studio-statusbar__cta is-warning"
+              onClick={() => void actions.installDeps(() => void load())}
+              disabled={actions.state.installingDeps}
+            >
+              {actions.state.installingDeps ? <DotMatrixLoader size="tiny" className="studio-spin" /> : null}
+              {t('panel.menu.installDeps')}
+            </Button>
+          ) : null}
+          {runtimeSummary?.workerRestartRequired && !isRunning ? (
+            <Button
+              variant="secondary"
+              size="small"
+              className="studio-statusbar__cta is-warning"
+              onClick={() => void actions.stopWorker(() => void load())}
+              disabled={actions.state.restartingWorker}
+            >
+              {actions.state.restartingWorker ? <DotMatrixLoader size="tiny" className="studio-spin" /> : null}
+              {t('panel.actions.restartWorker')}
+            </Button>
+          ) : null}
+          {isRunning ? (
+            <Button
+              variant="secondary"
+              size="small"
+              className="studio-statusbar__cta is-running"
+              onClick={() => void actions.stopWorker()}
+              disabled={actions.state.restartingWorker}
+            >
+              {t('panel.actions.stop')}
+            </Button>
+          ) : null}
+        </div>
+
+        <span className="studio-statusbar__sep" aria-hidden="true" />
+
+        <div className="studio-statusbar__actions">
+          <IconButton
+            variant={previewInspectorEnabled ? 'accent' : 'ghost'}
+            size="xs"
+            onClick={handleTogglePreviewSelection}
+            disabled={!app}
+            tooltip={previewInspectorEnabled ? t('previewSelection.toggleOff') : t('previewSelection.toggleOn')}
+            aria-label={previewInspectorEnabled ? t('previewSelection.toggleOff') : t('previewSelection.toggleOn')}
+            aria-pressed={previewInspectorEnabled}
+          >
+            <MousePointer2 size={13} />
+          </IconButton>
+          <IconButton
+            variant="ghost"
+            size="xs"
+            onClick={handleReloadUi}
+            disabled={!appId || loading}
+            tooltip={t('panel.menu.reload')}
+            aria-label={t('panel.menu.reload')}
+          >
+            {loading ? <DotMatrixLoader size="tiny" className="studio-spin" /> : <RefreshCw size={13} />}
+          </IconButton>
+          <IconButton
+            variant="ghost"
+            size="xs"
+            onClick={handleOpenInApps}
+            disabled={!appId}
+            tooltip={t('panel.menu.openInApps')}
+            aria-label={t('panel.menu.openInApps')}
+          >
+            <ExternalLink size={13} />
+          </IconButton>
+          {/* ⋯ Action menu (permissions is a submenu inside) */}
+          <IconButton
+            ref={menuAnchorRef}
+            variant="ghost"
+            size="xs"
+            onClick={() => setMenuOpen((v) => !v)}
+            disabled={!appId}
+            tooltip={t('panel.menu.moreActions')}
+            aria-label={t('panel.menu.moreActions')}
+            aria-haspopup="true"
+            aria-expanded={menuOpen}
+          >
+            <MoreHorizontal size={13} />
+          </IconButton>
+          <DropdownMenu
+            open={menuOpen}
+            anchorRef={menuAnchorRef}
+            items={menuItems}
+            onClose={() => setMenuOpen(false)}
+            align="right"
+            minWidth={180}
+          />
+        </div>
+      </div>
+
+      {/* ── Preview ──────────────────────────────────────────────────────── */}
+      <div className="studio-preview">
+        {!appId ? (
+          <div className="studio-preview__empty">
+            <AppWindow size={34} strokeWidth={1.5} />
+            <div>{t('panel.emptyTitle')}</div>
+            <p>{t('panel.emptyDescription')}</p>
+          </div>
+        ) : null}
+        {appId && loading && !app ? (
+          <div className="studio-preview__empty">
+            <DotMatrixLoader size="medium" className="studio-spin" />
+            <div>{t('panel.loading')}</div>
+          </div>
+        ) : null}
+        {error && !app ? (
+          <div className="studio-preview__empty is-error">
+            <AlertTriangle size={28} strokeWidth={1.5} />
+            <div>{t('panel.loadFailed')}</div>
+            <p>{error}</p>
+            <Button variant="secondary" size="small" onClick={() => void load()}>
+              {t('panel.retry')}
+            </Button>
+          </div>
+        ) : null}
+        {app ? (
+          <React.Suspense fallback={null}>
+            <SurfaceComponentRunner
+              key={runnerKey}
+              app={app}
+              scope={effectiveScope}
+              workspacePath={workspacePath}
+              elementInspectorEnabled={previewInspectorEnabled}
+              onElementInspectorHover={handleElementInspectorHover}
+              onElementInspectorSelect={handleElementInspectorSelect}
+              onElementInspectorExit={handleElementInspectorExit}
+            />
+          </React.Suspense>
+        ) : null}
+        {loading && app ? (
+          <div className="studio-preview__updating" role="status" aria-live="polite">
+            <DotMatrixLoader size="tiny" className="studio-spin" />
+            <span>{t('panel.updating')}</span>
+          </div>
+        ) : null}
+        {app && previewInspectorEnabled ? (
+          <div className="studio-preview-inspector-status" role="status" aria-live="polite">
+            <MousePointer2 size={12} />
+            <span>
+              {previewInspectorHoverLabel
+                ? t('previewSelection.hovering', { target: previewInspectorHoverLabel })
+                : t('previewSelection.inspecting')}
+            </span>
+          </div>
+        ) : null}
+        {previewSelection ? (
+          <div className="studio-preview-selection-tray">
+            <span className="studio-preview-selection-tray__label">
+              {t('previewSelection.contextLabel')}
+            </span>
+            <span className="studio-preview-selection-tray__summary" title={previewSelectionSummary || undefined}>
+              {previewSelectionSummary}
+            </span>
+            <Button
+              variant="accent"
+              size="small"
+              onClick={() => void handleAddPreviewSelectionContext()}
+              disabled={addingPreviewSelection}
+            >
+              {addingPreviewSelection ? <DotMatrixLoader size="tiny" className="studio-spin" /> : null}
+              {t('previewSelection.addContext')}
+            </Button>
+            <IconButton
+              variant="ghost"
+              size="xs"
+              onClick={handleClearPreviewSelection}
+              tooltip={t('previewSelection.clear')}
+              aria-label={t('previewSelection.clear')}
+            >
+              <X size={12} />
+            </IconButton>
+          </div>
+        ) : null}
+      </div>
+
+      {/* ── Diagnostics Dock ─────────────────────────────────────────────── */}
+      <div className="studio-dock">
+        {/* Header — always visible */}
+        <div className="studio-dock__header">
+          <Button
+            variant="ghost"
+            size="small"
+            className="studio-dock__toggle"
+            onClick={() => setDockState((s) => (s === 'collapsed' ? 'open' : 'collapsed'))}
+            aria-expanded={dockState === 'open'}
+          >
+            <span className="studio-dock__title">{t('diagnostics.title')}</span>
+            <span className={`studio-dock__status ${dockStatusClass}`}>{dockStatusLabel}</span>
+            <span className="studio-dock__chevron">
+              {dockState === 'open' ? <ChevronDown size={11} /> : <ChevronUp size={11} />}
+            </span>
+          </Button>
+
+          <div className="studio-dock__header-actions">
+            <IconButton
+              variant="ghost"
+              size="xs"
+              onClick={() => void handleSendIssuesToAi()}
+              disabled={!sessionId || (issues.length === 0 && filteredLogs.length === 0) || sendingIssues}
+              tooltip={t('diagnostics.sendToAi')}
+              aria-label={t('diagnostics.sendToAi')}
+            >
+              {sendingIssues ? <DotMatrixLoader size="tiny" className="studio-spin" /> : <Send size={12} />}
+            </IconButton>
+            <IconButton
+              variant="ghost"
+              size="xs"
+              onClick={() => void handleClearIssues()}
+              disabled={!appId || (issues.length === 0 && logs.length === 0) || clearingIssues}
+              tooltip={t('diagnostics.clear')}
+              aria-label={t('diagnostics.clear')}
+            >
+              {clearingIssues ? <DotMatrixLoader size="tiny" className="studio-spin" /> : <Trash2 size={12} />}
+            </IconButton>
+          </div>
+        </div>
+
+        {/* Body — only when open */}
+        {dockState === 'open' ? (
+          <div className="studio-dock__body">
+            {/* Tab bar: Issues | Logs */}
+            <div className="studio-dock__tabs">
+              <Button
+                variant="ghost"
+                size="small"
+                className={`studio-dock__tab${runtimeView === 'issues' ? ' is-active' : ''}`}
+                onClick={() => setRuntimeView('issues')}
+              >
+                {t('diagnostics.issuesTab')}
+                {issueCounts.total > 0 ? (
+                  <span className={`studio-dock__tab-badge ${issueCounts.fatal > 0 ? 'is-fatal' : 'is-warning'}`}>
+                    {issueCounts.total > 99 ? '99+' : issueCounts.total}
+                  </span>
+                ) : null}
+              </Button>
+              <Button
+                variant="ghost"
+                size="small"
+                className={`studio-dock__tab${runtimeView === 'logs' ? ' is-active' : ''}`}
+                onClick={() => setRuntimeView('logs')}
+              >
+                {t('diagnostics.logsTab')}
+                {filteredLogs.length > 0 ? (
+                  <span className="studio-dock__tab-badge is-neutral">
+                    {filteredLogs.length > 99 ? '99+' : filteredLogs.length}
+                  </span>
+                ) : null}
+              </Button>
+            </div>
+
+            {/* Log filter controls — only shown in Logs view, as a distinct toolbar row */}
+            {runtimeView === 'logs' ? (
+              <div className="studio-dock__log-controls">
+                <FilterPillGroup className="studio-dock__log-filter-group">
+                  {(['all', 'error', 'warn', 'info'] as LogLevel[]).map((level) => (
+                    <FilterPill
+                      key={level}
+                      label={t(`diagnostics.filter${level.charAt(0).toUpperCase()}${level.slice(1)}`)}
+                      active={logFilter === level}
+                      onClick={() => setLogFilter(level)}
+                    />
+                  ))}
+                </FilterPillGroup>
+                <Search
+                  className="studio-dock__log-search-field"
+                  value={logSearch}
+                  onChange={setLogSearch}
+                  placeholder={t('diagnostics.searchPlaceholder')}
+                  size="small"
+                  enterToSearch={false}
+                />
+              </div>
+            ) : null}
+
+            {/* List */}
+            <div
+              className="studio-dock__list"
+              ref={logsScrollRef}
+              onScroll={runtimeView === 'logs' ? handleLogsScroll : undefined}
+            >
+              {runtimeView === 'issues' ? (
+                issues.length === 0 ? (
+                  <div className="studio-dock__empty">{t('diagnostics.empty')}</div>
+                ) : (
+                  issues.map((issue, index) => (
+                    <IssueRow
+                      key={`${issue.severity}-${issue.timestampMs}-${index}`}
+                      issue={issue}
+                      t={t}
+                      onCopy={(text) => void copyDiagnostic(text)}
+                      onRecompile={() => void actions.recompile()}
+                      onRestart={() => void actions.stopWorker(() => void load())}
+                      onFixWithAi={(text) => void handleSendIssuesToAi(text)}
+                      currentLanguage={currentLanguage}
+                      restartLabel={t('panel.actions.restartWorker')}
+                    />
+                  ))
+                )
+              ) : filteredLogs.length === 0 ? (
+                <EmptyState
+                  className="studio-dock__logs-empty"
+                  image={<ScrollText size={28} strokeWidth={1.5} aria-hidden />}
+                  imageSize={28}
+                  description={t('diagnostics.logsEmpty')}
+                />
+              ) : (
+                <>
+                  {logs.length >= MAX_VISIBLE_LOGS ? (
+                    <Alert
+                      type="info"
+                      className="studio-dock__truncated-alert"
+                      message={t('diagnostics.truncatedHint', {
+                        max: MAX_VISIBLE_LOGS,
+                        path: `${workspacePath ?? ''}/.sparo_os/debug.log`,
+                      })}
+                    />
+                  ) : null}
+                  {filteredLogs.map((entry, index) => (
+                    <LogRow
+                      key={`${entry.timestampMs}-${index}`}
+                      entry={entry}
+                      onCopy={(text) => void copyDiagnostic(text)}
+                      currentLanguage={currentLanguage}
+                      copyAriaLabel={t('diagnostics.copy')}
+                    />
+                  ))}
+                  <div ref={logsEndRef} />
+                </>
+              )}
+            </div>
+
+            {/* New-logs banner */}
+            {runtimeView === 'logs' && !followTail && newLogCount > 0 ? (
+              <Button
+                type="button"
+                variant="accent"
+                size="small"
+                className="studio-dock__new-logs-banner"
+                onClick={handleResumeFollow}
+              >
+                {t('diagnostics.newMessages', { count: newLogCount })}
+                <ChevronDown size={12} />
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+};
+
+export default AppStudioPanel;
