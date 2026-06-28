@@ -596,7 +596,7 @@
       "markdownEditorMissingPath": "Cannot load Markdown editor: missing file path or initial content",
       "planViewerMissingPath": "Cannot load Plan viewer: missing file path",
       "terminalMissingSessionId": "Cannot load terminal: missing session ID",
-      "liveAppRunnerMissingAppId": "Cannot load Live App: missing app ID",
+      "surfaceComponentRunnerMissingAppId": "Cannot load Product App: missing app ID",
       "gitPanelRemoved": "Git integration has been removed from this build."
     },
     "placeholder": {
@@ -620,11 +620,11 @@
       "dependencyGraph": "Loading dependency graph...",
       "planViewer": "Loading plan...",
       "terminal": "Loading terminal...",
-      "liveAppRunner": "Loading Live App...",
-      "liveAppRunnerUpdating": "Updating..."
+      "surfaceComponentRunner": "Loading Product App...",
+      "surfaceComponentRunnerUpdating": "Updating..."
     },
-    "liveAppDiagnostics": {
-      "title": "Live App diagnostics",
+    "surfaceComponentDiagnostics": {
+      "title": "Product App diagnostics",
       "description": "Backend runs and runtime diagnostics for this workbench will appear here."
     },
     "aiSession": {

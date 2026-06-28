@@ -27,7 +27,7 @@ const SubagentsScene = lazy(() => import('../scenes/subagents/SubagentsScene'));
 const SkillsScene = lazy(() => import('../scenes/skills/SkillsScene'));
 const ToolsScene = lazy(() => import('../scenes/tools/ToolsScene'));
 const ShellScene = lazy(() => import('../scenes/shell/ShellScene'));
-const LiveAppScene = lazy(() => import('../scenes/apps/LiveAppScene'));
+const SurfaceComponentScene = lazy(() => import('../scenes/apps/SurfaceComponentScene'));
 const PanelViewScene = lazy(() => import('../scenes/panel-view/PanelViewScene'));
 const WorkCenterScene = lazy(() => import('../scenes/work-center/WorkCenterScene'));
 
@@ -140,10 +140,10 @@ function renderSceneSurface(
     case 'work-center':
       return <WorkCenterScene />;
     default:
-      if (typeof id === 'string' && id.startsWith('live-app:')) {
+      if (typeof id === 'string' && id.startsWith('app-surface:')) {
         return (
-          <LiveAppScene
-            appId={id.slice('live-app:'.length)}
+          <SurfaceComponentScene
+            appId={id.slice('app-surface:'.length)}
             workspacePath={workspacePath}
             scope={appScope}
           />

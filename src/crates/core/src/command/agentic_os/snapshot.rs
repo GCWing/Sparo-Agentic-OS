@@ -2,15 +2,15 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::agent_app::AgentAppManager;
+use crate::agent_component::AgentComponentManager;
 use crate::agentic::core::SessionKind;
 use crate::agentic::persistence::PersistenceManager;
 use crate::agentic_os::work::{default_work_store, WorkProjection};
-use crate::bridge_app::BridgeAppManager;
+use crate::bridge_component::BridgeComponentManager;
 use crate::infrastructure::try_get_path_manager_arc;
-use crate::live_app::LiveAppManager;
 use crate::service::config::types::AIConfig;
 use crate::service::workspace::get_global_workspace_service;
+use crate::surface_component::SurfaceComponentManager;
 
 use super::super::{CommandContext, CommandError, CommandResult};
 
@@ -307,7 +307,7 @@ async fn load_works() -> CommandResult<Vec<AgenticOsWorkRow>> {
 async fn load_apps() -> Vec<AgenticOsAppRow> {
     let mut rows = Vec::new();
 
-    if let Ok(apps) = AgentAppManager::list(None) {
+    if let Ok(apps) = AgentComponentManager::list(None) {
         rows.extend(apps.into_iter().map(|app| AgenticOsAppRow {
             id: app.id,
             name: app.name,
@@ -318,7 +318,7 @@ async fn load_apps() -> Vec<AgenticOsAppRow> {
         }));
     }
 
-    if let Ok(apps) = BridgeAppManager::list() {
+    if let Ok(apps) = BridgeComponentManager::list() {
         rows.extend(apps.into_iter().map(|app| AgenticOsAppRow {
             id: app.manifest.id,
             name: app.manifest.name,
@@ -330,7 +330,7 @@ async fn load_apps() -> Vec<AgenticOsAppRow> {
     }
 
     if let Ok(path_manager) = try_get_path_manager_arc() {
-        let manager = LiveAppManager::new(path_manager);
+        let manager = SurfaceComponentManager::new(path_manager);
         if let Ok(apps) = manager.list().await {
             rows.extend(apps.into_iter().map(|app| AgenticOsAppRow {
                 id: app.id,

@@ -3,36 +3,40 @@ pub use crate::agentic::tools::workspace_paths::{
 };
 
 use crate::agentic::tools::framework::ToolUseContext;
-use crate::live_app::try_get_global_live_app_manager;
+use crate::infrastructure::try_get_path_manager_arc;
 use crate::util::errors::{BitFunError, BitFunResult};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-pub async fn enforce_live_app_studio_source_write(
+pub async fn enforce_surface_component_studio_source_write(
     context: &ToolUseContext,
     resolved_path: &str,
 ) -> BitFunResult<()> {
-    if context.agent_type.as_deref() != Some("LiveAppStudio") {
+    if context.agent_type.as_deref() != Some("AppStudio") {
         return Ok(());
     }
 
-    let manager = try_get_global_live_app_manager()
-        .ok_or_else(|| BitFunError::tool("LiveAppManager not initialized".to_string()))?;
     let target = Path::new(resolved_path);
-    let apps = manager.list().await?;
-    for app in apps {
-        let app_dir = manager.path_manager().live_app_dir(&app.id);
-        let source_dir = app_dir.join("source");
-        let allowed_manifest_files = [app_dir.join("meta.json"), app_dir.join("package.json")];
-        if target.starts_with(&source_dir)
-            || allowed_manifest_files
-                .iter()
-                .any(|allowed| target == allowed.as_path())
-        {
+    for root in allowed_app_studio_package_roots(context)? {
+        if target.starts_with(&root) {
             return Ok(());
         }
     }
 
     Err(BitFunError::validation(
-        "LiveAppStudio can only write Live App source files or manifest files".to_string(),
+        "AppStudio can only write Product App and Component package files".to_string(),
     ))
+}
+
+fn allowed_app_studio_package_roots(context: &ToolUseContext) -> BitFunResult<Vec<PathBuf>> {
+    let path_manager = try_get_path_manager_arc()
+        .map_err(|e| BitFunError::tool(format!("PathManager not initialized: {}", e)))?;
+    let mut roots = vec![
+        path_manager.system_product_apps_dir(),
+        path_manager.system_components_dir(),
+    ];
+    if let Some(workspace_root) = context.workspace_root() {
+        roots.push(path_manager.project_product_apps_dir(workspace_root));
+        roots.push(path_manager.project_components_dir(workspace_root));
+    }
+    Ok(roots)
 }

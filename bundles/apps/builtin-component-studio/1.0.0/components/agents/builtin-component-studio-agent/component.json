@@ -1,0 +1,46 @@
+{
+  "id": "builtin-component-studio-agent",
+  "kind": "agent",
+  "name": "Component Studio Agent",
+  "description": "Component authoring agent for shared component package creation, validation, permissions, and Product App reference guidance.",
+  "packageSource": "appPrivate",
+  "ownerApp": {
+    "appId": "builtin-component-studio",
+    "appVersion": "1.0.0"
+  },
+  "capabilities": [
+    {
+      "id": "createComponentPackage",
+      "title": "Create Component Package",
+      "description": "Create reusable component packages for the six final component kinds.",
+      "actions": [
+        "createComponentPackage",
+        "editContract"
+      ]
+    },
+    {
+      "id": "validateComponent",
+      "title": "Validate component",
+      "description": "Inspect component contracts, permissions, and package references.",
+      "actions": [
+        "readPackage",
+        "validate"
+      ]
+    }
+  ],
+  "permissions": [
+    {
+      "kind": "ai",
+      "summary": "Uses the configured Component Studio agent.",
+      "scopes": [
+        "ComponentStudio"
+      ]
+    }
+  ],
+  "usedByApps": [
+    "builtin-component-studio"
+  ],
+  "visibility": "appDependency",
+  "dependencies": [],
+  "implementationRef": "agent://ComponentStudio"
+}

@@ -28,7 +28,7 @@ export interface SessionScopeFields {
   title?: string | null;
   customMetadata?: {
     agentSessionBinding?: { scope?: AppScope | null } | null;
-    liveAppWorkbench?: { scope?: AppScope | null } | null;
+    surfaceComponentWorkbench?: { scope?: AppScope | null } | null;
   } | null;
 }
 
@@ -89,7 +89,7 @@ export function runtimeScopeFromSession(
 ): RuntimeScope | null {
   if (!session) return null;
   const boundScope =
-    session.customMetadata?.liveAppWorkbench?.scope ??
+    session.customMetadata?.surfaceComponentWorkbench?.scope ??
     session.customMetadata?.agentSessionBinding?.scope ??
     null;
   if (boundScope) {

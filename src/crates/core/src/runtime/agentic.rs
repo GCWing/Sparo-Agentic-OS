@@ -26,7 +26,7 @@ use crate::infrastructure::try_get_path_manager_arc;
 #[derive(Default, Clone)]
 pub struct AgenticRuntimeOptions {
     pub computer_use_host: Option<ComputerUseHostRef>,
-    pub register_agent_apps: bool,
+    pub register_agent_components: bool,
     pub install_process_globals: bool,
 }
 
@@ -61,22 +61,26 @@ pub async fn initialize_agentic_runtime(
         Default::default(),
     ));
 
-    if options.register_agent_apps {
-        if let Err(e) = crate::agent_app::AgentAppManager::seed_builtin_agent_apps() {
-            log::warn!("Failed to seed built-in Agent Apps at startup: {}", e);
+    if options.register_agent_components {
+        if let Err(e) =
+            crate::agent_component::AgentComponentManager::seed_builtin_agent_components()
+        {
+            log::warn!("Failed to seed built-in Agent Components at startup: {}", e);
         }
-        if let Err(e) = crate::agent_app::AgentAppManager::register_all(None) {
-            log::warn!("Failed to register user Agent Apps at startup: {}", e);
+        if let Err(e) = crate::agent_component::AgentComponentManager::register_all(None) {
+            log::warn!("Failed to register user Agent Components at startup: {}", e);
         }
-        if let Err(e) = crate::agent_app::AgentAppManager::register_runtime_tools(None).await {
+        if let Err(e) =
+            crate::agent_component::AgentComponentManager::register_runtime_tools(None).await
+        {
             log::warn!(
-                "Failed to register user Agent App runtime tools at startup: {}",
+                "Failed to register user Agent Component runtime tools at startup: {}",
                 e
             );
         }
-        if let Err(e) = crate::bridge_app::BridgeAppManager::register_agent_surfaces() {
+        if let Err(e) = crate::bridge_component::BridgeComponentManager::register_agent_surfaces() {
             log::warn!(
-                "Failed to register Bridge App agent surfaces at startup: {}",
+                "Failed to register Bridge Component agent surfaces at startup: {}",
                 e
             );
         }

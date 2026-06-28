@@ -1,0 +1,40 @@
+{
+  "id": "builtin-deep-research-chat-surface",
+  "kind": "surface",
+  "name": "Deep Research Chat",
+  "description": "Conversation-first work surface for research planning, investigation, and synthesis.",
+  "packageSource": "appPrivate",
+  "ownerApp": {
+    "appId": "builtin-deep-research",
+    "appVersion": "1.0.0"
+  },
+  "capabilities": [
+    {
+      "id": "chatPrimary",
+      "title": "Primary chat",
+      "description": "Uses the Flow Chat surface as the Product App's primary workspace.",
+      "actions": [
+        "startSession",
+        "continueWork"
+      ]
+    }
+  ],
+  "permissions": [],
+  "usedByApps": [
+    "builtin-deep-research"
+  ],
+  "visibility": "appDependency",
+  "dependencies": [
+    {
+      "componentId": "builtin-deep-research-agent",
+      "kind": "agent",
+      "source": "private",
+      "role": "assistant",
+      "capabilities": [
+        "parallelResearch",
+        "synthesizeReport"
+      ]
+    }
+  ],
+  "implementationRef": "app://builtin-deep-research@1.0.0/surfaces/builtin-deep-research-chat-surface"
+}

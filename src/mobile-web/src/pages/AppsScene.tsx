@@ -29,7 +29,7 @@ const AppsScene: React.FC = () => {
   ];
 
   const comingSoon = [
-    'Live Apps',
+    'Surface Components',
     'Subagents',
     'Tools',
     'File Browser',

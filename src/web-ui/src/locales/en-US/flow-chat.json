@@ -335,8 +335,8 @@
       "more": "More panels",
       "designs": "Designs",
       "designTokens": "Design Tokens",
-      "liveAppStudio": "Live App Builder",
-      "agentAppStudio": "Agent App Builder"
+      "appStudio": "App Studio",
+      "componentStudio": "Component Studio"
     },
     "goalPanel": {
       "open": "Goal details",

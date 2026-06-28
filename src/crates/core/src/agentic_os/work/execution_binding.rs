@@ -26,11 +26,6 @@ pub enum WorkExecutionSource {
         parent_work_id: WorkId,
         child_work_id: WorkId,
     },
-    LiveAppWorker {
-        app_id: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        worker_id: Option<String>,
-    },
     ApplicationAction {
         application_id: String,
         action_id: String,

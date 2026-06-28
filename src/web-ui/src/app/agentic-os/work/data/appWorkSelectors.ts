@@ -1,6 +1,7 @@
 import type { AppScope } from '@/shared/types/app-scope';
 import { workspacePathFromAppScope } from '@/shared/types/app-scope';
 import type { WorkAppRef, WorkRecord, WorkScope, WorkStatus } from '../domain/workTypes';
+import { sameProductAppRef } from '../domain/productAppRefs';
 
 export interface BestAppWork {
   work: WorkRecord;
@@ -8,7 +9,7 @@ export interface BestAppWork {
 }
 
 function sameApp(left: WorkAppRef, right: WorkAppRef): boolean {
-  return left.kind === right.kind && left.appId === right.appId;
+  return sameProductAppRef(left, right);
 }
 
 export function workReferencesApp(work: WorkRecord, app: WorkAppRef): boolean {

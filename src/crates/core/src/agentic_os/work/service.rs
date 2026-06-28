@@ -18,7 +18,7 @@ use super::runtime_bridge::{
     CreateWorkSessionRequest, NoopWorkRuntimeBridge, WorkRuntimeBridge, WorkSessionAdvanceRequest,
 };
 use super::store::WorkStore;
-use super::subject::{WorkAppIntent, WorkAppKind, WorkAppRef, WorkAppRelation, WorkSubject};
+use super::subject::{WorkAppIntent, WorkAppRef, WorkAppRelation, WorkSubject};
 use super::surface::WorkSurfaceRef;
 use super::title::{WorkTitleSource, WorkTitleState};
 use super::types::{WorkKind, WorkScope, WorkStatus, WorkVisibility};
@@ -28,7 +28,7 @@ use super::types::{WorkKind, WorkScope, WorkStatus, WorkVisibility};
 pub enum PrimarySurfacePolicy {
     WorkCenter,
     WorkSession,
-    LiveApp,
+    ApplicationSurface,
 }
 
 impl Default for PrimarySurfacePolicy {
@@ -50,6 +50,8 @@ pub struct CreateWorkRequest {
     pub visibility: WorkVisibility,
     #[serde(default = "default_start_primary_surface_policy")]
     pub primary_surface_policy: PrimarySurfacePolicy,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub primary_surface: Option<WorkSurfaceRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub assignment: Option<WorkAssignmentRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -120,6 +122,8 @@ pub struct ResolveAppWorkRequest {
     pub visibility: WorkVisibility,
     #[serde(default = "default_app_primary_surface_policy")]
     pub primary_surface_policy: PrimarySurfacePolicy,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub primary_surface: Option<WorkSurfaceRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub assignment: Option<WorkAssignmentRef>,
     #[serde(default)]
@@ -322,6 +326,7 @@ impl WorkService {
                 scope: request.scope,
                 visibility: request.visibility,
                 primary_surface_policy: request.primary_surface_policy,
+                primary_surface: request.primary_surface,
                 assignment: request.assignment,
                 title_state: None,
                 delegation: None,
@@ -339,27 +344,26 @@ impl WorkService {
 
         let now = now_millis();
         let work_id = WorkId::generate();
-        let primary_surface = match request.primary_surface_policy {
-            PrimarySurfacePolicy::WorkCenter | PrimarySurfacePolicy::WorkSession => {
-                WorkSurfaceRef::WorkCenter {
-                    work_id: work_id.clone(),
-                }
+        let primary_surface = match request.primary_surface {
+            Some(surface) => {
+                validate_surface_ref("primary_surface", &surface)?;
+                surface
             }
-            PrimarySurfacePolicy::LiveApp => {
-                let app = live_app_subject(&request.subject)?;
-                WorkSurfaceRef::LiveApp {
-                    app_id: app.app_id.clone(),
+            None => match request.primary_surface_policy {
+                PrimarySurfacePolicy::WorkCenter | PrimarySurfacePolicy::WorkSession => {
+                    WorkSurfaceRef::WorkCenter {
+                        work_id: work_id.clone(),
+                    }
                 }
-            }
+                PrimarySurfacePolicy::ApplicationSurface => {
+                    application_surface_for_product_app_subject(&request.subject)?
+                }
+            },
         };
 
         let title_state = request.title_state.clone().unwrap_or_else(|| {
-            if let PrimarySurfacePolicy::LiveApp = request.primary_surface_policy {
-                request
-                    .subject
-                    .app_ref()
-                    .map(|app| WorkTitleState::live_app(&app.app_id))
-                    .unwrap_or_default()
+            if let WorkSurfaceRef::ApplicationSurface { product_app_id, .. } = &primary_surface {
+                WorkTitleState::application_surface(product_app_id)
             } else {
                 WorkTitleState::default()
             }
@@ -385,18 +389,27 @@ impl WorkService {
             PrimarySurfacePolicy::WorkSession => {
                 self.ensure_work_session(&mut record, None).await?;
             }
-            PrimarySurfacePolicy::LiveApp => {
-                if let WorkSurfaceRef::LiveApp { app_id } = &record.primary_surface {
-                    record.execution_bindings.push(WorkExecutionBinding::new(
-                        WorkExecutionSource::LiveAppWorker {
-                            app_id: app_id.clone(),
-                            worker_id: None,
-                        },
-                        WorkExecutionBindingStatus::Running,
-                        now,
+            PrimarySurfacePolicy::ApplicationSurface => {
+                let WorkSurfaceRef::ApplicationSurface { product_app_id, .. } =
+                    &record.primary_surface
+                else {
+                    return Err(BitFunError::validation(
+                        "primary_surface.kind=application_surface is required when primary_surface_policy=application_surface",
                     ));
-                    record.set_status(WorkStatus::Running, "live app workflow started", now);
-                }
+                };
+                record.execution_bindings.push(WorkExecutionBinding::new(
+                    WorkExecutionSource::ApplicationAction {
+                        application_id: product_app_id.clone(),
+                        action_id: "surface.open".to_string(),
+                    },
+                    WorkExecutionBindingStatus::Running,
+                    now,
+                ));
+                record.set_status(
+                    WorkStatus::Running,
+                    "application surface workflow started",
+                    now,
+                );
             }
             PrimarySurfacePolicy::WorkCenter => {}
         }
@@ -517,25 +530,25 @@ impl WorkService {
         Ok(updated)
     }
 
-    pub async fn sync_title_from_live_app(
+    pub async fn sync_title_from_application_surface(
         &self,
-        app_id: &str,
+        application_id: &str,
         title: &str,
     ) -> BitFunResult<Vec<WorkRecord>> {
-        let app_id = app_id.trim();
+        let application_id = application_id.trim();
         let title = title.trim();
-        if app_id.is_empty() || title.is_empty() {
+        if application_id.is_empty() || title.is_empty() {
             return Ok(Vec::new());
         }
 
         let now = now_millis();
         let mut updated = Vec::new();
         for mut record in self.store.list().await? {
-            if !work_title_can_follow_live_app(&record, app_id) {
+            if !work_title_can_follow_application_surface(&record, application_id) {
                 continue;
             }
 
-            let next_title_state = WorkTitleState::live_app(app_id.to_string());
+            let next_title_state = WorkTitleState::application_surface(application_id.to_string());
             if record.title == title && record.title_state == next_title_state {
                 continue;
             }
@@ -634,6 +647,7 @@ impl WorkService {
                 scope: request.scope,
                 visibility: request.visibility,
                 primary_surface_policy: request.primary_surface_policy,
+                primary_surface: None,
                 assignment: Some(assignment),
                 title_state: Some(WorkTitleState::agent()),
                 delegation: Some(delegation),
@@ -671,6 +685,7 @@ impl WorkService {
                 scope: request.scope,
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: request.surface_policy,
+                primary_surface: None,
                 assignment: Some(request.assignment),
                 title_state: Some(WorkTitleState::agent()),
                 delegation: parent.delegation.clone(),
@@ -1106,17 +1121,55 @@ impl WorkService {
     }
 }
 
-fn live_app_subject(subject: &WorkSubject) -> BitFunResult<&WorkAppRef> {
+fn application_surface_for_product_app_subject(
+    subject: &WorkSubject,
+) -> BitFunResult<WorkSurfaceRef> {
     let app = subject.app_ref().ok_or_else(|| {
-        BitFunError::validation("subject.kind=app is required when primary_surface_policy=live_app")
+        BitFunError::validation(
+            "subject.kind=app is required when primary_surface_policy=application_surface",
+        )
     })?;
-    if app.kind != WorkAppKind::LiveApp {
-        return Err(BitFunError::validation(
-            "primary_surface_policy=live_app requires subject.app.kind=live_app",
-        ));
-    }
     validate_required("subject.app.app_id", &app.app_id)?;
-    Ok(app)
+    validate_required("subject.app.app_version", &app.app_version)?;
+    validate_required(
+        "subject.app.component_lock_digest",
+        &app.component_lock_digest,
+    )?;
+    Err(BitFunError::validation(
+        "primary_surface is required when primary_surface_policy=application_surface",
+    ))
+}
+
+fn validate_surface_ref(label: &str, surface: &WorkSurfaceRef) -> BitFunResult<()> {
+    match surface {
+        WorkSurfaceRef::OsAgentHome {
+            agentic_os_session_id,
+        } => {
+            if let Some(session_id) = agentic_os_session_id {
+                validate_required(&format!("{label}.agentic_os_session_id"), session_id)?;
+            }
+        }
+        WorkSurfaceRef::WorkSession { session_id }
+        | WorkSurfaceRef::AgentSession { session_id } => {
+            validate_required(&format!("{label}.session_id"), session_id)?;
+        }
+        WorkSurfaceRef::WorkCenter { work_id } => {
+            validate_required(&format!("{label}.work_id"), work_id.as_str())?;
+        }
+        WorkSurfaceRef::ApplicationSurface {
+            product_app_id,
+            surface_component_id,
+            surface_id,
+        } => {
+            validate_required(&format!("{label}.product_app_id"), product_app_id)?;
+            validate_required(
+                &format!("{label}.surface_component_id"),
+                surface_component_id,
+            )?;
+            validate_required(&format!("{label}.surface_id"), surface_id)?;
+        }
+    }
+    Ok(())
 }
 
 fn validate_required(field: &str, value: &str) -> BitFunResult<()> {
@@ -1154,7 +1207,7 @@ fn default_start_primary_surface_policy() -> PrimarySurfacePolicy {
 }
 
 fn default_app_primary_surface_policy() -> PrimarySurfacePolicy {
-    PrimarySurfacePolicy::LiveApp
+    PrimarySurfacePolicy::ApplicationSurface
 }
 
 fn is_resumable_app_work_status(status: WorkStatus) -> bool {
@@ -1203,29 +1256,39 @@ fn work_title_can_follow_agent_session(record: &WorkRecord, session_id: &str) ->
         && work_references_agent_session(record, session_id)
 }
 
-fn work_references_live_app(record: &WorkRecord, app_id: &str) -> bool {
-    let app = WorkAppRef::live_app(app_id);
-    record.references_app(&app)
+fn work_references_application_surface(record: &WorkRecord, application_id: &str) -> bool {
+    record
+        .subject
+        .app_ref()
+        .is_some_and(|app| app.matches_product_app_id(application_id))
+        || record
+            .app_refs
+            .iter()
+            .any(|relation| relation.app.matches_product_app_id(application_id))
         || record.surfaces.iter().any(|surface| match surface {
-            WorkSurfaceRef::LiveApp {
-                app_id: surface_app_id,
-            } => surface_app_id == app_id,
+            WorkSurfaceRef::ApplicationSurface {
+                product_app_id: surface_application_id,
+                ..
+            } => surface_application_id == application_id,
             _ => false,
         })
         || record
             .execution_bindings
             .iter()
             .any(|binding| match &binding.source {
-                WorkExecutionSource::LiveAppWorker {
-                    app_id: source_app_id,
+                WorkExecutionSource::ApplicationAction {
+                    application_id: source_application_id,
                     ..
-                } => source_app_id == app_id,
+                } => source_application_id == application_id,
                 _ => false,
             })
 }
 
-fn work_title_can_follow_live_app(record: &WorkRecord, app_id: &str) -> bool {
-    record.title_state.can_follow_live_app(app_id) && work_references_live_app(record, app_id)
+fn work_title_can_follow_application_surface(record: &WorkRecord, application_id: &str) -> bool {
+    record
+        .title_state
+        .can_follow_application_surface(application_id)
+        && work_references_application_surface(record, application_id)
 }
 
 fn agent_session_binding_matches_turn(binding: &WorkExecutionBinding, turn_id: &str) -> bool {
@@ -1326,6 +1389,7 @@ mod tests {
                 },
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::WorkCenter,
+                primary_surface: None,
                 assignment: None,
                 title_state: None,
                 delegation: None,
@@ -1354,6 +1418,7 @@ mod tests {
                 },
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::WorkSession,
+                primary_surface: None,
                 assignment: Some(WorkAssignmentRef::agent("agentic")),
                 title_state: None,
                 delegation: None,
@@ -1380,6 +1445,7 @@ mod tests {
                 },
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::WorkSession,
+                primary_surface: None,
                 assignment: Some(WorkAssignmentRef::agent("agentic")),
                 title_state: Some(WorkTitleState::template()),
                 delegation: None,
@@ -1418,6 +1484,7 @@ mod tests {
                 },
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::WorkSession,
+                primary_surface: None,
                 assignment: Some(WorkAssignmentRef::agent("agentic")),
                 title_state: Some(WorkTitleState::template()),
                 delegation: None,
@@ -1456,6 +1523,7 @@ mod tests {
                 },
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::WorkSession,
+                primary_surface: None,
                 assignment: Some(WorkAssignmentRef::agent("agentic")),
                 title_state: None,
                 delegation: None,
@@ -1491,6 +1559,7 @@ mod tests {
                 },
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::WorkSession,
+                primary_surface: None,
                 assignment: Some(WorkAssignmentRef::agent("agentic")),
                 title_state: Some(WorkTitleState::template()),
                 delegation: None,
@@ -1523,7 +1592,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn live_app_work_title_can_follow_live_app_name() {
+    async fn application_surface_work_title_can_follow_application_name() {
         let service = service();
         let record = service
             .create(CreateWorkRequest {
@@ -1531,54 +1600,70 @@ mod tests {
                 title: "Old app name".to_string(),
                 objective: "Run the app workflow".to_string(),
                 subject: WorkSubject::App {
-                    app: WorkAppRef::live_app("live-app-1"),
+                    app: WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:test-lock"),
                     intent: Default::default(),
                 },
                 app_refs: Vec::new(),
                 scope: WorkScope::System,
                 visibility: WorkVisibility::Primary,
-                primary_surface_policy: PrimarySurfacePolicy::LiveApp,
+                primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
+                primary_surface: Some(WorkSurfaceRef::ApplicationSurface {
+                    product_app_id: "product-app-1".to_string(),
+                    surface_component_id: "product-app-1-surface".to_string(),
+                    surface_id: "primary".to_string(),
+                }),
                 assignment: None,
                 title_state: None,
                 delegation: None,
             })
             .await
-            .expect("create live app work");
+            .expect("create application surface work");
 
-        assert_eq!(record.title_state.source, WorkTitleSource::LiveApp);
+        assert_eq!(
+            record.title_state.source,
+            WorkTitleSource::ApplicationSurface
+        );
         assert_eq!(
             record.title_state.subject_ref.as_deref(),
-            Some("live-app-1")
+            Some("product-app-1")
         );
 
         let updated = service
-            .sync_title_from_live_app("live-app-1", "Expense Tracker")
+            .sync_title_from_application_surface("product-app-1", "Expense Tracker")
             .await
-            .expect("sync live app title");
+            .expect("sync application surface title");
 
         assert_eq!(updated.len(), 1);
         assert_eq!(updated[0].title, "Expense Tracker");
-        assert_eq!(updated[0].title_state.source, WorkTitleSource::LiveApp);
+        assert_eq!(
+            updated[0].title_state.source,
+            WorkTitleSource::ApplicationSurface
+        );
     }
 
     #[tokio::test]
     async fn resolve_app_work_creates_and_reuses_app_subject_work() {
         let service = service();
-        let app = WorkAppRef::live_app("live-app-1");
+        let app = WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:test-lock");
         let first = service
             .resolve_app_work(ResolveAppWorkRequest {
                 app: app.clone(),
                 intent: WorkAppIntent::Run,
                 title: "Run Expense Tracker".to_string(),
-                objective: "Use the live app".to_string(),
+                objective: "Use the Product App".to_string(),
                 scope: WorkScope::System,
                 visibility: WorkVisibility::Primary,
-                primary_surface_policy: PrimarySurfacePolicy::LiveApp,
+                primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
+                primary_surface: Some(WorkSurfaceRef::ApplicationSurface {
+                    product_app_id: "product-app-1".to_string(),
+                    surface_component_id: "product-app-1-surface".to_string(),
+                    surface_id: "primary".to_string(),
+                }),
                 assignment: Some(WorkAssignmentRef {
                     kind: WorkAssignmentKind::Application,
                     agent_type: None,
                     assistant_id: None,
-                    application_id: Some("live-app-1".to_string()),
+                    application_id: Some("product-app-1".to_string()),
                     human_label: None,
                     external_label: None,
                 }),
@@ -1602,7 +1687,13 @@ mod tests {
         );
         assert!(matches!(
             first.work.primary_surface,
-            WorkSurfaceRef::LiveApp { ref app_id } if app_id == "live-app-1"
+            WorkSurfaceRef::ApplicationSurface {
+                ref product_app_id,
+                ref surface_component_id,
+                ref surface_id,
+            } if product_app_id == "product-app-1"
+                && surface_component_id == "product-app-1-surface"
+                && surface_id == "primary"
         ));
         assert!(first.work.references_app(&app));
         assert!(first.work.app_refs.iter().any(|relation| {
@@ -1620,7 +1711,12 @@ mod tests {
                 objective: "Different objective".to_string(),
                 scope: WorkScope::System,
                 visibility: WorkVisibility::Primary,
-                primary_surface_policy: PrimarySurfacePolicy::LiveApp,
+                primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
+                primary_surface: Some(WorkSurfaceRef::ApplicationSurface {
+                    product_app_id: "product-app-1".to_string(),
+                    surface_component_id: "product-app-1-surface".to_string(),
+                    surface_id: "primary".to_string(),
+                }),
                 assignment: None,
                 app_refs: Vec::new(),
             })
@@ -1646,6 +1742,7 @@ mod tests {
                 },
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::WorkCenter,
+                primary_surface: None,
                 assignment: None,
                 title_state: None,
                 delegation: None,
@@ -1693,6 +1790,7 @@ mod tests {
                 },
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::WorkCenter,
+                primary_surface: None,
                 assignment: None,
                 title_state: None,
                 delegation: None,
@@ -2023,6 +2121,7 @@ mod tests {
                 },
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::WorkSession,
+                primary_surface: None,
                 assignment: Some(WorkAssignmentRef::agent("agentic")),
                 title_state: Some(WorkTitleState::template()),
                 delegation: None,

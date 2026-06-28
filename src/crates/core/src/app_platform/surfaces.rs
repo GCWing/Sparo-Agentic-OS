@@ -10,5 +10,5 @@ pub struct AppSurfaces {
     #[serde(default)]
     pub tool: bool,
     #[serde(default)]
-    pub live_app_backend: bool,
+    pub surface_component_backend: bool,
 }

@@ -1,0 +1,102 @@
+{
+  "entry": {
+    "title": "App Studio",
+    "description": "Build a Product App with a clear goal, work object, surface, and component graph."
+  },
+  "panel": {
+    "title": "App Studio",
+    "reload": "Reload preview",
+    "openInApps": "Open Product App",
+    "emptyTitle": "Studio is drafting for you",
+    "emptyDescription": "The first runnable version will appear here automatically.",
+    "loading": "Loading preview",
+    "loadFailed": "Failed to load preview",
+    "retry": "Retry",
+    "updating": "Updating preview…",
+    "menu": {
+      "recompile": "Recompile",
+      "installDeps": "Install deps",
+      "openInApps": "Open in Apps",
+      "reload": "Reload preview",
+      "viewPermissions": "Permissions",
+      "copyAppId": "Copy App ID",
+      "moreActions": "More actions",
+      "theme": "Theme: {{theme}}",
+      "language": "Language: {{lang}}"
+    },
+    "actions": {
+      "restartWorker": "Restart worker",
+      "stop": "Stop"
+    }
+  },
+  "permissions": {
+    "readWorkspace": "Can read workspace",
+    "noWorkspaceRead": "No workspace read",
+    "writeWorkspace": "Can write workspace",
+    "noWorkspaceWrite": "No workspace write",
+    "shellEnabled": "Shell enabled",
+    "shellDisabled": "Shell disabled",
+    "netEnabled": "Network enabled",
+    "netDisabled": "Network disabled",
+    "aiEnabled": "AI enabled",
+    "aiDisabled": "AI disabled",
+    "nodeEnabled": "Worker enabled",
+    "nodeDisabled": "Worker disabled"
+  },
+  "previewSelection": {
+    "toggleOn": "Inspect preview element",
+    "toggleOff": "Stop inspecting",
+    "inspecting": "Inspecting elements",
+    "hovering": "Inspecting {{target}}",
+    "contextLabel": "Element",
+    "addContext": "Add context",
+    "added": "Selected preview element added to chat context",
+    "alreadyAdded": "Selected preview element is already in chat context",
+    "clear": "Clear selection"
+  },
+  "diagnostics": {
+    "title": "Runtime",
+    "ok": "Runtime OK",
+    "empty": "No runtime errors yet",
+    "logsEmpty": "No runtime logs yet",
+    "issuesTab": "Issues",
+    "logsTab": "Logs",
+    "fatalCount": "{{count}} errors",
+    "warningCount": "{{count}} warnings",
+    "sendToAi": "Send to AI for fix",
+    "sendDisplay": "Fix Product App runtime issue",
+    "sent": "Sent to AI",
+    "clear": "Clear",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copyAppId": "App ID copied",
+    "filterAll": "All",
+    "filterError": "Error",
+    "filterWarn": "Warn",
+    "filterInfo": "Info",
+    "followTail": "Follow",
+    "pauseTail": "Paused",
+    "newMessages": "{{count}} new",
+    "searchPlaceholder": "Filter…",
+    "permissionsTitle": "Permissions",
+    "showStack": "Stack",
+    "hideStack": "Hide stack",
+    "fixWithAi": "Fix",
+    "truncatedHint": "Last {{max}} entries shown · Full log at {{path}}",
+    "buildMarker": "— Built at {{time}} —",
+    "groups": {
+      "fatal": "Fatal errors",
+      "warning": "Warnings",
+      "logs": "Runtime logs"
+    },
+    "hints": {
+      "runtime-unavailable": "Install a JS runtime to enable worker features.",
+      "deps-install": "Run Install deps to resolve missing packages.",
+      "permission": "Check the app's permission policy.",
+      "workspace-access": "Grant workspace path in the app's permissions.",
+      "unknown-method": "The called bridge method is not supported by the host runtime."
+    }
+  }
+}

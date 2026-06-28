@@ -1,0 +1,72 @@
+{
+  "id": "builtin-ppt-live",
+  "version": "150.0.0",
+  "name": "PPT Live",
+  "description": "AI deck studio for generating, editing, previewing, and exporting presentation decks.",
+  "goal": "Create and refine a presentation deck from outline through designed slides and export.",
+  "interactionModel": "interactiveWorkspace",
+  "workObjectKinds": [],
+  "truthSource": "ownedObjectState",
+  "primarySurface": {
+    "componentId": "builtin-ppt-live-surface",
+    "surfaceId": "primary"
+  },
+  "primarySurfaceMode": "sidecarLinked",
+  "components": [
+    {
+      "componentId": "builtin-ppt-live-surface",
+      "kind": "surface",
+      "source": "private",
+      "role": "primarySurface",
+      "capabilities": [
+        "interactiveSurface"
+      ]
+    },
+    {
+      "componentId": "builtin-ppt-live-agent",
+      "kind": "agent",
+      "source": "private",
+      "role": "assistant",
+      "capabilities": [
+        "generateDeck",
+        "reviseSlide"
+      ]
+    },
+    {
+      "componentId": "surface-component-runtime",
+      "kind": "runtime",
+      "source": "shared",
+      "role": "runtimeHost",
+      "version": "^1.0.0",
+      "capabilities": [
+        "uiWorker"
+      ]
+    }
+  ],
+  "componentLockId": "",
+  "permissions": {
+    "fs": true,
+    "net": true,
+    "shell": false,
+    "gui": false,
+    "secrets": false,
+    "ai": true
+  },
+  "installScope": "system",
+  "catalogVisibility": "discoverable",
+  "enabled": true,
+  "icon": "Presentation",
+  "category": "productivity",
+  "tags": [
+    "built-in",
+    "presentation",
+    "ppt",
+    "ai"
+  ],
+  "launch": {
+    "kind": "applicationSurface",
+    "targetId": "builtin-ppt-live",
+    "scopeRequirement": "workspaceOptional",
+    "surfaceId": "primary"
+  }
+}

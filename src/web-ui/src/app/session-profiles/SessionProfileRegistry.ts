@@ -13,9 +13,9 @@ import { codingProfile } from './profiles/codingProfile';
 import { coworkProfile } from './profiles/coworkProfile';
 import { designProfile } from './profiles/designProfile';
 import { deepResearchProfile } from './profiles/deepResearchProfile';
-import { liveAppStudioProfile } from './profiles/liveAppStudioProfile';
-import { liveAppWorkbenchProfile } from './profiles/liveAppWorkbenchProfile';
-import { agentAppStudioProfile } from './profiles/agentAppStudioProfile';
+import { appStudioProfile } from './profiles/appStudioProfile';
+import { surfaceComponentWorkbenchProfile } from './profiles/surfaceComponentWorkbenchProfile';
+import { componentStudioProfile } from './profiles/componentStudioProfile';
 import {
   SESSION_DESCRIPTORS,
   type SessionDescriptor,
@@ -28,9 +28,9 @@ import {
  */
 const PROFILES: readonly SessionProfile[] = [
   agenticOsProfile,
-  liveAppWorkbenchProfile,
-  liveAppStudioProfile,
-  agentAppStudioProfile,
+  surfaceComponentWorkbenchProfile,
+  appStudioProfile,
+  componentStudioProfile,
   coworkProfile,
   designProfile,
   deepResearchProfile,
@@ -46,9 +46,9 @@ export type SessionDisplayMode =
   | 'cowork'
   | 'design'
   | 'agentic-os'
-  | 'liveappstudio'
-  | 'agentappstudio'
-  | 'liveappworkbench';
+  | 'appstudio'
+  | 'componentstudio'
+  | 'surfaceComponentWorkbench';
 
 export type SessionDefaultSurface = 'session' | 'agentic-os-home' | 'background';
 
@@ -65,9 +65,9 @@ export interface SessionTypeDefinition {
     readonly keySuffix: string;
     readonly aiPartnerKey: string;
     readonly narrativeKey?: string;
-    readonly headingIcon?: 'agentic-os' | 'live-app-studio' | 'agent-app-studio';
+    readonly headingIcon?: 'agentic-os' | 'app-studio' | 'component-studio';
     readonly workspaceCopy: 'default' | 'cowork' | 'design';
-    readonly promptPanel?: 'cowork' | 'live-app-studio' | 'agent-app-studio';
+    readonly promptPanel?: 'cowork' | 'app-studio' | 'component-studio';
   };
 }
 
@@ -90,12 +90,12 @@ const SESSION_TYPE_DEFINITIONS: readonly SessionTypeDefinition[] = [
     },
   },
   {
-    typeId: 'live-app-workbench',
-    descriptorDefaults: SESSION_DESCRIPTORS.liveAppWorkbench,
-    profile: liveAppWorkbenchProfile,
+    typeId: 'surface-component-workbench',
+    descriptorDefaults: SESSION_DESCRIPTORS.surfaceComponentWorkbench,
+    profile: surfaceComponentWorkbenchProfile,
     lifecycle: {
-      displayMode: 'liveappworkbench',
-      titleKey: 'flow-chat:session.newLiveAppWorkbenchWithIndex',
+      displayMode: 'surfaceComponentWorkbench',
+      titleKey: 'flow-chat:session.newSurfaceComponentWorkbenchWithIndex',
       defaultSurface: 'session',
     },
     welcome: {
@@ -105,39 +105,39 @@ const SESSION_TYPE_DEFINITIONS: readonly SessionTypeDefinition[] = [
     },
   },
   {
-    typeId: 'live-app-studio',
-    descriptorDefaults: SESSION_DESCRIPTORS.liveAppStudio,
-    profile: liveAppStudioProfile,
+    typeId: 'app-studio',
+    descriptorDefaults: SESSION_DESCRIPTORS.appStudio,
+    profile: appStudioProfile,
     lifecycle: {
-      displayMode: 'liveappstudio',
-      titleKey: 'flow-chat:session.newLiveAppStudioWithIndex',
+      displayMode: 'appstudio',
+      titleKey: 'flow-chat:session.newAppStudioWithIndex',
       defaultSurface: 'session',
     },
     welcome: {
-      keySuffix: 'LiveAppStudio',
-      aiPartnerKey: 'welcome.aiPartnerLiveAppStudio',
-      narrativeKey: 'welcome.narrativeLiveAppStudio',
-      headingIcon: 'live-app-studio',
+      keySuffix: 'AppStudio',
+      aiPartnerKey: 'welcome.aiPartnerAppStudio',
+      narrativeKey: 'welcome.narrativeAppStudio',
+      headingIcon: 'app-studio',
       workspaceCopy: 'default',
-      promptPanel: 'live-app-studio',
+      promptPanel: 'app-studio',
     },
   },
   {
-    typeId: 'agent-app-studio',
-    descriptorDefaults: SESSION_DESCRIPTORS.agentAppStudio,
-    profile: agentAppStudioProfile,
+    typeId: 'component-studio',
+    descriptorDefaults: SESSION_DESCRIPTORS.componentStudio,
+    profile: componentStudioProfile,
     lifecycle: {
-      displayMode: 'agentappstudio',
-      titleKey: 'flow-chat:session.newAgentAppStudioWithIndex',
+      displayMode: 'componentstudio',
+      titleKey: 'flow-chat:session.newComponentStudioWithIndex',
       defaultSurface: 'session',
     },
     welcome: {
-      keySuffix: 'AgentAppStudio',
-      aiPartnerKey: 'welcome.aiPartnerAgentAppStudio',
-      narrativeKey: 'welcome.narrativeAgentAppStudio',
-      headingIcon: 'agent-app-studio',
+      keySuffix: 'ComponentStudio',
+      aiPartnerKey: 'welcome.aiPartnerComponentStudio',
+      narrativeKey: 'welcome.narrativeComponentStudio',
+      headingIcon: 'component-studio',
       workspaceCopy: 'default',
-      promptPanel: 'agent-app-studio',
+      promptPanel: 'component-studio',
     },
   },
   {

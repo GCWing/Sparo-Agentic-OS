@@ -1,0 +1,531 @@
+/**
+ * useSurfaceComponentBridge �?handles postMessage JSON-RPC from the Product App iframe:
+ * worker.call �?JS Worker, fs/shell/os/net �?host primitives, dialog.open/save/message �?Tauri dialog,
+ * ai.* �?Host AI client, clipboard.* �?Host navigator.clipboard.
+ * Also handles sparo/request-theme and pushes theme changes to the iframe.
+ */
+import { useLayoutEffect, useRef, useEffect, RefObject } from 'react';
+import { surfaceComponentAPI } from '@/infrastructure/api/service-api/SurfaceComponentAPI';
+import { open as dialogOpen, save as dialogSave, message as dialogMessage } from '@tauri-apps/plugin-dialog';
+import type { SurfaceComponent } from '@/infrastructure/api/service-api/SurfaceComponentAPI';
+import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
+import { useI18n } from '@/infrastructure/i18n';
+import { buildSurfaceComponentThemeVars } from '../buildSurfaceComponentThemeVars';
+import { api } from '@/infrastructure/api/service-api/ApiClient';
+import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
+import { descriptorFromAgentType } from '@/flow_chat/domain/sessionDescriptor';
+import { useSurfaceComponentStore } from '../surfaceComponentStore';
+import {
+  normalizeAppScope,
+  type AppScope,
+  workspacePathFromAppScope,
+} from '@/shared/types/app-scope';
+
+interface JSONRPC {
+  jsonrpc?: string;
+  id: number | string;
+  method: string;
+  params?: Record<string, unknown>;
+}
+
+interface AiStreamPayload {
+  appId: string;
+  streamId: string;
+  type: 'chunk' | 'done' | 'error';
+  data: Record<string, unknown>;
+}
+
+interface AgenticEventPayload {
+  sessionId?: string;
+  turnId?: string;
+  [key: string]: unknown;
+}
+
+interface RuntimeIssuePayload {
+  appId?: string;
+  severity?: 'fatal' | 'warning' | 'noise';
+  message?: string;
+  source?: string;
+  stack?: string;
+  category?: string;
+  timestampMs?: number;
+}
+
+interface RuntimeLogPayload {
+  appId?: string;
+  level?: 'debug' | 'info' | 'warn' | 'error';
+  category?: string;
+  message?: string;
+  source?: string;
+  stack?: string;
+  details?: unknown;
+  timestampMs?: number;
+}
+
+interface SurfaceComponentBridgeOptions {
+  scope?: AppScope | null;
+}
+
+const NOOP_BRIDGE_METHODS = new Set([
+  // Emitted by the injected scroll-boundary script when iframe scrolling reaches an edge.
+  'sparo/sandbox-wheel',
+]);
+
+const HOST_PRIMITIVE_NAMESPACES = new Set(['fs', 'shell', 'os', 'net']);
+
+function isHostPrimitive(method: string): boolean {
+  const [namespace] = method.split('.', 1);
+  return HOST_PRIMITIVE_NAMESPACES.has(namespace);
+}
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  return String(error);
+}
+
+export function useSurfaceComponentBridge(
+  iframeRef: RefObject<HTMLIFrameElement>,
+  app: SurfaceComponent,
+  options: SurfaceComponentBridgeOptions = {},
+) {
+  const { theme: currentTheme } = useTheme();
+  const { currentLanguage } = useI18n();
+  const themeRef = useRef(currentTheme);
+  themeRef.current = currentTheme;
+  const localeRef = useRef(currentLanguage);
+  localeRef.current = currentLanguage;
+  const workspacePathRef = useRef(workspacePathFromAppScope(options.scope));
+  workspacePathRef.current = workspacePathFromAppScope(normalizeAppScope(options.scope));
+  const agenticSessionIdsRef = useRef<Set<string>>(new Set());
+
+  const appIdRef = useRef(app.id);
+  useLayoutEffect(() => {
+    appIdRef.current = app.id;
+  }, [app.id]);
+
+  useLayoutEffect(() => {
+    const handler = async (event: MessageEvent) => {
+      if (!iframeRef.current || event.source !== iframeRef.current.contentWindow) return;
+      const msg = event.data as JSONRPC & { method?: string };
+      if (!msg?.method) return;
+
+      const { id, method, params = {} } = msg;
+      const appId = appIdRef.current;
+      const reply = (result: unknown) =>
+        iframeRef.current?.contentWindow?.postMessage({ jsonrpc: '2.0', id, result }, '*');
+      const replyError = (message: string) =>
+        iframeRef.current?.contentWindow?.postMessage(
+          { jsonrpc: '2.0', id, error: { code: -32000, message } },
+          '*',
+        );
+
+      if (method === 'sparo/request-theme') {
+        const payload = buildSurfaceComponentThemeVars(themeRef.current);
+        if (payload && iframeRef.current?.contentWindow) {
+          iframeRef.current.contentWindow.postMessage(
+            { type: 'sparo:event', event: 'themeChange', payload },
+            '*',
+          );
+        }
+        return;
+      }
+
+      if (method === 'sparo/request-locale') {
+        if (iframeRef.current?.contentWindow) {
+          iframeRef.current.contentWindow.postMessage(
+            { type: 'sparo:event', event: 'localeChange', payload: { locale: localeRef.current } },
+            '*',
+          );
+        }
+        return;
+      }
+
+      if (method === 'sparo/runtime-error') {
+        const issue = params as RuntimeIssuePayload;
+        void surfaceComponentAPI.reportRuntimeIssue({
+          appId,
+          severity: issue.severity ?? 'fatal',
+          message: issue.message ?? 'Unknown runtime error',
+          source: issue.source,
+          stack: issue.stack,
+          category: issue.category ?? 'runtime',
+          timestampMs: issue.timestampMs ?? Date.now(),
+        }).catch(() => undefined);
+        return;
+      }
+
+      if (method === 'sparo/runtime-log') {
+        const logEntry = params as RuntimeLogPayload;
+        if (logEntry.message) {
+          void surfaceComponentAPI.reportRuntimeLog({
+            appId,
+            level: logEntry.level ?? 'info',
+            category: logEntry.category ?? 'runtime',
+            message: logEntry.message,
+            source: logEntry.source,
+            stack: logEntry.stack,
+            details: logEntry.details,
+            timestampMs: logEntry.timestampMs ?? Date.now(),
+          }).catch(() => undefined);
+        }
+        return;
+      }
+
+      if (NOOP_BRIDGE_METHODS.has(method)) {
+        return;
+      }
+
+      try {
+        if (isHostPrimitive(method)) {
+          const result = await surfaceComponentAPI.workerCall(
+            appId,
+            method,
+            params,
+            workspacePathRef.current || undefined,
+          );
+          reply(result);
+          return;
+        }
+        if (method === 'sparo.deck.renderPage') {
+          const result = await api.invoke<string>('surface_component_render_slide_page', {
+            request: {
+              html: String((params as { html?: string }).html ?? ''),
+              format: String((params as { format?: string }).format ?? 'png'),
+              width: (params as { width?: number }).width,
+              height: (params as { height?: number }).height,
+            },
+          });
+          reply(result);
+          return;
+        }
+        if (method === 'worker.call') {
+          useSurfaceComponentStore.getState().markWorkerRunning(appId);
+          const result = await surfaceComponentAPI.workerCall(
+            appId,
+            (params.method as string) ?? '',
+            (params.params as Record<string, unknown>) ?? {},
+            workspacePathRef.current || undefined,
+          );
+          reply(result);
+          return;
+        }
+        if (method === 'dialog.open') {
+          reply(await dialogOpen(params as unknown as Parameters<typeof dialogOpen>[0]));
+          return;
+        }
+        if (method === 'dialog.save') {
+          reply(await dialogSave(params as unknown as Parameters<typeof dialogSave>[0]));
+          return;
+        }
+        if (method === 'dialog.message') {
+          reply(await dialogMessage(params as unknown as Parameters<typeof dialogMessage>[0]));
+          return;
+        }
+
+        if (method === 'ai.complete') {
+          const result = await surfaceComponentAPI.aiComplete(appId, (params.prompt as string) ?? '', {
+            systemPrompt: params.systemPrompt as string | undefined,
+            model: params.model as string | undefined,
+            maxTokens: params.maxTokens as number | undefined,
+            temperature: params.temperature as number | undefined,
+          });
+          reply(result);
+          return;
+        }
+        if (method === 'ai.chat') {
+          const result = await surfaceComponentAPI.aiChat(
+            appId,
+            (params.messages as { role: 'user' | 'assistant'; content: string }[]) ?? [],
+            (params.streamId as string) ?? '',
+            {
+              systemPrompt: params.systemPrompt as string | undefined,
+              model: params.model as string | undefined,
+              maxTokens: params.maxTokens as number | undefined,
+              temperature: params.temperature as number | undefined,
+            },
+          );
+          reply(result);
+          return;
+        }
+        if (method === 'ai.cancel') {
+          await surfaceComponentAPI.aiCancel(appId, (params.streamId as string) ?? '');
+          reply(null);
+          return;
+        }
+        if (method === 'ai.getModels') {
+          const models = await surfaceComponentAPI.aiListModels(appId);
+          reply(models);
+          return;
+        }
+
+        if (method === 'backend.call') {
+          const result = await surfaceComponentAPI.backendCall(
+            appId,
+            (params.target as string) ?? '',
+            params.input,
+            {
+              entityId: params.entityId as string | undefined,
+              idempotencyKey: params.idempotencyKey as string | undefined,
+              workspacePath: workspacePathRef.current || undefined,
+            },
+          );
+          const isPrivatePptLiveRun = appId === 'builtin-ppt-live' && result.backendId === 'ppt';
+          if (result.backendKind === 'agentComponent' && result.sessionId) {
+            // Private PPT Live runs must still receive agentic stream events in the iframe,
+            // but should not appear as external Flow Chat sessions.
+            agenticSessionIdsRef.current.add(result.sessionId);
+            if (!isPrivatePptLiveRun) {
+              flowChatStore.addExternalSession(
+                result.sessionId,
+                `${result.backendId}.${result.action}`,
+                descriptorFromAgentType(result.agentType),
+                undefined,
+              );
+            }
+          }
+          reply(result);
+          return;
+        }
+        if (method === 'backend.cancel') {
+          const sessionId = typeof params.sessionId === 'string' ? params.sessionId : '';
+          const turnId = typeof params.turnId === 'string' ? params.turnId : '';
+          if (!sessionId || !turnId) {
+            replyError('backend.cancel requires sessionId and turnId');
+            return;
+          }
+          await api.invoke('cancel_dialog_turn', {
+            request: { sessionId, dialogTurnId: turnId },
+          });
+          reply(null);
+          return;
+        }
+        if (method === 'backend.status') {
+          const actionRunId = typeof params.actionRunId === 'string' ? params.actionRunId : '';
+          if (!actionRunId) {
+            replyError('backend.status requires actionRunId');
+            return;
+          }
+          const result = await surfaceComponentAPI.backendStatus(appId, actionRunId, {
+            sessionId: params.sessionId as string | undefined,
+            turnId: params.turnId as string | undefined,
+          });
+          reply(result);
+          return;
+        }
+        if (method === 'backend.cancelRun') {
+          const actionRunId = typeof params.actionRunId === 'string' ? params.actionRunId : '';
+          if (!actionRunId) {
+            replyError('backend.cancelRun requires actionRunId');
+            return;
+          }
+          const result = await surfaceComponentAPI.backendCancelRun(appId, actionRunId, {
+            sessionId: params.sessionId as string | undefined,
+            turnId: params.turnId as string | undefined,
+          });
+          reply(result);
+          return;
+        }
+        if (method === 'backend.cancelStaleRuns') {
+          const result = await api.invoke<{
+            cancelledSessions: number;
+            cancelledTurns: number;
+            clearedQueues: number;
+          }>('surface_component_cancel_stale_ppt_runs', {
+            request: {
+              workspacePath: workspacePathRef.current || undefined,
+            },
+          });
+          agenticSessionIdsRef.current.clear();
+          reply(result);
+          return;
+        }
+        if (method === 'backend.turnText') {
+          const sessionId = typeof params.sessionId === 'string' ? params.sessionId : '';
+          const turnId = typeof params.turnId === 'string' ? params.turnId : '';
+          if (!sessionId || !turnId) {
+            replyError('backend.turnText requires sessionId and turnId');
+            return;
+          }
+          const result = await api.invoke<{ text: string }>('surface_component_ppt_turn_assistant_text', {
+            request: {
+              sessionId,
+              turnId,
+              workspacePath: workspacePathRef.current || undefined,
+            },
+          });
+          reply(result);
+          return;
+        }
+
+        if (method === 'clipboard.writeText') {
+          await navigator.clipboard.writeText((params.text as string) ?? '');
+          reply(null);
+          return;
+        }
+        if (method === 'clipboard.readText') {
+          const text = await navigator.clipboard.readText();
+          reply(text);
+          return;
+        }
+
+        if (method === 'host.fillChatInput') {
+          const text = typeof params.text === 'string' ? params.text : '';
+          window.dispatchEvent(new CustomEvent('fill-chat-input', { detail: { message: text } }));
+          reply(null);
+          return;
+        }
+
+        const message = `Unknown method: ${method}`;
+        replyError(message);
+      } catch (error) {
+        const message = `Bridge call failed: ${method}: ${errorMessage(error)}`;
+        replyError(message);
+      }
+    };
+    window.addEventListener('message', handler);
+    return () => {
+      window.removeEventListener('message', handler);
+    };
+  }, [iframeRef]);
+
+  useEffect(() => {
+    const payload = buildSurfaceComponentThemeVars(currentTheme);
+    if (!payload || !iframeRef.current?.contentWindow) return;
+    iframeRef.current.contentWindow.postMessage(
+      { type: 'sparo:event', event: 'themeChange', payload },
+      '*',
+    );
+  }, [currentTheme, iframeRef]);
+
+  useEffect(() => {
+    if (!currentLanguage || !iframeRef.current?.contentWindow) return;
+    iframeRef.current.contentWindow.postMessage(
+      { type: 'sparo:event', event: 'localeChange', payload: { locale: currentLanguage } },
+      '*',
+    );
+  }, [currentLanguage, iframeRef]);
+
+  useEffect(() => {
+    const currentAppId = app.id;
+    const unlisten = api.listen<AiStreamPayload>('surface-component://ai-stream', (payload) => {
+      if (!iframeRef.current?.contentWindow) return;
+      if (payload.appId !== currentAppId) return;
+      iframeRef.current.contentWindow.postMessage(
+        {
+          type: 'sparo:event',
+          event: 'ai:stream',
+          payload: {
+            streamId: payload.streamId,
+            type: payload.type,
+            data: payload.data,
+          },
+        },
+        '*',
+      );
+    });
+
+    return () => {
+      unlisten();
+    };
+  }, [app.id, iframeRef]);
+
+  useEffect(() => {
+    const currentAppId = app.id;
+    const eventName = `surface-component://worker-event:${currentAppId}`;
+    const unlisten = api.listen<{ appId: string; event: string; data: unknown }>(
+      eventName,
+      (payload) => {
+        if (!iframeRef.current?.contentWindow) return;
+        iframeRef.current.contentWindow.postMessage(
+          {
+            type: 'sparo:event',
+            event: 'worker:event',
+            payload: {
+              event: payload.event,
+              data: payload.data,
+            },
+          },
+          '*',
+        );
+      },
+    );
+
+    return () => {
+      unlisten();
+    };
+  }, [app.id, iframeRef]);
+
+  useEffect(() => {
+    const currentAppId = app.id;
+    const unlisten = api.listen<{
+      appId: string;
+      backendId: string;
+      action: string;
+      actionRunId: string;
+      backendKind: string;
+      backendComponentId: string;
+      event: unknown;
+    }>('surface-component-backend-event', (payload) => {
+      if (payload.appId !== currentAppId) return;
+      if (!iframeRef.current?.contentWindow) return;
+      iframeRef.current.contentWindow.postMessage(
+        {
+          type: 'sparo:event',
+          event: 'backend:event',
+          payload: {
+            sourceEvent: 'surface-component-backend-event',
+            ...payload,
+          },
+        },
+        '*',
+      );
+    });
+
+    return () => {
+      unlisten();
+    };
+  }, [app.id, iframeRef]);
+
+  useEffect(() => {
+    const eventNames = [
+      'agentic://session-created',
+      'agentic://session-state-changed',
+      'agentic://dialog-turn-started',
+      'agentic://model-round-started',
+      'agentic://model-round-completed',
+      'agentic://text-chunk',
+      'agentic://tool-event',
+      'agentic://dialog-turn-completed',
+      'agentic://dialog-turn-failed',
+      'agentic://dialog-turn-cancelled',
+      'agentic://token-usage-updated',
+      'agentic://context-compression-started',
+      'agentic://context-compression-completed',
+      'agentic://context-compression-failed',
+    ];
+
+    const unlisteners = eventNames.map((eventName) =>
+      api.listen<AgenticEventPayload>(eventName, (payload) => {
+        const sessionId = payload.sessionId;
+        if (!sessionId || !agenticSessionIdsRef.current.has(sessionId)) return;
+        if (!iframeRef.current?.contentWindow) return;
+        iframeRef.current.contentWindow.postMessage(
+          {
+            type: 'sparo:event',
+            event: 'backend:event',
+            payload: {
+              sourceEvent: eventName,
+              ...payload,
+            },
+          },
+          '*',
+        );
+      }),
+    );
+
+    return () => {
+      unlisteners.forEach((unlisten) => unlisten());
+    };
+  }, [iframeRef]);
+}

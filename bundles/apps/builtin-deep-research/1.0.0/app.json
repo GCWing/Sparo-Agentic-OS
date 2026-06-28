@@ -1,0 +1,61 @@
+{
+  "id": "builtin-deep-research",
+  "version": "1.0.0",
+  "name": "Deep Research",
+  "description": "Research app for parallel investigation, synthesis, and comprehensive report creation.",
+  "goal": "Investigate a topic deeply, compare evidence, and synthesize a useful report.",
+  "interactionModel": "conversation",
+  "workObjectKinds": [],
+  "primarySurface": {
+    "componentId": "builtin-deep-research-chat-surface",
+    "surfaceId": "primary"
+  },
+  "primarySurfaceMode": "chatPrimary",
+  "components": [
+    {
+      "componentId": "builtin-deep-research-chat-surface",
+      "kind": "surface",
+      "source": "private",
+      "role": "primarySurface",
+      "capabilities": [
+        "chatPrimary"
+      ]
+    },
+    {
+      "componentId": "builtin-deep-research-agent",
+      "kind": "agent",
+      "source": "private",
+      "role": "assistant",
+      "capabilities": [
+        "parallelResearch",
+        "synthesizeReport"
+      ]
+    }
+  ],
+  "componentLockId": "",
+  "permissions": {
+    "fs": true,
+    "net": true,
+    "shell": true,
+    "gui": false,
+    "secrets": false,
+    "ai": true
+  },
+  "installScope": "system",
+  "catalogVisibility": "discoverable",
+  "enabled": true,
+  "icon": "Search",
+  "category": "analysis",
+  "tags": [
+    "built-in",
+    "research",
+    "report"
+  ],
+  "launch": {
+    "kind": "agentSession",
+    "targetId": "DeepResearch",
+    "scopeRequirement": "workspaceOptional",
+    "agentType": "DeepResearch",
+    "surfaceId": "primary"
+  }
+}

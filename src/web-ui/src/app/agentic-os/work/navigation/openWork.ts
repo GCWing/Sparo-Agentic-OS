@@ -3,7 +3,7 @@ import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
 import { useWorkDockStore } from '@/app/stores/workDockStore';
 import type { WorkRecord, WorkSurfaceRef } from '../domain/workTypes';
 import { resolveWorkSurface } from './workSurfaceResolver';
-import { openLiveAppSurface } from '@/app/scenes/apps/live-app/liveAppWorkbenchService';
+import { openProductAppSurface } from '@/app/scenes/apps/surface-component/surfaceComponentWorkbenchService';
 import type { WorkspaceSurfaceContext } from '@/app/navigation/workspaceSurfaceTypes';
 import { appScopeFromWorkspacePath, systemAppScope, type AppScope } from '@/shared/types/app-scope';
 import type { WorkAppRef } from '../domain/workTypes';
@@ -72,17 +72,18 @@ export async function openWorkSurface(
     case 'agent_session':
       await openMainSession(surface.sessionId, { context });
       return;
-    case 'live_app':
-      await openLiveAppSurface(surface.appId, {
-        scope: options.scope ?? systemAppScope(),
-        context,
-      });
-      return;
     case 'work_center':
       openWorkInCenter(surface.workId);
       return;
     case 'application_surface':
-      openWorkspaceScene('apps', { context, scope: options.runtimeScope ?? systemRuntimeScope() });
+      await openProductAppSurface({
+        productAppId: surface.productAppId,
+        surfaceComponentId: surface.surfaceComponentId,
+        surfaceId: surface.surfaceId,
+      }, {
+        scope: options.scope ?? systemAppScope(),
+        context,
+      });
       return;
     case 'os_agent_home':
       openWorkInCenter(fallbackWorkId);

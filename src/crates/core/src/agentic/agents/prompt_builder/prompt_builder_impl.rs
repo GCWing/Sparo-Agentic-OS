@@ -365,7 +365,7 @@ Output Mermaid in fenced code blocks (```mermaid) so the UI can render them.
     /// - `{ENV_INFO}` - Environment information
     /// - `{AGENT_MEMORY}` - Agent memory instructions + auto-loaded canonical memory and recent journal context
     /// - `{VISUAL_MODE}` - Visual mode instruction (Mermaid diagrams, read from global config)
-    /// - `{SPARO_SELF}` - Sparo OS app capabilities (scenes, settings, Live Apps) for ControlHub app domain
+    /// - `{SPARO_SELF}` - Sparo OS app capabilities (scenes, settings, Product Apps) for ControlHub app domain
     /// - `{WORKSPACE_CANDIDATES}` - Compact Agentic OS workspace routing candidates
     /// If a placeholder is not in the template, corresponding content will not be added
     pub async fn build_prompt_from_template(&self, template: &str) -> BitFunResult<String> {

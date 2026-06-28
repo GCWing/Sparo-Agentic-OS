@@ -25,14 +25,14 @@ export type TriggerSource =
   | 'cli'
   | 'remote_relay';
 
-export type LiveAppWorkbenchPanelType =
-  | 'live-app-runner'
-  | 'live-app-workbench-tab'
-  | 'live-app-diagnostics';
+export type SurfaceComponentWorkbenchPanelType =
+  | 'surface-component-runner'
+  | 'surface-component-workbench-tab'
+  | 'surface-component-diagnostics';
 
-export interface LiveAppWorkbenchTabMetadata {
+export interface SurfaceComponentWorkbenchTabMetadata {
   id: string;
-  type: LiveAppWorkbenchPanelType;
+  type: SurfaceComponentWorkbenchPanelType;
   title: string;
   route?: string;
   default?: boolean;
@@ -40,18 +40,18 @@ export interface LiveAppWorkbenchTabMetadata {
   data?: Record<string, unknown>;
 }
 
-export interface LiveAppWorkbenchSessionMetadata {
+export interface SurfaceComponentWorkbenchSessionMetadata {
   appId: string;
   appName: string;
   entityId?: string | null;
-  profile: 'live-app-workbench' | string;
+  profile: 'surface-component-workbench' | string;
   version?: number;
   sourceRevision?: string;
   interactionTitle?: string;
   scope: AppScope;
   workspacePath?: string | null;
   chat?: Record<string, unknown>;
-  tabs: LiveAppWorkbenchTabMetadata[];
+  tabs: SurfaceComponentWorkbenchTabMetadata[];
 }
 
 export type AgentSessionBindingMode =
@@ -63,7 +63,7 @@ export type AgentSessionBindingMode =
   | (string & {});
 
 export type AgentSessionBoundSubjectKind =
-  | 'live-app'
+  | 'product-app'
   | 'artifact'
   | 'file'
   | 'workspace'
@@ -109,7 +109,7 @@ export interface SessionCustomMetadata extends Record<string, unknown> {
   } | null;
   lastFinishedAt?: number | null;
   agentSessionBinding?: AgentSessionBindingMetadata;
-  liveAppWorkbench?: LiveAppWorkbenchSessionMetadata;
+  surfaceComponentWorkbench?: SurfaceComponentWorkbenchSessionMetadata;
 }
 
 export interface SessionMetadata {

@@ -48,7 +48,7 @@
   letter-spacing: -0.02em;
 }
 
-/* Agentic OS / Live App Studio heading icons */
+/* Agentic OS / App Studio heading icons */
 .welcome-panel__heading--icon {
   display: flex;
   align-items: center;
@@ -63,7 +63,7 @@
   color: inherit;
 }
 
-.welcome-panel__heading-icon--liveapp {
+.welcome-panel__heading-icon--studio {
   color: var(--ds-chat-accent);
 }
 
@@ -295,28 +295,28 @@
   width: 100%;
 }
 
-/* ── Live App Studio ── */
+/* App Studio */
 
-.welcome-panel__liveapp {
+.welcome-panel__studio-prompts {
   display: flex;
   flex-direction: column;
   gap: 12px;
   width: 100%;
 }
 
-.welcome-panel__liveapp-title {
+.welcome-panel__studio-prompt-title {
   font-size: 13px;
   font-weight: 600;
   color: var(--ds-chat-text-primary);
 }
 
-.welcome-panel__liveapp-grid {
+.welcome-panel__studio-prompt-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
-.welcome-panel__liveapp-card {
+.welcome-panel__studio-prompt-card {
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
@@ -335,13 +335,13 @@
   transition: border-color 0.14s ease, background 0.14s ease, transform 0.14s ease;
 }
 
-.welcome-panel__liveapp-card:hover {
+.welcome-panel__studio-prompt-card:hover {
   border-color: var(--ds-color-accent-300);
   background: var(--ds-color-element-soft);
   transform: translateY(-1px);
 }
 
-.welcome-panel__liveapp-card-icon {
+.welcome-panel__studio-prompt-card-icon {
   display: inline-flex;
   flex-shrink: 0;
   align-items: center;
@@ -354,21 +354,21 @@
   background: var(--ds-color-bg-app);
 }
 
-.welcome-panel__liveapp-card-copy {
+.welcome-panel__studio-prompt-card-copy {
   display: flex;
   flex-direction: column;
   gap: 5px;
   min-width: 0;
 }
 
-.welcome-panel__liveapp-card-title {
+.welcome-panel__studio-prompt-card-title {
   font-size: 13px;
   font-weight: 650;
   line-height: 1.25;
   color: var(--ds-chat-text-primary);
 }
 
-.welcome-panel__liveapp-card-desc {
+.welcome-panel__studio-prompt-card-desc {
   font-size: 12px;
   line-height: 1.4;
   color: var(--ds-chat-text-secondary);
@@ -402,7 +402,7 @@
     max-width: min(300px, calc(100vw - 40px));
   }
 
-  .welcome-panel__liveapp-grid {
+  .welcome-panel__studio-prompt-grid {
     grid-template-columns: 1fr;
   }
 }

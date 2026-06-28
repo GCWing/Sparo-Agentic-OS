@@ -130,6 +130,80 @@ impl PathManager {
         self.user_root.join("apps")
     }
 
+    /// System Product App packages root: `<app-root>/apps/`.
+    pub fn system_product_apps_dir(&self) -> PathBuf {
+        self.apps_dir()
+    }
+
+    /// System Component packages root: `<app-root>/components/`.
+    pub fn system_components_dir(&self) -> PathBuf {
+        self.user_root.join("components")
+    }
+
+    /// Project Product App packages root: `<workspace>/.sparo_os/apps/`.
+    pub fn project_product_apps_dir(&self, workspace_path: &Path) -> PathBuf {
+        self.project_root(workspace_path).join("apps")
+    }
+
+    /// Project Component packages root: `<workspace>/.sparo_os/components/`.
+    pub fn project_components_dir(&self, workspace_path: &Path) -> PathBuf {
+        self.project_root(workspace_path).join("components")
+    }
+
+    /// Versioned system Product App package directory:
+    /// `<app-root>/apps/<app-id>/<app-version>/`.
+    pub fn system_product_app_version_dir(&self, app_id: &str, app_version: &str) -> PathBuf {
+        versioned_package_dir(&self.system_product_apps_dir(), app_id, app_version)
+    }
+
+    /// Versioned project Product App package directory:
+    /// `<workspace>/.sparo_os/apps/<app-id>/<app-version>/`.
+    pub fn project_product_app_version_dir(
+        &self,
+        workspace_path: &Path,
+        app_id: &str,
+        app_version: &str,
+    ) -> PathBuf {
+        versioned_package_dir(
+            &self.project_product_apps_dir(workspace_path),
+            app_id,
+            app_version,
+        )
+    }
+
+    /// Versioned system Component package directory:
+    /// `<app-root>/components/<kind>/<component-id>/<component-version>/`.
+    pub fn system_component_version_dir(
+        &self,
+        kind: &str,
+        component_id: &str,
+        component_version: &str,
+    ) -> PathBuf {
+        versioned_component_dir(
+            &self.system_components_dir(),
+            kind,
+            component_id,
+            component_version,
+        )
+    }
+
+    /// Versioned project Component package directory:
+    /// `<workspace>/.sparo_os/components/<kind>/<component-id>/<component-version>/`.
+    pub fn project_component_version_dir(
+        &self,
+        workspace_path: &Path,
+        kind: &str,
+        component_id: &str,
+        component_version: &str,
+    ) -> PathBuf {
+        versioned_component_dir(
+            &self.project_components_dir(workspace_path),
+            kind,
+            component_id,
+            component_version,
+        )
+    }
+
     /// Get managed browser profiles directory: <app-root>/browser/
     pub fn browser_profiles_dir(&self) -> PathBuf {
         self.user_root.join("browser")
@@ -164,34 +238,34 @@ impl PathManager {
         self.user_cron_dir().join("jobs.json")
     }
 
-    /// Live Apps root: `<app-root>/apps/liveapps/`.
-    pub fn live_apps_dir(&self) -> PathBuf {
-        self.apps_dir().join("liveapps")
+    /// Surface Components root: `<app-root>/apps/surface_components/`.
+    pub fn surface_components_dir(&self) -> PathBuf {
+        self.apps_dir().join("surface_components")
     }
 
-    /// User Agent Apps root: `<app-root>/apps/agent_apps/`.
-    pub fn user_agent_apps_dir(&self) -> PathBuf {
-        self.apps_dir().join("agent_apps")
+    /// User Agent Components root: `<app-root>/apps/agent_components/`.
+    pub fn user_agent_components_dir(&self) -> PathBuf {
+        self.apps_dir().join("agent_components")
     }
 
-    /// User Bridge Apps root: `<app-root>/apps/bridge_apps/`.
-    pub fn user_bridge_apps_dir(&self) -> PathBuf {
-        self.apps_dir().join("bridge_apps")
+    /// User Bridge Components root: `<app-root>/apps/bridge_components/`.
+    pub fn user_bridge_components_dir(&self) -> PathBuf {
+        self.apps_dir().join("bridge_components")
     }
 
-    /// Project Agent Apps root: `<workspace>/.sparo_os/agent_apps/`.
-    pub fn project_agent_apps_dir(&self, workspace_path: &Path) -> PathBuf {
-        self.project_root(workspace_path).join("agent_apps")
+    /// Project Agent Components root: `<workspace>/.sparo_os/agent_components/`.
+    pub fn project_agent_components_dir(&self, workspace_path: &Path) -> PathBuf {
+        self.project_root(workspace_path).join("agent_components")
     }
 
-    /// Project Bridge Apps root: `<workspace>/.sparo_os/bridge_apps/`.
-    pub fn project_bridge_apps_dir(&self, workspace_path: &Path) -> PathBuf {
-        self.project_root(workspace_path).join("bridge_apps")
+    /// Project Bridge Components root: `<workspace>/.sparo_os/bridge_components/`.
+    pub fn project_bridge_components_dir(&self, workspace_path: &Path) -> PathBuf {
+        self.project_root(workspace_path).join("bridge_components")
     }
 
-    /// Per-app data: `~/.config/sparo_os/data/liveapps/{app_id}/`
-    pub fn live_app_dir(&self, app_id: &str) -> PathBuf {
-        self.live_apps_dir().join(app_id)
+    /// Per-app data: `~/.config/sparo_os/data/surface_components/{app_id}/`
+    pub fn surface_component_dir(&self, app_id: &str) -> PathBuf {
+        self.surface_components_dir().join(app_id)
     }
 
     /// Get user-level rules directory: <app-root>/state/rules/
@@ -416,10 +490,11 @@ impl PathManager {
             self.user_state_dir(),
             self.user_cron_dir(),
             self.apps_dir(),
+            self.system_components_dir(),
             self.browser_profiles_dir(),
-            self.live_apps_dir(),
-            self.user_agent_apps_dir(),
-            self.user_bridge_apps_dir(),
+            self.surface_components_dir(),
+            self.user_agent_components_dir(),
+            self.user_bridge_components_dir(),
             self.user_rules_dir(),
             self.secrets_dir(),
             self.backups_dir(),
@@ -435,6 +510,19 @@ impl PathManager {
         debug!("User-level directories initialized");
         Ok(())
     }
+}
+
+fn versioned_package_dir(root: &Path, package_id: &str, package_version: &str) -> PathBuf {
+    root.join(package_id).join(package_version)
+}
+
+fn versioned_component_dir(
+    root: &Path,
+    kind: &str,
+    component_id: &str,
+    component_version: &str,
+) -> PathBuf {
+    root.join(kind).join(component_id).join(component_version)
 }
 
 impl Default for PathManager {
@@ -549,6 +637,39 @@ mod tests {
         assert_eq!(
             pm.agentic_os_host_scan_state_path(),
             pm.agentic_os_host_dir().join("state.json")
+        );
+    }
+
+    #[test]
+    fn product_app_and_component_packages_are_versioned() {
+        let pm = PathManager::default();
+        let workspace = Path::new(r"E:\Projects\Video");
+
+        assert_eq!(
+            pm.system_product_app_version_dir("remotion-live", "1.0.0"),
+            pm.system_product_apps_dir()
+                .join("remotion-live")
+                .join("1.0.0")
+        );
+        assert_eq!(
+            pm.system_component_version_dir("bridges", "sparo-video-engine", "2.1.3"),
+            pm.system_components_dir()
+                .join("bridges")
+                .join("sparo-video-engine")
+                .join("2.1.3")
+        );
+        assert_eq!(
+            pm.project_product_app_version_dir(workspace, "remotion-live", "1.0.0"),
+            pm.project_product_apps_dir(workspace)
+                .join("remotion-live")
+                .join("1.0.0")
+        );
+        assert_eq!(
+            pm.project_component_version_dir(workspace, "agents", "remotion-video-agent", "1.0.0"),
+            pm.project_components_dir(workspace)
+                .join("agents")
+                .join("remotion-video-agent")
+                .join("1.0.0")
         );
     }
 }

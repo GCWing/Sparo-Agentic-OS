@@ -16,8 +16,8 @@
 import { openWorkspaceHome, openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
 import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
 import { useSettingsStore } from '@/app/scenes/settings/settingsStore';
-import { useLiveAppStore } from '@/app/scenes/apps/live-app/liveAppStore';
-import { openLiveApp as openLiveAppWorkbench } from '@/app/scenes/apps/live-app/liveAppWorkbenchService';
+import { useSurfaceComponentStore } from '@/app/scenes/apps/surface-component/surfaceComponentStore';
+import { openSurfaceComponent as openSurfaceComponentWorkbench } from '@/app/scenes/apps/surface-component/surfaceComponentWorkbenchService';
 import { appScopeFromWorkspacePath, systemAppScope } from '@/shared/types/app-scope';
 import { configManager } from '@/infrastructure/config';
 import { getModelDisplayName } from '@/infrastructure/config/services/modelConfigs';
@@ -136,19 +136,8 @@ const ACTION_ALIASES: Record<string, Record<string, readonly string[]>> = {
   open_settings_tab: {
     tabId: ['tab_id', 'tab'],
   },
-  open_live_app: {
-    liveAppId: [
-      'live_app_id',
-      'miniAppId',
-      'mini_app_id',
-      'miniappId',
-      'miniapp_id',
-      'appId',
-      'app_id',
-    ],
-  },
-  open_miniapp: {
-    miniAppId: ['mini_app_id', 'miniappId', 'miniapp_id', 'appId', 'app_id', 'liveAppId', 'live_app_id'],
+  open_product_app: {
+    productAppId: ['product_app_id', 'appId', 'app_id'],
   },
   set_default_model: {
     modelQuery: ['model_query', 'query', 'model'],
@@ -256,8 +245,7 @@ export type SelfControlAction =
   | { type: 'scroll'; selector?: string; direction: 'up' | 'down' | 'top' | 'bottom' }
   | { type: 'open_scene'; sceneId: string }
   | { type: 'open_settings_tab'; tabId: string }
-  | { type: 'open_live_app'; liveAppId: string }
-  | { type: 'open_miniapp'; miniAppId: string }
+  | { type: 'open_product_app'; productAppId: string }
   | { type: 'set_config'; key: string; configValue: unknown }
   | { type: 'get_config'; key: string }
   | { type: 'list_models'; includeDisabled?: boolean }
@@ -505,10 +493,8 @@ export class SelfControlService {
         return this.openScene(action.sceneId);
       case 'open_settings_tab':
         return this.openSettingsTab(action.tabId);
-      case 'open_live_app':
-        return this.openLiveApp(action.liveAppId);
-      case 'open_miniapp':
-        return this.openLiveApp(action.miniAppId);
+      case 'open_product_app':
+        return this.openProductApp(action.productAppId);
 
       // Region 3: Config & Models
       case 'set_config':
@@ -605,31 +591,29 @@ export class SelfControlService {
         return this.setModelEnabled(modelQuery, intent);
       }
 
-      case 'open_live_app_gallery':
-      case 'open_miniapp_gallery': {
+      case 'open_product_app_gallery': {
         return this.openScene('apps');
       }
 
-      case 'open_live_app':
-      case 'open_miniapp': {
+      case 'open_product_app': {
         const appId = this.coerceParam(
-          params?.liveAppId ??
-            params?.miniAppId ??
-            params?.mini_app_id ??
-            params?.miniappId,
+          params?.productAppId ??
+            params?.product_app_id ??
+            params?.appId ??
+            params?.app_id,
         );
         if (!appId) {
           throw new SelfControlError(
-            'Missing liveAppId for open_live_app / open_miniapp (aliases: miniAppId)',
+            'Missing productAppId for open_product_app',
             'INVALID_PARAMS',
           );
         }
-        return this.openLiveApp(appId);
+        return this.openProductApp(appId);
       }
 
       default:
         throw new SelfControlError(
-          `Unknown task: ${task}. Available tasks: set_primary_model, set_fast_model, enable_model, disable_model, toggle_model, open_model_settings, return_to_session, delete_model, open_live_app_gallery, open_live_app (legacy: open_miniapp_gallery, open_miniapp).`,
+          `Unknown task: ${task}. Available tasks: set_primary_model, set_fast_model, enable_model, disable_model, toggle_model, open_model_settings, return_to_session, delete_model, open_product_app_gallery, open_product_app.`,
           'INVALID_PARAMS',
         );
     }
@@ -826,9 +810,6 @@ export class SelfControlService {
 
   private openScene(sceneId: string): string {
     let id = (sceneId ?? '').trim();
-    if (id === 'miniapps') {
-      id = 'apps';
-    }
     if (id === 'session' || id === 'agentic-os-home') {
       void openWorkspaceHome();
     } else {
@@ -843,25 +824,25 @@ export class SelfControlService {
     return `Opened settings tab: ${tabId}`;
   }
 
-  private openLiveApp(liveAppId: string): string {
-    const id = (liveAppId ?? '').trim();
+  private openProductApp(productAppId: string): string {
+    const id = (productAppId ?? '').trim();
     if (!id) {
-      throw new SelfControlError('open_live_app requires liveAppId', 'INVALID_PARAMS');
+      throw new SelfControlError('open_product_app requires productAppId', 'INVALID_PARAMS');
     }
-    const known = useLiveAppStore.getState().apps.find((app: { id: string }) => app.id === id);
+    const known = useSurfaceComponentStore.getState().apps.find((app: { id: string }) => app.id === id);
     if (!known) {
-      const available = useLiveAppStore
+      const available = useSurfaceComponentStore
         .getState()
         .apps.map((app: { id: string; name: string }) => `"${app.name}" (id=${app.id})`)
         .join(', ');
       throw new SelfControlError(
-        `Live app id "${id}" is not installed.`,
+        `Product App id "${id}" is not installed.`,
         'NOT_FOUND',
         [
           available
-            ? `Installed live apps: ${available}.`
-            : 'No live apps are installed yet.',
-          'Call ControlHub domain="app" action="list_live_apps" first to discover ids.',
+            ? `Installed Product Apps: ${available}.`
+            : 'No Product Apps are installed yet.',
+          'Open the Apps scene to discover Product App ids.',
         ],
       );
     }
@@ -874,9 +855,9 @@ export class SelfControlService {
             : null) ||
           systemAppScope()
         : systemAppScope();
-    useLiveAppStore.getState().openApp(id);
-    void openLiveAppWorkbench(known, { scope });
-    return `Opened live app "${known.name}" (id=${id})`;
+    useSurfaceComponentStore.getState().openApp(id);
+    void openSurfaceComponentWorkbench(known, { scope });
+    return `Opened Product App "${known.name}" (id=${id})`;
   }
 
   // ── Region 3: Config & Model Operations ──────────────────────────────────

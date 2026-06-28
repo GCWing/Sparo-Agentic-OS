@@ -5,12 +5,13 @@
  *   - 'code'   → standard AI coding session (default)
  *   - 'cowork' → collaborative Cowork session
  *   - 'design' → dedicated Design session
- *   - 'liveappstudio' → Live App Studio session
+ *   - 'appstudio' → App Studio session
+ *   - 'componentstudio' → Component Studio session
  */
 
 import { create } from 'zustand';
 
-export type SessionMode = 'code' | 'cowork' | 'design' | 'liveappstudio' | 'agentappstudio';
+export type SessionMode = 'code' | 'cowork' | 'design' | 'appstudio' | 'componentstudio';
 
 interface SessionModeState {
   mode: SessionMode;

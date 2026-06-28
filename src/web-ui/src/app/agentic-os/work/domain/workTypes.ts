@@ -25,7 +25,7 @@ export type WorkStatus =
 
 export type WorkVisibility = 'primary' | 'secondary' | 'hidden';
 
-export type WorkTitleSource = 'user' | 'template' | 'session' | 'live_app' | 'objective' | 'agent';
+export type WorkTitleSource = 'user' | 'template' | 'session' | 'application_surface' | 'objective' | 'agent';
 
 export interface WorkTitleState {
   source: WorkTitleSource;
@@ -37,11 +37,13 @@ export type WorkScope =
   | { kind: 'system' }
   | { kind: 'workspace'; workspacePath: string };
 
-export type WorkAppKind = 'live_app' | 'agent_app' | 'bridge_app' | 'system_app';
+export type WorkAppKind = 'product_app';
 
 export interface WorkAppRef {
   kind: WorkAppKind;
   appId: string;
+  appVersion: string;
+  componentLockDigest: string;
 }
 
 export type WorkAppIntent = 'use' | 'run' | 'develop' | 'debug' | 'edit' | 'review';
@@ -64,9 +66,13 @@ export type WorkSurfaceRef =
   | { kind: 'os_agent_home'; agenticOsSessionId?: string | null }
   | { kind: 'work_session'; sessionId: string }
   | { kind: 'agent_session'; sessionId: string }
-  | { kind: 'live_app'; appId: string }
   | { kind: 'work_center'; workId: WorkId }
-  | { kind: 'application_surface'; applicationId: string; surfaceId: string };
+  | {
+      kind: 'application_surface';
+      productAppId: string;
+      surfaceComponentId: string;
+      surfaceId: string;
+    };
 
 export type WorkAssignmentKind = 'agent' | 'assistant' | 'application' | 'human' | 'external';
 
@@ -91,7 +97,6 @@ export type WorkExecutionBindingStatus =
 export type WorkExecutionSource =
   | { source: 'agent_session_run'; sessionId: string; turnId?: string | null }
   | { source: 'delegated_work_run'; parentWorkId: WorkId; childWorkId: WorkId }
-  | { source: 'live_app_worker'; appId: string; workerId?: string | null }
   | { source: 'application_action'; applicationId: string; actionId: string }
   | { source: 'runtime_subagent_run'; runId: string }
   | { source: 'external'; label: string; reference: string };
@@ -159,7 +164,7 @@ export interface WorkRecord {
   updatedAt: number;
 }
 
-export type PrimarySurfacePolicy = 'work_center' | 'work_session' | 'live_app';
+export type PrimarySurfacePolicy = 'work_center' | 'work_session' | 'application_surface';
 
 export interface CreateWorkRequest {
   kind: WorkKind;
@@ -170,6 +175,7 @@ export interface CreateWorkRequest {
   scope: WorkScope;
   visibility?: WorkVisibility;
   primarySurfacePolicy?: PrimarySurfacePolicy;
+  primarySurface?: WorkSurfaceRef | null;
   assignment?: WorkAssignmentRef | null;
   titleState?: WorkTitleState | null;
 }
@@ -206,6 +212,7 @@ export interface ResolveAppWorkRequest {
   scope: WorkScope;
   visibility?: WorkVisibility;
   primarySurfacePolicy?: PrimarySurfacePolicy;
+  primarySurface?: WorkSurfaceRef | null;
   assignment?: WorkAssignmentRef | null;
   appRefs?: WorkAppRelation[];
 }

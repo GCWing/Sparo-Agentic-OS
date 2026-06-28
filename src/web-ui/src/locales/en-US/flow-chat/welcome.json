@@ -29,44 +29,44 @@
   "subtitleEveningAgenticOs": "Daytime ideas don't need daylight.",
   "subtitleNightAgenticOs": "The serious ones work late.",
   "narrativeAgenticOs": "Tell me what you want. I'll make it happen.",
-  "aiPartnerLiveAppStudio": "Live App Builder",
-  "subtitleMorningLiveAppStudio": "Turn an idea into a Live App you can run right away",
-  "subtitleAfternoonLiveAppStudio": "A good time to prototype the flow, data, and interactions",
-  "subtitleEveningLiveAppStudio": "Shape today's requirements into a useful small app",
-  "subtitleNightLiveAppStudio": "The idea is awake. Let's make a lightweight app that works",
-  "narrativeLiveAppStudio": "Describe the app you want to generate: who it is for, what data it should show, and which interactions it needs. I will build a runnable first version, then refine it with your feedback.",
-  "aiPartnerAgentAppStudio": "Agent App Builder",
-  "subtitleMorningAgentAppStudio": "Turn something you do often into a custom AI helper",
-  "subtitleAfternoonAgentAppStudio": "Tell me who it helps, what it should do, and where it should stop",
-  "subtitleEveningAgentAppStudio": "Package your know-how into a helper you can open anytime",
-  "subtitleNightAgentAppStudio": "Make a reliable helper that asks, respects limits, and delivers",
-  "narrativeAgentAppStudio": "Describe the AI helper you want: what it should help with, what information it can use, what result it should produce, and what it must not do on its own. I will turn that into a ready-to-use app with clear starter examples.",
-  "liveAppPrompts": {
-    "title": "What kind of Live App do you want to generate?",
+  "aiPartnerAppStudio": "App Studio",
+  "subtitleMorningAppStudio": "Turn a goal into a Product App with the right work object, surface, and components",
+  "subtitleAfternoonAppStudio": "A good time to shape the workflow, data, and interaction model",
+  "subtitleEveningAppStudio": "Turn today's product idea into an app package you can open again",
+  "subtitleNightAppStudio": "The idea is awake. Let's give it a product boundary that lasts",
+  "narrativeAppStudio": "Describe the Product App you want: who opens it, what work object it manages, which interaction model it needs, and how AI should help. I will keep the app identity separate from its components.",
+  "aiPartnerComponentStudio": "Component Studio",
+  "subtitleMorningComponentStudio": "Create a reusable capability component for a Product App",
+  "subtitleAfternoonComponentStudio": "Define what the component does, who owns it, and how apps reference it",
+  "subtitleEveningComponentStudio": "Package a focused capability without turning it into a user app",
+  "subtitleNightComponentStudio": "Make a small component with sharp boundaries and clear integration",
+  "narrativeComponentStudio": "Describe the component you need: agent, surface, bridge, runtime, tool, or skill; what Product App will use it; what actions it exposes; and which permissions it needs.",
+  "surfaceComponentPrompts": {
+    "title": "What Product App do you want to create?",
     "items": {
       "starter": {
         "title": "Start from an idea",
-        "description": "Turn a business scenario into a runnable app",
-        "prompt": "Generate a Live App for managing a small team's daily tasks, with a task list, owners, due dates, status filters, and a new task form."
+        "description": "Turn a business scenario into a Product App",
+        "prompt": "Create a Product App for managing a small team's daily tasks, with a work object for tasks, an interactive workspace surface, owners, due dates, status filters, and a new task form."
       },
       "dashboard": {
         "title": "Data dashboard",
         "description": "Show metrics, trends, and filterable details",
-        "prompt": "Generate a Live App for a sales dashboard, with key metric cards, a trend chart, region filters, a customer details table, and an alerts area."
+        "prompt": "Create a Product App for a sales dashboard, with key metric cards, a trend chart, region filters, a customer details table, and an alerts area."
       },
       "polish": {
         "title": "Polish the experience",
         "description": "Improve layout, states, empty screens, and visual detail",
-        "prompt": "Generate a Live App for event registration management, focusing on form experience, registration states, empty states, mobile layout, and visual hierarchy."
+        "prompt": "Create a Product App for event registration management, focusing on form experience, registration states, empty states, mobile layout, and visual hierarchy."
       },
       "debug": {
         "title": "Fix issues",
         "description": "Find runtime errors and iterate quickly",
-        "prompt": "Check the current Live App for runtime issues, fix errors, slow interactions, or incorrect data display, and explain what changed."
+        "prompt": "Check the current Product App surface for runtime issues, fix errors, slow interactions, or incorrect data display, and explain what changed."
       }
     }
   },
-  "agentAppPrompts": {
+  "agentComponentPrompts": {
     "title": "What kind of AI helper do you want?",
     "items": {
       "starter": {

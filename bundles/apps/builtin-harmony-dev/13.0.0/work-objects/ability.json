@@ -1,0 +1,31 @@
+{
+  "id": "ability",
+  "label": "Ability",
+  "scope": "project",
+  "identitySchema": {
+    "type": "object",
+    "required": [
+      "bundleName",
+      "abilityName"
+    ],
+    "properties": {
+      "bundleName": {
+        "type": "string"
+      },
+      "abilityName": {
+        "type": "string"
+      }
+    }
+  },
+  "contextSchema": {
+    "type": "object",
+    "properties": {
+      "entryModule": {
+        "type": "string"
+      },
+      "route": {
+        "type": "string"
+      }
+    }
+  }
+}

@@ -43,9 +43,8 @@ const GetFileDiffDisplay = lazy(() => import('./GetFileDiffDisplay').then(module
 const CreatePlanDisplay = lazy(() => import('./CreatePlanDisplay').then(module => ({ default: module.CreatePlanDisplay })));
 const TerminalToolCard = lazy(() => import('./TerminalToolCard').then(module => ({ default: module.TerminalToolCard })));
 const TerminalControlDisplay = lazy(() => import('./TerminalControlDisplay').then(module => ({ default: module.TerminalControlDisplay })));
-const InitLiveAppDisplay = lazy(() => import('./InitLiveAppToolDisplay').then(module => ({ default: module.InitLiveAppDisplay })));
-const LiveAppStudioToolDisplay = lazy(() => import('./LiveAppStudioToolDisplay').then(module => ({ default: module.LiveAppStudioToolDisplay })));
-const AgentAppStudioToolDisplay = lazy(() => import('./AgentAppStudioToolDisplay').then(module => ({ default: module.AgentAppStudioToolDisplay })));
+const CreateProductAppDisplay = lazy(() => import('./CreateProductAppToolDisplay').then(module => ({ default: module.CreateProductAppDisplay })));
+const ComponentStudioToolDisplay = lazy(() => import('./ComponentStudioToolDisplay').then(module => ({ default: module.ComponentStudioToolDisplay })));
 const GenerativeWidgetToolCard = lazy(() => import('./GenerativeWidgetToolCard').then(module => ({ default: module.GenerativeWidgetToolCard })));
 const DesignArtifactIndexCard = lazy(() => import('./DesignArtifactIndexCard').then(module => ({ default: module.DesignArtifactIndexCard })));
 const DesignTokensProposalCard = lazy(() => import('./DesignTokensProposalCard').then(module => ({ default: module.DesignTokensProposalCard })));
@@ -53,7 +52,7 @@ const SessionControlToolCard = lazy(() => import('./SessionControlToolCard').the
 const SessionMessageToolCard = lazy(() => import('./SessionMessageToolCard').then(module => ({ default: module.SessionMessageToolCard })));
 const SessionHistoryDisplay = lazy(() => import('./SessionHistoryDisplay').then(module => ({ default: module.SessionHistoryDisplay })));
 const AgentHandoffCard = lazy(() => import('./AgentHandoffCard').then(module => ({ default: module.AgentHandoffCard })));
-const BridgeCallToolCard = lazy(() => import('./BridgeCallToolCard').then(module => ({ default: module.BridgeCallToolCard })));
+const BridgeComponentCallToolCard = lazy(() => import('./BridgeComponentCallToolCard').then(module => ({ default: module.BridgeComponentCallToolCard })));
 const WorkToolCard = lazy(() => import('./WorkToolCard').then(module => ({ default: module.WorkToolCard })));
 const OutcomeReviewToolCard = lazy(() => import('./OutcomeReviewToolCard').then(module => ({ default: module.OutcomeReviewToolCard })));
 const MemoryToolCard = lazy(() => import('./MemoryToolCard').then(module => ({ default: module.MemoryToolCard })));
@@ -153,7 +152,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Search text in files',
     displayMode: 'compact',
-    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+    primaryColor: 'var(--ds-tool-family-agent-fg)'
   },
   'Glob': {
     toolName: 'Glob',
@@ -197,7 +196,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Run a specialized AI task',
     displayMode: 'detailed',
-    primaryColor: 'var(--ds-tool-family-agent-app-fg)',
+    primaryColor: 'var(--ds-tool-family-agent-fg)',
     inlineInterruptionNote: true,
   },
   'TodoWrite': {
@@ -218,7 +217,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Submit code review results',
     displayMode: 'compact',
-    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+    primaryColor: 'var(--ds-tool-family-agent-fg)'
   },
   'submit_outcome_review': {
     toolName: 'submit_outcome_review',
@@ -228,7 +227,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Submit an evidence-backed outcome review verdict',
     displayMode: 'compact',
-    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+    primaryColor: 'var(--ds-tool-family-agent-fg)'
   },
   'ContextCompression': {
     toolName: 'ContextCompression',
@@ -238,7 +237,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Compress conversation context to reduce tokens',
     displayMode: 'compact',
-    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+    primaryColor: 'var(--ds-tool-family-agent-fg)'
   },
 
   // Skill tool
@@ -250,7 +249,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Load and run skills',
     displayMode: 'compact',
-    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+    primaryColor: 'var(--ds-tool-family-agent-fg)'
   },
 
   'Memory': {
@@ -273,7 +272,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Ask the user a question and wait for a reply',
     displayMode: 'detailed',
-    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+    primaryColor: 'var(--ds-tool-family-agent-fg)'
   },
 
   // GetFileDiff tool
@@ -285,7 +284,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Get file diffs (baseline snapshot or full file)',
     displayMode: 'compact',
-    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+    primaryColor: 'var(--ds-tool-family-agent-fg)'
   },
 
   // CreatePlan tool
@@ -323,75 +322,75 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     primaryColor: 'var(--ds-tool-family-session-fg)',
   },
 
-  'BridgeCall': {
-    toolName: 'BridgeCall',
+  'BridgeComponentCall': {
+    toolName: 'BridgeComponentCall',
     displayName: 'Bridge Call',
     icon: 'BR',
     requiresConfirmation: true,
     resultDisplayType: 'detailed',
-    description: 'Call a Bridge App capability action',
+    description: 'Call a Bridge Component capability action',
     displayMode: 'compact',
-    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+    primaryColor: 'var(--ds-tool-family-agent-fg)'
   },
-  'ListBridgeApps': {
-    toolName: 'ListBridgeApps',
-    displayName: 'List Bridge Apps',
+  'ListBridgeComponents': {
+    toolName: 'ListBridgeComponents',
+    displayName: 'List Bridge Components',
     icon: 'BAL',
     requiresConfirmation: false,
     resultDisplayType: 'summary',
-    description: 'List installed Bridge Apps',
+    description: 'List installed Bridge Components',
     displayMode: 'compact',
-    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+    primaryColor: 'var(--ds-tool-family-agent-fg)'
   },
-  'GetBridgeApp': {
-    toolName: 'GetBridgeApp',
-    displayName: 'Inspect Bridge App',
+  'GetBridgeComponent': {
+    toolName: 'GetBridgeComponent',
+    displayName: 'Inspect Bridge Component',
     icon: 'BAG',
     requiresConfirmation: false,
     resultDisplayType: 'detailed',
-    description: 'Inspect a Bridge App package',
+    description: 'Inspect a Bridge Component package',
     displayMode: 'compact',
-    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+    primaryColor: 'var(--ds-tool-family-agent-fg)'
   },
-  'ValidateBridgeAppPackage': {
-    toolName: 'ValidateBridgeAppPackage',
-    displayName: 'Validate Bridge App',
+  'ValidateBridgeComponentPackage': {
+    toolName: 'ValidateBridgeComponentPackage',
+    displayName: 'Validate Bridge Component',
     icon: 'BAV',
     requiresConfirmation: false,
     resultDisplayType: 'summary',
-    description: 'Validate a Bridge App manifest',
+    description: 'Validate a Bridge Component manifest',
     displayMode: 'compact',
-    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+    primaryColor: 'var(--ds-tool-family-agent-fg)'
   },
-  'CreateBridgeApp': {
-    toolName: 'CreateBridgeApp',
-    displayName: 'Create Bridge App',
+  'CreateBridgeComponent': {
+    toolName: 'CreateBridgeComponent',
+    displayName: 'Create Bridge Component',
     icon: 'BAC',
     requiresConfirmation: true,
     resultDisplayType: 'detailed',
-    description: 'Create and register a Bridge App',
+    description: 'Create and register a Bridge Component',
     displayMode: 'standard',
-    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+    primaryColor: 'var(--ds-tool-family-agent-fg)'
   },
-  'UpdateBridgeApp': {
-    toolName: 'UpdateBridgeApp',
-    displayName: 'Update Bridge App',
+  'UpdateBridgeComponent': {
+    toolName: 'UpdateBridgeComponent',
+    displayName: 'Update Bridge Component',
     icon: 'BAU',
     requiresConfirmation: true,
     resultDisplayType: 'detailed',
-    description: 'Update an existing Bridge App',
+    description: 'Update an existing Bridge Component',
     displayMode: 'standard',
-    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+    primaryColor: 'var(--ds-tool-family-agent-fg)'
   },
-  'CreateBridgeAppTemplate': {
-    toolName: 'CreateBridgeAppTemplate',
+  'CreateBridgeComponentTemplate': {
+    toolName: 'CreateBridgeComponentTemplate',
     displayName: 'Bridge Template',
     icon: 'BAT',
     requiresConfirmation: true,
     resultDisplayType: 'detailed',
-    description: 'Create a Bridge App template and wrapper',
+    description: 'Create a Bridge Component template and wrapper',
     displayMode: 'standard',
-    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+    primaryColor: 'var(--ds-tool-family-agent-fg)'
   },
 
   'SessionControl': {
@@ -413,7 +412,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'summary',
     description: 'Send a message to another session',
     displayMode: 'compact',
-    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+    primaryColor: 'var(--ds-tool-family-agent-fg)'
   },
 
   'Work': {
@@ -424,7 +423,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'detailed',
     description: 'Create, continue, inspect, or control Work',
     displayMode: 'compact',
-    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+    primaryColor: 'var(--ds-tool-family-agent-fg)'
   },
 
   'Goal': {
@@ -461,128 +460,108 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     primaryColor: 'var(--ds-tool-family-terminal-fg)'
   },
 
-  // Live App
-  'InitLiveApp': {
-    toolName: 'InitLiveApp',
-    displayName: 'Init Live App',
+  // Product App surface runtime
+  'CreateProductApp': {
+    toolName: 'CreateProductApp',
+    displayName: 'Init Product App',
     icon: 'APP',
     requiresConfirmation: false,
     resultDisplayType: 'detailed',
-    description: 'Create Live App skeleton for editing',
+    description: 'Create Product App surface skeleton for editing',
     displayMode: 'standard',
-    primaryColor: 'var(--ds-tool-family-live-app-fg)'
-  },
-  'LiveAppRecompile': {
-    toolName: 'LiveAppRecompile',
-    displayName: 'Recompile Live App',
-    icon: 'LAR',
-    requiresConfirmation: false,
-    resultDisplayType: 'summary',
-    description: 'Sync and recompile a Live App preview',
-    displayMode: 'compact',
-    primaryColor: 'var(--ds-tool-family-live-app-fg)'
-  },
-  'LiveAppRuntimeProbe': {
-    toolName: 'LiveAppRuntimeProbe',
-    displayName: 'Probe Live App',
-    icon: 'LAP',
-    requiresConfirmation: false,
-    resultDisplayType: 'summary',
-    description: 'Read Live App runtime errors and warnings',
-    displayMode: 'compact',
-    primaryColor: 'var(--ds-status-surface-warning-fg)'
-  },
-  'LiveAppScreenshotMatrix': {
-    toolName: 'LiveAppScreenshotMatrix',
-    displayName: 'Live App Matrix',
-    icon: 'LAM',
-    requiresConfirmation: false,
-    resultDisplayType: 'summary',
-    description: 'Prepare a visual review matrix for a Live App',
-    displayMode: 'compact',
-    primaryColor: 'var(--ds-status-surface-info-fg)'
+    primaryColor: 'var(--ds-tool-family-browser-fg)'
   },
 
-  // Agent App Studio
-  'ListAgentApps': {
-    toolName: 'ListAgentApps',
-    displayName: 'List Agent Apps',
+  // Component Studio
+  'CreateComponentPackage': {
+    toolName: 'CreateComponentPackage',
+    displayName: 'Create Component Package',
+    icon: 'CMP',
+    requiresConfirmation: false,
+    resultDisplayType: 'detailed',
+    description: 'Create a reusable Component Package',
+    displayMode: 'standard',
+    primaryColor: 'var(--ds-tool-family-agent-fg)'
+  },
+  'ListAgentComponents': {
+    toolName: 'ListAgentComponents',
+    displayName: 'List Agent Components',
     icon: 'AAL',
     requiresConfirmation: false,
     resultDisplayType: 'summary',
-    description: 'List installed Agent Apps',
+    description: 'List installed Agent Components',
     displayMode: 'compact',
-    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+    primaryColor: 'var(--ds-tool-family-agent-fg)'
   },
-  'GetAgentApp': {
-    toolName: 'GetAgentApp',
-    displayName: 'Inspect Agent App',
+  'GetAgentComponent': {
+    toolName: 'GetAgentComponent',
+    displayName: 'Inspect Agent Component',
     icon: 'AAG',
     requiresConfirmation: false,
     resultDisplayType: 'detailed',
-    description: 'Inspect an Agent App package',
+    description: 'Inspect an Agent Component package',
     displayMode: 'compact',
-    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+    primaryColor: 'var(--ds-tool-family-agent-fg)'
   },
-  'ValidateAgentAppPackage': {
-    toolName: 'ValidateAgentAppPackage',
-    displayName: 'Validate Agent App',
+  'ValidateAgentComponentPackage': {
+    toolName: 'ValidateAgentComponentPackage',
+    displayName: 'Validate Agent Component',
     icon: 'AAV',
     requiresConfirmation: false,
     resultDisplayType: 'summary',
-    description: 'Validate an Agent App draft',
+    description: 'Validate an Agent Component draft',
     displayMode: 'compact',
-    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+    primaryColor: 'var(--ds-tool-family-agent-fg)'
   },
-  'CreateAgentApp': {
-    toolName: 'CreateAgentApp',
-    displayName: 'Create Agent App',
+  'CreateAgentComponent': {
+    toolName: 'CreateAgentComponent',
+    displayName: 'Create Agent Component',
     icon: 'AAC',
     requiresConfirmation: false,
     resultDisplayType: 'detailed',
-    description: 'Create and register an Agent App',
+    description: 'Create and register an Agent Component',
     displayMode: 'standard',
-    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+    primaryColor: 'var(--ds-tool-family-agent-fg)'
   },
-  'UpdateAgentApp': {
-    toolName: 'UpdateAgentApp',
-    displayName: 'Update Agent App',
+  'UpdateAgentComponent': {
+    toolName: 'UpdateAgentComponent',
+    displayName: 'Update Agent Component',
     icon: 'AAU',
     requiresConfirmation: false,
     resultDisplayType: 'detailed',
-    description: 'Update an existing Agent App',
+    description: 'Update an existing Agent Component',
     displayMode: 'standard',
-    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+    primaryColor: 'var(--ds-tool-family-agent-fg)'
   },
-  'ListAgentAppToolOptions': {
-    toolName: 'ListAgentAppToolOptions',
-    displayName: 'Agent App Tool Options',
+  'ListAgentComponentToolOptions': {
+    toolName: 'ListAgentComponentToolOptions',
+    displayName: 'Agent Component Tool Options',
     icon: 'AAT',
     requiresConfirmation: false,
     resultDisplayType: 'summary',
-    description: 'List tools available to Agent Apps',
+    description: 'List tools available to Agent Components',
     displayMode: 'compact',
-    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+    primaryColor: 'var(--ds-tool-family-agent-fg)'
   },
-  'CreateAgentAppJsTool': {
-    toolName: 'CreateAgentAppJsTool',
-    displayName: 'Create Agent App JS Tool',
+  'CreateAgentComponentJsTool': {
+    toolName: 'CreateAgentComponentJsTool',
+    displayName: 'Create Agent Component JS Tool',
     icon: 'AAJ',
     requiresConfirmation: false,
     resultDisplayType: 'detailed',
-    description: 'Create a JS runtime tool inside an Agent App',
+    description: 'Create a JS runtime tool inside an Agent Component',
     displayMode: 'standard',
-    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+    primaryColor: 'var(--ds-tool-family-agent-fg)'
   },
-  'TestAgentAppJsTool': {
-    toolName: 'TestAgentAppJsTool',
-    displayName: 'Test Agent App JS Tool',
+  'TestAgentComponentJsTool': {
+    toolName: 'TestAgentComponentJsTool',
+    displayName: 'Test Agent Component JS Tool',
     icon: 'AAR',
     requiresConfirmation: false,
     resultDisplayType: 'detailed',
-    description: 'Test an Agent App JS runtime tool',
+    description: 'Test an Agent Component JS runtime tool',
     displayMode: 'compact',
-    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+    primaryColor: 'var(--ds-tool-family-agent-fg)'
   },
   'GenerativeUI': {
     toolName: 'GenerativeUI',
@@ -602,7 +581,7 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     resultDisplayType: 'summary',
     description: 'Create and evolve design artifacts in the Design Canvas tab',
     displayMode: 'compact',
-    primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+    primaryColor: 'var(--ds-tool-family-agent-fg)'
   },
   'DesignTokens': {
     toolName: 'DesignTokens',
@@ -620,7 +599,7 @@ const EXACT_TOOL_UI_REGISTRY: Record<string, ToolUiRegistryEntry> = {
   // Highly custom renderers: preserve product-specific interactions.
   AskUserQuestion: { component: AskUserQuestionCard, template: 'custom' },
   AgentHandoff: { component: AgentHandoffCard, template: 'custom' },
-  BridgeCall: { component: BridgeCallToolCard, template: 'compact', family: 'bridge-app' },
+  BridgeComponentCall: { component: BridgeComponentCallToolCard, template: 'compact', family: 'bridge-component' },
   CreatePlan: { component: CreatePlanDisplay, template: 'custom' },
   TodoWrite: { component: TodoWriteDisplay, template: 'custom' },
   Task: { component: TaskToolDisplay, template: 'custom' },
@@ -656,30 +635,23 @@ const EXACT_TOOL_UI_REGISTRY: Record<string, ToolUiRegistryEntry> = {
   // Detail panel family.
   ContextCompression: { component: ContextCompressionDisplay, template: 'detail' },
   GetFileDiff: { component: GetFileDiffDisplay, template: 'detail' },
-  InitLiveApp: { component: InitLiveAppDisplay, template: 'detail', family: 'live-app' },
-  LiveAppRecompile: { component: LiveAppStudioToolDisplay, template: 'detail', family: 'live-app' },
-  LiveAppRuntimeProbe: { component: LiveAppStudioToolDisplay, template: 'detail', family: 'live-app' },
-  LiveAppScreenshotMatrix: { component: LiveAppStudioToolDisplay, template: 'custom', family: 'live-app' },
-  ListAgentApps: { component: AgentAppStudioToolDisplay, template: 'compact', family: 'agent-app' },
-  GetAgentApp: { component: AgentAppStudioToolDisplay, template: 'compact', family: 'agent-app' },
-  ValidateAgentAppPackage: { component: AgentAppStudioToolDisplay, template: 'compact', family: 'agent-app' },
-  ListAgentAppToolOptions: { component: AgentAppStudioToolDisplay, template: 'compact', family: 'agent-app' },
-  TestAgentAppJsTool: { component: AgentAppStudioToolDisplay, template: 'compact', family: 'agent-app' },
-  CreateAgentApp: { component: AgentAppStudioToolDisplay, template: 'detail', family: 'agent-app' },
-  UpdateAgentApp: { component: AgentAppStudioToolDisplay, template: 'detail', family: 'agent-app' },
-  CreateAgentAppJsTool: { component: AgentAppStudioToolDisplay, template: 'detail', family: 'agent-app' },
+  CreateProductApp: { component: CreateProductAppDisplay, template: 'detail', family: 'product-app' },
+  CreateComponentPackage: { component: ComponentStudioToolDisplay, template: 'detail', family: 'component' },
+  ListAgentComponents: { component: ComponentStudioToolDisplay, template: 'compact', family: 'component' },
+  GetAgentComponent: { component: ComponentStudioToolDisplay, template: 'compact', family: 'component' },
+  ValidateAgentComponentPackage: { component: ComponentStudioToolDisplay, template: 'compact', family: 'component' },
+  ListAgentComponentToolOptions: { component: ComponentStudioToolDisplay, template: 'compact', family: 'component' },
+  TestAgentComponentJsTool: { component: ComponentStudioToolDisplay, template: 'compact', family: 'component' },
+  CreateAgentComponent: { component: ComponentStudioToolDisplay, template: 'detail', family: 'component' },
+  UpdateAgentComponent: { component: ComponentStudioToolDisplay, template: 'detail', family: 'component' },
+  CreateAgentComponentJsTool: { component: ComponentStudioToolDisplay, template: 'detail', family: 'component' },
 };
 
 const FAMILY_TOOL_UI_REGISTRY: ToolUiFamilyRegistryEntry[] = [
   {
-    id: 'live-app',
-    test: (toolName) => toolName.startsWith('LiveApp'),
-    entry: { component: LiveAppStudioToolDisplay, template: 'detail', family: 'live-app' },
-  },
-  {
-    id: 'agent-app',
-    test: (toolName) => toolName.startsWith('ListAgentApp') || toolName.includes('AgentApp'),
-    entry: { component: AgentAppStudioToolDisplay, template: 'detail', family: 'agent-app' },
+    id: 'component',
+    test: (toolName) => toolName.includes('AgentComponent') || toolName.includes('BridgeComponent'),
+    entry: { component: ComponentStudioToolDisplay, template: 'detail', family: 'component' },
   },
 ];
 
@@ -775,7 +747,7 @@ export function getToolCardConfig(toolName: string): ToolCardConfig {
       resultDisplayType: 'detailed',
       description: 'MCP',
       displayMode: 'compact',
-      primaryColor: 'var(--ds-tool-family-agent-app-fg)'
+      primaryColor: 'var(--ds-tool-family-agent-fg)'
     };
   }
 

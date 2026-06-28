@@ -1,18 +1,18 @@
 use super::{
-    Agent, AgentAppStudioAgent, AgenticAgent, CodeReviewAgent, ComputerUseAgent, CoworkAgent,
-    DebugAgent, DeepResearchAgent, DesignAgent, DesignReviewAgent, ExploreAgent, FileFinderAgent,
-    FilerAgent, GenerateDocAgent, GlobalDailyReportAgent, GlobalMemoryConsolidatorAgent,
-    GlobalMilestoneAgent, HostScanAgent, InitAgent, LiveAppStudioAgent, OsAgent,
+    Agent, AgenticAgent, AppStudioAgent, CodeReviewAgent, ComponentStudioAgent, ComputerUseAgent,
+    CoworkAgent, DebugAgent, DeepResearchAgent, DesignAgent, DesignReviewAgent, ExploreAgent,
+    FileFinderAgent, FilerAgent, GenerateDocAgent, GlobalDailyReportAgent,
+    GlobalMemoryConsolidatorAgent, GlobalMilestoneAgent, HostScanAgent, InitAgent, OsAgent,
     OutcomeReviewAgent, PlanAgent, TeamAgent, WorkspaceMemoryConsolidatorAgent,
     WorkspaceOverviewRefresherAgent,
 };
-use crate::agent_app::AgentAppAgent;
+use crate::agent_component::AgentComponentAgent;
 use crate::agentic::agents::custom_subagents::{
     CustomSubagent, CustomSubagentKind, CustomSubagentLoader,
 };
 use crate::agentic::tools::get_all_registered_tool_names;
 use crate::agentic::tools::implementations::skills::{get_skill_registry, SkillInfo};
-use crate::bridge_app::BridgeAppAgent;
+use crate::bridge_component::BridgeComponentAgent;
 use crate::service::config::agent_capability_config_canonicalizer::{
     resolve_effective_subagents, resolve_effective_tools,
 };
@@ -110,8 +110,8 @@ impl AgentInfo {
             .as_any()
             .downcast_ref::<CustomSubagent>()
             .map(|c| c.path.clone());
-        let agent_app = agent.as_any().downcast_ref::<AgentAppAgent>();
-        let bridge_app = agent.as_any().downcast_ref::<BridgeAppAgent>();
+        let agent_component = agent.as_any().downcast_ref::<AgentComponentAgent>();
+        let bridge_component = agent.as_any().downcast_ref::<BridgeComponentAgent>();
 
         AgentInfo {
             id: agent.id().to_string(),
@@ -124,20 +124,21 @@ impl AgentInfo {
             subagent_source: entry.subagent_source,
             path,
             model,
-            app_kind: agent_app
-                .map(|_| "agent-app".to_string())
-                .or_else(|| bridge_app.map(|_| "bridge-app".to_string())),
-            app_icon: agent_app
+            app_kind: agent_component
+                .map(|_| "agent-component".to_string())
+                .or_else(|| bridge_component.map(|_| "bridge-component".to_string())),
+            app_icon: agent_component
                 .map(|app| app.manifest().icon.clone())
-                .or_else(|| bridge_app.map(|_| "plug".to_string())),
-            app_category: agent_app
+                .or_else(|| bridge_component.map(|_| "plug".to_string())),
+            app_category: agent_component
                 .map(|app| app.manifest().category.clone())
                 .or_else(|| {
-                    bridge_app.map(|app| format!("{:?}", app.manifest().kind).to_ascii_lowercase())
+                    bridge_component
+                        .map(|app| format!("{:?}", app.manifest().kind).to_ascii_lowercase())
                 }),
-            app_path: agent_app
+            app_path: agent_component
                 .map(|app| app.path().to_string())
-                .or_else(|| bridge_app.map(|app| app.path().to_string())),
+                .or_else(|| bridge_component.map(|app| app.path().to_string())),
         }
     }
 }
@@ -253,8 +254,8 @@ pub enum AgentCategory {
     Agent,
     /// subagent (displayed in frontend subagent list, discovered by TaskTool)
     SubAgent,
-    /// FlowChat-native Agent App displayed in the Apps catalog.
-    AgentApp,
+    /// FlowChat-native Agent Component displayed in the Apps catalog.
+    AgentComponent,
     /// hidden agent (not displayed in frontend, not discovered by TaskTool, used internally)
     Hidden,
 }
@@ -377,8 +378,8 @@ impl AgentRegistry {
             Arc::new(OsAgent::new()),
             Arc::new(DeepResearchAgent::new()),
             Arc::new(TeamAgent::new()),
-            Arc::new(LiveAppStudioAgent::new()),
-            Arc::new(AgentAppStudioAgent::new()),
+            Arc::new(AppStudioAgent::new()),
+            Arc::new(ComponentStudioAgent::new()),
             Arc::new(FilerAgent::new()),
         ];
         for agent in launchable_agents {
@@ -457,7 +458,7 @@ impl AgentRegistry {
     ) -> Option<Arc<dyn Agent>> {
         self.find_agent_entry(agent_type, workspace_root)
             .and_then(|entry| {
-                if entry.category == AgentCategory::AgentApp
+                if entry.category == AgentCategory::AgentComponent
                     && entry
                         .custom_config
                         .as_ref()
@@ -564,7 +565,7 @@ impl AgentRegistry {
         match category {
             AgentCategory::Agent => "agent",
             AgentCategory::SubAgent => "subagent",
-            AgentCategory::AgentApp => "agentApp",
+            AgentCategory::AgentComponent => "agentComponent",
             AgentCategory::Hidden => "hidden",
         }
         .to_string()
@@ -572,7 +573,7 @@ impl AgentRegistry {
 
     fn mutability_for_entry(entry: &AgentEntry) -> AgentCapabilityMutability {
         match entry.category {
-            AgentCategory::Agent | AgentCategory::AgentApp => AgentCapabilityMutability {
+            AgentCategory::Agent | AgentCategory::AgentComponent => AgentCapabilityMutability {
                 enabled: Self::mutable(),
                 model: Self::mutable(),
                 tools: Self::mutable(),
@@ -619,7 +620,7 @@ impl AgentRegistry {
                         .map(|config| config.enabled)
                         .unwrap_or(true)
             }
-            AgentCategory::AgentApp => entry
+            AgentCategory::AgentComponent => entry
                 .custom_config
                 .as_ref()
                 .map(|config| config.enabled)
@@ -643,11 +644,11 @@ impl AgentRegistry {
         let valid_keys: HashSet<String> =
             all_skills.iter().map(|skill| skill.key.clone()).collect();
 
-        if entry.category == AgentCategory::AgentApp {
+        if entry.category == AgentCategory::AgentComponent {
             let defaults = entry
                 .agent
                 .as_any()
-                .downcast_ref::<AgentAppAgent>()
+                .downcast_ref::<AgentComponentAgent>()
                 .map(|agent| agent.manifest().skills.clone())
                 .unwrap_or_default()
                 .into_iter()
@@ -670,11 +671,11 @@ impl AgentRegistry {
         entry: &AgentEntry,
         available_subagents: &[AgentInfo],
     ) -> Vec<String> {
-        if entry.category == AgentCategory::AgentApp {
+        if entry.category == AgentCategory::AgentComponent {
             return entry
                 .agent
                 .as_any()
-                .downcast_ref::<AgentAppAgent>()
+                .downcast_ref::<AgentComponentAgent>()
                 .map(|agent| agent.manifest().subagents.clone())
                 .unwrap_or_default();
         }
@@ -685,7 +686,7 @@ impl AgentRegistry {
             .collect()
     }
 
-    /// Resolve the effective runtime capabilities for an Agent, Subagent, or Agent App.
+    /// Resolve the effective runtime capabilities for an Agent, Subagent, or Agent Component.
     pub async fn get_agent_capability_profile(
         &self,
         agent_type: &str,
@@ -712,7 +713,7 @@ impl AgentRegistry {
                 );
                 merge_dynamic_mcp_tools(resolved, &registered_tool_names)
             }
-            AgentCategory::AgentApp if !enabled => Vec::new(),
+            AgentCategory::AgentComponent if !enabled => Vec::new(),
             _ => default_tools.clone(),
         };
 
@@ -734,7 +735,7 @@ impl AgentRegistry {
             .into_iter()
             .filter(|id| valid_subagents.contains(id))
             .collect::<Vec<_>>();
-        let subagent_agent_capability_config = if entry.category == AgentCategory::AgentApp {
+        let subagent_agent_capability_config = if entry.category == AgentCategory::AgentComponent {
             None
         } else {
             agent_capability_config.as_ref()
@@ -787,9 +788,10 @@ impl AgentRegistry {
                     "agentic" => 0,
                     "Cowork" => 1,
                     "Design" => 2,
-                    "LiveAppStudio" => 3,
-                    "Plan" => 4,
-                    "debug" => 5,
+                    "AppStudio" => 3,
+                    "ComponentStudio" => 4,
+                    "Plan" => 5,
+                    "debug" => 6,
                     _ => 99,
                 }
             };
@@ -891,13 +893,13 @@ impl AgentRegistry {
             .collect()
     }
 
-    /// Get FlowChat-native Agent Apps registered in memory.
-    pub async fn get_agent_apps_info(&self, workspace_root: Option<&Path>) -> Vec<AgentInfo> {
+    /// Get FlowChat-native Agent Components registered in memory.
+    pub async fn get_agent_components_info(&self, workspace_root: Option<&Path>) -> Vec<AgentInfo> {
         let _ = workspace_root;
         let map = self.read_agents();
         let mut result: Vec<AgentInfo> = map
             .values()
-            .filter(|e| e.category == AgentCategory::AgentApp)
+            .filter(|e| e.category == AgentCategory::AgentComponent)
             .map(AgentInfo::from_agent_entry)
             .collect();
         result.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
@@ -1024,8 +1026,8 @@ impl AgentRegistry {
         debug!("Cleared project subagent caches: workspaces {}", before);
     }
 
-    /// Register or replace a FlowChat-native Agent App.
-    pub fn register_or_replace_agent_app(
+    /// Register or replace a FlowChat-native Agent Component.
+    pub fn register_or_replace_agent_component(
         &self,
         agent: Arc<dyn Agent>,
         custom_config: CustomSubagentConfig,
@@ -1035,7 +1037,7 @@ impl AgentRegistry {
         map.insert(
             id,
             AgentEntry {
-                category: AgentCategory::AgentApp,
+                category: AgentCategory::AgentComponent,
                 subagent_source: None,
                 agent,
                 custom_config: Some(custom_config),
@@ -1043,18 +1045,18 @@ impl AgentRegistry {
         );
     }
 
-    /// Remove a registered Agent App from memory.
-    pub fn remove_agent_app(&self, agent_id: &str) -> BitFunResult<()> {
+    /// Remove a registered Agent Component from memory.
+    pub fn remove_agent_component(&self, agent_id: &str) -> BitFunResult<()> {
         let mut map = self.write_agents();
         let Some(entry) = map.get(agent_id) else {
             return Err(BitFunError::agent(format!(
-                "Agent App not found: {}",
+                "Agent Component not found: {}",
                 agent_id
             )));
         };
-        if entry.category != AgentCategory::AgentApp {
+        if entry.category != AgentCategory::AgentComponent {
             return Err(BitFunError::agent(format!(
-                "Agent '{}' is not an Agent App",
+                "Agent '{}' is not an Agent Component",
                 agent_id
             )));
         }
@@ -1492,7 +1494,8 @@ mod tests {
             "Plan",
             "debug",
             "OSAgent",
-            "LiveAppStudio",
+            "AppStudio",
+            "ComponentStudio",
         ] {
             assert_eq!(default_model_id_for_builtin_agent(agent_type), "primary");
         }

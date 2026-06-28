@@ -136,11 +136,11 @@
 }
 
 .copy-output-action.edit-action:hover {
-  background: color-mix(in srgb, var(--ds-tool-family-agent-app-fg) 80%, transparent);
-  border-color: color-mix(in srgb, var(--ds-tool-family-agent-app-fg) 60%, transparent);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--ds-tool-family-agent-app-fg) 30%, transparent);
+  background: color-mix(in srgb, var(--ds-tool-family-agent-fg) 80%, transparent);
+  border-color: color-mix(in srgb, var(--ds-tool-family-agent-fg) 60%, transparent);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--ds-tool-family-agent-fg) 30%, transparent);
 }
 
 .copy-output-action.edit-action:active {
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--ds-tool-family-agent-app-fg) 40%, transparent);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--ds-tool-family-agent-fg) 40%, transparent);
 }

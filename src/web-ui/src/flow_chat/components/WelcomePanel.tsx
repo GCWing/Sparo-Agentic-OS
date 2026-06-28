@@ -18,7 +18,7 @@ import {
   Layers,
   type LucideIcon,
 } from 'lucide-react';
-import { LiveAppGlyph } from '@/app/scenes/apps/live-app/liveAppIcons';
+import { SurfaceComponentGlyph } from '@/app/scenes/apps/surface-component/surfaceComponentIcons';
 import { createLogger } from '@/shared/utils/logger';
 import {
   getWorkspaceDisplayName,
@@ -37,28 +37,28 @@ import './WelcomePanel.css';
 
 const log = createLogger('WelcomePanel');
 
-type LiveAppPromptId = 'starter' | 'dashboard' | 'polish' | 'debug';
+type SurfaceComponentPromptId = 'starter' | 'dashboard' | 'polish' | 'debug';
 
-interface LiveAppPrompt {
-  id: LiveAppPromptId;
+interface SurfaceComponentPrompt {
+  id: SurfaceComponentPromptId;
   icon: LucideIcon;
 }
 
-const LIVE_APP_PROMPTS: LiveAppPrompt[] = [
+const SURFACE_COMPONENT_PROMPTS: SurfaceComponentPrompt[] = [
   { id: 'starter', icon: AppWindow },
   { id: 'dashboard', icon: Gauge },
   { id: 'polish', icon: Palette },
   { id: 'debug', icon: Bug },
 ];
 
-type AgentAppPromptId = 'starter' | 'tools' | 'examples' | 'iterate';
+type AgentComponentPromptId = 'starter' | 'tools' | 'examples' | 'iterate';
 
-interface AgentAppPrompt {
-  id: AgentAppPromptId;
+interface AgentComponentPrompt {
+  id: AgentComponentPromptId;
   icon: LucideIcon;
 }
 
-const AGENT_APP_PROMPTS: AgentAppPrompt[] = [
+const AGENT_COMPONENT_PROMPTS: AgentComponentPrompt[] = [
   { id: 'starter', icon: AppWindow },
   { id: 'tools', icon: Layers },
   { id: 'examples', icon: BookOpen },
@@ -204,16 +204,16 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
                   </span>
                   {greeting.title}
                 </>
-              ) : welcome.headingIcon === 'live-app-studio' ? (
+              ) : welcome.headingIcon === 'app-studio' ? (
                 <>
-                  <span className="welcome-panel__heading-icon welcome-panel__heading-icon--liveapp" aria-hidden>
-                    <LiveAppGlyph size={28} strokeWidth={1.5} />
+                  <span className="welcome-panel__heading-icon welcome-panel__heading-icon--studio" aria-hidden>
+                    <SurfaceComponentGlyph size={28} strokeWidth={1.5} />
                   </span>
                   {greeting.title}，{t(aiPartnerKey)}
                 </>
-              ) : welcome.headingIcon === 'agent-app-studio' ? (
+              ) : welcome.headingIcon === 'component-studio' ? (
                 <>
-                  <span className="welcome-panel__heading-icon welcome-panel__heading-icon--liveapp" aria-hidden>
+                  <span className="welcome-panel__heading-icon welcome-panel__heading-icon--studio" aria-hidden>
                     <SparoAgentIcon size={28} strokeWidth={1.5} />
                   </span>
                   {greeting.title}，{t(aiPartnerKey)}
@@ -326,11 +326,11 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
           </div>
         )}
 
-        {welcome.promptPanel === 'live-app-studio' && (
-          <div className="welcome-panel__liveapp">
-            <div className="welcome-panel__liveapp-title">{t('welcome.liveAppPrompts.title')}</div>
-            <div className="welcome-panel__liveapp-grid">
-              {LIVE_APP_PROMPTS.map((prompt) => {
+        {welcome.promptPanel === 'app-studio' && (
+          <div className="welcome-panel__studio-prompts">
+            <div className="welcome-panel__studio-prompt-title">{t('welcome.surfaceComponentPrompts.title')}</div>
+            <div className="welcome-panel__studio-prompt-grid">
+              {SURFACE_COMPONENT_PROMPTS.map((prompt) => {
                 const Icon = prompt.icon;
                 return (
                   <Button
@@ -338,18 +338,18 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
                     type="button"
                     variant="ghost"
                     size="small"
-                    className="welcome-panel__liveapp-card"
-                    onClick={() => handleQuickActionClick(t(`welcome.liveAppPrompts.items.${prompt.id}.prompt`))}
+                    className="welcome-panel__studio-prompt-card"
+                    onClick={() => handleQuickActionClick(t(`welcome.surfaceComponentPrompts.items.${prompt.id}.prompt`))}
                   >
-                    <span className="welcome-panel__liveapp-card-icon" aria-hidden>
+                    <span className="welcome-panel__studio-prompt-card-icon" aria-hidden>
                       <Icon size={17} />
                     </span>
-                    <span className="welcome-panel__liveapp-card-copy">
-                      <span className="welcome-panel__liveapp-card-title">
-                        {t(`welcome.liveAppPrompts.items.${prompt.id}.title`)}
+                    <span className="welcome-panel__studio-prompt-card-copy">
+                      <span className="welcome-panel__studio-prompt-card-title">
+                        {t(`welcome.surfaceComponentPrompts.items.${prompt.id}.title`)}
                       </span>
-                      <span className="welcome-panel__liveapp-card-desc">
-                        {t(`welcome.liveAppPrompts.items.${prompt.id}.description`)}
+                      <span className="welcome-panel__studio-prompt-card-desc">
+                        {t(`welcome.surfaceComponentPrompts.items.${prompt.id}.description`)}
                       </span>
                     </span>
                   </Button>
@@ -359,11 +359,11 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
           </div>
         )}
 
-        {welcome.promptPanel === 'agent-app-studio' && (
-          <div className="welcome-panel__liveapp">
-            <div className="welcome-panel__liveapp-title">{t('welcome.agentAppPrompts.title')}</div>
-            <div className="welcome-panel__liveapp-grid">
-              {AGENT_APP_PROMPTS.map((prompt) => {
+        {welcome.promptPanel === 'component-studio' && (
+          <div className="welcome-panel__studio-prompts">
+            <div className="welcome-panel__studio-prompt-title">{t('welcome.agentComponentPrompts.title')}</div>
+            <div className="welcome-panel__studio-prompt-grid">
+              {AGENT_COMPONENT_PROMPTS.map((prompt) => {
                 const Icon = prompt.icon;
                 return (
                   <Button
@@ -371,18 +371,18 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
                     type="button"
                     variant="ghost"
                     size="small"
-                    className="welcome-panel__liveapp-card"
-                    onClick={() => handleQuickActionClick(t(`welcome.agentAppPrompts.items.${prompt.id}.prompt`))}
+                    className="welcome-panel__studio-prompt-card"
+                    onClick={() => handleQuickActionClick(t(`welcome.agentComponentPrompts.items.${prompt.id}.prompt`))}
                   >
-                    <span className="welcome-panel__liveapp-card-icon" aria-hidden>
+                    <span className="welcome-panel__studio-prompt-card-icon" aria-hidden>
                       <Icon size={17} />
                     </span>
-                    <span className="welcome-panel__liveapp-card-copy">
-                      <span className="welcome-panel__liveapp-card-title">
-                        {t(`welcome.agentAppPrompts.items.${prompt.id}.title`)}
+                    <span className="welcome-panel__studio-prompt-card-copy">
+                      <span className="welcome-panel__studio-prompt-card-title">
+                        {t(`welcome.agentComponentPrompts.items.${prompt.id}.title`)}
                       </span>
-                      <span className="welcome-panel__liveapp-card-desc">
-                        {t(`welcome.agentAppPrompts.items.${prompt.id}.description`)}
+                      <span className="welcome-panel__studio-prompt-card-desc">
+                        {t(`welcome.agentComponentPrompts.items.${prompt.id}.description`)}
                       </span>
                     </span>
                   </Button>

@@ -66,7 +66,7 @@ pub const COMMANDS: &[CommandSpec] = &[
         slash: "/apps",
         aliases: &["/app"],
         title: "Apps",
-        description: "Browse Agent, Bridge, and Live Apps",
+        description: "Browse Agent, Bridge, and Surface Components",
         shortcut: Some("Ctrl+P"),
         action: CommandAction::OpenPanel(PanelKind::Apps),
         scopes: BOTH,

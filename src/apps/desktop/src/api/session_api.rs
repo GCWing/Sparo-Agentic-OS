@@ -169,8 +169,10 @@ fn normalize_context_budget_agent_type(agent_type: &str) -> String {
         "team" => "Team".to_string(),
         "osagent" | "os-agent" | "os_agent" => "OSAgent".to_string(),
         "deepresearch" | "deep-research" | "deep_research" => "DeepResearch".to_string(),
-        "liveappstudio" | "live-app-studio" | "live_app_studio" => "LiveAppStudio".to_string(),
-        "agentappstudio" | "agent-app-studio" | "agent_app_studio" => "AgentAppStudio".to_string(),
+        "appstudio" | "app-studio" | "app_studio" => "AppStudio".to_string(),
+        "componentstudio" | "component-studio" | "component_studio" => {
+            "ComponentStudio".to_string()
+        }
         _ => agent_type.trim().to_string(),
     }
 }

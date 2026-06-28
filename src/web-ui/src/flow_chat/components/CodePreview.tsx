@@ -96,8 +96,8 @@ export const CodePreview: React.FC<CodePreviewProps> = memo(({
     return {
       style: {
         display: 'block',
-        backgroundColor: isHighlighted ? 'color-mix(in srgb, var(--ds-tool-family-agent-app-fg) 15%, transparent)' : 'transparent',
-        borderLeft: isHighlighted ? '3px solid var(--ds-color-accent-500, var(--ds-tool-family-agent-app-fg))' : '3px solid transparent',
+        backgroundColor: isHighlighted ? 'color-mix(in srgb, var(--ds-tool-family-agent-fg) 15%, transparent)' : 'transparent',
+        borderLeft: isHighlighted ? '3px solid var(--ds-color-accent-500, var(--ds-tool-family-agent-fg))' : '3px solid transparent',
         marginLeft: '-3px',
         paddingLeft: '3px',
         transition: 'background-color 0.15s ease, border-color 0.15s ease',

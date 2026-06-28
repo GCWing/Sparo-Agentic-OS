@@ -1,0 +1,48 @@
+{
+  "id": "builtin-cowork-agent",
+  "kind": "agent",
+  "name": "Cowork Agent",
+  "description": "Collaborative agent for clarification, drafting, document work, and practical multi-step coordination.",
+  "packageSource": "appPrivate",
+  "ownerApp": {
+    "appId": "builtin-cowork",
+    "appVersion": "1.0.0"
+  },
+  "capabilities": [
+    {
+      "id": "draftWork",
+      "title": "Draft work",
+      "description": "Create and revise text, documents, reports, and structured artifacts.",
+      "actions": [
+        "draft",
+        "revise",
+        "summarize"
+      ]
+    },
+    {
+      "id": "coordinateTasks",
+      "title": "Coordinate tasks",
+      "description": "Clarify requirements, track progress, and delegate focused subtasks.",
+      "actions": [
+        "ask",
+        "plan",
+        "delegate"
+      ]
+    }
+  ],
+  "permissions": [
+    {
+      "kind": "ai",
+      "summary": "Uses the configured Cowork agent.",
+      "scopes": [
+        "Cowork"
+      ]
+    }
+  ],
+  "usedByApps": [
+    "builtin-cowork"
+  ],
+  "visibility": "appDependency",
+  "dependencies": [],
+  "implementationRef": "agent://Cowork"
+}

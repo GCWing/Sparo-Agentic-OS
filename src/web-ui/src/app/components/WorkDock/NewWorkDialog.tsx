@@ -7,8 +7,16 @@ import {
   getWorkspaceDisplayName,
   useWorkspaceContext,
 } from '@/infrastructure/contexts/WorkspaceContext';
-import { agentAppAPI, type AgentAppInfo } from '@/infrastructure/api/service-api/AgentAppAPI';
-import { liveAppAPI, type LiveAppMeta } from '@/infrastructure/api/service-api/LiveAppAPI';
+import {
+  appCatalogAPI,
+  type ProductAppCatalogEntry,
+  type ProductAppLaunchScopeRequirement,
+} from '@/infrastructure/api/service-api/AppCatalogAPI';
+import {
+  getProductAppLaunchScopeRequirement,
+  productAppSupportsMultipleWorks,
+  resolveProductAppWorkScope,
+} from '@/app/agentic-os/work/domain/productAppLaunchPolicy';
 import { descriptorFromAgentType, getBackendAgentType, type SessionDescriptor } from '@/flow_chat/domain/sessionDescriptor';
 import { createOsHandoffMetadata } from '@/flow_chat/domain/osHandoffIntent';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
@@ -19,11 +27,10 @@ import type { SessionMode } from '@/app/stores/sessionModeStore';
 import { useWorkStore } from '@/app/agentic-os/work/data/workStore';
 import { openWork } from '@/app/agentic-os/work/navigation/openWork';
 import type { WorkAppRef, WorkRecord } from '@/app/agentic-os/work/domain/workTypes';
+import { productAppWorkRef } from '@/app/agentic-os/work/domain/productAppRefs';
 import type { WorkspaceInfo } from '@/shared/types';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
-import { isCompositeLiveApp } from '@/app/scenes/apps/live-app/liveAppInteraction';
-import { resolveLiveAppMeta } from '@/app/scenes/apps/live-app/liveAppI18n';
 import './NewWorkDialog.scss';
 
 const log = createLogger('NewWorkDialog');
@@ -32,7 +39,13 @@ const LS_AGENT = 'sparo.newWorkDialog.agent';
 const LS_WORKSPACE = 'sparo.newWorkDialog.workspaceId';
 const SYSTEM_WORKSPACE_VALUE = '__system_work__';
 const BROWSED_WORKSPACE_VALUE = '__browsed_workspace__';
-const LIVE_APP_CHOICE_PREFIX = 'live-app:';
+const PRODUCT_APP_CHOICE_PREFIX = 'product-app:';
+const LEGACY_AGENT_PRODUCT_APP_IDS: Record<string, string> = {
+  agentic: 'builtin-coding',
+  Cowork: 'builtin-cowork',
+  Design: 'builtin-design',
+  DeepResearch: 'builtin-deep-research',
+};
 
 type NewWorkStartMode = 'manual' | 'agentic-os';
 
@@ -41,31 +54,59 @@ export type NewWorkAgentChoice =
   | 'Cowork'
   | 'Design'
   | 'DeepResearch'
-  | 'LiveAppStudio'
-  | 'AgentAppStudio'
   | (string & {});
 
 export interface NewWorkDialogProps {
   open: boolean;
   onClose: () => void;
   initialAgentChoice?: NewWorkAgentChoice;
+  initialScopeRequirement?: ProductAppLaunchScopeRequirement;
 }
 
-function liveAppWorkChoice(appId: string): NewWorkAgentChoice {
-  return `${LIVE_APP_CHOICE_PREFIX}${appId}` as NewWorkAgentChoice;
+export function productAppWorkChoice(appId: string): NewWorkAgentChoice {
+  return `${PRODUCT_APP_CHOICE_PREFIX}${appId}` as NewWorkAgentChoice;
 }
 
-function parseLiveAppWorkChoice(agentChoice: NewWorkAgentChoice): string | null {
+function parseProductAppWorkChoice(agentChoice: NewWorkAgentChoice): string | null {
   const raw = String(agentChoice);
-  if (!raw.startsWith(LIVE_APP_CHOICE_PREFIX)) return null;
-  const appId = raw.slice(LIVE_APP_CHOICE_PREFIX.length).trim();
+  if (!raw.startsWith(PRODUCT_APP_CHOICE_PREFIX)) return null;
+  const appId = raw.slice(PRODUCT_APP_CHOICE_PREFIX.length).trim();
   return appId || null;
 }
 
+function normalizeChoiceForAvailableApps(
+  agentChoice: NewWorkAgentChoice | null | undefined,
+  apps: ProductAppCatalogEntry[],
+  knownBuiltinChoices: Set<string>,
+): NewWorkAgentChoice | null {
+  if (!agentChoice) return null;
+  const productAppId = parseProductAppWorkChoice(agentChoice);
+  if (productAppId) {
+    return apps.some((app) => app.id === productAppId) ? agentChoice : null;
+  }
+
+  if (apps.length > 0) {
+    const mappedAppId = LEGACY_AGENT_PRODUCT_APP_IDS[String(agentChoice)];
+    return mappedAppId && apps.some((app) => app.id === mappedAppId)
+      ? productAppWorkChoice(mappedAppId)
+      : null;
+  }
+
+  return knownBuiltinChoices.has(String(agentChoice)) ? agentChoice : null;
+}
+
+function defaultProductAppChoice(apps: ProductAppCatalogEntry[]): NewWorkAgentChoice | null {
+  const preferred =
+    apps.find((app) => app.id === 'builtin-coding') ??
+    apps.find((app) => app.launch?.kind === 'agentSession') ??
+    apps[0];
+  return preferred ? productAppWorkChoice(preferred.id) : null;
+}
+
 function labelForChoice(agentChoice: NewWorkAgentChoice): string {
-  const liveAppId = parseLiveAppWorkChoice(agentChoice);
-  if (liveAppId) {
-    return `${liveAppId} Work`;
+  const productAppId = parseProductAppWorkChoice(agentChoice);
+  if (productAppId) {
+    return `${productAppId} Work`;
   }
 
   switch (agentChoice) {
@@ -77,10 +118,6 @@ function labelForChoice(agentChoice: NewWorkAgentChoice): string {
       return 'Design Work';
     case 'DeepResearch':
       return 'Research Work';
-    case 'LiveAppStudio':
-      return 'Live App Studio Work';
-    case 'AgentAppStudio':
-      return 'Agent App Studio Work';
     default:
       return `${agentChoice} Work`;
   }
@@ -132,8 +169,8 @@ function syncSessionModeStore(descriptor: SessionDescriptor): void {
   const sessionMode: SessionMode =
     displayMode === 'cowork' ||
     displayMode === 'design' ||
-    displayMode === 'liveappstudio' ||
-    displayMode === 'agentappstudio'
+    displayMode === 'appstudio' ||
+    displayMode === 'componentstudio'
       ? displayMode
       : 'code';
   useSessionModeStore.getState().setMode(sessionMode);
@@ -150,76 +187,114 @@ export async function launchWorkForChoice(params: {
   appRef?: WorkAppRef;
 }): Promise<WorkRecord> {
   const { agentChoice, workspace, rememberWorkspace, title, objective, appRef } = params;
-  const liveAppId = parseLiveAppWorkChoice(agentChoice);
-  if (liveAppId) {
-    const explicitTitle = title?.trim();
-    const explicitObjective = objective?.trim();
-    let liveAppName = liveAppId;
+  const productAppId = parseProductAppWorkChoice(agentChoice);
+  let resolvedAgentChoice = agentChoice;
+  let resolvedAppRef = appRef;
+  let resolvedTitle = title?.trim();
+  let resolvedObjective = objective?.trim();
+  let resolvedWorkScope = workspace
+    ? { kind: 'workspace' as const, workspacePath: workspace.rootPath }
+    : { kind: 'system' as const };
 
-    try {
-      const app = await liveAppAPI.getLiveApp(liveAppId, undefined, workspace?.rootPath);
-      liveAppName = resolveLiveAppMeta(app).name || app.name || liveAppId;
-    } catch (error) {
-      log.warn('Failed to resolve Live App name for work creation', { liveAppId, error });
+  if (productAppId) {
+    const productApp = await appCatalogAPI.getProductApp(productAppId);
+    const productAppRef = productAppWorkRef(productApp);
+    const launch = productApp.launch;
+    resolvedAppRef = productAppRef;
+    resolvedTitle = resolvedTitle || productApp.name;
+    resolvedObjective = resolvedObjective || productApp.goal || productApp.description || productApp.name;
+
+    if (!launch) {
+      throw new Error(`Product App ${productApp.name} has no launch target.`);
+    }
+    resolvedWorkScope = resolveProductAppWorkScope(productApp, workspace);
+
+    if (launch.kind === 'applicationSurface') {
+      const targetProductAppId = productApp.id;
+      const targetSurfaceComponentId = productApp.primarySurface.componentId;
+      const targetSurfaceId = launch.surfaceId || productApp.primarySurface.surfaceId || 'primary';
+      const primarySurface = {
+        kind: 'application_surface' as const,
+        productAppId: targetProductAppId,
+        surfaceComponentId: targetSurfaceComponentId,
+        surfaceId: targetSurfaceId,
+      };
+      const appRefs = [
+        { app: productAppRef, role: 'executor' as const },
+      ];
+      const assignment = {
+        kind: 'application' as const,
+        applicationId: targetProductAppId,
+      };
+      const workStore = useWorkStore.getState();
+
+      const work = productAppSupportsMultipleWorks(productApp)
+        ? await workStore.createWork({
+            kind: 'app_workflow',
+            title: resolvedTitle,
+            objective: resolvedObjective,
+            subject: {
+              kind: 'app',
+              app: productAppRef,
+              intent: 'run',
+            },
+            appRefs,
+            scope: resolvedWorkScope,
+            visibility: 'primary',
+            primarySurfacePolicy: 'application_surface',
+            primarySurface,
+            titleState: title?.trim()
+              ? { source: 'user', locked: true }
+              : { source: 'application_surface', locked: false, subjectRef: targetProductAppId },
+            assignment,
+          })
+        : (await workStore.resolveAppWork({
+            app: productAppRef,
+            intent: 'run',
+            title: resolvedTitle,
+            objective: resolvedObjective,
+            appRefs,
+            scope: resolvedWorkScope,
+            visibility: 'primary',
+            primarySurfacePolicy: 'application_surface',
+            primarySurface,
+            assignment,
+          })).work;
+
+      if (workspace) {
+        await rememberWorkspace(workspace.id);
+      }
+      await openWork(work);
+      return work;
     }
 
-    const work = await useWorkStore.getState().createWork({
-      kind: 'app_workflow',
-      title: explicitTitle || liveAppName,
-      objective: explicitObjective || liveAppName,
-      subject: {
-        kind: 'app',
-        app: { kind: 'live_app', appId: liveAppId },
-        intent: 'run',
-      },
-      appRefs: [
-        { app: { kind: 'live_app', appId: liveAppId }, role: 'executor' },
-      ],
-      scope: workspace
-        ? { kind: 'workspace', workspacePath: workspace.rootPath }
-        : { kind: 'system' },
-      visibility: 'primary',
-      primarySurfacePolicy: 'live_app',
-      titleState: explicitTitle
-        ? { source: 'user', locked: true }
-        : { source: 'live_app', locked: false, subjectRef: liveAppId },
-      assignment: {
-        kind: 'application',
-        applicationId: liveAppId,
-      },
-    });
-
-    if (workspace) {
-      await rememberWorkspace(workspace.id);
+    if (launch.kind !== 'agentSession') {
+      throw new Error(`Product App ${productApp.name} cannot start a work session.`);
     }
-    await openWork(work);
-    return work;
+
+    resolvedAgentChoice = (launch.agentType || launch.targetId || 'agentic') as NewWorkAgentChoice;
   }
 
-  const descriptor = resolveDescriptorFromChoice(agentChoice);
+  const descriptor = resolveDescriptorFromChoice(resolvedAgentChoice);
   const backendAgentType = getBackendAgentType(descriptor);
-  const explicitTitle = title?.trim();
-  const explicitObjective = objective?.trim();
-  const defaultTitle = labelForChoice(agentChoice);
-  const workTitle = explicitTitle || defaultTitle;
-  const workObjective = explicitObjective || defaultTitle;
+  const defaultTitle = labelForChoice(resolvedAgentChoice);
+  const workTitle = resolvedTitle || defaultTitle;
+  const workObjective = resolvedObjective || defaultTitle;
 
   syncSessionModeStore(descriptor);
 
   const work = await useWorkStore.getState().createWork({
-    kind: appRef ? 'app_workflow' : 'multi_step',
+    kind: resolvedAppRef ? 'app_workflow' : 'multi_step',
     title: workTitle,
     objective: workObjective,
-    subject: appRef
-      ? { kind: 'app', app: appRef, intent: 'run' }
+    subject: resolvedAppRef
+      ? { kind: 'app', app: resolvedAppRef, intent: 'run' }
       : { kind: 'goal' },
-    appRefs: appRef ? [{ app: appRef, role: 'executor' }] : [],
-    scope: workspace
-      ? { kind: 'workspace', workspacePath: workspace.rootPath }
-      : { kind: 'system' },
+    appRefs: resolvedAppRef ? [{ app: resolvedAppRef, role: 'executor' }] : [],
+    scope: resolvedWorkScope,
     visibility: 'primary',
     primarySurfacePolicy: 'work_session',
-    titleState: explicitTitle
+    titleState: title?.trim()
       ? { source: 'user', locked: true }
       : { source: 'template', locked: false },
     assignment: {
@@ -239,8 +314,9 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
   open: isOpen,
   onClose,
   initialAgentChoice,
+  initialScopeRequirement,
 }) => {
-  const { t, currentLanguage } = useI18n('common');
+  const { t } = useI18n('common');
   const {
     openedWorkspacesList,
     recentWorkspaces,
@@ -255,38 +331,46 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
   const [browsedWorkspacePath, setBrowsedWorkspacePath] = useState<string | null>(null);
   const [objective, setObjective] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [userAgentApps, setUserAgentApps] = useState<AgentAppInfo[]>([]);
-  const [liveAppChoices, setLiveAppChoices] = useState<LiveAppMeta[]>([]);
+  const [productApps, setProductApps] = useState<ProductAppCatalogEntry[]>([]);
 
   const knownBuiltinChoices = useMemo<Set<string>>(
-    () => new Set(['agentic', 'Cowork', 'Design', 'DeepResearch', 'LiveAppStudio', 'AgentAppStudio']),
+    () => new Set(['agentic', 'Cowork', 'Design', 'DeepResearch']),
     []
   );
 
-  const resetDefaults = useCallback((loadedApps?: AgentAppInfo[], loadedLiveApps?: LiveAppMeta[]) => {
-    const apps = loadedApps ?? userAgentApps;
-    const choiceLiveApps = loadedLiveApps ?? liveAppChoices;
+  const selectedProductAppId = parseProductAppWorkChoice(agentChoice);
+  const selectedProductApp = useMemo(
+    () => selectedProductAppId
+      ? productApps.find((app) => app.id === selectedProductAppId) ?? null
+      : null,
+    [productApps, selectedProductAppId]
+  );
+  const initialChoiceScopeRequirement = initialAgentChoice === agentChoice
+    ? initialScopeRequirement
+    : undefined;
+  const effectiveScopeRequirement = selectedProductApp
+    ? getProductAppLaunchScopeRequirement(selectedProductApp)
+    : initialChoiceScopeRequirement ?? getProductAppLaunchScopeRequirement(null);
+  const workspaceRequired = startMode === 'manual' && effectiveScopeRequirement === 'workspaceRequired';
+
+  const resetDefaults = useCallback((loadedProductApps?: ProductAppCatalogEntry[]) => {
+    const apps = loadedProductApps ?? productApps;
+    const normalizedInitialChoice = normalizeChoiceForAvailableApps(
+      initialAgentChoice,
+      apps,
+      knownBuiltinChoices,
+    );
     let storedAgent: NewWorkAgentChoice | null = null;
     let storedWorkspaceId: string | null = null;
     try {
       const rawAgent = localStorage.getItem(LS_AGENT) as NewWorkAgentChoice | null;
-      const liveAppId = rawAgent ? parseLiveAppWorkChoice(rawAgent) : null;
-      if (
-        rawAgent &&
-        (
-          knownBuiltinChoices.has(rawAgent) ||
-          apps.some((app) => app.id === rawAgent) ||
-          (liveAppId && choiceLiveApps.some((app) => app.id === liveAppId))
-        )
-      ) {
-        storedAgent = rawAgent;
-      }
+      storedAgent = normalizeChoiceForAvailableApps(rawAgent, apps, knownBuiltinChoices);
       storedWorkspaceId = localStorage.getItem(LS_WORKSPACE);
     } catch {
       /* ignore */
     }
 
-    setAgentChoice(initialAgentChoice ?? storedAgent ?? 'agentic');
+    setAgentChoice(normalizedInitialChoice ?? storedAgent ?? defaultProductAppChoice(apps) ?? 'agentic');
     setStartMode('manual');
     setBrowsedWorkspacePath(null);
     setObjective('');
@@ -297,30 +381,29 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
     initialAgentChoice,
     knownBuiltinChoices,
     lastUsedWorkspace,
-    liveAppChoices,
     openedWorkspacesList,
+    productApps,
     recentWorkspaces,
-    userAgentApps,
   ]);
 
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
-    Promise.all([
-      agentAppAPI.listAgentApps(),
-      liveAppAPI.listLiveApps(),
-    ]).then(([apps, liveApps]) => {
+    appCatalogAPI.listAppCatalog().then((apps) => {
       if (cancelled) return;
-      setUserAgentApps(apps);
-      const compositeLiveApps = liveApps.filter(isCompositeLiveApp);
-      setLiveAppChoices(compositeLiveApps);
-      resetDefaults(apps, compositeLiveApps);
+      const launchableApps = apps.filter((app) => (
+        app.enabled && (
+          app.launch?.kind === 'agentSession' ||
+          app.launch?.kind === 'applicationSurface'
+        )
+      ));
+      setProductApps(launchableApps);
+      resetDefaults(launchableApps);
     }).catch((error) => {
       if (cancelled) return;
       log.error('Failed to load work executors', { error });
-      setUserAgentApps([]);
-      setLiveAppChoices([]);
-      resetDefaults([], []);
+      setProductApps([]);
+      resetDefaults([]);
     });
     return () => {
       cancelled = true;
@@ -328,6 +411,15 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
     // resetDefaults intentionally omitted to avoid resetting while the dialog is open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !initialAgentChoice) return;
+    setAgentChoice(
+      normalizeChoiceForAvailableApps(initialAgentChoice, productApps, knownBuiltinChoices) ??
+      initialAgentChoice,
+    );
+    setStartMode('manual');
+  }, [initialAgentChoice, isOpen, knownBuiltinChoices, productApps]);
 
   const workspaceOptions = useMemo<SelectOption[]>(() => {
     const recentOrder = new Map(recentWorkspaces.map((workspace, index) => [workspace.id, index]));
@@ -337,83 +429,90 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
       if (leftOrder !== rightOrder) return leftOrder - rightOrder;
       return getWorkspaceDisplayName(left).localeCompare(getWorkspaceDisplayName(right));
     });
-    const options: SelectOption[] = [
-      {
-        label: t('nav.workDock.globalScopeLabel'),
-        value: SYSTEM_WORKSPACE_VALUE,
-        description: t('nav.workDock.globalScopeDescription'),
-      },
-      ...sorted.map((workspace) => ({
-        label: getWorkspaceDisplayName(workspace),
-        value: workspace.id,
-        description: workspace.rootPath,
-      })),
-    ];
+    const workspaceItems = sorted.map((workspace) => ({
+      label: getWorkspaceDisplayName(workspace),
+      value: workspace.id,
+      description: workspace.rootPath,
+    }));
+    const options: SelectOption[] = workspaceRequired
+      ? workspaceItems
+      : [
+          {
+            label: t('nav.workDock.globalScopeLabel'),
+            value: SYSTEM_WORKSPACE_VALUE,
+            description: t('nav.workDock.globalScopeDescription'),
+          },
+          ...workspaceItems,
+        ];
     if (browsedWorkspacePath) {
-      options.splice(1, 0, {
+      options.splice(workspaceRequired ? 0 : 1, 0, {
         label: getBrowsedWorkspaceName(browsedWorkspacePath),
         value: BROWSED_WORKSPACE_VALUE,
         description: browsedWorkspacePath,
       });
     }
     return options;
-  }, [browsedWorkspacePath, openedWorkspacesList, recentWorkspaces, t]);
+  }, [browsedWorkspacePath, openedWorkspacesList, recentWorkspaces, t, workspaceRequired]);
+
+  useEffect(() => {
+    if (!isOpen || !workspaceRequired) return;
+    if (workspaceId && workspaceId !== SYSTEM_WORKSPACE_VALUE) return;
+
+    const defaultWorkspaceId = pickDefaultWorkspaceId(
+      openedWorkspacesList,
+      recentWorkspaces,
+      lastUsedWorkspace,
+      null
+    );
+    setWorkspaceId(defaultWorkspaceId === SYSTEM_WORKSPACE_VALUE ? null : defaultWorkspaceId);
+  }, [
+    isOpen,
+    lastUsedWorkspace,
+    openedWorkspacesList,
+    recentWorkspaces,
+    workspaceId,
+    workspaceRequired,
+  ]);
 
   const agentOptions = useMemo<SelectOption[]>(
-    () => [
-      {
-        value: 'agentic',
-        label: t('nav.workDock.executor.primeBuilder'),
-        description: t('nav.workDock.executor.primeBuilderDescription'),
-        group: t('nav.workDock.executor.systemGroup'),
-      },
-      {
-        value: 'Cowork',
-        label: t('nav.workDock.executor.cowork'),
-        description: t('nav.workDock.executor.coworkDescription'),
-        group: t('nav.workDock.executor.systemGroup'),
-      },
-      {
-        value: 'Design',
-        label: t('nav.workDock.executor.design'),
-        description: t('nav.workDock.executor.designDescription'),
-        group: t('nav.workDock.executor.systemGroup'),
-      },
-      {
-        value: 'DeepResearch',
-        label: t('nav.workDock.executor.research'),
-        description: t('nav.workDock.executor.researchDescription'),
-        group: t('nav.workDock.executor.systemGroup'),
-      },
-      {
-        value: 'LiveAppStudio',
-        label: t('nav.workDock.executor.liveAppBuilder'),
-        description: t('nav.workDock.executor.liveAppBuilderDescription'),
-        group: t('nav.workDock.executor.systemGroup'),
-      },
-      {
-        value: 'AgentAppStudio',
-        label: t('nav.workDock.executor.agentAppBuilder'),
-        description: t('nav.workDock.executor.agentAppBuilderDescription'),
-        group: t('nav.workDock.executor.systemGroup'),
-      },
-      ...liveAppChoices.map((app) => {
-        const displayMeta = resolveLiveAppMeta(app, currentLanguage);
-        return {
-          value: liveAppWorkChoice(app.id),
-          label: displayMeta.name,
-          description: displayMeta.description,
-          group: t('nav.workDock.executor.liveAppGroup'),
-        };
-      }),
-      ...userAgentApps.filter((app) => app.enabled).map((app) => ({
-        value: app.id,
-        label: app.name,
-        description: app.description,
-        group: t('nav.workDock.executor.extensionGroup'),
-      })),
-    ],
-    [currentLanguage, liveAppChoices, t, userAgentApps]
+    () => {
+      if (productApps.length > 0) {
+        return productApps.map((app) => ({
+          value: productAppWorkChoice(app.id),
+          label: app.name,
+          description: app.goal || app.description,
+          group: t('nav.workDock.executor.productAppGroup'),
+        }));
+      }
+
+      return [
+        {
+          value: 'agentic',
+          label: t('nav.workDock.executor.primeBuilder'),
+          description: t('nav.workDock.executor.primeBuilderDescription'),
+          group: t('nav.workDock.executor.systemGroup'),
+        },
+        {
+          value: 'Cowork',
+          label: t('nav.workDock.executor.cowork'),
+          description: t('nav.workDock.executor.coworkDescription'),
+          group: t('nav.workDock.executor.systemGroup'),
+        },
+        {
+          value: 'Design',
+          label: t('nav.workDock.executor.design'),
+          description: t('nav.workDock.executor.designDescription'),
+          group: t('nav.workDock.executor.systemGroup'),
+        },
+        {
+          value: 'DeepResearch',
+          label: t('nav.workDock.executor.research'),
+          description: t('nav.workDock.executor.researchDescription'),
+          group: t('nav.workDock.executor.systemGroup'),
+        },
+      ];
+    },
+    [productApps, t]
   );
 
   const startModeOptions = useMemo<Array<{
@@ -521,6 +620,13 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
       notificationService.error(t('nav.workDock.objectiveRequired'), { duration: 3000 });
       return;
     }
+    const workspaceSelectionReady = workspaceId === BROWSED_WORKSPACE_VALUE
+      ? Boolean(browsedWorkspacePath)
+      : Boolean(workspaceId && workspaceId !== SYSTEM_WORKSPACE_VALUE);
+    if (startMode === 'manual' && workspaceRequired && !workspaceSelectionReady) {
+      notificationService.error(t('nav.workDock.workspaceRequired'), { duration: 3000 });
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -554,6 +660,10 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
 
       if (!workspace && shouldOpenBrowsedWorkspace && browsedWorkspacePath) {
         workspace = await openWorkspace(browsedWorkspacePath);
+      }
+      if (workspaceRequired && !workspace) {
+        notificationService.error(t('nav.workDock.workspaceRequired'), { duration: 3000 });
+        return;
       }
       await launchWorkForChoice({
         agentChoice,
@@ -597,10 +707,16 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
     startMode,
     t,
     workspaceId,
+    workspaceRequired,
   ]);
 
   const selectedWorkspaceOption = workspaceOptions.find((option) => option.value === (workspaceId ?? SYSTEM_WORKSPACE_VALUE));
-  const canSubmit = (startMode === 'manual' || objective.trim().length > 0) && !submitting;
+  const workspaceSelectionReady = workspaceId === BROWSED_WORKSPACE_VALUE
+    ? Boolean(browsedWorkspacePath)
+    : Boolean(workspaceId && workspaceId !== SYSTEM_WORKSPACE_VALUE);
+  const canSubmit = (startMode === 'manual' || objective.trim().length > 0)
+    && (!workspaceRequired || workspaceSelectionReady)
+    && !submitting;
 
   return (
     <Dialog
@@ -745,9 +861,11 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
                   </IconButton>
                 </div>
                 <p className="new-work-dialog__scope-hint">
-                  {t('nav.workDock.scopePreview', {
-                    scope: selectedWorkspaceOption?.label ?? t('nav.workDock.globalScopeLabel'),
-                  })}
+                  {workspaceRequired && !selectedWorkspaceOption
+                    ? t('nav.workDock.workspaceRequiredHint')
+                    : t('nav.workDock.scopePreview', {
+                        scope: selectedWorkspaceOption?.label ?? t('nav.workDock.globalScopeLabel'),
+                      })}
                 </p>
               </section>
             </>

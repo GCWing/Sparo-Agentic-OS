@@ -73,9 +73,9 @@ export type SessionComposerBuiltinActionId =
 
 export type SessionComposerActionProviderId =
   | 'profile'
-  | 'live-app-workbench'
-  | 'live-app-studio'
-  | 'agent-app-studio';
+  | 'surface-component-workbench'
+  | 'app-studio'
+  | 'component-studio';
 
 export type SessionComposerAgentSwitching =
   | { mode: 'disabled' }

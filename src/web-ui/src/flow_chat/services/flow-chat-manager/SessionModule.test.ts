@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FlowChatStore } from '../../store/FlowChatStore';
-import { getLiveAppWorkbenchSessionDescriptor } from '../../domain/sessionDescriptor';
+import { getSurfaceComponentWorkbenchSessionDescriptor } from '../../domain/sessionDescriptor';
 import type { FlowChatContext } from './types';
 import { createChatSession } from './SessionModule';
 
@@ -78,7 +78,7 @@ describe('createChatSession workspace scope', () => {
     sessionIds.splice(0).forEach(sessionId => store.removeSession(sessionId));
   });
 
-  it('keeps an explicit workspace path for agentic_os Live App workbench sessions', async () => {
+  it('keeps an explicit workspace path for agentic_os Product App workbench sessions', async () => {
     const store = FlowChatStore.getInstance();
     const context = createTestContext(store);
     const sessionId = `harmony-workbench-${Date.now()}`;
@@ -98,7 +98,7 @@ describe('createChatSession workspace scope', () => {
         workspacePath,
         sessionName: 'HarmonyOS Dev',
       },
-      getLiveAppWorkbenchSessionDescriptor('harmonyos-dev-agent'),
+      getSurfaceComponentWorkbenchSessionDescriptor('harmonyos-dev-agent'),
     );
 
     expect(agentApiMock.createSession).toHaveBeenCalledWith(

@@ -57,7 +57,7 @@
       "os_agent_home": "Agentic OS",
       "work_session": "Work session",
       "agent_session": "Agent session",
-      "live_app": "Live App",
+      "application_surface": "Application surface",
       "work_center": "Work Center",
       "application_surface": "Application"
     },
@@ -325,23 +325,23 @@
     "blame": "Blame",
     "cherryPick": "Cherry-pick"
   },
-  "initLiveApp": {
-    "title": "Live App",
+  "initSurfaceComponent": {
+    "title": "Product App Surface",
     "operationInit": "Init",
     "skeletonReady": "Ready",
     "creatingShort": "…",
     "untitled": "(unnamed)",
     "failed": "Failed",
-    "createFailed": "Could not create Live App",
-    "openInLiveApp": "Open in Live App",
-    "openInLiveAppTitle": "Open in Live App",
+    "createFailed": "Could not create Product App surface",
+    "openInSurfaceComponent": "Open Product App",
+    "openInSurfaceComponentTitle": "Open Product App",
     "labelAppId": "app_id",
     "labelPath": "path",
     "nameLabel": "App: {{name}}"
   },
-  "liveAppStudio": {
-    "title": "Live App",
-    "debugPanelTitle": "Live App Builder",
+  "appStudio": {
+    "title": "Product App Surface",
+    "debugPanelTitle": "App Studio",
     "recompile": "Recompile",
     "probe": "Probe",
     "matrix": "Matrix",
@@ -350,13 +350,14 @@
     "probeSummary": "{{fatal}} fatal · {{warning}} warning · {{noise}} noise",
     "matrixRequested": "Matrix requested",
     "matrixStates": "{{count}} states",
-    "openDebugPanel": "Open Live App debug panel"
+    "openDebugPanel": "Open App Studio"
   },
-  "agentAppStudio": {
-    "title": "Agent App",
+  "componentStudio": {
+    "title": "Component Package",
     "list": "Catalog",
     "inspect": "Inspect",
     "validate": "Validate",
+    "createPackage": "Create package",
     "create": "Create",
     "update": "Update",
     "tools": "Tool options",
@@ -373,7 +374,7 @@
     "testingNamed": "Testing {{name}}…",
     "testPass": "passed",
     "testFail": "failed",
-    "appsCount": "{{count}} agent apps",
+    "appsCount": "{{count}} agent components",
     "toolsCount": "{{count}} tools",
     "moreApps": "{{count}} more apps not shown",
     "moreTools": "{{count}} more tools not shown",
@@ -381,6 +382,8 @@
     "readonly": "readonly",
     "fieldName": "name",
     "fieldDescription": "description",
+    "fieldKind": "kind",
+    "fieldVersion": "version",
     "fieldModel": "model",
     "fieldCategory": "category",
     "fieldReadonly": "readonly",
@@ -390,9 +393,9 @@
     "fieldPath": "path",
     "fieldToolName": "tool name",
     "fieldSummary": "summary",
-    "openAppsPanel": "Open Agent Apps catalog",
-    "openStudioPanel": "Open Agent App preview",
-    "previewPanelTitle": "Agent App Builder"
+    "openAppsPanel": "Open Component Center",
+    "openStudioPanel": "Open Component Studio",
+    "previewPanelTitle": "Component Studio"
   },
   "bridgeCall": {
     "title": "Bridge",

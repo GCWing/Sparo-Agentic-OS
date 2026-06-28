@@ -1,6 +1,6 @@
 //! API layer module
 
-pub mod agent_app_api;
+pub mod agent_component_api;
 pub mod agentic_api;
 pub mod agentic_os_api;
 pub mod announcement_api;
@@ -8,7 +8,7 @@ pub mod app_catalog_api;
 pub mod app_state;
 pub mod background_process_api;
 pub mod boot_api;
-pub mod bridge_app_api;
+pub mod bridge_component_api;
 pub mod browser_control_api;
 pub mod btw_api;
 pub mod clipboard_file_api;
@@ -23,7 +23,6 @@ pub mod global_milestone_api;
 pub mod goal_api;
 pub mod host_scan_api;
 pub mod i18n_api;
-pub mod live_app_api;
 pub mod markdown_ai_api;
 pub mod markdown_export_api;
 pub mod mcp_api;
@@ -40,6 +39,7 @@ pub mod skill_api;
 pub mod snapshot_service;
 pub mod storage_commands;
 pub mod subagent_api;
+pub mod surface_component_api;
 pub mod system_api;
 pub mod terminal_api;
 pub mod token_usage_api;

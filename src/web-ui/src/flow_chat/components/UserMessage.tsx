@@ -31,7 +31,7 @@ type ContentPart =
 // Tag metadata
 const TAG_CONFIG = {
   file: { icon: File, color: 'var(--ds-status-surface-info-fg)', label: 'File' },
-  dir: { icon: Folder, color: 'var(--ds-tool-family-agent-app-fg)', label: 'Directory' },
+  dir: { icon: Folder, color: 'var(--ds-tool-family-agent-fg)', label: 'Directory' },
   code: { icon: Code, color: 'var(--ds-status-surface-success-fg)', label: 'Code' },
   img: { icon: Image, color: 'var(--ds-status-surface-warning-fg)', label: 'Image' },
   cmd: { icon: Terminal, color: 'var(--ds-status-surface-neutral-fg)', label: 'Command' },

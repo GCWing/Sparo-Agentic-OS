@@ -23,7 +23,7 @@ pub async fn init_agentic_system() -> Result<AgenticSystem> {
     let _ai_client_factory = AIClientFactory::get_global().await?;
     let runtime = initialize_agentic_runtime(AgenticRuntimeOptions {
         computer_use_host: None,
-        register_agent_apps: true,
+        register_agent_components: true,
         install_process_globals: true,
     })
     .await?;

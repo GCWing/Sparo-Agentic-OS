@@ -1,0 +1,27 @@
+{
+  "id": "workspace",
+  "label": "Workspace",
+  "scope": "workspace",
+  "identitySchema": {
+    "type": "object",
+    "required": [
+      "workspacePath"
+    ],
+    "properties": {
+      "workspacePath": {
+        "type": "string"
+      }
+    }
+  },
+  "contextSchema": {
+    "type": "object",
+    "properties": {
+      "projectKind": {
+        "type": "string"
+      },
+      "bundleName": {
+        "type": "string"
+      }
+    }
+  }
+}

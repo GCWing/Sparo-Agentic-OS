@@ -109,8 +109,6 @@ function getSurfaceLabelKey(surface: WorkSurfaceRef): string {
       return 'detail.surface.workSession';
     case 'agent_session':
       return 'detail.surface.agentSession';
-    case 'live_app':
-      return 'detail.surface.liveApp';
     case 'work_center':
       return 'detail.surfaces';
     case 'application_surface':
@@ -125,8 +123,6 @@ function getSurfaceReference(surface: WorkSurfaceRef): string | null {
     case 'work_session':
     case 'agent_session':
       return surface.sessionId;
-    case 'live_app':
-      return surface.appId;
     case 'application_surface':
       return surface.surfaceId;
     case 'os_agent_home':
@@ -174,8 +170,6 @@ function getExecutionSourceLabel(source: WorkExecutionSource, t: WorkCenterTrans
       return t('detail.executionSource.agentSessionRun');
     case 'delegated_work_run':
       return t('detail.executionSource.delegatedWorkRun');
-    case 'live_app_worker':
-      return t('detail.executionSource.liveAppWorker');
     case 'application_action':
       return t('detail.executionSource.applicationAction');
     case 'runtime_subagent_run':
@@ -191,8 +185,6 @@ function getExecutionSourceReference(source: WorkExecutionSource): string | null
       return source.turnId ?? source.sessionId;
     case 'delegated_work_run':
       return source.childWorkId;
-    case 'live_app_worker':
-      return source.workerId ?? source.appId;
     case 'application_action':
       return `${source.applicationId}:${source.actionId}`;
     case 'runtime_subagent_run':
@@ -210,7 +202,7 @@ const LIFECYCLE_LABEL_KEYS: Record<string, string> = {
   'archived': 'detail.lifecycleEvent.archived',
   'reopened': 'detail.lifecycleEvent.reopened',
   'status updated': 'detail.lifecycleEvent.statusUpdated',
-  'live app workflow started': 'detail.lifecycleEvent.liveAppWorkflowStarted',
+  'application surface workflow started': 'detail.lifecycleEvent.applicationSurfaceWorkflowStarted',
   'current execution cancelled': 'detail.lifecycleEvent.currentExecutionCancelled',
   'agent session continued': 'detail.lifecycleEvent.agentSessionContinued',
   'agent session turn completed': 'detail.lifecycleEvent.agentSessionTurnCompleted',

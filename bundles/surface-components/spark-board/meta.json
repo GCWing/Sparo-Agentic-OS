@@ -1,0 +1,75 @@
+{
+  "id": "builtin-spark-board",
+  "name": "Spark Board",
+  "description": "A collaborative AI canvas for creative thinking, clustering rough ideas, and turning selected notes into send-ready drafts.",
+  "icon": "Sparkles",
+  "category": "creative",
+  "tags": [
+    "built-in",
+    "canvas",
+    "creative",
+    "ai"
+  ],
+  "version": 1,
+  "created_at": 0,
+  "updated_at": 0,
+  "permissions": {
+    "fs": {
+      "read": [
+        "{appdata}"
+      ],
+      "write": [
+        "{appdata}"
+      ]
+    },
+    "shell": {
+      "allow": []
+    },
+    "net": {
+      "allow": []
+    },
+    "node": {
+      "enabled": false
+    },
+    "ai": {
+      "enabled": true,
+      "allowed_models": [
+        "primary",
+        "fast"
+      ],
+      "max_tokens_per_request": 1200,
+      "rate_limit_per_minute": 12
+    }
+  },
+  "permission_rationale": "Spark Board stores only its own canvas state and uses the host AI client when the user explicitly asks it to expand, challenge, summarize, or draft selected cards.",
+  "ai_context": {
+    "original_prompt": "A built-in Surface Component named Spark Board: an AI collaborative canvas for creative thinking and send-ready outputs.",
+    "conversation_id": null,
+    "iteration_history": []
+  },
+  "backends": [],
+  "i18n": {
+    "locales": {
+      "zh-CN": {
+        "name": "灵感画布",
+        "description": "一个 AI 协作创意画布，用于激发想法、聚类粗略念头，并把选中的笔记整理成可直接发送的草稿。",
+        "tags": [
+          "内置",
+          "画布",
+          "创意",
+          "AI"
+        ]
+      },
+      "en-US": {
+        "name": "Spark Board",
+        "description": "A collaborative AI canvas for creative thinking, clustering rough ideas, and turning selected notes into send-ready drafts.",
+        "tags": [
+          "built-in",
+          "canvas",
+          "creative",
+          "ai"
+        ]
+      }
+    }
+  }
+}

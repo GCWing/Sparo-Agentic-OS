@@ -211,41 +211,41 @@ export const PANEL_CONTENT_CONFIGS: Record<PanelContentType, PanelContentConfig>
     supportsDownload: false,
     showHeader: false
   },
-  'live-app-studio': {
-    type: 'live-app-studio',
-    displayName: 'Live App Builder',
+  'app-studio': {
+    type: 'app-studio',
+    displayName: 'App Studio',
     icon: AppWindow,
     supportsCopy: false,
     supportsDownload: false,
     showHeader: false
   },
-  'live-app-runner': {
-    type: 'live-app-runner',
-    displayName: 'Live App',
+  'surface-component-runner': {
+    type: 'surface-component-runner',
+    displayName: 'Product App',
     icon: AppWindow,
     supportsCopy: false,
     supportsDownload: false,
     showHeader: false
   },
-  'live-app-workbench-tab': {
-    type: 'live-app-workbench-tab',
-    displayName: 'Live App Workbench',
+  'surface-component-workbench-tab': {
+    type: 'surface-component-workbench-tab',
+    displayName: 'Product App Workbench',
     icon: AppWindow,
     supportsCopy: false,
     supportsDownload: false,
     showHeader: false
   },
-  'live-app-diagnostics': {
-    type: 'live-app-diagnostics',
-    displayName: 'Live App Diagnostics',
+  'surface-component-diagnostics': {
+    type: 'surface-component-diagnostics',
+    displayName: 'Product App Diagnostics',
     icon: Activity,
     supportsCopy: false,
     supportsDownload: false,
     showHeader: false
   },
-  'agent-app-studio': {
-    type: 'agent-app-studio',
-    displayName: 'Agent App Builder',
+  'component-studio': {
+    type: 'component-studio',
+    displayName: 'Component Studio',
     icon: AppWindow,
     supportsCopy: false,
     supportsDownload: false,

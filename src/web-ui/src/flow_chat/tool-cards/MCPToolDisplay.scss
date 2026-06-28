@@ -1,11 +1,11 @@
 /* MCP tool display styles. */
 .mcp-tool-display {
   .mcp-icon {
-    color: color-mix(in srgb, var(--ds-tool-family-agent-app-fg) 55%, transparent);
+    color: color-mix(in srgb, var(--ds-tool-family-agent-fg) 55%, transparent);
   }
 
   .tool-card-icon.mcp-icon {
-    color: color-mix(in srgb, var(--ds-tool-family-agent-app-fg) 55%, transparent);
+    color: color-mix(in srgb, var(--ds-tool-family-agent-fg) 55%, transparent);
   }
 
   .mcp-tool-info {
@@ -92,15 +92,15 @@
     .mcp-app-iframe {
       width: 100%;
       min-height: 320px;
-      border: 1px solid color-mix(in srgb, var(--ds-tool-family-agent-app-fg) 20%, transparent);
+      border: 1px solid color-mix(in srgb, var(--ds-tool-family-agent-fg) 20%, transparent);
       border-radius: 6px;
       background: var(--tool-card-bg);
     }
 
     .resource-content {
       padding: 8px 12px;
-      background: color-mix(in srgb, var(--ds-tool-family-agent-app-fg) 5%, transparent);
-      border-left: 3px solid color-mix(in srgb, var(--ds-tool-family-agent-app-fg) 50%, transparent);
+      background: color-mix(in srgb, var(--ds-tool-family-agent-fg) 5%, transparent);
+      border-left: 3px solid color-mix(in srgb, var(--ds-tool-family-agent-fg) 50%, transparent);
       border-radius: 4px;
 
       .resource-name {
@@ -111,7 +111,7 @@
 
       .resource-uri {
         font-size: 11px;
-        color: color-mix(in srgb, var(--ds-tool-family-agent-app-fg) 70%, transparent);
+        color: color-mix(in srgb, var(--ds-tool-family-agent-fg) 70%, transparent);
         font-family: monospace;
         margin-bottom: 4px;
       }

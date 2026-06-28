@@ -77,7 +77,7 @@ registerCompletedToolEffect('Work', () => {
   requestWorkRefresh('work-tool-completed');
 });
 
-function pickAgentAppId(result: unknown): string | undefined {
+function pickComponentId(result: unknown): string | undefined {
   if (!result || typeof result !== 'object') {
     return undefined;
   }
@@ -94,16 +94,16 @@ function pickAgentAppId(result: unknown): string | undefined {
       : undefined;
 }
 
-for (const toolName of ['CreateAgentApp', 'UpdateAgentApp', 'CreateAgentAppJsTool']) {
+for (const toolName of ['CreateAgentComponent', 'UpdateAgentComponent', 'CreateAgentComponentJsTool']) {
   registerCompletedToolEffect(toolName, ({ result }) => {
-    const appId = pickAgentAppId(result);
-    window.dispatchEvent(new CustomEvent('agent-app-updated', {
-      detail: { appId },
+    const componentId = pickComponentId(result);
+    window.dispatchEvent(new CustomEvent('component-updated', {
+      detail: { componentId },
     }));
   });
 }
 
-function pickLiveAppId(result: unknown): string | undefined {
+function pickProductAppRuntimeId(result: unknown): string | undefined {
   if (!result || typeof result !== 'object') {
     return undefined;
   }
@@ -118,14 +118,14 @@ function pickLiveAppId(result: unknown): string | undefined {
         : undefined;
 }
 
-for (const toolName of ['InitLiveApp', 'LiveAppRecompile']) {
+for (const toolName of ['CreateProductApp']) {
   registerCompletedToolEffect(toolName, ({ result }) => {
-    const appId = pickLiveAppId(result);
+    const appId = pickProductAppRuntimeId(result);
     if (!appId) {
       return;
     }
 
-    window.dispatchEvent(new CustomEvent('live-app-updated', {
+    window.dispatchEvent(new CustomEvent('surface-component-updated', {
       detail: { id: appId, appId },
     }));
   });

@@ -1,0 +1,8 @@
+{
+  "name": "@sparo/bridge-component-cursor",
+  "private": true,
+  "type": "commonjs",
+  "dependencies": {
+    "@cursor/sdk": "^1.0.13"
+  }
+}

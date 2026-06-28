@@ -82,8 +82,8 @@ export const WORKSPACE_SCENE_REGISTRY: WorkspaceSceneDef[] = [
 ];
 
 export function getWorkspaceSceneDef(id: WorkspaceSceneId): WorkspaceSceneDef | undefined {
-  if (typeof id === 'string' && id.startsWith('live-app:')) {
-    const appId = id.slice('live-app:'.length);
+  if (typeof id === 'string' && id.startsWith('app-surface:')) {
+    const appId = id.slice('app-surface:'.length);
     return { id, label: appId, Icon: Puzzle };
   }
   return WORKSPACE_SCENE_REGISTRY.find(d => d.id === id);

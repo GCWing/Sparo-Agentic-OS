@@ -45,7 +45,7 @@ interface WorkspaceSurfaceState {
 }
 
 function resolveNavSceneId(id: WorkspaceSceneId): WorkspaceSceneId | null {
-  if (typeof id === 'string' && id.startsWith('live-app:')) return null;
+  if (typeof id === 'string' && id.startsWith('app-surface:')) return null;
   return getSceneNav(id) ? id : null;
 }
 

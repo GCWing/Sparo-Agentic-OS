@@ -1,26 +1,4 @@
 {
-  "tabs": {
-    "label": "App types",
-    "all": "All",
-    "agent-app": "Agent App",
-    "live-app": "Live App",
-    "bridge-app": "Bridge App",
-    "searchPlaceholder": {
-      "all": "Search all apps...",
-      "agent-app": "Search agent apps...",
-      "live-app": "Search live apps...",
-      "bridge-app": "Search bridge apps..."
-    }
-  },
-  "hero": {
-    "title": "Make Agentic OS truly yours",
-    "subtitle": "Agent App, Live App, and Bridge App are the three first-class citizens of Agentic OS. Pick and configure them to make the whole system work your way."
-  },
-  "view": {
-    "label": "App center view",
-    "discover": "Discover",
-    "manage": "Manage"
-  },
   "appCategories": {
     "files": "Files",
     "coding": "Coding",
@@ -39,95 +17,340 @@
     "mcp": "MCP",
     "daemon": "Daemon"
   },
-  "discover": {
-    "title": "What do you want Sparo to help you do?",
-    "subtitle": "Describe a task or workflow to find an app or create a new one.",
-    "placeholder": "Describe a task, workflow, or tool you want...",
-    "suggestionsLabel": "Suggested app intents",
-    "suggestions": {
-      "testDiagnosis": "Diagnose test failures in this project",
-      "dataDashboard": "Turn data into an interactive dashboard",
-      "codeReview": "Create a code review assistant",
-      "dailyReport": "Package my daily report workflow"
+  "productSystem": {
+    "eyebrow": "App System",
+    "title": "Apps",
+    "subtitle": "Resume product work, launch installed Product Apps, and inspect the component graph behind every runtime.",
+    "searchLabel": "Search Product Apps",
+    "searchPlaceholder": "Search apps, work goals, components, or tags...",
+    "loading": "Loading Product Apps...",
+    "meta": {
+      "apps": "{{count}} apps",
+      "components": "{{count}} components"
     },
-    "actions": {
-      "findExisting": "Find existing",
-      "generatePlan": "Get AI plan",
-      "createAgentApp": "Create Agent App",
-      "createLiveApp": "Create Live App"
+    "navigation": {
+      "label": "App Center view",
+      "home": "Launch",
+      "manage": "Manage",
+      "components": "Components"
     },
-    "plan": {
-      "badge": "AI draft",
-      "title": "Create a focused app from this intent",
-      "description": "Sparo will open the intelligent app creation agent so the prompt, permissions, examples, and behavior boundaries can be generated and reviewed before the app is saved.",
-      "capability": "Capability plan",
-      "permissions": "Permission review",
-      "boundary": "Behavior boundaries"
+    "launch": {
+      "title": "Launch Apps",
+      "subtitle": "Continue active work or start the right Product App directly.",
+      "searchPlaceholder": "Search apps or active work...",
+      "continueDescription": "Pick up work already in motion.",
+      "appsDescription": "Launch cards are optimized for starting, continuing, and opening work."
     },
-    "recommendations": {
-      "title": "Recommended existing apps",
-      "manageAll": "Manage all",
-      "empty": "No existing app is an obvious match yet. Create a new one with the app studio."
-    },
-    "recentOpened": {
-      "title": "Recently opened",
-      "empty": "No recently opened apps yet."
-    },
-    "searchResults": {
-      "title": "Search results",
-      "empty": "No matching app found. Create an Agent App or a Live App."
-    }
-  },
-  "manage": {
-    "title": "Manage Apps",
-    "subtitle": "Inspect installed Agent Apps, Live Apps, and Bridge Apps. Review status, permissions, runtime, and maintenance actions.",
-    "sidebarSubtitle": "Application assets",
-    "emptyAll": "No matching apps.",
-    "hints": {
-      "agent-app": "Thinking apps with prompts, tool definitions, skills, and agent behavior.",
-      "live-app": "Runnable generated apps with runtime, permissions, and worker status.",
-      "bridge-app": "Adapters that connect traditional desktop software into Sparo OS."
-    }
-  },
-  "page": {
-    "newAgentApp": "New",
-    "newBridgeApp": "New",
-    "heroTitle": "Make Agentic OS yours",
-    "heroSubtitle": "Agent Apps are first-class citizens of Agentic OS. Pick and configure your thinking apps to make the whole system work your way.",
-    "searchPlaceholder": "Search agent apps...",
-    "sectionTitle": "Agent Apps",
-    "empty": "No agent apps are available right now",
-    "containsAgents": "Includes {{count}} agents",
-    "standaloneOneAgentBadge": "Single-Agent application",
-    "standaloneMeta": {
-      "separator": " · ",
-      "disabled": "Disabled",
-      "toolsSingular": "{{count}} tool definition",
-      "toolsPlural": "{{count}} tool definitions",
-      "model": "{{model}}",
-      "userApp": "Custom",
-      "capability": {
-        "Coding": "Coding",
-        "Documents": "Documents",
-        "Analysis": "Analysis",
-        "Testing": "Testing",
-        "Creative": "Creative",
-        "Operations": "Operations"
+    "manage": {
+      "eyebrow": "App Management",
+      "title": "Manage Apps",
+      "subtitle": "Review installed and discoverable Product Apps, their state, components, and maintenance entry points.",
+      "searchLabel": "Search managed apps",
+      "searchPlaceholder": "Search by app, category, goal, tag, or component summary...",
+      "visibleCount": "{{count}} visible",
+      "emptyTitle": "No apps match this view",
+      "emptyDescription": "Adjust search or filters to review another app group.",
+      "listLabel": "Managed apps list",
+      "enable": "Enable",
+      "disable": "Disable",
+      "moreActions": "More actions",
+      "uninstall": "Uninstall",
+      "uninstallTitle": "Uninstall App",
+      "uninstallMessage": "This will remove \"{{name}}\" and all its local data. Active works will be stopped. This action cannot be undone.",
+      "uninstallConfirm": "Uninstall",
+      "uninstalledToast": "{{name}} uninstalled",
+      "enabledToast": "{{name}} enabled",
+      "disabledToast": "{{name}} disabled",
+      "sortLabel": "Sort managed apps",
+      "sortBy": "Sort by",
+      "sortOptions": {
+        "name": "Name",
+        "status": "Status",
+        "scope": "Scope"
       }
     },
-    "directAgentDetail": "Open directly to Agent details",
-    "startSession": "Start session",
-    "pagination": {
-      "ariaLabel": "App list pages",
-      "prev": "Previous page",
-      "next": "Next page",
-      "pageOf": "Page {{current}} of {{total}}"
+    "actions": {
+      "components": "Components",
+      "createComponent": "Create Component",
+      "createApp": "Create App",
+      "refresh": "Refresh",
+      "retry": "Retry",
+      "openComponentCenter": "Open Component Center",
+      "details": "Details",
+      "work": "Work",
+      "launch": "Launch",
+      "stop": "Stop",
+      "newWork": "New",
+      "continue": "Continue",
+      "back": "Back",
+      "cancel": "Cancel",
+      "inspect": "Inspect"
+    },
+    "messages": {
+      "noLaunch": "{{name}} has no launch target.",
+      "launchFailed": "Failed to launch {{name}}: {{error}}",
+      "stopped": "{{name}} stopped",
+      "stopFailed": "Failed to stop {{name}}: {{error}}"
+    },
+    "surfaceFallback": "Product App surface",
+    "filters": {
+      "label": "Product App filter",
+      "all": "All",
+      "installed": "Installed",
+      "discover": "Discover",
+      "conversation": "Conversation",
+      "interactive": "Interactive"
+    },
+    "continue": {
+      "title": "Continue Work",
+      "count": "{{count}} active",
+      "description": "Jump back into live work before starting something new.",
+      "viewAll": "All",
+      "expandRelated": "Choose related work",
+      "relatedLabel": "Related work",
+      "emptyTitle": "No active work",
+      "emptyDescription": "Launch a Product App to create the first work instance."
+    },
+    "myApps": {
+      "title": "My Apps",
+      "count": "{{count}} installed",
+      "description": "Choose the right Product App, then launch it or inspect its runtime boundary.",
+      "emptyTitle": "No installed Product Apps",
+      "emptyDescription": "Install or create a Product App to make it available here."
+    },
+    "discover": {
+      "title": "Discover",
+      "count": "{{count}} available"
+    },
+    "components": {
+      "title": "Advanced Components",
+      "count": "{{count}} components",
+      "noDependencies": "No component dependencies",
+      "eyebrow": "Component Center",
+      "centerTitle": "Components",
+      "centerSubtitle": "Inspect shared and app-private agents, bridges, runtimes, tools, skills, and surfaces.",
+      "searchLabel": "Search components",
+      "searchPlaceholder": "Search components, capabilities, owners, or implementations...",
+      "filterLabel": "Component kind",
+      "allKinds": "All kinds",
+      "emptyTitle": "No components found",
+      "emptyDescription": "Adjust the search or filter to inspect another component group.",
+      "listTitle": "Component packages",
+      "listDescription": "Shared and app-private building blocks used by Product Apps.",
+      "summaryTitle": "Component Summary",
+      "summaryDescription": "Select a component to inspect its package identity, capabilities, and usage.",
+      "capabilities": "Capabilities",
+      "noCapabilities": "No declared capabilities",
+      "usedBy": "Used By",
+      "noUsage": "No Product App usage yet"
+    },
+    "inspector": {
+      "emptyTitle": "Select an app",
+      "emptyDescription": "The inspector shows launch scope, recent work, component graph, and maintenance actions.",
+      "launchPlan": "Launch plan",
+      "recentWork": "Recent work",
+      "noRecentWork": "No active work for this app.",
+      "componentGraph": "Component graph",
+      "noComponents": "This app has no resolved component references.",
+      "permissions": "Permissions",
+      "maintenance": "Maintenance"
+    },
+    "componentKinds": {
+      "surface": "Surface",
+      "agent": "Agent",
+      "bridge": "Bridge",
+      "runtime": "Runtime",
+      "tool": "Tool",
+      "skill": "Skill"
+    },
+    "interaction": {
+      "conversation": "Conversation",
+      "interactiveWorkspace": "Interactive workspace"
+    },
+    "componentSource": {
+      "appPrivate": "App private",
+      "shared": "Shared"
+    },
+    "componentRefSource": {
+      "private": "Private",
+      "shared": "Shared"
+    },
+    "status": {
+      "draft": "Draft",
+      "active": "Active",
+      "running": "Running",
+      "waiting_user": "Waiting",
+      "blocked": "Blocked",
+      "paused": "Paused",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "failed": "Failed",
+      "archived": "Archived"
+    },
+    "detail": {
+      "eyebrow": "Product App",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "tabs": {
+        "use": "Use",
+        "capabilities": "Capabilities",
+        "settings": "Settings & Security",
+        "overview": "Overview",
+        "start": "Start / Continue",
+        "workObjects": "Work Objects",
+        "components": "Components",
+        "permissions": "Permissions",
+        "runtime": "Runtime"
+      },
+      "sections": {
+        "overview": "Overview",
+        "components": "Components",
+        "permissions": "Permissions",
+        "runtime": "Runtime",
+        "package": "Package"
+      },
+      "overview": {
+        "goal": "Goal"
+      },
+      "metrics": {
+        "components": "Components",
+        "workObjects": "Work objects",
+        "activeWorks": "Active works",
+        "permissions": "Permissions"
+      },
+      "start": {
+        "launchTitle": "Launch target",
+        "continueTitle": "Continue work",
+        "noWorkTitle": "No work yet",
+        "noWorkDescription": "Work created from this app will appear here."
+      },
+      "workObjects": {
+        "emptyTitle": "No work objects",
+        "emptyDescription": "This Product App has not declared durable work object kinds."
+      },
+      "components": {
+        "unresolved": "Component package is not installed or not resolved."
+      },
+      "permissions": {
+        "appTitle": "App permissions",
+        "componentTitle": "Component capabilities",
+        "empty": "No component permissions are declared."
+      },
+      "runtime": {
+        "identityTitle": "Runtime identity",
+        "graphTitle": "Component graph"
+      },
+      "settings": {
+        "packageTitle": "Package",
+        "creationTitle": "Creation model",
+        "creationDescription": "Product Apps and Components are created as versioned packages. Runtime state references only the resolved lock."
+      }
+    },
+    "launchKind": {
+      "agentSession": "Start an agent-backed work session.",
+      "applicationSurface": "Open an interactive app surface.",
+      "appStudio": "Open App Studio.",
+      "componentStudio": "Open Component Studio.",
+      "none": "No launch target"
+    },
+    "launchScope": {
+      "systemAllowed": "System allowed",
+      "workspaceOptional": "Workspace optional",
+      "workspaceRequired": "Workspace required"
+    },
+    "fields": {
+      "id": "ID",
+      "kind": "Kind",
+      "version": "Version",
+      "source": "Source",
+      "target": "Target",
+      "surface": "Surface",
+      "agent": "Agent",
+      "scope": "Scope",
+      "appId": "App ID",
+      "lock": "Lock",
+      "surfaceMode": "Surface mode",
+      "truthSource": "Truth source",
+      "installScope": "Install scope",
+      "visibility": "Visibility",
+      "componentLockId": "Component lock ID"
+    },
+    "workObjectScope": {
+      "global": "Global",
+      "workspace": "Workspace",
+      "project": "Project",
+      "asset": "Asset",
+      "device": "Device",
+      "runtime": "Runtime"
+    },
+    "permission": {
+      "fs": "Filesystem",
+      "net": "Network",
+      "shell": "Shell",
+      "gui": "GUI",
+      "secrets": "Secrets",
+      "ai": "Model access"
+    },
+    "installScope": {
+      "system": "System",
+      "workspace": "Workspace",
+      "project": "Project"
+    },
+    "catalogVisibility": {
+      "discoverable": "Discoverable",
+      "installedOnly": "Installed only",
+      "hidden": "Hidden"
+    },
+    "surfaceMode": {
+      "chatPrimary": "Chat primary",
+      "sidecarLinked": "Sidecar linked",
+      "immersivePrimary": "Immersive primary",
+      "embeddedObject": "Embedded object"
+    },
+    "truthSource": {
+      "ownedObjectState": "Owned object state",
+      "runtimeFact": "Runtime fact"
+    },
+    "studio": {
+      "eyebrow": "Studio",
+      "createAppTitle": "Create Product App",
+      "createAppSubtitle": "Define the user goal, work objects, primary surface, and component boundary.",
+      "createComponentTitle": "Create Component",
+      "createComponentSubtitle": "Package an Agent, Surface, Bridge, Runtime, Tool, or Skill as a reusable component.",
+      "requiredFields": "Fill in the required fields.",
+      "createAppSuccess": "{{name}} created",
+      "createComponentSuccess": "{{name}} created",
+      "createFailed": "Creation failed",
+      "fields": {
+        "appId": "App ID",
+        "componentId": "Component ID",
+        "version": "Version",
+        "name": "Name",
+        "agentType": "Agent type",
+        "goal": "Goal",
+        "description": "Description",
+        "surfaceMode": "Surface mode",
+        "category": "Category",
+        "tags": "Tags",
+        "componentKind": "Component kind",
+        "implementationRef": "Implementation ref"
+      },
+      "placeholders": {
+        "appId": "e.g. my-product-app",
+        "componentId": "e.g. my-component",
+        "tags": "creative, video, runtime",
+        "implementationRef": "bundle://components/..."
+      },
+      "sections": {
+        "required": "Required",
+        "optional": "Optional details"
+      }
     }
   },
   "apps": {
     "badges": {
-      "multiAgentApp": "Multi-Agent",
-      "standaloneAgentApp": "Single Agent",
+      "multiAgentComponent": "Multi-Agent",
+      "standaloneAgentComponent": "Single Agent",
       "evolutionLab": "Evolution Lab"
     },
     "coding": {
@@ -146,296 +369,20 @@
       "name": "Deep Research",
       "description": "A standalone Agent app for open-ended research that dispatches parallel sub-agents and synthesizes comprehensive sourced reports."
     },
-    "liveAppStudio": {
-      "name": "Live App Builder",
-      "description": "A standalone Agent app for generating, debugging, and evolving tasteful runnable Live Apps from one sentence."
+    "surfaceComponentWorkbench": {
+      "name": "Interactive App Workbench",
+      "description": "A sidecar-linked Product App surface with FlowChat on the left and app-owned tools on the right."
     },
-    "agentAppStudio": {
-      "name": "Agent App Builder",
-      "description": "A standalone Agent app for creating FlowChat-native Agent Apps with prompts, permissions, examples, and JavaScript runtime tool definitions."
+    "appStudio": {
+      "name": "App Studio",
+      "description": "Create Product Apps with goals, work objects, primary surfaces, components, permissions, and package metadata."
     },
-    "liveAppWorkbench": {
-      "name": "Live App Workbench",
-      "description": "A composite Live App surface with FlowChat on the left and app-owned tools on the right."
+    "componentStudio": {
+      "name": "Component Studio",
+      "description": "Create Agent, Surface, Bridge, Runtime, Tool, and Skill components for Product Apps."
     }
   },
-  "appDetail": {
-    "loading": "Loading...",
-    "tabs": {
-      "overview": "Overview",
-      "agents": "Agents",
-      "shared": "Shared",
-      "runtime": "Runtime",
-      "history": "History"
-    },
-    "nav": {
-      "label": "App detail sections",
-      "heading": "Sections"
-    },
-    "actions": {
-      "startSession": "Start session",
-      "edit": "Edit",
-      "discardChanges": "Discard"
-    },
-    "dirtyBar": {
-      "summaryInAgent_one": "{{count}} unsaved change in {{agent}}",
-      "summaryInAgent_other": "{{count}} unsaved changes in {{agent}}",
-      "summaryAcrossAgents_one": "{{count}} unsaved change across {{agents}} agents",
-      "summaryAcrossAgents_other": "{{count}} unsaved changes across {{agents}} agents",
-      "jumpHint": "Jump to the first unsaved section",
-      "discard": "Discard",
-      "save": "Save",
-      "saveOk": "Changes saved",
-      "saveFailed": "Failed to save changes"
-    },
-    "overview": {
-      "agentsTitle": "Agents in this app",
-      "defaultBadge": "Default",
-      "toolCount_one": "{{count}} tool definition",
-      "toolCount_other": "{{count}} tool definitions",
-      "toolCount": "{{count}} tool definitions",
-      "counts": {
-        "agents": "Agents",
-        "tools": "Tool definitions",
-        "subagents": "Subagent definitions",
-        "mcp": "MCP & connectors"
-      },
-      "about": {
-        "title": "Registered with Agentic OS",
-        "category": "Category",
-        "tags": "Tags",
-        "examples": "Example prompts",
-        "serviceActions": "Service actions"
-      }
-    },
-    "agents": {
-      "switcherLabel": "Active agent",
-      "statusDisabled": "Disabled",
-      "readonlyBadge": "Readonly",
-      "agentBadge": "Agent",
-      "noDescription": "No description",
-      "dirtyHint_one": "{{count}} unsaved change",
-      "dirtyHint_other": "{{count}} unsaved changes",
-      "dirtyHint": "{{count}} unsaved changes",
-      "actions": {
-        "addAgent": "Add agent"
-      },
-      "toc": {
-        "label": "Sections in this agent",
-        "heading": "On this agent"
-      },
-      "empty": {
-        "title": "This app has no agents yet",
-        "description": "Add a top-level Agent to give this app something to run."
-      }
-    },
-    "sections": {
-      "identity": {
-        "title": "Identity",
-        "description": "What this Agent is and how it presents itself in the chat switcher.",
-        "fields": {
-          "id": "ID",
-          "name": "Display name",
-          "description": "Description",
-          "capabilities": "Capabilities"
-        }
-      },
-      "persona": {
-        "title": "Persona",
-        "description": "Base system prompt plus user-pinned prompt fragments.",
-        "placeholder": "Pinned prompts and prompt overrides for {{agent}} will appear here when the prompt-fragment API lands."
-      },
-      "tools": {
-        "title": "Tool definitions",
-        "description": "Callable tool definitions this Agent can use.",
-        "empty": "No tool definitions enabled."
-      },
-      "skills": {
-        "title": "Skills",
-        "description": "Skills available to this Agent when the Skill tool definition is enabled.",
-        "empty": "No skills available for this Agent.",
-        "needsSkillTool": "Enable the Skill tool definition above to manage skills."
-      },
-      "subagents": {
-        "title": "Subagent definitions",
-        "description": "Reusable subagent definitions this Agent can delegate to. Manage definitions in the Subagent library.",
-        "empty": "No subagent definitions available yet.",
-        "source": {
-          "builtin": "Built-in",
-          "user": "User",
-          "project": "Project"
-        }
-      },
-      "model": {
-        "title": "Model",
-        "description": "Provider and decoding settings. Falls back to App-level defaults when not set.",
-        "inherit": "Inherit from App default",
-        "fields": {
-          "model": "Model"
-        },
-        "hint": "Per-agent model overrides ship with the Model schema."
-      },
-      "memory": {
-        "title": "Memory",
-        "description": "Context files, knowledge base references, and long-term memory toggles.",
-        "placeholder": "Memory configuration arrives with the Memory schema."
-      },
-      "guardrails": {
-        "title": "Guardrails",
-        "description": "Safety boundaries: readonly agent, dangerous-tool allowlists, token budgets.",
-        "fields": {
-          "readonly": "Readonly agent"
-        },
-        "readonlyOn": "On - destructive tools blocked",
-        "readonlyOff": "Off - destructive tools permitted",
-        "hint": "Granular guardrails arrive with the Guardrail schema."
-      }
-    },
-    "skillGroups": {
-      "computerUse": "Computer Use",
-      "office": "Office",
-      "meta": "Meta",
-      "team": "Team",
-      "superpowers": "Superpowers",
-      "other": "Other"
-    },
-    "shared": {
-      "railLabel": "Shared resources",
-      "heading": "Shared resources",
-      "sections": {
-        "prompts": {
-          "title": "Prompt fragments",
-          "description": "Pinned prompts every Agent in this app can inherit. Ships with the Shared schema."
-        },
-        "files": {
-          "title": "Files & knowledge",
-          "description": "Workspace files and knowledge base references shared across Agents."
-        },
-        "mcp": {
-          "title": "MCP & connectors",
-          "description": "Model Context Protocol servers and connectors this app exposes to Agents."
-        },
-        "model": {
-          "title": "Model defaults",
-          "description": "App-wide model defaults inherited by Agents unless overridden."
-        },
-        "variables": {
-          "title": "Variables",
-          "description": "Template variables and environment values shared across the app."
-        }
-      }
-    },
-    "runtime": {
-      "title": "Runtime",
-      "description": "Launch defaults, triggers, telemetry, and permissions for this app. Coming with the Runtime schema."
-    },
-    "history": {
-      "title": "Recent sessions",
-      "description": "Recent sessions, tool calls, and errors for this app. Coming with the session history API."
-    }
-  },
-  "liveApp": {
-    "title": "Live Apps",
-    "subtitle": "User-centric apps generated by Agent on demand. Each Live App is persistent: it lives, evolves, and can be reused.",
-    "searchPlaceholder": "Search live apps...",
-    "openStudio": "Open Studio",
-    "importFromFolder": "Import from folder",
-    "running": "Running",
-    "allApps": "All Apps",
-    "noRunningApps": "No running apps",
-    "all": "All",
-    "count": "{{count}}",
-    "selectFolderTitle": "Select live app directory (must contain meta.json and source/)",
-    "empty": {
-      "generate": "Generate as you chat, ready instantly. Start a conversation with AI to create your first live app.",
-      "noMatch": "No matching apps."
-    },
-    "card": {
-      "start": "Start",
-      "stop": "Stop",
-      "delete": "Delete"
-    },
-    "status": {
-      "open": "Open",
-      "running": "Worker running",
-      "depsDirty": "Deps install needed",
-      "restartRequired": "Restart needed",
-      "runtimeGeneric": "JS runtime",
-      "runtimeReady": "{{runtime}} ready",
-      "runtimeUnavailable": "Runtime unavailable"
-    },
-    "actions": {
-      "installDeps": "Install deps",
-      "restartWorker": "Restart worker",
-      "editInStudio": "Edit in Studio",
-      "recompile": "Recompile",
-      "openAnyway": "Open anyway",
-      "refreshCatalog": "Refresh catalog"
-    },
-    "scopeDialog": {
-      "openTitle": "Choose run scope for {{name}}",
-      "editTitle": "Choose edit scope for {{name}}",
-      "recompileTitle": "Choose recompile scope for {{name}}",
-      "studioTitle": "Choose App storage scope for {{name}}",
-      "runTitle": "Choose run scope for {{name}}",
-      "description": "The selected scope is used for App runs, bridge calls, file access, logs, and Studio edits.",
-      "ariaLabel": "App scope",
-      "systemTitle": "Global App storage",
-      "systemDescription": "Use Sparo OS system App storage, without a project folder.",
-      "browseFolder": "Choose folder",
-      "folderDialogTitle": "Choose App scope folder",
-      "browseFailed": "Failed to choose folder",
-      "bestWorkTitle": "Best work",
-      "cancel": "Cancel",
-      "confirmOpen": "Open",
-      "confirmEdit": "Edit",
-      "confirmRecompile": "Recompile",
-      "confirmStart": "Start",
-      "confirmRun": "Run"
-    },
-    "detail": {
-      "versionMeta": "v{{version}}",
-      "stop": "Stop",
-      "delete": "Delete",
-      "open": "Open",
-      "statusTitle": "Status",
-      "permissionsTitle": "Permissions",
-      "updatedAt": "Updated",
-      "runtimeUnavailableHint": "This app can still open, but worker-based features may be unavailable until a runtime is installed."
-    },
-    "permissions": {
-      "readWorkspace": "Reads workspace",
-      "noWorkspaceRead": "No workspace read",
-      "writeWorkspace": "Writes workspace",
-      "noWorkspaceWrite": "No workspace write",
-      "shellEnabled": "Shell enabled",
-      "shellDisabled": "Shell off",
-      "netEnabled": "Network enabled",
-      "netDisabled": "Network off",
-      "aiEnabled": "AI enabled",
-      "aiDisabled": "AI off",
-      "nodeEnabled": "Node worker on",
-      "nodeDisabled": "Host-only"
-    },
-    "messages": {
-      "imported": "\"{{name}}\" imported. Opening it now.",
-      "importFailed": "Failed to import Live App: {{error}}",
-      "installDepsOk": "Dependencies installed",
-      "installDepsFailed": "Failed to install dependencies: {{error}}",
-      "installDepsFailedGeneric": "Dependency installation failed",
-      "recompiled": "Live App recompiled",
-      "recompileFailed": "Failed to recompile Live App: {{error}}",
-      "workerStopped": "Worker stopped",
-      "workerStopFailed": "Failed to stop worker: {{error}}"
-    },
-    "confirmDelete": {
-      "title": "Delete \"{{name}}\"?",
-      "message": "This action cannot be undone. The app and all its data will be permanently deleted. {{impact}}",
-      "impactOpenOrRunning": "It is currently open or running, so the current scene and worker will also stop.",
-      "impactIdle": "It is currently idle.",
-      "confirm": "Delete",
-      "cancel": "Cancel"
-    },
+  "surfaceComponent": {
     "scene": {
       "loading": "Loading...",
       "updating": "Updating preview...",
@@ -444,7 +391,7 @@
       "reload": "Reload"
     }
   },
-  "agentAppStudio": {
+  "componentStudio": {
     "panel": {
       "tablistLabel": "Preview sections",
       "promptToolbarLabel": "Prompt actions",
@@ -454,7 +401,7 @@
       "readonly": "Read-only",
       "copyId": "Copy id",
       "refresh": "Refresh",
-      "openCatalog": "Open Agent Apps catalog",
+      "openCatalog": "Open Component Center",
       "cancelEdit": "Cancel",
       "savePrompt": "Save",
       "copied": "Copied",
@@ -474,8 +421,8 @@
         "examples": "Examples"
       },
       "empty": {
-        "title": "No Agent App yet",
-        "description": "Tell the studio what you want to build. The latest Agent App package will appear here as soon as it is created."
+        "title": "No Agent Component yet",
+        "description": "Tell the studio what you want to build. The latest component package will appear here as soon as it is created."
       },
       "stats": {
         "groupLabel": "Quick counts",
@@ -510,50 +457,9 @@
   },
   "messages": {
     "toolUpdateFailed": "Tool update failed",
-    "agentAppStatusUpdateFailed": "Agent App status update failed",
+    "componentStatusUpdateFailed": "Component status update failed",
     "toolResetFailed": "Tool reset failed",
     "skillUpdateFailed": "Skill update failed",
     "subagentUpdateFailed": "Subagent update failed"
-  },
-  "bridgeApp": {
-    "title": "Bridge App",
-    "comingSoon": "Bridge Apps connect traditional GUI applications with an operation Agent layer, bringing legacy software into the Agentic OS ecosystem.",
-    "actionCount": "{{count}} actions",
-    "capabilityCount": "{{count}} capabilities",
-    "selectHint": "Select a Bridge App to test a capability action.",
-    "empty": "No Bridge Apps found.",
-    "noWorkspace": "No workspace selected",
-    "scopeSelectedOnRun": "Scope selected on run",
-    "run": "Run action",
-    "running": "Running",
-    "actions": {
-      "refresh": "Refresh"
-    },
-    "fields": {
-      "action": "Action",
-      "apiKey": "Cursor API key",
-      "model": "Model",
-      "prompt": "Prompt",
-      "repository": "Repository",
-      "mode": "Execution mode"
-    },
-    "mode": {
-      "local": "Local",
-      "cloud": "Cloud"
-    },
-    "kind": {
-      "cli": "CLI",
-      "sdk": "SDK",
-      "gui": "GUI",
-      "service": "Service",
-      "mcp": "MCP",
-      "daemon": "Daemon"
-    },
-    "messages": {
-      "completed": "Bridge App action completed.",
-      "failed": "Bridge App action failed.",
-      "failedWithReason": "Bridge App action failed: {{error}}"
-    }
   }
 }
-

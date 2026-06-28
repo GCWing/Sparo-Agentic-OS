@@ -1,0 +1,81 @@
+@use './_tool-card-common.scss';
+
+.base-tool-card-wrapper.create-product-app-tool-display .create-product-app-result-footer {
+  margin-left: -10px;
+  margin-right: -10px;
+  margin-bottom: -10px;
+  padding: 8px 10px;
+  border-radius: 0 0 7px 7px;
+}
+
+.create-product-app-tool-display {
+  .create-product-app-tool-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+    min-width: 0;
+    flex: 1;
+
+    .operation-tag {
+      display: inline-flex;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 500;
+      flex-shrink: 0;
+      white-space: nowrap;
+      color: var(--ds-chat-text-primary);
+    }
+
+    .command-text {
+      font-family: var(--tool-card-font-mono);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--tool-card-text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+    }
+  }
+
+  .output-summary {
+    font-size: 11px;
+    color: var(--tool-card-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+    font-family: var(--tool-card-font-mono);
+  }
+
+  .error-indicator {
+    display: flex;
+    align-items: center;
+
+    .error-text {
+      font-size: 12px;
+      color: color-mix(in srgb, var(--ds-status-surface-danger-fg) 90%, transparent);
+      font-weight: 600;
+    }
+  }
+
+  .create-product-app-result-container {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .create-product-app-result-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    flex-wrap: wrap;
+    line-height: 1.2;
+    margin-top: 8px;
+    background: var(--ds-chat-surface-muted, color-mix(in srgb, var(--ds-chat-text-primary) 5%, transparent));
+    box-sizing: border-box;
+    border-top: 1px solid var(--ds-chat-border);
+  }
+}

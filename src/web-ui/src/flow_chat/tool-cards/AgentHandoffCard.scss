@@ -26,9 +26,9 @@
     font-weight: 500;
     flex-shrink: 0;
     letter-spacing: 0.02em;
-    color: var(--agent-badge-color, var(--ds-tool-family-agent-app-fg));
-    background: color-mix(in srgb, var(--agent-badge-color, var(--ds-tool-family-agent-app-fg)) 14%, transparent);
-    border: 1px solid color-mix(in srgb, var(--agent-badge-color, var(--ds-tool-family-agent-app-fg)) 28%, transparent);
+    color: var(--agent-badge-color, var(--ds-tool-family-agent-fg));
+    background: color-mix(in srgb, var(--agent-badge-color, var(--ds-tool-family-agent-fg)) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--agent-badge-color, var(--ds-tool-family-agent-fg)) 28%, transparent);
 
     &--compact {
       padding: 0 4px;
@@ -130,9 +130,9 @@
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.03em;
-    color: var(--ds-tool-family-agent-app-fg);
-    background: color-mix(in srgb, var(--ds-tool-family-agent-app-fg) 14%, transparent);
-    border: 1px solid color-mix(in srgb, var(--ds-tool-family-agent-app-fg) 28%, transparent);
+    color: var(--ds-tool-family-agent-fg);
+    background: color-mix(in srgb, var(--ds-tool-family-agent-fg) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--ds-tool-family-agent-fg) 28%, transparent);
     flex-shrink: 0;
 
     &--compact {

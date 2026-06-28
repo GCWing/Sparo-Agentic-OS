@@ -1,7 +1,7 @@
 //! Configuration API
 
 use crate::api::app_state::AppState;
-use bitfun_core::agent_app::AgentAppManager;
+use bitfun_core::agent_component::AgentComponentManager;
 use bitfun_core::agentic::agents::AgentCategory;
 use bitfun_core::agentic::tools::get_all_registered_tool_names;
 use bitfun_core::command::config as core_config_command;
@@ -362,13 +362,13 @@ async fn update_agent_capability_profile_for_builtin_agent(
     Ok(())
 }
 
-async fn update_agent_app_capability_profile(
+async fn update_agent_component_capability_profile(
     state: State<'_, AppState>,
     request: UpdateAgentCapabilityProfileRequest,
     workspace: Option<&std::path::Path>,
 ) -> Result<(), String> {
-    let package =
-        AgentAppManager::get(&request.agent_id, None, workspace).map_err(|e| e.to_string())?;
+    let package = AgentComponentManager::get(&request.agent_id, None, workspace)
+        .map_err(|e| e.to_string())?;
     let mut manifest = package.manifest;
 
     if let Some(enabled) = request.enabled {
@@ -399,10 +399,10 @@ async fn update_agent_app_capability_profile(
     }
     validate_known_skills(&manifest.skills, request.workspace_path.as_deref()).await?;
     validate_known_subagents(&state, &manifest.subagents, workspace).await?;
-    AgentAppManager::validate_manifest(&mut manifest).map_err(|e| e.to_string())?;
-    AgentAppManager::create_or_update(manifest, package.prompt, workspace, true)
+    AgentComponentManager::validate_manifest(&mut manifest).map_err(|e| e.to_string())?;
+    AgentComponentManager::create_or_update(manifest, package.prompt, workspace, true)
         .map_err(|e| e.to_string())?;
-    AgentAppManager::register_runtime_tools(workspace)
+    AgentComponentManager::register_runtime_tools(workspace)
         .await
         .map(|_| ())
         .map_err(|e| e.to_string())
@@ -550,8 +550,8 @@ pub async fn update_agent_capability_profile(
         AgentCategory::Agent => {
             update_agent_capability_profile_for_builtin_agent(state.clone(), request).await?
         }
-        AgentCategory::AgentApp => {
-            update_agent_app_capability_profile(state.clone(), request, workspace.as_deref())
+        AgentCategory::AgentComponent => {
+            update_agent_component_capability_profile(state.clone(), request, workspace.as_deref())
                 .await?
         }
         AgentCategory::SubAgent => {

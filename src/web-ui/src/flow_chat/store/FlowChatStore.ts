@@ -44,7 +44,7 @@ import {
   descriptorFromAgentType,
   getBackendAgentType,
   getDefaultSessionDescriptor,
-  getLiveAppWorkbenchSessionDescriptor,
+  getSurfaceComponentWorkbenchSessionDescriptor,
   isEvolutionLabSession,
   isSystemAgenticOsSession,
   normalizeSessionDescriptor,
@@ -65,11 +65,11 @@ function descriptorFromSessionMetadata(
   metadata: SessionMetadata,
   fallbackAgentType: string
 ): SessionDescriptor {
-  const liveAppWorkbench = metadata.customMetadata?.liveAppWorkbench;
-  if (liveAppWorkbench) {
-    const agentAppId = liveAppWorkbench.chat?.agentAppId;
-    return getLiveAppWorkbenchSessionDescriptor(
-      typeof agentAppId === 'string' ? agentAppId : undefined,
+  const surfaceComponentWorkbench = metadata.customMetadata?.surfaceComponentWorkbench;
+  if (surfaceComponentWorkbench) {
+    const agentComponentId = surfaceComponentWorkbench.chat?.agentComponentId;
+    return getSurfaceComponentWorkbenchSessionDescriptor(
+      typeof agentComponentId === 'string' ? agentComponentId : undefined,
     );
   }
   return descriptorFromAgentType(metadata.agentType || fallbackAgentType);
