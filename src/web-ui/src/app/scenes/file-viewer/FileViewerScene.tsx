@@ -22,10 +22,9 @@ import {
   List as ListIcon,
   MessageSquarePlus,
   Music,
+  PanelLeft,
   Pencil,
   Search,
-  SidebarClose,
-  SidebarOpen,
   Star,
   Video,
 } from 'lucide-react';
@@ -63,7 +62,7 @@ import { addFileMentionToChat } from '@/shared/utils/chatContext';
 import { openFileInBestTarget } from '@/shared/utils/tabUtils';
 import { openPathAsWorkspace } from '@/shared/utils/openPathAsWorkspace';
 import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
-import { projectRuntimeScopeFromWorkspace } from '@/shared/types/runtime-scope';
+import { projectRuntimeScopeFromWorkspace, type RuntimeScope } from '@/shared/types/runtime-scope';
 import {
   applyFileSelection,
   buildFileContextPack,
@@ -156,6 +155,7 @@ function getNormalizedSelectionRect(box: DragSelectionBox): DOMRect {
 
 interface FileViewerSceneProps {
   workspacePath?: string;
+  scopeKind?: RuntimeScope['kind'];
 }
 
 const FILER_AGENT_TYPE = 'Filer';
@@ -677,7 +677,7 @@ const FileTileCard: React.FC<FileTileCardProps> = React.memo(({ entry, tRecency 
 
 FileTileCard.displayName = 'FileTileCard';
 
-const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
+const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath, scopeKind }) => {
   const { t } = useTranslation('scenes/files');
   const { t: tFlowChat } = useTranslation('flow-chat');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -688,7 +688,8 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
   const addressInputRef = useRef<HTMLInputElement>(null);
   const dragSelectionStartRef = useRef<DragSelectionStart | null>(null);
   const suppressNextEntryClickRef = useRef(false);
-  const [mode, setMode] = useState<PaneMode>(workspacePath ? 'workspace' : 'home');
+  const isExternalScope = scopeKind === 'external';
+  const [mode, setMode] = useState<PaneMode>(workspacePath ? (isExternalScope ? 'browser' : 'workspace') : 'home');
   const [workspaces, setWorkspaces] = useState<WorkspaceInfo[]>([]);
   const [recentWorkspaces, setRecentWorkspaces] = useState<WorkspaceInfo[]>([]);
   const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceInfo | null>(null);
@@ -770,7 +771,7 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
   } | null>(null);
   const entryHover = useMovingHoverHighlight<HTMLUListElement>();
   const contextMenuHover = useMovingHoverHighlight<HTMLDivElement>();
-  const effectiveWorkspacePath = workspacePath || activeWorkspace?.rootPath;
+  const effectiveWorkspacePath = isExternalScope ? undefined : workspacePath || activeWorkspace?.rootPath;
 
   const activeFileScope = useMemo<FileScope>(() => (
     currentPath.startsWith('recent:')
@@ -799,11 +800,13 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
     setWorkspaces(openedWorkspaces);
     setRecentWorkspaces(state.recentWorkspaces);
     setActiveWorkspace(
-      workspacePath
+      isExternalScope
+        ? null
+        : workspacePath
         ? openedWorkspaces.find(workspace => isSamePath(workspace.rootPath, workspacePath)) ?? null
         : state.lastUsedWorkspace,
     );
-  }, [workspacePath]);
+  }, [isExternalScope, workspacePath]);
 
   const refreshSystemRoots = useCallback(async () => {
     const [nextDrives, nextQuickFolders, pinnedState] = await Promise.all([
@@ -868,6 +871,20 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
   }, [refreshSystemRoots, refreshWorkspaceState]);
 
   useEffect(() => {
+    if (workspacePath) {
+      if (isExternalScope) {
+        void openSystemPath(workspacePath, false);
+        return;
+      }
+      setMode(isExternalScope ? 'browser' : 'workspace');
+      setCurrentPath(workspacePath);
+      setPathDraft(workspacePath);
+      setSelectedEntries([]);
+      setSelectionAnchorPath(null);
+      setBrowserSearchQuery('');
+      return;
+    }
+
     if (effectiveWorkspacePath) {
       setMode('workspace');
       setCurrentPath(effectiveWorkspacePath);
@@ -885,7 +902,7 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
     setSelectionAnchorPath(null);
     setBrowserSearchQuery('');
     setSidebarCollapsed(false);
-  }, [effectiveWorkspacePath]);
+  }, [effectiveWorkspacePath, isExternalScope, openSystemPath, workspacePath]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1162,6 +1179,47 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
       .filter((drive) => lowerPath.startsWith(drive.mount.toLowerCase()))
       .sort((a, b) => b.mount.length - a.mount.length)[0] ?? null;
   }, [currentPath, drives]);
+
+  const collapsedRailSource = useMemo(() => {
+    if (mode === 'workspace' && activeWorkspace) {
+      return {
+        label: activeWorkspace.rootPath
+          ? `${activeWorkspace.name} - ${activeWorkspace.rootPath}`
+          : activeWorkspace.name,
+        icon: (
+          <span className="sparo-files-scene__rail-avatar" aria-hidden>
+            {workspaceInitial(activeWorkspace.name)}
+          </span>
+        ),
+      };
+    }
+
+    if (currentPath.startsWith('recent:')) {
+      return {
+        label: t('activity.recent'),
+        icon: <Clock3 size={13} />,
+      };
+    }
+
+    if (currentDrive) {
+      return {
+        label: currentPath ? `${formatDriveName(currentDrive)} - ${currentPath}` : formatDriveName(currentDrive),
+        icon: <HardDrive size={13} />,
+      };
+    }
+
+    if (currentPath) {
+      return {
+        label: currentPath,
+        icon: <Folder size={13} />,
+      };
+    }
+
+    return {
+      label: t('brand'),
+      icon: <Folder size={13} />,
+    };
+  }, [activeWorkspace, currentDrive, currentPath, mode, t]);
 
   const sortedEntries = useMemo(
     () => filterAndSortEntries(systemEntries, browserSearchQuery, browserSortBy, browserSortOrder),
@@ -1809,19 +1867,101 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
       >
         <aside className="sparo-files-scene__sidebar" aria-label={t('activity.aria')}>
           <header className="sparo-files-scene__sidebar-header">
+            <span className="sparo-files-scene__sidebar-toggle-slot">
+              <IconButton
+                aria-controls="sparo-files-scene-sidebar-content"
+                aria-expanded={!sidebarCollapsed}
+                aria-label={sidebarCollapsed ? t('actions.expandSidebar') : t('actions.collapseSidebar')}
+                tooltip={sidebarCollapsed ? t('actions.expandSidebar') : t('actions.collapseSidebar')}
+                size="small"
+                variant="ghost"
+                onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+              >
+                <PanelLeft
+                  size={15}
+                  className={[
+                    'sparo-files-scene__sidebar-state-icon',
+                    !sidebarCollapsed && 'is-expanded',
+                  ].filter(Boolean).join(' ')}
+                >
+                  <rect
+                    className="sparo-files-scene__sidebar-state-fill"
+                    x="4.5"
+                    y="4.5"
+                    width="3.5"
+                    height="15"
+                    rx="0.75"
+                    fill="currentColor"
+                    stroke="none"
+                  />
+                </PanelLeft>
+              </IconButton>
+            </span>
             <span className="sparo-files-scene__brand-text">{t('brand')}</span>
-            <IconButton
-              aria-label={t('actions.collapseSidebar')}
-              tooltip={t('actions.collapseSidebar')}
-              size="small"
-              variant="ghost"
-              onClick={() => setSidebarCollapsed(true)}
-            >
-              <SidebarClose size={14} />
-            </IconButton>
           </header>
 
-          <div className="sparo-files-scene__sidebar-scroll">
+          {sidebarCollapsed && (
+            <div className="sparo-files-scene__collapsed-rail" aria-label={t('activity.aria')}>
+              <IconButton
+                aria-controls="sparo-files-scene-sidebar-content"
+                aria-expanded={false}
+                aria-label={collapsedRailSource.label}
+                aria-current="page"
+                tooltip={collapsedRailSource.label}
+                tooltipPlacement="right"
+                size="small"
+                variant="ghost"
+                className="sparo-files-scene__rail-button sparo-files-scene__rail-button--source is-active"
+                onClick={() => setSidebarCollapsed(false)}
+              >
+                {collapsedRailSource.icon}
+              </IconButton>
+
+              {(pinned.length > 0 || recentPaths.length > 0) && (
+                <span className="sparo-files-scene__rail-divider" aria-hidden />
+              )}
+
+              {pinned.length > 0 && (
+                <IconButton
+                  aria-controls="sparo-files-scene-sidebar-content"
+                  aria-expanded={false}
+                  aria-label={`${t('activity.pinned')} (${pinned.length})`}
+                  tooltip={`${t('activity.pinned')} (${pinned.length})`}
+                  tooltipPlacement="right"
+                  size="small"
+                  variant="ghost"
+                  className={[
+                    'sparo-files-scene__rail-button',
+                    isCurrentPinned && 'is-accented',
+                  ].filter(Boolean).join(' ')}
+                  onClick={() => setSidebarCollapsed(false)}
+                >
+                  <Star size={13} fill={isCurrentPinned ? 'currentColor' : 'none'} />
+                </IconButton>
+              )}
+
+              {recentPaths.length > 0 && (
+                <IconButton
+                  aria-controls="sparo-files-scene-sidebar-content"
+                  aria-expanded={false}
+                  aria-label={`${t('activity.recent')}: ${recentPaths[0]}`}
+                  tooltip={`${t('activity.recent')}: ${recentPaths[0]}`}
+                  tooltipPlacement="right"
+                  size="small"
+                  variant="ghost"
+                  className="sparo-files-scene__rail-button"
+                  onClick={() => {
+                    setSidebarCollapsed(false);
+                    void handleOpenRecentPaths();
+                  }}
+                >
+                  <Clock3 size={13} />
+                </IconButton>
+              )}
+            </div>
+          )}
+
+          <div id="sparo-files-scene-sidebar-content" className="sparo-files-scene__sidebar-scroll">
             {sidebarWorkspaces.length > 0 && renderSection('workspaces', t('activity.workspaces'),
               sidebarWorkspaces.slice(0, 8).map((workspace) => {
                 const isActive = mode === 'workspace' && activeWorkspace?.id === workspace.id;
@@ -1920,17 +2060,6 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath }) => {
 
         <main className="sparo-files-scene__main">
           <div className="sparo-files-scene__topbar">
-            {sidebarCollapsed && (
-              <IconButton
-                aria-label={t('actions.expandSidebar')}
-                tooltip={t('actions.expandSidebar')}
-                size="small"
-                variant="ghost"
-                onClick={() => setSidebarCollapsed(false)}
-              >
-                <SidebarOpen size={14} />
-              </IconButton>
-            )}
             <div className="sparo-files-scene__nav">
               <IconButton
                 aria-label={t('actions.back')}

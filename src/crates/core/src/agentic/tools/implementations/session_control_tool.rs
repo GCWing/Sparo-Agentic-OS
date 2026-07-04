@@ -728,6 +728,7 @@ mod tests {
             dialog_turn_id: None,
             workspace: None,
             custom_data: HashMap::new(),
+            app_studio: None,
             computer_use_host: None,
             cancellation_token: None,
             runtime_tool_restrictions: Default::default(),

@@ -724,6 +724,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
               variant="ghost"
               size="small"
               className="unified-top-bar__search-trigger"
+              data-testid="global-search-trigger"
               onClick={() => setSearchOpen(true)}
               aria-label={tNav('search.headerSearchHint')}
             >

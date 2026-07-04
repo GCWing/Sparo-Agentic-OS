@@ -63,29 +63,29 @@ async fn push_product_app_section(out: &mut String) {
     let path_manager = match crate::infrastructure::try_get_path_manager_arc() {
         Ok(path_manager) => path_manager,
         Err(e) => {
-            let _ = writeln!(out, "(Product App package subsystem is not initialized: {e})");
+            let _ = writeln!(
+                out,
+                "(Product App package subsystem is not initialized: {e})"
+            );
             return;
         }
     };
 
-    if let Err(e) =
-        crate::app_platform::seed_builtin_product_app_packages(&path_manager).await
-    {
+    if let Err(e) = crate::app_platform::seed_builtin_product_app_packages(&path_manager).await {
         let _ = writeln!(out, "(Failed to seed built-in Product Apps: {e})");
     }
 
-    let mut apps = match crate::app_platform::list_installed_product_app_catalog(&path_manager).await
-    {
-        Ok(apps) => apps,
-        Err(e) => {
-            let _ = writeln!(out, "(Failed to enumerate Product Apps: {e})");
-            return;
-        }
-    };
+    let mut apps =
+        match crate::app_platform::list_installed_product_app_catalog(&path_manager).await {
+            Ok(apps) => apps,
+            Err(e) => {
+                let _ = writeln!(out, "(Failed to enumerate Product Apps: {e})");
+                return;
+            }
+        };
     apps.retain(|entry| {
         entry.app.enabled
-            && entry.app.catalog_visibility
-                != crate::app_platform::AppCatalogVisibility::Hidden
+            && entry.app.catalog_visibility != crate::app_platform::AppCatalogVisibility::Hidden
     });
     apps.sort_by(|left, right| {
         left.app

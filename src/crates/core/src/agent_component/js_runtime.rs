@@ -51,9 +51,17 @@ pub async fn run_js_tool(
         .await
 }
 
+static JS_TOOL_RUNTIME: OnceLock<JsToolRuntime> = OnceLock::new();
+
 fn runtime() -> &'static JsToolRuntime {
-    static RUNTIME: OnceLock<JsToolRuntime> = OnceLock::new();
-    RUNTIME.get_or_init(JsToolRuntime::new)
+    JS_TOOL_RUNTIME.get_or_init(JsToolRuntime::new)
+}
+
+#[cfg(test)]
+pub async fn shutdown_for_tests() {
+    if let Some(runtime) = JS_TOOL_RUNTIME.get() {
+        runtime.shutdown_for_tests().await;
+    }
 }
 
 /// Owns the lazily-spawned, auto-restarting Node sidecar shared by all Agent Component
@@ -126,6 +134,12 @@ impl JsToolRuntime {
         let value = result.map_err(BitFunError::from)?;
         enforce_output_limit(&value, manifest.max_output_bytes)?;
         Ok(value)
+    }
+
+    #[cfg(test)]
+    async fn shutdown_for_tests(&self) {
+        let mut guard = self.sidecar.lock().await;
+        *guard = None;
     }
 }
 

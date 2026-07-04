@@ -132,5 +132,5 @@ default = []
 tauri-support = ["tauri"]  # Optional tauri support
 
 [[example]]
-name = "recompile_surface_component"
-path = "examples/recompile_surface_component.rs"
+name = "recompile_product_app_runtime_host"
+path = "examples/recompile_product_app_runtime_host.rs"

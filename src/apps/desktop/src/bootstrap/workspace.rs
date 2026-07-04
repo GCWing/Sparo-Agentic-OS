@@ -225,7 +225,7 @@ pub async fn initialize_agentic(
     let ppt_cleanup_scheduler = scheduler.clone();
     let ppt_cleanup_root = path_manager.agentic_os_runtime_root();
     tokio::spawn(async move {
-        match crate::api::surface_component_api::cancel_stale_ppt_live_private_runs_internal(
+        match crate::api::product_app_runtime_host_adapter::cancel_stale_ppt_runs_internal(
             ppt_cleanup_coordinator.as_ref(),
             ppt_cleanup_scheduler.as_ref(),
             ppt_cleanup_root.as_path(),

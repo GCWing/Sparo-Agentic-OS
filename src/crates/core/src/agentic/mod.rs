@@ -3,6 +3,7 @@
 //! Core AI Agent service system
 
 // Core module
+pub mod app_studio_context;
 pub mod core;
 pub mod events;
 pub mod persistence;
@@ -44,6 +45,7 @@ pub mod agents;
 pub mod workspace;
 
 pub use agents::*;
+pub use app_studio_context::*;
 pub use coordination::*;
 pub use core::*;
 pub use events::{queue, router, types as event_types};

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Session Profile Registry.
  *
  * All registered profiles are tested in order; the first matching one wins.
@@ -14,8 +14,7 @@ import { coworkProfile } from './profiles/coworkProfile';
 import { designProfile } from './profiles/designProfile';
 import { deepResearchProfile } from './profiles/deepResearchProfile';
 import { appStudioProfile } from './profiles/appStudioProfile';
-import { surfaceComponentWorkbenchProfile } from './profiles/surfaceComponentWorkbenchProfile';
-import { componentStudioProfile } from './profiles/componentStudioProfile';
+import { productAppRuntimeProfile } from './profiles/productAppRuntimeProfile';
 import {
   SESSION_DESCRIPTORS,
   type SessionDescriptor,
@@ -28,13 +27,12 @@ import {
  */
 const PROFILES: readonly SessionProfile[] = [
   agenticOsProfile,
-  surfaceComponentWorkbenchProfile,
+  productAppRuntimeProfile,
   appStudioProfile,
-  componentStudioProfile,
   coworkProfile,
   designProfile,
   deepResearchProfile,
-  codingProfile, // broadest matcher — also serves as the fallback
+  codingProfile, // broadest matcher; also serves as the fallback
 ];
 
 const PROFILES_BY_ID = new Map<SessionProfileId | string, SessionProfile>(
@@ -47,8 +45,7 @@ export type SessionDisplayMode =
   | 'design'
   | 'agentic-os'
   | 'appstudio'
-  | 'componentstudio'
-  | 'surfaceComponentWorkbench';
+  | 'productAppRuntime';
 
 export type SessionDefaultSurface = 'session' | 'agentic-os-home' | 'background';
 
@@ -65,9 +62,9 @@ export interface SessionTypeDefinition {
     readonly keySuffix: string;
     readonly aiPartnerKey: string;
     readonly narrativeKey?: string;
-    readonly headingIcon?: 'agentic-os' | 'app-studio' | 'component-studio';
+    readonly headingIcon?: 'agentic-os' | 'app-studio';
     readonly workspaceCopy: 'default' | 'cowork' | 'design';
-    readonly promptPanel?: 'cowork' | 'app-studio' | 'component-studio';
+    readonly promptPanel?: 'cowork' | 'app-studio';
   };
 }
 
@@ -90,12 +87,12 @@ const SESSION_TYPE_DEFINITIONS: readonly SessionTypeDefinition[] = [
     },
   },
   {
-    typeId: 'surface-component-workbench',
-    descriptorDefaults: SESSION_DESCRIPTORS.surfaceComponentWorkbench,
-    profile: surfaceComponentWorkbenchProfile,
+    typeId: 'product-app-runtime',
+    descriptorDefaults: SESSION_DESCRIPTORS.productAppRuntime,
+    profile: productAppRuntimeProfile,
     lifecycle: {
-      displayMode: 'surfaceComponentWorkbench',
-      titleKey: 'flow-chat:session.newSurfaceComponentWorkbenchWithIndex',
+      displayMode: 'productAppRuntime',
+      titleKey: 'flow-chat:session.newProductAppRuntimeWithIndex',
       defaultSurface: 'session',
     },
     welcome: {
@@ -120,24 +117,6 @@ const SESSION_TYPE_DEFINITIONS: readonly SessionTypeDefinition[] = [
       headingIcon: 'app-studio',
       workspaceCopy: 'default',
       promptPanel: 'app-studio',
-    },
-  },
-  {
-    typeId: 'component-studio',
-    descriptorDefaults: SESSION_DESCRIPTORS.componentStudio,
-    profile: componentStudioProfile,
-    lifecycle: {
-      displayMode: 'componentstudio',
-      titleKey: 'flow-chat:session.newComponentStudioWithIndex',
-      defaultSurface: 'session',
-    },
-    welcome: {
-      keySuffix: 'ComponentStudio',
-      aiPartnerKey: 'welcome.aiPartnerComponentStudio',
-      narrativeKey: 'welcome.narrativeComponentStudio',
-      headingIcon: 'component-studio',
-      workspaceCopy: 'default',
-      promptPanel: 'component-studio',
     },
   },
   {

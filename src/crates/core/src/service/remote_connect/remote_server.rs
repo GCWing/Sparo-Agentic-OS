@@ -897,7 +897,6 @@ fn resolve_agent_type(mobile_type: Option<&str>) -> &'static str {
         Some("design") | Some("Design") => "Design",
         Some("deepresearch") | Some("DeepResearch") => "DeepResearch",
         Some("appstudio") | Some("AppStudio") => "AppStudio",
-        Some("componentstudio") | Some("ComponentStudio") => "ComponentStudio",
         Some("plan") | Some("Plan") => "Plan",
         Some("debug") | Some("Debug") => "debug",
         Some("osagent") | Some("OSAgent") | Some("os-agent") | Some("os_agent") => "OSAgent",
@@ -2599,7 +2598,6 @@ impl RemoteServer {
                             "Design" => "Remote Design Session",
                             "DeepResearch" => "Remote Research Session",
                             "AppStudio" => "Remote App Studio Session",
-                            "ComponentStudio" => "Remote Component Studio Session",
                             "OSAgent" => "Sparo OS",
                             _ => "Remote Code Session",
                         });

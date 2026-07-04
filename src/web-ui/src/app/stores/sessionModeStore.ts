@@ -6,12 +6,11 @@
  *   - 'cowork' → collaborative Cowork session
  *   - 'design' → dedicated Design session
  *   - 'appstudio' → App Studio session
- *   - 'componentstudio' → Component Studio session
  */
 
 import { create } from 'zustand';
 
-export type SessionMode = 'code' | 'cowork' | 'design' | 'appstudio' | 'componentstudio';
+export type SessionMode = 'code' | 'cowork' | 'design' | 'appstudio';
 
 interface SessionModeState {
   mode: SessionMode;

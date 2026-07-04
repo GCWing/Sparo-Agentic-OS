@@ -7,6 +7,7 @@ use super::{
     turn_outcome::{SessionControlActor, TurnCancellationReason, TurnOutcome},
 };
 use crate::agentic::agents::get_agent_registry;
+use crate::agentic::app_studio_context::AppStudioExecutionContext;
 use crate::agentic::core::{
     has_prompt_markup, Message, MessageContent, ProcessingPhase, PromptEnvelope, Session,
     SessionConfig, SessionKind, SessionState, SessionStorageScope, SessionSummary, TurnStats,
@@ -164,6 +165,7 @@ struct HiddenSubagentExecutionRequest {
     subagent_parent_info: Option<SubagentParentInfo>,
     context: HashMap<String, String>,
     runtime_tool_restrictions: ToolRuntimeRestrictions,
+    app_studio: Option<AppStudioExecutionContext>,
     enable_tools_override: Option<bool>,
 }
 
@@ -338,12 +340,64 @@ impl ConversationCoordinator {
         ))
     }
 
+    pub async fn load_app_studio_execution_context(
+        &self,
+        session_id: &str,
+        workspace: Option<&WorkspaceBinding>,
+        turn_metadata: Option<&serde_json::Value>,
+    ) -> Option<AppStudioExecutionContext> {
+        self.build_app_studio_execution_context(session_id, workspace, turn_metadata)
+            .await
+    }
+
+    async fn build_app_studio_execution_context(
+        &self,
+        session_id: &str,
+        workspace: Option<&WorkspaceBinding>,
+        turn_metadata: Option<&serde_json::Value>,
+    ) -> Option<AppStudioExecutionContext> {
+        let session_metadata = match self.session_manager.load_session_metadata(session_id).await {
+            Ok(metadata) => metadata,
+            Err(error) => {
+                warn!(
+                    "Failed to load AppStudio session metadata: session_id={}, error={}",
+                    session_id, error
+                );
+                None
+            }
+        };
+
+        match AppStudioExecutionContext::from_metadata(
+            session_metadata
+                .as_ref()
+                .and_then(|metadata| metadata.custom_metadata.as_ref()),
+            turn_metadata,
+            workspace,
+        ) {
+            Ok(context) => context,
+            Err(error) => {
+                warn!(
+                    "Failed to build AppStudio execution context: session_id={}, error={}",
+                    session_id, error
+                );
+                None
+            }
+        }
+    }
+
     fn normalize_agent_type(agent_type: &str) -> String {
         if agent_type.trim().is_empty() {
             "agentic".to_string()
         } else {
             agent_type.trim().to_string()
         }
+    }
+
+    fn now_ms() -> u64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_millis().min(u64::MAX as u128) as u64)
+            .unwrap_or(0)
     }
 
     fn ensure_user_message_metadata_object(
@@ -1707,6 +1761,13 @@ impl ConversationCoordinator {
                 .as_deref()
                 .map(std::path::Path::new),
         );
+        let app_studio = self
+            .build_app_studio_execution_context(
+                &session_id,
+                session_workspace.as_ref(),
+                user_message_metadata.as_ref(),
+            )
+            .await;
 
         let execution_context = ExecutionContext {
             session_id: session_id.clone(),
@@ -1720,6 +1781,7 @@ impl ConversationCoordinator {
             subagent_parent_info: None,
             skip_tool_confirmation: submission_policy.skip_tool_confirmation,
             runtime_tool_restrictions: execution_settings.runtime_tool_restrictions,
+            app_studio,
             workspace_services,
             workspace_mount,
             agentic,
@@ -2104,6 +2166,7 @@ impl ConversationCoordinator {
                     runtime_tool_restrictions: build_session_summary_runtime_restrictions(
                         &summary_path.to_string_lossy().replace('\\', "/"),
                     ),
+                    app_studio: None,
                     enable_tools_override: None,
                     max_turns: Some(SESSION_SUMMARY_FORK_MAX_TURNS),
                 },
@@ -2258,6 +2321,7 @@ impl ConversationCoordinator {
                         runtime_tool_restrictions: build_auto_memory_runtime_restrictions(
                             &memory_dir.to_string_lossy(),
                         ),
+                        app_studio: None,
                         enable_tools_override: None,
                         max_turns: Some(AUTO_MEMORY_FORK_MAX_TURNS),
                     },
@@ -2604,6 +2668,16 @@ impl ConversationCoordinator {
             .await
     }
 
+    pub async fn merge_session_custom_metadata(
+        &self,
+        session_id: &str,
+        patch: serde_json::Value,
+    ) -> BitFunResult<Option<serde_json::Value>> {
+        self.session_manager
+            .merge_session_custom_metadata(session_id, patch)
+            .await
+    }
+
     async fn execute_hidden_subagent_internal(
         &self,
         request: HiddenSubagentExecutionRequest,
@@ -2629,6 +2703,7 @@ impl ConversationCoordinator {
             subagent_parent_info,
             context,
             runtime_tool_restrictions,
+            app_studio,
             enable_tools_override,
         } = request;
 
@@ -2646,6 +2721,21 @@ impl ConversationCoordinator {
                 created_by,
             )
             .await?;
+
+        if let Some(app_studio_context) = app_studio.as_ref() {
+            let patch = app_studio_context
+                .to_session_metadata_patch("InheritedAppStudioExecutionContext", Self::now_ms());
+            let merged = self
+                .session_manager
+                .merge_session_custom_metadata(&session.session_id, patch)
+                .await?;
+            if merged.is_none() {
+                return Err(BitFunError::service(format!(
+                    "Failed to persist inherited AppStudio context for hidden subagent session: session_id={}",
+                    session.session_id
+                )));
+            }
+        }
 
         // Check cancel token (after creating session, before execution)
         if let Some(token) = cancel_token {
@@ -2717,6 +2807,7 @@ impl ConversationCoordinator {
             // confirmation channel that nobody will ever respond to.
             skip_tool_confirmation: true,
             runtime_tool_restrictions,
+            app_studio,
             workspace_services: subagent_services,
             workspace_mount: subagent_mount,
             agentic: subagent_handles,
@@ -3214,6 +3305,18 @@ impl ConversationCoordinator {
         let prompt_message_count = request.prompt_messages.len();
         let agent_type = request.agent_type.clone();
         let session_config = request.child_session_config();
+        let workspace = Self::build_workspace_binding(&session_config).await;
+        let app_studio = match request.app_studio.clone() {
+            Some(context) => Some(context),
+            None => {
+                self.build_app_studio_execution_context(
+                    &request.snapshot.parent_session_id,
+                    workspace.as_ref(),
+                    None,
+                )
+                .await
+            }
+        };
         let initial_messages = request.composed_initial_messages();
         let created_by = Some(format!("session-{}", request.snapshot.parent_session_id));
         let child_result = self
@@ -3228,6 +3331,7 @@ impl ConversationCoordinator {
                     subagent_parent_info: None,
                     context: request.context,
                     runtime_tool_restrictions: request.runtime_tool_restrictions,
+                    app_studio,
                     enable_tools_override: request.enable_tools_override,
                 },
                 cancel_token,
@@ -3260,6 +3364,7 @@ impl ConversationCoordinator {
         subagent_parent_info: SubagentParentInfo,
         workspace_path: Option<String>,
         context: Option<HashMap<String, String>>,
+        app_studio: Option<AppStudioExecutionContext>,
         cancel_token: Option<&CancellationToken>,
     ) -> BitFunResult<SubagentResult> {
         let workspace_path = workspace_path.ok_or_else(|| {
@@ -3282,6 +3387,7 @@ impl ConversationCoordinator {
                 subagent_parent_info: Some(subagent_parent_info),
                 context: context.unwrap_or_default(),
                 runtime_tool_restrictions: ToolRuntimeRestrictions::default(),
+                app_studio,
                 enable_tools_override: None,
             },
             cancel_token,
@@ -3314,6 +3420,7 @@ impl ConversationCoordinator {
                     subagent_parent_info: None,
                     context: HashMap::new(),
                     runtime_tool_restrictions,
+                    app_studio: None,
                     enable_tools_override: None,
                 },
                 cancel_token,

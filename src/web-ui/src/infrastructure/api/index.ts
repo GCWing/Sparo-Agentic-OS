@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Sparo OS API unified exports.
  *
  * Follows the Sparo OS Tauri command conventions.
@@ -14,6 +14,8 @@ export * from './service-api/TokenUsageAPI';
 export * from './service-api/StorageAPI';
 export * from './service-api/GoalAPI';
 export * from './service-api/MarkdownExportAPI';
+export * from './service-api/ProductAppRuntimeAPI';
+export * from './service-api/ProductAppRuntimeHostAPI';
 
 // Import API modules
 import { workspaceAPI } from './service-api/WorkspaceAPI';
@@ -37,9 +39,11 @@ import { markdownExportAPI } from './service-api/MarkdownExportAPI';
 import { tokenUsageAPI } from './service-api/TokenUsageAPI';
 import { storageAPI } from './service-api/StorageAPI';
 import { goalAPI } from './service-api/GoalAPI';
+import { productAppRuntimeAPI } from './service-api/ProductAppRuntimeAPI';
+import { productAppRuntimeHostAPI } from './service-api/ProductAppRuntimeHostAPI';
 
 // Export API modules
-export { workspaceAPI, systemFsAPI, pinnedAPI, filesContextAPI, fileWorkbenchAPI, configAPI, aiApi, toolAPI, agentAPI, systemAPI, projectAPI, diffAPI, snapshotAPI, globalAPI, contextAPI, cronAPI, sessionAPI, i18nAPI, btwAPI, markdownAiAPI, markdownExportAPI, tokenUsageAPI, storageAPI, goalAPI };
+export { workspaceAPI, systemFsAPI, pinnedAPI, filesContextAPI, fileWorkbenchAPI, configAPI, aiApi, toolAPI, agentAPI, systemAPI, projectAPI, diffAPI, snapshotAPI, globalAPI, contextAPI, cronAPI, sessionAPI, i18nAPI, btwAPI, markdownAiAPI, markdownExportAPI, tokenUsageAPI, storageAPI, goalAPI, productAppRuntimeAPI, productAppRuntimeHostAPI };
 
 // Sparo OS API collection: a single access point for all API modules.
 export const sparoAPI = {
@@ -67,6 +71,8 @@ export const sparoAPI = {
   tokenUsage: tokenUsageAPI,
   storage: storageAPI,
   goal: goalAPI,
+  productAppRuntime: productAppRuntimeAPI,
+  productAppRuntimeHost: productAppRuntimeHostAPI,
 };
 
 // Default export

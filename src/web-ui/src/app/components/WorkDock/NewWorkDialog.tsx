@@ -9,12 +9,14 @@ import {
 } from '@/infrastructure/contexts/WorkspaceContext';
 import {
   appCatalogAPI,
+  type NativeAppCatalogEntry,
   type ProductAppCatalogEntry,
   type ProductAppLaunchScopeRequirement,
 } from '@/infrastructure/api/service-api/AppCatalogAPI';
 import {
+  getProductAppLaunchBehavior,
   getProductAppLaunchScopeRequirement,
-  productAppSupportsMultipleWorks,
+  type ProductAppWorkResolutionMode,
   resolveProductAppWorkScope,
 } from '@/app/agentic-os/work/domain/productAppLaunchPolicy';
 import { descriptorFromAgentType, getBackendAgentType, type SessionDescriptor } from '@/flow_chat/domain/sessionDescriptor';
@@ -27,7 +29,7 @@ import type { SessionMode } from '@/app/stores/sessionModeStore';
 import { useWorkStore } from '@/app/agentic-os/work/data/workStore';
 import { openWork } from '@/app/agentic-os/work/navigation/openWork';
 import type { WorkAppRef, WorkRecord } from '@/app/agentic-os/work/domain/workTypes';
-import { productAppWorkRef } from '@/app/agentic-os/work/domain/productAppRefs';
+import { nativeAppWorkRef, productAppWorkRef } from '@/app/agentic-os/work/domain/productAppRefs';
 import type { WorkspaceInfo } from '@/shared/types';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
@@ -40,11 +42,11 @@ const LS_WORKSPACE = 'sparo.newWorkDialog.workspaceId';
 const SYSTEM_WORKSPACE_VALUE = '__system_work__';
 const BROWSED_WORKSPACE_VALUE = '__browsed_workspace__';
 const PRODUCT_APP_CHOICE_PREFIX = 'product-app:';
-const LEGACY_AGENT_PRODUCT_APP_IDS: Record<string, string> = {
-  agentic: 'builtin-coding',
-  Cowork: 'builtin-cowork',
-  Design: 'builtin-design',
-  DeepResearch: 'builtin-deep-research',
+const NATIVE_AGENT_APP_IDS: Record<string, string> = {
+  agentic: 'prime-builder',
+  Cowork: 'cowork',
+  Design: 'design',
+  AppStudio: 'app-studio',
 };
 
 type NewWorkStartMode = 'manual' | 'agentic-os';
@@ -54,6 +56,7 @@ export type NewWorkAgentChoice =
   | 'Cowork'
   | 'Design'
   | 'DeepResearch'
+  | 'AppStudio'
   | (string & {});
 
 export interface NewWorkDialogProps {
@@ -85,22 +88,7 @@ function normalizeChoiceForAvailableApps(
     return apps.some((app) => app.id === productAppId) ? agentChoice : null;
   }
 
-  if (apps.length > 0) {
-    const mappedAppId = LEGACY_AGENT_PRODUCT_APP_IDS[String(agentChoice)];
-    return mappedAppId && apps.some((app) => app.id === mappedAppId)
-      ? productAppWorkChoice(mappedAppId)
-      : null;
-  }
-
   return knownBuiltinChoices.has(String(agentChoice)) ? agentChoice : null;
-}
-
-function defaultProductAppChoice(apps: ProductAppCatalogEntry[]): NewWorkAgentChoice | null {
-  const preferred =
-    apps.find((app) => app.id === 'builtin-coding') ??
-    apps.find((app) => app.launch?.kind === 'agentSession') ??
-    apps[0];
-  return preferred ? productAppWorkChoice(preferred.id) : null;
 }
 
 function labelForChoice(agentChoice: NewWorkAgentChoice): string {
@@ -118,6 +106,8 @@ function labelForChoice(agentChoice: NewWorkAgentChoice): string {
       return 'Design Work';
     case 'DeepResearch':
       return 'Research Work';
+    case 'AppStudio':
+      return 'App Studio Work';
     default:
       return `${agentChoice} Work`;
   }
@@ -169,8 +159,7 @@ function syncSessionModeStore(descriptor: SessionDescriptor): void {
   const sessionMode: SessionMode =
     displayMode === 'cowork' ||
     displayMode === 'design' ||
-    displayMode === 'appstudio' ||
-    displayMode === 'componentstudio'
+    displayMode === 'appstudio'
       ? displayMode
       : 'code';
   useSessionModeStore.getState().setMode(sessionMode);
@@ -185,8 +174,9 @@ export async function launchWorkForChoice(params: {
   title?: string;
   objective?: string;
   appRef?: WorkAppRef;
+  workResolutionMode?: ProductAppWorkResolutionMode;
 }): Promise<WorkRecord> {
-  const { agentChoice, workspace, rememberWorkspace, title, objective, appRef } = params;
+  const { agentChoice, workspace, rememberWorkspace, title, objective, appRef, workResolutionMode } = params;
   const productAppId = parseProductAppWorkChoice(agentChoice);
   let resolvedAgentChoice = agentChoice;
   let resolvedAppRef = appRef;
@@ -195,6 +185,11 @@ export async function launchWorkForChoice(params: {
   let resolvedWorkScope = workspace
     ? { kind: 'workspace' as const, workspacePath: workspace.rootPath }
     : { kind: 'system' as const };
+  let resolvedAppWorkMode: ProductAppWorkResolutionMode = workResolutionMode ?? 'createNewWork';
+  const nativeAppId = NATIVE_AGENT_APP_IDS[String(agentChoice)];
+  if (!productAppId && nativeAppId) {
+    resolvedAppRef = nativeAppWorkRef(nativeAppId);
+  }
 
   if (productAppId) {
     const productApp = await appCatalogAPI.getProductApp(productAppId);
@@ -208,17 +203,11 @@ export async function launchWorkForChoice(params: {
       throw new Error(`Product App ${productApp.name} has no launch target.`);
     }
     resolvedWorkScope = resolveProductAppWorkScope(productApp, workspace);
+    const launchBehavior = getProductAppLaunchBehavior(productApp);
+    resolvedAppWorkMode = launchBehavior.workResolutionMode;
 
     if (launch.kind === 'applicationSurface') {
       const targetProductAppId = productApp.id;
-      const targetSurfaceComponentId = productApp.primarySurface.componentId;
-      const targetSurfaceId = launch.surfaceId || productApp.primarySurface.surfaceId || 'primary';
-      const primarySurface = {
-        kind: 'application_surface' as const,
-        productAppId: targetProductAppId,
-        surfaceComponentId: targetSurfaceComponentId,
-        surfaceId: targetSurfaceId,
-      };
       const appRefs = [
         { app: productAppRef, role: 'executor' as const },
       ];
@@ -228,7 +217,7 @@ export async function launchWorkForChoice(params: {
       };
       const workStore = useWorkStore.getState();
 
-      const work = productAppSupportsMultipleWorks(productApp)
+      const work = launchBehavior.workResolutionMode === 'createNewWork'
         ? await workStore.createWork({
             kind: 'app_workflow',
             title: resolvedTitle,
@@ -242,7 +231,6 @@ export async function launchWorkForChoice(params: {
             scope: resolvedWorkScope,
             visibility: 'primary',
             primarySurfacePolicy: 'application_surface',
-            primarySurface,
             titleState: title?.trim()
               ? { source: 'user', locked: true }
               : { source: 'application_surface', locked: false, subjectRef: targetProductAppId },
@@ -257,7 +245,6 @@ export async function launchWorkForChoice(params: {
             scope: resolvedWorkScope,
             visibility: 'primary',
             primarySurfacePolicy: 'application_surface',
-            primarySurface,
             assignment,
           })).work;
 
@@ -268,7 +255,7 @@ export async function launchWorkForChoice(params: {
       return work;
     }
 
-    if (launch.kind !== 'agentSession') {
+    if (launch.kind !== 'agentSession' && launch.kind !== 'appStudio') {
       throw new Error(`Product App ${productApp.name} cannot start a work session.`);
     }
 
@@ -280,8 +267,32 @@ export async function launchWorkForChoice(params: {
   const defaultTitle = labelForChoice(resolvedAgentChoice);
   const workTitle = resolvedTitle || defaultTitle;
   const workObjective = resolvedObjective || defaultTitle;
+  const appRefs = resolvedAppRef ? [{ app: resolvedAppRef, role: 'executor' as const }] : [];
 
   syncSessionModeStore(descriptor);
+
+  if (resolvedAppRef && resolvedAppWorkMode === 'resolveSingletonWork') {
+    const work = (await useWorkStore.getState().resolveAppWork({
+      app: resolvedAppRef,
+      intent: 'run',
+      title: workTitle,
+      objective: workObjective,
+      appRefs,
+      scope: resolvedWorkScope,
+      visibility: 'primary',
+      primarySurfacePolicy: 'work_session',
+      assignment: {
+        kind: 'agent',
+        agentType: backendAgentType,
+      },
+    })).work;
+
+    if (workspace) {
+      await rememberWorkspace(workspace.id);
+    }
+    await openWork(work);
+    return work;
+  }
 
   const work = await useWorkStore.getState().createWork({
     kind: resolvedAppRef ? 'app_workflow' : 'multi_step',
@@ -290,7 +301,7 @@ export async function launchWorkForChoice(params: {
     subject: resolvedAppRef
       ? { kind: 'app', app: resolvedAppRef, intent: 'run' }
       : { kind: 'goal' },
-    appRefs: resolvedAppRef ? [{ app: resolvedAppRef, role: 'executor' }] : [],
+    appRefs,
     scope: resolvedWorkScope,
     visibility: 'primary',
     primarySurfacePolicy: 'work_session',
@@ -331,10 +342,11 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
   const [browsedWorkspacePath, setBrowsedWorkspacePath] = useState<string | null>(null);
   const [objective, setObjective] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [nativeApps, setNativeApps] = useState<NativeAppCatalogEntry[]>([]);
   const [productApps, setProductApps] = useState<ProductAppCatalogEntry[]>([]);
 
   const knownBuiltinChoices = useMemo<Set<string>>(
-    () => new Set(['agentic', 'Cowork', 'Design', 'DeepResearch']),
+    () => new Set(['agentic', 'Cowork', 'Design']),
     []
   );
 
@@ -370,7 +382,7 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
       /* ignore */
     }
 
-    setAgentChoice(normalizedInitialChoice ?? storedAgent ?? defaultProductAppChoice(apps) ?? 'agentic');
+    setAgentChoice(normalizedInitialChoice ?? storedAgent ?? 'agentic');
     setStartMode('manual');
     setBrowsedWorkspacePath(null);
     setObjective('');
@@ -389,19 +401,25 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
-    appCatalogAPI.listAppCatalog().then((apps) => {
+    appCatalogAPI.listAppCatalog().then((catalog) => {
       if (cancelled) return;
-      const launchableApps = apps.filter((app) => (
+      const nativeLaunchableApps = catalog.native.filter((app) => (
+        app.launch?.kind === 'agentSession'
+      ));
+      const productLaunchableApps = catalog.productApps.installed.filter((app) => (
+        (app.catalogIssues?.length ?? 0) === 0 &&
         app.enabled && (
           app.launch?.kind === 'agentSession' ||
           app.launch?.kind === 'applicationSurface'
         )
       ));
-      setProductApps(launchableApps);
-      resetDefaults(launchableApps);
+      setNativeApps(nativeLaunchableApps);
+      setProductApps(productLaunchableApps);
+      resetDefaults(productLaunchableApps);
     }).catch((error) => {
       if (cancelled) return;
       log.error('Failed to load work executors', { error });
+      setNativeApps([]);
       setProductApps([]);
       resetDefaults([]);
     });
@@ -476,43 +494,36 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
 
   const agentOptions = useMemo<SelectOption[]>(
     () => {
-      if (productApps.length > 0) {
-        return productApps.map((app) => ({
-          value: productAppWorkChoice(app.id),
-          label: app.name,
-          description: app.goal || app.description,
-          group: t('nav.workDock.executor.productAppGroup'),
-        }));
-      }
-
-      return [
+      const nativeById = new Map(nativeApps.map((app) => [app.id, app]));
+      const systemOptions = [
         {
           value: 'agentic',
-          label: t('nav.workDock.executor.primeBuilder'),
-          description: t('nav.workDock.executor.primeBuilderDescription'),
+          label: nativeById.get('prime-builder')?.name ?? t('nav.workDock.executor.primeBuilder'),
+          description: nativeById.get('prime-builder')?.goal ?? t('nav.workDock.executor.primeBuilderDescription'),
           group: t('nav.workDock.executor.systemGroup'),
         },
         {
           value: 'Cowork',
-          label: t('nav.workDock.executor.cowork'),
-          description: t('nav.workDock.executor.coworkDescription'),
+          label: nativeById.get('cowork')?.name ?? t('nav.workDock.executor.cowork'),
+          description: nativeById.get('cowork')?.goal ?? t('nav.workDock.executor.coworkDescription'),
           group: t('nav.workDock.executor.systemGroup'),
         },
         {
           value: 'Design',
-          label: t('nav.workDock.executor.design'),
-          description: t('nav.workDock.executor.designDescription'),
-          group: t('nav.workDock.executor.systemGroup'),
-        },
-        {
-          value: 'DeepResearch',
-          label: t('nav.workDock.executor.research'),
-          description: t('nav.workDock.executor.researchDescription'),
+          label: nativeById.get('design')?.name ?? t('nav.workDock.executor.design'),
+          description: nativeById.get('design')?.goal ?? t('nav.workDock.executor.designDescription'),
           group: t('nav.workDock.executor.systemGroup'),
         },
       ];
+      const productOptions = productApps.map((app) => ({
+        value: productAppWorkChoice(app.id),
+        label: app.name,
+        description: app.goal || app.description,
+        group: t('nav.workDock.executor.productAppGroup'),
+      }));
+      return [...systemOptions, ...productOptions];
     },
-    [productApps, t]
+    [nativeApps, productApps, t]
   );
 
   const startModeOptions = useMemo<Array<{

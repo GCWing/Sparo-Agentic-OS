@@ -13,6 +13,7 @@ import {
   runtimeScopeFromSession,
   runtimeScopeIdentity,
   systemRuntimeScope,
+  workspacePathFromRuntimeScope,
   type RuntimeScope,
 } from '@/shared/types/runtime-scope';
 import { useFlowChatStoreSelector } from '@/flow_chat/hooks/useFlowChatStoreSelector';
@@ -27,7 +28,7 @@ const SubagentsScene = lazy(() => import('../scenes/subagents/SubagentsScene'));
 const SkillsScene = lazy(() => import('../scenes/skills/SkillsScene'));
 const ToolsScene = lazy(() => import('../scenes/tools/ToolsScene'));
 const ShellScene = lazy(() => import('../scenes/shell/ShellScene'));
-const SurfaceComponentScene = lazy(() => import('../scenes/apps/SurfaceComponentScene'));
+const ProductAppHostSurfaceScene = lazy(() => import('../scenes/apps/ProductAppHostSurfaceScene'));
 const PanelViewScene = lazy(() => import('../scenes/panel-view/PanelViewScene'));
 const WorkCenterScene = lazy(() => import('../scenes/work-center/WorkCenterScene'));
 
@@ -102,11 +103,19 @@ function renderSurface(
       );
     case 'scene':
       {
-        const sceneWorkspacePath = projectWorkspacePathFromRuntimeScope(surface.scope);
+        const sceneWorkspacePath = surface.sceneId === 'file-viewer'
+          ? workspacePathFromRuntimeScope(surface.scope)
+          : projectWorkspacePathFromRuntimeScope(surface.scope);
         const sceneAppScope = surface.appScope
           ? normalizeAppScope(surface.appScope)
           : appScopeFromRuntimeScope(surface.scope);
-        return renderSceneSurface(surface.sceneId, sceneWorkspacePath, sceneAppScope);
+        return renderSceneSurface(
+          surface.sceneId,
+          sceneWorkspacePath,
+          sceneAppScope,
+          surface.runtimeContext,
+          surface.scope
+        );
       }
   }
 }
@@ -114,7 +123,9 @@ function renderSurface(
 function renderSceneSurface(
   id: WorkspaceSceneId,
   workspacePath: string | undefined,
-  appScope: AppScope
+  appScope: AppScope,
+  runtimeContext: Extract<WorkspaceSurface, { kind: 'scene' }>['runtimeContext'],
+  runtimeScope?: RuntimeScope | null
 ): React.ReactNode {
   switch (id) {
     case 'terminal':
@@ -122,7 +133,13 @@ function renderSceneSurface(
     case 'settings':
       return <SettingsScene />;
     case 'file-viewer':
-      return <FileViewerScene key={workspacePath ?? 'home'} workspacePath={workspacePath} />;
+      return (
+        <FileViewerScene
+          key={runtimeScope ? runtimeScopeIdentity(runtimeScope) : workspacePath ?? 'home'}
+          workspacePath={workspacePath}
+          scopeKind={runtimeScope?.kind}
+        />
+      );
     case 'memory':
       return <MemoryScene />;
     case 'apps':
@@ -142,10 +159,11 @@ function renderSceneSurface(
     default:
       if (typeof id === 'string' && id.startsWith('app-surface:')) {
         return (
-          <SurfaceComponentScene
+          <ProductAppHostSurfaceScene
             appId={id.slice('app-surface:'.length)}
             workspacePath={workspacePath}
             scope={appScope}
+            runtimeContext={runtimeContext}
           />
         );
       }

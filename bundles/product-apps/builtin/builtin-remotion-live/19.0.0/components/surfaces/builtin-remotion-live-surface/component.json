@@ -1,0 +1,81 @@
+{
+  "id": "builtin-remotion-live-surface",
+  "kind": "surface",
+  "name": "Remotion Preview Workbench",
+  "description": "The app-owned Remotion preview, timeline, selection, and export surface.",
+  "packageSource": "appPrivate",
+  "ownerApp": {
+    "appId": "builtin-remotion-live",
+    "appVersion": "19.0.0"
+  },
+  "capabilities": [
+    {
+      "id": "interactiveSurface",
+      "title": "Interactive surface",
+      "description": "Hosts the Remotion Live primary workspace.",
+      "actions": [
+        "open",
+        "refreshPreview",
+        "selectFrame",
+        "startExport"
+      ]
+    }
+  ],
+  "permissions": [
+    {
+      "kind": "fs",
+      "summary": "Reads project source and writes app-owned preview/export state.",
+      "scopes": [
+        "{workspace}",
+        "{appdata}"
+      ]
+    },
+    {
+      "kind": "net",
+      "summary": "Embeds localhost preview hosts started by the Remotion runtime component.",
+      "scopes": [
+        "http://127.0.0.1:*",
+        "http://localhost:*"
+      ]
+    }
+  ],
+  "usedByApps": [
+    "builtin-remotion-live"
+  ],
+  "visibility": "appDependency",
+  "dependencies": [
+    {
+      "componentId": "remotion-video-agent",
+      "kind": "agent",
+      "source": "shared",
+      "role": "remotionAgent",
+      "version": "^1.0.0",
+      "capabilities": [
+        "understandVideoProject",
+        "reviseVideoComposition",
+        "renderReviewArtifact"
+      ]
+    },
+    {
+      "componentId": "builtin-remotion-runtime",
+      "kind": "bridge",
+      "source": "shared",
+      "role": "remotionRuntime",
+      "version": "^1.0.0",
+      "capabilities": [
+        "sparo.videoEngine"
+      ]
+    },
+    {
+      "componentId": "product-app-runtime-host",
+      "kind": "runtime",
+      "source": "shared",
+      "role": "runtimeHost",
+      "version": "^1.0.0",
+      "capabilities": [
+        "uiWorker"
+      ]
+    }
+  ],
+  "implementationRef": "app://builtin-remotion-live@19.0.0/surfaces/builtin-remotion-live-surface"
+}

@@ -1,4 +1,4 @@
-export type {
+﻿export type {
   SessionComposerActionProviderId,
   SessionComposerActionAvailability,
   SessionComposerAgentSwitching,
@@ -35,5 +35,4 @@ export { coworkProfile } from './profiles/coworkProfile';
 export { designProfile } from './profiles/designProfile';
 export { deepResearchProfile } from './profiles/deepResearchProfile';
 export { appStudioProfile } from './profiles/appStudioProfile';
-export { componentStudioProfile } from './profiles/componentStudioProfile';
-export { surfaceComponentWorkbenchProfile } from './profiles/surfaceComponentWorkbenchProfile';
+export { productAppRuntimeProfile } from './profiles/productAppRuntimeProfile';

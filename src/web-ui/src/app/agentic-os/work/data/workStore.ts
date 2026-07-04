@@ -7,6 +7,7 @@ import type {
   CreateWorkRequest,
   LinkSessionToWorkRequest,
   ResolveAppWorkRequest,
+  ResolveComponentWorkRequest,
   UpdateWorkRequest,
   WorkRecord,
 } from '../domain/workTypes';
@@ -25,6 +26,7 @@ interface WorkStoreState {
   getWork: (workId: string) => Promise<WorkRecord>;
   createWork: (request: CreateWorkRequest) => Promise<WorkRecord>;
   resolveAppWork: (request: ResolveAppWorkRequest) => Promise<{ work: WorkRecord; created: boolean }>;
+  resolveComponentWork: (request: ResolveComponentWorkRequest) => Promise<{ work: WorkRecord; created: boolean }>;
   linkSessionToWork: (request: LinkSessionToWorkRequest) => Promise<WorkRecord>;
   updateWork: (request: UpdateWorkRequest) => Promise<WorkRecord>;
   advanceWork: (request: AdvanceWorkRequest) => Promise<WorkRecord>;
@@ -68,6 +70,12 @@ export const useWorkStore = create<WorkStoreState>((set, get) => ({
 
   resolveAppWork: async (request) => {
     const response = await agenticOsWorkApi.resolveAppWork(request);
+    set({ works: upsertWork(get().works, response.work), loaded: true, loading: false, error: null });
+    return response;
+  },
+
+  resolveComponentWork: async (request) => {
+    const response = await agenticOsWorkApi.resolveComponentWork(request);
     set({ works: upsertWork(get().works, response.work), loaded: true, loading: false, error: null });
     return response;
   },

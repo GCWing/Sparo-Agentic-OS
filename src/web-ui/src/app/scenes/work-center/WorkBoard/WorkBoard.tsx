@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Archive, ArrowRight, Check, ChevronDown, FolderOpen, ListChecks, Pencil, Plus, Send, Trash2, X, XCircle } from 'lucide-react';
+import { Archive, ArrowRight, Check, ChevronDown, ExternalLink, FolderOpen, ListChecks, Pencil, Plus, Send, Trash2, X, XCircle } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-dialog';
 import {
   Badge,
@@ -15,14 +15,22 @@ import {
   getWorkspaceDisplayName,
   useWorkspaceContext,
 } from '@/infrastructure/contexts/WorkspaceContext';
+import { agenticOsWorkApi } from '@/app/agentic-os/work/data/workApi';
 import { useWorkStore } from '@/app/agentic-os/work/data/workStore';
 import { openWork, openWorkSurface } from '@/app/agentic-os/work/navigation/openWork';
+import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
 import type {
+  ArtifactRef,
+  WorkExecutionGraph,
   WorkExecutionSource,
   WorkExecutionBindingStatus,
   WorkKind,
   WorkLifecycleEvent,
   WorkRecord,
+  RuntimeInstanceRef,
+  WorkRuntimeIssueSeverity,
+  WorkRuntimeLogLevel,
+  WorkRuntimeRunStatus,
   WorkStatus,
   WorkSurfaceRef,
 } from '@/app/agentic-os/work/domain/workTypes';
@@ -44,6 +52,9 @@ import {
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
 import { appScopeFromWorkspacePath, systemAppScope } from '@/shared/types/app-scope';
+import { externalRuntimeScope } from '@/shared/types/runtime-scope';
+import { workspaceAPI } from '@/infrastructure/api/service-api/WorkspaceAPI';
+import { openFileInBestTarget } from '@/shared/utils/tabUtils';
 import BoardHeader from './BoardHeader';
 import './WorkBoard.scss';
 
@@ -64,6 +75,7 @@ interface WorkBoardProps {
   grouping: WorkCenterGrouping;
   collapsedGroups: string[];
   selectedWorkId: string | null;
+  selectedArtifactId: string | null;
   onSearchChange: (value: string) => void;
   onScopeChange: (scope: WorkCenterScope) => void;
   onWorkspaceFilterChange: (filter: WorkCenterWorkspaceFilter) => void;
@@ -101,6 +113,38 @@ function formatTime(timestamp: number): string {
   } catch {
     return new Date(timestamp).toLocaleString();
   }
+}
+
+function basename(path: string): string {
+  return path.replace(/\\/g, '/').split('/').filter(Boolean).pop() || path;
+}
+
+function dirname(path: string): string {
+  const normalized = path.replace(/\\/g, '/');
+  const index = normalized.lastIndexOf('/');
+  if (index < 0) return normalized;
+  if (index === 0) return '/';
+  const parent = normalized.slice(0, index);
+  return /^[A-Za-z]:$/.test(parent) ? `${parent}/` : parent;
+}
+
+function formatRuntimeLockDigest(digest: string): string {
+  const value = digest.trim();
+  if (!value) return '';
+  const prefix = 'sha256:';
+  if (!value.startsWith(prefix)) return value;
+  return `${prefix}${value.slice(prefix.length, prefix.length + 12)}`;
+}
+
+function getRuntimeInstanceReference(instance: RuntimeInstanceRef): string {
+  return [
+    instance.id,
+    instance.productAppId,
+    instance.appVersion,
+    instance.componentLockDigest,
+    instance.productAppSurfaceId,
+    instance.surfaceId,
+  ].filter(Boolean).join(' | ');
 }
 
 function getSurfaceLabelKey(surface: WorkSurfaceRef): string {
@@ -172,6 +216,8 @@ function getExecutionSourceLabel(source: WorkExecutionSource, t: WorkCenterTrans
       return t('detail.executionSource.delegatedWorkRun');
     case 'application_action':
       return t('detail.executionSource.applicationAction');
+    case 'runtime_instance_run':
+      return t('detail.executionSource.runtimeInstanceRun');
     case 'runtime_subagent_run':
       return t('detail.executionSource.runtimeSubagentRun');
     case 'external':
@@ -187,6 +233,8 @@ function getExecutionSourceReference(source: WorkExecutionSource): string | null
       return source.childWorkId;
     case 'application_action':
       return `${source.applicationId}:${source.actionId}`;
+    case 'runtime_instance_run':
+      return source.runId;
     case 'runtime_subagent_run':
       return source.runId;
     case 'external':
@@ -295,6 +343,26 @@ function getDetailActivityTone(status: WorkStatus | WorkExecutionBindingStatus):
   return 'neutral';
 }
 
+function getRuntimeRunTone(status: WorkRuntimeRunStatus): 'neutral' | 'running' | 'attention' | 'success' | 'danger' {
+  if (status === 'failed') return 'danger';
+  if (status === 'waiting_user') return 'attention';
+  if (status === 'running' || status === 'pending') return 'running';
+  if (status === 'completed') return 'success';
+  return 'neutral';
+}
+
+function getRuntimeIssueTone(severity: WorkRuntimeIssueSeverity): 'neutral' | 'attention' | 'danger' {
+  if (severity === 'fatal') return 'danger';
+  if (severity === 'warning') return 'attention';
+  return 'neutral';
+}
+
+function getRuntimeLogTone(level: WorkRuntimeLogLevel): 'neutral' | 'attention' | 'danger' {
+  if (level === 'error') return 'danger';
+  if (level === 'warn') return 'attention';
+  return 'neutral';
+}
+
 const WorkBoard: React.FC<WorkBoardProps> = ({
   scope,
   workspaces,
@@ -308,6 +376,7 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
   grouping,
   collapsedGroups,
   selectedWorkId,
+  selectedArtifactId,
   onSearchChange,
   onScopeChange,
   onWorkspaceFilterChange,
@@ -339,6 +408,8 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
   const [advanceDialogWorkId, setAdvanceDialogWorkId] = useState<string | null>(null);
   const [advanceSubmitting, setAdvanceSubmitting] = useState(false);
   const [copiedSurfaceKey, setCopiedSurfaceKey] = useState<string | null>(null);
+  const [executionGraph, setExecutionGraph] = useState<WorkExecutionGraph | null>(null);
+  const [executionGraphLoading, setExecutionGraphLoading] = useState(false);
   const objectiveTextareaRef = useRef<HTMLTextAreaElement>(null);
   const advanceTextareaRef = useRef<HTMLTextAreaElement>(null);
   const copyResetTimerRef = useRef<number | null>(null);
@@ -391,6 +462,10 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
     [selectedWorkId, works]
   );
 
+  const selectedExecutionGraph = selectedWork && executionGraph?.workId === selectedWork.id
+    ? executionGraph
+    : null;
+
   const showWorkspaceOverview = scope.kind === 'workspaces';
 
   useEffect(() => {
@@ -408,6 +483,36 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
     setObjectiveDraft('');
     setCopiedSurfaceKey(null);
   }, [selectedWorkId]);
+
+  useEffect(() => {
+    if (!selectedWorkId) {
+      setExecutionGraph(null);
+      setExecutionGraphLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setExecutionGraphLoading(true);
+    void agenticOsWorkApi.getWorkExecutionGraph(selectedWorkId)
+      .then((graph) => {
+        if (cancelled) return;
+        setExecutionGraph(graph);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setExecutionGraph(null);
+        log.error('Failed to load work execution graph', { workId: selectedWorkId, error });
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setExecutionGraphLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedWorkId, selectedWork?.updatedAt]);
 
   useEffect(() => () => {
     if (copyResetTimerRef.current !== null) {
@@ -518,6 +623,53 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
     } catch (error) {
       log.error('Failed to open work surface from Work Center', { workId: work.id, surfaceKind: surface.kind, error });
       notificationService.error(t('errors.openSurfaceFailed'));
+    }
+  }, [t]);
+
+  const handleOpenArtifact = useCallback(async (artifact: ArtifactRef) => {
+    const artifactUri = artifact.uri?.trim();
+    if (!artifactUri) {
+      notificationService.error(t('errors.openArtifactFailed'));
+      return;
+    }
+
+    try {
+      const metadata = await workspaceAPI.getFileMetadata(artifactUri);
+      const targetPath = metadata.resolvedPath?.trim() || metadata.path;
+      if (!targetPath) {
+        throw new Error('Artifact path did not resolve to a local target');
+      }
+
+      if (metadata.isDir) {
+        const scope = externalRuntimeScope(targetPath);
+        if (!scope) {
+          throw new Error('Artifact directory did not resolve to an external scope');
+        }
+        openWorkspaceScene('file-viewer', { scope });
+        return;
+      }
+
+      if (metadata.isFile) {
+        const parentPath = dirname(targetPath);
+        const scope = externalRuntimeScope(parentPath);
+        if (!scope) {
+          throw new Error('Artifact file parent did not resolve to an external scope');
+        }
+        openFileInBestTarget({
+          filePath: targetPath,
+          fileName: artifact.label?.trim() || basename(targetPath),
+          workspacePath: parentPath,
+        }, {
+          source: 'project-nav',
+          scope,
+        });
+        return;
+      }
+
+      throw new Error('Artifact target is neither a file nor a directory');
+    } catch (error) {
+      log.error('Failed to open artifact from Work Center', { artifactId: artifact.id, artifactUri, error });
+      notificationService.error(t('errors.openArtifactFailed'));
     }
   }, [t]);
 
@@ -658,13 +810,39 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
     const objectiveDialogOpen = objectiveDialogWorkId === work.id;
     const workspaceLabel = getWorkWorkspaceLabel(work, workspaces, t);
     const assignmentLabel = getAssignmentLabel(work, t);
+    const graph = selectedExecutionGraph?.workId === work.id ? selectedExecutionGraph : null;
+    const graphRuntimeRuns = graph
+      ? graph.runtimeInstances.flatMap((runtime) => runtime.runs)
+      : [];
+    const graphIssues = graph?.issues ?? [];
+    const graphLogs = graph?.logs ?? [];
     const referenceCounts = [
       work.artifactRefs.length > 0 ? t('detail.artifacts', { count: work.artifactRefs.length }) : null,
       work.memoryRefs.length > 0 ? t('detail.memories', { count: work.memoryRefs.length }) : null,
       work.sessionRefs.length > 0 ? t('detail.sessions', { count: work.sessionRefs.length }) : null,
+      work.runtimeInstances.length > 0 ? t('detail.runtimeInstanceCount', { count: work.runtimeInstances.length }) : null,
+      graph && graph.summary.runtimeRunCount > 0 ? t('detail.runtimeRuns', { count: graph.summary.runtimeRunCount }) : null,
+      graph && graph.summary.issueCount > 0 ? t('detail.runtimeIssues', { count: graph.summary.issueCount }) : null,
+      graph && graph.logs.length > 0 ? t('detail.runtimeLogs', { count: graph.logs.length }) : null,
     ].filter((item): item is string => item !== null);
     const advanceDialogOpen = advanceDialogWorkId === work.id;
     const activityItems = [
+      ...graphRuntimeRuns.map((run) => ({
+        id: `runtime-run:${run.runId}`,
+        label: t(`detail.runtimeRunStatus.${run.status}`),
+        meta: t('detail.runtimeRunMeta', { component: run.componentId, action: run.action }),
+        reference: run.runId,
+        time: run.updatedAt || run.startedAt,
+        tone: getRuntimeRunTone(run.status),
+      })),
+      ...graphIssues.map((issue, index) => ({
+        id: `runtime-issue:${issue.runtimeInstanceId}:${issue.timestampMs}:${index}`,
+        label: t(`detail.runtimeIssueSeverity.${issue.severity}`),
+        meta: issue.message,
+        reference: issue.source ?? issue.category ?? null,
+        time: issue.timestampMs,
+        tone: getRuntimeIssueTone(issue.severity),
+      })),
       ...work.executionBindings.map((execution) => ({
         id: `execution:${execution.id}`,
         label: t(`detail.executionStatus.${execution.status}`),
@@ -846,6 +1024,52 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
                 ))}
               </div>
             ) : null}
+            {work.artifactRefs.length > 0 ? (
+              <div className="ab-detail__list ab-detail__list--artifacts">
+                {work.artifactRefs.map((artifact) => {
+                  const artifactTitle = artifact.label?.trim() || artifact.id;
+                  const artifactReference = artifact.uri?.trim() || artifact.id;
+                  const artifactKey = `artifact:${artifact.id}`;
+                  const copied = copiedSurfaceKey === artifactKey;
+                  const focused = selectedArtifactId === artifact.id;
+                  const canOpenArtifact = Boolean(artifact.uri?.trim());
+                  return (
+                    <div
+                      className={['ab-detail__list-row', 'ab-detail__list-row--artifact', focused && 'is-focused'].filter(Boolean).join(' ')}
+                      data-testid={focused ? 'work-detail-selected-artifact' : undefined}
+                      aria-current={focused ? 'true' : undefined}
+                      key={artifact.id}
+                    >
+                      <div className="ab-detail__list-row-copy">
+                        <span>{artifactTitle}</span>
+                        <button
+                          type="button"
+                          className={['ab-detail__list-ref', copied && 'is-copied'].filter(Boolean).join(' ')}
+                          title={t('detail.copyReference')}
+                          aria-label={t('detail.copyReference')}
+                          onClick={() => void handleCopyReference(artifactKey, artifactReference)}
+                        >
+                          {copied ? <Check size={11} aria-hidden /> : null}
+                          <code>{copied ? t('detail.copied') : artifactReference}</code>
+                        </button>
+                      </div>
+                      {canOpenArtifact ? (
+                        <IconButton
+                          className="ab-detail__list-open"
+                          size="xs"
+                          variant="ghost"
+                          aria-label={t('detail.openArtifact')}
+                          tooltip={t('detail.openArtifact')}
+                          onClick={() => void handleOpenArtifact(artifact)}
+                        >
+                          <ExternalLink size={13} />
+                        </IconButton>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
             {surfaces.length > 0 ? (
               <div className="ab-detail__list">
                 {surfaces.map((surface) => {
@@ -883,6 +1107,146 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
                   );
                 })}
               </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {work.runtimeInstances.length > 0 ? (
+          <div className="ab-detail__section ab-detail__section--runtime">
+            <div className="ab-detail__section-head">
+              <h3 className="ab-detail__section-title">
+                {t('detail.runtimeInstances')}
+              </h3>
+            </div>
+            <div className="ab-detail__runtime-list">
+              {work.runtimeInstances.map((instance) => {
+                const runtimeKey = `runtime:${instance.id}`;
+                const copied = copiedSurfaceKey === runtimeKey;
+                const lockDigest = formatRuntimeLockDigest(instance.componentLockDigest);
+                const reference = getRuntimeInstanceReference(instance);
+                return (
+                  <div className="ab-detail__runtime-row" key={instance.id}>
+                    <div className="ab-detail__runtime-copy">
+                      <span className="ab-detail__runtime-title">{instance.productAppId}</span>
+                      <span className="ab-detail__runtime-meta">
+                        {t('detail.runtimeVersion', { version: instance.appVersion, lock: lockDigest })}
+                      </span>
+                      <span className="ab-detail__runtime-meta">
+                        {t('detail.runtimeSurface', {
+                          component: instance.productAppSurfaceId,
+                          surface: instance.surfaceId,
+                        })}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className={['ab-detail__list-ref', copied && 'is-copied'].filter(Boolean).join(' ')}
+                      title={t('detail.copyReference')}
+                      aria-label={t('detail.copyReference')}
+                      onClick={() => void handleCopyReference(runtimeKey, reference)}
+                    >
+                      {copied ? <Check size={11} aria-hidden /> : null}
+                      <code>{copied ? t('detail.copied') : instance.id}</code>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+
+        {(graph || executionGraphLoading) ? (
+          <div
+            className="ab-detail__section ab-detail__section--execution-graph"
+            data-testid="work-execution-graph"
+            data-execution-count={graph?.summary.executionCount ?? 0}
+            data-runtime-instance-count={graph?.summary.runtimeInstanceCount ?? 0}
+            data-runtime-run-count={graph?.summary.runtimeRunCount ?? 0}
+            data-runtime-log-count={graph?.logs.length ?? 0}
+            data-artifact-count={graph?.summary.artifactCount ?? 0}
+            data-issue-count={graph?.summary.issueCount ?? 0}
+          >
+            <div className="ab-detail__section-head">
+              <h3 className="ab-detail__section-title">
+                {t('detail.executionGraph')}
+              </h3>
+            </div>
+            {executionGraphLoading && !graph ? (
+              <p className="ab-detail__body-text ab-detail__body-text--muted">
+                {t('detail.graphLoading')}
+              </p>
+            ) : null}
+            {graph ? (
+              <>
+                <div className="ab-detail__graph-summary">
+                  <Badge className="ab-detail__reference-badge" variant="neutral">
+                    {t('detail.runtimeRuns', { count: graph.summary.runtimeRunCount })}
+                  </Badge>
+                  <Badge className="ab-detail__reference-badge" variant="neutral">
+                    {t('detail.runtimeIssues', { count: graph.summary.issueCount })}
+                  </Badge>
+                  <Badge className="ab-detail__reference-badge" variant="neutral">
+                    {t('detail.runtimeLogs', { count: graph.logs.length })}
+                  </Badge>
+                  <Badge className="ab-detail__reference-badge" variant="neutral">
+                    {t('detail.graphArtifacts', { count: graph.summary.artifactCount })}
+                  </Badge>
+                </div>
+                {graphRuntimeRuns.length > 0 ? (
+                  <div className="ab-detail__graph-list">
+                    {graphRuntimeRuns.slice(0, 5).map((run) => (
+                      <div className="ab-detail__graph-row" key={run.runId}>
+                        <span className={`ab-detail__graph-dot ab-detail__graph-dot--${getRuntimeRunTone(run.status)}`} aria-hidden="true" />
+                        <div className="ab-detail__graph-copy">
+                          <strong>{t(`detail.runtimeRunStatus.${run.status}`)}</strong>
+                          <span>{t('detail.runtimeRunMeta', { component: run.componentId, action: run.action })}</span>
+                        </div>
+                        <time dateTime={new Date(run.updatedAt || run.startedAt).toISOString()}>
+                          {formatTime(run.updatedAt || run.startedAt)}
+                        </time>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {graphIssues.length > 0 ? (
+                  <div className="ab-detail__graph-list">
+                    {graphIssues.slice(-3).reverse().map((issue, index) => (
+                      <div className="ab-detail__graph-row" key={`${issue.runtimeInstanceId}:${issue.timestampMs}:${index}`}>
+                        <span className={`ab-detail__graph-dot ab-detail__graph-dot--${getRuntimeIssueTone(issue.severity)}`} aria-hidden="true" />
+                        <div className="ab-detail__graph-copy">
+                          <strong>{t(`detail.runtimeIssueSeverity.${issue.severity}`)}</strong>
+                          <span>{issue.message}</span>
+                        </div>
+                        <time dateTime={new Date(issue.timestampMs).toISOString()}>
+                          {formatTime(issue.timestampMs)}
+                        </time>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {graphLogs.length > 0 ? (
+                  <div className="ab-detail__graph-list">
+                    {graphLogs.slice(-5).reverse().map((log, index) => (
+                      <div className="ab-detail__graph-row" key={`${log.runtimeInstanceId}:${log.timestampMs}:${index}`}>
+                        <span className={`ab-detail__graph-dot ab-detail__graph-dot--${getRuntimeLogTone(log.level)}`} aria-hidden="true" />
+                        <div className="ab-detail__graph-copy">
+                          <strong>{t(`detail.runtimeLogLevel.${log.level}`)}</strong>
+                          <span>{t('detail.runtimeLogMeta', { category: log.category, component: log.componentId })}</span>
+                          <span>{log.message}</span>
+                        </div>
+                        <time dateTime={new Date(log.timestampMs).toISOString()}>
+                          {formatTime(log.timestampMs)}
+                        </time>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {graphRuntimeRuns.length === 0 && graphIssues.length === 0 && graphLogs.length === 0 ? (
+                  <p className="ab-detail__body-text ab-detail__body-text--muted">
+                    {t('detail.noRuntimeRuns')}
+                  </p>
+                ) : null}
+              </>
             ) : null}
           </div>
         ) : null}

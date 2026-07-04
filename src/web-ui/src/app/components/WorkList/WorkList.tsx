@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
-import { Brush, Clock3, Code2, Info, ListChecks, ListTodo, Sparkles, Trash2, XCircle } from 'lucide-react';
+import { AppWindow, Brush, Clock3, Code2, Info, ListChecks, ListTodo, MessageSquare, Sparkles, Trash2, XCircle } from 'lucide-react';
 import { EmptyState, IconButton } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { useWorks } from '@/app/agentic-os/work/hooks/useWorks';
@@ -60,8 +60,21 @@ function statusKey(status: WorkStatus): string {
   return status.replace(/_/g, '-');
 }
 
-function getWorkModeIcon(kind: WorkKind) {
-  if (kind === 'app_workflow') return Sparkles;
+function hasSessionLikeSurface(work: WorkProjection): boolean {
+  return work.primarySurface.kind === 'work_session'
+    || work.primarySurface.kind === 'agent_session'
+    || work.surfaces?.some((surface) => (
+      surface.kind === 'work_session' || surface.kind === 'agent_session'
+    )) === true;
+}
+
+function getWorkModeIcon(work: WorkProjection) {
+  if (work.kind === 'app_workflow') {
+    if (hasSessionLikeSurface(work)) return MessageSquare;
+    if (work.primarySurface.kind === 'application_surface') return AppWindow;
+    return Sparkles;
+  }
+  const { kind } = work;
   if (kind === 'tracking' || kind === 'recurring') return ListTodo;
   if (kind === 'topic') return Brush;
   if (kind === 'long_running_session') return Clock3;
@@ -278,7 +291,7 @@ const WorkList: React.FC<WorkListProps> = ({
             const selected = index === selectedResultIndex;
             const showCancelAction = isCancellableStatus(work.status);
             const showRemoveAction = !showCancelAction && work.status !== 'archived';
-            const ModeIcon = getWorkModeIcon(work.kind);
+            const ModeIcon = getWorkModeIcon(work);
             const statusClass = statusKey(work.status);
             const instrumented = isInstrumentedStatus(work.status);
             return (

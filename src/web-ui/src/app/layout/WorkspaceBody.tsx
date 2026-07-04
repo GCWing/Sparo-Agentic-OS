@@ -16,7 +16,7 @@ import UnifiedTopBar from '../components/UnifiedTopBar/UnifiedTopBar';
 import WorkDock from '../components/WorkDock/WorkDock';
 import WorkspaceFooterActions from '../components/WorkspaceFooterActions/WorkspaceFooterActions';
 import { useWorkspaceSurfaceStore } from '../navigation/workspaceSurfaceStore';
-import { useSurfaceComponentCatalogSync } from '../scenes/apps/surface-component/hooks/useSurfaceComponentCatalogSync';
+import { useProductAppRuntimeCatalogSync } from '../scenes/apps/product-app-runtime/useProductAppRuntimeCatalogSync';
 import { SessionProfileProvider } from '../session-profiles';
 import './WorkspaceBody.scss';
 
@@ -42,7 +42,7 @@ const WorkspaceBody: React.FC<WorkspaceBodyProps> = ({
   sceneOverlay,
 }) => {
   const activeSurface = useWorkspaceSurfaceStore((s) => s.activeSurface);
-  useSurfaceComponentCatalogSync();
+  useProductAppRuntimeCatalogSync();
   const footerMaskSurface =
     activeSurface.kind === 'agentic-os-home'
       ? 'var(--ds-color-bg-app)'

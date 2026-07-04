@@ -14,7 +14,7 @@ export interface BridgeComponentSurfaces {
   launchableApp?: boolean;
   agent?: boolean;
   tool?: boolean;
-  surfaceComponentBackend?: boolean;
+  productAppRuntimeBackend?: boolean;
 }
 
 export interface BridgeComponentPermissions {
@@ -25,7 +25,7 @@ export interface BridgeComponentPermissions {
   secrets?: string[];
 }
 
-export type BridgeComponentConsumerKind = 'agentComponent' | 'surfaceComponent' | 'surfaceComponentBackend' | 'management' | 'system';
+export type BridgeComponentConsumerKind = 'agentComponent' | 'productAppRuntime' | 'management' | 'system';
 
 export interface BridgeComponentCapability {
   id: string;

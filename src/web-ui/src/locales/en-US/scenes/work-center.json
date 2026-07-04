@@ -185,6 +185,7 @@
     "close": "Close detail",
     "openPrimary": "Open primary surface",
     "openSurface": "Open surface",
+    "openArtifact": "Open artifact",
     "copyReference": "Copy reference",
     "copied": "Copied",
     "openDetailsFor": "Show details for {{title}}",
@@ -215,16 +216,34 @@
     "activity": "Recent activity",
     "surfaces": "Surfaces",
     "execution": "Execution",
+    "executionGraph": "Execution graph",
+    "graphLoading": "Loading execution graph",
+    "graphArtifacts": "{{count}} graph artifacts",
+    "noRuntimeRuns": "No runtime runs yet",
     "noExecution": "No execution binding yet",
     "lifecycle": "Lifecycle",
     "noLifecycle": "No lifecycle events yet",
     "artifacts": "{{count}} artifacts",
     "memories": "{{count}} memories",
     "sessions": "{{count}} sessions",
+    "runtimeInstanceCount": "{{count}} runtime instances",
+    "runtimeInstances": "Runtime instances",
+    "runtimeRuns": "{{count}} runtime runs",
+    "runtimeIssues": "{{count}} diagnostics",
+    "runtimeLogs": "{{count}} runtime logs",
+    "runtimeRunMeta": "{{component}} · {{action}}",
+    "runtimeLogMeta": "{{category}} · {{component}}",
+    "runtimeVersion": "v{{version}} · {{lock}}",
+    "runtimeSurface": "{{surface}} · {{component}}",
+    "runtimeLogLevel": {
+      "debug": "Debug",
+      "info": "Info",
+      "warn": "Warning",
+      "error": "Error"
+    },
     "surface": {
       "workSession": "Work session",
       "agentSession": "Agent session",
-      "surfaceComponent": "Live app",
       "application": "Application surface",
       "agentHome": "Agentic OS home"
     },
@@ -251,8 +270,29 @@
       "agentSessionRun": "Agent session run",
       "delegatedWorkRun": "Delegated work",
       "applicationAction": "Application action",
+      "runtimeInstanceRun": "Runtime instance run",
       "runtimeSubagentRun": "Runtime subagent",
       "external": "External execution"
+    },
+    "runtimeStatus": {
+      "idle": "Idle",
+      "running": "Running",
+      "waiting_user": "Needs you",
+      "completed": "Completed",
+      "degraded": "Degraded"
+    },
+    "runtimeRunStatus": {
+      "pending": "Pending",
+      "running": "Running",
+      "waiting_user": "Needs you",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
+    "runtimeIssueSeverity": {
+      "fatal": "Runtime error",
+      "warning": "Runtime warning",
+      "noise": "Runtime note"
     },
     "lifecycleEvent": {
       "created": "Work created",
@@ -363,6 +403,7 @@
   "errors": {
     "openFailed": "Failed to open work",
     "openSurfaceFailed": "Failed to open surface",
+    "openArtifactFailed": "Failed to open artifact",
     "cancelFailed": "Failed to cancel work",
     "pauseFailed": "Failed to pause work",
     "resumeFailed": "Failed to resume work",

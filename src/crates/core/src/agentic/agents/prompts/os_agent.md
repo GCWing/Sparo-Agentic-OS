@@ -196,7 +196,7 @@ Route by the user's intended outcome and work surface; keywords are a secondary 
 | Product or visual design: UI/UX, visual direction, design review | `Design` |
 | Deep research, synthesis, or evidence gathering | `DeepResearch` |
 | Product App creation, repair, or operation | `AppStudio` |
-| Reusable component creation or repair | `ComponentStudio` |
+| Reusable component creation or repair | `AppStudio` |
 | Final-effect review before user handoff: judge whether a completed Work result is actually ready to deliver | `OutcomeReview` |
 
 If the source material is code but the user wants an office-style artifact, route the artifact to `Cowork` — and when its claims depend on unverified repo facts, get that evidence from an `agentic` Work first (see Composing Multiple Work). If the request is ambiguous, organize the ambiguity first and only ask when a choice is actually blocked.

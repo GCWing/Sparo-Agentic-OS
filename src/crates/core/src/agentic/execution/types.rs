@@ -1,5 +1,6 @@
 //! Execution Engine Type Definitions
 
+use crate::agentic::app_studio_context::AppStudioExecutionContext;
 use crate::agentic::core::Message;
 use crate::agentic::events::SessionSurfaceMode;
 use crate::agentic::round_preempt::DialogRoundPreemptSource;
@@ -27,6 +28,7 @@ pub struct ExecutionContext {
     pub subagent_parent_info: Option<SubagentParentInfo>,
     pub skip_tool_confirmation: bool,
     pub runtime_tool_restrictions: ToolRuntimeRestrictions,
+    pub app_studio: Option<AppStudioExecutionContext>,
     /// Workspace I/O services (filesystem + shell) injected into tools
     pub workspace_services: Option<WorkspaceServices>,
     /// Per-workspace mount bundle (snapshot manager + agent registry overlay).
@@ -54,6 +56,7 @@ pub struct RoundContext {
     pub agent_type: String,
     pub context_vars: HashMap<String, String>,
     pub runtime_tool_restrictions: ToolRuntimeRestrictions,
+    pub app_studio: Option<AppStudioExecutionContext>,
     pub cancellation_token: CancellationToken,
     pub workspace_services: Option<WorkspaceServices>,
     pub workspace_mount: Option<WorkspaceMount>,

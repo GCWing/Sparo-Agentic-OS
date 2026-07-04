@@ -4,6 +4,7 @@
 //! model-visible message context, but still runs as an isolated session with
 //! its own rounds, tools, cancellation, and cleanup lifecycle.
 
+use crate::agentic::app_studio_context::AppStudioExecutionContext;
 use crate::agentic::core::{Message, Session, SessionConfig};
 use crate::agentic::tools::ToolRuntimeRestrictions;
 use crate::util::errors::{BitFunError, BitFunResult};
@@ -79,6 +80,7 @@ pub struct ForkAgentExecutionRequest {
     pub prompt_messages: Vec<Message>,
     pub context: HashMap<String, String>,
     pub runtime_tool_restrictions: ToolRuntimeRestrictions,
+    pub app_studio: Option<AppStudioExecutionContext>,
     pub enable_tools_override: Option<bool>,
     pub max_turns: Option<usize>,
 }
@@ -170,6 +172,7 @@ mod tests {
             prompt_messages: vec![Message::user("classify".to_string())],
             context: HashMap::new(),
             runtime_tool_restrictions: ToolRuntimeRestrictions::default(),
+            app_studio: None,
             enable_tools_override: Some(false),
             max_turns: Some(1),
         };

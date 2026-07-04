@@ -325,7 +325,7 @@
     "blame": "追溯",
     "cherryPick": "挑选"
   },
-  "initSurfaceComponent": {
+  "createProductApp": {
     "title": "产品应用界面",
     "operationInit": "初始化",
     "skeletonReady": "已初始化",
@@ -333,15 +333,18 @@
     "untitled": "（未命名）",
     "failed": "失败",
     "createFailed": "无法创建产品应用界面",
-    "openInSurfaceComponent": "打开产品应用",
-    "openInSurfaceComponentTitle": "打开产品应用",
     "labelAppId": "app_id",
+    "labelVersion": "版本",
+    "labelPrimarySurface": "主界面",
+    "labelSurfaceMode": "界面模式",
+    "labelLaunchKind": "启动方式",
+    "labelLockDigest": "Lock 摘要",
     "labelPath": "path",
     "nameLabel": "应用：{{name}}"
   },
   "appStudio": {
     "title": "产品应用界面",
-    "debugPanelTitle": "应用工作室",
+    "studioTitle": "应用工作室",
     "recompile": "重新编译",
     "probe": "诊断",
     "matrix": "截图矩阵",
@@ -350,9 +353,37 @@
     "probeSummary": "{{fatal}} 致命 · {{warning}} 警告 · {{noise}} 噪声",
     "matrixRequested": "已请求截图矩阵",
     "matrixStates": "{{count}} 个状态",
-    "openDebugPanel": "打开应用工作室"
+    "openStudio": "打开应用工作室"
   },
-  "componentStudio": {
+  "productAppValidation": {
+    "title": "校验",
+    "componentTitle": "校验组件",
+    "validating": "校验中",
+    "package": "产品应用包",
+    "componentPackage": "组件包",
+    "status": "状态",
+    "failed": "失败项",
+    "warnings": "警告项",
+    "appId": "app_id",
+    "componentId": "component_id",
+    "componentKind": "组件类型",
+    "version": "版本",
+    "path": "path",
+    "check": "检查项",
+    "failedMessage": "产品应用校验未通过"
+  },
+  "productAppPreview": {
+    "title": "预览",
+    "running": "运行预览",
+    "target": "目标",
+    "status": "状态",
+    "mode": "模式",
+    "failed": "失败项",
+    "warnings": "警告项",
+    "check": "检查项",
+    "failedMessage": "Studio 预览未通过"
+  },
+  "componentAuthoring": {
     "title": "组件包",
     "list": "目录",
     "inspect": "查看",
@@ -363,7 +394,7 @@
     "tools": "可选工具",
     "jsTool": "JS 工具",
     "testJsTool": "测试 JS 工具",
-    "generic": "工作室",
+    "generic": "组件创作",
     "scanning": "扫描中…",
     "loading": "加载中…",
     "validating": "校验中…",
@@ -394,8 +425,8 @@
     "fieldToolName": "工具名",
     "fieldSummary": "摘要",
     "openAppsPanel": "打开组件中心",
-    "openStudioPanel": "打开组件工作室",
-    "previewPanelTitle": "组件工作室"
+    "openStudioPanel": "在应用工作室打开",
+    "previewPanelTitle": "应用工作室"
   },
   "bridgeCall": {
     "title": "Bridge",

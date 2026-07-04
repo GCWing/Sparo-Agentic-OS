@@ -1,4 +1,4 @@
-//! Built-in Bridge Components bundled from `bundles/bridge-components`.
+//! Built-in Bridge Component implementation adapters bundled from `bundles/bridge-components`.
 
 use super::manager::{BridgeComponentManager, BRIDGE_COMPONENT_MANIFEST};
 use crate::util::errors::{BitFunError, BitFunResult};

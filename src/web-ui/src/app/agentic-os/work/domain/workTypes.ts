@@ -37,21 +37,31 @@ export type WorkScope =
   | { kind: 'system' }
   | { kind: 'workspace'; workspacePath: string };
 
-export type WorkAppKind = 'product_app';
+export type WorkAppKind = 'native_app' | 'product_app';
 
 export interface WorkAppRef {
   kind: WorkAppKind;
   appId: string;
-  appVersion: string;
-  componentLockDigest: string;
+  appVersion?: string;
+  componentLockDigest?: string;
 }
 
 export type WorkAppIntent = 'use' | 'run' | 'develop' | 'debug' | 'edit' | 'review';
+
+export interface WorkComponentRef {
+  componentId: string;
+  componentKind: string;
+  version?: string;
+  packageRoot?: string;
+}
+
+export type WorkComponentIntent = 'develop' | 'debug' | 'edit' | 'review';
 
 export type WorkSubject =
   | { kind: 'goal' }
   | { kind: 'project'; workspacePath: string }
   | { kind: 'app'; app: WorkAppRef; intent: WorkAppIntent }
+  | { kind: 'component'; component: WorkComponentRef; intent: WorkComponentIntent }
   | { kind: 'artifact'; artifactId: string };
 
 export type WorkAppRelationRole = 'subject' | 'executor' | 'surface' | 'origin' | 'context';
@@ -70,7 +80,7 @@ export type WorkSurfaceRef =
   | {
       kind: 'application_surface';
       productAppId: string;
-      surfaceComponentId: string;
+      productAppSurfaceId: string;
       surfaceId: string;
     };
 
@@ -98,13 +108,37 @@ export type WorkExecutionSource =
   | { source: 'agent_session_run'; sessionId: string; turnId?: string | null }
   | { source: 'delegated_work_run'; parentWorkId: WorkId; childWorkId: WorkId }
   | { source: 'application_action'; applicationId: string; actionId: string }
+  | {
+      source: 'runtime_instance_run';
+      runtimeInstanceId: string;
+      runId: string;
+      componentId: string;
+      action: string;
+    }
   | { source: 'runtime_subagent_run'; runId: string }
   | { source: 'external'; label: string; reference: string };
+
+export interface WorkExecutionAppStudioContext {
+  workId?: WorkId | null;
+  issueId: string;
+  productAppId?: string | null;
+  subjectKind?: string | null;
+  componentKind?: string | null;
+  runtimeInstanceId?: string | null;
+  componentId?: string | null;
+  previewResultId?: string | null;
+  packageRoot?: string | null;
+  severity?: string | null;
+  category?: string | null;
+  source?: string | null;
+  message?: string | null;
+}
 
 export interface WorkExecutionBinding {
   id: string;
   status: WorkExecutionBindingStatus;
   source: WorkExecutionSource;
+  appStudio?: WorkExecutionAppStudioContext | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -118,11 +152,218 @@ export interface ArtifactRef {
   id: string;
   label?: string | null;
   uri?: string | null;
+  runtimeProvenance?: {
+    runtimeInstanceId: string;
+    runId: string;
+    componentId: string;
+    action: string;
+  } | null;
 }
 
 export interface MemoryRef {
   id: string;
   scope?: string | null;
+}
+
+export interface RuntimeInstanceRef {
+  id: string;
+  productAppId: string;
+  appVersion: string;
+  componentLockDigest: string;
+  productAppSurfaceId: string;
+  surfaceId: string;
+}
+
+export type WorkRuntimeRunStatus =
+  | 'pending'
+  | 'running'
+  | 'waiting_user'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
+
+export type WorkRuntimeInstanceStatus =
+  | 'idle'
+  | 'running'
+  | 'waiting_user'
+  | 'completed'
+  | 'degraded';
+
+export type WorkRuntimeIssueSeverity = 'fatal' | 'warning' | 'noise';
+export type WorkRuntimeLogLevel = 'debug' | 'info' | 'warn' | 'error';
+export type WorkStudioPreviewKind =
+  | 'product-app-preview'
+  | 'agent-chat'
+  | 'sidecar'
+  | 'full-app'
+  | 'embedded'
+  | 'capability'
+  | 'agent-eval'
+  | 'runtime-boundary'
+  | 'runtime-dependencies'
+  | 'permission-review'
+  | 'user-path-rehearsal'
+  | 'release-rehearsal';
+export type WorkStudioPreviewSource =
+  | 'runtime-fact'
+  | 'runtime-observation'
+  | 'preview-harness'
+  | 'fix-rerun'
+  | 'release-rehearsal';
+export type WorkStudioFactStatus =
+  | 'passed'
+  | 'warning'
+  | 'failed'
+  | 'notRun'
+  | 'notVerified'
+  | 'blocked'
+  | 'running'
+  | 'ready'
+  | 'waiting';
+export type WorkStudioValidationTargetKind = 'product-app' | 'component';
+export type WorkStudioIssueStatus = 'open' | 'acknowledged' | 'stillOpen' | 'regressed' | 'fixed';
+export type WorkStudioIssueOrigin =
+  | 'runtime-event'
+  | 'work-execution-graph'
+  | 'validation'
+  | 'preview'
+  | 'user-feedback';
+
+export interface WorkRuntimeRun {
+  runId: string;
+  runtimeInstanceId: string;
+  componentId: string;
+  componentKind: string;
+  action: string;
+  status: WorkRuntimeRunStatus;
+  startedAt: number;
+  updatedAt: number;
+  artifactCount: number;
+  eventCount: number;
+  error?: string | null;
+}
+
+export interface WorkRuntimeIssue {
+  runtimeInstanceId: string;
+  productAppId: string;
+  componentId: string;
+  severity: WorkRuntimeIssueSeverity;
+  message: string;
+  source?: string | null;
+  category?: string | null;
+  timestampMs: number;
+}
+
+export interface WorkRuntimeLog {
+  runtimeInstanceId: string;
+  productAppId: string;
+  componentId: string;
+  level: WorkRuntimeLogLevel;
+  category: string;
+  message: string;
+  source?: string | null;
+  timestampMs: number;
+}
+
+export interface WorkStudioPreviewResult {
+  id: string;
+  kind: WorkStudioPreviewKind;
+  status: WorkStudioFactStatus;
+  source: WorkStudioPreviewSource;
+  harnessMode?: string | null;
+  triggerTurnId?: string | null;
+  detail?: string | null;
+  checks?: WorkStudioFactCheck[];
+  workId: WorkId;
+  runtimeInstanceId?: string | null;
+  productAppId?: string | null;
+  componentId?: string | null;
+  productAppSurfaceId?: string | null;
+  surfaceId?: string | null;
+  observedAt: number;
+  issueCount: number;
+  fatalIssueCount: number;
+  warningIssueCount: number;
+}
+
+export interface WorkStudioFactCheck {
+  id: string;
+  status: WorkStudioFactStatus;
+  detail?: string | null;
+}
+
+export interface WorkStudioValidationResult {
+  id: string;
+  toolName: string;
+  targetKind: WorkStudioValidationTargetKind;
+  status: WorkStudioFactStatus;
+  workId: WorkId;
+  appId?: string | null;
+  componentId?: string | null;
+  componentKind?: string | null;
+  version?: string | null;
+  packageRoot?: string | null;
+  observedAt: number;
+  failedCount: number;
+  warningCount: number;
+  checks: WorkStudioFactCheck[];
+}
+
+export interface WorkStudioIssue {
+  id: string;
+  appId: string;
+  productAppId?: string | null;
+  componentId?: string | null;
+  runtimeInstanceId?: string | null;
+  previewResultId?: string | null;
+  severity: WorkRuntimeIssueSeverity;
+  status: WorkStudioIssueStatus;
+  message: string;
+  source?: string | null;
+  category?: string | null;
+  timestampMs: number;
+  origin: WorkStudioIssueOrigin;
+  resolvedAt?: number | null;
+}
+
+export interface WorkArtifactNode {
+  artifact: ArtifactRef;
+  runtimeInstanceId?: string | null;
+  runId?: string | null;
+}
+
+export interface WorkRuntimeInstanceGraph {
+  instance: RuntimeInstanceRef;
+  status: WorkRuntimeInstanceStatus;
+  runs: WorkRuntimeRun[];
+  issues: WorkRuntimeIssue[];
+  logs: WorkRuntimeLog[];
+  artifacts: WorkArtifactNode[];
+}
+
+export interface WorkExecutionGraphSummary {
+  executionCount: number;
+  runtimeInstanceCount: number;
+  runtimeRunCount: number;
+  artifactCount: number;
+  issueCount: number;
+  errorCount: number;
+  warningCount: number;
+  lastActivityAt?: number | null;
+}
+
+export interface WorkExecutionGraph {
+  workId: WorkId;
+  updatedAt: number;
+  executions: WorkExecutionBinding[];
+  runtimeInstances: WorkRuntimeInstanceGraph[];
+  artifacts: WorkArtifactNode[];
+  issues: WorkRuntimeIssue[];
+  logs: WorkRuntimeLog[];
+  studioPreviewResults: WorkStudioPreviewResult[];
+  studioValidationResults: WorkStudioValidationResult[];
+  studioIssues: WorkStudioIssue[];
+  summary: WorkExecutionGraphSummary;
 }
 
 export interface WorkSummary {
@@ -158,6 +399,7 @@ export interface WorkRecord {
   summary?: WorkSummary | null;
   sessionRefs: AgentSessionRef[];
   executionBindings: WorkExecutionBinding[];
+  runtimeInstances: RuntimeInstanceRef[];
   artifactRefs: ArtifactRef[];
   memoryRefs: MemoryRef[];
   createdAt: number;
@@ -217,6 +459,17 @@ export interface ResolveAppWorkRequest {
   appRefs?: WorkAppRelation[];
 }
 
+export interface ResolveComponentWorkRequest {
+  component: WorkComponentRef;
+  intent: WorkComponentIntent;
+  title: string;
+  objective: string;
+  scope: WorkScope;
+  visibility?: WorkVisibility;
+  primarySurfacePolicy?: PrimarySurfacePolicy;
+  assignment?: WorkAssignmentRef | null;
+}
+
 export interface LinkSessionToWorkRequest {
   workId: WorkId;
   sessionId: string;
@@ -241,4 +494,14 @@ export type ControlWorkAction =
 export interface ControlWorkRequest {
   workId: WorkId;
   action: ControlWorkAction;
+}
+
+export interface RecordStudioValidationResultRequest {
+  workId: WorkId;
+  validationResult: WorkStudioValidationResult;
+}
+
+export interface RecordStudioPreviewResultRequest {
+  workId: WorkId;
+  previewResult: WorkStudioPreviewResult;
 }

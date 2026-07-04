@@ -1,6 +1,7 @@
 import type { WorkspaceSceneId } from '@/app/navigation/workspaceSceneTypes';
 import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
 import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
+import { runtimeScopeIdentity, type RuntimeScope } from '@/shared/types/runtime-scope';
 
 export type OpenIntent = 'file' | 'terminal';
 export type OpenTargetMode = 'agent' | 'project';
@@ -18,6 +19,7 @@ export interface OpenTargetResolution {
 
 export interface OpenTargetContext {
   source?: OpenSource;
+  scope?: RuntimeScope | null;
 }
 
 /**
@@ -60,14 +62,21 @@ export function resolveAndFocusOpenTarget(
   const { activeSurface } = useWorkspaceSurfaceStore.getState();
   const activeSceneId = activeSurface.kind === 'scene' ? activeSurface.sceneId : null;
   const resolution = resolveOpenTarget(intent, context);
+  const targetScope = context.scope ?? (activeSurface.kind === 'scene' ? activeSurface.scope : undefined);
 
   const sceneJustOpened =
     resolution.targetSceneId !== 'session' &&
-    activeSceneId !== resolution.targetSceneId;
+    (
+      activeSceneId !== resolution.targetSceneId ||
+      (targetScope
+        ? activeSurface.kind === 'scene' &&
+          runtimeScopeIdentity(activeSurface.scope) !== runtimeScopeIdentity(targetScope)
+        : false)
+    );
 
   if (resolution.targetSceneId !== 'session') {
     openWorkspaceScene(resolution.targetSceneId as WorkspaceSceneId, {
-      scope: activeSurface.kind === 'scene' ? activeSurface.scope : undefined,
+      scope: targetScope,
     });
   }
   return { ...resolution, sceneJustOpened };

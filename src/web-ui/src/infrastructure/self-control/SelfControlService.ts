@@ -1,12 +1,12 @@
-/**
- * SelfControlService �?lets Sparo OS agent operate its own GUI.
+﻿/**
+ * SelfControlService 锟?lets Sparo OS agent operate its own GUI.
  *
  * Architecture: four responsibility regions inside one class.
  *
- * Region 1 �?DOM Primitives   : click / input / scroll / pressKey / readText / wait
- * Region 2 �?App State        : openScene / openSettingsTab / getPageState
- * Region 3 �?Config & Models  : setConfig / getConfig / listModels / setDefaultModel / deleteModel
- * Region 4 �?Task Orchestration: executeTask �?composes Regions 1-3
+ * Region 1 锟?DOM Primitives   : click / input / scroll / pressKey / readText / wait
+ * Region 2 锟?App State        : openScene / openSettingsTab / getPageState
+ * Region 3 锟?Config & Models  : setConfig / getConfig / listModels / setDefaultModel / deleteModel
+ * Region 4 锟?Task Orchestration: executeTask 锟?composes Regions 1-3
  *
  * The backend forwards the LLM's camelCase payload directly without any
  * field remapping, so all action types here use camelCase field names that
@@ -16,12 +16,12 @@
 import { openWorkspaceHome, openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
 import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
 import { useSettingsStore } from '@/app/scenes/settings/settingsStore';
-import { useSurfaceComponentStore } from '@/app/scenes/apps/surface-component/surfaceComponentStore';
-import { openSurfaceComponent as openSurfaceComponentWorkbench } from '@/app/scenes/apps/surface-component/surfaceComponentWorkbenchService';
+import { openProductAppRuntime } from '@/app/scenes/apps/product-app-runtime/productAppRuntimeService';
 import { appScopeFromWorkspacePath, systemAppScope } from '@/shared/types/app-scope';
 import { configManager } from '@/infrastructure/config';
 import { getModelDisplayName } from '@/infrastructure/config/services/modelConfigs';
 import { matchProviderCatalogItemByBaseUrl } from '@/infrastructure/config/services/providerCatalog';
+import { appCatalogAPI } from '@/infrastructure/api/service-api/AppCatalogAPI';
 import { createLogger } from '@/shared/utils/logger';
 
 const logger = createLogger('SelfControlService');
@@ -76,7 +76,7 @@ const DROPDOWN_OPTION_SELECTORS = [
 
 /**
  * Generic (action-independent) alias table. Anything in here is applied
- * BEFORE we know which action this is �?so it must contain only field
+ * BEFORE we know which action this is 锟?so it must contain only field
  * names that mean the same thing in every action.
  *
  * The discriminator is the only such field: action dispatcher reads `type`, the
@@ -90,7 +90,7 @@ const GLOBAL_ALIASES: Record<string, readonly string[]> = {
 };
 
 /**
- * Per-action alias table �?single source of truth for "what other names
+ * Per-action alias table 锟?single source of truth for "what other names
  * is this canonical field allowed to have on the wire FOR THIS ACTION".
  *
  * Background: a previous implementation aliased every field globally,
@@ -181,7 +181,7 @@ const ACTION_ALIASES: Record<string, Record<string, readonly string[]>> = {
  *   transparently fall back to `'document'` so legacy clicks against the
  *   nav panel / pinned scene tabs keep working. The result string flags
  *   when the fallback fired so the model can tell.
- * - `'main'`: restrict to `<main data-testid="app-main-content">` �?
+ * - `'main'`: restrict to `<main data-testid="app-main-content">` 锟?
  *   excludes the global nav panel AND the pinned scene tab bar, both of
  *   which are common false-positive sources for `click_by_text`.
  * - `'document'`: search the entire document (legacy behavior).
@@ -208,7 +208,7 @@ export interface SimplifiedElement {
    * intended to be pasted directly into `action="click"` so the model has
    * a concrete way to address every element returned by `get_page_state`,
    * even when no `data-testid` was provided by the component author. Best
-   * effort �?falls back to a positional `nth-of-type` path when nothing
+   * effort 锟?falls back to a positional `nth-of-type` path when nothing
    * better is available.
    */
   selector?: string;
@@ -253,10 +253,10 @@ export type SelfControlAction =
   | { type: 'select_option'; selector: string; optionText: string }
   | {
       type: 'get_page_state';
-      /** Pagination �?first element index to include (default 0). */
+      /** Pagination 锟?first element index to include (default 0). */
       offset?: number;
       /**
-       * Pagination �?max elements to include in `elements` (default 60).
+       * Pagination 锟?max elements to include in `elements` (default 60).
        * Phase 3: the legacy implementation always returned at most 60
        * elements with no way to get the rest, which made Sparo OS own
        * settings panes (often >60 controls) un-driveable past the first
@@ -269,8 +269,8 @@ export type SelfControlAction =
       /**
        * Include elements that are currently outside the viewport.
        * Default behaviour drops them so the model only sees what the user
-       * is looking at �?but in long settings panes (the model list, the
-       * MCP list�? the very thing the model needs to operate on lives
+       * is looking at 锟?but in long settings panes (the model list, the
+       * MCP list锟? the very thing the model needs to operate on lives
        * below the fold and never appears. Setting this to `true` forces
        * the entire scroll-extent of the resolved scope to be enumerated.
        * `'auto'` (the default) turns it on automatically when the active
@@ -297,7 +297,7 @@ export type SelfControlAction =
   | { type: 'read_text'; selector: string }
   | { type: 'delete_model'; modelQuery: string };
 
-/** Anything we accept on the wire �?type-erased payload before normalization. */
+/** Anything we accept on the wire 锟?type-erased payload before normalization. */
 export type SelfControlIncomingPayload = Record<string, unknown> & {
   /** Arbitrary aliasable string fields land here too; the alias table picks them up. */
   action?: string;
@@ -325,7 +325,7 @@ interface ModelInfo {
 export class SelfControlService {
   private highlightOverlay: HTMLDivElement | null = null;
 
-  // ── Region 2: App State ──────────────────────────────────────────────────
+  // 鈹€鈹€ Region 2: App State 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
   async getPageState(opts?: {
     offset?: number;
@@ -396,7 +396,7 @@ export class SelfControlService {
   /**
    * Best-effort identifier for the current webview. Tauri exposes this
    * through `window.__TAURI_INTERNALS__?.metadata?.currentWindow?.label`
-   * but that path isn't part of the public contract �?fall back to a
+   * but that path isn't part of the public contract 锟?fall back to a
    * per-tab uuid persisted on `window` so at minimum the value is stable
    * within a single page lifetime.
    */
@@ -419,7 +419,7 @@ export class SelfControlService {
    * Phase 3: poll the DOM for a selector. Resolves with a JSON summary
    * when the element is found (`visible` mode also requires non-zero
    * bounding rect); throws `SelfControlError(code='TIMEOUT')` if the
-   * deadline elapses. Polling cadence is 100 ms �?short enough for
+   * deadline elapses. Polling cadence is 100 ms 锟?short enough for
    * snappy feedback, infrequent enough to avoid burning CPU.
    */
   async waitForSelector(
@@ -459,7 +459,7 @@ export class SelfControlService {
     }
   }
 
-  // ── Action dispatcher ───────────────────────────────────────────────────────────
+  // 鈹€鈹€ Action dispatcher 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
   async executeAction(rawAction: SelfControlIncomingAction | SelfControlAction): Promise<string> {
     const action = this.normalizeAction(rawAction);
@@ -534,7 +534,7 @@ export class SelfControlService {
     }
   }
 
-  // ── Region 4: Task Orchestration ─────────────────────────────────────────
+  // 鈹€鈹€ Region 4: Task Orchestration 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
   private async executeTask(task: string, params?: Record<string, string | number | boolean>): Promise<string> {
     logger.info('Executing task', { task, params });
@@ -627,7 +627,7 @@ export class SelfControlService {
 
   /**
    * Flip a model's `enabled` flag in `ai.models`. Pure config-layer
-   * operation �?does not need the user to open the model settings tab,
+   * operation 锟?does not need the user to open the model settings tab,
    * so the model can do it from any scene without losing chat context.
    *
    * If the matched model is currently the primary/fast default and we
@@ -730,30 +730,30 @@ export class SelfControlService {
     return `${verb} model "${target.name ?? 'Unknown'}/${target.model_name ?? 'unknown'}" (ID: ${target.id}).${fallbackNote}`;
   }
 
-  // ── Region 2: App State ──────────────────────────────────────────────────
+  // 鈹€鈹€ Region 2: App State 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
   /**
    * Two-pass alias normalization:
    *
-   *   Pass 1 �?{@link GLOBAL_ALIASES}: anything that means the same in
+   *   Pass 1 锟?{@link GLOBAL_ALIASES}: anything that means the same in
    *            every action (currently only the `type`/`action`
    *            discriminator).
-   *   Pass 2 �?{@link ACTION_ALIASES}[type]: per-action canonical-name
+   *   Pass 2 锟?{@link ACTION_ALIASES}[type]: per-action canonical-name
    *            recovery, applied only after the discriminator is known.
    *
    * The strict per-action scoping is intentional. A previous version
    * applied every alias globally, which fixed `set_config { value }` but
    * silently broke `input { selector, text: "kimi" }` (the global table
-   * mapped `text` �?`click_by_text.text`, not `input.value`). The dropped
+   * mapped `text` 锟?`click_by_text.text`, not `input.value`). The dropped
    * `value` then fell out as `undefined`, and `inputText` happily wrote
-   * the literal string `"undefined"` while reporting success �?exactly
+   * the literal string `"undefined"` while reporting success 锟?exactly
    * the silent-success bug class we're trying to eliminate.
    *
    * Adding a new accepted alias for an existing action is a one-line edit
    * to {@link ACTION_ALIASES}; adding a new action just adds a new entry.
    *
    * After alias resolution we also apply a small set of action-specific
-   * derivations (e.g. `scroll.deltaY` �?`scroll.direction`) so the model
+   * derivations (e.g. `scroll.deltaY` 锟?`scroll.direction`) so the model
    * can speak its native dialect (Playwright, Puppeteer, generic mouse-
    * wheel APIs) without us pretending those payloads "worked" when they
    * didn't.
@@ -824,16 +824,19 @@ export class SelfControlService {
     return `Opened settings tab: ${tabId}`;
   }
 
-  private openProductApp(productAppId: string): string {
+  private async openProductApp(productAppId: string): Promise<string> {
     const id = (productAppId ?? '').trim();
     if (!id) {
       throw new SelfControlError('open_product_app requires productAppId', 'INVALID_PARAMS');
     }
-    const known = useSurfaceComponentStore.getState().apps.find((app: { id: string }) => app.id === id);
-    if (!known) {
-      const available = useSurfaceComponentStore
-        .getState()
-        .apps.map((app: { id: string; name: string }) => `"${app.name}" (id=${app.id})`)
+    let appName = id;
+    try {
+      const app = await appCatalogAPI.getProductApp(id);
+      appName = app.name;
+    } catch {
+      const library = await appCatalogAPI.listProductAppLibrary();
+      const available = library.installed
+        .map((app) => `"${app.name}" (id=${app.id})`)
         .join(', ');
       throw new SelfControlError(
         `Product App id "${id}" is not installed.`,
@@ -855,12 +858,11 @@ export class SelfControlService {
             : null) ||
           systemAppScope()
         : systemAppScope();
-    useSurfaceComponentStore.getState().openApp(id);
-    void openSurfaceComponentWorkbench(known, { scope });
-    return `Opened Product App "${known.name}" (id=${id})`;
+    await openProductAppRuntime(id, { scope });
+    return `Opened Product App "${appName}" (id=${id})`;
   }
 
-  // ── Region 3: Config & Model Operations ──────────────────────────────────
+  // 鈹€鈹€ Region 3: Config & Model Operations 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
   private async setConfig(key: string, value: unknown): Promise<string> {
     if (!key || typeof key !== 'string') {
@@ -871,7 +873,7 @@ export class SelfControlService {
     }
     if (value === undefined) {
       // Catch the failure HERE rather than letting `undefined` flow through
-      // `configManager.setConfig` �?Tauri, which otherwise reports a
+      // `configManager.setConfig` 锟?Tauri, which otherwise reports a
       // generic `missing field "value"` error five layers away from the
       // user's actual mistake (typically a wrong field name).
       throw new SelfControlError(
@@ -1102,7 +1104,7 @@ export class SelfControlService {
     return `Deleted ${matches.length} model(s): ${deletedNames}.${suffix}`;
   }
 
-  // ── Region 1: DOM Primitives ─────────────────────────────────────────────
+  // 鈹€鈹€ Region 1: DOM Primitives 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
   private clickElement(selector: string): string {
     if (typeof selector !== 'string' || selector.trim() === '') {
@@ -1111,7 +1113,7 @@ export class SelfControlService {
         'INVALID_PARAMS',
         [
           'For text-based targeting use action="click_by_text" with `text` instead.',
-          'Get a concrete selector from get_page_state �?every element now carries a stable `selector` field.',
+          'Get a concrete selector from get_page_state 锟?every element now carries a stable `selector` field.',
         ],
       );
     }
@@ -1198,7 +1200,7 @@ export class SelfControlService {
     const target = candidates[0] as HTMLElement;
     this.flashHighlight(target);
     this.dispatchClick(target);
-    const widenedNote = widened ? ` (widened scope main �?${usedScope})` : '';
+    const widenedNote = widened ? ` (widened scope main 锟?${usedScope})` : '';
     return `Clicked element with text: ${text}${widenedNote}`;
   }
 
@@ -1211,13 +1213,13 @@ export class SelfControlService {
     }
     if (value === undefined || value === null) {
       // Without this guard `el.value = undefined` writes the literal
-      // string "undefined" into the field while reporting success �?the
+      // string "undefined" into the field while reporting success 锟?the
       // exact silent-failure pattern we hit when the model sent
       // `{ selector, text: "kimi" }` instead of `{ selector, value: "kimi" }`.
       throw new SelfControlError(
         `input requires a value for selector "${selector}". Pass it as either "value" or "text" (also accepted: "inputValue", "input_value", "content").`,
         'INVALID_PARAMS',
-        ['Example: { action: "input", selector: "input[aria-label=\\"搜索…\\"]", value: "kimi" }.'],
+        ['Example: { action: "input", selector: "input[aria-label=\\"鎼滅储鈥\"]", value: "kimi" }.'],
       );
     }
     const el = document.querySelector(selector) as HTMLInputElement | HTMLTextAreaElement | null;
@@ -1274,13 +1276,13 @@ export class SelfControlService {
       // Without this guard, an unknown direction (or `undefined` from a
       // missing field) silently fell through the switch below and the
       // function returned "Scrolled undefined ... from=0 to=0" with
-      // success=true �?a textbook silent-failure that misled the model
+      // success=true 锟?a textbook silent-failure that misled the model
       // into thinking it had paged the viewport when nothing happened.
       throw new SelfControlError(
-        `scroll requires direction �?{${allowed.join(', ')}}; got ${JSON.stringify(direction)}.`,
+        `scroll requires direction 锟?{${allowed.join(', ')}}; got ${JSON.stringify(direction)}.`,
         'INVALID_PARAMS',
         [
-          'Pass numeric `deltaY` instead and we will derive the direction (deltaY>0 �?down, <0 �?up).',
+          'Pass numeric `deltaY` instead and we will derive the direction (deltaY>0 锟?down, <0 锟?up).',
         ],
       );
     }
@@ -1375,7 +1377,7 @@ export class SelfControlService {
       throw new SelfControlError('No key specified', 'INVALID_PARAMS');
     }
 
-    // Prefer an explicit target �?focused element �?document. Dispatching key
+    // Prefer an explicit target 锟?focused element 锟?document. Dispatching key
     // events on `document` only works if some element already absorbs them;
     // otherwise the keystroke is silently dropped, which historically caused
     // the model to think a "Pressed Enter" had submitted a form when it hadn't.
@@ -1423,7 +1425,7 @@ export class SelfControlService {
     return text || '(empty text)';
   }
 
-  // ── DOM Utilities ─────────────────────────────────────────────────────────
+  // 鈹€鈹€ DOM Utilities 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
   /** Find dropdown option elements using the prioritised selector list. */
   private findDropdownOptions(): Element[] {
@@ -1452,7 +1454,7 @@ export class SelfControlService {
    * subsequent collect/click logic should restrict itself to.
    *
    * `'auto'` is the new default: we prefer `<main data-testid="app-main-content">`
-   * (which excludes the global nav panel AND the pinned scene tab bar �?
+   * (which excludes the global nav panel AND the pinned scene tab bar 锟?
    * the two recurring sources of false-positive `click_by_text` matches),
    * but transparently widen back to the whole document when there's no
    * such element on this page (e.g. boot screen, error overlay) so we
@@ -1510,7 +1512,7 @@ export class SelfControlService {
         const matches = document.querySelectorAll(sel);
         if (matches.length === 1 && matches[0] === el) return sel;
       } catch {
-        /* invalid selector �?ignore */
+        /* invalid selector 锟?ignore */
       }
       return undefined;
     };
@@ -1542,7 +1544,7 @@ export class SelfControlService {
       if (unique) return unique;
     }
 
-    // Positional path �?walk up at most 4 ancestors using nth-of-type so
+    // Positional path 锟?walk up at most 4 ancestors using nth-of-type so
     // the selector survives sibling-text changes (the previous AMBIGUOUS
     // hints suggested fragile `:nth-of-type(8)` selectors at root level
     // which never resolved).

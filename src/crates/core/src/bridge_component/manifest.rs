@@ -40,7 +40,7 @@ pub struct BridgeComponentSurfaces {
     #[serde(default)]
     pub tool: bool,
     #[serde(default)]
-    pub surface_component_backend: bool,
+    pub product_app_runtime_backend: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -62,8 +62,7 @@ pub struct BridgeComponentPermissions {
 #[serde(rename_all = "camelCase")]
 pub enum BridgeComponentConsumerKind {
     AgentComponent,
-    SurfaceComponent,
-    SurfaceComponentBackend,
+    ProductAppRuntime,
     Management,
     System,
 }

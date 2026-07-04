@@ -8,7 +8,6 @@ mod registry;
 // Launchable agents
 mod agentic_agent;
 mod app_studio_agent;
-mod component_studio_agent;
 mod computer_use_agent;
 mod cowork_agent;
 mod debug_agent;
@@ -41,7 +40,6 @@ pub use agentic_agent::AgenticAgent;
 pub use app_studio_agent::AppStudioAgent;
 use async_trait::async_trait;
 pub use code_review_agent::CodeReviewAgent;
-pub use component_studio_agent::ComponentStudioAgent;
 pub use computer_use_agent::ComputerUseAgent;
 pub use cowork_agent::CoworkAgent;
 pub use custom_subagents::{CustomSubagent, CustomSubagentKind};

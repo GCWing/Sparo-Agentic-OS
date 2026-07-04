@@ -335,8 +335,7 @@
       "more": "More panels",
       "designs": "Designs",
       "designTokens": "Design Tokens",
-      "appStudio": "App Studio",
-      "componentStudio": "Component Studio"
+      "appStudio": "App Studio"
     },
     "goalPanel": {
       "open": "Goal details",

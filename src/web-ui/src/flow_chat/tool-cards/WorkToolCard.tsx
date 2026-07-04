@@ -123,10 +123,10 @@ function normalizeSurface(rawValue: unknown, fallbackWorkId: string): WorkSurfac
       };
     case 'application_surface': {
       const productAppId = stringValue(raw, 'productAppId', 'product_app_id');
-      const surfaceComponentId = stringValue(raw, 'surfaceComponentId', 'surface_component_id');
+      const productAppSurfaceId = stringValue(raw, 'productAppSurfaceId', 'product_app_surface_id');
       const surfaceId = stringValue(raw, 'surfaceId', 'surface_id');
-      return productAppId && surfaceComponentId && surfaceId
-        ? { kind: 'application_surface', productAppId, surfaceComponentId, surfaceId }
+      return productAppId && productAppSurfaceId && surfaceId
+        ? { kind: 'application_surface', productAppId, productAppSurfaceId, surfaceId }
         : null;
     }
     default:
@@ -151,6 +151,9 @@ function normalizeAppRef(rawValue: unknown): WorkAppRef | null {
   const appId = stringValue(raw, 'appId', 'app_id');
   const appVersion = stringValue(raw, 'appVersion', 'app_version');
   const componentLockDigest = stringValue(raw, 'componentLockDigest', 'component_lock_digest');
+  if (kind === 'native_app') {
+    return appId ? { kind, appId } : null;
+  }
   if (kind !== 'product_app' || !appId || !appVersion || !componentLockDigest) return null;
   return { kind, appId, appVersion, componentLockDigest };
 }
@@ -279,6 +282,7 @@ function normalizeWorkRecord(rawValue: unknown, fallbackWorkId?: string): WorkRe
     summary: raw.summary ?? null,
     sessionRefs: raw.sessionRefs ?? raw.session_refs ?? [],
     executionBindings: raw.executionBindings ?? raw.execution_bindings ?? [],
+    runtimeInstances: raw.runtimeInstances ?? raw.runtime_instances ?? [],
     artifactRefs: raw.artifactRefs ?? raw.artifact_refs ?? [],
     memoryRefs: raw.memoryRefs ?? raw.memory_refs ?? [],
     createdAt: numberValue(raw, 'createdAt', 'created_at') ?? Date.now(),

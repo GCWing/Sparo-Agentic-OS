@@ -1,0 +1,76 @@
+{
+  "id": "builtin-harmony-dev-surface",
+  "kind": "surface",
+  "name": "HarmonyOS Device Preview Workbench",
+  "description": "The app-owned HarmonyOS preview, build, device, diagnostics, and AI collaboration surface.",
+  "packageSource": "appPrivate",
+  "ownerApp": {
+    "appId": "builtin-harmony-dev",
+    "appVersion": "13.0.0"
+  },
+  "capabilities": [
+    {
+      "id": "interactiveSurface",
+      "title": "Interactive surface",
+      "description": "Hosts the HarmonyOS Dev primary workspace.",
+      "actions": [
+        "open",
+        "detectProject",
+        "refreshRuntimeState",
+        "selectTarget",
+        "startBuild",
+        "installAndLaunch",
+        "captureScreen"
+      ]
+    }
+  ],
+  "permissions": [
+    {
+      "kind": "fs",
+      "summary": "Reads and writes app-owned HarmonyOS Dev surface state.",
+      "scopes": [
+        "{appdata}"
+      ]
+    }
+  ],
+  "usedByApps": [
+    "builtin-harmony-dev"
+  ],
+  "visibility": "appDependency",
+  "dependencies": [
+    {
+      "componentId": "harmonyos-dev-agent",
+      "kind": "agent",
+      "source": "shared",
+      "role": "harmonyAgent",
+      "version": "^1.0.0",
+      "capabilities": [
+        "understandHarmonyProject",
+        "reviseHarmonyUi",
+        "buildInstallVerify",
+        "diagnoseHarmonyFailure"
+      ]
+    },
+    {
+      "componentId": "builtin-harmony-runtime",
+      "kind": "bridge",
+      "source": "shared",
+      "role": "harmonyRuntime",
+      "version": "^1.0.0",
+      "capabilities": [
+        "sparo.harmonyDev"
+      ]
+    },
+    {
+      "componentId": "product-app-runtime-host",
+      "kind": "runtime",
+      "source": "shared",
+      "role": "runtimeHost",
+      "version": "^1.0.0",
+      "capabilities": [
+        "uiWorker"
+      ]
+    }
+  ],
+  "implementationRef": "app://builtin-harmony-dev@13.0.0/surfaces/builtin-harmony-dev-surface"
+}

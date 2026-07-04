@@ -238,9 +238,14 @@ impl PathManager {
         self.user_cron_dir().join("jobs.json")
     }
 
-    /// Surface Components root: `<app-root>/apps/surface_components/`.
-    pub fn surface_components_dir(&self) -> PathBuf {
-        self.apps_dir().join("surface_components")
+    /// Get Product App catalog state file: <app-root>/state/product_app_catalog_state.json
+    pub fn product_app_catalog_state_path(&self) -> PathBuf {
+        self.user_state_dir().join("product_app_catalog_state.json")
+    }
+
+    /// Product App Runtime Host surfaces root: `<app-root>/apps/product_app_runtime_hosts/`.
+    pub fn product_app_runtime_hosts_dir(&self) -> PathBuf {
+        self.apps_dir().join("product_app_runtime_hosts")
     }
 
     /// User Agent Components root: `<app-root>/apps/agent_components/`.
@@ -263,9 +268,9 @@ impl PathManager {
         self.project_root(workspace_path).join("bridge_components")
     }
 
-    /// Per-app data: `~/.config/sparo_os/data/surface_components/{app_id}/`
-    pub fn surface_component_dir(&self, app_id: &str) -> PathBuf {
-        self.surface_components_dir().join(app_id)
+    /// Per-host-surface data: `<app-root>/apps/product_app_runtime_hosts/{app_id}/`
+    pub fn product_app_runtime_host_dir(&self, app_id: &str) -> PathBuf {
+        self.product_app_runtime_hosts_dir().join(app_id)
     }
 
     /// Get user-level rules directory: <app-root>/state/rules/
@@ -341,6 +346,18 @@ impl PathManager {
     /// Get the Agentic OS global milestone state file path: ~/.sparo_os/core/agentic_os/global_milestone/state.json
     pub fn agentic_os_global_milestone_state_path(&self) -> PathBuf {
         self.agentic_os_global_milestone_dir().join("state.json")
+    }
+
+    /// Get the Agentic OS Work runtime data root: <app-root>/agentic_os/work_runtimes/
+    pub fn agentic_os_work_runtimes_dir(&self) -> PathBuf {
+        self.agentic_os_runtime_root().join("work_runtimes")
+    }
+
+    /// Get data dir for a Work-owned Product App runtime instance.
+    pub fn agentic_os_work_runtime_dir(&self, work_id: &str, runtime_instance_id: &str) -> PathBuf {
+        self.agentic_os_work_runtimes_dir()
+            .join(work_id)
+            .join(runtime_instance_id)
     }
 
     /// Get the runtime root for a workspace: <app-root>/workspaces/<workspace-id>/
@@ -492,7 +509,7 @@ impl PathManager {
             self.apps_dir(),
             self.system_components_dir(),
             self.browser_profiles_dir(),
-            self.surface_components_dir(),
+            self.product_app_runtime_hosts_dir(),
             self.user_agent_components_dir(),
             self.user_bridge_components_dir(),
             self.user_rules_dir(),
@@ -637,6 +654,29 @@ mod tests {
         assert_eq!(
             pm.agentic_os_host_scan_state_path(),
             pm.agentic_os_host_dir().join("state.json")
+        );
+    }
+
+    #[test]
+    fn work_runtime_dir_lives_under_agentic_os_runtime_root() {
+        let pm = PathManager::default();
+
+        assert_eq!(
+            pm.agentic_os_work_runtime_dir("work_1", "runtime_1"),
+            pm.agentic_os_runtime_root()
+                .join("work_runtimes")
+                .join("work_1")
+                .join("runtime_1")
+        );
+    }
+
+    #[test]
+    fn product_app_catalog_state_lives_under_user_state() {
+        let pm = PathManager::default();
+
+        assert_eq!(
+            pm.product_app_catalog_state_path(),
+            pm.user_state_dir().join("product_app_catalog_state.json")
         );
     }
 

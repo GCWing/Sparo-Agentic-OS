@@ -38,35 +38,56 @@
       "title": "启动应用",
       "subtitle": "继续正在进行的工作，或直接启动合适的产品应用。",
       "searchPlaceholder": "搜索应用或进行中的工作...",
-      "continueDescription": "先回到已经展开的工作。",
-      "appsDescription": "启动卡片聚焦开始、继续和打开工作。"
+      "continueDescription": "先回到已经展开的工作。"
     },
     "manage": {
-      "eyebrow": "应用管理",
-      "title": "管理应用",
-      "subtitle": "查看已安装和可发现的产品应用，以及它们的状态、组件和维护入口。",
       "searchLabel": "搜索被管理的应用",
       "searchPlaceholder": "按应用、分类、目标、标签或组件摘要搜索...",
-      "visibleCount": "{{count}} 个可见",
       "emptyTitle": "没有匹配的应用",
       "emptyDescription": "调整搜索或筛选条件，查看其他应用组。",
       "listLabel": "已管理应用列表",
+      "install": "安装",
+      "update": "更新",
+      "updateAvailable": "可更新",
+      "updateTitle": "更新应用",
+      "updateMessage": "将「{{name}}」更新到下面的已发布版本。已有工作会保留在工作中心；已安装包会替换为该发布包。",
+      "updateConfirm": "更新",
+      "updatePreviewRelease": "发布版本",
+      "updatePreviewReleaseId": "发布 ID",
+      "updatePreviewPublished": "发布时间",
+      "updatePreviewNotes": "发布说明",
+      "updatePreviewNoNotes": "未提供发布说明。",
+      "updatePreviewComponentLock": "组件锁",
+      "updatePreviewPackage": "包摘要",
       "enable": "启用",
       "disable": "禁用",
       "moreActions": "更多操作",
       "uninstall": "卸载",
       "uninstallTitle": "卸载应用",
-      "uninstallMessage": "这将移除「{{name}}」及其所有本地数据。进行中的工作将被停止。此操作无法撤销。",
+      "uninstallMessage": "这会将「{{name}}」从应用目录移除，并阻止新的启动。已有工作仍会保留在工作中心。",
       "uninstallConfirm": "卸载",
+      "installedToast": "{{name}} 已安装",
+      "updatedToast": "{{name}} 已更新",
       "uninstalledToast": "{{name}} 已卸载",
       "enabledToast": "{{name}} 已启用",
       "disabledToast": "{{name}} 已禁用",
+      "packageIssue": "有问题",
+      "updateFailed": "更新 {{name}} 失败：{{error}}",
+      "installFailed": "安装 {{name}} 失败：{{error}}",
+      "uninstallFailed": "卸载 {{name}} 失败：{{error}}",
       "sortLabel": "排序被管理的应用",
       "sortBy": "排序方式",
       "sortOptions": {
+        "attention": "待处理优先",
         "name": "名称",
         "status": "状态",
         "scope": "范围"
+      },
+      "categoriesLabel": "应用筛选",
+      "viewModeLabel": "视图模式",
+      "viewMode": {
+        "list": "列表",
+        "cards": "卡片"
       }
     },
     "actions": {
@@ -83,14 +104,20 @@
       "newWork": "新建",
       "continue": "继续",
       "back": "返回",
+      "close": "关闭",
       "cancel": "取消",
       "inspect": "检查"
     },
     "messages": {
+      "installBeforeLaunch": "请先安装 {{name}}，再启动它。",
       "noLaunch": "{{name}} 没有启动目标。",
       "launchFailed": "启动 {{name}} 失败：{{error}}",
       "stopped": "{{name}} 已停止",
-      "stopFailed": "停止 {{name}} 失败：{{error}}"
+      "stopFailed": "停止 {{name}} 失败：{{error}}",
+      "closeWorkFailed": "关闭工作 {{name}} 失败：{{error}}",
+      "catalogPartialFailureTitle": "Product App 问题",
+      "catalogPartialFailureOne": "无法加载 {{target}}：{{error}}",
+      "catalogPartialFailureMany": "{{count}} 个 Product App 包无法加载。首个问题：{{target}}：{{error}}"
     },
     "surfaceFallback": "产品应用界面",
     "filters": {
@@ -106,6 +133,7 @@
       "count": "{{count}} 个进行中",
       "description": "先回到正在进行的工作，再决定是否启动新的应用。",
       "viewAll": "全部",
+      "closeWork": "关闭工作「{{title}}」",
       "expandRelated": "选择相关工作",
       "relatedLabel": "相关工作",
       "emptyTitle": "暂无进行中的工作",
@@ -114,7 +142,7 @@
     "myApps": {
       "title": "我的应用",
       "count": "{{count}} 个已安装",
-      "description": "选择正确的产品应用，然后启动、查看工作或检查运行边界。",
+      "description": "选择正确的产品应用，然后启动它或检查运行时边界。",
       "emptyTitle": "暂无已安装的产品应用",
       "emptyDescription": "安装或创建一个产品应用后，它会显示在这里。"
     },
@@ -124,11 +152,7 @@
     },
     "components": {
       "title": "高级组件",
-      "count": "{{count}} 个组件",
       "noDependencies": "无组件依赖",
-      "eyebrow": "组件中心",
-      "centerTitle": "组件",
-      "centerSubtitle": "检查共享和应用私有的智能体、桥接、运行时、工具、技能与界面组件。",
       "searchLabel": "搜索组件",
       "searchPlaceholder": "搜索组件、能力、所属应用或实现引用...",
       "filterLabel": "组件类型",
@@ -139,10 +163,64 @@
       "listDescription": "产品应用使用的共享和应用私有构建块。",
       "summaryTitle": "组件摘要",
       "summaryDescription": "选择一个组件，检查它的包身份、能力和使用关系。",
+      "health": "健康状态",
+      "healthChecking": "正在检查组件健康状态...",
+      "healthUnavailable": "暂无健康状态。",
+      "healthFailed": "组件健康检查失败。",
+      "healthStatus": {
+        "available": "可用",
+        "degraded": "需处理",
+        "checking": "检查中"
+      },
+      "healthCheck": {
+        "contract": "契约",
+        "dependencies": "依赖安装",
+        "runtime": "运行时",
+        "healthAction": "健康动作"
+      },
+      "actionStatus": {
+        "available": "可用",
+        "blocked": "受阻",
+        "empty": "暂无",
+        "degraded": "需处理"
+      },
+      "diagnosticAction": {
+        "installDependency": "安装依赖",
+        "runHealthAction": "运行健康动作",
+        "openRuntimeLogs": "查看运行日志",
+        "inspectRuntimeUsage": "检查运行时使用"
+      },
+      "actionTooltip": {
+        "installDependency": "检查或恢复这个依赖",
+        "runHealthAction": "重新运行健康检查",
+        "openRuntimeLogs": "打开最近包含运行日志的工作",
+        "inspectRuntimeUsage": "打开最近使用该组件的工作"
+      },
+      "runtimeRuns": "{{count}} 次运行",
+      "runtimeFailures": "{{count}} 次失败",
+      "runtimeErrors": "{{count}} 个错误",
+      "runtimeWarnings": "{{count}} 个警告",
+      "recentFailures": "最近失败",
+      "recentLogs": "最近日志",
+      "runtimeUsage": "运行时使用",
+      "runtimeUsageDetail": "工作 {{workId}}：{{runs}} 次运行，{{issues}} 个问题。",
+      "openOwningWork": "打开所属工作",
       "capabilities": "能力",
+      "dependenciesTab": "能力与依赖",
       "noCapabilities": "未声明能力",
       "usedBy": "被谁使用",
-      "noUsage": "暂无产品应用使用"
+      "noUsage": "暂无产品应用使用",
+      "categoriesLabel": "组件类型",
+      "inspect": "查看详情",
+      "usedByCount": "{{count}} 个应用使用",
+      "unusedHint": "暂无产品应用依赖这个组件"
+    },
+    "workStack": {
+      "continueLabel": "继续「{{title}}」",
+      "moreCount": "查看全部 {{count}} 个工作",
+      "collapse": "收起",
+      "relatedLabel": "{{name}} 的相关工作",
+      "attentionBadge": "{{count}} 项待处理"
     },
     "inspector": {
       "emptyTitle": "选择一个应用",
@@ -171,6 +249,11 @@
       "appPrivate": "应用私有",
       "shared": "共享"
     },
+    "catalogSource": {
+      "installedPackage": "已安装包",
+      "builtinMarketplace": "市场来源",
+      "publishedRelease": "已发布版本"
+    },
     "componentRefSource": {
       "private": "私有",
       "shared": "共享"
@@ -188,69 +271,169 @@
       "archived": "已归档"
     },
     "detail": {
-      "eyebrow": "产品应用",
       "enabled": "已启用",
       "disabled": "已禁用",
+      "dialogLabel": "{{name}} 详情",
+      "topBar": {
+        "backToApps": "应用中心"
+      },
+      "header": {
+        "chooseWorkspace": "选择工作区",
+        "installed": "已安装",
+        "native": "原生",
+        "notInstalled": "未安装",
+        "workCount": "{{count}} 个工作",
+        "workMode": "工作模式"
+      },
+      "sectionsLabel": "详情内容",
       "tabs": {
-        "use": "使用",
-        "capabilities": "能力",
-        "settings": "设置与安全",
+        "summary": "摘要",
+        "work": "工作",
+        "package": "包信息",
         "overview": "概览",
-        "start": "启动 / 继续",
+        "start": "启动与工作",
         "workObjects": "工作对象",
         "components": "组件",
         "permissions": "权限",
-        "runtime": "运行时"
+        "source": "版本与来源",
+        "technical": "组件关系"
+      },
+      "sectionDescription": {
+        "work": "在同一处启动新工作，或继续这个应用关联的已有工作。",
+        "package": "安装包、目录发布、更新、依赖与组件关系事实。",
+        "start": "在同一个位置启动新的工作，或继续已有工作。",
+        "components": "这个应用依赖的界面、智能体、桥接、运行时、工具和技能组件。",
+        "permissions": "应用权限、组件能力和数据生命周期策略。",
+        "source": "安装包、目录发布、更新和依赖事实。",
+        "technical": "从 app.json 和 component.json 推导出的组件组合与依赖调用关系。"
+      },
+      "advanced": {
+        "launchConfig": "启动配置"
       },
       "sections": {
-        "overview": "概览",
-        "components": "组件",
-        "permissions": "权限",
-        "runtime": "运行时",
-        "package": "包信息"
-      },
-      "overview": {
-        "goal": "目标"
-      },
-      "metrics": {
-        "components": "组件",
-        "workObjects": "工作对象",
-        "activeWorks": "活跃工作",
         "permissions": "权限"
       },
+      "summary": {
+        "availability": "可用性",
+        "permissionCount": "已启用 {{enabled}} / {{total}}",
+        "permissions": "权限",
+        "status": "状态"
+      },
       "start": {
+        "bestAction": "推荐下一步",
+        "launchHint": "这个应用可以从当前系统上下文启动，也可以继续已有工作。",
         "launchTitle": "启动目标",
         "continueTitle": "继续工作",
+        "workTitle": "相关工作",
         "noWorkTitle": "暂无工作",
-        "noWorkDescription": "从这个应用创建的工作会显示在这里。"
+        "noWorkDescription": "从这个应用创建的工作会显示在这里。",
+        "workspaceRequiredHint": "这个应用需要先选择工作区，才能启动新的工作。"
       },
       "workObjects": {
         "emptyTitle": "暂无工作对象",
         "emptyDescription": "这个产品应用尚未声明持久工作对象类型。"
       },
       "components": {
+        "capabilityCount": "{{count}} 项能力",
+        "graphSummary": "组件关系图",
         "unresolved": "组件包未安装或未解析。"
       },
       "permissions": {
         "appTitle": "应用权限",
         "componentTitle": "组件能力",
-        "empty": "未声明组件权限。"
+        "dataTitle": "数据生命周期"
       },
-      "runtime": {
-        "identityTitle": "运行时身份",
-        "graphTitle": "组件图"
+      "source": {
+        "catalogSource": "目录来源",
+        "dependencySummary": "依赖",
+        "installedStatus": "安装状态"
       },
-      "settings": {
-        "packageTitle": "包",
-        "creationTitle": "创建模型",
-        "creationDescription": "产品应用和组件会被创建为带版本的包。运行时状态只引用已解析的锁。"
+  "runtime": {
+    "identityTitle": "运行时身份"
+  },
+  "technical": {
+    "appNode": "产品应用",
+    "canvasDescription": "基于 JSON 推导出的关系图：app.components 形成第一层组合，component.dependencies 继续展开调用链。",
+    "canvasTitle": "组件关系图",
+    "dependencyEdges": "依赖调用",
+    "dependencyNode": "依赖",
+    "directComponents": "直接组件",
+    "directNode": "直接",
+    "edgeKind": {
+      "appComposition": "组合",
+      "componentDependency": "调用"
+    },
+    "edgesDescription": "关系边来自 app.components 和 component.dependencies。",
+    "edgesTitle": "组合与调用",
+    "emptyDescription": "这个条目没有暴露 Product App 组件 JSON。",
+    "emptyTitle": "暂无组件关系",
+    "filter": {
+      "all": "全部",
+      "composition": "组合",
+      "dependencies": "调用",
+      "permissions": "权限",
+      "unresolved": "未解析"
+    },
+    "filterLabel": "组件关系图筛选",
+    "from": "来源",
+    "implementation": "实现引用",
+    "incoming": "入边",
+    "inspectorTitle": "选中 JSON",
+    "nodesDescription": "直接应用组件和仅作为依赖出现的组件会一起展示。",
+    "nodesTitle": "组件",
+    "outgoing": "出边",
+    "primarySurface": "主界面",
+    "relation": "关系",
+    "role": "角色",
+    "selectApp": "检查应用 {{name}}",
+    "selectComponent": "检查组件 {{name}}",
+    "selectRelation": "检查 {{from}} 到 {{to}} 的 {{role}} 关系",
+    "selectedAppTitle": "选中的应用",
+    "selectedComponentTitle": "选中的组件",
+    "selectedEdgeTitle": "选中的关系",
+    "to": "目标",
+    "unresolved": "未解析"
+  }
+},
+    "workMultiplicity": {
+      "multiple": "多个工作",
+      "singleton": "单一工作"
+    },
+    "dataLifecycle": {
+      "fields": {
+        "retention": "保留",
+        "deletion": "删除",
+        "migration": "迁移",
+        "share": "分享"
+      },
+      "retention": {
+        "workRuntimeScoped": "随工作运行时保留",
+        "sessionScoped": "随会话保留",
+        "userManaged": "用户管理",
+        "externalSystem": "外部系统"
+      },
+      "deletion": {
+        "deleteWithWork": "随工作删除",
+        "deleteOnUserRequest": "按用户请求删除",
+        "noDurableData": "无持久数据",
+        "externalSystem": "外部系统"
+      },
+      "migration": {
+        "notSupported": "不支持",
+        "exportImport": "导出 / 导入",
+        "schemaVersioned": "按 Schema 版本迁移",
+        "externalSystem": "外部系统"
+      },
+      "share": {
+        "excludeRuntimePrivateData": "排除运行时私有数据",
+        "declaredWorkObjectsOnly": "仅声明的工作对象",
+        "externalReferenceOnly": "仅外部引用"
       }
     },
     "launchKind": {
       "agentSession": "启动由智能体支持的工作会话。",
       "applicationSurface": "打开交互式应用界面。",
       "appStudio": "打开应用工作室。",
-      "componentStudio": "打开组件工作室。",
       "none": "无启动目标"
     },
     "launchScope": {
@@ -262,16 +445,13 @@
       "id": "ID",
       "kind": "类型",
       "version": "版本",
-      "source": "来源",
       "target": "目标",
       "surface": "界面",
       "agent": "智能体",
       "scope": "范围",
       "appId": "应用 ID",
-      "lock": "锁",
       "surfaceMode": "界面模式",
       "truthSource": "事实来源",
-      "installScope": "安装范围",
       "visibility": "可见性",
       "componentLockId": "组件锁 ID"
     },
@@ -310,41 +490,6 @@
     "truthSource": {
       "ownedObjectState": "自有对象状态",
       "runtimeFact": "运行时事实"
-    },
-    "studio": {
-      "eyebrow": "工作室",
-      "createAppTitle": "创建产品应用",
-      "createAppSubtitle": "定义用户目标、工作对象、主界面和组件边界。",
-      "createComponentTitle": "创建组件",
-      "createComponentSubtitle": "将智能体、界面、桥接、运行时、工具或技能打包为可复用组件。",
-      "requiredFields": "请填写必填字段。",
-      "createAppSuccess": "{{name}} 已创建",
-      "createComponentSuccess": "{{name}} 已创建",
-      "createFailed": "创建失败",
-      "fields": {
-        "appId": "应用 ID",
-        "componentId": "组件 ID",
-        "version": "版本",
-        "name": "名称",
-        "agentType": "智能体类型",
-        "goal": "目标",
-        "description": "描述",
-        "surfaceMode": "界面模式",
-        "category": "分类",
-        "tags": "标签",
-        "componentKind": "组件类型",
-        "implementationRef": "实现引用"
-      },
-      "placeholders": {
-        "appId": "例如 my-product-app",
-        "componentId": "例如 my-component",
-        "tags": "creative, video, runtime",
-        "implementationRef": "bundle://components/..."
-      },
-      "sections": {
-        "required": "必填",
-        "optional": "可选详情"
-      }
     }
   },
   "apps": {
@@ -369,90 +514,31 @@
       "name": "深度研究",
       "description": "面向开放式研究的独立智能应用，可并行派发子智能体并整合带引用的完整报告。"
     },
-    "surfaceComponentWorkbench": {
-      "name": "灵动应用工作台",
-      "description": "左侧 FlowChat、右侧应用工具面板的复合灵动应用界面。"
+    "productAppRuntime": {
+      "name": "产品应用运行台",
+      "description": "承载 Product App 的运行时界面：左侧 FlowChat，右侧应用自有工具和运行状态。"
     },
     "appStudio": {
-      "name": "灵动应用构建器",
-      "description": "面向灵动应用生成、调试与迭代的独立智能应用，用一句话生成可运行的小工具。"
-    },
-    "componentStudio": {
-      "name": "智能应用构建器",
-      "description": "用于创建 FlowChat 原生智能应用，包含 Prompt、权限、示例和 JavaScript 运行时工具定义。"
+      "name": "应用工作室",
+      "description": "创建包含目标、工作对象、主界面、组件、权限和包元数据的产品应用。"
     }
   },
-  "surfaceComponent": {
+  "productAppRuntime": {
     "scene": {
       "loading": "加载中...",
       "updating": "正在更新预览...",
       "loadFailed": "加载失败：{{error}}",
       "retry": "重试",
       "reload": "刷新"
-    }
-  },
-  "componentStudio": {
-    "panel": {
-      "tablistLabel": "预览分区",
-      "promptToolbarLabel": "Prompt 操作",
-      "copyFailed": "复制失败",
-      "promptSaved": "Prompt 已保存",
-      "promptSaveFailed": "保存 Prompt 失败",
-      "readonly": "只读",
-      "copyId": "复制 ID",
-      "refresh": "刷新",
-      "openCatalog": "打开组件中心",
-      "cancelEdit": "取消",
-      "savePrompt": "保存",
-      "copied": "已复制",
-      "copyPrompt": "复制 Prompt",
-      "copyExample": "复制 Prompt",
-      "retry": "重试",
-      "yes": "是",
-      "no": "否",
-      "promptLength": "{{count}} 个字符",
-      "toolsCount": "已选择 {{count}} 个定义",
-      "examplesCount": "{{count}} 条起步提示",
-      "loading": "加载中...",
-      "tabs": {
-        "overview": "概览",
-        "prompt": "Prompt",
-        "tools": "工具定义",
-        "examples": "示例"
-      },
-      "empty": {
-        "title": "暂无智能体组件",
-        "description": "告诉工作室你想构建什么。创建完成后，最新的组件包会显示在这里。"
-      },
-      "stats": {
-        "groupLabel": "快捷统计",
-        "tools": "工具定义",
-        "toolsShort": "工具定义",
-        "examples": "示例",
-        "examplesShort": "示例",
-        "promptChars": "Prompt 长度",
-        "charsSuffix": "字符"
-      },
-      "sections": {
-        "about": "关于此应用",
-        "prompt": "系统 Prompt",
-        "tools": "工具定义",
-        "examples": "起步提示"
-      },
-      "fields": {
-        "model": "模型",
-        "category": "分类",
-        "level": "层级",
-        "readonly": "只读",
-        "tags": "标签",
-        "path": "路径"
-      },
-      "tools": {
-        "empty": "未选择工具定义"
-      },
-      "examples": {
-        "empty": "暂无示例"
-      }
+    },
+    "messages": {
+      "recompiled": "Product App 运行时已重新编译。",
+      "recompileFailed": "重新编译 Product App 运行时失败：{{error}}",
+      "installDepsFailedGeneric": "安装运行时依赖失败。",
+      "installDepsOk": "运行时依赖已安装。",
+      "installDepsFailed": "安装运行时依赖失败：{{error}}",
+      "workerStopped": "Product App Worker 已停止。",
+      "workerStopFailed": "停止 Product App Worker 失败：{{error}}"
     }
   },
   "messages": {

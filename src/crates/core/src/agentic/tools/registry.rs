@@ -99,7 +99,7 @@ impl ToolRegistry {
         // AgentSession-level handoff remains available outside OSAgent Work management.
         self.register_tool(Arc::new(AgentHandoffTool::new()));
 
-        // Component Studio tools (FlowChat-native app generation)
+        // Component authoring tools used by App Studio.
         self.register_tool(Arc::new(ListAgentComponentsTool));
         self.register_tool(Arc::new(GetAgentComponentTool));
         self.register_tool(Arc::new(CreateAgentComponentTool));
@@ -109,6 +109,7 @@ impl ToolRegistry {
         self.register_tool(Arc::new(CreateAgentComponentJsToolTool));
         self.register_tool(Arc::new(TestAgentComponentJsToolTool));
         self.register_tool(Arc::new(CreateComponentPackageTool::new()));
+        self.register_tool(Arc::new(ValidateComponentPackageTool::new()));
         self.register_tool(Arc::new(BridgeComponentCallTool::new()));
         self.register_tool(Arc::new(ListBridgeComponentsTool));
         self.register_tool(Arc::new(GetBridgeComponentTool));
@@ -181,6 +182,20 @@ impl ToolRegistry {
 
         // Product App tool (CreateProductApp)
         self.register_tool(Arc::new(CreateProductAppTool::new()));
+        self.register_tool(Arc::new(CreateProductAppComponentTool::new()));
+        self.register_tool(Arc::new(GetProductAppPackageTool::new()));
+        self.register_tool(Arc::new(UpdateProductAppPackageTool::new()));
+        self.register_tool(Arc::new(RefreshProductAppLockTool::new()));
+        self.register_tool(Arc::new(ResolveStudioPreviewTargetTool::new()));
+        self.register_tool(Arc::new(CreateProductAppCheckpointTool::new()));
+        self.register_tool(Arc::new(CompareProductAppRevisionsTool::new()));
+        self.register_tool(Arc::new(CreateProductAppFromReleaseTemplateTool::new()));
+        self.register_tool(Arc::new(RestoreProductAppCheckpointTool::new()));
+        self.register_tool(Arc::new(RestoreProductAppReleaseTool::new()));
+        self.register_tool(Arc::new(CreateProductAppReleaseTool::new()));
+        self.register_tool(Arc::new(PublishProductAppReleaseTool::new()));
+        self.register_tool(Arc::new(ValidateProductAppPackageTool::new()));
+        self.register_tool(Arc::new(RunStudioPreviewTool::new()));
 
         // ControlHub — unified browser/terminal/meta control entry point.
         // Local desktop and OS/system Computer Use is exposed as a dedicated tool.

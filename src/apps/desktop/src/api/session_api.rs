@@ -170,9 +170,6 @@ fn normalize_context_budget_agent_type(agent_type: &str) -> String {
         "osagent" | "os-agent" | "os_agent" => "OSAgent".to_string(),
         "deepresearch" | "deep-research" | "deep_research" => "DeepResearch".to_string(),
         "appstudio" | "app-studio" | "app_studio" => "AppStudio".to_string(),
-        "componentstudio" | "component-studio" | "component_studio" => {
-            "ComponentStudio".to_string()
-        }
         _ => agent_type.trim().to_string(),
     }
 }
@@ -196,6 +193,7 @@ async fn build_tool_definitions_for_budget(
         dialog_turn_id: None,
         workspace: workspace.cloned(),
         custom_data: tool_opts_custom,
+        app_studio: None,
         computer_use_host: None,
         cancellation_token: None,
         runtime_tool_restrictions: ToolRuntimeRestrictions::default(),

@@ -1,5 +1,4 @@
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext, ValidationResult};
-use crate::agentic::tools::implementations::util::enforce_surface_component_studio_source_write;
 use crate::agentic::tools::ToolPathOperation;
 use crate::util::errors::{BitFunError, BitFunResult};
 use async_trait::async_trait;
@@ -170,7 +169,6 @@ Usage:
 
         let resolved = context.resolve_tool_path(file_path)?;
         context.enforce_path_operation(ToolPathOperation::Edit, &resolved)?;
-        enforce_surface_component_studio_source_write(context, &resolved.resolved_path).await?;
 
         // For remote workspace paths, use the abstract FS to read → edit in memory → write back.
         if resolved.uses_remote_workspace_backend() {

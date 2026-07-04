@@ -1,4 +1,4 @@
-import type { WorkspaceInfo } from './global-state';
+﻿import type { WorkspaceInfo } from './global-state';
 import type { AppScope } from './app-scope';
 import { normalizeAppScope, systemAppScope } from './app-scope';
 import type { SessionStorageScope } from './session-history';
@@ -28,7 +28,7 @@ export interface SessionScopeFields {
   title?: string | null;
   customMetadata?: {
     agentSessionBinding?: { scope?: AppScope | null } | null;
-    surfaceComponentWorkbench?: { scope?: AppScope | null } | null;
+    productAppRuntime?: { scope?: AppScope | null } | null;
   } | null;
 }
 
@@ -89,7 +89,7 @@ export function runtimeScopeFromSession(
 ): RuntimeScope | null {
   if (!session) return null;
   const boundScope =
-    session.customMetadata?.surfaceComponentWorkbench?.scope ??
+    session.customMetadata?.productAppRuntime?.scope ??
     session.customMetadata?.agentSessionBinding?.scope ??
     null;
   if (boundScope) {

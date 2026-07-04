@@ -351,6 +351,31 @@
       "summary": "Initialize a new Product App scaffold.",
       "what": "Bootstraps a new Product App project with a default template."
     },
+    "CreateProductAppComponent": {
+      "name": "CreateProductAppComponent",
+      "summary": "Create an app-private Product App component scaffold.",
+      "what": "Adds a Surface, Agent, Bridge, Runtime, Tool, or Skill component scaffold to an existing Product App package and refreshes the lock."
+    },
+    "GetProductAppPackage": {
+      "name": "GetProductAppPackage",
+      "summary": "Read a Product App package.",
+      "what": "Reads app.json, app.lock.json, private components, resolved components, and package plans without modifying files."
+    },
+    "UpdateProductAppPackage": {
+      "name": "UpdateProductAppPackage",
+      "summary": "Update Product App package metadata.",
+      "what": "Updates structured Product App metadata, launch, primary surface, interaction model, and work multiplicity, then refreshes the component lock."
+    },
+    "RefreshProductAppLock": {
+      "name": "RefreshProductAppLock",
+      "summary": "Refresh a Product App component lock.",
+      "what": "Resolves a Product App package, updates app.json with the latest component lock digest, and rewrites app.lock.json."
+    },
+    "ResolveStudioPreviewTarget": {
+      "name": "ResolveStudioPreviewTarget",
+      "summary": "Resolve a Studio preview target.",
+      "what": "Resolves Product App preview identity, mode, Workbench placement, and evidence boundary without claiming runtime execution."
+    },
     "ComputerUse": {
       "name": "ComputerUse",
       "summary": "Automate the desktop (mouse, keyboard, screenshots).",

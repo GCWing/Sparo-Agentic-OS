@@ -7,21 +7,17 @@ fn main() {
         .join("bundles");
     emit_rerun_if_changed(&bundles_root.join("skills"));
     emit_rerun_if_changed(&bundles_root.join("playbooks"));
-    emit_rerun_if_changed(&bundles_root.join("apps"));
+    emit_rerun_if_changed(&bundles_root.join("product-apps"));
     emit_rerun_if_changed(&bundles_root.join("components"));
-    emit_rerun_if_changed(&bundles_root.join("surface-components"));
     emit_rerun_if_changed(&bundles_root.join("bridge-components"));
 
-    if let Err(message) = validate_product_app_bundles(&bundles_root.join("apps")) {
+    if let Err(message) =
+        validate_product_app_bundles(&bundles_root.join("product-apps").join("builtin"))
+    {
         panic!("Product App bundle validation failed: {message}");
     }
     if let Err(message) = validate_component_bundles(&bundles_root.join("components")) {
         panic!("Component bundle validation failed: {message}");
-    }
-    if let Err(message) =
-        validate_surface_component_bundles(&bundles_root.join("surface-components"))
-    {
-        panic!("Surface Component bundle validation failed: {message}");
     }
     if let Err(message) = validate_bridge_component_bundles(&bundles_root.join("bridge-components"))
     {
@@ -110,45 +106,6 @@ fn validate_component_bundles(components_root: &std::path::Path) -> Result<(), S
                     ));
                 }
             }
-        }
-    }
-
-    Ok(())
-}
-
-fn validate_surface_component_bundles(
-    surface_components_root: &std::path::Path,
-) -> Result<(), String> {
-    if !surface_components_root.exists() {
-        return Ok(());
-    }
-
-    for entry in std::fs::read_dir(surface_components_root).map_err(|e| e.to_string())? {
-        let path = entry.map_err(|e| e.to_string())?.path();
-        if !path.is_dir() {
-            continue;
-        }
-
-        let bundle_name = path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or("<unknown>");
-
-        let bundle_manifest = path.join("bundle.json");
-        if !bundle_manifest.is_file() {
-            return Err(format!(
-                "missing bundle.json in Surface Component bundle '{}'",
-                path.display()
-            ));
-        }
-
-        let node_modules = path.join("node_modules");
-        if node_modules.exists() {
-            return Err(format!(
-                "Surface Component bundle '{}' contains node_modules/. Remove it before building. \
-                 Do not run npm install inside bundles/surface-components/*.",
-                bundle_name
-            ));
         }
     }
 
@@ -534,7 +491,10 @@ fn create_empty_embedded_prompts(_manifest_dir: &str) -> Result<(), Box<dyn std:
     writeln!(file, "use std::collections::HashMap;")?;
     writeln!(file, "use std::sync::LazyLock;")?;
     writeln!(file)?;
-    writeln!(file, "pub static EMBEDDED_PROMPTS: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::new(|| HashMap::new());")?;
+    writeln!(
+        file,
+        "pub static EMBEDDED_PROMPTS: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::new(|| HashMap::new());"
+    )?;
     writeln!(
         file,
         "pub fn get_embedded_prompt(_prompt_name: &str) -> Option<&'static str> {{ None }}"

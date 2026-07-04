@@ -1,0 +1,47 @@
+{
+  "id": "builtin-ppt-live-agent",
+  "kind": "agent",
+  "name": "PPT Live Agent",
+  "description": "Presentation-focused agent for outlining decks, generating slide content, refining selected slides, and preparing export-ready review notes.",
+  "packageSource": "appPrivate",
+  "ownerApp": {
+    "appId": "builtin-ppt-live",
+    "appVersion": "150.0.0"
+  },
+  "capabilities": [
+    {
+      "id": "generateDeck",
+      "title": "Generate deck",
+      "description": "Plan a deck outline and generate structured slide content.",
+      "actions": [
+        "generate",
+        "outline",
+        "generateSlides"
+      ]
+    },
+    {
+      "id": "reviseSlide",
+      "title": "Revise slide",
+      "description": "Refine selected slide copy, structure, and visual direction.",
+      "actions": [
+        "reviseSelection",
+        "summarizeReview"
+      ]
+    }
+  ],
+  "permissions": [
+    {
+      "kind": "ai",
+      "summary": "Uses the configured AI agent for deck generation and revision.",
+      "scopes": [
+        "agentic"
+      ]
+    }
+  ],
+  "usedByApps": [
+    "builtin-ppt-live"
+  ],
+  "visibility": "appDependency",
+  "dependencies": [],
+  "implementationRef": "agent://agentic"
+}

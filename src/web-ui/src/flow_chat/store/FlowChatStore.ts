@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Flow Chat global state store
  * Prevents state loss when components remount
  */
@@ -44,7 +44,7 @@ import {
   descriptorFromAgentType,
   getBackendAgentType,
   getDefaultSessionDescriptor,
-  getSurfaceComponentWorkbenchSessionDescriptor,
+  getProductAppRuntimeSessionDescriptor,
   isEvolutionLabSession,
   isSystemAgenticOsSession,
   normalizeSessionDescriptor,
@@ -65,10 +65,10 @@ function descriptorFromSessionMetadata(
   metadata: SessionMetadata,
   fallbackAgentType: string
 ): SessionDescriptor {
-  const surfaceComponentWorkbench = metadata.customMetadata?.surfaceComponentWorkbench;
-  if (surfaceComponentWorkbench) {
-    const agentComponentId = surfaceComponentWorkbench.chat?.agentComponentId;
-    return getSurfaceComponentWorkbenchSessionDescriptor(
+  const productAppRuntime = metadata.customMetadata?.productAppRuntime;
+  if (productAppRuntime) {
+    const agentComponentId = productAppRuntime.chat?.agentComponentId;
+    return getProductAppRuntimeSessionDescriptor(
       typeof agentComponentId === 'string' ? agentComponentId : undefined,
     );
   }

@@ -1,9 +1,9 @@
 import { openMainSession } from '@/flow_chat/services/childSessionPanels';
 import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
 import { useWorkDockStore } from '@/app/stores/workDockStore';
-import type { WorkRecord, WorkSurfaceRef } from '../domain/workTypes';
+import type { RuntimeInstanceRef, WorkRecord, WorkSurfaceRef } from '../domain/workTypes';
 import { resolveWorkSurface } from './workSurfaceResolver';
-import { openProductAppSurface } from '@/app/scenes/apps/surface-component/surfaceComponentWorkbenchService';
+import { openProductAppRuntimeForWorkSurface } from '@/app/scenes/apps/product-app-runtime/productAppRuntimeService';
 import type { WorkspaceSurfaceContext } from '@/app/navigation/workspaceSurfaceTypes';
 import { appScopeFromWorkspacePath, systemAppScope, type AppScope } from '@/shared/types/app-scope';
 import type { WorkAppRef } from '../domain/workTypes';
@@ -19,6 +19,28 @@ function runtimeScopeFromWork(work: WorkRecord): RuntimeScope {
     : systemRuntimeScope();
 }
 
+function productAppRefForSurface(work: WorkRecord, surface: WorkSurfaceRef): WorkAppRef | null {
+  if (surface.kind !== 'application_surface') return null;
+  if (work.subject.kind === 'app' && work.subject.app.appId === surface.productAppId) {
+    return work.subject.app;
+  }
+  return work.appRefs.find(relation => relation.app.appId === surface.productAppId)?.app ?? null;
+}
+
+function runtimeInstanceForSurface(work: WorkRecord, surface: WorkSurfaceRef): RuntimeInstanceRef | null {
+  if (surface.kind !== 'application_surface') return null;
+  const appRef = productAppRefForSurface(work, surface);
+  return work.runtimeInstances.find(instance =>
+    instance.productAppId === surface.productAppId &&
+    instance.productAppSurfaceId === surface.productAppSurfaceId &&
+    instance.surfaceId === surface.surfaceId &&
+    (!appRef || (
+      instance.appVersion === appRef.appVersion &&
+      instance.componentLockDigest === appRef.componentLockDigest
+    ))
+  ) ?? null;
+}
+
 export function openWorkCenterHome(): void {
   const store = useWorkDockStore.getState();
   store.setWorkCenterScope({ kind: 'open' });
@@ -26,6 +48,7 @@ export function openWorkCenterHome(): void {
   store.setWorkCenterAppFilter({ kind: 'all' });
   store.setWorkCenterGrouping('priority');
   store.setWorkCenterSelectedWorkId(null);
+  store.setWorkCenterSelectedArtifactId(null);
   openWorkspaceScene('work-center');
 }
 
@@ -36,6 +59,18 @@ export function openWorkInCenter(workId: string): void {
   store.setWorkCenterAppFilter({ kind: 'all' });
   store.setWorkCenterGrouping('priority');
   store.setWorkCenterSelectedWorkId(workId);
+  store.setWorkCenterSelectedArtifactId(null);
+  openWorkspaceScene('work-center');
+}
+
+export function openArtifactInCenter(workId: string, artifactId: string): void {
+  const store = useWorkDockStore.getState();
+  store.setWorkCenterScope({ kind: 'all' });
+  store.setWorkCenterWorkspaceFilter({ kind: 'all' });
+  store.setWorkCenterAppFilter({ kind: 'all' });
+  store.setWorkCenterGrouping('priority');
+  store.setWorkCenterSelectedWorkId(workId);
+  store.setWorkCenterSelectedArtifactId(artifactId);
   openWorkspaceScene('work-center');
 }
 
@@ -46,6 +81,7 @@ export function openWorkCenterForApp(app: WorkAppRef): void {
   store.setWorkCenterAppFilter({ kind: 'app', app });
   store.setWorkCenterGrouping('priority');
   store.setWorkCenterSelectedWorkId(null);
+  store.setWorkCenterSelectedArtifactId(null);
   openWorkspaceScene('work-center');
 }
 
@@ -54,6 +90,8 @@ export async function openWork(work: WorkRecord): Promise<void> {
   const runtimeScope = runtimeScopeFromWork(work);
   await openWorkSurface(surface, work.id, {
     runtimeScope,
+    productAppRef: productAppRefForSurface(work, surface),
+    runtimeInstance: runtimeInstanceForSurface(work, surface),
     scope: work.scope.kind === 'workspace'
       ? appScopeFromWorkspacePath(work.scope.workspacePath) ?? systemAppScope()
       : systemAppScope(),
@@ -63,7 +101,12 @@ export async function openWork(work: WorkRecord): Promise<void> {
 export async function openWorkSurface(
   surface: WorkSurfaceRef,
   fallbackWorkId: string,
-  options: { scope?: AppScope | null; runtimeScope?: RuntimeScope | null } = {}
+  options: {
+    scope?: AppScope | null;
+    runtimeScope?: RuntimeScope | null;
+    productAppRef?: WorkAppRef | null;
+    runtimeInstance?: RuntimeInstanceRef | null;
+  } = {}
 ): Promise<void> {
   const context: WorkspaceSurfaceContext = { kind: 'work', workId: fallbackWorkId };
 
@@ -76,9 +119,13 @@ export async function openWorkSurface(
       openWorkInCenter(surface.workId);
       return;
     case 'application_surface':
-      await openProductAppSurface({
+      await openProductAppRuntimeForWorkSurface({
+        workId: fallbackWorkId,
         productAppId: surface.productAppId,
-        surfaceComponentId: surface.surfaceComponentId,
+        runtimeInstanceId: options.runtimeInstance?.id,
+        productAppVersion: options.productAppRef?.appVersion,
+        componentLockDigest: options.productAppRef?.componentLockDigest,
+        productAppSurfaceId: surface.productAppSurfaceId,
         surfaceId: surface.surfaceId,
       }, {
         scope: options.scope ?? systemAppScope(),

@@ -2,6 +2,7 @@ import { createLogger } from '@/shared/utils/logger';
 import { requestWorkRefresh } from '@/app/agentic-os/work/data/workStore';
 import { useDesignArtifactStore } from '@/tools/design-canvas/store/designArtifactStore';
 import { useDesignTokensStore } from '@/tools/design-canvas/store/designTokensStore';
+import { productAppRuntimeHostEvents } from '@/shared/types/product-app-runtime';
 
 const log = createLogger('ToolEffectRegistry');
 
@@ -118,6 +119,21 @@ function pickProductAppRuntimeId(result: unknown): string | undefined {
         : undefined;
 }
 
+function pickComponentPackageId(result: unknown): string | undefined {
+  if (!result || typeof result !== 'object') {
+    return undefined;
+  }
+
+  const data = result as Record<string, any>;
+  return typeof data.component_id === 'string'
+    ? data.component_id
+    : typeof data.componentId === 'string'
+      ? data.componentId
+      : typeof data.id === 'string'
+        ? data.id
+        : undefined;
+}
+
 for (const toolName of ['CreateProductApp']) {
   registerCompletedToolEffect(toolName, ({ result }) => {
     const appId = pickProductAppRuntimeId(result);
@@ -125,11 +141,34 @@ for (const toolName of ['CreateProductApp']) {
       return;
     }
 
-    window.dispatchEvent(new CustomEvent('surface-component-updated', {
+    window.dispatchEvent(new CustomEvent(productAppRuntimeHostEvents.updated, {
       detail: { id: appId, appId },
     }));
   });
 }
+
+registerCompletedToolEffect('ValidateProductAppPackage', ({ result, toolName }) => {
+  const appId = pickProductAppRuntimeId(result);
+  window.dispatchEvent(new CustomEvent('app-studio-validation-result', {
+    detail: { appId, result, toolName },
+  }));
+  requestWorkRefresh('product-app-validation-completed');
+});
+
+registerCompletedToolEffect('ValidateComponentPackage', ({ result, toolName }) => {
+  const componentId = pickComponentPackageId(result);
+  window.dispatchEvent(new CustomEvent('app-studio-validation-result', {
+    detail: { componentId, result, toolName },
+  }));
+  requestWorkRefresh('component-package-validation-completed');
+});
+
+registerCompletedToolEffect('RunStudioPreview', ({ result, toolName, turnId }) => {
+  window.dispatchEvent(new CustomEvent('app-studio-preview-result', {
+    detail: { result, toolName, turnId },
+  }));
+  requestWorkRefresh('studio-preview-completed');
+});
 
 export function runCompletedToolEffects(context: CompletedToolEffectContext): void {
   const effects = completedEffects.get(context.toolName);

@@ -12,7 +12,7 @@
     "launchableApp": false,
     "agent": true,
     "tool": true,
-    "surfaceComponentBackend": true
+    "productAppRuntimeBackend": true
   },
   "permissions": {
     "fs": ["{workspace}", "{app}"],
@@ -31,7 +31,7 @@
       "streaming": true,
       "cancelable": true,
       "resumable": true,
-      "usableBy": ["agentComponent", "surfaceComponentBackend", "management"],
+      "usableBy": ["agentComponent", "productAppRuntime", "management"],
       "inputSchema": { "type": "object" },
       "outputSchema": { "type": "object" }
     }

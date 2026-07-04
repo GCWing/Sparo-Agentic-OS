@@ -15,7 +15,7 @@ import { useAgentCanvasStore } from '../stores';
 import { useApp } from '@/app/hooks/useApp';
 import { useSessionProfile } from '@/app/session-profiles';
 import { useActiveSession } from '@/flow_chat/store/modernFlowChatStore';
-import { useSurfaceComponentStore } from '@/app/scenes/apps/surface-component/surfaceComponentStore';
+import { useProductAppRuntimeStore } from '@/app/scenes/apps/product-app-runtime/productAppRuntimeStore';
 import { useWorkStore } from '@/app/agentic-os/work/data/workStore';
 import {
   appScopeFromWorkspacePath,
@@ -108,14 +108,14 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
   }, [state?.layout, toggleRightPanel]);
 
   // Read the current product app id for App Studio.
-  const storeStudioAppId = useSurfaceComponentStore((s) =>
+  const storeStudioAppId = useProductAppRuntimeStore((s) =>
     activeSession?.sessionId ? s.sessionAppIds[activeSession.sessionId] : undefined
   );
   const agentSessionBinding = activeSession?.customMetadata?.agentSessionBinding;
   const activeSessionAppScope =
     agentSessionBinding?.scope ??
     workSessionScopeToAppScope(activeSession?.sessionId, works);
-  const studioAppId = agentSessionBinding?.subject.kind === 'surface-component'
+  const studioAppId = agentSessionBinding?.subject.kind === 'product-app'
     ? agentSessionBinding.subject.id
     : storeStudioAppId;
 
@@ -197,16 +197,12 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
     if (!profile.auxTabs.autoOpen) return;
 
     // Map profile id -> tab title. Keeps the profile free of i18n imports.
-    const tabTitle =
-      profile.id === 'component-studio' ? 'Component Studio' : 'App Studio';
     const extra: Record<string, unknown> = {
-      ...(profile.id === 'component-studio'
-        ? { componentId: studioAppId }
-        : { appId: studioAppId }),
-      tabTitle,
+      appId: studioAppId,
+      tabTitle: 'App Studio',
       agentSessionBinding,
       scope: activeSessionAppScope,
-      surfaceComponentWorkbench: activeSession.customMetadata?.surfaceComponentWorkbench,
+      productAppRuntime: activeSession.customMetadata?.productAppRuntime,
       customMetadata: activeSession.customMetadata,
     };
 
@@ -293,7 +289,7 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
     // We track by profile.id to avoid re-running on every render.
     if (lastCleanedProfileIdRef.current === profile.id) return;
 
-    // Don't close — these belong to the CURRENT profile.
+    // Do not close these; they belong to the CURRENT profile.
     // The cleanup runs for the PREVIOUS profile's exclusive types.
     // We detect "away" by the fact that a new profile.id differs from what we
     // stored. The actual close happens on the next profile change.
@@ -304,11 +300,7 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
     if (!isInitializedRef.current) return;
     if (!activeSession?.sessionId) return;
 
-    const workbenchTabTypes = [
-      'surface-component-runner',
-      'surface-component-workbench-tab',
-      'surface-component-diagnostics',
-    ];
+    const productAppRuntimeTabTypes = ['product-app-runtime'];
     const currentOwnedTypes = profile.auxTabs.exclusiveTabTypes || [];
     const maxPasses = 48;
     const groupIds: EditorGroupId[] = ['primary', 'secondary', 'tertiary'];
@@ -323,7 +315,7 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
               ? store.secondaryGroup
               : store.tertiaryGroup;
         const tab = group?.tabs?.find((t: any) => {
-          if (!workbenchTabTypes.includes(t.content.type)) return false;
+          if (!productAppRuntimeTabTypes.includes(t.content.type)) return false;
           const bound = t.content.metadata?.boundSessionId;
           const ownedByCurrentProfile = currentOwnedTypes.includes(t.content.type);
           return !ownedByCurrentProfile || (typeof bound === 'string' && bound !== activeSession.sessionId);
@@ -366,43 +358,6 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
         const tab = group?.tabs?.find((t: any) => {
           if (t.content.type !== 'app-studio') return false;
           const bound = t.content.metadata?.appStudioSessionId;
-          return typeof bound === 'string' && bound !== activeSession.sessionId;
-        });
-        if (tab) {
-          store.closeTab(tab.id, groupId, { forceRemove: true });
-          closedOne = true;
-          break;
-        }
-      }
-      if (!closedOne) break;
-    }
-  }, [activeSession?.sessionId, profile]);
-
-  /**
-   * Non-ComponentStudio sessions: close any component-studio tabs that don't belong
-   * to the active session. Mirrors the app-studio cleanup above.
-   */
-  useEffect(() => {
-    if (!isInitializedRef.current) return;
-    if (!activeSession?.sessionId) return;
-
-    if (profile.auxTabs.exclusiveTabTypes?.includes('component-studio')) return;
-
-    const maxPasses = 48;
-    const groupIds: EditorGroupId[] = ['primary', 'secondary', 'tertiary'];
-    for (let pass = 0; pass < maxPasses; pass++) {
-      const store = useAgentCanvasStore.getState() as any;
-      let closedOne = false;
-      for (const groupId of groupIds) {
-        const group =
-          groupId === 'primary'
-            ? store.primaryGroup
-            : groupId === 'secondary'
-              ? store.secondaryGroup
-              : store.tertiaryGroup;
-        const tab = group?.tabs?.find((t: any) => {
-          if (t.content.type !== 'component-studio') return false;
-          const bound = t.content.metadata?.componentStudioSessionId;
           return typeof bound === 'string' && bound !== activeSession.sessionId;
         });
         if (tab) {

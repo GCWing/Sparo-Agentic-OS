@@ -1,8 +1,11 @@
 use std::sync::Arc;
 
 use bitfun_core::agentic::coordination::{ConversationCoordinator, DialogScheduler};
-use bitfun_core::agentic_os::work::{default_work_store, AgenticWorkRuntimeBridge, WorkService};
+use bitfun_core::agentic_os::work::{
+    default_work_store, AgenticWorkRuntimeBridge, WorkExecutionGraph, WorkId, WorkService,
+};
 use bitfun_core::command::agentic_os as agentic_os_command;
+use serde::{Deserialize, Serialize};
 use tauri::State;
 
 fn work_service(
@@ -35,6 +38,30 @@ pub async fn agentic_os_get_work(
         .map_err(|error| error.to_string())
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgenticOsGetWorkExecutionGraphRequest {
+    pub work_id: WorkId,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgenticOsGetWorkExecutionGraphResponse {
+    pub graph: WorkExecutionGraph,
+}
+
+#[tauri::command]
+pub async fn agentic_os_get_work_execution_graph(
+    request: AgenticOsGetWorkExecutionGraphRequest,
+) -> Result<AgenticOsGetWorkExecutionGraphResponse, String> {
+    let service = WorkService::new(default_work_store().map_err(|error| error.to_string())?);
+    let graph = service
+        .execution_graph(&request.work_id)
+        .await
+        .map_err(|error| error.to_string())?;
+    Ok(AgenticOsGetWorkExecutionGraphResponse { graph })
+}
+
 #[tauri::command]
 pub async fn agentic_os_create_work(
     coordinator: State<'_, Arc<ConversationCoordinator>>,
@@ -55,6 +82,18 @@ pub async fn agentic_os_resolve_app_work(
 ) -> Result<agentic_os_command::AgenticOsResolveAppWorkResponse, String> {
     let service = work_service(&coordinator, &scheduler)?;
     agentic_os_command::resolve_app_work_with_service(&service, request)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn agentic_os_resolve_component_work(
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
+    scheduler: State<'_, Arc<DialogScheduler>>,
+    request: agentic_os_command::AgenticOsResolveComponentWorkRequest,
+) -> Result<agentic_os_command::AgenticOsResolveComponentWorkResponse, String> {
+    let service = work_service(&coordinator, &scheduler)?;
+    agentic_os_command::resolve_component_work_with_service(&service, request)
         .await
         .map_err(|error| error.to_string())
 }
@@ -121,6 +160,24 @@ pub async fn agentic_os_control_work(
 ) -> Result<agentic_os_command::AgenticOsControlWorkResponse, String> {
     let service = work_service(&coordinator, &scheduler)?;
     agentic_os_command::control_work_with_service(&service, request)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn agentic_os_record_studio_preview_result(
+    request: agentic_os_command::AgenticOsRecordStudioPreviewResultRequest,
+) -> Result<agentic_os_command::AgenticOsRecordStudioPreviewResultResponse, String> {
+    agentic_os_command::record_studio_preview_result(request)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn agentic_os_record_studio_validation_result(
+    request: agentic_os_command::AgenticOsRecordStudioValidationResultRequest,
+) -> Result<agentic_os_command::AgenticOsRecordStudioValidationResultResponse, String> {
+    agentic_os_command::record_studio_validation_result(request)
         .await
         .map_err(|error| error.to_string())
 }

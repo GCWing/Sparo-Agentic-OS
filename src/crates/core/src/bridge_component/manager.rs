@@ -196,10 +196,7 @@ fn normalize_consumer(mut consumer: BridgeComponentConsumer) -> BridgeComponentC
     if consumer.id.trim().is_empty() {
         consumer.id = match consumer.kind {
             BridgeComponentConsumerKind::AgentComponent => "agent-component".to_string(),
-            BridgeComponentConsumerKind::SurfaceComponent
-            | BridgeComponentConsumerKind::SurfaceComponentBackend => {
-                "surface-component".to_string()
-            }
+            BridgeComponentConsumerKind::ProductAppRuntime => "product-app-runtime".to_string(),
             BridgeComponentConsumerKind::Management => "management".to_string(),
             BridgeComponentConsumerKind::System => "system".to_string(),
         };
@@ -1115,5 +1112,95 @@ fn capture_bridge_event_result(
     if let BridgeComponentEvent::RunFailed { error } = event {
         *output = Some(error.clone());
         *failed = true;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::{
+        BridgeComponentAction, BridgeComponentKind, BridgeComponentLifecycle,
+        BridgeComponentPermissions, BridgeComponentRuntime, BridgeComponentSurfaces,
+    };
+    use super::*;
+    use serde_json::json;
+
+    fn manifest_with_usable_by(
+        usable_by: Vec<BridgeComponentConsumerKind>,
+    ) -> BridgeComponentManifest {
+        BridgeComponentManifest {
+            schema_version: BRIDGE_COMPONENT_SCHEMA_VERSION,
+            id: "test-bridge".to_string(),
+            name: "Test Bridge".to_string(),
+            description: "Test Bridge".to_string(),
+            kind: BridgeComponentKind::Sdk,
+            runtime: BridgeComponentRuntime {
+                language: BridgeComponentRuntimeLanguage::JavaScript,
+                entry: "worker.js".to_string(),
+                package_manager: None,
+            },
+            surfaces: BridgeComponentSurfaces::default(),
+            capabilities: vec![BridgeComponentCapability {
+                id: "test.capability".to_string(),
+                title: "Test Capability".to_string(),
+                description: "Test Capability".to_string(),
+                category: "test".to_string(),
+                actions: vec!["start".to_string()],
+                streaming: false,
+                cancelable: false,
+                resumable: false,
+                usable_by,
+                input_schema: json!({ "type": "object" }),
+                output_schema: json!({ "type": "object" }),
+            }],
+            actions: vec![BridgeComponentAction {
+                name: "start".to_string(),
+                description: "Start".to_string(),
+                input_schema: json!({ "type": "object" }),
+                output_schema: json!({ "type": "object" }),
+                streaming: false,
+                cancelable: false,
+                resumable: false,
+            }],
+            tools: Vec::new(),
+            lifecycle: BridgeComponentLifecycle::default(),
+            permissions: BridgeComponentPermissions::default(),
+        }
+    }
+
+    fn product_runtime_consumer() -> BridgeComponentConsumer {
+        BridgeComponentConsumer {
+            kind: BridgeComponentConsumerKind::ProductAppRuntime,
+            id: "product-app-runtime:work-1:runtime-1".to_string(),
+            session_id: None,
+            turn_id: None,
+        }
+    }
+
+    #[test]
+    fn product_app_runtime_permission_requires_explicit_usable_by() {
+        let legacy_manifest = manifest_with_usable_by(vec![
+            BridgeComponentConsumerKind::AgentComponent,
+            BridgeComponentConsumerKind::Management,
+        ]);
+        let consumer = product_runtime_consumer();
+
+        assert!(validate_consumer_permission(
+            &legacy_manifest,
+            Some("test.capability"),
+            "start",
+            &consumer,
+        )
+        .is_err());
+
+        let runtime_manifest =
+            manifest_with_usable_by(vec![BridgeComponentConsumerKind::ProductAppRuntime]);
+
+        assert!(validate_consumer_permission(
+            &runtime_manifest,
+            Some("test.capability"),
+            "start",
+            &consumer,
+        )
+        .is_ok());
     }
 }

@@ -71,6 +71,7 @@ fn tool_context(workspace_path: Option<String>) -> CommandResult<ToolUseContext>
         dialog_turn_id: None,
         workspace: Some(workspace),
         custom_data: HashMap::new(),
+        app_studio: None,
         computer_use_host: None,
         cancellation_token: None,
         runtime_tool_restrictions: ToolRuntimeRestrictions::default(),
