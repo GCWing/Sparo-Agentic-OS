@@ -23,6 +23,7 @@ use crate::api::product_app_runtime_host_adapter::{
     HostAdapterRuntimeLogRequest, HostAdapterRuntimeState, HostAdapterRuntimeStatus,
     HostAdapterWorkerCallRequest,
 };
+use bitfun_core::agent_component::AgentComponentManager;
 use bitfun_core::agentic::coordination::{ConversationCoordinator, DialogScheduler};
 use bitfun_core::agentic_os::work::{
     default_work_store, RuntimeInstanceRef, WorkAppRef, WorkId, WorkRecord, WorkStore,
@@ -34,9 +35,11 @@ use bitfun_core::app_platform::{
     ProductAppRuntimeIssueSeverity, ProductAppRuntimeLogLevel, ProductAppRuntimeState,
     ResolvedProductApp,
 };
-use bitfun_core::bridge_component::BridgeComponentRunResult;
+use bitfun_core::bridge_component::{BridgeComponentManager, BridgeComponentRunResult};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{AppHandle, State};
 
@@ -440,6 +443,7 @@ struct ProductAppRuntimeBackendBinding {
     id: String,
     kind: ProductAppRuntimeBackendKind,
     component_id: String,
+    component_package_dir: Option<String>,
     capability_id: Option<String>,
     role: String,
     session_policy: ProductAppRuntimeBackendSessionPolicy,
@@ -1442,7 +1446,9 @@ async fn resolve_product_app_host_surface_id(
                     app.app.id, app.app.version, product_app_surface.id
                 )
             })?;
+        register_private_product_app_runtime_components(app).await?;
         let host_id = runtime_instance.id.clone();
+        let backends = build_private_surface_backends(app, product_app_surface, &app.components)?;
         host_adapter_manager
             .upsert_runtime_host(
                 &host_id,
@@ -1453,10 +1459,7 @@ async fn resolve_product_app_host_surface_id(
                 app.app.tags.clone(),
                 source,
                 HostAdapterCorePermissions::default(),
-                host_adapter_backends_from_product_app_runtime(build_private_surface_backends(
-                    product_app_surface,
-                    &app.components,
-                )),
+                host_adapter_backends_from_product_app_runtime(backends),
                 Some(host_adapter_interaction_from_product_app_runtime(
                     build_product_app_runtime_interaction(&app.app, product_app_surface),
                 )),
@@ -1509,10 +1512,112 @@ fn validate_private_surface_ref(
     Ok(())
 }
 
+fn private_component_source_dir(
+    app: &ResolvedProductApp,
+    component: &ComponentDefinition,
+) -> Result<Option<PathBuf>, String> {
+    if component.owner_app.is_none() {
+        return Ok(None);
+    }
+    let package_dir = app.package_dir.as_ref().ok_or_else(|| {
+        format!(
+            "Product App {}@{} has no package directory for private component {}",
+            app.app.id, app.app.version, component.id
+        )
+    })?;
+    let source_dir = package_dir
+        .join("components")
+        .join(component.kind.path_segment())
+        .join(&component.id)
+        .join("source");
+    if !source_dir.is_dir() {
+        return Err(format!(
+            "Product App {}@{} private component {} must include source/ at {}",
+            app.app.id,
+            app.app.version,
+            component.id,
+            source_dir.display()
+        ));
+    }
+    Ok(Some(source_dir))
+}
+
+fn collect_private_bridge_package_dirs(
+    app: &ResolvedProductApp,
+) -> Result<HashMap<String, PathBuf>, String> {
+    let mut dirs = HashMap::new();
+    for component in &app.components {
+        if component.kind != ComponentKind::Bridge || component.owner_app.is_none() {
+            continue;
+        }
+        if let Some(source_dir) = private_component_source_dir(app, component)? {
+            dirs.insert(component.id.clone(), source_dir);
+        }
+    }
+    Ok(dirs)
+}
+
+async fn register_private_product_app_runtime_components(
+    app: &ResolvedProductApp,
+) -> Result<(), String> {
+    let private_bridge_dirs = collect_private_bridge_package_dirs(app)?;
+    for (component_id, package_dir) in &private_bridge_dirs {
+        BridgeComponentManager::register_private_package_dir(component_id, package_dir.clone())
+            .map_err(|error| {
+                format!(
+                    "Failed to register private Bridge Component {} for Product App {}@{}: {}",
+                    component_id, app.app.id, app.app.version, error
+                )
+            })?;
+    }
+
+    for component in &app.components {
+        if component.kind != ComponentKind::Agent || component.owner_app.is_none() {
+            continue;
+        }
+        let Some(source_dir) = private_component_source_dir(app, component)? else {
+            continue;
+        };
+        let package =
+            AgentComponentManager::load_package_from_dir(&source_dir).map_err(|error| {
+                format!(
+                    "Failed to load private Agent Component {} for Product App {}@{}: {}",
+                    component.id, app.app.id, app.app.version, error
+                )
+            })?;
+        if package.manifest.id != component.id {
+            return Err(format!(
+                "Private Agent Component package id '{}' does not match component '{}'",
+                package.manifest.id, component.id
+            ));
+        }
+        AgentComponentManager::register_package(&package).map_err(|error| {
+            format!(
+                "Failed to register private Agent Component {} for Product App {}@{}: {}",
+                component.id, app.app.id, app.app.version, error
+            )
+        })?;
+        AgentComponentManager::register_runtime_tools_for_package(
+            &package,
+            private_bridge_dirs.clone(),
+        )
+        .await
+        .map_err(|error| {
+            format!(
+                "Failed to register private Agent Component tools {} for Product App {}@{}: {}",
+                component.id, app.app.id, app.app.version, error
+            )
+        })?;
+    }
+
+    Ok(())
+}
+
 fn build_private_surface_backends(
+    app: &ResolvedProductApp,
     product_app_surface: &ComponentDefinition,
     components: &[ComponentDefinition],
-) -> Vec<ProductAppRuntimeBackendBinding> {
+) -> Result<Vec<ProductAppRuntimeBackendBinding>, String> {
     product_app_surface
         .dependencies
         .iter()
@@ -1522,10 +1627,24 @@ fn build_private_surface_backends(
                 ComponentKind::Bridge => ProductAppRuntimeBackendKind::BridgeComponent,
                 _ => return None,
             };
-            Some(ProductAppRuntimeBackendBinding {
+            Some((dependency, kind))
+        })
+        .map(|(dependency, kind)| {
+            let resolved_component = components.iter().find(|component| {
+                component.id == dependency.component_id && component.kind == dependency.kind
+            });
+            let component_package_dir = resolved_component
+                .map(|component| {
+                    private_component_source_dir(app, component)
+                        .map(|path| path.map(|path| path.to_string_lossy().to_string()))
+                })
+                .transpose()?
+                .flatten();
+            Ok(ProductAppRuntimeBackendBinding {
                 id: backend_binding_id(dependency),
                 kind,
                 component_id: dependency.component_id.clone(),
+                component_package_dir,
                 capability_id: dependency.capabilities.first().cloned(),
                 role: dependency.role.clone(),
                 session_policy: ProductAppRuntimeBackendSessionPolicy::PerEntity,
@@ -1646,6 +1765,7 @@ fn host_adapter_backends_from_product_app_runtime(
             id: backend.id,
             kind: host_adapter_backend_kind_from_product_app_runtime(backend.kind),
             component_id: backend.component_id,
+            component_package_dir: backend.component_package_dir,
             capability_id: backend.capability_id,
             role: backend.role,
             session_policy: host_adapter_backend_session_policy_from_product_app_runtime(
@@ -1785,8 +1905,9 @@ mod tests {
     use bitfun_core::app_platform::{
         AppCatalogVisibility, AppDataLifecyclePolicy, AppIconSpec, AppInstallScope,
         AppInteractionModel, AppPermissionSummary, AppSurfaceMode, AppTruthSource,
-        AppWorkMultiplicity, CapabilityRef, ComponentPackageSource, ComponentSource,
-        ComponentVisibility, SurfaceRef,
+        AppWorkMultiplicity, CapabilityRef, ComponentLock, ComponentOwnerApp,
+        ComponentPackageSource, ComponentSource, ComponentVisibility, ProductAppCatalogEntry,
+        SurfaceRef,
     };
 
     fn test_app() -> AppDefinition {
@@ -1801,11 +1922,11 @@ mod tests {
             work_object_kinds: Vec::new(),
             data_lifecycle: Some(AppDataLifecyclePolicy::default()),
             truth_source: None,
-            primary_surface: SurfaceRef {
+            primary_surface: Some(SurfaceRef {
                 component_id: "sample-surface".to_string(),
                 surface_id: Some("primary".to_string()),
-            },
-            primary_surface_mode: AppSurfaceMode::SidecarLinked,
+            }),
+            primary_surface_mode: Some(AppSurfaceMode::SidecarLinked),
             components: Vec::new(),
             component_lock_id: "sha256:lock".to_string(),
             permissions: AppPermissionSummary::default(),
@@ -1871,6 +1992,49 @@ mod tests {
         }
     }
 
+    fn test_resolved_app(components: Vec<ComponentDefinition>) -> ResolvedProductApp {
+        let app = test_app();
+        let lock = ComponentLock {
+            app_id: app.id.clone(),
+            version: app.version.clone(),
+            lock_version: 1,
+            permission_digest: "sha256:permission".to_string(),
+            component_graph_digest: "sha256:components".to_string(),
+            resolved_components: Vec::new(),
+        };
+        let component_lock_digest = lock.digest();
+        ResolvedProductApp {
+            app: app.clone(),
+            components,
+            lock,
+            catalog_entry: ProductAppCatalogEntry {
+                app,
+                component_lock_digest,
+                package_digest: None,
+                update_available: false,
+                installed_component_lock_digest: None,
+                available_component_lock_digest: None,
+                installed_package_digest: None,
+                available_package_digest: None,
+                catalog_release_id: None,
+                catalog_release_label: None,
+                catalog_release_notes: None,
+                catalog_published_at_ms: None,
+                dependency_summary: String::new(),
+                installed: false,
+                discoverable: false,
+                library_sources: Vec::new(),
+                catalog_source: None,
+                catalog_issues: Vec::new(),
+                management: Default::default(),
+                rehearsal_plan: None,
+                eval_plan: None,
+            },
+            private_surface_sources: Default::default(),
+            package_dir: None,
+        }
+    }
+
     #[test]
     fn validates_private_surface_refs_against_package_identity() {
         let app = test_app();
@@ -1900,11 +2064,14 @@ mod tests {
     #[test]
     fn private_surface_dependencies_become_runtime_backends() {
         let components = vec![test_surface(), test_agent_component()];
-        let backends = build_private_surface_backends(&test_surface(), &components);
+        let app = test_resolved_app(components.clone());
+        let backends = build_private_surface_backends(&app, &test_surface(), &components)
+            .expect("runtime backends");
 
         assert_eq!(backends.len(), 1);
         assert_eq!(backends[0].id, "assistant");
         assert_eq!(backends[0].component_id, "sample-agent");
+        assert_eq!(backends[0].component_package_dir, None);
         assert_eq!(backends[0].capability_id.as_deref(), Some("agent.run"));
         assert_eq!(
             backends[0]
@@ -1917,6 +2084,41 @@ mod tests {
         assert_eq!(
             backends[0].session_policy,
             ProductAppRuntimeBackendSessionPolicy::PerEntity
+        );
+    }
+
+    #[test]
+    fn app_private_dependencies_carry_component_package_dir() {
+        let package_dir = std::env::temp_dir().join(format!(
+            "sparo-product-app-runtime-api-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let source_dir = package_dir
+            .join("components")
+            .join(ComponentKind::Agent.path_segment())
+            .join("sample-agent")
+            .join("source");
+        std::fs::create_dir_all(&source_dir).expect("create private component source dir");
+
+        let mut agent = test_agent_component();
+        agent.owner_app = Some(ComponentOwnerApp {
+            app_id: "sample-app".to_string(),
+            app_version: "1.0.0".to_string(),
+        });
+        agent.implementation_ref = Some("app://sample-app@1.0.0/agents/sample-agent".to_string());
+
+        let components = vec![test_surface(), agent];
+        let mut app = test_resolved_app(components.clone());
+        app.package_dir = Some(package_dir.clone());
+        let backends = build_private_surface_backends(&app, &test_surface(), &components)
+            .expect("runtime backends");
+        let expected_package_dir = source_dir.to_string_lossy().to_string();
+        let _ = std::fs::remove_dir_all(&package_dir);
+
+        assert_eq!(backends.len(), 1);
+        assert_eq!(
+            backends[0].component_package_dir.as_deref(),
+            Some(expected_package_dir.as_str())
         );
     }
 

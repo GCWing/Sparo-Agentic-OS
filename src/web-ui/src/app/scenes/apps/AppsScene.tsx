@@ -65,8 +65,9 @@ import { AppDetailScene } from './app-detail/AppDetailScene';
 import './app-detail/AppDetailScene.scss';
 import { useProductAppRuntimeStore } from './product-app-runtime/productAppRuntimeStore';
 import { productAppRuntimeHostAPI } from '@/infrastructure/api/service-api/ProductAppRuntimeHostAPI';
-import { mergeProductAppLibrary } from './productAppLibrary';
+import { mergeProductAppLibrary, productAppLibraryKey } from './productAppLibrary';
 import { AppIcon } from './AppIcon';
+import { NATIVE_SYSTEM_APP_CATALOG, withShellNativeAppIcons } from './nativeSystemCatalog';
 import './AppsScene.scss';
 
 const log = createLogger('AppsScene');
@@ -74,6 +75,8 @@ const log = createLogger('AppsScene');
 const PRODUCT_FILTERS: ProductAppFilter[] = ['all', 'installed', 'discover', 'conversation', 'interactive'];
 
 const MANAGE_SORT_KEYS: ManageSortKey[] = ['attention', 'name', 'status', 'scope'];
+const HOME_APP_FIRST_REVEAL_DELAY_MS = 40;
+const HOME_APP_REVEAL_INTERVAL_MS = 120;
 
 const NATIVE_AGENT_CHOICES_BY_APP_ID: Record<string, 'agentic' | 'Cowork' | 'Design'> = {
   'prime-builder': 'agentic',
@@ -305,67 +308,310 @@ export const AppsScene: React.FC = () => {
   const runningProductAppRuntimeIds = useProductAppRuntimeStore((state) => state.runningWorkerIds);
   const markProductAppRuntimeWorkerStopped = useProductAppRuntimeStore((state) => state.markWorkerStopped);
 
-  const [apps, setApps] = useState<ProductAppCatalogEntry[]>([]);
-  const [nativeApps, setNativeApps] = useState<NativeAppCatalogEntry[]>([]);
+  const [homeApps, setHomeApps] = useState<ProductAppCatalogEntry[]>([]);
+  const [visibleHomeApps, setVisibleHomeApps] = useState<ProductAppCatalogEntry[]>([]);
+  const [homeRevealPendingCount, setHomeRevealPendingCount] = useState(0);
+  const [visibleDiscoverApps, setVisibleDiscoverApps] = useState<ProductAppCatalogEntry[]>([]);
+  const [discoverRevealPendingCount, setDiscoverRevealPendingCount] = useState(0);
+  const [libraryApps, setLibraryApps] = useState<ProductAppCatalogEntry[]>([]);
+  const [nativeApps, setNativeApps] = useState<NativeAppCatalogEntry[]>(NATIVE_SYSTEM_APP_CATALOG);
   const [components, setComponents] = useState<ComponentDefinition[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [libraryLoaded, setLibraryLoaded] = useState(false);
+  const [componentsLoaded, setComponentsLoaded] = useState(false);
+  const [nativeLoading, setNativeLoading] = useState(false);
+  const [productHomeLoading, setProductHomeLoading] = useState(true);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [componentsLoading, setComponentsLoading] = useState(false);
   const [launchingAppId, setLaunchingAppId] = useState<string | null>(null);
   const [stoppingAppId, setStoppingAppId] = useState<string | null>(null);
   const [managingAppId, setManagingAppId] = useState<string | null>(null);
   const [closingResumeWorkId, setClosingResumeWorkId] = useState<string | null>(null);
   const [flippedAppId, setFlippedAppId] = useState<string | null>(null);
   const [workspaceLaunchApp, setWorkspaceLaunchApp] = useState<ProductAppCatalogEntry | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const catalogLoadIdRef = useRef(0);
+  const [nativeLoadError, setNativeLoadError] = useState<string | null>(null);
+  const [productHomeLoadError, setProductHomeLoadError] = useState<string | null>(null);
+  const [libraryLoadError, setLibraryLoadError] = useState<string | null>(null);
+  const [componentsLoadError, setComponentsLoadError] = useState<string | null>(null);
+  const nativeLoadIdRef = useRef(0);
+  const productHomeLoadIdRef = useRef(0);
+  const libraryLoadIdRef = useRef(0);
+  const componentsLoadIdRef = useRef(0);
   const pageRetryRef = useRef<string | null>(null);
+  const homeRevealQueueRef = useRef<ProductAppCatalogEntry[]>([]);
+  const discoverRevealQueueRef = useRef<ProductAppCatalogEntry[]>([]);
+  const visibleHomeAppKeysRef = useRef<Set<string>>(new Set());
+  const visibleDiscoverAppKeysRef = useRef<Set<string>>(new Set());
+  const homeRevealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const discoverRevealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const loadCatalog = useCallback(async (options: { force?: boolean } = {}) => {
-    const loadId = catalogLoadIdRef.current + 1;
-    catalogLoadIdRef.current = loadId;
-    setLoading(true);
-    setLoadError(null);
-
-    const [catalogResult, componentsResult] = await Promise.allSettled([
-      appCatalogAPI.listAppCatalog({ force: options.force }),
-      appCatalogAPI.listComponents({ force: options.force }),
-    ]);
-
-    if (catalogLoadIdRef.current !== loadId) return;
-
-    const errors: string[] = [];
-    if (catalogResult.status === 'fulfilled') {
-      setNativeApps(catalogResult.value.native);
-      setApps(mergeProductAppLibrary(catalogResult.value.productApps));
-    } else {
-      log.error('Failed to load App Center catalog', { error: catalogResult.reason });
-      errors.push(errorToMessage(catalogResult.reason));
+  const clearHomeRevealTimer = useCallback(() => {
+    if (homeRevealTimerRef.current) {
+      clearTimeout(homeRevealTimerRef.current);
+      homeRevealTimerRef.current = null;
     }
-
-    if (componentsResult.status === 'fulfilled') {
-      setComponents(componentsResult.value);
-    } else {
-      log.error('Failed to load Component catalog', { error: componentsResult.reason });
-      errors.push(errorToMessage(componentsResult.reason));
-    }
-
-    setLoadError(errors.length ? errors.join('\n') : null);
-    setLoading(false);
   }, []);
 
-  useEffect(() => {
-    void loadCatalog();
-  }, [loadCatalog]);
+  const clearDiscoverRevealTimer = useCallback(() => {
+    if (discoverRevealTimerRef.current) {
+      clearTimeout(discoverRevealTimerRef.current);
+      discoverRevealTimerRef.current = null;
+    }
+  }, []);
+
+  const revealNextHomeApp = useCallback(() => {
+    const next = homeRevealQueueRef.current.shift();
+    if (!next) {
+      setHomeRevealPendingCount(0);
+      homeRevealTimerRef.current = null;
+      return;
+    }
+
+    setVisibleHomeApps((current) => {
+      const nextKey = productAppLibraryKey(next);
+      const nextVisible = [
+        ...current.filter((app) => productAppLibraryKey(app) !== nextKey),
+        next,
+      ];
+      visibleHomeAppKeysRef.current = new Set(nextVisible.map(productAppLibraryKey));
+      return nextVisible;
+    });
+    setHomeRevealPendingCount(homeRevealQueueRef.current.length);
+
+    if (homeRevealQueueRef.current.length > 0) {
+      homeRevealTimerRef.current = setTimeout(revealNextHomeApp, HOME_APP_REVEAL_INTERVAL_MS);
+    } else {
+      homeRevealTimerRef.current = null;
+    }
+  }, []);
+
+  const revealNextDiscoverApp = useCallback(() => {
+    const next = discoverRevealQueueRef.current.shift();
+    if (!next) {
+      setDiscoverRevealPendingCount(0);
+      discoverRevealTimerRef.current = null;
+      return;
+    }
+
+    setVisibleDiscoverApps((current) => {
+      const nextKey = productAppLibraryKey(next);
+      const nextVisible = [
+        ...current.filter((app) => productAppLibraryKey(app) !== nextKey),
+        next,
+      ];
+      visibleDiscoverAppKeysRef.current = new Set(nextVisible.map(productAppLibraryKey));
+      return nextVisible;
+    });
+    setDiscoverRevealPendingCount(discoverRevealQueueRef.current.length);
+
+    if (discoverRevealQueueRef.current.length > 0) {
+      discoverRevealTimerRef.current = setTimeout(revealNextDiscoverApp, HOME_APP_REVEAL_INTERVAL_MS);
+    } else {
+      discoverRevealTimerRef.current = null;
+    }
+  }, []);
+
+  const beginHomeAppReveal = useCallback((nextApps: ProductAppCatalogEntry[]) => {
+    clearHomeRevealTimer();
+    const nextByKey = new Map(nextApps.map((app) => [productAppLibraryKey(app), app]));
+    const retainedKeys = new Set(
+      [...visibleHomeAppKeysRef.current].filter((key) => nextByKey.has(key)),
+    );
+
+    visibleHomeAppKeysRef.current = retainedKeys;
+    setVisibleHomeApps((current) => current
+      .filter((app) => nextByKey.has(productAppLibraryKey(app)))
+      .map((app) => nextByKey.get(productAppLibraryKey(app)) ?? app));
+
+    const revealQueue = nextApps.filter((app) => !retainedKeys.has(productAppLibraryKey(app)));
+    homeRevealQueueRef.current = revealQueue;
+    setHomeRevealPendingCount(revealQueue.length);
+
+    if (revealQueue.length > 0) {
+      homeRevealTimerRef.current = setTimeout(revealNextHomeApp, HOME_APP_FIRST_REVEAL_DELAY_MS);
+    }
+  }, [clearHomeRevealTimer, revealNextHomeApp]);
+
+  const beginDiscoverAppReveal = useCallback((nextApps: ProductAppCatalogEntry[]) => {
+    clearDiscoverRevealTimer();
+    const nextByKey = new Map(nextApps.map((app) => [productAppLibraryKey(app), app]));
+    const retainedKeys = new Set(
+      [...visibleDiscoverAppKeysRef.current].filter((key) => nextByKey.has(key)),
+    );
+
+    visibleDiscoverAppKeysRef.current = retainedKeys;
+    setVisibleDiscoverApps((current) => current
+      .filter((app) => nextByKey.has(productAppLibraryKey(app)))
+      .map((app) => nextByKey.get(productAppLibraryKey(app)) ?? app));
+
+    const revealQueue = nextApps.filter((app) => !retainedKeys.has(productAppLibraryKey(app)));
+    discoverRevealQueueRef.current = revealQueue;
+    setDiscoverRevealPendingCount(revealQueue.length);
+
+    if (revealQueue.length > 0) {
+      discoverRevealTimerRef.current = setTimeout(revealNextDiscoverApp, HOME_APP_FIRST_REVEAL_DELAY_MS);
+    }
+  }, [clearDiscoverRevealTimer, revealNextDiscoverApp]);
+
+  const loadNativeCatalog = useCallback(async (options: { force?: boolean; silent?: boolean } = {}) => {
+    const loadId = nativeLoadIdRef.current + 1;
+    nativeLoadIdRef.current = loadId;
+    const silent = options.silent === true;
+    if (!silent) {
+      setNativeLoading(true);
+      setNativeLoadError(null);
+    }
+    try {
+      const native = await appCatalogAPI.listNativeAppCatalog({ force: options.force });
+      if (nativeLoadIdRef.current !== loadId) return;
+      if (native.length === 0) {
+        log.warn('Native App Center catalog was empty; keeping shell catalog');
+        if (!silent) {
+          setNativeLoadError('Native App Center catalog is empty.');
+        }
+        return;
+      }
+      setNativeApps(withShellNativeAppIcons(native));
+      setNativeLoadError(null);
+    } catch (error) {
+      if (nativeLoadIdRef.current !== loadId) return;
+      log.error('Failed to load native App Center catalog', { error });
+      if (!silent) {
+        setNativeLoadError(errorToMessage(error));
+      }
+    } finally {
+      if (!silent && nativeLoadIdRef.current === loadId) setNativeLoading(false);
+    }
+  }, []);
+
+  const loadProductHomeCatalog = useCallback(async (options: { force?: boolean } = {}) => {
+    const loadId = productHomeLoadIdRef.current + 1;
+    productHomeLoadIdRef.current = loadId;
+    setProductHomeLoading(true);
+    setProductHomeLoadError(null);
+    try {
+      const catalog = await appCatalogAPI.listProductAppHomeCatalog({ force: options.force });
+      if (productHomeLoadIdRef.current !== loadId) return;
+      setHomeApps(catalog.apps);
+      beginHomeAppReveal(catalog.apps);
+    } catch (error) {
+      if (productHomeLoadIdRef.current !== loadId) return;
+      log.error('Failed to load Product App home catalog', { error });
+      setProductHomeLoadError(errorToMessage(error));
+    } finally {
+      if (productHomeLoadIdRef.current === loadId) setProductHomeLoading(false);
+    }
+  }, [beginHomeAppReveal]);
+
+  const loadProductAppLibrary = useCallback(async (options: { force?: boolean } = {}) => {
+    const loadId = libraryLoadIdRef.current + 1;
+    libraryLoadIdRef.current = loadId;
+    setLibraryLoading(true);
+    setLibraryLoadError(null);
+    try {
+      const library = await appCatalogAPI.listProductAppLibrary({ force: options.force });
+      if (libraryLoadIdRef.current !== loadId) return;
+      const nextLibraryApps = mergeProductAppLibrary(library);
+      setLibraryApps(nextLibraryApps);
+      setLibraryLoaded(true);
+      beginDiscoverAppReveal(nextLibraryApps
+        .filter((app) => app.installed !== true)
+        .filter((app) => app.discoverable === true)
+        .filter((app) => !appHasCatalogIssues(app)));
+    } catch (error) {
+      if (libraryLoadIdRef.current !== loadId) return;
+      log.error('Failed to load Product App library catalog', { error });
+      setLibraryLoadError(errorToMessage(error));
+    } finally {
+      if (libraryLoadIdRef.current === loadId) setLibraryLoading(false);
+    }
+  }, [beginDiscoverAppReveal]);
+
+  const loadComponents = useCallback(async (options: { force?: boolean } = {}) => {
+    const loadId = componentsLoadIdRef.current + 1;
+    componentsLoadIdRef.current = loadId;
+    setComponentsLoading(true);
+    setComponentsLoadError(null);
+    try {
+      const nextComponents = await appCatalogAPI.listComponents({ force: options.force });
+      if (componentsLoadIdRef.current !== loadId) return;
+      setComponents(nextComponents);
+      setComponentsLoaded(true);
+    } catch (error) {
+      if (componentsLoadIdRef.current !== loadId) return;
+      log.error('Failed to load Component catalog', { error });
+      setComponentsLoadError(errorToMessage(error));
+    } finally {
+      if (componentsLoadIdRef.current === loadId) setComponentsLoading(false);
+    }
+  }, []);
+
+  const loadCatalog = useCallback(async (options: { force?: boolean } = {}) => {
+    const loads: Array<Promise<void>> = [
+      loadNativeCatalog(options),
+      loadProductHomeCatalog(options),
+      loadProductAppLibrary(options),
+    ];
+    if (componentsLoaded || page === 'component-center' || selectedAppId) {
+      loads.push(loadComponents(options));
+    }
+    await Promise.allSettled(loads);
+  }, [
+    componentsLoaded,
+    loadComponents,
+    loadNativeCatalog,
+    loadProductAppLibrary,
+    loadProductHomeCatalog,
+    page,
+    selectedAppId,
+  ]);
 
   useEffect(() => {
-    if (loading) return;
-    const shouldRetryEmptyCatalog = !loadError && nativeApps.length === 0 && apps.length === 0 && components.length === 0;
-    const retryReason = loadError ?? (shouldRetryEmptyCatalog ? 'empty-catalog' : null);
+    void loadNativeCatalog({ silent: true });
+    void loadProductHomeCatalog().finally(() => {
+      void loadProductAppLibrary();
+    });
+  }, [loadNativeCatalog, loadProductAppLibrary, loadProductHomeCatalog]);
+
+  useEffect(() => () => {
+    clearHomeRevealTimer();
+    clearDiscoverRevealTimer();
+  }, [clearDiscoverRevealTimer, clearHomeRevealTimer]);
+
+  useEffect(() => {
+    if (nativeLoading || productHomeLoading) return;
+    const homeError = [nativeLoadError, productHomeLoadError].filter(Boolean).join('\n');
+    const shouldRetryEmptyCatalog = !homeError && nativeApps.length === 0 && homeApps.length === 0;
+    const retryReason = homeError || (shouldRetryEmptyCatalog ? 'empty-home-catalog' : null);
     if (!retryReason) return;
     const retryKey = `${page}:${retryReason}`;
     if (pageRetryRef.current === retryKey) return;
     pageRetryRef.current = retryKey;
-    void loadCatalog({ force: true });
-  }, [apps.length, components.length, loadCatalog, loadError, loading, nativeApps.length, page]);
+    void Promise.allSettled([
+      loadNativeCatalog({ force: true }),
+      loadProductHomeCatalog({ force: true }),
+    ]);
+  }, [
+    homeApps.length,
+    loadNativeCatalog,
+    loadProductHomeCatalog,
+    nativeApps.length,
+    nativeLoadError,
+    nativeLoading,
+    page,
+    productHomeLoadError,
+    productHomeLoading,
+  ]);
+
+  useEffect(() => {
+    if (page !== 'manage' || libraryLoaded || libraryLoading) return;
+    void loadProductAppLibrary();
+  }, [libraryLoaded, libraryLoading, loadProductAppLibrary, page]);
+
+  useEffect(() => {
+    const shouldLoadComponents = page === 'component-center' || selectedAppId !== null;
+    if (!shouldLoadComponents || componentsLoaded || componentsLoading) return;
+    void loadComponents();
+  }, [componentsLoaded, componentsLoading, loadComponents, page, selectedAppId]);
 
   useEffect(() => {
     if (!worksLoaded) {
@@ -373,10 +619,24 @@ export const AppsScene: React.FC = () => {
     }
   }, [refreshWorks, worksLoaded]);
 
+  const homeDisplayApps = visibleHomeApps;
+  const managementApps = libraryLoaded ? libraryApps : homeApps;
+  const detailApps = libraryLoaded ? libraryApps : homeApps;
+  const homeSyncActive = productHomeLoading || homeRevealPendingCount > 0;
+  const discoverSyncActive = libraryLoading || discoverRevealPendingCount > 0;
+  const loading = nativeLoading || productHomeLoading || libraryLoading || componentsLoading;
+  const homeInitialLoading = nativeLoading && nativeApps.length === 0 && visibleHomeApps.length === 0;
+  const loadError = [
+    nativeLoadError,
+    productHomeLoadError,
+    page === 'manage' ? libraryLoadError : null,
+    page === 'component-center' ? componentsLoadError : null,
+  ].filter(Boolean).join('\n') || null;
+
   const launchQuery = normalized(launchSearch);
   const manageQuery = normalized(manageSearch);
   const componentQuery = normalized(componentSearch);
-  const appsById = useMemo(() => new Map(apps.map((app) => [app.id, app])), [apps]);
+  const appsById = useMemo(() => new Map(detailApps.map((app) => [app.id, app])), [detailApps]);
   const runningSurfaceAppIdSet = useMemo(
     () => new Set(runningProductAppRuntimeIds),
     [runningProductAppRuntimeIds],
@@ -385,27 +645,25 @@ export const AppsScene: React.FC = () => {
   const launchNativeApps = useMemo(() => nativeApps
     .filter((app) => appMatchesSearch(app, launchQuery)), [launchQuery, nativeApps]);
 
-  const launchApps = useMemo(() => apps
+  const launchApps = useMemo(() => homeDisplayApps
     .filter((app) => app.installed === true)
     .filter((app) => app.enabled)
     .filter((app) => !appHasCatalogIssues(app))
     .filter((app) => app.catalogVisibility !== 'hidden')
-    .filter((app) => appMatchesSearch(app, launchQuery)), [apps, launchQuery]);
+    .filter((app) => appMatchesSearch(app, launchQuery)), [homeDisplayApps, launchQuery]);
 
   const launchCardCount = launchNativeApps.length + launchApps.length;
 
-  const discoverApps = useMemo(() => apps
-    .filter((app) => app.installed !== true)
-    .filter((app) => app.discoverable === true)
-    .filter((app) => !appHasCatalogIssues(app))
-    .filter((app) => appMatchesSearch(app, launchQuery)), [apps, launchQuery]);
+  const discoverApps = useMemo(() => visibleDiscoverApps
+    .filter((app) => appMatchesSearch(app, launchQuery)), [launchQuery, visibleDiscoverApps]);
+  const showDiscoverPanel = discoverSyncActive || discoverApps.length > 0;
 
   const manageApps = useMemo(() => {
-    const filtered = apps
+    const filtered = managementApps
       .filter((app) => filterProductApp(app, productAppFilter))
       .filter((app) => appMatchesSearch(app, manageQuery));
     return sortManageApps(filtered, manageSort, runningSurfaceAppIdSet);
-  }, [apps, manageQuery, productAppFilter, manageSort, runningSurfaceAppIdSet]);
+  }, [managementApps, manageQuery, productAppFilter, manageSort, runningSurfaceAppIdSet]);
 
   const continueWorks = useMemo(() => works
     .filter((work) => OPEN_WORK_STATUSES.has(work.status))
@@ -417,14 +675,14 @@ export const AppsScene: React.FC = () => {
         return nativeAppSupportsMultipleWorks(nativeApp)
           && workMatchesSearch(item.work, nativeApp.name, launchQuery);
       }
-      const app = apps.find((candidate) => sameProductAppRef(productAppWorkRef(candidate), item.appRef));
+      const app = homeDisplayApps.find((candidate) => sameProductAppRef(productAppWorkRef(candidate), item.appRef));
       return Boolean(app)
         && app?.installed === true
         && !appHasCatalogIssues(app)
         && getCatalogAppLaunchBehavior(app).supportsMultipleWorks
         && workMatchesSearch(item.work, app?.name, launchQuery);
     })
-    .sort((left, right) => right.work.updatedAt - left.work.updatedAt), [apps, launchQuery, nativeApps, works]);
+    .sort((left, right) => right.work.updatedAt - left.work.updatedAt), [homeDisplayApps, launchQuery, nativeApps, works]);
 
   const filteredComponents = useMemo(() => components
     .filter((component) => componentFilter === 'all' || component.kind === componentFilter)
@@ -446,14 +704,14 @@ export const AppsScene: React.FC = () => {
   const continueWorksByAppId = useMemo(() => {
     const byApp = new Map<string, Array<{ work: WorkRecord; appRef: WorkAppRef }>>();
     for (const item of continueWorks) {
-      const app = apps.find((candidate) => sameProductAppRef(productAppWorkRef(candidate), item.appRef));
+      const app = homeDisplayApps.find((candidate) => sameProductAppRef(productAppWorkRef(candidate), item.appRef));
       if (!app) continue;
       const current = byApp.get(app.id) ?? [];
       current.push(item);
       byApp.set(app.id, current);
     }
     return byApp;
-  }, [apps, continueWorks]);
+  }, [homeDisplayApps, continueWorks]);
 
   const continueWorksByNativeAppId = useMemo(() => {
     const byApp = new Map<string, Array<{ work: WorkRecord; appRef: WorkAppRef }>>();
@@ -702,7 +960,7 @@ export const AppsScene: React.FC = () => {
           activeFilter={componentFilter}
           selectedComponent={selectedComponent}
           workspacePath={lastUsedWorkspace?.rootPath ?? null}
-          loading={loading}
+          loading={componentsLoading}
           query={componentSearch}
           currentMode={modeForPage(page)}
           onModeChange={(mode) => {
@@ -711,7 +969,7 @@ export const AppsScene: React.FC = () => {
             if (mode === 'component-center') openComponentCenter();
           }}
           onSearch={setComponentSearch}
-          onRefresh={() => void loadCatalog({ force: true })}
+          onRefresh={() => void loadComponents({ force: true })}
           onFilter={setComponentFilter}
           onSelect={(component) => openComponentCenter(component.id)}
           onClearSelection={() => openComponentCenter(null)}
@@ -729,11 +987,11 @@ export const AppsScene: React.FC = () => {
       <>
         <AppManagementCenter
           apps={manageApps}
-          allApps={apps}
+          allApps={managementApps}
           activeFilter={productAppFilter}
           query={manageSearch}
           currentMode={modeForPage(page)}
-          loading={loading}
+          loading={libraryLoading}
           managingAppId={managingAppId}
           runningAppIds={runningSurfaceAppIdSet}
           sortKey={manageSort}
@@ -745,7 +1003,12 @@ export const AppsScene: React.FC = () => {
           onSearch={setManageSearch}
           onFilter={setProductAppFilter}
           onSort={setManageSort}
-          onRefresh={() => void loadCatalog({ force: true })}
+          onRefresh={() => {
+            void Promise.allSettled([
+              loadProductAppLibrary({ force: true }),
+              loadProductHomeCatalog({ force: true }),
+            ]);
+          }}
           onOpenDetails={(app) => openAppDetail(app.id)}
           onInstall={(app) => void handleInstallProductApp(app)}
           onSetEnabled={(app, enabled) => void handleSetProductAppEnabled(app, enabled)}
@@ -824,7 +1087,7 @@ export const AppsScene: React.FC = () => {
                 {continueWorks.map(({ work, appRef }) => {
                   const nativeApp = nativeApps.find((candidate) => sameAppRef(nativeAppWorkRef(candidate.id), appRef));
                   const app = nativeApp
-                    ?? apps.find((candidate) => sameProductAppRef(productAppWorkRef(candidate), appRef));
+                    ?? homeDisplayApps.find((candidate) => sameProductAppRef(productAppWorkRef(candidate), appRef));
                   return (
                     <WorkResumeCard
                       key={work.id}
@@ -859,7 +1122,7 @@ export const AppsScene: React.FC = () => {
         </div>
       ) : null}
 
-      {loading ? (
+      {homeInitialLoading ? (
         <div className="apps-scene__loading">
           <DotMatrixLoader size="small" />
           <span>{t('productSystem.loading')}</span>
@@ -870,10 +1133,23 @@ export const AppsScene: React.FC = () => {
             <Panel className="apps-scene__apps-panel apps-scene__home-section apps-scene__home-section--my-apps">
               <PanelHeader
                 title={t('productSystem.myApps.title')}
-                actions={<Badge variant="neutral">{t('productSystem.myApps.count', { count: launchCardCount })}</Badge>}
+                actions={(
+                  <div className="apps-scene__panel-badges">
+                    <Badge variant="neutral">
+                      {t('productSystem.myApps.count', { count: launchCardCount })}
+                    </Badge>
+                    {homeSyncActive ? (
+                      <Badge variant="info">
+                        {homeRevealPendingCount > 0
+                          ? t('productSystem.myApps.syncingRemaining', { count: homeRevealPendingCount })
+                          : t('productSystem.myApps.syncing')}
+                      </Badge>
+                    ) : null}
+                  </div>
+                )}
               />
               <PanelBody>
-                {launchCardCount ? (
+                {launchCardCount || homeSyncActive ? (
                   <div className="apps-scene__app-grid">
                     {launchNativeApps.map((app) => (
                       <NativeAppCard
@@ -896,7 +1172,7 @@ export const AppsScene: React.FC = () => {
                       const launchBehavior = getCatalogAppLaunchBehavior(app);
                       return (
                         <ProductAppCard
-                          key={app.id}
+                          key={productAppLibraryKey(app)}
                           app={app}
                           launching={launchingAppId === app.id}
                           stopping={stoppingAppId === app.id}
@@ -911,10 +1187,19 @@ export const AppsScene: React.FC = () => {
                           onStop={() => void handleStopApp(app)}
                           onContinue={(work) => void openWork(work)}
                           onOpenDetails={() => openAppDetail(app.id)}
+                          appearing
                           t={t}
                         />
                       );
                     })}
+                    {homeSyncActive ? (
+                      <CatalogGhostCard
+                        label={t('productSystem.myApps.loadingProductApps')}
+                        detail={homeRevealPendingCount > 0
+                          ? t('productSystem.myApps.revealingProductAppsDetail', { count: homeRevealPendingCount })
+                          : t('productSystem.myApps.loadingProductAppsDetail')}
+                      />
+                    ) : null}
                   </div>
                 ) : (
                   <EmptyState
@@ -926,24 +1211,41 @@ export const AppsScene: React.FC = () => {
               </PanelBody>
             </Panel>
 
-            {discoverApps.length ? (
+            {showDiscoverPanel ? (
               <Panel className="apps-scene__apps-panel apps-scene__discover-panel apps-scene__home-section apps-scene__home-section--discover">
                 <PanelHeader
                   title={t('productSystem.discover.title')}
-                  actions={<Badge variant="neutral">{t('productSystem.discover.count', { count: discoverApps.length })}</Badge>}
+                  actions={(
+                    <Badge variant={discoverSyncActive ? 'info' : 'neutral'}>
+                      {discoverSyncActive
+                        ? discoverRevealPendingCount > 0
+                          ? t('productSystem.discover.syncingRemaining', { count: discoverRevealPendingCount })
+                          : t('productSystem.discover.loadingBadge')
+                        : t('productSystem.discover.count', { count: discoverApps.length })}
+                    </Badge>
+                  )}
                 />
                 <PanelBody>
                   <div className="apps-scene__app-grid">
                     {discoverApps.map((app) => (
                       <DiscoverAppCard
-                        key={app.id}
+                        key={productAppLibraryKey(app)}
                         app={app}
                         installing={managingAppId === app.id}
                         onInstall={() => void handleInstallProductApp(app)}
                         onOpenDetails={() => openAppDetail(app.id)}
+                        appearing
                         t={t}
                       />
                     ))}
+                    {discoverSyncActive ? (
+                      <CatalogGhostCard
+                        label={t('productSystem.discover.loading')}
+                        detail={discoverRevealPendingCount > 0
+                          ? t('productSystem.discover.revealingDetail', { count: discoverRevealPendingCount })
+                          : t('productSystem.discover.loadingDetail')}
+                      />
+                    ) : null}
                   </div>
                 </PanelBody>
               </Panel>
@@ -957,6 +1259,30 @@ export const AppsScene: React.FC = () => {
     </>
   );
 };
+
+function CatalogGhostCard({
+  label,
+  detail,
+}: {
+  label: string;
+  detail: string;
+}) {
+  return (
+    <div className="apps-scene__ghost-card" role="status" aria-live="polite">
+      <div className="apps-scene__ghost-card-icon">
+        <DotMatrixLoader size="small" />
+      </div>
+      <div className="apps-scene__ghost-card-copy">
+        <strong>{label}</strong>
+        <span>{detail}</span>
+      </div>
+      <div className="apps-scene__ghost-card-lines" aria-hidden="true">
+        <span />
+        <span />
+      </div>
+    </div>
+  );
+}
 
 function AppManagementCenter({
   apps,
@@ -1082,7 +1408,12 @@ function AppManagementCenter({
             />
           </div>
 
-          {apps.length ? (
+          {loading && !apps.length ? (
+            <div className="apps-scene__loading apps-scene__loading--inline">
+              <DotMatrixLoader size="small" />
+              <span>{t('productSystem.loading')}</span>
+            </div>
+          ) : apps.length ? (
             <ManagementList
               apps={apps}
               viewMode={viewMode}
@@ -1281,19 +1612,25 @@ function NativeAppCard({
 function DiscoverAppCard({
   app,
   installing,
+  appearing,
   onInstall,
   onOpenDetails,
   t,
 }: {
   app: ProductAppCatalogEntry;
   installing: boolean;
+  appearing?: boolean;
   onInstall: () => void;
   onOpenDetails: () => void;
   t: (key: string, options?: Record<string, unknown>) => string;
 }) {
   return (
     <ItemCard
-      className="apps-scene__app-card apps-scene__app-card--discover"
+      className={[
+        'apps-scene__app-card',
+        'apps-scene__app-card--discover',
+        appearing && 'apps-scene__app-card--appearing',
+      ].filter(Boolean).join(' ')}
       onActivate={onOpenDetails}
       aria-label={app.name}
       data-testid="product-app-discover-card"
@@ -1339,6 +1676,7 @@ function ProductAppCard({
   supportsMultipleWorks,
   relatedWorks,
   flipped,
+  appearing,
   onToggleFlip,
   onLaunch,
   onStop,
@@ -1353,6 +1691,7 @@ function ProductAppCard({
   supportsMultipleWorks: boolean;
   relatedWorks: WorkRecord[];
   flipped: boolean;
+  appearing?: boolean;
   onToggleFlip: () => void;
   onLaunch: () => void;
   onStop: () => void;
@@ -1364,7 +1703,11 @@ function ProductAppCard({
   const isExpanded = hasStack && flipped;
 
   return (
-    <WorkCardFrame depth={hasStack ? Math.min(relatedWorks.length, 2) : 0} expanded={isExpanded}>
+    <WorkCardFrame
+      depth={hasStack ? Math.min(relatedWorks.length, 2) : 0}
+      expanded={isExpanded}
+      className={appearing ? 'apps-scene__app-card--appearing' : undefined}
+    >
       <ItemCard
         className="apps-scene__app-card"
         interactive={!isExpanded}

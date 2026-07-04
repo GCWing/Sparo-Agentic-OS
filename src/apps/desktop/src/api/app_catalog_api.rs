@@ -10,7 +10,8 @@ use bitfun_core::agentic_os::work::{
 use bitfun_core::app_platform::{
     install_product_app as write_product_app_installed, list_installed_package_components,
     list_installed_product_app_catalog_with_issues, list_product_app_catalog_source_with_issues,
-    native_app_catalog, set_product_app_enabled as write_product_app_enabled,
+    list_product_app_home_catalog as read_product_app_home_catalog, native_app_shell_catalog,
+    set_product_app_enabled as write_product_app_enabled,
     uninstall_product_app as write_product_app_uninstalled, AppCatalogEntry, AppCatalogVisibility,
     ComponentDefinition, ComponentKind, NativeAppCatalogEntry, ProductAppCatalogIssue,
 };
@@ -167,6 +168,14 @@ pub struct ProductAppLibraryResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ProductAppHomeCatalogResponse {
+    pub apps: Vec<AppCatalogEntry>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub issues: Vec<ProductAppCatalogIssue>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AppCenterCatalogResponse {
     pub native: Vec<NativeAppCatalogEntry>,
     pub product_apps: ProductAppLibraryResponse,
@@ -198,11 +207,30 @@ pub struct UninstallProductAppRequest {
 pub async fn list_app_catalog(
     state: State<'_, AppState>,
 ) -> Result<AppCenterCatalogResponse, String> {
-    let native = native_app_catalog();
+    let native = native_app_shell_catalog();
     let product_apps = list_product_app_library(state).await?;
     Ok(AppCenterCatalogResponse {
         native,
         product_apps,
+    })
+}
+
+#[tauri::command]
+pub async fn list_native_app_catalog() -> Result<Vec<NativeAppCatalogEntry>, String> {
+    Ok(native_app_shell_catalog())
+}
+
+#[tauri::command]
+pub async fn list_product_app_home_catalog(
+    state: State<'_, AppState>,
+) -> Result<ProductAppHomeCatalogResponse, String> {
+    let path_manager = state.workspace_service.path_manager().clone();
+    let result = read_product_app_home_catalog(&path_manager)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(ProductAppHomeCatalogResponse {
+        apps: result.entries,
+        issues: result.issues,
     })
 }
 

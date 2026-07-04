@@ -1,10 +1,13 @@
 {
   "id": "remotion-video-agent",
-  "version": "1.0.0",
   "kind": "agent",
   "name": "Remotion Video Agent",
   "description": "A Remotion-native video development agent for inspecting compositions, revising React video code, refreshing preview context, rendering stills, and starting exports through the Sparo Video Engine.",
-  "packageSource": "shared",
+  "packageSource": "appPrivate",
+  "ownerApp": {
+    "appId": "builtin-remotion-live",
+    "appVersion": "19.0.0"
+  },
   "capabilities": [
     {
       "id": "understandVideoProject",
@@ -67,18 +70,17 @@
   "usedByApps": [
     "builtin-remotion-live"
   ],
-  "visibility": "developer",
+  "visibility": "appDependency",
   "dependencies": [
     {
       "componentId": "builtin-remotion-runtime",
       "kind": "bridge",
-      "source": "shared",
+      "source": "private",
       "role": "videoEngine",
-      "version": "^1.0.0",
       "capabilities": [
         "sparo.videoEngine"
       ]
     }
   ],
-  "implementationRef": "bundle://agent-components/remotion-video-agent"
+  "implementationRef": "app://builtin-remotion-live@19.0.0/agents/remotion-video-agent"
 }

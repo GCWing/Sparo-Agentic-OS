@@ -143,12 +143,22 @@
       "title": "我的应用",
       "count": "{{count}} 个已安装",
       "description": "选择正确的产品应用，然后启动它或检查运行时边界。",
+      "syncing": "同步中",
+      "syncingRemaining": "同步 {{count}} 个",
+      "loadingProductApps": "正在加载已安装的产品应用",
+      "loadingProductAppsDetail": "原生应用已就绪，包应用仍在同步。",
+      "revealingProductAppsDetail": "还有 {{count}} 个应用正在加入页面。",
       "emptyTitle": "暂无已安装的产品应用",
       "emptyDescription": "安装或创建一个产品应用后，它会显示在这里。"
     },
     "discover": {
       "title": "发现",
-      "count": "{{count}} 个可用"
+      "count": "{{count}} 个可用",
+      "loadingBadge": "加载中",
+      "syncingRemaining": "同步 {{count}} 个",
+      "loading": "正在加载可发现应用",
+      "loadingDetail": "仍在检查市场和包来源。",
+      "revealingDetail": "还有 {{count}} 个可发现应用正在加入页面。"
     },
     "components": {
       "title": "高级组件",

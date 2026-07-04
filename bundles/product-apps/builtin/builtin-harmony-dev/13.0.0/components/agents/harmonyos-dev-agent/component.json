@@ -1,10 +1,13 @@
 {
   "id": "harmonyos-dev-agent",
-  "version": "1.0.0",
   "kind": "agent",
   "name": "HarmonyOS Dev Agent",
   "description": "An ArkTS/ArkUI development agent that edits source through workspace tools and verifies through the HarmonyOS Dev Runtime.",
-  "packageSource": "shared",
+  "packageSource": "appPrivate",
+  "ownerApp": {
+    "appId": "builtin-harmony-dev",
+    "appVersion": "13.0.0"
+  },
   "capabilities": [
     {
       "id": "understandHarmonyProject",
@@ -79,18 +82,17 @@
   "usedByApps": [
     "builtin-harmony-dev"
   ],
-  "visibility": "developer",
+  "visibility": "appDependency",
   "dependencies": [
     {
       "componentId": "builtin-harmony-runtime",
       "kind": "bridge",
-      "source": "shared",
+      "source": "private",
       "role": "harmonyRuntime",
-      "version": "^1.0.0",
       "capabilities": [
         "sparo.harmonyDev"
       ]
     }
   ],
-  "implementationRef": "bundle://agent-components/harmonyos-dev-agent"
+  "implementationRef": "app://builtin-harmony-dev@13.0.0/agents/harmonyos-dev-agent"
 }

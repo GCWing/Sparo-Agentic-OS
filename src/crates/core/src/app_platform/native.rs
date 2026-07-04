@@ -69,13 +69,21 @@ pub fn is_native_system_lifecycle_id(app_id: &str) -> bool {
 }
 
 pub fn native_app_catalog() -> Vec<NativeAppCatalogEntry> {
+    native_app_catalog_with_icon_payload(true)
+}
+
+pub fn native_app_shell_catalog() -> Vec<NativeAppCatalogEntry> {
+    native_app_catalog_with_icon_payload(false)
+}
+
+fn native_app_catalog_with_icon_payload(include_icon_payload: bool) -> Vec<NativeAppCatalogEntry> {
     vec![
         native_agent_app(
             "prime-builder",
             "Prime Builder",
             "Native software development workspace for implementation, debugging, and verification.",
             "Plan, implement, verify, and hand off software changes in a workspace.",
-            native_app_icon("prime-builder"),
+            native_app_icon("prime-builder", include_icon_payload),
             "developer",
             "agentic",
             "agentic",
@@ -86,7 +94,7 @@ pub fn native_app_catalog() -> Vec<NativeAppCatalogEntry> {
             "Cowork",
             "Native collaboration workspace for documents, drafting, and structured multi-step work.",
             "Clarify, plan, draft, revise, and package collaborative work with practical artifacts.",
-            native_app_icon("cowork"),
+            native_app_icon("cowork", include_icon_payload),
             "productivity",
             "Cowork",
             "Cowork",
@@ -97,7 +105,7 @@ pub fn native_app_catalog() -> Vec<NativeAppCatalogEntry> {
             "Design",
             "Native design workspace for artifacts, prototypes, and visual systems.",
             "Create and refine design artifacts, prototypes, and visual systems from a user brief.",
-            native_app_icon("design"),
+            native_app_icon("design", include_icon_payload),
             "creative",
             "Design",
             "Design",
@@ -122,7 +130,7 @@ pub fn native_app_catalog() -> Vec<NativeAppCatalogEntry> {
                 ai: true,
                 ..AppPermissionSummary::default()
             },
-            icon: native_app_icon("app-studio"),
+            icon: native_app_icon("app-studio", include_icon_payload),
             category: "developer".to_string(),
             tags: vec![
                 "native".to_string(),
@@ -197,13 +205,25 @@ fn native_system_management_policy() -> NativeAppManagementPolicy {
     }
 }
 
-fn native_app_icon(asset_id: &str) -> AppIconSpec {
-    let (mime_type, bytes) = match asset_id {
-        "prime-builder" => ("image/png", PRIME_BUILDER_ICON),
-        "cowork" => ("image/png", COWORK_ICON),
-        "design" => ("image/png", DESIGN_ICON),
-        "app-studio" => ("image/png", APP_STUDIO_ICON),
-        _ => ("image/png", PRIME_BUILDER_ICON),
+fn native_app_icon(asset_id: &str, include_payload: bool) -> AppIconSpec {
+    let mime_type = "image/png";
+
+    if !include_payload {
+        return AppIconSpec::NativeAsset {
+            asset_id: asset_id.to_string(),
+            mime_type: Some(mime_type.to_string()),
+            digest: None,
+            uri: None,
+            background: None,
+        };
+    }
+
+    let bytes = match asset_id {
+        "prime-builder" => PRIME_BUILDER_ICON,
+        "cowork" => COWORK_ICON,
+        "design" => DESIGN_ICON,
+        "app-studio" => APP_STUDIO_ICON,
+        _ => PRIME_BUILDER_ICON,
     };
     let mut hasher = Sha256::new();
     hasher.update(bytes);

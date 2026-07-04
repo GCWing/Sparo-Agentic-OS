@@ -71,6 +71,7 @@ export interface ProductAppHostSurfaceBackendBinding {
   id: string;
   kind: ProductAppHostSurfaceBackendKind;
   componentId: string;
+  componentPackageDir?: string;
   capabilityId?: string;
   role?: string;
   sessionPolicy?: ProductAppHostSurfaceBackendSessionPolicy;

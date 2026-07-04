@@ -300,6 +300,11 @@ export interface ProductAppLibrary {
   issues?: ProductAppCatalogIssue[];
 }
 
+export interface ProductAppHomeCatalog {
+  apps: ProductAppCatalogEntry[];
+  issues?: ProductAppCatalogIssue[];
+}
+
 export interface NativeAppCatalogEntry {
   id: string;
   name: string;
@@ -413,10 +418,14 @@ interface CatalogCacheEntry<T> {
 }
 
 let appCenterCatalogCache: CatalogCacheEntry<AppCenterCatalog> | null = null;
+let nativeAppCatalogCache: CatalogCacheEntry<NativeAppCatalogEntry[]> | null = null;
+let productAppHomeCatalogCache: CatalogCacheEntry<ProductAppHomeCatalog> | null = null;
 let productAppLibraryCache: CatalogCacheEntry<ProductAppLibrary> | null = null;
 let componentCatalogCache: CatalogCacheEntry<ComponentDefinition[]> | null = null;
 
 let appCenterCatalogRequest: Promise<AppCenterCatalog> | null = null;
+let nativeAppCatalogRequest: Promise<NativeAppCatalogEntry[]> | null = null;
+let productAppHomeCatalogRequest: Promise<ProductAppHomeCatalog> | null = null;
 let productAppLibraryRequest: Promise<ProductAppLibrary> | null = null;
 let componentCatalogRequest: Promise<ComponentDefinition[]> | null = null;
 let productAppCatalogIssueSignature: string | null = null;
@@ -433,6 +442,7 @@ function isFreshCacheEntry<T>(
 
 function invalidateAppCatalogCache() {
   appCenterCatalogCache = null;
+  productAppHomeCatalogCache = null;
   productAppLibraryCache = null;
   componentCatalogCache = null;
 }
@@ -493,6 +503,57 @@ function notifyProductAppCatalogIssues(issues: ProductAppCatalogIssue[] | undefi
 }
 
 export class AppCatalogAPI {
+  async listNativeAppCatalog(options: CatalogCacheOptions = {}): Promise<NativeAppCatalogEntry[]> {
+    if (!options.force && isFreshCacheEntry(nativeAppCatalogCache)) {
+      return nativeAppCatalogCache.value;
+    }
+    if (!options.force && nativeAppCatalogRequest) {
+      return nativeAppCatalogRequest;
+    }
+
+    const request = api.invoke<NativeAppCatalogEntry[]>('list_native_app_catalog', {})
+      .then((apps) => {
+        nativeAppCatalogCache = { value: apps, timestampMs: Date.now() };
+        return apps;
+      });
+    nativeAppCatalogRequest = request;
+    try {
+      return await request;
+    } catch (error) {
+      throw createTauriCommandError('list_native_app_catalog', error);
+    } finally {
+      if (nativeAppCatalogRequest === request) {
+        nativeAppCatalogRequest = null;
+      }
+    }
+  }
+
+  async listProductAppHomeCatalog(options: CatalogCacheOptions = {}): Promise<ProductAppHomeCatalog> {
+    if (!options.force && isFreshCacheEntry(productAppHomeCatalogCache)) {
+      return productAppHomeCatalogCache.value;
+    }
+    if (!options.force && productAppHomeCatalogRequest) {
+      return productAppHomeCatalogRequest;
+    }
+
+    const request = api.invoke<ProductAppHomeCatalog>('list_product_app_home_catalog', {})
+      .then((catalog) => {
+        notifyProductAppCatalogIssues(catalog.issues);
+        productAppHomeCatalogCache = { value: catalog, timestampMs: Date.now() };
+        return catalog;
+      });
+    productAppHomeCatalogRequest = request;
+    try {
+      return await request;
+    } catch (error) {
+      throw createTauriCommandError('list_product_app_home_catalog', error);
+    } finally {
+      if (productAppHomeCatalogRequest === request) {
+        productAppHomeCatalogRequest = null;
+      }
+    }
+  }
+
   async listAppCatalog(options: CatalogCacheOptions = {}): Promise<AppCenterCatalog> {
     if (!options.force && isFreshCacheEntry(appCenterCatalogCache)) {
       return appCenterCatalogCache.value;

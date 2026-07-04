@@ -143,12 +143,22 @@
       "title": "My Apps",
       "count": "{{count}} installed",
       "description": "Choose the right Product App, then launch it or inspect its runtime boundary.",
+      "syncing": "Syncing",
+      "syncingRemaining": "Syncing {{count}}",
+      "loadingProductApps": "Loading installed Product Apps",
+      "loadingProductAppsDetail": "Native apps are ready; package apps are still syncing.",
+      "revealingProductAppsDetail": "{{count}} apps are still joining the page.",
       "emptyTitle": "No installed Product Apps",
       "emptyDescription": "Install or create a Product App to make it available here."
     },
     "discover": {
       "title": "Discover",
-      "count": "{{count}} available"
+      "count": "{{count}} available",
+      "loadingBadge": "Loading",
+      "syncingRemaining": "Syncing {{count}}",
+      "loading": "Loading discoverable apps",
+      "loadingDetail": "Marketplace and package sources are still being checked.",
+      "revealingDetail": "{{count}} discoverable apps are still joining the page."
     },
     "components": {
       "title": "Advanced Components",

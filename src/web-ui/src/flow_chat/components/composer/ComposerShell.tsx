@@ -2,6 +2,7 @@ import type React from 'react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
+import { basenamePath } from '@/shared/utils/pathUtils';
 import { ContextDropZone } from '../../../shared/context-system';
 import type { ContextItem } from '../../../shared/types/context';
 import type { ContextBudgetSnapshot, ContextBudgetSegment, ContextSegmentKind } from '../../types/flow-chat';
@@ -86,6 +87,13 @@ function aggregateSegments(segments: ContextBudgetSegment[]): ContextBudgetSegme
   });
 }
 
+function formatWorkspaceMetaLabel(workspaceMeta: string): string {
+  const trimmed = workspaceMeta.trim();
+  if (!trimmed) return workspaceMeta;
+  const normalized = trimmed.replace(/[\\/]+$/, '') || trimmed;
+  return basenamePath(normalized).trim() || trimmed;
+}
+
 export function ComposerShell({
   containerRef,
   className = '',
@@ -115,6 +123,7 @@ export function ComposerShell({
   const contextRingStyle = {
     '--sparo-chat-input-context-percent': `${contextUsagePercent}%`,
   } as React.CSSProperties;
+  const workspaceMetaLabel = formatWorkspaceMetaLabel(workspaceMeta);
   const contextSegments = useMemo(
     () => aggregateSegments(contextBudgetSnapshot?.segments || []),
     [contextBudgetSnapshot?.segments]
@@ -244,7 +253,7 @@ export function ComposerShell({
               title={workspaceMeta}
               onClick={onOpenWorkspaceFiles}
             >
-              {workspaceMeta}
+              {workspaceMetaLabel}
             </button>
             <button
               type="button"

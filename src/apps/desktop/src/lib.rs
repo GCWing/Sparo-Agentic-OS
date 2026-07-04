@@ -283,6 +283,8 @@ pub fn run() {
             api::agent_component_api::export_agent_component,
             api::agent_component_api::import_agent_component,
             api::app_catalog_api::list_app_catalog,
+            api::app_catalog_api::list_native_app_catalog,
+            api::app_catalog_api::list_product_app_home_catalog,
             api::app_catalog_api::list_product_app_library,
             api::app_catalog_api::install_product_app,
             api::app_catalog_api::set_product_app_enabled,

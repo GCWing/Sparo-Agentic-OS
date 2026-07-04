@@ -20,7 +20,7 @@ use std::collections::HashMap;
 use std::ffi::OsString;
 use std::path::{Component, Path, PathBuf};
 use std::process::Stdio;
-use std::sync::{Arc, LazyLock};
+use std::sync::{Arc, LazyLock, RwLock as StdRwLock};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::RwLock;
@@ -31,6 +31,8 @@ const DEFAULT_BRIDGE_RUN_TIMEOUT_MS: u64 = 600_000;
 
 static BRIDGE_RUN_REGISTRY: LazyLock<RwLock<HashMap<String, BridgeComponentRun>>> =
     LazyLock::new(|| RwLock::new(HashMap::new()));
+static PRIVATE_BRIDGE_COMPONENT_DIRS: LazyLock<StdRwLock<HashMap<String, PathBuf>>> =
+    LazyLock::new(|| StdRwLock::new(HashMap::new()));
 
 pub struct BridgeComponentAgent {
     manifest: BridgeComponentManifest,
@@ -567,6 +569,31 @@ impl BridgeComponentManager {
         bridge_component_dir(app_id)
     }
 
+    pub fn register_private_package_dir(
+        component_id: &str,
+        package_dir: PathBuf,
+    ) -> BitFunResult<()> {
+        let package = Self::load_package_from_dir(&package_dir)?;
+        if package.manifest.id != component_id {
+            return Err(BitFunError::validation(format!(
+                "Private Bridge Component package id '{}' does not match component '{}'",
+                package.manifest.id, component_id
+            )));
+        }
+        let mut guard = PRIVATE_BRIDGE_COMPONENT_DIRS
+            .write()
+            .map_err(|_| BitFunError::service("Private Bridge Component registry poisoned"))?;
+        guard.insert(component_id.to_string(), package_dir);
+        Ok(())
+    }
+
+    fn private_package_dir(component_id: &str) -> Option<PathBuf> {
+        PRIVATE_BRIDGE_COMPONENT_DIRS
+            .read()
+            .ok()
+            .and_then(|guard| guard.get(component_id).cloned())
+    }
+
     pub fn list() -> BitFunResult<Vec<BridgeComponentPackage>> {
         let _ = Self::seed_builtin_bridge_components();
         let root = bridge_component_root();
@@ -595,6 +622,11 @@ impl BridgeComponentManager {
     }
 
     pub fn get(app_id: &str) -> BitFunResult<BridgeComponentPackage> {
+        if let Some(dir) = Self::private_package_dir(app_id) {
+            if dir.join(BRIDGE_COMPONENT_MANIFEST).exists() {
+                return Self::load_package_from_dir(&dir);
+            }
+        }
         if let Err(error) = super::builtin::ensure_builtin_bridge_component_current(app_id) {
             log::warn!(
                 "refresh built-in Bridge Component '{}' failed: {}",
@@ -715,6 +747,53 @@ impl BridgeComponentManager {
         consumer: BridgeComponentConsumer,
     ) -> BitFunResult<BridgeComponentRunResult> {
         let package = Self::get(app_id)?;
+        Self::run_capability_action_with_package(
+            app_id,
+            package,
+            capability_id,
+            action,
+            input,
+            workspace_path,
+            run_id,
+            consumer,
+        )
+        .await
+    }
+
+    pub async fn run_capability_action_from_package_dir(
+        package_dir: &Path,
+        capability_id: Option<&str>,
+        action: &str,
+        input: Value,
+        workspace_path: Option<String>,
+        run_id: String,
+        consumer: BridgeComponentConsumer,
+    ) -> BitFunResult<BridgeComponentRunResult> {
+        let package = Self::load_package_from_dir(package_dir)?;
+        let app_id = package.manifest.id.clone();
+        Self::run_capability_action_with_package(
+            &app_id,
+            package,
+            capability_id,
+            action,
+            input,
+            workspace_path,
+            run_id,
+            consumer,
+        )
+        .await
+    }
+
+    async fn run_capability_action_with_package(
+        app_id: &str,
+        package: BridgeComponentPackage,
+        capability_id: Option<&str>,
+        action: &str,
+        input: Value,
+        workspace_path: Option<String>,
+        run_id: String,
+        consumer: BridgeComponentConsumer,
+    ) -> BitFunResult<BridgeComponentRunResult> {
         validate_manifest_action(&package.manifest, capability_id, action)?;
         validate_runtime_shell_permission(&package.manifest)?;
         let app_dir = PathBuf::from(&package.path);
@@ -910,6 +989,26 @@ impl BridgeComponentManager {
         .await
     }
 
+    pub async fn start_run_from_package_dir(
+        package_dir: &Path,
+        capability_id: Option<&str>,
+        action: &str,
+        input: Value,
+        workspace_path: Option<String>,
+        consumer: BridgeComponentConsumer,
+    ) -> BitFunResult<BridgeComponentRunResult> {
+        Self::run_capability_action_from_package_dir(
+            package_dir,
+            capability_id,
+            action,
+            input,
+            workspace_path,
+            format!("bridge-run-{}", uuid::Uuid::new_v4()),
+            consumer,
+        )
+        .await
+    }
+
     pub async fn get_run(run_id: &str) -> Option<BridgeComponentRun> {
         BRIDGE_RUN_REGISTRY.read().await.get(run_id).cloned()
     }
@@ -1017,7 +1116,7 @@ impl BridgeComponentManager {
         Ok(())
     }
 
-    fn load_package_from_dir(dir: &Path) -> BitFunResult<BridgeComponentPackage> {
+    pub fn load_package_from_dir(dir: &Path) -> BitFunResult<BridgeComponentPackage> {
         let mut manifest: BridgeComponentManifest =
             read_json_file(&dir.join(BRIDGE_COMPONENT_MANIFEST))?;
         Self::validate_manifest(&mut manifest)?;

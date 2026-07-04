@@ -41,9 +41,8 @@
     {
       "componentId": "harmonyos-dev-agent",
       "kind": "agent",
-      "source": "shared",
+      "source": "private",
       "role": "harmonyAgent",
-      "version": "^1.0.0",
       "capabilities": [
         "understandHarmonyProject",
         "reviseHarmonyUi",
@@ -54,9 +53,8 @@
     {
       "componentId": "builtin-harmony-runtime",
       "kind": "bridge",
-      "source": "shared",
+      "source": "private",
       "role": "harmonyRuntime",
-      "version": "^1.0.0",
       "capabilities": [
         "sparo.harmonyDev"
       ]

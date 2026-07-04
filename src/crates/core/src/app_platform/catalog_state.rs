@@ -8,14 +8,14 @@ use crate::util::errors::{BitFunError, BitFunResult};
 
 use super::native::is_native_system_lifecycle_id;
 use super::{
-    AppCatalogVisibility, AppManagementAction, ProductAppCatalogSourceKind,
+    AppCatalogVisibility, AppManagementAction, ProductAppCatalogEntry, ProductAppCatalogSourceKind,
     ProductAppCatalogSourceRef, ProductAppLibrarySource, ProductAppManagementOrigin,
     ProductAppManagementPolicy, ProductAppUninstallPolicy, ResolvedProductApp,
 };
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct ProductAppCatalogState {
+pub(crate) struct ProductAppCatalogState {
     #[serde(default)]
     apps: BTreeMap<String, ProductAppCatalogStateEntry>,
 }
@@ -153,52 +153,80 @@ pub async fn apply_product_app_catalog_state(
     Ok(projected)
 }
 
+pub(crate) async fn load_product_app_catalog_state(
+    path_manager: &PathManager,
+) -> BitFunResult<ProductAppCatalogState> {
+    load_catalog_state(path_manager).await
+}
+
+pub(crate) fn apply_product_app_entry_catalog_state(
+    catalog_entry: &mut ProductAppCatalogEntry,
+    state: &ProductAppCatalogState,
+    installed_projection: bool,
+) {
+    let key = state_key(&catalog_entry.app.id, &catalog_entry.app.version);
+    apply_catalog_entry_state(catalog_entry, state.apps.get(&key), installed_projection);
+}
+
 fn apply_entry_state(
     app: &mut ResolvedProductApp,
     entry: Option<&ProductAppCatalogStateEntry>,
     installed_projection: bool,
 ) {
+    apply_catalog_entry_state(&mut app.catalog_entry, entry, installed_projection);
+    app.app.enabled = app.catalog_entry.app.enabled;
+}
+
+fn apply_catalog_entry_state(
+    catalog_entry: &mut ProductAppCatalogEntry,
+    entry: Option<&ProductAppCatalogStateEntry>,
+    installed_projection: bool,
+) {
     if let Some(enabled) = entry.and_then(|entry| entry.enabled) {
-        app.app.enabled = enabled;
-        app.catalog_entry.app.enabled = enabled;
+        catalog_entry.app.enabled = enabled;
     }
-    let installed = product_app_is_installed(entry, app.app.catalog_visibility);
+    let installed = product_app_is_installed(entry, catalog_entry.app.catalog_visibility);
     let discoverable =
-        app.app.catalog_visibility == AppCatalogVisibility::Discoverable && !installed;
-    app.catalog_entry.installed = installed_projection && installed;
-    app.catalog_entry.discoverable = !installed_projection && discoverable;
-    app.catalog_entry.library_sources.clear();
-    if app.catalog_entry.installed {
-        app.catalog_entry
+        catalog_entry.app.catalog_visibility == AppCatalogVisibility::Discoverable && !installed;
+    catalog_entry.installed = installed_projection && installed;
+    catalog_entry.discoverable = !installed_projection && discoverable;
+    catalog_entry.library_sources.clear();
+    if catalog_entry.installed {
+        catalog_entry
             .library_sources
             .push(ProductAppLibrarySource::Installed);
     }
-    if app.catalog_entry.discoverable {
-        app.catalog_entry
+    if catalog_entry.discoverable {
+        catalog_entry
             .library_sources
             .push(ProductAppLibrarySource::Discoverable);
     }
-    let existing_source = app.catalog_entry.catalog_source.clone();
-    let installed_from = if app.catalog_entry.installed {
+    let existing_source = catalog_entry.catalog_source.clone();
+    let installed_from = if catalog_entry.installed {
         entry
             .and_then(|entry| entry.installed_from)
-            .or_else(|| infer_installed_source_kind(app, existing_source.as_ref()))
+            .or_else(|| infer_installed_source_kind(catalog_entry, existing_source.as_ref()))
     } else {
         None
     };
-    app.catalog_entry.management =
-        product_app_management_policy(&app.catalog_entry, installed_from);
-    app.catalog_entry.catalog_source = Some(if installed_projection {
+    catalog_entry.management = product_app_management_policy(catalog_entry, installed_from);
+    catalog_entry.catalog_source = Some(if installed_projection {
         ProductAppCatalogSourceRef {
             kind: ProductAppCatalogSourceKind::InstalledPackage,
             label: "Installed package".to_string(),
-            package_uri: Some(format!("product-app://{}@{}", app.app.id, app.app.version)),
+            package_uri: Some(format!(
+                "product-app://{}@{}",
+                catalog_entry.app.id, catalog_entry.app.version
+            )),
         }
     } else {
         existing_source.unwrap_or_else(|| ProductAppCatalogSourceRef {
             kind: ProductAppCatalogSourceKind::BuiltinMarketplace,
             label: "Built-in marketplace source".to_string(),
-            package_uri: Some(format!("product-app://{}@{}", app.app.id, app.app.version)),
+            package_uri: Some(format!(
+                "product-app://{}@{}",
+                catalog_entry.app.id, catalog_entry.app.version
+            )),
         })
     });
 }
@@ -248,7 +276,7 @@ fn product_app_management_policy(
 }
 
 fn infer_installed_source_kind(
-    app: &ResolvedProductApp,
+    catalog_entry: &ProductAppCatalogEntry,
     existing_source: Option<&ProductAppCatalogSourceRef>,
 ) -> Option<ProductAppCatalogSourceKind> {
     if existing_source
@@ -256,7 +284,7 @@ fn infer_installed_source_kind(
     {
         return Some(ProductAppCatalogSourceKind::PublishedRelease);
     }
-    if app.app.catalog_visibility == AppCatalogVisibility::Discoverable {
+    if catalog_entry.app.catalog_visibility == AppCatalogVisibility::Discoverable {
         return Some(ProductAppCatalogSourceKind::BuiltinMarketplace);
     }
     None
