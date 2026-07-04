@@ -1,10 +1,13 @@
 {
   "id": "builtin-remotion-runtime",
-  "version": "1.0.0",
   "kind": "bridge",
   "name": "Sparo Video Engine",
   "description": "Project analysis, Remotion Player preview hosting, Remotion Studio preview hosting, still generation, export orchestration, asset indexing, and diagnostics for Remotion Live.",
-  "packageSource": "shared",
+  "packageSource": "appPrivate",
+  "ownerApp": {
+    "appId": "builtin-remotion-live",
+    "appVersion": "19.0.0"
+  },
   "capabilities": [
     {
       "id": "sparo.videoEngine",
@@ -60,7 +63,7 @@
   "usedByApps": [
     "builtin-remotion-live"
   ],
-  "visibility": "developer",
+  "visibility": "appDependency",
   "dependencies": [],
-  "implementationRef": "bundle://bridge-components/remotion-runtime"
+  "implementationRef": "app://builtin-remotion-live@19.0.0/bridges/builtin-remotion-runtime"
 }

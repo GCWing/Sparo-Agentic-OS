@@ -1,10 +1,13 @@
 {
   "id": "builtin-harmony-runtime",
-  "version": "1.0.0",
   "kind": "bridge",
   "name": "HarmonyOS Dev Runtime",
   "description": "DevEco, HVigor, HDC, Emulator, build, install, launch, screenshot, hierarchy, and diagnostics bridge for HarmonyOS Dev.",
-  "packageSource": "shared",
+  "packageSource": "appPrivate",
+  "ownerApp": {
+    "appId": "builtin-harmony-dev",
+    "appVersion": "13.0.0"
+  },
   "capabilities": [
     {
       "id": "sparo.harmonyDev",
@@ -63,7 +66,7 @@
   "usedByApps": [
     "builtin-harmony-dev"
   ],
-  "visibility": "developer",
+  "visibility": "appDependency",
   "dependencies": [],
-  "implementationRef": "bundle://bridge-components/harmony-runtime"
+  "implementationRef": "app://builtin-harmony-dev@13.0.0/bridges/builtin-harmony-runtime"
 }

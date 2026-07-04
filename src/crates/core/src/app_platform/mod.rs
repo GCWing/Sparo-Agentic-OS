@@ -25,10 +25,10 @@ pub use builtin::{
     get_installed_product_app_by_lock, install_product_app, list_installed_package_components,
     list_installed_product_app_catalog, list_installed_product_app_catalog_with_issues,
     list_installed_product_apps, list_installed_shared_components, list_product_app_catalog_source,
-    list_product_app_catalog_source_with_issues, publish_product_app_release_to_catalog,
-    seed_builtin_product_app_packages, select_installed_product_app_by_lock, uninstall_product_app,
-    ProductAppCatalogEntries, PublishProductAppReleaseToCatalogRequest,
-    PublishedProductAppReleaseCatalogSource,
+    list_product_app_catalog_source_with_issues, list_product_app_home_catalog,
+    publish_product_app_release_to_catalog, seed_builtin_product_app_packages,
+    select_installed_product_app_by_lock, uninstall_product_app, ProductAppCatalogEntries,
+    PublishProductAppReleaseToCatalogRequest, PublishedProductAppReleaseCatalogSource,
 };
 pub use catalog::{
     build_component_lock, stable_digest, AppCatalogEntry, AppCatalogVisibility, AppComponentRef,
@@ -54,7 +54,8 @@ pub use eval::{
 };
 pub use manifest::AppManifestIdentity;
 pub use native::{
-    native_app_catalog, NativeAppAvailability, NativeAppCatalogEntry, NativeAppOrigin,
+    native_app_catalog, native_app_shell_catalog, NativeAppAvailability, NativeAppCatalogEntry,
+    NativeAppOrigin,
 };
 pub use permissions::AppPermissionSummary;
 pub use rehearsal::{

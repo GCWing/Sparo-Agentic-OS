@@ -47,9 +47,8 @@
     {
       "componentId": "remotion-video-agent",
       "kind": "agent",
-      "source": "shared",
+      "source": "private",
       "role": "remotionAgent",
-      "version": "^1.0.0",
       "capabilities": [
         "understandVideoProject",
         "reviseVideoComposition",
@@ -59,9 +58,8 @@
     {
       "componentId": "builtin-remotion-runtime",
       "kind": "bridge",
-      "source": "shared",
+      "source": "private",
       "role": "remotionRuntime",
-      "version": "^1.0.0",
       "capabilities": [
         "sparo.videoEngine"
       ]

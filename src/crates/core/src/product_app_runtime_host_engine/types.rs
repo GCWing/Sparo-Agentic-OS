@@ -211,6 +211,8 @@ pub struct ProductAppRuntimeHostBackendBinding {
     pub kind: ProductAppRuntimeHostBackendKind,
     pub component_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub component_package_dir: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capability_id: Option<String>,
     #[serde(default = "default_backend_role")]
     pub role: String,

@@ -56,6 +56,8 @@ pub struct ResolvedProductApp {
     pub catalog_entry: AppCatalogEntry,
     #[serde(default)]
     pub private_surface_sources: BTreeMap<String, ProductAppRuntimeHostSource>,
+    #[serde(skip)]
+    pub package_dir: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone)]
@@ -103,6 +105,7 @@ impl ProductAppResolver {
             package.rehearsal_plan,
             package.eval_plan,
         )?;
+        resolved.package_dir = Some(package_dir.clone());
         Self::hydrate_package_icon(&mut resolved, &package_dir)?;
         Ok(resolved)
     }
@@ -133,7 +136,7 @@ impl ProductAppResolver {
         )?;
         let components = resolver.resolve()?;
         let mut app = request.app;
-        validate_surface_implementation_refs(&app, &components)?;
+        validate_component_implementation_refs(&app, &components)?;
         validate_implementation_digests(&components, &component_implementation_digests)?;
         let lock = build_component_lock_with_implementation_digests(
             &app,
@@ -150,6 +153,7 @@ impl ProductAppResolver {
             lock,
             catalog_entry,
             private_surface_sources,
+            package_dir: None,
         })
     }
 
@@ -160,7 +164,7 @@ impl ProductAppResolver {
         component_implementation_digests: BTreeMap<String, String>,
         private_surface_sources: BTreeMap<String, ProductAppRuntimeHostSource>,
     ) -> BitFunResult<ResolvedProductApp> {
-        validate_surface_implementation_refs(&app, &components)?;
+        validate_component_implementation_refs(&app, &components)?;
         validate_runtime_lock(&app, &components, &lock, &component_implementation_digests)?;
         app.component_lock_id = lock.digest();
         let catalog_entry = build_catalog_entry(app.clone(), &components, &lock, None, None);
@@ -170,6 +174,7 @@ impl ProductAppResolver {
             lock,
             catalog_entry,
             private_surface_sources,
+            package_dir: None,
         })
     }
 
@@ -519,33 +524,43 @@ fn validate_implementation_digests(
     Ok(())
 }
 
-fn validate_surface_implementation_refs(
+fn validate_component_implementation_refs(
     app: &AppDefinition,
     components: &[ComponentDefinition],
 ) -> BitFunResult<()> {
     for component in components {
-        if component.kind != ComponentKind::Surface {
-            continue;
+        match component.kind {
+            ComponentKind::Surface => {
+                let implementation_ref =
+                    component.implementation_ref.as_deref().ok_or_else(|| {
+                        BitFunError::validation(format!(
+                            "Product App surface {} must declare implementationRef",
+                            component.id
+                        ))
+                    })?;
+                if implementation_ref.starts_with("bundle://surface-components/") {
+                    return Err(BitFunError::validation(format!(
+                        "Product App {}@{} uses deprecated surface bundle implementationRef {}. Package surface source under the app and use app://.",
+                        app.id, app.version, implementation_ref
+                    )));
+                }
+                if !implementation_ref.starts_with("app://") {
+                    return Err(BitFunError::validation(format!(
+                        "Product App {}@{} surface {} must use app:// implementationRef",
+                        app.id, app.version, component.id
+                    )));
+                }
+                validate_private_component_ref(implementation_ref, app, component)?;
+            }
+            _ => {
+                let Some(implementation_ref) = component.implementation_ref.as_deref() else {
+                    continue;
+                };
+                if implementation_ref.starts_with("app://") {
+                    validate_private_component_ref(implementation_ref, app, component)?;
+                }
+            }
         }
-        let implementation_ref = component.implementation_ref.as_deref().ok_or_else(|| {
-            BitFunError::validation(format!(
-                "Product App surface {} must declare implementationRef",
-                component.id
-            ))
-        })?;
-        if implementation_ref.starts_with("bundle://surface-components/") {
-            return Err(BitFunError::validation(format!(
-                "Product App {}@{} uses deprecated surface bundle implementationRef {}. Package surface source under the app and use app://.",
-                app.id, app.version, implementation_ref
-            )));
-        }
-        if !implementation_ref.starts_with("app://") {
-            return Err(BitFunError::validation(format!(
-                "Product App {}@{} surface {} must use app:// implementationRef",
-                app.id, app.version, component.id
-            )));
-        }
-        validate_private_surface_ref(implementation_ref, app, component)?;
     }
     Ok(())
 }
@@ -739,7 +754,10 @@ fn hydrate_package_icon(resolved: &mut ResolvedProductApp, package_dir: &Path) -
     Ok(())
 }
 
-fn hydrate_package_icon_spec(icon: &mut AppIconSpec, package_dir: &Path) -> BitFunResult<()> {
+pub(crate) fn hydrate_package_icon_spec(
+    icon: &mut AppIconSpec,
+    package_dir: &Path,
+) -> BitFunResult<()> {
     let AppIconSpec::PackageAsset {
         path,
         mime_type,
@@ -970,55 +988,63 @@ async fn read_private_surface_sources(
     let mut sources = BTreeMap::new();
     let mut digests = BTreeMap::new();
     for component in components {
-        if component.kind != ComponentKind::Surface {
-            continue;
-        }
         let Some(implementation_ref) = component.implementation_ref.as_deref() else {
             continue;
         };
         if !implementation_ref.starts_with("app://") {
             continue;
         }
-        validate_private_surface_ref(implementation_ref, app, component)?;
         let component_dir = package_dir
             .join("components")
-            .join(ComponentKind::Surface.path_segment())
+            .join(component.kind.path_segment())
             .join(&component.id);
-        let source = read_surface_source_from_package(&component_dir).await?;
-        digests.insert(component.fqid(), stable_digest(&source));
-        sources.insert(component.id.clone(), source);
+        validate_private_component_ref(implementation_ref, app, component)?;
+        if component.kind == ComponentKind::Surface {
+            let source = read_surface_source_from_package(&component_dir).await?;
+            digests.insert(component.fqid(), stable_digest(&source));
+            sources.insert(component.id.clone(), source);
+        } else {
+            let source_dir = component_dir.join("source");
+            if !source_dir.is_dir() {
+                return Err(BitFunError::validation(format!(
+                    "App-private Product App component {} must include source/",
+                    component_dir.display()
+                )));
+            }
+            digests.insert(component.fqid(), filesystem_source_digest(&source_dir)?);
+        }
     }
     Ok((sources, digests))
 }
 
-fn validate_private_surface_ref(
+fn validate_private_component_ref(
     implementation_ref: &str,
     app: &AppDefinition,
     component: &ComponentDefinition,
 ) -> BitFunResult<()> {
     let Some(rest) = implementation_ref.strip_prefix("app://") else {
         return Err(BitFunError::validation(format!(
-            "Invalid private surface implementationRef: {}",
+            "Invalid private component implementationRef: {}",
             implementation_ref
         )));
     };
     let Some((identity, path)) = rest.split_once('/') else {
         return Err(BitFunError::validation(format!(
-            "Invalid private surface implementationRef: {}",
+            "Invalid private component implementationRef: {}",
             implementation_ref
         )));
     };
     let expected_identity = format!("{}@{}", app.id, app.version);
     if identity != expected_identity {
         return Err(BitFunError::validation(format!(
-            "Private surface {} does not belong to Product App {}",
+            "Private component {} does not belong to Product App {}",
             implementation_ref, expected_identity
         )));
     }
-    let expected_path = format!("{}/{}", ComponentKind::Surface.path_segment(), component.id);
+    let expected_path = format!("{}/{}", component.kind.path_segment(), component.id);
     if path != expected_path {
         return Err(BitFunError::validation(format!(
-            "Private surface {} does not match app-private Product App surface {}",
+            "Private component {} does not match app-private Product App component {}",
             implementation_ref, component.id
         )));
     }
@@ -1077,6 +1103,43 @@ async fn read_surface_source_from_package(
         entry,
         source_files,
     })
+}
+
+fn filesystem_source_digest(source_dir: &Path) -> BitFunResult<String> {
+    let mut files = Vec::new();
+    collect_source_files(source_dir, &mut files)?;
+    files.sort_by(|left, right| normalized_digest_path(left).cmp(&normalized_digest_path(right)));
+
+    let mut hasher = Sha256::new();
+    for file in files {
+        let relative = file.strip_prefix(source_dir).map_err(|error| {
+            BitFunError::io(format!("Invalid component source path: {}", error))
+        })?;
+        hasher.update(normalized_digest_path(relative).as_bytes());
+        hasher.update([0]);
+        hasher.update(std::fs::read(&file)?);
+        hasher.update([0]);
+    }
+    Ok(format!("sha256:{:x}", hasher.finalize()))
+}
+
+fn collect_source_files(dir: &Path, out: &mut Vec<PathBuf>) -> BitFunResult<()> {
+    for entry in std::fs::read_dir(dir)? {
+        let path = entry?.path();
+        if path.is_dir() {
+            if path.file_name().is_some_and(|name| name == "node_modules") {
+                continue;
+            }
+            collect_source_files(&path, out)?;
+        } else if path.is_file() {
+            out.push(path);
+        }
+    }
+    Ok(())
+}
+
+fn normalized_digest_path(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
 }
 
 async fn read_optional_text(path: &Path) -> BitFunResult<String> {

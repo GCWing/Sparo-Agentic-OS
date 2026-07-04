@@ -7,7 +7,7 @@ use crate::agent_component::manifest::{
 };
 use crate::agentic::agents::{Agent, PromptBuilder, PromptBuilderContext, RequestContextPolicy};
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
-use crate::agentic::tools::registry::get_global_tool_registry;
+use crate::agentic::tools::registry::{get_global_tool_registry, ToolRegistry};
 use crate::bridge_component::{
     BridgeComponentConsumer, BridgeComponentConsumerKind, BridgeComponentManager,
 };
@@ -350,33 +350,68 @@ impl AgentComponentManager {
         let registry = get_global_tool_registry();
         let mut guard = registry.write().await;
         for package in packages {
+            Self::register_runtime_tools_for_package_with_guard(
+                &mut guard,
+                &package,
+                HashMap::new(),
+                true,
+            )?
+            .into_iter()
+            .for_each(|name| registered.push(name));
+        }
+        Ok(registered)
+    }
+
+    pub async fn register_runtime_tools_for_package(
+        package: &AgentComponentPackage,
+        private_bridge_package_dirs: HashMap<String, PathBuf>,
+    ) -> BitFunResult<Vec<String>> {
+        let registry = get_global_tool_registry();
+        let mut guard = registry.write().await;
+        Self::register_runtime_tools_for_package_with_guard(
+            &mut guard,
+            package,
+            private_bridge_package_dirs,
+            true,
+        )
+    }
+
+    fn register_runtime_tools_for_package_with_guard(
+        guard: &mut ToolRegistry,
+        package: &AgentComponentPackage,
+        private_bridge_package_dirs: HashMap<String, PathBuf>,
+        replace_existing: bool,
+    ) -> BitFunResult<Vec<String>> {
+        let mut registered = Vec::new();
+        if replace_existing {
             guard.unregister_tools_with_prefix(&format!(
                 "{}__{}__",
                 AGENT_COMPONENT_RUNTIME_TOOL_PREFIX, package.manifest.id
             ));
-            let app_dir = PathBuf::from(&package.path);
-            let tools_dir = app_dir.join("tools");
-            if !tools_dir.exists() {
+        }
+        let app_dir = PathBuf::from(&package.path);
+        let tools_dir = app_dir.join("tools");
+        if !tools_dir.exists() {
+            return Ok(registered);
+        }
+        for entry in std::fs::read_dir(&tools_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.extension().and_then(|s| s.to_str()) != Some("json") {
                 continue;
             }
-            for entry in std::fs::read_dir(&tools_dir)? {
-                let entry = entry?;
-                let path = entry.path();
-                if path.extension().and_then(|s| s.to_str()) != Some("json") {
-                    continue;
-                }
-                let manifest: AgentComponentJsToolManifest = read_json_file(&path)?;
-                validate_js_tool_manifest(&manifest)?;
-                let tool = AgentComponentRuntimeToolAdapter::new(
-                    package.manifest.id.clone(),
-                    app_dir.clone(),
-                    package.manifest.bridge_capabilities.clone(),
-                    manifest,
-                );
-                let name = tool.name().to_string();
-                guard.register_tool(Arc::new(tool));
-                registered.push(name);
-            }
+            let manifest: AgentComponentJsToolManifest = read_json_file(&path)?;
+            validate_js_tool_manifest(&manifest)?;
+            let tool = AgentComponentRuntimeToolAdapter::new(
+                package.manifest.id.clone(),
+                app_dir.clone(),
+                package.manifest.bridge_capabilities.clone(),
+                manifest,
+                private_bridge_package_dirs.clone(),
+            );
+            let name = tool.name().to_string();
+            guard.register_tool(Arc::new(tool));
+            registered.push(name);
         }
         Ok(registered)
     }
@@ -435,6 +470,7 @@ impl AgentComponentManager {
             app_dir,
             package.manifest.bridge_capabilities.clone(),
             manifest,
+            HashMap::new(),
         );
         let context = ToolUseContext {
             tool_call_id: None,
@@ -496,7 +532,7 @@ impl AgentComponentManager {
         Ok(())
     }
 
-    fn load_package_from_dir(dir: &Path) -> BitFunResult<AgentComponentPackage> {
+    pub fn load_package_from_dir(dir: &Path) -> BitFunResult<AgentComponentPackage> {
         let mut manifest: AgentComponentManifest =
             read_json_file(&dir.join(AGENT_COMPONENT_MANIFEST))?;
         Self::validate_manifest(&mut manifest)?;
@@ -508,7 +544,7 @@ impl AgentComponentManager {
         })
     }
 
-    fn register_package(package: &AgentComponentPackage) -> BitFunResult<()> {
+    pub fn register_package(package: &AgentComponentPackage) -> BitFunResult<()> {
         let registry = crate::agentic::agents::get_agent_registry();
         Self::register_package_with_registry(&registry, package)
     }
@@ -713,6 +749,7 @@ pub struct AgentComponentRuntimeToolAdapter {
     app_id: String,
     app_dir: PathBuf,
     bridge_capabilities: Vec<AgentComponentBridgeCapabilityRef>,
+    private_bridge_package_dirs: HashMap<String, PathBuf>,
     manifest: AgentComponentJsToolManifest,
     tool_name: String,
 }
@@ -723,6 +760,7 @@ impl AgentComponentRuntimeToolAdapter {
         app_dir: PathBuf,
         bridge_capabilities: Vec<AgentComponentBridgeCapabilityRef>,
         manifest: AgentComponentJsToolManifest,
+        private_bridge_package_dirs: HashMap<String, PathBuf>,
     ) -> Self {
         let tool_name = format!(
             "{}__{}__{}",
@@ -732,6 +770,7 @@ impl AgentComponentRuntimeToolAdapter {
             app_id,
             app_dir,
             bridge_capabilities,
+            private_bridge_package_dirs,
             manifest,
             tool_name,
         }
@@ -837,15 +876,27 @@ impl AgentComponentRuntimeToolAdapter {
             session_id: context.session_id.clone(),
             turn_id: context.dialog_turn_id.clone(),
         };
-        let result = BridgeComponentManager::start_run(
-            bridge_id,
-            Some(capability_id),
-            action,
-            payload,
-            workspace_path,
-            consumer,
-        )
-        .await?;
+        let result = if let Some(package_dir) = self.private_bridge_package_dirs.get(bridge_id) {
+            BridgeComponentManager::start_run_from_package_dir(
+                package_dir,
+                Some(capability_id),
+                action,
+                payload,
+                workspace_path,
+                consumer,
+            )
+            .await?
+        } else {
+            BridgeComponentManager::start_run(
+                bridge_id,
+                Some(capability_id),
+                action,
+                payload,
+                workspace_path,
+                consumer,
+            )
+            .await?
+        };
         let summary = runtime_value
             .get("summary")
             .and_then(Value::as_str)

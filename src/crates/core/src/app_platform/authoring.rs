@@ -639,8 +639,7 @@ fn resolve_include_agent(
         .unwrap_or(!include_surface || draft.primary_surface_mode == AppSurfaceMode::ChatPrimary);
     if !include_surface && !include_agent {
         return Err(BitFunError::validation(
-            "Product Apps without a surface require an app-private Agent Component"
-                .to_string(),
+            "Product Apps without a surface require an app-private Agent Component".to_string(),
         ));
     }
     Ok(include_agent)

@@ -13,8 +13,10 @@ use crate::infrastructure::PathManager;
 use crate::util::errors::{BitFunError, BitFunResult};
 
 use super::catalog_state::{
-    install_product_app_with_source as mark_product_app_installed,
+    apply_product_app_entry_catalog_state,
+    install_product_app_with_source as mark_product_app_installed, load_product_app_catalog_state,
     product_app_installed_source_kind, uninstall_product_app as mark_product_app_uninstalled,
+    ProductAppCatalogState,
 };
 use super::native::is_native_system_lifecycle_id;
 use super::versioning::current_product_app_package_digest;
@@ -208,6 +210,32 @@ pub async fn list_installed_product_app_catalog(
     Ok(list_installed_product_app_catalog_with_issues(path_manager)
         .await?
         .entries)
+}
+
+pub async fn list_product_app_home_catalog(
+    path_manager: &PathManager,
+) -> BitFunResult<ProductAppCatalogEntries> {
+    let state = load_product_app_catalog_state(path_manager).await?;
+    let mut entries = Vec::new();
+    let mut issues = Vec::new();
+
+    for app_dir in collect_installed_product_app_dirs(&path_manager.system_product_apps_dir())? {
+        match read_product_app_home_catalog_entry(&app_dir, &state).await {
+            Ok(Some(entry)) => entries.push(entry),
+            Ok(None) => {}
+            Err(error) => {
+                record_product_app_catalog_issue(
+                    &mut issues,
+                    ProductAppCatalogIssueSource::InstalledPackage,
+                    &app_dir,
+                    &error,
+                );
+            }
+        }
+    }
+
+    sort_app_catalog_entries_by_name(&mut entries);
+    Ok(ProductAppCatalogEntries { entries, issues })
 }
 
 pub async fn list_installed_product_app_catalog_with_issues(
@@ -526,6 +554,71 @@ fn sort_app_catalog_entries_by_name(entries: &mut [AppCatalogEntry]) {
     });
 }
 
+async fn read_product_app_home_catalog_entry(
+    app_dir: &Path,
+    state: &ProductAppCatalogState,
+) -> BitFunResult<Option<AppCatalogEntry>> {
+    let mut app = read_product_app_definition_for_catalog_issue(app_dir).await?;
+    if is_native_system_lifecycle_id(&app.id) {
+        log::debug!(
+            "skip retired native Product App package '{}' in home catalog",
+            app.id
+        );
+        return Ok(None);
+    }
+
+    let lock = ProductAppResolver::read_lock(app_dir).await?;
+    let lock_digest = lock.digest();
+    app.component_lock_id = lock_digest.clone();
+    let mut entry = ProductAppCatalogEntry {
+        app,
+        component_lock_digest: lock_digest.clone(),
+        package_digest: None,
+        update_available: false,
+        installed_component_lock_digest: Some(lock_digest),
+        available_component_lock_digest: None,
+        installed_package_digest: None,
+        available_package_digest: None,
+        catalog_release_id: None,
+        catalog_release_label: None,
+        catalog_release_notes: None,
+        catalog_published_at_ms: None,
+        dependency_summary: product_app_home_dependency_summary(&lock),
+        installed: false,
+        discoverable: false,
+        library_sources: Vec::new(),
+        catalog_source: None,
+        catalog_issues: Vec::new(),
+        management: Default::default(),
+        rehearsal_plan: None,
+        eval_plan: None,
+    };
+
+    if let Err(error) = super::resolver::hydrate_package_icon_spec(&mut entry.app.icon, app_dir) {
+        log::warn!(
+            "failed to hydrate Product App home icon: app_id={}, app_version={}, package_dir={}, error={}",
+            entry.app.id,
+            entry.app.version,
+            app_dir.display(),
+            error
+        );
+    }
+
+    apply_product_app_entry_catalog_state(&mut entry, state, true);
+    if !entry.installed || entry.app.catalog_visibility == AppCatalogVisibility::Hidden {
+        return Ok(None);
+    }
+    Ok(Some(entry))
+}
+
+fn product_app_home_dependency_summary(lock: &ComponentLock) -> String {
+    match lock.resolved_components.len() {
+        0 => String::new(),
+        1 => "1 component".to_string(),
+        count => format!("{count} components"),
+    }
+}
+
 async fn read_installed_product_app_projection(
     app_dir: &Path,
     shared_components: &[ComponentDefinition],
@@ -608,6 +701,7 @@ async fn build_installed_product_app_projection(
         package.component_implementation_digests,
         package.private_surface_sources,
     )?;
+    resolved.package_dir = Some(app_dir.to_path_buf());
     ProductAppResolver::hydrate_package_icon(&mut resolved, app_dir)?;
     Ok(resolved)
 }
@@ -645,6 +739,7 @@ async fn read_degraded_product_app_projection(
         lock,
         catalog_entry,
         private_surface_sources: BTreeMap::new(),
+        package_dir: Some(app_dir.to_path_buf()),
     };
     if let Err(error) = ProductAppResolver::hydrate_package_icon(&mut resolved, app_dir) {
         log::warn!(
@@ -1761,10 +1856,11 @@ mod tests {
         create_product_app_package, create_product_app_release, restore_product_app_release,
         AppCatalogVisibility, AppDataLifecyclePolicy, AppDefinition, AppInstallScope,
         AppInteractionModel, AppManagementAction, AppPermissionSummary, AppSurfaceMode,
-        AppWorkMultiplicity, ComponentKind, ComponentPackageSource, CreateProductAppPackageDraft,
-        CreateProductAppReleaseRequest, ProductAppCatalogEntry, ProductAppCatalogSourceKind,
-        ProductAppLaunchScopeRequirement, ProductAppManagementOrigin, ProductAppReleaseCheck,
-        ProductAppReleaseReadinessSnapshot, RestoreProductAppReleaseRequest, SurfaceRef,
+        AppWorkMultiplicity, ComponentKind, ComponentPackageSource, ComponentSource,
+        CreateProductAppPackageDraft, CreateProductAppReleaseRequest, ProductAppCatalogEntry,
+        ProductAppCatalogSourceKind, ProductAppLaunchScopeRequirement, ProductAppManagementOrigin,
+        ProductAppReleaseCheck, ProductAppReleaseReadinessSnapshot,
+        RestoreProductAppReleaseRequest, SurfaceRef,
     };
     use serde_json::json;
     use std::collections::BTreeSet;
@@ -1905,6 +2001,7 @@ mod tests {
                 eval_plan: None,
             },
             private_surface_sources: BTreeMap::new(),
+            package_dir: None,
         }
     }
 
@@ -2075,6 +2172,19 @@ mod tests {
         install_product_app(&path_manager, app_id, version)
             .await
             .expect("install should copy from source catalog to installed root");
+
+        let installed_projection = list_installed_product_apps(&path_manager)
+            .await
+            .expect("installed Product App projection should resolve after install");
+        let installed_resolved_app = installed_projection
+            .iter()
+            .find(|app| app.app.id == app_id && app.app.version == version)
+            .expect("installed projection should include Spark Board after install");
+        let expected_package_dir = path_manager.system_product_app_version_dir(app_id, version);
+        assert_eq!(
+            installed_resolved_app.package_dir.as_deref(),
+            Some(expected_package_dir.as_path())
+        );
 
         let installed_after = list_installed_product_app_catalog(&path_manager)
             .await
@@ -2336,7 +2446,9 @@ mod tests {
         assert!(installed
             .iter()
             .any(|app| app.app.id == "healthy-product-app"));
-        assert!(installed.iter().any(|app| app.app.id == "broken-product-app"));
+        assert!(installed
+            .iter()
+            .any(|app| app.app.id == "broken-product-app"));
 
         let components = list_installed_package_components(&path_manager)
             .await
@@ -2704,11 +2816,16 @@ mod tests {
         assert!(resolved.app.component_lock_id.starts_with("sha256:"));
         assert!(resolved.lock.resolved_components.iter().any(|entry| {
             entry.component_id == "remotion-video-agent"
-                && entry.version.as_deref() == Some("1.0.0")
+                && entry.source == ComponentSource::Private
+                && entry.version.is_none()
+                && entry.fqid == "app://builtin-remotion-live@19.0.0/agents/remotion-video-agent"
         }));
         assert!(resolved.lock.resolved_components.iter().any(|entry| {
             entry.component_id == "builtin-remotion-runtime"
-                && entry.version.as_deref() == Some("1.0.0")
+                && entry.source == ComponentSource::Private
+                && entry.version.is_none()
+                && entry.fqid
+                    == "app://builtin-remotion-live@19.0.0/bridges/builtin-remotion-runtime"
         }));
     }
 
@@ -2743,11 +2860,16 @@ mod tests {
             .iter()
             .any(|kind| kind.id == "workspace"));
         assert!(resolved.lock.resolved_components.iter().any(|entry| {
-            entry.component_id == "harmonyos-dev-agent" && entry.version.as_deref() == Some("1.0.0")
+            entry.component_id == "harmonyos-dev-agent"
+                && entry.source == ComponentSource::Private
+                && entry.version.is_none()
+                && entry.fqid == "app://builtin-harmony-dev@13.0.0/agents/harmonyos-dev-agent"
         }));
         assert!(resolved.lock.resolved_components.iter().any(|entry| {
             entry.component_id == "builtin-harmony-runtime"
-                && entry.version.as_deref() == Some("1.0.0")
+                && entry.source == ComponentSource::Private
+                && entry.version.is_none()
+                && entry.fqid == "app://builtin-harmony-dev@13.0.0/bridges/builtin-harmony-runtime"
         }));
         assert!(resolved.lock.resolved_components.iter().any(|entry| {
             entry.component_id == "product-app-runtime-host"

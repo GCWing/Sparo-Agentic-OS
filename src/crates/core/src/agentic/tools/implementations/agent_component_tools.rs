@@ -369,9 +369,7 @@ impl Tool for CreateAgentComponentTool {
         AgentComponentManager::register_runtime_tools(workspace_root(context).as_deref()).await?;
         Ok(vec![ToolResult::ok(
             json!(package),
-            Some(
-                "Agent Component implementation package created and registered.".to_string(),
-            ),
+            Some("Agent Component implementation package created and registered.".to_string()),
         )])
     }
 }

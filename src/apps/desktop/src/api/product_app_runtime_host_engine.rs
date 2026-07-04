@@ -2432,21 +2432,35 @@ pub async fn product_app_runtime_host_backend_call(
         .unwrap_or_else(|| next_product_app_runtime_backend_run_id(&app.id));
 
     if binding.kind == ProductAppRuntimeHostBackendKind::BridgeComponent {
-        let result = BridgeComponentManager::run_capability_action(
-            &binding.component_id,
-            binding.capability_id.as_deref(),
-            &action_name,
-            request.input.clone(),
-            request.workspace_path.clone(),
-            action_run_id.clone(),
-            BridgeComponentConsumer {
-                kind: BridgeComponentConsumerKind::ProductAppRuntime,
-                id: runtime_owner.owner_id().to_string(),
-                session_id: None,
-                turn_id: Some(action_run_id.clone()),
-            },
-        )
-        .await
+        let consumer = BridgeComponentConsumer {
+            kind: BridgeComponentConsumerKind::ProductAppRuntime,
+            id: runtime_owner.owner_id().to_string(),
+            session_id: None,
+            turn_id: Some(action_run_id.clone()),
+        };
+        let result = if let Some(package_dir) = binding.component_package_dir.as_deref() {
+            BridgeComponentManager::run_capability_action_from_package_dir(
+                Path::new(package_dir),
+                binding.capability_id.as_deref(),
+                &action_name,
+                request.input.clone(),
+                request.workspace_path.clone(),
+                action_run_id.clone(),
+                consumer,
+            )
+            .await
+        } else {
+            BridgeComponentManager::run_capability_action(
+                &binding.component_id,
+                binding.capability_id.as_deref(),
+                &action_name,
+                request.input.clone(),
+                request.workspace_path.clone(),
+                action_run_id.clone(),
+                consumer,
+            )
+            .await
+        }
         .map_err(|e| format!("Failed to run Bridge Component backend: {}", e))?;
         let status = match result.status {
             BridgeComponentRunStatus::Completed => "completed",
@@ -2494,8 +2508,12 @@ pub async fn product_app_runtime_host_backend_call(
         });
     }
 
-    let agent_package = AgentComponentManager::get(&binding.component_id, None, None)
-        .map_err(|e| format!("Failed to load Agent Component backend: {}", e))?;
+    let agent_package = if let Some(package_dir) = binding.component_package_dir.as_deref() {
+        AgentComponentManager::load_package_from_dir(Path::new(package_dir))
+    } else {
+        AgentComponentManager::get(&binding.component_id, None, None)
+    }
+    .map_err(|e| format!("Failed to load Agent Component backend: {}", e))?;
     let service_action = agent_package
         .manifest
         .service_actions
@@ -2514,21 +2532,43 @@ pub async fn product_app_runtime_host_backend_call(
             .is_empty()
             .then_some(action_name.as_str())
             .unwrap_or_else(|| bridge_call.action.as_str());
-        let result = BridgeComponentManager::run_capability_action(
-            &bridge_call.bridge_id,
-            Some(&bridge_call.capability_id),
-            bridge_action,
-            request.input.clone(),
-            request.workspace_path.clone(),
-            action_run_id.clone(),
-            BridgeComponentConsumer {
-                kind: BridgeComponentConsumerKind::ProductAppRuntime,
-                id: runtime_owner.owner_id().to_string(),
-                session_id: None,
-                turn_id: Some(action_run_id.clone()),
-            },
-        )
-        .await
+        let consumer = BridgeComponentConsumer {
+            kind: BridgeComponentConsumerKind::ProductAppRuntime,
+            id: runtime_owner.owner_id().to_string(),
+            session_id: None,
+            turn_id: Some(action_run_id.clone()),
+        };
+        let bridge_package_dir = app
+            .backends
+            .iter()
+            .find(|backend| {
+                backend.kind == ProductAppRuntimeHostBackendKind::BridgeComponent
+                    && backend.component_id == bridge_call.bridge_id
+            })
+            .and_then(|backend| backend.component_package_dir.as_deref());
+        let result = if let Some(package_dir) = bridge_package_dir {
+            BridgeComponentManager::run_capability_action_from_package_dir(
+                Path::new(package_dir),
+                Some(&bridge_call.capability_id),
+                bridge_action,
+                request.input.clone(),
+                request.workspace_path.clone(),
+                action_run_id.clone(),
+                consumer,
+            )
+            .await
+        } else {
+            BridgeComponentManager::run_capability_action(
+                &bridge_call.bridge_id,
+                Some(&bridge_call.capability_id),
+                bridge_action,
+                request.input.clone(),
+                request.workspace_path.clone(),
+                action_run_id.clone(),
+                consumer,
+            )
+            .await
+        }
         .map_err(|e| format!("Failed to run Agent Component Bridge service action: {}", e))?;
         let status = match result.status {
             BridgeComponentRunStatus::Completed => "completed",
