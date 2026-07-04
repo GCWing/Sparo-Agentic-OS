@@ -10,10 +10,7 @@ import type { ComponentKind } from '@/infrastructure/api/service-api/AppCatalogA
 export type AppsScenePage =
   | 'home'
   | 'manage'
-  | 'app-detail'
-  | 'component-center'
-  | 'create-app'
-  | 'create-component';
+  | 'component-center';
 
 export type ProductAppFilter =
   | 'all'
@@ -22,14 +19,14 @@ export type ProductAppFilter =
   | 'conversation'
   | 'interactive';
 
-export type ManageSortKey = 'name' | 'scope' | 'status';
+export type ManageSortKey = 'attention' | 'name' | 'scope' | 'status';
 
 export type ComponentCenterFilter = 'all' | ComponentKind;
 
+export type AppDetailKind = 'product' | 'native';
+
 interface AppsStoreState {
   page: AppsScenePage;
-  /** The page that was active before navigating to app-detail, so we can return to it. */
-  detailReturnPage: AppsScenePage;
   productAppFilter: ProductAppFilter;
   componentFilter: ComponentCenterFilter;
   launchSearch: string;
@@ -37,6 +34,7 @@ interface AppsStoreState {
   componentSearch: string;
   manageSort: ManageSortKey;
   selectedAppId: string | null;
+  selectedAppKind: AppDetailKind | null;
   selectedComponentId: string | null;
   setProductAppFilter: (filter: ProductAppFilter) => void;
   setComponentFilter: (filter: ComponentCenterFilter) => void;
@@ -45,46 +43,56 @@ interface AppsStoreState {
   setComponentSearch: (query: string) => void;
   setManageSort: (sort: ManageSortKey) => void;
   openHome: () => void;
-  openManage: (appId?: string | null) => void;
-  openAppDetail: (appId: string) => void;
+  openManage: () => void;
+  openAppDetail: (appId: string, kind?: AppDetailKind) => void;
+  closeAppDetail: () => void;
   openComponentCenter: (componentId?: string | null) => void;
-  openCreateApp: () => void;
-  openCreateComponent: () => void;
 }
 
 export const useAppsStore = create<AppsStoreState>((set) => ({
   page: 'home',
-  detailReturnPage: 'home',
   productAppFilter: 'all',
   componentFilter: 'all',
   launchSearch: '',
   manageSearch: '',
   componentSearch: '',
-  manageSort: 'name',
+  manageSort: 'attention',
   selectedAppId: null,
+  selectedAppKind: null,
   selectedComponentId: null,
   setProductAppFilter: (productAppFilter) =>
-    set({ productAppFilter, page: 'manage', selectedAppId: null }),
+    set({ productAppFilter, page: 'manage', selectedAppId: null, selectedAppKind: null }),
   setComponentFilter: (componentFilter) =>
-    set({ componentFilter, page: 'component-center' }),
+    set({ componentFilter, page: 'component-center', selectedAppId: null, selectedAppKind: null }),
   setLaunchSearch: (launchSearch) => set({ launchSearch }),
   setManageSearch: (manageSearch) => set({ manageSearch }),
   setComponentSearch: (componentSearch) => set({ componentSearch }),
   setManageSort: (manageSort) => set({ manageSort }),
-  openHome: () => set({ page: 'home', detailReturnPage: 'home', selectedAppId: null, selectedComponentId: null }),
-  openManage: (appId = null) => set({
-    page: 'manage',
-    detailReturnPage: 'manage',
-    selectedAppId: appId ?? null,
+  openHome: () => set({
+    page: 'home',
+    selectedAppId: null,
+    selectedAppKind: null,
     selectedComponentId: null,
   }),
-  openAppDetail: (appId) => set((state) => ({
-    page: 'app-detail',
+  openManage: () => set({
+    page: 'manage',
+    selectedAppId: null,
+    selectedAppKind: null,
+    selectedComponentId: null,
+  }),
+  openAppDetail: (appId, kind = 'product') => set({
     selectedAppId: appId,
-    detailReturnPage: state.page === 'app-detail' ? state.detailReturnPage : state.page,
-  })),
+    selectedAppKind: kind,
+  }),
+  closeAppDetail: () => set({
+    selectedAppId: null,
+    selectedAppKind: null,
+  }),
   openComponentCenter: (componentId = null) =>
-    set({ page: 'component-center', selectedComponentId: componentId ?? null }),
-  openCreateApp: () => set({ page: 'create-app', selectedAppId: null }),
-  openCreateComponent: () => set({ page: 'create-component', selectedComponentId: null }),
+    set({
+      page: 'component-center',
+      selectedAppId: null,
+      selectedAppKind: null,
+      selectedComponentId: componentId ?? null,
+    }),
 }));

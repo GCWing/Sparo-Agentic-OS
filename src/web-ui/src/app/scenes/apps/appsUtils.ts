@@ -61,9 +61,6 @@ export function enrichAgentCapabilities(agent: AgentWithCapabilities): AgentWith
   if (id === 'appstudio') {
     return { ...agent, capabilities: [{ category: 'Coding', level: 5 }, { category: 'Creative', level: 4 }] };
   }
-  if (id === 'componentstudio') {
-    return { ...agent, capabilities: [{ category: 'Coding', level: 5 }, { category: 'Operations', level: 3 }] };
-  }
 
   if (name.includes('code') || name.includes('debug') || name.includes('test')) {
     return { ...agent, capabilities: [{ category: 'Coding', level: 4 }] };

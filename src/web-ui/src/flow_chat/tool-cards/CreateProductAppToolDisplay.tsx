@@ -11,7 +11,7 @@ import {
 } from './templates';
 import { deriveToolRuntimeState } from '../runtime/statusModel';
 import { getToolViewState } from '../runtime/toolViewState';
-import { resolveToolSessionAppScope } from './surfaceComponentToolScope';
+import { resolveToolSessionAppScope } from './appStudioToolScope';
 import './CreateProductAppToolDisplay.scss';
 
 export const CreateProductAppDisplay: React.FC<ToolCardProps> = ({ toolItem, sessionId }) => {
@@ -31,62 +31,85 @@ export const CreateProductAppDisplay: React.FC<ToolCardProps> = ({ toolItem, ses
 
   const appId = toolResult?.result?.app_id as string | undefined;
   const path = toolResult?.result?.path as string | undefined;
+  const version = toolResult?.result?.version as string | undefined;
+  const primarySurfaceId = toolResult?.result?.primary_surface_id as string | undefined;
+  const componentLockDigest = toolResult?.result?.component_lock_digest as string | undefined;
+  const primarySurfaceMode = toolResult?.result?.primary_surface_mode as string | undefined;
+  const launchKind = toolResult?.result?.launch_kind as string | undefined;
   const success = toolResult?.success === true;
   const isLoading = viewState.phase === 'running' || viewState.phase === 'receiving_input' || viewState.phase === 'preparing';
   const isFailed = viewState.phase === 'error' || (isCompleted && toolResult != null && toolResult.success === false);
-  const canOpenDebugPanel = isCompleted && success && Boolean(appId);
+  const canOpenStudio = isCompleted && success && Boolean(appId);
   const appScope = useMemo(() => resolveToolSessionAppScope(sessionId), [sessionId]);
 
-  const handleOpenDebugPanel = useCallback(() => {
-    if (!canOpenDebugPanel || !appId) return;
+  const handleOpenStudio = useCallback(() => {
+    if (!canOpenStudio || !appId) return;
 
     const duplicateCheckKey = `app-studio:${sessionId ?? `${appId}:${appScopeIdentity(appScope)}`}`;
     window.dispatchEvent(new CustomEvent('agent-create-tab', {
       detail: {
         type: 'app-studio',
-        title: t('toolCards.appStudio.debugPanelTitle'),
+        title: t('toolCards.appStudio.studioTitle'),
         data: {
           sessionId: sessionId ?? null,
           appId,
           scope: appScope,
+          productAppFacts: {
+            appId,
+            version,
+            primarySurfaceId,
+            componentLockDigest,
+            primarySurfaceMode,
+            launchKind,
+            packagePath: path,
+          },
         },
         metadata: {
           appStudioSessionId: sessionId,
           appStudioAppId: appId,
           appScope,
+          productAppFacts: {
+            appId,
+            version,
+            primarySurfaceId,
+            componentLockDigest,
+            primarySurfaceMode,
+            launchKind,
+            packagePath: path,
+          },
         },
         checkDuplicate: true,
         duplicateCheckKey,
         replaceExisting: true,
       },
     }));
-  }, [appId, appScope, canOpenDebugPanel, sessionId, t]);
+  }, [appId, appScope, canOpenStudio, componentLockDigest, launchKind, path, primarySurfaceId, primarySurfaceMode, sessionId, t, version]);
 
   const getErrorMessage = () => {
     if (toolResult && 'error' in toolResult && toolResult.error) {
       return String(toolResult.error);
     }
-    return t('toolCards.initSurfaceComponent.createFailed');
+    return t('toolCards.createProductApp.createFailed');
   };
 
   const commandText = useMemo(() => {
     if (isLoading) {
-      return name || t('toolCards.initSurfaceComponent.creatingShort');
+      return name || t('toolCards.createProductApp.creatingShort');
     }
     if (isFailed) {
-      return name || t('toolCards.initSurfaceComponent.untitled');
+      return name || t('toolCards.createProductApp.untitled');
     }
-    return name || appId || t('toolCards.initSurfaceComponent.untitled');
+    return name || appId || t('toolCards.createProductApp.untitled');
   }, [appId, isFailed, isLoading, name, t]);
 
   const subject = (
         <span className="create-product-app-tool-info">
           <span className="operation-tag">
             {isLoading
-              ? t('toolCards.initSurfaceComponent.operationInit')
+              ? t('toolCards.createProductApp.operationInit')
               : isFailed
-                ? t('toolCards.initSurfaceComponent.operationInit')
-                : t('toolCards.initSurfaceComponent.skeletonReady')}
+                ? t('toolCards.createProductApp.operationInit')
+                : t('toolCards.createProductApp.skeletonReady')}
           </span>
           <span className="command-text">{commandText}</span>
         </span>
@@ -101,7 +124,7 @@ export const CreateProductAppDisplay: React.FC<ToolCardProps> = ({ toolItem, ses
           )}
           {isFailed && (
             <div className="error-indicator">
-              <span className="error-text">{t('toolCards.initSurfaceComponent.failed')}</span>
+              <span className="error-text">{t('toolCards.createProductApp.failed')}</span>
             </div>
           )}
         </>
@@ -110,8 +133,13 @@ export const CreateProductAppDisplay: React.FC<ToolCardProps> = ({ toolItem, ses
   const successContent = () => {
     if (!appId) return null;
     const rows = [
-      { label: t('toolCards.initSurfaceComponent.labelAppId'), value: appId },
-      ...(path ? [{ label: t('toolCards.initSurfaceComponent.labelPath'), value: path }] : []),
+      { label: t('toolCards.createProductApp.labelAppId'), value: appId },
+      ...(version ? [{ label: t('toolCards.createProductApp.labelVersion'), value: version }] : []),
+      ...(primarySurfaceId ? [{ label: t('toolCards.createProductApp.labelPrimarySurface'), value: primarySurfaceId }] : []),
+      ...(primarySurfaceMode ? [{ label: t('toolCards.createProductApp.labelSurfaceMode'), value: primarySurfaceMode }] : []),
+      ...(launchKind ? [{ label: t('toolCards.createProductApp.labelLaunchKind'), value: launchKind }] : []),
+      ...(componentLockDigest ? [{ label: t('toolCards.createProductApp.labelLockDigest'), value: componentLockDigest }] : []),
+      ...(path ? [{ label: t('toolCards.createProductApp.labelPath'), value: path }] : []),
     ];
 
     return (
@@ -124,7 +152,7 @@ export const CreateProductAppDisplay: React.FC<ToolCardProps> = ({ toolItem, ses
   const errorContent = () => (
     <ToolErrorBlock
       message={getErrorMessage()}
-      details={name ? t('toolCards.initSurfaceComponent.nameLabel', { name }) : undefined}
+      details={name ? t('toolCards.createProductApp.nameLabel', { name }) : undefined}
     />
   );
 
@@ -138,9 +166,9 @@ export const CreateProductAppDisplay: React.FC<ToolCardProps> = ({ toolItem, ses
       meta={extra}
       isRunning={isLoading}
       showHeaderExpandHint={Boolean((success && appId) || isFailed)}
-      headerRail={canOpenDebugPanel ? {
-        label: t('toolCards.appStudio.openDebugPanel'),
-        onClick: handleOpenDebugPanel,
+      headerRail={canOpenStudio ? {
+        label: t('toolCards.appStudio.openStudio'),
+        onClick: handleOpenStudio,
         icon: (
           <>
             <ChevronRight size={18} strokeWidth={2} absoluteStrokeWidth />

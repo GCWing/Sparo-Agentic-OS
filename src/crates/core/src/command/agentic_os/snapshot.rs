@@ -8,9 +8,9 @@ use crate::agentic::persistence::PersistenceManager;
 use crate::agentic_os::work::{default_work_store, WorkProjection};
 use crate::bridge_component::BridgeComponentManager;
 use crate::infrastructure::try_get_path_manager_arc;
+use crate::product_app_runtime_host::ProductAppRuntimeHostManager;
 use crate::service::config::types::AIConfig;
 use crate::service::workspace::get_global_workspace_service;
-use crate::surface_component::SurfaceComponentManager;
 
 use super::super::{CommandContext, CommandError, CommandResult};
 
@@ -330,7 +330,7 @@ async fn load_apps() -> Vec<AgenticOsAppRow> {
     }
 
     if let Ok(path_manager) = try_get_path_manager_arc() {
-        let manager = SurfaceComponentManager::new(path_manager);
+        let manager = ProductAppRuntimeHostManager::new(path_manager);
         if let Ok(apps) = manager.list().await {
             rows.extend(apps.into_iter().map(|app| AgenticOsAppRow {
                 id: app.id,

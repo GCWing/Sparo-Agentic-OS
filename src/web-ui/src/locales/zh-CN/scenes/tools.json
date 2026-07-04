@@ -349,7 +349,32 @@
     "CreateProductApp": {
       "name": "CreateProductApp",
       "summary": "初始化一个 Product App 项目骨架。",
-      "what": "用默认模板初始化一个新的灵动应用项目。"
+      "what": "用默认模板初始化一个新的产品应用项目。"
+    },
+    "CreateProductAppComponent": {
+      "name": "CreateProductAppComponent",
+      "summary": "创建 Product App 的 app-private Component 脚手架。",
+      "what": "向已有 Product App package 添加 Surface、Agent、Bridge、Runtime、Tool 或 Skill 组件脚手架，并刷新组件锁。"
+    },
+    "GetProductAppPackage": {
+      "name": "GetProductAppPackage",
+      "summary": "读取 Product App package。",
+      "what": "读取 app.json、app.lock.json、私有组件、解析后的组件和 package 计划，不修改文件。"
+    },
+    "UpdateProductAppPackage": {
+      "name": "UpdateProductAppPackage",
+      "summary": "更新 Product App package 元数据。",
+      "what": "更新结构化 Product App 元数据、启动方式、主 surface、交互模型和 Work 数量策略，并刷新组件锁。"
+    },
+    "RefreshProductAppLock": {
+      "name": "RefreshProductAppLock",
+      "summary": "刷新 Product App 组件锁。",
+      "what": "解析 Product App package，更新 app.json 中的组件锁摘要，并重写 app.lock.json。"
+    },
+    "ResolveStudioPreviewTarget": {
+      "name": "ResolveStudioPreviewTarget",
+      "summary": "解析 Studio 预览目标。",
+      "what": "解析 Product App 预览身份、模式、Workbench 位置和证据边界，但不声称已经执行运行时预览。"
     },
     "ComputerUse": {
       "name": "ComputerUse",

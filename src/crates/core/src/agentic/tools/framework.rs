@@ -1,4 +1,5 @@
 //! Tool framework - Tool interface definition and execution context
+use crate::agentic::app_studio_context::AppStudioExecutionContext;
 use crate::agentic::tools::restrictions::{
     is_local_path_within_root, ToolPathOperation, ToolRuntimeRestrictions,
 };
@@ -63,6 +64,7 @@ pub struct ToolUseContext {
     pub workspace: Option<WorkspaceBinding>,
     /// Extended context data passed from execution layer to tools.
     pub custom_data: HashMap<String, Value>,
+    pub app_studio: Option<AppStudioExecutionContext>,
     /// Desktop automation (Computer use); only set in Sparo OS desktop.
     pub computer_use_host: Option<crate::agentic::tools::computer_use_host::ComputerUseHostRef>,
     // Cancel tool execution more timely, especially for tools like TaskTool that need to run for a long time
@@ -122,6 +124,26 @@ impl ToolUseContext {
         operation: ToolPathOperation,
         resolution: &ToolPathResolution,
     ) -> BitFunResult<()> {
+        if let Some(app_studio) = self.app_studio.as_ref() {
+            let target = Path::new(&resolution.resolved_path);
+            let mut allowed = false;
+            for root in &app_studio.allowed_write_roots {
+                if is_local_path_within_root(target, root)? {
+                    allowed = true;
+                    break;
+                }
+            }
+
+            if !allowed {
+                return Err(crate::util::errors::BitFunError::validation(format!(
+                    "AppStudio is bound to package root '{}' and cannot {} '{}'",
+                    app_studio.package_root.display(),
+                    operation.verb(),
+                    resolution.logical_path
+                )));
+            }
+        }
+
         let allowed_roots = self
             .runtime_tool_restrictions
             .path_policy
@@ -545,4 +567,84 @@ pub trait Tool: Send + Sync {
 #[derive(Debug, Clone)]
 pub struct ToolRenderOptions {
     pub verbose: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::agentic::app_studio_context::{
+        AppStudioExecutionContext, AppStudioSubject, AppStudioSubjectScope,
+    };
+    use crate::agentic::tools::ToolRuntimeRestrictions;
+    use std::collections::HashMap;
+
+    fn app_studio_context(package_root: PathBuf) -> ToolUseContext {
+        ToolUseContext {
+            tool_call_id: None,
+            agent_type: Some("AppStudio".to_string()),
+            session_id: Some("session-1".to_string()),
+            dialog_turn_id: None,
+            workspace: None,
+            custom_data: HashMap::new(),
+            app_studio: Some(AppStudioExecutionContext {
+                subject: AppStudioSubject::ProductApp {
+                    app_id: "focus-app".to_string(),
+                    version: "1.0.0".to_string(),
+                    title: None,
+                    scope: AppStudioSubjectScope::System,
+                },
+                package_root: package_root.clone(),
+                allowed_write_roots: vec![package_root],
+                work_id: None,
+                runtime_instance_id: None,
+                preview_issue_id: None,
+            }),
+            computer_use_host: None,
+            cancellation_token: None,
+            runtime_tool_restrictions: ToolRuntimeRestrictions::default(),
+            workspace_services: None,
+            workspace_mount: None,
+            agentic: None,
+        }
+    }
+
+    fn resolution(path: &Path) -> ToolPathResolution {
+        ToolPathResolution {
+            requested_path: path.to_string_lossy().to_string(),
+            logical_path: path.to_string_lossy().to_string(),
+            resolved_path: path.to_string_lossy().to_string(),
+            backend: ToolPathBackend::Local,
+            runtime_scope: None,
+            runtime_root: None,
+        }
+    }
+
+    #[test]
+    fn app_studio_file_mutations_are_limited_to_bound_package_root() {
+        let base = std::env::temp_dir().join(format!(
+            "sparo-app-studio-framework-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let package_root = base.join("apps").join("focus-app").join("1.0.0");
+        let sibling_root = base.join("apps").join("other-app").join("1.0.0");
+        std::fs::create_dir_all(&package_root).expect("create package root");
+        std::fs::create_dir_all(&sibling_root).expect("create sibling root");
+
+        let context = app_studio_context(package_root.clone());
+
+        context
+            .enforce_path_operation(
+                ToolPathOperation::Write,
+                &resolution(&package_root.join("app.json")),
+            )
+            .expect("bound package write allowed");
+
+        let denied = context.enforce_path_operation(
+            ToolPathOperation::Write,
+            &resolution(&sibling_root.join("app.json")),
+        );
+        assert!(denied.is_err());
+
+        let _ = std::fs::remove_dir_all(base);
+    }
 }

@@ -210,7 +210,7 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
               if (ctx.outerHTML) lines.push(`Outer HTML:\n\`\`\`html\n${ctx.outerHTML}\n\`\`\``);
               return lines.join('\n');
             }
-            case 'surface-component-preview-element-selection': {
+            case 'product-app-preview-element-selection': {
               const lines = [
                 `[Product App Preview Element: ${ctx.appName || ctx.appId} @ ${ctx.route}]`,
                 `Selector: ${ctx.element.selectorPath}`,

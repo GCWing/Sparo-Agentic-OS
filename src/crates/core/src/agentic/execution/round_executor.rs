@@ -391,6 +391,7 @@ impl RoundExecutor {
                 subagent_parent_info,
                 allowed_tools: context.available_tools.clone(),
                 runtime_tool_restrictions: context.runtime_tool_restrictions.clone(),
+                app_studio: context.app_studio.clone(),
                 workspace_services: context.workspace_services.clone(),
                 workspace_mount: context.workspace_mount.clone(),
                 agentic: context.agentic.clone(),

@@ -1,4 +1,4 @@
-//! Agent Component tools used by Component Studio.
+//! Agent Component tools used by App Studio component authoring.
 
 use crate::agent_component::{
     slugify_agent_component_id, AgentComponentExample, AgentComponentJsToolManifest,
@@ -239,7 +239,7 @@ impl Tool for ListAgentComponentsTool {
         "ListAgentComponents"
     }
     async fn description(&self) -> BitFunResult<String> {
-        Ok("List installed FlowChat-native Agent Components.".to_string())
+        Ok("List installed Agent Component implementation packages.".to_string())
     }
     fn input_schema(&self) -> Value {
         json!({ "type": "object", "additionalProperties": false, "properties": {} })
@@ -337,7 +337,7 @@ impl Tool for CreateAgentComponentTool {
         "CreateAgentComponent"
     }
     async fn description(&self) -> BitFunResult<String> {
-        Ok("Create and register a FlowChat-native Agent Component package.".to_string())
+        Ok("Create and register an Agent Component implementation package.".to_string())
     }
     fn input_schema(&self) -> Value {
         agent_component_schema(true)
@@ -370,8 +370,7 @@ impl Tool for CreateAgentComponentTool {
         Ok(vec![ToolResult::ok(
             json!(package),
             Some(
-                "Agent Component created and registered. It now appears in Agent Components."
-                    .to_string(),
+                "Agent Component implementation package created and registered.".to_string(),
             ),
         )])
     }
@@ -385,7 +384,7 @@ impl Tool for UpdateAgentComponentTool {
         "UpdateAgentComponent"
     }
     async fn description(&self) -> BitFunResult<String> {
-        Ok("Update and re-register a FlowChat-native Agent Component package.".to_string())
+        Ok("Update and re-register an Agent Component implementation package.".to_string())
     }
     fn input_schema(&self) -> Value {
         agent_component_schema(true)

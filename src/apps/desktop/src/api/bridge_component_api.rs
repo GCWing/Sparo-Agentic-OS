@@ -1,4 +1,4 @@
-//! Bridge Component API - external app/runtime package management.
+//! Bridge Component API - implementation adapter management for Product App bridge backends.
 
 use crate::api::app_state::AppState;
 use bitfun_core::agentic::tools::registry::get_global_tool_registry;

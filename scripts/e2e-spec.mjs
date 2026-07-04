@@ -7,6 +7,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
 
 const args = process.argv.slice(2);
+if (args[0] === '--') {
+  args.shift();
+}
 const modeFlagIndex = args.findIndex(arg => arg === '--mode' || arg === '-m');
 let mode = process.env.SPARO_E2E_APP_MODE || 'debug';
 

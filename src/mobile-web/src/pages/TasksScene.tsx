@@ -29,7 +29,7 @@ const AGENT_TYPE_LABELS: Record<string, string> = {
   Design: 'Design',
   deepresearch: 'Deep Research',
   DeepResearch: 'Deep Research',
-  appstudio: 'Surface Component',
+  appstudio: 'App Studio',
   AppStudio: 'App Studio',
   plan: 'Plan',
   Plan: 'Plan',

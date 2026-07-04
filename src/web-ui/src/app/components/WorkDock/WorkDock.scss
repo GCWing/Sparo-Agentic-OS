@@ -799,12 +799,6 @@
     }
   }
 
-  &.is-surface-component {
-    &::before {
-      display: none;
-    }
-  }
-
   svg {
     flex-shrink: 0;
     position: relative;

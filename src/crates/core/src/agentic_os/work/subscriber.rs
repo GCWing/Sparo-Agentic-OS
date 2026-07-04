@@ -9,7 +9,8 @@ use crate::infrastructure::try_get_path_manager_arc;
 use crate::util::errors::BitFunResult;
 
 use super::{
-    default_work_store, WorkExecutionBindingStatus, WorkExecutionSource, WorkRecord, WorkService,
+    default_work_store, WorkExecutionAppStudioContext, WorkExecutionBindingStatus,
+    WorkExecutionSource, WorkRecord, WorkService,
 };
 
 pub struct WorkEventSubscriber {
@@ -49,10 +50,17 @@ impl EventSubscriber for WorkEventSubscriber {
             AgenticEvent::DialogTurnStarted {
                 session_id,
                 turn_id,
+                user_message_metadata,
                 ..
             } => {
                 service
-                    .mark_agent_session_turn_started(session_id, turn_id)
+                    .mark_agent_session_turn_started_with_app_studio_context(
+                        session_id,
+                        turn_id,
+                        WorkExecutionAppStudioContext::from_turn_metadata(
+                            user_message_metadata.as_ref(),
+                        ),
+                    )
                     .await?;
             }
             AgenticEvent::DialogTurnCompleted { turn_id, .. } => {

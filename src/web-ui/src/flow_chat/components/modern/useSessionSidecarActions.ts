@@ -1,8 +1,8 @@
-import { useMemo } from 'react';
+﻿import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCanvasStore } from '@/app/components/panels/content-canvas/stores';
 import { openSessionSidecarPanel, useSessionProfile } from '@/app/session-profiles';
-import { useSurfaceComponentStore } from '@/app/scenes/apps/surface-component/surfaceComponentStore';
+import { useProductAppRuntimeStore } from '@/app/scenes/apps/product-app-runtime/productAppRuntimeStore';
 import type {
   SessionSidecarActionDescriptor,
   SessionSidecarIconId,
@@ -33,7 +33,7 @@ export function useSessionSidecarActions(): FlowChatSidecarActionViewModel[] {
   const primaryGroup = useCanvasStore(state => state.primaryGroup);
   const secondaryGroup = useCanvasStore(state => state.secondaryGroup);
   const tertiaryGroup = useCanvasStore(state => state.tertiaryGroup);
-  const storeStudioAppId = useSurfaceComponentStore(state =>
+  const storeStudioAppId = useProductAppRuntimeStore(state =>
     activeSession?.sessionId ? state.sessionAppIds[activeSession.sessionId] : undefined
   );
 
@@ -43,21 +43,16 @@ export function useSessionSidecarActions(): FlowChatSidecarActionViewModel[] {
     }
 
     const agentSessionBinding = activeSession.customMetadata?.agentSessionBinding;
-    const studioAppId = agentSessionBinding?.subject.kind === 'surface-component'
+    const studioAppId = agentSessionBinding?.subject.kind === 'product-app'
       ? agentSessionBinding.subject.id
       : storeStudioAppId;
 
     const extra: Record<string, unknown> = {
-      ...(profile.id === 'component-studio'
-        ? { componentId: studioAppId }
-        : { appId: studioAppId }),
-      tabTitle:
-        profile.id === 'component-studio'
-          ? 'Component Studio'
-          : 'App Studio',
+      appId: studioAppId,
+      tabTitle: 'App Studio',
       agentSessionBinding,
       customMetadata: activeSession.customMetadata,
-      surfaceComponentWorkbench: activeSession.customMetadata?.surfaceComponentWorkbench,
+      productAppRuntime: activeSession.customMetadata?.productAppRuntime,
       workspacePath: activeSession.workspacePath,
     };
 

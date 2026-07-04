@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppWindow, Boxes, FolderOpen, ListChecks, MessageSquare } from 'lucide-react';
+import { AppWindow, Boxes, FileText, FolderOpen, Layers3, ListChecks, MessageSquare } from 'lucide-react';
 import { Dialog, Search, SelectableRow } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
@@ -14,6 +14,7 @@ import {
   appCatalogAPI,
   type ComponentDefinition,
   type ProductAppCatalogEntry,
+  type WorkObjectKind,
 } from '@/infrastructure/api/service-api/AppCatalogAPI';
 import {
   NewWorkDialog,
@@ -23,12 +24,14 @@ import {
 import { productAppRequiresWorkspace } from '@/app/agentic-os/work/domain/productAppLaunchPolicy';
 import { useWorks } from '@/app/agentic-os/work/hooks/useWorks';
 import { filterWorkProjections } from '@/app/agentic-os/work/data/workSelectors';
-import { openWorkInCenter } from '@/app/agentic-os/work/navigation/openWork';
+import { openArtifactInCenter, openWorkInCenter } from '@/app/agentic-os/work/navigation/openWork';
 import type { WorkProjection } from '@/app/agentic-os/work/projections/workProjection';
 import { isSystemAgenticOsSession } from '@/flow_chat/domain/sessionDescriptor';
 import { notificationService } from '@/shared/notification-system';
 import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
 import { useAppsStore } from '@/app/scenes/apps/appsStore';
+import { openAppStudioSession } from '@/app/scenes/apps/app-studio/openAppStudioSession';
+import type { ArtifactRef, WorkRecord } from '@/app/agentic-os/work/domain/workTypes';
 import './GlobalSearchDialog.scss';
 
 interface GlobalSearchDialogProps {
@@ -36,7 +39,7 @@ interface GlobalSearchDialogProps {
   onClose: () => void;
 }
 
-type SearchResultKind = 'workspace' | 'work' | 'session' | 'app' | 'component';
+type SearchResultKind = 'workspace' | 'work' | 'session' | 'app' | 'workObject' | 'component' | 'artifact';
 
 interface SearchResultItem {
   kind: SearchResultKind;
@@ -44,8 +47,12 @@ interface SearchResultItem {
   label: string;
   sublabel?: string;
   workspaceId?: string;
+  workId?: string;
+  appId?: string;
   productApp?: ProductAppCatalogEntry;
+  workObject?: WorkObjectKind;
   component?: ComponentDefinition;
+  artifact?: ArtifactRef;
 }
 
 const MAX_PER_GROUP = 20;
@@ -94,6 +101,34 @@ function matchesComponent(query: string, component: ComponentDefinition): boolea
   );
 }
 
+function matchesWorkObject(query: string, app: ProductAppCatalogEntry, workObject: WorkObjectKind): boolean {
+  return matchesQuery(
+    query,
+    app.id,
+    app.name,
+    app.goal,
+    app.description,
+    workObject.id,
+    workObject.label,
+    workObject.scope
+  );
+}
+
+function artifactLabel(artifact: ArtifactRef): string {
+  return artifact.label?.trim() || artifact.id;
+}
+
+function matchesArtifact(query: string, work: WorkRecord, artifact: ArtifactRef): boolean {
+  return matchesQuery(
+    query,
+    artifact.id,
+    artifact.label,
+    artifact.uri,
+    work.title,
+    work.objective
+  );
+}
+
 function buildWorkResult(
   work: WorkProjection,
   workspaces: WorkspaceInfo[],
@@ -111,6 +146,21 @@ function buildWorkResult(
     sublabel: workspaceLabel
       ? t('nav.search.workWorkspaceHint', { status, workspace: workspaceLabel })
       : t('nav.search.workHint', { status }),
+  };
+}
+
+function buildArtifactResult(
+  work: WorkRecord,
+  artifact: ArtifactRef,
+  t: (key: string, params?: Record<string, string | number>) => string
+): SearchResultItem {
+  return {
+    kind: 'artifact',
+    id: `artifact:${work.id}:${artifact.id}`,
+    workId: work.id,
+    label: artifactLabel(artifact),
+    sublabel: t('nav.search.artifactHint', { work: work.title }),
+    artifact,
   };
 }
 
@@ -185,7 +235,7 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
   const { t } = useI18n('common');
   const { t: tApps } = useI18n('scenes/apps');
   const { openedWorkspacesList, lastUsedWorkspace, rememberWorkspace } = useWorkspaceContext();
-  const { projections } = useWorks();
+  const { works, projections } = useWorks();
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   const [productApps, setProductApps] = useState<ProductAppCatalogEntry[]>([]);
@@ -257,9 +307,15 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
       appCatalogAPI.listAppCatalog(),
       appCatalogAPI.listComponents(),
     ])
-      .then(([apps, componentItems]) => {
+      .then(([catalog, componentItems]) => {
         if (!cancelled) {
-          setProductApps(apps.filter(app => app.enabled));
+          const appsByKey = new Map<string, ProductAppCatalogEntry>();
+          for (const app of catalog.productApps.installed) {
+            if (!app.enabled) continue;
+            if ((app.catalogIssues?.length ?? 0) > 0) continue;
+            appsByKey.set(`${app.id}@${app.version}@${app.componentLockDigest}`, app);
+          }
+          setProductApps([...appsByKey.values()]);
           setComponents(componentItems);
         }
       })
@@ -377,6 +433,24 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
       });
     }
 
+    const workObjectMatches: SearchResultItem[] = [];
+    for (const app of productApps) {
+      for (const workObject of app.workObjectKinds ?? []) {
+        if (!matchesWorkObject(trimmedQuery, app, workObject)) continue;
+        const scope = tApps(`productSystem.workObjectScope.${workObject.scope}`);
+        workObjectMatches.push({
+          kind: 'workObject',
+          id: `work-object:${app.id}:${workObject.id}`,
+          appId: app.id,
+          label: workObject.label || workObject.id,
+          sublabel: t('nav.search.workObjectHint', { app: app.name, scope }),
+          productApp: app,
+          workObject,
+        });
+      }
+    }
+    items.push(...workObjectMatches.slice(0, MAX_PER_GROUP));
+
     const filteredComponents = components
       .filter(component => matchesComponent(trimmedQuery, component))
       .slice(0, MAX_PER_GROUP);
@@ -389,6 +463,15 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
         component,
       });
     }
+
+    const artifactMatches = works
+      .filter(work => work.status !== 'archived')
+      .flatMap(work => (work.artifactRefs ?? [])
+        .filter(artifact => matchesArtifact(trimmedQuery, work, artifact))
+        .map(artifact => buildArtifactResult(work, artifact, t))
+      )
+      .slice(0, MAX_PER_GROUP);
+    items.push(...artifactMatches);
 
     const mergedEntries = buildMergedSessionEntries(
       topLevelSessions,
@@ -437,6 +520,7 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
     t,
     tApps,
     topLevelSessions,
+    works,
   ]);
 
   useEffect(() => {
@@ -474,16 +558,10 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
         }
 
         if (app.launch?.kind === 'appStudio') {
-          useAppsStore.getState().openCreateApp();
-          openWorkspaceScene('apps');
+          await openAppStudioSession();
           return;
         }
 
-        if (app.launch?.kind === 'componentStudio') {
-          useAppsStore.getState().openCreateComponent();
-          openWorkspaceScene('apps');
-          return;
-        }
       } catch (error) {
         notificationService.error(error instanceof Error ? error.message : tApps('productSystem.messages.launchFailed', {
           name: app.name,
@@ -493,9 +571,24 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
       return;
     }
 
+    if (item.kind === 'workObject' && item.appId) {
+      useAppsStore.getState().openAppDetail(item.appId);
+      openWorkspaceScene('apps');
+      return;
+    }
+
     if (item.kind === 'component' && item.component) {
       useAppsStore.getState().openComponentCenter(item.component.id);
       openWorkspaceScene('apps');
+      return;
+    }
+
+    if (item.kind === 'artifact' && item.workId) {
+      if (item.artifact?.id) {
+        openArtifactInCenter(item.workId, item.artifact.id);
+      } else {
+        openWorkInCenter(item.workId);
+      }
       return;
     }
 
@@ -559,7 +652,9 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
   const workspaceItems = results.filter(result => result.kind === 'workspace');
   const workItems = results.filter(result => result.kind === 'work');
   const appItems = results.filter(result => result.kind === 'app');
+  const workObjectItems = results.filter(result => result.kind === 'workObject');
   const componentItems = results.filter(result => result.kind === 'component');
+  const artifactItems = results.filter(result => result.kind === 'artifact');
   const sessionItems = results.filter(result => result.kind === 'session');
   const queryTrimmed = query.trim();
 
@@ -581,6 +676,11 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
             <SelectableRow
               key={item.id}
               className={`sparo-search-dialog__item${itemGlobalIndex === activeIndex ? ' sparo-search-dialog__item--active' : ''}`}
+              data-testid="global-search-result"
+              data-result-kind={item.kind}
+              data-result-id={item.id}
+              data-work-id={item.workId ?? ''}
+              data-artifact-id={item.artifact?.id ?? ''}
               onMouseEnter={() => setActiveIndex(itemGlobalIndex)}
               onClick={() => void handleSelect(item)}
               leading={<span className="sparo-search-dialog__item-icon">{renderIcon(item)}</span>}
@@ -638,7 +738,9 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
               )}
               {renderGroup(t('nav.search.groupWorkspaces'), workspaceItems, () => <FolderOpen size={14} />)}
               {renderGroup(t('nav.search.groupApps'), appItems, () => <AppWindow size={14} />)}
+              {renderGroup(t('nav.search.groupWorkObjects'), workObjectItems, () => <Layers3 size={14} />)}
               {renderGroup(t('nav.search.groupComponents'), componentItems, () => <Boxes size={14} />)}
+              {renderGroup(t('nav.search.groupArtifacts'), artifactItems, () => <FileText size={14} />)}
               {renderGroup(
                 queryTrimmed ? t('nav.search.groupSessions') : t('nav.search.groupRecentTasks'),
                 sessionItems,

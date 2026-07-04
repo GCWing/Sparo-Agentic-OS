@@ -1,4 +1,4 @@
-//! Agent Component API - FlowChat-native component package management.
+//! Agent Component API - implementation package management for Product App agent backends.
 
 use crate::api::app_state::AppState;
 use bitfun_core::agent_component::{

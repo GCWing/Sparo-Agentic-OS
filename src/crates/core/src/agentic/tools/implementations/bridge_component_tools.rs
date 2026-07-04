@@ -1,4 +1,4 @@
-//! Bridge Component tools used by Component Studio builders.
+//! Bridge Component tools used by App Studio component authoring.
 
 use crate::agent_component::{
     AgentComponentBridgeCapabilityRef, AgentComponentExample, AgentComponentLevel,
@@ -717,7 +717,7 @@ impl Tool for CreateBridgeComponentTemplateTool {
                 launchable_app: false,
                 agent: false,
                 tool: false,
-                surface_component_backend: true,
+                product_app_runtime_backend: true,
             },
             capabilities: vec![BridgeComponentCapability {
                 id: capability_id.clone(),
@@ -730,7 +730,7 @@ impl Tool for CreateBridgeComponentTemplateTool {
                 resumable: true,
                 usable_by: vec![
                     BridgeComponentConsumerKind::AgentComponent,
-                    BridgeComponentConsumerKind::SurfaceComponentBackend,
+                    BridgeComponentConsumerKind::ProductAppRuntime,
                     BridgeComponentConsumerKind::Management,
                 ],
                 input_schema: json!({ "type": "object" }),

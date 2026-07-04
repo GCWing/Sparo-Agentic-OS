@@ -20,7 +20,7 @@ pub enum WorkSurfaceRef {
     },
     ApplicationSurface {
         product_app_id: String,
-        surface_component_id: String,
+        product_app_surface_id: String,
         surface_id: String,
     },
 }

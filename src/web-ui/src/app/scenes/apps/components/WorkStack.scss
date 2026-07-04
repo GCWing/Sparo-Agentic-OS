@@ -1,0 +1,443 @@
+// ── WorkStack ────────────────────────────────────────────────────────────────
+// The icon is the primary-action face: click resumes the most recent Work (or
+// launches), a breathing halo / attention badge communicate state without any
+// label text. Whether there is more than one Work is now shown by the whole
+// card (WorkCardFrame + CardExpandPanel below), not by the icon itself.
+
+.work-stack {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.work-stack__face {
+  position: relative;
+  z-index: var(--ds-z-local);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-element-soft);
+  color: var(--ds-color-text-secondary);
+  cursor: pointer;
+  transition:
+    transform var(--ds-motion-fast) var(--ds-easing-standard),
+    background var(--ds-motion-fast) var(--ds-easing-standard),
+    color var(--ds-motion-fast) var(--ds-easing-standard);
+}
+
+.work-stack__face:hover {
+  background: var(--ds-color-element-medium);
+  color: var(--ds-color-text-primary);
+}
+
+.work-stack--logo .work-stack__face,
+.work-stack--logo .work-stack__face:hover,
+.work-stack--logo .work-stack__face--static:hover,
+.work-stack--logo.is-running .work-stack__face {
+  background: transparent;
+  color: inherit;
+}
+
+.work-stack--logo .work-stack__face {
+  overflow: visible;
+}
+
+.work-stack.is-running .work-stack__face {
+  color: var(--ds-color-success);
+}
+
+.work-stack__face:active {
+  transform: scale(0.9);
+}
+
+.work-stack__face:focus-visible {
+  outline: 2px solid var(--ds-focus-outline);
+  outline-offset: 2px;
+}
+
+// Static face: no "latest work" to jump to, so it's identity only — same
+// look as a Discover card's icon, no pointer cursor, no hover feedback.
+.work-stack__face--static {
+  cursor: default;
+}
+
+.work-stack__face--static:hover {
+  background: var(--ds-color-element-soft);
+  color: var(--ds-color-text-secondary);
+}
+
+// Breathing halo: the single, wordless signal for "this is running right now".
+.work-stack__halo {
+  position: absolute;
+  inset: -4px;
+  z-index: var(--ds-z-base);
+  border-radius: var(--ds-radius-lg);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ds-color-success) 45%, transparent);
+  pointer-events: none;
+  animation: work-stack-breathe 2.4s ease-in-out infinite;
+}
+
+@keyframes work-stack-breathe {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.06);
+  }
+}
+
+// Attention badge: only appears when a Work actually needs the user, mirrors
+// the universally-understood "notification count" convention — kept soft and
+// tinted rather than a solid alarm-colored fill, so it reads as "worth a
+// look" instead of "something is broken".
+.work-stack__badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  z-index: var(--ds-z-raised);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--ds-radius-full);
+  background: color-mix(in srgb, var(--ds-color-warning) 85%, var(--ds-color-bg-elevated));
+  box-shadow: 0 0 0 2px var(--ds-color-bg-panel);
+  color: var(--ds-color-text-inverse);
+  font-size: 9px;
+  font-weight: var(--ds-font-weight-semibold);
+  line-height: 1;
+  pointer-events: none;
+}
+
+// ── WorkCardFrame ────────────────────────────────────────────────────────────
+// The whole card reads as a stack: 1–2 ghost cards, matching the real card's
+// shape and radius, peek out from behind at full scale. Once the card
+// expands to show its list, the peek retracts — there is nothing left
+// hiding behind it, it is now showing everything it holds.
+
+.work-card-frame {
+  position: relative;
+}
+
+.work-card-frame__ghost {
+  position: absolute;
+  inset: 0;
+  z-index: var(--ds-z-underlay);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-color-bg-elevated);
+  border: 1px solid var(--ds-color-border-subtle);
+  pointer-events: none;
+  transition:
+    opacity var(--ds-motion-fast) var(--ds-easing-standard),
+    transform var(--ds-motion-fast) var(--ds-easing-standard);
+}
+
+.work-card-frame__ghost--1 {
+  transform: translate(5px, 6px);
+}
+
+.work-card-frame__ghost--2 {
+  transform: translate(10px, 12px);
+  opacity: 0.6;
+}
+
+.work-card-frame.is-expanded .work-card-frame__ghost {
+  opacity: 0;
+  transform: translate(0, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .work-stack__halo {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+// ── CardExpandPanel ──────────────────────────────────────────────────────────
+// Front and back keep exactly the same content they always had. Exactly one
+// pane is "open" at a time: the front folds up to zero height while the
+// back unfolds to its content height in the same place, using the CSS grid
+// `grid-template-rows: 0fr -> 1fr` technique so it animates smoothly without
+// knowing the list's height up front. The card grows to fit — there is no
+// 3D flip, no fixed box.
+
+.card-expand {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.card-expand__pane {
+  display: grid;
+  grid-template-rows: 0fr;
+  min-height: 0;
+  transition: grid-template-rows var(--ds-motion-fast) var(--ds-easing-decelerate);
+}
+
+.card-expand__pane.is-open {
+  grid-template-rows: 1fr;
+}
+
+.card-expand__pane-inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-2);
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-expand__pane {
+    transition: none;
+  }
+}
+
+// ── CardStackLink ────────────────────────────────────────────────────────────
+// A fixed footer row, pinned to the card's bottom edge (not wherever the
+// description happens to end), so it always lands in the same place across
+// every card in the grid — a quiet divider above it, one small stack icon
+// tying it back to the ghost-card peek, and a chevron that nudges forward
+// on hover.
+
+.card-stack-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  margin-top: auto;
+  padding: var(--ds-space-1) var(--ds-space-4);
+  border: 0;
+  border-top: 1px solid var(--ds-color-border-subtle);
+  background: transparent;
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-xs);
+  font-weight: var(--ds-font-weight-medium);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--ds-motion-fast) var(--ds-easing-standard),
+    color var(--ds-motion-fast) var(--ds-easing-standard);
+}
+
+.card-stack-link:hover {
+  background: var(--ds-color-element-subtle);
+  color: var(--ds-color-text-primary);
+}
+
+.card-stack-link:hover .card-stack-link__chevron {
+  transform: translateX(2px);
+}
+
+.card-stack-link:focus-visible {
+  outline: 2px solid var(--ds-focus-outline);
+  outline-offset: -2px;
+}
+
+.card-stack-link__icon {
+  flex: 0 0 auto;
+  color: var(--ds-color-text-muted);
+}
+
+.card-stack-link__count {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-stack-link__chevron {
+  flex: 0 0 auto;
+  color: var(--ds-color-text-muted);
+  transition: transform var(--ds-motion-fast) var(--ds-easing-standard);
+}
+
+// ── WorkCardBack ─────────────────────────────────────────────────────────────
+// The list this card's stack unfolds into. Capped to a max height with
+// internal scroll so a long work list doesn't turn the card into a
+// full-page panel.
+
+.work-card-back {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--ds-color-bg-elevated);
+}
+
+.work-card-back__header {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  flex: 0 0 auto;
+  padding: var(--ds-space-2);
+  border-bottom: 1px solid var(--ds-color-border-subtle);
+}
+
+.work-card-back__icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  margin-inline-start: 2px;
+  color: var(--ds-color-text-secondary);
+}
+
+.work-card-back__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ds-color-text-primary);
+  font-size: var(--ds-font-size-xs);
+  font-weight: var(--ds-font-weight-semibold);
+}
+
+.work-card-back__new,
+.work-card-back__return {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--ds-radius-full);
+  background: transparent;
+  color: var(--ds-color-text-secondary);
+  cursor: pointer;
+  transition: background var(--ds-motion-fast) var(--ds-easing-standard),
+    color var(--ds-motion-fast) var(--ds-easing-standard);
+}
+
+.work-card-back__new:hover,
+.work-card-back__return:hover {
+  background: var(--ds-color-element-soft);
+  color: var(--ds-color-text-primary);
+}
+
+.work-card-back__new:focus-visible,
+.work-card-back__return:focus-visible {
+  outline: 2px solid var(--ds-focus-outline);
+  outline-offset: 1px;
+}
+
+.work-card-back__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: min(15rem, 40vh);
+  padding: var(--ds-space-1) var(--ds-space-2) var(--ds-space-2);
+  overflow-y: auto;
+}
+
+.work-card-back__row {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  min-width: 0;
+  flex: 0 0 auto;
+  padding: var(--ds-space-1) var(--ds-space-2);
+  border: 0;
+  border-radius: var(--ds-radius-md);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--ds-motion-fast) var(--ds-easing-standard);
+}
+
+.card-expand__pane.is-open .work-card-back__row {
+  animation: work-card-back-row-in var(--ds-motion-fast) var(--ds-easing-decelerate) backwards;
+  animation-delay: calc(var(--ds-motion-fast) + var(--wcb-index, 0) * 20ms);
+}
+
+@keyframes work-card-back-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.work-card-back__row:hover {
+  background: var(--ds-color-element-soft);
+}
+
+.work-card-back__row-body {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.work-card-back__row-body strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ds-color-text-primary);
+  font-size: var(--ds-font-size-xs);
+  font-weight: var(--ds-font-weight-medium);
+}
+
+.work-card-back__row-body small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ds-color-text-muted);
+  font-size: 10px;
+}
+
+.work-card-back__row-time {
+  flex: 0 0 auto;
+  color: var(--ds-color-text-muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .work-card-frame__ghost,
+  .work-card-back__row {
+    animation: none;
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+// ── CardPrimaryAction ────────────────────────────────────────────────────────
+// Launch / new-work affordance: accent ring at rest, filled inverse once the card is engaged.
+// Stop keeps the quiet ghost treatment when a single-instance app is running.
+
+.card-primary-action {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.card-primary-action--emphasis.icon-btn.icon-btn--ghost {
+  background: transparent;
+  border: 1px solid var(--ds-color-accent-500);
+  box-shadow: none;
+  color: var(--ds-color-accent-500);
+  transform: none;
+
+  &:hover:not(:disabled),
+  &:active:not(:disabled) {
+    transform: none;
+    background: transparent;
+    border-color: var(--ds-color-accent-500);
+    color: var(--ds-color-accent-500);
+    box-shadow: none;
+  }
+}

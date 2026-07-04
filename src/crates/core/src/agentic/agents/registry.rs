@@ -1,10 +1,9 @@
 use super::{
-    Agent, AgenticAgent, AppStudioAgent, CodeReviewAgent, ComponentStudioAgent, ComputerUseAgent,
-    CoworkAgent, DebugAgent, DeepResearchAgent, DesignAgent, DesignReviewAgent, ExploreAgent,
-    FileFinderAgent, FilerAgent, GenerateDocAgent, GlobalDailyReportAgent,
-    GlobalMemoryConsolidatorAgent, GlobalMilestoneAgent, HostScanAgent, InitAgent, OsAgent,
-    OutcomeReviewAgent, PlanAgent, TeamAgent, WorkspaceMemoryConsolidatorAgent,
-    WorkspaceOverviewRefresherAgent,
+    Agent, AgenticAgent, AppStudioAgent, CodeReviewAgent, ComputerUseAgent, CoworkAgent,
+    DebugAgent, DeepResearchAgent, DesignAgent, DesignReviewAgent, ExploreAgent, FileFinderAgent,
+    FilerAgent, GenerateDocAgent, GlobalDailyReportAgent, GlobalMemoryConsolidatorAgent,
+    GlobalMilestoneAgent, HostScanAgent, InitAgent, OsAgent, OutcomeReviewAgent, PlanAgent,
+    TeamAgent, WorkspaceMemoryConsolidatorAgent, WorkspaceOverviewRefresherAgent,
 };
 use crate::agent_component::AgentComponentAgent;
 use crate::agentic::agents::custom_subagents::{
@@ -254,7 +253,7 @@ pub enum AgentCategory {
     Agent,
     /// subagent (displayed in frontend subagent list, discovered by TaskTool)
     SubAgent,
-    /// FlowChat-native Agent Component displayed in the Apps catalog.
+    /// Agent implementation profile backed by a Component package.
     AgentComponent,
     /// hidden agent (not displayed in frontend, not discovered by TaskTool, used internally)
     Hidden,
@@ -379,7 +378,6 @@ impl AgentRegistry {
             Arc::new(DeepResearchAgent::new()),
             Arc::new(TeamAgent::new()),
             Arc::new(AppStudioAgent::new()),
-            Arc::new(ComponentStudioAgent::new()),
             Arc::new(FilerAgent::new()),
         ];
         for agent in launchable_agents {
@@ -789,9 +787,8 @@ impl AgentRegistry {
                     "Cowork" => 1,
                     "Design" => 2,
                     "AppStudio" => 3,
-                    "ComponentStudio" => 4,
-                    "Plan" => 5,
-                    "debug" => 6,
+                    "Plan" => 4,
+                    "debug" => 5,
                     _ => 99,
                 }
             };
@@ -893,7 +890,7 @@ impl AgentRegistry {
             .collect()
     }
 
-    /// Get FlowChat-native Agent Components registered in memory.
+    /// Get Agent Component implementation profiles registered in memory.
     pub async fn get_agent_components_info(&self, workspace_root: Option<&Path>) -> Vec<AgentInfo> {
         let _ = workspace_root;
         let map = self.read_agents();
@@ -1026,7 +1023,7 @@ impl AgentRegistry {
         debug!("Cleared project subagent caches: workspaces {}", before);
     }
 
-    /// Register or replace a FlowChat-native Agent Component.
+    /// Register or replace an Agent Component implementation profile.
     pub fn register_or_replace_agent_component(
         &self,
         agent: Arc<dyn Agent>,
@@ -1495,7 +1492,6 @@ mod tests {
             "debug",
             "OSAgent",
             "AppStudio",
-            "ComponentStudio",
         ] {
             assert_eq!(default_model_id_for_builtin_agent(agent_type), "primary");
         }

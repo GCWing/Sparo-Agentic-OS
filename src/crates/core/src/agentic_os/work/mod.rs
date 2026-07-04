@@ -1,5 +1,6 @@
 pub mod assignment;
 pub mod execution_binding;
+pub mod execution_graph;
 pub mod ids;
 pub mod lifecycle;
 pub mod projection;
@@ -15,13 +16,23 @@ pub mod types;
 
 pub use assignment::{WorkAssignmentKind, WorkAssignmentRef};
 pub use execution_binding::{
-    WorkExecutionBinding, WorkExecutionBindingStatus, WorkExecutionSource,
+    WorkExecutionAppStudioContext, WorkExecutionBinding, WorkExecutionBindingStatus,
+    WorkExecutionSource,
+};
+pub use execution_graph::{
+    WorkArtifactNode, WorkExecutionGraph, WorkExecutionGraphSummary, WorkRuntimeInstanceGraph,
+    WorkRuntimeInstanceStatus, WorkRuntimeIssue, WorkRuntimeIssueSeverity, WorkRuntimeLog,
+    WorkRuntimeLogLevel, WorkRuntimeRun, WorkRuntimeRunStatus, WorkStudioFactCheck,
+    WorkStudioFactStatus, WorkStudioIssue, WorkStudioIssueOrigin, WorkStudioIssueStatus,
+    WorkStudioPreviewKind, WorkStudioPreviewResult, WorkStudioPreviewSource,
+    WorkStudioValidationResult, WorkStudioValidationTargetKind,
 };
 pub use ids::WorkId;
 pub use lifecycle::{WorkLifecycle, WorkLifecycleEvent, WorkSummary};
 pub use projection::WorkProjection;
 pub use record::{
-    AgentSessionRef, ArtifactRef, MemoryRef, WorkDelegationContext, WorkOwnerRef, WorkRecord,
+    AgentSessionRef, ArtifactRef, ArtifactRuntimeProvenance, MemoryRef, RuntimeInstanceRef,
+    WorkDelegationContext, WorkOwnerRef, WorkRecord,
 };
 pub use runtime_bridge::{
     AgenticWorkRuntimeBridge, CreateWorkSessionOutcome, CreateWorkSessionRequest,
@@ -31,11 +42,13 @@ pub use service::{
     AdvanceWorkRequest, AdvanceWorkResponse, ControlWorkAction, ControlWorkRequest,
     ControlWorkResponse, CreateWorkRequest, DispatchNewWorkRequest, DispatchWorkRequest,
     DispatchWorkResponse, LinkSessionToWorkRequest, PrimarySurfacePolicy, ResolveAppWorkRequest,
-    ResolveAppWorkResponse, StartWorkRequest, StartWorkResponse, UpdateWorkRequest, WorkService,
+    ResolveAppWorkResponse, ResolveComponentWorkRequest, ResolveComponentWorkResponse,
+    StartWorkRequest, StartWorkResponse, UpdateWorkRequest, WorkService,
 };
 pub use store::{default_work_store, FileWorkStore, MemoryWorkStore, WorkStore};
 pub use subject::{
-    WorkAppIntent, WorkAppKind, WorkAppRef, WorkAppRelation, WorkAppRelationRole, WorkSubject,
+    WorkAppIntent, WorkAppKind, WorkAppRef, WorkAppRelation, WorkAppRelationRole,
+    WorkComponentIntent, WorkComponentRef, WorkSubject,
 };
 pub use subscriber::WorkEventSubscriber;
 pub use surface::WorkSurfaceRef;

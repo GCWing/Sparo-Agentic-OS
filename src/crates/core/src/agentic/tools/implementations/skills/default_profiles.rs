@@ -53,10 +53,19 @@ const DESIGN_PROFILE: BuiltinSkillProfile = BuiltinSkillProfile {
     ],
 };
 
-/// Studio only needs the app development domain skill; other built-ins clutter the Skill tool list.
+/// Studio only needs focused Product App authoring skills; other built-ins clutter the Skill tool list.
 const APP_STUDIO_PROFILE: BuiltinSkillProfile = BuiltinSkillProfile {
     default_enabled: false,
-    overridden_skills: &["product-app-dev"],
+    overridden_skills: &[
+        "product-app-api",
+        "product-app-ui-polish",
+        "product-app-surface",
+        "product-app-agent-component",
+        "product-app-bridge-component",
+        "product-app-runtime-component",
+        "product-app-tool-component",
+        "product-app-skill-component",
+    ],
 };
 
 fn builtin_profile_for_agent(agent_id: &str) -> BuiltinSkillProfile {
@@ -163,12 +172,26 @@ mod tests {
     }
 
     #[test]
-    fn app_studio_enables_only_product_app_dev_builtin() {
-        let product_app = builtin_skill("product-app-dev");
+    fn app_studio_enables_only_product_app_authoring_builtins() {
+        let enabled = [
+            "product-app-api",
+            "product-app-ui-polish",
+            "product-app-surface",
+            "product-app-agent-component",
+            "product-app-bridge-component",
+            "product-app-runtime-component",
+            "product-app-tool-component",
+            "product-app-skill-component",
+        ];
         let pdf = builtin_skill("pdf");
         let tdd = builtin_skill("test-driven-development");
 
-        assert!(is_enabled_by_default_for_agent(&product_app, "AppStudio"));
+        for skill_name in enabled {
+            assert!(is_enabled_by_default_for_agent(
+                &builtin_skill(skill_name),
+                "AppStudio"
+            ));
+        }
         assert!(!is_enabled_by_default_for_agent(&pdf, "AppStudio"));
         assert!(!is_enabled_by_default_for_agent(&tdd, "AppStudio"));
     }

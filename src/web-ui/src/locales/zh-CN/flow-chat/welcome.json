@@ -35,13 +35,7 @@
   "subtitleEveningAppStudio": "把白天的产品想法收束成一个可再次打开的应用包",
   "subtitleNightAppStudio": "灵感正在线，给它一个能长期演进的产品边界",
   "narrativeAppStudio": "描述你想创建的 Product App：谁会打开它、它管理什么工作对象、需要哪种交互模型，以及 AI 应如何协作。我会把应用身份和内部组件分清楚。",
-  "aiPartnerComponentStudio": "组件工作室",
-  "subtitleMorningComponentStudio": "为 Product App 创建一个可复用能力组件",
-  "subtitleAfternoonComponentStudio": "定义组件做什么、归谁所有、应用如何引用它",
-  "subtitleEveningComponentStudio": "把一个能力打包成组件，而不是误当成用户应用",
-  "subtitleNightComponentStudio": "做一个边界清晰、集成明确的小组件",
-  "narrativeComponentStudio": "描述你需要的组件：Agent、Surface、Bridge、Runtime、Tool 或 Skill；它会被哪个 Product App 使用；暴露哪些动作；需要哪些权限。",
-  "surfaceComponentPrompts": {
+  "appStudioPrompts": {
     "title": "想创建什么样的 Product App？",
     "items": {
       "starter": {
@@ -63,31 +57,6 @@
         "title": "修复问题",
         "description": "定位运行时错误并快速迭代",
         "prompt": "帮我检查当前 Product App 界面的运行问题，修复报错、交互卡顿或数据显示异常，并说明你改了什么。"
-      }
-    }
-  },
-  "agentComponentPrompts": {
-    "title": "你想做一个什么样的 AI 助手？",
-    "items": {
-      "starter": {
-        "title": "帮我主持固定流程",
-        "description": "例如站会、复盘、周报、需求收集",
-        "prompt": "帮我做一个每日站会助手：它要引导大家说昨天完成了什么、今天准备做什么、遇到哪些卡点，并整理负责人和下一步。请默认谨慎，不要擅自修改文件，最后给我几个可以直接使用的开场问题。"
-      },
-      "tools": {
-        "title": "帮我检查内容或代码",
-        "description": "先看清楚，再给建议，不乱改",
-        "prompt": "帮我做一个审查助手：它主要负责查看当前文件夹里的改动，先读差异和相关说明，再指出风险、遗漏和建议。默认只给建议，不直接改文件；如果确实需要改，要先说明会改哪里。"
-      },
-      "examples": {
-        "title": "帮我起草回复",
-        "description": "客服、邮件、评论回复都可以",
-        "prompt": "帮我做一个客服回复助手：它根据我提供的工单内容，写出礼貌、清楚、可直接发送的回复。如果信息不够，要先问我缺什么；遇到投诉或退款等情况，要提醒我确认规则后再回复。"
-      },
-      "iterate": {
-        "title": "改好已有助手",
-        "description": "让它更懂你的要求，更不容易跑偏",
-        "prompt": "帮我检查最近编辑过的 AI 助手，看看它的说明、开场示例和可用工具是否清楚安全；如果有容易误解或权限过大的地方，请帮我收紧，并说明改了什么。"
       }
     }
   },

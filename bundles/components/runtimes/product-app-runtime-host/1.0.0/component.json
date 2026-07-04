@@ -1,0 +1,30 @@
+{
+  "id": "product-app-runtime-host",
+  "version": "1.0.0",
+  "kind": "runtime",
+  "name": "Product App Runtime Host",
+  "description": "Hosts Product App surfaces, workers, storage, and runtime diagnostics.",
+  "packageSource": "shared",
+  "capabilities": [
+    {
+      "id": "uiWorker",
+      "title": "UI and worker host",
+      "description": "Loads the Product App primary surface and its worker runtime.",
+      "actions": [
+        "open",
+        "recompile",
+        "diagnose"
+      ]
+    }
+  ],
+  "permissions": [],
+  "usedByApps": [
+    "builtin-remotion-live",
+    "builtin-harmony-dev",
+    "builtin-ppt-live",
+    "builtin-spark-board"
+  ],
+  "visibility": "developer",
+  "dependencies": [],
+  "implementationRef": "runtime://product-app-runtime-host"
+}

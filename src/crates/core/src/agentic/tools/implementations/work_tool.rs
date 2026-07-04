@@ -77,7 +77,7 @@ impl Tool for WorkTool {
                         "kind": { "type": "string", "enum": ["agent"] },
                         "agent_type": {
                             "type": "string",
-                            "description": "agentic for code work; Cowork for office deliverables; Design for UI/UX; DeepResearch for research; AppStudio for Product Apps; ComponentStudio for reusable components; OutcomeReview for final-effect review before user handoff."
+                            "description": "agentic for code work; Cowork for office deliverables; Design for UI/UX; DeepResearch for research; AppStudio for Product Apps and reusable component authoring; OutcomeReview for final-effect review before user handoff."
                         }
                     },
                     "additionalProperties": false

@@ -185,7 +185,7 @@ enum Commands {
         action: ConfigAction,
     },
 
-    /// Manage Agent, Bridge, and Surface Components
+    /// Manage Product Apps and components
     Apps {
         /// Output in JSON format
         #[arg(long, global = true)]
@@ -907,9 +907,12 @@ fn cli_health_value() -> Result<serde_json::Value> {
         "agentic_os_memory": directory_health(&agentic_os_memory_path),
         "workspace_memory": directory_health(&workspace_memory_path),
         "apps": directory_health(&config_dir.join("apps")),
+        "components": directory_health(&config_dir.join("components")),
+        "product_app_runtime_hosts": directory_health(
+            &config_dir.join("apps").join("product_app_runtime_hosts"),
+        ),
         "agent_components": directory_health(&config_dir.join("apps").join("agent_components")),
         "bridge_components": directory_health(&config_dir.join("apps").join("bridge_components")),
-        "surface_components": directory_health(&config_dir.join("apps").join("surface_components")),
         "skills": directory_health(&config_dir.join("skills")),
         "logs": directory_health(&config_dir.join("logs")),
     });
@@ -1481,7 +1484,7 @@ fn cli_error_hint(error: &anyhow::Error) -> Option<&'static str> {
     } else if message.contains("Memory file not found:") {
         Some("Run `sparo memory list` to see available global and project memory files.")
     } else if message.contains("App not found:") {
-        Some("Run `sparo apps list` to see available Agent, Bridge, and Surface Components.")
+        Some("Run `sparo apps list` to see available Product Apps and components.")
     } else if message.contains("does not expose a local target to open")
         || message.contains("App target does not exist:")
         || message.contains("Failed to open app target:")
@@ -4276,16 +4279,24 @@ fn app_storage_health_checks() -> Vec<(&'static str, DirectoryHealth)> {
 
     vec![
         (
+            "product_apps",
+            directory_health(&path_manager.system_product_apps_dir()),
+        ),
+        (
+            "components",
+            directory_health(&path_manager.system_components_dir()),
+        ),
+        (
+            "product_app_runtime_hosts",
+            directory_health(&path_manager.product_app_runtime_hosts_dir()),
+        ),
+        (
             "agent_components",
             directory_health(&path_manager.user_agent_components_dir()),
         ),
         (
             "bridge_components",
             directory_health(&path_manager.user_bridge_components_dir()),
-        ),
-        (
-            "surface_components",
-            directory_health(&path_manager.surface_components_dir()),
         ),
     ]
 }
@@ -4421,7 +4432,7 @@ fn apps_list_human_lines(
 
         return vec![
             "No Product Apps, Agent Components, or Bridge Components installed.".to_string(),
-            "Create one from chat with Agent Component Studio or App Studio.".to_string(),
+            "Create one from chat with App Studio component authoring.".to_string(),
             "Inspect creation schemas: sparo tool schema CreateAgentComponent --json; sparo tool schema CreateProductApp --json".to_string(),
             format!("Open app-building chat: sparo chat{}", workspace_arg),
             "Machine output: sparo apps list --json".to_string(),
@@ -6414,9 +6425,10 @@ mod tests {
 
         for key in [
             "apps",
+            "components",
+            "product_app_runtime_hosts",
             "agent_components",
             "bridge_components",
-            "surface_components",
         ] {
             assert!(checks.contains_key(key), "missing health check: {key}");
         }
@@ -6568,7 +6580,7 @@ mod tests {
         assert_eq!(cli_error_kind(&missing_app), "execution_error");
         assert_eq!(
             cli_error_hint(&missing_app),
-            Some("Run `sparo apps list` to see available Agent, Bridge, and Surface Components.")
+            Some("Run `sparo apps list` to see available Product Apps and components.")
         );
 
         let app_without_target =
@@ -7650,7 +7662,7 @@ mod tests {
         assert!(
             output.contains("No Product Apps, Agent Components, or Bridge Components installed.")
         );
-        assert!(output.contains("Agent Component Studio"));
+        assert!(output.contains("App Studio component authoring"));
         assert!(output.contains("sparo tool schema CreateAgentComponent --json"));
         assert!(output.contains(
             "Open app-building chat: sparo chat --workspace \"D:\\workspace\\my project\""
@@ -7667,7 +7679,7 @@ mod tests {
         );
         assert!(output.contains("sparo health"));
         assert!(output.contains("Machine output: sparo apps list --json"));
-        assert!(!output.contains("Agent Component Studio"));
+        assert!(!output.contains("App Studio component authoring"));
     }
 
     #[test]

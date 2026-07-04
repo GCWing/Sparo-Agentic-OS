@@ -341,7 +341,7 @@ const WorkspaceFooterActions: React.FC = () => {
                       movingHoverHandlers={menuHover.getItemHandlers()}
                       onClick={handleOpenApps}
                     >
-                      {t('nav.sections.agentComponent')}
+                      {t('nav.sections.apps')}
                     </FooterAction>
 
                     <Button

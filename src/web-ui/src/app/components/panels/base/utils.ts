@@ -18,7 +18,6 @@ import {
   MessageSquareQuote,
   Palette,
   AppWindow,
-  Activity,
 } from 'lucide-react';
 import { PanelContentType, PanelContentConfig } from './types';
 
@@ -169,7 +168,7 @@ export const PANEL_CONTENT_CONFIGS: Record<PanelContentType, PanelContentConfig>
     showHeader: false
   },
   'design-tokens': {
-    // Legacy alias — new call sites should use 'design-tokens-studio'. Kept
+    // Legacy alias; new call sites should use 'design-tokens-studio'. Kept
     // here so old saved tab configs still resolve; FlexiblePanel routes both
     // to the same DesignTokensStudio component.
     type: 'design-tokens',
@@ -219,33 +218,9 @@ export const PANEL_CONTENT_CONFIGS: Record<PanelContentType, PanelContentConfig>
     supportsDownload: false,
     showHeader: false
   },
-  'surface-component-runner': {
-    type: 'surface-component-runner',
+  'product-app-runtime': {
+    type: 'product-app-runtime',
     displayName: 'Product App',
-    icon: AppWindow,
-    supportsCopy: false,
-    supportsDownload: false,
-    showHeader: false
-  },
-  'surface-component-workbench-tab': {
-    type: 'surface-component-workbench-tab',
-    displayName: 'Product App Workbench',
-    icon: AppWindow,
-    supportsCopy: false,
-    supportsDownload: false,
-    showHeader: false
-  },
-  'surface-component-diagnostics': {
-    type: 'surface-component-diagnostics',
-    displayName: 'Product App Diagnostics',
-    icon: Activity,
-    supportsCopy: false,
-    supportsDownload: false,
-    showHeader: false
-  },
-  'component-studio': {
-    type: 'component-studio',
-    displayName: 'Component Studio',
     icon: AppWindow,
     supportsCopy: false,
     supportsDownload: false,

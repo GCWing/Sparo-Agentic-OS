@@ -1,6 +1,6 @@
-import type { SessionStorageScope } from '@/shared/types/session-history';
+﻿import type { SessionStorageScope } from '@/shared/types/session-history';
 
-export type SessionHostKind = 'system-agentic-os' | 'agent-component' | 'evolution-lab' | 'surface-component-workbench';
+export type SessionHostKind = 'system-agentic-os' | 'agent-component' | 'evolution-lab' | 'product-app-runtime';
 
 export type SessionProfileId =
   | 'agentic-os'
@@ -9,8 +9,7 @@ export type SessionProfileId =
   | 'design'
   | 'deep-research'
   | 'app-studio'
-  | 'component-studio'
-  | 'surface-component-workbench';
+  | 'product-app-runtime';
 
 export type SessionIdentityId =
   | 'agentic-os'
@@ -19,8 +18,7 @@ export type SessionIdentityId =
   | 'design'
   | 'deep-research'
   | 'app-studio'
-  | 'component-studio'
-  | 'surface-component-workbench';
+  | 'product-app-runtime';
 
 export interface SessionAgentPolicy {
   defaultAgentId: string;
@@ -98,19 +96,11 @@ export const SESSION_DESCRIPTORS = {
     agentPolicy: createPolicy('AppStudio'),
     storageScope: 'agentic_os',
   },
-  componentStudio: {
-    hostKind: 'evolution-lab',
-    profileId: 'component-studio',
-    identityId: 'component-studio',
-    labelKey: 'apps.componentStudio.name',
-    agentPolicy: createPolicy('ComponentStudio'),
-    storageScope: 'agentic_os',
-  },
-  surfaceComponentWorkbench: {
-    hostKind: 'surface-component-workbench',
-    profileId: 'surface-component-workbench',
-    identityId: 'surface-component-workbench',
-    labelKey: 'apps.surfaceComponentWorkbench.name',
+  productAppRuntime: {
+    hostKind: 'product-app-runtime',
+    profileId: 'product-app-runtime',
+    identityId: 'product-app-runtime',
+    labelKey: 'apps.productAppRuntime.name',
     agentPolicy: createPolicy('agentic'),
     storageScope: 'agentic_os',
   },
@@ -162,13 +152,13 @@ export function getAgenticOsSessionDescriptor(): SessionDescriptor {
   return cloneDescriptor(SESSION_DESCRIPTORS.agenticOs);
 }
 
-export function getSurfaceComponentWorkbenchSessionDescriptor(agentComponentId?: string | null): SessionDescriptor {
+export function getProductAppRuntimeSessionDescriptor(agentComponentId?: string | null): SessionDescriptor {
   const normalizedAgentComponentId = agentComponentId?.trim();
   if (!normalizedAgentComponentId) {
-    return cloneDescriptor(SESSION_DESCRIPTORS.surfaceComponentWorkbench);
+    return cloneDescriptor(SESSION_DESCRIPTORS.productAppRuntime);
   }
   return {
-    ...cloneDescriptor(SESSION_DESCRIPTORS.surfaceComponentWorkbench, normalizedAgentComponentId),
+    ...cloneDescriptor(SESSION_DESCRIPTORS.productAppRuntime, normalizedAgentComponentId),
     agentPolicy: createPolicy(normalizedAgentComponentId),
   };
 }
@@ -190,11 +180,8 @@ export function descriptorFromAgentType(agentType?: string | null): SessionDescr
   if (normalized === 'appstudio' || normalized === 'app-studio') {
     return cloneDescriptor(SESSION_DESCRIPTORS.appStudio);
   }
-  if (normalized === 'componentstudio' || normalized === 'component-studio') {
-    return cloneDescriptor(SESSION_DESCRIPTORS.componentStudio);
-  }
-  if (normalized === 'surfacecomponentworkbench' || normalized === 'surface-component-workbench') {
-    return cloneDescriptor(SESSION_DESCRIPTORS.surfaceComponentWorkbench);
+  if (normalized === 'productappruntime' || normalized === 'product-app-runtime') {
+    return cloneDescriptor(SESSION_DESCRIPTORS.productAppRuntime);
   }
   if (normalized === 'agentic' || normalized === 'code' || normalized === 'coding') {
     return getDefaultSessionDescriptor();

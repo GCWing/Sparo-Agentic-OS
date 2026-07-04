@@ -79,6 +79,35 @@ impl ExecutionEngine {
             .unwrap_or(0)
     }
 
+    async fn refresh_app_studio_context_from_session(context: &mut ExecutionContext) {
+        if context.agent_type != "AppStudio" {
+            return;
+        }
+
+        let Some(agentic) = context.agentic.as_ref() else {
+            return;
+        };
+
+        let Some(app_studio) = agentic
+            .coordinator
+            .load_app_studio_execution_context(
+                &context.session_id,
+                context.workspace.as_ref(),
+                None,
+            )
+            .await
+        else {
+            return;
+        };
+
+        debug!(
+            "Loaded AppStudio execution context from session metadata: session_id={}, package_root={}",
+            context.session_id,
+            app_studio.package_root.display()
+        );
+        context.app_studio = Some(app_studio);
+    }
+
     fn render_active_turn_guidance(guidance: &DialogTurnGuidance) -> String {
         let text = guidance
             .original_user_input
@@ -997,7 +1026,7 @@ impl ExecutionEngine {
         &self,
         agent_type: String,
         initial_messages: Vec<Message>,
-        context: ExecutionContext,
+        mut context: ExecutionContext,
         start_time: std::time::Instant,
         initial_count: usize,
     ) -> BitFunResult<ExecutionResult> {
@@ -1299,6 +1328,7 @@ impl ExecutionEngine {
                 hit_max_rounds = true;
                 break;
             }
+            Self::refresh_app_studio_context_from_session(&mut context).await;
             let round_tool_definitions = tool_definitions.clone();
             let round_available_tools = available_tools.clone();
 
@@ -1461,6 +1491,7 @@ impl ExecutionEngine {
                 agent_type: agent_type.clone(),
                 context_vars: round_context_vars,
                 runtime_tool_restrictions: runtime_tool_restrictions.clone(),
+                app_studio: context.app_studio.clone(),
                 cancellation_token: CancellationToken::new(),
                 workspace_services: context.workspace_services.clone(),
                 workspace_mount: context.workspace_mount.clone(),
@@ -1880,6 +1911,7 @@ impl ExecutionEngine {
             dialog_turn_id: None,
             workspace: workspace.cloned(),
             custom_data: tool_opts_custom,
+            app_studio: None,
             computer_use_host: None,
             cancellation_token: None,
             runtime_tool_restrictions: ToolRuntimeRestrictions::default(),

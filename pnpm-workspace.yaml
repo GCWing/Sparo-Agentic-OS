@@ -5,8 +5,8 @@ packages:
   - "tests/e2e"
   - "videos/*"
 allowBuilds:
-  '@parcel/watcher': set this to true or false
-  edgedriver: set this to true or false
-  esbuild: set this to true or false
-  geckodriver: set this to true or false
-  sharp: set this to true or false
+  '@parcel/watcher': true
+  edgedriver: true
+  esbuild: true
+  geckodriver: true
+  sharp: true

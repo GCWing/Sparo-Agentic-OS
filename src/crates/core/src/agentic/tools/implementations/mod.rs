@@ -8,6 +8,8 @@ pub mod bash_tool;
 pub mod bridge_call_tool;
 pub mod bridge_component_tools;
 pub mod code_review_tool;
+pub mod component_package_tool;
+pub mod component_package_validation_tool;
 pub mod computer_use_actions;
 pub mod computer_use_input;
 pub mod computer_use_locate;
@@ -16,7 +18,6 @@ pub mod computer_use_mouse_precise_tool;
 pub mod computer_use_mouse_step_tool;
 pub mod computer_use_result;
 pub mod computer_use_tool;
-pub mod component_package_tool;
 pub mod control_hub;
 pub mod control_hub_tool;
 pub mod create_plan_tool;
@@ -40,13 +41,16 @@ pub mod memory_tool;
 pub mod os_semantic_tools;
 pub mod outcome_review_tool;
 pub mod playbook_tool;
+pub mod product_app_authoring_tool;
+pub mod product_app_checkpoint_tool;
+pub mod product_app_validation_tool;
 pub mod self_control_tool;
 pub mod session_control_tool;
 pub mod session_history_tool;
 pub mod session_message_tool;
 pub mod skill_tool;
 pub mod skills;
-pub mod surface_component_init_tool;
+pub mod studio_preview_tool;
 pub mod task_tool;
 pub mod terminal_control_tool;
 pub mod todo_write_tool;
@@ -70,11 +74,12 @@ pub use bridge_component_tools::{
     ListBridgeComponentsTool, UpdateBridgeComponentTool, ValidateBridgeComponentPackageTool,
 };
 pub use code_review_tool::CodeReviewTool;
+pub use component_package_tool::CreateComponentPackageTool;
+pub use component_package_validation_tool::ValidateComponentPackageTool;
 pub use computer_use_mouse_click_tool::ComputerUseMouseClickTool;
 pub use computer_use_mouse_precise_tool::ComputerUseMousePreciseTool;
 pub use computer_use_mouse_step_tool::ComputerUseMouseStepTool;
 pub use computer_use_tool::ComputerUseTool;
-pub use component_package_tool::CreateComponentPackageTool;
 pub use control_hub_tool::ControlHubTool;
 pub use create_plan_tool::CreatePlanTool;
 pub use cron_tool::CronTool;
@@ -99,12 +104,22 @@ pub use memory_tool::MemoryTool;
 pub use os_semantic_tools::CapabilityRegistryTool;
 pub use outcome_review_tool::OutcomeReviewTool;
 pub use playbook_tool::PlaybookTool;
+pub use product_app_authoring_tool::{
+    CreateProductAppComponentTool, CreateProductAppTool, GetProductAppPackageTool,
+    RefreshProductAppLockTool, ResolveStudioPreviewTargetTool, UpdateProductAppPackageTool,
+};
+pub use product_app_checkpoint_tool::{
+    CompareProductAppRevisionsTool, CreateProductAppCheckpointTool,
+    CreateProductAppFromReleaseTemplateTool, CreateProductAppReleaseTool,
+    PublishProductAppReleaseTool, RestoreProductAppCheckpointTool, RestoreProductAppReleaseTool,
+};
+pub use product_app_validation_tool::ValidateProductAppPackageTool;
 pub use self_control_tool::SelfControlTool;
 pub use session_control_tool::SessionControlTool;
 pub use session_history_tool::SessionHistoryTool;
 pub use session_message_tool::SessionMessageTool;
 pub use skill_tool::SkillTool;
-pub use surface_component_init_tool::CreateProductAppTool;
+pub use studio_preview_tool::RunStudioPreviewTool;
 pub use task_tool::TaskTool;
 pub use terminal_control_tool::TerminalControlTool;
 pub use todo_write_tool::TodoWriteTool;

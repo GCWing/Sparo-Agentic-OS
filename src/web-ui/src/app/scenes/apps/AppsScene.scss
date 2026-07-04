@@ -1,12 +1,16 @@
 .apps-scene {
   --apps-scene-padding: var(--ds-space-5);
+  // Shared secondary-column width across the App Center surfaces (this file's
+  // manage/component layouts, and app-detail/AppDetailScene.scss's rail) so
+  // the management list, the component inspector, and the detail rail all
+  // read as one system instead of three independently-tuned split ratios.
+  --app-center-rail-width: clamp(320px, 24vw, 400px);
 
   min-height: 0;
   overflow: hidden;
 }
 
 .apps-scene__header-actions,
-.apps-scene__toolbar-meta,
 .apps-scene__app-card-actions,
 .apps-scene__tag-row,
 .apps-scene__permission-row {
@@ -36,16 +40,90 @@
   margin-left: auto;
 }
 
+// Home: two quiet text links to the secondary (management / components) pages.
+.apps-scene__mode-nav-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-3);
+}
+
+.apps-scene__mode-nav-link {
+  padding: var(--ds-space-1) var(--ds-space-2);
+  border: 0;
+  border-radius: var(--ds-radius-sm);
+  background: transparent;
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-size-xs);
+  cursor: pointer;
+  transition: color var(--ds-motion-fast) var(--ds-easing-standard);
+
+  &:hover {
+    color: var(--ds-color-text-primary);
+    background: var(--ds-color-element-subtle);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ds-focus-outline);
+    outline-offset: 1px;
+  }
+}
+
+// Secondary pages: a clear way back, plus a small switch between the two of them.
+.apps-scene__mode-nav-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  padding: var(--ds-space-1) var(--ds-space-2);
+  border: 0;
+  border-radius: var(--ds-radius-sm);
+  background: transparent;
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-sm);
+  cursor: pointer;
+  transition: color var(--ds-motion-fast) var(--ds-easing-standard);
+
+  &:hover {
+    color: var(--ds-color-text-primary);
+    background: var(--ds-color-element-subtle);
+  }
+}
+
+.apps-scene__mode-nav-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--ds-radius-full);
+  background: var(--ds-color-element-subtle);
+}
+
+.apps-scene__mode-nav-pill {
+  padding: var(--ds-space-1) var(--ds-space-3);
+  border: 0;
+  border-radius: var(--ds-radius-full);
+  background: transparent;
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-xs);
+  font-weight: var(--ds-font-weight-medium);
+  cursor: pointer;
+  transition: background var(--ds-motion-fast) var(--ds-easing-standard), color var(--ds-motion-fast) var(--ds-easing-standard);
+
+  &.is-active {
+    background: var(--ds-color-bg-elevated);
+    color: var(--ds-color-text-primary);
+    box-shadow: var(--ds-shadow-card, 0 1px 2px rgba(0, 0, 0, 0.12));
+  }
+
+  &:hover:not(.is-active) {
+    color: var(--ds-color-text-primary);
+  }
+}
+
 .apps-scene__search-toolbar {
   flex-shrink: 0;
 }
 
-.apps-scene__toolbar-meta {
-  justify-content: flex-end;
-}
-
-.apps-scene__error,
-.apps-scene__loading {
+.apps-scene__error {
   display: flex;
   align-items: center;
   gap: var(--ds-space-3);
@@ -59,18 +137,118 @@
   color: var(--ds-color-danger);
 }
 
+.apps-scene__loading {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  gap: var(--ds-space-3);
+  padding: var(--ds-space-5);
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-size-sm);
+  text-align: center;
+}
+
 .apps-scene__launch-layout,
 .apps-scene__manage-layout {
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .apps-scene__launch-layout {
   display: flex;
+  overflow: auto;
 }
 
+// Left category rail + right list: the management page reads as "pick a
+// category, then work the list", not "pick an app, then read a preview pane".
 .apps-scene__manage-layout {
-  display: block;
+  display: grid;
+  grid-template-columns: clamp(180px, 16vw, 220px) minmax(0, 1fr);
+  flex: 1 1 auto;
+  gap: var(--ds-space-5);
+  min-height: 0;
+}
+
+.apps-scene__manage-categories {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-3);
+  min-width: 0;
+  min-height: 0;
+  padding-right: var(--ds-space-4);
+  border-right: 1px solid var(--ds-color-border-subtle);
+  overflow: auto;
+}
+
+.apps-scene__manage-categories-title {
+  margin: 0;
+  color: var(--ds-color-text-primary);
+  font-size: var(--ds-font-size-sm);
+  font-weight: var(--ds-font-weight-semibold);
+  line-height: 1.3;
+}
+
+.apps-scene__manage-category-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-1);
+}
+
+.apps-scene__manage-category {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-2);
+  width: 100%;
+  min-height: 36px;
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border: 0;
+  border-radius: var(--ds-radius-sm);
+  background: transparent;
+  color: var(--ds-color-text-secondary);
+  font: inherit;
+  font-size: var(--ds-font-size-sm);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--ds-motion-fast) var(--ds-easing-standard),
+    color var(--ds-motion-fast) var(--ds-easing-standard);
+
+  &:hover {
+    background: var(--ds-color-element-subtle);
+    color: var(--ds-color-text-primary);
+  }
+
+  &.is-active {
+    background: var(--ds-color-element-soft);
+    color: var(--ds-color-text-primary);
+    font-weight: var(--ds-font-weight-semibold);
+  }
+}
+
+.apps-scene__manage-category-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.apps-scene__manage-category-count {
+  flex: 0 0 auto;
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.apps-scene__manage-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-3);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .apps-scene__manage-sort {
@@ -90,11 +268,32 @@
 .apps-scene__launch-column {
   display: grid;
   grid-auto-rows: max-content;
-  gap: var(--ds-space-4);
+  gap: var(--ds-space-6);
   min-width: 0;
   min-height: 0;
   width: 100%;
   overflow: visible;
+}
+
+// Home launch sections: large surface blocks instead of nested panel borders.
+// Do not use --ds-color-bg-panel here: in default themes scene, panel, and
+// elevated collapse to the same value, so the block reads as transparent.
+.apps-scene__launch-column > .apps-scene__home-section.ds-panel {
+  background: transparent;
+  border: 0;
+  border-radius: var(--ds-radius-lg);
+  box-shadow: none;
+  overflow: hidden;
+
+  .ds-panel-header {
+    border-bottom: 0;
+    background: transparent;
+    padding-block: var(--ds-space-4) var(--ds-space-2);
+  }
+
+  .ds-panel-body {
+    padding-top: var(--ds-space-2);
+  }
 }
 
 .apps-scene__launch-ribbon.ds-search-toolbar {
@@ -135,13 +334,19 @@
   display: inline-flex;
   align-items: center;
   gap: var(--ds-space-2);
-  flex: 0 1 min(42%, 500px);
-  min-width: min(180px, 100%);
+  flex: 1 1 360px;
+  min-width: min(260px, 100%);
+  max-width: min(720px, 100%);
   min-height: 42px;
   padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
+}
+
+.apps-scene__inline-resume.is-empty {
+  flex: 0 1 240px;
+  max-width: min(260px, 100%);
 }
 
 .apps-scene__inline-resume-label,
@@ -193,12 +398,14 @@
   align-items: center;
   gap: var(--ds-space-1);
   flex: 1 1 auto;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
 }
 
 .apps-scene__resume-chip {
   --apps-resume-chip-size: 32px;
-  --apps-resume-chip-expanded: 188px;
+  --apps-resume-chip-expanded: 176px;
 
   position: relative;
   display: inline-flex;
@@ -216,7 +423,7 @@
   background: var(--ds-color-element-subtle);
   color: inherit;
   text-align: left;
-  cursor: pointer;
+  cursor: default;
   box-shadow: none;
   overflow: hidden;
   transition:
@@ -228,18 +435,44 @@
 }
 
 .apps-scene__resume-chip:hover,
-.apps-scene__resume-chip:focus-visible {
+.apps-scene__resume-chip:focus-within {
   width: var(--apps-resume-chip-expanded);
   max-width: var(--apps-resume-chip-expanded);
-  padding-inline: var(--ds-space-1) var(--ds-space-2);
-  gap: var(--ds-space-2);
+  padding-inline: var(--ds-space-1);
+  gap: var(--ds-space-1);
   border-color: var(--ds-color-border-subtle);
   background: var(--ds-color-element-soft);
 }
 
-.apps-scene__resume-chip:focus-visible {
+.apps-scene__resume-chip:focus-within {
   outline: 2px solid var(--ds-focus-outline);
   outline-offset: 2px;
+}
+
+.apps-scene__resume-chip-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  flex: 1 1 calc(var(--apps-resume-chip-size) - 2px);
+  min-width: calc(var(--apps-resume-chip-size) - 2px);
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  transition: gap var(--ds-motion-base) var(--ds-easing-standard);
+}
+
+.apps-scene__resume-chip:hover .apps-scene__resume-chip-open,
+.apps-scene__resume-chip:focus-within .apps-scene__resume-chip-open {
+  gap: var(--ds-space-2);
+}
+
+.apps-scene__resume-chip-open:focus-visible {
+  outline: none;
 }
 
 .apps-scene__resume-chip-icon {
@@ -254,6 +487,10 @@
   color: var(--ds-color-text-secondary);
 }
 
+.apps-scene__resume-chip-icon--logo {
+  color: inherit;
+}
+
 .apps-scene__resume-chip-status {
   position: absolute;
   inset-inline-end: 4px;
@@ -265,8 +502,9 @@
 
 .apps-scene__resume-chip-main {
   display: block;
-  flex: 0 0 132px;
-  width: 132px;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 88px;
   line-height: 1;
   opacity: 0;
   transform: translateX(-4px);
@@ -276,9 +514,43 @@
 }
 
 .apps-scene__resume-chip:hover .apps-scene__resume-chip-main,
-.apps-scene__resume-chip:focus-visible .apps-scene__resume-chip-main {
+.apps-scene__resume-chip:focus-within .apps-scene__resume-chip-main {
   opacity: 1;
   transform: translateX(0);
+}
+
+.apps-scene__resume-chip-close.icon-btn {
+  flex: 0 0 0;
+  width: 0;
+  min-width: 0;
+  height: 24px;
+  color: var(--ds-color-text-muted);
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+  transform: translateX(4px) scale(1);
+  transition:
+    flex-basis var(--ds-motion-base) var(--ds-easing-standard),
+    width var(--ds-motion-base) var(--ds-easing-standard),
+    opacity var(--ds-motion-fast) var(--ds-easing-standard),
+    transform var(--ds-motion-base) var(--ds-easing-standard),
+    background var(--ds-motion-fast) var(--ds-easing-standard),
+    color var(--ds-motion-fast) var(--ds-easing-standard);
+}
+
+.apps-scene__resume-chip:hover .apps-scene__resume-chip-close.icon-btn,
+.apps-scene__resume-chip:focus-within .apps-scene__resume-chip-close.icon-btn {
+  flex-basis: 24px;
+  width: 24px;
+  min-width: 24px;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0) scale(1);
+}
+
+.apps-scene__resume-chip-close.icon-btn:hover:not(:disabled) {
+  background: var(--ds-color-element-medium);
+  color: var(--ds-color-text-primary);
 }
 
 .apps-scene__resume-chip-main strong {
@@ -324,7 +596,15 @@
 }
 
 .apps-scene__app-grid {
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  --apps-scene-app-card-width: 280px;
+  --apps-scene-app-card-height: 140px;
+
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(min(100%, var(--apps-scene-app-card-width)), var(--apps-scene-app-card-width))
+  );
+  align-items: start;
+  justify-content: start;
 }
 
 .apps-scene__component-card-grid {
@@ -359,11 +639,15 @@
 }
 
 .apps-scene__app-card {
-  --apps-scene-card-action-strip-height: calc(28px + var(--ds-space-3));
-
   position: relative;
-  height: 100%;
-  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: var(--apps-scene-app-card-width);
+  // A floor, not a fixed size: cards line up at this height when collapsed,
+  // but are free to grow taller once their work list expands (see
+  // WorkStack.scss's CardExpandPanel) instead of flipping in a fixed box.
+  min-height: var(--apps-scene-app-card-height);
 }
 
 .apps-scene__component-card {
@@ -375,24 +659,41 @@
   align-items: center;
 }
 
+.apps-scene__app-card-top {
+  padding-block-start: var(--ds-space-3);
+  padding-block-end: 0;
+}
+
+.apps-scene__app-card .card-expand__pane.is-open {
+  flex: 1 1 auto;
+}
+
+.apps-scene__app-card .card-expand__pane-inner {
+  gap: 0;
+  min-height: 100%;
+}
+
 .apps-scene__app-card-description {
   display: -webkit-box;
-  margin: 0;
+  min-height: 54px;
+  margin-block: auto;
+  margin-inline: 0;
   padding-inline: var(--ds-space-4);
   line-height: var(--ds-line-height-base);
   -webkit-box-orient: vertical;
+  -webkit-box-pack: center;
   -webkit-line-clamp: 3;
   white-space: normal;
 }
 
-.apps-scene__app-card-description {
-  min-height: 60px;
+.apps-scene__app-card .card-stack-link {
+  margin-top: 0;
 }
 
-.apps-scene__app-card:hover .apps-scene__app-card-description,
-.apps-scene__app-card:focus-within .apps-scene__app-card-description,
-.apps-scene__app-card.is-actions-open .apps-scene__app-card-description {
-  min-height: 40px;
+// Cards that also show the CardStackLink footer clamp to two lines, so the
+// header, description and footer always add up to the same fixed height.
+.apps-scene__app-card-description--compact {
+  min-height: 36px;
   -webkit-line-clamp: 2;
 }
 
@@ -411,103 +712,104 @@
   min-height: 36px;
 }
 
-.apps-scene__app-icon,
 .apps-scene__component-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  width: 34px;
-  height: 34px;
   border-radius: var(--ds-radius-md);
   background: color-mix(in srgb, var(--ds-color-accent-500) 12%, transparent);
   color: var(--ds-color-accent-600);
 }
 
-.apps-scene__app-card-actions {
-  position: absolute;
-  inset-inline: 0;
-  bottom: 0;
-  z-index: var(--ds-z-raised);
-  justify-content: flex-end;
-  min-height: var(--apps-scene-card-action-strip-height);
-  padding: var(--ds-space-1) var(--ds-space-3) var(--ds-space-2);
-  background: var(--ds-color-element-medium);
-  box-shadow: inset 0 1px 0 var(--ds-color-border-subtle);
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(100%);
-  transform-origin: right bottom;
-  transition:
-    opacity var(--ds-motion-fast) var(--ds-easing-standard),
-    transform var(--ds-motion-base) var(--ds-easing-decelerate);
+// ── Discover cards (not yet installed) ─────────────────────────────────────────
+
+.apps-scene__app-card--discover {
+  border-style: dashed;
 }
 
-.apps-scene__app-card:hover .apps-scene__app-card-actions,
-.apps-scene__app-card:focus-within .apps-scene__app-card-actions,
-.apps-scene__app-card.is-actions-open .apps-scene__app-card-actions {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(0);
+.apps-scene__discover-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-element-subtle);
+  color: var(--ds-color-text-secondary);
 }
 
-@media (hover: none), (pointer: coarse) {
-  .apps-scene__app-card {
-    padding-block-end: var(--apps-scene-card-action-strip-height);
-  }
-
-  .apps-scene__app-card-actions {
-    opacity: 1;
-    pointer-events: auto;
-    transform: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .apps-scene__app-card-actions {
-    transition: none;
-  }
-}
-
-.apps-scene__card-icon-action.icon-btn {
+.apps-scene__discover-icon--logo {
+  width: 40px;
+  height: 40px;
   background: transparent;
+  color: inherit;
+}
+
+.apps-scene__discover-install {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+// Install affordance stays quiet until the card itself is engaged — dashed ring,
+// no fill — then matches the accent circular action used on installed app cards.
+.apps-scene__app-card--discover .apps-scene__discover-install.icon-btn {
+  background: transparent;
+  border: 1px dashed var(--ds-color-border-medium);
+  box-shadow: none;
   color: var(--ds-color-text-secondary);
   transform: none;
+
+  &:hover:not(:disabled),
+  &:active:not(:disabled) {
+    transform: none;
+    background: transparent;
+    color: var(--ds-color-text-secondary);
+  }
 }
 
-.apps-scene__card-icon-action.icon-btn:hover:not(:disabled),
-.apps-scene__card-icon-action.icon-btn:focus-visible {
-  background: var(--ds-color-element-soft);
-  color: var(--ds-color-text-primary);
-  transform: none;
+.apps-scene__app-card--discover:hover .apps-scene__discover-install.icon-btn,
+.apps-scene__app-card--discover:focus-within .apps-scene__discover-install.icon-btn {
+  border-color: transparent;
+  background: var(--ds-color-accent-500, var(--color-accent-500, #60a5fa));
+  color: var(--ds-color-text-inverse);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ds-color-accent-500, var(--color-accent-500)) 72%, #ffffff 8%);
+
+  &:hover:not(:disabled) {
+    transform: scale(1.06);
+    background: color-mix(in srgb, var(--ds-color-accent-500, var(--color-accent-500)) 82%, var(--ds-color-bg-app, #0f172a));
+    color: var(--ds-color-text-inverse);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ds-color-accent-500, var(--color-accent-500)) 68%, #ffffff 10%);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(1.02);
+    background: color-mix(in srgb, var(--ds-color-accent-500, var(--color-accent-500)) 74%, var(--ds-color-bg-app, #0f172a));
+    color: var(--ds-color-text-inverse);
+  }
 }
 
-.apps-scene__card-icon-action.icon-btn:active:not(:disabled) {
-  background: var(--ds-color-element-medium);
-  transform: none;
-}
+// Launch / new-work affordance stays as an accent ring until the card is engaged.
+.apps-scene__app-card:hover .card-primary-action--emphasis.icon-btn.icon-btn--ghost,
+.apps-scene__app-card:focus-within .card-primary-action--emphasis.icon-btn.icon-btn--ghost {
+  border-color: transparent;
+  background: var(--ds-color-accent-500, var(--color-accent-500, #60a5fa));
+  color: var(--ds-color-text-inverse);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ds-color-accent-500, var(--color-accent-500)) 72%, #ffffff 8%);
 
-.apps-scene__work-action {
-  display: inline-flex;
-  align-items: center;
-  flex: 0 0 auto;
-  gap: var(--ds-space-1);
-  min-width: 0;
-}
+  &:hover:not(:disabled) {
+    transform: scale(1.06);
+    background: color-mix(in srgb, var(--ds-color-accent-500, var(--color-accent-500)) 82%, var(--ds-color-bg-app, #0f172a));
+    color: var(--ds-color-text-inverse);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ds-color-accent-500, var(--color-accent-500)) 68%, #ffffff 10%);
+  }
 
-.apps-scene__continue-menu-item {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--ds-space-2);
-  min-width: 0;
-  width: 100%;
-}
-
-.apps-scene__continue-menu-title {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  &:active:not(:disabled) {
+    transform: scale(1.02);
+    background: color-mix(in srgb, var(--ds-color-accent-500, var(--color-accent-500)) 74%, var(--ds-color-bg-app, #0f172a));
+    color: var(--ds-color-text-inverse);
+  }
 }
 
 .apps-scene__component-icon {
@@ -605,6 +907,57 @@
   gap: var(--ds-space-2);
 }
 
+.apps-scene__diagnostic-action-list,
+.apps-scene__runtime-evidence-list {
+  display: grid;
+  gap: var(--ds-space-2);
+}
+
+.apps-scene__runtime-evidence-list h4 {
+  margin: 0;
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-xs);
+  font-weight: var(--ds-font-weight-semibold);
+}
+
+.apps-scene__diagnostic-action,
+.apps-scene__runtime-evidence {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--ds-space-2);
+  align-items: start;
+  min-width: 0;
+  padding: var(--ds-space-2);
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-color-bg-elevated);
+}
+
+.apps-scene__diagnostic-action div,
+.apps-scene__runtime-evidence div {
+  display: grid;
+  gap: var(--ds-space-1);
+  min-width: 0;
+}
+
+.apps-scene__diagnostic-action strong,
+.apps-scene__runtime-evidence strong {
+  color: var(--ds-color-text-primary);
+  font-size: var(--ds-font-size-xs);
+}
+
+.apps-scene__diagnostic-action span,
+.apps-scene__runtime-evidence span {
+  min-width: 0;
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+.apps-scene__diagnostic-action-button {
+  align-self: center;
+}
+
 .apps-scene__component-metrics {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -648,6 +1001,49 @@
   font-size: var(--ds-font-size-lg);
 }
 
+.apps-scene__health-check-list {
+  display: grid;
+  gap: var(--ds-space-2);
+}
+
+.apps-scene__health-check {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: flex-start;
+  gap: var(--ds-space-2);
+  min-width: 0;
+  padding-top: var(--ds-space-2);
+  border-top: 1px solid var(--ds-color-border-subtle);
+}
+
+.apps-scene__runtime-usage-row {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.apps-scene__health-check div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.apps-scene__health-check strong,
+.apps-scene__health-check span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.apps-scene__health-check strong {
+  color: var(--ds-color-text-primary);
+  font-size: var(--ds-font-size-xs);
+  font-weight: var(--ds-font-weight-medium);
+}
+
+.apps-scene__health-check span {
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-size-xs);
+}
+
 .apps-scene__component-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
@@ -676,6 +1072,35 @@
 }
 
 @media (max-width: 1180px) {
+  .apps-scene__manage-layout {
+    grid-template-columns: 1fr;
+    overflow: auto;
+  }
+
+  .apps-scene__manage-categories {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    padding-right: 0;
+    padding-bottom: var(--ds-space-3);
+    border-right: 0;
+    border-bottom: 1px solid var(--ds-color-border-subtle);
+  }
+
+  .apps-scene__manage-categories-title {
+    flex: 0 0 100%;
+  }
+
+  .apps-scene__manage-category-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: var(--ds-space-2);
+  }
+
+  .apps-scene__manage-category {
+    width: auto;
+  }
+
   .apps-scene__component-layout {
     grid-template-columns: 1fr;
     overflow: auto;
@@ -700,8 +1125,7 @@
     padding: var(--ds-space-3);
   }
 
-  .apps-scene__header-actions,
-  .apps-scene__toolbar-meta {
+  .apps-scene__header-actions {
     align-items: stretch;
     justify-content: flex-start;
   }

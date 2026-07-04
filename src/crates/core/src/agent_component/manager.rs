@@ -1,4 +1,4 @@
-//! Agent Component packages for FlowChat-native reusable work applications.
+//! Agent Component implementation packages for Product App agent backends and runtime tools.
 
 use crate::agent_component::manifest::{
     default_model, default_tools, AgentComponentBridgeCapabilityRef, AgentComponentInfo,
@@ -438,12 +438,13 @@ impl AgentComponentManager {
         );
         let context = ToolUseContext {
             tool_call_id: None,
-            agent_type: Some("ComponentStudio".to_string()),
+            agent_type: Some("AppStudio".to_string()),
             session_id: None,
             dialog_turn_id: None,
             workspace: workspace_root
                 .map(|root| crate::agentic::WorkspaceBinding::new(None, root.to_path_buf())),
             custom_data: HashMap::new(),
+            app_studio: None,
             computer_use_host: None,
             cancellation_token: None,
             runtime_tool_restrictions: Default::default(),

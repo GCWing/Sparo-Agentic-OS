@@ -1,6 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+﻿import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FlowChatStore } from '../../store/FlowChatStore';
-import { getSurfaceComponentWorkbenchSessionDescriptor } from '../../domain/sessionDescriptor';
+import { getProductAppRuntimeSessionDescriptor } from '../../domain/sessionDescriptor';
 import type { FlowChatContext } from './types';
 import { createChatSession } from './SessionModule';
 
@@ -78,10 +78,10 @@ describe('createChatSession workspace scope', () => {
     sessionIds.splice(0).forEach(sessionId => store.removeSession(sessionId));
   });
 
-  it('keeps an explicit workspace path for agentic_os Product App workbench sessions', async () => {
+  it('keeps an explicit workspace path for agentic_os Product App runtime sessions', async () => {
     const store = FlowChatStore.getInstance();
     const context = createTestContext(store);
-    const sessionId = `harmony-workbench-${Date.now()}`;
+    const sessionId = `harmony-runtime-${Date.now()}`;
     const workspacePath = 'D:/workspace/bitfun_harmony';
     sessionIds.push(sessionId);
 
@@ -98,7 +98,7 @@ describe('createChatSession workspace scope', () => {
         workspacePath,
         sessionName: 'HarmonyOS Dev',
       },
-      getSurfaceComponentWorkbenchSessionDescriptor('harmonyos-dev-agent'),
+      getProductAppRuntimeSessionDescriptor('harmonyos-dev-agent'),
     );
 
     expect(agentApiMock.createSession).toHaveBeenCalledWith(

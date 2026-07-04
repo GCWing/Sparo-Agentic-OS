@@ -208,17 +208,12 @@ fn capability_guidance(id: &str) -> CapabilityGuidance {
             domain: "product_apps",
             best_for: &[
                 "create, repair, inspect, or operate Product App experiences",
+                "create, repair, package, or improve reusable components used by Product Apps",
                 "interactive artifact work that needs app runtime awareness",
             ],
             avoid_for: &["general coding outside Product App context"],
-            quality_signal: "Produces or operates a working Product App experience.",
-        },
-        "ComponentStudio" => CapabilityGuidance {
-            domain: "components",
-            best_for: &["create, repair, package, or improve reusable components"],
-            avoid_for: &["ordinary chat answers", "unrelated repo edits"],
             quality_signal:
-                "Handles component contracts, tools, packaging, and validation as one outcome.",
+                "Produces or operates a working Product App experience with its component contracts.",
         },
         _ => CapabilityGuidance {
             domain: "custom_or_specialized",

@@ -14,11 +14,9 @@ import {
   Palette,
   Bug,
   Gauge,
-  BookOpen,
-  Layers,
   type LucideIcon,
 } from 'lucide-react';
-import { SurfaceComponentGlyph } from '@/app/scenes/apps/surface-component/surfaceComponentIcons';
+import { AppStudioGlyph } from '@/app/scenes/apps/app-studio/AppStudioGlyph';
 import { createLogger } from '@/shared/utils/logger';
 import {
   getWorkspaceDisplayName,
@@ -27,7 +25,7 @@ import {
 import type { WorkspaceInfo } from '@/shared/types';
 import { isSamePath } from '@/shared/utils/pathUtils';
 import { resolveSessionTypeDefinition, useSessionProfile } from '@/app/session-profiles';
-import { Button, SparoAgentIcon } from '@/design-system';
+import { Button } from '@/design-system';
 import {
   fallbackWorkspaceFolderLabel,
   resolveWorkspaceForSession,
@@ -37,32 +35,18 @@ import './WelcomePanel.css';
 
 const log = createLogger('WelcomePanel');
 
-type SurfaceComponentPromptId = 'starter' | 'dashboard' | 'polish' | 'debug';
+type AppStudioPromptId = 'starter' | 'dashboard' | 'polish' | 'debug';
 
-interface SurfaceComponentPrompt {
-  id: SurfaceComponentPromptId;
+interface AppStudioPrompt {
+  id: AppStudioPromptId;
   icon: LucideIcon;
 }
 
-const SURFACE_COMPONENT_PROMPTS: SurfaceComponentPrompt[] = [
+const APP_STUDIO_PROMPTS: AppStudioPrompt[] = [
   { id: 'starter', icon: AppWindow },
   { id: 'dashboard', icon: Gauge },
   { id: 'polish', icon: Palette },
   { id: 'debug', icon: Bug },
-];
-
-type AgentComponentPromptId = 'starter' | 'tools' | 'examples' | 'iterate';
-
-interface AgentComponentPrompt {
-  id: AgentComponentPromptId;
-  icon: LucideIcon;
-}
-
-const AGENT_COMPONENT_PROMPTS: AgentComponentPrompt[] = [
-  { id: 'starter', icon: AppWindow },
-  { id: 'tools', icon: Layers },
-  { id: 'examples', icon: BookOpen },
-  { id: 'iterate', icon: Bug },
 ];
 
 interface WelcomePanelProps {
@@ -207,14 +191,7 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
               ) : welcome.headingIcon === 'app-studio' ? (
                 <>
                   <span className="welcome-panel__heading-icon welcome-panel__heading-icon--studio" aria-hidden>
-                    <SurfaceComponentGlyph size={28} strokeWidth={1.5} />
-                  </span>
-                  {greeting.title}，{t(aiPartnerKey)}
-                </>
-              ) : welcome.headingIcon === 'component-studio' ? (
-                <>
-                  <span className="welcome-panel__heading-icon welcome-panel__heading-icon--studio" aria-hidden>
-                    <SparoAgentIcon size={28} strokeWidth={1.5} />
+                    <AppStudioGlyph size={28} strokeWidth={1.5} />
                   </span>
                   {greeting.title}，{t(aiPartnerKey)}
                 </>
@@ -328,9 +305,9 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
 
         {welcome.promptPanel === 'app-studio' && (
           <div className="welcome-panel__studio-prompts">
-            <div className="welcome-panel__studio-prompt-title">{t('welcome.surfaceComponentPrompts.title')}</div>
+            <div className="welcome-panel__studio-prompt-title">{t('welcome.appStudioPrompts.title')}</div>
             <div className="welcome-panel__studio-prompt-grid">
-              {SURFACE_COMPONENT_PROMPTS.map((prompt) => {
+              {APP_STUDIO_PROMPTS.map((prompt) => {
                 const Icon = prompt.icon;
                 return (
                   <Button
@@ -339,17 +316,17 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
                     variant="ghost"
                     size="small"
                     className="welcome-panel__studio-prompt-card"
-                    onClick={() => handleQuickActionClick(t(`welcome.surfaceComponentPrompts.items.${prompt.id}.prompt`))}
+                    onClick={() => handleQuickActionClick(t(`welcome.appStudioPrompts.items.${prompt.id}.prompt`))}
                   >
                     <span className="welcome-panel__studio-prompt-card-icon" aria-hidden>
                       <Icon size={17} />
                     </span>
                     <span className="welcome-panel__studio-prompt-card-copy">
                       <span className="welcome-panel__studio-prompt-card-title">
-                        {t(`welcome.surfaceComponentPrompts.items.${prompt.id}.title`)}
+                        {t(`welcome.appStudioPrompts.items.${prompt.id}.title`)}
                       </span>
                       <span className="welcome-panel__studio-prompt-card-desc">
-                        {t(`welcome.surfaceComponentPrompts.items.${prompt.id}.description`)}
+                        {t(`welcome.appStudioPrompts.items.${prompt.id}.description`)}
                       </span>
                     </span>
                   </Button>
@@ -359,38 +336,6 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
           </div>
         )}
 
-        {welcome.promptPanel === 'component-studio' && (
-          <div className="welcome-panel__studio-prompts">
-            <div className="welcome-panel__studio-prompt-title">{t('welcome.agentComponentPrompts.title')}</div>
-            <div className="welcome-panel__studio-prompt-grid">
-              {AGENT_COMPONENT_PROMPTS.map((prompt) => {
-                const Icon = prompt.icon;
-                return (
-                  <Button
-                    key={prompt.id}
-                    type="button"
-                    variant="ghost"
-                    size="small"
-                    className="welcome-panel__studio-prompt-card"
-                    onClick={() => handleQuickActionClick(t(`welcome.agentComponentPrompts.items.${prompt.id}.prompt`))}
-                  >
-                    <span className="welcome-panel__studio-prompt-card-icon" aria-hidden>
-                      <Icon size={17} />
-                    </span>
-                    <span className="welcome-panel__studio-prompt-card-copy">
-                      <span className="welcome-panel__studio-prompt-card-title">
-                        {t(`welcome.agentComponentPrompts.items.${prompt.id}.title`)}
-                      </span>
-                      <span className="welcome-panel__studio-prompt-card-desc">
-                        {t(`welcome.agentComponentPrompts.items.${prompt.id}.description`)}
-                      </span>
-                    </span>
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

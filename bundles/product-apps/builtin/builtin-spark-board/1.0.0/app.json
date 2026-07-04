@@ -1,0 +1,167 @@
+{
+  "id": "builtin-spark-board",
+  "version": "1.0.0",
+  "name": "Spark Board",
+  "description": "Collaborative AI canvas for creative thinking, clustering ideas, and turning selected notes into ready drafts.",
+  "goal": "Capture rough ideas, organize them on a canvas, and transform selected notes into useful drafts.",
+  "interactionModel": "interactiveWorkspace",
+  "workMultiplicity": "singleton",
+  "workObjectKinds": [
+    {
+      "id": "board",
+      "label": "Board",
+      "scope": "asset",
+      "identitySchema": {
+        "type": "object",
+        "properties": {
+          "boardId": {
+            "type": "string"
+          },
+          "workspacePath": {
+            "type": "string"
+          }
+        }
+      },
+      "contextSchema": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "clusters": {
+            "type": "array"
+          },
+          "selection": {
+            "type": "array"
+          }
+        }
+      }
+    },
+    {
+      "id": "idea-card",
+      "label": "Idea Card",
+      "scope": "asset",
+      "identitySchema": {
+        "type": "object",
+        "properties": {
+          "boardId": {
+            "type": "string"
+          },
+          "cardId": {
+            "type": "string"
+          }
+        }
+      },
+      "contextSchema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "clusterId": {
+            "type": "string"
+          },
+          "position": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "id": "draft",
+      "label": "Draft",
+      "scope": "asset",
+      "identitySchema": {
+        "type": "object",
+        "properties": {
+          "draftId": {
+            "type": "string"
+          },
+          "artifactId": {
+            "type": "string"
+          }
+        }
+      },
+      "contextSchema": {
+        "type": "object",
+        "properties": {
+          "sourceCards": {
+            "type": "array"
+          },
+          "format": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ],
+  "truthSource": "ownedObjectState",
+  "primarySurface": {
+    "componentId": "builtin-spark-board-surface",
+    "surfaceId": "primary"
+  },
+  "primarySurfaceMode": "immersivePrimary",
+  "components": [
+    {
+      "componentId": "builtin-spark-board-surface",
+      "kind": "surface",
+      "source": "private",
+      "role": "primarySurface",
+      "capabilities": [
+        "interactiveSurface"
+      ]
+    },
+    {
+      "componentId": "builtin-spark-board-agent",
+      "kind": "agent",
+      "source": "private",
+      "role": "assistant",
+      "capabilities": [
+        "expandIdeas",
+        "draftFromSelection"
+      ]
+    },
+    {
+      "componentId": "product-app-runtime-host",
+      "kind": "runtime",
+      "source": "shared",
+      "role": "runtimeHost",
+      "version": "^1.0.0",
+      "capabilities": [
+        "uiWorker"
+      ]
+    }
+  ],
+  "componentLockId": "",
+  "permissions": {
+    "fs": true,
+    "net": false,
+    "shell": false,
+    "gui": false,
+    "secrets": false,
+    "ai": true
+  },
+  "installScope": "system",
+  "catalogVisibility": "discoverable",
+  "enabled": true,
+  "icon": {
+    "kind": "packageAsset",
+    "path": "assets/icon.png"
+  },
+  "category": "creative",
+  "tags": [
+    "built-in",
+    "canvas",
+    "creative",
+    "ai"
+  ],
+  "launch": {
+    "kind": "applicationSurface",
+    "targetId": "builtin-spark-board",
+    "scopeRequirement": "workspaceOptional",
+    "surfaceId": "primary"
+  }
+}

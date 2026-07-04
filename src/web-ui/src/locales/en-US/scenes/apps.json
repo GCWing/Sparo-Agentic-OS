@@ -38,35 +38,56 @@
       "title": "Launch Apps",
       "subtitle": "Continue active work or start the right Product App directly.",
       "searchPlaceholder": "Search apps or active work...",
-      "continueDescription": "Pick up work already in motion.",
-      "appsDescription": "Launch cards are optimized for starting, continuing, and opening work."
+      "continueDescription": "Pick up work already in motion."
     },
     "manage": {
-      "eyebrow": "App Management",
-      "title": "Manage Apps",
-      "subtitle": "Review installed and discoverable Product Apps, their state, components, and maintenance entry points.",
       "searchLabel": "Search managed apps",
       "searchPlaceholder": "Search by app, category, goal, tag, or component summary...",
-      "visibleCount": "{{count}} visible",
       "emptyTitle": "No apps match this view",
       "emptyDescription": "Adjust search or filters to review another app group.",
       "listLabel": "Managed apps list",
+      "install": "Install",
+      "update": "Update",
+      "updateAvailable": "Update available",
+      "updateTitle": "Update App",
+      "updateMessage": "Update \"{{name}}\" to the published release below. Existing Work stays in Work Center; the installed package is replaced by the release package.",
+      "updateConfirm": "Update",
+      "updatePreviewRelease": "Release",
+      "updatePreviewReleaseId": "Release ID",
+      "updatePreviewPublished": "Published",
+      "updatePreviewNotes": "Release notes",
+      "updatePreviewNoNotes": "No release notes were provided.",
+      "updatePreviewComponentLock": "Component lock",
+      "updatePreviewPackage": "Package digest",
       "enable": "Enable",
       "disable": "Disable",
       "moreActions": "More actions",
       "uninstall": "Uninstall",
       "uninstallTitle": "Uninstall App",
-      "uninstallMessage": "This will remove \"{{name}}\" and all its local data. Active works will be stopped. This action cannot be undone.",
+      "uninstallMessage": "This will remove \"{{name}}\" from the app catalog and prevent new launches. Existing Work remains in Work Center.",
       "uninstallConfirm": "Uninstall",
+      "installedToast": "{{name}} installed",
+      "updatedToast": "{{name}} updated",
       "uninstalledToast": "{{name}} uninstalled",
       "enabledToast": "{{name}} enabled",
       "disabledToast": "{{name}} disabled",
+      "packageIssue": "Issue",
+      "updateFailed": "Failed to update {{name}}: {{error}}",
+      "installFailed": "Failed to install {{name}}: {{error}}",
+      "uninstallFailed": "Failed to uninstall {{name}}: {{error}}",
       "sortLabel": "Sort managed apps",
       "sortBy": "Sort by",
       "sortOptions": {
+        "attention": "Needs attention",
         "name": "Name",
         "status": "Status",
         "scope": "Scope"
+      },
+      "categoriesLabel": "Filter apps",
+      "viewModeLabel": "View mode",
+      "viewMode": {
+        "list": "List",
+        "cards": "Cards"
       }
     },
     "actions": {
@@ -83,14 +104,20 @@
       "newWork": "New",
       "continue": "Continue",
       "back": "Back",
+      "close": "Close",
       "cancel": "Cancel",
       "inspect": "Inspect"
     },
     "messages": {
+      "installBeforeLaunch": "Install {{name}} before launching it.",
       "noLaunch": "{{name}} has no launch target.",
       "launchFailed": "Failed to launch {{name}}: {{error}}",
       "stopped": "{{name}} stopped",
-      "stopFailed": "Failed to stop {{name}}: {{error}}"
+      "stopFailed": "Failed to stop {{name}}: {{error}}",
+      "closeWorkFailed": "Failed to close work {{name}}: {{error}}",
+      "catalogPartialFailureTitle": "Product App issue",
+      "catalogPartialFailureOne": "Could not load {{target}}: {{error}}",
+      "catalogPartialFailureMany": "{{count}} Product App packages could not be loaded. First issue: {{target}}: {{error}}"
     },
     "surfaceFallback": "Product App surface",
     "filters": {
@@ -106,6 +133,7 @@
       "count": "{{count}} active",
       "description": "Jump back into live work before starting something new.",
       "viewAll": "All",
+      "closeWork": "Close work \"{{title}}\"",
       "expandRelated": "Choose related work",
       "relatedLabel": "Related work",
       "emptyTitle": "No active work",
@@ -124,11 +152,7 @@
     },
     "components": {
       "title": "Advanced Components",
-      "count": "{{count}} components",
       "noDependencies": "No component dependencies",
-      "eyebrow": "Component Center",
-      "centerTitle": "Components",
-      "centerSubtitle": "Inspect shared and app-private agents, bridges, runtimes, tools, skills, and surfaces.",
       "searchLabel": "Search components",
       "searchPlaceholder": "Search components, capabilities, owners, or implementations...",
       "filterLabel": "Component kind",
@@ -139,10 +163,64 @@
       "listDescription": "Shared and app-private building blocks used by Product Apps.",
       "summaryTitle": "Component Summary",
       "summaryDescription": "Select a component to inspect its package identity, capabilities, and usage.",
+      "health": "Health",
+      "healthChecking": "Checking component health...",
+      "healthUnavailable": "Health status is not available.",
+      "healthFailed": "Component health check failed.",
+      "healthStatus": {
+        "available": "Available",
+        "degraded": "Degraded",
+        "checking": "Checking"
+      },
+      "healthCheck": {
+        "contract": "Contract",
+        "dependencies": "Dependencies",
+        "runtime": "Runtime",
+        "healthAction": "Health action"
+      },
+      "actionStatus": {
+        "available": "Available",
+        "blocked": "Blocked",
+        "empty": "Empty",
+        "degraded": "Degraded"
+      },
+      "diagnosticAction": {
+        "installDependency": "Install dependency",
+        "runHealthAction": "Run health action",
+        "openRuntimeLogs": "Review runtime logs",
+        "inspectRuntimeUsage": "Inspect runtime usage"
+      },
+      "actionTooltip": {
+        "installDependency": "Inspect or restore this dependency",
+        "runHealthAction": "Run the health check again",
+        "openRuntimeLogs": "Open the latest Work with runtime logs",
+        "inspectRuntimeUsage": "Open the latest Work using this component"
+      },
+      "runtimeRuns": "{{count}} runs",
+      "runtimeFailures": "{{count}} failed",
+      "runtimeErrors": "{{count}} errors",
+      "runtimeWarnings": "{{count}} warnings",
+      "recentFailures": "Recent Failures",
+      "recentLogs": "Recent Logs",
+      "runtimeUsage": "Runtime usage",
+      "runtimeUsageDetail": "Work {{workId}}: {{runs}} runs, {{issues}} issues.",
+      "openOwningWork": "Open owning Work",
       "capabilities": "Capabilities",
+      "dependenciesTab": "Capabilities & dependencies",
       "noCapabilities": "No declared capabilities",
       "usedBy": "Used By",
-      "noUsage": "No Product App usage yet"
+      "noUsage": "No Product App usage yet",
+      "categoriesLabel": "Component types",
+      "inspect": "Inspect",
+      "usedByCount": "Used by {{count}} apps",
+      "unusedHint": "No Product App currently depends on this component"
+    },
+    "workStack": {
+      "continueLabel": "Continue \"{{title}}\"",
+      "moreCount": "View all {{count}} works",
+      "collapse": "Collapse",
+      "relatedLabel": "Related work for {{name}}",
+      "attentionBadge": "{{count}} need attention"
     },
     "inspector": {
       "emptyTitle": "Select an app",
@@ -171,6 +249,11 @@
       "appPrivate": "App private",
       "shared": "Shared"
     },
+    "catalogSource": {
+      "installedPackage": "Installed package",
+      "builtinMarketplace": "Marketplace source",
+      "publishedRelease": "Published release"
+    },
     "componentRefSource": {
       "private": "Private",
       "shared": "Shared"
@@ -188,69 +271,169 @@
       "archived": "Archived"
     },
     "detail": {
-      "eyebrow": "Product App",
       "enabled": "Enabled",
       "disabled": "Disabled",
+      "dialogLabel": "{{name}} details",
+      "topBar": {
+        "backToApps": "App Center"
+      },
+      "header": {
+        "chooseWorkspace": "Choose workspace",
+        "installed": "Installed",
+        "native": "Native",
+        "notInstalled": "Not installed",
+        "workCount": "{{count}} works",
+        "workMode": "Work mode"
+      },
+      "sectionsLabel": "Details",
       "tabs": {
-        "use": "Use",
-        "capabilities": "Capabilities",
-        "settings": "Settings & Security",
+        "summary": "Summary",
+        "work": "Work",
+        "package": "Package",
         "overview": "Overview",
-        "start": "Start / Continue",
+        "start": "Start & Work",
         "workObjects": "Work Objects",
         "components": "Components",
         "permissions": "Permissions",
-        "runtime": "Runtime"
+        "source": "Version & Source",
+        "technical": "Component Graph"
+      },
+      "sectionDescription": {
+        "work": "Start new work or resume an existing Work from the same place.",
+        "package": "Installed package, catalog release, update, dependency, and component graph facts.",
+        "start": "Start new work or resume an existing Work from the same place.",
+        "components": "The surface, agent, bridge, runtime, tool, and skill packages this app depends on.",
+        "permissions": "The app-level permissions, component capabilities, and data lifecycle policy.",
+        "source": "Installed package, catalog release, update, and dependency facts.",
+        "technical": "Component composition and dependency calls derived from app.json and component.json."
+      },
+      "advanced": {
+        "launchConfig": "Launch configuration"
       },
       "sections": {
-        "overview": "Overview",
-        "components": "Components",
-        "permissions": "Permissions",
-        "runtime": "Runtime",
-        "package": "Package"
-      },
-      "overview": {
-        "goal": "Goal"
-      },
-      "metrics": {
-        "components": "Components",
-        "workObjects": "Work objects",
-        "activeWorks": "Active works",
         "permissions": "Permissions"
       },
+      "summary": {
+        "availability": "Availability",
+        "permissionCount": "{{enabled}} / {{total}} enabled",
+        "permissions": "Permissions",
+        "status": "Status"
+      },
       "start": {
+        "bestAction": "Best next action",
+        "launchHint": "This app can start from the current system context or continue an existing Work.",
         "launchTitle": "Launch target",
         "continueTitle": "Continue work",
+        "workTitle": "Related work",
         "noWorkTitle": "No work yet",
-        "noWorkDescription": "Work created from this app will appear here."
+        "noWorkDescription": "Work created from this app will appear here.",
+        "workspaceRequiredHint": "This app needs a workspace before new work can start."
       },
       "workObjects": {
         "emptyTitle": "No work objects",
         "emptyDescription": "This Product App has not declared durable work object kinds."
       },
       "components": {
+        "capabilityCount": "{{count}} capabilities",
+        "graphSummary": "Component graph",
         "unresolved": "Component package is not installed or not resolved."
       },
       "permissions": {
         "appTitle": "App permissions",
         "componentTitle": "Component capabilities",
-        "empty": "No component permissions are declared."
+        "dataTitle": "Data lifecycle"
+      },
+      "source": {
+        "catalogSource": "Catalog source",
+        "dependencySummary": "Dependencies",
+        "installedStatus": "Installed status"
       },
       "runtime": {
-        "identityTitle": "Runtime identity",
-        "graphTitle": "Component graph"
+        "identityTitle": "Runtime identity"
       },
-      "settings": {
-        "packageTitle": "Package",
-        "creationTitle": "Creation model",
-        "creationDescription": "Product Apps and Components are created as versioned packages. Runtime state references only the resolved lock."
+      "technical": {
+        "appNode": "Product App",
+        "canvasDescription": "A JSON-derived graph: app.components compose the first layer, component.dependencies continue the call chain.",
+        "canvasTitle": "Component relationship graph",
+        "dependencyEdges": "Dependency calls",
+        "dependencyNode": "Dependency",
+        "directComponents": "Direct components",
+        "directNode": "Direct",
+        "edgeKind": {
+          "appComposition": "Composes",
+          "componentDependency": "Calls"
+        },
+        "edgesDescription": "Edges are read from app.components and component.dependencies.",
+        "edgesTitle": "Composition and calls",
+        "emptyDescription": "This entry does not expose Product App component JSON.",
+        "emptyTitle": "No component graph",
+        "filter": {
+          "all": "All",
+          "composition": "Composition",
+          "dependencies": "Calls",
+          "permissions": "Permissions",
+          "unresolved": "Unresolved"
+        },
+        "filterLabel": "Component graph filters",
+        "from": "From",
+        "implementation": "Implementation",
+        "incoming": "Incoming",
+        "inspectorTitle": "Selected JSON",
+        "nodesDescription": "Direct app components and dependency-only components are shown together.",
+        "nodesTitle": "Components",
+        "outgoing": "Outgoing",
+        "primarySurface": "Primary surface",
+        "relation": "Relation",
+        "role": "Role",
+        "selectApp": "Inspect app {{name}}",
+        "selectComponent": "Inspect component {{name}}",
+        "selectRelation": "Inspect relation {{from}} to {{to}} as {{role}}",
+        "selectedAppTitle": "Selected app",
+        "selectedComponentTitle": "Selected component",
+        "selectedEdgeTitle": "Selected relation",
+        "to": "To",
+        "unresolved": "Unresolved"
+      }
+    },
+    "workMultiplicity": {
+      "multiple": "Multiple works",
+      "singleton": "Single work"
+    },
+    "dataLifecycle": {
+      "fields": {
+        "retention": "Retention",
+        "deletion": "Deletion",
+        "migration": "Migration",
+        "share": "Sharing"
+      },
+      "retention": {
+        "workRuntimeScoped": "Work runtime scoped",
+        "sessionScoped": "Session scoped",
+        "userManaged": "User managed",
+        "externalSystem": "External system"
+      },
+      "deletion": {
+        "deleteWithWork": "Delete with Work",
+        "deleteOnUserRequest": "Delete on request",
+        "noDurableData": "No durable data",
+        "externalSystem": "External system"
+      },
+      "migration": {
+        "notSupported": "Not supported",
+        "exportImport": "Export / import",
+        "schemaVersioned": "Schema versioned",
+        "externalSystem": "External system"
+      },
+      "share": {
+        "excludeRuntimePrivateData": "Exclude runtime-private data",
+        "declaredWorkObjectsOnly": "Declared work objects only",
+        "externalReferenceOnly": "External reference only"
       }
     },
     "launchKind": {
       "agentSession": "Start an agent-backed work session.",
       "applicationSurface": "Open an interactive app surface.",
       "appStudio": "Open App Studio.",
-      "componentStudio": "Open Component Studio.",
       "none": "No launch target"
     },
     "launchScope": {
@@ -262,16 +445,13 @@
       "id": "ID",
       "kind": "Kind",
       "version": "Version",
-      "source": "Source",
       "target": "Target",
       "surface": "Surface",
       "agent": "Agent",
       "scope": "Scope",
       "appId": "App ID",
-      "lock": "Lock",
       "surfaceMode": "Surface mode",
       "truthSource": "Truth source",
-      "installScope": "Install scope",
       "visibility": "Visibility",
       "componentLockId": "Component lock ID"
     },
@@ -310,41 +490,6 @@
     "truthSource": {
       "ownedObjectState": "Owned object state",
       "runtimeFact": "Runtime fact"
-    },
-    "studio": {
-      "eyebrow": "Studio",
-      "createAppTitle": "Create Product App",
-      "createAppSubtitle": "Define the user goal, work objects, primary surface, and component boundary.",
-      "createComponentTitle": "Create Component",
-      "createComponentSubtitle": "Package an Agent, Surface, Bridge, Runtime, Tool, or Skill as a reusable component.",
-      "requiredFields": "Fill in the required fields.",
-      "createAppSuccess": "{{name}} created",
-      "createComponentSuccess": "{{name}} created",
-      "createFailed": "Creation failed",
-      "fields": {
-        "appId": "App ID",
-        "componentId": "Component ID",
-        "version": "Version",
-        "name": "Name",
-        "agentType": "Agent type",
-        "goal": "Goal",
-        "description": "Description",
-        "surfaceMode": "Surface mode",
-        "category": "Category",
-        "tags": "Tags",
-        "componentKind": "Component kind",
-        "implementationRef": "Implementation ref"
-      },
-      "placeholders": {
-        "appId": "e.g. my-product-app",
-        "componentId": "e.g. my-component",
-        "tags": "creative, video, runtime",
-        "implementationRef": "bundle://components/..."
-      },
-      "sections": {
-        "required": "Required",
-        "optional": "Optional details"
-      }
     }
   },
   "apps": {
@@ -369,90 +514,31 @@
       "name": "Deep Research",
       "description": "A standalone Agent app for open-ended research that dispatches parallel sub-agents and synthesizes comprehensive sourced reports."
     },
-    "surfaceComponentWorkbench": {
-      "name": "Interactive App Workbench",
-      "description": "A sidecar-linked Product App surface with FlowChat on the left and app-owned tools on the right."
+    "productAppRuntime": {
+      "name": "Product App Runtime",
+      "description": "Runs Product Apps with FlowChat, app-owned tools, runtime state, and issue feedback bound to the active Work."
     },
     "appStudio": {
       "name": "App Studio",
       "description": "Create Product Apps with goals, work objects, primary surfaces, components, permissions, and package metadata."
-    },
-    "componentStudio": {
-      "name": "Component Studio",
-      "description": "Create Agent, Surface, Bridge, Runtime, Tool, and Skill components for Product Apps."
     }
   },
-  "surfaceComponent": {
+  "productAppRuntime": {
     "scene": {
       "loading": "Loading...",
       "updating": "Updating preview...",
       "loadFailed": "Load failed: {{error}}",
       "retry": "Retry",
       "reload": "Reload"
-    }
-  },
-  "componentStudio": {
-    "panel": {
-      "tablistLabel": "Preview sections",
-      "promptToolbarLabel": "Prompt actions",
-      "copyFailed": "Copy failed",
-      "promptSaved": "Prompt saved",
-      "promptSaveFailed": "Failed to save prompt",
-      "readonly": "Read-only",
-      "copyId": "Copy id",
-      "refresh": "Refresh",
-      "openCatalog": "Open Component Center",
-      "cancelEdit": "Cancel",
-      "savePrompt": "Save",
-      "copied": "Copied",
-      "copyPrompt": "Copy prompt",
-      "copyExample": "Copy prompt",
-      "retry": "Retry",
-      "yes": "Yes",
-      "no": "No",
-      "promptLength": "{{count}} chars",
-      "toolsCount": "{{count}} selected definitions",
-      "examplesCount": "{{count}} starter prompts",
-      "loading": "Loading...",
-      "tabs": {
-        "overview": "Overview",
-        "prompt": "Prompt",
-        "tools": "Tool definitions",
-        "examples": "Examples"
-      },
-      "empty": {
-        "title": "No Agent Component yet",
-        "description": "Tell the studio what you want to build. The latest component package will appear here as soon as it is created."
-      },
-      "stats": {
-        "groupLabel": "Quick counts",
-        "tools": "Tool definitions",
-        "toolsShort": "tool defs",
-        "examples": "Examples",
-        "examplesShort": "ex.",
-        "promptChars": "Prompt length",
-        "charsSuffix": "chars"
-      },
-      "sections": {
-        "about": "About this app",
-        "prompt": "System prompt",
-        "tools": "Tool definitions",
-        "examples": "Starter prompts"
-      },
-      "fields": {
-        "model": "Model",
-        "category": "Category",
-        "level": "Level",
-        "readonly": "Read-only",
-        "tags": "Tags",
-        "path": "Path"
-      },
-      "tools": {
-        "empty": "No tool definitions selected"
-      },
-      "examples": {
-        "empty": "No examples yet"
-      }
+    },
+    "messages": {
+      "recompiled": "Product App runtime recompiled.",
+      "recompileFailed": "Failed to recompile Product App runtime: {{error}}",
+      "installDepsFailedGeneric": "Failed to install runtime dependencies.",
+      "installDepsOk": "Runtime dependencies installed.",
+      "installDepsFailed": "Failed to install runtime dependencies: {{error}}",
+      "workerStopped": "Product App worker stopped.",
+      "workerStopFailed": "Failed to stop Product App worker: {{error}}"
     }
   },
   "messages": {

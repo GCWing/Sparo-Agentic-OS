@@ -1,4 +1,4 @@
-import type { WorkspaceSceneId } from './workspaceSceneTypes';
+﻿import type { WorkspaceSceneId } from './workspaceSceneTypes';
 import { useWorkspaceSurfaceStore } from './workspaceSurfaceStore';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
@@ -10,6 +10,7 @@ import {
 import type { WorkspaceSurfaceContext } from './workspaceSurfaceTypes';
 import type { WorkspaceSurfaceHistoryMode } from './workspaceSurfaceStore';
 import type { AppScope } from '@/shared/types/app-scope';
+import type { ProductAppRuntimeContext } from '@/shared/types/product-app-runtime';
 import {
   projectRuntimeScopeFromWorkspacePath,
   runtimeScopeFromAppScope,
@@ -36,6 +37,7 @@ export interface OpenWorkspaceSceneOptions {
   workspacePath?: string | null;
   appScope?: AppScope | null;
   context?: WorkspaceSurfaceContext | null;
+  runtimeContext?: ProductAppRuntimeContext | null;
   historyMode?: WorkspaceSurfaceHistoryMode;
 }
 
@@ -65,6 +67,7 @@ export function openWorkspaceScene(
     sceneId,
     scope: resolveSceneScope(options),
     appScope: options.appScope,
+    runtimeContext: options.runtimeContext,
   }, {
     context: options.context,
     historyMode: options.historyMode,

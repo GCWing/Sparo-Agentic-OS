@@ -1,0 +1,243 @@
+{
+  "id": "builtin-harmony-dev",
+  "version": "13.0.0",
+  "name": "HarmonyOS Dev",
+  "description": "A device-fact-centered collaborative workbench for HarmonyOS app development.",
+  "goal": "Collaboratively develop, build, install, run, and diagnose a HarmonyOS application.",
+  "interactionModel": "interactiveWorkspace",
+  "workMultiplicity": "multiple",
+  "workObjectKinds": [
+    {
+      "id": "workspace",
+      "label": "Workspace",
+      "scope": "workspace",
+      "identitySchema": {
+        "type": "object",
+        "required": [
+          "workspacePath"
+        ],
+        "properties": {
+          "workspacePath": {
+            "type": "string"
+          }
+        }
+      },
+      "contextSchema": {
+        "type": "object",
+        "properties": {
+          "projectKind": {
+            "type": "string"
+          },
+          "bundleName": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "ability",
+      "label": "Ability",
+      "scope": "project",
+      "identitySchema": {
+        "type": "object",
+        "required": [
+          "bundleName",
+          "abilityName"
+        ],
+        "properties": {
+          "bundleName": {
+            "type": "string"
+          },
+          "abilityName": {
+            "type": "string"
+          }
+        }
+      },
+      "contextSchema": {
+        "type": "object",
+        "properties": {
+          "entryModule": {
+            "type": "string"
+          },
+          "route": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "build-run",
+      "label": "Build Run",
+      "scope": "runtime",
+      "identitySchema": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string"
+          },
+          "task": {
+            "type": "string"
+          }
+        }
+      },
+      "contextSchema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "artifactPath": {
+            "type": "string"
+          },
+          "diagnostics": {
+            "type": "array"
+          }
+        }
+      }
+    },
+    {
+      "id": "device-target",
+      "label": "Device Target",
+      "scope": "device",
+      "identitySchema": {
+        "type": "object",
+        "required": [
+          "targetId"
+        ],
+        "properties": {
+          "targetId": {
+            "type": "string"
+          },
+          "targetType": {
+            "type": "string"
+          }
+        }
+      },
+      "contextSchema": {
+        "type": "object",
+        "properties": {
+          "online": {
+            "type": "boolean"
+          },
+          "apiVersion": {
+            "type": "string"
+          },
+          "emulatorName": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "module",
+      "label": "Module",
+      "scope": "project",
+      "identitySchema": {
+        "type": "object",
+        "required": [
+          "moduleName"
+        ],
+        "properties": {
+          "moduleName": {
+            "type": "string"
+          },
+          "modulePath": {
+            "type": "string"
+          }
+        }
+      },
+      "contextSchema": {
+        "type": "object",
+        "properties": {
+          "targetSdk": {
+            "type": "string"
+          },
+          "mainElement": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ],
+  "truthSource": "runtimeFact",
+  "primarySurface": {
+    "componentId": "builtin-harmony-dev-surface",
+    "surfaceId": "primary"
+  },
+  "primarySurfaceMode": "sidecarLinked",
+  "components": [
+    {
+      "componentId": "builtin-harmony-dev-surface",
+      "kind": "surface",
+      "source": "private",
+      "role": "primarySurface",
+      "capabilities": [
+        "interactiveSurface"
+      ]
+    },
+    {
+      "componentId": "harmonyos-dev-agent",
+      "kind": "agent",
+      "source": "shared",
+      "role": "assistant",
+      "version": "^1.0.0",
+      "capabilities": [
+        "understandHarmonyProject",
+        "reviseHarmonyUi",
+        "buildInstallVerify",
+        "diagnoseHarmonyFailure"
+      ]
+    },
+    {
+      "componentId": "builtin-harmony-runtime",
+      "kind": "bridge",
+      "source": "shared",
+      "role": "runtime",
+      "version": "^1.0.0",
+      "capabilities": [
+        "sparo.harmonyDev"
+      ]
+    },
+    {
+      "componentId": "product-app-runtime-host",
+      "kind": "runtime",
+      "source": "shared",
+      "role": "runtimeHost",
+      "version": "^1.0.0",
+      "capabilities": [
+        "uiWorker"
+      ]
+    }
+  ],
+  "componentLockId": "",
+  "permissions": {
+    "fs": true,
+    "net": false,
+    "shell": true,
+    "gui": false,
+    "secrets": false,
+    "ai": true
+  },
+  "installScope": "system",
+  "catalogVisibility": "discoverable",
+  "enabled": true,
+  "icon": {
+    "kind": "packageAsset",
+    "path": "assets/icon.png"
+  },
+  "category": "developer",
+  "tags": [
+    "built-in",
+    "harmonyos",
+    "arkui",
+    "arkts",
+    "device",
+    "preview"
+  ],
+  "launch": {
+    "kind": "applicationSurface",
+    "targetId": "builtin-harmony-dev",
+    "scopeRequirement": "workspaceRequired",
+    "surfaceId": "primary"
+  }
+}

@@ -1,15 +1,26 @@
-import type { WorkspaceSceneId } from './workspaceSceneTypes';
+﻿import type { WorkspaceSceneId } from './workspaceSceneTypes';
 import { appScopeIdentity } from '@/shared/types/app-scope';
 import type { AppScope } from '@/shared/types/app-scope';
 import { runtimeScopeIdentity, type RuntimeScope } from '@/shared/types/runtime-scope';
+import type { ProductAppRuntimeContext } from '@/shared/types/product-app-runtime';
 
 export type WorkspaceSurfaceContext =
   | { kind: 'work'; workId: string };
 
 export type WorkspaceSurface =
   | { kind: 'agentic-os-home'; agenticOsSessionId: string | null; scope: RuntimeScope }
-  | { kind: 'scene'; sceneId: WorkspaceSceneId; scope: RuntimeScope; appScope?: AppScope | null }
+  | {
+      kind: 'scene';
+      sceneId: WorkspaceSceneId;
+      scope: RuntimeScope;
+      appScope?: AppScope | null;
+      runtimeContext?: ProductAppRuntimeContext | null;
+    }
   | { kind: 'session'; sessionId: string };
+
+function runtimeContextIdentity(context?: ProductAppRuntimeContext | null): string {
+  return context ? `${context.workId}:${context.runtimeInstanceId}` : '';
+}
 
 export function isSameWorkspaceSurface(a: WorkspaceSurface, b: WorkspaceSurface): boolean {
   if (a.kind !== b.kind) return false;
@@ -27,7 +38,9 @@ export function isSameWorkspaceSurface(a: WorkspaceSurface, b: WorkspaceSurface)
         runtimeScopeIdentity(a.scope) ===
           runtimeScopeIdentity((b as Extract<WorkspaceSurface, { kind: 'scene' }>).scope) &&
         appScopeIdentity(a.appScope) ===
-          appScopeIdentity((b as Extract<WorkspaceSurface, { kind: 'scene' }>).appScope)
+          appScopeIdentity((b as Extract<WorkspaceSurface, { kind: 'scene' }>).appScope) &&
+        runtimeContextIdentity(a.runtimeContext) ===
+          runtimeContextIdentity((b as Extract<WorkspaceSurface, { kind: 'scene' }>).runtimeContext)
       );
     case 'session':
       return a.sessionId === (b as Extract<WorkspaceSurface, { kind: 'session' }>).sessionId;

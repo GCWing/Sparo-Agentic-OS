@@ -17,7 +17,7 @@ const EXPORT_HOST_LABEL: &str = "ppt-live-export-host";
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SurfaceComponentRenderSlidePageRequest {
+pub struct ProductAppRuntimeRenderSlidePageRequest {
     pub html: String,
     pub format: String,
     pub width: Option<u32>,
@@ -116,9 +116,9 @@ where
 }
 
 #[tauri::command]
-pub async fn surface_component_render_slide_page(
+pub async fn product_app_runtime_render_slide_page_via_webview(
     app: AppHandle,
-    request: SurfaceComponentRenderSlidePageRequest,
+    request: ProductAppRuntimeRenderSlidePageRequest,
 ) -> Result<String, String> {
     let width = request.width.unwrap_or(EXPORT_VIEWPORT_WIDTH as u32);
     let height = request.height.unwrap_or(EXPORT_VIEWPORT_HEIGHT as u32);

@@ -9,17 +9,42 @@ import type {
   LinkSessionToWorkRequest,
   MemoryRef,
   ResolveAppWorkRequest,
+  ResolveComponentWorkRequest,
+  RuntimeInstanceRef,
+  RecordStudioPreviewResultRequest,
   StartWorkRequest,
   UpdateWorkRequest,
+  RecordStudioValidationResultRequest,
   WorkAssignmentRef,
   WorkAppIntent,
   WorkAppRef,
   WorkAppRelation,
+  WorkComponentIntent,
+  WorkComponentRef,
+  WorkArtifactNode,
   WorkExecutionBinding,
+  WorkExecutionGraph,
+  WorkExecutionGraphSummary,
   WorkExecutionSource,
   WorkLifecycle,
   WorkRecord,
+  WorkRuntimeInstanceGraph,
+  WorkRuntimeInstanceStatus,
+  WorkRuntimeIssue,
+  WorkRuntimeIssueSeverity,
+  WorkRuntimeLog,
+  WorkRuntimeLogLevel,
+  WorkRuntimeRun,
+  WorkRuntimeRunStatus,
   WorkScope,
+  WorkStudioFactStatus,
+  WorkStudioIssue,
+  WorkStudioIssueOrigin,
+  WorkStudioIssueStatus,
+  WorkStudioPreviewKind,
+  WorkStudioPreviewResult,
+  WorkStudioPreviewSource,
+  WorkStudioValidationResult,
   WorkSubject,
   WorkSurfaceRef,
   WorkTitleState,
@@ -41,7 +66,7 @@ type RawWorkSurfaceRef =
   | {
       kind: 'application_surface';
       product_app_id: string;
-      surface_component_id: string;
+      product_app_surface_id: string;
       surface_id: string;
     };
 
@@ -58,6 +83,13 @@ type RawWorkExecutionSource =
   | { source: 'agent_session_run'; session_id: string; turn_id?: string | null }
   | { source: 'delegated_work_run'; parent_work_id: string; child_work_id: string }
   | { source: 'application_action'; application_id: string; action_id: string }
+  | {
+      source: 'runtime_instance_run';
+      runtime_instance_id: string;
+      run_id: string;
+      component_id: string;
+      action: string;
+    }
   | { source: 'runtime_subagent_run'; run_id: string }
   | { source: 'external'; label: string; reference: string };
 
@@ -65,6 +97,7 @@ type RawWorkExecutionBinding = {
   id: string;
   status: WorkExecutionBinding['status'];
   source: RawWorkExecutionSource;
+  app_studio?: WorkExecutionBinding['appStudio'] | null;
   created_at: number;
   updated_at: number;
 };
@@ -78,11 +111,26 @@ type RawArtifactRef = {
   id: string;
   label?: string | null;
   uri?: string | null;
+  runtime_provenance?: {
+    runtimeInstanceId: string;
+    runId: string;
+    componentId: string;
+    action: string;
+  } | null;
 };
 
 type RawMemoryRef = {
   id: string;
   scope?: string | null;
+};
+
+type RawRuntimeInstanceRef = {
+  id: string;
+  product_app_id: string;
+  app_version: string;
+  component_lock_digest: string;
+  product_app_surface_id: string;
+  surface_id: string;
 };
 
 type RawWorkTitleState = {
@@ -94,14 +142,22 @@ type RawWorkTitleState = {
 type RawWorkAppRef = {
   kind: WorkAppRef['kind'];
   app_id: string;
-  app_version: string;
-  component_lock_digest: string;
+  app_version?: string;
+  component_lock_digest?: string;
+};
+
+type RawWorkComponentRef = {
+  component_id: string;
+  component_kind: string;
+  version?: string;
+  package_root?: string;
 };
 
 type RawWorkSubject =
   | { kind: 'goal' }
   | { kind: 'project'; workspace_path: string }
   | { kind: 'app'; app: RawWorkAppRef; intent?: WorkAppIntent | null }
+  | { kind: 'component'; component: RawWorkComponentRef; intent?: WorkComponentIntent | null }
   | { kind: 'artifact'; artifact_id: string };
 
 type RawWorkAppRelation = {
@@ -130,10 +186,148 @@ type RawWorkRecord = {
   summary?: { text: string; updated_at: number } | null;
   session_refs: RawAgentSessionRef[];
   execution_bindings: RawWorkExecutionBinding[];
+  runtime_instances?: RawRuntimeInstanceRef[];
   artifact_refs: RawArtifactRef[];
   memory_refs: RawMemoryRef[];
   created_at: number;
   updated_at: number;
+};
+
+type RawWorkRuntimeRun = {
+  runId: string;
+  runtimeInstanceId: string;
+  componentId: string;
+  componentKind: string;
+  action: string;
+  status: WorkRuntimeRunStatus;
+  startedAt: number;
+  updatedAt: number;
+  artifactCount?: number;
+  eventCount?: number;
+  error?: string | null;
+};
+
+type RawWorkRuntimeIssue = {
+  runtimeInstanceId: string;
+  productAppId: string;
+  componentId: string;
+  severity: WorkRuntimeIssueSeverity;
+  message: string;
+  source?: string | null;
+  category?: string | null;
+  timestampMs: number;
+};
+
+type RawWorkRuntimeLog = {
+  runtimeInstanceId: string;
+  productAppId: string;
+  componentId: string;
+  level: WorkRuntimeLogLevel;
+  category: string;
+  message: string;
+  source?: string | null;
+  timestampMs: number;
+};
+
+type RawWorkStudioPreviewResult = {
+  id: string;
+  kind: WorkStudioPreviewKind;
+  status: WorkStudioFactStatus;
+  source?: WorkStudioPreviewSource;
+  harnessMode?: string | null;
+  triggerTurnId?: string | null;
+  detail?: string | null;
+  checks?: RawWorkStudioFactCheck[];
+  workId: string;
+  runtimeInstanceId?: string | null;
+  productAppId?: string | null;
+  componentId?: string | null;
+  productAppSurfaceId?: string | null;
+  surfaceId?: string | null;
+  observedAt: number;
+  issueCount: number;
+  fatalIssueCount: number;
+  warningIssueCount: number;
+};
+
+type RawWorkStudioFactCheck = {
+  id: string;
+  status: WorkStudioFactStatus;
+  detail?: string | null;
+};
+
+type RawWorkStudioValidationResult = {
+  id: string;
+  toolName: string;
+  targetKind: WorkStudioValidationResult['targetKind'];
+  status: WorkStudioValidationResult['status'];
+  workId: string;
+  appId?: string | null;
+  componentId?: string | null;
+  componentKind?: string | null;
+  version?: string | null;
+  packageRoot?: string | null;
+  observedAt: number;
+  failedCount: number;
+  warningCount: number;
+  checks?: RawWorkStudioFactCheck[];
+};
+
+type RawWorkStudioIssue = {
+  id: string;
+  appId: string;
+  productAppId?: string | null;
+  componentId?: string | null;
+  runtimeInstanceId?: string | null;
+  previewResultId?: string | null;
+  severity: WorkRuntimeIssueSeverity;
+  status: WorkStudioIssueStatus;
+  message: string;
+  source?: string | null;
+  category?: string | null;
+  timestampMs: number;
+  origin: WorkStudioIssueOrigin;
+  resolvedAt?: number | null;
+};
+
+type RawWorkArtifactNode = {
+  artifact: RawArtifactRef;
+  runtimeInstanceId?: string | null;
+  runId?: string | null;
+};
+
+type RawWorkRuntimeInstanceGraph = {
+  instance: RawRuntimeInstanceRef;
+  status: WorkRuntimeInstanceStatus;
+  runs?: RawWorkRuntimeRun[];
+  issues?: RawWorkRuntimeIssue[];
+  logs?: RawWorkRuntimeLog[];
+  artifacts?: RawWorkArtifactNode[];
+};
+
+type RawWorkExecutionGraphSummary = {
+  executionCount: number;
+  runtimeInstanceCount: number;
+  runtimeRunCount: number;
+  artifactCount: number;
+  issueCount: number;
+  errorCount: number;
+  warningCount: number;
+  lastActivityAt?: number | null;
+};
+
+type RawWorkExecutionGraph = {
+  workId: string;
+  updatedAt: number;
+  executions: RawWorkExecutionBinding[];
+  runtimeInstances: RawWorkRuntimeInstanceGraph[];
+  artifacts: RawWorkArtifactNode[];
+  issues?: RawWorkRuntimeIssue[];
+  logs?: RawWorkRuntimeLog[];
+  studioPreviewResults?: RawWorkStudioPreviewResult[];
+  studioValidationResults?: RawWorkStudioValidationResult[];
+  studioIssues?: RawWorkStudioIssue[];
+  summary: RawWorkExecutionGraphSummary;
 };
 
 function toRawScope(scope: WorkScope): RawWorkScope {
@@ -152,8 +346,8 @@ function toRawAppRef(app: WorkAppRef): RawWorkAppRef {
   return {
     kind: app.kind,
     app_id: app.appId,
-    app_version: app.appVersion,
-    component_lock_digest: app.componentLockDigest,
+    app_version: app.appVersion ?? '',
+    component_lock_digest: app.componentLockDigest ?? '',
   };
 }
 
@@ -161,8 +355,26 @@ function fromRawAppRef(app: RawWorkAppRef): WorkAppRef {
   return {
     kind: app.kind,
     appId: app.app_id,
-    appVersion: app.app_version,
-    componentLockDigest: app.component_lock_digest,
+    appVersion: app.app_version || undefined,
+    componentLockDigest: app.component_lock_digest || undefined,
+  };
+}
+
+function toRawComponentRef(component: WorkComponentRef): RawWorkComponentRef {
+  return {
+    component_id: component.componentId,
+    component_kind: component.componentKind,
+    version: component.version ?? '',
+    package_root: component.packageRoot ?? '',
+  };
+}
+
+function fromRawComponentRef(component: RawWorkComponentRef): WorkComponentRef {
+  return {
+    componentId: component.component_id,
+    componentKind: component.component_kind,
+    version: component.version || undefined,
+    packageRoot: component.package_root || undefined,
   };
 }
 
@@ -174,6 +386,12 @@ function toRawSubject(subject: WorkSubject): RawWorkSubject {
       return { kind: 'project', workspace_path: subject.workspacePath };
     case 'app':
       return { kind: 'app', app: toRawAppRef(subject.app), intent: subject.intent };
+    case 'component':
+      return {
+        kind: 'component',
+        component: toRawComponentRef(subject.component),
+        intent: subject.intent,
+      };
     case 'artifact':
       return { kind: 'artifact', artifact_id: subject.artifactId };
   }
@@ -187,6 +405,12 @@ function fromRawSubject(subject: RawWorkSubject): WorkSubject {
       return { kind: 'project', workspacePath: subject.workspace_path };
     case 'app':
       return { kind: 'app', app: fromRawAppRef(subject.app), intent: subject.intent ?? 'use' };
+    case 'component':
+      return {
+        kind: 'component',
+        component: fromRawComponentRef(subject.component),
+        intent: subject.intent ?? 'develop',
+      };
     case 'artifact':
       return { kind: 'artifact', artifactId: subject.artifact_id };
   }
@@ -222,7 +446,7 @@ function toRawSurface(surface: WorkSurfaceRef): RawWorkSurfaceRef {
       return {
         kind: 'application_surface',
         product_app_id: surface.productAppId,
-        surface_component_id: surface.surfaceComponentId,
+        product_app_surface_id: surface.productAppSurfaceId,
         surface_id: surface.surfaceId,
       };
   }
@@ -245,7 +469,7 @@ function fromRawSurface(surface: RawWorkSurfaceRef): WorkSurfaceRef {
       return {
         kind: 'application_surface',
         productAppId: surface.product_app_id,
-        surfaceComponentId: surface.surface_component_id,
+        productAppSurfaceId: surface.product_app_surface_id,
         surfaceId: surface.surface_id,
       };
   }
@@ -291,6 +515,14 @@ function fromRawExecutionSource(source: RawWorkExecutionSource): WorkExecutionSo
         applicationId: source.application_id,
         actionId: source.action_id,
       };
+    case 'runtime_instance_run':
+      return {
+        source: 'runtime_instance_run',
+        runtimeInstanceId: source.runtime_instance_id,
+        runId: source.run_id,
+        componentId: source.component_id,
+        action: source.action,
+      };
     case 'runtime_subagent_run':
       return { source: 'runtime_subagent_run', runId: source.run_id };
     case 'external':
@@ -303,6 +535,7 @@ function fromRawExecutionBinding(binding: RawWorkExecutionBinding): WorkExecutio
     id: binding.id,
     status: binding.status,
     source: fromRawExecutionSource(binding.source),
+    appStudio: binding.app_studio ?? undefined,
     createdAt: binding.created_at,
     updatedAt: binding.updated_at,
   };
@@ -317,11 +550,34 @@ function fromRawSessionRef(ref: RawAgentSessionRef): AgentSessionRef {
 }
 
 function fromRawArtifactRef(ref: RawArtifactRef): ArtifactRef {
-  return { id: ref.id, label: ref.label, uri: ref.uri };
+  return {
+    id: ref.id,
+    label: ref.label,
+    uri: ref.uri,
+    runtimeProvenance: ref.runtime_provenance
+      ? {
+          runtimeInstanceId: ref.runtime_provenance.runtimeInstanceId,
+          runId: ref.runtime_provenance.runId,
+          componentId: ref.runtime_provenance.componentId,
+          action: ref.runtime_provenance.action,
+        }
+      : ref.runtime_provenance,
+  };
 }
 
 function fromRawMemoryRef(ref: RawMemoryRef): MemoryRef {
   return { id: ref.id, scope: ref.scope };
+}
+
+function fromRawRuntimeInstanceRef(ref: RawRuntimeInstanceRef): RuntimeInstanceRef {
+  return {
+    id: ref.id,
+    productAppId: ref.product_app_id,
+    appVersion: ref.app_version,
+    componentLockDigest: ref.component_lock_digest,
+    productAppSurfaceId: ref.product_app_surface_id,
+    surfaceId: ref.surface_id,
+  };
 }
 
 function toRawTitleState(titleState?: WorkTitleState | null): RawWorkTitleState | null | undefined {
@@ -361,6 +617,7 @@ export function fromRawWorkRecord(record: RawWorkRecord): WorkRecord {
     summary: record.summary ? { text: record.summary.text, updatedAt: record.summary.updated_at } : record.summary,
     sessionRefs: record.session_refs.map(fromRawSessionRef),
     executionBindings: record.execution_bindings.map(fromRawExecutionBinding),
+    runtimeInstances: (record.runtime_instances ?? []).map(fromRawRuntimeInstanceRef),
     artifactRefs: record.artifact_refs.map(fromRawArtifactRef),
     memoryRefs: record.memory_refs.map(fromRawMemoryRef),
     createdAt: record.created_at,
@@ -381,6 +638,192 @@ function toRawCreateWorkRequest(request: CreateWorkRequest): Record<string, unkn
     primary_surface: request.primarySurface ? toRawSurface(request.primarySurface) : undefined,
     assignment: toRawAssignment(request.assignment),
     title_state: toRawTitleState(request.titleState),
+  };
+}
+
+function fromRawRuntimeRun(run: RawWorkRuntimeRun): WorkRuntimeRun {
+  return {
+    runId: run.runId,
+    runtimeInstanceId: run.runtimeInstanceId,
+    componentId: run.componentId,
+    componentKind: run.componentKind,
+    action: run.action,
+    status: run.status,
+    startedAt: run.startedAt,
+    updatedAt: run.updatedAt,
+    artifactCount: run.artifactCount ?? 0,
+    eventCount: run.eventCount ?? 0,
+    error: run.error,
+  };
+}
+
+function fromRawRuntimeIssue(issue: RawWorkRuntimeIssue): WorkRuntimeIssue {
+  return {
+    runtimeInstanceId: issue.runtimeInstanceId,
+    productAppId: issue.productAppId,
+    componentId: issue.componentId,
+    severity: issue.severity,
+    message: issue.message,
+    source: issue.source,
+    category: issue.category,
+    timestampMs: issue.timestampMs,
+  };
+}
+
+function fromRawRuntimeLog(log: RawWorkRuntimeLog): WorkRuntimeLog {
+  return {
+    runtimeInstanceId: log.runtimeInstanceId,
+    productAppId: log.productAppId,
+    componentId: log.componentId,
+    level: log.level,
+    category: log.category,
+    message: log.message,
+    source: log.source,
+    timestampMs: log.timestampMs,
+  };
+}
+
+function fromRawStudioPreviewResult(preview: RawWorkStudioPreviewResult): WorkStudioPreviewResult {
+  return {
+    id: preview.id,
+    kind: preview.kind,
+    status: preview.status,
+    source: preview.source ?? 'runtime-fact',
+    harnessMode: preview.harnessMode,
+    triggerTurnId: preview.triggerTurnId,
+    detail: preview.detail,
+    checks: (preview.checks ?? []).map((check) => ({
+      id: check.id,
+      status: check.status,
+      detail: check.detail,
+    })),
+    workId: preview.workId,
+    runtimeInstanceId: preview.runtimeInstanceId,
+    productAppId: preview.productAppId,
+    componentId: preview.componentId,
+    productAppSurfaceId: preview.productAppSurfaceId,
+    surfaceId: preview.surfaceId,
+    observedAt: preview.observedAt,
+    issueCount: preview.issueCount,
+    fatalIssueCount: preview.fatalIssueCount,
+    warningIssueCount: preview.warningIssueCount,
+  };
+}
+
+function toRawStudioPreviewResult(preview: WorkStudioPreviewResult): RawWorkStudioPreviewResult {
+  return {
+    id: preview.id,
+    kind: preview.kind,
+    status: preview.status,
+    source: preview.source,
+    harnessMode: preview.harnessMode,
+    triggerTurnId: preview.triggerTurnId,
+    detail: preview.detail,
+    checks: (preview.checks ?? []).map((check) => ({
+      id: check.id,
+      status: check.status,
+      detail: check.detail,
+    })),
+    workId: preview.workId,
+    runtimeInstanceId: preview.runtimeInstanceId,
+    productAppId: preview.productAppId,
+    componentId: preview.componentId,
+    productAppSurfaceId: preview.productAppSurfaceId,
+    surfaceId: preview.surfaceId,
+    observedAt: preview.observedAt,
+    issueCount: preview.issueCount,
+    fatalIssueCount: preview.fatalIssueCount,
+    warningIssueCount: preview.warningIssueCount,
+  };
+}
+
+function fromRawStudioValidationResult(validation: RawWorkStudioValidationResult): WorkStudioValidationResult {
+  return {
+    id: validation.id,
+    toolName: validation.toolName,
+    targetKind: validation.targetKind,
+    status: validation.status,
+    workId: validation.workId,
+    appId: validation.appId,
+    componentId: validation.componentId,
+    componentKind: validation.componentKind,
+    version: validation.version,
+    packageRoot: validation.packageRoot,
+    observedAt: validation.observedAt,
+    failedCount: validation.failedCount,
+    warningCount: validation.warningCount,
+    checks: (validation.checks ?? []).map((check) => ({
+      id: check.id,
+      status: check.status,
+      detail: check.detail,
+    })),
+  };
+}
+
+function fromRawStudioIssue(issue: RawWorkStudioIssue): WorkStudioIssue {
+  return {
+    id: issue.id,
+    appId: issue.appId,
+    productAppId: issue.productAppId,
+    componentId: issue.componentId,
+    runtimeInstanceId: issue.runtimeInstanceId,
+    previewResultId: issue.previewResultId,
+    severity: issue.severity,
+    status: issue.status,
+    message: issue.message,
+    source: issue.source,
+    category: issue.category,
+    timestampMs: issue.timestampMs,
+    origin: issue.origin,
+    resolvedAt: issue.resolvedAt,
+  };
+}
+
+function fromRawArtifactNode(node: RawWorkArtifactNode): WorkArtifactNode {
+  return {
+    artifact: fromRawArtifactRef(node.artifact),
+    runtimeInstanceId: node.runtimeInstanceId,
+    runId: node.runId,
+  };
+}
+
+function fromRawRuntimeInstanceGraph(instance: RawWorkRuntimeInstanceGraph): WorkRuntimeInstanceGraph {
+  return {
+    instance: fromRawRuntimeInstanceRef(instance.instance),
+    status: instance.status,
+    runs: (instance.runs ?? []).map(fromRawRuntimeRun),
+    issues: (instance.issues ?? []).map(fromRawRuntimeIssue),
+    logs: (instance.logs ?? []).map(fromRawRuntimeLog),
+    artifacts: (instance.artifacts ?? []).map(fromRawArtifactNode),
+  };
+}
+
+function fromRawExecutionGraphSummary(summary: RawWorkExecutionGraphSummary): WorkExecutionGraphSummary {
+  return {
+    executionCount: summary.executionCount,
+    runtimeInstanceCount: summary.runtimeInstanceCount,
+    runtimeRunCount: summary.runtimeRunCount,
+    artifactCount: summary.artifactCount,
+    issueCount: summary.issueCount,
+    errorCount: summary.errorCount,
+    warningCount: summary.warningCount,
+    lastActivityAt: summary.lastActivityAt,
+  };
+}
+
+function fromRawExecutionGraph(graph: RawWorkExecutionGraph): WorkExecutionGraph {
+  return {
+    workId: graph.workId,
+    updatedAt: graph.updatedAt,
+    executions: graph.executions.map(fromRawExecutionBinding),
+    runtimeInstances: graph.runtimeInstances.map(fromRawRuntimeInstanceGraph),
+    artifacts: graph.artifacts.map(fromRawArtifactNode),
+    issues: (graph.issues ?? []).map(fromRawRuntimeIssue),
+    logs: (graph.logs ?? []).map(fromRawRuntimeLog),
+    studioPreviewResults: (graph.studioPreviewResults ?? []).map(fromRawStudioPreviewResult),
+    studioValidationResults: (graph.studioValidationResults ?? []).map(fromRawStudioValidationResult),
+    studioIssues: (graph.studioIssues ?? []).map(fromRawStudioIssue),
+    summary: fromRawExecutionGraphSummary(graph.summary),
   };
 }
 
@@ -412,6 +855,29 @@ function toRawUpdateWorkRequest(request: UpdateWorkRequest): Record<string, unkn
   };
 }
 
+function toRawStudioValidationResult(validation: WorkStudioValidationResult): RawWorkStudioValidationResult {
+  return {
+    id: validation.id,
+    toolName: validation.toolName,
+    targetKind: validation.targetKind,
+    status: validation.status,
+    workId: validation.workId,
+    appId: validation.appId,
+    componentId: validation.componentId,
+    componentKind: validation.componentKind,
+    version: validation.version,
+    packageRoot: validation.packageRoot,
+    observedAt: validation.observedAt,
+    failedCount: validation.failedCount,
+    warningCount: validation.warningCount,
+    checks: validation.checks.map((check) => ({
+      id: check.id,
+      status: check.status,
+      detail: check.detail,
+    })),
+  };
+}
+
 export class AgenticOsWorkApi {
   async listWorks(request: { workspacePath?: string | null; app?: WorkAppRef | null } = {}): Promise<WorkRecord[]> {
     try {
@@ -435,6 +901,17 @@ export class AgenticOsWorkApi {
       return fromRawWorkRecord(response.work);
     } catch (error) {
       throw createTauriCommandError('agentic_os_get_work', error, { workId });
+    }
+  }
+
+  async getWorkExecutionGraph(workId: string): Promise<WorkExecutionGraph> {
+    try {
+      const response = await api.invoke<{ graph: RawWorkExecutionGraph }>('agentic_os_get_work_execution_graph', {
+        request: { workId },
+      });
+      return fromRawExecutionGraph(response.graph);
+    } catch (error) {
+      throw createTauriCommandError('agentic_os_get_work_execution_graph', error, { workId });
     }
   }
 
@@ -468,6 +945,26 @@ export class AgenticOsWorkApi {
       return { work: fromRawWorkRecord(response.work), created: response.created };
     } catch (error) {
       throw createTauriCommandError('agentic_os_resolve_app_work', error, request);
+    }
+  }
+
+  async resolveComponentWork(request: ResolveComponentWorkRequest): Promise<{ work: WorkRecord; created: boolean }> {
+    try {
+      const response = await api.invoke<{ work: RawWorkRecord; created: boolean }>('agentic_os_resolve_component_work', {
+        request: {
+          component: toRawComponentRef(request.component),
+          intent: request.intent,
+          title: request.title,
+          objective: request.objective,
+          scope: toRawScope(request.scope),
+          visibility: request.visibility ?? 'secondary',
+          primary_surface_policy: request.primarySurfacePolicy ?? 'work_center',
+          assignment: toRawAssignment(request.assignment),
+        },
+      });
+      return { work: fromRawWorkRecord(response.work), created: response.created };
+    } catch (error) {
+      throw createTauriCommandError('agentic_os_resolve_component_work', error, request);
     }
   }
 
@@ -533,6 +1030,34 @@ export class AgenticOsWorkApi {
       return fromRawWorkRecord(response.work);
     } catch (error) {
       throw createTauriCommandError('agentic_os_control_work', error, request);
+    }
+  }
+
+  async recordStudioPreviewResult(request: RecordStudioPreviewResultRequest): Promise<WorkRecord> {
+    try {
+      const response = await api.invoke<{ work: RawWorkRecord }>('agentic_os_record_studio_preview_result', {
+        request: {
+          work_id: request.workId,
+          preview_result: toRawStudioPreviewResult(request.previewResult),
+        },
+      });
+      return fromRawWorkRecord(response.work);
+    } catch (error) {
+      throw createTauriCommandError('agentic_os_record_studio_preview_result', error, request);
+    }
+  }
+
+  async recordStudioValidationResult(request: RecordStudioValidationResultRequest): Promise<WorkRecord> {
+    try {
+      const response = await api.invoke<{ work: RawWorkRecord }>('agentic_os_record_studio_validation_result', {
+        request: {
+          work_id: request.workId,
+          validation_result: toRawStudioValidationResult(request.validationResult),
+        },
+      });
+      return fromRawWorkRecord(response.work);
+    } catch (error) {
+      throw createTauriCommandError('agentic_os_record_studio_validation_result', error, request);
     }
   }
 }

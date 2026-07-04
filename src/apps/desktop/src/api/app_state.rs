@@ -4,11 +4,11 @@ use bitfun_core::agentic::side_question::SideQuestionRuntime;
 use bitfun_core::agentic::{agents, tools};
 use bitfun_core::app_platform::seed_builtin_product_app_packages;
 use bitfun_core::infrastructure::ai::{AIClient, AIClientFactory};
-use bitfun_core::service::{announcement, config, filesystem, mcp, token_usage, workspace};
-use bitfun_core::surface_component::{
-    initialize_global_surface_component_manager, seed_builtin_surface_components, JsWorkerPool,
-    SurfaceComponentManager,
+use bitfun_core::product_app_runtime_host::{
+    initialize_global_product_app_runtime_host_manager, ProductAppRuntimeHostManager,
+    ProductAppRuntimeHostWorkerPool,
 };
+use bitfun_core::service::{announcement, config, filesystem, mcp, token_usage, workspace};
 use bitfun_core::util::errors::*;
 
 use serde::{Deserialize, Serialize};
@@ -46,8 +46,8 @@ pub struct AppState {
     pub agent_registry: Arc<agents::AgentRegistry>,
     pub mcp_service: Option<Arc<mcp::MCPService>>,
     pub token_usage_service: Arc<token_usage::TokenUsageService>,
-    pub surface_component_manager: Arc<SurfaceComponentManager>,
-    pub js_worker_pool: Option<Arc<JsWorkerPool>>,
+    pub product_app_runtime_host_manager: Arc<ProductAppRuntimeHostManager>,
+    pub js_worker_pool: Option<Arc<ProductAppRuntimeHostWorkerPool>>,
     pub statistics: Arc<RwLock<AppStatistics>>,
     pub macos_edit_menu_mode: Arc<RwLock<crate::macos_menubar::EditMenuMode>>,
     pub start_time: std::time::Instant,
@@ -108,22 +108,17 @@ impl AppState {
                 })?,
         );
 
-        let surface_component_manager =
-            Arc::new(SurfaceComponentManager::new(path_manager.clone()));
-        initialize_global_surface_component_manager(surface_component_manager.clone());
+        let product_app_runtime_host_manager =
+            Arc::new(ProductAppRuntimeHostManager::new(path_manager.clone()));
+        initialize_global_product_app_runtime_host_manager(
+            product_app_runtime_host_manager.clone(),
+        );
         let product_app_path_manager = path_manager.clone();
         tauri::async_runtime::spawn(async move {
             if let Err(e) = seed_builtin_product_app_packages(&product_app_path_manager).await {
                 log::warn!("Failed to seed built-in Product App packages: {}", e);
             }
         });
-        let seed_manager = surface_component_manager.clone();
-        tauri::async_runtime::spawn(async move {
-            if let Err(e) = seed_builtin_surface_components(&seed_manager).await {
-                log::warn!("Failed to seed built-in Product Apps: {}", e);
-            }
-        });
-
         let worker_host_path = match resolve_worker_host_path() {
             Some(p) => {
                 log::info!("Resolved worker_host.js at: {}", p.display());
@@ -132,12 +127,12 @@ impl AppState {
             None => {
                 log::warn!(
                     "worker_host.js not found in any candidate location; \
-                     Surface Component workers will not start"
+                     Product App Runtime host workers will not start"
                 );
                 std::path::PathBuf::from("worker_host.js")
             }
         };
-        let js_worker_pool = JsWorkerPool::new(path_manager, worker_host_path)
+        let js_worker_pool = ProductAppRuntimeHostWorkerPool::new(path_manager, worker_host_path)
             .ok()
             .map(Arc::new);
         if js_worker_pool.is_none() {
@@ -184,7 +179,7 @@ impl AppState {
             agent_registry,
             mcp_service,
             token_usage_service,
-            surface_component_manager,
+            product_app_runtime_host_manager,
             js_worker_pool,
             statistics,
             macos_edit_menu_mode: Arc::new(RwLock::new(crate::macos_menubar::EditMenuMode::System)),

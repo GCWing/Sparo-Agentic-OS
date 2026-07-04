@@ -185,6 +185,7 @@
     "close": "关闭详情",
     "openPrimary": "打开主入口",
     "openSurface": "打开入口",
+    "openArtifact": "打开产物",
     "copyReference": "复制引用",
     "copied": "已复制",
     "openDetailsFor": "查看 {{title}} 的详情",
@@ -215,16 +216,34 @@
     "activity": "最近动态",
     "surfaces": "入口",
     "execution": "执行",
+    "executionGraph": "执行图",
+    "graphLoading": "正在加载执行图",
+    "graphArtifacts": "{{count}} 个图产物",
+    "noRuntimeRuns": "暂无运行时执行",
     "noExecution": "暂无执行绑定",
     "lifecycle": "状态历史",
     "noLifecycle": "暂无状态历史",
     "artifacts": "{{count}} 个产物",
     "memories": "{{count}} 条记忆",
     "sessions": "{{count}} 个会话",
+    "runtimeInstanceCount": "{{count}} 个运行实例",
+    "runtimeInstances": "运行实例",
+    "runtimeRuns": "{{count}} 次运行时执行",
+    "runtimeIssues": "{{count}} 条诊断",
+    "runtimeLogs": "{{count}} 条运行日志",
+    "runtimeRunMeta": "{{component}} · {{action}}",
+    "runtimeLogMeta": "{{category}} · {{component}}",
+    "runtimeVersion": "v{{version}} · {{lock}}",
+    "runtimeSurface": "{{surface}} · {{component}}",
+    "runtimeLogLevel": {
+      "debug": "调试",
+      "info": "信息",
+      "warn": "警告",
+      "error": "错误"
+    },
     "surface": {
       "workSession": "工作会话",
       "agentSession": "智能体会话",
-      "surfaceComponent": "灵动应用",
       "application": "应用入口",
       "agentHome": "Agentic OS 首页"
     },
@@ -251,8 +270,29 @@
       "agentSessionRun": "智能体会话运行",
       "delegatedWorkRun": "委派工作",
       "applicationAction": "应用动作",
+      "runtimeInstanceRun": "运行实例执行",
       "runtimeSubagentRun": "运行时子智能体",
       "external": "外部执行"
+    },
+    "runtimeStatus": {
+      "idle": "空闲",
+      "running": "运行中",
+      "waiting_user": "等待你",
+      "completed": "已完成",
+      "degraded": "异常"
+    },
+    "runtimeRunStatus": {
+      "pending": "排队中",
+      "running": "运行中",
+      "waiting_user": "等待你",
+      "completed": "已完成",
+      "failed": "失败",
+      "cancelled": "已取消"
+    },
+    "runtimeIssueSeverity": {
+      "fatal": "运行时错误",
+      "warning": "运行时警告",
+      "noise": "运行时提示"
     },
     "lifecycleEvent": {
       "created": "工作已创建",
@@ -363,6 +403,7 @@
   "errors": {
     "openFailed": "打开工作失败",
     "openSurfaceFailed": "打开入口失败",
+    "openArtifactFailed": "打开产物失败",
     "cancelFailed": "取消工作失败",
     "pauseFailed": "暂停工作失败",
     "resumeFailed": "继续工作失败",

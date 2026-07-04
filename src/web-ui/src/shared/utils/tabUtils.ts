@@ -8,6 +8,7 @@ import { resolveAndFocusOpenTarget } from '@/shared/services/sceneOpenTargetReso
 import type { OpenSource } from '@/shared/services/sceneOpenTargetResolver';
 import { TAB_EVENTS } from '@/app/components/panels/content-canvas/types';
 import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
+import type { RuntimeScope } from '@/shared/types/runtime-scope';
 export type TabTargetMode = 'agent' | 'project';
 
 export interface TabCreationOptions {
@@ -258,6 +259,7 @@ export function createTerminalTab(
 type OpenFileInBestTargetOptions = Omit<FileTabOptions, 'mode'>;
 interface OpenFileTargetContext {
   source?: OpenSource;
+  scope?: RuntimeScope | null;
 }
 
 /**
@@ -272,7 +274,10 @@ export function openFileInBestTarget(
   options: OpenFileInBestTargetOptions,
   context: OpenFileTargetContext = {}
 ): void {
-  const { mode, sceneJustOpened } = resolveAndFocusOpenTarget('file', { source: context.source ?? 'default' });
+  const { mode, sceneJustOpened } = resolveAndFocusOpenTarget('file', {
+    source: context.source ?? 'default',
+    scope: context.scope,
+  });
 
   fileTabManager.openFile({
     ...options,

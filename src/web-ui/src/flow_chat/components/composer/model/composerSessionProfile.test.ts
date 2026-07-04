@@ -1,8 +1,8 @@
-import { describe, expect, it } from 'vitest';
+﻿import { describe, expect, it } from 'vitest';
 import {
   agenticOsProfile,
   codingProfile,
-  surfaceComponentWorkbenchProfile,
+  productAppRuntimeProfile,
 } from '@/app/session-profiles';
 import { SESSION_DESCRIPTORS } from '@/flow_chat/domain/sessionDescriptor';
 import { resolveComposerSessionProfile } from './composerSessionProfile';
@@ -17,8 +17,8 @@ describe('resolveComposerSessionProfile', () => {
 
   it('falls back to the surrounding surface profile when no target descriptor exists', () => {
     expect(resolveComposerSessionProfile({
-      surfaceProfile: surfaceComponentWorkbenchProfile,
+      surfaceProfile: productAppRuntimeProfile,
       targetDescriptor: null,
-    })).toBe(surfaceComponentWorkbenchProfile);
+    })).toBe(productAppRuntimeProfile);
   });
 });

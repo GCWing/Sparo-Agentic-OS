@@ -1,35 +1,34 @@
-.management-list {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
+// Left category rail + right app list. The detail inspector is gone from this
+// surface — row actions and the detail page cover management; the right column
+// should be nothing but the scannable list.
+
+.management-list__data-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding-right: var(--ds-space-1);
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--ds-color-border-subtle);
+    border-radius: var(--ds-radius-full);
+  }
 }
 
 .management-list__row {
   display: flex;
   align-items: center;
-  gap: var(--ds-space-4);
+  gap: var(--ds-space-3);
   min-width: 0;
-  padding: var(--ds-space-3) var(--ds-space-4);
-  border-bottom: 1px solid var(--ds-color-border-subtle);
   transition:
     background var(--ds-motion-fast) var(--ds-easing-standard),
     opacity var(--ds-motion-fast) var(--ds-easing-standard);
 
-  &:last-child {
-    border-bottom: 0;
-  }
-
-  &:hover {
-    background: var(--ds-color-element-subtle);
-  }
-
   &.is-disabled {
     opacity: 0.55;
-
-    .management-list__name {
-      text-decoration: line-through;
-      text-decoration-color: var(--ds-color-text-muted);
-    }
   }
 }
 
@@ -39,14 +38,6 @@
   gap: var(--ds-space-3);
   flex: 1 1 auto;
   min-width: 0;
-  padding-block: var(--ds-space-1);
-  cursor: pointer;
-  border-radius: var(--ds-radius-sm);
-
-  &:focus-visible {
-    outline: 2px solid var(--ds-focus-outline);
-    outline-offset: 2px;
-  }
 }
 
 .management-list__icon {
@@ -58,8 +49,13 @@
   height: 34px;
   margin-top: 2px;
   border-radius: var(--ds-radius-md);
-  background: color-mix(in srgb, var(--ds-color-accent-500) 12%, transparent);
-  color: var(--ds-color-accent-600);
+  background: var(--ds-color-element-subtle);
+  color: var(--ds-color-text-secondary);
+}
+
+.management-list__icon--logo {
+  background: transparent;
+  color: inherit;
 }
 
 .management-list__info {
@@ -99,6 +95,7 @@
   align-items: center;
   gap: var(--ds-space-2);
   min-width: 0;
+  flex-wrap: wrap;
 }
 
 .management-list__version {
@@ -107,25 +104,146 @@
   font-variant-numeric: tabular-nums;
 }
 
-.management-list__actions {
+.management-list__row-controls {
   display: flex;
   align-items: center;
-  gap: var(--ds-space-1);
+  gap: var(--ds-space-2);
   flex: 0 0 auto;
-  margin-left: auto;
+}
+
+.management-list__update-button {
+  color: var(--ds-color-accent);
+}
+
+.management-list__view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  padding: 2px;
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-color-bg-elevated);
+}
+
+.management-list__card-grid {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: var(--ds-space-3);
+  align-content: start;
+  min-height: 0;
+  overflow: auto;
+  padding-right: var(--ds-space-1);
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--ds-color-border-subtle);
+    border-radius: var(--ds-radius-full);
+  }
+}
+
+.management-list__card {
+  position: relative;
+  align-items: center;
+  min-height: 188px;
+  padding: var(--ds-space-3);
+  text-align: center;
+
+  &.is-disabled {
+    opacity: 0.55;
+  }
+}
+
+.management-list__card-menu {
+  position: absolute;
+  top: var(--ds-space-1);
+  right: var(--ds-space-1);
+  z-index: var(--ds-z-local);
+}
+
+.management-list__card-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ds-space-2);
+  width: 100%;
+  min-width: 0;
+  padding: var(--ds-space-4) var(--ds-space-1) var(--ds-space-2);
+}
+
+.management-list__card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-element-subtle);
+  color: var(--ds-color-text-secondary);
+}
+
+.management-list__card-icon--logo {
+  width: 64px;
+  height: 64px;
+  background: transparent;
+  color: inherit;
+}
+
+.management-list__card-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ds-space-1);
+  max-width: 100%;
+}
+
+.management-list__card-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ds-color-text-primary);
+  font-size: var(--ds-font-size-sm);
+  font-weight: var(--ds-font-weight-semibold);
+}
+
+.management-list__card-meta {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-size-xs);
+}
+
+.management-list__card-tag {
+  max-width: 100%;
+}
+
+.management-list__card-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ds-space-2);
+  width: 100%;
+  padding-top: var(--ds-space-2);
+  border-top: 1px solid var(--ds-color-border-subtle);
+}
+
+.management-list__card-action {
+  width: 100%;
 }
 
 @media (max-width: 640px) {
-  .management-list__row {
-    flex-wrap: wrap;
-    gap: var(--ds-space-2);
-    padding: var(--ds-space-3);
+  .management-list__description {
+    display: none;
   }
 
-  .management-list__actions {
-    width: 100%;
-    justify-content: flex-end;
-    padding-top: var(--ds-space-2);
-    border-top: 1px solid var(--ds-color-border-subtle);
+  .management-list__card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
   }
 }

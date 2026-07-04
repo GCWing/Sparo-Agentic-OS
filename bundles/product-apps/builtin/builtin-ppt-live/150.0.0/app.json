@@ -1,0 +1,167 @@
+{
+  "id": "builtin-ppt-live",
+  "version": "150.0.0",
+  "name": "PPT Live",
+  "description": "AI deck studio for generating, editing, previewing, and exporting presentation decks.",
+  "goal": "Create and refine a presentation deck from outline through designed slides and export.",
+  "interactionModel": "interactiveWorkspace",
+  "workMultiplicity": "multiple",
+  "workObjectKinds": [
+    {
+      "id": "deck",
+      "label": "Deck",
+      "scope": "asset",
+      "identitySchema": {
+        "type": "object",
+        "properties": {
+          "deckId": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        }
+      },
+      "contextSchema": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "slideCount": {
+            "type": "number"
+          },
+          "theme": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "slide",
+      "label": "Slide",
+      "scope": "asset",
+      "identitySchema": {
+        "type": "object",
+        "properties": {
+          "deckId": {
+            "type": "string"
+          },
+          "slideId": {
+            "type": "string"
+          },
+          "index": {
+            "type": "number"
+          }
+        }
+      },
+      "contextSchema": {
+        "type": "object",
+        "properties": {
+          "layout": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "selectedElement": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "id": "export",
+      "label": "Export",
+      "scope": "asset",
+      "identitySchema": {
+        "type": "object",
+        "properties": {
+          "artifactId": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        }
+      },
+      "contextSchema": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ],
+  "truthSource": "ownedObjectState",
+  "primarySurface": {
+    "componentId": "builtin-ppt-live-surface",
+    "surfaceId": "primary"
+  },
+  "primarySurfaceMode": "sidecarLinked",
+  "components": [
+    {
+      "componentId": "builtin-ppt-live-surface",
+      "kind": "surface",
+      "source": "private",
+      "role": "primarySurface",
+      "capabilities": [
+        "interactiveSurface"
+      ]
+    },
+    {
+      "componentId": "builtin-ppt-live-agent",
+      "kind": "agent",
+      "source": "private",
+      "role": "assistant",
+      "capabilities": [
+        "generateDeck",
+        "reviseSlide"
+      ]
+    },
+    {
+      "componentId": "product-app-runtime-host",
+      "kind": "runtime",
+      "source": "shared",
+      "role": "runtimeHost",
+      "version": "^1.0.0",
+      "capabilities": [
+        "uiWorker"
+      ]
+    }
+  ],
+  "componentLockId": "",
+  "permissions": {
+    "fs": true,
+    "net": true,
+    "shell": false,
+    "gui": false,
+    "secrets": false,
+    "ai": true
+  },
+  "installScope": "system",
+  "catalogVisibility": "discoverable",
+  "enabled": true,
+  "icon": {
+    "kind": "packageAsset",
+    "path": "assets/icon.png"
+  },
+  "category": "productivity",
+  "tags": [
+    "built-in",
+    "presentation",
+    "ppt",
+    "ai"
+  ],
+  "launch": {
+    "kind": "applicationSurface",
+    "targetId": "builtin-ppt-live",
+    "scopeRequirement": "workspaceOptional",
+    "surfaceId": "primary"
+  }
+}

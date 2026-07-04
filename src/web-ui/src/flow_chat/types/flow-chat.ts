@@ -335,7 +335,7 @@ export interface Session {
   /** Persistence namespace for this session. Identity comes from descriptor, not storage scope. */
   storageScope?: SessionStorageScope;
 
-  /** Durable app/workbench-specific metadata kept with the session history record. */
+  /** Durable app/session-specific metadata kept with the session history record. */
   customMetadata?: SessionCustomMetadata;
 
   /**
@@ -403,9 +403,9 @@ export interface SessionConfig {
   storageScope?: SessionStorageScope;
   /** Optional initial persisted title for product-owned sessions. */
   sessionName?: string;
-  /** Optional key used to deduplicate session creation for app-scoped workbenches. */
+  /** Optional key used to deduplicate session creation for app-scoped sessions. */
   creationDeduplicationKey?: string;
-  /** Metadata persisted with the session, used by profile-owned workbench panels. */
+  /** Metadata persisted with the session, used by profile-owned app panels. */
   customMetadata?: SessionCustomMetadata;
 }
 

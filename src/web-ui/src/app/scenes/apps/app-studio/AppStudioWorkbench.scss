@@ -1,0 +1,870 @@
+// App Studio Workbench
+// Four-zone layout: identity bar / tabs / fact-or-preview body / diagnostics dock
+// The preview fills all available space; the dock collapses to a thin header strip.
+
+.app-studio-panel {
+  display: grid;
+  grid-template-rows: 36px auto minmax(0, 1fr) auto;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--ds-color-bg-app);
+
+  &.is-dock-collapsed {
+    grid-template-rows: 36px auto minmax(0, 1fr) 30px;
+  }
+}
+
+// ─── Identity / Status Bar ────────────────────────────────────────────────────
+// Left: runtime status dot + app name + runtime label
+// Center: conditional warning/action CTAs
+// Right: compact icon actions separated by a subtle divider
+
+.studio-statusbar {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  padding: 0 var(--ds-space-2);
+  height: 36px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-bg-panel);
+  min-width: 0;
+}
+
+.studio-statusbar__identity {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.studio-statusbar__dot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ds-color-text-disabled);
+  transition: background 0.25s ease;
+
+  &.is-running { background: var(--ds-color-success); }
+  &.is-warning { background: var(--ds-color-warning); }
+  &.is-idle    { background: var(--ds-color-text-disabled); }
+
+  &.is-error {
+    background: var(--ds-color-danger);
+    animation: studio-pulse 1.4s ease-in-out 3;
+  }
+}
+
+.studio-statusbar__name {
+  font-size: var(--ds-font-size-xs);
+  font-weight: var(--ds-font-weight-semibold);
+  color: var(--ds-color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 1;
+}
+
+.studio-statusbar__runtime-label {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--ds-color-text-muted);
+  white-space: nowrap;
+  padding: 1px var(--ds-space-1);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-color-element-base);
+  font-weight: var(--ds-font-weight-medium);
+  line-height: 1.6;
+}
+
+.studio-statusbar__ctas {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  flex-shrink: 0;
+}
+
+// Color-state modifiers applied on top of DS Button secondary/small
+.studio-statusbar__cta {
+  &.is-warning {
+    color: var(--ds-color-warning) !important;
+    border-color: color-mix(in srgb, var(--ds-color-warning) 38%, transparent) !important;
+
+    &:hover {
+      background: color-mix(in srgb, var(--ds-color-warning) 10%, transparent) !important;
+      border-color: color-mix(in srgb, var(--ds-color-warning) 55%, transparent) !important;
+    }
+  }
+
+  &.is-running {
+    color: var(--ds-color-danger) !important;
+    border-color: color-mix(in srgb, var(--ds-color-danger) 38%, transparent) !important;
+
+    &:hover {
+      background: color-mix(in srgb, var(--ds-color-danger) 10%, transparent) !important;
+      border-color: color-mix(in srgb, var(--ds-color-danger) 55%, transparent) !important;
+    }
+  }
+}
+
+// Thin vertical separator between the CTA group and icon actions
+.studio-statusbar__sep {
+  flex-shrink: 0;
+  align-self: stretch;
+  width: 1px;
+  margin: var(--ds-space-2) 0;
+  background: var(--ds-color-border-subtle);
+}
+
+.studio-statusbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+}
+
+.studio-workbench-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  min-width: 0;
+  padding: var(--ds-space-1) var(--ds-space-2);
+  border-bottom: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-bg-panel);
+}
+
+.studio-workbench-tabs__control {
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.studio-workbench-tabs__status {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.studio-workbench-facts {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--ds-space-3);
+  display: grid;
+  align-content: start;
+  gap: var(--ds-space-3);
+  background: var(--ds-color-bg-app);
+}
+
+.studio-workbench-facts__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-2);
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.studio-fact-section {
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-bg-panel);
+  overflow: hidden;
+}
+
+.studio-fact-section__header {
+  display: grid;
+  gap: var(--ds-space-1);
+  padding: var(--ds-space-3);
+  border-bottom: 1px solid var(--ds-color-border-subtle);
+
+  h3 {
+    margin: 0;
+    font-size: var(--ds-font-size-sm);
+    font-weight: var(--ds-font-weight-semibold);
+    color: var(--ds-color-text-primary);
+  }
+
+  p {
+    margin: 0;
+    font-size: var(--ds-font-size-xs);
+    color: var(--ds-color-text-muted);
+    line-height: var(--ds-line-height-normal);
+  }
+}
+
+.studio-fact-grid {
+  display: grid;
+}
+
+.studio-fact-row {
+  display: grid;
+  grid-template-columns: minmax(112px, 0.34fr) minmax(0, 1fr);
+  gap: var(--ds-space-2);
+  align-items: start;
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border-top: 1px solid var(--ds-color-border-subtle);
+
+  &:first-child {
+    border-top: 0;
+  }
+}
+
+.studio-fact-row__label {
+  min-width: 0;
+  font-size: var(--ds-font-size-xs);
+  color: var(--ds-color-text-muted);
+}
+
+.studio-fact-row__value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--ds-font-size-xs);
+  color: var(--ds-color-text-secondary);
+
+  &.is-ok {
+    color: var(--ds-color-success);
+  }
+
+  &.is-warning {
+    color: var(--ds-color-warning);
+  }
+
+  &.is-error {
+    color: var(--ds-color-danger);
+  }
+}
+
+.studio-fact-section__empty {
+  padding: var(--ds-space-3);
+  font-size: var(--ds-font-size-xs);
+  color: var(--ds-color-text-muted);
+}
+
+.studio-workbench-issue-list {
+  display: grid;
+  gap: var(--ds-space-2);
+}
+
+// ─── Preview Area ─────────────────────────────────────────────────────────────
+// Full-size iframe host. Empty/loading/error states are centered overlays.
+
+.studio-preview {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.studio-preview__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ds-space-2);
+  height: 100%;
+  padding: var(--ds-space-5);
+  color: var(--ds-color-text-secondary);
+  text-align: center;
+
+  > svg {
+    color: var(--ds-color-text-disabled);
+    flex-shrink: 0;
+  }
+
+  > div {
+    font-size: var(--ds-font-size-sm);
+    font-weight: var(--ds-font-weight-semibold);
+    color: var(--ds-color-text-primary);
+  }
+
+  > p {
+    max-width: 240px;
+    margin: 0;
+    font-size: var(--ds-font-size-xs);
+    color: var(--ds-color-text-secondary);
+    line-height: var(--ds-line-height-relaxed);
+  }
+
+  &.is-error {
+    > svg { color: var(--ds-color-danger); }
+  }
+}
+
+.studio-preview__updating {
+  position: absolute;
+  top: var(--ds-space-3);
+  right: var(--ds-space-3);
+  z-index: var(--ds-z-raised);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  padding: var(--ds-space-1) var(--ds-space-2);
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: var(--ds-radius-full);
+  background: color-mix(in srgb, var(--ds-color-bg-panel) 92%, transparent);
+  box-shadow: var(--ds-shadow-sm);
+  color: var(--ds-color-text-secondary);
+  font-size: 11px;
+  pointer-events: none;
+}
+
+.studio-preview-inspector-status {
+  position: absolute;
+  top: var(--ds-space-3);
+  left: 50%;
+  z-index: var(--ds-z-overlay);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  transform: translateX(-50%);
+  max-width: min(420px, calc(100% - var(--ds-space-6)));
+  padding: var(--ds-space-1) var(--ds-space-2);
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: var(--ds-radius-full);
+  background: color-mix(in srgb, var(--ds-color-bg-panel) 94%, transparent);
+  color: var(--ds-color-text-secondary);
+  box-shadow: var(--ds-shadow-sm);
+  font-size: 11px;
+  line-height: var(--ds-line-height-tight);
+  pointer-events: none;
+  white-space: nowrap;
+
+  > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.studio-preview-selection-tray {
+  position: absolute;
+  left: var(--ds-space-3);
+  right: var(--ds-space-3);
+  bottom: var(--ds-space-3);
+  z-index: var(--ds-z-overlay);
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  min-width: 0;
+  padding: var(--ds-space-2);
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: var(--ds-radius-md);
+  background: color-mix(in srgb, var(--ds-color-bg-panel) 96%, transparent);
+  box-shadow: var(--ds-shadow-popover);
+}
+
+.studio-preview-selection-tray__label {
+  flex-shrink: 0;
+  color: var(--ds-color-text-muted);
+  font-size: 10px;
+  font-weight: var(--ds-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.studio-preview-selection-tray__summary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ds-color-text-primary);
+  font-size: var(--ds-font-size-xs);
+  font-weight: var(--ds-font-weight-medium);
+  line-height: var(--ds-line-height-tight);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// ─── Diagnostics Dock ─────────────────────────────────────────────────────────
+// The header row is always visible and acts as the toggle control.
+// The body (tabs + list) is only rendered when expanded.
+
+.studio-dock {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  border-top: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-bg-panel);
+
+  // Proportional open height: at least 180px, at most 280px, target 38% of panel
+  .app-studio-panel:not(.is-dock-collapsed) & {
+    height: clamp(180px, 38%, 280px);
+  }
+}
+
+// Dock header: clickable toggle + status label + action icons
+.studio-dock__header {
+  display: flex;
+  align-items: center;
+  height: 30px;
+  flex-shrink: 0;
+  padding-right: var(--ds-space-1);
+
+  .app-studio-panel:not(.is-dock-collapsed) & {
+    border-bottom: 1px solid var(--ds-color-border-subtle);
+  }
+}
+
+.studio-dock__toggle {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  height: 100%;
+  padding: 0 var(--ds-space-2);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  justify-content: flex-start;
+  min-width: 0;
+  text-align: left;
+  color: inherit;
+  border-radius: 0;
+
+  &:hover .studio-dock__title {
+    color: var(--ds-color-text-secondary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ds-color-focus-ring);
+    outline-offset: -2px;
+  }
+}
+
+.studio-dock__title {
+  font-size: 10px;
+  font-weight: var(--ds-font-weight-semibold);
+  color: var(--ds-color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
+  transition: color 0.15s ease;
+}
+
+.studio-dock__status {
+  font-size: 11px;
+  font-weight: var(--ds-font-weight-medium);
+  flex-shrink: 0;
+
+  &.is-ok      { color: var(--ds-color-success); }
+  &.is-warning { color: var(--ds-color-warning); }
+  &.is-fatal   { color: var(--ds-color-danger); }
+}
+
+.studio-dock__chevron {
+  display: flex;
+  align-items: center;
+  color: var(--ds-color-text-muted);
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.studio-dock__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+  padding-left: var(--ds-space-1);
+  border-left: 1px solid var(--ds-color-border-subtle);
+  margin-left: var(--ds-space-1);
+  height: 18px;
+}
+
+// ─── Dock Body ────────────────────────────────────────────────────────────────
+
+.studio-dock__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+// Tab bar row — Issues and Logs tabs only; always fixed height
+.studio-dock__tabs {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: 30px;
+  padding: 0 var(--ds-space-2);
+  gap: var(--ds-space-1);
+  border-bottom: 1px solid var(--ds-color-border-subtle);
+}
+
+.studio-dock__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  padding: 0 var(--ds-space-1);
+  height: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--ds-color-text-muted);
+  font-size: 11px;
+  font-weight: var(--ds-font-weight-medium);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s ease, border-color 0.15s ease;
+  border-radius: 0;
+
+  &:hover { color: var(--ds-color-text-secondary); }
+
+  &.is-active {
+    color: var(--ds-color-text-primary);
+    border-bottom-color: var(--ds-color-accent-500);
+    font-weight: var(--ds-font-weight-semibold);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ds-color-focus-ring);
+    outline-offset: -1px;
+  }
+}
+
+.studio-dock__tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: var(--ds-radius-full);
+  font-size: 9px;
+  font-weight: var(--ds-font-weight-bold);
+  line-height: 1;
+
+  &.is-fatal   { background: var(--ds-color-danger); color: var(--ds-color-text-inverse); }
+  &.is-warning { background: var(--ds-color-warning); color: var(--ds-color-bg-app); }
+  &.is-neutral { background: var(--ds-color-element-hover); color: var(--ds-color-text-secondary); }
+}
+
+// Log-view filter controls — separate row below the tab bar, only shown in Logs view
+.studio-dock__log-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  flex-shrink: 0;
+  height: 32px;
+  padding: 0 var(--ds-space-2);
+  border-bottom: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-bg-panel);
+  overflow: hidden;
+}
+
+.studio-dock__log-filter-group.v-filter-pill-group {
+  gap: var(--ds-space-1);
+  flex-shrink: 0;
+}
+
+.studio-dock__log-search-field.search {
+  flex: 1;
+  min-width: 80px;
+}
+
+// Scrollable content list
+.studio-dock__list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--ds-space-1) var(--ds-space-2) var(--ds-space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-1);
+}
+
+.studio-dock__empty {
+  padding: var(--ds-space-4) var(--ds-space-2);
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-size-xs);
+  text-align: center;
+}
+
+// "New logs" floating badge
+.studio-dock__new-logs-banner {
+  position: absolute;
+  bottom: var(--ds-space-2);
+  left: 50%;
+  z-index: var(--ds-z-floating);
+  transform: translateX(-50%);
+  border-radius: var(--ds-radius-full);
+  height: auto;
+  min-height: 0;
+  padding: var(--ds-space-1) var(--ds-space-3);
+  font-size: 11px;
+  font-weight: var(--ds-font-weight-medium);
+  box-shadow: var(--ds-shadow-sm);
+  gap: var(--ds-space-1);
+  white-space: nowrap;
+}
+
+// DS component class overrides (scoped, non-duplicating)
+.studio-dock__logs-empty.sparo-empty {
+  padding: var(--ds-space-3) var(--ds-space-2);
+
+  .sparo-empty__image {
+    margin-bottom: var(--ds-space-2);
+    opacity: 0.5;
+  }
+
+  .sparo-empty__description {
+    margin-bottom: 0;
+    font-size: var(--ds-font-size-xs);
+    color: var(--ds-color-text-muted);
+  }
+}
+
+.studio-dock__truncated-alert.alert {
+  align-items: flex-start;
+  gap: var(--ds-space-2);
+  margin-bottom: var(--ds-space-1);
+  padding: var(--ds-space-1) var(--ds-space-2);
+
+  .alert__icon { margin-top: 0; }
+
+  .alert__message {
+    font-size: 10px;
+    line-height: 1.45;
+    color: var(--ds-color-text-secondary);
+  }
+}
+
+// ─── Issue Rows ───────────────────────────────────────────────────────────────
+// Bordered card with severity left-accent. Fatal errors have subtle red tint.
+
+.studio-issue {
+  border-radius: var(--ds-radius-md);
+  border: 1px solid var(--ds-color-border-subtle);
+  overflow: hidden;
+  transition: box-shadow 0.12s ease;
+
+  &.is-fatal {
+    border-left: 2px solid var(--ds-color-danger);
+    background: color-mix(in srgb, var(--ds-color-danger) 4%, var(--ds-color-bg-panel));
+  }
+
+  &.is-warning {
+    border-left: 2px solid var(--ds-color-warning);
+    background: color-mix(in srgb, var(--ds-color-warning) 3%, var(--ds-color-bg-panel));
+  }
+
+  &:hover {
+    box-shadow: 0 0 0 1px var(--ds-color-border-default);
+  }
+}
+
+.studio-issue__summary {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  width: 100%;
+  padding: var(--ds-space-1) var(--ds-space-2);
+  height: auto;
+  min-height: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 0;
+
+  &:hover { background: color-mix(in srgb, var(--ds-color-element-base) 65%, transparent); }
+}
+
+.studio-issue__severity-dot {
+  flex-shrink: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+
+  .studio-issue.is-fatal &   { background: var(--ds-color-danger); }
+  .studio-issue.is-warning & { background: var(--ds-color-warning); }
+}
+
+.studio-issue__message {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--ds-font-size-xs);
+  color: var(--ds-color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: var(--ds-line-height-tight);
+}
+
+.studio-issue__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  flex-shrink: 0;
+  color: var(--ds-color-text-muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.studio-issue__category {
+  font-family: var(--ds-font-family-mono);
+}
+
+.studio-issue__chevron {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  color: var(--ds-color-text-muted);
+}
+
+.studio-issue__detail {
+  padding: var(--ds-space-1) var(--ds-space-2) var(--ds-space-2) var(--ds-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-1);
+  border-top: 1px solid var(--ds-color-border-subtle);
+}
+
+.studio-issue__hint {
+  font-size: 11px;
+  color: var(--ds-color-text-secondary);
+  line-height: var(--ds-line-height-relaxed);
+}
+
+.studio-issue__pre {
+  max-height: 90px;
+  margin: 0;
+  overflow: auto;
+  font-family: var(--ds-font-family-mono);
+  font-size: 10px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--ds-color-text-secondary);
+  background: color-mix(in srgb, var(--ds-color-bg-app) 70%, var(--ds-color-bg-panel) 30%);
+  border-radius: var(--ds-radius-sm);
+  padding: var(--ds-space-1) var(--ds-space-2);
+}
+
+.studio-issue__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-1);
+  padding-top: var(--ds-space-1);
+}
+
+// ─── Log Rows ─────────────────────────────────────────────────────────────────
+// Compact list rows with a colored left bar indicating log level.
+
+.studio-log {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--ds-radius-sm);
+  overflow: hidden;
+
+  &.is-error .studio-log__level-bar { background: var(--ds-color-danger); }
+  &.is-warn  .studio-log__level-bar { background: var(--ds-color-warning); }
+  &.is-info  .studio-log__level-bar { background: var(--ds-color-accent-500); }
+}
+
+.studio-log__summary {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  width: 100%;
+  padding: 3px var(--ds-space-1) 3px 0;
+  height: auto;
+  min-height: 0;
+  background: transparent;
+  border: none;
+  text-align: left;
+
+  &:hover {
+    background: var(--ds-color-element-base);
+    border-radius: var(--ds-radius-sm);
+  }
+}
+
+.studio-log__level-bar {
+  width: 2px;
+  flex-shrink: 0;
+  align-self: stretch;
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-color-border-subtle);
+  margin: 2px 0;
+}
+
+.studio-log__message {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--ds-color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: var(--ds-line-height-tight);
+}
+
+.studio-log__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  flex-shrink: 0;
+  color: var(--ds-color-text-muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.studio-log__category {
+  font-family: var(--ds-font-family-mono);
+}
+
+.studio-log__chevron {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  color: var(--ds-color-text-muted);
+}
+
+.studio-log__detail {
+  padding: var(--ds-space-1) var(--ds-space-2) var(--ds-space-1) calc(var(--ds-space-1) + 2px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-1);
+}
+
+.studio-log__pre {
+  max-height: 80px;
+  margin: 0;
+  overflow: auto;
+  font-family: var(--ds-font-family-mono);
+  font-size: 10px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--ds-color-text-secondary);
+  background: color-mix(in srgb, var(--ds-color-bg-app) 70%, var(--ds-color-bg-panel) 30%);
+  border-radius: var(--ds-radius-sm);
+  padding: var(--ds-space-1) var(--ds-space-2);
+}
+
+.studio-log__actions {
+  display: flex;
+  gap: var(--ds-space-1);
+}
+
+// ─── Utility ──────────────────────────────────────────────────────────────────
+
+.studio-spin {
+  color: var(--ds-color-accent-500);
+}
+
+@keyframes studio-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.2; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-statusbar__dot.is-error { animation: none; }
+}

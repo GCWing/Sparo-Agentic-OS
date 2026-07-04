@@ -15,14 +15,14 @@ export const runtimePolicy = {
     slowMs: 2500,
     reason: 'startup-agentic-os-warmup',
   },
-  surfaceComponentRunningPoll: {
+  productAppRuntimeRunningPoll: {
     priority: 'background',
     intervalMs: 15_000,
     initialDelayMs: 15_000,
     pauseWhenHidden: true,
     idleTimeoutMs: 5000,
     slowMs: 1000,
-    reason: 'surface-component-runtime-status',
+    reason: 'product-app-runtime-worker-status',
   },
   fileWatchStart: {
     priority: 'background',

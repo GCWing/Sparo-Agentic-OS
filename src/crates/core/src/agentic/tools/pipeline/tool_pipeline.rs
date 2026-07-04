@@ -809,6 +809,39 @@ impl ToolPipeline {
         }
     }
 
+    async fn app_studio_context_for_task(
+        &self,
+        task: &ToolTask,
+    ) -> Option<crate::agentic::app_studio_context::AppStudioExecutionContext> {
+        if task.context.agent_type != "AppStudio" {
+            return task.context.app_studio.clone();
+        }
+
+        let Some(agentic) = task.context.agentic.as_ref() else {
+            return task.context.app_studio.clone();
+        };
+
+        let app_studio = agentic
+            .coordinator
+            .load_app_studio_execution_context(
+                &task.context.session_id,
+                task.context.workspace.as_ref(),
+                None,
+            )
+            .await;
+
+        if let Some(app_studio) = app_studio.as_ref() {
+            debug!(
+                "Loaded AppStudio execution context for tool call: session_id={}, tool_name={}, package_root={}",
+                task.context.session_id,
+                task.tool_call.tool_name,
+                app_studio.package_root.display()
+            );
+        }
+
+        app_studio.or_else(|| task.context.app_studio.clone())
+    }
+
     /// Actual execution of tool
     async fn execute_tool_impl(
         &self,
@@ -822,6 +855,8 @@ impl ToolPipeline {
                 "Tool execution was cancelled".to_string(),
             ));
         }
+
+        let app_studio = self.app_studio_context_for_task(task).await;
 
         // Build tool context (pass all resource IDs)
         let tool_context = ToolUseContext {
@@ -862,6 +897,7 @@ impl ToolPipeline {
 
                 map
             },
+            app_studio,
             computer_use_host: self.computer_use_host.clone(),
             cancellation_token: Some(cancellation_token),
             runtime_tool_restrictions: task.context.runtime_tool_restrictions.clone(),

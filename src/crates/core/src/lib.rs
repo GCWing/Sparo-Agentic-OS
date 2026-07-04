@@ -3,17 +3,18 @@
 // Sparo OS Core Library - Platform-agnostic business logic
 // Four-layer architecture: Util -> Infrastructure -> Service -> Agentic
 
-pub mod agent_component; // FlowChat-native Agent Component packages and runtime tools
+pub mod agent_component; // Agent implementation packages behind Product App Components and runtime tools
 pub mod agentic; // Agentic service layer - Agent system, tool system
 pub mod agentic_os; // Agentic OS domain objects and OS-level tools
 pub mod app_platform; // Shared app catalog, surfaces, manifest, and permission primitives
-pub mod bridge_component; // External app/runtime Bridge Component packages
+pub mod bridge_component; // Bridge implementation adapters behind Component packages and runtime tools
 pub mod command; // Host-agnostic command handlers shared by Desktop and CLI
 pub mod infrastructure; // Infrastructure layer - AI clients, storage, logging, events
+pub mod product_app_runtime_host; // Product App Runtime host, worker, permissions, and UI runtime
+pub(crate) mod product_app_runtime_host_engine;
 pub mod runtime; // Multi-workspace registry + per-workspace mount bundle
 pub mod service; // Service layer - Workspace, Config, FileSystem, Terminal
-pub mod surface_component;
-pub mod util; // Utility layer - General types, errors, helper functions // Surface Component runtime (Zero-Dialect)
+pub mod util; // Utility layer - General types, errors, helper functions
               // Re-export debug_log from infrastructure for backward compatibility
 pub use infrastructure::debug_log as debug;
 

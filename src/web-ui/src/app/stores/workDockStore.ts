@@ -50,6 +50,9 @@ interface WorkDockStore {
   workCenterSelectedWorkId: string | null;
   setWorkCenterSelectedWorkId: (workId: string | null) => void;
 
+  workCenterSelectedArtifactId: string | null;
+  setWorkCenterSelectedArtifactId: (artifactId: string | null) => void;
+
   workCenterCollapsedGroups: string[];
   toggleWorkCenterGroupCollapsed: (key: string) => void;
   setWorkCenterGroupCollapsed: (key: string, collapsed: boolean) => void;
@@ -84,6 +87,9 @@ export const useWorkDockStore = create<WorkDockStore>((set) => ({
 
   workCenterSelectedWorkId: null,
   setWorkCenterSelectedWorkId: (workId) => set({ workCenterSelectedWorkId: workId }),
+
+  workCenterSelectedArtifactId: null,
+  setWorkCenterSelectedArtifactId: (artifactId) => set({ workCenterSelectedArtifactId: artifactId }),
 
   workCenterCollapsedGroups: [],
   toggleWorkCenterGroupCollapsed: (key) =>

@@ -1,0 +1,155 @@
+{
+  "id": "builtin-remotion-live",
+  "version": "19.0.0",
+  "name": "Remotion Live",
+  "description": "A native Sparo video preview workbench for Remotion projects with app-owned playback, timeline, and export controls.",
+  "goal": "Collaborate on a Remotion video project from project detection through preview, revision, still rendering, and export.",
+  "interactionModel": "interactiveWorkspace",
+  "workMultiplicity": "multiple",
+  "workObjectKinds": [
+    {
+      "id": "composition",
+      "label": "Composition",
+      "scope": "runtime",
+      "identitySchema": {
+        "type": "object",
+        "required": [
+          "compositionId"
+        ],
+        "properties": {
+          "compositionId": {
+            "type": "string"
+          },
+          "entryPoint": {
+            "type": "string"
+          }
+        }
+      },
+      "contextSchema": {
+        "type": "object",
+        "properties": {
+          "frame": {
+            "type": "number"
+          },
+          "durationInFrames": {
+            "type": "number"
+          },
+          "fps": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    {
+      "id": "preview-context",
+      "label": "Preview Context",
+      "scope": "runtime",
+      "identitySchema": {
+        "type": "object",
+        "required": [
+          "workspacePath"
+        ],
+        "properties": {
+          "workspacePath": {
+            "type": "string"
+          },
+          "previewHostId": {
+            "type": "string"
+          }
+        }
+      },
+      "contextSchema": {
+        "type": "object",
+        "properties": {
+          "playerHost": {
+            "type": "object"
+          },
+          "selectedLayer": {
+            "type": "object"
+          },
+          "diagnostics": {
+            "type": "array"
+          }
+        }
+      }
+    }
+  ],
+  "truthSource": "runtimeFact",
+  "primarySurface": {
+    "componentId": "builtin-remotion-live-surface",
+    "surfaceId": "primary"
+  },
+  "primarySurfaceMode": "sidecarLinked",
+  "components": [
+    {
+      "componentId": "builtin-remotion-live-surface",
+      "kind": "surface",
+      "source": "private",
+      "role": "primarySurface",
+      "capabilities": [
+        "interactiveSurface"
+      ]
+    },
+    {
+      "componentId": "remotion-video-agent",
+      "kind": "agent",
+      "source": "shared",
+      "role": "assistant",
+      "version": "^1.0.0",
+      "capabilities": [
+        "understandVideoProject",
+        "reviseVideoComposition",
+        "renderReviewArtifact"
+      ]
+    },
+    {
+      "componentId": "builtin-remotion-runtime",
+      "kind": "bridge",
+      "source": "shared",
+      "role": "runtime",
+      "version": "^1.0.0",
+      "capabilities": [
+        "sparo.videoEngine"
+      ]
+    },
+    {
+      "componentId": "product-app-runtime-host",
+      "kind": "runtime",
+      "source": "shared",
+      "role": "runtimeHost",
+      "version": "^1.0.0",
+      "capabilities": [
+        "uiWorker"
+      ]
+    }
+  ],
+  "componentLockId": "",
+  "permissions": {
+    "fs": true,
+    "net": true,
+    "shell": true,
+    "gui": false,
+    "secrets": false,
+    "ai": true
+  },
+  "installScope": "system",
+  "catalogVisibility": "discoverable",
+  "enabled": true,
+  "icon": {
+    "kind": "packageAsset",
+    "path": "assets/icon.png"
+  },
+  "category": "creative",
+  "tags": [
+    "built-in",
+    "remotion",
+    "video",
+    "preview"
+  ],
+  "launch": {
+    "kind": "applicationSurface",
+    "targetId": "builtin-remotion-live",
+    "scopeRequirement": "workspaceRequired",
+    "surfaceId": "primary"
+  }
+}

@@ -21,6 +21,7 @@ export interface WorkProjection {
   primaryAppRef?: WorkAppRef;
   workspacePath?: string;
   primarySurface: WorkSurfaceRef;
+  surfaces?: WorkSurfaceRef[];
   sessionId?: string;
   updatedAt: number;
 }
@@ -42,6 +43,7 @@ export function projectWork(work: WorkRecord): WorkProjection {
     primaryAppRef,
     workspacePath: work.scope.kind === 'workspace' ? work.scope.workspacePath : undefined,
     primarySurface,
+    surfaces: work.surfaces,
     sessionId:
       primarySurface.kind === 'work_session' || primarySurface.kind === 'agent_session'
         ? primarySurface.sessionId

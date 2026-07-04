@@ -73,9 +73,8 @@ export type SessionComposerBuiltinActionId =
 
 export type SessionComposerActionProviderId =
   | 'profile'
-  | 'surface-component-workbench'
-  | 'app-studio'
-  | 'component-studio';
+  | 'product-app-runtime'
+  | 'app-studio';
 
 export type SessionComposerAgentSwitching =
   | { mode: 'disabled' }
@@ -120,7 +119,7 @@ export interface SessionAgentContextHint {
 
 /**
  * Full description of a session class.
- * Add fields here when a new customization axis is needed — never add
+ * Add fields here when a new customization axis is needed; never add
  * per-mode string checks back to individual components.
  */
 export interface SessionProfile {

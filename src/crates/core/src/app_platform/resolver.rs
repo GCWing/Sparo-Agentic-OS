@@ -1,16 +1,26 @@
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
+use base64::Engine as _;
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use sha2::{Digest, Sha256};
 use tokio::fs;
 
 use crate::util::errors::{BitFunError, BitFunResult};
 
 use super::catalog::{
-    AppCatalogEntry, AppComponentRef, AppDefinition, ComponentDefinition, ComponentKind,
-    ComponentLock, ComponentOwnerApp, ComponentPackageSource, ComponentSource,
-    ProductAppCatalogEntry, WorkObjectKind, build_component_lock,
+    build_component_lock_with_implementation_digests, stable_digest, AppCatalogEntry,
+    AppComponentRef, AppDefinition, AppIconSpec, ComponentDefinition, ComponentKind, ComponentLock,
+    ComponentOwnerApp, ComponentPackageSource, ComponentSource, ProductAppCatalogEntry,
+    ProductAppLaunch, ProductAppLaunchKind,
+};
+use super::eval::ProductAppEvalPlan;
+use super::rehearsal::ProductAppRehearsalPlan;
+use crate::product_app_runtime_host::{
+    ProductAppRuntimeHostNpmDep as NpmDep, ProductAppRuntimeHostSource,
+    ProductAppRuntimeHostSourceFile, ProductAppRuntimeHostSourceFileKind,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -19,6 +29,14 @@ pub struct ProductAppPackage {
     pub app: AppDefinition,
     #[serde(default)]
     pub private_components: Vec<ComponentDefinition>,
+    #[serde(default)]
+    pub private_surface_sources: BTreeMap<String, ProductAppRuntimeHostSource>,
+    #[serde(default)]
+    pub component_implementation_digests: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rehearsal_plan: Option<ProductAppRehearsalPlan>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub eval_plan: Option<ProductAppEvalPlan>,
     pub package_dir: PathBuf,
 }
 
@@ -36,6 +54,8 @@ pub struct ResolvedProductApp {
     pub components: Vec<ComponentDefinition>,
     pub lock: ComponentLock,
     pub catalog_entry: AppCatalogEntry,
+    #[serde(default)]
+    pub private_surface_sources: BTreeMap<String, ProductAppRuntimeHostSource>,
 }
 
 #[derive(Debug, Clone)]
@@ -50,9 +70,61 @@ pub struct ProductAppResolver;
 
 impl ProductAppResolver {
     pub fn resolve_install(request: ProductAppResolveRequest) -> BitFunResult<ResolvedProductApp> {
+        Self::resolve_install_with_implementation_digests(request, BTreeMap::new(), BTreeMap::new())
+    }
+
+    fn resolve_install_with_implementation_digests(
+        request: ProductAppResolveRequest,
+        component_implementation_digests: BTreeMap<String, String>,
+        private_surface_sources: BTreeMap<String, ProductAppRuntimeHostSource>,
+    ) -> BitFunResult<ResolvedProductApp> {
+        Self::resolve_install_with_implementation_digests_and_rehearsal(
+            request,
+            component_implementation_digests,
+            private_surface_sources,
+            None,
+            None,
+        )
+    }
+
+    pub fn resolve_package_install(
+        package: ProductAppPackage,
+        shared_components: Vec<ComponentDefinition>,
+    ) -> BitFunResult<ResolvedProductApp> {
+        let package_dir = package.package_dir.clone();
+        let mut resolved = Self::resolve_install_with_implementation_digests_and_rehearsal(
+            ProductAppResolveRequest {
+                app: package.app,
+                private_components: package.private_components,
+                shared_components,
+            },
+            package.component_implementation_digests,
+            package.private_surface_sources,
+            package.rehearsal_plan,
+            package.eval_plan,
+        )?;
+        Self::hydrate_package_icon(&mut resolved, &package_dir)?;
+        Ok(resolved)
+    }
+
+    pub(crate) fn hydrate_package_icon(
+        resolved: &mut ResolvedProductApp,
+        package_dir: &Path,
+    ) -> BitFunResult<()> {
+        hydrate_package_icon(resolved, package_dir)
+    }
+
+    fn resolve_install_with_implementation_digests_and_rehearsal(
+        request: ProductAppResolveRequest,
+        component_implementation_digests: BTreeMap<String, String>,
+        private_surface_sources: BTreeMap<String, ProductAppRuntimeHostSource>,
+        rehearsal_plan: Option<ProductAppRehearsalPlan>,
+        eval_plan: Option<ProductAppEvalPlan>,
+    ) -> BitFunResult<ResolvedProductApp> {
         validate_app_identity(&request.app)?;
+        validate_work_object_kinds(&request.app)?;
         validate_component_refs("app.components", &request.app.components)?;
-        validate_primary_surface_ref(&request.app)?;
+        validate_product_app_entry(&request.app)?;
 
         let mut resolver = InstallResolver::new(
             request.app.clone(),
@@ -61,15 +133,23 @@ impl ProductAppResolver {
         )?;
         let components = resolver.resolve()?;
         let mut app = request.app;
-        let lock = build_component_lock(&app, &components);
+        validate_surface_implementation_refs(&app, &components)?;
+        validate_implementation_digests(&components, &component_implementation_digests)?;
+        let lock = build_component_lock_with_implementation_digests(
+            &app,
+            &components,
+            &component_implementation_digests,
+        );
         app.component_lock_id = lock.digest();
-        let catalog_entry = build_catalog_entry(app.clone(), &components, &lock);
+        let catalog_entry =
+            build_catalog_entry(app.clone(), &components, &lock, rehearsal_plan, eval_plan);
 
         Ok(ResolvedProductApp {
             app,
             components,
             lock,
             catalog_entry,
+            private_surface_sources,
         })
     }
 
@@ -77,25 +157,26 @@ impl ProductAppResolver {
         mut app: AppDefinition,
         components: Vec<ComponentDefinition>,
         lock: ComponentLock,
+        component_implementation_digests: BTreeMap<String, String>,
+        private_surface_sources: BTreeMap<String, ProductAppRuntimeHostSource>,
     ) -> BitFunResult<ResolvedProductApp> {
-        validate_runtime_lock(&app, &components, &lock)?;
+        validate_surface_implementation_refs(&app, &components)?;
+        validate_runtime_lock(&app, &components, &lock, &component_implementation_digests)?;
         app.component_lock_id = lock.digest();
-        let catalog_entry = build_catalog_entry(app.clone(), &components, &lock);
+        let catalog_entry = build_catalog_entry(app.clone(), &components, &lock, None, None);
         Ok(ResolvedProductApp {
             app,
             components,
             lock,
             catalog_entry,
+            private_surface_sources,
         })
     }
 
     pub async fn read_product_app_package(package_dir: &Path) -> BitFunResult<ProductAppPackage> {
         let app_path = package_dir.join("app.json");
-        let mut app: AppDefinition = read_json(&app_path).await?;
-        let work_objects = read_work_objects(&package_dir.join("work-objects")).await?;
-        if !work_objects.is_empty() {
-            app.work_object_kinds = work_objects;
-        }
+        let app: AppDefinition = read_product_app_definition(&app_path).await?;
+        reject_work_objects_sidecar(package_dir, &app)?;
         let private_components = read_private_components(
             &package_dir.join("components"),
             ComponentOwnerApp {
@@ -104,9 +185,18 @@ impl ProductAppResolver {
             },
         )
         .await?;
+        let (private_surface_sources, component_implementation_digests) =
+            read_private_surface_sources(package_dir, &app, &private_components).await?;
+        let rehearsal_plan =
+            read_optional_json(&package_dir.join("tests").join("rehearsal.json")).await?;
+        let eval_plan = read_optional_json(&package_dir.join("tests").join("eval.json")).await?;
         Ok(ProductAppPackage {
             app,
             private_components,
+            private_surface_sources,
+            component_implementation_digests,
+            rehearsal_plan,
+            eval_plan,
             package_dir: package_dir.to_path_buf(),
         })
     }
@@ -185,19 +275,6 @@ impl InstallResolver {
         let refs = self.app.components.clone();
         for component_ref in refs {
             self.resolve_ref(&component_ref)?;
-        }
-        let primary_surface = AppComponentRef {
-            component_id: self.app.primary_surface.component_id.clone(),
-            kind: ComponentKind::Surface,
-            source: ComponentSource::Private,
-            role: "primarySurface".to_string(),
-            version: None,
-            capabilities: Vec::new(),
-        };
-        if !self.resolved.values().any(|component| {
-            component.id == primary_surface.component_id && component.kind == ComponentKind::Surface
-        }) {
-            self.resolve_ref(&primary_surface)?;
         }
         Ok(self.resolved.values().cloned().collect())
     }
@@ -327,21 +404,150 @@ fn validate_app_identity(app: &AppDefinition) -> BitFunResult<()> {
     Ok(())
 }
 
-fn validate_primary_surface_ref(app: &AppDefinition) -> BitFunResult<()> {
-    validate_required(
-        "primarySurface.componentId",
-        &app.primary_surface.component_id,
-    )?;
+fn validate_work_object_kinds(app: &AppDefinition) -> BitFunResult<()> {
+    if app.work_object_kinds.is_empty() && !is_studio_product_app(app) {
+        return Err(BitFunError::validation(format!(
+            "Product App {}@{} must declare at least one workObjectKinds entry",
+            app.id, app.version
+        )));
+    }
+    let mut ids = BTreeSet::new();
+    for kind in &app.work_object_kinds {
+        validate_required("workObjectKinds.id", &kind.id)?;
+        validate_required("workObjectKinds.label", &kind.label)?;
+        if !ids.insert(kind.id.clone()) {
+            return Err(BitFunError::validation(format!(
+                "Duplicate work object kind in app.json: {}",
+                kind.id
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn is_studio_product_app(app: &AppDefinition) -> bool {
+    matches!(
+        app.launch.as_ref().map(|launch| launch.kind),
+        Some(ProductAppLaunchKind::AppStudio)
+    )
+}
+
+fn validate_product_app_entry(app: &AppDefinition) -> BitFunResult<()> {
+    let Some(launch) = app.launch.as_ref() else {
+        return Err(BitFunError::validation(format!(
+            "Product App {}@{} must declare a launch entry",
+            app.id, app.version
+        )));
+    };
+
+    match launch.kind {
+        ProductAppLaunchKind::ApplicationSurface => validate_application_surface_entry(app, launch),
+        ProductAppLaunchKind::AgentSession => validate_agent_session_entry(app, launch),
+        ProductAppLaunchKind::AppStudio => Ok(()),
+    }
+}
+
+fn validate_application_surface_entry(
+    app: &AppDefinition,
+    launch: &ProductAppLaunch,
+) -> BitFunResult<()> {
+    let Some(primary_surface) = app.primary_surface.as_ref() else {
+        return Err(BitFunError::validation(format!(
+            "Product App {}@{} launches an application surface but does not declare primarySurface",
+            app.id, app.version
+        )));
+    };
+    validate_required("primarySurface.componentId", &primary_surface.component_id)?;
+    if app.primary_surface_mode.is_none() {
+        return Err(BitFunError::validation(format!(
+            "Product App {}@{} launches an application surface but does not declare primarySurfaceMode",
+            app.id, app.version
+        )));
+    }
+    if launch.target_id != app.id {
+        return Err(BitFunError::validation(format!(
+            "Product App {}@{} applicationSurface launch target must be the app id",
+            app.id, app.version
+        )));
+    }
     if app.components.iter().any(|component| {
         component.kind == ComponentKind::Surface
-            && component.component_id == app.primary_surface.component_id
+            && component.component_id == primary_surface.component_id
     }) {
         return Ok(());
     }
     Err(BitFunError::validation(format!(
-        "Primary surface component {} must be present in app.components",
-        app.primary_surface.component_id
+        "Product App primary surface {} must be present in app.components",
+        primary_surface.component_id
     )))
+}
+
+fn validate_agent_session_entry(
+    app: &AppDefinition,
+    launch: &ProductAppLaunch,
+) -> BitFunResult<()> {
+    validate_required("launch.targetId", &launch.target_id)?;
+    let has_agent_component = app
+        .components
+        .iter()
+        .any(|component| component.kind == ComponentKind::Agent);
+    if has_agent_component || launch.agent_type.is_some() || app.permissions.ai {
+        return Ok(());
+    }
+    Err(BitFunError::validation(format!(
+        "Product App {}@{} launches an agent session but declares no Agent Component, launch.agentType, or AI permission",
+        app.id, app.version
+    )))
+}
+
+fn validate_implementation_digests(
+    components: &[ComponentDefinition],
+    digests: &BTreeMap<String, String>,
+) -> BitFunResult<()> {
+    let component_fqids = components
+        .iter()
+        .map(ComponentDefinition::fqid)
+        .collect::<BTreeSet<_>>();
+    for fqid in digests.keys() {
+        if !component_fqids.contains(fqid) {
+            return Err(BitFunError::validation(format!(
+                "Implementation digest references unresolved component {}",
+                fqid
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_surface_implementation_refs(
+    app: &AppDefinition,
+    components: &[ComponentDefinition],
+) -> BitFunResult<()> {
+    for component in components {
+        if component.kind != ComponentKind::Surface {
+            continue;
+        }
+        let implementation_ref = component.implementation_ref.as_deref().ok_or_else(|| {
+            BitFunError::validation(format!(
+                "Product App surface {} must declare implementationRef",
+                component.id
+            ))
+        })?;
+        if implementation_ref.starts_with("bundle://surface-components/") {
+            return Err(BitFunError::validation(format!(
+                "Product App {}@{} uses deprecated surface bundle implementationRef {}. Package surface source under the app and use app://.",
+                app.id, app.version, implementation_ref
+            )));
+        }
+        if !implementation_ref.starts_with("app://") {
+            return Err(BitFunError::validation(format!(
+                "Product App {}@{} surface {} must use app:// implementationRef",
+                app.id, app.version, component.id
+            )));
+        }
+        validate_private_surface_ref(implementation_ref, app, component)?;
+    }
+    Ok(())
 }
 
 fn validate_component_refs(label: &str, refs: &[AppComponentRef]) -> BitFunResult<()> {
@@ -437,6 +643,7 @@ fn validate_runtime_lock(
     app: &AppDefinition,
     components: &[ComponentDefinition],
     lock: &ComponentLock,
+    component_implementation_digests: &BTreeMap<String, String>,
 ) -> BitFunResult<()> {
     if lock.app_id != app.id || lock.version != app.version {
         return Err(BitFunError::validation(format!(
@@ -445,7 +652,11 @@ fn validate_runtime_lock(
         )));
     }
 
-    let expected = build_component_lock(app, components);
+    let expected = build_component_lock_with_implementation_digests(
+        app,
+        components,
+        component_implementation_digests,
+    );
     if lock.permission_digest != expected.permission_digest {
         return Err(BitFunError::validation(
             "App lock permission digest does not match component definitions",
@@ -478,6 +689,12 @@ fn validate_runtime_lock(
                 expected_entry.fqid
             )));
         }
+        if actual_entry.implementation_digest != expected_entry.implementation_digest {
+            return Err(BitFunError::validation(format!(
+                "App lock implementation digest mismatch for {}",
+                expected_entry.fqid
+            )));
+        }
     }
     Ok(())
 }
@@ -486,12 +703,155 @@ fn build_catalog_entry(
     app: AppDefinition,
     components: &[ComponentDefinition],
     lock: &ComponentLock,
+    rehearsal_plan: Option<ProductAppRehearsalPlan>,
+    eval_plan: Option<ProductAppEvalPlan>,
 ) -> ProductAppCatalogEntry {
     ProductAppCatalogEntry {
         app,
         component_lock_digest: lock.digest(),
+        package_digest: None,
+        update_available: false,
+        installed_component_lock_digest: None,
+        available_component_lock_digest: None,
+        installed_package_digest: None,
+        available_package_digest: None,
+        catalog_release_id: None,
+        catalog_release_label: None,
+        catalog_release_notes: None,
+        catalog_published_at_ms: None,
         dependency_summary: dependency_summary(components),
+        installed: false,
+        discoverable: false,
+        library_sources: Vec::new(),
+        catalog_source: None,
+        catalog_issues: Vec::new(),
+        management: Default::default(),
+        rehearsal_plan,
+        eval_plan,
     }
+}
+
+const MAX_APP_ICON_ASSET_BYTES: u64 = 2 * 1024 * 1024;
+
+fn hydrate_package_icon(resolved: &mut ResolvedProductApp, package_dir: &Path) -> BitFunResult<()> {
+    hydrate_package_icon_spec(&mut resolved.app.icon, package_dir)?;
+    resolved.catalog_entry.app.icon = resolved.app.icon.clone();
+    Ok(())
+}
+
+fn hydrate_package_icon_spec(icon: &mut AppIconSpec, package_dir: &Path) -> BitFunResult<()> {
+    let AppIconSpec::PackageAsset {
+        path,
+        mime_type,
+        digest,
+        uri,
+        ..
+    } = icon
+    else {
+        return Ok(());
+    };
+
+    validate_package_icon_asset_path(path)?;
+    let asset_path = package_dir.join(path.as_str());
+    let metadata = std::fs::metadata(&asset_path).map_err(|error| {
+        BitFunError::validation(format!(
+            "Product App icon asset not found or unreadable: {} ({})",
+            path, error
+        ))
+    })?;
+    if !metadata.is_file() {
+        return Err(BitFunError::validation(format!(
+            "Product App icon asset must be a file: {}",
+            path
+        )));
+    }
+    if metadata.len() > MAX_APP_ICON_ASSET_BYTES {
+        return Err(BitFunError::validation(format!(
+            "Product App icon asset exceeds {} bytes: {}",
+            MAX_APP_ICON_ASSET_BYTES, path
+        )));
+    }
+
+    let detected_mime_type = detect_icon_asset_mime_type(&asset_path)?;
+    let bytes = std::fs::read(&asset_path)?;
+    validate_icon_asset_bytes(path, detected_mime_type, &bytes)?;
+
+    let mut hasher = Sha256::new();
+    hasher.update(&bytes);
+    let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
+
+    *mime_type = Some(detected_mime_type.to_string());
+    *digest = Some(format!("sha256:{:x}", hasher.finalize()));
+    *uri = Some(format!("data:{detected_mime_type};base64,{encoded}"));
+    Ok(())
+}
+
+fn validate_package_icon_asset_path(path: &str) -> BitFunResult<()> {
+    let relative = Path::new(path);
+    if path.trim().is_empty() || relative.is_absolute() {
+        return Err(BitFunError::validation(format!(
+            "Product App icon asset path must be package-relative: {}",
+            path
+        )));
+    }
+    for component in relative.components() {
+        if !matches!(component, Component::Normal(_)) {
+            return Err(BitFunError::validation(format!(
+                "Product App icon asset path must not escape the package: {}",
+                path
+            )));
+        }
+    }
+    if !path.starts_with("assets/") && !path.starts_with("assets\\") {
+        return Err(BitFunError::validation(format!(
+            "Product App icon asset must live under assets/: {}",
+            path
+        )));
+    }
+    Ok(())
+}
+
+fn detect_icon_asset_mime_type(path: &Path) -> BitFunResult<&'static str> {
+    match path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "png" => Ok("image/png"),
+        "webp" => Ok("image/webp"),
+        "svg" => Ok("image/svg+xml"),
+        extension => Err(BitFunError::validation(format!(
+            "Unsupported Product App icon asset extension: {}",
+            extension
+        ))),
+    }
+}
+
+fn validate_icon_asset_bytes(path: &str, mime_type: &str, bytes: &[u8]) -> BitFunResult<()> {
+    if bytes.is_empty() {
+        return Err(BitFunError::validation(format!(
+            "Product App icon asset is empty: {}",
+            path
+        )));
+    }
+    if mime_type == "image/svg+xml" {
+        let svg = std::str::from_utf8(bytes).map_err(|error| {
+            BitFunError::validation(format!(
+                "Product App SVG icon must be valid UTF-8: {} ({})",
+                path, error
+            ))
+        })?;
+        let lower = svg.to_ascii_lowercase();
+        if lower.contains("<script") || lower.contains("onload=") || lower.contains("javascript:") {
+            return Err(BitFunError::validation(format!(
+                "Product App SVG icon contains unsafe executable content: {}",
+                path
+            )));
+        }
+    }
+    Ok(())
 }
 
 fn dependency_summary(components: &[ComponentDefinition]) -> String {
@@ -524,21 +884,293 @@ where
     serde_json::from_slice(&bytes).map_err(BitFunError::from)
 }
 
-async fn read_work_objects(dir: &Path) -> BitFunResult<Vec<WorkObjectKind>> {
-    if !dir.exists() {
-        return Ok(Vec::new());
+async fn read_product_app_definition(path: &Path) -> BitFunResult<AppDefinition> {
+    let bytes = fs::read(path).await.map_err(|error| {
+        BitFunError::io(format!("Failed to read {}: {}", path.display(), error))
+    })?;
+    let mut value: Value = serde_json::from_slice(&bytes).map_err(BitFunError::from)?;
+    if canonicalize_legacy_icon_value(&mut value) {
+        let bytes = serde_json::to_vec_pretty(&value).map_err(BitFunError::from)?;
+        fs::write(path, bytes).await.map_err(|error| {
+            BitFunError::io(format!("Failed to write {}: {}", path.display(), error))
+        })?;
     }
-    let mut out = Vec::new();
-    let mut entries = fs::read_dir(dir).await?;
-    while let Some(entry) = entries.next_entry().await? {
-        let path = entry.path();
-        if path.extension().and_then(|value| value.to_str()) != Some("json") {
+    serde_json::from_value(value).map_err(BitFunError::from)
+}
+
+fn canonicalize_legacy_icon_value(value: &mut Value) -> bool {
+    let Some(icon_name) = value.get("icon").and_then(Value::as_str) else {
+        return false;
+    };
+    let icon = if icon_name.trim().is_empty() || icon_name.eq_ignore_ascii_case("app") {
+        let label = value
+            .get("name")
+            .and_then(Value::as_str)
+            .or_else(|| value.get("id").and_then(Value::as_str))
+            .unwrap_or("App");
+        serde_json::json!({
+            "kind": "monogram",
+            "label": label
+        })
+    } else {
+        serde_json::json!({
+            "kind": "lucide",
+            "name": icon_name
+        })
+    };
+    value["icon"] = icon;
+    true
+}
+
+async fn read_optional_json<T>(path: &Path) -> BitFunResult<Option<T>>
+where
+    T: for<'de> Deserialize<'de>,
+{
+    match fs::read(path).await {
+        Ok(bytes) => serde_json::from_slice(&bytes)
+            .map(Some)
+            .map_err(BitFunError::from),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(BitFunError::io(format!(
+            "Failed to read {}: {}",
+            path.display(),
+            error
+        ))),
+    }
+}
+
+fn reject_work_objects_sidecar(package_dir: &Path, app: &AppDefinition) -> BitFunResult<()> {
+    let sidecar = package_dir.join("work-objects");
+    if !sidecar.exists() {
+        return Ok(());
+    }
+    let has_entries = std::fs::read_dir(&sidecar)
+        .map_err(BitFunError::from)?
+        .next()
+        .transpose()
+        .map_err(BitFunError::from)?
+        .is_some();
+    if !has_entries {
+        return Ok(());
+    }
+    Err(BitFunError::validation(format!(
+        "Product App {}@{} uses deprecated work-objects sidecar files. Declare workObjectKinds in app.json.",
+        app.id, app.version
+    )))
+}
+
+async fn read_private_surface_sources(
+    package_dir: &Path,
+    app: &AppDefinition,
+    components: &[ComponentDefinition],
+) -> BitFunResult<(
+    BTreeMap<String, ProductAppRuntimeHostSource>,
+    BTreeMap<String, String>,
+)> {
+    let mut sources = BTreeMap::new();
+    let mut digests = BTreeMap::new();
+    for component in components {
+        if component.kind != ComponentKind::Surface {
             continue;
         }
-        out.push(read_json(&path).await?);
+        let Some(implementation_ref) = component.implementation_ref.as_deref() else {
+            continue;
+        };
+        if !implementation_ref.starts_with("app://") {
+            continue;
+        }
+        validate_private_surface_ref(implementation_ref, app, component)?;
+        let component_dir = package_dir
+            .join("components")
+            .join(ComponentKind::Surface.path_segment())
+            .join(&component.id);
+        let source = read_surface_source_from_package(&component_dir).await?;
+        digests.insert(component.fqid(), stable_digest(&source));
+        sources.insert(component.id.clone(), source);
     }
-    out.sort_by(|left: &WorkObjectKind, right| left.id.cmp(&right.id));
-    Ok(out)
+    Ok((sources, digests))
+}
+
+fn validate_private_surface_ref(
+    implementation_ref: &str,
+    app: &AppDefinition,
+    component: &ComponentDefinition,
+) -> BitFunResult<()> {
+    let Some(rest) = implementation_ref.strip_prefix("app://") else {
+        return Err(BitFunError::validation(format!(
+            "Invalid private surface implementationRef: {}",
+            implementation_ref
+        )));
+    };
+    let Some((identity, path)) = rest.split_once('/') else {
+        return Err(BitFunError::validation(format!(
+            "Invalid private surface implementationRef: {}",
+            implementation_ref
+        )));
+    };
+    let expected_identity = format!("{}@{}", app.id, app.version);
+    if identity != expected_identity {
+        return Err(BitFunError::validation(format!(
+            "Private surface {} does not belong to Product App {}",
+            implementation_ref, expected_identity
+        )));
+    }
+    let expected_path = format!("{}/{}", ComponentKind::Surface.path_segment(), component.id);
+    if path != expected_path {
+        return Err(BitFunError::validation(format!(
+            "Private surface {} does not match app-private Product App surface {}",
+            implementation_ref, component.id
+        )));
+    }
+    Ok(())
+}
+
+async fn read_surface_source_from_package(
+    component_dir: &Path,
+) -> BitFunResult<ProductAppRuntimeHostSource> {
+    let source_dir = component_dir.join("source");
+    if !source_dir.is_dir() {
+        return Err(BitFunError::validation(format!(
+            "App-private Product App surface {} must include source/",
+            component_dir.display()
+        )));
+    }
+
+    let html = read_optional_text(&source_dir.join("index.html")).await?;
+    let css = read_optional_text(&source_dir.join("style.css")).await?;
+    let ui_js = read_optional_text(&source_dir.join("ui.js")).await?;
+    let worker_js = read_optional_text(&source_dir.join("worker.js")).await?;
+    if html.trim().is_empty() {
+        return Err(BitFunError::validation(format!(
+            "App-private surface source {} must include non-empty index.html",
+            source_dir.display()
+        )));
+    }
+    if ui_js.trim().is_empty() {
+        return Err(BitFunError::validation(format!(
+            "App-private surface source {} must include non-empty ui.js",
+            source_dir.display()
+        )));
+    }
+
+    let esm_dependencies = read_optional_json(&source_dir.join("esm_dependencies.json"))
+        .await?
+        .unwrap_or_default();
+    let i18n_messages = read_optional_json(&source_dir.join("i18n.json"))
+        .await?
+        .unwrap_or_else(|| serde_json::json!({}));
+    let entry = read_optional_json(&source_dir.join("source_manifest.json"))
+        .await?
+        .unwrap_or_default();
+    let npm_dependencies =
+        read_optional_package_dependencies(&component_dir.join("package.json")).await?;
+    let source_files = read_extra_surface_source_files(&source_dir).await?;
+
+    Ok(ProductAppRuntimeHostSource {
+        html,
+        css,
+        ui_js,
+        esm_dependencies,
+        i18n_messages,
+        worker_js,
+        npm_dependencies,
+        entry,
+        source_files,
+    })
+}
+
+async fn read_optional_text(path: &Path) -> BitFunResult<String> {
+    if !path.exists() {
+        return Ok(String::new());
+    }
+    fs::read_to_string(path)
+        .await
+        .map_err(|error| BitFunError::io(format!("Failed to read {}: {}", path.display(), error)))
+}
+
+async fn read_optional_package_dependencies(path: &Path) -> BitFunResult<Vec<NpmDep>> {
+    let Some(package_json): Option<serde_json::Value> = read_optional_json(path).await? else {
+        return Ok(Vec::new());
+    };
+    let dependencies = package_json
+        .get("dependencies")
+        .and_then(serde_json::Value::as_object)
+        .map(|deps| {
+            deps.iter()
+                .filter_map(|(name, value)| {
+                    value.as_str().map(|version| NpmDep {
+                        name: name.clone(),
+                        version: version.to_string(),
+                    })
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    Ok(dependencies)
+}
+
+async fn read_extra_surface_source_files(
+    source_dir: &Path,
+) -> BitFunResult<Vec<ProductAppRuntimeHostSourceFile>> {
+    const STANDARD_SOURCE_FILES: &[&str] = &[
+        "index.html",
+        "style.css",
+        "ui.js",
+        "worker.js",
+        "esm_dependencies.json",
+        "i18n.json",
+        "source_manifest.json",
+    ];
+    let mut files = Vec::new();
+    let mut stack = vec![source_dir.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let mut read_dir = fs::read_dir(&dir)
+            .await
+            .map_err(|error| BitFunError::io(format!("Failed to read source dir: {}", error)))?;
+        while let Some(entry) = read_dir
+            .next_entry()
+            .await
+            .map_err(|error| BitFunError::io(format!("Failed to read source entry: {}", error)))?
+        {
+            let path = entry.path();
+            if path.is_dir() {
+                if path.file_name().is_some_and(|name| name == "node_modules") {
+                    continue;
+                }
+                stack.push(path);
+                continue;
+            }
+            let relative = path
+                .strip_prefix(source_dir)
+                .map_err(|error| BitFunError::io(format!("Invalid source path: {}", error)))?
+                .to_string_lossy()
+                .replace('\\', "/");
+            if STANDARD_SOURCE_FILES.contains(&relative.as_str()) {
+                continue;
+            }
+            files.push(ProductAppRuntimeHostSourceFile {
+                kind: infer_surface_source_file_kind(&relative),
+                path: relative,
+                content: fs::read_to_string(&path).await.unwrap_or_default(),
+            });
+        }
+    }
+    files.sort_by(|left, right| left.path.cmp(&right.path));
+    Ok(files)
+}
+
+fn infer_surface_source_file_kind(path: &str) -> ProductAppRuntimeHostSourceFileKind {
+    if path.ends_with(".js") || path.ends_with(".mjs") || path.ends_with(".ts") {
+        ProductAppRuntimeHostSourceFileKind::Script
+    } else if path.ends_with(".css") || path.ends_with(".scss") {
+        ProductAppRuntimeHostSourceFileKind::Style
+    } else if path.ends_with(".html") {
+        ProductAppRuntimeHostSourceFileKind::Html
+    } else if path.ends_with(".json") {
+        ProductAppRuntimeHostSourceFileKind::Json
+    } else {
+        ProductAppRuntimeHostSourceFileKind::Asset
+    }
 }
 
 async fn read_private_components(
@@ -597,13 +1229,16 @@ fn validate_required(field: &str, value: &str) -> BitFunResult<()> {
 
 #[cfg(test)]
 mod tests {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
     use serde_json::json;
 
     use super::*;
     use crate::app_platform::{
-        AppCatalogVisibility, AppInstallScope, AppInteractionModel, AppPermissionSummary,
-        AppSurfaceMode, AppTruthSource, AppWorkMultiplicity, ComponentVisibility, SurfaceRef,
-        WorkObjectScope,
+        AppCatalogVisibility, AppDataLifecyclePolicy, AppInstallScope, AppInteractionModel,
+        AppPermissionSummary, AppSurfaceMode, AppTruthSource, AppWorkMultiplicity,
+        ComponentVisibility, ProductAppLaunch, ProductAppLaunchKind,
+        ProductAppLaunchScopeRequirement, SurfaceRef, WorkObjectKind, WorkObjectScope,
     };
 
     #[test]
@@ -665,6 +1300,71 @@ mod tests {
     }
 
     #[test]
+    fn resolver_rejects_non_studio_product_app_without_work_objects() {
+        let mut app = test_app(vec![private_ref(
+            "preview",
+            ComponentKind::Surface,
+            "primarySurface",
+        )]);
+        app.work_object_kinds.clear();
+
+        let error = ProductAppResolver::resolve_install(ProductAppResolveRequest {
+            private_components: vec![private_component(&app, "preview", ComponentKind::Surface)],
+            shared_components: vec![],
+            app,
+        })
+        .expect_err("non-Studio Product App must declare Work Objects");
+
+        assert!(error.to_string().contains("workObjectKinds"));
+    }
+
+    #[test]
+    fn resolver_allows_studio_product_app_without_work_objects() {
+        let mut app = test_app(vec![private_ref(
+            "preview",
+            ComponentKind::Surface,
+            "primarySurface",
+        )]);
+        app.work_object_kinds.clear();
+        app.launch = Some(ProductAppLaunch {
+            kind: ProductAppLaunchKind::AppStudio,
+            target_id: "AppStudio".to_string(),
+            scope_requirement: ProductAppLaunchScopeRequirement::SystemAllowed,
+            agent_type: Some("AppStudio".to_string()),
+            surface_id: Some("primary".to_string()),
+        });
+
+        let resolved = ProductAppResolver::resolve_install(ProductAppResolveRequest {
+            private_components: vec![private_component(&app, "preview", ComponentKind::Surface)],
+            shared_components: vec![],
+            app,
+        })
+        .expect("Studio Product Apps are outside this Work Object enforcement slice");
+
+        assert!(resolved.app.component_lock_id.starts_with("sha256:"));
+    }
+
+    #[test]
+    fn resolver_rejects_deprecated_surface_bundle_refs() {
+        let app = test_app(vec![private_ref(
+            "preview",
+            ComponentKind::Surface,
+            "primarySurface",
+        )]);
+        let mut surface = private_component(&app, "preview", ComponentKind::Surface);
+        surface.implementation_ref = Some("bundle://surface-components/remotion-live".to_string());
+
+        let error = ProductAppResolver::resolve_install(ProductAppResolveRequest {
+            private_components: vec![surface],
+            shared_components: vec![],
+            app,
+        })
+        .expect_err("Product App package must not keep surface bundle refs");
+
+        assert!(error.to_string().contains("deprecated surface bundle"));
+    }
+
+    #[test]
     fn runtime_projection_rejects_lock_digest_drift() {
         let app = test_app(vec![private_ref(
             "preview",
@@ -681,8 +1381,14 @@ mod tests {
         let mut bad_lock = resolved.lock;
         bad_lock.permission_digest = "sha256:bad".to_string();
 
-        let error = ProductAppResolver::build_runtime_projection(app, private_components, bad_lock)
-            .expect_err("bad lock must fail");
+        let error = ProductAppResolver::build_runtime_projection(
+            app,
+            private_components,
+            bad_lock,
+            BTreeMap::new(),
+            BTreeMap::new(),
+        )
+        .expect_err("bad lock must fail");
 
         assert!(error.to_string().contains("permission digest"));
     }
@@ -703,22 +1409,33 @@ mod tests {
                 identity_schema: json!({ "type": "object" }),
                 context_schema: json!({ "type": "object" }),
             }],
+            data_lifecycle: Some(AppDataLifecyclePolicy::default()),
             truth_source: Some(AppTruthSource::RuntimeFact),
-            primary_surface: SurfaceRef {
+            primary_surface: Some(SurfaceRef {
                 component_id: "preview".to_string(),
                 surface_id: Some("primary".to_string()),
-            },
-            primary_surface_mode: AppSurfaceMode::SidecarLinked,
+            }),
+            primary_surface_mode: Some(AppSurfaceMode::SidecarLinked),
             components,
             component_lock_id: String::new(),
             permissions: AppPermissionSummary::default(),
             install_scope: AppInstallScope::System,
             catalog_visibility: AppCatalogVisibility::Discoverable,
             enabled: true,
-            icon: "video".to_string(),
+            icon: AppIconSpec::Monogram {
+                label: "Remotion Live".to_string(),
+                seed: None,
+                background: None,
+            },
             category: "creative".to_string(),
             tags: vec![],
-            launch: None,
+            launch: Some(ProductAppLaunch {
+                kind: ProductAppLaunchKind::ApplicationSurface,
+                target_id: "remotion-live".to_string(),
+                scope_requirement: Default::default(),
+                agent_type: None,
+                surface_id: Some("primary".to_string()),
+            }),
         }
     }
 
@@ -754,6 +1471,15 @@ mod tests {
         id: &str,
         kind: ComponentKind,
     ) -> ComponentDefinition {
+        let implementation_ref = (kind == ComponentKind::Surface).then(|| {
+            format!(
+                "app://{}@{}/{}/{}",
+                app.id,
+                app.version,
+                ComponentKind::Surface.path_segment(),
+                id
+            )
+        });
         ComponentDefinition {
             id: id.to_string(),
             version: None,
@@ -770,7 +1496,7 @@ mod tests {
             used_by_apps: vec![app.id.clone()],
             visibility: ComponentVisibility::AppDependency,
             dependencies: vec![],
-            implementation_ref: None,
+            implementation_ref,
         }
     }
 
@@ -790,5 +1516,124 @@ mod tests {
             dependencies: vec![],
             implementation_ref: None,
         }
+    }
+
+    #[tokio::test]
+    async fn package_reader_rejects_work_object_sidecar() {
+        let root = test_root("work-object-sidecar");
+        std::fs::create_dir_all(root.join("work-objects")).unwrap();
+        let app = test_app(vec![private_ref(
+            "preview",
+            ComponentKind::Surface,
+            "primarySurface",
+        )]);
+        write_json_sync(root.join("app.json"), &app);
+        write_json_sync(
+            root.join("work-objects").join("composition.json"),
+            &json!({
+                "id": "composition",
+                "label": "Composition",
+                "scope": "runtime"
+            }),
+        );
+
+        let error = ProductAppResolver::read_product_app_package(&root)
+            .await
+            .expect_err("work-objects sidecar must be rejected")
+            .to_string();
+
+        assert!(error.contains("Declare workObjectKinds in app.json"));
+    }
+
+    #[tokio::test]
+    async fn package_reader_canonicalizes_legacy_string_icon() {
+        let root = test_root("legacy-string-icon");
+        let app = test_app(vec![private_ref(
+            "preview",
+            ComponentKind::Surface,
+            "primarySurface",
+        )]);
+        let mut app_value = serde_json::to_value(&app).unwrap();
+        app_value["icon"] = json!("Boxes");
+        write_json_sync(root.join("app.json"), &app_value);
+
+        let package = ProductAppResolver::read_product_app_package(&root)
+            .await
+            .expect("legacy string icon should be canonicalized before AppDefinition deserialize");
+
+        assert_eq!(
+            package.app.icon,
+            AppIconSpec::Lucide {
+                name: "Boxes".to_string(),
+                background: None,
+            }
+        );
+
+        let repaired: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(root.join("app.json")).unwrap()).unwrap();
+        assert_eq!(repaired["icon"]["kind"], "lucide");
+        assert_eq!(repaired["icon"]["name"], "Boxes");
+    }
+
+    #[tokio::test]
+    async fn package_private_surface_source_digest_enters_lock() {
+        let root = test_root("private-surface-source");
+        let app = test_app(vec![private_ref(
+            "preview",
+            ComponentKind::Surface,
+            "primarySurface",
+        )]);
+        let mut surface = private_component(&app, "preview", ComponentKind::Surface);
+        surface.implementation_ref = Some("app://remotion-live@1.0.0/surfaces/preview".to_string());
+
+        write_json_sync(root.join("app.json"), &app);
+        let surface_dir = root.join("components").join("surfaces").join("preview");
+        write_json_sync(surface_dir.join("component.json"), &surface);
+        std::fs::create_dir_all(surface_dir.join("source")).unwrap();
+        std::fs::write(
+            surface_dir.join("source").join("index.html"),
+            "<main id=\"root\"></main>",
+        )
+        .unwrap();
+        std::fs::write(
+            surface_dir.join("source").join("ui.js"),
+            "document.getElementById('root').textContent = 'Loaded from package source';",
+        )
+        .unwrap();
+
+        let package = ProductAppResolver::read_product_app_package(&root)
+            .await
+            .expect("package should parse source");
+        assert!(package.private_surface_sources.contains_key("preview"));
+        assert!(package
+            .component_implementation_digests
+            .contains_key(&surface.fqid()));
+
+        let resolved = ProductAppResolver::resolve_package_install(package, Vec::new())
+            .expect("package source digest should resolve into lock");
+        let entry = resolved
+            .lock
+            .resolved_components
+            .iter()
+            .find(|entry| entry.component_id == "preview")
+            .expect("surface lock entry");
+
+        assert!(entry.implementation_digest.is_some());
+    }
+
+    fn test_root(name: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("sparo-resolver-{name}-{nanos}"))
+    }
+
+    fn write_json_sync(path: PathBuf, value: &impl Serialize) {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
+        let bytes = serde_json::to_vec_pretty(value).unwrap();
+        std::fs::write(path, bytes).unwrap();
     }
 }

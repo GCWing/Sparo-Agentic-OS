@@ -44,7 +44,9 @@ const CreatePlanDisplay = lazy(() => import('./CreatePlanDisplay').then(module =
 const TerminalToolCard = lazy(() => import('./TerminalToolCard').then(module => ({ default: module.TerminalToolCard })));
 const TerminalControlDisplay = lazy(() => import('./TerminalControlDisplay').then(module => ({ default: module.TerminalControlDisplay })));
 const CreateProductAppDisplay = lazy(() => import('./CreateProductAppToolDisplay').then(module => ({ default: module.CreateProductAppDisplay })));
-const ComponentStudioToolDisplay = lazy(() => import('./ComponentStudioToolDisplay').then(module => ({ default: module.ComponentStudioToolDisplay })));
+const ProductAppValidationToolDisplay = lazy(() => import('./ProductAppValidationToolDisplay').then(module => ({ default: module.ProductAppValidationToolDisplay })));
+const ProductAppPreviewToolDisplay = lazy(() => import('./ProductAppPreviewToolDisplay').then(module => ({ default: module.ProductAppPreviewToolDisplay })));
+const ComponentAuthoringToolDisplay = lazy(() => import('./ComponentAuthoringToolDisplay').then(module => ({ default: module.ComponentAuthoringToolDisplay })));
 const GenerativeWidgetToolCard = lazy(() => import('./GenerativeWidgetToolCard').then(module => ({ default: module.GenerativeWidgetToolCard })));
 const DesignArtifactIndexCard = lazy(() => import('./DesignArtifactIndexCard').then(module => ({ default: module.DesignArtifactIndexCard })));
 const DesignTokensProposalCard = lazy(() => import('./DesignTokensProposalCard').then(module => ({ default: module.DesignTokensProposalCard })));
@@ -471,8 +473,158 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     displayMode: 'standard',
     primaryColor: 'var(--ds-tool-family-browser-fg)'
   },
+  'CreateProductAppComponent': {
+    toolName: 'CreateProductAppComponent',
+    displayName: 'Create Product App Component',
+    icon: 'APP',
+    requiresConfirmation: false,
+    resultDisplayType: 'detailed',
+    description: 'Create an app-private Product App component scaffold',
+    displayMode: 'standard',
+    primaryColor: 'var(--ds-tool-family-browser-fg)'
+  },
+  'GetProductAppPackage': {
+    toolName: 'GetProductAppPackage',
+    displayName: 'Read Product App Package',
+    icon: 'APP',
+    requiresConfirmation: false,
+    resultDisplayType: 'detailed',
+    description: 'Read Product App package, component graph, plans, and lock status',
+    displayMode: 'standard',
+    primaryColor: 'var(--ds-tool-family-browser-fg)'
+  },
+  'UpdateProductAppPackage': {
+    toolName: 'UpdateProductAppPackage',
+    displayName: 'Update Product App Package',
+    icon: 'APP',
+    requiresConfirmation: false,
+    resultDisplayType: 'detailed',
+    description: 'Update Product App package metadata, launch, surface, and lock state',
+    displayMode: 'standard',
+    primaryColor: 'var(--ds-tool-family-browser-fg)'
+  },
+  'RefreshProductAppLock': {
+    toolName: 'RefreshProductAppLock',
+    displayName: 'Refresh Product App Lock',
+    icon: 'APP',
+    requiresConfirmation: false,
+    resultDisplayType: 'detailed',
+    description: 'Resolve Product App components and rewrite app.json/app.lock.json lock state',
+    displayMode: 'standard',
+    primaryColor: 'var(--ds-tool-family-browser-fg)'
+  },
+  'ResolveStudioPreviewTarget': {
+    toolName: 'ResolveStudioPreviewTarget',
+    displayName: 'Resolve Studio Preview Target',
+    icon: 'APP',
+    requiresConfirmation: false,
+    resultDisplayType: 'detailed',
+    description: 'Resolve Product App preview identity, mode, placement, and evidence boundary',
+    displayMode: 'standard',
+    primaryColor: 'var(--ds-tool-family-browser-fg)'
+  },
+  'ValidateProductAppPackage': {
+    toolName: 'ValidateProductAppPackage',
+    displayName: 'Validate Product App',
+    icon: 'APP',
+    requiresConfirmation: false,
+    resultDisplayType: 'detailed',
+    description: 'Validate Product App package, lock, permissions, and component graph',
+    displayMode: 'standard',
+    primaryColor: 'var(--ds-tool-family-browser-fg)'
+  },
+  'CreateProductAppCheckpoint': {
+    toolName: 'CreateProductAppCheckpoint',
+    displayName: 'Create App Checkpoint',
+    icon: 'APP',
+    requiresConfirmation: false,
+    resultDisplayType: 'detailed',
+    description: 'Create a stable Product App package checkpoint',
+    displayMode: 'standard',
+    primaryColor: 'var(--ds-tool-family-browser-fg)'
+  },
+  'CompareProductAppRevisions': {
+    toolName: 'CompareProductAppRevisions',
+    displayName: 'Compare App Revisions',
+    icon: 'APP',
+    requiresConfirmation: false,
+    resultDisplayType: 'detailed',
+    description: 'Compare Product App checkpoint revisions',
+    displayMode: 'standard',
+    primaryColor: 'var(--ds-tool-family-browser-fg)'
+  },
+  'CreateProductAppFromReleaseTemplate': {
+    toolName: 'CreateProductAppFromReleaseTemplate',
+    displayName: 'Create App From Release',
+    icon: 'APP',
+    requiresConfirmation: false,
+    resultDisplayType: 'detailed',
+    description: 'Create a new Product App package from a release snapshot',
+    displayMode: 'standard',
+    primaryColor: 'var(--ds-status-surface-success-fg)'
+  },
+  'RestoreProductAppCheckpoint': {
+    toolName: 'RestoreProductAppCheckpoint',
+    displayName: 'Restore App Checkpoint',
+    icon: 'APP',
+    requiresConfirmation: false,
+    resultDisplayType: 'detailed',
+    description: 'Restore a Product App package from a checkpoint',
+    displayMode: 'standard',
+    primaryColor: 'var(--ds-status-surface-warning-fg)'
+  },
+  'RestoreProductAppRelease': {
+    toolName: 'RestoreProductAppRelease',
+    displayName: 'Restore App Release',
+    icon: 'APP',
+    requiresConfirmation: false,
+    resultDisplayType: 'detailed',
+    description: 'Roll back a Product App package to a release source snapshot',
+    displayMode: 'standard',
+    primaryColor: 'var(--ds-status-surface-warning-fg)'
+  },
+  'CreateProductAppRelease': {
+    toolName: 'CreateProductAppRelease',
+    displayName: 'Create App Release',
+    icon: 'APP',
+    requiresConfirmation: false,
+    resultDisplayType: 'detailed',
+    description: 'Create a Product App release artifact from passed release readiness',
+    displayMode: 'standard',
+    primaryColor: 'var(--ds-status-surface-success-fg)'
+  },
+  'PublishProductAppRelease': {
+    toolName: 'PublishProductAppRelease',
+    displayName: 'Publish App Release',
+    icon: 'APP',
+    requiresConfirmation: false,
+    resultDisplayType: 'detailed',
+    description: 'Publish a Product App release artifact into the local catalog source',
+    displayMode: 'standard',
+    primaryColor: 'var(--ds-status-surface-success-fg)'
+  },
+  'RunStudioPreview': {
+    toolName: 'RunStudioPreview',
+    displayName: 'Run Studio Preview',
+    icon: 'APP',
+    requiresConfirmation: false,
+    resultDisplayType: 'detailed',
+    description: 'Run the App Studio Preview Harness and record preview evidence',
+    displayMode: 'standard',
+    primaryColor: 'var(--ds-tool-family-browser-fg)'
+  },
+  'ValidateComponentPackage': {
+    toolName: 'ValidateComponentPackage',
+    displayName: 'Validate Component Package',
+    icon: 'CMP',
+    requiresConfirmation: false,
+    resultDisplayType: 'detailed',
+    description: 'Validate Component package contract, permissions, and consumer gates',
+    displayMode: 'standard',
+    primaryColor: 'var(--ds-tool-family-agent-fg)'
+  },
 
-  // Component Studio
+  // Component authoring tools
   'CreateComponentPackage': {
     toolName: 'CreateComponentPackage',
     displayName: 'Create Component Package',
@@ -636,22 +788,37 @@ const EXACT_TOOL_UI_REGISTRY: Record<string, ToolUiRegistryEntry> = {
   ContextCompression: { component: ContextCompressionDisplay, template: 'detail' },
   GetFileDiff: { component: GetFileDiffDisplay, template: 'detail' },
   CreateProductApp: { component: CreateProductAppDisplay, template: 'detail', family: 'product-app' },
-  CreateComponentPackage: { component: ComponentStudioToolDisplay, template: 'detail', family: 'component' },
-  ListAgentComponents: { component: ComponentStudioToolDisplay, template: 'compact', family: 'component' },
-  GetAgentComponent: { component: ComponentStudioToolDisplay, template: 'compact', family: 'component' },
-  ValidateAgentComponentPackage: { component: ComponentStudioToolDisplay, template: 'compact', family: 'component' },
-  ListAgentComponentToolOptions: { component: ComponentStudioToolDisplay, template: 'compact', family: 'component' },
-  TestAgentComponentJsTool: { component: ComponentStudioToolDisplay, template: 'compact', family: 'component' },
-  CreateAgentComponent: { component: ComponentStudioToolDisplay, template: 'detail', family: 'component' },
-  UpdateAgentComponent: { component: ComponentStudioToolDisplay, template: 'detail', family: 'component' },
-  CreateAgentComponentJsTool: { component: ComponentStudioToolDisplay, template: 'detail', family: 'component' },
+  CreateProductAppComponent: { component: DefaultToolCard, template: 'detail', family: 'product-app' },
+  GetProductAppPackage: { component: DefaultToolCard, template: 'detail', family: 'product-app' },
+  UpdateProductAppPackage: { component: DefaultToolCard, template: 'detail', family: 'product-app' },
+  RefreshProductAppLock: { component: DefaultToolCard, template: 'detail', family: 'product-app' },
+  ResolveStudioPreviewTarget: { component: DefaultToolCard, template: 'detail', family: 'product-app' },
+  CreateProductAppCheckpoint: { component: DefaultToolCard, template: 'detail', family: 'product-app' },
+  CompareProductAppRevisions: { component: DefaultToolCard, template: 'detail', family: 'product-app' },
+  CreateProductAppFromReleaseTemplate: { component: DefaultToolCard, template: 'detail', family: 'product-app' },
+  RestoreProductAppCheckpoint: { component: DefaultToolCard, template: 'detail', family: 'product-app' },
+  RestoreProductAppRelease: { component: DefaultToolCard, template: 'detail', family: 'product-app' },
+  CreateProductAppRelease: { component: DefaultToolCard, template: 'detail', family: 'product-app' },
+  PublishProductAppRelease: { component: DefaultToolCard, template: 'detail', family: 'product-app' },
+  ValidateProductAppPackage: { component: ProductAppValidationToolDisplay, template: 'detail', family: 'product-app' },
+  RunStudioPreview: { component: ProductAppPreviewToolDisplay, template: 'detail', family: 'product-app' },
+  ValidateComponentPackage: { component: ProductAppValidationToolDisplay, template: 'detail', family: 'component' },
+  CreateComponentPackage: { component: ComponentAuthoringToolDisplay, template: 'detail', family: 'component' },
+  ListAgentComponents: { component: ComponentAuthoringToolDisplay, template: 'compact', family: 'component' },
+  GetAgentComponent: { component: ComponentAuthoringToolDisplay, template: 'compact', family: 'component' },
+  ValidateAgentComponentPackage: { component: ComponentAuthoringToolDisplay, template: 'compact', family: 'component' },
+  ListAgentComponentToolOptions: { component: ComponentAuthoringToolDisplay, template: 'compact', family: 'component' },
+  TestAgentComponentJsTool: { component: ComponentAuthoringToolDisplay, template: 'compact', family: 'component' },
+  CreateAgentComponent: { component: ComponentAuthoringToolDisplay, template: 'detail', family: 'component' },
+  UpdateAgentComponent: { component: ComponentAuthoringToolDisplay, template: 'detail', family: 'component' },
+  CreateAgentComponentJsTool: { component: ComponentAuthoringToolDisplay, template: 'detail', family: 'component' },
 };
 
 const FAMILY_TOOL_UI_REGISTRY: ToolUiFamilyRegistryEntry[] = [
   {
     id: 'component',
     test: (toolName) => toolName.includes('AgentComponent') || toolName.includes('BridgeComponent'),
-    entry: { component: ComponentStudioToolDisplay, template: 'detail', family: 'component' },
+    entry: { component: ComponentAuthoringToolDisplay, template: 'detail', family: 'component' },
   },
 ];
 

@@ -12,7 +12,7 @@
     "launchableApp": false,
     "agent": true,
     "tool": true,
-    "surfaceComponentBackend": true
+    "productAppRuntimeBackend": true
   },
   "permissions": {
     "fs": [
@@ -65,7 +65,7 @@
       "resumable": true,
       "usableBy": [
         "agentComponent",
-        "surfaceComponentBackend",
+        "productAppRuntime",
         "management"
       ],
       "inputSchema": {

@@ -5,8 +5,9 @@ import {
   WORKSPACE_SCENE_HISTORY_LIMIT,
 } from './workspaceSurfaceStore';
 import type { WorkspaceSceneId } from './workspaceSceneTypes';
-import type { WorkspaceSurface } from './workspaceSurfaceTypes';
+import { isSameWorkspaceSurface, type WorkspaceSurface } from './workspaceSurfaceTypes';
 import { systemRuntimeScope } from '@/shared/types/runtime-scope';
+import type { ProductAppRuntimeContext } from '@/shared/types/product-app-runtime';
 
 const homeSurface: WorkspaceSurface = {
   kind: 'agentic-os-home',
@@ -19,6 +20,19 @@ function sceneSurface(sceneId: WorkspaceSceneId): Extract<WorkspaceSurface, { ki
     kind: 'scene',
     sceneId,
     scope: systemRuntimeScope(),
+  };
+}
+
+function runtimeContext(runtimeInstanceId: string, workId = 'work-1'): ProductAppRuntimeContext {
+  return {
+    workId,
+    runtimeInstanceId,
+    productAppId: 'product-app-1',
+    productAppVersion: '1.0.0',
+    componentLockDigest: 'lock-digest-1',
+    productAppSurfaceId: 'product-app-surface-1',
+    surfaceId: 'main',
+    hostSurfaceId: 'host-product-app-surface-1',
   };
 }
 
@@ -147,5 +161,18 @@ describe('workspaceSurfaceStore scene history', () => {
       scope: systemRuntimeScope(),
     });
     expect(historyKeys()).toEqual(['settings']);
+  });
+
+  it('keeps product app runtime instances as distinct scene surfaces', () => {
+    const first = {
+      ...sceneSurface('app-surface:host-product-app-surface-1'),
+      runtimeContext: runtimeContext('runtime-1'),
+    };
+    const second = {
+      ...sceneSurface('app-surface:host-product-app-surface-1'),
+      runtimeContext: runtimeContext('runtime-2'),
+    };
+
+    expect(isSameWorkspaceSurface(first, second)).toBe(false);
   });
 });

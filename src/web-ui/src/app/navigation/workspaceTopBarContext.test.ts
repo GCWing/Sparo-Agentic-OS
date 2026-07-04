@@ -18,6 +18,7 @@ function createWork(): WorkRecord {
     lifecycle: { events: [] },
     sessionRefs: [],
     executionBindings: [],
+    runtimeInstances: [],
     artifactRefs: [],
     memoryRefs: [],
     createdAt: 1,

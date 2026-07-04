@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRight, Brush, ChevronDown, Code2, Info, LayoutDashboard, ListChecks, ListTodo, Pin, Plus, Sparkles, XCircle } from 'lucide-react';
+import { AppWindow, ArrowRight, Brush, ChevronDown, Code2, Info, LayoutDashboard, ListChecks, ListTodo, MessageSquare, Pin, Plus, Sparkles, XCircle } from 'lucide-react';
 import { Button, IconButton, Search } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { useWorks } from '@/app/agentic-os/work/hooks/useWorks';
 import { useWorkStore } from '@/app/agentic-os/work/data/workStore';
 import { openWork, openWorkCenterHome, openWorkInCenter } from '@/app/agentic-os/work/navigation/openWork';
-import type { WorkKind, WorkStatus } from '@/app/agentic-os/work/domain/workTypes';
+import type { WorkStatus } from '@/app/agentic-os/work/domain/workTypes';
 import type { WorkProjection } from '@/app/agentic-os/work/projections/workProjection';
 import { isWorkAttentionStatus, isWorkRunningStatus } from '@/app/agentic-os/work/domain/workClassification';
 import { useWorkDockStore } from '@/app/stores/workDockStore';
@@ -66,8 +66,21 @@ function isPixelStatus(status: WorkStatus): boolean {
   return status === 'running';
 }
 
-function getWorkModeIcon(kind: WorkKind) {
-  if (kind === 'app_workflow') return Sparkles;
+function hasSessionLikeSurface(work: WorkProjection): boolean {
+  return work.primarySurface.kind === 'work_session'
+    || work.primarySurface.kind === 'agent_session'
+    || work.surfaces?.some((surface) => (
+      surface.kind === 'work_session' || surface.kind === 'agent_session'
+    )) === true;
+}
+
+function getWorkModeIcon(work: WorkProjection) {
+  if (work.kind === 'app_workflow') {
+    if (hasSessionLikeSurface(work)) return MessageSquare;
+    if (work.primarySurface.kind === 'application_surface') return AppWindow;
+    return Sparkles;
+  }
+  const { kind } = work;
   if (kind === 'tracking' || kind === 'recurring') return ListTodo;
   if (kind === 'topic') return Brush;
   return Code2;
@@ -358,7 +371,7 @@ const WorkDock: React.FC = () => {
           </div>
           <div className="work-dock__running-rows">
             {runningWorks.map((work) => {
-              const ModeIcon = getWorkModeIcon(work.kind);
+              const ModeIcon = getWorkModeIcon(work);
               const pixelStatus = isPixelStatus(work.status);
               const showCancelAction = isCancellableStatus(work.status);
               return (

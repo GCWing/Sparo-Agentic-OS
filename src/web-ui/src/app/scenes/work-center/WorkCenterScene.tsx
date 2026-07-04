@@ -43,6 +43,8 @@ const WorkCenterScene: React.FC = () => {
   const setGrouping = useWorkDockStore((state) => state.setWorkCenterGrouping);
   const selectedWorkId = useWorkDockStore((state) => state.workCenterSelectedWorkId);
   const setSelectedWorkId = useWorkDockStore((state) => state.setWorkCenterSelectedWorkId);
+  const selectedArtifactId = useWorkDockStore((state) => state.workCenterSelectedArtifactId);
+  const setSelectedArtifactId = useWorkDockStore((state) => state.setWorkCenterSelectedArtifactId);
   const collapsedGroups = useWorkDockStore((state) => state.workCenterCollapsedGroups);
   const toggleGroup = useWorkDockStore((state) => state.toggleWorkCenterGroupCollapsed);
   const [search, setSearch] = useState('');
@@ -126,6 +128,13 @@ const WorkCenterScene: React.FC = () => {
 
   const handleAppFilterChange = (nextFilter: WorkCenterAppFilter) => {
     setAppFilter(nextFilter);
+  };
+
+  const handleSelectedWorkChange = (workId: string | null) => {
+    setSelectedWorkId(workId);
+    if (workId !== selectedWorkId) {
+      setSelectedArtifactId(null);
+    }
   };
 
   const counts = useMemo(() => {
@@ -214,7 +223,12 @@ const WorkCenterScene: React.FC = () => {
   }, [backgroundProcesses]);
 
   return (
-    <div className="tds" data-testid="work-center-scene">
+    <div
+      className="tds"
+      data-testid="work-center-scene"
+      data-selected-work-id={selectedWorkId ?? ''}
+      data-selected-artifact-id={selectedArtifactId ?? ''}
+    >
       <div className="tds-layout tds-layout--v2">
         <ScopeRail
           view={workCenterView}
@@ -250,13 +264,14 @@ const WorkCenterScene: React.FC = () => {
             grouping={grouping}
             collapsedGroups={collapsedGroups}
             selectedWorkId={selectedWorkId}
+            selectedArtifactId={selectedArtifactId}
             onSearchChange={setSearch}
             onScopeChange={handleScopeChange}
             onWorkspaceFilterChange={handleWorkspaceFilterChange}
             onAppFilterChange={handleAppFilterChange}
             onGroupingChange={setGrouping}
             onToggleGroup={toggleGroup}
-            onSelectedWorkChange={setSelectedWorkId}
+            onSelectedWorkChange={handleSelectedWorkChange}
             onCreateWork={() => setNewWorkDialogOpen(true)}
           />
         ) : (

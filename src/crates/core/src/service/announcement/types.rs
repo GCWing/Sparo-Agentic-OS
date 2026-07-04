@@ -189,7 +189,7 @@ pub struct ModalConfig {
 /// A single announcement / feature-demo card.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnnouncementCard {
-    /// Globally unique identifier, e.g. `feature_v1_3_0_surface_component`.
+    /// Globally unique identifier, e.g. `feature_v1_3_0_product_app`.
     pub id: String,
     pub card_type: CardType,
     pub source: CardSource,

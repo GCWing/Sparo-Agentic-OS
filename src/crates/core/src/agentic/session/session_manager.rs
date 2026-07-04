@@ -21,14 +21,14 @@ use crate::service::config::{
     subscribe_config_updates, ConfigUpdateEvent,
 };
 use crate::service::session::{
-    DialogTurnData, DialogTurnKind, ModelRoundData, TextItemData, ToolResultData, TurnStatus,
-    UserMessageData,
+    DialogTurnData, DialogTurnKind, ModelRoundData, SessionMetadata, TextItemData, ToolResultData,
+    TurnStatus, UserMessageData,
 };
 use crate::util::errors::{BitFunError, BitFunResult};
 use crate::util::sanitize_plain_model_output;
 use dashmap::DashMap;
 use log::{debug, error, info, warn};
-use serde_json::json;
+use serde_json::{json, Value};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -66,6 +66,24 @@ impl SessionTitleMethod {
         match self {
             Self::Ai => "ai",
             Self::Fallback => "fallback",
+        }
+    }
+}
+
+fn merge_json_value(target: &mut Value, patch: Value) {
+    match (target, patch) {
+        (Value::Object(target_map), Value::Object(patch_map)) => {
+            for (key, patch_value) in patch_map {
+                match target_map.get_mut(&key) {
+                    Some(target_value) => merge_json_value(target_value, patch_value),
+                    None => {
+                        target_map.insert(key, patch_value);
+                    }
+                }
+            }
+        }
+        (target_value, patch_value) => {
+            *target_value = patch_value;
         }
     }
 }
@@ -800,6 +818,77 @@ impl SessionManager {
 
     pub fn get_session(&self, session_id: &str) -> Option<Session> {
         self.sessions.get(session_id).map(|s| s.clone())
+    }
+
+    pub async fn load_session_metadata(
+        &self,
+        session_id: &str,
+    ) -> BitFunResult<Option<SessionMetadata>> {
+        let Some(session) = self.sessions.get(session_id).map(|entry| entry.clone()) else {
+            return Ok(None);
+        };
+        let Some(session_storage_path) =
+            Self::effective_workspace_path_from_config(&session.config).await
+        else {
+            return Ok(None);
+        };
+        self.persistence_manager
+            .load_session_metadata(&session_storage_path, session_id)
+            .await
+    }
+
+    pub async fn merge_session_custom_metadata(
+        &self,
+        session_id: &str,
+        patch: Value,
+    ) -> BitFunResult<Option<Value>> {
+        if !patch.is_object() {
+            return Err(BitFunError::validation(
+                "custom metadata patch must be a JSON object".to_string(),
+            ));
+        }
+
+        let Some(session) = self.sessions.get(session_id).map(|entry| entry.clone()) else {
+            return Ok(None);
+        };
+        let Some(session_storage_path) =
+            Self::effective_workspace_path_from_config(&session.config).await
+        else {
+            return Ok(None);
+        };
+
+        let mut metadata = match self
+            .persistence_manager
+            .load_session_metadata(&session_storage_path, session_id)
+            .await?
+        {
+            Some(metadata) => metadata,
+            None => {
+                self.persistence_manager
+                    .save_session(&session_storage_path, &session)
+                    .await?;
+                match self
+                    .persistence_manager
+                    .load_session_metadata(&session_storage_path, session_id)
+                    .await?
+                {
+                    Some(metadata) => metadata,
+                    None => return Ok(None),
+                }
+            }
+        };
+
+        let mut custom_metadata = metadata
+            .custom_metadata
+            .take()
+            .filter(Value::is_object)
+            .unwrap_or_else(|| json!({}));
+        merge_json_value(&mut custom_metadata, patch);
+        metadata.custom_metadata = Some(custom_metadata.clone());
+        self.persistence_manager
+            .save_session_metadata(&session_storage_path, &metadata)
+            .await?;
+        Ok(Some(custom_metadata))
     }
 
     pub async fn update_session_workspace_path(
@@ -2756,7 +2845,7 @@ impl SessionManager {
 
 #[cfg(test)]
 mod tests {
-    use super::{SessionManager, SessionManagerConfig};
+    use super::{merge_json_value, SessionManager, SessionManagerConfig};
     use crate::agentic::core::SessionConfig;
     use crate::agentic::memory::store::MemoryScope;
     use crate::agentic::memory::{
@@ -2852,6 +2941,76 @@ mod tests {
             interruption_reason: None,
             execution_projection: None,
         }
+    }
+
+    #[test]
+    fn merge_json_value_recursively_preserves_existing_session_custom_metadata() {
+        let mut target = json!({
+            "agentSessionBinding": {
+                "subject": {
+                    "kind": "product-app",
+                    "id": "old-app"
+                },
+                "surface": {
+                    "contentType": "app-studio"
+                }
+            },
+            "userPinned": true
+        });
+
+        merge_json_value(
+            &mut target,
+            json!({
+                "agentSessionBinding": {
+                    "subject": {
+                        "id": "new-app",
+                        "version": "1.0.0"
+                    }
+                },
+                "appStudioFacts": {
+                    "subject": {
+                        "appId": "new-app"
+                    }
+                }
+            }),
+        );
+
+        assert_eq!(
+            target
+                .pointer("/agentSessionBinding/subject/kind")
+                .and_then(serde_json::Value::as_str),
+            Some("product-app")
+        );
+        assert_eq!(
+            target
+                .pointer("/agentSessionBinding/subject/id")
+                .and_then(serde_json::Value::as_str),
+            Some("new-app")
+        );
+        assert_eq!(
+            target
+                .pointer("/agentSessionBinding/subject/version")
+                .and_then(serde_json::Value::as_str),
+            Some("1.0.0")
+        );
+        assert_eq!(
+            target
+                .pointer("/agentSessionBinding/surface/contentType")
+                .and_then(serde_json::Value::as_str),
+            Some("app-studio")
+        );
+        assert_eq!(
+            target
+                .get("userPinned")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            target
+                .pointer("/appStudioFacts/subject/appId")
+                .and_then(serde_json::Value::as_str),
+            Some("new-app")
+        );
     }
 
     async fn create_session_with_turn(

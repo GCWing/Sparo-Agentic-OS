@@ -325,7 +325,7 @@
     "blame": "Blame",
     "cherryPick": "Cherry-pick"
   },
-  "initSurfaceComponent": {
+  "createProductApp": {
     "title": "Product App Surface",
     "operationInit": "Init",
     "skeletonReady": "Ready",
@@ -333,15 +333,18 @@
     "untitled": "(unnamed)",
     "failed": "Failed",
     "createFailed": "Could not create Product App surface",
-    "openInSurfaceComponent": "Open Product App",
-    "openInSurfaceComponentTitle": "Open Product App",
     "labelAppId": "app_id",
+    "labelVersion": "version",
+    "labelPrimarySurface": "primary surface",
+    "labelSurfaceMode": "surface mode",
+    "labelLaunchKind": "launch",
+    "labelLockDigest": "lock digest",
     "labelPath": "path",
     "nameLabel": "App: {{name}}"
   },
   "appStudio": {
     "title": "Product App Surface",
-    "debugPanelTitle": "App Studio",
+    "studioTitle": "App Studio",
     "recompile": "Recompile",
     "probe": "Probe",
     "matrix": "Matrix",
@@ -350,9 +353,37 @@
     "probeSummary": "{{fatal}} fatal · {{warning}} warning · {{noise}} noise",
     "matrixRequested": "Matrix requested",
     "matrixStates": "{{count}} states",
-    "openDebugPanel": "Open App Studio"
+    "openStudio": "Open App Studio"
   },
-  "componentStudio": {
+  "productAppValidation": {
+    "title": "Validate",
+    "componentTitle": "Validate component",
+    "validating": "Validating",
+    "package": "Product App package",
+    "componentPackage": "Component package",
+    "status": "status",
+    "failed": "failed",
+    "warnings": "warnings",
+    "appId": "app_id",
+    "componentId": "component_id",
+    "componentKind": "component kind",
+    "version": "version",
+    "path": "path",
+    "check": "check",
+    "failedMessage": "Product App validation failed"
+  },
+  "productAppPreview": {
+    "title": "Preview",
+    "running": "Running preview",
+    "target": "target",
+    "status": "status",
+    "mode": "mode",
+    "failed": "failed",
+    "warnings": "warnings",
+    "check": "check",
+    "failedMessage": "Studio preview failed"
+  },
+  "componentAuthoring": {
     "title": "Component Package",
     "list": "Catalog",
     "inspect": "Inspect",
@@ -363,7 +394,7 @@
     "tools": "Tool options",
     "jsTool": "JS tool",
     "testJsTool": "Test JS tool",
-    "generic": "Studio",
+    "generic": "Authoring",
     "scanning": "Scanning…",
     "loading": "Loading…",
     "validating": "Validating…",
@@ -394,8 +425,8 @@
     "fieldToolName": "tool name",
     "fieldSummary": "summary",
     "openAppsPanel": "Open Component Center",
-    "openStudioPanel": "Open Component Studio",
-    "previewPanelTitle": "Component Studio"
+    "openStudioPanel": "Open in App Studio",
+    "previewPanelTitle": "App Studio"
   },
   "bridgeCall": {
     "title": "Bridge",

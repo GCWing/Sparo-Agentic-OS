@@ -1,0 +1,51 @@
+.product-app-runtime-panel {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--ds-color-bg-app);
+
+  &--empty,
+  &__state {
+    display: flex;
+    height: 100%;
+    min-height: 180px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--ds-space-3);
+    padding: var(--ds-space-5);
+    color: var(--ds-color-text-muted);
+    font-size: var(--ds-font-size-sm);
+    text-align: center;
+
+    > svg {
+      color: var(--ds-color-warning);
+    }
+
+    p {
+      max-width: 360px;
+      margin: 0;
+      line-height: var(--ds-line-height-relaxed);
+    }
+  }
+
+  &__updating {
+    position: absolute;
+    top: var(--ds-space-3);
+    right: var(--ds-space-3);
+    z-index: var(--ds-z-raised);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ds-space-2);
+    padding: var(--ds-space-2) var(--ds-space-3);
+    border: 1px solid var(--ds-color-border-subtle);
+    border-radius: var(--ds-radius-md);
+    background: color-mix(in srgb, var(--ds-color-bg-elevated) 90%, transparent);
+    box-shadow: var(--ds-shadow-sm);
+    color: var(--ds-color-text-secondary);
+    font-size: var(--ds-font-size-xs);
+  }
+}

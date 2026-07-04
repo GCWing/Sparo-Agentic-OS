@@ -58,16 +58,12 @@ const BtwSessionPanel = React.lazy(() =>
   }))
 );
 
-const AppStudioPanel = React.lazy(() =>
-  import('@/app/scenes/apps/surface-component/components/AppStudioPanel')
+const AppStudioWorkbench = React.lazy(() =>
+  import('@/app/scenes/apps/app-studio/AppStudioWorkbench')
 );
 
-const SurfaceComponentRunnerPanel = React.lazy(() =>
-  import('@/app/scenes/apps/surface-component/components/SurfaceComponentRunnerPanel')
-);
-
-const ComponentStudioPanel = React.lazy(() =>
-  import('@/app/scenes/apps/component-studio/components/ComponentStudioPanel')
+const ProductAppRuntimePanel = React.lazy(() =>
+  import('@/app/scenes/apps/product-app-runtime/ProductAppRuntimePanel')
 );
 
 // CodePreview, ChartRenderer and CodeNode removed - visualization features disabled
@@ -569,14 +565,29 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
 
       case 'app-studio': {
         const studioData = content.data || {};
+        const studioMetadata = content.metadata || {};
         return (
           <React.Suspense fallback={<PanelLoadingFallback>Loading App Studio...</PanelLoadingFallback>}>
-            <AppStudioPanel
+            <AppStudioWorkbench
               sessionId={studioData.sessionId ?? null}
               appId={studioData.appId}
+              componentId={studioData.componentId || studioMetadata.appStudioComponentId}
+              componentKind={studioData.componentKind || studioMetadata.appStudioComponentKind}
+              componentVersion={studioData.componentVersion || studioMetadata.componentVersion}
+              componentPackageRoot={
+                studioData.componentPackageRoot ||
+                studioMetadata.componentPackageRoot ||
+                studioData.packageRoot ||
+                studioMetadata.packageRoot
+              }
+              componentName={studioData.componentName || studioMetadata.componentName}
+              componentDescription={studioData.componentDescription || studioMetadata.componentDescription}
+              productAppFacts={studioData.productAppFacts || studioMetadata.productAppFacts}
               scope={
                 studioData.scope ||
+                studioMetadata.appScope ||
                 studioData.agentSessionBinding?.scope ||
+                studioMetadata.agentSessionBinding?.scope ||
                 appScopeFromWorkspacePath(studioData.workspacePath)
               }
             />
@@ -584,66 +595,23 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
         );
       }
 
-      case 'surface-component-runner': {
+      case 'product-app-runtime': {
         const runnerData = content.data || {};
         return (
-          <React.Suspense fallback={<PanelLoadingFallback>{t('flexiblePanel.loading.surfaceComponentRunner')}</PanelLoadingFallback>}>
-            <SurfaceComponentRunnerPanel
+          <React.Suspense fallback={<PanelLoadingFallback>{t('flexiblePanel.loading.productAppRuntime')}</PanelLoadingFallback>}>
+            <ProductAppRuntimePanel
               appId={runnerData.appId}
               scope={
                 runnerData.scope ||
-                runnerData.surfaceComponentWorkbench?.scope ||
+                runnerData.productAppRuntime?.scope ||
                 appScopeFromWorkspacePath(runnerData.workspacePath)
               }
               workspacePath={runnerData.workspacePath}
+              runtimeContext={runnerData.runtimeContext ?? runnerData.productAppRuntime?.runtimeContext ?? null}
               route={runnerData.route}
               tabId={runnerData.tabId}
               sessionId={runnerData.sessionId}
-              surfaceComponentWorkbench={runnerData.surfaceComponentWorkbench}
-            />
-          </React.Suspense>
-        );
-      }
-
-      case 'surface-component-workbench-tab': {
-        const workbenchData = content.data || {};
-        return (
-          <React.Suspense fallback={<PanelLoadingFallback>{t('flexiblePanel.loading.surfaceComponentRunner')}</PanelLoadingFallback>}>
-            <SurfaceComponentRunnerPanel
-              appId={workbenchData.appId}
-              sessionId={workbenchData.sessionId}
-              tabId={workbenchData.tabId}
-              route={workbenchData.route}
-              scope={
-                workbenchData.scope ||
-                workbenchData.surfaceComponentWorkbench?.scope ||
-                appScopeFromWorkspacePath(workbenchData.workspacePath)
-              }
-              workspacePath={workbenchData.workspacePath}
-              surfaceComponentWorkbench={workbenchData.surfaceComponentWorkbench}
-            />
-          </React.Suspense>
-        );
-      }
-
-      case 'surface-component-diagnostics': {
-        return (
-          <div className="sparo-flexible-panel__empty-state">
-            <AlertCircle size={24} />
-            <h3>{t('flexiblePanel.surfaceComponentDiagnostics.title')}</h3>
-            <p>{t('flexiblePanel.surfaceComponentDiagnostics.description')}</p>
-          </div>
-        );
-      }
-
-      case 'component-studio': {
-        const studioData = content.data || {};
-        return (
-          <React.Suspense fallback={<PanelLoadingFallback>Loading Component Studio...</PanelLoadingFallback>}>
-            <ComponentStudioPanel
-              sessionId={studioData.sessionId ?? null}
-              componentId={studioData.componentId}
-              scope={studioData.scope || appScopeFromWorkspacePath(studioData.workspacePath)}
+              productAppRuntime={runnerData.productAppRuntime}
             />
           </React.Suspense>
         );
@@ -663,7 +631,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
       case 'design-artifact': {
         const designData = content.data || {};
         return (
-          <React.Suspense fallback={<PanelLoadingFallback>正在加载设计画布…</PanelLoadingFallback>}>
+          <React.Suspense fallback={<PanelLoadingFallback>正在加载设计画布...</PanelLoadingFallback>}>
             <DesignCanvasPanel
               artifactId={designData.artifactId}
               workspacePath={designData.workspacePath || workspacePath}
@@ -676,7 +644,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
       case 'design-artifacts-browser': {
         const browserData = content.data || {};
         return (
-          <React.Suspense fallback={<PanelLoadingFallback>正在加载设计产物…</PanelLoadingFallback>}>
+          <React.Suspense fallback={<PanelLoadingFallback>正在加载设计产物...</PanelLoadingFallback>}>
             <DesignArtifactBrowser
               workspacePath={browserData.workspacePath || workspacePath}
             />
@@ -690,7 +658,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
       case 'design-tokens-studio': {
         const studioData = content.data || {};
         return (
-          <React.Suspense fallback={<PanelLoadingFallback>正在加载设计令牌…</PanelLoadingFallback>}>
+          <React.Suspense fallback={<PanelLoadingFallback>正在加载设计令牌...</PanelLoadingFallback>}>
             <DesignTokensStudio
               artifactId={studioData.artifactId}
               scopePath={studioData.scopePath}

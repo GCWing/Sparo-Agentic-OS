@@ -2,23 +2,37 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
+use crate::app_platform::{
+    get_installed_product_app_by_lock, seed_builtin_product_app_packages, ComponentKind,
+};
 use crate::infrastructure::try_get_path_manager_arc;
 use crate::util::errors::{BitFunError, BitFunResult};
 
 use super::assignment::{WorkAssignmentKind, WorkAssignmentRef};
 use super::execution_binding::{
-    WorkExecutionBinding, WorkExecutionBindingStatus, WorkExecutionSource,
+    WorkExecutionAppStudioContext, WorkExecutionBinding, WorkExecutionBindingStatus,
+    WorkExecutionSource,
+};
+use super::execution_graph::{
+    WorkArtifactNode, WorkExecutionGraph, WorkRuntimeIssue, WorkRuntimeIssueSeverity,
+    WorkRuntimeLog, WorkRuntimeLogLevel, WorkRuntimeRun, WorkRuntimeRunStatus, WorkStudioFactCheck,
+    WorkStudioFactStatus, WorkStudioIssue, WorkStudioIssueOrigin, WorkStudioIssueStatus,
+    WorkStudioPreviewKind, WorkStudioPreviewResult, WorkStudioPreviewSource,
+    WorkStudioValidationResult, WorkStudioValidationTargetKind,
 };
 use super::ids::WorkId;
 use super::lifecycle::WorkSummary;
 use super::record::{
-    AgentSessionRef, ArtifactRef, WorkDelegationContext, WorkOwnerRef, WorkRecord,
+    AgentSessionRef, ArtifactRef, RuntimeInstanceRef, WorkDelegationContext, WorkOwnerRef,
+    WorkRecord,
 };
 use super::runtime_bridge::{
     CreateWorkSessionRequest, NoopWorkRuntimeBridge, WorkRuntimeBridge, WorkSessionAdvanceRequest,
 };
 use super::store::WorkStore;
-use super::subject::{WorkAppIntent, WorkAppRef, WorkAppRelation, WorkSubject};
+use super::subject::{
+    WorkAppIntent, WorkAppRef, WorkAppRelation, WorkComponentIntent, WorkComponentRef, WorkSubject,
+};
 use super::surface::WorkSurfaceRef;
 use super::title::{WorkTitleSource, WorkTitleState};
 use super::types::{WorkKind, WorkScope, WorkStatus, WorkVisibility};
@@ -137,6 +151,28 @@ pub struct ResolveAppWorkResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResolveComponentWorkRequest {
+    pub component: WorkComponentRef,
+    #[serde(default)]
+    pub intent: WorkComponentIntent,
+    pub title: String,
+    pub objective: String,
+    pub scope: WorkScope,
+    #[serde(default)]
+    pub visibility: WorkVisibility,
+    #[serde(default)]
+    pub primary_surface_policy: PrimarySurfacePolicy,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub assignment: Option<WorkAssignmentRef>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResolveComponentWorkResponse {
+    pub work: WorkRecord,
+    pub created: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DispatchNewWorkRequest {
     pub parent_work_id: WorkId,
     pub kind: WorkKind,
@@ -209,6 +245,9 @@ pub struct ControlWorkRequest {
 pub struct ControlWorkResponse {
     pub work: WorkRecord,
 }
+
+const MAX_WORK_RUNTIME_ISSUES: usize = 200;
+const MAX_WORK_RUNTIME_LOGS: usize = 500;
 
 #[derive(Clone)]
 pub struct WorkService {
@@ -338,6 +377,73 @@ impl WorkService {
         })
     }
 
+    pub async fn resolve_component_work(
+        &self,
+        request: ResolveComponentWorkRequest,
+    ) -> BitFunResult<ResolveComponentWorkResponse> {
+        validate_required("component.component_id", &request.component.component_id)?;
+        validate_required(
+            "component.component_kind",
+            &request.component.component_kind,
+        )?;
+        validate_required("title", &request.title)?;
+        validate_required("objective", &request.objective)?;
+
+        let subject = WorkSubject::Component {
+            component: request.component.clone(),
+            intent: request.intent,
+        };
+
+        let mut candidates = self
+            .store
+            .list()
+            .await?
+            .into_iter()
+            .filter(|work| {
+                work.scope == request.scope
+                    && work.references_component(&request.component)
+                    && matches!(
+                        work.subject.component_intent(),
+                        Some(intent) if intent == request.intent
+                    )
+                    && is_resumable_app_work_status(work.status)
+            })
+            .collect::<Vec<_>>();
+        candidates.sort_by(|left, right| {
+            app_work_status_rank(right.status)
+                .cmp(&app_work_status_rank(left.status))
+                .then_with(|| right.updated_at.cmp(&left.updated_at))
+                .then_with(|| left.id.cmp(&right.id))
+        });
+        if let Some(work) = candidates.into_iter().next() {
+            return Ok(ResolveComponentWorkResponse {
+                work,
+                created: false,
+            });
+        }
+
+        let work = self
+            .create(CreateWorkRequest {
+                kind: WorkKind::AppWorkflow,
+                title: request.title,
+                objective: request.objective,
+                subject,
+                app_refs: Vec::new(),
+                scope: request.scope,
+                visibility: request.visibility,
+                primary_surface_policy: request.primary_surface_policy,
+                primary_surface: None,
+                assignment: request.assignment,
+                title_state: None,
+                delegation: None,
+            })
+            .await?;
+        Ok(ResolveComponentWorkResponse {
+            work,
+            created: true,
+        })
+    }
+
     pub async fn create(&self, request: CreateWorkRequest) -> BitFunResult<WorkRecord> {
         validate_required("title", &request.title)?;
         validate_required("objective", &request.objective)?;
@@ -356,7 +462,7 @@ impl WorkService {
                     }
                 }
                 PrimarySurfacePolicy::ApplicationSurface => {
-                    application_surface_for_product_app_subject(&request.subject)?
+                    application_surface_for_product_app_subject(&request.subject).await?
                 }
             },
         };
@@ -390,26 +496,26 @@ impl WorkService {
                 self.ensure_work_session(&mut record, None).await?;
             }
             PrimarySurfacePolicy::ApplicationSurface => {
-                let WorkSurfaceRef::ApplicationSurface { product_app_id, .. } =
-                    &record.primary_surface
-                else {
+                if !matches!(
+                    &record.primary_surface,
+                    WorkSurfaceRef::ApplicationSurface { .. }
+                ) {
                     return Err(BitFunError::validation(
                         "primary_surface.kind=application_surface is required when primary_surface_policy=application_surface",
                     ));
+                }
+                let Some(app_ref) = record.subject.app_ref().cloned() else {
+                    return Err(BitFunError::validation(
+                        "subject.kind=app is required when primary_surface_policy=application_surface",
+                    ));
                 };
-                record.execution_bindings.push(WorkExecutionBinding::new(
-                    WorkExecutionSource::ApplicationAction {
-                        application_id: product_app_id.clone(),
-                        action_id: "surface.open".to_string(),
-                    },
-                    WorkExecutionBindingStatus::Running,
-                    now,
-                ));
-                record.set_status(
-                    WorkStatus::Running,
-                    "application surface workflow started",
-                    now,
-                );
+                if let Some(runtime_instance) = RuntimeInstanceRef::product_app_application_surface(
+                    &record.id,
+                    &app_ref,
+                    &record.primary_surface,
+                ) {
+                    record.bind_runtime_instance(runtime_instance, now);
+                }
             }
             PrimarySurfacePolicy::WorkCenter => {}
         }
@@ -576,6 +682,23 @@ impl WorkService {
         Ok(record)
     }
 
+    pub async fn execution_graph(&self, id: &WorkId) -> BitFunResult<WorkExecutionGraph> {
+        let record = self.get(id).await?;
+        Ok(WorkExecutionGraph::from_parts(
+            record.id.clone(),
+            record.updated_at,
+            record.execution_bindings.clone(),
+            record.runtime_instances.clone(),
+            record.runtime_runs.clone(),
+            record.runtime_issues.clone(),
+            record.runtime_logs.clone(),
+            artifact_nodes_for_record(&record),
+            record.studio_preview_results.clone(),
+            record.studio_validation_results.clone(),
+            record.studio_issues.clone(),
+        ))
+    }
+
     pub async fn bind_artifact(
         &self,
         id: &WorkId,
@@ -583,13 +706,321 @@ impl WorkService {
     ) -> BitFunResult<WorkRecord> {
         let now = now_millis();
         let mut record = self.get(id).await?;
-        if !record
+        if let Some(existing) = record
             .artifact_refs
             .iter()
-            .any(|item| item.id == artifact.id)
+            .position(|item| item.id == artifact.id)
+            .and_then(|index| record.artifact_refs.get_mut(index))
         {
+            if existing.label.is_none() {
+                existing.label = artifact.label;
+            }
+            if existing.uri.is_none() {
+                existing.uri = artifact.uri;
+            }
+            if existing.runtime_provenance.is_none() {
+                existing.runtime_provenance = artifact.runtime_provenance;
+            }
+        } else {
             record.artifact_refs.push(artifact);
         }
+        record.touch(now);
+        self.store.put(&record).await?;
+        Ok(record)
+    }
+
+    pub async fn bind_runtime_run(
+        &self,
+        id: &WorkId,
+        runtime_instance_id: String,
+        run_id: String,
+        component_id: String,
+        action: String,
+        status: WorkExecutionBindingStatus,
+    ) -> BitFunResult<WorkRecord> {
+        validate_required("runtime_instance_id", &runtime_instance_id)?;
+        validate_required("run_id", &run_id)?;
+        validate_required("component_id", &component_id)?;
+        validate_required("action", &action)?;
+
+        let now = now_millis();
+        self.record_runtime_run(
+            id,
+            WorkRuntimeRun {
+                run_id,
+                runtime_instance_id,
+                component_id,
+                component_kind: "component".to_string(),
+                action,
+                status: execution_binding_status_to_runtime_run_status(status),
+                started_at: now,
+                updated_at: now,
+                artifact_count: 0,
+                event_count: 0,
+                error: None,
+            },
+        )
+        .await
+    }
+
+    pub async fn record_runtime_run(
+        &self,
+        id: &WorkId,
+        mut run: WorkRuntimeRun,
+    ) -> BitFunResult<WorkRecord> {
+        validate_required("runtime_instance_id", &run.runtime_instance_id)?;
+        validate_required("run_id", &run.run_id)?;
+        validate_required("component_id", &run.component_id)?;
+        validate_required("component_kind", &run.component_kind)?;
+        validate_required("action", &run.action)?;
+
+        let now = now_millis();
+        if run.started_at <= 0 {
+            run.started_at = now;
+        }
+        if run.updated_at <= 0 {
+            run.updated_at = run.started_at;
+        }
+        let binding_time = run.updated_at.max(run.started_at);
+        let binding_status = runtime_run_status_to_execution_binding_status(run.status);
+        let runtime_instance_id = run.runtime_instance_id.clone();
+        let run_id = run.run_id.clone();
+        let component_id = run.component_id.clone();
+        let action = run.action.clone();
+        let mut record = self.get(id).await?;
+        if let Some(existing) = record
+            .runtime_runs
+            .iter_mut()
+            .find(|existing| existing.run_id == run.run_id)
+        {
+            *existing = run;
+        } else {
+            record.runtime_runs.push(run);
+        }
+
+        let mut matched_binding = false;
+        for binding in &mut record.execution_bindings {
+            if let WorkExecutionSource::RuntimeInstanceRun {
+                run_id: binding_run_id,
+                ..
+            } = &binding.source
+            {
+                if binding_run_id == &run_id {
+                    binding.set_status(binding_status, binding_time);
+                    matched_binding = true;
+                    break;
+                }
+            }
+        }
+
+        if !matched_binding {
+            record.execution_bindings.push(WorkExecutionBinding::new(
+                WorkExecutionSource::RuntimeInstanceRun {
+                    runtime_instance_id,
+                    run_id,
+                    component_id,
+                    action,
+                },
+                binding_status,
+                binding_time,
+            ));
+        }
+
+        if matches!(
+            binding_status,
+            WorkExecutionBindingStatus::Queued
+                | WorkExecutionBindingStatus::Running
+                | WorkExecutionBindingStatus::WaitingUser
+        ) && !matches!(record.status, WorkStatus::Archived)
+        {
+            record.set_status(WorkStatus::Running, "runtime instance run active", now);
+        }
+
+        record.touch(now);
+        self.store.put(&record).await?;
+        Ok(record)
+    }
+
+    pub async fn record_runtime_issue(
+        &self,
+        id: &WorkId,
+        issue: WorkRuntimeIssue,
+    ) -> BitFunResult<WorkRecord> {
+        validate_required("runtime_instance_id", &issue.runtime_instance_id)?;
+        validate_required("product_app_id", &issue.product_app_id)?;
+        validate_required("component_id", &issue.component_id)?;
+        validate_required("message", &issue.message)?;
+
+        let now = now_millis();
+        let mut record = self.get(id).await?;
+        apply_runtime_issue_to_studio_facts(&mut record, &issue);
+        record.runtime_issues.push(issue);
+        trim_runtime_issues(&mut record.runtime_issues);
+        refresh_release_rehearsal_preview_result(&mut record, now);
+        record.touch(now);
+        self.store.put(&record).await?;
+        Ok(record)
+    }
+
+    pub async fn record_runtime_log(
+        &self,
+        id: &WorkId,
+        log: WorkRuntimeLog,
+    ) -> BitFunResult<WorkRecord> {
+        validate_required("runtime_instance_id", &log.runtime_instance_id)?;
+        validate_required("product_app_id", &log.product_app_id)?;
+        validate_required("component_id", &log.component_id)?;
+        validate_required("category", &log.category)?;
+        validate_required("message", &log.message)?;
+
+        let now = now_millis();
+        let mut record = self.get(id).await?;
+        apply_runtime_log_to_studio_facts(&mut record, &log);
+        record.runtime_logs.push(log);
+        trim_runtime_logs(&mut record.runtime_logs);
+        refresh_release_rehearsal_preview_result(&mut record, now);
+        record.touch(now);
+        self.store.put(&record).await?;
+        Ok(record)
+    }
+
+    pub async fn record_studio_preview_result(
+        &self,
+        id: &WorkId,
+        mut preview_result: WorkStudioPreviewResult,
+    ) -> BitFunResult<WorkRecord> {
+        validate_required("preview_result.id", &preview_result.id)?;
+        if preview_result.work_id != *id {
+            return Err(BitFunError::validation(format!(
+                "preview_result.work_id={} does not match work_id={}",
+                preview_result.work_id, id
+            )));
+        }
+
+        let now = now_millis();
+        if preview_result.observed_at <= 0 {
+            preview_result.observed_at = now;
+        }
+        let refresh_release_rehearsal = preview_result.kind
+            != WorkStudioPreviewKind::ReleaseRehearsal
+            || preview_result.source != WorkStudioPreviewSource::ReleaseRehearsal;
+        let mut record = self.get(id).await?;
+        apply_preview_result_to_studio_issues(&mut record, &preview_result);
+        reconcile_studio_issues_for_preview_result(&mut record, &mut preview_result, now);
+        upsert_studio_preview_result(&mut record, preview_result);
+        if refresh_release_rehearsal {
+            refresh_release_rehearsal_preview_result(&mut record, now);
+        }
+        record.touch(now);
+        self.store.put(&record).await?;
+        Ok(record)
+    }
+
+    pub async fn record_studio_issue(
+        &self,
+        id: &WorkId,
+        issue: WorkStudioIssue,
+    ) -> BitFunResult<WorkRecord> {
+        validate_required("studio_issue.id", &issue.id)?;
+        validate_required("studio_issue.app_id", &issue.app_id)?;
+        validate_required("studio_issue.message", &issue.message)?;
+
+        let now = now_millis();
+        let runtime_instance_id = issue.runtime_instance_id.clone();
+        let mut record = self.get(id).await?;
+        upsert_studio_issue(&mut record, issue);
+        if let Some(runtime_instance_id) = runtime_instance_id.as_deref() {
+            refresh_studio_preview_result_for_runtime_instance(&mut record, runtime_instance_id);
+        }
+        refresh_release_rehearsal_preview_result(&mut record, now);
+        record.touch(now);
+        self.store.put(&record).await?;
+        Ok(record)
+    }
+
+    pub async fn record_studio_validation_result(
+        &self,
+        id: &WorkId,
+        mut validation_result: WorkStudioValidationResult,
+    ) -> BitFunResult<WorkRecord> {
+        validate_required("validation_result.id", &validation_result.id)?;
+        validate_required("validation_result.tool_name", &validation_result.tool_name)?;
+        if validation_result.work_id != *id {
+            return Err(BitFunError::validation(format!(
+                "validation_result.work_id={} does not match work_id={}",
+                validation_result.work_id, id
+            )));
+        }
+        match validation_result.target_kind {
+            WorkStudioValidationTargetKind::ProductApp => {
+                validate_required(
+                    "validation_result.app_id",
+                    validation_result.app_id.as_deref().unwrap_or_default(),
+                )?;
+            }
+            WorkStudioValidationTargetKind::Component => {
+                validate_required(
+                    "validation_result.component_id",
+                    validation_result
+                        .component_id
+                        .as_deref()
+                        .unwrap_or_default(),
+                )?;
+                validate_required(
+                    "validation_result.component_kind",
+                    validation_result
+                        .component_kind
+                        .as_deref()
+                        .unwrap_or_default(),
+                )?;
+            }
+        }
+
+        let now = now_millis();
+        if validation_result.observed_at <= 0 {
+            validation_result.observed_at = now;
+        }
+        let mut record = self.get(id).await?;
+        apply_validation_result_to_studio_issues(&mut record, &validation_result, now);
+        refresh_capability_preview_result_for_validation(&mut record, &validation_result);
+        upsert_studio_validation_result(&mut record, validation_result);
+        refresh_release_rehearsal_preview_result(&mut record, now);
+        record.touch(now);
+        self.store.put(&record).await?;
+        Ok(record)
+    }
+
+    pub async fn update_studio_issue_status(
+        &self,
+        id: &WorkId,
+        issue_id: &str,
+        status: WorkStudioIssueStatus,
+    ) -> BitFunResult<WorkRecord> {
+        validate_required("issue_id", issue_id)?;
+
+        let now = now_millis();
+        let mut record = self.get(id).await?;
+        let runtime_instance_id = {
+            let issue = record
+                .studio_issues
+                .iter_mut()
+                .find(|issue| issue.id == issue_id)
+                .ok_or_else(|| {
+                    BitFunError::NotFound(format!("Studio issue not found: {}", issue_id))
+                })?;
+            issue.status = status;
+            issue.resolved_at = match status {
+                WorkStudioIssueStatus::Open
+                | WorkStudioIssueStatus::StillOpen
+                | WorkStudioIssueStatus::Regressed => None,
+                WorkStudioIssueStatus::Acknowledged | WorkStudioIssueStatus::Fixed => Some(now),
+            };
+            issue.runtime_instance_id.clone()
+        };
+        if let Some(runtime_instance_id) = runtime_instance_id.as_deref() {
+            refresh_studio_preview_result_for_runtime_instance(&mut record, runtime_instance_id);
+        }
+        refresh_release_rehearsal_preview_result(&mut record, now);
         record.touch(now);
         self.store.put(&record).await?;
         Ok(record)
@@ -872,6 +1303,16 @@ impl WorkService {
         session_id: &str,
         turn_id: &str,
     ) -> BitFunResult<Option<WorkRecord>> {
+        self.mark_agent_session_turn_started_with_app_studio_context(session_id, turn_id, None)
+            .await
+    }
+
+    pub async fn mark_agent_session_turn_started_with_app_studio_context(
+        &self,
+        session_id: &str,
+        turn_id: &str,
+        app_studio: Option<WorkExecutionAppStudioContext>,
+    ) -> BitFunResult<Option<WorkRecord>> {
         let session_id = session_id.trim();
         let turn_id = turn_id.trim();
         if session_id.is_empty() || turn_id.is_empty() {
@@ -879,29 +1320,41 @@ impl WorkService {
         }
 
         let now = now_millis();
+        if let Some(work_id) = app_studio
+            .as_ref()
+            .and_then(|context| context.work_id.clone())
+        {
+            if let Ok(mut record) = self.get(&work_id).await {
+                ensure_agent_session_ref(&mut record, session_id, None);
+                upsert_agent_session_run_binding(
+                    &mut record,
+                    session_id,
+                    turn_id,
+                    app_studio.clone(),
+                    now,
+                );
+                if should_reopen_for_agent_session_activity(record.status) {
+                    record.set_status(WorkStatus::Active, "agent session continued", now);
+                } else {
+                    record.touch(now);
+                }
+                self.store.put(&record).await?;
+                return Ok(Some(record));
+            }
+        }
+
         for mut record in self.store.list().await? {
             if !work_references_agent_session(&record, session_id) {
                 continue;
             }
 
-            let mut matched_binding = false;
-            for binding in &mut record.execution_bindings {
-                if agent_session_binding_matches_turn(binding, turn_id) {
-                    binding.set_status(WorkExecutionBindingStatus::Running, now);
-                    matched_binding = true;
-                }
-            }
-
-            if !matched_binding {
-                record.execution_bindings.push(WorkExecutionBinding::new(
-                    WorkExecutionSource::AgentSessionRun {
-                        session_id: session_id.to_string(),
-                        turn_id: Some(turn_id.to_string()),
-                    },
-                    WorkExecutionBindingStatus::Running,
-                    now,
-                ));
-            }
+            upsert_agent_session_run_binding(
+                &mut record,
+                session_id,
+                turn_id,
+                app_studio.clone(),
+                now,
+            );
 
             if should_reopen_for_agent_session_activity(record.status) {
                 record.set_status(WorkStatus::Active, "agent session continued", now);
@@ -1006,6 +1459,7 @@ impl WorkService {
 
         for mut record in self.store.list().await? {
             let mut matched = false;
+            let mut fixed_issue_ids = Vec::new();
             for binding in &mut record.execution_bindings {
                 if let WorkExecutionSource::AgentSessionRun {
                     turn_id: Some(binding_turn_id),
@@ -1015,11 +1469,19 @@ impl WorkService {
                     if binding_turn_id == turn_id {
                         binding.set_status(binding_status, now);
                         matched = true;
+                        if binding_status == WorkExecutionBindingStatus::Completed {
+                            if let Some(context) = binding.app_studio.as_ref() {
+                                fixed_issue_ids.push(context.issue_id.clone());
+                            }
+                        }
                     }
                 }
             }
 
             if matched {
+                if binding_status == WorkExecutionBindingStatus::Completed {
+                    mark_studio_issues_fixed(&mut record, &fixed_issue_ids, now);
+                }
                 let has_running_binding = record
                     .execution_bindings
                     .iter()
@@ -1121,7 +1583,7 @@ impl WorkService {
     }
 }
 
-fn application_surface_for_product_app_subject(
+async fn application_surface_for_product_app_subject(
     subject: &WorkSubject,
 ) -> BitFunResult<WorkSurfaceRef> {
     let app = subject.app_ref().ok_or_else(|| {
@@ -1135,9 +1597,59 @@ fn application_surface_for_product_app_subject(
         "subject.app.component_lock_digest",
         &app.component_lock_digest,
     )?;
-    Err(BitFunError::validation(
-        "primary_surface is required when primary_surface_policy=application_surface",
-    ))
+
+    let path_manager = try_get_path_manager_arc()?;
+    if let Err(error) = seed_builtin_product_app_packages(path_manager.as_ref()).await {
+        log::warn!(
+            "Failed to seed built-in Product App packages before Work surface resolution: {}",
+            error
+        );
+    }
+
+    let (resolved_app, _installed_lock_digest) = get_installed_product_app_by_lock(
+        path_manager.as_ref(),
+        &app.app_id,
+        &app.app_version,
+        &app.component_lock_digest,
+    )
+    .await?;
+
+    let primary_surface = resolved_app.app.primary_surface.as_ref().ok_or_else(|| {
+        BitFunError::validation(format!(
+            "Product App {}@{} does not declare a primary surface for application surface Work",
+            app.app_id, app.app_version
+        ))
+    })?;
+    let product_app_surface_id = primary_surface.component_id.clone();
+    validate_required(
+        "installed_product_app.primary_surface.component_id",
+        &product_app_surface_id,
+    )?;
+    let surface_id = resolved_app
+        .app
+        .primary_surface
+        .as_ref()
+        .and_then(|surface| surface.surface_id.clone())
+        .unwrap_or_else(|| "primary".to_string());
+    validate_required(
+        "installed_product_app.primary_surface.surface_id",
+        &surface_id,
+    )?;
+
+    if !resolved_app.components.iter().any(|component| {
+        component.kind == ComponentKind::Surface && component.id == product_app_surface_id
+    }) {
+        return Err(BitFunError::validation(format!(
+            "Product App {} lock does not resolve primary Product App surface {}",
+            app.app_id, product_app_surface_id
+        )));
+    }
+
+    Ok(WorkSurfaceRef::ApplicationSurface {
+        product_app_id: app.app_id.clone(),
+        product_app_surface_id,
+        surface_id,
+    })
 }
 
 fn validate_surface_ref(label: &str, surface: &WorkSurfaceRef) -> BitFunResult<()> {
@@ -1158,13 +1670,13 @@ fn validate_surface_ref(label: &str, surface: &WorkSurfaceRef) -> BitFunResult<(
         }
         WorkSurfaceRef::ApplicationSurface {
             product_app_id,
-            surface_component_id,
+            product_app_surface_id,
             surface_id,
         } => {
             validate_required(&format!("{label}.product_app_id"), product_app_id)?;
             validate_required(
-                &format!("{label}.surface_component_id"),
-                surface_component_id,
+                &format!("{label}.product_app_surface_id"),
+                product_app_surface_id,
             )?;
             validate_required(&format!("{label}.surface_id"), surface_id)?;
         }
@@ -1280,6 +1792,13 @@ fn work_references_application_surface(record: &WorkRecord, application_id: &str
                     application_id: source_application_id,
                     ..
                 } => source_application_id == application_id,
+                WorkExecutionSource::RuntimeInstanceRun {
+                    runtime_instance_id,
+                    ..
+                } => record.runtime_instances.iter().any(|instance| {
+                    instance.id == runtime_instance_id.as_str()
+                        && instance.product_app_id == application_id
+                }),
                 _ => false,
             })
 }
@@ -1289,6 +1808,80 @@ fn work_title_can_follow_application_surface(record: &WorkRecord, application_id
         .title_state
         .can_follow_application_surface(application_id)
         && work_references_application_surface(record, application_id)
+}
+
+fn ensure_agent_session_ref(
+    record: &mut WorkRecord,
+    session_id: &str,
+    workspace_path: Option<String>,
+) {
+    if record
+        .session_refs
+        .iter()
+        .any(|reference| reference.session_id == session_id)
+    {
+        return;
+    }
+    record.session_refs.push(AgentSessionRef {
+        session_id: session_id.to_string(),
+        workspace_path,
+    });
+}
+
+fn upsert_agent_session_run_binding(
+    record: &mut WorkRecord,
+    session_id: &str,
+    turn_id: &str,
+    app_studio: Option<WorkExecutionAppStudioContext>,
+    now: i64,
+) {
+    for binding in &mut record.execution_bindings {
+        if agent_session_binding_matches_turn(binding, turn_id) {
+            binding.set_status(WorkExecutionBindingStatus::Running, now);
+            if app_studio.is_some() {
+                binding.app_studio = app_studio;
+            }
+            return;
+        }
+    }
+
+    let mut binding = WorkExecutionBinding::new(
+        WorkExecutionSource::AgentSessionRun {
+            session_id: session_id.to_string(),
+            turn_id: Some(turn_id.to_string()),
+        },
+        WorkExecutionBindingStatus::Running,
+        now,
+    );
+    binding.app_studio = app_studio;
+    record.execution_bindings.push(binding);
+}
+
+fn mark_studio_issues_fixed(record: &mut WorkRecord, issue_ids: &[String], now: i64) {
+    let mut runtime_instance_ids = Vec::new();
+    for issue_id in issue_ids {
+        let Some(issue) = record
+            .studio_issues
+            .iter_mut()
+            .find(|issue| issue.id == *issue_id)
+        else {
+            continue;
+        };
+        if issue.status == WorkStudioIssueStatus::Fixed {
+            continue;
+        }
+        issue.status = WorkStudioIssueStatus::Fixed;
+        issue.resolved_at = Some(now);
+        if let Some(runtime_instance_id) = issue.runtime_instance_id.clone() {
+            runtime_instance_ids.push(runtime_instance_id);
+        }
+    }
+
+    runtime_instance_ids.sort();
+    runtime_instance_ids.dedup();
+    for runtime_instance_id in runtime_instance_ids {
+        refresh_studio_preview_result_for_runtime_instance(record, &runtime_instance_id);
+    }
 }
 
 fn agent_session_binding_matches_turn(binding: &WorkExecutionBinding, turn_id: &str) -> bool {
@@ -1329,15 +1922,1775 @@ fn interrupted_turn_work_status(record: &WorkRecord) -> WorkStatus {
     }
 }
 
+fn artifact_nodes_for_record(record: &WorkRecord) -> Vec<WorkArtifactNode> {
+    record
+        .artifact_refs
+        .iter()
+        .map(|artifact| {
+            let (runtime_instance_id, run_id) = artifact
+                .runtime_provenance
+                .as_ref()
+                .map(|provenance| {
+                    (
+                        Some(provenance.runtime_instance_id.clone()),
+                        Some(provenance.run_id.clone()),
+                    )
+                })
+                .unwrap_or((None, None));
+            WorkArtifactNode {
+                artifact: artifact.clone(),
+                runtime_instance_id,
+                run_id,
+            }
+        })
+        .collect()
+}
+
+fn runtime_run_status_to_execution_binding_status(
+    status: WorkRuntimeRunStatus,
+) -> WorkExecutionBindingStatus {
+    match status {
+        WorkRuntimeRunStatus::Pending => WorkExecutionBindingStatus::Queued,
+        WorkRuntimeRunStatus::Running => WorkExecutionBindingStatus::Running,
+        WorkRuntimeRunStatus::WaitingUser => WorkExecutionBindingStatus::WaitingUser,
+        WorkRuntimeRunStatus::Completed => WorkExecutionBindingStatus::Completed,
+        WorkRuntimeRunStatus::Failed => WorkExecutionBindingStatus::Failed,
+        WorkRuntimeRunStatus::Cancelled => WorkExecutionBindingStatus::Cancelled,
+    }
+}
+
+fn execution_binding_status_to_runtime_run_status(
+    status: WorkExecutionBindingStatus,
+) -> WorkRuntimeRunStatus {
+    match status {
+        WorkExecutionBindingStatus::Queued => WorkRuntimeRunStatus::Pending,
+        WorkExecutionBindingStatus::Running => WorkRuntimeRunStatus::Running,
+        WorkExecutionBindingStatus::WaitingUser => WorkRuntimeRunStatus::WaitingUser,
+        WorkExecutionBindingStatus::Completed => WorkRuntimeRunStatus::Completed,
+        WorkExecutionBindingStatus::Failed => WorkRuntimeRunStatus::Failed,
+        WorkExecutionBindingStatus::Cancelled | WorkExecutionBindingStatus::Interrupted => {
+            WorkRuntimeRunStatus::Cancelled
+        }
+    }
+}
+
+fn trim_runtime_issues(issues: &mut Vec<WorkRuntimeIssue>) {
+    if issues.len() <= MAX_WORK_RUNTIME_ISSUES {
+        return;
+    }
+    issues.sort_by_key(|issue| issue.timestamp_ms);
+    let excess = issues.len() - MAX_WORK_RUNTIME_ISSUES;
+    issues.drain(0..excess);
+}
+
+fn trim_runtime_logs(logs: &mut Vec<WorkRuntimeLog>) {
+    if logs.len() <= MAX_WORK_RUNTIME_LOGS {
+        return;
+    }
+    logs.sort_by_key(|log| log.timestamp_ms);
+    let excess = logs.len() - MAX_WORK_RUNTIME_LOGS;
+    logs.drain(0..excess);
+}
+
+fn apply_runtime_issue_to_studio_facts(record: &mut WorkRecord, issue: &WorkRuntimeIssue) {
+    let studio_issue = WorkStudioIssue {
+        id: studio_issue_id(&[
+            "runtime-issue",
+            issue.runtime_instance_id.as_str(),
+            &issue.timestamp_ms.to_string(),
+            runtime_issue_severity_str(issue.severity),
+            issue.message.as_str(),
+        ]),
+        app_id: issue.product_app_id.clone(),
+        product_app_id: Some(issue.product_app_id.clone()),
+        component_id: Some(issue.component_id.clone()),
+        runtime_instance_id: Some(issue.runtime_instance_id.clone()),
+        preview_result_id: Some(studio_preview_result_id(&issue.runtime_instance_id)),
+        severity: issue.severity,
+        status: WorkStudioIssueStatus::Open,
+        message: issue.message.clone(),
+        source: issue.source.clone(),
+        category: issue.category.clone(),
+        timestamp_ms: issue.timestamp_ms,
+        origin: WorkStudioIssueOrigin::WorkExecutionGraph,
+        resolved_at: None,
+    };
+    upsert_studio_issue(record, studio_issue);
+    refresh_studio_preview_result_for_runtime_instance(record, &issue.runtime_instance_id);
+}
+
+fn apply_runtime_log_to_studio_facts(record: &mut WorkRecord, log: &WorkRuntimeLog) {
+    if let Some(severity) = studio_issue_severity_for_log(log.level) {
+        let studio_issue = WorkStudioIssue {
+            id: studio_issue_id(&[
+                "runtime-log",
+                log.runtime_instance_id.as_str(),
+                &log.timestamp_ms.to_string(),
+                runtime_log_level_str(log.level),
+                log.category.as_str(),
+                log.message.as_str(),
+            ]),
+            app_id: log.product_app_id.clone(),
+            product_app_id: Some(log.product_app_id.clone()),
+            component_id: Some(log.component_id.clone()),
+            runtime_instance_id: Some(log.runtime_instance_id.clone()),
+            preview_result_id: Some(studio_preview_result_id(&log.runtime_instance_id)),
+            severity,
+            status: WorkStudioIssueStatus::Open,
+            message: log.message.clone(),
+            source: log.source.clone(),
+            category: Some(log.category.clone()),
+            timestamp_ms: log.timestamp_ms,
+            origin: WorkStudioIssueOrigin::WorkExecutionGraph,
+            resolved_at: None,
+        };
+        upsert_studio_issue(record, studio_issue);
+    }
+    refresh_studio_preview_result_for_runtime_instance(record, &log.runtime_instance_id);
+}
+
+fn apply_validation_result_to_studio_issues(
+    record: &mut WorkRecord,
+    validation_result: &WorkStudioValidationResult,
+    now: i64,
+) {
+    let mut active_issue_ids = Vec::new();
+    for check in &validation_result.checks {
+        let Some(severity) = validation_issue_severity(check.status) else {
+            continue;
+        };
+        let issue_id = validation_issue_id(validation_result, check);
+        active_issue_ids.push(issue_id.clone());
+        reopen_existing_studio_issue(record, &issue_id);
+        upsert_studio_issue(
+            record,
+            WorkStudioIssue {
+                id: issue_id,
+                app_id: validation_target_app_id(validation_result),
+                product_app_id: validation_result.app_id.clone(),
+                component_id: validation_result.component_id.clone(),
+                runtime_instance_id: None,
+                preview_result_id: None,
+                severity,
+                status: WorkStudioIssueStatus::Open,
+                message: validation_issue_message(check),
+                source: Some(validation_result.tool_name.clone()),
+                category: Some(validation_issue_category(check)),
+                timestamp_ms: validation_result.observed_at,
+                origin: WorkStudioIssueOrigin::Validation,
+                resolved_at: None,
+            },
+        );
+    }
+
+    for issue in record.studio_issues.iter_mut() {
+        if !matches!(issue.origin, WorkStudioIssueOrigin::Validation) {
+            continue;
+        }
+        if !validation_issue_matches_target(issue, validation_result) {
+            continue;
+        }
+        if active_issue_ids
+            .iter()
+            .any(|active_id| active_id == &issue.id)
+        {
+            continue;
+        }
+        if issue.status != WorkStudioIssueStatus::Fixed {
+            issue.status = WorkStudioIssueStatus::Fixed;
+            issue.resolved_at = Some(now);
+        }
+    }
+}
+
+fn upsert_studio_issue(record: &mut WorkRecord, issue: WorkStudioIssue) {
+    if let Some(existing) = record
+        .studio_issues
+        .iter_mut()
+        .find(|existing| existing.id == issue.id)
+    {
+        let status = match existing.status {
+            WorkStudioIssueStatus::Open => issue.status,
+            WorkStudioIssueStatus::StillOpen | WorkStudioIssueStatus::Regressed => existing.status,
+            WorkStudioIssueStatus::Acknowledged => WorkStudioIssueStatus::Acknowledged,
+            WorkStudioIssueStatus::Fixed => {
+                if existing
+                    .resolved_at
+                    .is_some_and(|resolved_at| issue.timestamp_ms >= resolved_at)
+                {
+                    WorkStudioIssueStatus::Regressed
+                } else {
+                    WorkStudioIssueStatus::Fixed
+                }
+            }
+        };
+        let resolved_at = match status {
+            WorkStudioIssueStatus::Acknowledged | WorkStudioIssueStatus::Fixed => {
+                existing.resolved_at.or(issue.resolved_at)
+            }
+            WorkStudioIssueStatus::Open
+            | WorkStudioIssueStatus::StillOpen
+            | WorkStudioIssueStatus::Regressed => None,
+        };
+        *existing = WorkStudioIssue {
+            status,
+            resolved_at,
+            ..issue
+        };
+    } else {
+        record.studio_issues.push(issue);
+    }
+}
+
+fn upsert_studio_validation_result(
+    record: &mut WorkRecord,
+    validation_result: WorkStudioValidationResult,
+) {
+    if let Some(existing) = record
+        .studio_validation_results
+        .iter_mut()
+        .find(|existing| existing.id == validation_result.id)
+    {
+        *existing = validation_result;
+    } else {
+        record.studio_validation_results.push(validation_result);
+    }
+}
+
+fn refresh_capability_preview_result_for_validation(
+    record: &mut WorkRecord,
+    validation_result: &WorkStudioValidationResult,
+) {
+    if validation_result.target_kind != WorkStudioValidationTargetKind::Component {
+        return;
+    }
+
+    let checks = validation_result
+        .checks
+        .iter()
+        .filter(|check| capability_preview_check_id(&check.id))
+        .collect::<Vec<_>>();
+    if checks.is_empty() {
+        return;
+    }
+
+    let fatal_issue_count = checks
+        .iter()
+        .filter(|check| {
+            matches!(
+                check.status,
+                WorkStudioFactStatus::Failed | WorkStudioFactStatus::Blocked
+            )
+        })
+        .count();
+    let warning_issue_count = checks
+        .iter()
+        .filter(|check| check.status == WorkStudioFactStatus::Warning)
+        .count();
+    let has_running = checks.iter().any(|check| {
+        matches!(
+            check.status,
+            WorkStudioFactStatus::Running | WorkStudioFactStatus::Waiting
+        )
+    });
+    let has_unverified = checks.iter().any(|check| {
+        matches!(
+            check.status,
+            WorkStudioFactStatus::NotRun | WorkStudioFactStatus::NotVerified
+        )
+    });
+    let status = if fatal_issue_count > 0 {
+        WorkStudioFactStatus::Failed
+    } else if warning_issue_count > 0 {
+        WorkStudioFactStatus::Warning
+    } else if has_running {
+        WorkStudioFactStatus::Running
+    } else if has_unverified {
+        WorkStudioFactStatus::NotVerified
+    } else {
+        WorkStudioFactStatus::Passed
+    };
+
+    upsert_studio_preview_result(
+        record,
+        WorkStudioPreviewResult {
+            id: capability_preview_result_id(validation_result),
+            kind: WorkStudioPreviewKind::Capability,
+            status,
+            source: WorkStudioPreviewSource::PreviewHarness,
+            harness_mode: Some("capability".to_string()),
+            trigger_turn_id: None,
+            detail: Some(capability_preview_detail(validation_result, &checks)),
+            checks: checks.iter().map(|check| (*check).clone()).collect(),
+            work_id: record.id.clone(),
+            runtime_instance_id: None,
+            product_app_id: validation_result.app_id.clone(),
+            component_id: validation_result.component_id.clone(),
+            product_app_surface_id: None,
+            surface_id: None,
+            observed_at: validation_result.observed_at,
+            issue_count: fatal_issue_count + warning_issue_count,
+            fatal_issue_count,
+            warning_issue_count,
+        },
+    );
+}
+
+fn capability_preview_check_id(id: &str) -> bool {
+    matches!(
+        id,
+        "componentContract"
+            | "capabilities"
+            | "permissions"
+            | "dependencies"
+            | "implementation"
+            | "agentEval"
+    )
+}
+
+fn capability_preview_detail(
+    validation_result: &WorkStudioValidationResult,
+    checks: &[&WorkStudioFactCheck],
+) -> String {
+    let failed = checks
+        .iter()
+        .filter(|check| {
+            matches!(
+                check.status,
+                WorkStudioFactStatus::Failed | WorkStudioFactStatus::Blocked
+            )
+        })
+        .map(|check| check.id.as_str())
+        .collect::<Vec<_>>();
+    let warnings = checks
+        .iter()
+        .filter(|check| check.status == WorkStudioFactStatus::Warning)
+        .map(|check| check.id.as_str())
+        .collect::<Vec<_>>();
+    let pending = checks
+        .iter()
+        .filter(|check| {
+            matches!(
+                check.status,
+                WorkStudioFactStatus::NotRun
+                    | WorkStudioFactStatus::NotVerified
+                    | WorkStudioFactStatus::Running
+                    | WorkStudioFactStatus::Waiting
+            )
+        })
+        .map(|check| check.id.as_str())
+        .collect::<Vec<_>>();
+    let target = validation_result
+        .component_id
+        .as_deref()
+        .unwrap_or("component");
+
+    if !failed.is_empty() {
+        format!(
+            "Capability preview for {target} failed capability checks: {}.",
+            failed.join(", ")
+        )
+    } else if !warnings.is_empty() {
+        format!(
+            "Capability preview for {target} has warning checks: {}.",
+            warnings.join(", ")
+        )
+    } else if !pending.is_empty() {
+        format!(
+            "Capability preview for {target} is waiting for checks: {}.",
+            pending.join(", ")
+        )
+    } else {
+        format!("Capability preview for {target} passed current capability checks.")
+    }
+}
+
+fn upsert_studio_preview_result(record: &mut WorkRecord, preview_result: WorkStudioPreviewResult) {
+    if let Some(existing) = record
+        .studio_preview_results
+        .iter_mut()
+        .find(|existing| existing.id == preview_result.id)
+    {
+        *existing = preview_result;
+    } else {
+        record.studio_preview_results.push(preview_result);
+    }
+}
+
+fn apply_preview_result_to_studio_issues(
+    record: &mut WorkRecord,
+    preview_result: &WorkStudioPreviewResult,
+) {
+    if preview_result.source == WorkStudioPreviewSource::RuntimeFact
+        || !preview_result_is_not_clean(preview_result)
+    {
+        return;
+    }
+    if preview_result
+        .runtime_instance_id
+        .as_deref()
+        .is_some_and(|runtime_instance_id| {
+            record.studio_issues.iter().any(|issue| {
+                issue.runtime_instance_id.as_deref() == Some(runtime_instance_id)
+                    && issue.severity != WorkRuntimeIssueSeverity::Noise
+                    && matches!(
+                        issue.origin,
+                        WorkStudioIssueOrigin::RuntimeEvent
+                            | WorkStudioIssueOrigin::WorkExecutionGraph
+                            | WorkStudioIssueOrigin::Preview
+                    )
+            })
+        })
+    {
+        return;
+    }
+
+    let issue_id = studio_issue_id(&["preview", preview_result.id.as_str()]);
+    reopen_existing_studio_issue(record, &issue_id);
+    upsert_studio_issue(
+        record,
+        WorkStudioIssue {
+            id: issue_id,
+            app_id: preview_issue_app_id(record, preview_result),
+            product_app_id: preview_result.product_app_id.clone(),
+            component_id: preview_result
+                .component_id
+                .clone()
+                .or_else(|| preview_result.product_app_surface_id.clone()),
+            runtime_instance_id: preview_result.runtime_instance_id.clone(),
+            preview_result_id: Some(preview_result.id.clone()),
+            severity: preview_issue_severity(preview_result),
+            status: WorkStudioIssueStatus::Open,
+            message: preview_issue_message(preview_result),
+            source: Some(preview_source_label(preview_result.source).to_string()),
+            category: Some(preview_issue_category(preview_result)),
+            timestamp_ms: preview_result.observed_at,
+            origin: WorkStudioIssueOrigin::Preview,
+            resolved_at: None,
+        },
+    );
+}
+
+fn reconcile_studio_issues_for_preview_result(
+    record: &mut WorkRecord,
+    preview_result: &mut WorkStudioPreviewResult,
+    _now: i64,
+) {
+    if preview_result.source == WorkStudioPreviewSource::RuntimeFact {
+        return;
+    }
+    let Some(runtime_instance_id) = preview_result.runtime_instance_id.as_deref() else {
+        return;
+    };
+
+    let preview_ready = preview_result_is_clean_ready(preview_result);
+    let preview_failed = preview_result_is_not_clean(preview_result);
+
+    if preview_ready {
+        for issue in record
+            .studio_issues
+            .iter_mut()
+            .filter(|issue| preview_reconciles_issue(preview_result, issue))
+        {
+            issue.status = WorkStudioIssueStatus::Fixed;
+            issue.resolved_at = Some(preview_result.observed_at);
+        }
+    } else if preview_failed {
+        for issue in record.studio_issues.iter_mut().filter(|issue| {
+            issue.runtime_instance_id.as_deref() == Some(runtime_instance_id)
+                && issue.severity != WorkRuntimeIssueSeverity::Noise
+                && matches!(
+                    issue.origin,
+                    WorkStudioIssueOrigin::RuntimeEvent
+                        | WorkStudioIssueOrigin::WorkExecutionGraph
+                        | WorkStudioIssueOrigin::Preview
+                )
+        }) {
+            if issue.status == WorkStudioIssueStatus::Fixed {
+                if preview_result.source == WorkStudioPreviewSource::FixRerun
+                    || issue
+                        .resolved_at
+                        .is_some_and(|resolved_at| preview_result.observed_at >= resolved_at)
+                {
+                    issue.status = WorkStudioIssueStatus::Regressed;
+                    issue.resolved_at = None;
+                }
+            } else {
+                issue.status = WorkStudioIssueStatus::StillOpen;
+                issue.resolved_at = None;
+            }
+        }
+    }
+
+    let active_issues = record
+        .studio_issues
+        .iter()
+        .filter(|issue| preview_reconciles_issue(preview_result, issue))
+        .collect::<Vec<_>>();
+    let fatal_issue_count = active_issues
+        .iter()
+        .filter(|issue| issue.severity == WorkRuntimeIssueSeverity::Fatal)
+        .count();
+    let warning_issue_count = active_issues
+        .iter()
+        .filter(|issue| issue.severity == WorkRuntimeIssueSeverity::Warning)
+        .count();
+
+    preview_result.issue_count = preview_result.issue_count.max(active_issues.len());
+    preview_result.fatal_issue_count = preview_result.fatal_issue_count.max(fatal_issue_count);
+    preview_result.warning_issue_count =
+        preview_result.warning_issue_count.max(warning_issue_count);
+    preview_result.status = reconciled_preview_status(preview_result);
+}
+
+fn preview_reconciles_issue(
+    preview_result: &WorkStudioPreviewResult,
+    issue: &WorkStudioIssue,
+) -> bool {
+    issue.runtime_instance_id.as_deref() == preview_result.runtime_instance_id.as_deref()
+        && preview_result.runtime_instance_id.is_some()
+        && issue.status != WorkStudioIssueStatus::Fixed
+        && issue.severity != WorkRuntimeIssueSeverity::Noise
+        && matches!(
+            issue.origin,
+            WorkStudioIssueOrigin::RuntimeEvent
+                | WorkStudioIssueOrigin::WorkExecutionGraph
+                | WorkStudioIssueOrigin::Preview
+        )
+}
+
+fn refresh_release_rehearsal_preview_result(record: &mut WorkRecord, now: i64) {
+    let has_external_preview_evidence = record.studio_preview_results.iter().any(|preview| {
+        preview.kind != WorkStudioPreviewKind::ReleaseRehearsal
+            || preview.source != WorkStudioPreviewSource::ReleaseRehearsal
+    });
+    if record.studio_validation_results.is_empty()
+        && !has_external_preview_evidence
+        && record.studio_issues.is_empty()
+    {
+        return;
+    }
+
+    let preview_results = record
+        .studio_preview_results
+        .iter()
+        .filter(|preview| is_product_preview_evidence(preview))
+        .collect::<Vec<_>>();
+    let latest_release_harness = record
+        .studio_preview_results
+        .iter()
+        .filter(|preview| is_release_readiness_harness_evidence(preview))
+        .max_by_key(|preview| preview.observed_at);
+    let active_issues = record
+        .studio_issues
+        .iter()
+        .filter(|issue| {
+            issue.status != WorkStudioIssueStatus::Fixed
+                && issue.severity != WorkRuntimeIssueSeverity::Noise
+        })
+        .collect::<Vec<_>>();
+    let fatal_issue_count = active_issues
+        .iter()
+        .filter(|issue| issue.severity == WorkRuntimeIssueSeverity::Fatal)
+        .count();
+    let warning_issue_count = active_issues
+        .iter()
+        .filter(|issue| issue.severity == WorkRuntimeIssueSeverity::Warning)
+        .count();
+    let validation_failed = record.studio_validation_results.iter().any(|validation| {
+        matches!(
+            validation.status,
+            WorkStudioFactStatus::Failed | WorkStudioFactStatus::Blocked
+        )
+    });
+    let validation_warning = record
+        .studio_validation_results
+        .iter()
+        .any(|validation| validation.status == WorkStudioFactStatus::Warning);
+    let validation_running = record.studio_validation_results.iter().any(|validation| {
+        matches!(
+            validation.status,
+            WorkStudioFactStatus::Running | WorkStudioFactStatus::Waiting
+        )
+    });
+    let validation_unverified = record
+        .studio_validation_results
+        .iter()
+        .flat_map(|validation| validation.checks.iter())
+        .any(|check| {
+            matches!(
+                check.status,
+                WorkStudioFactStatus::NotRun
+                    | WorkStudioFactStatus::NotVerified
+                    | WorkStudioFactStatus::Waiting
+            )
+        });
+    let missing_release_gate = record.studio_validation_results.iter().all(|validation| {
+        validation
+            .checks
+            .iter()
+            .all(|check| check.id != "releaseGate")
+    });
+    let preview_failed = preview_results.iter().any(|preview| {
+        matches!(
+            preview.status,
+            WorkStudioFactStatus::Failed | WorkStudioFactStatus::Blocked
+        )
+    });
+    let preview_warning = preview_results
+        .iter()
+        .any(|preview| preview.status == WorkStudioFactStatus::Warning);
+    let preview_running = preview_results.iter().any(|preview| {
+        matches!(
+            preview.status,
+            WorkStudioFactStatus::Running | WorkStudioFactStatus::Waiting
+        )
+    });
+    let preview_unverified = preview_results.iter().any(|preview| {
+        matches!(
+            preview.status,
+            WorkStudioFactStatus::NotRun
+                | WorkStudioFactStatus::NotVerified
+                | WorkStudioFactStatus::Ready
+        ) || preview.checks.is_empty()
+            || preview
+                .checks
+                .iter()
+                .any(|check| fact_status_is_unverified(check.status))
+    });
+    let release_readiness_checks = release_readiness_evidence_checks(record);
+    let release_readiness_failed = release_readiness_checks
+        .iter()
+        .any(|check| fact_status_is_failed(check.status));
+    let release_readiness_warning = release_readiness_checks
+        .iter()
+        .any(|check| fact_status_is_warning(check.status));
+    let release_readiness_running = release_readiness_checks
+        .iter()
+        .any(|check| fact_status_is_running(check.status));
+    let release_readiness_unverified = release_readiness_checks
+        .iter()
+        .any(|check| fact_status_is_unverified(check.status));
+    let release_readiness_pending = release_readiness_pending_ids(&release_readiness_checks);
+    let has_validation = !record.studio_validation_results.is_empty();
+    let has_preview = !preview_results.is_empty();
+    let release_checks = release_rehearsal_checks(
+        has_validation,
+        has_preview,
+        validation_failed,
+        validation_warning,
+        validation_running,
+        validation_unverified,
+        missing_release_gate,
+        preview_failed,
+        preview_warning,
+        preview_running,
+        preview_unverified,
+        fatal_issue_count,
+        warning_issue_count,
+        release_readiness_checks,
+        release_readiness_pending.clone(),
+        release_readiness_failed,
+        release_readiness_warning,
+        release_readiness_running,
+        release_readiness_unverified,
+    );
+    let status =
+        if fatal_issue_count > 0 || validation_failed || preview_failed || release_readiness_failed
+        {
+            WorkStudioFactStatus::Failed
+        } else if warning_issue_count > 0
+            || validation_warning
+            || preview_warning
+            || release_readiness_warning
+        {
+            WorkStudioFactStatus::Warning
+        } else if validation_running || preview_running || release_readiness_running {
+            WorkStudioFactStatus::Running
+        } else if !has_validation
+            || !has_preview
+            || validation_unverified
+            || preview_unverified
+            || missing_release_gate
+            || release_readiness_unverified
+        {
+            WorkStudioFactStatus::NotVerified
+        } else {
+            WorkStudioFactStatus::Passed
+        };
+    let observed_at = record
+        .studio_validation_results
+        .iter()
+        .map(|validation| validation.observed_at)
+        .chain(preview_results.iter().map(|preview| preview.observed_at))
+        .chain(latest_release_harness.map(|preview| preview.observed_at))
+        .chain(active_issues.iter().map(|issue| issue.timestamp_ms))
+        .max()
+        .unwrap_or(now);
+
+    upsert_studio_preview_result(
+        record,
+        WorkStudioPreviewResult {
+            id: release_rehearsal_preview_result_id(&record.id),
+            kind: WorkStudioPreviewKind::ReleaseRehearsal,
+            status,
+            source: WorkStudioPreviewSource::ReleaseRehearsal,
+            harness_mode: Some("release-rehearsal".to_string()),
+            trigger_turn_id: None,
+            detail: Some(release_rehearsal_detail(
+                has_validation,
+                has_preview,
+                validation_unverified,
+                missing_release_gate,
+                &release_readiness_pending,
+                fatal_issue_count,
+                warning_issue_count,
+            )),
+            checks: release_checks,
+            work_id: record.id.clone(),
+            runtime_instance_id: None,
+            product_app_id: release_rehearsal_product_app_id(record),
+            component_id: record
+                .subject
+                .component_ref()
+                .map(|component| component.component_id.clone()),
+            product_app_surface_id: None,
+            surface_id: None,
+            observed_at,
+            issue_count: active_issues.len(),
+            fatal_issue_count,
+            warning_issue_count,
+        },
+    );
+}
+
+fn preview_result_is_clean_ready(preview_result: &WorkStudioPreviewResult) -> bool {
+    preview_result.status == WorkStudioFactStatus::Passed
+        && preview_result.issue_count == 0
+        && preview_result.fatal_issue_count == 0
+        && preview_result.warning_issue_count == 0
+}
+
+fn preview_result_is_not_clean(preview_result: &WorkStudioPreviewResult) -> bool {
+    matches!(
+        preview_result.status,
+        WorkStudioFactStatus::Failed
+            | WorkStudioFactStatus::Blocked
+            | WorkStudioFactStatus::Warning
+    ) || preview_result.issue_count > 0
+        || preview_result.fatal_issue_count > 0
+        || preview_result.warning_issue_count > 0
+}
+
+fn reconciled_preview_status(preview_result: &WorkStudioPreviewResult) -> WorkStudioFactStatus {
+    if preview_result.fatal_issue_count > 0 {
+        WorkStudioFactStatus::Failed
+    } else if preview_result.warning_issue_count > 0 {
+        WorkStudioFactStatus::Warning
+    } else if preview_result.status == WorkStudioFactStatus::Passed {
+        WorkStudioFactStatus::Passed
+    } else {
+        preview_result.status
+    }
+}
+
+fn refresh_studio_preview_result_for_runtime_instance(
+    record: &mut WorkRecord,
+    runtime_instance_id: &str,
+) {
+    let Some(instance) = record
+        .runtime_instances
+        .iter()
+        .find(|instance| instance.id == runtime_instance_id)
+        .cloned()
+    else {
+        return;
+    };
+
+    let active_issues = record
+        .studio_issues
+        .iter()
+        .filter(|issue| {
+            issue.runtime_instance_id.as_deref() == Some(runtime_instance_id)
+                && issue.status != WorkStudioIssueStatus::Fixed
+                && issue.severity != WorkRuntimeIssueSeverity::Noise
+        })
+        .collect::<Vec<_>>();
+    let fatal_issue_count = active_issues
+        .iter()
+        .filter(|issue| issue.severity == WorkRuntimeIssueSeverity::Fatal)
+        .count();
+    let warning_issue_count = active_issues
+        .iter()
+        .filter(|issue| issue.severity == WorkRuntimeIssueSeverity::Warning)
+        .count();
+    let observed_at = active_issues
+        .iter()
+        .map(|issue| issue.timestamp_ms)
+        .chain(
+            record
+                .studio_preview_results
+                .iter()
+                .filter(|preview| {
+                    preview.runtime_instance_id.as_deref() == Some(runtime_instance_id)
+                })
+                .map(|preview| preview.observed_at),
+        )
+        .max()
+        .unwrap_or(record.updated_at);
+    let status = if fatal_issue_count > 0 {
+        WorkStudioFactStatus::Failed
+    } else if warning_issue_count > 0 {
+        WorkStudioFactStatus::Warning
+    } else {
+        WorkStudioFactStatus::Ready
+    };
+
+    upsert_studio_preview_result(
+        record,
+        WorkStudioPreviewResult {
+            id: studio_preview_result_id(runtime_instance_id),
+            kind: WorkStudioPreviewKind::ProductAppPreview,
+            status,
+            source: WorkStudioPreviewSource::RuntimeFact,
+            harness_mode: Some("product-app-preview".to_string()),
+            trigger_turn_id: None,
+            detail: Some("Derived from runtime issues and logs.".to_string()),
+            checks: Vec::new(),
+            work_id: record.id.clone(),
+            runtime_instance_id: Some(runtime_instance_id.to_string()),
+            product_app_id: Some(instance.product_app_id),
+            component_id: Some(instance.product_app_surface_id.clone()),
+            product_app_surface_id: Some(instance.product_app_surface_id),
+            surface_id: Some(instance.surface_id),
+            observed_at,
+            issue_count: active_issues.len(),
+            fatal_issue_count,
+            warning_issue_count,
+        },
+    );
+}
+
+fn validation_issue_severity(status: WorkStudioFactStatus) -> Option<WorkRuntimeIssueSeverity> {
+    match status {
+        WorkStudioFactStatus::Failed | WorkStudioFactStatus::Blocked => {
+            Some(WorkRuntimeIssueSeverity::Fatal)
+        }
+        WorkStudioFactStatus::Warning => Some(WorkRuntimeIssueSeverity::Warning),
+        WorkStudioFactStatus::Passed
+        | WorkStudioFactStatus::NotRun
+        | WorkStudioFactStatus::NotVerified
+        | WorkStudioFactStatus::Running
+        | WorkStudioFactStatus::Ready
+        | WorkStudioFactStatus::Waiting => None,
+    }
+}
+
+fn validation_issue_id(
+    validation_result: &WorkStudioValidationResult,
+    check: &WorkStudioFactCheck,
+) -> String {
+    studio_issue_id(&[
+        "validation",
+        validation_target_key(validation_result).as_str(),
+        check.id.as_str(),
+    ])
+}
+
+fn validation_target_key(validation_result: &WorkStudioValidationResult) -> String {
+    match validation_result.target_kind {
+        WorkStudioValidationTargetKind::ProductApp => format!(
+            "product-app:{}",
+            validation_result.app_id.as_deref().unwrap_or("unknown")
+        ),
+        WorkStudioValidationTargetKind::Component => format!(
+            "component:{}:{}",
+            validation_result
+                .component_kind
+                .as_deref()
+                .unwrap_or("component"),
+            validation_result
+                .component_id
+                .as_deref()
+                .unwrap_or("unknown")
+        ),
+    }
+}
+
+fn validation_target_app_id(validation_result: &WorkStudioValidationResult) -> String {
+    validation_result
+        .app_id
+        .clone()
+        .or_else(|| validation_result.component_id.clone())
+        .unwrap_or_else(|| "app-studio-validation".to_string())
+}
+
+fn release_rehearsal_product_app_id(record: &WorkRecord) -> Option<String> {
+    record
+        .subject
+        .app_ref()
+        .map(|app| app.app_id.clone())
+        .or_else(|| {
+            record
+                .app_refs
+                .first()
+                .map(|relation| relation.app.app_id.clone())
+        })
+        .or_else(|| {
+            record
+                .studio_validation_results
+                .iter()
+                .find_map(|validation| validation.app_id.clone())
+        })
+        .or_else(|| {
+            record
+                .studio_preview_results
+                .iter()
+                .find_map(|preview| preview.product_app_id.clone())
+        })
+}
+
+fn release_rehearsal_detail(
+    has_validation: bool,
+    has_preview: bool,
+    validation_unverified: bool,
+    missing_release_gate: bool,
+    release_readiness_pending: &[String],
+    fatal_issue_count: usize,
+    warning_issue_count: usize,
+) -> String {
+    let mut pending = Vec::new();
+    if !has_validation {
+        pending.push("validation");
+    }
+    if !has_preview {
+        pending.push("preview");
+    }
+    if validation_unverified {
+        pending.push("not-run validation gates");
+    }
+    if missing_release_gate {
+        pending.push("release gate");
+    }
+    pending.extend(release_readiness_pending.iter().map(String::as_str));
+
+    if fatal_issue_count > 0 {
+        format!(
+            "Release rehearsal blocked by {fatal_issue_count} fatal issue(s) and {warning_issue_count} warning issue(s)."
+        )
+    } else if warning_issue_count > 0 {
+        format!("Release rehearsal has {warning_issue_count} warning issue(s).")
+    } else if pending.is_empty() {
+        "Release rehearsal passed current validation, preview, and issue gates.".to_string()
+    } else {
+        format!(
+            "Release rehearsal is waiting for {} evidence.",
+            pending.join(", ")
+        )
+    }
+}
+
+fn fact_status_is_failed(status: WorkStudioFactStatus) -> bool {
+    matches!(
+        status,
+        WorkStudioFactStatus::Failed | WorkStudioFactStatus::Blocked
+    )
+}
+
+fn fact_status_is_warning(status: WorkStudioFactStatus) -> bool {
+    status == WorkStudioFactStatus::Warning
+}
+
+fn fact_status_is_running(status: WorkStudioFactStatus) -> bool {
+    matches!(
+        status,
+        WorkStudioFactStatus::Running | WorkStudioFactStatus::Waiting
+    )
+}
+
+fn fact_status_is_unverified(status: WorkStudioFactStatus) -> bool {
+    matches!(
+        status,
+        WorkStudioFactStatus::NotRun | WorkStudioFactStatus::NotVerified
+    )
+}
+
+fn release_readiness_evidence_checks(record: &WorkRecord) -> Vec<WorkStudioFactCheck> {
+    let required_ids = release_readiness_required_check_ids(record);
+    let mut checks = required_ids
+        .into_iter()
+        .map(|id| release_readiness_evidence_check(record, id))
+        .collect::<Vec<_>>();
+
+    if release_readiness_requires_permission_review(record, &checks) {
+        let insertion_index = checks
+            .iter()
+            .position(|check| check.id == "permissions")
+            .map(|index| index + 1)
+            .unwrap_or(checks.len());
+        checks.insert(
+            insertion_index,
+            release_readiness_evidence_check(record, "permissionReview"),
+        );
+    }
+
+    for id in [
+        "surfaceMode",
+        "runtimeReady",
+        "visualRoot",
+        "viewport",
+        "interactionSurface",
+    ] {
+        if let Some(check) = release_readiness_optional_evidence_check(record, id) {
+            checks.push(check);
+        }
+    }
+
+    checks
+}
+
+fn release_readiness_required_check_ids(record: &WorkRecord) -> Vec<&'static str> {
+    if record.subject.component_ref().is_some() {
+        return vec![
+            "componentContract",
+            "capabilities",
+            "dependencies",
+            "implementation",
+            "consumerCompatibility",
+            "permissions",
+            "data",
+            "dataSummary",
+            "runtimeDependencies",
+            "agentEval",
+        ];
+    }
+
+    let mut required_ids = vec![
+        "criticalPath",
+        "permissions",
+        "permissionReview",
+        "data",
+        "dataSummary",
+        "runtimeStorage",
+        "runtimeDependencies",
+        "agentEval",
+        "userPath",
+    ];
+    if record.subject.app_ref().is_some() {
+        let insertion_index = required_ids
+            .iter()
+            .position(|id| *id == "dataSummary")
+            .unwrap_or(required_ids.len());
+        required_ids.insert(insertion_index, "dataLifecycle");
+    }
+    required_ids
+}
+
+fn release_readiness_requires_permission_review(
+    record: &WorkRecord,
+    checks: &[WorkStudioFactCheck],
+) -> bool {
+    if checks.iter().any(|check| check.id == "permissionReview") {
+        return false;
+    }
+    latest_release_harness_check(record, "permissionReview").is_some()
+        || checks
+            .iter()
+            .any(|check| check.id == "permissions" && fact_status_is_warning(check.status))
+}
+
+fn release_readiness_evidence_check(record: &WorkRecord, id: &str) -> WorkStudioFactCheck {
+    if id == "permissionReview" {
+        return release_readiness_permission_review_check(record);
+    }
+
+    if let Some(component) = record.subject.component_ref() {
+        if component_runtime_release_readiness_check(id) {
+            return latest_component_runtime_preview_check(record, id, &component.component_id)
+                .cloned()
+                .or_else(|| {
+                    latest_validation_check(record, id)
+                        .filter(|check| validation_runtime_check_is_blocker(check.status))
+                        .cloned()
+                })
+                .unwrap_or_else(|| missing_release_readiness_check(id));
+        }
+    }
+
+    if id == "agentEval" {
+        return latest_agent_eval_check(record)
+            .cloned()
+            .unwrap_or_else(|| missing_release_readiness_check(id));
+    }
+
+    if let Some(check) = latest_release_harness_check(record, id) {
+        return check.clone();
+    }
+
+    match id {
+        "criticalPath" => critical_path_evidence_from_validation(record),
+        "componentContract" | "capabilities" | "dependencies" | "implementation"
+        | "permissions" => latest_validation_check(record, id)
+            .cloned()
+            .unwrap_or_else(|| missing_release_readiness_check(id)),
+        "consumerCompatibility" => missing_release_readiness_check(id),
+        "data"
+        | "dataLifecycle"
+        | "dataSummary"
+        | "runtimeStorage"
+        | "runtimeDependencies"
+        | "userPath"
+        | "permissionReview" => missing_release_readiness_check(id),
+        _ => missing_release_readiness_check(id),
+    }
+}
+
+fn release_readiness_permission_review_check(record: &WorkRecord) -> WorkStudioFactCheck {
+    let Some((review_observed_at, check)) =
+        latest_release_harness_check_with_observed_at(record, "permissionReview")
+    else {
+        return missing_release_readiness_check("permissionReview");
+    };
+
+    if latest_permission_warning_observed_at(record)
+        .is_some_and(|permissions_observed_at| permissions_observed_at > review_observed_at)
+    {
+        return WorkStudioFactCheck {
+            id: "permissionReview".to_string(),
+            status: WorkStudioFactStatus::NotVerified,
+            detail: Some(
+                "Elevated permissions changed after the last explicit review.".to_string(),
+            ),
+        };
+    }
+
+    check.clone()
+}
+
+fn component_runtime_release_readiness_check(id: &str) -> bool {
+    matches!(
+        id,
+        "consumerCompatibility"
+            | "data"
+            | "dataLifecycle"
+            | "dataSummary"
+            | "runtimeStorage"
+            | "runtimeDependencies"
+            | "agentEval"
+    )
+}
+
+fn latest_component_runtime_preview_check<'a>(
+    record: &'a WorkRecord,
+    id: &str,
+    component_id: &str,
+) -> Option<&'a WorkStudioFactCheck> {
+    record
+        .studio_preview_results
+        .iter()
+        .filter(|preview| preview.kind != WorkStudioPreviewKind::ReleaseRehearsal)
+        .filter(|preview| preview.component_id.as_deref() == Some(component_id))
+        .filter(|preview| component_runtime_preview_source_is_strong(id, preview.source))
+        .filter_map(|preview| {
+            preview
+                .checks
+                .iter()
+                .find(|check| check.id == id)
+                .map(|check| (preview.observed_at, check))
+        })
+        .max_by_key(|(observed_at, _)| *observed_at)
+        .map(|(_, check)| check)
+}
+
+fn component_runtime_preview_source_is_strong(id: &str, source: WorkStudioPreviewSource) -> bool {
+    if id == "agentEval" {
+        return matches!(
+            source,
+            WorkStudioPreviewSource::PreviewHarness
+                | WorkStudioPreviewSource::RuntimeObservation
+                | WorkStudioPreviewSource::FixRerun
+        );
+    }
+
+    source == WorkStudioPreviewSource::RuntimeObservation
+}
+
+fn validation_runtime_check_is_blocker(status: WorkStudioFactStatus) -> bool {
+    fact_status_is_failed(status)
+}
+
+fn latest_permission_warning_observed_at(record: &WorkRecord) -> Option<i64> {
+    [
+        latest_release_harness_check_with_observed_at(record, "permissions"),
+        latest_validation_check_with_observed_at(record, "permissions"),
+    ]
+    .into_iter()
+    .flatten()
+    .filter(|(_, check)| fact_status_is_warning(check.status))
+    .map(|(observed_at, _)| observed_at)
+    .max()
+}
+
+fn release_readiness_optional_evidence_check(
+    record: &WorkRecord,
+    id: &str,
+) -> Option<WorkStudioFactCheck> {
+    let check = latest_release_harness_check(record, id)
+        .cloned()
+        .or_else(|| latest_preview_check(record, id).cloned());
+    if id == "surfaceMode"
+        && check
+            .as_ref()
+            .is_some_and(|check| fact_status_is_unverified(check.status))
+    {
+        return None;
+    }
+    check
+}
+
+fn latest_release_harness_check<'a>(
+    record: &'a WorkRecord,
+    id: &str,
+) -> Option<&'a WorkStudioFactCheck> {
+    latest_release_harness_check_with_observed_at(record, id).map(|(_, check)| check)
+}
+
+fn latest_release_harness_check_with_observed_at<'a>(
+    record: &'a WorkRecord,
+    id: &str,
+) -> Option<(i64, &'a WorkStudioFactCheck)> {
+    record
+        .studio_preview_results
+        .iter()
+        .filter(|preview| is_release_readiness_harness_evidence(preview))
+        .filter_map(|preview| {
+            preview
+                .checks
+                .iter()
+                .find(|check| check.id == id)
+                .map(|check| (preview.observed_at, check))
+        })
+        .max_by_key(|(observed_at, _)| *observed_at)
+}
+
+fn latest_preview_check<'a>(record: &'a WorkRecord, id: &str) -> Option<&'a WorkStudioFactCheck> {
+    record
+        .studio_preview_results
+        .iter()
+        .filter(|preview| is_product_preview_evidence(preview))
+        .filter_map(|preview| {
+            preview
+                .checks
+                .iter()
+                .find(|check| check.id == id)
+                .map(|check| (preview.observed_at, check))
+        })
+        .max_by_key(|(observed_at, _)| *observed_at)
+        .map(|(_, check)| check)
+}
+
+fn latest_agent_eval_check<'a>(record: &'a WorkRecord) -> Option<&'a WorkStudioFactCheck> {
+    record
+        .studio_preview_results
+        .iter()
+        .filter(|preview| preview.kind == WorkStudioPreviewKind::AgentEval)
+        .filter_map(|preview| {
+            preview
+                .checks
+                .iter()
+                .find(|check| check.id == "agentEval")
+                .map(|check| (preview.observed_at, check))
+        })
+        .max_by_key(|(observed_at, _)| *observed_at)
+        .map(|(_, check)| check)
+}
+
+fn is_product_preview_evidence(preview: &WorkStudioPreviewResult) -> bool {
+    matches!(
+        preview.kind,
+        WorkStudioPreviewKind::ProductAppPreview
+            | WorkStudioPreviewKind::AgentChat
+            | WorkStudioPreviewKind::Sidecar
+            | WorkStudioPreviewKind::FullApp
+            | WorkStudioPreviewKind::Embedded
+            | WorkStudioPreviewKind::Capability
+    )
+}
+
+fn is_release_readiness_harness_evidence(preview: &WorkStudioPreviewResult) -> bool {
+    preview.source == WorkStudioPreviewSource::RuntimeObservation
+        && matches!(
+            preview.kind,
+            WorkStudioPreviewKind::RuntimeBoundary
+                | WorkStudioPreviewKind::RuntimeDependencies
+                | WorkStudioPreviewKind::PermissionReview
+                | WorkStudioPreviewKind::UserPathRehearsal
+        )
+}
+
+fn latest_validation_check<'a>(
+    record: &'a WorkRecord,
+    id: &str,
+) -> Option<&'a WorkStudioFactCheck> {
+    latest_validation_check_with_observed_at(record, id).map(|(_, check)| check)
+}
+
+fn latest_validation_check_with_observed_at<'a>(
+    record: &'a WorkRecord,
+    id: &str,
+) -> Option<(i64, &'a WorkStudioFactCheck)> {
+    record
+        .studio_validation_results
+        .iter()
+        .filter_map(|validation| {
+            validation
+                .checks
+                .iter()
+                .find(|check| check.id == id)
+                .map(|check| (validation.observed_at, check))
+        })
+        .max_by_key(|(observed_at, _)| *observed_at)
+}
+
+fn latest_validation_checks<'a>(
+    record: &'a WorkRecord,
+    ids: &[&str],
+) -> Vec<&'a WorkStudioFactCheck> {
+    ids.iter()
+        .filter_map(|id| latest_validation_check(record, id))
+        .collect()
+}
+
+fn critical_path_evidence_from_validation(record: &WorkRecord) -> WorkStudioFactCheck {
+    let checks =
+        latest_validation_checks(record, &["primarySurface", "surfaceSource", "launchPolicy"]);
+    if checks.len() < 3 {
+        return missing_release_readiness_check("criticalPath");
+    }
+    if checks
+        .iter()
+        .any(|check| fact_status_is_failed(check.status))
+    {
+        return WorkStudioFactCheck {
+            id: "criticalPath".to_string(),
+            status: WorkStudioFactStatus::Failed,
+            detail: Some(
+                "Primary surface, source, or launch policy validation failed.".to_string(),
+            ),
+        };
+    }
+    if checks
+        .iter()
+        .any(|check| fact_status_is_warning(check.status))
+    {
+        return WorkStudioFactCheck {
+            id: "criticalPath".to_string(),
+            status: WorkStudioFactStatus::Warning,
+            detail: Some(
+                "Primary surface, source, or launch policy validation has warnings.".to_string(),
+            ),
+        };
+    }
+    if checks
+        .iter()
+        .any(|check| fact_status_is_running(check.status))
+    {
+        return WorkStudioFactCheck {
+            id: "criticalPath".to_string(),
+            status: WorkStudioFactStatus::Running,
+            detail: Some(
+                "Primary surface, source, or launch policy validation is still running."
+                    .to_string(),
+            ),
+        };
+    }
+    WorkStudioFactCheck {
+        id: "criticalPath".to_string(),
+        status: WorkStudioFactStatus::NotVerified,
+        detail: Some(
+            "Package surface and launch checks passed; no new-user critical path rehearsal has executed."
+                .to_string(),
+        ),
+    }
+}
+
+fn missing_release_readiness_check(id: &str) -> WorkStudioFactCheck {
+    WorkStudioFactCheck {
+        id: id.to_string(),
+        status: WorkStudioFactStatus::NotVerified,
+        detail: Some(match id {
+            "criticalPath" => {
+                "No critical path package or rehearsal evidence is recorded.".to_string()
+            }
+            "componentContract" => {
+                "No Component contract readiness evidence is recorded.".to_string()
+            }
+            "capabilities" => "No Component capability readiness evidence is recorded.".to_string(),
+            "dependencies" => "No Component dependency readiness evidence is recorded.".to_string(),
+            "implementation" => {
+                "No Component implementation readiness evidence is recorded.".to_string()
+            }
+            "consumerCompatibility" => {
+                "No consumer compatibility readiness evidence is recorded.".to_string()
+            }
+            "permissions" => "No permission readiness evidence is recorded.".to_string(),
+            "data" => "No data boundary readiness evidence is recorded.".to_string(),
+            "dataLifecycle" => "No data lifecycle readiness evidence is recorded.".to_string(),
+            "dataSummary" => {
+                "No Data/Memory retention and sharing summary evidence is recorded.".to_string()
+            }
+            "runtimeStorage" => {
+                "No runtime storage scope readiness evidence is recorded.".to_string()
+            }
+            "runtimeDependencies" => {
+                "No runtime dependency health readiness evidence is recorded.".to_string()
+            }
+            "agentEval" => "No Agent Eval readiness evidence is recorded.".to_string(),
+            "userPath" => "No executed user-path rehearsal evidence is recorded.".to_string(),
+            "permissionReview" => {
+                "No explicit App Studio permission review evidence is recorded.".to_string()
+            }
+            _ => format!("No {id} release readiness evidence is recorded."),
+        }),
+    }
+}
+
+fn release_readiness_pending_ids(checks: &[WorkStudioFactCheck]) -> Vec<String> {
+    checks
+        .iter()
+        .filter(|check| {
+            fact_status_is_failed(check.status)
+                || fact_status_is_running(check.status)
+                || fact_status_is_unverified(check.status)
+        })
+        .map(|check| check.id.clone())
+        .collect()
+}
+
+fn release_rehearsal_checks(
+    has_validation: bool,
+    has_preview: bool,
+    validation_failed: bool,
+    validation_warning: bool,
+    validation_running: bool,
+    validation_unverified: bool,
+    missing_release_gate: bool,
+    preview_failed: bool,
+    preview_warning: bool,
+    preview_running: bool,
+    preview_unverified: bool,
+    fatal_issue_count: usize,
+    warning_issue_count: usize,
+    release_readiness_checks: Vec<WorkStudioFactCheck>,
+    release_readiness_pending: Vec<String>,
+    release_readiness_failed: bool,
+    release_readiness_warning: bool,
+    release_readiness_running: bool,
+    release_readiness_unverified: bool,
+) -> Vec<WorkStudioFactCheck> {
+    let mut checks = vec![
+        WorkStudioFactCheck {
+            id: "validation".to_string(),
+            status: if !has_validation {
+                WorkStudioFactStatus::NotVerified
+            } else if validation_failed {
+                WorkStudioFactStatus::Failed
+            } else if validation_warning {
+                WorkStudioFactStatus::Warning
+            } else if validation_running {
+                WorkStudioFactStatus::Running
+            } else if validation_unverified {
+                WorkStudioFactStatus::NotVerified
+            } else {
+                WorkStudioFactStatus::Passed
+            },
+            detail: Some(if !has_validation {
+                "No package validation result is recorded.".to_string()
+            } else if validation_unverified {
+                "Validation contains not-run or not-verified gates.".to_string()
+            } else {
+                "Package validation evidence is recorded.".to_string()
+            }),
+        },
+        WorkStudioFactCheck {
+            id: "preview".to_string(),
+            status: if !has_preview {
+                WorkStudioFactStatus::NotVerified
+            } else if preview_failed {
+                WorkStudioFactStatus::Failed
+            } else if preview_warning {
+                WorkStudioFactStatus::Warning
+            } else if preview_running {
+                WorkStudioFactStatus::Running
+            } else if preview_unverified {
+                WorkStudioFactStatus::NotVerified
+            } else {
+                WorkStudioFactStatus::Passed
+            },
+            detail: Some(if !has_preview {
+                "No non-rehearsal preview result is recorded.".to_string()
+            } else if preview_unverified {
+                "Preview evidence is recorded but is still ready, missing detailed checks, or contains not-run/not-verified gates.".to_string()
+            } else {
+                "Preview evidence is recorded.".to_string()
+            }),
+        },
+        WorkStudioFactCheck {
+            id: "issues".to_string(),
+            status: if fatal_issue_count > 0 {
+                WorkStudioFactStatus::Failed
+            } else if warning_issue_count > 0 {
+                WorkStudioFactStatus::Warning
+            } else {
+                WorkStudioFactStatus::Passed
+            },
+            detail: Some(format!(
+                "{fatal_issue_count} fatal issue(s), {warning_issue_count} warning issue(s)."
+            )),
+        },
+    ];
+    checks.extend(release_readiness_checks);
+    checks.push(WorkStudioFactCheck {
+        id: "releaseGate".to_string(),
+        status: if missing_release_gate {
+            WorkStudioFactStatus::NotVerified
+        } else if validation_failed || release_readiness_failed {
+            WorkStudioFactStatus::Failed
+        } else if validation_warning || release_readiness_warning {
+            WorkStudioFactStatus::Warning
+        } else if validation_running || release_readiness_running {
+            WorkStudioFactStatus::Running
+        } else if validation_unverified || release_readiness_unverified {
+            WorkStudioFactStatus::NotVerified
+        } else {
+            WorkStudioFactStatus::Passed
+        },
+        detail: Some(if missing_release_gate {
+            "No releaseGate validation check is recorded.".to_string()
+        } else if !release_readiness_pending.is_empty() {
+            format!(
+                "Release gate is waiting for {} evidence.",
+                release_readiness_pending.join(", ")
+            )
+        } else {
+            "Release gate validation check is recorded.".to_string()
+        }),
+    });
+    checks
+}
+
+fn preview_issue_app_id(record: &WorkRecord, preview_result: &WorkStudioPreviewResult) -> String {
+    preview_result
+        .product_app_id
+        .clone()
+        .or_else(|| record.subject.app_ref().map(|app| app.app_id.clone()))
+        .or_else(|| {
+            record
+                .app_refs
+                .first()
+                .map(|relation| relation.app.app_id.clone())
+        })
+        .or_else(|| preview_result.component_id.clone())
+        .or_else(|| preview_result.product_app_surface_id.clone())
+        .unwrap_or_else(|| format!("work:{}", record.id))
+}
+
+fn preview_issue_message(preview_result: &WorkStudioPreviewResult) -> String {
+    preview_result
+        .detail
+        .as_deref()
+        .filter(|detail| !detail.trim().is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| {
+            format!(
+                "Studio preview '{}' is {:?}",
+                preview_result.id, preview_result.status
+            )
+        })
+}
+
+fn preview_issue_category(preview_result: &WorkStudioPreviewResult) -> String {
+    format!(
+        "preview:{}",
+        preview_result
+            .harness_mode
+            .as_deref()
+            .unwrap_or_else(|| preview_kind_label(preview_result.kind))
+    )
+}
+
+fn preview_issue_severity(preview_result: &WorkStudioPreviewResult) -> WorkRuntimeIssueSeverity {
+    if preview_result.fatal_issue_count > 0
+        || matches!(
+            preview_result.status,
+            WorkStudioFactStatus::Failed | WorkStudioFactStatus::Blocked
+        )
+    {
+        WorkRuntimeIssueSeverity::Fatal
+    } else if preview_result.warning_issue_count > 0
+        || preview_result.issue_count > 0
+        || preview_result.status == WorkStudioFactStatus::Warning
+    {
+        WorkRuntimeIssueSeverity::Warning
+    } else {
+        WorkRuntimeIssueSeverity::Noise
+    }
+}
+
+fn preview_kind_label(kind: WorkStudioPreviewKind) -> &'static str {
+    match kind {
+        WorkStudioPreviewKind::ProductAppPreview => "product-app-preview",
+        WorkStudioPreviewKind::AgentChat => "agent-chat",
+        WorkStudioPreviewKind::Sidecar => "sidecar",
+        WorkStudioPreviewKind::FullApp => "full-app",
+        WorkStudioPreviewKind::Embedded => "embedded",
+        WorkStudioPreviewKind::Capability => "capability",
+        WorkStudioPreviewKind::AgentEval => "agent-eval",
+        WorkStudioPreviewKind::RuntimeBoundary => "runtime-boundary",
+        WorkStudioPreviewKind::RuntimeDependencies => "runtime-dependencies",
+        WorkStudioPreviewKind::PermissionReview => "permission-review",
+        WorkStudioPreviewKind::UserPathRehearsal => "user-path-rehearsal",
+        WorkStudioPreviewKind::ReleaseRehearsal => "release-rehearsal",
+    }
+}
+
+fn preview_source_label(source: WorkStudioPreviewSource) -> &'static str {
+    match source {
+        WorkStudioPreviewSource::RuntimeFact => "runtime-fact",
+        WorkStudioPreviewSource::RuntimeObservation => "runtime-observation",
+        WorkStudioPreviewSource::PreviewHarness => "preview-harness",
+        WorkStudioPreviewSource::FixRerun => "fix-rerun",
+        WorkStudioPreviewSource::ReleaseRehearsal => "release-rehearsal",
+    }
+}
+
+fn validation_issue_message(check: &WorkStudioFactCheck) -> String {
+    check
+        .detail
+        .as_deref()
+        .filter(|detail| !detail.trim().is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("Validation check '{}' is {:?}", check.id, check.status))
+}
+
+fn validation_issue_category(check: &WorkStudioFactCheck) -> String {
+    format!("validation:{}", check.id)
+}
+
+fn validation_issue_matches_target(
+    issue: &WorkStudioIssue,
+    validation_result: &WorkStudioValidationResult,
+) -> bool {
+    match validation_result.target_kind {
+        WorkStudioValidationTargetKind::ProductApp => {
+            issue.product_app_id.as_deref() == validation_result.app_id.as_deref()
+        }
+        WorkStudioValidationTargetKind::Component => {
+            issue.component_id.as_deref() == validation_result.component_id.as_deref()
+        }
+    }
+}
+
+fn reopen_existing_studio_issue(record: &mut WorkRecord, issue_id: &str) {
+    if let Some(existing) = record
+        .studio_issues
+        .iter_mut()
+        .find(|existing| existing.id == issue_id)
+    {
+        existing.status = WorkStudioIssueStatus::Open;
+        existing.resolved_at = None;
+    }
+}
+
+fn studio_issue_severity_for_log(level: WorkRuntimeLogLevel) -> Option<WorkRuntimeIssueSeverity> {
+    match level {
+        WorkRuntimeLogLevel::Error => Some(WorkRuntimeIssueSeverity::Fatal),
+        WorkRuntimeLogLevel::Warn => Some(WorkRuntimeIssueSeverity::Warning),
+        WorkRuntimeLogLevel::Debug | WorkRuntimeLogLevel::Info => None,
+    }
+}
+
+fn studio_preview_result_id(runtime_instance_id: &str) -> String {
+    format!("preview:{runtime_instance_id}")
+}
+
+fn release_rehearsal_preview_result_id(work_id: &WorkId) -> String {
+    format!("preview:release-rehearsal:{work_id}")
+}
+
+fn capability_preview_result_id(validation_result: &WorkStudioValidationResult) -> String {
+    format!(
+        "preview:capability:{}",
+        compact_id_part(&validation_target_key(validation_result))
+    )
+}
+
+fn studio_issue_id(parts: &[&str]) -> String {
+    format!(
+        "studio-issue:{}",
+        parts
+            .iter()
+            .map(|part| compact_id_part(part))
+            .collect::<Vec<_>>()
+            .join(":")
+    )
+}
+
+fn compact_id_part(value: &str) -> String {
+    let mut part = value
+        .trim()
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.' | ':') {
+                ch
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>();
+    while part.contains("--") {
+        part = part.replace("--", "-");
+    }
+    let part = part.trim_matches('-').chars().take(96).collect::<String>();
+    if part.is_empty() {
+        "unknown".to_string()
+    } else {
+        part
+    }
+}
+
+fn runtime_issue_severity_str(severity: WorkRuntimeIssueSeverity) -> &'static str {
+    match severity {
+        WorkRuntimeIssueSeverity::Fatal => "fatal",
+        WorkRuntimeIssueSeverity::Warning => "warning",
+        WorkRuntimeIssueSeverity::Noise => "noise",
+    }
+}
+
+fn runtime_log_level_str(level: WorkRuntimeLogLevel) -> &'static str {
+    match level {
+        WorkRuntimeLogLevel::Debug => "debug",
+        WorkRuntimeLogLevel::Info => "info",
+        WorkRuntimeLogLevel::Warn => "warn",
+        WorkRuntimeLogLevel::Error => "error",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
 
     use async_trait::async_trait;
 
+    use super::super::execution_graph::{
+        WorkRuntimeInstanceStatus, WorkRuntimeIssueSeverity, WorkRuntimeLogLevel,
+        WorkStudioFactStatus, WorkStudioIssueStatus,
+    };
+    use super::super::record::ArtifactRuntimeProvenance;
     use super::*;
     use crate::agentic_os::work::store::MemoryWorkStore;
     use crate::agentic_os::work::subject::WorkAppRelationRole;
+    use crate::app_platform::list_installed_product_apps;
 
     #[derive(Debug)]
     struct TestRuntimeBridge;
@@ -1372,6 +3725,31 @@ mod tests {
             Arc::new(MemoryWorkStore::new()),
             Arc::new(TestRuntimeBridge),
         )
+    }
+
+    fn passed_runtime_preview_checks() -> Vec<WorkStudioFactCheck> {
+        vec![
+            WorkStudioFactCheck {
+                id: "runtimeReady".to_string(),
+                status: WorkStudioFactStatus::Passed,
+                detail: Some("Runtime bridge reported ready.".to_string()),
+            },
+            WorkStudioFactCheck {
+                id: "visualRoot".to_string(),
+                status: WorkStudioFactStatus::Passed,
+                detail: Some("Runtime DOM reported visible elements.".to_string()),
+            },
+            WorkStudioFactCheck {
+                id: "viewport".to_string(),
+                status: WorkStudioFactStatus::Passed,
+                detail: Some("Runtime viewport reported non-zero size.".to_string()),
+            },
+            WorkStudioFactCheck {
+                id: "interactionSurface".to_string(),
+                status: WorkStudioFactStatus::Passed,
+                detail: Some("Runtime interaction surface was verified.".to_string()),
+            },
+        ]
     }
 
     #[tokio::test]
@@ -1609,7 +3987,7 @@ mod tests {
                 primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
                 primary_surface: Some(WorkSurfaceRef::ApplicationSurface {
                     product_app_id: "product-app-1".to_string(),
-                    surface_component_id: "product-app-1-surface".to_string(),
+                    product_app_surface_id: "product-app-1-surface".to_string(),
                     surface_id: "primary".to_string(),
                 }),
                 assignment: None,
@@ -1656,7 +4034,7 @@ mod tests {
                 primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
                 primary_surface: Some(WorkSurfaceRef::ApplicationSurface {
                     product_app_id: "product-app-1".to_string(),
-                    surface_component_id: "product-app-1-surface".to_string(),
+                    product_app_surface_id: "product-app-1-surface".to_string(),
                     surface_id: "primary".to_string(),
                 }),
                 assignment: Some(WorkAssignmentRef {
@@ -1689,12 +4067,28 @@ mod tests {
             first.work.primary_surface,
             WorkSurfaceRef::ApplicationSurface {
                 ref product_app_id,
-                ref surface_component_id,
+                ref product_app_surface_id,
                 ref surface_id,
             } if product_app_id == "product-app-1"
-                && surface_component_id == "product-app-1-surface"
+                && product_app_surface_id == "product-app-1-surface"
                 && surface_id == "primary"
         ));
+        assert_eq!(first.work.runtime_instances.len(), 1);
+        assert_eq!(first.work.status, WorkStatus::Active);
+        assert!(first.work.execution_bindings.is_empty());
+        assert_eq!(
+            first.work.runtime_instances[0].product_app_id,
+            "product-app-1"
+        );
+        assert_eq!(first.work.runtime_instances[0].app_version, "1.0.0");
+        assert_eq!(
+            first.work.runtime_instances[0].component_lock_digest,
+            "sha256:test-lock"
+        );
+        assert_eq!(
+            first.work.runtime_instances[0].product_app_surface_id,
+            "product-app-1-surface"
+        );
         assert!(first.work.references_app(&app));
         assert!(first.work.app_refs.iter().any(|relation| {
             relation.app == app && relation.role == WorkAppRelationRole::Subject
@@ -1714,7 +4108,7 @@ mod tests {
                 primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
                 primary_surface: Some(WorkSurfaceRef::ApplicationSurface {
                     product_app_id: "product-app-1".to_string(),
-                    surface_component_id: "product-app-1-surface".to_string(),
+                    product_app_surface_id: "product-app-1-surface".to_string(),
                     surface_id: "primary".to_string(),
                 }),
                 assignment: None,
@@ -1725,6 +4119,2468 @@ mod tests {
 
         assert!(!second.created);
         assert_eq!(second.work.id, first.work.id);
+    }
+
+    #[tokio::test]
+    async fn resolve_component_work_creates_and_reuses_component_subject_work() {
+        let service = service();
+        let component = WorkComponentRef::component(
+            "agent-1",
+            "agent",
+            "1.0.0",
+            "D:/workspace/project/.sparo_os/components/agent-1",
+        );
+        let first = service
+            .resolve_component_work(ResolveComponentWorkRequest {
+                component: component.clone(),
+                intent: WorkComponentIntent::Develop,
+                title: "Agent Component package".to_string(),
+                objective: "Develop the agent Component package".to_string(),
+                scope: WorkScope::Workspace {
+                    workspace_path: "D:/workspace/project".to_string(),
+                },
+                visibility: WorkVisibility::Secondary,
+                primary_surface_policy: PrimarySurfacePolicy::WorkCenter,
+                assignment: None,
+            })
+            .await
+            .expect("resolve component work");
+
+        assert!(first.created);
+        assert_eq!(first.work.kind, WorkKind::AppWorkflow);
+        assert_eq!(first.work.visibility, WorkVisibility::Secondary);
+        assert!(matches!(
+            first.work.primary_surface,
+            WorkSurfaceRef::WorkCenter { ref work_id } if work_id == &first.work.id
+        ));
+        assert_eq!(
+            first.work.subject,
+            WorkSubject::Component {
+                component: component.clone(),
+                intent: WorkComponentIntent::Develop,
+            }
+        );
+        assert!(first.work.references_component(&component));
+        assert!(first.work.app_refs.is_empty());
+
+        let second = service
+            .resolve_component_work(ResolveComponentWorkRequest {
+                component: component.clone(),
+                intent: WorkComponentIntent::Develop,
+                title: "Different title".to_string(),
+                objective: "Different objective".to_string(),
+                scope: WorkScope::Workspace {
+                    workspace_path: "D:/workspace/project".to_string(),
+                },
+                visibility: WorkVisibility::Primary,
+                primary_surface_policy: PrimarySurfacePolicy::WorkCenter,
+                assignment: None,
+            })
+            .await
+            .expect("reuse component work");
+
+        assert!(!second.created);
+        assert_eq!(second.work.id, first.work.id);
+
+        let review = service
+            .resolve_component_work(ResolveComponentWorkRequest {
+                component,
+                intent: WorkComponentIntent::Review,
+                title: "Review Agent Component".to_string(),
+                objective: "Review the agent Component package".to_string(),
+                scope: WorkScope::Workspace {
+                    workspace_path: "D:/workspace/project".to_string(),
+                },
+                visibility: WorkVisibility::Secondary,
+                primary_surface_policy: PrimarySurfacePolicy::WorkCenter,
+                assignment: None,
+            })
+            .await
+            .expect("resolve review component work");
+
+        assert!(review.created);
+        assert_ne!(review.work.id, first.work.id);
+    }
+
+    #[tokio::test]
+    async fn execution_graph_uses_work_owned_runtime_facts() {
+        let service = service();
+        let app = WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:test-lock");
+        let response = service
+            .resolve_app_work(ResolveAppWorkRequest {
+                app: app.clone(),
+                intent: WorkAppIntent::Run,
+                title: "Run Expense Tracker".to_string(),
+                objective: "Use the Product App".to_string(),
+                scope: WorkScope::System,
+                visibility: WorkVisibility::Primary,
+                primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
+                primary_surface: Some(WorkSurfaceRef::ApplicationSurface {
+                    product_app_id: "product-app-1".to_string(),
+                    product_app_surface_id: "product-app-1-surface".to_string(),
+                    surface_id: "primary".to_string(),
+                }),
+                assignment: None,
+                app_refs: Vec::new(),
+            })
+            .await
+            .expect("resolve app work");
+
+        let work_id = response.work.id;
+        let runtime_instance_id = response.work.runtime_instances[0].id.clone();
+        service
+            .record_runtime_run(
+                &work_id,
+                WorkRuntimeRun {
+                    run_id: "run-1".to_string(),
+                    runtime_instance_id: runtime_instance_id.clone(),
+                    component_id: "product-app-1-surface".to_string(),
+                    component_kind: "surface".to_string(),
+                    action: "render".to_string(),
+                    status: WorkRuntimeRunStatus::Completed,
+                    started_at: 100,
+                    updated_at: 120,
+                    artifact_count: 1,
+                    event_count: 3,
+                    error: None,
+                },
+            )
+            .await
+            .expect("record runtime run");
+        service
+            .bind_artifact(
+                &work_id,
+                ArtifactRef {
+                    id: "artifact-1".to_string(),
+                    label: Some("Preview".to_string()),
+                    uri: Some("file:///preview.png".to_string()),
+                    runtime_provenance: Some(ArtifactRuntimeProvenance {
+                        runtime_instance_id: runtime_instance_id.clone(),
+                        run_id: "run-1".to_string(),
+                        component_id: "product-app-1-surface".to_string(),
+                        action: "render".to_string(),
+                    }),
+                },
+            )
+            .await
+            .expect("bind artifact");
+        service
+            .record_runtime_issue(
+                &work_id,
+                WorkRuntimeIssue {
+                    runtime_instance_id: runtime_instance_id.clone(),
+                    product_app_id: "product-app-1".to_string(),
+                    component_id: "product-app-1-surface".to_string(),
+                    severity: WorkRuntimeIssueSeverity::Warning,
+                    message: "Missing optional panel".to_string(),
+                    source: Some("surface".to_string()),
+                    category: Some("diagnostics".to_string()),
+                    timestamp_ms: 130,
+                },
+            )
+            .await
+            .expect("record runtime issue");
+        service
+            .record_runtime_log(
+                &work_id,
+                WorkRuntimeLog {
+                    runtime_instance_id: runtime_instance_id.clone(),
+                    product_app_id: "product-app-1".to_string(),
+                    component_id: "product-app-1-surface".to_string(),
+                    level: WorkRuntimeLogLevel::Warn,
+                    category: "runtime".to_string(),
+                    message: "Panel fallback used".to_string(),
+                    source: Some("surface".to_string()),
+                    timestamp_ms: 140,
+                },
+            )
+            .await
+            .expect("record runtime log");
+
+        let graph = service.execution_graph(&work_id).await.expect("graph");
+        assert_eq!(graph.summary.runtime_instance_count, 1);
+        assert_eq!(graph.summary.runtime_run_count, 1);
+        assert_eq!(graph.summary.artifact_count, 1);
+        assert_eq!(graph.summary.issue_count, 1);
+        assert_eq!(graph.summary.warning_count, 2);
+        assert!(graph
+            .summary
+            .last_activity_at
+            .is_some_and(|value| value >= 140));
+        assert_eq!(
+            graph.runtime_instances[0].status,
+            WorkRuntimeInstanceStatus::Completed
+        );
+        assert_eq!(graph.runtime_instances[0].runs[0].run_id, "run-1");
+        assert_eq!(
+            graph.runtime_instances[0].artifacts[0]
+                .runtime_instance_id
+                .as_deref(),
+            Some(runtime_instance_id.as_str())
+        );
+        assert_eq!(graph.studio_issues.len(), 2);
+        assert!(graph
+            .studio_issues
+            .iter()
+            .all(|issue| issue.status == WorkStudioIssueStatus::Open));
+        assert_eq!(graph.studio_preview_results.len(), 1);
+        assert_eq!(
+            graph.studio_preview_results[0].id,
+            format!("preview:{runtime_instance_id}")
+        );
+        assert_eq!(
+            graph.studio_preview_results[0].status,
+            WorkStudioFactStatus::Warning
+        );
+        assert_eq!(graph.studio_preview_results[0].warning_issue_count, 2);
+
+        for issue_id in graph
+            .studio_issues
+            .iter()
+            .map(|issue| issue.id.clone())
+            .collect::<Vec<_>>()
+        {
+            service
+                .update_studio_issue_status(&work_id, &issue_id, WorkStudioIssueStatus::Fixed)
+                .await
+                .expect("mark studio issue fixed");
+        }
+        let graph = service.execution_graph(&work_id).await.expect("graph");
+        assert!(graph
+            .studio_issues
+            .iter()
+            .all(|issue| issue.status == WorkStudioIssueStatus::Fixed));
+        assert_eq!(
+            graph.studio_preview_results[0].status,
+            WorkStudioFactStatus::Ready
+        );
+        assert_eq!(graph.studio_preview_results[0].issue_count, 0);
+    }
+
+    #[tokio::test]
+    async fn studio_validation_result_records_fact_and_resolves_validation_issues() {
+        let app_ref = WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:lock");
+        let service = service();
+        let work = service
+            .create(CreateWorkRequest {
+                kind: WorkKind::AppWorkflow,
+                title: "Product App development".to_string(),
+                objective: "Develop Product App".to_string(),
+                subject: WorkSubject::App {
+                    app: app_ref,
+                    intent: WorkAppIntent::Develop,
+                },
+                app_refs: Vec::new(),
+                scope: WorkScope::System,
+                visibility: WorkVisibility::Primary,
+                primary_surface_policy: PrimarySurfacePolicy::WorkCenter,
+                primary_surface: None,
+                assignment: None,
+                title_state: None,
+                delegation: None,
+            })
+            .await
+            .expect("create work");
+        let work_id = work.id.clone();
+
+        service
+            .record_studio_validation_result(
+                &work_id,
+                WorkStudioValidationResult {
+                    id: "validation:product-app:product-app-1".to_string(),
+                    tool_name: "ValidateProductAppPackage".to_string(),
+                    target_kind: WorkStudioValidationTargetKind::ProductApp,
+                    status: WorkStudioFactStatus::Failed,
+                    work_id: work_id.clone(),
+                    app_id: Some("product-app-1".to_string()),
+                    component_id: None,
+                    component_kind: None,
+                    version: Some("1.0.0".to_string()),
+                    package_root: Some("product-app://product-app-1@1.0.0".to_string()),
+                    observed_at: 200,
+                    failed_count: 1,
+                    warning_count: 0,
+                    checks: vec![
+                        WorkStudioFactCheck {
+                            id: "package".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Package exists.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "releaseGate".to_string(),
+                            status: WorkStudioFactStatus::Failed,
+                            detail: Some("Release gate is blocked.".to_string()),
+                        },
+                    ],
+                },
+            )
+            .await
+            .expect("record validation result");
+
+        let graph = service.execution_graph(&work_id).await.expect("graph");
+        assert_eq!(graph.studio_validation_results.len(), 1);
+        assert_eq!(
+            graph.studio_validation_results[0].status,
+            WorkStudioFactStatus::Failed
+        );
+        assert_eq!(graph.studio_issues.len(), 1);
+        assert_eq!(
+            graph.studio_issues[0].origin,
+            WorkStudioIssueOrigin::Validation
+        );
+        assert_eq!(graph.studio_issues[0].status, WorkStudioIssueStatus::Open);
+        assert_eq!(
+            graph.studio_issues[0].category.as_deref(),
+            Some("validation:releaseGate")
+        );
+        let release_rehearsal = graph
+            .studio_preview_results
+            .iter()
+            .find(|preview| preview.kind == WorkStudioPreviewKind::ReleaseRehearsal)
+            .expect("release rehearsal preview result");
+        assert_eq!(release_rehearsal.status, WorkStudioFactStatus::Failed);
+        assert_eq!(
+            release_rehearsal.source,
+            WorkStudioPreviewSource::ReleaseRehearsal
+        );
+        assert_eq!(release_rehearsal.fatal_issue_count, 1);
+
+        service
+            .record_studio_validation_result(
+                &work_id,
+                WorkStudioValidationResult {
+                    id: "validation:product-app:product-app-1".to_string(),
+                    tool_name: "ValidateProductAppPackage".to_string(),
+                    target_kind: WorkStudioValidationTargetKind::ProductApp,
+                    status: WorkStudioFactStatus::Passed,
+                    work_id: work_id.clone(),
+                    app_id: Some("product-app-1".to_string()),
+                    component_id: None,
+                    component_kind: None,
+                    version: Some("1.0.0".to_string()),
+                    package_root: Some("product-app://product-app-1@1.0.0".to_string()),
+                    observed_at: 300,
+                    failed_count: 0,
+                    warning_count: 0,
+                    checks: vec![WorkStudioFactCheck {
+                        id: "releaseGate".to_string(),
+                        status: WorkStudioFactStatus::Passed,
+                        detail: Some("Release gate passed.".to_string()),
+                    }],
+                },
+            )
+            .await
+            .expect("record passing validation result");
+
+        let graph = service.execution_graph(&work_id).await.expect("graph");
+        assert_eq!(
+            graph.studio_validation_results[0].status,
+            WorkStudioFactStatus::Passed
+        );
+        assert_eq!(graph.studio_issues.len(), 1);
+        assert_eq!(graph.studio_issues[0].status, WorkStudioIssueStatus::Fixed);
+        assert!(graph.studio_issues[0].resolved_at.is_some());
+        let release_rehearsal = graph
+            .studio_preview_results
+            .iter()
+            .find(|preview| preview.kind == WorkStudioPreviewKind::ReleaseRehearsal)
+            .expect("release rehearsal preview result");
+        assert_eq!(release_rehearsal.status, WorkStudioFactStatus::NotVerified);
+    }
+
+    #[test]
+    fn release_readiness_harness_evidence_requires_runtime_observation_source() {
+        let work_id = WorkId::generate();
+        let mut preview = WorkStudioPreviewResult {
+            id: "preview:runtime-boundary:runtime-1".to_string(),
+            kind: WorkStudioPreviewKind::RuntimeBoundary,
+            status: WorkStudioFactStatus::Passed,
+            source: WorkStudioPreviewSource::PreviewHarness,
+            harness_mode: Some("runtime-boundary".to_string()),
+            trigger_turn_id: None,
+            detail: Some(
+                "Tool-level preview harness result should not satisfy release readiness."
+                    .to_string(),
+            ),
+            checks: vec![WorkStudioFactCheck {
+                id: "runtimeStorage".to_string(),
+                status: WorkStudioFactStatus::Passed,
+                detail: Some("Runtime storage passed.".to_string()),
+            }],
+            work_id,
+            runtime_instance_id: Some("runtime-1".to_string()),
+            product_app_id: Some("product-app-1".to_string()),
+            component_id: Some("surface-1".to_string()),
+            product_app_surface_id: Some("surface-1".to_string()),
+            surface_id: Some("primary".to_string()),
+            observed_at: 100,
+            issue_count: 0,
+            fatal_issue_count: 0,
+            warning_issue_count: 0,
+        };
+
+        assert!(!is_release_readiness_harness_evidence(&preview));
+
+        preview.source = WorkStudioPreviewSource::RuntimeObservation;
+        assert!(is_release_readiness_harness_evidence(&preview));
+    }
+
+    #[test]
+    fn component_runtime_readiness_preview_source_requires_strong_evidence() {
+        assert!(component_runtime_preview_source_is_strong(
+            "runtimeDependencies",
+            WorkStudioPreviewSource::RuntimeObservation
+        ));
+        assert!(!component_runtime_preview_source_is_strong(
+            "runtimeDependencies",
+            WorkStudioPreviewSource::PreviewHarness
+        ));
+        assert!(!component_runtime_preview_source_is_strong(
+            "runtimeDependencies",
+            WorkStudioPreviewSource::RuntimeFact
+        ));
+        assert!(component_runtime_preview_source_is_strong(
+            "agentEval",
+            WorkStudioPreviewSource::PreviewHarness
+        ));
+    }
+
+    #[tokio::test]
+    async fn component_validation_derives_capability_preview_result() {
+        let service = service();
+        let component = WorkComponentRef::component(
+            "shared-agent",
+            "agents",
+            "1.0.0",
+            "D:/workspace/project/.sparo_os/components/agents/shared-agent/1.0.0",
+        );
+        let response = service
+            .resolve_component_work(ResolveComponentWorkRequest {
+                component: component.clone(),
+                intent: WorkComponentIntent::Develop,
+                title: "Shared Agent Component package".to_string(),
+                objective: "Develop the shared agent Component package".to_string(),
+                scope: WorkScope::Workspace {
+                    workspace_path: "D:/workspace/project".to_string(),
+                },
+                visibility: WorkVisibility::Secondary,
+                primary_surface_policy: PrimarySurfacePolicy::WorkCenter,
+                assignment: None,
+            })
+            .await
+            .expect("resolve component work");
+        let work_id = response.work.id.clone();
+
+        service
+            .record_studio_validation_result(
+                &work_id,
+                WorkStudioValidationResult {
+                    id: "validation:component:agents:shared-agent".to_string(),
+                    tool_name: "ValidateComponentPackage".to_string(),
+                    target_kind: WorkStudioValidationTargetKind::Component,
+                    status: WorkStudioFactStatus::Warning,
+                    work_id: work_id.clone(),
+                    app_id: None,
+                    component_id: Some("shared-agent".to_string()),
+                    component_kind: Some("agents".to_string()),
+                    version: Some("1.0.0".to_string()),
+                    package_root: Some(component.package_root.clone()),
+                    observed_at: 250,
+                    failed_count: 0,
+                    warning_count: 1,
+                    checks: vec![
+                        WorkStudioFactCheck {
+                            id: "componentContract".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Contract exists.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "capabilities".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Capabilities are declared.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "agentEval".to_string(),
+                            status: WorkStudioFactStatus::Warning,
+                            detail: Some("Representative eval has not passed yet.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "consumerCompatibility".to_string(),
+                            status: WorkStudioFactStatus::Warning,
+                            detail: Some("No consumer app verified.".to_string()),
+                        },
+                    ],
+                },
+            )
+            .await
+            .expect("record component validation");
+
+        let graph = service.execution_graph(&work_id).await.expect("graph");
+        let capability_preview = graph
+            .studio_preview_results
+            .iter()
+            .find(|preview| preview.kind == WorkStudioPreviewKind::Capability)
+            .expect("capability preview result");
+        assert_eq!(capability_preview.status, WorkStudioFactStatus::Warning);
+        assert_eq!(
+            capability_preview.source,
+            WorkStudioPreviewSource::PreviewHarness
+        );
+        assert_eq!(
+            capability_preview.harness_mode.as_deref(),
+            Some("capability")
+        );
+        assert_eq!(capability_preview.observed_at, 250);
+        assert_eq!(capability_preview.issue_count, 1);
+        assert_eq!(capability_preview.warning_issue_count, 1);
+        assert_eq!(capability_preview.fatal_issue_count, 0);
+        assert!(capability_preview
+            .detail
+            .as_deref()
+            .is_some_and(|detail| detail.contains("agentEval")));
+        assert_eq!(
+            capability_preview
+                .checks
+                .iter()
+                .map(|check| check.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["componentContract", "capabilities", "agentEval"]
+        );
+        assert!(graph.studio_issues.iter().any(|issue| {
+            issue.category.as_deref() == Some("validation:agentEval")
+                && issue.origin == WorkStudioIssueOrigin::Validation
+        }));
+        assert!(graph
+            .studio_issues
+            .iter()
+            .all(
+                |issue| issue.category.as_deref() != Some("validation:consumerCompatibility")
+                    || issue.origin == WorkStudioIssueOrigin::Validation
+            ));
+
+        service
+            .record_studio_validation_result(
+                &work_id,
+                WorkStudioValidationResult {
+                    id: "validation:component:agents:shared-agent".to_string(),
+                    tool_name: "ValidateComponentPackage".to_string(),
+                    target_kind: WorkStudioValidationTargetKind::Component,
+                    status: WorkStudioFactStatus::Passed,
+                    work_id: work_id.clone(),
+                    app_id: None,
+                    component_id: Some("shared-agent".to_string()),
+                    component_kind: Some("agents".to_string()),
+                    version: Some("1.0.0".to_string()),
+                    package_root: Some(component.package_root),
+                    observed_at: 300,
+                    failed_count: 0,
+                    warning_count: 0,
+                    checks: vec![
+                        WorkStudioFactCheck {
+                            id: "componentContract".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Contract exists.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "capabilities".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Capabilities are declared.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "dependencies".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Only shared dependencies are declared.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "implementation".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("implementationRef resolves.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "consumerCompatibility".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Consumer Product App lock validated.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "permissions".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Permission boundary passed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "data".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Data boundary passed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "releaseGate".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Component validation release gate passed.".to_string()),
+                        },
+                    ],
+                },
+            )
+            .await
+            .expect("record passing component validation");
+
+        let graph = service.execution_graph(&work_id).await.expect("graph");
+        let capability_preview = graph
+            .studio_preview_results
+            .iter()
+            .find(|preview| preview.kind == WorkStudioPreviewKind::Capability)
+            .expect("capability preview result");
+        assert_eq!(capability_preview.status, WorkStudioFactStatus::Passed);
+        assert_eq!(capability_preview.issue_count, 0);
+        let release_rehearsal = graph
+            .studio_preview_results
+            .iter()
+            .find(|preview| preview.kind == WorkStudioPreviewKind::ReleaseRehearsal)
+            .expect("release rehearsal preview result");
+        assert_eq!(release_rehearsal.status, WorkStudioFactStatus::NotVerified);
+        assert!(release_rehearsal
+            .detail
+            .as_deref()
+            .is_some_and(|detail| detail.contains("agentEval")));
+        assert!(release_rehearsal.checks.iter().any(|check| {
+            check.id == "consumerCompatibility" && check.status == WorkStudioFactStatus::NotVerified
+        }));
+        assert_eq!(
+            release_rehearsal
+                .checks
+                .iter()
+                .map(|check| check.id.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "validation",
+                "preview",
+                "issues",
+                "componentContract",
+                "capabilities",
+                "dependencies",
+                "implementation",
+                "consumerCompatibility",
+                "permissions",
+                "data",
+                "dataSummary",
+                "runtimeDependencies",
+                "agentEval",
+                "releaseGate"
+            ]
+        );
+        assert!(graph
+            .studio_issues
+            .iter()
+            .all(|issue| issue.status == WorkStudioIssueStatus::Fixed));
+    }
+
+    #[tokio::test]
+    async fn component_release_rehearsal_passes_with_component_readiness_evidence() {
+        let service = service();
+        let component = WorkComponentRef::component(
+            "shared-agent",
+            "agents",
+            "1.0.0",
+            "D:/workspace/project/.sparo_os/components/agents/shared-agent/1.0.0",
+        );
+        let response = service
+            .resolve_component_work(ResolveComponentWorkRequest {
+                component: component.clone(),
+                intent: WorkComponentIntent::Develop,
+                title: "Shared Agent Component package".to_string(),
+                objective: "Release the shared agent Component package".to_string(),
+                scope: WorkScope::Workspace {
+                    workspace_path: "D:/workspace/project".to_string(),
+                },
+                visibility: WorkVisibility::Secondary,
+                primary_surface_policy: PrimarySurfacePolicy::WorkCenter,
+                assignment: None,
+            })
+            .await
+            .expect("resolve component work");
+        let work_id = response.work.id.clone();
+
+        service
+            .record_studio_validation_result(
+                &work_id,
+                WorkStudioValidationResult {
+                    id: "validation:component:agents:shared-agent".to_string(),
+                    tool_name: "ValidateComponentPackage".to_string(),
+                    target_kind: WorkStudioValidationTargetKind::Component,
+                    status: WorkStudioFactStatus::Passed,
+                    work_id: work_id.clone(),
+                    app_id: None,
+                    component_id: Some("shared-agent".to_string()),
+                    component_kind: Some("agents".to_string()),
+                    version: Some("1.0.0".to_string()),
+                    package_root: Some(component.package_root),
+                    observed_at: 200,
+                    failed_count: 0,
+                    warning_count: 0,
+                    checks: vec![
+                        WorkStudioFactCheck {
+                            id: "componentContract".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Contract exists.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "capabilities".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Capabilities are declared.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "dependencies".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Only shared dependencies are declared.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "implementation".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("implementationRef resolves.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "consumerCompatibility".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Consumer Product App lock validated.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "permissions".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Permission boundary passed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "data".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Data boundary passed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "releaseGate".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Component validation release gate passed.".to_string()),
+                        },
+                    ],
+                },
+            )
+            .await
+            .expect("record component validation");
+
+        service
+            .record_studio_preview_result(
+                &work_id,
+                WorkStudioPreviewResult {
+                    id: "preview:consumer-compatibility:shared-agent".to_string(),
+                    kind: WorkStudioPreviewKind::Capability,
+                    status: WorkStudioFactStatus::Passed,
+                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    harness_mode: Some("consumer-compatibility".to_string()),
+                    trigger_turn_id: None,
+                    detail: Some(
+                        "Consumer Product App loaded shared Component at runtime.".to_string(),
+                    ),
+                    checks: vec![WorkStudioFactCheck {
+                        id: "consumerCompatibility".to_string(),
+                        status: WorkStudioFactStatus::Passed,
+                        detail: Some(
+                            "Consuming Product App runtime-ready and primary preview checks passed."
+                                .to_string(),
+                        ),
+                    }],
+                    work_id: work_id.clone(),
+                    runtime_instance_id: None,
+                    product_app_id: Some("consumer-app".to_string()),
+                    component_id: Some("shared-agent".to_string()),
+                    product_app_surface_id: Some("consumer-surface".to_string()),
+                    surface_id: Some("primary".to_string()),
+                    observed_at: 290,
+                    issue_count: 0,
+                    fatal_issue_count: 0,
+                    warning_issue_count: 0,
+                },
+            )
+            .await
+            .expect("record consumer compatibility runtime evidence");
+
+        service
+            .record_studio_preview_result(
+                &work_id,
+                WorkStudioPreviewResult {
+                    id: "preview:component-runtime-boundary:shared-agent".to_string(),
+                    kind: WorkStudioPreviewKind::RuntimeBoundary,
+                    status: WorkStudioFactStatus::Passed,
+                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    harness_mode: Some("runtime-boundary".to_string()),
+                    trigger_turn_id: None,
+                    detail: Some(
+                        "Component consumer runtime boundary evidence passed.".to_string(),
+                    ),
+                    checks: vec![
+                        WorkStudioFactCheck {
+                            id: "data".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Consumer runtime data boundary passed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "dataSummary".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Consumer runtime data/share summary passed.".to_string()),
+                        },
+                    ],
+                    work_id: work_id.clone(),
+                    runtime_instance_id: None,
+                    product_app_id: None,
+                    component_id: Some("shared-agent".to_string()),
+                    product_app_surface_id: Some("shared-agent".to_string()),
+                    surface_id: None,
+                    observed_at: 300,
+                    issue_count: 0,
+                    fatal_issue_count: 0,
+                    warning_issue_count: 0,
+                },
+            )
+            .await
+            .expect("record component runtime boundary evidence");
+
+        service
+            .record_studio_preview_result(
+                &work_id,
+                WorkStudioPreviewResult {
+                    id: "preview:component-release-evidence:shared-agent".to_string(),
+                    kind: WorkStudioPreviewKind::RuntimeDependencies,
+                    status: WorkStudioFactStatus::Passed,
+                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    harness_mode: Some("runtime-dependencies".to_string()),
+                    trigger_turn_id: None,
+                    detail: Some("Component release evidence passed.".to_string()),
+                    checks: vec![WorkStudioFactCheck {
+                        id: "runtimeDependencies".to_string(),
+                        status: WorkStudioFactStatus::Passed,
+                        detail: Some("Consumer runtime dependencies are current.".to_string()),
+                    }],
+                    work_id: work_id.clone(),
+                    runtime_instance_id: None,
+                    product_app_id: None,
+                    component_id: Some("shared-agent".to_string()),
+                    product_app_surface_id: Some("shared-agent".to_string()),
+                    surface_id: None,
+                    observed_at: 305,
+                    issue_count: 0,
+                    fatal_issue_count: 0,
+                    warning_issue_count: 0,
+                },
+            )
+            .await
+            .expect("record component release evidence");
+
+        service
+            .record_studio_preview_result(
+                &work_id,
+                WorkStudioPreviewResult {
+                    id: "preview:agent-eval:shared-agent".to_string(),
+                    kind: WorkStudioPreviewKind::AgentEval,
+                    status: WorkStudioFactStatus::Passed,
+                    source: WorkStudioPreviewSource::PreviewHarness,
+                    harness_mode: Some("agent-eval".to_string()),
+                    trigger_turn_id: None,
+                    detail: Some("Component Agent Eval evidence passed.".to_string()),
+                    checks: vec![WorkStudioFactCheck {
+                        id: "agentEval".to_string(),
+                        status: WorkStudioFactStatus::Passed,
+                        detail: Some("Representative Component eval passed.".to_string()),
+                    }],
+                    work_id: work_id.clone(),
+                    runtime_instance_id: None,
+                    product_app_id: None,
+                    component_id: Some("shared-agent".to_string()),
+                    product_app_surface_id: Some("shared-agent".to_string()),
+                    surface_id: None,
+                    observed_at: 310,
+                    issue_count: 0,
+                    fatal_issue_count: 0,
+                    warning_issue_count: 0,
+                },
+            )
+            .await
+            .expect("record component agent eval evidence");
+
+        let graph = service.execution_graph(&work_id).await.expect("graph");
+        let release_rehearsal = graph
+            .studio_preview_results
+            .iter()
+            .find(|preview| {
+                preview.kind == WorkStudioPreviewKind::ReleaseRehearsal
+                    && preview.source == WorkStudioPreviewSource::ReleaseRehearsal
+            })
+            .expect("release rehearsal preview result");
+        assert_eq!(release_rehearsal.status, WorkStudioFactStatus::Passed);
+        assert_eq!(
+            release_rehearsal
+                .checks
+                .iter()
+                .map(|check| (check.id.as_str(), check.status))
+                .collect::<Vec<_>>(),
+            vec![
+                ("validation", WorkStudioFactStatus::Passed),
+                ("preview", WorkStudioFactStatus::Passed),
+                ("issues", WorkStudioFactStatus::Passed),
+                ("componentContract", WorkStudioFactStatus::Passed),
+                ("capabilities", WorkStudioFactStatus::Passed),
+                ("dependencies", WorkStudioFactStatus::Passed),
+                ("implementation", WorkStudioFactStatus::Passed),
+                ("consumerCompatibility", WorkStudioFactStatus::Passed),
+                ("permissions", WorkStudioFactStatus::Passed),
+                ("data", WorkStudioFactStatus::Passed),
+                ("dataSummary", WorkStudioFactStatus::Passed),
+                ("runtimeDependencies", WorkStudioFactStatus::Passed),
+                ("agentEval", WorkStudioFactStatus::Passed),
+                ("releaseGate", WorkStudioFactStatus::Passed),
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn release_rehearsal_passes_after_validation_and_preview_are_clean() {
+        let service = service();
+        let app = WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:test-lock");
+        let response = service
+            .resolve_app_work(ResolveAppWorkRequest {
+                app,
+                intent: WorkAppIntent::Develop,
+                title: "Product App Studio".to_string(),
+                objective: "Verify release rehearsal".to_string(),
+                scope: WorkScope::System,
+                visibility: WorkVisibility::Secondary,
+                primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
+                primary_surface: Some(WorkSurfaceRef::ApplicationSurface {
+                    product_app_id: "product-app-1".to_string(),
+                    product_app_surface_id: "product-app-1-surface".to_string(),
+                    surface_id: "primary".to_string(),
+                }),
+                assignment: None,
+                app_refs: Vec::new(),
+            })
+            .await
+            .expect("resolve app work");
+        let work_id = response.work.id.clone();
+        let runtime_instance_id = response.work.runtime_instances[0].id.clone();
+
+        service
+            .record_studio_validation_result(
+                &work_id,
+                WorkStudioValidationResult {
+                    id: "validation:product-app:product-app-1".to_string(),
+                    tool_name: "ValidateProductAppPackage".to_string(),
+                    target_kind: WorkStudioValidationTargetKind::ProductApp,
+                    status: WorkStudioFactStatus::Passed,
+                    work_id: work_id.clone(),
+                    app_id: Some("product-app-1".to_string()),
+                    component_id: None,
+                    component_kind: None,
+                    version: Some("1.0.0".to_string()),
+                    package_root: Some("product-app://product-app-1@1.0.0".to_string()),
+                    observed_at: 200,
+                    failed_count: 0,
+                    warning_count: 0,
+                    checks: vec![
+                        WorkStudioFactCheck {
+                            id: "package".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Package exists.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "data".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some(
+                                "1 work object kind declares the Product App data boundary."
+                                    .to_string(),
+                            ),
+                        },
+                        WorkStudioFactCheck {
+                            id: "dataLifecycle".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some(
+                                "Data lifecycle policy declares retention and deletion."
+                                    .to_string(),
+                            ),
+                        },
+                        WorkStudioFactCheck {
+                            id: "releaseGate".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Release gate passed.".to_string()),
+                        },
+                    ],
+                },
+            )
+            .await
+            .expect("record validation result");
+
+        service
+            .record_studio_preview_result(
+                &work_id,
+                WorkStudioPreviewResult {
+                    id: format!("preview:{runtime_instance_id}"),
+                    kind: WorkStudioPreviewKind::ProductAppPreview,
+                    status: WorkStudioFactStatus::Passed,
+                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    harness_mode: Some("product-app-preview".to_string()),
+                    trigger_turn_id: None,
+                    detail: Some("Preview iframe loaded.".to_string()),
+                    checks: passed_runtime_preview_checks(),
+                    work_id: work_id.clone(),
+                    runtime_instance_id: Some(runtime_instance_id.clone()),
+                    product_app_id: Some("product-app-1".to_string()),
+                    component_id: Some("product-app-1-surface".to_string()),
+                    product_app_surface_id: Some("product-app-1-surface".to_string()),
+                    surface_id: Some("primary".to_string()),
+                    observed_at: 300,
+                    issue_count: 0,
+                    fatal_issue_count: 0,
+                    warning_issue_count: 0,
+                },
+            )
+            .await
+            .expect("record preview result");
+
+        let graph = service.execution_graph(&work_id).await.expect("graph");
+        let release_rehearsal = graph
+            .studio_preview_results
+            .iter()
+            .find(|preview| {
+                preview.kind == WorkStudioPreviewKind::ReleaseRehearsal
+                    && preview.source == WorkStudioPreviewSource::ReleaseRehearsal
+            })
+            .expect("release rehearsal preview result");
+        assert_eq!(release_rehearsal.status, WorkStudioFactStatus::NotVerified);
+        assert!(release_rehearsal
+            .checks
+            .iter()
+            .any(|check| check.id == "criticalPath"
+                && check.status == WorkStudioFactStatus::NotVerified));
+        assert!(release_rehearsal
+            .checks
+            .iter()
+            .any(|check| check.id == "data" && check.status == WorkStudioFactStatus::NotVerified));
+        assert!(release_rehearsal.checks.iter().any(|check| {
+            check.id == "dataLifecycle" && check.status == WorkStudioFactStatus::NotVerified
+        }));
+        assert!(release_rehearsal.checks.iter().any(|check| {
+            check.id == "runtimeStorage" && check.status == WorkStudioFactStatus::NotVerified
+        }));
+
+        service
+            .record_studio_preview_result(
+                &work_id,
+                WorkStudioPreviewResult {
+                    id: "preview:release-rehearsal:product-app-1".to_string(),
+                    kind: WorkStudioPreviewKind::ReleaseRehearsal,
+                    status: WorkStudioFactStatus::Passed,
+                    source: WorkStudioPreviewSource::PreviewHarness,
+                    harness_mode: Some("release-rehearsal".to_string()),
+                    trigger_turn_id: None,
+                    detail: Some("Release rehearsal package evidence passed.".to_string()),
+                    checks: vec![
+                        WorkStudioFactCheck {
+                            id: "criticalPath".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Critical path rehearsal passed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "permissions".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Permission boundary passed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "data".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Data boundary passed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "dataLifecycle".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Data lifecycle policy passed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "dataSummary".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Data summary passed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "runtimeStorage".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Runtime storage scope passed.".to_string()),
+                        },
+                    ],
+                    work_id: work_id.clone(),
+                    runtime_instance_id: None,
+                    product_app_id: Some("product-app-1".to_string()),
+                    component_id: None,
+                    product_app_surface_id: None,
+                    surface_id: None,
+                    observed_at: 400,
+                    issue_count: 0,
+                    fatal_issue_count: 0,
+                    warning_issue_count: 0,
+                },
+            )
+            .await
+            .expect("record release rehearsal package evidence");
+
+        service
+            .record_studio_preview_result(
+                &work_id,
+                WorkStudioPreviewResult {
+                    id: "preview:agent-eval:product-app-1".to_string(),
+                    kind: WorkStudioPreviewKind::AgentEval,
+                    status: WorkStudioFactStatus::Passed,
+                    source: WorkStudioPreviewSource::PreviewHarness,
+                    harness_mode: Some("agent-eval".to_string()),
+                    trigger_turn_id: None,
+                    detail: Some("Agent Eval evidence passed.".to_string()),
+                    checks: vec![WorkStudioFactCheck {
+                        id: "agentEval".to_string(),
+                        status: WorkStudioFactStatus::Passed,
+                        detail: Some("Agent eval passed.".to_string()),
+                    }],
+                    work_id: work_id.clone(),
+                    runtime_instance_id: None,
+                    product_app_id: Some("product-app-1".to_string()),
+                    component_id: None,
+                    product_app_surface_id: None,
+                    surface_id: None,
+                    observed_at: 410,
+                    issue_count: 0,
+                    fatal_issue_count: 0,
+                    warning_issue_count: 0,
+                },
+            )
+            .await
+            .expect("record agent eval evidence");
+
+        service
+            .record_studio_preview_result(
+                &work_id,
+                WorkStudioPreviewResult {
+                    id: "preview:runtime-boundary:product-app-1".to_string(),
+                    kind: WorkStudioPreviewKind::RuntimeBoundary,
+                    status: WorkStudioFactStatus::Passed,
+                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    harness_mode: Some("runtime-boundary".to_string()),
+                    trigger_turn_id: None,
+                    detail: Some("Runtime boundary evidence passed.".to_string()),
+                    checks: vec![
+                        WorkStudioFactCheck {
+                            id: "runtimeStorage".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Runtime storage scope resolved.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "permissions".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Runtime permission boundary passed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "data".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Runtime data boundary passed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "dataLifecycle".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some(
+                                "Runtime retention and share-impact evidence passed.".to_string(),
+                            ),
+                        },
+                        WorkStudioFactCheck {
+                            id: "dataSummary".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Runtime data summary passed.".to_string()),
+                        },
+                    ],
+                    work_id: work_id.clone(),
+                    runtime_instance_id: Some(runtime_instance_id.clone()),
+                    product_app_id: Some("product-app-1".to_string()),
+                    component_id: Some("product-app-1-surface".to_string()),
+                    product_app_surface_id: Some("product-app-1-surface".to_string()),
+                    surface_id: Some("primary".to_string()),
+                    observed_at: 425,
+                    issue_count: 0,
+                    fatal_issue_count: 0,
+                    warning_issue_count: 0,
+                },
+            )
+            .await
+            .expect("record runtime boundary release rehearsal evidence");
+
+        service
+            .record_studio_preview_result(
+                &work_id,
+                WorkStudioPreviewResult {
+                    id: "preview:runtime-dependencies:product-app-1".to_string(),
+                    kind: WorkStudioPreviewKind::RuntimeDependencies,
+                    status: WorkStudioFactStatus::Passed,
+                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    harness_mode: Some("runtime-dependencies".to_string()),
+                    trigger_turn_id: None,
+                    detail: Some("Runtime dependency health evidence passed.".to_string()),
+                    checks: vec![WorkStudioFactCheck {
+                        id: "runtimeDependencies".to_string(),
+                        status: WorkStudioFactStatus::Passed,
+                        detail: Some("Runtime dependencies are installed and current.".to_string()),
+                    }],
+                    work_id: work_id.clone(),
+                    runtime_instance_id: Some(runtime_instance_id.clone()),
+                    product_app_id: Some("product-app-1".to_string()),
+                    component_id: Some("product-app-1-surface".to_string()),
+                    product_app_surface_id: Some("product-app-1-surface".to_string()),
+                    surface_id: Some("primary".to_string()),
+                    observed_at: 435,
+                    issue_count: 0,
+                    fatal_issue_count: 0,
+                    warning_issue_count: 0,
+                },
+            )
+            .await
+            .expect("record runtime dependency release rehearsal evidence");
+
+        service
+            .record_studio_preview_result(
+                &work_id,
+                WorkStudioPreviewResult {
+                    id: "preview:permission-review:product-app-1".to_string(),
+                    kind: WorkStudioPreviewKind::PermissionReview,
+                    status: WorkStudioFactStatus::Passed,
+                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    harness_mode: Some("permission-review".to_string()),
+                    trigger_turn_id: None,
+                    detail: Some("Explicit permission review evidence passed.".to_string()),
+                    checks: vec![WorkStudioFactCheck {
+                        id: "permissionReview".to_string(),
+                        status: WorkStudioFactStatus::Passed,
+                        detail: Some("Explicit App Studio permission review passed.".to_string()),
+                    }],
+                    work_id: work_id.clone(),
+                    runtime_instance_id: Some(runtime_instance_id.clone()),
+                    product_app_id: Some("product-app-1".to_string()),
+                    component_id: Some("product-app-1-surface".to_string()),
+                    product_app_surface_id: Some("product-app-1-surface".to_string()),
+                    surface_id: Some("primary".to_string()),
+                    observed_at: 440,
+                    issue_count: 0,
+                    fatal_issue_count: 0,
+                    warning_issue_count: 0,
+                },
+            )
+            .await
+            .expect("record permission review release rehearsal evidence");
+
+        service
+            .record_studio_preview_result(
+                &work_id,
+                WorkStudioPreviewResult {
+                    id: "preview:user-path-rehearsal:product-app-1".to_string(),
+                    kind: WorkStudioPreviewKind::UserPathRehearsal,
+                    status: WorkStudioFactStatus::Passed,
+                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    harness_mode: Some("user-path-rehearsal".to_string()),
+                    trigger_turn_id: None,
+                    detail: Some("User path rehearsal passed.".to_string()),
+                    checks: vec![
+                        WorkStudioFactCheck {
+                            id: "criticalPath".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("New-user critical path rehearsal passed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "userPath".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("User path rehearsal passed.".to_string()),
+                        },
+                    ],
+                    work_id: work_id.clone(),
+                    runtime_instance_id: Some(runtime_instance_id.clone()),
+                    product_app_id: Some("product-app-1".to_string()),
+                    component_id: Some("product-app-1-surface".to_string()),
+                    product_app_surface_id: Some("product-app-1-surface".to_string()),
+                    surface_id: Some("primary".to_string()),
+                    observed_at: 450,
+                    issue_count: 0,
+                    fatal_issue_count: 0,
+                    warning_issue_count: 0,
+                },
+            )
+            .await
+            .expect("record user-path release rehearsal evidence");
+
+        let graph = service.execution_graph(&work_id).await.expect("graph");
+        let release_rehearsal = graph
+            .studio_preview_results
+            .iter()
+            .find(|preview| {
+                preview.kind == WorkStudioPreviewKind::ReleaseRehearsal
+                    && preview.source == WorkStudioPreviewSource::ReleaseRehearsal
+            })
+            .expect("release rehearsal preview result");
+        assert_eq!(release_rehearsal.status, WorkStudioFactStatus::Passed);
+        assert_eq!(
+            release_rehearsal.source,
+            WorkStudioPreviewSource::ReleaseRehearsal
+        );
+        assert_eq!(release_rehearsal.issue_count, 0);
+        assert_eq!(
+            release_rehearsal.product_app_id.as_deref(),
+            Some("product-app-1")
+        );
+        assert_eq!(
+            release_rehearsal
+                .checks
+                .iter()
+                .map(|check| (check.id.as_str(), check.status))
+                .collect::<Vec<_>>(),
+            vec![
+                ("validation", WorkStudioFactStatus::Passed),
+                ("preview", WorkStudioFactStatus::Passed),
+                ("issues", WorkStudioFactStatus::Passed),
+                ("criticalPath", WorkStudioFactStatus::Passed),
+                ("permissions", WorkStudioFactStatus::Passed),
+                ("permissionReview", WorkStudioFactStatus::Passed),
+                ("data", WorkStudioFactStatus::Passed),
+                ("dataLifecycle", WorkStudioFactStatus::Passed),
+                ("dataSummary", WorkStudioFactStatus::Passed),
+                ("runtimeStorage", WorkStudioFactStatus::Passed),
+                ("runtimeDependencies", WorkStudioFactStatus::Passed),
+                ("agentEval", WorkStudioFactStatus::Passed),
+                ("userPath", WorkStudioFactStatus::Passed),
+                ("releaseGate", WorkStudioFactStatus::Passed),
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn release_rehearsal_does_not_use_validation_agent_eval_as_execution_evidence() {
+        let service = service();
+        let app = WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:test-lock");
+        let response = service
+            .resolve_app_work(ResolveAppWorkRequest {
+                app,
+                intent: WorkAppIntent::Develop,
+                title: "Product App Studio".to_string(),
+                objective: "Verify release rehearsal".to_string(),
+                scope: WorkScope::System,
+                visibility: WorkVisibility::Secondary,
+                primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
+                primary_surface: Some(WorkSurfaceRef::ApplicationSurface {
+                    product_app_id: "product-app-1".to_string(),
+                    product_app_surface_id: "product-app-1-surface".to_string(),
+                    surface_id: "primary".to_string(),
+                }),
+                assignment: None,
+                app_refs: Vec::new(),
+            })
+            .await
+            .expect("resolve app work");
+        let work_id = response.work.id.clone();
+        let runtime_instance_id = response.work.runtime_instances[0].id.clone();
+
+        service
+            .record_studio_validation_result(
+                &work_id,
+                WorkStudioValidationResult {
+                    id: "validation:product-app:product-app-1".to_string(),
+                    tool_name: "ValidateProductAppPackage".to_string(),
+                    target_kind: WorkStudioValidationTargetKind::ProductApp,
+                    status: WorkStudioFactStatus::Passed,
+                    work_id: work_id.clone(),
+                    app_id: Some("product-app-1".to_string()),
+                    component_id: None,
+                    component_kind: None,
+                    version: Some("1.0.0".to_string()),
+                    package_root: Some("product-app://product-app-1@1.0.0".to_string()),
+                    observed_at: 200,
+                    failed_count: 0,
+                    warning_count: 0,
+                    checks: vec![
+                        WorkStudioFactCheck {
+                            id: "package".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Package exists.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "data".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Data boundary declared.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "agentEval".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some(
+                                "Validation claimed Agent Eval passed, but did not run a harness."
+                                    .to_string(),
+                            ),
+                        },
+                        WorkStudioFactCheck {
+                            id: "releaseGate".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Release gate passed.".to_string()),
+                        },
+                    ],
+                },
+            )
+            .await
+            .expect("record validation result");
+
+        service
+            .record_studio_preview_result(
+                &work_id,
+                WorkStudioPreviewResult {
+                    id: format!("preview:{runtime_instance_id}"),
+                    kind: WorkStudioPreviewKind::ProductAppPreview,
+                    status: WorkStudioFactStatus::Passed,
+                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    harness_mode: Some("product-app-preview".to_string()),
+                    trigger_turn_id: None,
+                    detail: Some("Preview iframe loaded.".to_string()),
+                    checks: passed_runtime_preview_checks(),
+                    work_id: work_id.clone(),
+                    runtime_instance_id: Some(runtime_instance_id.clone()),
+                    product_app_id: Some("product-app-1".to_string()),
+                    component_id: Some("product-app-1-surface".to_string()),
+                    product_app_surface_id: Some("product-app-1-surface".to_string()),
+                    surface_id: Some("primary".to_string()),
+                    observed_at: 300,
+                    issue_count: 0,
+                    fatal_issue_count: 0,
+                    warning_issue_count: 0,
+                },
+            )
+            .await
+            .expect("record preview result");
+
+        service
+            .record_studio_preview_result(
+                &work_id,
+                WorkStudioPreviewResult {
+                    id: "preview:release-rehearsal:product-app-1".to_string(),
+                    kind: WorkStudioPreviewKind::ReleaseRehearsal,
+                    status: WorkStudioFactStatus::Passed,
+                    source: WorkStudioPreviewSource::PreviewHarness,
+                    harness_mode: Some("release-rehearsal".to_string()),
+                    trigger_turn_id: None,
+                    detail: Some("Release rehearsal package evidence passed.".to_string()),
+                    checks: vec![
+                        WorkStudioFactCheck {
+                            id: "criticalPath".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Critical path rehearsal passed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "permissions".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Permission boundary passed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "data".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Data boundary passed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "dataLifecycle".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Data lifecycle policy passed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "dataSummary".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Data summary passed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "runtimeStorage".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Runtime storage scope passed.".to_string()),
+                        },
+                    ],
+                    work_id: work_id.clone(),
+                    runtime_instance_id: None,
+                    product_app_id: Some("product-app-1".to_string()),
+                    component_id: None,
+                    product_app_surface_id: None,
+                    surface_id: None,
+                    observed_at: 400,
+                    issue_count: 0,
+                    fatal_issue_count: 0,
+                    warning_issue_count: 0,
+                },
+            )
+            .await
+            .expect("record release rehearsal package evidence");
+
+        service
+            .record_studio_preview_result(
+                &work_id,
+                WorkStudioPreviewResult {
+                    id: "preview:user-path-rehearsal:product-app-1".to_string(),
+                    kind: WorkStudioPreviewKind::UserPathRehearsal,
+                    status: WorkStudioFactStatus::Passed,
+                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    harness_mode: Some("user-path-rehearsal".to_string()),
+                    trigger_turn_id: None,
+                    detail: Some("User path rehearsal passed.".to_string()),
+                    checks: vec![
+                        WorkStudioFactCheck {
+                            id: "criticalPath".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("New-user critical path rehearsal passed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "userPath".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("User path rehearsal passed.".to_string()),
+                        },
+                    ],
+                    work_id: work_id.clone(),
+                    runtime_instance_id: Some(runtime_instance_id),
+                    product_app_id: Some("product-app-1".to_string()),
+                    component_id: Some("product-app-1-surface".to_string()),
+                    product_app_surface_id: Some("product-app-1-surface".to_string()),
+                    surface_id: Some("primary".to_string()),
+                    observed_at: 450,
+                    issue_count: 0,
+                    fatal_issue_count: 0,
+                    warning_issue_count: 0,
+                },
+            )
+            .await
+            .expect("record user-path release rehearsal evidence");
+
+        let graph = service.execution_graph(&work_id).await.expect("graph");
+        let release_rehearsal = graph
+            .studio_preview_results
+            .iter()
+            .find(|preview| {
+                preview.kind == WorkStudioPreviewKind::ReleaseRehearsal
+                    && preview.source == WorkStudioPreviewSource::ReleaseRehearsal
+            })
+            .expect("release rehearsal preview result");
+        let agent_eval = release_rehearsal
+            .checks
+            .iter()
+            .find(|check| check.id == "agentEval")
+            .expect("agentEval check");
+
+        assert_eq!(release_rehearsal.status, WorkStudioFactStatus::NotVerified);
+        assert_eq!(agent_eval.status, WorkStudioFactStatus::NotVerified);
+        assert!(agent_eval
+            .detail
+            .as_deref()
+            .is_some_and(|detail| detail.contains("No Agent Eval readiness evidence")));
+    }
+
+    #[tokio::test]
+    async fn release_rehearsal_absorbs_preview_harness_readiness_warnings() {
+        let service = service();
+        let app = WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:test-lock");
+        let response = service
+            .resolve_app_work(ResolveAppWorkRequest {
+                app,
+                intent: WorkAppIntent::Develop,
+                title: "Product App Studio".to_string(),
+                objective: "Verify release rehearsal warnings".to_string(),
+                scope: WorkScope::System,
+                visibility: WorkVisibility::Secondary,
+                primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
+                primary_surface: Some(WorkSurfaceRef::ApplicationSurface {
+                    product_app_id: "product-app-1".to_string(),
+                    product_app_surface_id: "product-app-1-surface".to_string(),
+                    surface_id: "primary".to_string(),
+                }),
+                assignment: None,
+                app_refs: Vec::new(),
+            })
+            .await
+            .expect("resolve app work");
+        let work_id = response.work.id.clone();
+
+        service
+            .record_studio_validation_result(
+                &work_id,
+                WorkStudioValidationResult {
+                    id: "validation:product-app:product-app-1".to_string(),
+                    tool_name: "ValidateProductAppPackage".to_string(),
+                    target_kind: WorkStudioValidationTargetKind::ProductApp,
+                    status: WorkStudioFactStatus::Passed,
+                    work_id: work_id.clone(),
+                    app_id: Some("product-app-1".to_string()),
+                    component_id: None,
+                    component_kind: None,
+                    version: Some("1.0.0".to_string()),
+                    package_root: Some("product-app://product-app-1@1.0.0".to_string()),
+                    observed_at: 200,
+                    failed_count: 0,
+                    warning_count: 0,
+                    checks: vec![
+                        WorkStudioFactCheck {
+                            id: "primarySurface".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Primary surface resolves.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "surfaceSource".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Surface source resolves.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "launchPolicy".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Launch policy resolves.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "dataLifecycle".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Data lifecycle policy passed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "releaseGate".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Release gate validation passed.".to_string()),
+                        },
+                    ],
+                },
+            )
+            .await
+            .expect("record validation result");
+
+        service
+            .record_studio_preview_result(
+                &work_id,
+                WorkStudioPreviewResult {
+                    id: "preview:runtime:product-app-1".to_string(),
+                    kind: WorkStudioPreviewKind::ProductAppPreview,
+                    status: WorkStudioFactStatus::Passed,
+                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    harness_mode: Some("product-app-preview".to_string()),
+                    trigger_turn_id: None,
+                    detail: Some("Preview iframe loaded.".to_string()),
+                    checks: passed_runtime_preview_checks(),
+                    work_id: work_id.clone(),
+                    runtime_instance_id: response
+                        .work
+                        .runtime_instances
+                        .first()
+                        .map(|instance| instance.id.clone()),
+                    product_app_id: Some("product-app-1".to_string()),
+                    component_id: Some("product-app-1-surface".to_string()),
+                    product_app_surface_id: Some("product-app-1-surface".to_string()),
+                    surface_id: Some("primary".to_string()),
+                    observed_at: 300,
+                    issue_count: 0,
+                    fatal_issue_count: 0,
+                    warning_issue_count: 0,
+                },
+            )
+            .await
+            .expect("record preview result");
+
+        service
+            .record_studio_preview_result(
+                &work_id,
+                WorkStudioPreviewResult {
+                    id: "preview:runtime-boundary:product-app-1".to_string(),
+                    kind: WorkStudioPreviewKind::RuntimeBoundary,
+                    status: WorkStudioFactStatus::Warning,
+                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    harness_mode: Some("runtime-boundary".to_string()),
+                    trigger_turn_id: None,
+                    detail: Some("Runtime boundary found an elevated permission.".to_string()),
+                    checks: vec![
+                        WorkStudioFactCheck {
+                            id: "runtimeStorage".to_string(),
+                            status: WorkStudioFactStatus::NotVerified,
+                            detail: Some("Runtime storage scope has not been probed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "permissions".to_string(),
+                            status: WorkStudioFactStatus::Warning,
+                            detail: Some("Elevated permission declared.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "data".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Data boundary declared.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "dataSummary".to_string(),
+                            status: WorkStudioFactStatus::NotVerified,
+                            detail: Some(
+                                "Runtime data/share summary has not been recorded.".to_string(),
+                            ),
+                        },
+                    ],
+                    work_id: work_id.clone(),
+                    runtime_instance_id: None,
+                    product_app_id: Some("product-app-1".to_string()),
+                    component_id: None,
+                    product_app_surface_id: None,
+                    surface_id: None,
+                    observed_at: 400,
+                    issue_count: 0,
+                    fatal_issue_count: 0,
+                    warning_issue_count: 0,
+                },
+            )
+            .await
+            .expect("record release rehearsal package evidence");
+
+        let graph = service.execution_graph(&work_id).await.expect("graph");
+        let release_rehearsal = graph
+            .studio_preview_results
+            .iter()
+            .find(|preview| {
+                preview.kind == WorkStudioPreviewKind::ReleaseRehearsal
+                    && preview.source == WorkStudioPreviewSource::ReleaseRehearsal
+            })
+            .expect("derived release rehearsal preview result");
+
+        assert_eq!(release_rehearsal.status, WorkStudioFactStatus::Warning);
+        assert_eq!(
+            release_rehearsal
+                .checks
+                .iter()
+                .map(|check| (check.id.as_str(), check.status))
+                .collect::<Vec<_>>(),
+            vec![
+                ("validation", WorkStudioFactStatus::Passed),
+                ("preview", WorkStudioFactStatus::Passed),
+                ("issues", WorkStudioFactStatus::Warning),
+                ("criticalPath", WorkStudioFactStatus::NotVerified),
+                ("permissions", WorkStudioFactStatus::Warning),
+                ("permissionReview", WorkStudioFactStatus::NotVerified),
+                ("data", WorkStudioFactStatus::Passed),
+                ("dataLifecycle", WorkStudioFactStatus::NotVerified),
+                ("dataSummary", WorkStudioFactStatus::NotVerified),
+                ("runtimeStorage", WorkStudioFactStatus::NotVerified),
+                ("runtimeDependencies", WorkStudioFactStatus::NotVerified),
+                ("agentEval", WorkStudioFactStatus::NotVerified),
+                ("userPath", WorkStudioFactStatus::NotVerified),
+                ("releaseGate", WorkStudioFactStatus::Warning),
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn release_rehearsal_requires_permission_review_for_elevated_permission_warning() {
+        let service = service();
+        let app = WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:test-lock");
+        let response = service
+            .resolve_app_work(ResolveAppWorkRequest {
+                app,
+                intent: WorkAppIntent::Develop,
+                title: "Product App Studio".to_string(),
+                objective: "Verify permission review evidence".to_string(),
+                scope: WorkScope::System,
+                visibility: WorkVisibility::Secondary,
+                primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
+                primary_surface: Some(WorkSurfaceRef::ApplicationSurface {
+                    product_app_id: "product-app-1".to_string(),
+                    product_app_surface_id: "product-app-1-surface".to_string(),
+                    surface_id: "primary".to_string(),
+                }),
+                assignment: None,
+                app_refs: Vec::new(),
+            })
+            .await
+            .expect("resolve app work");
+        let work_id = response.work.id.clone();
+        let runtime_instance_id = response.work.runtime_instances[0].id.clone();
+
+        service
+            .record_studio_validation_result(
+                &work_id,
+                WorkStudioValidationResult {
+                    id: "validation:product-app:product-app-1".to_string(),
+                    tool_name: "ValidateProductAppPackage".to_string(),
+                    target_kind: WorkStudioValidationTargetKind::ProductApp,
+                    status: WorkStudioFactStatus::Passed,
+                    work_id: work_id.clone(),
+                    app_id: Some("product-app-1".to_string()),
+                    component_id: None,
+                    component_kind: None,
+                    version: Some("1.0.0".to_string()),
+                    package_root: Some("product-app://product-app-1@1.0.0".to_string()),
+                    observed_at: 200,
+                    failed_count: 0,
+                    warning_count: 0,
+                    checks: vec![
+                        WorkStudioFactCheck {
+                            id: "primarySurface".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Primary surface resolves.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "surfaceSource".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Surface source resolves.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "launchPolicy".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Launch policy resolves.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "dataLifecycle".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Data lifecycle policy passed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "releaseGate".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Release gate validation passed.".to_string()),
+                        },
+                    ],
+                },
+            )
+            .await
+            .expect("record validation result");
+
+        service
+            .record_studio_preview_result(
+                &work_id,
+                WorkStudioPreviewResult {
+                    id: format!("preview:{runtime_instance_id}"),
+                    kind: WorkStudioPreviewKind::ProductAppPreview,
+                    status: WorkStudioFactStatus::Passed,
+                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    harness_mode: Some("product-app-preview".to_string()),
+                    trigger_turn_id: None,
+                    detail: Some("Preview iframe loaded.".to_string()),
+                    checks: passed_runtime_preview_checks(),
+                    work_id: work_id.clone(),
+                    runtime_instance_id: Some(runtime_instance_id.clone()),
+                    product_app_id: Some("product-app-1".to_string()),
+                    component_id: Some("product-app-1-surface".to_string()),
+                    product_app_surface_id: Some("product-app-1-surface".to_string()),
+                    surface_id: Some("primary".to_string()),
+                    observed_at: 300,
+                    issue_count: 0,
+                    fatal_issue_count: 0,
+                    warning_issue_count: 0,
+                },
+            )
+            .await
+            .expect("record preview result");
+
+        service
+            .record_studio_preview_result(
+                &work_id,
+                WorkStudioPreviewResult {
+                    id: "preview:runtime-boundary:product-app-1".to_string(),
+                    kind: WorkStudioPreviewKind::RuntimeBoundary,
+                    status: WorkStudioFactStatus::Warning,
+                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    harness_mode: Some("runtime-boundary".to_string()),
+                    trigger_turn_id: None,
+                    detail: Some("Runtime boundary found elevated permission.".to_string()),
+                    checks: vec![
+                        WorkStudioFactCheck {
+                            id: "permissions".to_string(),
+                            status: WorkStudioFactStatus::Warning,
+                            detail: Some("Elevated permission declared.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "data".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Data boundary passed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "dataLifecycle".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some(
+                                "Runtime retention and share-impact evidence passed.".to_string(),
+                            ),
+                        },
+                        WorkStudioFactCheck {
+                            id: "dataSummary".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Data summary passed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "runtimeStorage".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Runtime storage scope passed.".to_string()),
+                        },
+                    ],
+                    work_id: work_id.clone(),
+                    runtime_instance_id: Some(runtime_instance_id.clone()),
+                    product_app_id: Some("product-app-1".to_string()),
+                    component_id: Some("product-app-1-surface".to_string()),
+                    product_app_surface_id: Some("product-app-1-surface".to_string()),
+                    surface_id: Some("primary".to_string()),
+                    observed_at: 400,
+                    issue_count: 0,
+                    fatal_issue_count: 0,
+                    warning_issue_count: 0,
+                },
+            )
+            .await
+            .expect("record runtime boundary warning");
+
+        service
+            .record_studio_preview_result(
+                &work_id,
+                WorkStudioPreviewResult {
+                    id: "preview:runtime-dependencies:product-app-1".to_string(),
+                    kind: WorkStudioPreviewKind::RuntimeDependencies,
+                    status: WorkStudioFactStatus::Passed,
+                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    harness_mode: Some("runtime-dependencies".to_string()),
+                    trigger_turn_id: None,
+                    detail: Some("Runtime dependency health passed.".to_string()),
+                    checks: vec![WorkStudioFactCheck {
+                        id: "runtimeDependencies".to_string(),
+                        status: WorkStudioFactStatus::Passed,
+                        detail: Some("Runtime dependency health passed.".to_string()),
+                    }],
+                    work_id: work_id.clone(),
+                    runtime_instance_id: Some(runtime_instance_id.clone()),
+                    product_app_id: Some("product-app-1".to_string()),
+                    component_id: Some("product-app-1-surface".to_string()),
+                    product_app_surface_id: Some("product-app-1-surface".to_string()),
+                    surface_id: Some("primary".to_string()),
+                    observed_at: 405,
+                    issue_count: 0,
+                    fatal_issue_count: 0,
+                    warning_issue_count: 0,
+                },
+            )
+            .await
+            .expect("record runtime dependency evidence");
+
+        service
+            .record_studio_preview_result(
+                &work_id,
+                WorkStudioPreviewResult {
+                    id: "preview:user-path-rehearsal:product-app-1".to_string(),
+                    kind: WorkStudioPreviewKind::UserPathRehearsal,
+                    status: WorkStudioFactStatus::Passed,
+                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    harness_mode: Some("user-path-rehearsal".to_string()),
+                    trigger_turn_id: None,
+                    detail: Some("User path rehearsal passed.".to_string()),
+                    checks: vec![
+                        WorkStudioFactCheck {
+                            id: "criticalPath".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("New-user critical path rehearsal passed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "userPath".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("User path passed.".to_string()),
+                        },
+                    ],
+                    work_id: work_id.clone(),
+                    runtime_instance_id: Some(runtime_instance_id.clone()),
+                    product_app_id: Some("product-app-1".to_string()),
+                    component_id: Some("product-app-1-surface".to_string()),
+                    product_app_surface_id: Some("product-app-1-surface".to_string()),
+                    surface_id: Some("primary".to_string()),
+                    observed_at: 406,
+                    issue_count: 0,
+                    fatal_issue_count: 0,
+                    warning_issue_count: 0,
+                },
+            )
+            .await
+            .expect("record user path evidence");
+
+        service
+            .record_studio_preview_result(
+                &work_id,
+                WorkStudioPreviewResult {
+                    id: "preview:agent-eval:product-app-1".to_string(),
+                    kind: WorkStudioPreviewKind::AgentEval,
+                    status: WorkStudioFactStatus::Passed,
+                    source: WorkStudioPreviewSource::PreviewHarness,
+                    harness_mode: Some("agent-eval".to_string()),
+                    trigger_turn_id: None,
+                    detail: Some("Agent Eval evidence passed.".to_string()),
+                    checks: vec![WorkStudioFactCheck {
+                        id: "agentEval".to_string(),
+                        status: WorkStudioFactStatus::Passed,
+                        detail: Some("Agent eval passed.".to_string()),
+                    }],
+                    work_id: work_id.clone(),
+                    runtime_instance_id: None,
+                    product_app_id: Some("product-app-1".to_string()),
+                    component_id: None,
+                    product_app_surface_id: None,
+                    surface_id: None,
+                    observed_at: 410,
+                    issue_count: 0,
+                    fatal_issue_count: 0,
+                    warning_issue_count: 0,
+                },
+            )
+            .await
+            .expect("record agent eval evidence");
+
+        let graph = service.execution_graph(&work_id).await.expect("graph");
+        let release_rehearsal = graph
+            .studio_preview_results
+            .iter()
+            .find(|preview| {
+                preview.kind == WorkStudioPreviewKind::ReleaseRehearsal
+                    && preview.source == WorkStudioPreviewSource::ReleaseRehearsal
+            })
+            .expect("derived release rehearsal preview result");
+        assert_eq!(release_rehearsal.status, WorkStudioFactStatus::Warning);
+        assert!(release_rehearsal.checks.iter().any(|check| {
+            check.id == "permissionReview" && check.status == WorkStudioFactStatus::NotVerified
+        }));
+        assert!(release_rehearsal
+            .checks
+            .iter()
+            .find(|check| check.id == "releaseGate")
+            .and_then(|check| check.detail.as_deref())
+            .is_some_and(|detail| detail.contains("permissionReview")));
+
+        service
+            .record_studio_preview_result(
+                &work_id,
+                WorkStudioPreviewResult {
+                    id: "preview:permission-review:product-app-1".to_string(),
+                    kind: WorkStudioPreviewKind::PermissionReview,
+                    status: WorkStudioFactStatus::Passed,
+                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    harness_mode: Some("permission-review".to_string()),
+                    trigger_turn_id: None,
+                    detail: Some("Elevated permission reviewed.".to_string()),
+                    checks: vec![
+                        WorkStudioFactCheck {
+                            id: "permissions".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Elevated permission reviewed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "permissionReview".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Explicit permission review recorded.".to_string()),
+                        },
+                    ],
+                    work_id: work_id.clone(),
+                    runtime_instance_id: Some(runtime_instance_id),
+                    product_app_id: Some("product-app-1".to_string()),
+                    component_id: Some("product-app-1-surface".to_string()),
+                    product_app_surface_id: Some("product-app-1-surface".to_string()),
+                    surface_id: Some("primary".to_string()),
+                    observed_at: 450,
+                    issue_count: 0,
+                    fatal_issue_count: 0,
+                    warning_issue_count: 0,
+                },
+            )
+            .await
+            .expect("record permission review evidence");
+
+        let graph = service.execution_graph(&work_id).await.expect("graph");
+        let release_rehearsal = graph
+            .studio_preview_results
+            .iter()
+            .find(|preview| {
+                preview.kind == WorkStudioPreviewKind::ReleaseRehearsal
+                    && preview.source == WorkStudioPreviewSource::ReleaseRehearsal
+            })
+            .expect("derived release rehearsal preview result");
+        assert_eq!(release_rehearsal.status, WorkStudioFactStatus::Passed);
+        assert!(release_rehearsal.checks.iter().any(|check| {
+            check.id == "permissionReview" && check.status == WorkStudioFactStatus::Passed
+        }));
+        assert!(release_rehearsal.checks.iter().any(|check| {
+            check.id == "permissions" && check.status == WorkStudioFactStatus::Passed
+        }));
+
+        service
+            .record_studio_preview_result(
+                &work_id,
+                WorkStudioPreviewResult {
+                    id: "preview:runtime-boundary:product-app-1".to_string(),
+                    kind: WorkStudioPreviewKind::RuntimeBoundary,
+                    status: WorkStudioFactStatus::Warning,
+                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    harness_mode: Some("runtime-boundary".to_string()),
+                    trigger_turn_id: None,
+                    detail: Some("Runtime boundary found a new elevated permission.".to_string()),
+                    checks: vec![
+                        WorkStudioFactCheck {
+                            id: "runtimeStorage".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Runtime storage scope passed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "permissions".to_string(),
+                            status: WorkStudioFactStatus::Warning,
+                            detail: Some("New elevated permission declared.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "data".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Runtime data boundary passed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "dataSummary".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Runtime data summary passed.".to_string()),
+                        },
+                    ],
+                    work_id: work_id.clone(),
+                    runtime_instance_id: Some("runtime-boundary-1".to_string()),
+                    product_app_id: Some("product-app-1".to_string()),
+                    component_id: Some("product-app-1-surface".to_string()),
+                    product_app_surface_id: Some("product-app-1-surface".to_string()),
+                    surface_id: Some("primary".to_string()),
+                    observed_at: 500,
+                    issue_count: 0,
+                    fatal_issue_count: 0,
+                    warning_issue_count: 0,
+                },
+            )
+            .await
+            .expect("record newer permission warning");
+
+        let graph = service.execution_graph(&work_id).await.expect("graph");
+        let release_rehearsal = graph
+            .studio_preview_results
+            .iter()
+            .find(|preview| {
+                preview.kind == WorkStudioPreviewKind::ReleaseRehearsal
+                    && preview.source == WorkStudioPreviewSource::ReleaseRehearsal
+            })
+            .expect("derived release rehearsal preview result");
+        assert_eq!(release_rehearsal.status, WorkStudioFactStatus::Warning);
+        let permission_review = release_rehearsal
+            .checks
+            .iter()
+            .find(|check| check.id == "permissionReview")
+            .expect("permissionReview check");
+        assert_eq!(permission_review.status, WorkStudioFactStatus::NotVerified);
+        assert!(permission_review
+            .detail
+            .as_deref()
+            .is_some_and(|detail| detail.contains("changed after")));
+    }
+
+    #[tokio::test]
+    async fn release_rehearsal_absorbs_runtime_visual_checks() {
+        let service = service();
+        let app = WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:test-lock");
+        let response = service
+            .resolve_app_work(ResolveAppWorkRequest {
+                app,
+                intent: WorkAppIntent::Develop,
+                title: "Product App Studio".to_string(),
+                objective: "Verify release rehearsal visual checks".to_string(),
+                scope: WorkScope::System,
+                visibility: WorkVisibility::Secondary,
+                primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
+                primary_surface: Some(WorkSurfaceRef::ApplicationSurface {
+                    product_app_id: "product-app-1".to_string(),
+                    product_app_surface_id: "product-app-1-surface".to_string(),
+                    surface_id: "primary".to_string(),
+                }),
+                assignment: None,
+                app_refs: Vec::new(),
+            })
+            .await
+            .expect("resolve app work");
+        let work_id = response.work.id.clone();
+        let runtime_instance_id = response.work.runtime_instances[0].id.clone();
+
+        service
+            .record_studio_validation_result(
+                &work_id,
+                WorkStudioValidationResult {
+                    id: "validation:product-app:product-app-1".to_string(),
+                    tool_name: "ValidateProductAppPackage".to_string(),
+                    target_kind: WorkStudioValidationTargetKind::ProductApp,
+                    status: WorkStudioFactStatus::Passed,
+                    work_id: work_id.clone(),
+                    app_id: Some("product-app-1".to_string()),
+                    component_id: None,
+                    component_kind: None,
+                    version: Some("1.0.0".to_string()),
+                    package_root: Some("product-app://product-app-1@1.0.0".to_string()),
+                    observed_at: 200,
+                    failed_count: 0,
+                    warning_count: 0,
+                    checks: vec![
+                        WorkStudioFactCheck {
+                            id: "primarySurface".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Primary surface resolves.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "surfaceSource".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Surface source resolves.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "launchPolicy".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Launch policy resolves.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "dataLifecycle".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Data lifecycle policy passed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "releaseGate".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Release gate validation passed.".to_string()),
+                        },
+                    ],
+                },
+            )
+            .await
+            .expect("record validation result");
+
+        service
+            .record_studio_preview_result(
+                &work_id,
+                WorkStudioPreviewResult {
+                    id: format!("preview:{runtime_instance_id}"),
+                    kind: WorkStudioPreviewKind::ProductAppPreview,
+                    status: WorkStudioFactStatus::NotVerified,
+                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    harness_mode: Some("product-app-preview".to_string()),
+                    trigger_turn_id: None,
+                    detail: Some("Preview iframe runtime bridge reported ready.".to_string()),
+                    checks: vec![
+                        WorkStudioFactCheck {
+                            id: "runtimeReady".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Runtime bridge reported ready.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "visualRoot".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Runtime DOM reported visible elements.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "viewport".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Runtime viewport reported non-zero size.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "interactionSurface".to_string(),
+                            status: WorkStudioFactStatus::NotVerified,
+                            detail: Some("No user path interaction has run.".to_string()),
+                        },
+                    ],
+                    work_id: work_id.clone(),
+                    runtime_instance_id: Some(runtime_instance_id.clone()),
+                    product_app_id: Some("product-app-1".to_string()),
+                    component_id: Some("product-app-1-surface".to_string()),
+                    product_app_surface_id: Some("product-app-1-surface".to_string()),
+                    surface_id: Some("primary".to_string()),
+                    observed_at: 300,
+                    issue_count: 0,
+                    fatal_issue_count: 0,
+                    warning_issue_count: 0,
+                },
+            )
+            .await
+            .expect("record runtime preview result");
+
+        service
+            .record_studio_preview_result(
+                &work_id,
+                WorkStudioPreviewResult {
+                    id: "preview:runtime-boundary:product-app-1".to_string(),
+                    kind: WorkStudioPreviewKind::RuntimeBoundary,
+                    status: WorkStudioFactStatus::Passed,
+                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    harness_mode: Some("runtime-boundary".to_string()),
+                    trigger_turn_id: None,
+                    detail: Some("Runtime boundary evidence passed.".to_string()),
+                    checks: vec![
+                        WorkStudioFactCheck {
+                            id: "permissions".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Permission boundary passed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "data".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Data boundary passed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "dataLifecycle".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some(
+                                "Runtime retention and share-impact evidence passed.".to_string(),
+                            ),
+                        },
+                        WorkStudioFactCheck {
+                            id: "dataSummary".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Data summary passed.".to_string()),
+                        },
+                        WorkStudioFactCheck {
+                            id: "runtimeStorage".to_string(),
+                            status: WorkStudioFactStatus::Passed,
+                            detail: Some("Runtime storage scope passed.".to_string()),
+                        },
+                    ],
+                    work_id: work_id.clone(),
+                    runtime_instance_id: Some(runtime_instance_id.clone()),
+                    product_app_id: Some("product-app-1".to_string()),
+                    component_id: Some("product-app-1-surface".to_string()),
+                    product_app_surface_id: Some("product-app-1-surface".to_string()),
+                    surface_id: Some("primary".to_string()),
+                    observed_at: 400,
+                    issue_count: 0,
+                    fatal_issue_count: 0,
+                    warning_issue_count: 0,
+                },
+            )
+            .await
+            .expect("record runtime boundary evidence");
+
+        service
+            .record_studio_preview_result(
+                &work_id,
+                WorkStudioPreviewResult {
+                    id: "preview:agent-eval:product-app-1".to_string(),
+                    kind: WorkStudioPreviewKind::AgentEval,
+                    status: WorkStudioFactStatus::Passed,
+                    source: WorkStudioPreviewSource::PreviewHarness,
+                    harness_mode: Some("agent-eval".to_string()),
+                    trigger_turn_id: None,
+                    detail: Some("Agent Eval evidence passed.".to_string()),
+                    checks: vec![WorkStudioFactCheck {
+                        id: "agentEval".to_string(),
+                        status: WorkStudioFactStatus::Passed,
+                        detail: Some("Agent eval passed.".to_string()),
+                    }],
+                    work_id: work_id.clone(),
+                    runtime_instance_id: None,
+                    product_app_id: Some("product-app-1".to_string()),
+                    component_id: None,
+                    product_app_surface_id: None,
+                    surface_id: None,
+                    observed_at: 410,
+                    issue_count: 0,
+                    fatal_issue_count: 0,
+                    warning_issue_count: 0,
+                },
+            )
+            .await
+            .expect("record agent eval evidence");
+
+        let graph = service.execution_graph(&work_id).await.expect("graph");
+        let release_rehearsal = graph
+            .studio_preview_results
+            .iter()
+            .find(|preview| {
+                preview.kind == WorkStudioPreviewKind::ReleaseRehearsal
+                    && preview.source == WorkStudioPreviewSource::ReleaseRehearsal
+            })
+            .expect("derived release rehearsal preview result");
+
+        assert_eq!(release_rehearsal.status, WorkStudioFactStatus::NotVerified);
+        assert_eq!(
+            release_rehearsal
+                .checks
+                .iter()
+                .map(|check| (check.id.as_str(), check.status))
+                .collect::<Vec<_>>(),
+            vec![
+                ("validation", WorkStudioFactStatus::Passed),
+                ("preview", WorkStudioFactStatus::NotVerified),
+                ("issues", WorkStudioFactStatus::Passed),
+                ("criticalPath", WorkStudioFactStatus::Passed),
+                ("permissions", WorkStudioFactStatus::Passed),
+                ("permissionReview", WorkStudioFactStatus::NotVerified),
+                ("data", WorkStudioFactStatus::Passed),
+                ("dataLifecycle", WorkStudioFactStatus::Passed),
+                ("dataSummary", WorkStudioFactStatus::Passed),
+                ("runtimeStorage", WorkStudioFactStatus::Passed),
+                ("runtimeDependencies", WorkStudioFactStatus::NotVerified),
+                ("agentEval", WorkStudioFactStatus::Passed),
+                ("userPath", WorkStudioFactStatus::NotVerified),
+                ("runtimeReady", WorkStudioFactStatus::Passed),
+                ("visualRoot", WorkStudioFactStatus::Passed),
+                ("viewport", WorkStudioFactStatus::Passed),
+                ("interactionSurface", WorkStudioFactStatus::NotVerified),
+                ("releaseGate", WorkStudioFactStatus::NotVerified),
+            ]
+        );
+        assert!(release_rehearsal.checks.iter().any(|check| {
+            check.id == "releaseGate"
+                && check.detail.as_deref().is_some_and(|detail| {
+                    detail.contains("userPath") && detail.contains("interactionSurface")
+                })
+        }));
+    }
+
+    #[tokio::test]
+    async fn resolve_app_work_derives_application_surface_from_product_app_lock() {
+        let path_manager = try_get_path_manager_arc().expect("path manager");
+        seed_builtin_product_app_packages(path_manager.as_ref())
+            .await
+            .expect("seed built-in product apps");
+        let app = list_installed_product_apps(path_manager.as_ref())
+            .await
+            .expect("list installed product apps")
+            .into_iter()
+            .find(|app| app.app.id == "builtin-remotion-live")
+            .expect("built-in Remotion Live app");
+        let app_ref = WorkAppRef::product_app(
+            app.app.id.clone(),
+            app.app.version.clone(),
+            app.lock.digest(),
+        );
+        let service = service();
+
+        let response = service
+            .resolve_app_work(ResolveAppWorkRequest {
+                app: app_ref.clone(),
+                intent: WorkAppIntent::Run,
+                title: "Remotion Live".to_string(),
+                objective: "Open the Product App surface".to_string(),
+                scope: WorkScope::System,
+                visibility: WorkVisibility::Primary,
+                primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
+                primary_surface: None,
+                assignment: Some(WorkAssignmentRef {
+                    kind: WorkAssignmentKind::Application,
+                    agent_type: None,
+                    assistant_id: None,
+                    application_id: Some(app.app.id.clone()),
+                    human_label: None,
+                    external_label: None,
+                }),
+                app_refs: vec![WorkAppRelation {
+                    app: app_ref.clone(),
+                    role: WorkAppRelationRole::Executor,
+                    surface_id: None,
+                }],
+            })
+            .await
+            .expect("resolve app work");
+
+        assert!(response.created);
+        assert!(matches!(
+            response.work.primary_surface,
+            WorkSurfaceRef::ApplicationSurface {
+                ref product_app_id,
+                ref product_app_surface_id,
+                ref surface_id,
+            } if product_app_id == "builtin-remotion-live"
+                && product_app_surface_id == &app.app.primary_surface.as_ref().expect("primary surface").component_id
+                && surface_id.as_str() == app.app.primary_surface.as_ref().and_then(|surface| surface.surface_id.as_deref()).unwrap_or("primary")
+        ));
+        assert_eq!(response.work.runtime_instances.len(), 1);
+        assert_eq!(
+            response.work.runtime_instances[0].component_lock_digest,
+            app_ref.component_lock_digest
+        );
     }
 
     #[tokio::test]
@@ -1940,6 +6796,467 @@ mod tests {
             .execution_bindings
             .iter()
             .any(|binding| { binding.status == WorkExecutionBindingStatus::Completed }));
+    }
+
+    #[tokio::test]
+    async fn completed_app_studio_fix_turn_marks_bound_studio_issue_fixed() {
+        let service = service();
+        let app = WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:test-lock");
+        let response = service
+            .resolve_app_work(ResolveAppWorkRequest {
+                app: app.clone(),
+                intent: WorkAppIntent::Develop,
+                title: "Product App Studio".to_string(),
+                objective: "Fix runtime issues".to_string(),
+                scope: WorkScope::System,
+                visibility: WorkVisibility::Secondary,
+                primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
+                primary_surface: Some(WorkSurfaceRef::ApplicationSurface {
+                    product_app_id: "product-app-1".to_string(),
+                    product_app_surface_id: "product-app-1-surface".to_string(),
+                    surface_id: "primary".to_string(),
+                }),
+                assignment: None,
+                app_refs: Vec::new(),
+            })
+            .await
+            .expect("resolve app work");
+        let work_id = response.work.id.clone();
+        let runtime_instance_id = response.work.runtime_instances[0].id.clone();
+
+        service
+            .record_runtime_issue(
+                &work_id,
+                WorkRuntimeIssue {
+                    runtime_instance_id: runtime_instance_id.clone(),
+                    product_app_id: "product-app-1".to_string(),
+                    component_id: "product-app-1-surface".to_string(),
+                    severity: WorkRuntimeIssueSeverity::Fatal,
+                    message: "Preview crashed".to_string(),
+                    source: Some("ui.js:12".to_string()),
+                    category: Some("runtime".to_string()),
+                    timestamp_ms: 500,
+                },
+            )
+            .await
+            .expect("record runtime issue");
+
+        let graph = service.execution_graph(&work_id).await.expect("graph");
+        let issue_id = graph.studio_issues[0].id.clone();
+        assert_eq!(graph.studio_issues[0].status, WorkStudioIssueStatus::Open);
+        assert_eq!(
+            graph.studio_preview_results[0].status,
+            WorkStudioFactStatus::Failed
+        );
+
+        service
+            .mark_agent_session_turn_started_with_app_studio_context(
+                "app-studio-session",
+                "fix-turn-1",
+                Some(WorkExecutionAppStudioContext {
+                    work_id: Some(work_id.clone()),
+                    issue_id: issue_id.clone(),
+                    product_app_id: Some("product-app-1".to_string()),
+                    subject_kind: Some("Product App".to_string()),
+                    component_kind: None,
+                    runtime_instance_id: Some(runtime_instance_id.clone()),
+                    component_id: Some("product-app-1-surface".to_string()),
+                    preview_result_id: Some(format!("preview:{runtime_instance_id}")),
+                    package_root: Some("product-app://product-app-1@1.0.0".to_string()),
+                    severity: Some("fatal".to_string()),
+                    category: Some("runtime".to_string()),
+                    source: Some("ui.js:12".to_string()),
+                    message: Some("Preview crashed".to_string()),
+                }),
+            )
+            .await
+            .expect("mark started")
+            .expect("matched work");
+
+        let completed = service
+            .mark_agent_session_turn_completed("fix-turn-1")
+            .await
+            .expect("mark completed")
+            .expect("matched work");
+        let issue = completed
+            .studio_issues
+            .iter()
+            .find(|issue| issue.id == issue_id)
+            .expect("studio issue");
+        assert_eq!(issue.status, WorkStudioIssueStatus::Fixed);
+        assert!(issue.resolved_at.is_some());
+        assert_eq!(
+            completed.studio_preview_results[0].status,
+            WorkStudioFactStatus::Ready
+        );
+        assert!(completed.execution_bindings.iter().any(|binding| binding
+            .app_studio
+            .as_ref()
+            .is_some_and(|context| context.issue_id == issue_id)));
+    }
+
+    #[tokio::test]
+    async fn studio_preview_observation_ready_resolves_runtime_issues() {
+        let service = service();
+        let app = WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:test-lock");
+        let response = service
+            .resolve_app_work(ResolveAppWorkRequest {
+                app,
+                intent: WorkAppIntent::Develop,
+                title: "Product App Studio".to_string(),
+                objective: "Verify preview".to_string(),
+                scope: WorkScope::System,
+                visibility: WorkVisibility::Secondary,
+                primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
+                primary_surface: Some(WorkSurfaceRef::ApplicationSurface {
+                    product_app_id: "product-app-1".to_string(),
+                    product_app_surface_id: "product-app-1-surface".to_string(),
+                    surface_id: "primary".to_string(),
+                }),
+                assignment: None,
+                app_refs: Vec::new(),
+            })
+            .await
+            .expect("resolve app work");
+        let work_id = response.work.id.clone();
+        let runtime_instance_id = response.work.runtime_instances[0].id.clone();
+
+        service
+            .record_runtime_issue(
+                &work_id,
+                WorkRuntimeIssue {
+                    runtime_instance_id: runtime_instance_id.clone(),
+                    product_app_id: "product-app-1".to_string(),
+                    component_id: "product-app-1-surface".to_string(),
+                    severity: WorkRuntimeIssueSeverity::Fatal,
+                    message: "Preview crashed".to_string(),
+                    source: Some("ui.js:12".to_string()),
+                    category: Some("runtime".to_string()),
+                    timestamp_ms: 500,
+                },
+            )
+            .await
+            .expect("record runtime issue");
+
+        let graph = service.execution_graph(&work_id).await.expect("graph");
+        let issue_id = graph.studio_issues[0].id.clone();
+        assert_eq!(graph.studio_issues[0].status, WorkStudioIssueStatus::Open);
+
+        service
+            .record_studio_preview_result(
+                &work_id,
+                WorkStudioPreviewResult {
+                    id: format!("preview:{runtime_instance_id}"),
+                    kind: WorkStudioPreviewKind::ProductAppPreview,
+                    status: WorkStudioFactStatus::Ready,
+                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    harness_mode: Some("product-app-preview".to_string()),
+                    trigger_turn_id: None,
+                    detail: Some("Preview iframe loaded.".to_string()),
+                    checks: Vec::new(),
+                    work_id: work_id.clone(),
+                    runtime_instance_id: Some(runtime_instance_id.clone()),
+                    product_app_id: Some("product-app-1".to_string()),
+                    component_id: Some("product-app-1-surface".to_string()),
+                    product_app_surface_id: Some("product-app-1-surface".to_string()),
+                    surface_id: Some("primary".to_string()),
+                    observed_at: 900,
+                    issue_count: 0,
+                    fatal_issue_count: 0,
+                    warning_issue_count: 0,
+                },
+            )
+            .await
+            .expect("record ready preview");
+
+        let graph = service.execution_graph(&work_id).await.expect("graph");
+        let issue = graph
+            .studio_issues
+            .iter()
+            .find(|issue| issue.id == issue_id)
+            .expect("studio issue");
+        assert_eq!(issue.status, WorkStudioIssueStatus::Fixed);
+        assert_eq!(issue.resolved_at, Some(900));
+        assert_eq!(
+            graph.studio_preview_results[0].status,
+            WorkStudioFactStatus::Ready
+        );
+        assert_eq!(graph.studio_preview_results[0].issue_count, 0);
+        assert_eq!(
+            graph.studio_preview_results[0].source,
+            WorkStudioPreviewSource::RuntimeObservation
+        );
+    }
+
+    #[tokio::test]
+    async fn failed_preview_observation_marks_active_issue_still_open() {
+        let service = service();
+        let app = WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:test-lock");
+        let response = service
+            .resolve_app_work(ResolveAppWorkRequest {
+                app,
+                intent: WorkAppIntent::Develop,
+                title: "Product App Studio".to_string(),
+                objective: "Verify preview".to_string(),
+                scope: WorkScope::System,
+                visibility: WorkVisibility::Secondary,
+                primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
+                primary_surface: Some(WorkSurfaceRef::ApplicationSurface {
+                    product_app_id: "product-app-1".to_string(),
+                    product_app_surface_id: "product-app-1-surface".to_string(),
+                    surface_id: "primary".to_string(),
+                }),
+                assignment: None,
+                app_refs: Vec::new(),
+            })
+            .await
+            .expect("resolve app work");
+        let work_id = response.work.id.clone();
+        let runtime_instance_id = response.work.runtime_instances[0].id.clone();
+
+        service
+            .record_runtime_issue(
+                &work_id,
+                WorkRuntimeIssue {
+                    runtime_instance_id: runtime_instance_id.clone(),
+                    product_app_id: "product-app-1".to_string(),
+                    component_id: "product-app-1-surface".to_string(),
+                    severity: WorkRuntimeIssueSeverity::Fatal,
+                    message: "Preview crashed".to_string(),
+                    source: Some("ui.js:12".to_string()),
+                    category: Some("runtime".to_string()),
+                    timestamp_ms: 500,
+                },
+            )
+            .await
+            .expect("record runtime issue");
+
+        service
+            .record_studio_preview_result(
+                &work_id,
+                WorkStudioPreviewResult {
+                    id: format!("preview:{runtime_instance_id}"),
+                    kind: WorkStudioPreviewKind::ProductAppPreview,
+                    status: WorkStudioFactStatus::Failed,
+                    source: WorkStudioPreviewSource::PreviewHarness,
+                    harness_mode: Some("product-app-preview".to_string()),
+                    trigger_turn_id: None,
+                    detail: Some("Preview runtime fatal: Preview crashed".to_string()),
+                    checks: Vec::new(),
+                    work_id: work_id.clone(),
+                    runtime_instance_id: Some(runtime_instance_id.clone()),
+                    product_app_id: Some("product-app-1".to_string()),
+                    component_id: Some("product-app-1-surface".to_string()),
+                    product_app_surface_id: Some("product-app-1-surface".to_string()),
+                    surface_id: Some("primary".to_string()),
+                    observed_at: 900,
+                    issue_count: 1,
+                    fatal_issue_count: 1,
+                    warning_issue_count: 0,
+                },
+            )
+            .await
+            .expect("record failed preview");
+
+        let graph = service.execution_graph(&work_id).await.expect("graph");
+        assert_eq!(
+            graph.studio_issues[0].status,
+            WorkStudioIssueStatus::StillOpen
+        );
+        assert_eq!(
+            graph.studio_preview_results[0].status,
+            WorkStudioFactStatus::Failed
+        );
+        assert_eq!(
+            graph.studio_preview_results[0].source,
+            WorkStudioPreviewSource::PreviewHarness
+        );
+    }
+
+    #[tokio::test]
+    async fn blocked_preview_observation_without_runtime_identity_creates_preview_issue() {
+        let service = service();
+        let app = WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:test-lock");
+        let response = service
+            .resolve_app_work(ResolveAppWorkRequest {
+                app,
+                intent: WorkAppIntent::Develop,
+                title: "Product App Studio".to_string(),
+                objective: "Verify preview".to_string(),
+                scope: WorkScope::System,
+                visibility: WorkVisibility::Secondary,
+                primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
+                primary_surface: Some(WorkSurfaceRef::ApplicationSurface {
+                    product_app_id: "product-app-1".to_string(),
+                    product_app_surface_id: "product-app-1-surface".to_string(),
+                    surface_id: "primary".to_string(),
+                }),
+                assignment: None,
+                app_refs: Vec::new(),
+            })
+            .await
+            .expect("resolve app work");
+        let work_id = response.work.id.clone();
+
+        service
+            .record_studio_preview_result(
+                &work_id,
+                WorkStudioPreviewResult {
+                    id: format!("preview:{work_id}:runtime-resolve"),
+                    kind: WorkStudioPreviewKind::ProductAppPreview,
+                    status: WorkStudioFactStatus::Blocked,
+                    source: WorkStudioPreviewSource::PreviewHarness,
+                    harness_mode: Some("product-app-preview".to_string()),
+                    trigger_turn_id: None,
+                    detail: Some(
+                        "Preview runtime-resolve failed before runtime identity was available."
+                            .to_string(),
+                    ),
+                    checks: Vec::new(),
+                    work_id: work_id.clone(),
+                    runtime_instance_id: None,
+                    product_app_id: Some("product-app-1".to_string()),
+                    component_id: Some("product-app-1-surface".to_string()),
+                    product_app_surface_id: Some("product-app-1-surface".to_string()),
+                    surface_id: Some("primary".to_string()),
+                    observed_at: 900,
+                    issue_count: 1,
+                    fatal_issue_count: 1,
+                    warning_issue_count: 0,
+                },
+            )
+            .await
+            .expect("record blocked preview");
+
+        let graph = service.execution_graph(&work_id).await.expect("graph");
+        let blocked_preview = graph
+            .studio_preview_results
+            .iter()
+            .find(|preview| preview.kind == WorkStudioPreviewKind::ProductAppPreview)
+            .expect("blocked preview result");
+        assert_eq!(blocked_preview.status, WorkStudioFactStatus::Blocked);
+        assert_eq!(blocked_preview.runtime_instance_id, None);
+        let release_rehearsal = graph
+            .studio_preview_results
+            .iter()
+            .find(|preview| preview.kind == WorkStudioPreviewKind::ReleaseRehearsal)
+            .expect("release rehearsal preview result");
+        assert_eq!(release_rehearsal.status, WorkStudioFactStatus::Failed);
+        assert_eq!(graph.studio_issues.len(), 1);
+        assert_eq!(
+            graph.studio_issues[0].origin,
+            WorkStudioIssueOrigin::Preview
+        );
+        assert_eq!(graph.studio_issues[0].runtime_instance_id, None);
+        assert_eq!(
+            graph.studio_issues[0].preview_result_id.as_deref(),
+            Some(blocked_preview.id.as_str())
+        );
+        assert_eq!(graph.studio_issues[0].status, WorkStudioIssueStatus::Open);
+        assert_eq!(
+            graph.studio_issues[0].severity,
+            WorkRuntimeIssueSeverity::Fatal
+        );
+    }
+
+    #[tokio::test]
+    async fn failed_preview_rerun_marks_previously_fixed_issue_regressed() {
+        let service = service();
+        let app = WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:test-lock");
+        let response = service
+            .resolve_app_work(ResolveAppWorkRequest {
+                app,
+                intent: WorkAppIntent::Develop,
+                title: "Product App Studio".to_string(),
+                objective: "Verify preview".to_string(),
+                scope: WorkScope::System,
+                visibility: WorkVisibility::Secondary,
+                primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
+                primary_surface: Some(WorkSurfaceRef::ApplicationSurface {
+                    product_app_id: "product-app-1".to_string(),
+                    product_app_surface_id: "product-app-1-surface".to_string(),
+                    surface_id: "primary".to_string(),
+                }),
+                assignment: None,
+                app_refs: Vec::new(),
+            })
+            .await
+            .expect("resolve app work");
+        let work_id = response.work.id.clone();
+        let runtime_instance_id = response.work.runtime_instances[0].id.clone();
+
+        service
+            .record_runtime_issue(
+                &work_id,
+                WorkRuntimeIssue {
+                    runtime_instance_id: runtime_instance_id.clone(),
+                    product_app_id: "product-app-1".to_string(),
+                    component_id: "product-app-1-surface".to_string(),
+                    severity: WorkRuntimeIssueSeverity::Fatal,
+                    message: "Preview crashed".to_string(),
+                    source: Some("ui.js:12".to_string()),
+                    category: Some("runtime".to_string()),
+                    timestamp_ms: 500,
+                },
+            )
+            .await
+            .expect("record runtime issue");
+        let issue_id = service
+            .execution_graph(&work_id)
+            .await
+            .expect("graph")
+            .studio_issues[0]
+            .id
+            .clone();
+        service
+            .update_studio_issue_status(&work_id, &issue_id, WorkStudioIssueStatus::Fixed)
+            .await
+            .expect("mark fixed");
+
+        service
+            .record_studio_preview_result(
+                &work_id,
+                WorkStudioPreviewResult {
+                    id: format!("preview:{runtime_instance_id}"),
+                    kind: WorkStudioPreviewKind::ProductAppPreview,
+                    status: WorkStudioFactStatus::Failed,
+                    source: WorkStudioPreviewSource::FixRerun,
+                    harness_mode: Some("product-app-preview".to_string()),
+                    trigger_turn_id: Some("fix-turn-1".to_string()),
+                    detail: Some("Preview rerun failed.".to_string()),
+                    checks: Vec::new(),
+                    work_id: work_id.clone(),
+                    runtime_instance_id: Some(runtime_instance_id.clone()),
+                    product_app_id: Some("product-app-1".to_string()),
+                    component_id: Some("product-app-1-surface".to_string()),
+                    product_app_surface_id: Some("product-app-1-surface".to_string()),
+                    surface_id: Some("primary".to_string()),
+                    observed_at: 900,
+                    issue_count: 1,
+                    fatal_issue_count: 1,
+                    warning_issue_count: 0,
+                },
+            )
+            .await
+            .expect("record failed rerun");
+
+        let graph = service.execution_graph(&work_id).await.expect("graph");
+        let issue = graph
+            .studio_issues
+            .iter()
+            .find(|issue| issue.id == issue_id)
+            .expect("studio issue");
+        assert_eq!(issue.status, WorkStudioIssueStatus::Regressed);
+        assert_eq!(issue.resolved_at, None);
+        assert_eq!(
+            graph.studio_preview_results[0].status,
+            WorkStudioFactStatus::Failed
+        );
+        assert_eq!(graph.studio_preview_results[0].fatal_issue_count, 1);
+        assert_eq!(
+            graph.studio_preview_results[0].source,
+            WorkStudioPreviewSource::FixRerun
+        );
     }
 
     #[tokio::test]
