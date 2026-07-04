@@ -2189,7 +2189,6 @@ const AppStudioWorkbench: React.FC<AppStudioWorkbenchProps> = ({
     buildRestoreReleasePrompt,
     productApp?.id,
     productApp?.version,
-    productAppFacts?.packagePath,
     releasePackageRoot,
     requestingReleaseRestore,
     restoreReleaseTarget,
