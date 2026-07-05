@@ -2,7 +2,7 @@ use crate::agentic::tools::computer_use_host::{
     ComputerUseImplicitScreenshotCenter, ComputerUseNavigateQuadrant, ComputerUseScreenshotParams,
     ScreenshotCropCenter,
 };
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use serde_json::Value;
 
 pub fn use_screen_coordinates(input: &Value) -> bool {
@@ -14,11 +14,11 @@ pub fn use_screen_coordinates(input: &Value) -> bool {
 
 /// Rejects JPEG/normalized coordinates for pointer moves — vision-derived positions are unreliable.
 /// Use `use_screen_coordinates: true` with globals from OCR/AX tools, or non-coordinate actions.
-pub fn ensure_pointer_move_uses_screen_coordinates_only(input: &Value) -> BitFunResult<()> {
+pub fn ensure_pointer_move_uses_screen_coordinates_only(input: &Value) -> CoreResult<()> {
     if use_screen_coordinates(input) {
         return Ok(());
     }
-    Err(BitFunError::tool(
+    Err(CoreError::tool(
         "Positioning from screenshot pixels (coordinate_mode image/normalized) is disabled: do not guess coordinates from vision. Set use_screen_coordinates: true with global display coordinates from move_to_text (global_center_x/y), locate, click_element, or pointer_image_x/y from the last screenshot JSON; or use move_to_text, click_element, click_label, pointer_move_rel, ComputerUseMouseStep. Screenshots are for confirmation only.".to_string(),
     ))
 }
@@ -30,7 +30,7 @@ pub fn coordinate_mode(input: &Value) -> &str {
         .unwrap_or("image")
 }
 
-pub fn parse_screenshot_crop_center(input: &Value) -> BitFunResult<Option<ScreenshotCropCenter>> {
+pub fn parse_screenshot_crop_center(input: &Value) -> CoreResult<Option<ScreenshotCropCenter>> {
     let xv = input.get("screenshot_crop_center_x");
     let yv = input.get("screenshot_crop_center_y");
     let x_none = xv.is_none() || xv.is_some_and(|v| v.is_null());
@@ -41,36 +41,36 @@ pub fn parse_screenshot_crop_center(input: &Value) -> BitFunResult<Option<Screen
         (false, false) => {
             let x = xv
                 .and_then(|v| v.as_u64())
-                .ok_or_else(|| BitFunError::tool("screenshot_crop_center_x must be a non-negative integer (full-display native pixels).".to_string()))?;
+                .ok_or_else(|| CoreError::tool("screenshot_crop_center_x must be a non-negative integer (full-display native pixels).".to_string()))?;
             let y = yv
                 .and_then(|v| v.as_u64())
-                .ok_or_else(|| BitFunError::tool("screenshot_crop_center_y must be a non-negative integer (full-display native pixels).".to_string()))?;
+                .ok_or_else(|| CoreError::tool("screenshot_crop_center_y must be a non-negative integer (full-display native pixels).".to_string()))?;
             Ok(Some(ScreenshotCropCenter {
                 x: u32::try_from(x)
-                    .map_err(|_| BitFunError::tool("screenshot_crop_center_x is too large.".to_string()))?,
+                    .map_err(|_| CoreError::tool("screenshot_crop_center_x is too large.".to_string()))?,
                 y: u32::try_from(y)
-                    .map_err(|_| BitFunError::tool("screenshot_crop_center_y is too large.".to_string()))?,
+                    .map_err(|_| CoreError::tool("screenshot_crop_center_y is too large.".to_string()))?,
             }))
         }
-        _ => Err(BitFunError::tool(
+        _ => Err(CoreError::tool(
             "screenshot_crop_center_x and screenshot_crop_center_y must both be set or both omitted for action screenshot.".to_string(),
         )),
     }
 }
 
-pub fn parse_screenshot_crop_half_extent_native(input: &Value) -> BitFunResult<Option<u32>> {
+pub fn parse_screenshot_crop_half_extent_native(input: &Value) -> CoreResult<Option<u32>> {
     match input.get("screenshot_crop_half_extent_native") {
         None => Ok(None),
         Some(v) if v.is_null() => Ok(None),
         Some(v) => {
             let n = v.as_u64().ok_or_else(|| {
-                BitFunError::tool(
+                CoreError::tool(
                     "screenshot_crop_half_extent_native must be a non-negative integer."
                         .to_string(),
                 )
             })?;
             Ok(Some(u32::try_from(n).map_err(|_| {
-                BitFunError::tool("screenshot_crop_half_extent_native is too large.".to_string())
+                CoreError::tool("screenshot_crop_half_extent_native is too large.".to_string())
             })?))
         }
     }
@@ -84,7 +84,7 @@ pub fn input_has_screenshot_crop_fields(input: &Value) -> bool {
 
 pub fn parse_screenshot_implicit_center(
     input: &Value,
-) -> BitFunResult<Option<ComputerUseImplicitScreenshotCenter>> {
+) -> CoreResult<Option<ComputerUseImplicitScreenshotCenter>> {
     match input
         .get("screenshot_implicit_center")
         .and_then(|v| v.as_str())
@@ -93,7 +93,7 @@ pub fn parse_screenshot_implicit_center(
         None | Some("") => Ok(None),
         Some("mouse") => Ok(Some(ComputerUseImplicitScreenshotCenter::Mouse)),
         Some("text_caret") => Ok(Some(ComputerUseImplicitScreenshotCenter::TextCaret)),
-        Some(other) => Err(BitFunError::tool(format!(
+        Some(other) => Err(CoreError::tool(format!(
             "screenshot_implicit_center must be \"mouse\" or \"text_caret\", got {:?}",
             other
         ))),
@@ -102,7 +102,7 @@ pub fn parse_screenshot_implicit_center(
 
 pub fn parse_screenshot_navigate_quadrant(
     input: &Value,
-) -> BitFunResult<Option<ComputerUseNavigateQuadrant>> {
+) -> CoreResult<Option<ComputerUseNavigateQuadrant>> {
     let value = input
         .get("screenshot_navigate_quadrant")
         .filter(|x| !x.is_null())
@@ -118,14 +118,14 @@ pub fn parse_screenshot_navigate_quadrant(
         "bottom_left" | "bottomleft" | "lower_left" => ComputerUseNavigateQuadrant::BottomLeft,
         "bottom_right" | "bottomright" | "lower_right" => ComputerUseNavigateQuadrant::BottomRight,
         _ => {
-            return Err(BitFunError::tool(
+            return Err(CoreError::tool(
                 "screenshot_navigate_quadrant must be one of: top_left, top_right, bottom_left, bottom_right.".to_string(),
             ));
         }
     }))
 }
 
-pub fn parse_screenshot_params(input: &Value) -> BitFunResult<(ComputerUseScreenshotParams, bool)> {
+pub fn parse_screenshot_params(input: &Value) -> CoreResult<(ComputerUseScreenshotParams, bool)> {
     let navigate = parse_screenshot_navigate_quadrant(input)?;
     let reset_navigation = input
         .get("screenshot_reset_navigation")

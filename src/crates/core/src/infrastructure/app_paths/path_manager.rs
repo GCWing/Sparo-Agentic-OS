@@ -2,7 +2,7 @@
 //!
 //! Provides unified management for all app storage paths, supporting user, project, and temporary levels
 
-use crate::util::errors::*;
+use crate::error::*;
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -42,7 +42,7 @@ pub struct PathManager {
 
 impl PathManager {
     /// Create a new path manager
-    pub fn new() -> BitFunResult<Self> {
+    pub fn new() -> CoreResult<Self> {
         let user_root = Self::get_user_config_root()?;
 
         Ok(Self {
@@ -56,9 +56,9 @@ impl PathManager {
     /// - Windows: %APPDATA%\sparo_os\
     /// - macOS: ~/Library/Application Support/sparo_os/
     /// - Linux: ~/.config/sparo_os/
-    fn get_user_config_root() -> BitFunResult<PathBuf> {
+    fn get_user_config_root() -> CoreResult<PathBuf> {
         let config_dir = dirs::config_dir()
-            .ok_or_else(|| BitFunError::config("Failed to get config directory".to_string()))?;
+            .ok_or_else(|| CoreError::config("Failed to get config directory".to_string()))?;
 
         Ok(config_dir.join(APP_CONFIG_DIR_NAME))
     }
@@ -105,6 +105,31 @@ impl PathManager {
                 .unwrap_or_else(|| PathBuf::from("/tmp"))
                 .join(APP_CONFIG_DIR_NAME)
                 .join("skills")
+        }
+    }
+
+    /// Get user skill suites directory:
+    /// - Windows: C:\Users\xxx\AppData\Roaming\sparo_os\skill-suites\
+    /// - macOS: ~/Library/Application Support/sparo_os/skill-suites/
+    /// - Linux: ~/.local/share/sparo_os/skill-suites/
+    pub fn user_skill_suites_dir(&self) -> PathBuf {
+        if cfg!(target_os = "windows") {
+            dirs::data_dir()
+                .unwrap_or_else(|| PathBuf::from("C:\\ProgramData"))
+                .join(APP_CONFIG_DIR_NAME)
+                .join("skill-suites")
+        } else if cfg!(target_os = "macos") {
+            dirs::home_dir()
+                .unwrap_or_else(|| PathBuf::from("/tmp"))
+                .join("Library")
+                .join("Application Support")
+                .join(APP_CONFIG_DIR_NAME)
+                .join("skill-suites")
+        } else {
+            dirs::data_local_dir()
+                .unwrap_or_else(|| PathBuf::from("/tmp"))
+                .join(APP_CONFIG_DIR_NAME)
+                .join("skill-suites")
         }
     }
 
@@ -291,6 +316,11 @@ impl PathManager {
     /// Get project config root directory: {project}/.sparo_os/
     pub fn project_root(&self, workspace_path: &Path) -> PathBuf {
         workspace_path.join(APP_HIDDEN_DIR_NAME)
+    }
+
+    /// Get project skill suites directory: {project}/.sparo_os/skill-suites/
+    pub fn project_skill_suites_dir(&self, workspace_path: &Path) -> PathBuf {
+        self.project_root(workspace_path).join("skill-suites")
     }
 
     /// Get the shared workspace runtime root directory: <app-root>/workspaces/
@@ -486,17 +516,17 @@ impl PathManager {
     }
 
     /// Ensure directory exists
-    pub async fn ensure_dir(&self, path: &Path) -> BitFunResult<()> {
+    pub async fn ensure_dir(&self, path: &Path) -> CoreResult<()> {
         if !path.exists() {
             tokio::fs::create_dir_all(path).await.map_err(|e| {
-                BitFunError::service(format!("Failed to create directory {:?}: {}", path, e))
+                CoreError::service(format!("Failed to create directory {:?}: {}", path, e))
             })?;
         }
         Ok(())
     }
 
     /// Initialize user-level directory structure
-    pub async fn initialize_user_directories(&self) -> BitFunResult<()> {
+    pub async fn initialize_user_directories(&self) -> CoreResult<()> {
         let dirs = vec![
             self.app_root(),
             self.workspaces_runtime_root(),
@@ -575,7 +605,7 @@ use std::sync::OnceLock;
 /// Global PathManager instance
 static GLOBAL_PATH_MANAGER: OnceLock<Arc<PathManager>> = OnceLock::new();
 
-fn init_global_path_manager() -> BitFunResult<Arc<PathManager>> {
+fn init_global_path_manager() -> CoreResult<Arc<PathManager>> {
     PathManager::new().map(Arc::new)
 }
 
@@ -598,7 +628,7 @@ pub fn get_path_manager_arc() -> Arc<PathManager> {
 }
 
 /// Try to get the global PathManager instance (Arc)
-pub fn try_get_path_manager_arc() -> BitFunResult<Arc<PathManager>> {
+pub fn try_get_path_manager_arc() -> CoreResult<Arc<PathManager>> {
     if let Some(manager) = GLOBAL_PATH_MANAGER.get() {
         return Ok(Arc::clone(manager));
     }

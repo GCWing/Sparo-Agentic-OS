@@ -1,16 +1,16 @@
 [package]
-name = "bitfun-relay-server"
+name = "sparo-relay-server"
 version = "0.1.0"
 authors = ["Sparo OS Team"]
 edition = "2021"
 description = "Sparo OS Relay Server - WebSocket relay for Remote Connect"
 
 [lib]
-name = "bitfun_relay_server"
+name = "sparo_relay_server"
 path = "src/lib.rs"
 
 [[bin]]
-name = "bitfun-relay-server"
+name = "sparo-relay-server"
 path = "src/main.rs"
 
 [dependencies]

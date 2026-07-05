@@ -1,4 +1,4 @@
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -79,14 +79,14 @@ pub fn state_file_path() -> PathBuf {
         .join(STATE_FILE_NAME)
 }
 
-pub async fn load_state() -> BitFunResult<MemoryConsolidationState> {
+pub async fn load_state() -> CoreResult<MemoryConsolidationState> {
     let path = state_file_path();
     if !path.exists() {
         return Ok(MemoryConsolidationState::default());
     }
 
     let content = fs::read_to_string(&path).await.map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to read memory consolidation state {}: {}",
             path.display(),
             error
@@ -94,7 +94,7 @@ pub async fn load_state() -> BitFunResult<MemoryConsolidationState> {
     })?;
 
     let mut state: MemoryConsolidationState = serde_json::from_str(&content).map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to parse memory consolidation state {}: {}",
             path.display(),
             error
@@ -104,11 +104,11 @@ pub async fn load_state() -> BitFunResult<MemoryConsolidationState> {
     Ok(state)
 }
 
-pub async fn save_state(state: &MemoryConsolidationState) -> BitFunResult<()> {
+pub async fn save_state(state: &MemoryConsolidationState) -> CoreResult<()> {
     let path = state_file_path();
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).await.map_err(|error| {
-            BitFunError::service(format!(
+            CoreError::service(format!(
                 "Failed to create memory consolidation state directory {}: {}",
                 parent.display(),
                 error
@@ -117,14 +117,14 @@ pub async fn save_state(state: &MemoryConsolidationState) -> BitFunResult<()> {
     }
 
     let content = serde_json::to_string_pretty(state).map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to serialize memory consolidation state: {}",
             error
         ))
     })?;
 
     fs::write(&path, content).await.map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to write memory consolidation state {}: {}",
             path.display(),
             error

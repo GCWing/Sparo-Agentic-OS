@@ -4,7 +4,7 @@
 //! `std::path::Path` treats paths like `/home/user/proj` as non-absolute and joins them
 //! incorrectly. Remote sessions must use POSIX path semantics for tool arguments.
 
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use std::path::{Component, Path, PathBuf};
 
 pub const SPARO_RUNTIME_URI_PREFIX: &str = "sparo://runtime/";
@@ -39,12 +39,12 @@ pub fn normalize_path(path: &str) -> String {
 pub fn resolve_path_with_workspace(
     path: &str,
     workspace_root: Option<&Path>,
-) -> BitFunResult<String> {
+) -> CoreResult<String> {
     if Path::new(path).is_absolute() {
         Ok(normalize_path(path))
     } else {
         let base_path = workspace_root.ok_or_else(|| {
-            BitFunError::tool(format!(
+            CoreError::tool(format!(
                 "A workspace path is required to resolve relative path: {}",
                 path
             ))
@@ -56,7 +56,7 @@ pub fn resolve_path_with_workspace(
     }
 }
 
-pub fn resolve_path(path: &str) -> BitFunResult<String> {
+pub fn resolve_path(path: &str) -> CoreResult<String> {
     resolve_path_with_workspace(path, None)
 }
 
@@ -64,11 +64,11 @@ pub fn is_sparo_runtime_uri(path: &str) -> bool {
     path.trim().starts_with(SPARO_RUNTIME_URI_PREFIX)
 }
 
-pub fn normalize_runtime_relative_path(path: &str) -> BitFunResult<String> {
+pub fn normalize_runtime_relative_path(path: &str) -> CoreResult<String> {
     let normalized = path.trim().replace('\\', "/");
     let trimmed = normalized.trim_matches('/');
     if trimmed.is_empty() {
-        return Err(BitFunError::tool(
+        return Err(CoreError::tool(
             "Runtime artifact path cannot be empty".to_string(),
         ));
     }
@@ -78,7 +78,7 @@ pub fn normalize_runtime_relative_path(path: &str) -> BitFunResult<String> {
         match part {
             "" | "." => continue,
             ".." => {
-                return Err(BitFunError::tool(
+                return Err(CoreError::tool(
                     "Runtime artifact path cannot escape its root".to_string(),
                 ))
             }
@@ -87,7 +87,7 @@ pub fn normalize_runtime_relative_path(path: &str) -> BitFunResult<String> {
     }
 
     if segments.is_empty() {
-        return Err(BitFunError::tool(
+        return Err(CoreError::tool(
             "Runtime artifact path cannot be empty".to_string(),
         ));
     }
@@ -95,22 +95,22 @@ pub fn normalize_runtime_relative_path(path: &str) -> BitFunResult<String> {
     Ok(segments.join("/"))
 }
 
-pub fn parse_sparo_runtime_uri(path: &str) -> BitFunResult<ParsedSparoRuntimeUri> {
+pub fn parse_sparo_runtime_uri(path: &str) -> CoreResult<ParsedSparoRuntimeUri> {
     let trimmed = path.trim();
     let suffix = trimmed
         .strip_prefix(SPARO_RUNTIME_URI_PREFIX)
-        .ok_or_else(|| BitFunError::tool(format!("Unsupported runtime URI: {}", path)))?;
+        .ok_or_else(|| CoreError::tool(format!("Unsupported runtime URI: {}", path)))?;
 
     let mut parts = suffix.splitn(2, '/');
     let workspace_scope = parts
         .next()
         .map(str::trim)
         .filter(|value| !value.is_empty())
-        .ok_or_else(|| BitFunError::tool("Runtime URI is missing workspace scope".to_string()))?
+        .ok_or_else(|| CoreError::tool("Runtime URI is missing workspace scope".to_string()))?
         .to_string();
     let relative_path = parts
         .next()
-        .ok_or_else(|| BitFunError::tool("Runtime URI is missing artifact path".to_string()))?;
+        .ok_or_else(|| CoreError::tool("Runtime URI is missing artifact path".to_string()))?;
 
     Ok(ParsedSparoRuntimeUri {
         workspace_scope,
@@ -118,10 +118,10 @@ pub fn parse_sparo_runtime_uri(path: &str) -> BitFunResult<ParsedSparoRuntimeUri
     })
 }
 
-pub fn build_sparo_runtime_uri(workspace_scope: &str, relative_path: &str) -> BitFunResult<String> {
+pub fn build_sparo_runtime_uri(workspace_scope: &str, relative_path: &str) -> CoreResult<String> {
     let scope = workspace_scope.trim();
     if scope.is_empty() {
-        return Err(BitFunError::tool(
+        return Err(CoreError::tool(
             "Runtime URI workspace scope cannot be empty".to_string(),
         ));
     }
@@ -166,10 +166,10 @@ fn posix_normalize_components(path: &str) -> String {
 pub fn posix_resolve_path_with_workspace(
     path: &str,
     workspace_root: Option<&str>,
-) -> BitFunResult<String> {
+) -> CoreResult<String> {
     let path = path.trim();
     if path.is_empty() {
-        return Err(BitFunError::tool("path cannot be empty".to_string()));
+        return Err(CoreError::tool("path cannot be empty".to_string()));
     }
 
     let normalized_input = path.replace('\\', "/");
@@ -179,7 +179,7 @@ pub fn posix_resolve_path_with_workspace(
     } else {
         let base = workspace_root
             .ok_or_else(|| {
-                BitFunError::tool(format!(
+                CoreError::tool(format!(
                     "A workspace path is required to resolve relative path: {}",
                     path
                 ))
@@ -198,7 +198,7 @@ pub fn resolve_workspace_tool_path(
     path: &str,
     workspace_root: Option<&str>,
     workspace_is_remote: bool,
-) -> BitFunResult<String> {
+) -> CoreResult<String> {
     if workspace_is_remote {
         posix_resolve_path_with_workspace(path, workspace_root)
     } else {

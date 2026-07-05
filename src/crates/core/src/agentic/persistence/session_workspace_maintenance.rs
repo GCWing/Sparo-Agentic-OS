@@ -1,5 +1,5 @@
 use super::PersistenceManager;
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 use dashmap::{DashMap, DashSet};
 use log::info;
 use std::path::{Path, PathBuf};
@@ -32,7 +32,7 @@ impl SessionWorkspaceMaintenanceService {
     pub async fn ensure_workspace_maintained(
         &self,
         workspace_path: &Path,
-    ) -> BitFunResult<SessionWorkspaceMaintenanceReport> {
+    ) -> CoreResult<SessionWorkspaceMaintenanceReport> {
         let workspace_key = workspace_path.to_path_buf();
 
         if self.cleaned_workspaces.contains(&workspace_key) {
@@ -65,7 +65,7 @@ impl SessionWorkspaceMaintenanceService {
     async fn run_workspace_maintenance(
         &self,
         workspace_path: &Path,
-    ) -> BitFunResult<SessionWorkspaceMaintenanceReport> {
+    ) -> CoreResult<SessionWorkspaceMaintenanceReport> {
         if !workspace_path.exists() {
             return Ok(SessionWorkspaceMaintenanceReport::default());
         }
@@ -127,7 +127,7 @@ mod tests {
     impl TestWorkspace {
         fn new() -> Self {
             let root = std::env::temp_dir().join(format!(
-                "bitfun-session-maintenance-test-{}",
+                "sparo-session-maintenance-test-{}",
                 Uuid::new_v4()
             ));
             let path = root.join("workspace");

@@ -5,7 +5,7 @@ use super::{
     MEMORY_USER_TEMPLATE,
 };
 use crate::infrastructure::get_path_manager_arc;
-use crate::util::errors::*;
+use crate::error::*;
 use chrono::{Datelike, NaiveDate};
 use log::debug;
 use std::path::PathBuf;
@@ -30,11 +30,11 @@ pub(crate) fn memory_store_dir_path_for_target(target: MemoryStoreTarget<'_>) ->
 
 pub(crate) async fn ensure_memory_store_for_target(
     target: MemoryStoreTarget<'_>,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     let memory_dir = memory_store_dir_path_for_target(target);
     if !memory_dir.exists() {
         fs::create_dir_all(&memory_dir).await.map_err(|e| {
-            BitFunError::service(format!(
+            CoreError::service(format!(
                 "Failed to create memory directory {}: {}",
                 memory_dir.display(),
                 e
@@ -45,7 +45,7 @@ pub(crate) async fn ensure_memory_store_for_target(
     let logs_dir = memory_dir.join(MEMORY_LOG_DIR_NAME);
     if !logs_dir.exists() {
         fs::create_dir_all(&logs_dir).await.map_err(|e| {
-            BitFunError::service(format!(
+            CoreError::service(format!(
                 "Failed to create memory logs directory {}: {}",
                 logs_dir.display(),
                 e

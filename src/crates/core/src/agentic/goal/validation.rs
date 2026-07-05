@@ -1,5 +1,5 @@
 use super::model::*;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 
 pub struct GoalValidationGate;
 
@@ -7,20 +7,20 @@ impl GoalValidationGate {
     pub fn validate_extraction(
         run: &GoalExtractionRun,
         result: &GoalExtractionResult,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         if result.extraction_id != run.extraction_id {
-            return Err(BitFunError::validation("Extraction id mismatch"));
+            return Err(CoreError::validation("Extraction id mismatch"));
         }
         if result.parent_session_id != run.parent_session_id {
-            return Err(BitFunError::validation(
+            return Err(CoreError::validation(
                 "Extraction parent session mismatch",
             ));
         }
         if result.trigger_turn_id != run.trigger_turn_id {
-            return Err(BitFunError::validation("Extraction trigger turn mismatch"));
+            return Err(CoreError::validation("Extraction trigger turn mismatch"));
         }
         if result.confidence < 0.35 {
-            return Err(BitFunError::validation("Extraction confidence is too low"));
+            return Err(CoreError::validation("Extraction confidence is too low"));
         }
 
         match result.intent.kind {
@@ -30,12 +30,12 @@ impl GoalValidationGate {
                 let contract = result
                     .contract
                     .as_ref()
-                    .ok_or_else(|| BitFunError::validation("Goal contract is required"))?;
+                    .ok_or_else(|| CoreError::validation("Goal contract is required"))?;
                 if contract.resolved_objective.trim().is_empty() {
-                    return Err(BitFunError::validation("Resolved objective is required"));
+                    return Err(CoreError::validation("Resolved objective is required"));
                 }
                 if contract.success_criteria.is_empty() {
-                    return Err(BitFunError::validation(
+                    return Err(CoreError::validation(
                         "Contract must contain at least one success criterion",
                     ));
                 }
@@ -44,21 +44,21 @@ impl GoalValidationGate {
                     .iter()
                     .any(|criterion| criterion.description.trim().is_empty())
                 {
-                    return Err(BitFunError::validation(
+                    return Err(CoreError::validation(
                         "Success criteria must have descriptions",
                     ));
                 }
             }
             GoalIntentKind::ControlGoal => {
                 if result.intent.control_action.is_none() {
-                    return Err(BitFunError::validation(
+                    return Err(CoreError::validation(
                         "Control goal intent requires control action",
                     ));
                 }
             }
             GoalIntentKind::AskClarification => {
                 if result.intent.clarification_questions.is_empty() {
-                    return Err(BitFunError::validation(
+                    return Err(CoreError::validation(
                         "Clarification intent requires at least one question",
                     ));
                 }
@@ -72,15 +72,15 @@ impl GoalValidationGate {
     /// drifting judge honest: a `pass` must actually mark every required
     /// criterion as met, and a non-terminal verdict must explain the closure
     /// gaps that keep the loop from stopping.
-    pub fn validate_verdict(record: &GoalRecord, verdict: &GoalVerdict) -> BitFunResult<()> {
+    pub fn validate_verdict(record: &GoalRecord, verdict: &GoalVerdict) -> CoreResult<()> {
         if verdict.confidence < 0.3 {
-            return Err(BitFunError::validation("Verdict confidence is too low"));
+            return Err(CoreError::validation("Verdict confidence is too low"));
         }
 
         match verdict.state {
             GoalVerdictState::Pass => {
                 if !verdict.remaining_gaps.is_empty() {
-                    return Err(BitFunError::validation(
+                    return Err(CoreError::validation(
                         "Verdict claims pass but still lists remaining gaps",
                     ));
                 }
@@ -95,7 +95,7 @@ impl GoalValidationGate {
                         .iter()
                         .any(|result| result.id == criterion.id && result.met);
                     if !met {
-                        return Err(BitFunError::validation(format!(
+                        return Err(CoreError::validation(format!(
                             "Verdict claims pass but required criterion is not marked met: {}",
                             criterion.id
                         )));
@@ -104,7 +104,7 @@ impl GoalValidationGate {
             }
             GoalVerdictState::Continue => {
                 if verdict.remaining_gaps.is_empty() {
-                    return Err(BitFunError::validation(
+                    return Err(CoreError::validation(
                         "Continue verdict must provide remaining gaps",
                     ));
                 }
@@ -116,14 +116,14 @@ impl GoalValidationGate {
                     .map(|question| !question.trim().is_empty())
                     .unwrap_or(false);
                 if !has_question {
-                    return Err(BitFunError::validation(
+                    return Err(CoreError::validation(
                         "needs_user verdict must include a user question",
                     ));
                 }
             }
             GoalVerdictState::Blocked => {
                 if verdict.remaining_gaps.is_empty() {
-                    return Err(BitFunError::validation(
+                    return Err(CoreError::validation(
                         "Blocked verdict must describe at least one remaining gap",
                     ));
                 }

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Product App Runtime catalog and lifecycle state.
  */
 import { create } from 'zustand';

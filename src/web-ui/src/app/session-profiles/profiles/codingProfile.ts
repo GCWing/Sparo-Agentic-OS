@@ -1,6 +1,6 @@
 import type { SessionProfile } from '../types';
 
-/** Prime Builder profile — covers agentic / Plan / debug / Team modes. */
+/** BitFun Coder profile — covers agentic / Plan / debug / Team modes. */
 export const codingProfile: SessionProfile = {
   id: 'coding',
 

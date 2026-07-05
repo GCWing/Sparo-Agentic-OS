@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tokio::fs;
 
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 
 use super::catalog::{
     stable_digest, AppComponentRef, AppDefinition, ComponentDefinition, ComponentKind,
@@ -333,10 +333,10 @@ pub struct ProductAppCheckpointReadinessSnapshot {
 
 pub async fn create_product_app_checkpoint(
     request: CreateProductAppCheckpointRequest,
-) -> BitFunResult<WrittenProductAppCheckpoint> {
+) -> CoreResult<WrittenProductAppCheckpoint> {
     let package_dir = request.package_dir;
     if !package_dir.is_dir() {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Product App package directory does not exist: {}",
             package_dir.display()
         )));
@@ -352,7 +352,7 @@ pub async fn create_product_app_checkpoint(
     let file_lock_digest = file_lock.digest();
 
     if declared_lock_digest != resolved_lock_digest || file_lock_digest != resolved_lock_digest {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Product App checkpoint requires a current component lock. declared={}, file={}, resolved={}",
             declared_lock_digest, file_lock_digest, resolved_lock_digest
         )));
@@ -360,7 +360,7 @@ pub async fn create_product_app_checkpoint(
 
     let package_files = collect_package_files(&package_dir).await?;
     if package_files.is_empty() {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Product App package has no checkpointable files: {}",
             package_dir.display()
         )));
@@ -419,9 +419,9 @@ pub async fn create_product_app_checkpoint(
 
 pub async fn restore_product_app_checkpoint(
     request: RestoreProductAppCheckpointRequest,
-) -> BitFunResult<RestoredProductAppCheckpoint> {
+) -> CoreResult<RestoredProductAppCheckpoint> {
     if !request.confirm {
-        return Err(BitFunError::validation(
+        return Err(CoreError::validation(
             "RestoreProductAppCheckpoint requires confirm=true because it overwrites package files"
                 .to_string(),
         ));
@@ -459,9 +459,9 @@ pub async fn restore_product_app_checkpoint(
 
 pub async fn restore_product_app_release(
     request: RestoreProductAppReleaseRequest,
-) -> BitFunResult<RestoredProductAppRelease> {
+) -> CoreResult<RestoredProductAppRelease> {
     if !request.confirm {
-        return Err(BitFunError::validation(
+        return Err(CoreError::validation(
             "RestoreProductAppRelease requires confirm=true because it overwrites package files"
                 .to_string(),
         ));
@@ -495,12 +495,12 @@ pub async fn restore_product_app_release(
 
 pub async fn create_product_app_from_release_template(
     request: CreateProductAppFromReleaseTemplateRequest,
-) -> BitFunResult<WrittenProductAppFromReleaseTemplate> {
+) -> CoreResult<WrittenProductAppFromReleaseTemplate> {
     validate_package_id("new_app_id", &request.new_app_id)?;
     validate_required("new_name", &request.new_name)?;
     validate_required("new_version", &request.new_version)?;
     if request.target_package_dir.exists() {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Target Product App package already exists: {}",
             request.target_package_dir.display()
         )));
@@ -550,7 +550,7 @@ pub async fn create_product_app_from_release_template(
 
 pub async fn compare_product_app_revisions(
     request: CompareProductAppRevisionsRequest,
-) -> BitFunResult<ProductAppRevisionComparison> {
+) -> CoreResult<ProductAppRevisionComparison> {
     let (base, base_files) = revision_from_ref(&request.package_dir, request.base).await?;
     let (target, target_files) = revision_from_ref(&request.package_dir, request.target).await?;
 
@@ -608,7 +608,7 @@ pub async fn compare_product_app_revisions(
 async fn revision_from_ref(
     package_dir: &Path,
     revision: ProductAppRevisionRef,
-) -> BitFunResult<(
+) -> CoreResult<(
     ProductAppRevisionDescriptor,
     BTreeMap<String, ProductAppCheckpointFile>,
 )> {
@@ -625,12 +625,12 @@ async fn revision_from_ref(
 
 pub async fn describe_current_product_app_revision(
     package_dir: &Path,
-) -> BitFunResult<ProductAppRevisionDescriptor> {
+) -> CoreResult<ProductAppRevisionDescriptor> {
     let (descriptor, _) = current_package_revision(package_dir).await?;
     Ok(descriptor)
 }
 
-pub async fn current_product_app_package_digest(package_dir: &Path) -> BitFunResult<String> {
+pub async fn current_product_app_package_digest(package_dir: &Path) -> CoreResult<String> {
     let files = collect_package_files(package_dir).await?;
     let file_metadata = files
         .into_iter()
@@ -641,11 +641,11 @@ pub async fn current_product_app_package_digest(package_dir: &Path) -> BitFunRes
 
 pub async fn create_product_app_release(
     request: CreateProductAppReleaseRequest,
-) -> BitFunResult<WrittenProductAppRelease> {
+) -> CoreResult<WrittenProductAppRelease> {
     validate_product_app_release_readiness(&request.readiness)?;
     let package_dir = request.package_dir;
     if !package_dir.is_dir() {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Product App package directory does not exist: {}",
             package_dir.display()
         )));
@@ -659,7 +659,7 @@ pub async fn create_product_app_release(
     let resolved_lock_digest = resolved.lock.digest();
     let file_lock_digest = ProductAppResolver::read_lock(&package_dir).await?.digest();
     if declared_lock_digest != resolved_lock_digest || file_lock_digest != resolved_lock_digest {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Product App release requires a current component lock. declared={}, file={}, resolved={}",
             declared_lock_digest, file_lock_digest, resolved_lock_digest
         )));
@@ -667,7 +667,7 @@ pub async fn create_product_app_release(
 
     let package_files = collect_package_files(&package_dir).await?;
     if package_files.is_empty() {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Product App package has no releasable files: {}",
             package_dir.display()
         )));
@@ -730,7 +730,7 @@ struct CollectedPackageFile {
     bytes: Vec<u8>,
 }
 
-async fn collect_package_files(root: &Path) -> BitFunResult<Vec<CollectedPackageFile>> {
+async fn collect_package_files(root: &Path) -> CoreResult<Vec<CollectedPackageFile>> {
     let mut dirs = vec![root.to_path_buf()];
     let mut files = Vec::new();
 
@@ -739,7 +739,7 @@ async fn collect_package_files(root: &Path) -> BitFunResult<Vec<CollectedPackage
         while let Some(entry) = entries.next_entry().await? {
             let path = entry.path();
             let relative = path.strip_prefix(root).map_err(|_| {
-                BitFunError::validation(format!(
+                CoreError::validation(format!(
                     "Package entry is outside package root: {}",
                     path.display()
                 ))
@@ -772,7 +772,7 @@ async fn collect_package_files(root: &Path) -> BitFunResult<Vec<CollectedPackage
 async fn write_snapshot_contents(
     snapshot_dir: &Path,
     files: &[CollectedPackageFile],
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     let content_root = snapshot_dir.join("files");
     for file in files {
         let destination = join_normalized_relative_path(&content_root, &file.metadata.path)?;
@@ -789,7 +789,7 @@ async fn restore_package_snapshot(
     snapshot_files: &[ProductAppCheckpointFile],
     content_root: &Path,
     artifact_label: &str,
-) -> BitFunResult<(usize, usize)> {
+) -> CoreResult<(usize, usize)> {
     let current_files = collect_package_files(package_dir).await?;
     let snapshot_paths = snapshot_files
         .iter()
@@ -811,14 +811,14 @@ async fn restore_package_snapshot(
     for file in snapshot_files {
         let snapshot_path = join_normalized_relative_path(content_root, &file.path)?;
         let bytes = fs::read(&snapshot_path).await.map_err(|error| {
-            BitFunError::validation(format!(
+            CoreError::validation(format!(
                 "{} content is missing for {}: {}",
                 artifact_label, file.path, error
             ))
         })?;
         let actual_sha256 = sha256_digest(&bytes);
         if actual_sha256 != file.sha256 || bytes.len() as u64 != file.bytes {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "{} content digest mismatch for {}. expected={} bytes={}, actual={} bytes={}",
                 artifact_label,
                 file.path,
@@ -843,19 +843,19 @@ async fn copy_release_snapshot_to_target(
     target_package_dir: &Path,
     content_root: &Path,
     snapshot_files: &[ProductAppCheckpointFile],
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     fs::create_dir_all(target_package_dir).await?;
     for file in snapshot_files {
         let snapshot_path = join_normalized_relative_path(content_root, &file.path)?;
         let bytes = fs::read(&snapshot_path).await.map_err(|error| {
-            BitFunError::validation(format!(
+            CoreError::validation(format!(
                 "Release template content is missing for {}: {}",
                 file.path, error
             ))
         })?;
         let actual_sha256 = sha256_digest(&bytes);
         if actual_sha256 != file.sha256 || bytes.len() as u64 != file.bytes {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Release template content digest mismatch for {}. expected={} bytes={}, actual={} bytes={}",
                 file.path,
                 file.sha256,
@@ -881,7 +881,7 @@ async fn rebase_template_package_identity(
     new_version: &str,
     new_description: Option<&str>,
     new_goal: Option<&str>,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     let app_path = package_dir.join("app.json");
     let mut app: AppDefinition = read_json(&app_path).await?;
     let source_app_id = release.app_id.as_str();
@@ -990,7 +990,7 @@ async fn rebase_private_component_files(
     new_version: &str,
     component_id_map: &BTreeMap<String, String>,
     component_refs: &[AppComponentRef],
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     for component_ref in component_refs {
         if component_ref.source != ComponentSource::Private {
             continue;
@@ -1009,7 +1009,7 @@ async fn rebase_private_component_files(
         let new_dir = kind_dir.join(&new_id);
         if old_dir.is_dir() && old_dir != new_dir {
             if new_dir.exists() {
-                return Err(BitFunError::validation(format!(
+                return Err(CoreError::validation(format!(
                     "Template component target already exists: {}",
                     new_dir.display()
                 )));
@@ -1049,7 +1049,7 @@ async fn rewrite_eval_plan_refs(
     source_app_id: &str,
     new_app_id: &str,
     component_id_map: &BTreeMap<String, String>,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     let eval_path = package_dir.join("tests").join("eval.json");
     if !eval_path.is_file() {
         return Ok(());
@@ -1113,12 +1113,12 @@ fn rebase_template_string(
     next
 }
 
-async fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> BitFunResult<T> {
+async fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> CoreResult<T> {
     let bytes = fs::read(path).await?;
     Ok(serde_json::from_slice(&bytes)?)
 }
 
-async fn write_json<T: Serialize>(path: &Path, value: &T) -> BitFunResult<()> {
+async fn write_json<T: Serialize>(path: &Path, value: &T) -> CoreResult<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).await?;
     }
@@ -1126,15 +1126,15 @@ async fn write_json<T: Serialize>(path: &Path, value: &T) -> BitFunResult<()> {
     Ok(())
 }
 
-async fn write_app_definition(package_dir: &Path, app: &AppDefinition) -> BitFunResult<()> {
+async fn write_app_definition(package_dir: &Path, app: &AppDefinition) -> CoreResult<()> {
     write_json(&package_dir.join("app.json"), app).await
 }
 
-fn join_normalized_relative_path(root: &Path, relative: &str) -> BitFunResult<PathBuf> {
+fn join_normalized_relative_path(root: &Path, relative: &str) -> CoreResult<PathBuf> {
     let mut path = root.to_path_buf();
     for segment in relative.split('/') {
         if segment.is_empty() || segment == "." || segment == ".." {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Invalid checkpoint relative path: {relative}"
             )));
         }
@@ -1146,19 +1146,19 @@ fn join_normalized_relative_path(root: &Path, relative: &str) -> BitFunResult<Pa
 async fn read_checkpoint_manifest(
     package_dir: &Path,
     checkpoint_id: &str,
-) -> BitFunResult<ProductAppCheckpointManifest> {
+) -> CoreResult<ProductAppCheckpointManifest> {
     let path = checkpoint_manifest_path(package_dir, checkpoint_id)?;
     let bytes = fs::read(&path).await?;
     let manifest: ProductAppCheckpointManifest = serde_json::from_slice(&bytes)?;
     if manifest.schema_version != PRODUCT_APP_CHECKPOINT_SCHEMA_VERSION {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Unsupported Product App checkpoint schema version {} in {}",
             manifest.schema_version,
             path.display()
         )));
     }
     if manifest.checkpoint_id != checkpoint_id {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Checkpoint manifest id mismatch. requested={}, manifest={}",
             checkpoint_id, manifest.checkpoint_id
         )));
@@ -1166,7 +1166,7 @@ async fn read_checkpoint_manifest(
     Ok(manifest)
 }
 
-fn checkpoint_manifest_path(package_dir: &Path, checkpoint_id: &str) -> BitFunResult<PathBuf> {
+fn checkpoint_manifest_path(package_dir: &Path, checkpoint_id: &str) -> CoreResult<PathBuf> {
     validate_checkpoint_id(checkpoint_id)?;
     Ok(package_dir
         .join("checkpoints")
@@ -1177,7 +1177,7 @@ fn checkpoint_manifest_path(package_dir: &Path, checkpoint_id: &str) -> BitFunRe
 fn checkpoint_content_root(
     package_dir: &Path,
     checkpoint: &ProductAppCheckpointManifest,
-) -> BitFunResult<PathBuf> {
+) -> CoreResult<PathBuf> {
     validate_checkpoint_id(&checkpoint.checkpoint_id)?;
     join_normalized_relative_path(
         &package_dir
@@ -1190,19 +1190,19 @@ fn checkpoint_content_root(
 async fn read_release_manifest(
     package_dir: &Path,
     release_id: &str,
-) -> BitFunResult<ProductAppReleaseManifest> {
+) -> CoreResult<ProductAppReleaseManifest> {
     let path = release_manifest_path(package_dir, release_id)?;
     let bytes = fs::read(&path).await?;
     let manifest: ProductAppReleaseManifest = serde_json::from_slice(&bytes)?;
     if manifest.schema_version != PRODUCT_APP_RELEASE_SCHEMA_VERSION {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Unsupported Product App release schema version {} in {}",
             manifest.schema_version,
             path.display()
         )));
     }
     if manifest.release_id != release_id {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Release manifest id mismatch. requested={}, manifest={}",
             release_id, manifest.release_id
         )));
@@ -1210,7 +1210,7 @@ async fn read_release_manifest(
     Ok(manifest)
 }
 
-fn release_manifest_path(package_dir: &Path, release_id: &str) -> BitFunResult<PathBuf> {
+fn release_manifest_path(package_dir: &Path, release_id: &str) -> CoreResult<PathBuf> {
     validate_release_id(release_id)?;
     Ok(package_dir
         .join("releases")
@@ -1221,7 +1221,7 @@ fn release_manifest_path(package_dir: &Path, release_id: &str) -> BitFunResult<P
 fn release_content_root(
     package_dir: &Path,
     release: &ProductAppReleaseManifest,
-) -> BitFunResult<PathBuf> {
+) -> CoreResult<PathBuf> {
     validate_release_id(&release.release_id)?;
     join_normalized_relative_path(
         &package_dir.join("releases").join(&release.release_id),
@@ -1229,7 +1229,7 @@ fn release_content_root(
     )
 }
 
-fn validate_checkpoint_id(checkpoint_id: &str) -> BitFunResult<()> {
+fn validate_checkpoint_id(checkpoint_id: &str) -> CoreResult<()> {
     let valid = !checkpoint_id.trim().is_empty()
         && checkpoint_id
             .chars()
@@ -1237,13 +1237,13 @@ fn validate_checkpoint_id(checkpoint_id: &str) -> BitFunResult<()> {
     if valid {
         Ok(())
     } else {
-        Err(BitFunError::validation(format!(
+        Err(CoreError::validation(format!(
             "Invalid checkpoint id: {checkpoint_id}"
         )))
     }
 }
 
-fn validate_release_id(release_id: &str) -> BitFunResult<()> {
+fn validate_release_id(release_id: &str) -> CoreResult<()> {
     let valid = !release_id.trim().is_empty()
         && release_id
             .chars()
@@ -1251,13 +1251,13 @@ fn validate_release_id(release_id: &str) -> BitFunResult<()> {
     if valid {
         Ok(())
     } else {
-        Err(BitFunError::validation(format!(
+        Err(CoreError::validation(format!(
             "Invalid release id: {release_id}"
         )))
     }
 }
 
-fn validate_package_id(field: &str, value: &str) -> BitFunResult<()> {
+fn validate_package_id(field: &str, value: &str) -> CoreResult<()> {
     let valid = !value.trim().is_empty()
         && value
             .chars()
@@ -1265,15 +1265,15 @@ fn validate_package_id(field: &str, value: &str) -> BitFunResult<()> {
     if valid {
         Ok(())
     } else {
-        Err(BitFunError::validation(format!(
+        Err(CoreError::validation(format!(
             "{field} must contain only ASCII letters, numbers, '-' or '_'"
         )))
     }
 }
 
-fn validate_required(field: &str, value: &str) -> BitFunResult<()> {
+fn validate_required(field: &str, value: &str) -> CoreResult<()> {
     if value.trim().is_empty() {
-        Err(BitFunError::validation(format!("{field} cannot be empty")))
+        Err(CoreError::validation(format!("{field} cannot be empty")))
     } else {
         Ok(())
     }
@@ -1283,10 +1283,10 @@ async fn verify_restored_checkpoint_lock(
     package_dir: &Path,
     shared_components: &[ComponentDefinition],
     checkpoint: &ProductAppCheckpointManifest,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     let package = ProductAppResolver::read_product_app_package(package_dir).await?;
     if package.app.id != checkpoint.app_id || package.app.version != checkpoint.app_version {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Restored package identity does not match checkpoint. package={}@{}, checkpoint={}@{}",
             package.app.id, package.app.version, checkpoint.app_id, checkpoint.app_version
         )));
@@ -1301,7 +1301,7 @@ async fn verify_restored_checkpoint_lock(
         || resolved_lock_digest != checkpoint.component_lock_digest
         || file_lock_digest != checkpoint.component_lock_digest
     {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Restored checkpoint lock mismatch. checkpoint={}, declared={}, file={}, resolved={}",
             checkpoint.component_lock_digest,
             declared_lock_digest,
@@ -1316,10 +1316,10 @@ async fn verify_restored_release_lock(
     package_dir: &Path,
     shared_components: &[ComponentDefinition],
     release: &ProductAppReleaseManifest,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     let package = ProductAppResolver::read_product_app_package(package_dir).await?;
     if package.app.id != release.app_id || package.app.version != release.app_version {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Restored package identity does not match release. package={}@{}, release={}@{}",
             package.app.id, package.app.version, release.app_id, release.app_version
         )));
@@ -1334,7 +1334,7 @@ async fn verify_restored_release_lock(
         || resolved_lock_digest != release.component_lock_digest
         || file_lock_digest != release.component_lock_digest
     {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Restored release lock mismatch. release={}, declared={}, file={}, resolved={}",
             release.component_lock_digest,
             declared_lock_digest,
@@ -1348,7 +1348,7 @@ async fn verify_restored_release_lock(
 async fn checkpoint_revision(
     package_dir: &Path,
     checkpoint_id: &str,
-) -> BitFunResult<(
+) -> CoreResult<(
     ProductAppRevisionDescriptor,
     BTreeMap<String, ProductAppCheckpointFile>,
 )> {
@@ -1374,7 +1374,7 @@ async fn checkpoint_revision(
 async fn release_revision(
     package_dir: &Path,
     release_id: &str,
-) -> BitFunResult<(
+) -> CoreResult<(
     ProductAppRevisionDescriptor,
     BTreeMap<String, ProductAppCheckpointFile>,
 )> {
@@ -1399,7 +1399,7 @@ async fn release_revision(
 
 async fn current_package_revision(
     package_dir: &Path,
-) -> BitFunResult<(
+) -> CoreResult<(
     ProductAppRevisionDescriptor,
     BTreeMap<String, ProductAppCheckpointFile>,
 )> {
@@ -1455,7 +1455,7 @@ fn sha256_digest(bytes: &[u8]) -> String {
     format!("sha256:{}", hex::encode(hasher.finalize()))
 }
 
-async fn count_checkpoint_manifests(package_dir: &Path) -> BitFunResult<usize> {
+async fn count_checkpoint_manifests(package_dir: &Path) -> CoreResult<usize> {
     let checkpoints_dir = package_dir.join("checkpoints");
     if !checkpoints_dir.is_dir() {
         return Ok(0);
@@ -1471,7 +1471,7 @@ async fn count_checkpoint_manifests(package_dir: &Path) -> BitFunResult<usize> {
     Ok(count)
 }
 
-async fn count_release_manifests(package_dir: &Path) -> BitFunResult<usize> {
+async fn count_release_manifests(package_dir: &Path) -> CoreResult<usize> {
     let releases_dir = package_dir.join("releases");
     if !releases_dir.is_dir() {
         return Ok(0);
@@ -1489,19 +1489,19 @@ async fn count_release_manifests(package_dir: &Path) -> BitFunResult<usize> {
 
 pub fn validate_product_app_release_readiness(
     readiness: &ProductAppReleaseReadinessSnapshot,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     if readiness.work_id.trim().is_empty() {
-        return Err(BitFunError::validation(
+        return Err(CoreError::validation(
             "Product App release requires a readiness work_id".to_string(),
         ));
     }
     if readiness.preview_result_id.trim().is_empty() {
-        return Err(BitFunError::validation(
+        return Err(CoreError::validation(
             "Product App release requires a readiness preview_result_id".to_string(),
         ));
     }
     if readiness.status != "passed" {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Product App release requires passed release readiness, got {}",
             readiness.status
         )));
@@ -1511,12 +1511,12 @@ pub fn validate_product_app_release_readiness(
         .iter()
         .find(|check| check.id == "releaseGate")
     else {
-        return Err(BitFunError::validation(
+        return Err(CoreError::validation(
             "Product App release requires a releaseGate readiness check".to_string(),
         ));
     };
     if release_gate.status != "passed" {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Product App release requires releaseGate=passed, got {}",
             release_gate.status
         )));
@@ -1526,7 +1526,7 @@ pub fn validate_product_app_release_readiness(
         .iter()
         .find(|check| check.status != "passed")
     {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Product App release requires every readiness check to pass. {}={}",
             check.id, check.status
         )));
@@ -1540,7 +1540,7 @@ pub fn validate_product_app_release_readiness(
                 .all(|check| check.id != **required_id)
         })
     {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Product App release requires {required_id} readiness evidence"
         )));
     }

@@ -2,7 +2,7 @@
 
 use crate::agentic::tools::framework::Tool;
 use crate::agentic::tools::implementations::*;
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 use indexmap::IndexMap;
 use log::{debug, info, trace, warn};
 use std::sync::Arc;
@@ -339,7 +339,7 @@ pub async fn get_all_tools() -> Vec<Arc<dyn Tool>> {
 }
 
 /// Get readonly tools
-pub async fn get_readonly_tools() -> BitFunResult<Vec<Arc<dyn Tool>>> {
+pub async fn get_readonly_tools() -> CoreResult<Vec<Arc<dyn Tool>>> {
     let all_tools = get_all_tools().await;
     let mut readonly_tools = Vec::new();
 

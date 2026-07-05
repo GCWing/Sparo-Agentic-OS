@@ -10,7 +10,7 @@ use crate::agentic::events::types::ToolEventData;
 use crate::agentic::tools::computer_use_host::ComputerUseHostRef;
 use crate::agentic::tools::framework::{ToolResult as FrameworkToolResult, ToolUseContext};
 use crate::agentic::tools::registry::ToolRegistry;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use dashmap::DashMap;
 use futures::future::join_all;
 use log::{debug, error, info, warn};
@@ -244,7 +244,7 @@ impl ToolPipeline {
         tool_calls: Vec<ToolCall>,
         context: ToolExecutionContext,
         options: ToolExecutionOptions,
-    ) -> BitFunResult<Vec<ToolExecutionResult>> {
+    ) -> CoreResult<Vec<ToolExecutionResult>> {
         if tool_calls.is_empty() {
             return Ok(vec![]);
         }
@@ -343,7 +343,7 @@ impl ToolPipeline {
     async fn execute_parallel(
         &self,
         task_ids: Vec<String>,
-    ) -> BitFunResult<Vec<ToolExecutionResult>> {
+    ) -> CoreResult<Vec<ToolExecutionResult>> {
         let futures: Vec<_> = task_ids
             .iter()
             .map(|id| self.execute_single_tool(id.clone()))
@@ -399,7 +399,7 @@ impl ToolPipeline {
     async fn execute_sequential(
         &self,
         task_ids: Vec<String>,
-    ) -> BitFunResult<Vec<ToolExecutionResult>> {
+    ) -> CoreResult<Vec<ToolExecutionResult>> {
         let mut results = Vec::new();
 
         for task_id in task_ids {
@@ -444,7 +444,7 @@ impl ToolPipeline {
     }
 
     /// Execute single tool
-    async fn execute_single_tool(&self, tool_id: String) -> BitFunResult<ToolExecutionResult> {
+    async fn execute_single_tool(&self, tool_id: String) -> CoreResult<ToolExecutionResult> {
         let start_time = Instant::now();
 
         debug!("Starting tool execution: tool_id={}", tool_id);
@@ -453,7 +453,7 @@ impl ToolPipeline {
         let task = self
             .state_manager
             .get_task(&tool_id)
-            .ok_or_else(|| BitFunError::NotFound(format!("Tool task not found: {}", tool_id)))?;
+            .ok_or_else(|| CoreError::NotFound(format!("Tool task not found: {}", tool_id)))?;
 
         let tool_name = task.tool_call.tool_name.clone();
         let tool_args = task.tool_call.arguments.clone();
@@ -482,7 +482,7 @@ impl ToolPipeline {
                 )
                 .await;
 
-            return Err(BitFunError::Validation(error_msg));
+            return Err(CoreError::Validation(error_msg));
         }
 
         // Security check: check if the tool is in the allowed list
@@ -507,7 +507,7 @@ impl ToolPipeline {
                 )
                 .await;
 
-            return Err(BitFunError::Validation(error_msg));
+            return Err(CoreError::Validation(error_msg));
         }
 
         if let Err(err) = task
@@ -548,7 +548,7 @@ impl ToolPipeline {
                         task.tool_call.tool_name,
                     );
                     error!("{}", error_msg);
-                    BitFunError::tool(error_msg)
+                    CoreError::tool(error_msg)
                 })?
         };
 
@@ -615,7 +615,7 @@ impl ToolPipeline {
                         )
                         .await;
 
-                    return Err(BitFunError::Validation(format!(
+                    return Err(CoreError::Validation(format!(
                         "Tool was rejected by user: {}",
                         reason
                     )));
@@ -631,7 +631,7 @@ impl ToolPipeline {
                         )
                         .await;
 
-                    return Err(BitFunError::service("Confirmation channel closed"));
+                    return Err(CoreError::service("Confirmation channel closed"));
                 }
                 None => {
                     self.state_manager
@@ -644,7 +644,7 @@ impl ToolPipeline {
                         .await;
 
                     warn!("Confirmation timeout: {}", tool_name);
-                    return Err(BitFunError::Timeout(format!(
+                    return Err(CoreError::Timeout(format!(
                         "Confirmation timeout: {}",
                         tool_name
                     )));
@@ -664,7 +664,7 @@ impl ToolPipeline {
                 )
                 .await;
             self.cancellation_tokens.remove(&tool_id);
-            return Err(BitFunError::Cancelled(
+            return Err(CoreError::Cancelled(
                 "Tool was cancelled before execution".to_string(),
             ));
         }
@@ -728,7 +728,7 @@ impl ToolPipeline {
                 // Cancellation is a first-class terminal state, not a failure.
                 // Preserve Cancelled here so a late cancel cannot be overwritten
                 // by the generic Failed branch below.
-                if let BitFunError::Cancelled(reason) = &e {
+                if let CoreError::Cancelled(reason) = &e {
                     self.state_manager
                         .update_state(
                             &tool_id,
@@ -772,14 +772,14 @@ impl ToolPipeline {
         task: &ToolTask,
         cancellation_token: CancellationToken,
         tool: Arc<dyn crate::agentic::tools::framework::Tool>,
-    ) -> BitFunResult<ModelToolResult> {
+    ) -> CoreResult<ModelToolResult> {
         let mut attempts = 0;
         let max_attempts = task.options.max_retries + 1;
 
         loop {
             // Check cancellation token
             if cancellation_token.is_cancelled() {
-                return Err(BitFunError::Cancelled(
+                return Err(CoreError::Cancelled(
                     "Tool execution was cancelled".to_string(),
                 ));
             }
@@ -848,10 +848,10 @@ impl ToolPipeline {
         task: &ToolTask,
         cancellation_token: CancellationToken,
         tool: Arc<dyn crate::agentic::tools::framework::Tool>,
-    ) -> BitFunResult<ModelToolResult> {
+    ) -> CoreResult<ModelToolResult> {
         // Check cancellation token
         if cancellation_token.is_cancelled() {
-            return Err(BitFunError::Cancelled(
+            return Err(CoreError::Cancelled(
                 "Tool execution was cancelled".to_string(),
             ));
         }
@@ -914,7 +914,7 @@ impl ToolPipeline {
                 let result = timeout(timeout_duration, execution_future)
                     .await
                     .map_err(|_| {
-                        BitFunError::Timeout(format!(
+                        CoreError::Timeout(format!(
                             "Tool execution timeout: {}",
                             task.tool_call.tool_name
                         ))
@@ -933,7 +933,7 @@ impl ToolPipeline {
             .last()
             .map(|r| convert_tool_result(r, &task.tool_call.tool_id, &task.tool_call.tool_name))
             .ok_or_else(|| {
-                BitFunError::Tool(format!(
+                CoreError::Tool(format!(
                     "Tool did not return result: {}",
                     task.tool_call.tool_name
                 ))
@@ -945,7 +945,7 @@ impl ToolPipeline {
         &self,
         task: &ToolTask,
         results: &[FrameworkToolResult],
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let mut chunks_received = 0;
 
         for result in results {
@@ -981,7 +981,7 @@ impl ToolPipeline {
     }
 
     /// Cancel tool execution
-    pub async fn cancel_tool(&self, tool_id: &str, reason: String) -> BitFunResult<()> {
+    pub async fn cancel_tool(&self, tool_id: &str, reason: String) -> CoreResult<()> {
         let Some(task) = self.state_manager.get_task(tool_id) else {
             debug!(
                 "Ignoring cancel request for unknown tool: tool_id={}",
@@ -1038,7 +1038,7 @@ impl ToolPipeline {
     }
 
     /// Cancel all tools for a dialog turn
-    pub async fn cancel_dialog_turn_tools(&self, dialog_turn_id: &str) -> BitFunResult<()> {
+    pub async fn cancel_dialog_turn_tools(&self, dialog_turn_id: &str) -> CoreResult<()> {
         info!(
             "Cancelling all tools for dialog turn: dialog_turn_id={}",
             dialog_turn_id
@@ -1090,7 +1090,7 @@ impl ToolPipeline {
         dialog_turn_id: &str,
         tool_names: &[&str],
         reason: String,
-    ) -> BitFunResult<usize> {
+    ) -> CoreResult<usize> {
         if tool_names.is_empty() {
             return Ok(0);
         }
@@ -1141,15 +1141,15 @@ impl ToolPipeline {
         &self,
         tool_id: &str,
         updated_input: Option<serde_json::Value>,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let task = self
             .state_manager
             .get_task(tool_id)
-            .ok_or_else(|| BitFunError::NotFound(format!("Tool task not found: {}", tool_id)))?;
+            .ok_or_else(|| CoreError::NotFound(format!("Tool task not found: {}", tool_id)))?;
 
         // Check if the state is waiting for confirmation
         if !matches!(task.state, ToolExecutionState::AwaitingConfirmation { .. }) {
-            return Err(BitFunError::Validation(format!(
+            return Err(CoreError::Validation(format!(
                 "Tool is not in awaiting confirmation state: {:?}",
                 task.state
             )));
@@ -1167,7 +1167,7 @@ impl ToolPipeline {
             info!("User confirmed tool execution: tool_id={}", tool_id);
             Ok(())
         } else {
-            Err(BitFunError::NotFound(format!(
+            Err(CoreError::NotFound(format!(
                 "Confirmation channel not found: {}",
                 tool_id
             )))
@@ -1175,15 +1175,15 @@ impl ToolPipeline {
     }
 
     /// Reject tool execution
-    pub async fn reject_tool(&self, tool_id: &str, reason: String) -> BitFunResult<()> {
+    pub async fn reject_tool(&self, tool_id: &str, reason: String) -> CoreResult<()> {
         let task = self
             .state_manager
             .get_task(tool_id)
-            .ok_or_else(|| BitFunError::NotFound(format!("Tool task not found: {}", tool_id)))?;
+            .ok_or_else(|| CoreError::NotFound(format!("Tool task not found: {}", tool_id)))?;
 
         // Check if the state is waiting for confirmation
         if !matches!(task.state, ToolExecutionState::AwaitingConfirmation { .. }) {
-            return Err(BitFunError::Validation(format!(
+            return Err(CoreError::Validation(format!(
                 "Tool is not in awaiting confirmation state: {:?}",
                 task.state
             )));

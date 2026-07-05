@@ -4,7 +4,7 @@ use super::types::{
 };
 use crate::agentic::WorkspaceBinding;
 use crate::infrastructure::{get_path_manager_arc, PathManager};
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use log::debug;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
@@ -66,7 +66,7 @@ impl WorkspaceRuntimeService {
     pub async fn ensure_workspace_runtime(
         &self,
         target: WorkspaceRuntimeTarget,
-    ) -> BitFunResult<WorkspaceRuntimeEnsureResult> {
+    ) -> CoreResult<WorkspaceRuntimeEnsureResult> {
         let context = self.context_for_target(target);
         self.ensure_runtime_context(context).await
     }
@@ -74,7 +74,7 @@ impl WorkspaceRuntimeService {
     pub async fn ensure_local_workspace_runtime(
         &self,
         workspace_path: &Path,
-    ) -> BitFunResult<WorkspaceRuntimeEnsureResult> {
+    ) -> CoreResult<WorkspaceRuntimeEnsureResult> {
         self.ensure_workspace_runtime(WorkspaceRuntimeTarget::LocalWorkspace {
             workspace_root: workspace_path.to_path_buf(),
         })
@@ -84,7 +84,7 @@ impl WorkspaceRuntimeService {
     pub async fn ensure_runtime_for_workspace_binding(
         &self,
         workspace: &WorkspaceBinding,
-    ) -> BitFunResult<WorkspaceRuntimeEnsureResult> {
+    ) -> CoreResult<WorkspaceRuntimeEnsureResult> {
         self.ensure_local_workspace_runtime(workspace.root_path())
             .await
     }
@@ -92,7 +92,7 @@ impl WorkspaceRuntimeService {
     async fn ensure_runtime_context(
         &self,
         context: WorkspaceRuntimeContext,
-    ) -> BitFunResult<WorkspaceRuntimeEnsureResult> {
+    ) -> CoreResult<WorkspaceRuntimeEnsureResult> {
         if self.is_runtime_verified(&context.runtime_root) {
             return Ok(Self::cached_ensure_result(context));
         }
@@ -161,7 +161,7 @@ impl WorkspaceRuntimeService {
         &self,
         context: &WorkspaceRuntimeContext,
         migrated_entries: &[RuntimeMigrationRecord],
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let target_descriptor = match &context.target {
             WorkspaceRuntimeTarget::LocalWorkspace { workspace_root } => {
                 workspace_root.display().to_string()
@@ -184,12 +184,12 @@ impl WorkspaceRuntimeService {
         };
 
         let bytes = serde_json::to_vec_pretty(&state).map_err(|e| {
-            BitFunError::service(format!("Failed to serialize runtime state: {}", e))
+            CoreError::service(format!("Failed to serialize runtime state: {}", e))
         })?;
         tokio::fs::write(&context.layout_state_file, bytes)
             .await
             .map_err(|e| {
-                BitFunError::service(format!(
+                CoreError::service(format!(
                     "Failed to write runtime layout state '{}': {}",
                     context.layout_state_file.display(),
                     e
@@ -222,7 +222,7 @@ pub fn get_workspace_runtime_service_arc() -> Arc<WorkspaceRuntimeService> {
         .clone()
 }
 
-pub fn try_get_workspace_runtime_service_arc() -> BitFunResult<Arc<WorkspaceRuntimeService>> {
+pub fn try_get_workspace_runtime_service_arc() -> CoreResult<Arc<WorkspaceRuntimeService>> {
     Ok(get_workspace_runtime_service_arc())
 }
 
@@ -238,7 +238,7 @@ mod tests {
     #[tokio::test]
     async fn ensure_local_workspace_runtime_creates_complete_layout_without_project_dot_dir() {
         let test_root =
-            std::env::temp_dir().join(format!("bitfun-runtime-test-{}", Uuid::new_v4()));
+            std::env::temp_dir().join(format!("sparo-runtime-test-{}", Uuid::new_v4()));
         let workspace_root = test_root.join("workspace");
         fs::create_dir_all(&workspace_root).expect("workspace should exist");
 
@@ -272,7 +272,7 @@ mod tests {
     #[tokio::test]
     async fn ensure_local_workspace_runtime_uses_verified_cache_on_repeat_calls() {
         let test_root =
-            std::env::temp_dir().join(format!("bitfun-runtime-test-{}", Uuid::new_v4()));
+            std::env::temp_dir().join(format!("sparo-runtime-test-{}", Uuid::new_v4()));
         let workspace_root = test_root.join("workspace");
         fs::create_dir_all(&workspace_root).expect("workspace should exist");
 

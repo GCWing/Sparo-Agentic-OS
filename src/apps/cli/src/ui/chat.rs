@@ -992,7 +992,7 @@ impl ChatView {
 mod tests {
     use super::*;
     use crate::ui::commands::PanelKind;
-    use bitfun_core::command::agentic_os::AgenticOsSnapshot;
+    use sparo_core::command::agentic_os::AgenticOsSnapshot;
     use ratatui::{backend::TestBackend, buffer::Buffer, Terminal};
 
     fn render_view(view: &mut ChatView, width: u16, height: u16) {

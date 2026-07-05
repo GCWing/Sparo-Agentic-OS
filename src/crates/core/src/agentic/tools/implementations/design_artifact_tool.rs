@@ -21,7 +21,7 @@
 
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext, ValidationResult};
 use crate::infrastructure::get_path_manager_arc;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use base64::Engine as _;
 use chrono::Utc;
@@ -261,16 +261,16 @@ impl DesignArtifactTool {
         }
     }
 
-    fn workspace_root(context: &ToolUseContext) -> BitFunResult<PathBuf> {
+    fn workspace_root(context: &ToolUseContext) -> CoreResult<PathBuf> {
         context
             .workspace_root()
             .map(Path::to_path_buf)
             .ok_or_else(|| {
-                BitFunError::tool("DesignArtifact requires an active workspace binding".to_string())
+                CoreError::tool("DesignArtifact requires an active workspace binding".to_string())
             })
     }
 
-    fn artifact_dir(context: &ToolUseContext, artifact_id: &str) -> BitFunResult<PathBuf> {
+    fn artifact_dir(context: &ToolUseContext, artifact_id: &str) -> CoreResult<PathBuf> {
         let workspace_root = Self::workspace_root(context)?;
         Ok(get_path_manager_arc().workspace_design_artifact_dir(&workspace_root, artifact_id))
     }
@@ -291,10 +291,10 @@ impl DesignArtifactTool {
         artifact_dir.join("thumbnails")
     }
 
-    async fn ensure_dir(dir: &Path) -> BitFunResult<()> {
+    async fn ensure_dir(dir: &Path) -> CoreResult<()> {
         if !dir.exists() {
             fs::create_dir_all(dir).await.map_err(|e| {
-                BitFunError::tool(format!(
+                CoreError::tool(format!(
                     "DesignArtifact: failed to create {}: {}",
                     dir.display(),
                     e
@@ -304,17 +304,17 @@ impl DesignArtifactTool {
         Ok(())
     }
 
-    async fn load_manifest(runtime_dir: &Path) -> BitFunResult<DesignArtifactManifest> {
+    async fn load_manifest(runtime_dir: &Path) -> CoreResult<DesignArtifactManifest> {
         let path = Self::manifest_path(runtime_dir);
         let raw = fs::read_to_string(&path).await.map_err(|e| {
-            BitFunError::tool(format!(
+            CoreError::tool(format!(
                 "DesignArtifact: manifest not found at {}: {}",
                 path.display(),
                 e
             ))
         })?;
         serde_json::from_str(&raw).map_err(|e| {
-            BitFunError::tool(format!(
+            CoreError::tool(format!(
                 "DesignArtifact: manifest at {} is corrupt: {}",
                 path.display(),
                 e
@@ -325,13 +325,13 @@ impl DesignArtifactTool {
     async fn save_manifest(
         runtime_dir: &Path,
         manifest: &DesignArtifactManifest,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         Self::ensure_dir(runtime_dir).await?;
         let path = Self::manifest_path(runtime_dir);
         let serialized = serde_json::to_string_pretty(manifest)
-            .map_err(|e| BitFunError::tool(format!("DesignArtifact: serialize manifest: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("DesignArtifact: serialize manifest: {}", e)))?;
         fs::write(&path, serialized).await.map_err(|e| {
-            BitFunError::tool(format!(
+            CoreError::tool(format!(
                 "DesignArtifact: write manifest {}: {}",
                 path.display(),
                 e
@@ -349,15 +349,15 @@ impl DesignArtifactTool {
         hex::encode(hasher.finalize())
     }
 
-    fn validate_relative_path(path: &str) -> BitFunResult<PathBuf> {
+    fn validate_relative_path(path: &str) -> CoreResult<PathBuf> {
         let normalized = path.trim().replace('\\', "/");
         if normalized.is_empty() {
-            return Err(BitFunError::tool(
+            return Err(CoreError::tool(
                 "DesignArtifact: file path cannot be empty".to_string(),
             ));
         }
         if normalized.starts_with('/') || normalized.contains("..") {
-            return Err(BitFunError::tool(format!(
+            return Err(CoreError::tool(format!(
                 "DesignArtifact: file path '{}' must be relative and must not escape the artifact root",
                 normalized
             )));
@@ -666,7 +666,7 @@ impl DesignArtifactTool {
     async fn resolve_committed_tokens(
         context: &ToolUseContext,
         artifact_id: Option<&str>,
-    ) -> BitFunResult<Value> {
+    ) -> CoreResult<Value> {
         let workspace_root = Self::workspace_root(context)?;
         let workspace_tokens_path =
             get_path_manager_arc().workspace_design_tokens_file(&workspace_root);
@@ -684,14 +684,14 @@ impl DesignArtifactTool {
                 continue;
             }
             let raw = fs::read_to_string(&path).await.map_err(|e| {
-                BitFunError::tool(format!(
+                CoreError::tool(format!(
                     "DesignArtifact: failed to read tokens {}: {}",
                     path.display(),
                     e
                 ))
             })?;
             let envelope: CommittedTokensEnvelope = serde_json::from_str(&raw).map_err(|e| {
-                BitFunError::tool(format!(
+                CoreError::tool(format!(
                     "DesignArtifact: invalid tokens json at {}: {}",
                     path.display(),
                     e
@@ -709,7 +709,7 @@ impl DesignArtifactTool {
             }
         }
 
-        Err(BitFunError::tool(
+        Err(CoreError::tool(
             "TOKENS_NOT_COMMITTED — commit a design token proposal with DesignTokens.commit before creating an artifact",
         ))
     }
@@ -718,14 +718,14 @@ impl DesignArtifactTool {
         artifact_dir: &Path,
         relative: &Path,
         content: &str,
-    ) -> BitFunResult<DesignArtifactFileEntry> {
+    ) -> CoreResult<DesignArtifactFileEntry> {
         let bytes = content.as_bytes();
         let current_path = Self::current_dir(artifact_dir).join(relative);
         if let Some(parent) = current_path.parent() {
             Self::ensure_dir(parent).await?;
         }
         fs::write(&current_path, bytes).await.map_err(|e| {
-            BitFunError::tool(format!(
+            CoreError::tool(format!(
                 "DesignArtifact: write file {}: {}",
                 current_path.display(),
                 e
@@ -740,11 +740,11 @@ impl DesignArtifactTool {
         })
     }
 
-    async fn delete_file(artifact_dir: &Path, relative: &Path) -> BitFunResult<()> {
+    async fn delete_file(artifact_dir: &Path, relative: &Path) -> CoreResult<()> {
         let current_path = Self::current_dir(artifact_dir).join(relative);
         if current_path.exists() {
             fs::remove_file(&current_path).await.map_err(|e| {
-                BitFunError::tool(format!(
+                CoreError::tool(format!(
                     "DesignArtifact: delete file {}: {}",
                     current_path.display(),
                     e
@@ -754,14 +754,14 @@ impl DesignArtifactTool {
         Ok(())
     }
 
-    async fn scan_current_files(artifact_dir: &Path) -> BitFunResult<Vec<DesignArtifactFileEntry>> {
+    async fn scan_current_files(artifact_dir: &Path) -> CoreResult<Vec<DesignArtifactFileEntry>> {
         let current_dir = Self::current_dir(artifact_dir);
         let mut out = Vec::new();
         let mut stack = vec![current_dir.clone()];
 
         while let Some(dir) = stack.pop() {
             let mut entries = fs::read_dir(&dir).await.map_err(|e| {
-                BitFunError::tool(format!(
+                CoreError::tool(format!(
                     "DesignArtifact.sync: read directory {}: {}",
                     dir.display(),
                     e
@@ -769,7 +769,7 @@ impl DesignArtifactTool {
             })?;
 
             while let Some(entry) = entries.next_entry().await.map_err(|e| {
-                BitFunError::tool(format!(
+                CoreError::tool(format!(
                     "DesignArtifact.sync: read directory entry {}: {}",
                     dir.display(),
                     e
@@ -777,7 +777,7 @@ impl DesignArtifactTool {
             })? {
                 let path = entry.path();
                 let metadata = entry.metadata().await.map_err(|e| {
-                    BitFunError::tool(format!(
+                    CoreError::tool(format!(
                         "DesignArtifact.sync: stat {}: {}",
                         path.display(),
                         e
@@ -794,7 +794,7 @@ impl DesignArtifactTool {
                 }
 
                 let relative = path.strip_prefix(&current_dir).map_err(|e| {
-                    BitFunError::tool(format!(
+                    CoreError::tool(format!(
                         "DesignArtifact.sync: path {} is outside current dir {}: {}",
                         path.display(),
                         current_dir.display(),
@@ -802,7 +802,7 @@ impl DesignArtifactTool {
                     ))
                 })?;
                 let bytes = fs::read(&path).await.map_err(|e| {
-                    BitFunError::tool(format!(
+                    CoreError::tool(format!(
                         "DesignArtifact.sync: read file {}: {}",
                         path.display(),
                         e
@@ -826,13 +826,13 @@ impl DesignArtifactTool {
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<DesignArtifactManifest> {
+    ) -> CoreResult<DesignArtifactManifest> {
         let title = input
             .get("title")
             .and_then(|v| v.as_str())
             .map(str::trim)
             .filter(|s| !s.is_empty())
-            .ok_or_else(|| BitFunError::tool("DesignArtifact.create: title is required"))?;
+            .ok_or_else(|| CoreError::tool("DesignArtifact.create: title is required"))?;
         let kind = input
             .get("kind")
             .and_then(|v| v.as_str())
@@ -857,7 +857,7 @@ impl DesignArtifactTool {
 
         // Refuse to overwrite an existing artifact through create.
         if Self::manifest_path(&artifact_dir).exists() {
-            return Err(BitFunError::tool(format!(
+            return Err(CoreError::tool(format!(
                 "DesignArtifact.create: artifact '{}' already exists; use update_file or snapshot instead",
                 id
             )));
@@ -972,19 +972,19 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<DesignArtifactManifest> {
+    ) -> CoreResult<DesignArtifactManifest> {
         let artifact_id = input
             .get("artifact_id")
             .and_then(|v| v.as_str())
             .filter(|s| !s.is_empty())
-            .ok_or_else(|| BitFunError::tool("DesignArtifact.sync: artifact_id is required"))?;
+            .ok_or_else(|| CoreError::tool("DesignArtifact.sync: artifact_id is required"))?;
 
         let artifact_dir = Self::artifact_dir(context, artifact_id)?;
         let mut manifest = Self::load_manifest(&artifact_dir).await?;
         let files = Self::scan_current_files(&artifact_dir).await?;
 
         if files.is_empty() {
-            return Err(BitFunError::tool(format!(
+            return Err(CoreError::tool(format!(
                 "DesignArtifact.sync: no files found in {}",
                 Self::current_dir(&artifact_dir).display()
             )));
@@ -997,7 +997,7 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
         {
             let entry = entry.replace('\\', "/");
             if !files.iter().any(|file| file.path == entry) {
-                return Err(BitFunError::tool(format!(
+                return Err(CoreError::tool(format!(
                     "DesignArtifact.sync: entry '{}' is not present in current files",
                     entry
                 )));
@@ -1024,7 +1024,7 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
     fn check_expected_version(
         input: &Value,
         manifest: &DesignArtifactManifest,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let Some(expected) = input.get("expected_version").and_then(|v| v.as_str()) else {
             return Ok(());
         };
@@ -1034,7 +1034,7 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
         }
         let current = manifest.current_version.as_deref().unwrap_or("");
         if current != expected {
-            return Err(BitFunError::tool(format!(
+            return Err(CoreError::tool(format!(
                 "DesignArtifact: VERSION_CONFLICT — expected current_version '{}', actual '{}'. Refresh and retry.",
                 expected, current
             )));
@@ -1060,7 +1060,7 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
         input: &Value,
         manifest: &DesignArtifactManifest,
         override_flag_key: &str,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let Some(lock) = manifest.editing_lock.as_ref() else {
             return Ok(());
         };
@@ -1084,7 +1084,7 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
             .or_else(|| input.get("author").and_then(|v| v.as_str()))
             .unwrap_or("agent");
         if actor != lock.holder {
-            return Err(BitFunError::tool(format!(
+            return Err(CoreError::tool(format!(
                 "DesignArtifact: EDIT_LOCKED — '{}' is currently editing this artifact (held since {}). Call release_lock or pass `force: true`.",
                 lock.holder, lock.since
             )));
@@ -1096,21 +1096,21 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<DesignArtifactManifest> {
+    ) -> CoreResult<DesignArtifactManifest> {
         let artifact_id = input
             .get("artifact_id")
             .and_then(|v| v.as_str())
             .ok_or_else(|| {
-                BitFunError::tool("DesignArtifact.update_file: artifact_id is required")
+                CoreError::tool("DesignArtifact.update_file: artifact_id is required")
             })?;
         let file_path = input
             .get("path")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BitFunError::tool("DesignArtifact.update_file: path is required"))?;
+            .ok_or_else(|| CoreError::tool("DesignArtifact.update_file: path is required"))?;
         let content = input
             .get("content")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BitFunError::tool("DesignArtifact.update_file: content is required"))?;
+            .ok_or_else(|| CoreError::tool("DesignArtifact.update_file: content is required"))?;
 
         let artifact_dir = Self::artifact_dir(context, artifact_id)?;
         let mut manifest = Self::load_manifest(&artifact_dir).await?;
@@ -1130,17 +1130,17 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<DesignArtifactManifest> {
+    ) -> CoreResult<DesignArtifactManifest> {
         let artifact_id = input
             .get("artifact_id")
             .and_then(|v| v.as_str())
             .ok_or_else(|| {
-                BitFunError::tool("DesignArtifact.delete_file: artifact_id is required")
+                CoreError::tool("DesignArtifact.delete_file: artifact_id is required")
             })?;
         let file_path = input
             .get("path")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BitFunError::tool("DesignArtifact.delete_file: path is required"))?;
+            .ok_or_else(|| CoreError::tool("DesignArtifact.delete_file: path is required"))?;
         let artifact_dir = Self::artifact_dir(context, artifact_id)?;
         let mut manifest = Self::load_manifest(&artifact_dir).await?;
         Self::check_editing_lock(input, &manifest, "force")?;
@@ -1158,17 +1158,17 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<DesignArtifactManifest> {
+    ) -> CoreResult<DesignArtifactManifest> {
         let artifact_id = input
             .get("artifact_id")
             .and_then(|v| v.as_str())
             .ok_or_else(|| {
-                BitFunError::tool("DesignArtifact.set_entry: artifact_id is required")
+                CoreError::tool("DesignArtifact.set_entry: artifact_id is required")
             })?;
         let new_entry = input
             .get("entry")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BitFunError::tool("DesignArtifact.set_entry: entry is required"))?;
+            .ok_or_else(|| CoreError::tool("DesignArtifact.set_entry: entry is required"))?;
         let artifact_dir = Self::artifact_dir(context, artifact_id)?;
         let mut manifest = Self::load_manifest(&artifact_dir).await?;
         Self::check_editing_lock(input, &manifest, "force")?;
@@ -1176,7 +1176,7 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
             .to_string_lossy()
             .replace('\\', "/");
         if !manifest.files.iter().any(|f| f.path == normalized) {
-            return Err(BitFunError::tool(format!(
+            return Err(CoreError::tool(format!(
                 "DesignArtifact.set_entry: entry '{}' is not a known file; add it first",
                 normalized
             )));
@@ -1191,11 +1191,11 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<DesignArtifactManifest> {
+    ) -> CoreResult<DesignArtifactManifest> {
         let artifact_id = input
             .get("artifact_id")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BitFunError::tool("DesignArtifact.snapshot: artifact_id is required"))?;
+            .ok_or_else(|| CoreError::tool("DesignArtifact.snapshot: artifact_id is required"))?;
         let summary = input
             .get("summary")
             .and_then(|v| v.as_str())
@@ -1225,7 +1225,7 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
             match fs::read(&source).await {
                 Ok(bytes) => content_hasher.update(&bytes),
                 Err(e) => {
-                    return Err(BitFunError::tool(format!(
+                    return Err(CoreError::tool(format!(
                         "DesignArtifact.snapshot: missing or unreadable file {}: {}",
                         source.display(),
                         e
@@ -1245,11 +1245,11 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
             let staging_dir = Self::versions_dir(&artifact_dir).join(&staging_name);
             Self::ensure_dir(&staging_dir).await?;
 
-            let copy_result: BitFunResult<()> = async {
+            let copy_result: CoreResult<()> = async {
                 for file in &manifest.files {
                     let source = current_dir.join(&file.path);
                     if !source.exists() {
-                        return Err(BitFunError::tool(format!(
+                        return Err(CoreError::tool(format!(
                             "DesignArtifact.snapshot: file listed in manifest missing from disk: {}",
                             source.display()
                         )));
@@ -1259,7 +1259,7 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
                         Self::ensure_dir(parent).await?;
                     }
                     fs::copy(&source, &dest).await.map_err(|e| {
-                        BitFunError::tool(format!(
+                        CoreError::tool(format!(
                             "DesignArtifact.snapshot: copy {} -> {}: {}",
                             source.display(),
                             dest.display(),
@@ -1282,7 +1282,7 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
                 let _ = fs::remove_dir_all(&staging_dir).await;
             } else if let Err(e) = fs::rename(&staging_dir, &version_dir).await {
                 let _ = fs::remove_dir_all(&staging_dir).await;
-                return Err(BitFunError::tool(format!(
+                return Err(CoreError::tool(format!(
                     "DesignArtifact.snapshot: promote staging -> {}: {}",
                     version_dir.display(),
                     e
@@ -1309,12 +1309,12 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<DesignArtifactManifest> {
+    ) -> CoreResult<DesignArtifactManifest> {
         let artifact_id = input
             .get("artifact_id")
             .and_then(|v| v.as_str())
             .ok_or_else(|| {
-                BitFunError::tool("DesignArtifact.acquire_lock: artifact_id is required")
+                CoreError::tool("DesignArtifact.acquire_lock: artifact_id is required")
             })?;
         let holder = input
             .get("holder")
@@ -1333,7 +1333,7 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false);
             if existing.holder != holder && !force && !Self::lock_is_stale(existing) {
-                return Err(BitFunError::tool(format!(
+                return Err(CoreError::tool(format!(
                     "DesignArtifact.acquire_lock: already locked by '{}' (since {}). Retry with force:true to take over.",
                     existing.holder, existing.since
                 )));
@@ -1353,12 +1353,12 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<DesignArtifactManifest> {
+    ) -> CoreResult<DesignArtifactManifest> {
         let artifact_id = input
             .get("artifact_id")
             .and_then(|v| v.as_str())
             .ok_or_else(|| {
-                BitFunError::tool("DesignArtifact.release_lock: artifact_id is required")
+                CoreError::tool("DesignArtifact.release_lock: artifact_id is required")
             })?;
         let artifact_dir = Self::artifact_dir(context, artifact_id)?;
         let mut manifest = Self::load_manifest(&artifact_dir).await?;
@@ -1372,18 +1372,18 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<DesignArtifactManifest> {
+    ) -> CoreResult<DesignArtifactManifest> {
         let artifact_id = input
             .get("artifact_id")
             .and_then(|v| v.as_str())
             .ok_or_else(|| {
-                BitFunError::tool("DesignArtifact.set_thumbnail: artifact_id is required")
+                CoreError::tool("DesignArtifact.set_thumbnail: artifact_id is required")
             })?;
         let data_url = input
             .get("data_url")
             .and_then(|v| v.as_str())
             .ok_or_else(|| {
-                BitFunError::tool(
+                CoreError::tool(
                     "DesignArtifact.set_thumbnail: data_url is required (data:image/...;base64,...)",
                 )
             })?;
@@ -1397,7 +1397,7 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
                 (mime.to_string(), body.to_string())
             }
             _ => {
-                return Err(BitFunError::tool(
+                return Err(CoreError::tool(
                     "DesignArtifact.set_thumbnail: data_url must be a base64 data URL",
                 ))
             }
@@ -1405,7 +1405,7 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
         let bytes = base64::engine::general_purpose::STANDARD
             .decode(b64.as_bytes())
             .map_err(|e| {
-                BitFunError::tool(format!(
+                CoreError::tool(format!(
                     "DesignArtifact.set_thumbnail: invalid base64: {}",
                     e
                 ))
@@ -1423,7 +1423,7 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
         let file_name = format!("{}.{}", Utc::now().timestamp_millis(), ext);
         let dest = thumbs_dir.join(&file_name);
         fs::write(&dest, &bytes).await.map_err(|e| {
-            BitFunError::tool(format!(
+            CoreError::tool(format!(
                 "DesignArtifact.set_thumbnail: write {}: {}",
                 dest.display(),
                 e
@@ -1440,12 +1440,12 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<(DesignArtifactManifest, PathBuf)> {
+    ) -> CoreResult<(DesignArtifactManifest, PathBuf)> {
         let artifact_id = input
             .get("artifact_id")
             .and_then(|v| v.as_str())
             .ok_or_else(|| {
-                BitFunError::tool("DesignArtifact.zip_export: artifact_id is required")
+                CoreError::tool("DesignArtifact.zip_export: artifact_id is required")
             })?;
         let artifact_dir = Self::artifact_dir(context, artifact_id)?;
         let manifest = Self::load_manifest(&artifact_dir).await?;
@@ -1462,19 +1462,19 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
                 };
                 zip_writer
                     .start_file(&file.path, opts)
-                    .map_err(|e| BitFunError::tool(format!("zip start_file: {}", e)))?;
+                    .map_err(|e| CoreError::tool(format!("zip start_file: {}", e)))?;
                 zip_writer
                     .write_all(&content)
-                    .map_err(|e| BitFunError::tool(format!("zip write: {}", e)))?;
+                    .map_err(|e| CoreError::tool(format!("zip write: {}", e)))?;
             }
             zip_writer
                 .finish()
-                .map_err(|e| BitFunError::tool(format!("zip finish: {}", e)))?;
+                .map_err(|e| CoreError::tool(format!("zip finish: {}", e)))?;
         }
         Self::ensure_dir(&artifact_dir).await?;
         let zip_path = artifact_dir.join(format!("{}.zip", manifest.id));
         fs::write(&zip_path, &buffer).await.map_err(|e| {
-            BitFunError::tool(format!(
+            CoreError::tool(format!(
                 "DesignArtifact.zip_export: write {}: {}",
                 zip_path.display(),
                 e
@@ -1487,11 +1487,11 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<DesignArtifactManifest> {
+    ) -> CoreResult<DesignArtifactManifest> {
         let artifact_id = input
             .get("artifact_id")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BitFunError::tool("DesignArtifact.archive: artifact_id is required"))?;
+            .ok_or_else(|| CoreError::tool("DesignArtifact.archive: artifact_id is required"))?;
         let artifact_dir = Self::artifact_dir(context, artifact_id)?;
         let mut manifest = Self::load_manifest(&artifact_dir).await?;
         let unarchive = input
@@ -1512,11 +1512,11 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<DesignArtifactManifest> {
+    ) -> CoreResult<DesignArtifactManifest> {
         let artifact_id = input
             .get("artifact_id")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BitFunError::tool("DesignArtifact.get: artifact_id is required"))?;
+            .ok_or_else(|| CoreError::tool("DesignArtifact.get: artifact_id is required"))?;
         let artifact_dir = Self::artifact_dir(context, artifact_id)?;
         Self::load_manifest(&artifact_dir).await
     }
@@ -1524,7 +1524,7 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
     async fn handle_list(
         &self,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<DesignArtifactManifest>> {
+    ) -> CoreResult<Vec<DesignArtifactManifest>> {
         let workspace_root = Self::workspace_root(context)?;
         let root = get_path_manager_arc().workspace_design_root(&workspace_root);
         if !root.exists() {
@@ -1532,7 +1532,7 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
         }
         let mut out = Vec::new();
         let mut entries = fs::read_dir(&root).await.map_err(|e| {
-            BitFunError::tool(format!(
+            CoreError::tool(format!(
                 "DesignArtifact.list: read {}: {}",
                 root.display(),
                 e
@@ -1557,7 +1557,7 @@ impl Tool for DesignArtifactTool {
         "DesignArtifact"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(r#"Create and evolve a Design Artifact — a multi-file, versioned HTML design project rendered in the right-side Design Canvas tab.
 
 Use DesignArtifact instead of bare Write/Edit when producing a design deliverable that the user will view, edit, and iterate on as a living artifact. Do NOT use GenerativeUI for design work — that tool is for one-off in-chat widgets.
@@ -1591,7 +1591,7 @@ Operational rules:
     async fn description_with_context(
         &self,
         _context: Option<&ToolUseContext>,
-    ) -> BitFunResult<String> {
+    ) -> CoreResult<String> {
         Ok(r#"Create and evolve a Design Artifact: a multi-file HTML/CSS/JS project rendered in the right-side Design Canvas tab.
 
 DesignArtifact owns the manifest, Canvas refresh, snapshots, and listing. File content is plain filesystem content:
@@ -1762,11 +1762,11 @@ For model-authored work, do not send substantial HTML/CSS/JS through DesignArtif
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let action = input
             .get("action")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BitFunError::tool("DesignArtifact: action is required"))?
+            .ok_or_else(|| CoreError::tool("DesignArtifact: action is required"))?
             .to_string();
 
         let (event, payload): (&str, Value) = match action.as_str() {
@@ -1867,7 +1867,7 @@ For model-authored work, do not send substantial HTML/CSS/JS through DesignArtif
                 )
             }
             other => {
-                return Err(BitFunError::tool(format!(
+                return Err(CoreError::tool(format!(
                     "DesignArtifact: unknown action '{}'",
                     other
                 )));

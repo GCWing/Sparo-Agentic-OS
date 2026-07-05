@@ -6,7 +6,7 @@ use crate::agentic_os::work::{
     StartWorkRequest, WorkAssignmentKind, WorkAssignmentRef, WorkId, WorkKind, WorkOwnerRef,
     WorkProjection, WorkRecord, WorkScope, WorkService, WorkStatus, WorkSubject, WorkVisibility,
 };
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -56,7 +56,7 @@ pub struct WorkInput {
     pub owner: Option<WorkOwnerRef>,
 }
 
-pub async fn handle(service: &WorkService, input: WorkInput) -> BitFunResult<Value> {
+pub async fn handle(service: &WorkService, input: WorkInput) -> CoreResult<Value> {
     match input.action {
         WorkAction::Start => start_work(service, input).await,
         WorkAction::Continue => continue_work(service, input).await,
@@ -65,7 +65,7 @@ pub async fn handle(service: &WorkService, input: WorkInput) -> BitFunResult<Val
     }
 }
 
-async fn start_work(service: &WorkService, input: WorkInput) -> BitFunResult<Value> {
+async fn start_work(service: &WorkService, input: WorkInput) -> CoreResult<Value> {
     let assignment = input
         .executor
         .map(work_executor_to_assignment)
@@ -80,7 +80,7 @@ async fn start_work(service: &WorkService, input: WorkInput) -> BitFunResult<Val
             app_refs: Vec::new(),
             scope: input
                 .scope
-                .ok_or_else(|| BitFunError::validation("scope is required for action=start"))?,
+                .ok_or_else(|| CoreError::validation("scope is required for action=start"))?,
             visibility: WorkVisibility::Primary,
             primary_surface_policy: PrimarySurfacePolicy::WorkSession,
             assignment: Some(assignment.unwrap_or_else(|| WorkAssignmentRef::agent("agentic"))),
@@ -104,7 +104,7 @@ async fn start_work(service: &WorkService, input: WorkInput) -> BitFunResult<Val
     }))
 }
 
-async fn continue_work(service: &WorkService, input: WorkInput) -> BitFunResult<Value> {
+async fn continue_work(service: &WorkService, input: WorkInput) -> CoreResult<Value> {
     let response = service
         .advance(AdvanceWorkRequest {
             work_id: required_work_id(input.work_id, "continue")?,
@@ -128,7 +128,7 @@ async fn continue_work(service: &WorkService, input: WorkInput) -> BitFunResult<
     }))
 }
 
-async fn status_work(service: &WorkService, input: WorkInput) -> BitFunResult<Value> {
+async fn status_work(service: &WorkService, input: WorkInput) -> CoreResult<Value> {
     if let Some(work_id) = input.work_id {
         let work = service.get(&work_id).await?;
         return Ok(json!({
@@ -155,12 +155,12 @@ async fn status_work(service: &WorkService, input: WorkInput) -> BitFunResult<Va
     }))
 }
 
-async fn control_work(service: &WorkService, input: WorkInput) -> BitFunResult<Value> {
+async fn control_work(service: &WorkService, input: WorkInput) -> CoreResult<Value> {
     let response = service
         .control(ControlWorkRequest {
             work_id: required_work_id(input.work_id, "control")?,
             action: input.control_action.ok_or_else(|| {
-                BitFunError::validation("control_action is required for action=control")
+                CoreError::validation("control_action is required for action=control")
             })?,
         })
         .await?;
@@ -173,7 +173,7 @@ async fn control_work(service: &WorkService, input: WorkInput) -> BitFunResult<V
     }))
 }
 
-fn work_executor_to_assignment(executor: WorkExecutorInput) -> BitFunResult<WorkAssignmentRef> {
+fn work_executor_to_assignment(executor: WorkExecutorInput) -> CoreResult<WorkAssignmentRef> {
     match executor.kind.unwrap_or(WorkExecutorKind::Agent) {
         WorkExecutorKind::Agent => {
             let agent_type = required_string(executor.agent_type, "executor.agent_type")?;
@@ -192,10 +192,10 @@ fn work_result(work: &WorkRecord) -> Value {
     })
 }
 
-fn required_string(value: Option<String>, field: &str) -> BitFunResult<String> {
+fn required_string(value: Option<String>, field: &str) -> CoreResult<String> {
     let value = value.unwrap_or_default();
     if value.trim().is_empty() {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "{} is required and cannot be empty",
             field
         )));
@@ -203,8 +203,8 @@ fn required_string(value: Option<String>, field: &str) -> BitFunResult<String> {
     Ok(value)
 }
 
-fn required_work_id(work_id: Option<WorkId>, action: &str) -> BitFunResult<WorkId> {
+fn required_work_id(work_id: Option<WorkId>, action: &str) -> CoreResult<WorkId> {
     work_id.ok_or_else(|| {
-        BitFunError::validation(format!("work_id is required for action={}", action))
+        CoreError::validation(format!("work_id is required for action={}", action))
     })
 }

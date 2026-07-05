@@ -4,18 +4,18 @@ use crate::api::app_state::AppState;
 use crate::api::session_storage_path::{
     desktop_effective_session_storage_path, SessionStorageScopeDto,
 };
-use bitfun_core::agentic::persistence::{
+use sparo_core::agentic::persistence::{
     PersistenceManager, SessionBranchRequest, SessionBranchResult,
 };
-use bitfun_core::agentic::tools::{get_all_registered_tools, ToolRuntimeRestrictions};
-use bitfun_core::agentic::{PromptBuilder, PromptBuilderContext, WorkspaceBinding};
-use bitfun_core::infrastructure::PathManager;
-use bitfun_core::service::config::types::{AIConfig, ModelCapability, ModelCategory};
-use bitfun_core::service::context_stats::{ContextBudgetSnapshot, ContextStatsEstimator};
-use bitfun_core::service::session::{
+use sparo_core::agentic::tools::{get_all_registered_tools, ToolRuntimeRestrictions};
+use sparo_core::agentic::{PromptBuilder, PromptBuilderContext, WorkspaceBinding};
+use sparo_core::infrastructure::PathManager;
+use sparo_core::service::config::types::{AIConfig, ModelCapability, ModelCategory};
+use sparo_core::service::context_stats::{ContextBudgetSnapshot, ContextStatsEstimator};
+use sparo_core::service::session::{
     DialogTurnData, SessionMetadata, SessionTranscriptExport, SessionTranscriptExportOptions,
 };
-use bitfun_core::util::types::ToolDefinition;
+use sparo_core::util::types::ToolDefinition;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -145,7 +145,7 @@ fn resolve_configured_model_id(ai_config: &AIConfig, selector: &str) -> String {
 fn resolve_model_config_for_budget<'a>(
     ai_config: &'a AIConfig,
     selector: &str,
-) -> Option<&'a bitfun_core::service::config::types::AIModelConfig> {
+) -> Option<&'a sparo_core::service::config::types::AIModelConfig> {
     let resolved_model_id = resolve_configured_model_id(ai_config, selector);
     ai_config
         .models
@@ -186,7 +186,7 @@ async fn build_tool_definitions_for_budget(
         "primary_model_supports_image_understanding".to_string(),
         Value::Bool(primary_supports_image_understanding),
     );
-    let description_context = bitfun_core::agentic::tools::framework::ToolUseContext {
+    let description_context = sparo_core::agentic::tools::framework::ToolUseContext {
         tool_call_id: None,
         agent_type: Some(agent_type.to_string()),
         session_id: None,

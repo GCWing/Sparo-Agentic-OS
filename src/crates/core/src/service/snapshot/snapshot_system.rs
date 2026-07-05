@@ -860,7 +860,7 @@ mod tests {
 
     fn create_test_runtime_context() -> WorkspaceRuntimeContext {
         let runtime_root =
-            std::env::temp_dir().join(format!("bitfun-snapshot-system-test-{}", Uuid::new_v4()));
+            std::env::temp_dir().join(format!("sparo-snapshot-system-test-{}", Uuid::new_v4()));
 
         let context = WorkspaceRuntimeContext::new(
             WorkspaceRuntimeTarget::LocalWorkspace {

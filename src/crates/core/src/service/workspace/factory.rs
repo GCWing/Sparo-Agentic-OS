@@ -1,20 +1,20 @@
 use super::manager::{WorkspaceManager, WorkspaceManagerConfig};
 use super::service::WorkspaceService;
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 
 /// Workspace factory - creates and configures workspace-related components
 pub struct WorkspaceFactory;
 
 impl WorkspaceFactory {
     /// Creates the default workspace service.
-    pub async fn create_default_service() -> BitFunResult<WorkspaceService> {
+    pub async fn create_default_service() -> CoreResult<WorkspaceService> {
         WorkspaceService::new().await
     }
 
     /// Creates a workspace service with a custom config.
     pub async fn create_service_with_config(
         config: WorkspaceManagerConfig,
-    ) -> BitFunResult<WorkspaceService> {
+    ) -> CoreResult<WorkspaceService> {
         WorkspaceService::with_config(config).await
     }
 

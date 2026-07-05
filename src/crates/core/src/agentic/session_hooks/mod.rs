@@ -10,7 +10,7 @@ use super::coordination::{
 };
 use super::core::SessionState;
 use super::events::{AgenticEvent, EventSubscriber, SessionSurfaceMode, ToolEventData};
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use log::{debug, warn};
@@ -291,27 +291,27 @@ pub enum SessionDriverIntent {
 
 #[async_trait]
 pub trait SessionDriver: Send + Sync {
-    async fn snapshot(&self, session_id: &str) -> BitFunResult<SessionRuntimeSnapshot>;
+    async fn snapshot(&self, session_id: &str) -> CoreResult<SessionRuntimeSnapshot>;
 
     async fn ensure_session_loaded(
         &self,
         workspace_path: &Path,
         session_id: &str,
-    ) -> BitFunResult<()>;
+    ) -> CoreResult<()>;
 
     async fn submit_turn(
         &self,
         request: SessionDriverSubmit,
-    ) -> BitFunResult<SessionDriverSubmitOutcome>;
+    ) -> CoreResult<SessionDriverSubmitOutcome>;
 
-    async fn guide_queued_turn(&self, session_id: &str, turn_id: &str) -> BitFunResult<()>;
+    async fn guide_queued_turn(&self, session_id: &str, turn_id: &str) -> CoreResult<()>;
 
     async fn delete_queued_turns(
         &self,
         session_id: &str,
         owner: SessionWorkOwnerMatcher,
         except_turn_id: Option<&str>,
-    ) -> BitFunResult<usize>;
+    ) -> CoreResult<usize>;
 
     async fn cancel_active_turn(
         &self,
@@ -321,13 +321,13 @@ pub trait SessionDriver: Send + Sync {
         reason: TurnCancellationReason,
         actor: SessionControlActor,
         wait_timeout: Duration,
-    ) -> BitFunResult<Option<String>>;
+    ) -> CoreResult<Option<String>>;
 
-    async fn resume_queue(&self, session_id: &str) -> BitFunResult<Option<String>>;
+    async fn resume_queue(&self, session_id: &str) -> CoreResult<Option<String>>;
 
-    async fn is_turn_completed(&self, session_id: &str, turn_id: &str) -> BitFunResult<bool>;
+    async fn is_turn_completed(&self, session_id: &str, turn_id: &str) -> CoreResult<bool>;
 
-    async fn execute_intent(&self, intent: SessionDriverIntent) -> BitFunResult<()> {
+    async fn execute_intent(&self, intent: SessionDriverIntent) -> CoreResult<()> {
         match intent {
             SessionDriverIntent::ResumeQueue { session_id } => {
                 let _ = self.resume_queue(&session_id).await?;
@@ -364,7 +364,7 @@ pub trait SessionExtension: Send + Sync + 'static {
         &self,
         context: SessionHookContext,
         driver: Arc<dyn SessionDriver>,
-    ) -> BitFunResult<Vec<SessionDriverIntent>>;
+    ) -> CoreResult<Vec<SessionDriverIntent>>;
 }
 
 pub struct SessionHookBus {
@@ -531,7 +531,7 @@ impl ToolSessionHookSubscriber {
 
 #[async_trait]
 impl EventSubscriber for ToolSessionHookSubscriber {
-    async fn on_event(&self, event: &AgenticEvent) -> BitFunResult<()> {
+    async fn on_event(&self, event: &AgenticEvent) -> CoreResult<()> {
         if let Some(hook) = Self::hook_from_event(event) {
             self.hook_bus.publish(hook).await;
         }
@@ -551,7 +551,7 @@ impl SchedulerSessionDriver {
 
 #[async_trait]
 impl SessionDriver for SchedulerSessionDriver {
-    async fn snapshot(&self, session_id: &str) -> BitFunResult<SessionRuntimeSnapshot> {
+    async fn snapshot(&self, session_id: &str) -> CoreResult<SessionRuntimeSnapshot> {
         let session = self.scheduler.session_manager().get_session(session_id);
         let queue_pause =
             self.scheduler
@@ -579,7 +579,7 @@ impl SessionDriver for SchedulerSessionDriver {
         &self,
         workspace_path: &Path,
         session_id: &str,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         if self
             .scheduler
             .session_manager()
@@ -598,20 +598,20 @@ impl SessionDriver for SchedulerSessionDriver {
     async fn submit_turn(
         &self,
         request: SessionDriverSubmit,
-    ) -> BitFunResult<SessionDriverSubmitOutcome> {
+    ) -> CoreResult<SessionDriverSubmitOutcome> {
         self.scheduler
             .submit_driver_turn(request)
             .await
             .map(SessionDriverSubmitOutcome::from)
-            .map_err(BitFunError::service)
+            .map_err(CoreError::service)
     }
 
-    async fn guide_queued_turn(&self, session_id: &str, turn_id: &str) -> BitFunResult<()> {
+    async fn guide_queued_turn(&self, session_id: &str, turn_id: &str) -> CoreResult<()> {
         self.scheduler
             .guide_queued_turn(session_id, turn_id)
             .await
             .map(|_| ())
-            .map_err(BitFunError::service)
+            .map_err(CoreError::service)
     }
 
     async fn delete_queued_turns(
@@ -619,7 +619,7 @@ impl SessionDriver for SchedulerSessionDriver {
         session_id: &str,
         owner: SessionWorkOwnerMatcher,
         except_turn_id: Option<&str>,
-    ) -> BitFunResult<usize> {
+    ) -> CoreResult<usize> {
         Ok(self
             .scheduler
             .delete_queued_owner_turns(session_id, owner, except_turn_id)
@@ -634,7 +634,7 @@ impl SessionDriver for SchedulerSessionDriver {
         reason: TurnCancellationReason,
         actor: SessionControlActor,
         wait_timeout: Duration,
-    ) -> BitFunResult<Option<String>> {
+    ) -> CoreResult<Option<String>> {
         self.scheduler
             .cancel_owned_active_turn(
                 session_id,
@@ -647,14 +647,14 @@ impl SessionDriver for SchedulerSessionDriver {
             .await
     }
 
-    async fn resume_queue(&self, session_id: &str) -> BitFunResult<Option<String>> {
+    async fn resume_queue(&self, session_id: &str) -> CoreResult<Option<String>> {
         self.scheduler
             .resume_queue(session_id)
             .await
-            .map_err(BitFunError::service)
+            .map_err(CoreError::service)
     }
 
-    async fn is_turn_completed(&self, session_id: &str, turn_id: &str) -> BitFunResult<bool> {
+    async fn is_turn_completed(&self, session_id: &str, turn_id: &str) -> CoreResult<bool> {
         let Some(session) = self.scheduler.session_manager().get_session(session_id) else {
             return Ok(false);
         };

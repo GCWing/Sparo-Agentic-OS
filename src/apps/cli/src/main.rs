@@ -11,7 +11,7 @@ mod session;
 mod ui;
 
 use anyhow::{Context, Result};
-use bitfun_core::infrastructure::APP_CONFIG_DIR_NAME;
+use sparo_core::infrastructure::APP_CONFIG_DIR_NAME;
 use clap::{error::ErrorKind as ClapErrorKind, Parser, Subcommand, ValueEnum};
 use serde::{Deserialize, Serialize};
 
@@ -796,7 +796,7 @@ fn global_config_file_health(path: &std::path::Path) -> DirectoryHealth {
     }
 
     match std::fs::read_to_string(path).ok().and_then(|content| {
-        serde_json::from_str::<bitfun_core::service::config::GlobalConfig>(&content).err()
+        serde_json::from_str::<sparo_core::service::config::GlobalConfig>(&content).err()
     }) {
         Some(error) => {
             health.status = "invalid_config".to_string();
@@ -865,7 +865,7 @@ fn cli_health_value() -> Result<serde_json::Value> {
     let config_dir = CliConfig::config_dir_path()?;
     let current_workspace = std::env::current_dir().ok();
     let (agentic_os_memory_path, workspace_sessions_path, workspace_memory_path) =
-        match bitfun_core::infrastructure::try_get_path_manager_arc() {
+        match sparo_core::infrastructure::try_get_path_manager_arc() {
             Ok(path_manager) => {
                 let workspace_sessions_path = current_workspace
                     .as_deref()
@@ -1103,7 +1103,7 @@ fn resolve_workspace_path(workspace: Option<&str>) -> Option<std::path::PathBuf>
 
 fn resolve_tui_workspace_path(workspace: Option<&str>) -> Option<std::path::PathBuf> {
     resolve_workspace_path(workspace).or_else(|| {
-        bitfun_core::infrastructure::try_get_path_manager_arc()
+        sparo_core::infrastructure::try_get_path_manager_arc()
             .ok()
             .map(|path_manager| path_manager.agentic_os_runtime_root())
     })
@@ -1129,7 +1129,7 @@ fn cli_default_workspace_hint(config: &CliConfig) -> Option<String> {
 }
 
 fn agentic_global_workspace_hint() -> Option<String> {
-    bitfun_core::infrastructure::try_get_path_manager_arc()
+    sparo_core::infrastructure::try_get_path_manager_arc()
         .ok()
         .map(|path_manager| {
             path_manager
@@ -1176,8 +1176,8 @@ fn effective_cli_agent(config: &CliConfig, explicit_agent: Option<&str>) -> Stri
         .unwrap_or_else(|| config.behavior.default_agent.clone())
 }
 
-async fn initialize_cli_process_runtime() -> Result<bitfun_core::runtime::ProcessRuntime> {
-    bitfun_core::runtime::initialize_process_runtime(bitfun_core::runtime::ProcessRuntimeOptions {
+async fn initialize_cli_process_runtime() -> Result<sparo_core::runtime::ProcessRuntime> {
+    sparo_core::runtime::initialize_process_runtime(sparo_core::runtime::ProcessRuntimeOptions {
         initialize_i18n: false,
         initialize_token_usage: false,
     })
@@ -1186,11 +1186,11 @@ async fn initialize_cli_process_runtime() -> Result<bitfun_core::runtime::Proces
 }
 
 async fn set_tool_confirmation_skip(
-    config_service: &std::sync::Arc<bitfun_core::service::config::ConfigService>,
+    config_service: &std::sync::Arc<sparo_core::service::config::ConfigService>,
     skip_confirmation: bool,
     mode: &str,
 ) -> bool {
-    let ai_config: bitfun_core::service::config::types::AIConfig = config_service
+    let ai_config: sparo_core::service::config::types::AIConfig = config_service
         .get_config(Some("ai"))
         .await
         .unwrap_or_default();
@@ -1211,7 +1211,7 @@ async fn set_tool_confirmation_skip(
 }
 
 async fn restore_tool_confirmation_skip(
-    config_service: &std::sync::Arc<bitfun_core::service::config::ConfigService>,
+    config_service: &std::sync::Arc<sparo_core::service::config::ConfigService>,
     original_skip_confirmation: bool,
     mode: &str,
 ) {
@@ -2106,7 +2106,7 @@ fn format_unix_ms(timestamp_ms: u64) -> String {
     .to_string()
 }
 
-fn turn_assistant_preview(turn: &bitfun_core::service::session::DialogTurnData) -> String {
+fn turn_assistant_preview(turn: &sparo_core::service::session::DialogTurnData) -> String {
     turn.model_rounds
         .iter()
         .flat_map(|round| round.text_items.iter())
@@ -2257,7 +2257,7 @@ async fn resume_session_in_tui(
     initial_message: Option<String>,
     context_messages: Vec<String>,
 ) -> Result<()> {
-    use bitfun_core::command::session as session_command;
+    use sparo_core::command::session as session_command;
 
     println!("Loading session {}...", id);
     let process_runtime = initialize_cli_process_runtime().await?;
@@ -2321,7 +2321,7 @@ struct TaskSessionResumeContext {
 }
 
 fn task_detail_context_message(
-    task: &bitfun_core::command::agentic_os::AgenticOsTaskRow,
+    task: &sparo_core::command::agentic_os::AgenticOsTaskRow,
 ) -> String {
     format!(
         "Task detail\nTitle: {}\nAgent: {}\nStatus: {}\nDetail: {}\nSession: {}\nWorkspace: {}",
@@ -2335,7 +2335,7 @@ fn task_detail_context_message(
 }
 
 fn task_session_resume_context(
-    task: &bitfun_core::command::agentic_os::AgenticOsTaskRow,
+    task: &sparo_core::command::agentic_os::AgenticOsTaskRow,
     fallback_workspace: Option<String>,
     session_id: String,
     initial_message: Option<String>,
@@ -2349,7 +2349,7 @@ fn task_session_resume_context(
 }
 
 fn task_tui_launch_context(
-    task: &bitfun_core::command::agentic_os::AgenticOsTaskRow,
+    task: &sparo_core::command::agentic_os::AgenticOsTaskRow,
     fallback_workspace: Option<String>,
     initial_message: Option<String>,
 ) -> TaskTuiLaunchContext {
@@ -2402,9 +2402,9 @@ async fn resume_task_without_session_in_tui(
 
 async fn load_tasks_snapshot(
     workspace: Option<String>,
-) -> Result<Vec<bitfun_core::command::agentic_os::AgenticOsTaskRow>> {
-    let snapshot = bitfun_core::command::agentic_os::get_snapshot_without_config(
-        bitfun_core::command::agentic_os::AgenticOsSnapshotRequest {
+) -> Result<Vec<sparo_core::command::agentic_os::AgenticOsTaskRow>> {
+    let snapshot = sparo_core::command::agentic_os::get_snapshot_without_config(
+        sparo_core::command::agentic_os::AgenticOsSnapshotRequest {
             workspace_hint: workspace,
         },
     )
@@ -2413,9 +2413,9 @@ async fn load_tasks_snapshot(
 }
 
 fn find_task_row<'a>(
-    tasks: &'a [bitfun_core::command::agentic_os::AgenticOsTaskRow],
+    tasks: &'a [sparo_core::command::agentic_os::AgenticOsTaskRow],
     id_or_title: &str,
-) -> Option<&'a bitfun_core::command::agentic_os::AgenticOsTaskRow> {
+) -> Option<&'a sparo_core::command::agentic_os::AgenticOsTaskRow> {
     if id_or_title.eq_ignore_ascii_case("last") {
         return tasks.first();
     }
@@ -2432,15 +2432,15 @@ fn find_task_row<'a>(
 async fn resolve_task(
     workspace: Option<String>,
     id_or_title: &str,
-) -> Result<bitfun_core::command::agentic_os::AgenticOsTaskRow> {
+) -> Result<sparo_core::command::agentic_os::AgenticOsTaskRow> {
     let tasks = load_tasks_snapshot(workspace).await?;
     resolve_task_from_rows(&tasks, id_or_title)
 }
 
 fn resolve_task_from_rows(
-    tasks: &[bitfun_core::command::agentic_os::AgenticOsTaskRow],
+    tasks: &[sparo_core::command::agentic_os::AgenticOsTaskRow],
     id_or_title: &str,
-) -> Result<bitfun_core::command::agentic_os::AgenticOsTaskRow> {
+) -> Result<sparo_core::command::agentic_os::AgenticOsTaskRow> {
     if id_or_title.eq_ignore_ascii_case("last") && tasks.is_empty() {
         anyhow::bail!("No backend-tracked agent tasks found");
     }
@@ -2478,7 +2478,7 @@ async fn handle_tasks_action(
                 .session_id
                 .clone()
                 .ok_or_else(|| anyhow::anyhow!("Task has no persisted session id: {}", id))?;
-            use bitfun_core::command::session as session_command;
+            use sparo_core::command::session as session_command;
             let detail = session_command::show_session(session_command::ShowSessionRequest {
                 session_id: session_id.clone(),
                 workspace_path: task.workspace.or(workspace),
@@ -2515,7 +2515,7 @@ async fn handle_agents_action(action: AgentsAction, json: bool) -> Result<()> {
             let _agentic_system = agent::agentic_system::init_agentic_system()
                 .await
                 .context("Failed to initialize agentic system")?;
-            let agents = bitfun_core::agentic::agents::get_agent_registry()
+            let agents = sparo_core::agentic::agents::get_agent_registry()
                 .list_agents_info()
                 .await;
 
@@ -2545,7 +2545,7 @@ async fn show_task_details(workspace: Option<String>, id: &str, json: bool) -> R
 }
 
 fn tasks_list_human_lines(
-    tasks: &[bitfun_core::command::agentic_os::AgenticOsTaskRow],
+    tasks: &[sparo_core::command::agentic_os::AgenticOsTaskRow],
     workspace: Option<&str>,
 ) -> Vec<String> {
     if tasks.is_empty() {
@@ -2605,7 +2605,7 @@ fn tasks_list_human_lines(
 }
 
 fn task_human_detail_lines(
-    task: &bitfun_core::command::agentic_os::AgenticOsTaskRow,
+    task: &sparo_core::command::agentic_os::AgenticOsTaskRow,
 ) -> Vec<String> {
     let workspace_arg = workspace_option(task.workspace.as_deref());
     let resume_id = task.session_id.as_deref().unwrap_or(&task.title);
@@ -2672,7 +2672,7 @@ fn task_export_human_lines(
     ]
 }
 
-fn agent_summary_line(agent: &bitfun_core::agentic::agents::AgentInfo) -> String {
+fn agent_summary_line(agent: &sparo_core::agentic::agents::AgentInfo) -> String {
     let state = if agent.enabled { "enabled" } else { "disabled" };
     let readonly = if agent.is_readonly {
         "readonly"
@@ -2685,7 +2685,7 @@ fn agent_summary_line(agent: &bitfun_core::agentic::agents::AgentInfo) -> String
     )
 }
 
-fn agents_human_lines(agents: &[bitfun_core::agentic::agents::AgentInfo]) -> Vec<String> {
+fn agents_human_lines(agents: &[sparo_core::agentic::agents::AgentInfo]) -> Vec<String> {
     if agents.is_empty() {
         return vec![
             "No agents available.".to_string(),
@@ -2896,7 +2896,7 @@ fn batch_result_session_line(session_id: Option<&str>) -> Option<String> {
 }
 
 fn sessions_list_human_lines(
-    sessions: &[bitfun_core::service::session::SessionMetadata],
+    sessions: &[sparo_core::service::session::SessionMetadata],
     workspace_path: Option<&str>,
 ) -> Vec<String> {
     if sessions.is_empty() {
@@ -3011,7 +3011,7 @@ async fn handle_session_action(
     workspace_path: Option<String>,
     json: bool,
 ) -> Result<()> {
-    use bitfun_core::command::session as session_command;
+    use sparo_core::command::session as session_command;
 
     match action {
         SessionAction::List => {
@@ -3102,7 +3102,7 @@ async fn show_session_details(
     workspace_path: Option<String>,
     json: bool,
 ) -> Result<()> {
-    use bitfun_core::command::session as session_command;
+    use sparo_core::command::session as session_command;
 
     let detail = session_command::show_session(session_command::ShowSessionRequest {
         session_id: id,
@@ -3141,7 +3141,7 @@ async fn show_session_details(
 }
 
 fn session_human_detail_lines(
-    metadata: &bitfun_core::service::session::SessionMetadata,
+    metadata: &sparo_core::service::session::SessionMetadata,
 ) -> Vec<String> {
     let workspace_arg = workspace_option(metadata.workspace_path.as_deref());
     let session_arg = shell_arg(&metadata.session_id);
@@ -3181,7 +3181,7 @@ fn session_human_detail_lines(
     lines
 }
 
-fn render_session_markdown(detail: &bitfun_core::command::session::SessionDetail) -> String {
+fn render_session_markdown(detail: &sparo_core::command::session::SessionDetail) -> String {
     let metadata = &detail.metadata;
     let mut out = String::new();
     out.push_str(&format!("# {}\n\n", metadata.session_name));
@@ -3299,7 +3299,7 @@ fn session_export_human_lines(
     ]
 }
 
-async fn build_command_context() -> Result<bitfun_core::command::CommandContext> {
+async fn build_command_context() -> Result<sparo_core::command::CommandContext> {
     let runtime = initialize_cli_process_runtime().await?;
     Ok(runtime.command_context())
 }
@@ -3674,7 +3674,7 @@ fn config_reload_human_lines(message: &str) -> Vec<String> {
 
 fn config_import_human_lines(
     file: &str,
-    response: &bitfun_core::command::config::ImportConfigResponse,
+    response: &sparo_core::command::config::ImportConfigResponse,
 ) -> Vec<String> {
     let mut lines = vec![
         "Shared Global Configuration Imported".to_string(),
@@ -3869,7 +3869,7 @@ fn printable_config_value<T: serde::Serialize>(
 }
 
 async fn read_shared_config_value(path: Option<String>) -> Result<serde_json::Value> {
-    use bitfun_core::command::config as command_config;
+    use sparo_core::command::config as command_config;
 
     match build_command_context().await {
         Ok(ctx) => command_config::get_config(
@@ -3921,7 +3921,7 @@ fn read_shared_config_value_from_path(
             })?
         }
         Ok(false) | Err(_) => {
-            serde_json::to_value(bitfun_core::service::config::GlobalConfig::default())?
+            serde_json::to_value(sparo_core::service::config::GlobalConfig::default())?
         }
     };
 
@@ -4068,7 +4068,7 @@ fn parse_loose_value(value: &str) -> serde_json::Value {
 }
 
 async fn handle_config_action(action: ConfigAction, config: &CliConfig) -> Result<()> {
-    use bitfun_core::command::config as command_config;
+    use sparo_core::command::config as command_config;
 
     match action {
         ConfigAction::Show {
@@ -4262,9 +4262,9 @@ async fn handle_config_action(action: ConfigAction, config: &CliConfig) -> Resul
 
 async fn load_apps_snapshot(
     workspace: Option<String>,
-) -> Result<Vec<bitfun_core::command::agentic_os::AgenticOsAppRow>> {
-    let snapshot = bitfun_core::command::agentic_os::get_snapshot_without_config(
-        bitfun_core::command::agentic_os::AgenticOsSnapshotRequest {
+) -> Result<Vec<sparo_core::command::agentic_os::AgenticOsAppRow>> {
+    let snapshot = sparo_core::command::agentic_os::get_snapshot_without_config(
+        sparo_core::command::agentic_os::AgenticOsSnapshotRequest {
             workspace_hint: workspace,
         },
     )
@@ -4273,7 +4273,7 @@ async fn load_apps_snapshot(
 }
 
 fn app_storage_health_checks() -> Vec<(&'static str, DirectoryHealth)> {
-    let Ok(path_manager) = bitfun_core::infrastructure::try_get_path_manager_arc() else {
+    let Ok(path_manager) = sparo_core::infrastructure::try_get_path_manager_arc() else {
         return Vec::new();
     };
 
@@ -4311,9 +4311,9 @@ fn has_app_storage_problem(checks: &[(&'static str, DirectoryHealth)]) -> bool {
 }
 
 fn find_app_row<'a>(
-    apps: &'a [bitfun_core::command::agentic_os::AgenticOsAppRow],
+    apps: &'a [sparo_core::command::agentic_os::AgenticOsAppRow],
     id_or_name: &str,
-) -> Option<&'a bitfun_core::command::agentic_os::AgenticOsAppRow> {
+) -> Option<&'a sparo_core::command::agentic_os::AgenticOsAppRow> {
     let needle = id_or_name.to_ascii_lowercase();
     apps.iter().find(|app| {
         app.id.eq_ignore_ascii_case(id_or_name) || app.name.to_ascii_lowercase() == needle
@@ -4415,7 +4415,7 @@ async fn handle_apps_action(action: AppsAction, json: bool, config: &CliConfig) 
 }
 
 fn apps_list_human_lines(
-    apps: &[bitfun_core::command::agentic_os::AgenticOsAppRow],
+    apps: &[sparo_core::command::agentic_os::AgenticOsAppRow],
     workspace: Option<&str>,
     has_storage_problem: bool,
 ) -> Vec<String> {
@@ -4480,7 +4480,7 @@ fn apps_list_human_lines(
 }
 
 fn app_human_detail_lines(
-    app: &bitfun_core::command::agentic_os::AgenticOsAppRow,
+    app: &sparo_core::command::agentic_os::AgenticOsAppRow,
     workspace: Option<&str>,
 ) -> Vec<String> {
     let app_arg = shell_arg(&app.id);
@@ -4515,7 +4515,7 @@ fn app_human_detail_lines(
 }
 
 fn app_open_human_lines(
-    app: &bitfun_core::command::agentic_os::AgenticOsAppRow,
+    app: &sparo_core::command::agentic_os::AgenticOsAppRow,
     workspace: Option<&str>,
     target: &str,
 ) -> Vec<String> {
@@ -4541,9 +4541,9 @@ fn app_open_human_lines(
 }
 
 async fn load_workspaces_snapshot(
-) -> Result<Vec<bitfun_core::command::agentic_os::AgenticOsWorkspaceRow>> {
-    let snapshot = bitfun_core::command::agentic_os::get_snapshot_without_config(
-        bitfun_core::command::agentic_os::AgenticOsSnapshotRequest {
+) -> Result<Vec<sparo_core::command::agentic_os::AgenticOsWorkspaceRow>> {
+    let snapshot = sparo_core::command::agentic_os::get_snapshot_without_config(
+        sparo_core::command::agentic_os::AgenticOsSnapshotRequest {
             workspace_hint: None,
         },
     )
@@ -4552,9 +4552,9 @@ async fn load_workspaces_snapshot(
 }
 
 fn find_workspace_row<'a>(
-    workspaces: &'a [bitfun_core::command::agentic_os::AgenticOsWorkspaceRow],
+    workspaces: &'a [sparo_core::command::agentic_os::AgenticOsWorkspaceRow],
     id_or_path: &str,
-) -> Option<&'a bitfun_core::command::agentic_os::AgenticOsWorkspaceRow> {
+) -> Option<&'a sparo_core::command::agentic_os::AgenticOsWorkspaceRow> {
     let needle = id_or_path.replace('\\', "/").to_ascii_lowercase();
     workspaces.iter().find(|workspace| {
         workspace.label.eq_ignore_ascii_case(id_or_path)
@@ -4568,9 +4568,9 @@ fn find_workspace_row<'a>(
 }
 
 fn resolve_workspace_row(
-    workspaces: &[bitfun_core::command::agentic_os::AgenticOsWorkspaceRow],
+    workspaces: &[sparo_core::command::agentic_os::AgenticOsWorkspaceRow],
     id_or_path: &str,
-) -> Option<bitfun_core::command::agentic_os::AgenticOsWorkspaceRow> {
+) -> Option<sparo_core::command::agentic_os::AgenticOsWorkspaceRow> {
     find_workspace_row(workspaces, id_or_path)
         .cloned()
         .or_else(|| workspace_row_from_direct_path(id_or_path))
@@ -4578,7 +4578,7 @@ fn resolve_workspace_row(
 
 fn workspace_row_from_direct_path(
     id_or_path: &str,
-) -> Option<bitfun_core::command::agentic_os::AgenticOsWorkspaceRow> {
+) -> Option<sparo_core::command::agentic_os::AgenticOsWorkspaceRow> {
     let path = std::path::PathBuf::from(id_or_path);
     if !path.is_dir() {
         return None;
@@ -4590,7 +4590,7 @@ fn workspace_row_from_direct_path(
         .filter(|name| !name.trim().is_empty())
         .unwrap_or("workspace")
         .to_string();
-    Some(bitfun_core::command::agentic_os::AgenticOsWorkspaceRow {
+    Some(sparo_core::command::agentic_os::AgenticOsWorkspaceRow {
         label,
         path: Some(display_workspace_path(&resolved)),
         git: git_branch_for_workspace_path(&resolved),
@@ -4682,7 +4682,7 @@ async fn handle_workspaces_action(action: WorkspacesAction, json: bool) -> Resul
 }
 
 fn workspaces_list_human_lines(
-    workspaces: &[bitfun_core::command::agentic_os::AgenticOsWorkspaceRow],
+    workspaces: &[sparo_core::command::agentic_os::AgenticOsWorkspaceRow],
 ) -> Vec<String> {
     let mut lines = vec![
         format!("Known Workspaces (total {})", workspaces.len()),
@@ -4735,7 +4735,7 @@ fn workspaces_list_human_lines(
 }
 
 fn workspace_human_detail_lines(
-    workspace: &bitfun_core::command::agentic_os::AgenticOsWorkspaceRow,
+    workspace: &sparo_core::command::agentic_os::AgenticOsWorkspaceRow,
 ) -> Vec<String> {
     let workspace_arg = shell_arg(&workspace.label);
     let chat_target = workspace.path.as_deref().unwrap_or("global");
@@ -4760,7 +4760,7 @@ fn workspace_human_detail_lines(
 }
 
 fn workspace_use_human_lines(
-    workspace: &bitfun_core::command::agentic_os::AgenticOsWorkspaceRow,
+    workspace: &sparo_core::command::agentic_os::AgenticOsWorkspaceRow,
     default_path: &str,
     config_path: &std::path::Path,
 ) -> Vec<String> {
@@ -4787,9 +4787,9 @@ fn workspace_use_human_lines(
 
 async fn load_memory_snapshot(
     workspace: Option<String>,
-) -> Result<Vec<bitfun_core::command::agentic_os::AgenticOsMemoryRow>> {
-    let snapshot = bitfun_core::command::agentic_os::get_snapshot_without_config(
-        bitfun_core::command::agentic_os::AgenticOsSnapshotRequest {
+) -> Result<Vec<sparo_core::command::agentic_os::AgenticOsMemoryRow>> {
+    let snapshot = sparo_core::command::agentic_os::get_snapshot_without_config(
+        sparo_core::command::agentic_os::AgenticOsSnapshotRequest {
             workspace_hint: workspace,
         },
     )
@@ -4798,15 +4798,15 @@ async fn load_memory_snapshot(
 }
 
 fn memory_row_path(
-    row: &bitfun_core::command::agentic_os::AgenticOsMemoryRow,
+    row: &sparo_core::command::agentic_os::AgenticOsMemoryRow,
 ) -> std::path::PathBuf {
     std::path::Path::new(&row.target).join(&row.file)
 }
 
 fn find_memory_row<'a>(
-    memories: &'a [bitfun_core::command::agentic_os::AgenticOsMemoryRow],
+    memories: &'a [sparo_core::command::agentic_os::AgenticOsMemoryRow],
     id_or_path: &str,
-) -> Option<&'a bitfun_core::command::agentic_os::AgenticOsMemoryRow> {
+) -> Option<&'a sparo_core::command::agentic_os::AgenticOsMemoryRow> {
     let needle = id_or_path.replace('\\', "/").to_ascii_lowercase();
     memories.iter().find(|memory| {
         memory.file.eq_ignore_ascii_case(id_or_path)
@@ -4829,7 +4829,7 @@ struct MemoryContentPreview {
 }
 
 fn read_memory_content(
-    memory: &bitfun_core::command::agentic_os::AgenticOsMemoryRow,
+    memory: &sparo_core::command::agentic_os::AgenticOsMemoryRow,
     max_bytes: usize,
 ) -> Result<MemoryContentPreview> {
     let path = memory_row_path(memory);
@@ -4846,7 +4846,7 @@ fn read_memory_content(
 }
 
 fn memory_content_json(
-    memory: &bitfun_core::command::agentic_os::AgenticOsMemoryRow,
+    memory: &sparo_core::command::agentic_os::AgenticOsMemoryRow,
     preview: &MemoryContentPreview,
 ) -> serde_json::Value {
     serde_json::json!({
@@ -4899,7 +4899,7 @@ async fn handle_memory_action(
 }
 
 fn memory_list_human_lines(
-    memories: &[bitfun_core::command::agentic_os::AgenticOsMemoryRow],
+    memories: &[sparo_core::command::agentic_os::AgenticOsMemoryRow],
     workspace: Option<&str>,
 ) -> Vec<String> {
     if memories.is_empty() {
@@ -4940,7 +4940,7 @@ fn memory_list_human_lines(
 }
 
 fn memory_human_detail_lines(
-    memory: &bitfun_core::command::agentic_os::AgenticOsMemoryRow,
+    memory: &sparo_core::command::agentic_os::AgenticOsMemoryRow,
     preview: &MemoryContentPreview,
     workspace: Option<&str>,
 ) -> Vec<String> {
@@ -4978,7 +4978,7 @@ fn memory_human_detail_lines(
     lines
 }
 
-fn tool_list_human_lines(tools: &[bitfun_core::command::tool::ToolInfo]) -> Vec<String> {
+fn tool_list_human_lines(tools: &[sparo_core::command::tool::ToolInfo]) -> Vec<String> {
     let enabled_count = tools.iter().filter(|tool| tool.enabled).count();
     let readonly_count = tools.iter().filter(|tool| tool.readonly).count();
     let mut lines = vec![
@@ -5064,7 +5064,7 @@ fn push_indented_block(lines: &mut Vec<String>, text: &str) {
 }
 
 fn tool_run_human_lines(
-    response: &bitfun_core::command::tool::ExecuteToolResponse,
+    response: &sparo_core::command::tool::ExecuteToolResponse,
     workspace: Option<&str>,
 ) -> Vec<String> {
     let mut lines = vec![format!("Tool: {}", response.tool_name)];
@@ -5136,7 +5136,7 @@ fn schema_type_label(value: &serde_json::Value) -> String {
 }
 
 fn tool_schema_human_lines(
-    response: &bitfun_core::command::tool::ToolSchemaResponse,
+    response: &sparo_core::command::tool::ToolSchemaResponse,
     workspace: Option<&str>,
 ) -> Vec<String> {
     let mut lines = vec![
@@ -5212,7 +5212,7 @@ fn tool_schema_human_lines(
 }
 
 async fn handle_tool_action(action: ToolAction) -> Result<()> {
-    use bitfun_core::command::tool as tool_command;
+    use sparo_core::command::tool as tool_command;
 
     match action {
         ToolAction::List { json } => {
@@ -6055,7 +6055,7 @@ mod tests {
         let valid_config = temp_root.join("app.json");
         std::fs::write(
             &valid_config,
-            serde_json::to_string_pretty(&bitfun_core::service::config::GlobalConfig::default())
+            serde_json::to_string_pretty(&sparo_core::service::config::GlobalConfig::default())
                 .expect("serialize default global config"),
         )
         .expect("write valid global config");
@@ -6164,7 +6164,7 @@ mod tests {
 
     #[test]
     fn tool_schema_human_lines_summarize_fields_and_actions() {
-        let response = bitfun_core::command::tool::ToolSchemaResponse {
+        let response = sparo_core::command::tool::ToolSchemaResponse {
             name: "LS".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -6207,7 +6207,7 @@ mod tests {
 
     #[test]
     fn tool_list_human_lines_include_next_actions() {
-        let lines = tool_list_human_lines(&[bitfun_core::command::tool::ToolInfo {
+        let lines = tool_list_human_lines(&[sparo_core::command::tool::ToolInfo {
             name: "search_files".to_string(),
             user_facing_name: "Search Files".to_string(),
             description: "Search workspace files\nwith extra details".to_string(),
@@ -6243,7 +6243,7 @@ mod tests {
 
     #[test]
     fn tool_run_human_lines_surface_content_and_next_actions() {
-        let response = bitfun_core::command::tool::ExecuteToolResponse {
+        let response = sparo_core::command::tool::ExecuteToolResponse {
             tool_name: "read_file".to_string(),
             results: Vec::new(),
             display_results: vec![serde_json::json!({
@@ -6271,7 +6271,7 @@ mod tests {
 
     #[test]
     fn tool_run_human_lines_explain_empty_results() {
-        let response = bitfun_core::command::tool::ExecuteToolResponse {
+        let response = sparo_core::command::tool::ExecuteToolResponse {
             tool_name: "noop".to_string(),
             results: Vec::new(),
             display_results: Vec::new(),
@@ -6409,7 +6409,7 @@ mod tests {
     #[test]
     fn cli_default_agent_matches_core_registry_default() {
         let config = CliConfig::default();
-        let registry = bitfun_core::agentic::agents::get_agent_registry();
+        let registry = sparo_core::agentic::agents::get_agent_registry();
         let registry_default = registry.default_agent_type();
 
         assert_eq!(config.behavior.default_agent, registry_default);
@@ -6941,20 +6941,20 @@ mod tests {
         assert!(output.contains("sparo exec"));
     }
 
-    fn sample_session_metadata() -> bitfun_core::service::session::SessionMetadata {
-        bitfun_core::service::session::SessionMetadata {
+    fn sample_session_metadata() -> sparo_core::service::session::SessionMetadata {
+        sparo_core::service::session::SessionMetadata {
             session_id: "session-1".to_string(),
             session_name: "Review CLI sessions".to_string(),
             agent_type: "debug".to_string(),
             created_by: None,
-            session_kind: bitfun_core::agentic::core::SessionKind::Standard,
+            session_kind: sparo_core::agentic::core::SessionKind::Standard,
             model_name: "gpt-test".to_string(),
             created_at: 1_700_000_000_000,
             last_active_at: 1_700_000_100_000,
             turn_count: 3,
             message_count: 6,
             tool_call_count: 2,
-            status: bitfun_core::service::session::SessionStatus::Active,
+            status: sparo_core::service::session::SessionStatus::Active,
             terminal_session_id: None,
             snapshot_session_id: None,
             tags: Vec::new(),
@@ -7034,7 +7034,7 @@ mod tests {
 
     #[test]
     fn agent_summary_line_matches_cli_agents_table_contract() {
-        let agent = bitfun_core::agentic::agents::AgentInfo {
+        let agent = sparo_core::agentic::agents::AgentInfo {
             id: "debug".to_string(),
             name: "Debug".to_string(),
             description: "Diagnose failures".to_string(),
@@ -7059,7 +7059,7 @@ mod tests {
 
     #[test]
     fn agents_human_lines_include_launch_and_default_actions() {
-        let agents = vec![bitfun_core::agentic::agents::AgentInfo {
+        let agents = vec![sparo_core::agentic::agents::AgentInfo {
             id: "debug agent".to_string(),
             name: "Debug Agent".to_string(),
             description: "Diagnose failures with detailed workspace inspection.".to_string(),
@@ -7099,7 +7099,7 @@ mod tests {
 
     #[test]
     fn agents_human_lines_do_not_launch_disabled_only_registry() {
-        let agents = vec![bitfun_core::agentic::agents::AgentInfo {
+        let agents = vec![sparo_core::agentic::agents::AgentInfo {
             id: "disabled".to_string(),
             name: "Disabled".to_string(),
             description: "Currently disabled.".to_string(),
@@ -7396,8 +7396,8 @@ mod tests {
 
     #[test]
     fn config_import_human_lines_summarize_result_and_keep_json_available() {
-        let response = bitfun_core::command::config::ImportConfigResponse {
-            result: bitfun_core::service::config::ConfigImportResult {
+        let response = sparo_core::command::config::ImportConfigResponse {
+            result: sparo_core::service::config::ConfigImportResult {
                 success: false,
                 errors: vec!["Missing model".to_string()],
                 warnings: vec!["Provider disabled".to_string()],
@@ -7525,7 +7525,7 @@ mod tests {
 
     #[test]
     fn find_app_row_matches_id_or_name_case_insensitively() {
-        let apps = vec![bitfun_core::command::agentic_os::AgenticOsAppRow {
+        let apps = vec![sparo_core::command::agentic_os::AgenticOsAppRow {
             id: "files".to_string(),
             name: "Files".to_string(),
             kind: "AGENT APP".to_string(),
@@ -7541,7 +7541,7 @@ mod tests {
 
     #[test]
     fn app_human_detail_lines_include_open_action_when_target_exists() {
-        let app = bitfun_core::command::agentic_os::AgenticOsAppRow {
+        let app = sparo_core::command::agentic_os::AgenticOsAppRow {
             id: "bridge app".to_string(),
             name: "Bridge Component".to_string(),
             kind: "BRIDGE APP".to_string(),
@@ -7564,7 +7564,7 @@ mod tests {
 
     #[test]
     fn app_human_detail_lines_explain_inspect_only_apps() {
-        let app = bitfun_core::command::agentic_os::AgenticOsAppRow {
+        let app = sparo_core::command::agentic_os::AgenticOsAppRow {
             id: "agentic".to_string(),
             name: "Agentic".to_string(),
             kind: "AGENT APP".to_string(),
@@ -7582,7 +7582,7 @@ mod tests {
 
     #[test]
     fn app_open_human_lines_include_followup_actions() {
-        let app = bitfun_core::command::agentic_os::AgenticOsAppRow {
+        let app = sparo_core::command::agentic_os::AgenticOsAppRow {
             id: "bridge app".to_string(),
             name: "Bridge Component".to_string(),
             kind: "BRIDGE APP".to_string(),
@@ -7610,7 +7610,7 @@ mod tests {
 
     #[test]
     fn apps_list_human_lines_include_open_next_actions_for_target_apps() {
-        let apps = vec![bitfun_core::command::agentic_os::AgenticOsAppRow {
+        let apps = vec![sparo_core::command::agentic_os::AgenticOsAppRow {
             id: "bridge app".to_string(),
             name: "Bridge Component".to_string(),
             kind: "BRIDGE APP".to_string(),
@@ -7638,7 +7638,7 @@ mod tests {
 
     #[test]
     fn apps_list_human_lines_explain_inspect_only_latest_app() {
-        let apps = vec![bitfun_core::command::agentic_os::AgenticOsAppRow {
+        let apps = vec![sparo_core::command::agentic_os::AgenticOsAppRow {
             id: "agentic".to_string(),
             name: "Agentic".to_string(),
             kind: "AGENT APP".to_string(),
@@ -7685,13 +7685,13 @@ mod tests {
     #[test]
     fn find_workspace_row_matches_label_path_or_global() {
         let workspaces = vec![
-            bitfun_core::command::agentic_os::AgenticOsWorkspaceRow {
+            sparo_core::command::agentic_os::AgenticOsWorkspaceRow {
                 label: "global".to_string(),
                 path: None,
                 git: None,
                 session_count: 0,
             },
-            bitfun_core::command::agentic_os::AgenticOsWorkspaceRow {
+            sparo_core::command::agentic_os::AgenticOsWorkspaceRow {
                 label: "Project".to_string(),
                 path: Some("D:\\workspace\\project".to_string()),
                 git: Some("git main".to_string()),
@@ -7740,7 +7740,7 @@ mod tests {
 
     #[test]
     fn workspace_human_detail_lines_include_use_and_chat_actions() {
-        let workspace = bitfun_core::command::agentic_os::AgenticOsWorkspaceRow {
+        let workspace = sparo_core::command::agentic_os::AgenticOsWorkspaceRow {
             label: "my project".to_string(),
             path: Some("D:\\workspace\\my project".to_string()),
             git: Some("git main".to_string()),
@@ -7759,7 +7759,7 @@ mod tests {
 
     #[test]
     fn workspace_human_detail_lines_make_global_chat_explicit() {
-        let workspace = bitfun_core::command::agentic_os::AgenticOsWorkspaceRow {
+        let workspace = sparo_core::command::agentic_os::AgenticOsWorkspaceRow {
             label: "global".to_string(),
             path: None,
             git: None,
@@ -7775,7 +7775,7 @@ mod tests {
 
     #[test]
     fn workspace_use_human_lines_include_preference_and_next_actions() {
-        let workspace = bitfun_core::command::agentic_os::AgenticOsWorkspaceRow {
+        let workspace = sparo_core::command::agentic_os::AgenticOsWorkspaceRow {
             label: "my project".to_string(),
             path: Some("D:\\workspace\\my project".to_string()),
             git: Some("git main".to_string()),
@@ -7803,7 +7803,7 @@ mod tests {
 
     #[test]
     fn workspaces_list_human_lines_include_next_actions_for_first_workspace() {
-        let workspaces = vec![bitfun_core::command::agentic_os::AgenticOsWorkspaceRow {
+        let workspaces = vec![sparo_core::command::agentic_os::AgenticOsWorkspaceRow {
             label: "my project".to_string(),
             path: Some("D:\\workspace\\my project".to_string()),
             git: Some("git main".to_string()),
@@ -7824,7 +7824,7 @@ mod tests {
 
     #[test]
     fn workspaces_list_human_lines_make_global_chat_explicit() {
-        let workspaces = vec![bitfun_core::command::agentic_os::AgenticOsWorkspaceRow {
+        let workspaces = vec![sparo_core::command::agentic_os::AgenticOsWorkspaceRow {
             label: "global".to_string(),
             path: None,
             git: None,
@@ -7860,7 +7860,7 @@ mod tests {
 
     #[test]
     fn find_memory_row_matches_file_scope_or_path() {
-        let memories = vec![bitfun_core::command::agentic_os::AgenticOsMemoryRow {
+        let memories = vec![sparo_core::command::agentic_os::AgenticOsMemoryRow {
             scope: "PROJECT".to_string(),
             file: "notes.md".to_string(),
             target: "D:\\workspace\\.sparo_os".to_string(),
@@ -7890,7 +7890,7 @@ mod tests {
         std::fs::create_dir_all(&temp_root).expect("create temp memory root");
         let file = temp_root.join("notes.md");
         std::fs::write(&file, "abcdef").expect("write temp memory file");
-        let memory = bitfun_core::command::agentic_os::AgenticOsMemoryRow {
+        let memory = sparo_core::command::agentic_os::AgenticOsMemoryRow {
             scope: "PROJECT".to_string(),
             file: "notes.md".to_string(),
             target: temp_root.to_string_lossy().to_string(),
@@ -7917,7 +7917,7 @@ mod tests {
 
     #[test]
     fn memory_human_detail_lines_include_next_actions_and_truncation() {
-        let memory = bitfun_core::command::agentic_os::AgenticOsMemoryRow {
+        let memory = sparo_core::command::agentic_os::AgenticOsMemoryRow {
             scope: "PROJECT".to_string(),
             file: "notes.md".to_string(),
             target: "D:\\workspace\\my project\\.sparo_os".to_string(),
@@ -7947,7 +7947,7 @@ mod tests {
 
     #[test]
     fn memory_human_detail_lines_omit_truncation_when_complete() {
-        let memory = bitfun_core::command::agentic_os::AgenticOsMemoryRow {
+        let memory = sparo_core::command::agentic_os::AgenticOsMemoryRow {
             scope: "GLOBAL".to_string(),
             file: "profile.md".to_string(),
             target: "D:\\sparo\\memory".to_string(),
@@ -7971,7 +7971,7 @@ mod tests {
 
     #[test]
     fn memory_list_human_lines_include_show_and_chat_actions() {
-        let memories = vec![bitfun_core::command::agentic_os::AgenticOsMemoryRow {
+        let memories = vec![sparo_core::command::agentic_os::AgenticOsMemoryRow {
             scope: "PROJECT".to_string(),
             file: "notes.md".to_string(),
             target: "D:\\workspace\\my project\\.sparo_os\\memory".to_string(),
@@ -8003,7 +8003,7 @@ mod tests {
 
     #[test]
     fn find_task_row_matches_session_id_or_title() {
-        let tasks = vec![bitfun_core::command::agentic_os::AgenticOsTaskRow {
+        let tasks = vec![sparo_core::command::agentic_os::AgenticOsTaskRow {
             title: "Fix bug".to_string(),
             agent: "debug".to_string(),
             status: "active".to_string(),
@@ -8037,7 +8037,7 @@ mod tests {
 
     #[test]
     fn task_human_detail_lines_include_next_actions_for_persisted_tasks() {
-        let task = bitfun_core::command::agentic_os::AgenticOsTaskRow {
+        let task = sparo_core::command::agentic_os::AgenticOsTaskRow {
             title: "Review CLI task flow".to_string(),
             agent: "debug".to_string(),
             status: "active".to_string(),
@@ -8061,7 +8061,7 @@ mod tests {
 
     #[test]
     fn task_human_detail_lines_explain_unsaved_task_export_limit() {
-        let task = bitfun_core::command::agentic_os::AgenticOsTaskRow {
+        let task = sparo_core::command::agentic_os::AgenticOsTaskRow {
             title: "Review CLI task flow".to_string(),
             agent: "debug".to_string(),
             status: "active".to_string(),
@@ -8103,7 +8103,7 @@ mod tests {
 
     #[test]
     fn tasks_list_human_lines_include_next_actions_for_persisted_latest_task() {
-        let tasks = vec![bitfun_core::command::agentic_os::AgenticOsTaskRow {
+        let tasks = vec![sparo_core::command::agentic_os::AgenticOsTaskRow {
             title: "Review CLI task flow".to_string(),
             agent: "debug".to_string(),
             status: "active".to_string(),
@@ -8131,7 +8131,7 @@ mod tests {
 
     #[test]
     fn tasks_list_human_lines_explain_no_session_latest_task() {
-        let tasks = vec![bitfun_core::command::agentic_os::AgenticOsTaskRow {
+        let tasks = vec![sparo_core::command::agentic_os::AgenticOsTaskRow {
             title: "Review CLI task flow".to_string(),
             agent: "debug".to_string(),
             status: "active".to_string(),
@@ -8165,7 +8165,7 @@ mod tests {
 
     #[test]
     fn task_tui_launch_context_prepares_unsaved_task_for_chat() {
-        let task = bitfun_core::command::agentic_os::AgenticOsTaskRow {
+        let task = sparo_core::command::agentic_os::AgenticOsTaskRow {
             title: "Review CLI task flow".to_string(),
             agent: "debug".to_string(),
             status: "active".to_string(),
@@ -8192,7 +8192,7 @@ mod tests {
 
     #[test]
     fn task_tui_launch_context_preserves_explicit_resume_message() {
-        let task = bitfun_core::command::agentic_os::AgenticOsTaskRow {
+        let task = sparo_core::command::agentic_os::AgenticOsTaskRow {
             title: "Review CLI task flow".to_string(),
             agent: "debug".to_string(),
             status: "active".to_string(),
@@ -8216,7 +8216,7 @@ mod tests {
 
     #[test]
     fn task_session_resume_context_carries_task_detail_into_chat() {
-        let task = bitfun_core::command::agentic_os::AgenticOsTaskRow {
+        let task = sparo_core::command::agentic_os::AgenticOsTaskRow {
             title: "Review CLI task flow".to_string(),
             agent: "debug".to_string(),
             status: "active".to_string(),

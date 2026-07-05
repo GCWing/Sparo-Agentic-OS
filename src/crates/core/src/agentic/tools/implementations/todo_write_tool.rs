@@ -1,5 +1,5 @@
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
@@ -24,7 +24,7 @@ impl Tool for TodoWriteTool {
         "TodoWrite"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(r###"Use this tool to create and manage a structured task list for your current coding session. This helps you track progress, organize complex tasks, and demonstrate thoroughness to the user.
 It also helps the user understand the progress of the task and overall progress of their requests.
 
@@ -261,22 +261,22 @@ When in doubt, use this tool. Being proactive with task management demonstrates 
         &self,
         input: &Value,
         _context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         // Parse todos array
         let todos = input
             .get("todos")
             .and_then(|v| v.as_array())
-            .ok_or(BitFunError::validation("Missing required field: todos"))?;
+            .ok_or(CoreError::validation("Missing required field: todos"))?;
 
         let mut processed_todos = Vec::new();
         for todo in todos {
             let mut todo_obj = todo.clone();
             if let Some(obj) = todo_obj.as_object_mut() {
                 if !obj.contains_key("status") {
-                    return Err(BitFunError::validation("Todo item missing status field"));
+                    return Err(CoreError::validation("Todo item missing status field"));
                 }
                 if !obj.contains_key("content") {
-                    return Err(BitFunError::validation("Todo item missing content field"));
+                    return Err(CoreError::validation("Todo item missing content field"));
                 }
                 // If no id, generate a new one
                 if !obj.contains_key("id") {

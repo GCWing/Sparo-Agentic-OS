@@ -23,7 +23,7 @@ impl MCPServerManager {
         }
     }
 
-    async fn reconnect_once(&self) -> BitFunResult<()> {
+    async fn reconnect_once(&self) -> CoreResult<()> {
         let has_registered_servers = !self.registry.get_all_server_ids().await.is_empty();
         let has_pending_reconnects = !self.reconnect_states.read().await.is_empty();
         if !has_registered_servers && !has_pending_reconnects {

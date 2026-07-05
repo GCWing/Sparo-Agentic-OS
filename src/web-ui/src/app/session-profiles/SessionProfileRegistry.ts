@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Session Profile Registry.
  *
  * All registered profiles are tested in order; the first matching one wins.

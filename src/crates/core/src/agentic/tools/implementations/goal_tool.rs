@@ -1,6 +1,6 @@
 use crate::agentic::goal::{get_global_goal_service, GoalToolInput};
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
@@ -34,7 +34,7 @@ impl Tool for GoalTool {
         Self::name_str()
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok("Inspect the active session goal, record a progress note, or report that you are blocked. A judge automatically reviews the goal after every turn, so you cannot complete or verify the goal through this tool.".to_string())
     }
 
@@ -99,20 +99,20 @@ impl Tool for GoalTool {
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let parsed: GoalToolInput = serde_json::from_value(input.clone()).map_err(|error| {
-            BitFunError::validation(format!("Invalid Goal tool input: {}", error))
+            CoreError::validation(format!("Invalid Goal tool input: {}", error))
         })?;
         let service = get_global_goal_service()
-            .ok_or_else(|| BitFunError::service("Goal service is not initialized"))?;
+            .ok_or_else(|| CoreError::service("Goal service is not initialized"))?;
         let session_id = context
             .session_id
             .as_deref()
-            .ok_or_else(|| BitFunError::validation("Goal tool requires session_id"))?;
+            .ok_or_else(|| CoreError::validation("Goal tool requires session_id"))?;
         let workspace = context
             .workspace
             .as_ref()
-            .ok_or_else(|| BitFunError::validation("Goal tool requires a workspace"))?;
+            .ok_or_else(|| CoreError::validation("Goal tool requires a workspace"))?;
         let workspace_path = workspace.root_path();
 
         let response = match parsed.action.as_str() {
@@ -141,7 +141,7 @@ impl Tool for GoalTool {
                     .await?
             }
             other => {
-                return Err(BitFunError::validation(format!(
+                return Err(CoreError::validation(format!(
                     "Unsupported Goal action: {}",
                     other
                 )));
@@ -159,7 +159,7 @@ impl Tool for GoalTool {
 
         Ok(vec![ToolResult::ok(
             serde_json::to_value(response).map_err(|error| {
-                BitFunError::service(format!("Failed to encode Goal response: {}", error))
+                CoreError::service(format!("Failed to encode Goal response: {}", error))
             })?,
             Some(assistant_text),
         )])

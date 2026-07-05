@@ -138,7 +138,7 @@ pub struct ShellIntegrationConfig {
     pub nonce: Option<String>,
 
     /// Directory for shell integration scripts.
-    /// If None, uses default location: {cache_dir}/bitfun_terminal/scripts
+    /// If None, uses default location: {cache_dir}/sparo_terminal/scripts
     #[serde(default)]
     pub scripts_dir: Option<PathBuf>,
 }

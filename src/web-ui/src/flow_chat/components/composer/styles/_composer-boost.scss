@@ -442,6 +442,14 @@
     }
   }
 
+  &__boost-submenu-group-label {
+    padding: 7px 10px 3px;
+    font-size: var(--flowchat-font-size-2xs);
+    font-weight: 600;
+    color: var(--ds-chat-text-muted);
+    text-transform: uppercase;
+  }
+
   &__boost-submenu-entry-name {
     flex: 1;
     display: block;

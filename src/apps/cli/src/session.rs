@@ -1,4 +1,4 @@
-use bitfun_core::service::session::{
+use sparo_core::service::session::{
     DialogTurnData as CoreDialogTurnData, SessionMetadata as CoreSessionMetadata,
 };
 /// Session management module

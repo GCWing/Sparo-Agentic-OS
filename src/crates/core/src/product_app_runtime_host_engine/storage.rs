@@ -5,7 +5,7 @@ use crate::product_app_runtime_host_engine::types::{
     ProductAppRuntimeHostSourceFile, ProductAppRuntimeHostSourceFileKind,
     ProductAppRuntimeHostSurface, ProductAppRuntimeHostSurfaceMeta,
 };
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use serde_json;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -47,14 +47,14 @@ fn infer_source_file_kind(path: &str) -> ProductAppRuntimeHostSourceFileKind {
     }
 }
 
-fn sanitize_source_relative_path(path: &str) -> BitFunResult<PathBuf> {
+fn sanitize_source_relative_path(path: &str) -> CoreResult<PathBuf> {
     let normalized = path.replace('\\', "/");
     if normalized.starts_with('/')
         || normalized.contains("../")
         || normalized == ".."
         || normalized.contains('\0')
     {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Invalid source file path: {}",
             path
         )));
@@ -99,18 +99,18 @@ impl ProductAppRuntimeHostStorage {
     }
 
     /// Ensure app directory and source subdir exist.
-    pub async fn ensure_app_dir(&self, app_id: &str) -> BitFunResult<()> {
+    pub async fn ensure_app_dir(&self, app_id: &str) -> CoreResult<()> {
         let dir = self.app_dir(app_id);
         let source = self.source_dir(app_id);
         tokio::fs::create_dir_all(&dir).await.map_err(|e| {
-            BitFunError::io(format!(
+            CoreError::io(format!(
                 "Failed to create Product App dir {}: {}",
                 dir.display(),
                 e
             ))
         })?;
         tokio::fs::create_dir_all(&source).await.map_err(|e| {
-            BitFunError::io(format!(
+            CoreError::io(format!(
                 "Failed to create source dir {}: {}",
                 source.display(),
                 e
@@ -120,20 +120,20 @@ impl ProductAppRuntimeHostStorage {
     }
 
     /// List all app IDs (directories under `product_app_runtime_hosts_dir`).
-    pub async fn list_app_ids(&self) -> BitFunResult<Vec<String>> {
+    pub async fn list_app_ids(&self) -> CoreResult<Vec<String>> {
         let root = self.path_manager.product_app_runtime_hosts_dir();
         if !root.exists() {
             return Ok(Vec::new());
         }
         let mut ids = Vec::new();
         let mut read_dir = tokio::fs::read_dir(&root).await.map_err(|e| {
-            BitFunError::io(format!(
+            CoreError::io(format!(
                 "Failed to read Product App Runtime hosts dir: {}",
                 e
             ))
         })?;
         while let Some(entry) = read_dir.next_entry().await.map_err(|e| {
-            BitFunError::io(format!(
+            CoreError::io(format!(
                 "Failed to read Product App Runtime hosts entry: {}",
                 e
             ))
@@ -151,20 +151,20 @@ impl ProductAppRuntimeHostStorage {
     }
 
     /// Load full Product App Runtime Host surface by id (meta + source + compiled_html).
-    pub async fn load(&self, app_id: &str) -> BitFunResult<ProductAppRuntimeHostSurface> {
+    pub async fn load(&self, app_id: &str) -> CoreResult<ProductAppRuntimeHostSurface> {
         let meta_path = self.meta_path(app_id);
         let meta_content = tokio::fs::read_to_string(&meta_path).await.map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
-                BitFunError::NotFound(format!(
+                CoreError::NotFound(format!(
                     "Product App Runtime Host surface not found: {}",
                     app_id
                 ))
             } else {
-                BitFunError::io(format!("Failed to read meta: {}", e))
+                CoreError::io(format!("Failed to read meta: {}", e))
             }
         })?;
         let meta: ProductAppRuntimeHostSurfaceMeta = serde_json::from_str(&meta_content)
-            .map_err(|e| BitFunError::parse(format!("Invalid meta.json: {}", e)))?;
+            .map_err(|e| CoreError::parse(format!("Invalid meta.json: {}", e)))?;
 
         let source = self.load_source(app_id).await?;
         let compiled_html = self.load_compiled_html(app_id).await?;
@@ -192,23 +192,23 @@ impl ProductAppRuntimeHostStorage {
     }
 
     /// Load only metadata (for list views).
-    pub async fn load_meta(&self, app_id: &str) -> BitFunResult<ProductAppRuntimeHostSurfaceMeta> {
+    pub async fn load_meta(&self, app_id: &str) -> CoreResult<ProductAppRuntimeHostSurfaceMeta> {
         let meta_path = self.meta_path(app_id);
         let content = tokio::fs::read_to_string(&meta_path).await.map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
-                BitFunError::NotFound(format!(
+                CoreError::NotFound(format!(
                     "Product App Runtime Host surface not found: {}",
                     app_id
                 ))
             } else {
-                BitFunError::io(format!("Failed to read meta: {}", e))
+                CoreError::io(format!("Failed to read meta: {}", e))
             }
         })?;
         serde_json::from_str(&content)
-            .map_err(|e| BitFunError::parse(format!("Invalid meta.json: {}", e)))
+            .map_err(|e| CoreError::parse(format!("Invalid meta.json: {}", e)))
     }
 
-    async fn load_source(&self, app_id: &str) -> BitFunResult<ProductAppRuntimeHostSource> {
+    async fn load_source(&self, app_id: &str) -> CoreResult<ProductAppRuntimeHostSource> {
         let sd = self.source_dir(app_id);
         let html = tokio::fs::read_to_string(sd.join(INDEX_HTML))
             .await
@@ -257,22 +257,22 @@ impl ProductAppRuntimeHostStorage {
         })
     }
 
-    async fn load_source_entry(&self, app_id: &str) -> BitFunResult<ProductAppRuntimeHostEntry> {
+    async fn load_source_entry(&self, app_id: &str) -> CoreResult<ProductAppRuntimeHostEntry> {
         let path = self.source_dir(app_id).join(SOURCE_MANIFEST_JSON);
         if !path.exists() {
             return Ok(ProductAppRuntimeHostEntry::default());
         }
         let content = tokio::fs::read_to_string(&path)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to read source_manifest.json: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to read source_manifest.json: {}", e)))?;
         serde_json::from_str(&content)
-            .map_err(|e| BitFunError::parse(format!("Invalid source_manifest.json: {}", e)))
+            .map_err(|e| CoreError::parse(format!("Invalid source_manifest.json: {}", e)))
     }
 
     async fn load_extra_source_files(
         &self,
         app_id: &str,
-    ) -> BitFunResult<Vec<ProductAppRuntimeHostSourceFile>> {
+    ) -> CoreResult<Vec<ProductAppRuntimeHostSourceFile>> {
         let sd = self.source_dir(app_id);
         let mut files = Vec::new();
         if !sd.exists() {
@@ -282,11 +282,11 @@ impl ProductAppRuntimeHostStorage {
         while let Some(dir) = stack.pop() {
             let mut read_dir = tokio::fs::read_dir(&dir)
                 .await
-                .map_err(|e| BitFunError::io(format!("Failed to read source dir: {}", e)))?;
+                .map_err(|e| CoreError::io(format!("Failed to read source dir: {}", e)))?;
             while let Some(entry) = read_dir
                 .next_entry()
                 .await
-                .map_err(|e| BitFunError::io(format!("Failed to read source entry: {}", e)))?
+                .map_err(|e| CoreError::io(format!("Failed to read source entry: {}", e)))?
             {
                 let path = entry.path();
                 if path.is_dir() {
@@ -298,7 +298,7 @@ impl ProductAppRuntimeHostStorage {
                 }
                 let relative = path
                     .strip_prefix(&sd)
-                    .map_err(|e| BitFunError::io(format!("Invalid source path: {}", e)))?
+                    .map_err(|e| CoreError::io(format!("Invalid source path: {}", e)))?
                     .to_string_lossy()
                     .replace('\\', "/");
                 if STANDARD_SOURCE_FILES.contains(&relative.as_str()) {
@@ -320,20 +320,20 @@ impl ProductAppRuntimeHostStorage {
     pub async fn load_source_only(
         &self,
         app_id: &str,
-    ) -> BitFunResult<ProductAppRuntimeHostSource> {
+    ) -> CoreResult<ProductAppRuntimeHostSource> {
         self.load_source(app_id).await
     }
 
-    async fn load_npm_dependencies(&self, app_id: &str) -> BitFunResult<Vec<NpmDep>> {
+    async fn load_npm_dependencies(&self, app_id: &str) -> CoreResult<Vec<NpmDep>> {
         let p = self.app_dir(app_id).join(PACKAGE_JSON);
         if !p.exists() {
             return Ok(Vec::new());
         }
         let c = tokio::fs::read_to_string(&p)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to read package.json: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to read package.json: {}", e)))?;
         let pkg: serde_json::Value = serde_json::from_str(&c)
-            .map_err(|e| BitFunError::parse(format!("Invalid package.json: {}", e)))?;
+            .map_err(|e| CoreError::parse(format!("Invalid package.json: {}", e)))?;
         let empty = serde_json::Map::new();
         let deps = pkg
             .get("dependencies")
@@ -349,78 +349,78 @@ impl ProductAppRuntimeHostStorage {
         Ok(npm_dependencies)
     }
 
-    async fn load_compiled_html(&self, app_id: &str) -> BitFunResult<String> {
+    async fn load_compiled_html(&self, app_id: &str) -> CoreResult<String> {
         let p = self.compiled_path(app_id);
         tokio::fs::read_to_string(&p).await.map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
-                BitFunError::NotFound(format!("Compiled HTML not found: {}", app_id))
+                CoreError::NotFound(format!("Compiled HTML not found: {}", app_id))
             } else {
-                BitFunError::io(format!("Failed to read compiled.html: {}", e))
+                CoreError::io(format!("Failed to read compiled.html: {}", e))
             }
         })
     }
 
     /// Save full Product App Runtime Host surface (meta, source files, compiled.html).
-    pub async fn save(&self, app: &ProductAppRuntimeHostSurface) -> BitFunResult<()> {
+    pub async fn save(&self, app: &ProductAppRuntimeHostSurface) -> CoreResult<()> {
         self.ensure_app_dir(&app.id).await?;
 
         let meta = ProductAppRuntimeHostSurfaceMeta::from(app);
         let meta_path = self.meta_path(&app.id);
-        let meta_json = serde_json::to_string_pretty(&meta).map_err(BitFunError::from)?;
+        let meta_json = serde_json::to_string_pretty(&meta).map_err(CoreError::from)?;
         tokio::fs::write(&meta_path, meta_json)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to write meta: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to write meta: {}", e)))?;
 
         let sd = self.source_dir(&app.id);
         tokio::fs::write(sd.join(INDEX_HTML), &app.source.html)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to write index.html: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to write index.html: {}", e)))?;
         tokio::fs::write(sd.join(STYLE_CSS), &app.source.css)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to write style.css: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to write style.css: {}", e)))?;
         tokio::fs::write(sd.join(UI_JS), &app.source.ui_js)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to write ui.js: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to write ui.js: {}", e)))?;
         tokio::fs::write(sd.join(WORKER_JS), &app.source.worker_js)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to write worker.js: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to write worker.js: {}", e)))?;
         let source_manifest =
-            serde_json::to_string_pretty(&app.source.entry).map_err(BitFunError::from)?;
+            serde_json::to_string_pretty(&app.source.entry).map_err(CoreError::from)?;
         tokio::fs::write(sd.join(SOURCE_MANIFEST_JSON), source_manifest)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to write source_manifest.json: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to write source_manifest.json: {}", e)))?;
         for file in &app.source.source_files {
             let relative = sanitize_source_relative_path(&file.path)?;
             let path = sd.join(relative);
             if let Some(parent) = path.parent() {
                 tokio::fs::create_dir_all(parent).await.map_err(|e| {
-                    BitFunError::io(format!("Failed to create source file dir: {}", e))
+                    CoreError::io(format!("Failed to create source file dir: {}", e))
                 })?;
             }
             tokio::fs::write(&path, &file.content).await.map_err(|e| {
-                BitFunError::io(format!("Failed to write source file {}: {}", file.path, e))
+                CoreError::io(format!("Failed to write source file {}: {}", file.path, e))
             })?;
         }
 
         let esm_json = serde_json::to_string_pretty(&app.source.esm_dependencies)
-            .map_err(BitFunError::from)?;
+            .map_err(CoreError::from)?;
         tokio::fs::write(sd.join(ESM_DEPS_JSON), esm_json)
             .await
             .map_err(|e| {
-                BitFunError::io(format!("Failed to write esm_dependencies.json: {}", e))
+                CoreError::io(format!("Failed to write esm_dependencies.json: {}", e))
             })?;
         let i18n_json =
-            serde_json::to_string_pretty(&app.source.i18n_messages).map_err(BitFunError::from)?;
+            serde_json::to_string_pretty(&app.source.i18n_messages).map_err(CoreError::from)?;
         tokio::fs::write(sd.join(I18N_JSON), i18n_json)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to write i18n.json: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to write i18n.json: {}", e)))?;
 
         self.write_package_json(&app.id, &app.source.npm_dependencies)
             .await?;
 
         tokio::fs::write(self.compiled_path(&app.id), &app.compiled_html)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to write compiled.html: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to write compiled.html: {}", e)))?;
 
         Ok(())
     }
@@ -428,38 +428,38 @@ impl ProductAppRuntimeHostStorage {
     pub async fn copy_source_dir_recursive(
         from: &std::path::Path,
         to: &std::path::Path,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         tokio::fs::create_dir_all(to)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to create source dir: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to create source dir: {}", e)))?;
         let mut stack = vec![from.to_path_buf()];
         while let Some(dir) = stack.pop() {
             let mut read_dir = tokio::fs::read_dir(&dir)
                 .await
-                .map_err(|e| BitFunError::io(format!("Failed to read source dir: {}", e)))?;
+                .map_err(|e| CoreError::io(format!("Failed to read source dir: {}", e)))?;
             while let Some(entry) = read_dir
                 .next_entry()
                 .await
-                .map_err(|e| BitFunError::io(format!("Failed to read source entry: {}", e)))?
+                .map_err(|e| CoreError::io(format!("Failed to read source entry: {}", e)))?
             {
                 let path = entry.path();
                 let relative = path
                     .strip_prefix(from)
-                    .map_err(|e| BitFunError::io(format!("Invalid source path: {}", e)))?;
+                    .map_err(|e| CoreError::io(format!("Invalid source path: {}", e)))?;
                 let dest = to.join(relative);
                 if path.is_dir() {
                     tokio::fs::create_dir_all(&dest).await.map_err(|e| {
-                        BitFunError::io(format!("Failed to create source subdir: {}", e))
+                        CoreError::io(format!("Failed to create source subdir: {}", e))
                     })?;
                     stack.push(path);
                 } else {
                     if let Some(parent) = dest.parent() {
                         tokio::fs::create_dir_all(parent).await.map_err(|e| {
-                            BitFunError::io(format!("Failed to create source file dir: {}", e))
+                            CoreError::io(format!("Failed to create source file dir: {}", e))
                         })?;
                     }
                     tokio::fs::copy(&path, &dest).await.map_err(|e| {
-                        BitFunError::io(format!("Failed to copy source file: {}", e))
+                        CoreError::io(format!("Failed to copy source file: {}", e))
                     })?;
                 }
             }
@@ -467,7 +467,7 @@ impl ProductAppRuntimeHostStorage {
         Ok(())
     }
 
-    async fn write_package_json(&self, app_id: &str, deps: &[NpmDep]) -> BitFunResult<()> {
+    async fn write_package_json(&self, app_id: &str, deps: &[NpmDep]) -> CoreResult<()> {
         let mut dependencies = serde_json::Map::new();
         for d in deps {
             dependencies.insert(d.name.clone(), serde_json::Value::String(d.version.clone()));
@@ -478,10 +478,10 @@ impl ProductAppRuntimeHostStorage {
             "dependencies": dependencies
         });
         let p = self.app_dir(app_id).join(PACKAGE_JSON);
-        let json = serde_json::to_string_pretty(&pkg).map_err(BitFunError::from)?;
+        let json = serde_json::to_string_pretty(&pkg).map_err(CoreError::from)?;
         tokio::fs::write(&p, json)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to write package.json: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to write package.json: {}", e)))?;
         Ok(())
     }
 
@@ -491,28 +491,28 @@ impl ProductAppRuntimeHostStorage {
         app_id: &str,
         version: u32,
         app: &ProductAppRuntimeHostSurface,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let versions_dir = self.app_dir(app_id).join(VERSIONS_DIR);
         tokio::fs::create_dir_all(&versions_dir)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to create versions dir: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to create versions dir: {}", e)))?;
         let path = self.version_path(app_id, version);
-        let json = serde_json::to_string_pretty(app).map_err(BitFunError::from)?;
+        let json = serde_json::to_string_pretty(app).map_err(CoreError::from)?;
         tokio::fs::write(&path, json)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to write version file: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to write version file: {}", e)))?;
         Ok(())
     }
 
     /// Load app storage (KV JSON). Returns empty object if missing.
-    pub async fn load_app_storage(&self, app_id: &str) -> BitFunResult<serde_json::Value> {
+    pub async fn load_app_storage(&self, app_id: &str) -> CoreResult<serde_json::Value> {
         let p = self.storage_path(app_id);
         if !p.exists() {
             return Ok(serde_json::json!({}));
         }
         let c = tokio::fs::read_to_string(&p)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to read storage: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to read storage: {}", e)))?;
         Ok(serde_json::from_str(&c).unwrap_or_else(|_| serde_json::json!({})))
     }
 
@@ -522,34 +522,34 @@ impl ProductAppRuntimeHostStorage {
         app_id: &str,
         key: &str,
         value: serde_json::Value,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         self.ensure_app_dir(app_id).await?;
         let mut current = self.load_app_storage(app_id).await?;
         let obj = current
             .as_object_mut()
-            .ok_or_else(|| BitFunError::validation("App storage is not an object".to_string()))?;
+            .ok_or_else(|| CoreError::validation("App storage is not an object".to_string()))?;
         obj.insert(key.to_string(), value);
         let p = self.storage_path(app_id);
-        let json = serde_json::to_string_pretty(&current).map_err(BitFunError::from)?;
+        let json = serde_json::to_string_pretty(&current).map_err(CoreError::from)?;
         tokio::fs::write(&p, json)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to write storage: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to write storage: {}", e)))?;
         Ok(())
     }
 
     /// Delete Product App Runtime Host surface directory entirely.
-    pub async fn delete(&self, app_id: &str) -> BitFunResult<()> {
+    pub async fn delete(&self, app_id: &str) -> CoreResult<()> {
         let dir = self.app_dir(app_id);
         if dir.exists() {
             tokio::fs::remove_dir_all(&dir)
                 .await
-                .map_err(|e| BitFunError::io(format!("Failed to delete Product App dir: {}", e)))?;
+                .map_err(|e| CoreError::io(format!("Failed to delete Product App dir: {}", e)))?;
         }
         Ok(())
     }
 
     /// List version numbers that have snapshots.
-    pub async fn list_versions(&self, app_id: &str) -> BitFunResult<Vec<u32>> {
+    pub async fn list_versions(&self, app_id: &str) -> CoreResult<Vec<u32>> {
         let vdir = self.app_dir(app_id).join(VERSIONS_DIR);
         if !vdir.exists() {
             return Ok(Vec::new());
@@ -557,11 +557,11 @@ impl ProductAppRuntimeHostStorage {
         let mut versions = Vec::new();
         let mut read_dir = tokio::fs::read_dir(&vdir)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to read versions dir: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to read versions dir: {}", e)))?;
         while let Some(entry) = read_dir
             .next_entry()
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to read versions entry: {}", e)))?
+            .map_err(|e| CoreError::io(format!("Failed to read versions entry: {}", e)))?
         {
             let name = entry.file_name();
             let name = name.to_string_lossy();
@@ -580,16 +580,16 @@ impl ProductAppRuntimeHostStorage {
         &self,
         app_id: &str,
         version: u32,
-    ) -> BitFunResult<ProductAppRuntimeHostSurface> {
+    ) -> CoreResult<ProductAppRuntimeHostSurface> {
         let p = self.version_path(app_id, version);
         let c = tokio::fs::read_to_string(&p).await.map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
-                BitFunError::NotFound(format!("Version v{} not found", version))
+                CoreError::NotFound(format!("Version v{} not found", version))
             } else {
-                BitFunError::io(format!("Failed to read version: {}", e))
+                CoreError::io(format!("Failed to read version: {}", e))
             }
         })?;
         serde_json::from_str(&c)
-            .map_err(|e| BitFunError::parse(format!("Invalid version file: {}", e)))
+            .map_err(|e| CoreError::parse(format!("Invalid version file: {}", e)))
     }
 }

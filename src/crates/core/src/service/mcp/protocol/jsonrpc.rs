@@ -134,23 +134,23 @@ pub fn create_ping_request(id: u64) -> MCPRequest {
 }
 
 /// Parses the response result.
-pub fn parse_response_result<T>(response: &MCPResponse) -> crate::util::errors::BitFunResult<T>
+pub fn parse_response_result<T>(response: &MCPResponse) -> crate::error::CoreResult<T>
 where
     T: serde::de::DeserializeOwned,
 {
     if let Some(error) = &response.error {
-        return Err(crate::util::errors::BitFunError::MCPError(format!(
+        return Err(crate::error::CoreError::Mcp(format!(
             "MCP Error {}: {}",
             error.code, error.message
         )));
     }
 
     let result = response.result.as_ref().ok_or_else(|| {
-        crate::util::errors::BitFunError::MCPError("Missing result in MCP response".to_string())
+        crate::error::CoreError::Mcp("Missing result in MCP response".to_string())
     })?;
 
     serde_json::from_value(result.clone()).map_err(|e| {
-        crate::util::errors::BitFunError::Deserialization(format!(
+        crate::error::CoreError::Deserialization(format!(
             "Failed to parse MCP response: {}",
             e
         ))

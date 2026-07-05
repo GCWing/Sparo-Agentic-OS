@@ -1,5 +1,5 @@
 //! System prompts module providing main dialogue and agent dialogue prompts
-use super::bitfun_self_provider::build_bitfun_self_prompt;
+use super::sparo_self_provider::build_sparo_self_prompt;
 use super::request_context::{RequestContextPolicy, RequestContextSection};
 use crate::agentic::memory::routing::{
     build_global_workspace_overviews_context, build_workspace_candidates_context,
@@ -13,7 +13,7 @@ use crate::service::config::global::GlobalConfigManager;
 use crate::service::filesystem::get_formatted_directory_listing;
 use crate::service::host::build_host_overview_context;
 use crate::service::instructions::build_instruction_files_context;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use log::{debug, warn};
 use std::path::Path;
 
@@ -335,18 +335,18 @@ Output Mermaid in fenced code blocks (```mermaid) so the UI can render them.
     /// Read app.language from global config, generate simple language instruction
     /// Returns empty string if config cannot be read
     /// Returns error if language code is unsupported
-    async fn get_language_preference(&self) -> BitFunResult<String> {
+    async fn get_language_preference(&self) -> CoreResult<String> {
         let language_code = get_app_language_code().await;
         Self::format_language_instruction(&language_code)
     }
 
     /// Format language instruction based on language code
-    fn format_language_instruction(lang_code: &str) -> BitFunResult<String> {
+    fn format_language_instruction(lang_code: &str) -> CoreResult<String> {
         let language = match lang_code {
             "zh-CN" => "**Simplified Chinese**",
             "en-US" => "**English**",
             _ => {
-                return Err(BitFunError::config(format!(
+                return Err(CoreError::config(format!(
                     "Unknown language code: {}",
                     lang_code
                 )));
@@ -368,7 +368,7 @@ Output Mermaid in fenced code blocks (```mermaid) so the UI can render them.
     /// - `{SPARO_SELF}` - Sparo OS app capabilities (scenes, settings, Product Apps) for ControlHub app domain
     /// - `{WORKSPACE_CANDIDATES}` - Compact Agentic OS workspace routing candidates
     /// If a placeholder is not in the template, corresponding content will not be added
-    pub async fn build_prompt_from_template(&self, template: &str) -> BitFunResult<String> {
+    pub async fn build_prompt_from_template(&self, template: &str) -> CoreResult<String> {
         let mut result = template.to_string();
 
         // Replace {LANGUAGE_PREFERENCE}
@@ -415,8 +415,8 @@ Output Mermaid in fenced code blocks (```mermaid) so the UI can render them.
 
         // Replace {SPARO_SELF}
         if result.contains(PLACEHOLDER_SPARO_SELF) {
-            let bitfun_self = build_bitfun_self_prompt().await;
-            result = result.replace(PLACEHOLDER_SPARO_SELF, &bitfun_self);
+            let sparo_self = build_sparo_self_prompt().await;
+            result = result.replace(PLACEHOLDER_SPARO_SELF, &sparo_self);
         }
 
         // Replace {WORKSPACE_CANDIDATES}

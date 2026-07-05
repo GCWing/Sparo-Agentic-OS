@@ -1,4 +1,4 @@
-﻿import type { WorkspaceSceneId } from './workspaceSceneTypes';
+import type { WorkspaceSceneId } from './workspaceSceneTypes';
 import { useWorkspaceSurfaceStore } from './workspaceSurfaceStore';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';

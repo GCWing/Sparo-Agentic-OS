@@ -21,7 +21,7 @@ use crate::service::mcp::config::MCPConfigService;
 use crate::service::mcp::protocol::{MCPError, MCPPrompt, MCPResource};
 use crate::service::runtime::{RuntimeManager, RuntimeSource};
 use crate::service::workspace::get_global_workspace_service;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use log::{debug, error, info, warn};
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};

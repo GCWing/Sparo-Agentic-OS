@@ -1,5 +1,5 @@
 //! Built-in Product App and Component packages bundled from
-//! `bundles/product-apps/builtin` and `bundles/components`.
+//! `bundles/product-apps` and `bundles/components`.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -10,7 +10,7 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use crate::infrastructure::PathManager;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 
 use super::catalog_state::{
     apply_product_app_entry_catalog_state,
@@ -33,7 +33,7 @@ use super::{
 };
 
 static BUILTIN_PRODUCT_APPS_DIR: Dir<'_> =
-    include_dir!("$CARGO_MANIFEST_DIR/../../../bundles/product-apps/builtin");
+    include_dir!("$CARGO_MANIFEST_DIR/../../../bundles/product-apps");
 static BUILTIN_COMPONENTS_DIR: Dir<'_> =
     include_dir!("$CARGO_MANIFEST_DIR/../../../bundles/components");
 static BUILTIN_PACKAGE_CATALOG_LOCK: LazyLock<tokio::sync::Mutex<()>> =
@@ -107,14 +107,14 @@ pub struct PublishedProductAppReleaseCatalogSource {
 
 pub async fn seed_builtin_product_app_packages(
     path_manager: &PathManager,
-) -> BitFunResult<Vec<String>> {
+) -> CoreResult<Vec<String>> {
     let _guard = BUILTIN_PACKAGE_CATALOG_LOCK.lock().await;
     ensure_builtin_product_app_packages_seeded_unlocked(path_manager).await
 }
 
 async fn ensure_builtin_product_app_packages_seeded_unlocked(
     path_manager: &PathManager,
-) -> BitFunResult<Vec<String>> {
+) -> CoreResult<Vec<String>> {
     let key = BuiltinPackageSeedKey {
         product_apps_dir: path_manager.system_product_apps_dir(),
         components_dir: path_manager.system_components_dir(),
@@ -133,7 +133,7 @@ async fn ensure_builtin_product_app_packages_seeded_unlocked(
 
 async fn ensure_product_app_catalog_sources_seeded_unlocked(
     path_manager: &PathManager,
-) -> BitFunResult<Vec<PathBuf>> {
+) -> CoreResult<Vec<PathBuf>> {
     let key = product_app_sources_dir(path_manager);
     if seed_cache_contains(&PRODUCT_APP_SOURCE_SEED_CACHE, &key) && key.exists() {
         return Ok(Vec::new());
@@ -165,7 +165,7 @@ where
 
 async fn seed_builtin_product_app_packages_unlocked(
     path_manager: &PathManager,
-) -> BitFunResult<Vec<String>> {
+) -> CoreResult<Vec<String>> {
     path_manager
         .ensure_dir(&path_manager.system_product_apps_dir())
         .await?;
@@ -206,7 +206,7 @@ async fn seed_builtin_product_app_packages_unlocked(
 
 pub async fn list_installed_product_app_catalog(
     path_manager: &PathManager,
-) -> BitFunResult<Vec<AppCatalogEntry>> {
+) -> CoreResult<Vec<AppCatalogEntry>> {
     Ok(list_installed_product_app_catalog_with_issues(path_manager)
         .await?
         .entries)
@@ -214,7 +214,7 @@ pub async fn list_installed_product_app_catalog(
 
 pub async fn list_product_app_home_catalog(
     path_manager: &PathManager,
-) -> BitFunResult<ProductAppCatalogEntries> {
+) -> CoreResult<ProductAppCatalogEntries> {
     let state = load_product_app_catalog_state(path_manager).await?;
     let mut entries = Vec::new();
     let mut issues = Vec::new();
@@ -240,7 +240,7 @@ pub async fn list_product_app_home_catalog(
 
 pub async fn list_installed_product_app_catalog_with_issues(
     path_manager: &PathManager,
-) -> BitFunResult<ProductAppCatalogEntries> {
+) -> CoreResult<ProductAppCatalogEntries> {
     let _guard = BUILTIN_PACKAGE_CATALOG_LOCK.lock().await;
     ensure_builtin_product_app_packages_seeded_unlocked(path_manager).await?;
     let batch = list_installed_product_apps_unlocked_with_issues(path_manager).await?;
@@ -259,7 +259,7 @@ pub async fn list_installed_product_app_catalog_with_issues(
 
 pub async fn list_product_app_catalog_source(
     path_manager: &PathManager,
-) -> BitFunResult<Vec<AppCatalogEntry>> {
+) -> CoreResult<Vec<AppCatalogEntry>> {
     Ok(list_product_app_catalog_source_with_issues(path_manager)
         .await?
         .entries)
@@ -267,7 +267,7 @@ pub async fn list_product_app_catalog_source(
 
 pub async fn list_product_app_catalog_source_with_issues(
     path_manager: &PathManager,
-) -> BitFunResult<ProductAppCatalogEntries> {
+) -> CoreResult<ProductAppCatalogEntries> {
     let _guard = BUILTIN_PACKAGE_CATALOG_LOCK.lock().await;
     ensure_builtin_product_app_packages_seeded_unlocked(path_manager).await?;
     ensure_product_app_catalog_sources_seeded_unlocked(path_manager).await?;
@@ -287,7 +287,7 @@ pub async fn list_product_app_catalog_source_with_issues(
 
 pub async fn list_installed_product_apps(
     path_manager: &PathManager,
-) -> BitFunResult<Vec<ResolvedProductApp>> {
+) -> CoreResult<Vec<ResolvedProductApp>> {
     let _guard = BUILTIN_PACKAGE_CATALOG_LOCK.lock().await;
     ensure_builtin_product_app_packages_seeded_unlocked(path_manager).await?;
     list_installed_product_apps_unlocked(path_manager).await
@@ -297,7 +297,7 @@ pub async fn install_product_app(
     path_manager: &PathManager,
     app_id: &str,
     app_version: &str,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     reject_native_system_lifecycle_target(app_id)?;
     let _guard = BUILTIN_PACKAGE_CATALOG_LOCK.lock().await;
     ensure_builtin_product_app_packages_seeded_unlocked(path_manager).await?;
@@ -306,7 +306,7 @@ pub async fn install_product_app(
         .join(app_id)
         .join(app_version);
     if !source_dir.join(APP_JSON).is_file() {
-        return Err(BitFunError::NotFound(format!(
+        return Err(CoreError::NotFound(format!(
             "Product App source not found: {}@{}",
             app_id, app_version
         )));
@@ -314,7 +314,7 @@ pub async fn install_product_app(
     let release_source = read_release_source_manifest(&source_dir).await?;
     if let Some(source_manifest) = &release_source {
         if source_manifest.app_id != app_id || source_manifest.app_version != app_version {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Published release source identity does not match requested install. request={}@{}, source={}@{}",
                 app_id, app_version, source_manifest.app_id, source_manifest.app_version
             )));
@@ -350,18 +350,18 @@ pub async fn install_product_app(
 pub async fn publish_product_app_release_to_catalog(
     path_manager: &PathManager,
     request: PublishProductAppReleaseToCatalogRequest,
-) -> BitFunResult<PublishedProductAppReleaseCatalogSource> {
+) -> CoreResult<PublishedProductAppReleaseCatalogSource> {
     let manifest = read_release_manifest(&request.release_manifest_path).await?;
     validate_publishable_release_manifest(&manifest)?;
     let release_dir = request.release_manifest_path.parent().ok_or_else(|| {
-        BitFunError::validation(format!(
+        CoreError::validation(format!(
             "Release manifest path has no parent: {}",
             request.release_manifest_path.display()
         ))
     })?;
     let release_files_dir = release_dir.join(&manifest.content_root);
     if !release_files_dir.is_dir() {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Release source snapshot is missing: {}",
             release_files_dir.display()
         )));
@@ -416,13 +416,13 @@ pub async fn uninstall_product_app(
     path_manager: &PathManager,
     app_id: &str,
     app_version: &str,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     reject_native_system_lifecycle_target(app_id)?;
     let _guard = BUILTIN_PACKAGE_CATALOG_LOCK.lock().await;
     let dest_dir = path_manager.system_product_app_version_dir(app_id, app_version);
     if !dest_dir.join(APP_JSON).is_file() {
         ensure_product_app_catalog_sources_seeded_unlocked(path_manager).await?;
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Product App is not installed: {}@{}",
             app_id, app_version
         )));
@@ -430,7 +430,7 @@ pub async fn uninstall_product_app(
     if installed_product_app_source_kind(path_manager, app_id, app_version, &dest_dir).await?
         == Some(ProductAppCatalogSourceKind::BuiltinMarketplace)
     {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Built-in Product Apps can be disabled but not uninstalled: {}@{}",
             app_id, app_version
         )));
@@ -442,7 +442,7 @@ pub async fn uninstall_product_app(
 
 async fn list_installed_product_apps_unlocked(
     path_manager: &PathManager,
-) -> BitFunResult<Vec<ResolvedProductApp>> {
+) -> CoreResult<Vec<ResolvedProductApp>> {
     Ok(
         list_installed_product_apps_unlocked_with_issues(path_manager)
             .await?
@@ -452,7 +452,7 @@ async fn list_installed_product_apps_unlocked(
 
 async fn list_installed_product_apps_unlocked_with_issues(
     path_manager: &PathManager,
-) -> BitFunResult<ProductAppProjectionBatch> {
+) -> CoreResult<ProductAppProjectionBatch> {
     let mut batch = list_product_app_package_projections_unlocked(path_manager).await?;
     batch.apps = apply_product_app_catalog_state(path_manager, batch.apps).await?;
     apply_degraded_installed_package_state(&mut batch.degraded_apps);
@@ -500,7 +500,7 @@ fn apply_degraded_installed_package_state(apps: &mut [ResolvedProductApp]) {
 
 async fn list_product_app_package_projections_unlocked(
     path_manager: &PathManager,
-) -> BitFunResult<ProductAppProjectionBatch> {
+) -> CoreResult<ProductAppProjectionBatch> {
     let shared_components = read_installed_shared_components(path_manager).await?;
     let mut batch = ProductAppProjectionBatch::default();
 
@@ -557,7 +557,7 @@ fn sort_app_catalog_entries_by_name(entries: &mut [AppCatalogEntry]) {
 async fn read_product_app_home_catalog_entry(
     app_dir: &Path,
     state: &ProductAppCatalogState,
-) -> BitFunResult<Option<AppCatalogEntry>> {
+) -> CoreResult<Option<AppCatalogEntry>> {
     let mut app = read_product_app_definition_for_catalog_issue(app_dir).await?;
     if is_native_system_lifecycle_id(&app.id) {
         log::debug!(
@@ -622,7 +622,7 @@ fn product_app_home_dependency_summary(lock: &ComponentLock) -> String {
 async fn read_installed_product_app_projection(
     app_dir: &Path,
     shared_components: &[ComponentDefinition],
-) -> BitFunResult<Option<ResolvedProductApp>> {
+) -> CoreResult<Option<ResolvedProductApp>> {
     let mut package = ProductAppResolver::read_product_app_package(app_dir).await?;
     if is_native_system_lifecycle_id(&package.app.id) {
         log::debug!(
@@ -665,7 +665,7 @@ async fn read_installed_product_app_projection(
 async fn normalize_legacy_generated_work_multiplicity(
     app_dir: &Path,
     app: &mut AppDefinition,
-) -> BitFunResult<bool> {
+) -> CoreResult<bool> {
     if !is_legacy_generated_full_surface_multiple_app(app) {
         return Ok(false);
     }
@@ -691,7 +691,7 @@ async fn build_installed_product_app_projection(
     app_dir: &Path,
     package: ProductAppPackage,
     shared_components: &[ComponentDefinition],
-) -> BitFunResult<ResolvedProductApp> {
+) -> CoreResult<ResolvedProductApp> {
     let lock = ProductAppResolver::read_lock(app_dir).await?;
     let components = components_for_lock(&package.private_components, shared_components, &lock)?;
     let mut resolved = ProductAppResolver::build_runtime_projection(
@@ -755,12 +755,12 @@ async fn read_degraded_product_app_projection(
 
 async fn read_product_app_definition_for_catalog_issue(
     app_dir: &Path,
-) -> BitFunResult<AppDefinition> {
+) -> CoreResult<AppDefinition> {
     let app_path = app_dir.join(APP_JSON);
     let bytes = tokio::fs::read(&app_path).await.map_err(|error| {
-        BitFunError::io(format!("Failed to read {}: {}", app_path.display(), error))
+        CoreError::io(format!("Failed to read {}: {}", app_path.display(), error))
     })?;
-    serde_json::from_slice(&bytes).map_err(BitFunError::from)
+    serde_json::from_slice(&bytes).map_err(CoreError::from)
 }
 
 fn degraded_component_lock(app: &AppDefinition) -> ComponentLock {
@@ -809,8 +809,8 @@ fn degraded_product_app_catalog_entry(
     }
 }
 
-fn is_refreshable_installed_app_lock_error(error: &BitFunError) -> bool {
-    let BitFunError::Validation(message) = error else {
+fn is_refreshable_installed_app_lock_error(error: &CoreError) -> bool {
+    let CoreError::Validation(message) = error else {
         return false;
     };
     message == "App lock permission digest does not match component definitions"
@@ -824,7 +824,7 @@ fn is_refreshable_installed_app_lock_error(error: &BitFunError) -> bool {
 
 async fn list_product_app_source_projections_unlocked_with_issues(
     path_manager: &PathManager,
-) -> BitFunResult<ProductAppProjectionBatch> {
+) -> CoreResult<ProductAppProjectionBatch> {
     let shared_components = read_installed_shared_components(path_manager).await?;
     let mut batch = ProductAppProjectionBatch::default();
 
@@ -867,7 +867,7 @@ async fn list_product_app_source_projections_unlocked_with_issues(
 async fn read_product_app_source_projection(
     app_dir: &Path,
     shared_components: &[ComponentDefinition],
-) -> BitFunResult<Option<ResolvedProductApp>> {
+) -> CoreResult<Option<ResolvedProductApp>> {
     let package = ProductAppResolver::read_product_app_package(app_dir).await?;
     if is_native_system_lifecycle_id(&package.app.id) {
         log::debug!(
@@ -884,7 +884,7 @@ async fn read_product_app_source_projection(
 async fn annotate_package_revision(
     app_dir: &Path,
     app: &mut ResolvedProductApp,
-) -> BitFunResult<String> {
+) -> CoreResult<String> {
     if let Some(source_manifest) = read_release_source_manifest(app_dir).await? {
         app.catalog_entry.package_digest = Some(source_manifest.package_digest.clone());
         app.catalog_entry.catalog_source = Some(ProductAppCatalogSourceRef {
@@ -906,7 +906,7 @@ async fn installed_product_app_source_kind(
     app_id: &str,
     app_version: &str,
     app_dir: &Path,
-) -> BitFunResult<Option<ProductAppCatalogSourceKind>> {
+) -> CoreResult<Option<ProductAppCatalogSourceKind>> {
     if let Some(source_kind) =
         product_app_installed_source_kind(path_manager, app_id, app_version).await?
     {
@@ -925,7 +925,7 @@ async fn installed_product_app_source_kind(
 async fn annotate_product_app_source_updates(
     path_manager: &PathManager,
     mut source_apps: Vec<ResolvedProductApp>,
-) -> BitFunResult<Vec<ResolvedProductApp>> {
+) -> CoreResult<Vec<ResolvedProductApp>> {
     let installed_apps = list_installed_product_apps_unlocked(path_manager).await?;
     let installed_by_key = installed_apps
         .into_iter()
@@ -964,7 +964,7 @@ async fn resolve_catalog_source_package(
     app_dir: &Path,
     package: ProductAppPackage,
     shared_components: &[ComponentDefinition],
-) -> BitFunResult<ResolvedProductApp> {
+) -> CoreResult<ResolvedProductApp> {
     let mut resolved =
         ProductAppResolver::resolve_package_install(package, shared_components.to_vec())?;
     if let Some(source_manifest) = read_release_source_manifest(app_dir).await? {
@@ -997,7 +997,7 @@ pub async fn get_installed_product_app_by_lock(
     app_id: &str,
     app_version: &str,
     component_lock_digest: &str,
-) -> BitFunResult<(ResolvedProductApp, String)> {
+) -> CoreResult<(ResolvedProductApp, String)> {
     let apps = list_installed_product_apps(path_manager).await?;
     select_installed_product_app_by_lock(apps, app_id, app_version, component_lock_digest)
 }
@@ -1007,7 +1007,7 @@ pub fn select_installed_product_app_by_lock(
     app_id: &str,
     app_version: &str,
     component_lock_digest: &str,
-) -> BitFunResult<(ResolvedProductApp, String)> {
+) -> CoreResult<(ResolvedProductApp, String)> {
     let mut available = Vec::new();
     for app in apps {
         if app.app.id != app_id {
@@ -1021,13 +1021,13 @@ pub fn select_installed_product_app_by_lock(
     }
 
     if available.is_empty() {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Product App not found: {}",
             app_id
         )));
     }
 
-    Err(BitFunError::validation(format!(
+    Err(CoreError::validation(format!(
         "Product App {} package for version {} and lock {} is not installed. Available: {}",
         app_id,
         app_version,
@@ -1038,14 +1038,14 @@ pub fn select_installed_product_app_by_lock(
 
 pub async fn list_installed_shared_components(
     path_manager: &PathManager,
-) -> BitFunResult<Vec<ComponentDefinition>> {
+) -> CoreResult<Vec<ComponentDefinition>> {
     list_installed_components_projection(path_manager, InstalledComponentProjection::SharedOnly)
         .await
 }
 
 pub async fn list_installed_package_components(
     path_manager: &PathManager,
-) -> BitFunResult<Vec<ComponentDefinition>> {
+) -> CoreResult<Vec<ComponentDefinition>> {
     list_installed_components_projection(path_manager, InstalledComponentProjection::PackageCatalog)
         .await
 }
@@ -1058,7 +1058,7 @@ enum InstalledComponentProjection {
 async fn list_installed_components_projection(
     path_manager: &PathManager,
     projection: InstalledComponentProjection,
-) -> BitFunResult<Vec<ComponentDefinition>> {
+) -> CoreResult<Vec<ComponentDefinition>> {
     let _guard = BUILTIN_PACKAGE_CATALOG_LOCK.lock().await;
     ensure_builtin_product_app_packages_seeded_unlocked(path_manager).await?;
     let mut components = read_installed_shared_components(path_manager).await?;
@@ -1073,10 +1073,10 @@ async fn list_installed_components_projection(
 async fn seed_component_package(
     path_manager: &PathManager,
     source_dir: &Path,
-) -> BitFunResult<PathBuf> {
+) -> CoreResult<PathBuf> {
     let component = read_source_component_definition(source_dir)?;
     let version = component.version.as_deref().ok_or_else(|| {
-        BitFunError::validation(format!(
+        CoreError::validation(format!(
             "builtin shared component {} must declare version",
             component.id
         ))
@@ -1094,7 +1094,7 @@ async fn seed_component_package(
 
 async fn seed_product_app_catalog_sources_unlocked(
     path_manager: &PathManager,
-) -> BitFunResult<Vec<PathBuf>> {
+) -> CoreResult<Vec<PathBuf>> {
     let source_root = product_app_sources_dir(path_manager);
     path_manager.ensure_dir(&source_root).await?;
 
@@ -1115,7 +1115,7 @@ async fn seed_product_app_catalog_sources_unlocked(
 async fn seed_product_app_source(
     path_manager: &PathManager,
     source_dir: &Path,
-) -> BitFunResult<PathBuf> {
+) -> CoreResult<PathBuf> {
     let app = read_source_app_definition(source_dir)?;
     let source_root = product_app_sources_dir(path_manager);
     let dest_dir = package_version_dir(&source_root, &app.id, &app.version);
@@ -1127,7 +1127,7 @@ async fn seed_product_app_source(
 async fn refresh_installed_app_lock(
     app_dir: &Path,
     shared_components: &[ComponentDefinition],
-) -> BitFunResult<String> {
+) -> CoreResult<String> {
     let package = ProductAppResolver::read_product_app_package(app_dir).await?;
     let resolved =
         ProductAppResolver::resolve_package_install(package, shared_components.to_vec())?;
@@ -1136,57 +1136,57 @@ async fn refresh_installed_app_lock(
     Ok(resolved.app.id)
 }
 
-async fn write_app_component_lock_id(app_dir: &Path, lock_id: &str) -> BitFunResult<()> {
+async fn write_app_component_lock_id(app_dir: &Path, lock_id: &str) -> CoreResult<()> {
     let app_path = app_dir.join(APP_JSON);
     let bytes = tokio::fs::read(&app_path).await.map_err(|error| {
-        BitFunError::io(format!("Failed to read {}: {}", app_path.display(), error))
+        CoreError::io(format!("Failed to read {}: {}", app_path.display(), error))
     })?;
-    let mut value: Value = serde_json::from_slice(&bytes).map_err(BitFunError::from)?;
+    let mut value: Value = serde_json::from_slice(&bytes).map_err(CoreError::from)?;
     value["componentLockId"] = Value::String(lock_id.to_string());
-    let bytes = serde_json::to_vec_pretty(&value).map_err(BitFunError::from)?;
+    let bytes = serde_json::to_vec_pretty(&value).map_err(CoreError::from)?;
     tokio::fs::write(&app_path, bytes).await.map_err(|error| {
-        BitFunError::io(format!("Failed to write {}: {}", app_path.display(), error))
+        CoreError::io(format!("Failed to write {}: {}", app_path.display(), error))
     })
 }
 
 async fn write_app_work_multiplicity(
     app_dir: &Path,
     work_multiplicity: AppWorkMultiplicity,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     let app_path = app_dir.join(APP_JSON);
     let bytes = tokio::fs::read(&app_path).await.map_err(|error| {
-        BitFunError::io(format!("Failed to read {}: {}", app_path.display(), error))
+        CoreError::io(format!("Failed to read {}: {}", app_path.display(), error))
     })?;
-    let mut value: Value = serde_json::from_slice(&bytes).map_err(BitFunError::from)?;
+    let mut value: Value = serde_json::from_slice(&bytes).map_err(CoreError::from)?;
     value["workMultiplicity"] =
-        serde_json::to_value(work_multiplicity).map_err(BitFunError::from)?;
-    let bytes = serde_json::to_vec_pretty(&value).map_err(BitFunError::from)?;
+        serde_json::to_value(work_multiplicity).map_err(CoreError::from)?;
+    let bytes = serde_json::to_vec_pretty(&value).map_err(CoreError::from)?;
     tokio::fs::write(&app_path, bytes).await.map_err(|error| {
-        BitFunError::io(format!("Failed to write {}: {}", app_path.display(), error))
+        CoreError::io(format!("Failed to write {}: {}", app_path.display(), error))
     })
 }
 
-async fn read_release_manifest(path: &Path) -> BitFunResult<ProductAppReleaseManifest> {
+async fn read_release_manifest(path: &Path) -> CoreResult<ProductAppReleaseManifest> {
     let bytes = tokio::fs::read(path).await.map_err(|error| {
-        BitFunError::io(format!(
+        CoreError::io(format!(
             "Failed to read release manifest {}: {}",
             path.display(),
             error
         ))
     })?;
-    serde_json::from_slice(&bytes).map_err(BitFunError::from)
+    serde_json::from_slice(&bytes).map_err(CoreError::from)
 }
 
 async fn read_release_source_manifest(
     app_dir: &Path,
-) -> BitFunResult<Option<ProductAppReleaseCatalogSourceManifest>> {
+) -> CoreResult<Option<ProductAppReleaseCatalogSourceManifest>> {
     let path = app_dir.join(PRODUCT_APP_RELEASE_CATALOG_SOURCE_FILE);
     match tokio::fs::read(&path).await {
         Ok(bytes) => serde_json::from_slice(&bytes)
             .map(Some)
-            .map_err(BitFunError::from),
+            .map_err(CoreError::from),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
-        Err(error) => Err(BitFunError::io(format!(
+        Err(error) => Err(CoreError::io(format!(
             "Failed to read release catalog source {}: {}",
             path.display(),
             error
@@ -1194,15 +1194,15 @@ async fn read_release_source_manifest(
     }
 }
 
-fn validate_publishable_release_manifest(manifest: &ProductAppReleaseManifest) -> BitFunResult<()> {
+fn validate_publishable_release_manifest(manifest: &ProductAppReleaseManifest) -> CoreResult<()> {
     if manifest.schema_version != PRODUCT_APP_RELEASE_SCHEMA_VERSION {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Unsupported Product App release manifest schema: {}",
             manifest.schema_version
         )));
     }
     if manifest.readiness.status != "passed" {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Product App release cannot be published because readiness is {}",
             manifest.readiness.status
         )));
@@ -1213,7 +1213,7 @@ fn validate_publishable_release_manifest(manifest: &ProductAppReleaseManifest) -
         .iter()
         .any(|check| check.status != "passed")
     {
-        return Err(BitFunError::validation(
+        return Err(CoreError::validation(
             "Product App release cannot be published until every readiness check has passed",
         ));
     }
@@ -1223,7 +1223,7 @@ fn validate_publishable_release_manifest(manifest: &ProductAppReleaseManifest) -
         || !manifest.share.excludes_runtime_storage
         || !manifest.share.excludes_user_private_data
     {
-        return Err(BitFunError::validation(
+        return Err(CoreError::validation(
             "Product App release cannot be published because its share boundary is incomplete",
         ));
     }
@@ -1233,7 +1233,7 @@ fn validate_publishable_release_manifest(manifest: &ProductAppReleaseManifest) -
 fn verify_release_snapshot_contents(
     release_files_dir: &Path,
     manifest: &ProductAppReleaseManifest,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     let mut expected_paths = BTreeSet::new();
     let absolute_root = absolute_path(release_files_dir)?;
     for file in &manifest.package_files {
@@ -1241,20 +1241,20 @@ fn verify_release_snapshot_contents(
         let path = release_files_dir.join(&file.path);
         let absolute_path = absolute_path(&path)?;
         if !absolute_path.starts_with(&absolute_root) {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Release manifest references a file outside the release source snapshot: {}",
                 file.path
             )));
         }
         let bytes = std::fs::read(&absolute_path).map_err(|error| {
-            BitFunError::io(format!(
+            CoreError::io(format!(
                 "Failed to read release source file {}: {}",
                 absolute_path.display(),
                 error
             ))
         })?;
         if bytes.len() as u64 != file.bytes {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Release source file size mismatch for {}. manifest={}, actual={}",
                 file.path,
                 file.bytes,
@@ -1263,7 +1263,7 @@ fn verify_release_snapshot_contents(
         }
         let digest = sha256_bytes(&bytes);
         if digest != file.sha256 {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Release source file hash mismatch for {}. manifest={}, actual={}",
                 file.path, file.sha256, digest
             )));
@@ -1276,15 +1276,15 @@ fn verify_release_snapshot_contents(
             path.strip_prefix(release_files_dir)
                 .map(|relative| relative.to_string_lossy().replace('\\', "/"))
                 .map_err(|_| {
-                    BitFunError::validation(format!(
+                    CoreError::validation(format!(
                         "unexpected release source path: {}",
                         path.display()
                     ))
                 })
         })
-        .collect::<BitFunResult<BTreeSet<_>>>()?;
+        .collect::<CoreResult<BTreeSet<_>>>()?;
     if actual_paths != expected_paths {
-        return Err(BitFunError::validation(
+        return Err(CoreError::validation(
             "Release source snapshot file set does not match release manifest",
         ));
     }
@@ -1307,23 +1307,23 @@ fn manifest_artifact_uri(manifest: &ProductAppReleaseManifest) -> String {
 async fn verify_release_source_package(
     app_dir: &Path,
     source: &ProductAppReleaseCatalogSourceManifest,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     let package = ProductAppResolver::read_product_app_package(app_dir).await?;
     let lock = ProductAppResolver::read_lock(app_dir).await?;
     if package.app.id != source.app_id || package.app.version != source.app_version {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Release source package identity does not match release manifest. source={}@{}, package={}@{}",
             source.app_id, source.app_version, package.app.id, package.app.version
         )));
     }
     if package.app.component_lock_id != source.component_lock_digest {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Release source app.json lock does not match release manifest. app={}, release={}",
             package.app.component_lock_id, source.component_lock_digest
         )));
     }
     if lock.digest() != source.component_lock_digest {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Release source app.lock.json does not match release manifest. lock={}, release={}",
             lock.digest(),
             source.component_lock_digest
@@ -1336,7 +1336,7 @@ async fn verify_installed_release_package(
     app_dir: &Path,
     shared_components: &[ComponentDefinition],
     source: &ProductAppReleaseCatalogSourceManifest,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     verify_release_source_package(app_dir, source).await?;
     let package = ProductAppResolver::read_product_app_package(app_dir).await?;
     let resolved =
@@ -1347,16 +1347,16 @@ async fn verify_installed_release_package(
 fn verify_resolved_release_source(
     resolved: &ResolvedProductApp,
     source: &ProductAppReleaseCatalogSourceManifest,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     if resolved.app.id != source.app_id || resolved.app.version != source.app_version {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Resolved release source identity does not match release manifest. source={}@{}, resolved={}@{}",
             source.app_id, source.app_version, resolved.app.id, resolved.app.version
         )));
     }
     let resolved_lock = resolved.lock.digest();
     if resolved_lock != source.component_lock_digest {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Resolved release source lock does not match published release. resolved={}, release={}",
             resolved_lock, source.component_lock_digest
         )));
@@ -1366,11 +1366,11 @@ fn verify_resolved_release_source(
 
 async fn read_installed_shared_components(
     path_manager: &PathManager,
-) -> BitFunResult<Vec<ComponentDefinition>> {
+) -> CoreResult<Vec<ComponentDefinition>> {
     read_component_packages_from_root(&path_manager.system_components_dir()).await
 }
 
-async fn read_component_packages_from_root(root: &Path) -> BitFunResult<Vec<ComponentDefinition>> {
+async fn read_component_packages_from_root(root: &Path) -> CoreResult<Vec<ComponentDefinition>> {
     let mut components = Vec::new();
     for package_dir in collect_component_package_dirs(root)? {
         components.push(
@@ -1393,7 +1393,7 @@ fn components_for_lock(
     private_components: &[ComponentDefinition],
     shared_components: &[ComponentDefinition],
     lock: &ComponentLock,
-) -> BitFunResult<Vec<ComponentDefinition>> {
+) -> CoreResult<Vec<ComponentDefinition>> {
     let mut by_fqid = BTreeMap::<String, ComponentDefinition>::new();
     for component in private_components.iter().chain(shared_components.iter()) {
         by_fqid.insert(component.fqid(), component.clone());
@@ -1402,7 +1402,7 @@ fn components_for_lock(
     let mut components = Vec::new();
     for entry in &lock.resolved_components {
         let Some(component) = by_fqid.get(&entry.fqid) else {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Installed app lock references missing component {}",
                 entry.fqid
             )));
@@ -1416,7 +1416,7 @@ fn record_product_app_catalog_issue(
     issues: &mut Vec<ProductAppCatalogIssue>,
     source: ProductAppCatalogIssueSource,
     app_dir: &Path,
-    error: &BitFunError,
+    error: &CoreError,
 ) -> ProductAppCatalogIssue {
     let issue = product_app_catalog_issue(source, app_dir, error);
     log::warn!(
@@ -1434,7 +1434,7 @@ fn record_product_app_catalog_issue(
 fn product_app_catalog_issue(
     source: ProductAppCatalogIssueSource,
     app_dir: &Path,
-    error: &BitFunError,
+    error: &CoreError,
 ) -> ProductAppCatalogIssue {
     let (app_id, app_version) = product_app_identity_from_dir(app_dir);
     ProductAppCatalogIssue {
@@ -1466,7 +1466,7 @@ enum CopyMode {
     ComponentPackage,
 }
 
-fn copy_source_dir(source_dir: &Path, dest_dir: &Path, mode: CopyMode) -> BitFunResult<()> {
+fn copy_source_dir(source_dir: &Path, dest_dir: &Path, mode: CopyMode) -> CoreResult<()> {
     let filesystem_dir = filesystem_source_dir(source_dir, mode);
     if filesystem_dir.exists() {
         copy_filesystem_dir(&filesystem_dir, dest_dir, mode)?;
@@ -1474,7 +1474,7 @@ fn copy_source_dir(source_dir: &Path, dest_dir: &Path, mode: CopyMode) -> BitFun
     }
 
     let embedded_dir = embedded_source_dir(source_dir, mode).ok_or_else(|| {
-        BitFunError::validation(format!(
+        CoreError::validation(format!(
             "builtin package source not found: {}",
             source_dir.display()
         ))
@@ -1482,10 +1482,10 @@ fn copy_source_dir(source_dir: &Path, dest_dir: &Path, mode: CopyMode) -> BitFun
     copy_embedded_dir(embedded_dir, dest_dir, mode)
 }
 
-fn copy_filesystem_dir(source_dir: &Path, dest_dir: &Path, mode: CopyMode) -> BitFunResult<()> {
+fn copy_filesystem_dir(source_dir: &Path, dest_dir: &Path, mode: CopyMode) -> CoreResult<()> {
     for file in collect_files_from_filesystem(source_dir)? {
         let relative = file.strip_prefix(source_dir).map_err(|_| {
-            BitFunError::validation(format!(
+            CoreError::validation(format!(
                 "unexpected builtin package path: {}",
                 file.display()
             ))
@@ -1498,12 +1498,12 @@ fn copy_filesystem_dir(source_dir: &Path, dest_dir: &Path, mode: CopyMode) -> Bi
     Ok(())
 }
 
-fn copy_embedded_dir(source_dir: &Dir<'_>, dest_dir: &Path, mode: CopyMode) -> BitFunResult<()> {
+fn copy_embedded_dir(source_dir: &Dir<'_>, dest_dir: &Path, mode: CopyMode) -> CoreResult<()> {
     let mut files = Vec::new();
     collect_embedded_files(source_dir, &mut files);
     for file in files {
         let relative = file.path().strip_prefix(source_dir.path()).map_err(|_| {
-            BitFunError::validation(format!(
+            CoreError::validation(format!(
                 "unexpected embedded builtin package path: {}",
                 file.path().display()
             ))
@@ -1524,11 +1524,11 @@ fn should_skip_file(relative: &Path, mode: CopyMode) -> bool {
             .is_some_and(|name| name == APP_LOCK_JSON)
 }
 
-fn reset_dir(path: &Path, root: &Path) -> BitFunResult<()> {
+fn reset_dir(path: &Path, root: &Path) -> CoreResult<()> {
     let absolute_root = absolute_path(root)?;
     let absolute_path = absolute_path(path)?;
     if absolute_path == absolute_root || !absolute_path.starts_with(&absolute_root) {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "refusing to reset package path outside root: {}",
             absolute_path.display()
         )));
@@ -1540,11 +1540,11 @@ fn reset_dir(path: &Path, root: &Path) -> BitFunResult<()> {
     Ok(())
 }
 
-fn remove_package_dir(path: &Path, root: &Path) -> BitFunResult<()> {
+fn remove_package_dir(path: &Path, root: &Path) -> CoreResult<()> {
     let absolute_root = absolute_path(root)?;
     let absolute_path = absolute_path(path)?;
     if absolute_path == absolute_root || !absolute_path.starts_with(&absolute_root) {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "refusing to remove package path outside root: {}",
             absolute_path.display()
         )));
@@ -1567,9 +1567,9 @@ fn package_key(app_id: &str, version: &str) -> String {
     format!("{}@{}", app_id, version)
 }
 
-fn reject_native_system_lifecycle_target(app_id: &str) -> BitFunResult<()> {
+fn reject_native_system_lifecycle_target(app_id: &str) -> CoreResult<()> {
     if is_native_system_lifecycle_id(app_id) {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Native system apps are always available and cannot be installed, uninstalled, enabled, or disabled: {}",
             app_id
         )));
@@ -1577,8 +1577,8 @@ fn reject_native_system_lifecycle_target(app_id: &str) -> BitFunResult<()> {
     Ok(())
 }
 
-fn absolute_path(path: &Path) -> BitFunResult<PathBuf> {
-    let current = std::env::current_dir().map_err(BitFunError::from)?;
+fn absolute_path(path: &Path) -> CoreResult<PathBuf> {
+    let current = std::env::current_dir().map_err(CoreError::from)?;
     let absolute = if path.is_absolute() {
         path.to_path_buf()
     } else {
@@ -1587,30 +1587,30 @@ fn absolute_path(path: &Path) -> BitFunResult<PathBuf> {
     Ok(dunce::simplified(&absolute).to_path_buf())
 }
 
-fn read_source_app_definition(source_dir: &Path) -> BitFunResult<super::AppDefinition> {
+fn read_source_app_definition(source_dir: &Path) -> CoreResult<super::AppDefinition> {
     let bytes = read_source_file(source_dir, APP_JSON, CopyMode::ProductAppPackage)?;
-    serde_json::from_slice(&bytes).map_err(BitFunError::from)
+    serde_json::from_slice(&bytes).map_err(CoreError::from)
 }
 
-fn read_source_component_definition(source_dir: &Path) -> BitFunResult<ComponentDefinition> {
+fn read_source_component_definition(source_dir: &Path) -> CoreResult<ComponentDefinition> {
     let bytes = read_source_file(source_dir, COMPONENT_JSON, CopyMode::ComponentPackage)?;
-    serde_json::from_slice(&bytes).map_err(BitFunError::from)
+    serde_json::from_slice(&bytes).map_err(CoreError::from)
 }
 
-fn read_source_file(source_dir: &Path, file_name: &str, mode: CopyMode) -> BitFunResult<Vec<u8>> {
+fn read_source_file(source_dir: &Path, file_name: &str, mode: CopyMode) -> CoreResult<Vec<u8>> {
     let filesystem_path = filesystem_source_dir(source_dir, mode).join(file_name);
     if filesystem_path.exists() {
-        return std::fs::read(&filesystem_path).map_err(BitFunError::from);
+        return std::fs::read(&filesystem_path).map_err(CoreError::from);
     }
 
     let embedded_dir = embedded_source_dir(source_dir, mode).ok_or_else(|| {
-        BitFunError::validation(format!(
+        CoreError::validation(format!(
             "builtin package source not found: {}",
             source_dir.display()
         ))
     })?;
     let file = embedded_dir.get_file(file_name).ok_or_else(|| {
-        BitFunError::validation(format!(
+        CoreError::validation(format!(
             "missing {} in builtin package source {}",
             file_name,
             source_dir.display()
@@ -1709,15 +1709,15 @@ fn collect_filesystem_package_dirs_into(
     }
 }
 
-fn collect_installed_product_app_dirs(root: &Path) -> BitFunResult<Vec<PathBuf>> {
+fn collect_installed_product_app_dirs(root: &Path) -> CoreResult<Vec<PathBuf>> {
     collect_product_app_version_dirs(root)
 }
 
-fn collect_component_package_dirs(root: &Path) -> BitFunResult<Vec<PathBuf>> {
+fn collect_component_package_dirs(root: &Path) -> CoreResult<Vec<PathBuf>> {
     collect_component_version_dirs(root)
 }
 
-fn collect_product_app_version_dirs(root: &Path) -> BitFunResult<Vec<PathBuf>> {
+fn collect_product_app_version_dirs(root: &Path) -> CoreResult<Vec<PathBuf>> {
     let mut out = Vec::new();
     if !root.exists() {
         return Ok(out);
@@ -1740,7 +1740,7 @@ fn collect_product_app_version_dirs(root: &Path) -> BitFunResult<Vec<PathBuf>> {
     Ok(out)
 }
 
-fn collect_component_version_dirs(root: &Path) -> BitFunResult<Vec<PathBuf>> {
+fn collect_component_version_dirs(root: &Path) -> CoreResult<Vec<PathBuf>> {
     let mut out = Vec::new();
     if !root.exists() {
         return Ok(out);
@@ -1775,14 +1775,14 @@ fn is_legacy_non_product_app_root(path: &Path) -> bool {
         .is_some_and(|name| LEGACY_NON_PRODUCT_APP_ROOT_DIRS.contains(&name))
 }
 
-fn collect_files_from_filesystem(dir: &Path) -> BitFunResult<Vec<PathBuf>> {
+fn collect_files_from_filesystem(dir: &Path) -> CoreResult<Vec<PathBuf>> {
     let mut files = Vec::new();
     collect_files_from_filesystem_into(dir, &mut files)?;
     files.sort();
     Ok(files)
 }
 
-fn collect_files_from_filesystem_into(dir: &Path, out: &mut Vec<PathBuf>) -> BitFunResult<()> {
+fn collect_files_from_filesystem_into(dir: &Path, out: &mut Vec<PathBuf>) -> CoreResult<()> {
     for entry in std::fs::read_dir(dir)? {
         let path = entry?.path();
         if path.is_dir() {
@@ -1803,7 +1803,7 @@ fn collect_embedded_files<'a>(dir: &'a Dir<'a>, out: &mut Vec<&'a File<'a>>) {
     }
 }
 
-fn write_bytes<P: AsRef<Path>>(path: P, content: &[u8]) -> BitFunResult<()> {
+fn write_bytes<P: AsRef<Path>>(path: P, content: &[u8]) -> CoreResult<()> {
     if let Some(parent) = path.as_ref().parent() {
         std::fs::create_dir_all(parent)?;
     }
@@ -1835,7 +1835,6 @@ fn filesystem_product_apps_root() -> PathBuf {
         .join("..")
         .join("bundles")
         .join("product-apps")
-        .join("builtin")
 }
 
 fn filesystem_components_root() -> PathBuf {
@@ -2260,7 +2259,7 @@ mod tests {
             &path_manager,
             CreateProductAppPackageDraft {
                 app_id: "builtin-coding".to_string(),
-                name: "Prime Builder".to_string(),
+                name: "BitFun Coder".to_string(),
                 description: "Retired native Product App package.".to_string(),
                 goal: "This legacy package is now a native system app.".to_string(),
                 version: "1.0.0".to_string(),

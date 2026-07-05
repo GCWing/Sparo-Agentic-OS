@@ -3,7 +3,7 @@
 //! Provides data persistence with JSON support
 
 use crate::infrastructure::{try_get_path_manager_arc, PathManager};
-use crate::util::errors::*;
+use crate::error::*;
 use log::warn;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -50,10 +50,10 @@ impl Default for StorageOptions {
 }
 
 impl PersistenceService {
-    pub async fn new(base_dir: PathBuf) -> BitFunResult<Self> {
+    pub async fn new(base_dir: PathBuf) -> CoreResult<Self> {
         if !base_dir.exists() {
             fs::create_dir_all(&base_dir).await.map_err(|e| {
-                BitFunError::service(format!("Failed to create storage directory: {}", e))
+                CoreError::service(format!("Failed to create storage directory: {}", e))
             })?;
         }
 
@@ -65,7 +65,7 @@ impl PersistenceService {
         })
     }
 
-    pub async fn new_user_level(path_manager: Arc<PathManager>) -> BitFunResult<Self> {
+    pub async fn new_user_level(path_manager: Arc<PathManager>) -> CoreResult<Self> {
         let base_dir = path_manager.user_data_dir();
         path_manager.ensure_dir(&base_dir).await?;
 
@@ -78,7 +78,7 @@ impl PersistenceService {
     pub async fn new_project_level(
         path_manager: Arc<PathManager>,
         workspace_path: PathBuf,
-    ) -> BitFunResult<Self> {
+    ) -> CoreResult<Self> {
         let base_dir = path_manager.workspace_runtime_root(&workspace_path);
 
         Ok(Self {
@@ -101,7 +101,7 @@ impl PersistenceService {
         key: &str,
         data: &T,
         options: StorageOptions,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let file_path = self.base_dir.join(format!("{}.json", key));
 
         let lock = get_file_lock(&file_path).await;
@@ -110,7 +110,7 @@ impl PersistenceService {
         if let Some(parent) = file_path.parent() {
             if !parent.exists() {
                 fs::create_dir_all(parent).await.map_err(|e| {
-                    BitFunError::service(format!("Failed to create directory {:?}: {}", parent, e))
+                    CoreError::service(format!("Failed to create directory {:?}: {}", parent, e))
                 })?;
             }
         }
@@ -120,18 +120,18 @@ impl PersistenceService {
         }
 
         let json_data = serde_json::to_string_pretty(data)
-            .map_err(|e| BitFunError::service(format!("Serialization failed: {}", e)))?;
+            .map_err(|e| CoreError::service(format!("Serialization failed: {}", e)))?;
 
         // Use atomic writes: write to a temp file first, then rename to avoid corruption on interruption.
         let temp_path = file_path.with_extension("json.tmp");
 
         fs::write(&temp_path, &json_data)
             .await
-            .map_err(|e| BitFunError::service(format!("Failed to write temp file: {}", e)))?;
+            .map_err(|e| CoreError::service(format!("Failed to write temp file: {}", e)))?;
 
         fs::rename(&temp_path, &file_path).await.map_err(|e| {
             let _ = std::fs::remove_file(&temp_path);
-            BitFunError::service(format!("Failed to rename temp file: {}", e))
+            CoreError::service(format!("Failed to rename temp file: {}", e))
         })?;
 
         Ok(())
@@ -140,7 +140,7 @@ impl PersistenceService {
     pub async fn load_json<T: for<'de> Deserialize<'de>>(
         &self,
         key: &str,
-    ) -> BitFunResult<Option<T>> {
+    ) -> CoreResult<Option<T>> {
         let file_path = self.base_dir.join(format!("{}.json", key));
 
         if !file_path.exists() {
@@ -149,39 +149,39 @@ impl PersistenceService {
 
         let content = fs::read_to_string(&file_path)
             .await
-            .map_err(|e| BitFunError::service(format!("Failed to read file: {}", e)))?;
+            .map_err(|e| CoreError::service(format!("Failed to read file: {}", e)))?;
 
         let data: T = serde_json::from_str(&content)
-            .map_err(|e| BitFunError::service(format!("Deserialization failed: {}", e)))?;
+            .map_err(|e| CoreError::service(format!("Deserialization failed: {}", e)))?;
 
         Ok(Some(data))
     }
 
-    pub async fn delete(&self, key: &str) -> BitFunResult<bool> {
+    pub async fn delete(&self, key: &str) -> CoreResult<bool> {
         let json_path = self.base_dir.join(format!("{}.json", key));
 
         if json_path.exists() {
             fs::remove_file(&json_path)
                 .await
-                .map_err(|e| BitFunError::service(format!("Failed to delete JSON file: {}", e)))?;
+                .map_err(|e| CoreError::service(format!("Failed to delete JSON file: {}", e)))?;
             return Ok(true);
         }
 
         Ok(false)
     }
 
-    async fn create_backup(&self, file_path: &Path, max_backups: usize) -> BitFunResult<()> {
+    async fn create_backup(&self, file_path: &Path, max_backups: usize) -> CoreResult<()> {
         let backup_dir = self.base_dir.join("backups");
         if !backup_dir.exists() {
             fs::create_dir_all(&backup_dir).await.map_err(|e| {
-                BitFunError::service(format!("Failed to create backup directory: {}", e))
+                CoreError::service(format!("Failed to create backup directory: {}", e))
             })?;
         }
 
         let file_name = file_path
             .file_name()
             .and_then(|n| n.to_str())
-            .ok_or_else(|| BitFunError::service("Invalid file name".to_string()))?;
+            .ok_or_else(|| CoreError::service("Invalid file name".to_string()))?;
 
         let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S");
         let backup_name = format!("{}_{}", timestamp, file_name);
@@ -189,7 +189,7 @@ impl PersistenceService {
 
         fs::copy(file_path, &backup_path)
             .await
-            .map_err(|e| BitFunError::service(format!("Failed to create backup: {}", e)))?;
+            .map_err(|e| CoreError::service(format!("Failed to create backup: {}", e)))?;
 
         self.cleanup_old_backups(&backup_dir, file_name, max_backups)
             .await?;
@@ -202,16 +202,16 @@ impl PersistenceService {
         backup_dir: &Path,
         file_pattern: &str,
         max_backups: usize,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let mut backups = Vec::new();
         let mut read_dir = fs::read_dir(backup_dir)
             .await
-            .map_err(|e| BitFunError::service(format!("Failed to read backup directory: {}", e)))?;
+            .map_err(|e| CoreError::service(format!("Failed to read backup directory: {}", e)))?;
 
         while let Some(entry) = read_dir
             .next_entry()
             .await
-            .map_err(|e| BitFunError::service(format!("Failed to read backup entry: {}", e)))?
+            .map_err(|e| CoreError::service(format!("Failed to read backup entry: {}", e)))?
         {
             if let Some(file_name) = entry.file_name().to_str() {
                 if file_name.ends_with(file_pattern) {

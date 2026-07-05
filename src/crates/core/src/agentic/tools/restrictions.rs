@@ -1,4 +1,4 @@
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -62,16 +62,16 @@ impl ToolRuntimeRestrictions {
             && !self.denied_tool_names.contains(tool_name)
     }
 
-    pub fn ensure_tool_allowed(&self, tool_name: &str) -> BitFunResult<()> {
+    pub fn ensure_tool_allowed(&self, tool_name: &str) -> CoreResult<()> {
         if self.denied_tool_names.contains(tool_name) {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Tool '{}' is denied by runtime restrictions",
                 tool_name
             )));
         }
 
         if !self.allowed_tool_names.is_empty() && !self.allowed_tool_names.contains(tool_name) {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Tool '{}' is not allowed by runtime restrictions",
                 tool_name
             )));
@@ -85,7 +85,7 @@ impl ToolRuntimeRestrictions {
     }
 }
 
-pub fn is_local_path_within_root(path: &Path, root: &Path) -> BitFunResult<bool> {
+pub fn is_local_path_within_root(path: &Path, root: &Path) -> CoreResult<bool> {
     let canonical_path = canonicalize_best_effort(path)?;
     let canonical_root = canonicalize_best_effort(root)?;
     Ok(canonical_path == canonical_root || canonical_path.starts_with(&canonical_root))
@@ -109,10 +109,10 @@ pub fn is_remote_posix_path_within_root(path: &str, root: &str) -> bool {
             .is_some_and(|suffix| suffix.starts_with('/'))
 }
 
-fn canonicalize_best_effort(path: &Path) -> BitFunResult<PathBuf> {
+fn canonicalize_best_effort(path: &Path) -> CoreResult<PathBuf> {
     if path.exists() {
         return dunce::canonicalize(path).map_err(|err| {
-            BitFunError::validation(format!(
+            CoreError::validation(format!(
                 "Failed to canonicalize path '{}': {}",
                 path.display(),
                 err
@@ -126,7 +126,7 @@ fn canonicalize_best_effort(path: &Path) -> BitFunResult<PathBuf> {
     loop {
         if current.exists() {
             let mut canonical = dunce::canonicalize(current).map_err(|err| {
-                BitFunError::validation(format!(
+                CoreError::validation(format!(
                     "Failed to canonicalize path '{}': {}",
                     current.display(),
                     err
@@ -141,7 +141,7 @@ fn canonicalize_best_effort(path: &Path) -> BitFunResult<PathBuf> {
         }
 
         let file_name = current.file_name().ok_or_else(|| {
-            BitFunError::validation(format!(
+            CoreError::validation(format!(
                 "Path '{}' cannot be normalized for restriction checks",
                 path.display()
             ))
@@ -149,7 +149,7 @@ fn canonicalize_best_effort(path: &Path) -> BitFunResult<PathBuf> {
         missing_tail.push(PathBuf::from(file_name));
 
         current = current.parent().ok_or_else(|| {
-            BitFunError::validation(format!(
+            CoreError::validation(format!(
                 "Path '{}' cannot be normalized for restriction checks",
                 path.display()
             ))
@@ -243,7 +243,7 @@ mod tests {
     #[test]
     fn local_path_containment_handles_missing_children() {
         let root =
-            std::env::temp_dir().join(format!("bitfun-restrictions-{}", uuid::Uuid::new_v4()));
+            std::env::temp_dir().join(format!("sparo-restrictions-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(root.join("allowed")).expect("create temp root");
 
         let allowed_child = root.join("allowed").join("nested").join("file.txt");

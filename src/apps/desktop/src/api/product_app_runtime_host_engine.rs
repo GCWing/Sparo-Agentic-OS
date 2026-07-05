@@ -9,26 +9,26 @@ use crate::api::product_app_runtime_api::ProductAppRuntimeContext;
 use crate::api::session_storage_path::{
     desktop_effective_session_storage_path, SessionStorageScopeDto,
 };
-use bitfun_core::agent_component::AgentComponentManager;
-use bitfun_core::agentic::agents::build_ppt_live_private_prompt;
-use bitfun_core::agentic::coordination::{
+use sparo_core::agent_component::AgentComponentManager;
+use sparo_core::agentic::agents::build_ppt_live_private_prompt;
+use sparo_core::agentic::coordination::{
     ConversationCoordinator, DialogScheduler, DialogSubmissionPolicy, DialogSubmitOutcome,
     DialogTriggerSource, SessionControlActor, TurnCancellationReason,
 };
-use bitfun_core::agentic::core::{SessionConfig, SessionState, SessionStorageScope};
-use bitfun_core::agentic_os::work::{
+use sparo_core::agentic::core::{SessionConfig, SessionState, SessionStorageScope};
+use sparo_core::agentic_os::work::{
     default_work_store, ArtifactRef, ArtifactRuntimeProvenance, WorkId, WorkRuntimeIssue,
     WorkRuntimeIssueSeverity, WorkRuntimeLog, WorkRuntimeLogLevel, WorkRuntimeRun,
     WorkRuntimeRunStatus, WorkService,
 };
-use bitfun_core::app_platform::ProductAppRuntimeStorage;
-use bitfun_core::bridge_component::{
+use sparo_core::app_platform::ProductAppRuntimeStorage;
+use sparo_core::bridge_component::{
     BridgeComponentConsumer, BridgeComponentConsumerKind, BridgeComponentEvent,
     BridgeComponentManager, BridgeComponentRun, BridgeComponentRunResult, BridgeComponentRunStatus,
 };
-use bitfun_core::infrastructure::ai::AIClient;
-use bitfun_core::infrastructure::events::{emit_global_event, BackendEvent};
-use bitfun_core::product_app_runtime_host::{
+use sparo_core::infrastructure::ai::AIClient;
+use sparo_core::infrastructure::events::{emit_global_event, BackendEvent};
+use sparo_core::product_app_runtime_host::{
     dispatch_host, is_host_primitive, resolve_policy,
     ProductAppRuntimeHostAiPermissions as CoreAiPermissions, ProductAppRuntimeHostBackendKind,
     ProductAppRuntimeHostBuildMode, ProductAppRuntimeHostEntry,
@@ -41,8 +41,8 @@ use bitfun_core::product_app_runtime_host::{
     ProductAppRuntimeHostSourceFileKind, ProductAppRuntimeHostSurface,
     ProductAppRuntimeHostSurfaceMeta,
 };
-use bitfun_core::service::config::types::GlobalConfig;
-use bitfun_core::util::types::Message;
+use sparo_core::service::config::types::GlobalConfig;
+use sparo_core::util::types::Message;
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
@@ -700,7 +700,7 @@ fn bridge_run_artifact_refs(
         .iter()
         .enumerate()
         .filter_map(|(index, event)| {
-            let bitfun_core::bridge_component::BridgeComponentEvent::ArtifactCreated { artifact } =
+            let sparo_core::bridge_component::BridgeComponentEvent::ArtifactCreated { artifact } =
                 event
             else {
                 return None;
@@ -2218,7 +2218,7 @@ pub async fn product_app_runtime_host_cancel_stale_ppt_runs(
     .await
 }
 
-fn assistant_text_from_ppt_turn(turn: &bitfun_core::service::session::DialogTurnData) -> String {
+fn assistant_text_from_ppt_turn(turn: &sparo_core::service::session::DialogTurnData) -> String {
     turn.model_rounds
         .iter()
         .flat_map(|round| round.text_items.iter())
@@ -2234,8 +2234,8 @@ pub async fn product_app_runtime_host_ppt_turn_assistant_text(
     state: State<'_, AppState>,
     request: ProductAppRuntimeHostPptTurnTextRequest,
 ) -> Result<ProductAppRuntimeHostPptTurnTextResponse, String> {
-    use bitfun_core::agentic::persistence::PersistenceManager;
-    use bitfun_core::infrastructure::PathManager;
+    use sparo_core::agentic::persistence::PersistenceManager;
+    use sparo_core::infrastructure::PathManager;
 
     let session_id = request.session_id.trim();
     let turn_id = request.turn_id.trim();

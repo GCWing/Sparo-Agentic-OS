@@ -2,7 +2,7 @@ use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
 };
 use crate::infrastructure::events::event_system::{get_global_event_system, BackendEvent};
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -62,7 +62,7 @@ fn get_pending_requests() -> Arc<RwLock<HashMap<String, PendingSelfControlReques
         .clone()
 }
 
-pub async fn submit_self_control_response(response: SelfControlResponse) -> BitFunResult<()> {
+pub async fn submit_self_control_response(response: SelfControlResponse) -> CoreResult<()> {
     let pending_requests = get_pending_requests();
     let pending = {
         let mut requests = pending_requests.write().await;
@@ -70,7 +70,7 @@ pub async fn submit_self_control_response(response: SelfControlResponse) -> BitF
     };
 
     let Some(pending) = pending else {
-        return Err(BitFunError::NotFound(format!(
+        return Err(CoreError::NotFound(format!(
             "Self-control request not found: {}",
             response.request_id
         )));
@@ -86,7 +86,7 @@ impl Tool for SelfControlTool {
         "SelfControl"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(
             r#"Operate the Sparo OS application's own GUI.
 
@@ -294,10 +294,10 @@ Failure modes you should expect (and not retry blindly):
         &self,
         input: &Value,
         _context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         // Validate action field — full payload is forwarded as-is to the frontend
         let validated: SelfControlInput = serde_json::from_value(input.clone())
-            .map_err(|e| BitFunError::tool(format!("Invalid SelfControl input: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("Invalid SelfControl input: {}", e)))?;
         let action_name = validated.action;
 
         let request_id = format!("selfcontrol_{}", uuid::Uuid::new_v4());
@@ -330,7 +330,7 @@ Failure modes you should expect (and not retry blindly):
             // rather than blocking until timeout.
             let pending_requests = get_pending_requests();
             pending_requests.write().await.remove(&request_id);
-            return Err(BitFunError::tool(format!(
+            return Err(CoreError::tool(format!(
                 "Failed to emit self-control request: {}",
                 e
             )));
@@ -357,16 +357,16 @@ Failure modes you should expect (and not retry blindly):
                     let error_text = response
                         .error
                         .unwrap_or_else(|| "Unknown error".to_string());
-                    Err(BitFunError::tool(format!(
+                    Err(CoreError::tool(format!(
                         "Self-control action failed: {}",
                         error_text
                     )))
                 }
             }
-            Ok(Err(_)) => Err(BitFunError::tool(
+            Ok(Err(_)) => Err(CoreError::tool(
                 "Self-control channel closed before response".to_string(),
             )),
-            Err(_) => Err(BitFunError::tool(
+            Err(_) => Err(CoreError::tool(
                 "Timed out waiting for self-control response".to_string(),
             )),
         }

@@ -3,7 +3,7 @@ use crate::agentic::tools::framework::{
 };
 use crate::agentic::tools::workspace_paths::is_sparo_runtime_uri;
 use crate::agentic::tools::ToolPathOperation;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use log::debug;
 use serde_json::{json, Value};
@@ -33,7 +33,7 @@ impl Tool for DeleteFileTool {
         "Delete"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(r#"Deletes a file or directory from the filesystem. This operation is tracked by the snapshot system and can be rolled back if needed.
 
 Usage guidelines:
@@ -154,7 +154,7 @@ Important notes:
                     return ValidationResult {
                         result: false,
                         message: Some(
-                            "Tool context is required to resolve bitfun runtime URIs".to_string(),
+                            "Tool context is required to resolve sparo runtime URIs".to_string(),
                         ),
                         error_code: Some(400),
                         meta: None,
@@ -281,11 +281,11 @@ Important notes:
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let path_str = input
             .get("path")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BitFunError::tool("path is required".to_string()))?;
+            .ok_or_else(|| CoreError::tool("path is required".to_string()))?;
 
         let recursive = input
             .get("recursive")
@@ -298,7 +298,7 @@ Important notes:
         // Remote workspace path: delete via shell command
         if resolved.uses_remote_workspace_backend() {
             let ws_shell = context.ws_shell().ok_or_else(|| {
-                BitFunError::tool("Workspace shell not available for remote Delete".to_string())
+                CoreError::tool("Workspace shell not available for remote Delete".to_string())
             })?;
 
             let rm_cmd = if recursive {
@@ -310,10 +310,10 @@ Important notes:
             let (_stdout, stderr, exit_code) = ws_shell
                 .exec(&rm_cmd, Some(15_000))
                 .await
-                .map_err(|e| BitFunError::tool(format!("Failed to delete on remote: {}", e)))?;
+                .map_err(|e| CoreError::tool(format!("Failed to delete on remote: {}", e)))?;
 
             if exit_code != 0 && !stderr.is_empty() {
-                return Err(BitFunError::tool(format!(
+                return Err(CoreError::tool(format!(
                     "Remote delete failed: {}",
                     stderr
                 )));
@@ -347,16 +347,16 @@ Important notes:
             if recursive {
                 fs::remove_dir_all(path)
                     .await
-                    .map_err(|e| BitFunError::tool(format!("Failed to delete directory: {}", e)))?;
+                    .map_err(|e| CoreError::tool(format!("Failed to delete directory: {}", e)))?;
             } else {
                 fs::remove_dir(path)
                     .await
-                    .map_err(|e| BitFunError::tool(format!("Failed to delete directory: {}", e)))?;
+                    .map_err(|e| CoreError::tool(format!("Failed to delete directory: {}", e)))?;
             }
         } else {
             fs::remove_file(path)
                 .await
-                .map_err(|e| BitFunError::tool(format!("Failed to delete file: {}", e)))?;
+                .map_err(|e| CoreError::tool(format!("Failed to delete file: {}", e)))?;
         }
 
         let result_data = json!({

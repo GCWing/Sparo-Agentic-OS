@@ -1,4 +1,4 @@
-﻿use log::{debug, info, warn};
+use log::{debug, info, warn};
 use std::fmt;
 use std::io;
 use std::path::{Component, Path, PathBuf};
@@ -783,7 +783,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_nanos();
-        let dir = std::env::temp_dir().join(format!("bitfun-grep-search-{name}-{unique}"));
+        let dir = std::env::temp_dir().join(format!("sparo-grep-search-{name}-{unique}"));
         fs::create_dir_all(&dir).unwrap();
         dir
     }

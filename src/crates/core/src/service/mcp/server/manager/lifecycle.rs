@@ -2,7 +2,7 @@ use super::*;
 
 impl MCPServerManager {
     /// Initializes all servers.
-    pub async fn initialize_all(&self) -> BitFunResult<()> {
+    pub async fn initialize_all(&self) -> CoreResult<()> {
         info!("Initializing all MCP servers");
 
         let existing_server_ids = self.registry.get_all_server_ids().await;
@@ -81,7 +81,7 @@ impl MCPServerManager {
     /// Initializes servers without shutting down existing ones.
     ///
     /// This is safe to call multiple times (e.g., from multiple frontend windows).
-    pub async fn initialize_non_destructive(&self) -> BitFunResult<()> {
+    pub async fn initialize_non_destructive(&self) -> CoreResult<()> {
         info!("Initializing MCP servers (non-destructive)");
 
         let configs = self.config_service.load_all_configs().await?;
@@ -129,13 +129,13 @@ impl MCPServerManager {
     ///
     /// This is useful after config changes (e.g. importing MCP servers) where the registry
     /// hasn't been re-initialized yet.
-    pub async fn ensure_registered(&self, server_id: &str) -> BitFunResult<()> {
+    pub async fn ensure_registered(&self, server_id: &str) -> CoreResult<()> {
         if self.registry.contains(server_id).await {
             return Ok(());
         }
 
         let Some(config) = self.config_service.get_server_config(server_id).await? else {
-            return Err(BitFunError::NotFound(format!(
+            return Err(CoreError::NotFound(format!(
                 "MCP server config not found: {}",
                 server_id
             )));
@@ -150,7 +150,7 @@ impl MCPServerManager {
     }
 
     /// Starts a server.
-    pub async fn start_server(&self, server_id: &str) -> BitFunResult<()> {
+    pub async fn start_server(&self, server_id: &str) -> CoreResult<()> {
         self.start_reconnect_monitor_if_needed();
         info!("Starting MCP server: id={}", server_id);
 
@@ -160,12 +160,12 @@ impl MCPServerManager {
             .await?
             .ok_or_else(|| {
                 error!("MCP server config not found: id={}", server_id);
-                BitFunError::NotFound(format!("MCP server config not found: {}", server_id))
+                CoreError::NotFound(format!("MCP server config not found: {}", server_id))
             })?;
 
         if !config.enabled {
             warn!("MCP server is disabled: id={}", server_id);
-            return Err(BitFunError::Configuration(format!(
+            return Err(CoreError::Configuration(format!(
                 "MCP server is disabled: {}",
                 server_id
             )));
@@ -177,7 +177,7 @@ impl MCPServerManager {
 
         let process = self.registry.get_process(server_id).await.ok_or_else(|| {
             error!("MCP server not registered: id={}", server_id);
-            BitFunError::NotFound(format!("MCP server not registered: {}", server_id))
+            CoreError::NotFound(format!("MCP server not registered: {}", server_id))
         })?;
 
         let mut proc = process.write().await;
@@ -195,12 +195,12 @@ impl MCPServerManager {
             super::super::MCPServerType::Local => {
                 let command = config.command.as_ref().ok_or_else(|| {
                     error!("Missing command for local MCP server: id={}", server_id);
-                    BitFunError::Configuration("Missing command for local MCP server".to_string())
+                    CoreError::Configuration("Missing command for local MCP server".to_string())
                 })?;
 
                 let runtime_manager = RuntimeManager::new()?;
                 let resolved = runtime_manager.resolve_command(command).ok_or_else(|| {
-                    BitFunError::ProcessError(format!(
+                    CoreError::Process(format!(
                         "MCP server command '{}' not found in system PATH or Sparo OS managed runtimes at {}",
                         command,
                         runtime_manager.runtime_root_display()
@@ -235,7 +235,7 @@ impl MCPServerManager {
                         server_id,
                         transport.as_str()
                     );
-                    return Err(BitFunError::NotImplemented(format!(
+                    return Err(CoreError::NotImplemented(format!(
                         "Remote MCP transport '{}' is not yet supported",
                         transport.as_str()
                     )));
@@ -243,7 +243,7 @@ impl MCPServerManager {
 
                 let url = config.url.as_ref().ok_or_else(|| {
                     error!("Missing URL for remote MCP server: id={}", server_id);
-                    BitFunError::Configuration("Missing URL for remote MCP server".to_string())
+                    CoreError::Configuration("Missing URL for remote MCP server".to_string())
                 })?;
 
                 info!(
@@ -299,14 +299,14 @@ impl MCPServerManager {
     }
 
     /// Stops a server.
-    pub async fn stop_server(&self, server_id: &str) -> BitFunResult<()> {
+    pub async fn stop_server(&self, server_id: &str) -> CoreResult<()> {
         info!("Stopping MCP server: id={}", server_id);
 
         self.stop_connection_event_listener(server_id).await;
 
         let process =
             self.registry.get_process(server_id).await.ok_or_else(|| {
-                BitFunError::NotFound(format!("MCP server not found: {}", server_id))
+                CoreError::NotFound(format!("MCP server not found: {}", server_id))
             })?;
 
         let mut proc = process.write().await;
@@ -322,7 +322,7 @@ impl MCPServerManager {
     }
 
     /// Restarts a server.
-    pub async fn restart_server(&self, server_id: &str) -> BitFunResult<()> {
+    pub async fn restart_server(&self, server_id: &str) -> CoreResult<()> {
         info!("Restarting MCP server: id={}", server_id);
 
         let config = self
@@ -330,7 +330,7 @@ impl MCPServerManager {
             .get_server_config(server_id)
             .await?
             .ok_or_else(|| {
-                BitFunError::NotFound(format!("MCP server config not found: {}", server_id))
+                CoreError::NotFound(format!("MCP server config not found: {}", server_id))
             })?;
 
         match config.server_type {
@@ -338,14 +338,14 @@ impl MCPServerManager {
                 self.ensure_registered(server_id).await?;
 
                 let process = self.registry.get_process(server_id).await.ok_or_else(|| {
-                    BitFunError::NotFound(format!("MCP server not found: {}", server_id))
+                    CoreError::NotFound(format!("MCP server not found: {}", server_id))
                 })?;
                 let mut proc = process.write().await;
 
                 let command = config
                     .command
                     .as_ref()
-                    .ok_or_else(|| BitFunError::Configuration("Missing command".to_string()))?;
+                    .ok_or_else(|| CoreError::Configuration("Missing command".to_string()))?;
                 proc.restart(command, &config.args, &config.env).await?;
             }
             super::super::MCPServerType::Remote => {
@@ -359,14 +359,14 @@ impl MCPServerManager {
     }
 
     /// Returns server status.
-    pub async fn get_server_status(&self, server_id: &str) -> BitFunResult<MCPServerStatus> {
+    pub async fn get_server_status(&self, server_id: &str) -> CoreResult<MCPServerStatus> {
         if !self.registry.contains(server_id).await {
             let _ = self.ensure_registered(server_id).await;
         }
 
         let process =
             self.registry.get_process(server_id).await.ok_or_else(|| {
-                BitFunError::NotFound(format!("MCP server not found: {}", server_id))
+                CoreError::NotFound(format!("MCP server not found: {}", server_id))
             })?;
 
         let proc = process.read().await;
@@ -374,14 +374,14 @@ impl MCPServerManager {
     }
 
     /// Returns the current status detail/message for one server.
-    pub async fn get_server_status_message(&self, server_id: &str) -> BitFunResult<Option<String>> {
+    pub async fn get_server_status_message(&self, server_id: &str) -> CoreResult<Option<String>> {
         if !self.registry.contains(server_id).await {
             let _ = self.ensure_registered(server_id).await;
         }
 
         let process =
             self.registry.get_process(server_id).await.ok_or_else(|| {
-                BitFunError::NotFound(format!("MCP server not found: {}", server_id))
+                CoreError::NotFound(format!("MCP server not found: {}", server_id))
             })?;
 
         let proc = process.read().await;
@@ -414,7 +414,7 @@ impl MCPServerManager {
     }
 
     /// Adds a server.
-    pub async fn add_server(&self, config: MCPServerConfig) -> BitFunResult<()> {
+    pub async fn add_server(&self, config: MCPServerConfig) -> CoreResult<()> {
         config.validate()?;
 
         self.config_service.save_server_config(&config).await?;
@@ -428,7 +428,7 @@ impl MCPServerManager {
     }
 
     /// Removes a server.
-    pub async fn remove_server(&self, server_id: &str) -> BitFunResult<()> {
+    pub async fn remove_server(&self, server_id: &str) -> CoreResult<()> {
         info!("Removing MCP server: id={}", server_id);
 
         let _ = self.clear_remote_oauth_credentials(server_id).await;
@@ -456,7 +456,7 @@ impl MCPServerManager {
     }
 
     /// Updates server configuration.
-    pub async fn update_server_config(&self, config: MCPServerConfig) -> BitFunResult<()> {
+    pub async fn update_server_config(&self, config: MCPServerConfig) -> CoreResult<()> {
         config.validate()?;
 
         self.config_service.save_server_config(&config).await?;
@@ -497,7 +497,7 @@ impl MCPServerManager {
         &self,
         server_id: &str,
         authorization_value: &str,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         self.clear_remote_oauth_credentials(server_id).await?;
         let config = self
             .config_service
@@ -515,7 +515,7 @@ impl MCPServerManager {
     }
 
     /// Clears remote MCP authorization and stops the current connection so stale credentials are dropped.
-    pub async fn clear_remote_server_auth(&self, server_id: &str) -> BitFunResult<()> {
+    pub async fn clear_remote_server_auth(&self, server_id: &str) -> CoreResult<()> {
         self.clear_remote_oauth_credentials(server_id).await?;
         self.config_service
             .clear_remote_authorization(server_id)
@@ -526,7 +526,7 @@ impl MCPServerManager {
     }
 
     /// Shuts down all servers.
-    pub async fn shutdown(&self) -> BitFunResult<()> {
+    pub async fn shutdown(&self) -> CoreResult<()> {
         info!("Shutting down all MCP servers");
 
         let server_ids = self.registry.get_all_server_ids().await;

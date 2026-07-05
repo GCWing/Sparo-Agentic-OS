@@ -3,13 +3,13 @@ use super::{
     memory_primary_files_for_scope, memory_store_dir_path_for_target, MemoryScope,
     MemoryStoreTarget, MEMORY_MANIFEST_MAX_FILES,
 };
-use crate::util::errors::*;
+use crate::error::*;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 pub(crate) async fn build_memory_manifest_for_target(
     target: MemoryStoreTarget<'_>,
-) -> BitFunResult<Option<String>> {
+) -> CoreResult<Option<String>> {
     ensure_memory_store_for_target(target).await?;
     let memory_dir = memory_store_dir_path_for_target(target);
     let primary_files = memory_primary_files_for_scope(target.scope());

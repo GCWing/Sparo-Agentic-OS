@@ -1,6 +1,6 @@
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext, ValidationResult};
 use crate::agentic::tools::ToolPathOperation;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use tool_runtime::fs::edit_file::{apply_edit_to_content, edit_file};
@@ -25,7 +25,7 @@ impl Tool for FileEditTool {
         "Edit"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(r#"Performs exact string replacements in files.
 
 Usage:
@@ -146,21 +146,21 @@ Usage:
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let file_path = input
             .get("file_path")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BitFunError::tool("file_path is required".to_string()))?;
+            .ok_or_else(|| CoreError::tool("file_path is required".to_string()))?;
 
         let new_string = input
             .get("new_string")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BitFunError::tool("new_string is required".to_string()))?;
+            .ok_or_else(|| CoreError::tool("new_string is required".to_string()))?;
 
         let old_string = input
             .get("old_string")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BitFunError::tool("old_string is required".to_string()))?;
+            .ok_or_else(|| CoreError::tool("old_string is required".to_string()))?;
 
         let replace_all = input
             .get("replace_all")
@@ -173,19 +173,19 @@ Usage:
         // For remote workspace paths, use the abstract FS to read → edit in memory → write back.
         if resolved.uses_remote_workspace_backend() {
             let ws_fs = context.ws_fs().ok_or_else(|| {
-                BitFunError::tool("Remote workspace file system is unavailable".to_string())
+                CoreError::tool("Remote workspace file system is unavailable".to_string())
             })?;
             let content = ws_fs
                 .read_file_text(&resolved.resolved_path)
                 .await
-                .map_err(|e| BitFunError::tool(format!("Failed to read file: {}", e)))?;
+                .map_err(|e| CoreError::tool(format!("Failed to read file: {}", e)))?;
             let edit_result = apply_edit_to_content(&content, old_string, new_string, replace_all)
-                .map_err(BitFunError::tool)?;
+                .map_err(CoreError::tool)?;
 
             ws_fs
                 .write_file(&resolved.resolved_path, edit_result.new_content.as_bytes())
                 .await
-                .map_err(|e| BitFunError::tool(format!("Failed to write file: {}", e)))?;
+                .map_err(|e| CoreError::tool(format!("Failed to write file: {}", e)))?;
 
             let result = ToolResult::Result {
                 data: json!({

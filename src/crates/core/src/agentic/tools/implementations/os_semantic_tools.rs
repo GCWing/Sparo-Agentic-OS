@@ -4,7 +4,7 @@ use serde_json::{json, Value};
 
 use crate::agentic::agents::get_agent_registry;
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext, ValidationResult};
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -34,7 +34,7 @@ impl Tool for CapabilityRegistryTool {
         "CapabilityRegistry"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok("Inspect available specialist Agents before starting Work. Returns each capability's domain, what it is best and worst for, and its quality signal, so you can pick the right executor agent_type.".to_string())
     }
 
@@ -87,7 +87,7 @@ impl Tool for CapabilityRegistryTool {
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let input = parse_input::<CapabilityRegistryInput>(input, self.name())?;
         let registry = get_agent_registry();
         let workspace_root = context.workspace_root();
@@ -126,12 +126,12 @@ impl Tool for CapabilityRegistryTool {
                     .as_deref()
                     .map(str::trim)
                     .filter(|id| !id.is_empty())
-                    .ok_or_else(|| BitFunError::validation("capability_id is required"))?;
+                    .ok_or_else(|| CoreError::validation("capability_id is required"))?;
                 let profile = registry
                     .get_agent_capability_profile(capability_id, workspace_root)
                     .await
                     .ok_or_else(|| {
-                        BitFunError::NotFound(format!("Capability not found: {}", capability_id))
+                        CoreError::NotFound(format!("Capability not found: {}", capability_id))
                     })?;
                 let guidance = capability_guidance(capability_id);
                 json!({
@@ -224,12 +224,12 @@ fn capability_guidance(id: &str) -> CapabilityGuidance {
     }
 }
 
-fn parse_input<T>(input: &Value, tool_name: &str) -> BitFunResult<T>
+fn parse_input<T>(input: &Value, tool_name: &str) -> CoreResult<T>
 where
     T: for<'de> Deserialize<'de>,
 {
     serde_json::from_value(input.clone())
-        .map_err(|error| BitFunError::validation(format!("Invalid {} input: {}", tool_name, error)))
+        .map_err(|error| CoreError::validation(format!("Invalid {} input: {}", tool_name, error)))
 }
 
 fn validation_error(message: impl Into<String>) -> ValidationResult {

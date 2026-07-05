@@ -2,7 +2,7 @@ mod manifest;
 mod paths;
 mod prompt_context;
 
-use crate::util::errors::*;
+use crate::error::*;
 use std::path::{Path, PathBuf};
 use tokio::fs;
 
@@ -78,25 +78,25 @@ pub(crate) fn format_path_for_prompt(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
 }
 
-pub(crate) async fn ensure_markdown_placeholder(path: &Path, content: &str) -> BitFunResult<bool> {
+pub(crate) async fn ensure_markdown_placeholder(path: &Path, content: &str) -> CoreResult<bool> {
     if path.exists() {
         return Ok(false);
     }
 
     fs::write(path, content)
         .await
-        .map_err(|e| BitFunError::service(format!("Failed to create {}: {}", path.display(), e)))?;
+        .map_err(|e| CoreError::service(format!("Failed to create {}: {}", path.display(), e)))?;
 
     Ok(true)
 }
 
-pub(super) async fn list_memory_files_recursive(memory_dir: &Path) -> BitFunResult<Vec<PathBuf>> {
+pub(super) async fn list_memory_files_recursive(memory_dir: &Path) -> CoreResult<Vec<PathBuf>> {
     let mut files = Vec::new();
     let mut pending_dirs = vec![memory_dir.to_path_buf()];
 
     while let Some(dir) = pending_dirs.pop() {
         let mut entries = fs::read_dir(&dir).await.map_err(|e| {
-            BitFunError::service(format!(
+            CoreError::service(format!(
                 "Failed to read memory directory {}: {}",
                 dir.display(),
                 e
@@ -104,14 +104,14 @@ pub(super) async fn list_memory_files_recursive(memory_dir: &Path) -> BitFunResu
         })?;
 
         while let Some(entry) = entries.next_entry().await.map_err(|e| {
-            BitFunError::service(format!(
+            CoreError::service(format!(
                 "Failed to iterate memory directory {}: {}",
                 dir.display(),
                 e
             ))
         })? {
             let file_type = entry.file_type().await.map_err(|e| {
-                BitFunError::service(format!(
+                CoreError::service(format!(
                     "Failed to inspect memory entry {}: {}",
                     entry.path().display(),
                     e

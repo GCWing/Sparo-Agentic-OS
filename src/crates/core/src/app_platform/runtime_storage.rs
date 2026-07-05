@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 
 use crate::agentic_os::work::WorkId;
 use crate::infrastructure::PathManager;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 
 const STORAGE_JSON: &str = "storage.json";
 const READINESS_PROBE_KEY: &str = "__sparo_readiness_probe__";
@@ -24,7 +24,7 @@ impl ProductAppRuntimeStorage {
         &self,
         work_id: &WorkId,
         runtime_instance_id: &str,
-    ) -> BitFunResult<PathBuf> {
+    ) -> CoreResult<PathBuf> {
         validate_runtime_instance_id(runtime_instance_id)?;
         Ok(self
             .path_manager
@@ -35,10 +35,10 @@ impl ProductAppRuntimeStorage {
         &self,
         work_id: &WorkId,
         runtime_instance_id: &str,
-    ) -> BitFunResult<PathBuf> {
+    ) -> CoreResult<PathBuf> {
         let dir = self.runtime_dir(work_id, runtime_instance_id)?;
         tokio::fs::create_dir_all(&dir).await.map_err(|error| {
-            BitFunError::io(format!(
+            CoreError::io(format!(
                 "Failed to create Product App runtime dir {}: {}",
                 dir.display(),
                 error
@@ -52,7 +52,7 @@ impl ProductAppRuntimeStorage {
         work_id: &WorkId,
         runtime_instance_id: &str,
         key: &str,
-    ) -> BitFunResult<Value> {
+    ) -> CoreResult<Value> {
         let storage = self.load_storage(work_id, runtime_instance_id).await?;
         Ok(storage.get(key).cloned().unwrap_or(Value::Null))
     }
@@ -63,13 +63,13 @@ impl ProductAppRuntimeStorage {
         runtime_instance_id: &str,
         key: &str,
         value: Value,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let dir = self
             .ensure_runtime_dir(work_id, runtime_instance_id)
             .await?;
         let mut current = self.load_storage_from_dir(&dir).await?;
         let obj = current.as_object_mut().ok_or_else(|| {
-            BitFunError::validation("Product App runtime storage is not an object".to_string())
+            CoreError::validation("Product App runtime storage is not an object".to_string())
         })?;
         obj.insert(key.to_string(), value);
         self.write_storage_to_dir(&dir, &current).await
@@ -79,13 +79,13 @@ impl ProductAppRuntimeStorage {
         &self,
         work_id: &WorkId,
         runtime_instance_id: &str,
-    ) -> BitFunResult<Value> {
+    ) -> CoreResult<Value> {
         let dir = self
             .ensure_runtime_dir(work_id, runtime_instance_id)
             .await?;
         let mut current = self.load_storage_from_dir(&dir).await?;
         let obj = current.as_object_mut().ok_or_else(|| {
-            BitFunError::validation("Product App runtime storage is not an object".to_string())
+            CoreError::validation("Product App runtime storage is not an object".to_string())
         })?;
         let previous_value = obj.get(READINESS_PROBE_KEY).cloned();
         let had_previous_value = previous_value.is_some();
@@ -105,7 +105,7 @@ impl ProductAppRuntimeStorage {
 
         let mut cleanup_storage = self.load_storage_from_dir(&dir).await?;
         let cleanup_obj = cleanup_storage.as_object_mut().ok_or_else(|| {
-            BitFunError::validation("Product App runtime storage is not an object".to_string())
+            CoreError::validation("Product App runtime storage is not an object".to_string())
         })?;
         if let Some(value) = previous_value.clone() {
             cleanup_obj.insert(READINESS_PROBE_KEY.to_string(), value);
@@ -137,7 +137,7 @@ impl ProductAppRuntimeStorage {
         &self,
         work_id: &WorkId,
         runtime_instance_id: &str,
-    ) -> BitFunResult<Value> {
+    ) -> CoreResult<Value> {
         let _dir = self.runtime_dir(work_id, runtime_instance_id)?;
         Ok(json!({
             "available": true,
@@ -149,25 +149,25 @@ impl ProductAppRuntimeStorage {
         &self,
         work_id: &WorkId,
         runtime_instance_id: &str,
-    ) -> BitFunResult<Value> {
+    ) -> CoreResult<Value> {
         let dir = self.runtime_dir(work_id, runtime_instance_id)?;
         self.load_storage_from_dir(&dir).await
     }
 
-    async fn load_storage_from_dir(&self, dir: &Path) -> BitFunResult<Value> {
+    async fn load_storage_from_dir(&self, dir: &Path) -> CoreResult<Value> {
         let path = storage_path(dir);
         if !path.exists() {
             return Ok(json!({}));
         }
         let content = tokio::fs::read_to_string(&path).await.map_err(|error| {
-            BitFunError::io(format!(
+            CoreError::io(format!(
                 "Failed to read Product App runtime storage {}: {}",
                 path.display(),
                 error
             ))
         })?;
         serde_json::from_str(&content).map_err(|error| {
-            BitFunError::parse(format!(
+            CoreError::parse(format!(
                 "Invalid Product App runtime storage {}: {}",
                 path.display(),
                 error
@@ -175,12 +175,12 @@ impl ProductAppRuntimeStorage {
         })
     }
 
-    async fn write_storage_to_dir(&self, dir: &Path, value: &Value) -> BitFunResult<()> {
-        let content = serde_json::to_string_pretty(value).map_err(BitFunError::from)?;
+    async fn write_storage_to_dir(&self, dir: &Path, value: &Value) -> CoreResult<()> {
+        let content = serde_json::to_string_pretty(value).map_err(CoreError::from)?;
         tokio::fs::write(storage_path(dir), content)
             .await
             .map_err(|error| {
-                BitFunError::io(format!(
+                CoreError::io(format!(
                     "Failed to write Product App runtime storage {}: {}",
                     storage_path(dir).display(),
                     error
@@ -193,9 +193,9 @@ fn storage_path(runtime_dir: &Path) -> PathBuf {
     runtime_dir.join(STORAGE_JSON)
 }
 
-fn validate_runtime_instance_id(value: &str) -> BitFunResult<()> {
+fn validate_runtime_instance_id(value: &str) -> CoreResult<()> {
     if value.trim().is_empty() {
-        return Err(BitFunError::validation(
+        return Err(CoreError::validation(
             "runtime_instance_id cannot be empty".to_string(),
         ));
     }
@@ -203,7 +203,7 @@ fn validate_runtime_instance_id(value: &str) -> BitFunResult<()> {
         .chars()
         .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '-')
     {
-        return Err(BitFunError::validation(
+        return Err(CoreError::validation(
             "runtime_instance_id can only contain ASCII letters, numbers, '-' and '_'".to_string(),
         ));
     }

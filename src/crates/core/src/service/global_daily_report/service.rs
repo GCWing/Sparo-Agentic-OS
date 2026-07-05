@@ -9,7 +9,7 @@ use super::state::{
 use crate::agentic::coordination::ConversationCoordinator;
 use crate::agentic::tools::{ToolPathPolicy, ToolRuntimeRestrictions};
 use crate::infrastructure::get_path_manager_arc;
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 use chrono::{Datelike, Duration as ChronoDuration, Local, LocalResult, TimeZone};
 use log::{info, warn};
 use std::path::{Path, PathBuf};
@@ -35,7 +35,7 @@ pub struct GlobalDailyReportService {
 }
 
 impl GlobalDailyReportService {
-    pub async fn new(coordinator: Arc<ConversationCoordinator>) -> BitFunResult<Arc<Self>> {
+    pub async fn new(coordinator: Arc<ConversationCoordinator>) -> CoreResult<Arc<Self>> {
         let state = load_global_daily_report_state().await?;
         Ok(Arc::new(Self {
             coordinator,
@@ -69,7 +69,7 @@ impl GlobalDailyReportService {
         });
     }
 
-    pub async fn handle_turn_completed(&self, turn_id: &str) -> BitFunResult<()> {
+    pub async fn handle_turn_completed(&self, turn_id: &str) -> CoreResult<()> {
         let mut state = self.state.lock().await;
         if state.active_turn_id.as_deref() != Some(turn_id) {
             return Ok(());
@@ -87,7 +87,7 @@ impl GlobalDailyReportService {
         Ok(())
     }
 
-    pub async fn handle_turn_failed(&self, turn_id: &str, error_message: &str) -> BitFunResult<()> {
+    pub async fn handle_turn_failed(&self, turn_id: &str, error_message: &str) -> CoreResult<()> {
         let mut state = self.state.lock().await;
         if state.active_turn_id.as_deref() != Some(turn_id) {
             return Ok(());
@@ -104,7 +104,7 @@ impl GlobalDailyReportService {
         Ok(())
     }
 
-    pub async fn handle_turn_cancelled(&self, turn_id: &str) -> BitFunResult<()> {
+    pub async fn handle_turn_cancelled(&self, turn_id: &str) -> CoreResult<()> {
         let mut state = self.state.lock().await;
         if state.active_turn_id.as_deref() != Some(turn_id) {
             return Ok(());
@@ -136,7 +136,7 @@ impl GlobalDailyReportService {
         }
     }
 
-    async fn run_catch_up(&self) -> BitFunResult<()> {
+    async fn run_catch_up(&self) -> CoreResult<()> {
         if self.state.lock().await.active_turn_id.is_some() {
             info!("Global daily report catch-up skipped because a report turn is already active");
             return Ok(());
@@ -207,7 +207,7 @@ impl GlobalDailyReportService {
         Ok(())
     }
 
-    async fn next_due_report_date(&self) -> BitFunResult<Option<String>> {
+    async fn next_due_report_date(&self) -> CoreResult<Option<String>> {
         let yesterday = previous_local_date_key();
         let state = self.state.lock().await;
 
@@ -321,7 +321,7 @@ fn global_daily_report_output_path(date_key: &str) -> PathBuf {
         .join(format!("{date_key}.md"))
 }
 
-async fn earliest_available_report_date() -> BitFunResult<Option<String>> {
+async fn earliest_available_report_date() -> CoreResult<Option<String>> {
     let mut dates = Vec::new();
     for path in collect_all_daily_summary_files().await? {
         if let Some(date) = daily_summary_date_from_path(&path) {
@@ -333,7 +333,7 @@ async fn earliest_available_report_date() -> BitFunResult<Option<String>> {
     Ok(dates.into_iter().next())
 }
 
-async fn collect_session_daily_summary_sources(report_date: &str) -> BitFunResult<Vec<PathBuf>> {
+async fn collect_session_daily_summary_sources(report_date: &str) -> CoreResult<Vec<PathBuf>> {
     let mut result = Vec::new();
     let target_file_name = format!("{report_date}.md");
 
@@ -352,7 +352,7 @@ async fn collect_session_daily_summary_sources(report_date: &str) -> BitFunResul
     Ok(result)
 }
 
-async fn collect_all_daily_summary_files() -> BitFunResult<Vec<PathBuf>> {
+async fn collect_all_daily_summary_files() -> CoreResult<Vec<PathBuf>> {
     let path_manager = get_path_manager_arc();
     collect_all_daily_summary_files_with_roots(
         &path_manager.agentic_os_runtime_root().join("sessions"),
@@ -364,7 +364,7 @@ async fn collect_all_daily_summary_files() -> BitFunResult<Vec<PathBuf>> {
 async fn collect_all_daily_summary_files_with_roots(
     agentic_sessions_dir: &Path,
     workspaces_runtime_root: &Path,
-) -> BitFunResult<Vec<PathBuf>> {
+) -> CoreResult<Vec<PathBuf>> {
     let mut result = Vec::new();
 
     collect_daily_summary_files_under(agentic_sessions_dir, &mut result).await?;
@@ -373,7 +373,7 @@ async fn collect_all_daily_summary_files_with_roots(
         let mut entries = fs::read_dir(workspaces_runtime_root)
             .await
             .map_err(|error| {
-                crate::util::errors::BitFunError::service(format!(
+                crate::error::CoreError::service(format!(
                     "Failed to read workspaces runtime root {}: {}",
                     workspaces_runtime_root.display(),
                     error
@@ -381,7 +381,7 @@ async fn collect_all_daily_summary_files_with_roots(
             })?;
 
         while let Some(entry) = entries.next_entry().await.map_err(|error| {
-            crate::util::errors::BitFunError::service(format!(
+            crate::error::CoreError::service(format!(
                 "Failed to iterate workspaces runtime root {}: {}",
                 workspaces_runtime_root.display(),
                 error
@@ -398,13 +398,13 @@ async fn collect_all_daily_summary_files_with_roots(
 async fn collect_daily_summary_files_under(
     sessions_dir: &Path,
     result: &mut Vec<PathBuf>,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     if !sessions_dir.exists() {
         return Ok(());
     }
 
     let mut session_entries = fs::read_dir(sessions_dir).await.map_err(|error| {
-        crate::util::errors::BitFunError::service(format!(
+        crate::error::CoreError::service(format!(
             "Failed to read sessions directory {}: {}",
             sessions_dir.display(),
             error
@@ -412,7 +412,7 @@ async fn collect_daily_summary_files_under(
     })?;
 
     while let Some(session_entry) = session_entries.next_entry().await.map_err(|error| {
-        crate::util::errors::BitFunError::service(format!(
+        crate::error::CoreError::service(format!(
             "Failed to iterate sessions directory {}: {}",
             sessions_dir.display(),
             error
@@ -424,7 +424,7 @@ async fn collect_daily_summary_files_under(
         }
 
         let mut files = fs::read_dir(&daily_summaries_dir).await.map_err(|error| {
-            crate::util::errors::BitFunError::service(format!(
+            crate::error::CoreError::service(format!(
                 "Failed to read daily summaries directory {}: {}",
                 daily_summaries_dir.display(),
                 error
@@ -432,7 +432,7 @@ async fn collect_daily_summary_files_under(
         })?;
 
         while let Some(file) = files.next_entry().await.map_err(|error| {
-            crate::util::errors::BitFunError::service(format!(
+            crate::error::CoreError::service(format!(
                 "Failed to iterate daily summaries directory {}: {}",
                 daily_summaries_dir.display(),
                 error

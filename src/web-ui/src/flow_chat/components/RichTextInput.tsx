@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Rich text input component.
  * Supports inserting file tags inline and using @ to select files/folders.
  */

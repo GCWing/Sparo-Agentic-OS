@@ -16,8 +16,8 @@ pub(crate) fn apply_headers(client: &AIClient, builder: RequestBuilder) -> Reque
             .header("x-goog-api-key", &client.config.api_key)
             .header("Authorization", format!("Bearer {}", client.config.api_key));
 
-        if client.config.base_url.contains("openbitfun.com") {
-            builder = builder.header("X-Verification-Code", "from_bitfun");
+        if client.config.base_url.contains("opensparo.com") {
+            builder = builder.header("X-Verification-Code", "from_sparo");
         }
 
         builder

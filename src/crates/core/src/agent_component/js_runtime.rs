@@ -25,7 +25,7 @@ use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::{oneshot, Mutex};
 
 use crate::agent_component::manifest::AgentComponentJsToolManifest;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 
 /// Resolve the JavaScript runtime executable. Prefers `node`, falls back to `bun`.
 pub fn resolve_js_runtime() -> String {
@@ -45,7 +45,7 @@ pub async fn run_js_tool(
     manifest: &AgentComponentJsToolManifest,
     input: &Value,
     workspace_root: Option<&Path>,
-) -> BitFunResult<Value> {
+) -> CoreResult<Value> {
     runtime()
         .run(app_dir, manifest, input, workspace_root)
         .await
@@ -79,7 +79,7 @@ impl JsToolRuntime {
 
     /// Return a live sidecar, spawning (or respawning) one if the current process
     /// has exited.
-    async fn live_sidecar(&self) -> BitFunResult<Arc<NodeSidecar>> {
+    async fn live_sidecar(&self) -> CoreResult<Arc<NodeSidecar>> {
         let mut guard = self.sidecar.lock().await;
         if let Some(existing) = guard.as_ref() {
             if existing.is_alive() {
@@ -107,7 +107,7 @@ impl JsToolRuntime {
         manifest: &AgentComponentJsToolManifest,
         input: &Value,
         workspace_root: Option<&Path>,
-    ) -> BitFunResult<Value> {
+    ) -> CoreResult<Value> {
         let entry = app_dir.join(&manifest.entry).to_string_lossy().to_string();
         let request = json!({
             "entry": entry,
@@ -131,7 +131,7 @@ impl JsToolRuntime {
             }
             other => other,
         };
-        let value = result.map_err(BitFunError::from)?;
+        let value = result.map_err(CoreError::from)?;
         enforce_output_limit(&value, manifest.max_output_bytes)?;
         Ok(value)
     }
@@ -143,13 +143,13 @@ impl JsToolRuntime {
     }
 }
 
-fn enforce_output_limit(value: &Value, max_output_bytes: usize) -> BitFunResult<()> {
+fn enforce_output_limit(value: &Value, max_output_bytes: usize) -> CoreResult<()> {
     if max_output_bytes == 0 {
         return Ok(());
     }
     let encoded = serde_json::to_string(value).unwrap_or_default();
     if encoded.len() > max_output_bytes {
-        return Err(BitFunError::tool(format!(
+        return Err(CoreError::tool(format!(
             "Agent Component JS tool output exceeded {} bytes",
             max_output_bytes
         )));
@@ -168,20 +168,20 @@ enum SidecarError {
     Protocol(String),
 }
 
-impl From<SidecarError> for BitFunError {
+impl From<SidecarError> for CoreError {
     fn from(err: SidecarError) -> Self {
         match err {
             SidecarError::Dead => {
-                BitFunError::tool("Agent Component JS runtime process is not available")
+                CoreError::tool("Agent Component JS runtime process is not available")
             }
-            SidecarError::Tool(message) => BitFunError::tool(format!(
+            SidecarError::Tool(message) => CoreError::tool(format!(
                 "Agent Component JS tool failed: {}",
                 message.trim()
             )),
             SidecarError::Timeout => {
-                BitFunError::Timeout("Agent Component JS runtime tool timed out".to_string())
+                CoreError::Timeout("Agent Component JS runtime tool timed out".to_string())
             }
-            SidecarError::Protocol(message) => BitFunError::tool(format!(
+            SidecarError::Protocol(message) => CoreError::tool(format!(
                 "Agent Component JS runtime protocol error: {}",
                 message
             )),
@@ -205,7 +205,7 @@ struct NodeSidecar {
 const DEAD_SENTINEL: &str = "\u{0}__js_runtime_dead__";
 
 impl NodeSidecar {
-    fn spawn() -> BitFunResult<Self> {
+    fn spawn() -> CoreResult<Self> {
         let mut child = Command::new(resolve_js_runtime())
             .arg("-e")
             .arg(SERVER_SCRIPT)
@@ -214,16 +214,16 @@ impl NodeSidecar {
             .stderr(Stdio::piped())
             .kill_on_drop(true)
             .spawn()
-            .map_err(|e| BitFunError::tool(format!("Failed to start JS runtime: {e}")))?;
+            .map_err(|e| CoreError::tool(format!("Failed to start JS runtime: {e}")))?;
 
         let stdin = child
             .stdin
             .take()
-            .ok_or_else(|| BitFunError::tool("Failed to capture JS runtime stdin"))?;
+            .ok_or_else(|| CoreError::tool("Failed to capture JS runtime stdin"))?;
         let stdout = child
             .stdout
             .take()
-            .ok_or_else(|| BitFunError::tool("Failed to capture JS runtime stdout"))?;
+            .ok_or_else(|| CoreError::tool("Failed to capture JS runtime stdout"))?;
         let stderr = child.stderr.take();
 
         let pending: Arc<PendingMap> = Arc::new(Mutex::new(HashMap::new()));

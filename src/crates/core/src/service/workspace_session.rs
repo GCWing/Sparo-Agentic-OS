@@ -146,7 +146,7 @@ mod tests {
     #[test]
     fn local_workspace_session_identity_uses_workspace_root_for_storage() {
         let workspace_root = std::env::temp_dir().join(format!(
-            "bitfun-workspace-identity-{}",
+            "sparo-workspace-identity-{}",
             uuid::Uuid::new_v4()
         ));
         std::fs::create_dir_all(&workspace_root).expect("workspace should exist");

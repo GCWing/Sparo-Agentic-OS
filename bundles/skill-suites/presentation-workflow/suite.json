@@ -1,0 +1,26 @@
+{
+  "id": "presentation-workflow",
+  "name": "Presentation Workflow",
+  "description": "Plan, design, generate, and review presentation workflows beyond basic PPTX file manipulation.",
+  "routerPath": "router.md",
+  "tags": ["presentations", "deck-design"],
+  "members": [
+    {
+      "skillId": "ppt-design",
+      "role": "Presentation design, style systems, slide structure, and visual review",
+      "required": false,
+      "overridePolicy": "sparoManaged"
+    },
+    {
+      "skillId": "lengyi-ppt-agent-team",
+      "role": "Coordinated presentation agent-team workflow",
+      "required": false,
+      "overridePolicy": "sparoManaged"
+    }
+  ],
+  "defaultProfiles": {
+    "agentic": "enabled",
+    "Cowork": "enabled",
+    "Design": "enabled"
+  }
+}

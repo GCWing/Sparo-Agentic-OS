@@ -1,4 +1,4 @@
-﻿export { MarkdownEditor, PlanViewer } from './components';
+export { MarkdownEditor, PlanViewer } from './components';
 export type { MarkdownEditorProps, PlanViewerProps } from './components';
 
 export { MarkdownEditingSurface, TiptapEditor } from './tiptap';

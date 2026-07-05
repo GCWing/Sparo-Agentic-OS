@@ -3,7 +3,7 @@ use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
 use crate::bridge_component::{
     BridgeComponentConsumer, BridgeComponentConsumerKind, BridgeComponentManager,
 };
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
@@ -21,7 +21,7 @@ impl Tool for BridgeComponentCallTool {
         "BridgeComponentCall"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok("Call a declared Bridge Component capability action for an Agent Component or internal runtime workflow. Use this for external SDK, CLI, GUI, service, daemon, or MCP bridge capabilities instead of embedding bridge logic in the Agent Component.".to_string())
     }
 
@@ -56,21 +56,21 @@ impl Tool for BridgeComponentCallTool {
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let bridge_id = input
             .get("bridge_id")
             .and_then(Value::as_str)
             .or_else(|| input.get("bridgeId").and_then(Value::as_str))
-            .ok_or_else(|| BitFunError::validation("bridge_id is required"))?;
+            .ok_or_else(|| CoreError::validation("bridge_id is required"))?;
         let capability_id = input
             .get("capability_id")
             .and_then(Value::as_str)
             .or_else(|| input.get("capabilityId").and_then(Value::as_str))
-            .ok_or_else(|| BitFunError::validation("capability_id is required"))?;
+            .ok_or_else(|| CoreError::validation("capability_id is required"))?;
         let action = input
             .get("action")
             .and_then(Value::as_str)
-            .ok_or_else(|| BitFunError::validation("action is required"))?;
+            .ok_or_else(|| CoreError::validation("action is required"))?;
         let payload = input.get("input").cloned().unwrap_or_else(|| json!({}));
         let workspace_path = context
             .workspace_root()
@@ -90,7 +90,7 @@ impl Tool for BridgeComponentCallTool {
                     capability.bridge_id == bridge_id && capability.capability_id == capability_id
                 });
             if !declared {
-                return Err(BitFunError::validation(format!(
+                return Err(CoreError::validation(format!(
                     "Agent Component '{}' has not declared Bridge capability '{}:{}'",
                     consumer_id, bridge_id, capability_id
                 )));

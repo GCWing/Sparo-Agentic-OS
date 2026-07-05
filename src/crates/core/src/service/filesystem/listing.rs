@@ -1,4 +1,4 @@
-use crate::util::errors::*;
+use crate::error::*;
 use ignore::gitignore::Gitignore;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
@@ -29,10 +29,10 @@ struct TreeEntry {
 pub fn list_directory_entries(
     dir_path: &str,
     limit: usize,
-) -> BitFunResult<Vec<DirectoryListingEntry>> {
+) -> CoreResult<Vec<DirectoryListingEntry>> {
     let path = Path::new(dir_path);
     if !path.exists() {
-        return Err(BitFunError::service(format!(
+        return Err(CoreError::service(format!(
             "Directory does not exist: {}",
             dir_path
         )));
@@ -317,7 +317,7 @@ pub fn format_directory_listing(entries: &[DirectoryListingEntry], dir_path: &st
 pub fn get_formatted_directory_listing(
     dir_path: &str,
     limit: usize,
-) -> BitFunResult<FormattedDirectoryListing> {
+) -> CoreResult<FormattedDirectoryListing> {
     let entries = list_directory_entries(dir_path, limit)?;
     let reached_limit = entries.len() >= limit;
     let text = format_directory_listing(&entries, dir_path);

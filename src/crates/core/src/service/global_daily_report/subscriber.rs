@@ -1,6 +1,6 @@
 use super::service::GlobalDailyReportService;
 use crate::agentic::events::{AgenticEvent, EventSubscriber};
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 use log::error;
 use std::sync::Arc;
 
@@ -16,7 +16,7 @@ impl GlobalDailyReportEventSubscriber {
 
 #[async_trait::async_trait]
 impl EventSubscriber for GlobalDailyReportEventSubscriber {
-    async fn on_event(&self, event: &AgenticEvent) -> BitFunResult<()> {
+    async fn on_event(&self, event: &AgenticEvent) -> CoreResult<()> {
         let result = match event {
             AgenticEvent::DialogTurnCompleted { turn_id, .. } => {
                 self.service.handle_turn_completed(turn_id).await

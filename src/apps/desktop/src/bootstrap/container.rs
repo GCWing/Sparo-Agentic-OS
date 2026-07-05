@@ -13,7 +13,7 @@
 //! instead.
 
 use arc_swap::{ArcSwap, ArcSwapOption};
-use bitfun_transport::TauriTransportAdapter;
+use sparo_transport::TauriTransportAdapter;
 use std::sync::Arc;
 
 use super::boot::BootController;
@@ -26,14 +26,14 @@ pub struct AppContainer {
     pub app_state: ArcSwapOption<AppState>,
     /// `coordinator` and `scheduler` live here so non-AppState callers (tray
     /// menu, event subscribers) don't have to round-trip through Tauri State.
-    pub coordinator: ArcSwapOption<bitfun_core::agentic::coordination::ConversationCoordinator>,
-    pub scheduler: ArcSwapOption<bitfun_core::agentic::coordination::DialogScheduler>,
+    pub coordinator: ArcSwapOption<sparo_core::agentic::coordination::ConversationCoordinator>,
+    pub scheduler: ArcSwapOption<sparo_core::agentic::coordination::DialogScheduler>,
     /// Cached startup log level so the runtime listener can recompute on
     /// `ConfigReloaded` without re-reading the file from disk.
     pub startup_log_level: ArcSwap<log::LevelFilter>,
     /// Multi-workspace mount registry. Kept alive for the entire process
     /// lifetime; mounts come and go as the user opens/closes workspaces.
-    workspace_registry: Arc<bitfun_core::runtime::WorkspaceRegistry>,
+    workspace_registry: Arc<sparo_core::runtime::WorkspaceRegistry>,
 }
 
 impl AppContainer {
@@ -45,11 +45,11 @@ impl AppContainer {
             coordinator: ArcSwapOption::empty(),
             scheduler: ArcSwapOption::empty(),
             startup_log_level: ArcSwap::from_pointee(log::LevelFilter::Info),
-            workspace_registry: bitfun_core::runtime::WorkspaceRegistry::new(),
+            workspace_registry: sparo_core::runtime::WorkspaceRegistry::new(),
         })
     }
 
-    pub fn workspace_registry(&self) -> Arc<bitfun_core::runtime::WorkspaceRegistry> {
+    pub fn workspace_registry(&self) -> Arc<sparo_core::runtime::WorkspaceRegistry> {
         self.workspace_registry.clone()
     }
 
@@ -71,25 +71,25 @@ impl AppContainer {
 
     pub fn set_coordinator(
         &self,
-        coordinator: Arc<bitfun_core::agentic::coordination::ConversationCoordinator>,
+        coordinator: Arc<sparo_core::agentic::coordination::ConversationCoordinator>,
     ) {
         self.coordinator.store(Some(coordinator));
     }
 
     pub fn coordinator(
         &self,
-    ) -> Option<Arc<bitfun_core::agentic::coordination::ConversationCoordinator>> {
+    ) -> Option<Arc<sparo_core::agentic::coordination::ConversationCoordinator>> {
         self.coordinator.load_full()
     }
 
     pub fn set_scheduler(
         &self,
-        scheduler: Arc<bitfun_core::agentic::coordination::DialogScheduler>,
+        scheduler: Arc<sparo_core::agentic::coordination::DialogScheduler>,
     ) {
         self.scheduler.store(Some(scheduler));
     }
 
-    pub fn scheduler(&self) -> Option<Arc<bitfun_core::agentic::coordination::DialogScheduler>> {
+    pub fn scheduler(&self) -> Option<Arc<sparo_core::agentic::coordination::DialogScheduler>> {
         self.scheduler.load_full()
     }
 }

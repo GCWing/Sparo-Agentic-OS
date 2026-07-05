@@ -23,19 +23,19 @@ use crate::api::product_app_runtime_host_adapter::{
     HostAdapterRuntimeLogRequest, HostAdapterRuntimeState, HostAdapterRuntimeStatus,
     HostAdapterWorkerCallRequest,
 };
-use bitfun_core::agent_component::AgentComponentManager;
-use bitfun_core::agentic::coordination::{ConversationCoordinator, DialogScheduler};
-use bitfun_core::agentic_os::work::{
+use sparo_core::agent_component::AgentComponentManager;
+use sparo_core::agentic::coordination::{ConversationCoordinator, DialogScheduler};
+use sparo_core::agentic_os::work::{
     default_work_store, RuntimeInstanceRef, WorkAppRef, WorkId, WorkRecord, WorkStore,
     WorkSurfaceRef,
 };
-use bitfun_core::app_platform::{
+use sparo_core::app_platform::{
     get_installed_product_app_by_lock, seed_builtin_product_app_packages, AppComponentRef,
     AppDefinition, AppIconSpec, AppSurfaceMode, AppTruthSource, ComponentDefinition, ComponentKind,
     ProductAppRuntimeIssueSeverity, ProductAppRuntimeLogLevel, ProductAppRuntimeState,
     ResolvedProductApp,
 };
-use bitfun_core::bridge_component::{BridgeComponentManager, BridgeComponentRunResult};
+use sparo_core::bridge_component::{BridgeComponentManager, BridgeComponentRunResult};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -1384,7 +1384,7 @@ async fn ensure_work_runtime_instance(
     work: &mut WorkRecord,
     app_ref: &WorkAppRef,
     surface: &WorkSurfaceRef,
-) -> bitfun_core::util::errors::BitFunResult<RuntimeInstanceRef> {
+) -> sparo_core::error::CoreResult<RuntimeInstanceRef> {
     if let Some(instance) = work
         .runtime_instances
         .iter()
@@ -1397,7 +1397,7 @@ async fn ensure_work_runtime_instance(
     let Some(instance) =
         RuntimeInstanceRef::product_app_application_surface(&work.id, app_ref, surface)
     else {
-        return Err(bitfun_core::util::errors::BitFunError::validation(
+        return Err(sparo_core::error::CoreError::validation(
             "application_surface is required for Product App runtime instance",
         ));
     };
@@ -1902,7 +1902,7 @@ fn backend_binding_id(dependency: &AppComponentRef) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bitfun_core::app_platform::{
+    use sparo_core::app_platform::{
         AppCatalogVisibility, AppDataLifecyclePolicy, AppIconSpec, AppInstallScope,
         AppInteractionModel, AppPermissionSummary, AppSurfaceMode, AppTruthSource,
         AppWorkMultiplicity, CapabilityRef, ComponentLock, ComponentOwnerApp,
@@ -1957,7 +1957,7 @@ mod tests {
             permissions: Vec::new(),
             used_by_apps: vec!["sample-app".to_string()],
             visibility: ComponentVisibility::AppDependency,
-            dependencies: vec![bitfun_core::app_platform::AppComponentRef {
+            dependencies: vec![sparo_core::app_platform::AppComponentRef {
                 component_id: "sample-agent".to_string(),
                 kind: ComponentKind::Agent,
                 source: ComponentSource::Private,

@@ -1,7 +1,7 @@
 use super::manager::{AgentComponentManager, AGENT_COMPONENT_MANIFEST};
 use crate::agent_component::{AgentComponentLevel, AgentComponentManifest};
 use crate::infrastructure::get_path_manager_arc;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use include_dir::{include_dir, Dir, File};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -31,7 +31,7 @@ struct BuiltinInstallMarker {
     source_digest: String,
 }
 
-pub fn seed_builtin_agent_components() -> BitFunResult<Vec<String>> {
+pub fn seed_builtin_agent_components() -> CoreResult<Vec<String>> {
     let mut seeded = Vec::new();
 
     for bundle_path in collect_builtin_bundle_paths() {
@@ -48,7 +48,7 @@ pub fn seed_builtin_agent_components() -> BitFunResult<Vec<String>> {
     Ok(seeded)
 }
 
-fn seed_bundle_by_path(relative_bundle_dir: &Path) -> BitFunResult<String> {
+fn seed_bundle_by_path(relative_bundle_dir: &Path) -> CoreResult<String> {
     match seed_one_from_filesystem(relative_bundle_dir) {
         Ok(id) => Ok(id),
         Err(filesystem_error) => {
@@ -56,7 +56,7 @@ fn seed_bundle_by_path(relative_bundle_dir: &Path) -> BitFunResult<String> {
                 return Err(filesystem_error);
             };
             seed_one(bundle_dir).map_err(|embedded_error| {
-                BitFunError::service(format!(
+                CoreError::service(format!(
                     "filesystem source failed: {}; embedded source failed: {}",
                     filesystem_error, embedded_error
                 ))
@@ -91,7 +91,7 @@ fn embedded_bundle_dir(relative_bundle_dir: &Path) -> Option<&'static Dir<'stati
     BUILTIN_AGENT_COMPONENTS_DIR.get_dir(normalized.as_str())
 }
 
-fn seed_one(bundle_dir: &Dir<'_>) -> BitFunResult<String> {
+fn seed_one(bundle_dir: &Dir<'_>) -> CoreResult<String> {
     let bundle = read_bundle_manifest(bundle_dir)?;
     validate_bundle_manifest_at_path(&bundle, bundle_dir.path())?;
     let source_digest = embedded_bundle_digest(bundle_dir)?;
@@ -114,7 +114,7 @@ fn seed_one(bundle_dir: &Dir<'_>) -> BitFunResult<String> {
     Ok(bundle.id)
 }
 
-fn seed_one_from_filesystem(relative_bundle_dir: &Path) -> BitFunResult<String> {
+fn seed_one_from_filesystem(relative_bundle_dir: &Path) -> CoreResult<String> {
     let bundle_dir = filesystem_bundles_root().join(relative_bundle_dir);
     let bundle = read_filesystem_bundle_manifest(relative_bundle_dir)?;
     validate_bundle_manifest_at_path(&bundle, &bundle_dir)?;
@@ -138,10 +138,10 @@ fn seed_one_from_filesystem(relative_bundle_dir: &Path) -> BitFunResult<String> 
     Ok(bundle.id)
 }
 
-fn read_bundle_manifest(bundle_dir: &Dir<'_>) -> BitFunResult<BuiltinAgentComponentBundle> {
+fn read_bundle_manifest(bundle_dir: &Dir<'_>) -> CoreResult<BuiltinAgentComponentBundle> {
     let manifest = read_utf8_file(bundle_dir, BUNDLE_MANIFEST)?;
     serde_json::from_str(manifest).map_err(|e| {
-        BitFunError::parse(format!(
+        CoreError::parse(format!(
             "invalid bundled Agent Component bundle.json: {}",
             e
         ))
@@ -150,11 +150,11 @@ fn read_bundle_manifest(bundle_dir: &Dir<'_>) -> BitFunResult<BuiltinAgentCompon
 
 fn read_filesystem_bundle_manifest(
     relative_bundle_dir: &Path,
-) -> BitFunResult<BuiltinAgentComponentBundle> {
+) -> CoreResult<BuiltinAgentComponentBundle> {
     let bundle_dir = filesystem_bundles_root().join(relative_bundle_dir);
     let manifest_path = bundle_dir.join(BUNDLE_MANIFEST);
     if !manifest_path.exists() {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "missing required Agent Component bundle file {} in {}",
             BUNDLE_MANIFEST,
             bundle_dir.display()
@@ -163,7 +163,7 @@ fn read_filesystem_bundle_manifest(
 
     let manifest = std::fs::read_to_string(&manifest_path)?;
     serde_json::from_str(&manifest).map_err(|e| {
-        BitFunError::parse(format!(
+        CoreError::parse(format!(
             "invalid bundled Agent Component bundle.json: {}",
             e
         ))
@@ -192,18 +192,18 @@ fn write_install_marker<P: AsRef<Path>>(
     marker_path: P,
     bundle: &BuiltinAgentComponentBundle,
     source_digest: &str,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     let marker = BuiltinInstallMarker {
         schema_version: 1,
         bundle_id: bundle.id.clone(),
         bundle_version: bundle.version,
         source_digest: source_digest.to_string(),
     };
-    let marker_json = serde_json::to_vec_pretty(&marker).map_err(BitFunError::from)?;
+    let marker_json = serde_json::to_vec_pretty(&marker).map_err(CoreError::from)?;
     write_bytes(marker_path, &marker_json)
 }
 
-fn embedded_bundle_digest(bundle_dir: &Dir<'_>) -> BitFunResult<String> {
+fn embedded_bundle_digest(bundle_dir: &Dir<'_>) -> CoreResult<String> {
     let mut files = Vec::new();
     collect_files(bundle_dir, &mut files);
 
@@ -211,7 +211,7 @@ fn embedded_bundle_digest(bundle_dir: &Dir<'_>) -> BitFunResult<String> {
     let mut entries = Vec::with_capacity(files.len());
     for file in files {
         let relative = file.path().strip_prefix(bundle_root).map_err(|_| {
-            BitFunError::validation(format!(
+            CoreError::validation(format!(
                 "unexpected bundled Agent Component path: {}",
                 file.path().display()
             ))
@@ -227,14 +227,14 @@ fn embedded_bundle_digest(bundle_dir: &Dir<'_>) -> BitFunResult<String> {
     Ok(format!("sha256:{}", hex::encode(hasher.finalize())))
 }
 
-fn filesystem_bundle_digest(bundle_dir: &Path) -> BitFunResult<String> {
+fn filesystem_bundle_digest(bundle_dir: &Path) -> CoreResult<String> {
     let mut files = collect_files_from_filesystem(bundle_dir)?;
     files.sort();
 
     let mut hasher = Sha256::new();
     for file in files {
         let relative = file.strip_prefix(bundle_dir).map_err(|_| {
-            BitFunError::validation(format!(
+            CoreError::validation(format!(
                 "unexpected bundled Agent Component path: {}",
                 file.display()
             ))
@@ -259,22 +259,22 @@ fn normalized_digest_path(path: &Path) -> String {
 fn validate_bundle_manifest_at_path(
     bundle: &BuiltinAgentComponentBundle,
     bundle_dir: &Path,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     if bundle.schema_version != 1 {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "unsupported Agent Component bundle schema version {} in {}",
             bundle.schema_version,
             bundle_dir.display()
         )));
     }
     if bundle.id.trim().is_empty() {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Agent Component bundle id cannot be empty in {}",
             bundle_dir.display()
         )));
     }
     if bundle.version == 0 {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Agent Component bundle version must be positive in {}",
             bundle_dir.display()
         )));
@@ -282,14 +282,14 @@ fn validate_bundle_manifest_at_path(
     Ok(())
 }
 
-fn seed_files(app_dir: &Path, bundle_dir: &Dir<'_>) -> BitFunResult<()> {
+fn seed_files(app_dir: &Path, bundle_dir: &Dir<'_>) -> CoreResult<()> {
     let mut files = Vec::new();
     collect_files(bundle_dir, &mut files);
 
     let bundle_root = bundle_dir.path();
     for file in files {
         let relative = file.path().strip_prefix(bundle_root).map_err(|_| {
-            BitFunError::validation(format!(
+            CoreError::validation(format!(
                 "unexpected bundled Agent Component path: {}",
                 file.path().display()
             ))
@@ -307,12 +307,12 @@ fn seed_files(app_dir: &Path, bundle_dir: &Dir<'_>) -> BitFunResult<()> {
     Ok(())
 }
 
-fn seed_files_from_filesystem(app_dir: &Path, bundle_dir: &Path) -> BitFunResult<()> {
+fn seed_files_from_filesystem(app_dir: &Path, bundle_dir: &Path) -> CoreResult<()> {
     let files = collect_files_from_filesystem(bundle_dir)?;
 
     for file in files {
         let relative = file.strip_prefix(bundle_dir).map_err(|_| {
-            BitFunError::validation(format!(
+            CoreError::validation(format!(
                 "unexpected bundled Agent Component path: {}",
                 file.display()
             ))
@@ -331,13 +331,13 @@ fn seed_files_from_filesystem(app_dir: &Path, bundle_dir: &Path) -> BitFunResult
     Ok(())
 }
 
-fn collect_files_from_filesystem(dir: &Path) -> BitFunResult<Vec<PathBuf>> {
+fn collect_files_from_filesystem(dir: &Path) -> CoreResult<Vec<PathBuf>> {
     let mut files = Vec::new();
     collect_files_from_filesystem_into(dir, &mut files)?;
     Ok(files)
 }
 
-fn collect_files_from_filesystem_into(dir: &Path, out: &mut Vec<PathBuf>) -> BitFunResult<()> {
+fn collect_files_from_filesystem_into(dir: &Path, out: &mut Vec<PathBuf>) -> CoreResult<()> {
     for entry in std::fs::read_dir(dir)? {
         let path = entry?.path();
         if path.is_dir() {
@@ -359,16 +359,16 @@ fn collect_files<'a>(dir: &'a Dir<'a>, out: &mut Vec<&'a File<'a>>) {
     }
 }
 
-fn read_utf8_file<'a>(dir: &'a Dir<'a>, name: &str) -> BitFunResult<&'a str> {
+fn read_utf8_file<'a>(dir: &'a Dir<'a>, name: &str) -> CoreResult<&'a str> {
     let file = dir.get_file(name).ok_or_else(|| {
-        BitFunError::validation(format!(
+        CoreError::validation(format!(
             "missing required Agent Component bundle file {} in {}",
             name,
             dir.path().display()
         ))
     })?;
     file.contents_utf8().ok_or_else(|| {
-        BitFunError::parse(format!(
+        CoreError::parse(format!(
             "bundled Agent Component file is not valid UTF-8: {}/{}",
             dir.path().display(),
             name
@@ -380,7 +380,7 @@ fn is_root_file(path: &Path, name: &str) -> bool {
     path.parent().is_none() && path.file_name().is_some_and(|value| value == name)
 }
 
-fn write_bytes<P: AsRef<Path>>(path: P, content: &[u8]) -> BitFunResult<()> {
+fn write_bytes<P: AsRef<Path>>(path: P, content: &[u8]) -> CoreResult<()> {
     if let Some(parent) = path.as_ref().parent() {
         std::fs::create_dir_all(parent)?;
     }

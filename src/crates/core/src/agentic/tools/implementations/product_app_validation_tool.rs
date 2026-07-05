@@ -9,7 +9,7 @@ use crate::app_platform::{
     ProductAppLaunchKind, ProductAppResolver,
 };
 use crate::infrastructure::try_get_path_manager_arc;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
@@ -33,7 +33,7 @@ impl Tool for ValidateProductAppPackageTool {
         "ValidateProductAppPackage"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(r#"Validate a Product App package without modifying it. Checks app.json, private components, primary surface, launch policy, component lock digest, permission boundary, data boundary, data lifecycle policy, user-path rehearsal contract, and package resolver consistency.
 
 Input: path, or app_id plus optional version for standalone validation. In a bound AppStudio session, leave input empty; the current bound Product App package is always used. Use this after meaningful Product App package edits and before final handoff. This is a package validation gate; preview/runtime/user-path/eval evidence still requires the platform preview and eval facts."#
@@ -74,13 +74,13 @@ Input: path, or app_id plus optional version for standalone validation. In a bou
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let path_manager = try_get_path_manager_arc()
-            .map_err(|e| BitFunError::tool(format!("PathManager not initialized: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("PathManager not initialized: {}", e)))?;
         let package_dir = package_dir_from_input(input, &path_manager, context)?;
         let package = ProductAppResolver::read_product_app_package(&package_dir)
             .await
-            .map_err(|e| BitFunError::tool(format!("Failed to read Product App package: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("Failed to read Product App package: {}", e)))?;
 
         let app_id = package.app.id.clone();
         let app_version = package.app.version.clone();
@@ -107,14 +107,14 @@ Input: path, or app_id plus optional version for standalone validation. In a bou
         let shared_components = list_installed_shared_components(&path_manager)
             .await
             .map_err(|e| {
-                BitFunError::tool(format!("Failed to read installed shared components: {}", e))
+                CoreError::tool(format!("Failed to read installed shared components: {}", e))
             })?;
         let resolved = ProductAppResolver::resolve_package_install(package, shared_components)
-            .map_err(|e| BitFunError::tool(format!("Product App resolver failed: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("Product App resolver failed: {}", e)))?;
         let lock = ProductAppResolver::read_lock(&package_dir)
             .await
             .map_err(|e| {
-                BitFunError::tool(format!(
+                CoreError::tool(format!(
                     "Failed to read app.lock.json for Product App {}: {}",
                     app_id, e
                 ))
@@ -431,7 +431,7 @@ fn package_dir_from_input(
     input: &Value,
     path_manager: &crate::infrastructure::PathManager,
     context: &ToolUseContext,
-) -> BitFunResult<PathBuf> {
+) -> CoreResult<PathBuf> {
     if let Some(package_root) =
         bound_app_studio_product_app_root(context, "ValidateProductAppPackage")?
     {
@@ -454,11 +454,11 @@ fn push_check(checks: &mut Vec<Value>, id: &str, status: &str, detail: String) {
     }));
 }
 
-fn required_string(input: &Value, field: &str) -> BitFunResult<String> {
+fn required_string(input: &Value, field: &str) -> CoreResult<String> {
     let value = optional_string(input, field)
-        .ok_or_else(|| BitFunError::validation(format!("Missing required field: {field}")))?;
+        .ok_or_else(|| CoreError::validation(format!("Missing required field: {field}")))?;
     if value.trim().is_empty() {
-        return Err(BitFunError::validation(format!("{field} cannot be empty")));
+        return Err(CoreError::validation(format!("{field} cannot be empty")));
     }
     Ok(value)
 }

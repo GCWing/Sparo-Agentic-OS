@@ -1,4 +1,4 @@
-﻿import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useWorkDockStore } from '@/app/stores/workDockStore';
 import { openArtifactInCenter, openWorkInCenter } from './openWork';
 import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';

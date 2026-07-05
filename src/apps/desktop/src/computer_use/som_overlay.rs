@@ -21,8 +21,8 @@
 
 #![allow(dead_code)]
 
-use bitfun_core::agentic::tools::computer_use_host::InteractiveElement;
-use bitfun_core::util::errors::{BitFunError, BitFunResult};
+use sparo_core::agentic::tools::computer_use_host::InteractiveElement;
+use sparo_core::error::{CoreError, CoreResult};
 use image::{ImageOutputFormat, Rgba, RgbaImage};
 use std::io::Cursor;
 
@@ -34,9 +34,9 @@ pub(crate) fn render_overlay(
     jpeg_bytes: &[u8],
     elements: &[InteractiveElement],
     jpeg_quality: Option<u8>,
-) -> BitFunResult<Vec<u8>> {
+) -> CoreResult<Vec<u8>> {
     let img = image::load_from_memory_with_format(jpeg_bytes, image::ImageFormat::Jpeg)
-        .map_err(|e| BitFunError::tool(format!("som_overlay: decode JPEG failed: {e}")))?
+        .map_err(|e| CoreError::tool(format!("som_overlay: decode JPEG failed: {e}")))?
         .to_rgba8();
     let mut canvas: RgbaImage = img;
 
@@ -97,7 +97,7 @@ pub(crate) fn render_overlay(
     let quality = jpeg_quality.unwrap_or(80);
     image::DynamicImage::ImageRgba8(canvas)
         .write_to(&mut Cursor::new(&mut out), ImageOutputFormat::Jpeg(quality))
-        .map_err(|e| BitFunError::tool(format!("som_overlay: encode JPEG failed: {e}")))?;
+        .map_err(|e| CoreError::tool(format!("som_overlay: encode JPEG failed: {e}")))?;
     Ok(out)
 }
 

@@ -1,10 +1,10 @@
 {
   "new": "New Session",
-  "newCode": "New Prime Builder session",
+  "newCode": "New BitFun Coder session",
   "newCowork": "New Cowork Assistant session",
   "newDesign": "New Designer session",
   "newWithIndex": "New Session {{count}}",
-  "newCodeWithIndex": "New Prime Builder Session {{count}}",
+  "newCodeWithIndex": "New BitFun Coder Session {{count}}",
   "newCoworkWithIndex": "New Cowork Assistant Session {{count}}",
   "newDesignWithIndex": "New Designer Session {{count}}",
   "newAppStudioWithIndex": "App Studio {{count}}",

@@ -9,7 +9,7 @@ import {
 const CODE_AGENT_IDS = ['agentic', 'Plan', 'debug', 'Team'];
 
 describe('sessionDescriptor', () => {
-  it('treats agentic as the Prime Builder default agent with full switch policy', () => {
+  it('treats agentic as the BitFun Coder default agent with full switch policy', () => {
     const descriptor = descriptorFromAgentType('agentic');
 
     expect(descriptor.profileId).toBe('coding');
@@ -19,7 +19,7 @@ describe('sessionDescriptor', () => {
     expect(descriptor.agentPolicy.switchableAgentIds).toEqual(CODE_AGENT_IDS);
   });
 
-  it('normalizes legacy single-agent Prime Builder descriptors', () => {
+  it('normalizes legacy single-agent BitFun Coder descriptors', () => {
     const legacyDescriptor: SessionDescriptor = {
       ...SESSION_DESCRIPTORS.coding,
       agentPolicy: {

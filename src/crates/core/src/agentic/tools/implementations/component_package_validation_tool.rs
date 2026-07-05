@@ -9,7 +9,7 @@ use crate::app_platform::{
     ComponentKind, ComponentPackageSource, ComponentSource, ProductAppResolver,
 };
 use crate::infrastructure::try_get_path_manager_arc;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use tokio::fs;
@@ -34,7 +34,7 @@ impl Tool for ValidateComponentPackageTool {
         "ValidateComponentPackage"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(r#"Validate a shared Component package without modifying it. Checks component.json, shared component identity, contract file presence, capabilities, permissions, dependency boundary, implementation reference, consumer compatibility evidence, and release gate placeholders.
 
 Input: path, or component_id plus kind and optional version. In a bound AppStudio component session, input may be empty and defaults to the current bound Component package. Use this after meaningful Component package edits and before a Product App consumes or releases the component. This is a package contract gate; Product App consumer compatibility and eval evidence remain separate gates."#
@@ -80,9 +80,9 @@ Input: path, or component_id plus kind and optional version. In a bound AppStudi
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let path_manager = try_get_path_manager_arc()
-            .map_err(|e| BitFunError::tool(format!("PathManager not initialized: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("PathManager not initialized: {}", e)))?;
         let package_dir = package_dir_from_input(input, &path_manager, context)?;
         let validation = validate_component_package(&package_dir).await?;
 
@@ -101,10 +101,10 @@ struct ComponentPackageValidation {
 
 async fn validate_component_package(
     package_dir: &Path,
-) -> BitFunResult<ComponentPackageValidation> {
+) -> CoreResult<ComponentPackageValidation> {
     let package = ProductAppResolver::read_component_package(package_dir)
         .await
-        .map_err(|e| BitFunError::tool(format!("Failed to read Component package: {}", e)))?;
+        .map_err(|e| CoreError::tool(format!("Failed to read Component package: {}", e)))?;
     let component = package.component;
     let component_id = component.id.clone();
     let component_kind = component.kind.path_segment();
@@ -308,7 +308,7 @@ fn package_dir_from_input(
     input: &Value,
     path_manager: &crate::infrastructure::PathManager,
     context: &ToolUseContext,
-) -> BitFunResult<PathBuf> {
+) -> CoreResult<PathBuf> {
     if let Some(app_studio) = context.app_studio.as_ref() {
         let AppStudioSubject::Component {
             component_id: bound_component_id,
@@ -317,7 +317,7 @@ fn package_dir_from_input(
             ..
         } = &app_studio.subject
         else {
-            return Err(BitFunError::validation(
+            return Err(CoreError::validation(
                 "ValidateComponentPackage requires a bound Component subject".to_string(),
             ));
         };
@@ -326,7 +326,7 @@ fn package_dir_from_input(
         {
             let package_dir = PathBuf::from(path);
             if !is_local_path_within_root(&package_dir, &app_studio.package_root)? {
-                return Err(BitFunError::validation(format!(
+                return Err(CoreError::validation(format!(
                     "ValidateComponentPackage is bound to package root '{}' and cannot validate '{}'",
                     app_studio.package_root.display(),
                     package_dir.display()
@@ -346,7 +346,7 @@ fn package_dir_from_input(
                     .as_deref()
                     .is_some_and(|version| version != bound_version)
             {
-                return Err(BitFunError::validation(format!(
+                return Err(CoreError::validation(format!(
                     "ValidateComponentPackage is bound to {}/{}@{} and cannot validate {}/{}@{}",
                     bound_component_kind,
                     bound_component_id,
@@ -397,21 +397,21 @@ fn component_kind_name(kind: ComponentKind) -> &'static str {
     }
 }
 
-fn required_component_id(input: &Value) -> BitFunResult<String> {
+fn required_component_id(input: &Value) -> CoreResult<String> {
     optional_component_id(input)
-        .ok_or_else(|| BitFunError::validation("Missing required field: component_id".to_string()))
+        .ok_or_else(|| CoreError::validation("Missing required field: component_id".to_string()))
 }
 
 fn optional_component_id(input: &Value) -> Option<String> {
     optional_string(input, "component_id").or_else(|| optional_string(input, "componentId"))
 }
 
-fn required_component_kind_segment(input: &Value) -> BitFunResult<String> {
+fn required_component_kind_segment(input: &Value) -> CoreResult<String> {
     optional_component_kind_segment(input)?
-        .ok_or_else(|| BitFunError::validation("Missing required field: kind".to_string()))
+        .ok_or_else(|| CoreError::validation("Missing required field: kind".to_string()))
 }
 
-fn optional_component_kind_segment(input: &Value) -> BitFunResult<Option<String>> {
+fn optional_component_kind_segment(input: &Value) -> CoreResult<Option<String>> {
     optional_string(input, "kind")
         .or_else(|| optional_string(input, "component_kind"))
         .or_else(|| optional_string(input, "componentKind"))
@@ -419,7 +419,7 @@ fn optional_component_kind_segment(input: &Value) -> BitFunResult<Option<String>
         .transpose()
 }
 
-fn component_kind_segment(value: &str) -> BitFunResult<&'static str> {
+fn component_kind_segment(value: &str) -> CoreResult<&'static str> {
     let normalized = value
         .trim()
         .to_ascii_lowercase()
@@ -433,7 +433,7 @@ fn component_kind_segment(value: &str) -> BitFunResult<&'static str> {
         "runtime" | "runtimecomponent" | "runtimes" => Ok(ComponentKind::Runtime.path_segment()),
         "tool" | "toolcomponent" | "tools" => Ok(ComponentKind::Tool.path_segment()),
         "skill" | "skillcomponent" | "skills" => Ok(ComponentKind::Skill.path_segment()),
-        _ => Err(BitFunError::validation(
+        _ => Err(CoreError::validation(
             "kind must be one of surface, agent, bridge, runtime, tool, or skill".to_string(),
         )),
     }

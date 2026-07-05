@@ -1,12 +1,12 @@
 //! Unified event model
 //!
-//! Uses bitfun-events layer event definitions, extending core-specific functionality here
+//! Uses sparo-events layer event definitions, extending core-specific functionality here
 
 use crate::agentic::core::SessionState;
 
 // ============ Re-export events layer types ============
-pub use bitfun_events::agentic::SessionSurfaceMode;
-pub use bitfun_events::{
+pub use sparo_events::agentic::SessionSurfaceMode;
+pub use sparo_events::{
     AgenticEvent as BaseAgenticEvent, AgenticEventDeliveryClass,
     AgenticEventEnvelope as EventEnvelope, AgenticEventPriority as EventPriority,
     SubagentParentInfo, ToolEventData,

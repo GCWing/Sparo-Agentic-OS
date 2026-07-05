@@ -126,7 +126,7 @@ impl ExecMode {
             return None;
         }
 
-        let output = bitfun_core::util::process_manager::create_command("git")
+        let output = sparo_core::util::process_manager::create_command("git")
             .args(["diff", "--no-color"])
             .current_dir(workspace)
             .output()

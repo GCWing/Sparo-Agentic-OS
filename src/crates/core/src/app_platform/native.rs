@@ -80,9 +80,9 @@ fn native_app_catalog_with_icon_payload(include_icon_payload: bool) -> Vec<Nativ
     vec![
         native_agent_app(
             "prime-builder",
-            "Prime Builder",
-            "Native software development workspace for implementation, debugging, and verification.",
-            "Plan, implement, verify, and hand off software changes in a workspace.",
+            "BitFun Coder",
+            "Native default execution workspace for flexible implementation, debugging, automation, and verification.",
+            "Take a goal, choose the next action, execute, verify, and hand off the result.",
             native_app_icon("prime-builder", include_icon_payload),
             "developer",
             "agentic",

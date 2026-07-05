@@ -5,7 +5,7 @@
 use super::resource::ResourceAdapter;
 use crate::service::mcp::protocol::{MCPResource, MCPResourceContent};
 use crate::service::mcp::server::MCPServerManager;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use log::{debug, info, warn};
 use serde_json::{json, Value};
 use std::cmp::Ordering;
@@ -48,7 +48,7 @@ impl ContextEnhancer {
         &self,
         query: &str,
         resources: Vec<(MCPResource, MCPResourceContent)>,
-    ) -> BitFunResult<Value> {
+    ) -> CoreResult<Value> {
         let scored_resources = resources
             .into_iter()
             .map(|(r, c)| {
@@ -142,7 +142,7 @@ impl MCPContextProvider {
         &self,
         query: &str,
         server_ids: Option<Vec<String>>,
-    ) -> BitFunResult<Vec<(MCPResource, MCPResourceContent)>> {
+    ) -> CoreResult<Vec<(MCPResource, MCPResourceContent)>> {
         let mut all_resources = Vec::new();
 
         let server_ids = server_ids.unwrap_or_else(|| {
@@ -179,9 +179,9 @@ impl MCPContextProvider {
         manager: &MCPServerManager,
         server_id: &str,
         query: &str,
-    ) -> BitFunResult<Vec<(MCPResource, MCPResourceContent)>> {
+    ) -> CoreResult<Vec<(MCPResource, MCPResourceContent)>> {
         let connection = manager.get_connection(server_id).await.ok_or_else(|| {
-            BitFunError::NotFound(format!("MCP server connection not found: {}", server_id))
+            CoreError::NotFound(format!("MCP server connection not found: {}", server_id))
         })?;
 
         let mut resources = manager.get_cached_resources(server_id).await;
@@ -228,7 +228,7 @@ impl MCPContextProvider {
         query: &str,
         existing_context: Option<Value>,
         server_ids: Option<Vec<String>>,
-    ) -> BitFunResult<Value> {
+    ) -> CoreResult<Value> {
         let resources = self.query_resources(query, server_ids).await?;
 
         if resources.is_empty() {
@@ -257,7 +257,7 @@ impl MCPContextProvider {
         &self,
         prompt_names: Vec<String>,
         arguments: HashMap<String, String>,
-    ) -> BitFunResult<Vec<String>> {
+    ) -> CoreResult<Vec<String>> {
         let mut enhancements = Vec::new();
         let server_ids = self.server_manager.get_all_server_ids().await;
 

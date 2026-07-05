@@ -5,6 +5,8 @@
   "boostSkills": "Skills",
   "boostSkillsLoading": "Loading skills…",
   "boostSkillsEmpty": "No enabled skills",
+  "boostSkillsStandalone": "Standalone Skills",
+  "boostSkillsSuiteFallback": "Suite",
   "openSkillsLibrary": "Manage skills…",
   "insertSkillLine": "Please use the Skill tool with command \"{{name}}\".",
   "resetToAgentic": "Back to default agent",
@@ -72,7 +74,7 @@
   "sendingToMain": "Main session: {{title}}",
   "sendingToBtw": "Side session: {{title}}",
   "agentDescriptions": {
-    "agentic": "Prime Builder: plans, codes, debugs, and implements software from intent to working result",
+    "agentic": "BitFun Coder: takes goals, chooses the next action, and delivers verified workspace results",
     "Plan": "Plan first, execute later — clarify requirements and create an implementation plan before coding",
     "debug": "Evidence-driven systematic debugging: form hypotheses, gather runtime evidence, and fix with confidence",
     "Cowork": "Cowork Assistant: clarify first, track progress lightly, verify outcomes anytime",
@@ -83,7 +85,7 @@
     "Team": "Virtual engineering team: CEO, Eng Manager, Designer, QA Lead, Security Officer, Release Engineer — orchestrated through a full sprint workflow"
   },
   "agentNames": {
-    "agentic": "Prime Builder",
+    "agentic": "BitFun Coder",
     "Plan": "Plan",
     "debug": "Debug",
     "Cowork": "Cowork Assistant",

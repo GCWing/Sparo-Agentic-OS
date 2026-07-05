@@ -1,5 +1,3 @@
-﻿ 
-
 import type { Language, LanguageCategory, LanguagePlugin } from '../types';
 import { createLogger } from '@/shared/utils/logger';
 

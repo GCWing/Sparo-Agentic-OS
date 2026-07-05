@@ -7,7 +7,7 @@ use crate::agentic::tools::framework::ToolUseContext;
 use crate::agentic::tools::workspace_paths::posix_style_path_is_absolute;
 use crate::agentic::SessionSummary;
 use crate::infrastructure::try_get_path_manager_arc;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use std::path::Path;
 
 pub const STANDARD_AGENT_TYPES: &[&str] = &["agentic", "Plan", "Cowork", "Design", "debug"];
@@ -69,10 +69,10 @@ pub async fn resolve_handoff_workspace(
     workspace: &str,
     context: &ToolUseContext,
     allow_global: bool,
-) -> BitFunResult<String> {
+) -> CoreResult<String> {
     let workspace = workspace.trim();
     if workspace.is_empty() {
-        return Err(BitFunError::tool("workspace cannot be empty".to_string()));
+        return Err(CoreError::tool("workspace cannot be empty".to_string()));
     }
 
     if allow_global && workspace == "global" {
@@ -81,7 +81,7 @@ pub async fn resolve_handoff_workspace(
 
     if context.is_remote() {
         if !posix_style_path_is_absolute(workspace) {
-            return Err(BitFunError::tool(
+            return Err(CoreError::tool(
                 "workspace must be an absolute POSIX path on the remote host".to_string(),
             ));
         }
@@ -95,19 +95,19 @@ pub async fn resolve_handoff_workspace(
         } else {
             "workspace must be an absolute path"
         };
-        return Err(BitFunError::tool(message.to_string()));
+        return Err(CoreError::tool(message.to_string()));
     }
 
     let resolved = normalize_path(workspace);
     let path = Path::new(&resolved);
     if !path.exists() {
-        return Err(BitFunError::tool(format!(
+        return Err(CoreError::tool(format!(
             "workspace does not exist: {}",
             resolved
         )));
     }
     if !path.is_dir() {
-        return Err(BitFunError::tool(format!(
+        return Err(CoreError::tool(format!(
             "workspace is not a directory: {}",
             resolved
         )));
@@ -136,29 +136,29 @@ pub fn validate_session_id(session_id: &str) -> Result<(), String> {
     Ok(())
 }
 
-pub fn handoff_creator_marker(context: &ToolUseContext, tool_name: &str) -> BitFunResult<String> {
+pub fn handoff_creator_marker(context: &ToolUseContext, tool_name: &str) -> CoreResult<String> {
     let session_id = context
         .session_id
         .as_ref()
-        .ok_or_else(|| BitFunError::tool(format!("{} requires a session context", tool_name)))?;
+        .ok_or_else(|| CoreError::tool(format!("{} requires a session context", tool_name)))?;
     Ok(format!("session-{}", session_id))
 }
 
 pub fn handoff_source_session_id<'a>(
     context: &'a ToolUseContext,
     tool_name: &str,
-) -> BitFunResult<&'a str> {
+) -> CoreResult<&'a str> {
     context
         .session_id
         .as_deref()
-        .ok_or_else(|| BitFunError::tool(format!("{} requires a source session", tool_name)))
+        .ok_or_else(|| CoreError::tool(format!("{} requires a source session", tool_name)))
 }
 
-pub fn handoff_source_workspace(context: &ToolUseContext, tool_name: &str) -> BitFunResult<String> {
+pub fn handoff_source_workspace(context: &ToolUseContext, tool_name: &str) -> CoreResult<String> {
     context
         .workspace_root()
         .map(|path| path.to_string_lossy().to_string())
-        .ok_or_else(|| BitFunError::tool(format!("{} requires a source workspace", tool_name)))
+        .ok_or_else(|| CoreError::tool(format!("{} requires a source workspace", tool_name)))
 }
 
 pub fn format_forwarded_agent_message(message: &str) -> String {
@@ -175,8 +175,8 @@ pub async fn find_existing_session(
     coordinator: &std::sync::Arc<crate::agentic::coordination::ConversationCoordinator>,
     workspace: &str,
     session_id: &str,
-) -> BitFunResult<SessionSummary> {
-    validate_session_id(session_id).map_err(BitFunError::tool)?;
+) -> CoreResult<SessionSummary> {
+    validate_session_id(session_id).map_err(CoreError::tool)?;
 
     let workspace_path = Path::new(workspace);
     let sessions = coordinator.list_sessions(workspace_path).await?;
@@ -185,7 +185,7 @@ pub async fn find_existing_session(
         .into_iter()
         .find(|session| session.session_id == session_id)
         .ok_or_else(|| {
-            BitFunError::NotFound(format!(
+            CoreError::NotFound(format!(
                 "Session '{}' not found in workspace '{}'",
                 session_id, workspace
             ))
@@ -195,9 +195,9 @@ pub async fn find_existing_session(
 pub async fn handoff_to_agent_session(
     agentic: &crate::runtime::AgenticHandles,
     request: AgentSessionHandoffRequest,
-) -> BitFunResult<AgentSessionHandoffOutcome> {
+) -> CoreResult<AgentSessionHandoffOutcome> {
     if request.message.trim().is_empty() {
-        return Err(BitFunError::tool("message cannot be empty".to_string()));
+        return Err(CoreError::tool("message cannot be empty".to_string()));
     }
 
     let coordinator = agentic.coordinator.clone();
@@ -272,7 +272,7 @@ pub async fn handoff_to_agent_session(
             None,
         )
         .await
-        .map_err(BitFunError::tool)?;
+        .map_err(CoreError::tool)?;
 
     Ok(AgentSessionHandoffOutcome {
         kind,

@@ -1,7 +1,7 @@
 //! Atomic browser actions implemented via CDP commands.
 
 use super::cdp_client::{CdpClient, CdpEvent};
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use tokio::sync::broadcast;
@@ -77,7 +77,7 @@ impl<'a> BrowserActions<'a> {
         Self { client }
     }
 
-    pub async fn enable_observers(&self) -> BitFunResult<Value> {
+    pub async fn enable_observers(&self) -> CoreResult<Value> {
         let _ = self.client.send("Page.enable", None).await;
         let _ = self.client.send("Runtime.enable", None).await;
         let _ = self.client.send("Network.enable", None).await;
@@ -87,7 +87,7 @@ impl<'a> BrowserActions<'a> {
 
     // ── Navigation ─────────────────────────────────────────────────────
 
-    pub async fn navigate(&self, url: &str) -> BitFunResult<Value> {
+    pub async fn navigate(&self, url: &str) -> CoreResult<Value> {
         // Subscribe **before** issuing the navigate so we can never miss the
         // `Page.lifecycleEvent` ("load") that fires while we are awaiting the
         // command response. Page lifecycle events must be enabled explicitly.
@@ -138,7 +138,7 @@ impl<'a> BrowserActions<'a> {
                 }
             }
             LifecycleOutcome::Closed => {
-                return Err(BitFunError::tool(
+                return Err(CoreError::tool(
                     "Browser closed the CDP connection before page finished loading.".to_string(),
                 ));
             }
@@ -146,24 +146,24 @@ impl<'a> BrowserActions<'a> {
         Ok(body)
     }
 
-    pub async fn back(&self) -> BitFunResult<Value> {
+    pub async fn back(&self) -> CoreResult<Value> {
         self.evaluate("history.back(); undefined").await?;
         Ok(json!({ "success": true, "action": "back" }))
     }
 
-    pub async fn forward(&self) -> BitFunResult<Value> {
+    pub async fn forward(&self) -> CoreResult<Value> {
         self.evaluate("history.forward(); undefined").await?;
         Ok(json!({ "success": true, "action": "forward" }))
     }
 
-    pub async fn reload(&self, ignore_cache: bool) -> BitFunResult<Value> {
+    pub async fn reload(&self, ignore_cache: bool) -> CoreResult<Value> {
         self.client
             .send("Page.reload", Some(json!({ "ignoreCache": ignore_cache })))
             .await?;
         Ok(json!({ "success": true, "action": "reload", "ignore_cache": ignore_cache }))
     }
 
-    pub async fn get_url(&self) -> BitFunResult<String> {
+    pub async fn get_url(&self) -> CoreResult<String> {
         let result = self.evaluate("window.location.href").await?;
         Ok(result
             .get("result")
@@ -173,7 +173,7 @@ impl<'a> BrowserActions<'a> {
             .to_string())
     }
 
-    pub async fn get_title(&self) -> BitFunResult<String> {
+    pub async fn get_title(&self) -> CoreResult<String> {
         let result = self.evaluate("document.title").await?;
         Ok(result
             .get("result")
@@ -195,7 +195,7 @@ impl<'a> BrowserActions<'a> {
     /// `"document" | "shadow" | "iframe"`. The synthetic `data-cdp-ref`
     /// attribute is set in the host scope so subsequent `click` / `fill`
     /// can locate it via the same recursive walk.
-    pub async fn snapshot(&self) -> BitFunResult<Value> {
+    pub async fn snapshot(&self) -> CoreResult<Value> {
         self.snapshot_with_options(false).await
     }
 
@@ -210,7 +210,7 @@ impl<'a> BrowserActions<'a> {
     /// `with_backend_node_ids` is `true`, every snapshot element gets a
     /// `backend_node_id` field; pages where `DOM.getDocument` errors out
     /// (very rare — e.g. about:blank) silently fall back to no ids.
-    pub async fn snapshot_with_options(&self, with_backend_node_ids: bool) -> BitFunResult<Value> {
+    pub async fn snapshot_with_options(&self, with_backend_node_ids: bool) -> CoreResult<Value> {
         let script = r#"
         (function() {
             const SEL = 'a, button, input, textarea, select, [role="button"], [role="link"], [role="tab"], [role="menuitem"], [role="combobox"], [role="option"], [tabindex="0"], [contenteditable="true"]';
@@ -391,13 +391,13 @@ impl<'a> BrowserActions<'a> {
     /// Resolve `backend_node_id` for every snapshot element by walking the
     /// DOM through CDP. Mutates `parsed["elements"][i]["backend_node_id"]`
     /// in place. Returns `Err` if the document tree could not be fetched.
-    async fn attach_backend_node_ids(&self, parsed: &mut Value) -> BitFunResult<()> {
+    async fn attach_backend_node_ids(&self, parsed: &mut Value) -> CoreResult<()> {
         let doc = self.client.send("DOM.getDocument", None).await?;
         let root_id = doc
             .get("root")
             .and_then(|r| r.get("nodeId"))
             .and_then(|v| v.as_i64())
-            .ok_or_else(|| BitFunError::tool("DOM.getDocument: missing root nodeId".to_string()))?;
+            .ok_or_else(|| CoreError::tool("DOM.getDocument: missing root nodeId".to_string()))?;
         let qsa = self
             .client
             .send(
@@ -463,7 +463,7 @@ impl<'a> BrowserActions<'a> {
     /// empty string), and `Ok(Some(""))` when the element was found but
     /// genuinely empty. The lookup walks shadow roots / same-origin
     /// iframes, matching the rest of the browser action surface.
-    pub async fn get_text(&self, selector: &str) -> BitFunResult<Option<String>> {
+    pub async fn get_text(&self, selector: &str) -> CoreResult<Option<String>> {
         self.get_attribute(selector, "text")
             .await
             .map(|v| v.map(|v| v.as_str().unwrap_or("").to_string()))
@@ -473,7 +473,7 @@ impl<'a> BrowserActions<'a> {
         &self,
         selector: &str,
         attribute: &str,
-    ) -> BitFunResult<Option<Value>> {
+    ) -> CoreResult<Option<Value>> {
         let resolve = Self::resolve_element_js(selector);
         let getter = match attribute {
             "text" => "(el.textContent || '').trim().slice(0, 5000)".to_string(),
@@ -517,7 +517,7 @@ impl<'a> BrowserActions<'a> {
     // ── Interaction ────────────────────────────────────────────────────
 
     /// Click an element by CSS selector or by `@eN` ref.
-    pub async fn click(&self, selector: &str) -> BitFunResult<Value> {
+    pub async fn click(&self, selector: &str) -> CoreResult<Value> {
         let (x, y) = self.element_center(selector).await?;
 
         self.client
@@ -549,7 +549,7 @@ impl<'a> BrowserActions<'a> {
         }))
     }
 
-    async fn element_center(&self, selector: &str) -> BitFunResult<(f64, f64)> {
+    async fn element_center(&self, selector: &str) -> CoreResult<(f64, f64)> {
         let js = Self::resolve_element_js(selector);
         let center_js = format!(
             r#"(function(){{ {} el.scrollIntoView({{ block: 'center', inline: 'center', behavior: 'instant' }}); const rect = el.getBoundingClientRect(); return JSON.stringify({{ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }}); }})()"#,
@@ -567,7 +567,7 @@ impl<'a> BrowserActions<'a> {
         Ok((x, y))
     }
 
-    pub async fn hover(&self, selector: &str) -> BitFunResult<Value> {
+    pub async fn hover(&self, selector: &str) -> CoreResult<Value> {
         let (x, y) = self.element_center(selector).await?;
         self.client
             .send(
@@ -588,7 +588,7 @@ impl<'a> BrowserActions<'a> {
     }
 
     /// Fill (clear + type) a text input identified by selector or `@eN` ref.
-    pub async fn fill(&self, selector: &str, value: &str) -> BitFunResult<Value> {
+    pub async fn fill(&self, selector: &str, value: &str) -> CoreResult<Value> {
         let js = Self::resolve_element_js(selector);
         let focus_js = format!(
             r#"(function(){{ {} el.focus(); el.value = ''; el.dispatchEvent(new Event('input', {{ bubbles: true }})); return true; }})()"#,
@@ -608,14 +608,14 @@ impl<'a> BrowserActions<'a> {
     }
 
     /// Type text at the currently focused element (appends, does not clear).
-    pub async fn type_text(&self, text: &str) -> BitFunResult<Value> {
+    pub async fn type_text(&self, text: &str) -> CoreResult<Value> {
         self.client
             .send("Input.insertText", Some(json!({ "text": text })))
             .await?;
         Ok(json!({ "success": true, "action": "type", "text": text }))
     }
 
-    pub async fn set_checked(&self, selector: &str, checked: bool) -> BitFunResult<Value> {
+    pub async fn set_checked(&self, selector: &str, checked: bool) -> CoreResult<Value> {
         let js = Self::resolve_element_js(selector);
         let script = format!(
             r#"(function(){{
@@ -644,7 +644,7 @@ impl<'a> BrowserActions<'a> {
     }
 
     /// Select a dropdown option by visible text.
-    pub async fn select(&self, selector: &str, option_text: &str) -> BitFunResult<Value> {
+    pub async fn select(&self, selector: &str, option_text: &str) -> CoreResult<Value> {
         let js = format!(
             r#"(function(){{
                 const sel = document.querySelector('{}');
@@ -670,7 +670,7 @@ impl<'a> BrowserActions<'a> {
     }
 
     /// Press a key (Enter, Escape, Tab, etc.).
-    pub async fn press_key(&self, key: &str) -> BitFunResult<Value> {
+    pub async fn press_key(&self, key: &str) -> CoreResult<Value> {
         self.client
             .send(
                 "Input.dispatchKeyEvent",
@@ -705,7 +705,7 @@ impl<'a> BrowserActions<'a> {
     }
 
     /// Scroll the page.
-    pub async fn scroll(&self, direction: &str, amount: Option<i64>) -> BitFunResult<Value> {
+    pub async fn scroll(&self, direction: &str, amount: Option<i64>) -> CoreResult<Value> {
         let px = amount.unwrap_or(500);
         let (delta_x, delta_y) = match direction {
             "up" => (0, -px),
@@ -741,7 +741,7 @@ impl<'a> BrowserActions<'a> {
         direction: &str,
         max_scrolls: u64,
         delay_ms: u64,
-    ) -> BitFunResult<Value> {
+    ) -> CoreResult<Value> {
         let max_scrolls = max_scrolls.clamp(1, 200);
         let delay_ms = delay_ms.clamp(0, 5_000);
         let delta = if direction == "up" {
@@ -781,7 +781,7 @@ impl<'a> BrowserActions<'a> {
         &self,
         duration_ms: Option<u64>,
         condition: Option<&str>,
-    ) -> BitFunResult<Value> {
+    ) -> CoreResult<Value> {
         if let Some(ms) = duration_ms {
             let clamped = ms.min(30_000);
             tokio::time::sleep(std::time::Duration::from_millis(clamped)).await;
@@ -841,7 +841,7 @@ impl<'a> BrowserActions<'a> {
                         }
                         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
                     }
-                    return Err(BitFunError::tool(format!(
+                    return Err(CoreError::tool(format!(
                         "Timeout waiting for element: {}",
                         cond
                     )));
@@ -854,7 +854,7 @@ impl<'a> BrowserActions<'a> {
     // ── Capture ────────────────────────────────────────────────────────
 
     /// Take a screenshot of the current page, returns base64 JPEG data.
-    pub async fn screenshot(&self) -> BitFunResult<Value> {
+    pub async fn screenshot(&self) -> CoreResult<Value> {
         self.screenshot_with_options("jpeg", Some(80), true).await
     }
 
@@ -863,7 +863,7 @@ impl<'a> BrowserActions<'a> {
         format: &str,
         quality: Option<u8>,
         from_surface: bool,
-    ) -> BitFunResult<Value> {
+    ) -> CoreResult<Value> {
         self.screenshot_with_options_ext(format, quality, from_surface, false)
             .await
     }
@@ -874,7 +874,7 @@ impl<'a> BrowserActions<'a> {
         quality: Option<u8>,
         from_surface: bool,
         full_page: bool,
-    ) -> BitFunResult<Value> {
+    ) -> CoreResult<Value> {
         let normalized = if format.eq_ignore_ascii_case("png") {
             "png"
         } else {
@@ -947,7 +947,7 @@ impl<'a> BrowserActions<'a> {
     // ── JavaScript ─────────────────────────────────────────────────────
 
     /// Evaluate a JavaScript expression in the page context.
-    pub async fn evaluate(&self, expression: &str) -> BitFunResult<Value> {
+    pub async fn evaluate(&self, expression: &str) -> CoreResult<Value> {
         self.evaluate_with_options(expression, true, true).await
     }
 
@@ -956,8 +956,8 @@ impl<'a> BrowserActions<'a> {
         expression: &str,
         await_promise: bool,
         return_by_value: bool,
-    ) -> BitFunResult<Value> {
-        let mut last_error: Option<BitFunError> = None;
+    ) -> CoreResult<Value> {
+        let mut last_error: Option<CoreError> = None;
         for attempt in 0..2 {
             let result = self
                 .client
@@ -979,7 +979,7 @@ impl<'a> BrowserActions<'a> {
                             .and_then(|v| v.as_str())
                             .or_else(|| details.get("text").and_then(|v| v.as_str()))
                             .unwrap_or("Runtime.evaluate failed");
-                        return Err(BitFunError::tool(format!("JS error: {}", message)));
+                        return Err(CoreError::tool(format!("JS error: {}", message)));
                     }
                     return Ok(value);
                 }
@@ -997,10 +997,10 @@ impl<'a> BrowserActions<'a> {
                 }
             }
         }
-        Err(last_error.unwrap_or_else(|| BitFunError::tool("Runtime.evaluate failed".to_string())))
+        Err(last_error.unwrap_or_else(|| CoreError::tool("Runtime.evaluate failed".to_string())))
     }
 
-    pub async fn get_cookies(&self, urls: Option<Vec<String>>) -> BitFunResult<Value> {
+    pub async fn get_cookies(&self, urls: Option<Vec<String>>) -> CoreResult<Value> {
         let params = urls
             .filter(|items| !items.is_empty())
             .map(|urls| json!({ "urls": urls }))
@@ -1013,7 +1013,7 @@ impl<'a> BrowserActions<'a> {
         }))
     }
 
-    pub async fn set_cookies(&self, cookies: &[Value]) -> BitFunResult<Value> {
+    pub async fn set_cookies(&self, cookies: &[Value]) -> CoreResult<Value> {
         let mut set = 0usize;
         let mut errors = Vec::<Value>::new();
         for cookie in cookies {
@@ -1046,9 +1046,9 @@ impl<'a> BrowserActions<'a> {
         &self,
         selector: Option<&str>,
         files: &[String],
-    ) -> BitFunResult<Value> {
+    ) -> CoreResult<Value> {
         if files.is_empty() {
-            return Err(BitFunError::tool(
+            return Err(CoreError::tool(
                 "set_file_input_files requires non-empty 'files'".to_string(),
             ));
         }
@@ -1063,7 +1063,7 @@ impl<'a> BrowserActions<'a> {
             .get("root")
             .and_then(|r| r.get("nodeId"))
             .and_then(|v| v.as_i64())
-            .ok_or_else(|| BitFunError::tool("DOM.getDocument: missing root nodeId".to_string()))?;
+            .ok_or_else(|| CoreError::tool("DOM.getDocument: missing root nodeId".to_string()))?;
         let node = self
             .client
             .send(
@@ -1073,7 +1073,7 @@ impl<'a> BrowserActions<'a> {
             .await?;
         let node_id = node.get("nodeId").and_then(|v| v.as_i64()).unwrap_or(0);
         if node_id == 0 {
-            return Err(BitFunError::tool(format!(
+            return Err(CoreError::tool(format!(
                 "No file input found for selector: {}",
                 query
             )));
@@ -1098,7 +1098,7 @@ impl<'a> BrowserActions<'a> {
         method: &str,
         headers: Value,
         body: Option<&str>,
-    ) -> BitFunResult<Value> {
+    ) -> CoreResult<Value> {
         let script = format!(
             r#"(async () => {{
                 try {{
@@ -1147,7 +1147,7 @@ impl<'a> BrowserActions<'a> {
         Ok(json!({ "success": parsed.get("error").is_none(), "action": "fetch", "result": parsed }))
     }
 
-    pub async fn read_article(&self) -> BitFunResult<Value> {
+    pub async fn read_article(&self) -> CoreResult<Value> {
         let script = r#"
         (function() {
             function textOf(node) {
@@ -1183,7 +1183,7 @@ impl<'a> BrowserActions<'a> {
 
     // ── Close ──────────────────────────────────────────────────────────
 
-    pub async fn close_page(&self) -> BitFunResult<Value> {
+    pub async fn close_page(&self) -> CoreResult<Value> {
         let _ = self.client.send("Page.close", None).await;
         Ok(json!({ "success": true, "action": "close" }))
     }

@@ -1,5 +1,5 @@
 use crate::infrastructure::get_path_manager_arc;
-use crate::util::errors::*;
+use crate::error::*;
 use std::time::UNIX_EPOCH;
 use tokio::fs::{self, File};
 use tokio::io::AsyncReadExt;
@@ -17,10 +17,10 @@ pub(crate) fn host_overview_file_path() -> std::path::PathBuf {
     get_path_manager_arc().agentic_os_host_overview_path()
 }
 
-pub(crate) async fn ensure_host_overview_runtime_dir() -> BitFunResult<()> {
+pub(crate) async fn ensure_host_overview_runtime_dir() -> CoreResult<()> {
     let host_dir = get_path_manager_arc().agentic_os_host_dir();
     fs::create_dir_all(&host_dir).await.map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to create Agentic OS host runtime directory {}: {}",
             host_dir.display(),
             error
@@ -29,7 +29,7 @@ pub(crate) async fn ensure_host_overview_runtime_dir() -> BitFunResult<()> {
     Ok(())
 }
 
-pub(crate) async fn build_host_overview_context() -> BitFunResult<Option<String>> {
+pub(crate) async fn build_host_overview_context() -> CoreResult<Option<String>> {
     ensure_host_overview_runtime_dir().await?;
 
     let path = host_overview_file_path();
@@ -46,7 +46,7 @@ pub(crate) async fn build_host_overview_context() -> BitFunResult<Option<String>
     }
 
     let content = fs::read_to_string(&path).await.map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to read host overview file {}: {}",
             path.display(),
             error
@@ -70,7 +70,7 @@ pub(crate) async fn build_host_overview_context() -> BitFunResult<Option<String>
     Ok(Some(section))
 }
 
-pub(crate) async fn read_host_overview_status() -> BitFunResult<HostOverviewStatus> {
+pub(crate) async fn read_host_overview_status() -> CoreResult<HostOverviewStatus> {
     ensure_host_overview_runtime_dir().await?;
 
     let path = host_overview_file_path();
@@ -80,7 +80,7 @@ pub(crate) async fn read_host_overview_status() -> BitFunResult<HostOverviewStat
             return Ok(HostOverviewStatus::default());
         }
         Err(error) => {
-            return Err(BitFunError::service(format!(
+            return Err(CoreError::service(format!(
                 "Failed to read host overview metadata {}: {}",
                 path.display(),
                 error
@@ -107,9 +107,9 @@ pub(crate) async fn read_host_overview_status() -> BitFunResult<HostOverviewStat
     })
 }
 
-async fn file_contains_non_whitespace(path: &std::path::Path) -> BitFunResult<bool> {
+async fn file_contains_non_whitespace(path: &std::path::Path) -> CoreResult<bool> {
     let mut file = File::open(path).await.map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to open host overview file {}: {}",
             path.display(),
             error
@@ -121,7 +121,7 @@ async fn file_contains_non_whitespace(path: &std::path::Path) -> BitFunResult<bo
 
     loop {
         let bytes_read = file.read(&mut buffer).await.map_err(|error| {
-            BitFunError::service(format!(
+            CoreError::service(format!(
                 "Failed to read host overview file {}: {}",
                 path.display(),
                 error

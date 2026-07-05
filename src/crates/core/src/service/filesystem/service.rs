@@ -3,7 +3,7 @@ use crate::infrastructure::{
     FileOperationService, FileReadResult, FileSearchOutcome, FileSearchProgressSink,
     FileSearchResult, FileTreeNode, FileTreeService, FileWriteResult,
 };
-use crate::util::errors::*;
+use crate::error::*;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
@@ -34,7 +34,7 @@ impl FileSystemService {
     }
 
     /// Builds a file tree.
-    pub async fn build_file_tree(&self, root_path: &str) -> BitFunResult<Vec<FileTreeNode>> {
+    pub async fn build_file_tree(&self, root_path: &str) -> CoreResult<Vec<FileTreeNode>> {
         self.build_file_tree_with_remote_hint(root_path, None).await
     }
 
@@ -43,15 +43,15 @@ impl FileSystemService {
         &self,
         root_path: &str,
         preferred_remote_connection_id: Option<&str>,
-    ) -> BitFunResult<Vec<FileTreeNode>> {
+    ) -> CoreResult<Vec<FileTreeNode>> {
         self.file_tree_service
             .build_tree_with_remote_hint(root_path, preferred_remote_connection_id)
             .await
-            .map_err(BitFunError::service)
+            .map_err(CoreError::service)
     }
 
     /// Scans a directory and returns a detailed result.
-    pub async fn scan_directory(&self, root_path: &str) -> BitFunResult<DirectoryScanResult> {
+    pub async fn scan_directory(&self, root_path: &str) -> CoreResult<DirectoryScanResult> {
         let start_time = std::time::Instant::now();
 
         let (files, statistics) = self
@@ -69,7 +69,7 @@ impl FileSystemService {
     }
 
     /// Gets directory contents (shallow).
-    pub async fn get_directory_contents(&self, path: &str) -> BitFunResult<Vec<FileTreeNode>> {
+    pub async fn get_directory_contents(&self, path: &str) -> CoreResult<Vec<FileTreeNode>> {
         self.get_directory_contents_with_remote_hint(path, None)
             .await
     }
@@ -78,11 +78,11 @@ impl FileSystemService {
         &self,
         path: &str,
         preferred_remote_connection_id: Option<&str>,
-    ) -> BitFunResult<Vec<FileTreeNode>> {
+    ) -> CoreResult<Vec<FileTreeNode>> {
         self.file_tree_service
             .get_directory_contents_with_remote_hint(path, preferred_remote_connection_id)
             .await
-            .map_err(BitFunError::service)
+            .map_err(CoreError::service)
     }
 
     /// Searches files.
@@ -91,7 +91,7 @@ impl FileSystemService {
         root_path: &str,
         pattern: &str,
         options: FileSearchOptions,
-    ) -> BitFunResult<Vec<FileSearchResult>> {
+    ) -> CoreResult<Vec<FileSearchResult>> {
         let mut results = self
             .file_tree_service
             .search_files_with_options(
@@ -132,7 +132,7 @@ impl FileSystemService {
         pattern: &str,
         options: FileSearchOptions,
         cancel_flag: Option<Arc<AtomicBool>>,
-    ) -> BitFunResult<FileSearchOutcome> {
+    ) -> CoreResult<FileSearchOutcome> {
         self.search_file_names_with_progress(root_path, pattern, options, cancel_flag, None)
             .await
     }
@@ -144,7 +144,7 @@ impl FileSystemService {
         options: FileSearchOptions,
         cancel_flag: Option<Arc<AtomicBool>>,
         progress_sink: Option<Arc<dyn FileSearchProgressSink>>,
-    ) -> BitFunResult<FileSearchOutcome> {
+    ) -> CoreResult<FileSearchOutcome> {
         let mut outcome = self
             .file_tree_service
             .search_file_names_with_progress(
@@ -190,7 +190,7 @@ impl FileSystemService {
         pattern: &str,
         options: FileSearchOptions,
         cancel_flag: Option<Arc<AtomicBool>>,
-    ) -> BitFunResult<FileSearchOutcome> {
+    ) -> CoreResult<FileSearchOutcome> {
         self.search_file_contents_with_progress(root_path, pattern, options, cancel_flag, None)
             .await
     }
@@ -202,7 +202,7 @@ impl FileSystemService {
         options: FileSearchOptions,
         cancel_flag: Option<Arc<AtomicBool>>,
         progress_sink: Option<Arc<dyn FileSearchProgressSink>>,
-    ) -> BitFunResult<FileSearchOutcome> {
+    ) -> CoreResult<FileSearchOutcome> {
         let mut outcome = self
             .file_tree_service
             .search_file_contents_with_progress(
@@ -239,7 +239,7 @@ impl FileSystemService {
     }
 
     /// Reads a file.
-    pub async fn read_file(&self, file_path: &str) -> BitFunResult<FileReadResult> {
+    pub async fn read_file(&self, file_path: &str) -> CoreResult<FileReadResult> {
         self.file_operation_service.read_file(file_path).await
     }
 
@@ -248,7 +248,7 @@ impl FileSystemService {
         &self,
         file_path: &str,
         content: &str,
-    ) -> BitFunResult<FileWriteResult> {
+    ) -> CoreResult<FileWriteResult> {
         let options = FileOperationOptions::default();
         self.file_operation_service
             .write_file(file_path, content, options)
@@ -261,39 +261,39 @@ impl FileSystemService {
         file_path: &str,
         content: &str,
         options: FileOperationOptions,
-    ) -> BitFunResult<FileWriteResult> {
+    ) -> CoreResult<FileWriteResult> {
         self.file_operation_service
             .write_file(file_path, content, options)
             .await
     }
 
     /// Copies a file.
-    pub async fn copy_file(&self, from: &str, to: &str) -> BitFunResult<u64> {
+    pub async fn copy_file(&self, from: &str, to: &str) -> CoreResult<u64> {
         self.file_operation_service.copy_file(from, to).await
     }
 
     /// Moves a file.
-    pub async fn move_file(&self, from: &str, to: &str) -> BitFunResult<()> {
+    pub async fn move_file(&self, from: &str, to: &str) -> CoreResult<()> {
         self.file_operation_service.move_file(from, to).await
     }
 
     /// Deletes a file.
-    pub async fn delete_file(&self, file_path: &str) -> BitFunResult<()> {
+    pub async fn delete_file(&self, file_path: &str) -> CoreResult<()> {
         self.file_operation_service.delete_file(file_path).await
     }
 
     /// Gets file info.
-    pub async fn get_file_info(&self, file_path: &str) -> BitFunResult<FileInfo> {
+    pub async fn get_file_info(&self, file_path: &str) -> CoreResult<FileInfo> {
         self.file_operation_service.get_file_info(file_path).await
     }
 
     /// Creates a directory.
-    pub async fn create_directory(&self, dir_path: &str) -> BitFunResult<()> {
+    pub async fn create_directory(&self, dir_path: &str) -> CoreResult<()> {
         self.file_operation_service.create_directory(dir_path).await
     }
 
     /// Deletes a directory.
-    pub async fn delete_directory(&self, dir_path: &str, recursive: bool) -> BitFunResult<()> {
+    pub async fn delete_directory(&self, dir_path: &str, recursive: bool) -> CoreResult<()> {
         self.file_operation_service
             .delete_directory(dir_path, recursive)
             .await
@@ -315,16 +315,16 @@ impl FileSystemService {
     }
 
     /// Gets the file size.
-    pub async fn get_file_size(&self, file_path: &str) -> BitFunResult<u64> {
+    pub async fn get_file_size(&self, file_path: &str) -> CoreResult<u64> {
         let info = self.get_file_info(file_path).await?;
         Ok(info.size)
     }
 
     /// Reads a text file quickly.
-    pub async fn read_text_file(&self, file_path: &str) -> BitFunResult<String> {
+    pub async fn read_text_file(&self, file_path: &str) -> CoreResult<String> {
         let result = self.read_file(file_path).await?;
         if result.is_binary {
-            Err(BitFunError::service(
+            Err(CoreError::service(
                 "File is binary, cannot read as text".to_string(),
             ))
         } else {
@@ -333,12 +333,12 @@ impl FileSystemService {
     }
 
     /// Writes a text file quickly.
-    pub async fn write_text_file(&self, file_path: &str, content: &str) -> BitFunResult<()> {
+    pub async fn write_text_file(&self, file_path: &str, content: &str) -> CoreResult<()> {
         self.write_file(file_path, content).await.map(|_| ())
     }
 
     /// Lists all files in a directory (recursive).
-    pub async fn list_all_files(&self, root_path: &str) -> BitFunResult<Vec<String>> {
+    pub async fn list_all_files(&self, root_path: &str) -> CoreResult<Vec<String>> {
         let tree = self.build_file_tree(root_path).await?;
         let mut files = Vec::new();
 
@@ -358,7 +358,7 @@ impl FileSystemService {
     }
 
     /// Calculates the directory size.
-    pub async fn calculate_directory_size(&self, dir_path: &str) -> BitFunResult<u64> {
+    pub async fn calculate_directory_size(&self, dir_path: &str) -> CoreResult<u64> {
         let scan_result = self.scan_directory(dir_path).await?;
         Ok(scan_result.statistics.total_size_bytes)
     }
@@ -368,7 +368,7 @@ impl FileSystemService {
         &self,
         root_path: &str,
         extension: &str,
-    ) -> BitFunResult<Vec<String>> {
+    ) -> CoreResult<Vec<String>> {
         let options = FileSearchOptions {
             include_content: false,
             file_extensions: Some(vec![extension.to_lowercase()]),
@@ -384,7 +384,7 @@ impl FileSystemService {
     }
 
     /// Gets directory statistics.
-    pub async fn get_directory_stats(&self, dir_path: &str) -> BitFunResult<DirectoryStats> {
+    pub async fn get_directory_stats(&self, dir_path: &str) -> CoreResult<DirectoryStats> {
         let scan_result = self.scan_directory(dir_path).await?;
         let stats = scan_result.statistics;
 
@@ -406,7 +406,7 @@ impl FileSystemService {
     }
 
     /// SHA-256 hex of on-disk content after editor-sync normalization (see `FileOperationService`).
-    pub async fn editor_sync_content_sha256_hex(&self, file_path: &str) -> BitFunResult<String> {
+    pub async fn editor_sync_content_sha256_hex(&self, file_path: &str) -> CoreResult<String> {
         self.file_operation_service
             .editor_sync_content_sha256_hex(file_path)
             .await

@@ -621,17 +621,12 @@ pub fn set_theme_preference(theme_preference: String) -> Result<(), String> {
         "system",
         "dark",
         "light",
-        "bitfun-china-style",
-        "bitfun-china-night",
-        "bitfun-cyber",
+        "sparo-china-style",
+        "sparo-china-night",
+        "sparo-cyber",
         "slate",
     ];
-    let normalized = match theme_preference.as_str() {
-        "sparo-light" | "bitfun-light" => "light".to_string(),
-        "bitfun-dark" => "dark".to_string(),
-        "bitfun-slate" | "bitfun-midnight" => "slate".to_string(),
-        other => other.to_string(),
-    };
+    let normalized = theme_preference;
     if !allowed.contains(&normalized.as_str()) {
         return Err("Unsupported theme preference".to_string());
     }
@@ -686,7 +681,7 @@ pub async fn test_model_config_connection(
     let model_name = ai_config.name.clone();
     let supports_image_input = super::ai_config::supports_image_input(&model_config);
 
-    let ai_client = bitfun_ai_adapters::AIClient::new(ai_config);
+    let ai_client = sparo_ai_adapters::AIClient::new(ai_config);
 
     match ai_client.test_connection().await {
         Ok(result) => {
@@ -778,7 +773,7 @@ pub async fn list_model_config_models(
     }
     let ai_config = super::ai_config::ai_config_from_installer_model(&model_config)
         .map_err(|e| e.to_string())?;
-    let ai_client = bitfun_ai_adapters::AIClient::new(ai_config);
+    let ai_client = sparo_ai_adapters::AIClient::new(ai_config);
     ai_client
         .list_models()
         .await
@@ -792,7 +787,7 @@ fn storage_format(model: &ModelConfig) -> String {
     model.format.trim().to_ascii_lowercase()
 }
 
-/// Stored `request_url` aligned with settings `resolveRequestUrl` (no bitfun_core).
+/// Stored `request_url` aligned with settings `resolveRequestUrl` (no sparo_core).
 fn resolve_stored_request_url(base_url: &str, format: &str) -> String {
     let trimmed = base_url.trim().trim_end_matches('/');
     if trimmed.ends_with('#') {

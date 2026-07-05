@@ -4,7 +4,7 @@
 //! standalone relay-server binary. Uses `MemoryAssetStore` for in-memory
 //! mobile-web file storage (no disk I/O for uploaded assets).
 
-use bitfun_relay_server::{build_relay_router, MemoryAssetStore, RoomManager};
+use sparo_relay_server::{build_relay_router, MemoryAssetStore, RoomManager};
 use log::info;
 use std::sync::Arc;
 

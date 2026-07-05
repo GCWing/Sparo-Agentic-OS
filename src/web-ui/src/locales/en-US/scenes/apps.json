@@ -509,8 +509,8 @@
       "evolutionLab": "Evolution Lab"
     },
     "coding": {
-      "name": "Prime Builder",
-      "description": "A software-building agent for planning, coding, debugging, and implementing applications from intent to working result."
+      "name": "BitFun Coder",
+      "description": "The default execution agent for taking goals, choosing the next action, and delivering verified workspace results."
     },
     "cowork": {
       "name": "Cowork Assistant",

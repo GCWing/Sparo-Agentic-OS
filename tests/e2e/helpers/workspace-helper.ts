@@ -29,7 +29,7 @@ export async function getWorkspaceState(): Promise<WorkspaceState> {
     const { workspaceManager } = await import('/src/infrastructure/services/business/workspaceManager.ts');
     const managerState = workspaceManager.getState();
     const openedWorkspaces = Array.from(managerState.openedWorkspaces.values());
-    const workspaceLabels = Array.from(document.querySelectorAll('.bitfun-nav-panel__workspace-item-label'))
+    const workspaceLabels = Array.from(document.querySelectorAll('.sparo-nav-panel__workspace-item-label'))
       .map(element => element.textContent?.trim() || '')
       .filter(Boolean);
 

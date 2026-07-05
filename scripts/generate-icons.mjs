@@ -239,7 +239,7 @@ async function generateForDir(iconDir) {
       if (!fs.existsSync(appsDir)) continue;
       const size = parseInt(sizeFolder);
       if (!size) continue;
-      const oldFile = path.join(appsDir, 'bitfun-desktop.png');
+      const oldFile = path.join(appsDir, 'sparo-desktop.png');
       const newFile = path.join(appsDir, 'sparo-os.png');
       if (fs.existsSync(oldFile) && !fs.existsSync(newFile)) {
         fs.renameSync(oldFile, newFile);

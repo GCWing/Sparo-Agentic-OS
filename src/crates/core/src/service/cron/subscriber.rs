@@ -2,7 +2,7 @@
 
 use super::service::CronService;
 use crate::agentic::events::{AgenticEvent, EventSubscriber};
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 use log::error;
 use std::sync::Arc;
 
@@ -18,7 +18,7 @@ impl CronEventSubscriber {
 
 #[async_trait::async_trait]
 impl EventSubscriber for CronEventSubscriber {
-    async fn on_event(&self, event: &AgenticEvent) -> BitFunResult<()> {
+    async fn on_event(&self, event: &AgenticEvent) -> CoreResult<()> {
         let result = match event {
             AgenticEvent::DialogTurnStarted { turn_id, .. } => {
                 self.cron_service.handle_turn_started(turn_id).await

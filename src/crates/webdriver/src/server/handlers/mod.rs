@@ -28,7 +28,7 @@ pub async fn status(State(state): State<Arc<AppState>>) -> WebDriverResponse {
         "message": "Sparo OS embedded WebDriver is ready",
         "build": {
             "version": env!("CARGO_PKG_VERSION"),
-            "name": "bitfun-embedded-webdriver"
+            "name": "sparo-embedded-webdriver"
         }
     }))
 }

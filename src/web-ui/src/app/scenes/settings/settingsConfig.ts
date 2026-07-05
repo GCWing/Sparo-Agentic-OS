@@ -186,7 +186,7 @@ export const SETTINGS_CATEGORIES: ConfigCategoryDef[] = [
           'log path',
           'language template',
           'instrumentation',
-          '构造师',
+          'BitFun Coder',
           '调试',
           '日志',
           '语言模板',

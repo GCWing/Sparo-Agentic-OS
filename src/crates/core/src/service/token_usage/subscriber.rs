@@ -2,7 +2,7 @@
 
 use crate::agentic::events::{AgenticEvent, EventSubscriber};
 use crate::service::token_usage::TokenUsageService;
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 use log::{debug, error};
 use std::sync::Arc;
 
@@ -23,7 +23,7 @@ impl TokenUsageSubscriber {
 
 #[async_trait::async_trait]
 impl EventSubscriber for TokenUsageSubscriber {
-    async fn on_event(&self, event: &AgenticEvent) -> BitFunResult<()> {
+    async fn on_event(&self, event: &AgenticEvent) -> CoreResult<()> {
         if let AgenticEvent::TokenUsageUpdated {
             session_id,
             turn_id,

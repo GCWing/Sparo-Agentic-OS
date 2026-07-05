@@ -18,7 +18,7 @@ use std::fmt::Write as _;
 /// string if there is nothing useful to say (e.g. Product App subsystem not
 /// initialized AND no extra context to surface) — callers should treat
 /// `""` as "skip the section".
-pub async fn build_bitfun_self_prompt() -> String {
+pub async fn build_sparo_self_prompt() -> String {
     let mut out = String::new();
     out.push_str("# Sparo OS Self Capabilities (you are running INSIDE this app)\n");
     out.push_str(

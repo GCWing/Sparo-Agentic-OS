@@ -1,8 +1,8 @@
-use bitfun_core::agentic::goal::{
+use sparo_core::agentic::goal::{
     GoalControlRequest, GoalEditRequest, GoalResponse, GoalService, GoalStatusRequest,
     GoalUserRequest,
 };
-use bitfun_core::agentic::{coordination::DialogScheduler, core::SessionStorageScope};
+use sparo_core::agentic::{coordination::DialogScheduler, core::SessionStorageScope};
 use std::sync::Arc;
 use tauri::State;
 

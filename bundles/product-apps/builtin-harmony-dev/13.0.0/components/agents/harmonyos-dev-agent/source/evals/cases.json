@@ -1,6 +1,6 @@
 [
   {
-    "name": "detect-bitfun-harmony",
+    "name": "detect-sparo-harmony",
     "prompt": "Detect this HarmonyOS project and summarize bundle, module, ability, target SDK, and signing status without exposing secrets."
   },
   {

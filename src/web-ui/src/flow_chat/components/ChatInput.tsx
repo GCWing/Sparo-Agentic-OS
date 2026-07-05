@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Standalone chat input component
  * Separated from bottom bar, supports session-level state awareness
  */
@@ -298,6 +298,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   const {
     boostPanelSkills,
+    boostPanelSuites,
     boostSkillsLoading,
     closeSkillsFlyout,
     dismissSkillsFlyout,
@@ -858,6 +859,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               skillsFlyoutUp={skillsFlyoutUp}
               skillsTooltipSuppressed={skillsTooltipSuppressed}
               boostPanelSkills={boostPanelSkills}
+              boostPanelSuites={boostPanelSuites}
               boostSkillsLoading={boostSkillsLoading}
               selectedAgentLabel={selectedAgentLabel}
               labels={{
@@ -867,6 +869,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 switchAgent: t('chatInput.switchAgent', { defaultValue: 'Switch Agent' }),
                 boostSkillsLoading: t('chatInput.boostSkillsLoading'),
                 boostSkillsEmpty: t('chatInput.boostSkillsEmpty'),
+                boostSkillsStandalone: t('chatInput.boostSkillsStandalone'),
+                boostSkillsSuiteFallback: t('chatInput.boostSkillsSuiteFallback'),
                 openSkillsLibrary: t('chatInput.openSkillsLibrary'),
               }}
               onToggleDropdown={e => {

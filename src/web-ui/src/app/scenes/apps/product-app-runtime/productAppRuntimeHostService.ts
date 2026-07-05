@@ -1,4 +1,4 @@
-﻿import { agentAPI } from '@/infrastructure/api/service-api/AgentAPI';
+import { agentAPI } from '@/infrastructure/api/service-api/AgentAPI';
 import { sessionAPI } from '@/infrastructure/api/service-api/SessionAPI';
 import { openWorkspaceScene, openWorkspaceSession } from '@/app/navigation/workspaceNavigation';
 import type { WorkspaceSceneId } from '@/app/navigation/workspaceSceneTypes';

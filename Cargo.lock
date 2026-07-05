@@ -580,227 +580,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bitfun-ai-adapters"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "eventsource-stream",
- "futures",
- "log",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "tokio",
- "tokio-stream",
- "urlencoding",
-]
-
-[[package]]
-name = "bitfun-core"
-version = "0.1.0"
-dependencies = [
- "aes",
- "aes-gcm",
- "agentshell",
- "anyhow",
- "arc-swap",
- "async-trait",
- "axum",
- "base64 0.22.1",
- "bitfun-ai-adapters",
- "bitfun-events",
- "bitfun-relay-server",
- "bitfun-transport",
- "chrono",
- "chrono-tz",
- "cli-credential",
- "cron",
- "dashmap",
- "dirs 5.0.1",
- "dunce",
- "filetime",
- "flate2",
- "fluent-bundle",
- "futures",
- "glob",
- "globset",
- "grep-regex",
- "grep-searcher",
- "hex",
- "hostname",
- "ignore",
- "image 0.25.10",
- "include_dir",
- "indexmap 2.14.0",
- "local-ip-address",
- "log",
- "mac_address",
- "md5",
- "notify",
- "qrcode",
- "rand 0.8.6",
- "regex",
- "reqwest 0.12.28",
- "rmcp",
- "rustls",
- "rustls-native-certs",
- "schannel",
- "semver",
- "serde",
- "serde_json",
- "serde_yaml",
- "sha2",
- "similar",
- "sse-stream",
- "tauri",
- "thiserror 1.0.69",
- "tokio",
- "tokio-stream",
- "tokio-tungstenite",
- "tokio-util",
- "tool-runtime",
- "tower-http",
- "unic-langid",
- "urlencoding",
- "uuid",
- "which 8.0.3",
- "win32job",
- "x25519-dalek",
- "zip",
-]
-
-[[package]]
-name = "bitfun-desktop"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "arc-swap",
- "async-trait",
- "atspi",
- "base64 0.22.1",
- "bitfun-core",
- "bitfun-transport",
- "bitfun-webdriver",
- "chrono",
- "cli-credential",
- "core-foundation 0.9.4",
- "core-graphics 0.23.2",
- "dark-light",
- "dirs 5.0.1",
- "dispatch",
- "enigo",
- "fontdue",
- "futures",
- "ignore",
- "image 0.24.9",
- "leptess",
- "log",
- "objc2 0.6.4",
- "objc2-foundation",
- "objc2-vision",
- "regex",
- "reqwest 0.12.28",
- "resvg",
- "screenshots",
- "serde",
- "serde_json",
- "sha1",
- "similar",
- "tauri",
- "tauri-build",
- "tauri-plugin-autostart",
- "tauri-plugin-dialog",
- "tauri-plugin-fs",
- "tauri-plugin-log",
- "tauri-plugin-notification",
- "tauri-plugin-opener",
- "tauri-plugin-single-instance",
- "tauri-plugin-window-state",
- "thiserror 1.0.69",
- "tokio",
- "urlencoding",
- "uuid",
- "windows 0.61.3",
- "windows-core 0.61.2",
- "zip",
-]
-
-[[package]]
-name = "bitfun-events"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "chrono",
- "log",
- "serde",
- "serde_json",
- "uuid",
-]
-
-[[package]]
-name = "bitfun-relay-server"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "base64 0.22.1",
- "chrono",
- "dashmap",
- "futures-util",
- "rand 0.8.6",
- "serde",
- "serde_json",
- "sha2",
- "tokio",
- "tower-http",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "bitfun-transport"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "bitfun-events",
- "chrono",
- "dashmap",
- "log",
- "serde",
- "serde_json",
- "tauri",
- "tokio",
-]
-
-[[package]]
-name = "bitfun-webdriver"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "base64 0.22.1",
- "block2 0.6.2",
- "image 0.25.10",
- "log",
- "objc2 0.6.4",
- "objc2-app-kit",
- "objc2-foundation",
- "objc2-web-kit",
- "serde",
- "serde_json",
- "tauri",
- "tempfile",
- "tokio",
- "uuid",
- "webview2-com",
- "windows 0.61.3",
- "windows-core 0.61.2",
-]
-
-[[package]]
 name = "bitvec"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6525,13 +6304,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "sparo-ai-adapters"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "eventsource-stream",
+ "futures",
+ "log",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-stream",
+ "urlencoding",
+]
+
+[[package]]
 name = "sparo-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "bitfun-core",
- "bitfun-events",
  "chrono",
  "clap",
  "crossterm",
@@ -6540,12 +6334,218 @@ dependencies = [
  "ratatui",
  "serde",
  "serde_json",
+ "sparo-core",
+ "sparo-events",
  "tokio",
  "toml 0.8.2",
  "tracing",
  "tracing-subscriber",
  "unicode-width 0.1.14",
  "uuid",
+]
+
+[[package]]
+name = "sparo-core"
+version = "0.1.0"
+dependencies = [
+ "aes",
+ "aes-gcm",
+ "agentshell",
+ "anyhow",
+ "arc-swap",
+ "async-trait",
+ "axum",
+ "base64 0.22.1",
+ "chrono",
+ "chrono-tz",
+ "cli-credential",
+ "cron",
+ "dashmap",
+ "dirs 5.0.1",
+ "dunce",
+ "filetime",
+ "flate2",
+ "fluent-bundle",
+ "futures",
+ "glob",
+ "globset",
+ "grep-regex",
+ "grep-searcher",
+ "hex",
+ "hostname",
+ "ignore",
+ "image 0.25.10",
+ "include_dir",
+ "indexmap 2.14.0",
+ "local-ip-address",
+ "log",
+ "mac_address",
+ "md5",
+ "notify",
+ "qrcode",
+ "rand 0.8.6",
+ "regex",
+ "reqwest 0.12.28",
+ "rmcp",
+ "rustls",
+ "rustls-native-certs",
+ "schannel",
+ "semver",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sha2",
+ "similar",
+ "sparo-ai-adapters",
+ "sparo-events",
+ "sparo-relay-server",
+ "sparo-transport",
+ "sse-stream",
+ "tauri",
+ "thiserror 1.0.69",
+ "tokio",
+ "tokio-stream",
+ "tokio-tungstenite",
+ "tokio-util",
+ "tool-runtime",
+ "tower-http",
+ "unic-langid",
+ "urlencoding",
+ "uuid",
+ "which 8.0.3",
+ "win32job",
+ "x25519-dalek",
+ "zip",
+]
+
+[[package]]
+name = "sparo-desktop"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "arc-swap",
+ "async-trait",
+ "atspi",
+ "base64 0.22.1",
+ "chrono",
+ "cli-credential",
+ "core-foundation 0.9.4",
+ "core-graphics 0.23.2",
+ "dark-light",
+ "dirs 5.0.1",
+ "dispatch",
+ "enigo",
+ "fontdue",
+ "futures",
+ "ignore",
+ "image 0.24.9",
+ "leptess",
+ "log",
+ "objc2 0.6.4",
+ "objc2-foundation",
+ "objc2-vision",
+ "regex",
+ "reqwest 0.12.28",
+ "resvg",
+ "screenshots",
+ "serde",
+ "serde_json",
+ "sha1",
+ "similar",
+ "sparo-core",
+ "sparo-transport",
+ "sparo-webdriver",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-autostart",
+ "tauri-plugin-dialog",
+ "tauri-plugin-fs",
+ "tauri-plugin-log",
+ "tauri-plugin-notification",
+ "tauri-plugin-opener",
+ "tauri-plugin-single-instance",
+ "tauri-plugin-window-state",
+ "thiserror 1.0.69",
+ "tokio",
+ "urlencoding",
+ "uuid",
+ "windows 0.61.3",
+ "windows-core 0.61.2",
+ "zip",
+]
+
+[[package]]
+name = "sparo-events"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "log",
+ "serde",
+ "serde_json",
+ "uuid",
+]
+
+[[package]]
+name = "sparo-relay-server"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "base64 0.22.1",
+ "chrono",
+ "dashmap",
+ "futures-util",
+ "rand 0.8.6",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "sparo-transport"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "dashmap",
+ "log",
+ "serde",
+ "serde_json",
+ "sparo-events",
+ "tauri",
+ "tokio",
+]
+
+[[package]]
+name = "sparo-webdriver"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "base64 0.22.1",
+ "block2 0.6.2",
+ "image 0.25.10",
+ "log",
+ "objc2 0.6.4",
+ "objc2-app-kit",
+ "objc2-foundation",
+ "objc2-web-kit",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tempfile",
+ "tokio",
+ "uuid",
+ "webview2-com",
+ "windows 0.61.3",
+ "windows-core 0.61.2",
 ]
 
 [[package]]

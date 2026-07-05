@@ -7,13 +7,13 @@ use super::{
 use crate::agentic::memory::prompts::{
     render_memory_prompt, MemoryPromptKind, MemoryPromptTemplateVars,
 };
-use crate::util::errors::*;
+use crate::error::*;
 use std::path::{Path, PathBuf};
 use tokio::fs;
 
 pub(crate) async fn build_memory_prompt_for_target(
     target: MemoryStoreTarget<'_>,
-) -> BitFunResult<String> {
+) -> CoreResult<String> {
     ensure_memory_store_for_target(target).await?;
     let memory_dir = memory_store_dir_path_for_target(target);
     let memory_dir_display = format_path_for_prompt(&memory_dir);
@@ -31,7 +31,7 @@ pub(crate) async fn build_memory_prompt_for_target(
 
 pub(crate) async fn build_memory_files_context_for_target(
     target: MemoryStoreTarget<'_>,
-) -> BitFunResult<Option<String>> {
+) -> CoreResult<Option<String>> {
     ensure_memory_store_for_target(target).await?;
     let memory_dir = memory_store_dir_path_for_target(target);
     let sections = build_memory_space_sections(target.scope(), &memory_dir).await?;
@@ -45,7 +45,7 @@ pub(crate) async fn build_memory_files_context_for_target(
 async fn build_memory_space_sections(
     scope: MemoryScope,
     memory_dir: &Path,
-) -> BitFunResult<String> {
+) -> CoreResult<String> {
     let primary_sections = build_primary_memory_sections(scope, memory_dir).await?;
     let recent_logs_section = build_recent_log_section(memory_dir).await?;
 
@@ -59,7 +59,7 @@ async fn build_memory_space_sections(
 async fn build_primary_memory_sections(
     scope: MemoryScope,
     memory_dir: &Path,
-) -> BitFunResult<String> {
+) -> CoreResult<String> {
     let mut sections = Vec::new();
 
     for file_name in memory_primary_files_for_scope(scope) {
@@ -73,7 +73,7 @@ async fn build_primary_memory_sections(
     Ok(sections.join("\n\n"))
 }
 
-async fn build_single_memory_section(path: &Path, file_name: &str) -> BitFunResult<String> {
+async fn build_single_memory_section(path: &Path, file_name: &str) -> CoreResult<String> {
     let (title, description, empty_label) = match file_name {
         "SOUL.md" => (
             "Assistant Persona",
@@ -131,7 +131,7 @@ async fn build_single_memory_section(path: &Path, file_name: &str) -> BitFunResu
     ))
 }
 
-async fn build_recent_log_section(memory_dir: &Path) -> BitFunResult<String> {
+async fn build_recent_log_section(memory_dir: &Path) -> CoreResult<String> {
     let log_files = recent_log_files(memory_dir).await?;
     if log_files.is_empty() {
         return Ok(format!(
@@ -155,7 +155,7 @@ async fn build_recent_log_section(memory_dir: &Path) -> BitFunResult<String> {
     ))
 }
 
-async fn recent_log_files(memory_dir: &Path) -> BitFunResult<Vec<PathBuf>> {
+async fn recent_log_files(memory_dir: &Path) -> CoreResult<Vec<PathBuf>> {
     let mut paths = list_memory_files_recursive(memory_dir)
         .await?
         .into_iter()
@@ -185,7 +185,7 @@ fn render_recent_log_file_list(memory_dir: &Path, log_files: &[PathBuf]) -> Stri
     format!("## Recent files\n{items}")
 }
 
-async fn render_latest_log_content(memory_dir: &Path, path: &Path) -> BitFunResult<String> {
+async fn render_latest_log_content(memory_dir: &Path, path: &Path) -> CoreResult<String> {
     let relative = relative_log_path(memory_dir, path);
     let content = match fs::read_to_string(path).await {
         Ok(content) => content,
@@ -385,6 +385,6 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .expect("system time before unix epoch")
             .as_nanos();
-        std::env::temp_dir().join(format!("bitfun-memory-{prefix}-{nanos}"))
+        std::env::temp_dir().join(format!("sparo-memory-{prefix}-{nanos}"))
     }
 }

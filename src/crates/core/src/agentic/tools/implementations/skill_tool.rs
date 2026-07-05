@@ -7,10 +7,12 @@ use crate::agentic::agents::get_agent_registry;
 use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
 };
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use log::debug;
 use serde_json::{json, Value};
+use std::collections::HashSet;
+use std::path::Path;
 
 // Use skills module
 use super::skills::{get_skill_registry, SkillLocation};
@@ -56,9 +58,38 @@ Important:
         )
     }
 
+    async fn build_suite_descriptions_for_workspace(
+        &self,
+        workspace_root: Option<&Path>,
+        agent_type: Option<&str>,
+    ) -> Vec<String> {
+        let registry = get_skill_registry();
+        let resolved_keys: HashSet<String> = registry
+            .get_resolved_skills_for_workspace(workspace_root, agent_type)
+            .await
+            .into_iter()
+            .map(|skill| skill.key)
+            .collect();
+        let catalog = registry
+            .get_skill_catalog_for_workspace(workspace_root)
+            .await;
+
+        catalog
+            .suites
+            .into_iter()
+            .filter(|suite| {
+                suite
+                    .member_skill_keys
+                    .iter()
+                    .any(|key| resolved_keys.contains(key))
+            })
+            .map(|suite| suite.to_xml_desc())
+            .collect()
+    }
+
     async fn build_description_for_context(&self, context: Option<&ToolUseContext>) -> String {
         let registry = get_skill_registry();
-        let available_skills = match context {
+        let mut available_skills = match context {
             Some(ctx) if ctx.is_remote() => {
                 if let Some(fs) = ctx.ws_fs() {
                     let root = ctx
@@ -96,7 +127,7 @@ Important:
                             .into_iter()
                             .filter(|skill| allowed.contains(&skill.key))
                             .map(|skill| skill.to_xml_desc())
-                            .collect()
+                            .collect::<Vec<_>>()
                     } else {
                         registry
                             .get_resolved_skills_xml_for_workspace(
@@ -119,6 +150,23 @@ Important:
             }
         };
 
+        if let Some(ctx) = context.filter(|ctx| !ctx.is_remote()) {
+            let mut suites = self
+                .build_suite_descriptions_for_workspace(
+                    ctx.workspace_root(),
+                    ctx.agent_type.as_deref(),
+                )
+                .await;
+            suites.append(&mut available_skills);
+            available_skills = suites;
+        } else if context.is_none() {
+            let mut suites = self
+                .build_suite_descriptions_for_workspace(None, None)
+                .await;
+            suites.append(&mut available_skills);
+            available_skills = suites;
+        }
+
         self.render_description(available_skills.join("\n"))
     }
 }
@@ -129,14 +177,14 @@ impl Tool for SkillTool {
         "Skill"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(self.build_description_for_context(None).await)
     }
 
     async fn description_with_context(
         &self,
         context: Option<&ToolUseContext>,
-    ) -> BitFunResult<String> {
+    ) -> CoreResult<String> {
         let mut s = self.build_description_for_context(context).await;
         if context.map(|c| c.is_remote()).unwrap_or(false)
             && context.and_then(|c| c.ws_fs()).is_none()
@@ -154,7 +202,7 @@ impl Tool for SkillTool {
             "properties": {
                 "command": {
                     "type": "string",
-                    "description": "The skill name (no arguments). E.g., \"pdf\" or \"xlsx\""
+                "description": "The skill name or suite command. E.g., \"pdf\", \"xlsx\", or \"suite:product-app-development\""
                 }
             },
             "required": ["command"],
@@ -212,16 +260,45 @@ impl Tool for SkillTool {
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let skill_name = input
             .get("command")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BitFunError::tool("command is required".to_string()))?;
+            .ok_or_else(|| CoreError::tool("command is required".to_string()))?;
 
         debug!("Skill tool executing skill: {}", skill_name);
 
         // Find and load skill through registry
         let registry = get_skill_registry();
+        if skill_name.trim().starts_with("suite:") {
+            let (suite, router_content) = registry
+                .find_and_load_suite_router_for_workspace(
+                    skill_name,
+                    context.workspace_root(),
+                    context.agent_type.as_deref(),
+                )
+                .await?;
+
+            let result_for_assistant = format!(
+                "Skill suite '{}' loaded successfully. Use this router to choose the smallest matching member skill before loading member instructions.\n\n{}",
+                suite.name, router_content
+            );
+
+            let result = ToolResult::Result {
+                data: json!({
+                    "suite_id": suite.id,
+                    "suite_name": suite.name,
+                    "description": suite.description,
+                    "content": router_content,
+                    "success": true
+                }),
+                result_for_assistant: Some(result_for_assistant),
+                image_attachments: None,
+            };
+
+            return Ok(vec![result]);
+        }
+
         let skill_data = if context.is_remote() {
             if let Some(ws_fs) = context.ws_fs() {
                 let root = context
@@ -264,7 +341,7 @@ impl Tool for SkillTool {
                 let allowed: std::collections::HashSet<String> =
                     profile.skills.effective.into_iter().collect();
                 if !allowed.contains(&skill_data.key) {
-                    return Err(BitFunError::tool(format!(
+                    return Err(CoreError::tool(format!(
                         "Skill '{}' is not enabled for agent '{}'",
                         skill_name, agent_type
                     )));

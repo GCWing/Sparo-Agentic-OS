@@ -35,7 +35,7 @@ mod workspace_memory_consolidator_agent;
 mod workspace_overview_refresher_agent;
 
 use crate::agentic::memory::store::MemoryScope;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 pub use agentic_agent::AgenticAgent;
 pub use app_studio_agent::AppStudioAgent;
 use async_trait::async_trait;
@@ -107,11 +107,11 @@ pub trait Agent: Send + Sync + 'static {
     }
 
     /// Build the system prompt for this agent
-    async fn build_prompt(&self, context: &PromptBuilderContext) -> BitFunResult<String> {
+    async fn build_prompt(&self, context: &PromptBuilderContext) -> CoreResult<String> {
         let prompt_components = PromptBuilder::new(context.clone());
         let template_name = self.prompt_template_name(context.model_name.as_deref());
         let system_prompt_template = get_embedded_prompt(template_name).ok_or_else(|| {
-            BitFunError::Agent(format!("{} not found in embedded files", template_name))
+            CoreError::Agent(format!("{} not found in embedded files", template_name))
         })?;
 
         let prompt = prompt_components
@@ -125,11 +125,11 @@ pub trait Agent: Send + Sync + 'static {
     async fn get_system_prompt(
         &self,
         context: Option<&PromptBuilderContext>,
-    ) -> BitFunResult<String> {
+    ) -> CoreResult<String> {
         if let Some(context) = context {
             self.build_prompt(context).await
         } else {
-            Err(BitFunError::Agent(
+            Err(CoreError::Agent(
                 "Prompt build context is required".to_string(),
             ))
         }
@@ -138,11 +138,11 @@ pub trait Agent: Send + Sync + 'static {
     /// Get the system reminder for this agent when an agent needs turn-level guidance.
     /// system_reminder will be appended to the user_query
     /// This is not necessary for all agents.
-    async fn get_system_reminder(&self, _index: usize) -> BitFunResult<String> {
+    async fn get_system_reminder(&self, _index: usize) -> CoreResult<String> {
         if let Some(system_reminder_template_name) = self.system_reminder_template_name() {
             let system_reminder =
                 get_embedded_prompt(system_reminder_template_name).ok_or_else(|| {
-                    BitFunError::Agent(format!(
+                    CoreError::Agent(format!(
                         "{} not found in embedded files",
                         system_reminder_template_name
                     ))

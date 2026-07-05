@@ -1,6 +1,6 @@
 use super::model::{GoalExtractionRun, GoalJudgeRun, GoalRecord, GoalStoreEvent};
 use crate::infrastructure::PathManager;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -60,20 +60,20 @@ impl GoalStore {
         &self,
         workspace_path: &Path,
         session_id: &str,
-    ) -> BitFunResult<Option<GoalRecord>> {
+    ) -> CoreResult<Option<GoalRecord>> {
         let path = self.current_path(workspace_path, session_id);
         if !path.exists() {
             return Ok(None);
         }
         let bytes = fs::read(&path).await.map_err(|error| {
-            BitFunError::service(format!(
+            CoreError::service(format!(
                 "Failed to read goal current file: path={} error={}",
                 path.display(),
                 error
             ))
         })?;
         let record = serde_json::from_slice(&bytes).map_err(|error| {
-            BitFunError::service(format!(
+            CoreError::service(format!(
                 "Failed to parse goal current file: path={} error={}",
                 path.display(),
                 error
@@ -87,16 +87,16 @@ impl GoalStore {
         workspace_path: &Path,
         session_id: &str,
         record: &GoalRecord,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let path = self.current_path(workspace_path, session_id);
         self.write_json_atomic(&path, record).await
     }
 
-    pub async fn clear_current(&self, workspace_path: &Path, session_id: &str) -> BitFunResult<()> {
+    pub async fn clear_current(&self, workspace_path: &Path, session_id: &str) -> CoreResult<()> {
         let path = self.current_path(workspace_path, session_id);
         if path.exists() {
             fs::remove_file(&path).await.map_err(|error| {
-                BitFunError::service(format!(
+                CoreError::service(format!(
                     "Failed to remove goal current file: path={} error={}",
                     path.display(),
                     error
@@ -111,7 +111,7 @@ impl GoalStore {
         workspace_path: &Path,
         session_id: &str,
         record: &GoalRecord,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let path = self
             .snapshots_dir(workspace_path, session_id)
             .join(format!("{}.md", record.goal_id));
@@ -124,7 +124,7 @@ impl GoalStore {
         workspace_path: &Path,
         session_id: &str,
         run: &GoalExtractionRun,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let path = self
             .extractions_dir(workspace_path, session_id)
             .join(format!("{}.json", run.extraction_id));
@@ -136,7 +136,7 @@ impl GoalStore {
         workspace_path: &Path,
         session_id: &str,
         run: &GoalJudgeRun,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let path = self
             .judges_dir(workspace_path, session_id)
             .join(format!("{}.json", run.judge_id));
@@ -148,10 +148,10 @@ impl GoalStore {
         workspace_path: &Path,
         session_id: &str,
         event: &GoalStoreEvent,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let dir = self.goals_dir(workspace_path, session_id);
         fs::create_dir_all(&dir).await.map_err(|error| {
-            BitFunError::service(format!(
+            CoreError::service(format!(
                 "Failed to create goal directory: path={} error={}",
                 dir.display(),
                 error
@@ -164,24 +164,24 @@ impl GoalStore {
             .open(&path)
             .await
             .map_err(|error| {
-                BitFunError::service(format!(
+                CoreError::service(format!(
                     "Failed to open goal event log: path={} error={}",
                     path.display(),
                     error
                 ))
             })?;
         let mut value = serde_json::to_value(event).map_err(|error| {
-            BitFunError::service(format!("Failed to encode goal event: {}", error))
+            CoreError::service(format!("Failed to encode goal event: {}", error))
         })?;
         if let serde_json::Value::Object(ref mut map) = value {
             map.insert("atMs".to_string(), serde_json::json!(now_ms()));
         }
         let mut line = serde_json::to_vec(&value).map_err(|error| {
-            BitFunError::service(format!("Failed to encode goal event: {}", error))
+            CoreError::service(format!("Failed to encode goal event: {}", error))
         })?;
         line.push(b'\n');
         file.write_all(&line).await.map_err(|error| {
-            BitFunError::service(format!(
+            CoreError::service(format!(
                 "Failed to append goal event: path={} error={}",
                 path.display(),
                 error
@@ -193,21 +193,21 @@ impl GoalStore {
         &self,
         path: &Path,
         value: &T,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let body = serde_json::to_vec_pretty(value).map_err(|error| {
-            BitFunError::service(format!("Failed to encode goal file: {}", error))
+            CoreError::service(format!("Failed to encode goal file: {}", error))
         })?;
         self.write_bytes_atomic(path, &body).await
     }
 
-    async fn write_text_atomic(&self, path: &Path, value: &str) -> BitFunResult<()> {
+    async fn write_text_atomic(&self, path: &Path, value: &str) -> CoreResult<()> {
         self.write_bytes_atomic(path, value.as_bytes()).await
     }
 
-    async fn write_bytes_atomic(&self, path: &Path, body: &[u8]) -> BitFunResult<()> {
+    async fn write_bytes_atomic(&self, path: &Path, body: &[u8]) -> CoreResult<()> {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).await.map_err(|error| {
-                BitFunError::service(format!(
+                CoreError::service(format!(
                     "Failed to create goal file directory: path={} error={}",
                     parent.display(),
                     error
@@ -216,14 +216,14 @@ impl GoalStore {
         }
         let tmp_path = path.with_extension("tmp");
         fs::write(&tmp_path, body).await.map_err(|error| {
-            BitFunError::service(format!(
+            CoreError::service(format!(
                 "Failed to write temporary goal file: path={} error={}",
                 tmp_path.display(),
                 error
             ))
         })?;
         fs::rename(&tmp_path, path).await.map_err(|error| {
-            BitFunError::service(format!(
+            CoreError::service(format!(
                 "Failed to replace goal file: path={} error={}",
                 path.display(),
                 error

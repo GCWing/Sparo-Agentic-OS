@@ -2,7 +2,7 @@
 ///
 /// Interactive chat mode with TUI interface
 use anyhow::Result;
-use bitfun_core::infrastructure::try_get_path_manager_arc;
+use sparo_core::infrastructure::try_get_path_manager_arc;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
@@ -601,7 +601,7 @@ impl ChatMode {
                 .as_ref()
                 .map(|path| path.to_string_lossy().to_string())
         });
-        let request = bitfun_core::command::session::ShowSessionRequest {
+        let request = sparo_core::command::session::ShowSessionRequest {
             session_id: session_id.to_string(),
             workspace_path,
         };
@@ -609,7 +609,7 @@ impl ChatMode {
             return None;
         };
         let detail = tokio::task::block_in_place(|| {
-            handle.block_on(bitfun_core::command::session::show_session(request))
+            handle.block_on(sparo_core::command::session::show_session(request))
         });
 
         match detail {
@@ -626,7 +626,7 @@ impl ChatMode {
     }
 
     fn fallback_session_from_row(
-        row: &bitfun_core::command::agentic_os::AgenticOsSessionRow,
+        row: &sparo_core::command::agentic_os::AgenticOsSessionRow,
         detail: Option<String>,
     ) -> Session {
         let mut session = Session::new(row.agent.clone(), row.workspace.clone());
@@ -640,7 +640,7 @@ impl ChatMode {
     }
 
     fn fallback_session_from_task(
-        task: &bitfun_core::command::agentic_os::AgenticOsTaskRow,
+        task: &sparo_core::command::agentic_os::AgenticOsTaskRow,
         session_id: &str,
         detail: Option<String>,
     ) -> Session {
@@ -1479,7 +1479,7 @@ impl ChatMode {
     fn open_snapshot_overlay(
         &self,
         kind: PanelKind,
-        snapshot: bitfun_core::command::agentic_os::AgenticOsSnapshot,
+        snapshot: sparo_core::command::agentic_os::AgenticOsSnapshot,
         selected: usize,
         chat_view: &mut ChatView,
     ) {
@@ -1530,7 +1530,7 @@ fn session_history_summary(session: &Session) -> String {
 fn live_agents_message() -> String {
     let handle = tokio::runtime::Handle::current();
     let agents = tokio::task::block_in_place(|| {
-        handle.block_on(bitfun_core::agentic::agents::get_agent_registry().list_agents_info())
+        handle.block_on(sparo_core::agentic::agents::get_agent_registry().list_agents_info())
     });
     agents_registry_message(&agents)
 }
@@ -1584,7 +1584,7 @@ mod tests {
     use super::*;
     use crate::agent::{AgentEvent, AgentResponse};
     use crate::session::ToolCall;
-    use bitfun_core::command::agentic_os::{
+    use sparo_core::command::agentic_os::{
         AgenticOsAppRow, AgenticOsMemoryRow, AgenticOsSessionRow, AgenticOsSnapshot,
         AgenticOsTaskRow, AgenticOsWorkspaceRow,
     };

@@ -79,7 +79,7 @@ export const THEMES: InstallerTheme[] = [
     },
   },
   {
-    id: 'bitfun-china-style',
+    id: 'sparo-china-style',
     name: 'Ink Charm',
     type: 'light',
     colors: {
@@ -93,7 +93,7 @@ export const THEMES: InstallerTheme[] = [
     },
   },
   {
-    id: 'bitfun-china-night',
+    id: 'sparo-china-night',
     name: 'Ink Night',
     type: 'dark',
     colors: {
@@ -107,7 +107,7 @@ export const THEMES: InstallerTheme[] = [
     },
   },
   {
-    id: 'bitfun-cyber',
+    id: 'sparo-cyber',
     name: 'Cyber',
     type: 'dark',
     colors: {
@@ -140,9 +140,9 @@ export const THEME_DISPLAY_ORDER: ThemeId[] = [
   'light',
   'slate',
   'dark',
-  'bitfun-china-style',
-  'bitfun-china-night',
-  'bitfun-cyber',
+  'sparo-china-style',
+  'sparo-china-night',
+  'sparo-cyber',
 ];
 
 export function findInstallerThemeById(id: ThemeId): InstallerTheme {

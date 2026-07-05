@@ -46,10 +46,10 @@ In **Remote Connect → Self-Hosted → Server URL**, use one of:
 
 ```bash
 # From project root
-cargo build --release -p bitfun-relay-server
+cargo build --release -p sparo-relay-server
 
 # Run
-RELAY_PORT=9700 ./target/release/bitfun-relay-server
+RELAY_PORT=9700 ./target/release/sparo-relay-server
 ```
 
 ## Environment Variables

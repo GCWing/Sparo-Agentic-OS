@@ -20,7 +20,7 @@ use crate::bridge_component::{
     BridgeComponentConsumer, BridgeComponentConsumerKind, BridgeComponentManager,
     BridgeComponentRunStatus,
 };
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -46,7 +46,7 @@ impl Tool for RunStudioPreviewTool {
         "RunStudioPreview"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(r#"Run the App Studio Preview Harness for the current bound Product App or Component subject and return a structured PreviewResult fact. This is the platform preview gate for product-app-preview, agent-chat, sidecar, full-app, embedded, capability, agent-eval, runtime-boundary, runtime-dependencies, permission-review, user-path-rehearsal, and release-rehearsal modes.
 
 Input may be empty in a bound AppStudio session. Optional mode can force one harness: auto, product-app-preview, agent-chat, sidecar-ui, full-ui, embedded-object, capability, agent-eval, runtime-boundary, runtime-dependencies, permission-review, user-path-rehearsal, or release-rehearsal. The tool never edits files. Release rehearsal summarizes readiness gaps and never substitutes for independent runtime, user-path, permission-review, dependency-health, or Agent Eval evidence. When a concrete runner or evidence source is not available, it returns notVerified checks instead of pretending the preview passed."#
@@ -117,9 +117,9 @@ Input may be empty in a bound AppStudio session. Optional mode can force one har
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let Some(app_studio) = context.app_studio.as_ref() else {
-            return Err(BitFunError::validation(
+            return Err(CoreError::validation(
                 "RunStudioPreview requires a bound AppStudio session".to_string(),
             ));
         };

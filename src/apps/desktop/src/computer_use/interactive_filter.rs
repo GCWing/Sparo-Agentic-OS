@@ -17,7 +17,7 @@
 
 #![allow(dead_code)]
 
-use bitfun_core::agentic::tools::computer_use_host::{
+use sparo_core::agentic::tools::computer_use_host::{
     AxNode, ComputerScreenshot, InteractiveElement,
 };
 
@@ -373,7 +373,7 @@ fn project_global_to_image(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bitfun_core::agentic::tools::computer_use_host::ComputerUseImageGlobalBounds;
+    use sparo_core::agentic::tools::computer_use_host::ComputerUseImageGlobalBounds;
 
     fn node(idx: u32, role: &str, frame: Option<(f64, f64, f64, f64)>) -> AxNode {
         AxNode {

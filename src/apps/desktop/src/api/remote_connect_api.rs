@@ -1,6 +1,6 @@
 //! Tauri commands for Remote Connect.
 
-use bitfun_core::service::remote_connect::{
+use sparo_core::service::remote_connect::{
     bot::{self, weixin, BotConfig},
     lan, ConnectionMethod, ConnectionResult, PairingState, RemoteConnectConfig,
     RemoteConnectService,
@@ -45,7 +45,7 @@ pub fn init_on_startup() {
 
 /// Synchronous cleanup called when the application exits.
 pub fn cleanup_on_exit() {
-    bitfun_core::service::remote_connect::ngrok::cleanup_all_ngrok();
+    sparo_core::service::remote_connect::ngrok::cleanup_all_ngrok();
     log::info!("Remote connect cleanup completed on exit");
 }
 
@@ -73,7 +73,7 @@ async fn ensure_service() -> Result<(), String> {
 
 /// Restore any bot connections that were previously saved to disk.
 async fn restore_saved_bots() {
-    use bitfun_core::service::remote_connect::bot;
+    use sparo_core::service::remote_connect::bot;
 
     let data = bot::load_bot_persistence();
     if data.connections.is_empty() {
@@ -157,10 +157,10 @@ fn detect_from_exe() -> Option<String> {
     candidates.push(exe_dir.join("resources/mobile-web"));
 
     if cfg!(target_os = "linux") {
-        candidates.push(exe_dir.join("../lib/bitfun/mobile-web/dist"));
-        candidates.push(exe_dir.join("../lib/bitfun/mobile-web"));
-        candidates.push(exe_dir.join("../share/bitfun/mobile-web/dist"));
-        candidates.push(exe_dir.join("../share/bitfun/mobile-web"));
+        candidates.push(exe_dir.join("../lib/sparo/mobile-web/dist"));
+        candidates.push(exe_dir.join("../lib/sparo/mobile-web"));
+        candidates.push(exe_dir.join("../share/sparo/mobile-web/dist"));
+        candidates.push(exe_dir.join("../share/sparo/mobile-web"));
         candidates.push(exe_dir.join("../share/com.sparo-os.desktop/mobile-web/dist"));
         candidates.push(exe_dir.join("../share/com.sparo-os.desktop/mobile-web"));
     }

@@ -59,7 +59,7 @@ describe('composerActionResolver', () => {
     expect(model.switchableAgents.map(agent => agent.id)).toEqual(['debug']);
   });
 
-  it('normalizes legacy Prime Builder descriptors before resolving agent actions', () => {
+  it('normalizes legacy BitFun Coder descriptors before resolving agent actions', () => {
     const model = resolveComposerActionModel(baseInput({
       descriptor: {
         ...SESSION_DESCRIPTORS.coding,

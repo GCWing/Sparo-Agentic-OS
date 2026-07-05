@@ -1,6 +1,6 @@
 //! Post-action verification and smart retry logic.
 
-use crate::util::errors::BitFunError;
+use crate::error::CoreError;
 use serde::{Deserialize, Serialize};
 
 /// Verification result after an action
@@ -62,7 +62,7 @@ pub fn detect_visual_change(hash_before: u64, hash_after: u64) -> VerificationRe
 }
 
 /// Determine if an action should be retried based on error type
-pub fn should_retry_action(error: &BitFunError, action_type: &str) -> bool {
+pub fn should_retry_action(error: &CoreError, action_type: &str) -> bool {
     let error_msg = error.to_string().to_lowercase();
 
     // Retry on transient errors

@@ -1,16 +1,16 @@
 [package]
-name = "bitfun-desktop"
+name = "sparo-desktop"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
 description = "Sparo OS Desktop Application (Tauri)"
 
 [lib]
-name = "bitfun_desktop_lib"
+name = "sparo_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [[bin]]
-name = "bitfun-desktop"
+name = "sparo-desktop"
 path = "src/main.rs"
 
 [build-dependencies]
@@ -19,10 +19,10 @@ serde_json = { workspace = true }
 
 [dependencies]
 # Internal crates
-bitfun-core = { path = "../../crates/core" }
+sparo-core = { path = "../../crates/core" }
 cli-credential = { path = "../../crates/libs/cli-credential" }
-bitfun-transport = { path = "../../crates/transport", features = ["tauri-adapter"] }
-bitfun-webdriver = { path = "../../crates/webdriver" }
+sparo-transport = { path = "../../crates/transport", features = ["tauri-adapter"] }
+sparo-webdriver = { path = "../../crates/webdriver" }
 
 # Tauri
 tauri = { workspace = true }

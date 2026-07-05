@@ -1,7 +1,7 @@
 //! I18n API
 
 use crate::api::app_state::AppState;
-use bitfun_core::service::i18n::{get_global_i18n_service, LocaleId};
+use sparo_core::service::i18n::{get_global_i18n_service, LocaleId};
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

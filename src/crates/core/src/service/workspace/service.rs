@@ -13,7 +13,7 @@ use crate::service::workspace_runtime::{
     try_get_workspace_runtime_service_arc, WorkspaceRuntimeService,
 };
 use crate::service::workspace_session::local_workspace_roots_equal;
-use crate::util::errors::*;
+use crate::error::*;
 use log::{info, warn};
 
 use serde::{Deserialize, Serialize};
@@ -149,13 +149,13 @@ impl WorkspaceService {
     }
 
     /// Creates a new workspace service.
-    pub async fn new() -> BitFunResult<Self> {
+    pub async fn new() -> CoreResult<Self> {
         let config = WorkspaceManagerConfig::default();
         Self::with_config(config).await
     }
 
     /// Creates a workspace service with a custom configuration.
-    pub async fn with_config(config: WorkspaceManagerConfig) -> BitFunResult<Self> {
+    pub async fn with_config(config: WorkspaceManagerConfig) -> CoreResult<Self> {
         let path_manager = try_get_path_manager_arc()?;
         let runtime_service = try_get_workspace_runtime_service_arc()?;
 
@@ -165,7 +165,7 @@ impl WorkspaceService {
             PersistenceService::new_user_level(path_manager.clone())
                 .await
                 .map_err(|e| {
-                    BitFunError::service(format!("Failed to create persistence service: {}", e))
+                    CoreError::service(format!("Failed to create persistence service: {}", e))
                 })?,
         );
 
@@ -205,7 +205,7 @@ impl WorkspaceService {
     }
 
     /// Opens a workspace.
-    pub async fn open_workspace(&self, path: PathBuf) -> BitFunResult<WorkspaceInfo> {
+    pub async fn open_workspace(&self, path: PathBuf) -> CoreResult<WorkspaceInfo> {
         self.open_workspace_with_options(path, WorkspaceCreateOptions::default())
             .await
     }
@@ -215,7 +215,7 @@ impl WorkspaceService {
         &self,
         path: PathBuf,
         options: WorkspaceCreateOptions,
-    ) -> BitFunResult<WorkspaceInfo> {
+    ) -> CoreResult<WorkspaceInfo> {
         let result = {
             let mut manager = self.manager.write().await;
             manager
@@ -247,7 +247,7 @@ impl WorkspaceService {
         &self,
         path: PathBuf,
         options: WorkspaceCreateOptions,
-    ) -> BitFunResult<WorkspaceInfo> {
+    ) -> CoreResult<WorkspaceInfo> {
         let result = {
             let mut manager = self.manager.write().await;
             manager
@@ -278,7 +278,7 @@ impl WorkspaceService {
     }
 
     /// Quickly opens a workspace (using default options).
-    pub async fn quick_open(&self, path: &str) -> BitFunResult<WorkspaceInfo> {
+    pub async fn quick_open(&self, path: &str) -> CoreResult<WorkspaceInfo> {
         let path_buf = PathBuf::from(path);
         self.open_workspace(path_buf).await
     }
@@ -288,10 +288,10 @@ impl WorkspaceService {
         &self,
         path: PathBuf,
         options: WorkspaceCreateOptions,
-    ) -> BitFunResult<WorkspaceInfo> {
+    ) -> CoreResult<WorkspaceInfo> {
         if !path.exists() {
             tokio::fs::create_dir_all(&path).await.map_err(|e| {
-                BitFunError::service(format!("Failed to create workspace directory: {}", e))
+                CoreError::service(format!("Failed to create workspace directory: {}", e))
             })?;
         }
 
@@ -312,7 +312,7 @@ impl WorkspaceService {
     }
 
     /// Closes the last-used workspace.
-    pub async fn close_last_used_workspace(&self) -> BitFunResult<()> {
+    pub async fn close_last_used_workspace(&self) -> CoreResult<()> {
         let result = {
             let mut manager = self.manager.write().await;
             manager.close_last_used_workspace()
@@ -328,7 +328,7 @@ impl WorkspaceService {
     }
 
     /// Closes the specified workspace.
-    pub async fn close_workspace(&self, workspace_id: &str) -> BitFunResult<()> {
+    pub async fn close_workspace(&self, workspace_id: &str) -> CoreResult<()> {
         let result = {
             let mut manager = self.manager.write().await;
             manager.close_workspace(workspace_id)
@@ -344,7 +344,7 @@ impl WorkspaceService {
     }
 
     /// Remembers a workspace from the opened workspace list as the last-used workspace.
-    pub async fn remember_workspace(&self, workspace_id: &str) -> BitFunResult<()> {
+    pub async fn remember_workspace(&self, workspace_id: &str) -> CoreResult<()> {
         let result = {
             let mut manager = self.manager.write().await;
             manager.remember_workspace(workspace_id)
@@ -375,14 +375,14 @@ impl WorkspaceService {
     }
 
     /// Reorders the opened workspaces without changing active or recent state.
-    pub async fn reorder_opened_workspaces(&self, workspace_ids: Vec<String>) -> BitFunResult<()> {
+    pub async fn reorder_opened_workspaces(&self, workspace_ids: Vec<String>) -> CoreResult<()> {
         let current_ids = {
             let manager = self.manager.read().await;
             manager.get_opened_workspace_ids().clone()
         };
 
         if workspace_ids.len() != current_ids.len() {
-            return Err(BitFunError::service(format!(
+            return Err(CoreError::service(format!(
                 "Opened workspace count mismatch: expected {}, got {}",
                 current_ids.len(),
                 workspace_ids.len()
@@ -391,14 +391,14 @@ impl WorkspaceService {
 
         let requested_ids = workspace_ids.iter().cloned().collect::<HashSet<_>>();
         if requested_ids.len() != workspace_ids.len() {
-            return Err(BitFunError::service(
+            return Err(CoreError::service(
                 "Opened workspace order contains duplicate ids".to_string(),
             ));
         }
 
         let current_id_set = current_ids.iter().cloned().collect::<HashSet<_>>();
         if requested_ids != current_id_set {
-            return Err(BitFunError::service(
+            return Err(CoreError::service(
                 "Opened workspace order must contain exactly the currently opened workspace ids"
                     .to_string(),
             ));
@@ -419,7 +419,7 @@ impl WorkspaceService {
     }
 
     /// Remembers the specified workspace as last-used.
-    pub async fn remember_workspace_by_id(&self, workspace_id: &str) -> BitFunResult<()> {
+    pub async fn remember_workspace_by_id(&self, workspace_id: &str) -> CoreResult<()> {
         self.remember_workspace(workspace_id).await
     }
 
@@ -525,7 +525,7 @@ impl WorkspaceService {
     }
 
     /// Drops a workspace from recent lists only (workspace record and open state unchanged).
-    pub async fn remove_workspace_from_recent(&self, workspace_id: &str) -> BitFunResult<()> {
+    pub async fn remove_workspace_from_recent(&self, workspace_id: &str) -> CoreResult<()> {
         let changed = {
             let mut manager = self.manager.write().await;
             manager.remove_from_recent_workspaces_only(workspace_id)
@@ -543,7 +543,7 @@ impl WorkspaceService {
     }
 
     /// Removes a workspace.
-    pub async fn remove_workspace(&self, workspace_id: &str) -> BitFunResult<()> {
+    pub async fn remove_workspace(&self, workspace_id: &str) -> CoreResult<()> {
         let result = {
             let mut manager = self.manager.write().await;
             manager.remove_workspace(workspace_id)
@@ -562,7 +562,7 @@ impl WorkspaceService {
     pub async fn batch_remove_workspaces(
         &self,
         workspace_ids: Vec<String>,
-    ) -> BitFunResult<BatchRemoveResult> {
+    ) -> CoreResult<BatchRemoveResult> {
         let mut result = BatchRemoveResult {
             successful: Vec::new(),
             failed: Vec::new(),
@@ -580,13 +580,13 @@ impl WorkspaceService {
     }
 
     /// Rescans a workspace.
-    pub async fn rescan_workspace(&self, workspace_id: &str) -> BitFunResult<WorkspaceInfo> {
+    pub async fn rescan_workspace(&self, workspace_id: &str) -> CoreResult<WorkspaceInfo> {
         let workspace_path = {
             let manager = self.manager.read().await;
             if let Some(workspace) = manager.get_workspace(workspace_id) {
                 workspace.root_path.clone()
             } else {
-                return Err(BitFunError::service(format!(
+                return Err(CoreError::service(format!(
                     "Workspace not found: {}",
                     workspace_id
                 )));
@@ -598,7 +598,7 @@ impl WorkspaceService {
             manager.get_workspace(workspace_id).cloned()
         };
         let Some(existing_workspace) = existing_workspace else {
-            return Err(BitFunError::service(format!(
+            return Err(CoreError::service(format!(
                 "Workspace not found: {}",
                 workspace_id
             )));
@@ -636,7 +636,7 @@ impl WorkspaceService {
     pub async fn batch_import_workspaces(
         &self,
         paths: Vec<String>,
-    ) -> BitFunResult<BatchImportResult> {
+    ) -> CoreResult<BatchImportResult> {
         let mut result = BatchImportResult {
             successful: Vec::new(),
             failed: Vec::new(),
@@ -687,7 +687,7 @@ impl WorkspaceService {
     }
 
     /// Cleans up invalid workspaces.
-    pub async fn cleanup_invalid_workspaces(&self) -> BitFunResult<usize> {
+    pub async fn cleanup_invalid_workspaces(&self) -> CoreResult<usize> {
         let result = {
             let mut manager = self.manager.write().await;
             manager.cleanup_invalid_workspaces().await
@@ -715,7 +715,7 @@ impl WorkspaceService {
     }
 
     /// Runs a health check.
-    pub async fn health_check(&self) -> BitFunResult<WorkspaceHealthStatus> {
+    pub async fn health_check(&self) -> CoreResult<WorkspaceHealthStatus> {
         let stats = self.get_statistics().await;
 
         let mut warnings = Vec::new();
@@ -762,7 +762,7 @@ impl WorkspaceService {
     }
 
     /// Exports workspace configuration.
-    pub async fn export_workspaces(&self) -> BitFunResult<WorkspaceExport> {
+    pub async fn export_workspaces(&self) -> CoreResult<WorkspaceExport> {
         let manager = self.manager.read().await;
         let workspaces: Vec<WorkspaceInfo> = manager.get_workspaces().values().cloned().collect();
         let last_used_workspace_id = manager.get_last_used_workspace().map(|w| w.id.clone());
@@ -786,7 +786,7 @@ impl WorkspaceService {
         &self,
         export: WorkspaceExport,
         overwrite: bool,
-    ) -> BitFunResult<WorkspaceImportResult> {
+    ) -> CoreResult<WorkspaceImportResult> {
         let mut result = WorkspaceImportResult {
             imported_workspaces: 0,
             skipped_workspaces: 0,
@@ -856,7 +856,7 @@ impl WorkspaceService {
     }
 
     /// Saves workspace data locally.
-    async fn save_workspace_data(&self) -> BitFunResult<()> {
+    async fn save_workspace_data(&self) -> CoreResult<()> {
         let manager = self.manager.read().await;
 
         let workspace_data = WorkspacePersistenceData {
@@ -870,19 +870,19 @@ impl WorkspaceService {
         self.persistence
             .save_json("workspace_data", &workspace_data, StorageOptions::default())
             .await
-            .map_err(|e| BitFunError::service(format!("Failed to save workspace data: {}", e)))?;
+            .map_err(|e| CoreError::service(format!("Failed to save workspace data: {}", e)))?;
 
         Ok(())
     }
 
     /// Loads workspace data from local storage.
     #[allow(dead_code)]
-    async fn load_workspace_data(&self) -> BitFunResult<()> {
+    async fn load_workspace_data(&self) -> CoreResult<()> {
         let workspace_data: Option<WorkspacePersistenceData> = self
             .persistence
             .load_json("workspace_data")
             .await
-            .map_err(|e| BitFunError::service(format!("Failed to load workspace data: {}", e)))?;
+            .map_err(|e| CoreError::service(format!("Failed to load workspace data: {}", e)))?;
 
         if let Some(data) = workspace_data {
             let mut manager = self.manager.write().await;
@@ -915,12 +915,12 @@ impl WorkspaceService {
     }
 
     /// Loads workspace history only without restoring the current workspace (used on startup).
-    async fn load_workspace_history_only(&self) -> BitFunResult<()> {
+    async fn load_workspace_history_only(&self) -> CoreResult<()> {
         let workspace_data: Option<WorkspacePersistenceData> = self
             .persistence
             .load_json("workspace_data")
             .await
-            .map_err(|e| BitFunError::service(format!("Failed to load workspace data: {}", e)))?;
+            .map_err(|e| CoreError::service(format!("Failed to load workspace data: {}", e)))?;
 
         let mut workspaces_to_restore = Vec::new();
 
@@ -979,16 +979,16 @@ impl WorkspaceService {
     }
 
     /// Saves workspace data manually (public API).
-    pub async fn manual_save(&self) -> BitFunResult<()> {
+    pub async fn manual_save(&self) -> CoreResult<()> {
         self.save_workspace_data().await
     }
 
     /// Clears all persisted data.
-    pub async fn clear_persistent_data(&self) -> BitFunResult<()> {
+    pub async fn clear_persistent_data(&self) -> CoreResult<()> {
         self.persistence
             .delete("workspace_data")
             .await
-            .map_err(|e| BitFunError::service(format!("Failed to clear workspace data: {}", e)))?;
+            .map_err(|e| CoreError::service(format!("Failed to clear workspace data: {}", e)))?;
 
         Ok(())
     }
@@ -1094,7 +1094,7 @@ mod tests {
     impl TestEnvironment {
         fn new() -> Self {
             let root = std::env::temp_dir()
-                .join(format!("bitfun-workspace-service-test-{}", Uuid::new_v4()));
+                .join(format!("sparo-workspace-service-test-{}", Uuid::new_v4()));
             std::fs::create_dir_all(&root).expect("test root should be created");
 
             let path_manager = Arc::new(PathManager::with_user_root_for_tests(

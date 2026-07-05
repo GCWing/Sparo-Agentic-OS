@@ -1119,7 +1119,7 @@ impl WeixinBot {
         context_token: &str,
         items: Vec<Value>,
     ) -> Result<()> {
-        let client_id = format!("bitfun-wx-{}", uuid::Uuid::new_v4());
+        let client_id = format!("sparo-wx-{}", uuid::Uuid::new_v4());
         let msg = json!({
             "from_user_id": "",
             "to_user_id": to_user_id,
@@ -1249,7 +1249,7 @@ impl WeixinBot {
         context_token: &str,
         text: &str,
     ) -> Result<()> {
-        let client_id = format!("bitfun-wx-{}", uuid::Uuid::new_v4());
+        let client_id = format!("sparo-wx-{}", uuid::Uuid::new_v4());
         let item_list = if text.is_empty() {
             None
         } else {

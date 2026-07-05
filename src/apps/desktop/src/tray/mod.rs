@@ -24,11 +24,11 @@ pub mod event_subscriber;
 pub mod icon;
 pub mod status;
 
-use bitfun_core::agentic::coordination::ConversationCoordinator;
-use bitfun_core::infrastructure::constants::{
+use sparo_core::agentic::coordination::ConversationCoordinator;
+use sparo_core::infrastructure::constants::{
     EVENT_TRAY_NEW_SESSION, EVENT_TRAY_RESTORE_SESSION, WINDOW_MAIN,
 };
-use bitfun_core::service::config::{get_global_config_service, GlobalConfig};
+use sparo_core::service::config::{get_global_config_service, GlobalConfig};
 use icon::{load_icon, IconState};
 use log::{error, warn};
 use std::sync::Arc;
@@ -399,7 +399,7 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
             if let Some(w) = app.get_webview_window(WINDOW_MAIN) {
                 let _ = w.close();
             } else {
-                bitfun_core::util::process_manager::cleanup_all_processes();
+                sparo_core::util::process_manager::cleanup_all_processes();
                 app.exit(0);
             }
         }

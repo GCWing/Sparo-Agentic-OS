@@ -16,5 +16,5 @@
 // Stack tuning, if ever needed, must be passed to the tokio Builder used by
 // `tauri::async_runtime`, not via env vars.
 fn main() {
-    bitfun_desktop_lib::run();
+    sparo_desktop_lib::run();
 }

@@ -10,7 +10,7 @@ use crate::agentic::coordination::ConversationCoordinator;
 use crate::agentic::memory::store::MEMORY_MILESTONES_FILE;
 use crate::agentic::tools::{ToolPathPolicy, ToolRuntimeRestrictions};
 use crate::infrastructure::get_path_manager_arc;
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 use chrono::{Datelike, Duration as ChronoDuration, Local, LocalResult, TimeZone};
 use log::{info, warn};
 use serde::Serialize;
@@ -54,7 +54,7 @@ pub struct GlobalMilestoneService {
 }
 
 impl GlobalMilestoneService {
-    pub async fn new(coordinator: Arc<ConversationCoordinator>) -> BitFunResult<Arc<Self>> {
+    pub async fn new(coordinator: Arc<ConversationCoordinator>) -> CoreResult<Arc<Self>> {
         let state = load_global_milestone_state().await?;
         Ok(Arc::new(Self {
             coordinator,
@@ -88,11 +88,11 @@ impl GlobalMilestoneService {
         });
     }
 
-    pub async fn run_now(&self) -> BitFunResult<GlobalMilestoneRunSummary> {
+    pub async fn run_now(&self) -> CoreResult<GlobalMilestoneRunSummary> {
         self.run_once(GlobalMilestoneTrigger::Manual, true).await
     }
 
-    pub async fn handle_turn_completed(&self, turn_id: &str) -> BitFunResult<()> {
+    pub async fn handle_turn_completed(&self, turn_id: &str) -> CoreResult<()> {
         let mut state = self.state.lock().await;
         if state.active_turn_id.as_deref() != Some(turn_id) {
             return Ok(());
@@ -114,7 +114,7 @@ impl GlobalMilestoneService {
         Ok(())
     }
 
-    pub async fn handle_turn_failed(&self, turn_id: &str, error_message: &str) -> BitFunResult<()> {
+    pub async fn handle_turn_failed(&self, turn_id: &str, error_message: &str) -> CoreResult<()> {
         let mut state = self.state.lock().await;
         if state.active_turn_id.as_deref() != Some(turn_id) {
             return Ok(());
@@ -131,7 +131,7 @@ impl GlobalMilestoneService {
         Ok(())
     }
 
-    pub async fn handle_turn_cancelled(&self, turn_id: &str) -> BitFunResult<()> {
+    pub async fn handle_turn_cancelled(&self, turn_id: &str) -> CoreResult<()> {
         let mut state = self.state.lock().await;
         if state.active_turn_id.as_deref() != Some(turn_id) {
             return Ok(());
@@ -163,7 +163,7 @@ impl GlobalMilestoneService {
         }
     }
 
-    async fn run_auto_if_due(&self) -> BitFunResult<()> {
+    async fn run_auto_if_due(&self) -> CoreResult<()> {
         let should_run = {
             let state = self.state.lock().await;
             if state.active_turn_id.is_some() {
@@ -190,7 +190,7 @@ impl GlobalMilestoneService {
         &self,
         trigger: GlobalMilestoneTrigger,
         ignore_schedule: bool,
-    ) -> BitFunResult<GlobalMilestoneRunSummary> {
+    ) -> CoreResult<GlobalMilestoneRunSummary> {
         if self.state.lock().await.active_turn_id.is_some() {
             return Ok(GlobalMilestoneRunSummary {
                 started: false,
@@ -328,7 +328,7 @@ impl GlobalMilestoneService {
         })
     }
 
-    async fn next_pending_run(&self) -> BitFunResult<Option<PendingMilestoneRun>> {
+    async fn next_pending_run(&self) -> CoreResult<Option<PendingMilestoneRun>> {
         let latest_available_date = latest_available_daily_report_date().await?;
         let Some(source_end_date) = latest_available_date else {
             return Ok(None);
@@ -433,21 +433,21 @@ fn next_date_key(date_key: &str) -> String {
         .unwrap_or_else(|_| date_key.to_string())
 }
 
-async fn earliest_available_daily_report_date() -> BitFunResult<Option<String>> {
+async fn earliest_available_daily_report_date() -> CoreResult<Option<String>> {
     let mut dates = collect_all_global_daily_report_dates().await?;
     dates.sort();
     dates.dedup();
     Ok(dates.into_iter().next())
 }
 
-async fn latest_available_daily_report_date() -> BitFunResult<Option<String>> {
+async fn latest_available_daily_report_date() -> CoreResult<Option<String>> {
     let mut dates = collect_all_global_daily_report_dates().await?;
     dates.sort();
     dates.dedup();
     Ok(dates.into_iter().last())
 }
 
-async fn collect_all_global_daily_report_dates() -> BitFunResult<Vec<String>> {
+async fn collect_all_global_daily_report_dates() -> CoreResult<Vec<String>> {
     let mut dates = Vec::new();
     for path in collect_all_global_daily_report_files().await? {
         if let Some(date) = daily_report_date_from_path(&path) {
@@ -460,7 +460,7 @@ async fn collect_all_global_daily_report_dates() -> BitFunResult<Vec<String>> {
 async fn collect_global_daily_report_sources(
     source_start_date: &str,
     source_end_date: &str,
-) -> BitFunResult<Vec<PathBuf>> {
+) -> CoreResult<Vec<PathBuf>> {
     let start = chrono::NaiveDate::parse_from_str(source_start_date, "%Y-%m-%d").ok();
     let end = chrono::NaiveDate::parse_from_str(source_end_date, "%Y-%m-%d").ok();
 
@@ -483,13 +483,13 @@ async fn collect_global_daily_report_sources(
     Ok(result)
 }
 
-async fn collect_all_global_daily_report_files() -> BitFunResult<Vec<PathBuf>> {
+async fn collect_all_global_daily_report_files() -> CoreResult<Vec<PathBuf>> {
     ensure_global_milestone_runtime_dir().await?;
     let reports_dir = get_path_manager_arc().agentic_os_daily_reports_dir();
     collect_daily_report_files_under(&reports_dir).await
 }
 
-async fn collect_daily_report_files_under(root: &Path) -> BitFunResult<Vec<PathBuf>> {
+async fn collect_daily_report_files_under(root: &Path) -> CoreResult<Vec<PathBuf>> {
     let mut result = Vec::new();
     if !root.exists() {
         return Ok(result);
@@ -498,7 +498,7 @@ async fn collect_daily_report_files_under(root: &Path) -> BitFunResult<Vec<PathB
     let mut pending_dirs = vec![root.to_path_buf()];
     while let Some(dir) = pending_dirs.pop() {
         let mut entries = fs::read_dir(&dir).await.map_err(|error| {
-            crate::util::errors::BitFunError::service(format!(
+            crate::error::CoreError::service(format!(
                 "Failed to read global daily reports directory {}: {}",
                 dir.display(),
                 error
@@ -506,14 +506,14 @@ async fn collect_daily_report_files_under(root: &Path) -> BitFunResult<Vec<PathB
         })?;
 
         while let Some(entry) = entries.next_entry().await.map_err(|error| {
-            crate::util::errors::BitFunError::service(format!(
+            crate::error::CoreError::service(format!(
                 "Failed to iterate global daily reports directory {}: {}",
                 dir.display(),
                 error
             ))
         })? {
             let file_type = entry.file_type().await.map_err(|error| {
-                crate::util::errors::BitFunError::service(format!(
+                crate::error::CoreError::service(format!(
                     "Failed to inspect global daily report entry {}: {}",
                     entry.path().display(),
                     error

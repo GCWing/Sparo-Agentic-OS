@@ -61,7 +61,7 @@
     "formatHint": "Automatically selected based on provider, usually no need to change"
   },
   "providers": {
-    "openbitfun": {
+    "opensparo": {
       "name": "Sparo Model Platform",
       "description": "Sparo OS model platform"
     },

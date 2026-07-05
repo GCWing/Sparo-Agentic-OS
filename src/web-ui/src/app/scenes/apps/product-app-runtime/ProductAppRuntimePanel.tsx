@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { Button, DotMatrixLoader } from '@/design-system';
 import { useTheme } from '@/infrastructure/theme/hooks/useTheme';

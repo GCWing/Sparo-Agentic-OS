@@ -7,7 +7,7 @@
 //! `boot://stage` event).
 
 use arc_swap::ArcSwap;
-use bitfun_core::infrastructure::constants::EVENT_BOOT_STAGE;
+use sparo_core::infrastructure::constants::EVENT_BOOT_STAGE;
 use serde::Serialize;
 use std::sync::{Arc, Mutex, OnceLock};
 use tauri::{AppHandle, Emitter};

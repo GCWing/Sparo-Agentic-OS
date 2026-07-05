@@ -1,4 +1,4 @@
-﻿import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FlowChatStore } from '../../store/FlowChatStore';
 import { getProductAppRuntimeSessionDescriptor } from '../../domain/sessionDescriptor';
 import type { FlowChatContext } from './types';
@@ -82,7 +82,7 @@ describe('createChatSession workspace scope', () => {
     const store = FlowChatStore.getInstance();
     const context = createTestContext(store);
     const sessionId = `harmony-runtime-${Date.now()}`;
-    const workspacePath = 'D:/workspace/bitfun_harmony';
+    const workspacePath = 'D:/workspace/sparo_harmony';
     sessionIds.push(sessionId);
 
     agentApiMock.createSession.mockResolvedValue({

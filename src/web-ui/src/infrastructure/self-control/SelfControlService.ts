@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SelfControlService 锟?lets Sparo OS agent operate its own GUI.
  *
  * Architecture: four responsibility regions inside one class.

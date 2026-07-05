@@ -1,4 +1,4 @@
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -69,7 +69,7 @@ pub struct OperationResult {
 pub struct SystemFsService;
 
 impl SystemFsService {
-    pub fn list_drives() -> BitFunResult<Vec<DriveInfo>> {
+    pub fn list_drives() -> CoreResult<Vec<DriveInfo>> {
         list_drives()
     }
 
@@ -77,16 +77,16 @@ impl SystemFsService {
         list_quick_folders()
     }
 
-    pub fn list_dir(path: impl AsRef<Path>) -> BitFunResult<Vec<FsEntry>> {
+    pub fn list_dir(path: impl AsRef<Path>) -> CoreResult<Vec<FsEntry>> {
         list_dir(path)
     }
 
-    pub fn stat(path: impl AsRef<Path>) -> BitFunResult<FsEntry> {
+    pub fn stat(path: impl AsRef<Path>) -> CoreResult<FsEntry> {
         stat(path)
     }
 }
 
-pub fn list_drives() -> BitFunResult<Vec<DriveInfo>> {
+pub fn list_drives() -> CoreResult<Vec<DriveInfo>> {
     #[cfg(target_os = "windows")]
     {
         let mut drives = Vec::new();
@@ -180,10 +180,10 @@ fn is_readable_directory(path: &Path) -> bool {
     path.is_dir() && std::fs::read_dir(path).is_ok()
 }
 
-pub fn list_dir(path: impl AsRef<Path>) -> BitFunResult<Vec<FsEntry>> {
+pub fn list_dir(path: impl AsRef<Path>) -> CoreResult<Vec<FsEntry>> {
     let mut entries = Vec::new();
     let read_dir = std::fs::read_dir(path.as_ref()).map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to list directory '{}': {}",
             path.as_ref().display(),
             error
@@ -205,7 +205,7 @@ pub fn list_dir(path: impl AsRef<Path>) -> BitFunResult<Vec<FsEntry>> {
     Ok(entries)
 }
 
-pub fn stat(path: impl AsRef<Path>) -> BitFunResult<FsEntry> {
+pub fn stat(path: impl AsRef<Path>) -> CoreResult<FsEntry> {
     entry_from_path(path.as_ref())
 }
 
@@ -260,7 +260,7 @@ pub fn delete_path(path: impl AsRef<Path>, recursive: bool) -> OperationResult {
     }
 }
 
-pub fn reveal_in_os(path: impl AsRef<Path>) -> BitFunResult<()> {
+pub fn reveal_in_os(path: impl AsRef<Path>) -> CoreResult<()> {
     let path = path.as_ref();
     #[cfg(any(target_os = "windows", target_os = "macos"))]
     let path_str = path.to_string_lossy().into_owned();
@@ -277,7 +277,7 @@ pub fn reveal_in_os(path: impl AsRef<Path>) -> BitFunResult<()> {
         }
         command
             .spawn()
-            .map_err(|error| BitFunError::service(error.to_string()))?;
+            .map_err(|error| CoreError::service(error.to_string()))?;
     }
 
     #[cfg(target_os = "macos")]
@@ -290,7 +290,7 @@ pub fn reveal_in_os(path: impl AsRef<Path>) -> BitFunResult<()> {
         }
         command
             .spawn()
-            .map_err(|error| BitFunError::service(error.to_string()))?;
+            .map_err(|error| CoreError::service(error.to_string()))?;
     }
 
     #[cfg(target_os = "linux")]
@@ -303,35 +303,35 @@ pub fn reveal_in_os(path: impl AsRef<Path>) -> BitFunResult<()> {
         std::process::Command::new("xdg-open")
             .arg(target)
             .spawn()
-            .map_err(|error| BitFunError::service(error.to_string()))?;
+            .map_err(|error| CoreError::service(error.to_string()))?;
     }
 
     Ok(())
 }
 
-pub fn open_with_default(path: impl AsRef<Path>) -> BitFunResult<()> {
+pub fn open_with_default(path: impl AsRef<Path>) -> CoreResult<()> {
     let path = path.as_ref().to_string_lossy().into_owned();
     #[cfg(target_os = "windows")]
     std::process::Command::new("cmd")
         .args(["/C", "start", "", &path])
         .spawn()
-        .map_err(|error| BitFunError::service(error.to_string()))?;
+        .map_err(|error| CoreError::service(error.to_string()))?;
     #[cfg(target_os = "macos")]
     std::process::Command::new("open")
         .arg(&path)
         .spawn()
-        .map_err(|error| BitFunError::service(error.to_string()))?;
+        .map_err(|error| CoreError::service(error.to_string()))?;
     #[cfg(target_os = "linux")]
     std::process::Command::new("xdg-open")
         .arg(&path)
         .spawn()
-        .map_err(|error| BitFunError::service(error.to_string()))?;
+        .map_err(|error| CoreError::service(error.to_string()))?;
     Ok(())
 }
 
-fn entry_from_path(path: &Path) -> BitFunResult<FsEntry> {
+fn entry_from_path(path: &Path) -> CoreResult<FsEntry> {
     let metadata = std::fs::symlink_metadata(path).map_err(|error| {
-        BitFunError::service(format!("Failed to stat '{}': {}", path.display(), error))
+        CoreError::service(format!("Failed to stat '{}': {}", path.display(), error))
     })?;
     let file_type = metadata.file_type();
     let kind = if file_type.is_dir() {

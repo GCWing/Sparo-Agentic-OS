@@ -41,7 +41,7 @@ pub trait CliBridgeAdapter: Send + Sync {
     fn run(
         &self,
         request: CliBridgeRequest,
-    ) -> crate::util::errors::BitFunResult<CliBridgeResponse>;
+    ) -> crate::error::CoreResult<CliBridgeResponse>;
 }
 
 fn default_timeout_ms() -> u64 {

@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use bitfun_core::agentic::coordination::{ConversationCoordinator, DialogScheduler};
-use bitfun_core::agentic_os::work::{
+use sparo_core::agentic::coordination::{ConversationCoordinator, DialogScheduler};
+use sparo_core::agentic_os::work::{
     default_work_store, AgenticWorkRuntimeBridge, WorkExecutionGraph, WorkId, WorkService,
 };
-use bitfun_core::command::agentic_os as agentic_os_command;
+use sparo_core::command::agentic_os as agentic_os_command;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -34,6 +34,15 @@ pub async fn agentic_os_get_work(
     request: agentic_os_command::AgenticOsGetWorkRequest,
 ) -> Result<agentic_os_command::AgenticOsGetWorkResponse, String> {
     agentic_os_command::get_work(request)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn agentic_os_delete_work(
+    request: agentic_os_command::AgenticOsDeleteWorkRequest,
+) -> Result<agentic_os_command::AgenticOsDeleteWorkResponse, String> {
+    agentic_os_command::delete_work(request)
         .await
         .map_err(|error| error.to_string())
 }

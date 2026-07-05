@@ -48,7 +48,7 @@ use crate::service::host::{
 };
 use crate::service::workspace::{get_global_workspace_service, WorkspaceCreateOptions};
 use crate::service::workspace_overview::prompt::workspace_overview_refresh_allowed_tools;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use chrono::TimeZone;
 use log::{debug, error, info, warn};
 use std::collections::HashMap;
@@ -105,14 +105,14 @@ async fn archive_session_daily_summary(
     session_id: &str,
     session_manager: &SessionManager,
     date_key: &str,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     let summary_path = session_manager.session_summary_path(session_id).await?;
     let daily_summary_path = session_manager
         .session_daily_summary_path(session_id, date_key)
         .await?;
 
     let summary_content = fs::read_to_string(&summary_path).await.map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to read session summary for daily archive: session_id={} path={} error={}",
             session_id,
             summary_path.display(),
@@ -122,7 +122,7 @@ async fn archive_session_daily_summary(
 
     if let Some(parent) = daily_summary_path.parent() {
         fs::create_dir_all(parent).await.map_err(|error| {
-            BitFunError::service(format!(
+            CoreError::service(format!(
                 "Failed to create session daily summary directory: session_id={} path={} error={}",
                 session_id,
                 parent.display(),
@@ -134,7 +134,7 @@ async fn archive_session_daily_summary(
     fs::write(&daily_summary_path, summary_content)
         .await
         .map_err(|error| {
-            BitFunError::service(format!(
+            CoreError::service(format!(
                 "Failed to write session daily summary archive: session_id={} path={} error={}",
                 session_id,
                 daily_summary_path.display(),
@@ -657,9 +657,9 @@ impl ConversationCoordinator {
         session_name: String,
         agent_type: String,
         config: SessionConfig,
-    ) -> BitFunResult<Session> {
+    ) -> CoreResult<Session> {
         let workspace_path = config.workspace_path.clone().ok_or_else(|| {
-            BitFunError::Validation(
+            CoreError::Validation(
                 "workspace_path is required when creating a session".to_string(),
             )
         })?;
@@ -681,9 +681,9 @@ impl ConversationCoordinator {
         session_name: String,
         agent_type: String,
         config: SessionConfig,
-    ) -> BitFunResult<Session> {
+    ) -> CoreResult<Session> {
         let workspace_path = config.workspace_path.clone().ok_or_else(|| {
-            BitFunError::Validation(
+            CoreError::Validation(
                 "workspace_path is required when creating a session".to_string(),
             )
         })?;
@@ -708,7 +708,7 @@ impl ConversationCoordinator {
         agent_type: String,
         config: SessionConfig,
         workspace_path: String,
-    ) -> BitFunResult<Session> {
+    ) -> CoreResult<Session> {
         self.create_session_with_workspace_and_creator(
             session_id,
             session_name,
@@ -720,7 +720,7 @@ impl ConversationCoordinator {
         .await
     }
 
-    pub async fn update_session_model(&self, session_id: &str, model_id: &str) -> BitFunResult<()> {
+    pub async fn update_session_model(&self, session_id: &str, model_id: &str) -> CoreResult<()> {
         let normalized_model_id = model_id.trim();
         let normalized_model_id = if normalized_model_id.is_empty() {
             "primary"
@@ -744,10 +744,10 @@ impl ConversationCoordinator {
         &self,
         session_id: &str,
         workspace_path: &str,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let normalized_workspace_path = workspace_path.trim();
         if normalized_workspace_path.is_empty() {
-            return Err(BitFunError::validation(
+            return Err(CoreError::validation(
                 "workspace_path is required".to_string(),
             ));
         }
@@ -791,7 +791,7 @@ impl ConversationCoordinator {
         mut config: SessionConfig,
         workspace_path: String,
         created_by: Option<String>,
-    ) -> BitFunResult<Session> {
+    ) -> CoreResult<Session> {
         // Persist the workspace binding inside the session config so execution can
         // consistently restore the correct workspace regardless of the entry point.
         config.workspace_path = Some(workspace_path.clone());
@@ -978,7 +978,7 @@ impl ConversationCoordinator {
         agent_type: String,
         config: SessionConfig,
         created_by: Option<String>,
-    ) -> BitFunResult<Session> {
+    ) -> CoreResult<Session> {
         self.session_manager
             .create_session_with_id_and_details(
                 session_id,
@@ -991,7 +991,7 @@ impl ConversationCoordinator {
             .await
     }
 
-    async fn load_session_context_messages(&self, session: &Session) -> BitFunResult<Vec<Message>> {
+    async fn load_session_context_messages(&self, session: &Session) -> CoreResult<Vec<Message>> {
         let session_id = &session.session_id;
         let mut context_messages = self
             .session_manager
@@ -1030,7 +1030,7 @@ impl ConversationCoordinator {
         user_input: String,
         system_reminder_override: Option<&str>,
         workspace: Option<&WorkspaceBinding>,
-    ) -> BitFunResult<String> {
+    ) -> CoreResult<String> {
         let agent_registry = get_agent_registry();
         if let Some(workspace) = workspace {
             agent_registry
@@ -1039,7 +1039,7 @@ impl ConversationCoordinator {
         }
         let current_agent = agent_registry
             .get_agent(agent_type, workspace.map(|binding| binding.root_path()))
-            .ok_or_else(|| BitFunError::NotFound(format!("Agent not found: {}", agent_type)))?;
+            .ok_or_else(|| CoreError::NotFound(format!("Agent not found: {}", agent_type)))?;
         let agent_system_reminder = current_agent.get_system_reminder(0).await?;
 
         let mut wrapped_user_input = if has_prompt_markup(&user_input) {
@@ -1121,7 +1121,7 @@ impl ConversationCoordinator {
         workspace_path: Option<String>,
         submission_policy: DialogSubmissionPolicy,
         extra_user_message_metadata: Option<serde_json::Value>,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         self.start_dialog_turn_internal(
             session_id,
             user_input,
@@ -1152,7 +1152,7 @@ impl ConversationCoordinator {
         workspace_path: Option<String>,
         submission_policy: DialogSubmissionPolicy,
         extra_user_message_metadata: Option<serde_json::Value>,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         self.start_dialog_turn_internal(
             session_id,
             user_input,
@@ -1171,11 +1171,11 @@ impl ConversationCoordinator {
     }
 
     /// Compact the active session context as a persisted maintenance turn.
-    pub async fn compact_session_manually(&self, session_id: String) -> BitFunResult<()> {
+    pub async fn compact_session_manually(&self, session_id: String) -> CoreResult<()> {
         let session = self
             .session_manager
             .get_session(&session_id)
-            .ok_or_else(|| BitFunError::NotFound(format!("Session not found: {}", session_id)))?;
+            .ok_or_else(|| CoreError::NotFound(format!("Session not found: {}", session_id)))?;
 
         match &session.state {
             SessionState::Idle => {}
@@ -1183,13 +1183,13 @@ impl ConversationCoordinator {
                 current_turn_id,
                 phase,
             } => {
-                return Err(BitFunError::Validation(format!(
+                return Err(CoreError::Validation(format!(
                     "Session is still processing: current_turn_id={}, phase={:?}",
                     current_turn_id, phase
                 )));
             }
             SessionState::Error { error, .. } => {
-                return Err(BitFunError::Validation(format!(
+                return Err(CoreError::Validation(format!(
                     "Session must be idle before manual compaction: {}",
                     error
                 )));
@@ -1208,7 +1208,7 @@ impl ConversationCoordinator {
 
         if needs_restore {
             let workspace_path = session.config.workspace_path.as_deref().ok_or_else(|| {
-                BitFunError::Validation(format!(
+                CoreError::Validation(format!(
                     "workspace_path is required when restoring session: {}",
                     session_id
                 ))
@@ -1371,7 +1371,7 @@ impl ConversationCoordinator {
         extra_user_message_metadata: Option<serde_json::Value>,
         execution_settings: DialogExecutionSettings,
         suppress_session_title_generation: bool,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         // Get latest session, restoring from persistence on demand so every entry
         // point can use the same start_dialog_turn flow.
         let session = match self.session_manager.get_session(&session_id) {
@@ -1382,7 +1382,7 @@ impl ConversationCoordinator {
                     session_id
                 );
                 let workspace_path = workspace_path.clone().ok_or_else(|| {
-                    BitFunError::Validation(format!(
+                    CoreError::Validation(format!(
                         "workspace_path is required when restoring session: {}",
                         session_id
                     ))
@@ -1487,7 +1487,7 @@ impl ConversationCoordinator {
                     current_turn_id,
                     phase
                 );
-                return Err(BitFunError::Validation(format!(
+                return Err(CoreError::Validation(format!(
                     "Session state does not allow starting new dialog: {:?}",
                     session.state
                 )));
@@ -1544,7 +1544,7 @@ impl ConversationCoordinator {
                             .as_deref()
                             .or(workspace_path.as_deref())
                             .ok_or_else(|| {
-                                BitFunError::Validation(format!(
+                                CoreError::Validation(format!(
                                     "workspace_path is required when restoring session: {}",
                                     session_id
                                 ))
@@ -1949,7 +1949,7 @@ impl ConversationCoordinator {
                     Some(crate::service::session::TurnStatus::Completed)
                 }
                 Err(e) => {
-                    let is_cancellation = matches!(&e, BitFunError::Cancelled(_));
+                    let is_cancellation = matches!(&e, CoreError::Cancelled(_));
 
                     if is_cancellation {
                         info!(
@@ -2007,7 +2007,7 @@ impl ConversationCoordinator {
                         error!("Dialog turn execution failed: {}", error_text);
 
                         let recoverable =
-                            !matches!(&e, BitFunError::AIClient(_) | BitFunError::Timeout(_));
+                            !matches!(&e, CoreError::AiClient(_) | CoreError::Timeout(_));
 
                         let _ = event_queue
                             .enqueue(
@@ -2142,9 +2142,9 @@ impl ConversationCoordinator {
         snapshot: ForkAgentContextSnapshot,
         summary_date_key: &str,
         cancel_token: &CancellationToken,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         if cancel_token.is_cancelled() {
-            return Err(BitFunError::Cancelled(
+            return Err(CoreError::Cancelled(
                 "Session summary task has been cancelled".to_string(),
             ));
         }
@@ -2184,9 +2184,9 @@ impl ConversationCoordinator {
         &self,
         session_id: &str,
         cancel_token: &CancellationToken,
-    ) -> BitFunResult<bool> {
+    ) -> CoreResult<bool> {
         if cancel_token.is_cancelled() {
-            return Err(BitFunError::Cancelled(
+            return Err(CoreError::Cancelled(
                 "Auto memory task has been cancelled".to_string(),
             ));
         }
@@ -2256,14 +2256,14 @@ impl ConversationCoordinator {
             }
 
             if cancel_token.is_cancelled() {
-                return Err(BitFunError::Cancelled(
+                return Err(CoreError::Cancelled(
                     "Auto memory task has been cancelled".to_string(),
                 ));
             }
 
             let workspace_root =
                 PathBuf::from(session.config.workspace_path.clone().ok_or_else(|| {
-                    BitFunError::Validation(format!(
+                    CoreError::Validation(format!(
                         "Session workspace_path is missing: {}",
                         session_id
                     ))
@@ -2372,7 +2372,7 @@ impl ConversationCoordinator {
         &self,
         session_id: &str,
         dialog_turn_id: &str,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         self.cancel_dialog_turn_with_reason(
             session_id,
             dialog_turn_id,
@@ -2388,7 +2388,7 @@ impl ConversationCoordinator {
         dialog_turn_id: &str,
         reason: TurnCancellationReason,
         actor: SessionControlActor,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         info!(
             "Received cancel request: dialog_turn_id={}, session_id={}",
             dialog_turn_id, session_id
@@ -2526,7 +2526,7 @@ impl ConversationCoordinator {
         &self,
         session_id: &str,
         wait_timeout: Duration,
-    ) -> BitFunResult<Option<String>> {
+    ) -> CoreResult<Option<String>> {
         let Some(session) = self.session_manager.get_session(session_id) else {
             return Ok(None);
         };
@@ -2552,7 +2552,7 @@ impl ConversationCoordinator {
         &self,
         workspace_path: &Path,
         session_id: &str,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         self.auto_memory_manager.cancel_session(session_id);
         self.session_manager
             .delete_session(workspace_path, session_id)
@@ -2579,7 +2579,7 @@ impl ConversationCoordinator {
         &self,
         workspace_path: &Path,
         session_id: &str,
-    ) -> BitFunResult<Session> {
+    ) -> CoreResult<Session> {
         let session = self
             .session_manager
             .restore_session(workspace_path, session_id)
@@ -2597,12 +2597,12 @@ impl ConversationCoordinator {
     }
 
     /// List all sessions
-    pub async fn list_sessions(&self, workspace_path: &Path) -> BitFunResult<Vec<SessionSummary>> {
+    pub async fn list_sessions(&self, workspace_path: &Path) -> CoreResult<Vec<SessionSummary>> {
         self.session_manager.list_sessions(workspace_path).await
     }
 
     /// Get a best-effort message view for a session.
-    pub async fn get_messages(&self, session_id: &str) -> BitFunResult<Vec<Message>> {
+    pub async fn get_messages(&self, session_id: &str) -> CoreResult<Vec<Message>> {
         self.session_manager.get_messages(session_id).await
     }
 
@@ -2612,7 +2612,7 @@ impl ConversationCoordinator {
         session_id: &str,
         limit: usize,
         before_message_id: Option<&str>,
-    ) -> BitFunResult<(Vec<Message>, bool)> {
+    ) -> CoreResult<(Vec<Message>, bool)> {
         self.session_manager
             .get_messages_paginated(session_id, limit, before_message_id)
             .await
@@ -2641,19 +2641,19 @@ impl ConversationCoordinator {
         &self,
         tool_id: &str,
         updated_input: Option<serde_json::Value>,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         self.tool_pipeline
             .confirm_tool(tool_id, updated_input)
             .await
     }
 
     /// Reject tool execution
-    pub async fn reject_tool(&self, tool_id: &str, reason: String) -> BitFunResult<()> {
+    pub async fn reject_tool(&self, tool_id: &str, reason: String) -> CoreResult<()> {
         self.tool_pipeline.reject_tool(tool_id, reason).await
     }
 
     /// Cancel tool execution
-    pub async fn cancel_tool(&self, tool_id: &str, reason: String) -> BitFunResult<()> {
+    pub async fn cancel_tool(&self, tool_id: &str, reason: String) -> CoreResult<()> {
         self.tool_pipeline.cancel_tool(tool_id, reason).await
     }
 
@@ -2662,7 +2662,7 @@ impl ConversationCoordinator {
         dialog_turn_id: &str,
         tool_names: &[&str],
         reason: String,
-    ) -> BitFunResult<usize> {
+    ) -> CoreResult<usize> {
         self.tool_pipeline
             .cancel_dialog_turn_tools_by_name(dialog_turn_id, tool_names, reason)
             .await
@@ -2672,7 +2672,7 @@ impl ConversationCoordinator {
         &self,
         session_id: &str,
         patch: serde_json::Value,
-    ) -> BitFunResult<Option<serde_json::Value>> {
+    ) -> CoreResult<Option<serde_json::Value>> {
         self.session_manager
             .merge_session_custom_metadata(session_id, patch)
             .await
@@ -2682,12 +2682,12 @@ impl ConversationCoordinator {
         &self,
         request: HiddenSubagentExecutionRequest,
         cancel_token: Option<&CancellationToken>,
-    ) -> BitFunResult<SubagentResult> {
+    ) -> CoreResult<SubagentResult> {
         // Check cancel token (before creating session)
         if let Some(token) = cancel_token {
             if token.is_cancelled() {
                 debug!("Subagent task cancelled before execution");
-                return Err(BitFunError::Cancelled(
+                return Err(CoreError::Cancelled(
                     "Subagent task has been cancelled".to_string(),
                 ));
             }
@@ -2730,7 +2730,7 @@ impl ConversationCoordinator {
                 .merge_session_custom_metadata(&session.session_id, patch)
                 .await?;
             if merged.is_none() {
-                return Err(BitFunError::service(format!(
+                return Err(CoreError::service(format!(
                     "Failed to persist inherited AppStudio context for hidden subagent session: session_id={}",
                     session.session_id
                 )));
@@ -2742,7 +2742,7 @@ impl ConversationCoordinator {
             if token.is_cancelled() {
                 debug!("Subagent task cancelled before AI call, cleaning up resources");
                 let _ = self.cleanup_subagent_resources(&session.session_id).await;
-                return Err(BitFunError::Cancelled(
+                return Err(CoreError::Cancelled(
                     "Subagent task has been cancelled".to_string(),
                 ));
             }
@@ -2872,12 +2872,12 @@ impl ConversationCoordinator {
     pub async fn capture_fork_agent_context_snapshot(
         &self,
         parent_session_id: &str,
-    ) -> BitFunResult<ForkAgentContextSnapshot> {
+    ) -> CoreResult<ForkAgentContextSnapshot> {
         let parent_session = self
             .session_manager
             .get_session(parent_session_id)
             .ok_or_else(|| {
-                BitFunError::NotFound(format!("Parent session not found: {}", parent_session_id))
+                CoreError::NotFound(format!("Parent session not found: {}", parent_session_id))
             })?;
         let context_messages = self.load_session_context_messages(&parent_session).await?;
         ForkAgentContextSnapshot::from_parent_session(&parent_session, context_messages)
@@ -2888,7 +2888,7 @@ impl ConversationCoordinator {
         parent_session_id: &str,
         child_session_id: &str,
         child_session_name: Option<&str>,
-    ) -> BitFunResult<Session> {
+    ) -> CoreResult<Session> {
         if let Some(session) = self.session_manager.get_session(child_session_id) {
             return Ok(session);
         }
@@ -2926,24 +2926,24 @@ impl ConversationCoordinator {
         child_session_name: Option<&str>,
         question: &str,
         model_id: Option<&str>,
-    ) -> BitFunResult<String> {
+    ) -> CoreResult<String> {
         if request_id.trim().is_empty() {
-            return Err(BitFunError::Validation(
+            return Err(CoreError::Validation(
                 "request_id is required".to_string(),
             ));
         }
         if parent_session_id.trim().is_empty() {
-            return Err(BitFunError::Validation(
+            return Err(CoreError::Validation(
                 "parent_session_id is required".to_string(),
             ));
         }
         if child_session_id.trim().is_empty() {
-            return Err(BitFunError::Validation(
+            return Err(CoreError::Validation(
                 "child_session_id is required".to_string(),
             ));
         }
         if question.trim().is_empty() {
-            return Err(BitFunError::Validation("question is required".to_string()));
+            return Err(CoreError::Validation("question is required".to_string()));
         }
 
         let child_session = self
@@ -2990,9 +2990,9 @@ impl ConversationCoordinator {
         request_id: &str,
         trigger: Option<&str>,
         model_id: Option<&str>,
-    ) -> BitFunResult<String> {
+    ) -> CoreResult<String> {
         if request_id.trim().is_empty() {
-            return Err(BitFunError::Validation(
+            return Err(CoreError::Validation(
                 "request_id is required".to_string(),
             ));
         }
@@ -3057,9 +3057,9 @@ impl ConversationCoordinator {
         runtime_tool_restrictions: ToolRuntimeRestrictions,
         trigger: Option<&str>,
         model_id: Option<&str>,
-    ) -> BitFunResult<String> {
+    ) -> CoreResult<String> {
         if request_id.trim().is_empty() {
-            return Err(BitFunError::Validation(
+            return Err(CoreError::Validation(
                 "request_id is required".to_string(),
             ));
         }
@@ -3131,9 +3131,9 @@ impl ConversationCoordinator {
         user_prompt: String,
         runtime_tool_restrictions: ToolRuntimeRestrictions,
         model_id: Option<&str>,
-    ) -> BitFunResult<String> {
+    ) -> CoreResult<String> {
         if request_id.trim().is_empty() {
-            return Err(BitFunError::Validation(
+            return Err(CoreError::Validation(
                 "request_id is required".to_string(),
             ));
         }
@@ -3197,9 +3197,9 @@ impl ConversationCoordinator {
         runtime_tool_restrictions: ToolRuntimeRestrictions,
         trigger: Option<&str>,
         model_id: Option<&str>,
-    ) -> BitFunResult<String> {
+    ) -> CoreResult<String> {
         if request_id.trim().is_empty() {
-            return Err(BitFunError::Validation(
+            return Err(CoreError::Validation(
                 "request_id is required".to_string(),
             ));
         }
@@ -3258,7 +3258,7 @@ impl ConversationCoordinator {
         session_name: String,
         agent_type: String,
         created_by: Option<String>,
-    ) -> BitFunResult<Session> {
+    ) -> CoreResult<Session> {
         let workspace_path = get_path_manager_arc()
             .agentic_os_runtime_root()
             .to_string_lossy()
@@ -3284,19 +3284,19 @@ impl ConversationCoordinator {
         &self,
         request: ForkAgentExecutionRequest,
         cancel_token: Option<&CancellationToken>,
-    ) -> BitFunResult<ForkAgentExecutionResult> {
+    ) -> CoreResult<ForkAgentExecutionResult> {
         if request.agent_type.trim().is_empty() {
-            return Err(BitFunError::Validation(
+            return Err(CoreError::Validation(
                 "ForkAgentExecutionRequest.agent_type is required".to_string(),
             ));
         }
         if request.description.trim().is_empty() {
-            return Err(BitFunError::Validation(
+            return Err(CoreError::Validation(
                 "ForkAgentExecutionRequest.description is required".to_string(),
             ));
         }
         if request.prompt_messages.is_empty() {
-            return Err(BitFunError::Validation(
+            return Err(CoreError::Validation(
                 "ForkAgentExecutionRequest.prompt_messages must not be empty".to_string(),
             ));
         }
@@ -3366,9 +3366,9 @@ impl ConversationCoordinator {
         context: Option<HashMap<String, String>>,
         app_studio: Option<AppStudioExecutionContext>,
         cancel_token: Option<&CancellationToken>,
-    ) -> BitFunResult<SubagentResult> {
+    ) -> CoreResult<SubagentResult> {
         let workspace_path = workspace_path.ok_or_else(|| {
-            BitFunError::Validation(
+            CoreError::Validation(
                 "workspace_path is required when creating a subagent session".to_string(),
             )
         })?;
@@ -3404,7 +3404,7 @@ impl ConversationCoordinator {
         runtime_tool_restrictions: ToolRuntimeRestrictions,
         created_by: Option<String>,
         cancel_token: Option<&CancellationToken>,
-    ) -> BitFunResult<String> {
+    ) -> CoreResult<String> {
         let result = self
             .execute_hidden_subagent_internal(
                 HiddenSubagentExecutionRequest {
@@ -3433,7 +3433,7 @@ impl ConversationCoordinator {
     /// Clean up subagent session resources
     ///
     /// Release resources occupied by subagent session (sandbox, etc.) and delete session
-    async fn cleanup_subagent_resources(&self, session_id: &str) -> BitFunResult<()> {
+    async fn cleanup_subagent_resources(&self, session_id: &str) -> CoreResult<()> {
         debug!(
             "Starting subagent resource cleanup: session_id={}",
             session_id
@@ -3512,7 +3512,7 @@ impl ConversationCoordinator {
         session_id: &str,
         user_message: &str,
         max_length: Option<usize>,
-    ) -> BitFunResult<String> {
+    ) -> CoreResult<String> {
         let allow_ai = is_ai_session_title_generation_enabled().await;
         let resolved = self
             .session_manager
@@ -3542,10 +3542,10 @@ impl ConversationCoordinator {
         &self,
         session_id: &str,
         title: &str,
-    ) -> BitFunResult<String> {
+    ) -> CoreResult<String> {
         let normalized = title.trim().to_string();
         if normalized.is_empty() {
-            return Err(BitFunError::validation(
+            return Err(CoreError::validation(
                 "Session title must not be empty".to_string(),
             ));
         }
@@ -3666,7 +3666,7 @@ impl ConversationCoordinator {
         parent_session_id: &str,
         parent_dialog_turn_id: Option<&str>,
         parent_turn_index: Option<usize>,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         self.session_manager
             .persist_btw_turn(
                 workspace_path,

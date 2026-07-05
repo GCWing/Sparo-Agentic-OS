@@ -118,7 +118,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .expect("time went backwards")
             .as_nanos();
-        let path = std::env::temp_dir().join(format!("bitfun-read-file-test-{unique}.txt"));
+        let path = std::env::temp_dir().join(format!("sparo-read-file-test-{unique}.txt"));
         fs::write(&path, contents).expect("temp file should be written");
         path
     }

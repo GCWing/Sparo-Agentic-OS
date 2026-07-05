@@ -18,7 +18,7 @@ use crate::service::config::agent_capability_config_canonicalizer::{
 use crate::service::config::global::GlobalConfigManager;
 use crate::service::config::types::{AgentCapabilityConfig, SubAgentConfig};
 use crate::service::config::GlobalConfig;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use log::{debug, error, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -1043,16 +1043,16 @@ impl AgentRegistry {
     }
 
     /// Remove a registered Agent Component from memory.
-    pub fn remove_agent_component(&self, agent_id: &str) -> BitFunResult<()> {
+    pub fn remove_agent_component(&self, agent_id: &str) -> CoreResult<()> {
         let mut map = self.write_agents();
         let Some(entry) = map.get(agent_id) else {
-            return Err(BitFunError::agent(format!(
+            return Err(CoreError::agent(format!(
                 "Agent Component not found: {}",
                 agent_id
             )));
         };
         if entry.category != AgentCategory::AgentComponent {
-            return Err(BitFunError::agent(format!(
+            return Err(CoreError::agent(format!(
                 "Agent '{}' is not an Agent Component",
                 agent_id
             )));
@@ -1088,7 +1088,7 @@ impl AgentRegistry {
         agent_id: &str,
         enabled: Option<bool>,
         model: Option<String>,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let mut map = self.write_agents();
         let mut project_maps = self.write_project_subagents();
         let entry = if let Some(entry) = map.get_mut(agent_id) {
@@ -1097,18 +1097,18 @@ impl AgentRegistry {
             project_maps
                 .values_mut()
                 .find_map(|entries| entries.get_mut(agent_id))
-                .ok_or_else(|| BitFunError::agent(format!("Subagent not found: {}", agent_id)))?
+                .ok_or_else(|| CoreError::agent(format!("Subagent not found: {}", agent_id)))?
         };
 
         if entry.category != AgentCategory::SubAgent {
-            return Err(BitFunError::agent(format!(
+            return Err(CoreError::agent(format!(
                 "Agent '{}' is not a subagent",
                 agent_id
             )));
         }
 
         let config = entry.custom_config.as_mut().ok_or_else(|| {
-            BitFunError::agent(format!("Subagent '{}' is not a custom subagent", agent_id))
+            CoreError::agent(format!("Subagent '{}' is not a custom subagent", agent_id))
         })?;
 
         // calculate new enabled and model values
@@ -1121,7 +1121,7 @@ impl AgentRegistry {
             .as_any()
             .downcast_ref::<CustomSubagent>()
             .ok_or_else(|| {
-                BitFunError::agent(format!(
+                CoreError::agent(format!(
                     "Failed to downcast agent '{}' to CustomSubagent",
                     agent_id
                 ))
@@ -1142,7 +1142,7 @@ impl AgentRegistry {
         &self,
         agent_id: &str,
         workspace_root: Option<&Path>,
-    ) -> BitFunResult<CustomSubagentDetail> {
+    ) -> CoreResult<CustomSubagentDetail> {
         if let Some(root) = workspace_root {
             self.load_custom_subagents(root).await;
         }
@@ -1153,18 +1153,18 @@ impl AgentRegistry {
         &self,
         agent_id: &str,
         workspace_root: Option<&Path>,
-    ) -> BitFunResult<CustomSubagentDetail> {
+    ) -> CoreResult<CustomSubagentDetail> {
         let entry = self
             .find_agent_entry(agent_id, workspace_root)
-            .ok_or_else(|| BitFunError::agent(format!("Subagent not found: {}", agent_id)))?;
+            .ok_or_else(|| CoreError::agent(format!("Subagent not found: {}", agent_id)))?;
         if entry.category != AgentCategory::SubAgent {
-            return Err(BitFunError::agent(format!(
+            return Err(CoreError::agent(format!(
                 "Agent '{}' is not a subagent",
                 agent_id
             )));
         }
         if entry.subagent_source == Some(SubAgentSource::Builtin) {
-            return Err(BitFunError::agent(
+            return Err(CoreError::agent(
                 "Built-in subagents cannot be edited here".to_string(),
             ));
         }
@@ -1173,7 +1173,7 @@ impl AgentRegistry {
             .as_any()
             .downcast_ref::<CustomSubagent>()
             .ok_or_else(|| {
-                BitFunError::agent(format!(
+                CoreError::agent(format!(
                     "Subagent '{}' is not a custom subagent file",
                     agent_id
                 ))
@@ -1209,21 +1209,21 @@ impl AgentRegistry {
         prompt: String,
         tools: Option<Vec<String>>,
         readonly: Option<bool>,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         if let Some(root) = workspace_root {
             self.load_custom_subagents(root).await;
         }
         let entry = self
             .find_agent_entry(agent_id, workspace_root)
-            .ok_or_else(|| BitFunError::agent(format!("Subagent not found: {}", agent_id)))?;
+            .ok_or_else(|| CoreError::agent(format!("Subagent not found: {}", agent_id)))?;
         if entry.category != AgentCategory::SubAgent {
-            return Err(BitFunError::agent(format!(
+            return Err(CoreError::agent(format!(
                 "Agent '{}' is not a subagent",
                 agent_id
             )));
         }
         if entry.subagent_source == Some(SubAgentSource::Builtin) {
-            return Err(BitFunError::agent(
+            return Err(CoreError::agent(
                 "Built-in subagents cannot be edited".to_string(),
             ));
         }
@@ -1232,7 +1232,7 @@ impl AgentRegistry {
             .as_any()
             .downcast_ref::<CustomSubagent>()
             .ok_or_else(|| {
-                BitFunError::agent(format!(
+                CoreError::agent(format!(
                     "Subagent '{}' is not a custom subagent file",
                     agent_id
                 ))
@@ -1271,20 +1271,20 @@ impl AgentRegistry {
         agent_id: &str,
         workspace_root: Option<&Path>,
         new_subagent: CustomSubagent,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let mut map = self.write_agents();
         if map.contains_key(agent_id) {
             let old_entry = map
                 .get(agent_id)
-                .ok_or_else(|| BitFunError::agent(format!("Subagent not found: {}", agent_id)))?;
+                .ok_or_else(|| CoreError::agent(format!("Subagent not found: {}", agent_id)))?;
             if old_entry.category != AgentCategory::SubAgent {
-                return Err(BitFunError::agent(format!(
+                return Err(CoreError::agent(format!(
                     "Agent '{}' is not a subagent",
                     agent_id
                 )));
             }
             if old_entry.subagent_source == Some(SubAgentSource::Builtin) {
-                return Err(BitFunError::agent(
+                return Err(CoreError::agent(
                     "Cannot replace built-in subagent".to_string(),
                 ));
             }
@@ -1307,23 +1307,23 @@ impl AgentRegistry {
         drop(map);
 
         let root = workspace_root.ok_or_else(|| {
-            BitFunError::agent("Workspace path is required to update project subagent".to_string())
+            CoreError::agent("Workspace path is required to update project subagent".to_string())
         })?;
         let mut pm = self.write_project_subagents();
         let entries = pm.get_mut(root).ok_or_else(|| {
-            BitFunError::agent("Project subagent cache not loaded for this workspace".to_string())
+            CoreError::agent("Project subagent cache not loaded for this workspace".to_string())
         })?;
         let old_entry = entries
             .get(agent_id)
-            .ok_or_else(|| BitFunError::agent(format!("Subagent not found: {}", agent_id)))?;
+            .ok_or_else(|| CoreError::agent(format!("Subagent not found: {}", agent_id)))?;
         if old_entry.category != AgentCategory::SubAgent {
-            return Err(BitFunError::agent(format!(
+            return Err(CoreError::agent(format!(
                 "Agent '{}' is not a subagent",
                 agent_id
             )));
         }
         if old_entry.subagent_source == Some(SubAgentSource::Builtin) {
-            return Err(BitFunError::agent(
+            return Err(CoreError::agent(
                 "Cannot replace built-in subagent".to_string(),
             ));
         }
@@ -1346,17 +1346,17 @@ impl AgentRegistry {
 
     /// remove single non-built-in subagent, return its file path (used for caller to delete file)
     /// only allow removing entries that are SubAgent and not Builtin
-    pub fn remove_subagent(&self, agent_id: &str) -> BitFunResult<Option<String>> {
+    pub fn remove_subagent(&self, agent_id: &str) -> CoreResult<Option<String>> {
         let mut map = self.write_agents();
         if let Some(entry) = map.get(agent_id) {
             if entry.category != AgentCategory::SubAgent {
-                return Err(BitFunError::agent(format!(
+                return Err(CoreError::agent(format!(
                     "Agent '{}' is not a subagent",
                     agent_id
                 )));
             }
             if entry.subagent_source == Some(SubAgentSource::Builtin) {
-                return Err(BitFunError::agent(format!(
+                return Err(CoreError::agent(format!(
                     "Cannot remove built-in subagent: {}",
                     agent_id
                 )));
@@ -1375,7 +1375,7 @@ impl AgentRegistry {
         for entries in project_maps.values_mut() {
             if let Some(entry) = entries.get(agent_id) {
                 if entry.category != AgentCategory::SubAgent {
-                    return Err(BitFunError::agent(format!(
+                    return Err(CoreError::agent(format!(
                         "Agent '{}' is not a subagent",
                         agent_id
                     )));
@@ -1390,7 +1390,7 @@ impl AgentRegistry {
             }
         }
 
-        Err(BitFunError::agent(format!(
+        Err(CoreError::agent(format!(
             "Subagent not found: {}",
             agent_id
         )))
@@ -1403,11 +1403,11 @@ impl AgentRegistry {
         &self,
         agent_type: &str,
         workspace_root: Option<&Path>,
-    ) -> BitFunResult<String> {
+    ) -> CoreResult<String> {
         // check if agent exists
         if self.find_agent_entry(agent_type, workspace_root).is_none() {
             error!("[AgentRegistry] Agent not found: {}", agent_type);
-            return Err(BitFunError::agent(format!(
+            return Err(CoreError::agent(format!(
                 "[AgentRegistry] Agent not found: {}",
                 agent_type
             )));

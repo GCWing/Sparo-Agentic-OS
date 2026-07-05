@@ -5,15 +5,15 @@
 //! `WorkspaceReady` boot stage before mounting `<App />`.
 
 use anyhow::Context;
-use bitfun_core::agentic::events::AgenticEventDeliveryClass;
-use bitfun_core::agentic::tools::computer_use_capability::set_computer_use_desktop_available;
-use bitfun_core::agentic::tools::computer_use_host::ComputerUseHostRef;
-use bitfun_core::infrastructure::constants::{
+use sparo_core::agentic::events::AgenticEventDeliveryClass;
+use sparo_core::agentic::tools::computer_use_capability::set_computer_use_desktop_available;
+use sparo_core::agentic::tools::computer_use_host::ComputerUseHostRef;
+use sparo_core::infrastructure::constants::{
     SUBSCRIBER_KEY_AGENTIC_OS_WORK, SUBSCRIBER_KEY_CRON_JOBS, SUBSCRIBER_KEY_GLOBAL_DAILY_REPORT,
     SUBSCRIBER_KEY_GLOBAL_MILESTONE, SUBSCRIBER_KEY_HOST_AUTO_SCAN, SUBSCRIBER_KEY_TOKEN_USAGE,
     SUBSCRIBER_KEY_TRAY_STATUS, SUBSCRIBER_KEY_WORKSPACE_OVERVIEW_AUTO_REFRESH,
 };
-use bitfun_core::runtime::{initialize_agentic_runtime, AgenticRuntimeOptions};
+use sparo_core::runtime::{initialize_agentic_runtime, AgenticRuntimeOptions};
 use std::sync::Arc;
 use tauri::AppHandle;
 
@@ -22,14 +22,14 @@ use super::globals::GlobalServices;
 use crate::api::app_state::AppState;
 use crate::computer_use::DesktopComputerUseHost;
 use crate::tray::event_subscriber::TrayStatusSubscriber;
-use bitfun_transport::{TauriTransportAdapter, TransportAdapter};
+use sparo_transport::{TauriTransportAdapter, TransportAdapter};
 
 pub struct AgenticHandles {
-    pub coordinator: Arc<bitfun_core::agentic::coordination::ConversationCoordinator>,
-    pub scheduler: Arc<bitfun_core::agentic::coordination::DialogScheduler>,
-    pub goal_service: Arc<bitfun_core::agentic::goal::GoalService>,
-    pub event_queue: Arc<bitfun_core::agentic::events::EventQueue>,
-    pub event_router: Arc<bitfun_core::agentic::events::EventRouter>,
+    pub coordinator: Arc<sparo_core::agentic::coordination::ConversationCoordinator>,
+    pub scheduler: Arc<sparo_core::agentic::coordination::DialogScheduler>,
+    pub goal_service: Arc<sparo_core::agentic::goal::GoalService>,
+    pub event_queue: Arc<sparo_core::agentic::events::EventQueue>,
+    pub event_router: Arc<sparo_core::agentic::events::EventRouter>,
 }
 
 /// Initialize agentic coordinator + scheduler + workspace-adjacent services.
@@ -60,7 +60,7 @@ pub async fn initialize_agentic(
     let path_manager = runtime.persistence_manager.path_manager().clone();
 
     let token_usage_subscriber = Arc::new(
-        bitfun_core::service::token_usage::TokenUsageSubscriber::new(
+        sparo_core::service::token_usage::TokenUsageSubscriber::new(
             globals.token_usage_service.clone(),
         ),
     );
@@ -70,12 +70,12 @@ pub async fn initialize_agentic(
     );
 
     let work_subscriber = Arc::new(
-        bitfun_core::agentic_os::work::WorkEventSubscriber::with_scheduler(scheduler.clone()),
+        sparo_core::agentic_os::work::WorkEventSubscriber::with_scheduler(scheduler.clone()),
     );
     event_router.subscribe_internal(SUBSCRIBER_KEY_AGENTIC_OS_WORK.to_string(), work_subscriber);
-    match bitfun_core::agentic_os::work::default_work_store() {
+    match sparo_core::agentic_os::work::default_work_store() {
         Ok(store) => {
-            let service = bitfun_core::agentic_os::work::WorkService::new(store);
+            let service = sparo_core::agentic_os::work::WorkService::new(store);
             match service.reconcile_orphaned_executions().await {
                 Ok(records) if !records.is_empty() => {
                     log::info!(
@@ -98,27 +98,27 @@ pub async fn initialize_agentic(
     }
 
     let cron_service =
-        bitfun_core::service::cron::CronService::new(path_manager.clone(), scheduler.clone())
+        sparo_core::service::cron::CronService::new(path_manager.clone(), scheduler.clone())
             .await
             .map_err(|e| anyhow::anyhow!("Failed to initialize cron service: {}", e))?;
-    let _ = bitfun_core::service::cron::install_global_cron_service(cron_service.clone());
+    let _ = sparo_core::service::cron::install_global_cron_service(cron_service.clone());
     // SessionManager needs the cron service to clean up jobs when a
     // session is deleted; inject as Weak.
     session_manager.install_cron_service(Arc::downgrade(&cron_service));
-    let cron_subscriber = Arc::new(bitfun_core::service::cron::CronEventSubscriber::new(
+    let cron_subscriber = Arc::new(sparo_core::service::cron::CronEventSubscriber::new(
         cron_service.clone(),
     ));
     event_router.subscribe_internal(SUBSCRIBER_KEY_CRON_JOBS.to_string(), cron_subscriber);
     cron_service.start();
 
     let host_auto_scan_service =
-        bitfun_core::service::HostAutoScanService::new(coordinator.clone())
+        sparo_core::service::HostAutoScanService::new(coordinator.clone())
             .await
             .map_err(|e| anyhow::anyhow!("Failed to initialize host auto scan service: {}", e))?;
     let _ =
-        bitfun_core::service::install_global_host_auto_scan_service(host_auto_scan_service.clone());
+        sparo_core::service::install_global_host_auto_scan_service(host_auto_scan_service.clone());
     let host_auto_scan_subscriber = Arc::new(
-        bitfun_core::service::HostAutoScanEventSubscriber::new(host_auto_scan_service.clone()),
+        sparo_core::service::HostAutoScanEventSubscriber::new(host_auto_scan_service.clone()),
     );
     event_router.subscribe_internal(
         SUBSCRIBER_KEY_HOST_AUTO_SCAN.to_string(),
@@ -127,7 +127,7 @@ pub async fn initialize_agentic(
     host_auto_scan_service.start();
 
     let workspace_overview_auto_refresh_service =
-        bitfun_core::service::WorkspaceOverviewAutoRefreshService::new(coordinator.clone())
+        sparo_core::service::WorkspaceOverviewAutoRefreshService::new(coordinator.clone())
             .await
             .map_err(|e| {
                 anyhow::anyhow!(
@@ -135,11 +135,11 @@ pub async fn initialize_agentic(
                     e
                 )
             })?;
-    let _ = bitfun_core::service::set_global_workspace_overview_auto_refresh_service(
+    let _ = sparo_core::service::set_global_workspace_overview_auto_refresh_service(
         workspace_overview_auto_refresh_service.clone(),
     );
     let workspace_overview_auto_refresh_subscriber = Arc::new(
-        bitfun_core::service::WorkspaceOverviewAutoRefreshEventSubscriber::new(
+        sparo_core::service::WorkspaceOverviewAutoRefreshEventSubscriber::new(
             workspace_overview_auto_refresh_service.clone(),
         ),
     );
@@ -150,27 +150,27 @@ pub async fn initialize_agentic(
     workspace_overview_auto_refresh_service.start();
 
     let memory_consolidation_service =
-        bitfun_core::agentic::memory::MemoryConsolidationService::new()
+        sparo_core::agentic::memory::MemoryConsolidationService::new()
             .await
             .map_err(|e| {
                 anyhow::anyhow!("Failed to initialize memory consolidation service: {}", e)
             })?;
-    let _ = bitfun_core::agentic::memory::set_global_memory_consolidation_service(
+    let _ = sparo_core::agentic::memory::set_global_memory_consolidation_service(
         memory_consolidation_service.clone(),
     );
     memory_consolidation_service.start();
 
     let global_daily_report_service =
-        bitfun_core::service::GlobalDailyReportService::new(coordinator.clone())
+        sparo_core::service::GlobalDailyReportService::new(coordinator.clone())
             .await
             .map_err(|e| {
                 anyhow::anyhow!("Failed to initialize global daily report service: {}", e)
             })?;
-    let _ = bitfun_core::service::install_global_global_daily_report_service(
+    let _ = sparo_core::service::install_global_global_daily_report_service(
         global_daily_report_service.clone(),
     );
     let global_daily_report_subscriber =
-        Arc::new(bitfun_core::service::GlobalDailyReportEventSubscriber::new(
+        Arc::new(sparo_core::service::GlobalDailyReportEventSubscriber::new(
             global_daily_report_service.clone(),
         ));
     event_router.subscribe_internal(
@@ -180,14 +180,14 @@ pub async fn initialize_agentic(
     global_daily_report_service.start();
 
     let global_milestone_service =
-        bitfun_core::service::GlobalMilestoneService::new(coordinator.clone())
+        sparo_core::service::GlobalMilestoneService::new(coordinator.clone())
             .await
             .map_err(|e| anyhow::anyhow!("Failed to initialize global milestone service: {}", e))?;
-    let _ = bitfun_core::service::install_global_global_milestone_service(
+    let _ = sparo_core::service::install_global_global_milestone_service(
         global_milestone_service.clone(),
     );
     let global_milestone_subscriber = Arc::new(
-        bitfun_core::service::GlobalMilestoneEventSubscriber::new(global_milestone_service.clone()),
+        sparo_core::service::GlobalMilestoneEventSubscriber::new(global_milestone_service.clone()),
     );
     event_router.subscribe_internal(
         SUBSCRIBER_KEY_GLOBAL_MILESTONE.to_string(),
@@ -273,9 +273,9 @@ pub async fn initialize_app_state(
 }
 
 async fn dispatch_event(
-    event_router: Arc<bitfun_core::agentic::events::EventRouter>,
+    event_router: Arc<sparo_core::agentic::events::EventRouter>,
     transport: Arc<TauriTransportAdapter>,
-    envelope: bitfun_core::agentic::events::EventEnvelope,
+    envelope: sparo_core::agentic::events::EventEnvelope,
 ) {
     if let Err(e) = event_router.route(envelope.clone()).await {
         log::warn!("Internal event routing failed: {:?}", e);
@@ -289,8 +289,8 @@ async fn dispatch_event(
 /// `TauriTransportAdapter`, preserving strict order for timeline events while
 /// still allowing control events to run concurrently.
 pub fn spawn_event_loop(
-    event_queue: Arc<bitfun_core::agentic::events::EventQueue>,
-    event_router: Arc<bitfun_core::agentic::events::EventRouter>,
+    event_queue: Arc<sparo_core::agentic::events::EventQueue>,
+    event_router: Arc<sparo_core::agentic::events::EventRouter>,
     transport: Arc<TauriTransportAdapter>,
 ) {
     tauri::async_runtime::spawn(async move {

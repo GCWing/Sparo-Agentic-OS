@@ -12,7 +12,7 @@ use crate::agentic::WorkspaceBinding;
 use crate::infrastructure::get_path_manager_arc;
 use crate::runtime::{AgenticHandles, WorkspaceMount};
 use crate::service::{get_workspace_runtime_service_arc, WorkspaceRuntimeContext};
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 use crate::util::types::ToolImageAttachment;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -114,7 +114,7 @@ impl ToolUseContext {
         self.workspace_services.as_ref().map(|s| s.shell.as_ref())
     }
 
-    pub fn enforce_tool_runtime_restrictions(&self, tool_name: &str) -> BitFunResult<()> {
+    pub fn enforce_tool_runtime_restrictions(&self, tool_name: &str) -> CoreResult<()> {
         self.runtime_tool_restrictions
             .ensure_tool_allowed(tool_name)
     }
@@ -123,7 +123,7 @@ impl ToolUseContext {
         &self,
         operation: ToolPathOperation,
         resolution: &ToolPathResolution,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         if let Some(app_studio) = self.app_studio.as_ref() {
             let target = Path::new(&resolution.resolved_path);
             let mut allowed = false;
@@ -135,7 +135,7 @@ impl ToolUseContext {
             }
 
             if !allowed {
-                return Err(crate::util::errors::BitFunError::validation(format!(
+                return Err(crate::error::CoreError::validation(format!(
                     "AppStudio is bound to package root '{}' and cannot {} '{}'",
                     app_studio.package_root.display(),
                     operation.verb(),
@@ -178,7 +178,7 @@ impl ToolUseContext {
             return Ok(());
         }
 
-        Err(crate::util::errors::BitFunError::validation(format!(
+        Err(crate::error::CoreError::validation(format!(
             "Path '{}' is not allowed for {}. Allowed roots: {}",
             resolution.logical_path,
             operation.verb(),
@@ -197,7 +197,7 @@ impl ToolUseContext {
 
     /// Resolve a user or model-supplied path for file/shell tools. Uses POSIX semantics when the
     /// workspace is remote SSH so Windows-hosted clients still resolve `/home/...` correctly.
-    pub fn resolve_workspace_tool_path(&self, path: &str) -> BitFunResult<String> {
+    pub fn resolve_workspace_tool_path(&self, path: &str) -> CoreResult<String> {
         let workspace_root_owned = self.workspace.as_ref().map(|w| w.root_path_string());
         crate::agentic::tools::workspace_paths::resolve_workspace_tool_path(
             path,
@@ -206,9 +206,9 @@ impl ToolUseContext {
         )
     }
 
-    pub fn workspace_runtime_root(&self) -> BitFunResult<PathBuf> {
+    pub fn workspace_runtime_root(&self) -> CoreResult<PathBuf> {
         let workspace = self.workspace.as_ref().ok_or_else(|| {
-            crate::util::errors::BitFunError::tool(
+            crate::error::CoreError::tool(
                 "A workspace is required to resolve runtime artifacts".to_string(),
             )
         })?;
@@ -222,9 +222,9 @@ impl ToolUseContext {
             .and_then(|workspace| workspace.workspace_id.clone())
     }
 
-    pub async fn ensure_workspace_runtime(&self) -> BitFunResult<WorkspaceRuntimeContext> {
+    pub async fn ensure_workspace_runtime(&self) -> CoreResult<WorkspaceRuntimeContext> {
         let workspace = self.workspace.as_ref().ok_or_else(|| {
-            crate::util::errors::BitFunError::tool(
+            crate::error::CoreError::tool(
                 "A workspace is required to ensure runtime artifacts".to_string(),
             )
         })?;
@@ -240,14 +240,14 @@ impl ToolUseContext {
         false
     }
 
-    pub fn build_runtime_uri(&self, relative_path: &str) -> BitFunResult<String> {
+    pub fn build_runtime_uri(&self, relative_path: &str) -> CoreResult<String> {
         let scope = self
             .workspace_scope()
             .unwrap_or_else(|| "current".to_string());
         build_sparo_runtime_uri(&scope, &normalize_runtime_relative_path(relative_path)?)
     }
 
-    pub fn build_runtime_artifact_reference(&self, relative_path: &str) -> BitFunResult<String> {
+    pub fn build_runtime_artifact_reference(&self, relative_path: &str) -> CoreResult<String> {
         let normalized_relative_path = normalize_runtime_relative_path(relative_path)?;
         if self.should_emit_runtime_uri() {
             return self.build_runtime_uri(&normalized_relative_path);
@@ -265,7 +265,7 @@ impl ToolUseContext {
         &self,
         session_id: &str,
         relative_path: &str,
-    ) -> BitFunResult<String> {
+    ) -> CoreResult<String> {
         let normalized_relative_path = normalize_runtime_relative_path(relative_path)?;
         self.build_runtime_artifact_reference(&format!(
             "sessions/{}/{}",
@@ -273,14 +273,14 @@ impl ToolUseContext {
         ))
     }
 
-    pub fn workspace_session_dir(&self, session_id: &str) -> BitFunResult<PathBuf> {
+    pub fn workspace_session_dir(&self, session_id: &str) -> CoreResult<PathBuf> {
         Ok(self
             .workspace_runtime_root()?
             .join("sessions")
             .join(session_id))
     }
 
-    pub fn workspace_session_tool_results_dir(&self, session_id: &str) -> BitFunResult<PathBuf> {
+    pub fn workspace_session_tool_results_dir(&self, session_id: &str) -> CoreResult<PathBuf> {
         Ok(self.workspace_session_dir(session_id)?.join("tool-results"))
     }
 
@@ -288,20 +288,20 @@ impl ToolUseContext {
         &self,
         session_id: &str,
         file_name: &str,
-    ) -> BitFunResult<PathBuf> {
+    ) -> CoreResult<PathBuf> {
         Ok(self
             .workspace_session_tool_results_dir(session_id)?
             .join(file_name))
     }
 
-    pub fn resolve_tool_path(&self, path: &str) -> BitFunResult<ToolPathResolution> {
+    pub fn resolve_tool_path(&self, path: &str) -> CoreResult<ToolPathResolution> {
         if is_sparo_runtime_uri(path) {
             let parsed = parse_sparo_runtime_uri(path)?;
             let workspace_scope = self.workspace_scope();
             let scope_matches = parsed.workspace_scope == "current"
                 || workspace_scope.as_deref() == Some(parsed.workspace_scope.as_str());
             if !scope_matches {
-                return Err(crate::util::errors::BitFunError::tool(format!(
+                return Err(crate::error::CoreError::tool(format!(
                     "Runtime URI scope '{}' does not match the current workspace",
                     parsed.workspace_scope
                 )));
@@ -432,13 +432,13 @@ pub trait Tool: Send + Sync {
     fn name(&self) -> &str;
 
     /// Tool description
-    async fn description(&self) -> BitFunResult<String>;
+    async fn description(&self) -> CoreResult<String>;
 
     /// Tool description with execution context.
     async fn description_with_context(
         &self,
         _context: Option<&ToolUseContext>,
-    ) -> BitFunResult<String> {
+    ) -> CoreResult<String> {
         self.description().await
     }
 
@@ -540,13 +540,13 @@ pub trait Tool: Send + Sync {
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>>;
+    ) -> CoreResult<Vec<ToolResult>>;
 
     /// Unified tool entry point.
     /// This method owns shared framework behavior and delegates the actual
     /// execution to [`call_impl`], so most tools should override `call_impl`
     /// instead of overriding this method directly.
-    async fn call(&self, input: &Value, context: &ToolUseContext) -> BitFunResult<Vec<ToolResult>> {
+    async fn call(&self, input: &Value, context: &ToolUseContext) -> CoreResult<Vec<ToolResult>> {
         if let Some(cancellation_token) = context.cancellation_token.as_ref() {
             tokio::select! {
                 result = self.call_impl(input, context) => {
@@ -554,7 +554,7 @@ pub trait Tool: Send + Sync {
                 }
 
                 _ = cancellation_token.cancelled() => {
-                    Err(crate::util::errors::BitFunError::Cancelled("Tool execution cancelled".to_string()))
+                    Err(crate::error::CoreError::Cancelled("Tool execution cancelled".to_string()))
                 }
             }
         } else {

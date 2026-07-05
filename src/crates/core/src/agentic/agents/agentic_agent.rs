@@ -49,11 +49,11 @@ impl Agent for AgenticAgent {
     }
 
     fn name(&self) -> &str {
-        "Prime Builder"
+        "BitFun Coder"
     }
 
     fn description(&self) -> &str {
-        "Autonomous software development agent for coding, implementation, debugging, tests, and end-to-end application changes"
+        "Default execution agent for turning goals into verified results across coding, debugging, automation, and workspace tasks"
     }
 
     fn prompt_template_name(&self, _model_name: Option<&str>) -> &str {

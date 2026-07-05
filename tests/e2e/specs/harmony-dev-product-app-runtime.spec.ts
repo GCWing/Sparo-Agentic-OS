@@ -1,11 +1,11 @@
-﻿import fs from 'node:fs';
+import fs from 'node:fs';
 import { browser, expect, $ } from '@wdio/globals';
 
 import { callProductAppRuntimeBackend } from '../helpers/product-app-runtime-helper';
 
 describe('HarmonyOS Dev Product App runtime', () => {
   const workspacePath = process.env.E2E_TEST_WORKSPACE || process.cwd();
-  const harmonyFixturePath = process.env.E2E_HARMONY_WORKSPACE || 'D:\\workspace\\bitfun_harmony';
+  const harmonyFixturePath = process.env.E2E_HARMONY_WORKSPACE || 'D:\\workspace\\sparo_harmony';
   const realHarmonyIt = fs.existsSync(harmonyFixturePath) ? it : it.skip;
   const buildIt = fs.existsSync(harmonyFixturePath) && process.env.E2E_HARMONY_RUN_BUILD === '1' ? it : it.skip;
 
@@ -67,13 +67,13 @@ describe('HarmonyOS Dev Product App runtime', () => {
     expect(await chatInput.isDisplayed()).toBe(true);
   });
 
-  realHarmonyIt('detects the real bitfun_harmony project without leaking signing secrets', async () => {
+  realHarmonyIt('detects the real sparo_harmony project without leaking signing secrets', async () => {
     const output = await callHarmonyRuntime('detectProject');
     const serialized = JSON.stringify(output);
 
     expect(output.ok).toBe(true);
     expect(output.project.kind).toBe('harmonyos');
-    expect(output.project.bundleName).toBe('com.example.bitfun_mobile');
+    expect(output.project.bundleName).toBe('com.example.sparo_mobile');
     expect(output.project.modules[0].mainElement).toBe('EntryAbility');
     expect(output.project.signing.redacted).toBe(true);
     expect(serialized).not.toContain('keyPassword');

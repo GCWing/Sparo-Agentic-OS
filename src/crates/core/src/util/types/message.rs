@@ -1,1 +1,1 @@
-pub use bitfun_ai_adapters::types::Message;
+pub use sparo_ai_adapters::types::Message;

@@ -22,7 +22,7 @@ export interface ProviderTemplate {
 
 /** Same order as `AIModelConfig.tsx` `providerOrder`. */
 export const PROVIDER_DISPLAY_ORDER: string[] = [
-  'openbitfun',
+  'opensparo',
   'zhipu',
   'qwen',
   'deepseek',
@@ -37,11 +37,11 @@ export const PROVIDER_DISPLAY_ORDER: string[] = [
 ];
 
 export const PROVIDER_TEMPLATES: Record<string, ProviderTemplate> = {
-  openbitfun: {
-    id: 'openbitfun',
-    nameKey: 'model.providers.openbitfun.name',
-    descriptionKey: 'model.providers.openbitfun.description',
-    baseUrl: 'https://api.openbitfun.com',
+  opensparo: {
+    id: 'opensparo',
+    nameKey: 'model.providers.opensparo.name',
+    descriptionKey: 'model.providers.opensparo.description',
+    baseUrl: 'https://api.opensparo.com',
     format: 'anthropic',
     models: [],
   },

@@ -1,6 +1,6 @@
 //! Product App Runtime host export engine - export to Electron or Tauri standalone app skeleton.
 
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -58,7 +58,7 @@ impl ProductAppRuntimeHostExporter {
     }
 
     /// Check if export is possible (runtime, electron-builder, etc.).
-    pub async fn check(&self, _app_id: &str) -> BitFunResult<ExportCheckResult> {
+    pub async fn check(&self, _app_id: &str) -> CoreResult<ExportCheckResult> {
         let runtime = crate::product_app_runtime_host_engine::runtime_detect::detect_runtime();
         let runtime_str = runtime.as_ref().map(|r| {
             match r.kind {
@@ -84,8 +84,8 @@ impl ProductAppRuntimeHostExporter {
         &self,
         _app_id: &str,
         _options: ExportOptions,
-    ) -> BitFunResult<ExportResult> {
-        Err(BitFunError::validation(
+    ) -> CoreResult<ExportResult> {
+        Err(CoreError::validation(
             "Export not yet implemented (skeleton)".to_string(),
         ))
     }

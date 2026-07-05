@@ -1,5 +1,5 @@
 use crate::infrastructure::get_path_manager_arc;
-use crate::util::errors::*;
+use crate::error::*;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 
@@ -40,10 +40,10 @@ pub(crate) fn global_milestone_state_file_path() -> std::path::PathBuf {
     get_path_manager_arc().agentic_os_global_milestone_state_path()
 }
 
-pub(crate) async fn ensure_global_milestone_runtime_dir() -> BitFunResult<()> {
+pub(crate) async fn ensure_global_milestone_runtime_dir() -> CoreResult<()> {
     let dir = get_path_manager_arc().agentic_os_global_milestone_dir();
     fs::create_dir_all(&dir).await.map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to create global milestone runtime directory {}: {}",
             dir.display(),
             error
@@ -52,7 +52,7 @@ pub(crate) async fn ensure_global_milestone_runtime_dir() -> BitFunResult<()> {
     Ok(())
 }
 
-pub(crate) async fn load_global_milestone_state() -> BitFunResult<GlobalMilestoneState> {
+pub(crate) async fn load_global_milestone_state() -> CoreResult<GlobalMilestoneState> {
     ensure_global_milestone_runtime_dir().await?;
 
     let path = global_milestone_state_file_path();
@@ -61,7 +61,7 @@ pub(crate) async fn load_global_milestone_state() -> BitFunResult<GlobalMileston
     }
 
     let content = fs::read_to_string(&path).await.map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to read global milestone state file {}: {}",
             path.display(),
             error
@@ -73,7 +73,7 @@ pub(crate) async fn load_global_milestone_state() -> BitFunResult<GlobalMileston
     }
 
     serde_json::from_str(&content).map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to parse global milestone state file {}: {}",
             path.display(),
             error
@@ -81,12 +81,12 @@ pub(crate) async fn load_global_milestone_state() -> BitFunResult<GlobalMileston
     })
 }
 
-pub(crate) async fn save_global_milestone_state(state: &GlobalMilestoneState) -> BitFunResult<()> {
+pub(crate) async fn save_global_milestone_state(state: &GlobalMilestoneState) -> CoreResult<()> {
     ensure_global_milestone_runtime_dir().await?;
 
     let path = global_milestone_state_file_path();
     let content = serde_json::to_string_pretty(state).map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to serialize global milestone state for {}: {}",
             path.display(),
             error
@@ -94,7 +94,7 @@ pub(crate) async fn save_global_milestone_state(state: &GlobalMilestoneState) ->
     })?;
 
     fs::write(&path, content).await.map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to write global milestone state file {}: {}",
             path.display(),
             error

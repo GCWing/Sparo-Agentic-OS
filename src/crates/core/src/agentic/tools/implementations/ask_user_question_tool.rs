@@ -12,7 +12,7 @@ use uuid::Uuid;
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
 use crate::agentic::tools::user_input_manager::get_user_input_manager;
 use crate::infrastructure::events::event_system::{get_global_event_system, BackendEvent};
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 
 /// Question option
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -170,7 +170,7 @@ impl Tool for AskUserQuestionTool {
         "AskUserQuestion"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(r#"Use this tool when you need to ask the user question during execution. This allows you to:
 1. Gather user preferences or requirements
 2. Clarify ambiguous instructions
@@ -262,11 +262,11 @@ Usage notes:
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         // 1. Parse input parameters
         let tool_input: AskUserQuestionInput =
             serde_json::from_value(input.clone()).map_err(|e| {
-                crate::util::errors::BitFunError::Validation(format!(
+                crate::error::CoreError::Validation(format!(
                     "Failed to parse input parameters: {}",
                     e
                 ))
@@ -274,7 +274,7 @@ Usage notes:
 
         // 2. Validate question format
         if let Err(error) = Self::validate_input(&tool_input) {
-            return Err(crate::util::errors::BitFunError::Validation(error));
+            return Err(crate::error::CoreError::Validation(error));
         }
 
         let question_count = tool_input.questions.len();

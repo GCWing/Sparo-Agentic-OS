@@ -1,4 +1,4 @@
-﻿/**
+/**
  * useProductAppRuntimeBridge handles postMessage JSON-RPC from the Product App iframe:
  * worker.call to JS Worker, fs/shell/os/net to host primitives,
  * dialog.open/save/message to Tauri dialog, ai.* to host AI client,

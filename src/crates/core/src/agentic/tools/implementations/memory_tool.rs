@@ -4,7 +4,7 @@ use crate::agentic::memory::store::{
     MemoryScope, MemoryStoreTarget,
 };
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext, ValidationResult};
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use chrono::{Local, SecondsFormat};
 use serde::{Deserialize, Serialize};
@@ -48,7 +48,7 @@ impl MemoryTool {
         Self
     }
 
-    fn resolve_memory_scope(&self, context: &ToolUseContext) -> BitFunResult<MemoryScope> {
+    fn resolve_memory_scope(&self, context: &ToolUseContext) -> CoreResult<MemoryScope> {
         let agent_type = context
             .agent_type
             .as_deref()
@@ -56,7 +56,7 @@ impl MemoryTool {
             .unwrap_or("agentic");
 
         let workspace_root = context.workspace_root().ok_or_else(|| {
-            BitFunError::tool("Memory tool requires an active workspace".to_string())
+            CoreError::tool("Memory tool requires an active workspace".to_string())
         })?;
 
         Ok(get_agent_registry()
@@ -69,11 +69,11 @@ impl MemoryTool {
         &self,
         context: &'a ToolUseContext,
         scope: MemoryScope,
-    ) -> BitFunResult<MemoryStoreTarget<'a>> {
+    ) -> CoreResult<MemoryStoreTarget<'a>> {
         match scope {
             MemoryScope::WorkspaceProject => Ok(MemoryStoreTarget::WorkspaceProject(
                 context.workspace_root().ok_or_else(|| {
-                    BitFunError::tool(
+                    CoreError::tool(
                         "Workspace-scoped memory requires a workspace root".to_string(),
                     )
                 })?,
@@ -82,7 +82,7 @@ impl MemoryTool {
         }
     }
 
-    fn resolve_origin_session_id(&self, context: &ToolUseContext) -> BitFunResult<String> {
+    fn resolve_origin_session_id(&self, context: &ToolUseContext) -> CoreResult<String> {
         if let Some(origin) = context
             .custom_data
             .get("origin_session_id")
@@ -98,7 +98,7 @@ impl MemoryTool {
             .filter(|value| !value.trim().is_empty())
             .cloned()
             .ok_or_else(|| {
-                BitFunError::tool(
+                CoreError::tool(
                     "Memory tool requires a session id in context or origin_session_id override"
                         .to_string(),
                 )
@@ -116,7 +116,7 @@ impl Tool for MemoryTool {
         "Memory"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(
             r#"Append durable memory records to the structured auto-memory journal.
 
@@ -226,9 +226,9 @@ Do not use this tool for:
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let parsed: MemoryToolInput = serde_json::from_value(input.clone())
-            .map_err(|e| BitFunError::validation(format!("Invalid Memory input: {}", e)))?;
+            .map_err(|e| CoreError::validation(format!("Invalid Memory input: {}", e)))?;
 
         let scope = self.resolve_memory_scope(context)?;
         let target = self.resolve_memory_target(context, scope)?;
@@ -246,7 +246,7 @@ Do not use this tool for:
         let journal_path = memory_journal_file_path_for_date(target, now.date_naive());
         if let Some(parent) = journal_path.parent() {
             fs::create_dir_all(parent).await.map_err(|e| {
-                BitFunError::tool(format!(
+                CoreError::tool(format!(
                     "Failed to create memory journal directory {}: {}",
                     parent.display(),
                     e
@@ -255,7 +255,7 @@ Do not use this tool for:
         }
 
         let serialized = serde_json::to_string(&record).map_err(|e| {
-            BitFunError::tool(format!("Failed to serialize memory journal record: {}", e))
+            CoreError::tool(format!("Failed to serialize memory journal record: {}", e))
         })?;
 
         let mut file = fs::OpenOptions::new()
@@ -264,28 +264,28 @@ Do not use this tool for:
             .open(&journal_path)
             .await
             .map_err(|e| {
-                BitFunError::tool(format!(
+                CoreError::tool(format!(
                     "Failed to open memory journal {}: {}",
                     journal_path.display(),
                     e
                 ))
             })?;
         file.write_all(serialized.as_bytes()).await.map_err(|e| {
-            BitFunError::tool(format!(
+            CoreError::tool(format!(
                 "Failed to append memory journal {}: {}",
                 journal_path.display(),
                 e
             ))
         })?;
         file.write_all(b"\n").await.map_err(|e| {
-            BitFunError::tool(format!(
+            CoreError::tool(format!(
                 "Failed to finalize memory journal line {}: {}",
                 journal_path.display(),
                 e
             ))
         })?;
         file.flush().await.map_err(|e| {
-            BitFunError::tool(format!(
+            CoreError::tool(format!(
                 "Failed to flush memory journal {}: {}",
                 journal_path.display(),
                 e

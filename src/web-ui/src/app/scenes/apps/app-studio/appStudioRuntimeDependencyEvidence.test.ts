@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { ProductAppCatalogEntry } from '@/infrastructure/api/service-api/AppCatalogAPI';
 import type { ProductAppRuntimeContext } from '@/shared/types/product-app-runtime';
 import type { ProductAppHostSurface } from '@/infrastructure/api/service-api/ProductAppRuntimeHostAPI';

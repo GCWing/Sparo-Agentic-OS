@@ -12,7 +12,7 @@ use crate::bridge_component::{
     BridgeComponentConsumer, BridgeComponentConsumerKind, BridgeComponentManager,
 };
 use crate::infrastructure::get_path_manager_arc;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
@@ -34,21 +34,21 @@ const OBSOLETE_BUILTIN_FILE_AGENT_COMPONENT_IDS: &[&str] = &[
     "cursor-agent",
 ];
 
-pub fn validate_agent_component_id(id: &str) -> BitFunResult<()> {
+pub fn validate_agent_component_id(id: &str) -> CoreResult<()> {
     if id.is_empty() {
-        return Err(BitFunError::validation(
+        return Err(CoreError::validation(
             "Agent Component id cannot be empty",
         ));
     }
     let mut chars = id.chars();
     if !chars.next().is_some_and(|c| c.is_ascii_alphabetic()) {
-        return Err(BitFunError::validation(
+        return Err(CoreError::validation(
             "Agent Component id must start with an ASCII letter",
         ));
     }
     for c in chars {
         if !c.is_ascii_alphanumeric() && c != '-' && c != '_' {
-            return Err(BitFunError::validation(
+            return Err(CoreError::validation(
                 "Agent Component id can only contain ASCII letters, numbers, -, _",
             ));
         }
@@ -78,13 +78,13 @@ pub fn slugify_agent_component_id(name: &str) -> String {
 fn agent_component_root(
     level: AgentComponentLevel,
     workspace_root: Option<&Path>,
-) -> BitFunResult<PathBuf> {
+) -> CoreResult<PathBuf> {
     let pm = get_path_manager_arc();
     Ok(match level {
         AgentComponentLevel::User => pm.user_agent_components_dir(),
         AgentComponentLevel::Project => {
             let workspace_root = workspace_root.ok_or_else(|| {
-                BitFunError::validation("Project Agent Components require a workspace path")
+                CoreError::validation("Project Agent Components require a workspace path")
             })?;
             pm.project_agent_components_dir(workspace_root)
         }
@@ -95,16 +95,16 @@ fn agent_component_dir(
     level: AgentComponentLevel,
     app_id: &str,
     workspace_root: Option<&Path>,
-) -> BitFunResult<PathBuf> {
+) -> CoreResult<PathBuf> {
     Ok(agent_component_root(level, workspace_root)?.join(app_id))
 }
 
-fn read_json_file<T: for<'de> Deserialize<'de>>(path: &Path) -> BitFunResult<T> {
+fn read_json_file<T: for<'de> Deserialize<'de>>(path: &Path) -> CoreResult<T> {
     let text = std::fs::read_to_string(path)?;
-    serde_json::from_str(&text).map_err(BitFunError::from)
+    serde_json::from_str(&text).map_err(CoreError::from)
 }
 
-fn write_json_file<T: Serialize>(path: &Path, value: &T) -> BitFunResult<()> {
+fn write_json_file<T: Serialize>(path: &Path, value: &T) -> CoreResult<()> {
     let text = serde_json::to_string_pretty(value)?;
     std::fs::write(path, format!("{text}\n"))?;
     Ok(())
@@ -157,7 +157,7 @@ impl Agent for AgentComponentAgent {
         ""
     }
 
-    async fn build_prompt(&self, context: &PromptBuilderContext) -> BitFunResult<String> {
+    async fn build_prompt(&self, context: &PromptBuilderContext) -> CoreResult<String> {
         PromptBuilder::new(context.clone())
             .build_prompt_from_template(&self.prompt)
             .await
@@ -183,7 +183,7 @@ impl Agent for AgentComponentAgent {
 pub struct AgentComponentManager;
 
 impl AgentComponentManager {
-    pub fn seed_builtin_agent_components() -> BitFunResult<Vec<AgentComponentInfo>> {
+    pub fn seed_builtin_agent_components() -> CoreResult<Vec<AgentComponentInfo>> {
         Self::remove_obsolete_builtin_file_agent_components()?;
         let app_ids = super::builtin::seed_builtin_agent_components()?;
         let mut seeded = Vec::new();
@@ -196,11 +196,11 @@ impl AgentComponentManager {
         Ok(seeded)
     }
 
-    pub fn seed_builtin_file_agent_components() -> BitFunResult<Vec<AgentComponentInfo>> {
+    pub fn seed_builtin_file_agent_components() -> CoreResult<Vec<AgentComponentInfo>> {
         Self::seed_builtin_agent_components()
     }
 
-    fn remove_obsolete_builtin_file_agent_components() -> BitFunResult<()> {
+    fn remove_obsolete_builtin_file_agent_components() -> CoreResult<()> {
         for app_id in OBSOLETE_BUILTIN_FILE_AGENT_COMPONENT_IDS {
             let dir = agent_component_dir(AgentComponentLevel::User, app_id, None)?;
             if !dir.exists() {
@@ -213,7 +213,7 @@ impl AgentComponentManager {
         Ok(())
     }
 
-    pub fn list(workspace_root: Option<&Path>) -> BitFunResult<Vec<AgentComponentInfo>> {
+    pub fn list(workspace_root: Option<&Path>) -> CoreResult<Vec<AgentComponentInfo>> {
         let mut apps = Vec::new();
         Self::load_from_root(AgentComponentLevel::User, None, &mut apps)?;
         if workspace_root.is_some() {
@@ -233,7 +233,7 @@ impl AgentComponentManager {
         level: AgentComponentLevel,
         workspace_root: Option<&Path>,
         out: &mut Vec<AgentComponentInfo>,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let root = agent_component_root(level, workspace_root)?;
         if !root.exists() {
             return Ok(());
@@ -260,7 +260,7 @@ impl AgentComponentManager {
         app_id: &str,
         level: Option<AgentComponentLevel>,
         workspace_root: Option<&Path>,
-    ) -> BitFunResult<AgentComponentPackage> {
+    ) -> CoreResult<AgentComponentPackage> {
         let levels = match level {
             Some(level) => vec![level],
             None => {
@@ -278,7 +278,7 @@ impl AgentComponentManager {
                 return Self::load_package_from_dir(&dir);
             }
         }
-        Err(BitFunError::NotFound(format!(
+        Err(CoreError::NotFound(format!(
             "Agent Component not found: {app_id}"
         )))
     }
@@ -288,16 +288,16 @@ impl AgentComponentManager {
         prompt: String,
         workspace_root: Option<&Path>,
         overwrite: bool,
-    ) -> BitFunResult<AgentComponentPackage> {
+    ) -> CoreResult<AgentComponentPackage> {
         Self::validate_manifest(&mut manifest)?;
         if prompt.trim().is_empty() {
-            return Err(BitFunError::validation(
+            return Err(CoreError::validation(
                 "Agent Component prompt cannot be empty",
             ));
         }
         let dir = agent_component_dir(manifest.level, &manifest.id, workspace_root)?;
         if dir.exists() && !overwrite {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Agent Component '{}' already exists",
                 manifest.id
             )));
@@ -318,10 +318,10 @@ impl AgentComponentManager {
         app_id: &str,
         level: AgentComponentLevel,
         workspace_root: Option<&Path>,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let dir = agent_component_dir(level, app_id, workspace_root)?;
         if !dir.exists() {
-            return Err(BitFunError::NotFound(format!(
+            return Err(CoreError::NotFound(format!(
                 "Agent Component not found: {app_id}"
             )));
         }
@@ -333,7 +333,7 @@ impl AgentComponentManager {
         Ok(())
     }
 
-    pub fn register_all(workspace_root: Option<&Path>) -> BitFunResult<Vec<AgentComponentInfo>> {
+    pub fn register_all(workspace_root: Option<&Path>) -> CoreResult<Vec<AgentComponentInfo>> {
         let packages = Self::load_packages(workspace_root)?;
         let registry = crate::agentic::agents::get_agent_registry();
         for package in &packages {
@@ -344,7 +344,7 @@ impl AgentComponentManager {
 
     pub async fn register_runtime_tools(
         workspace_root: Option<&Path>,
-    ) -> BitFunResult<Vec<String>> {
+    ) -> CoreResult<Vec<String>> {
         let packages = Self::load_packages(workspace_root)?;
         let mut registered = Vec::new();
         let registry = get_global_tool_registry();
@@ -365,7 +365,7 @@ impl AgentComponentManager {
     pub async fn register_runtime_tools_for_package(
         package: &AgentComponentPackage,
         private_bridge_package_dirs: HashMap<String, PathBuf>,
-    ) -> BitFunResult<Vec<String>> {
+    ) -> CoreResult<Vec<String>> {
         let registry = get_global_tool_registry();
         let mut guard = registry.write().await;
         Self::register_runtime_tools_for_package_with_guard(
@@ -381,7 +381,7 @@ impl AgentComponentManager {
         package: &AgentComponentPackage,
         private_bridge_package_dirs: HashMap<String, PathBuf>,
         replace_existing: bool,
-    ) -> BitFunResult<Vec<String>> {
+    ) -> CoreResult<Vec<String>> {
         let mut registered = Vec::new();
         if replace_existing {
             guard.unregister_tools_with_prefix(&format!(
@@ -431,7 +431,7 @@ impl AgentComponentManager {
         workspace_root: Option<&Path>,
         manifest: AgentComponentJsToolManifest,
         source: String,
-    ) -> BitFunResult<String> {
+    ) -> CoreResult<String> {
         validate_js_tool_manifest(&manifest)?;
         let package = Self::get(app_id, level, workspace_root)?;
         let app_dir = PathBuf::from(package.path);
@@ -441,7 +441,7 @@ impl AgentComponentManager {
         let entry_path = app_dir.join(&manifest.entry);
         let parent = entry_path
             .parent()
-            .ok_or_else(|| BitFunError::validation("Invalid JS tool entry path"))?;
+            .ok_or_else(|| CoreError::validation("Invalid JS tool entry path"))?;
         std::fs::create_dir_all(parent)?;
         write_json_file(&manifest_path, &manifest)?;
         std::fs::write(&entry_path, source)?;
@@ -457,7 +457,7 @@ impl AgentComponentManager {
         input: &Value,
         level: Option<AgentComponentLevel>,
         workspace_root: Option<&Path>,
-    ) -> BitFunResult<Value> {
+    ) -> CoreResult<Value> {
         let package = Self::get(app_id, level, workspace_root)?;
         let app_dir = PathBuf::from(&package.path);
         let manifest_path = app_dir
@@ -492,7 +492,7 @@ impl AgentComponentManager {
         Ok(json!({ "results": results }))
     }
 
-    fn load_packages(workspace_root: Option<&Path>) -> BitFunResult<Vec<AgentComponentPackage>> {
+    fn load_packages(workspace_root: Option<&Path>) -> CoreResult<Vec<AgentComponentPackage>> {
         let mut packages = Vec::new();
         Self::load_packages_from_root(AgentComponentLevel::User, None, &mut packages)?;
         if workspace_root.is_some() {
@@ -511,7 +511,7 @@ impl AgentComponentManager {
         level: AgentComponentLevel,
         workspace_root: Option<&Path>,
         out: &mut Vec<AgentComponentPackage>,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let root = agent_component_root(level, workspace_root)?;
         if !root.exists() {
             return Ok(());
@@ -532,7 +532,7 @@ impl AgentComponentManager {
         Ok(())
     }
 
-    pub fn load_package_from_dir(dir: &Path) -> BitFunResult<AgentComponentPackage> {
+    pub fn load_package_from_dir(dir: &Path) -> CoreResult<AgentComponentPackage> {
         let mut manifest: AgentComponentManifest =
             read_json_file(&dir.join(AGENT_COMPONENT_MANIFEST))?;
         Self::validate_manifest(&mut manifest)?;
@@ -544,7 +544,7 @@ impl AgentComponentManager {
         })
     }
 
-    pub fn register_package(package: &AgentComponentPackage) -> BitFunResult<()> {
+    pub fn register_package(package: &AgentComponentPackage) -> CoreResult<()> {
         let registry = crate::agentic::agents::get_agent_registry();
         Self::register_package_with_registry(&registry, package)
     }
@@ -552,7 +552,7 @@ impl AgentComponentManager {
     fn register_package_with_registry(
         registry: &Arc<crate::agentic::agents::AgentRegistry>,
         package: &AgentComponentPackage,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let config = crate::agentic::agents::CustomSubagentConfig {
             enabled: package.manifest.enabled,
             model: package.manifest.model.clone(),
@@ -569,12 +569,12 @@ impl AgentComponentManager {
         Ok(())
     }
 
-    pub fn validate_manifest(manifest: &mut AgentComponentManifest) -> BitFunResult<()> {
+    pub fn validate_manifest(manifest: &mut AgentComponentManifest) -> CoreResult<()> {
         if manifest.schema_version == 0 {
             manifest.schema_version = AGENT_COMPONENT_SCHEMA_VERSION;
         }
         if manifest.schema_version != AGENT_COMPONENT_SCHEMA_VERSION {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Unsupported Agent Component schema version: {}",
                 manifest.schema_version
             )));
@@ -582,12 +582,12 @@ impl AgentComponentManager {
         manifest.id = manifest.id.trim().to_string();
         validate_agent_component_id(&manifest.id)?;
         if manifest.name.trim().is_empty() {
-            return Err(BitFunError::validation(
+            return Err(CoreError::validation(
                 "Agent Component name cannot be empty",
             ));
         }
         if manifest.description.trim().is_empty() {
-            return Err(BitFunError::validation(
+            return Err(CoreError::validation(
                 "Agent Component description cannot be empty",
             ));
         }
@@ -717,10 +717,10 @@ fn merge_agent_component_packages(
     }
 }
 
-fn validate_js_tool_manifest(manifest: &AgentComponentJsToolManifest) -> BitFunResult<()> {
+fn validate_js_tool_manifest(manifest: &AgentComponentJsToolManifest) -> CoreResult<()> {
     validate_agent_component_id(&manifest.name)?;
     if manifest.runtime != "javascript" {
-        return Err(BitFunError::validation(
+        return Err(CoreError::validation(
             "Agent Component runtime tools currently support runtime=javascript only",
         ));
     }
@@ -730,7 +730,7 @@ fn validate_js_tool_manifest(manifest: &AgentComponentJsToolManifest) -> BitFunR
             .components()
             .any(|component| !matches!(component, Component::Normal(_)))
     {
-        return Err(BitFunError::validation(
+        return Err(CoreError::validation(
             "JS runtime tool entry must be a relative path inside the Agent Component",
         ));
     }
@@ -738,7 +738,7 @@ fn validate_js_tool_manifest(manifest: &AgentComponentJsToolManifest) -> BitFunR
         && (!manifest.permissions.fs.write.is_empty()
             || !manifest.permissions.shell.allow.is_empty())
     {
-        return Err(BitFunError::validation(
+        return Err(CoreError::validation(
             "Readonly JS runtime tools cannot request write or shell permissions",
         ));
     }
@@ -783,7 +783,7 @@ impl Tool for AgentComponentRuntimeToolAdapter {
         &self.tool_name
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(self.manifest.description.clone())
     }
 
@@ -807,7 +807,7 @@ impl Tool for AgentComponentRuntimeToolAdapter {
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         validate_js_input_subset(&self.manifest.input_schema, input)?;
         let workspace_root = context.workspace_root().map(Path::to_path_buf);
         let value = js_runtime::run_js_tool(
@@ -842,23 +842,23 @@ impl AgentComponentRuntimeToolAdapter {
         bridge_call: &Value,
         context: &ToolUseContext,
         runtime_value: &Value,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let bridge_id = bridge_call
             .get("bridgeId")
             .and_then(Value::as_str)
             .or_else(|| bridge_call.get("bridge_id").and_then(Value::as_str))
-            .ok_or_else(|| BitFunError::validation("bridgeCall.bridgeId is required"))?;
+            .ok_or_else(|| CoreError::validation("bridgeCall.bridgeId is required"))?;
         let capability_id = bridge_call
             .get("capabilityId")
             .and_then(Value::as_str)
             .or_else(|| bridge_call.get("capability_id").and_then(Value::as_str))
-            .ok_or_else(|| BitFunError::validation("bridgeCall.capabilityId is required"))?;
+            .ok_or_else(|| CoreError::validation("bridgeCall.capabilityId is required"))?;
         let action = bridge_call
             .get("action")
             .and_then(Value::as_str)
-            .ok_or_else(|| BitFunError::validation("bridgeCall.action is required"))?;
+            .ok_or_else(|| CoreError::validation("bridgeCall.action is required"))?;
         if !self.allows_bridge_capability(bridge_id, capability_id) {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Agent Component '{}' is not allowed to use Bridge capability '{}:{}'",
                 self.app_id, bridge_id, capability_id
             )));
@@ -934,17 +934,17 @@ impl AgentComponentRuntimeToolAdapter {
     }
 }
 
-fn validate_js_input_subset(schema: &Value, input: &Value) -> BitFunResult<()> {
+fn validate_js_input_subset(schema: &Value, input: &Value) -> CoreResult<()> {
     if schema.get("type").and_then(Value::as_str) != Some("object") {
         return Ok(());
     }
     let object = input.as_object().ok_or_else(|| {
-        BitFunError::validation("Agent Component JS tool input must be an object")
+        CoreError::validation("Agent Component JS tool input must be an object")
     })?;
     if let Some(required) = schema.get("required").and_then(Value::as_array) {
         for field in required.iter().filter_map(Value::as_str) {
             if !object.contains_key(field) {
-                return Err(BitFunError::validation(format!(
+                return Err(CoreError::validation(format!(
                     "Agent Component JS tool input is missing required field '{}'",
                     field
                 )));
@@ -956,7 +956,7 @@ fn validate_js_input_subset(schema: &Value, input: &Value) -> BitFunResult<()> {
         if let Some(properties) = properties {
             for key in object.keys() {
                 if !properties.contains_key(key) {
-                    return Err(BitFunError::validation(format!(
+                    return Err(CoreError::validation(format!(
                         "Agent Component JS tool input contains unknown field '{}'",
                         key
                     )));
@@ -982,7 +982,7 @@ fn validate_js_input_subset(schema: &Value, input: &Value) -> BitFunResult<()> {
                 _ => true,
             };
             if !ok {
-                return Err(BitFunError::validation(format!(
+                return Err(CoreError::validation(format!(
                     "Agent Component JS tool input field '{}' must be {}",
                     key, expected
                 )));

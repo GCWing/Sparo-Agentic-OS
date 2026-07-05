@@ -1,8 +1,8 @@
-//! Host abstraction for desktop automation (implemented in `bitfun-desktop`).
+//! Host abstraction for desktop automation (implemented in `sparo-desktop`).
 
 // Re-export optimizer types so downstream crates can import from computer_use_host.
 pub use crate::agentic::tools::computer_use_optimizer::{ActionRecord, LoopDetectionResult};
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
@@ -342,24 +342,24 @@ pub struct OcrAccessibilityHit {
 
 #[async_trait]
 pub trait ComputerUseHost: Send + Sync + std::fmt::Debug {
-    async fn permission_snapshot(&self) -> BitFunResult<ComputerUsePermissionSnapshot>;
+    async fn permission_snapshot(&self) -> CoreResult<ComputerUsePermissionSnapshot>;
 
     /// Platform-specific prompt (e.g. macOS accessibility dialog).
-    async fn request_accessibility_permission(&self) -> BitFunResult<()>;
+    async fn request_accessibility_permission(&self) -> CoreResult<()>;
 
     /// Open settings or trigger OS screen-capture permission flow where supported.
-    async fn request_screen_capture_permission(&self) -> BitFunResult<()>;
+    async fn request_screen_capture_permission(&self) -> CoreResult<()>;
 
     /// Capture the display that contains `(0,0)`. See [`ComputerUseScreenshotParams`]: point crop, optional quadrant drill, refresh, reset.
     async fn screenshot_display(
         &self,
         params: ComputerUseScreenshotParams,
-    ) -> BitFunResult<ComputerScreenshot>;
+    ) -> CoreResult<ComputerScreenshot>;
 
     /// Full-screen capture for **UI / human verification only**. Must **not** replace
     /// `last_pointer_map`, navigation focus, or `last_screenshot_refinement` (unlike [`screenshot_display`](Self::screenshot_display)).
     /// Desktop overrides with a side-effect-free capture; default delegates to a plain full-frame `screenshot_display` (may still advance navigation on naive embedders — override on desktop).
-    async fn screenshot_peek_full_display(&self) -> BitFunResult<ComputerScreenshot> {
+    async fn screenshot_peek_full_display(&self) -> CoreResult<ComputerScreenshot> {
         self.screenshot_display(ComputerUseScreenshotParams::default())
             .await
     }
@@ -371,9 +371,9 @@ pub trait ComputerUseHost: Send + Sync + std::fmt::Debug {
         &self,
         text_query: &str,
         region_native: Option<OcrRegionNative>,
-    ) -> BitFunResult<Vec<OcrTextMatch>> {
+    ) -> CoreResult<Vec<OcrTextMatch>> {
         let _ = (text_query, region_native);
-        Err(BitFunError::tool(
+        Err(CoreError::tool(
             "OCR text recognition is not available on this host.".to_string(),
         ))
     }
@@ -384,7 +384,7 @@ pub trait ComputerUseHost: Send + Sync + std::fmt::Debug {
         &self,
         _gx: f64,
         _gy: f64,
-    ) -> BitFunResult<Option<OcrAccessibilityHit>> {
+    ) -> CoreResult<Option<OcrAccessibilityHit>> {
         Ok(None)
     }
 
@@ -394,78 +394,78 @@ pub trait ComputerUseHost: Send + Sync + std::fmt::Debug {
         _gx: f64,
         _gy: f64,
         _half_extent_native: u32,
-    ) -> BitFunResult<Vec<u8>> {
-        Err(BitFunError::tool(
+    ) -> CoreResult<Vec<u8>> {
+        Err(CoreError::tool(
             "OCR preview crops are not available on this host.".to_string(),
         ))
     }
 
     /// Map `(x, y)` from the **last** screenshot's image pixel grid to global pointer pixels.
     /// Fails if no screenshot was taken in this process since startup (or since last host reset).
-    fn map_image_coords_to_pointer(&self, x: i32, y: i32) -> BitFunResult<(i32, i32)>;
+    fn map_image_coords_to_pointer(&self, x: i32, y: i32) -> CoreResult<(i32, i32)>;
 
     /// Same as `map_image_coords_to_pointer` but **sub-point** precision (macOS: use for `ComputerUseMousePrecise`).
-    fn map_image_coords_to_pointer_f64(&self, x: i32, y: i32) -> BitFunResult<(f64, f64)> {
+    fn map_image_coords_to_pointer_f64(&self, x: i32, y: i32) -> CoreResult<(f64, f64)> {
         let (a, b) = self.map_image_coords_to_pointer(x, y)?;
         Ok((a as f64, b as f64))
     }
 
     /// Map `(x, y)` with each axis in `0..=1000` to the captured display in native pointer pixels.
     /// `(0,0)` ≈ top-left of capture, `(1000,1000)` ≈ bottom-right (inclusive mapping).
-    fn map_normalized_coords_to_pointer(&self, x: i32, y: i32) -> BitFunResult<(i32, i32)>;
+    fn map_normalized_coords_to_pointer(&self, x: i32, y: i32) -> CoreResult<(i32, i32)>;
 
-    fn map_normalized_coords_to_pointer_f64(&self, x: i32, y: i32) -> BitFunResult<(f64, f64)> {
+    fn map_normalized_coords_to_pointer_f64(&self, x: i32, y: i32) -> CoreResult<(f64, f64)> {
         let (a, b) = self.map_normalized_coords_to_pointer(x, y)?;
         Ok((a as f64, b as f64))
     }
 
     /// Absolute move in host global display coordinates (on macOS: CG space, **double** precision).
-    async fn mouse_move_global_f64(&self, gx: f64, gy: f64) -> BitFunResult<()> {
+    async fn mouse_move_global_f64(&self, gx: f64, gy: f64) -> CoreResult<()> {
         self.mouse_move(gx.round() as i32, gy.round() as i32).await
     }
 
-    async fn mouse_move(&self, x: i32, y: i32) -> BitFunResult<()>;
+    async fn mouse_move(&self, x: i32, y: i32) -> CoreResult<()>;
 
     /// Move the pointer by `(dx, dy)` in **global screen pixels** (same space as `ComputerUseMousePrecise` absolute).
-    async fn pointer_move_relative(&self, dx: i32, dy: i32) -> BitFunResult<()>;
+    async fn pointer_move_relative(&self, dx: i32, dy: i32) -> CoreResult<()>;
 
     /// Click at the **current** pointer position only (does not move). Use `ComputerUseMousePrecise` / `ComputerUseMouseStep` / `pointer_move_rel` first.
     /// `button`: "left" | "right" | "middle"
     /// On desktop, enforces the vision fine-screenshot guard (unlike [`mouse_click_authoritative`](Self::mouse_click_authoritative)).
-    async fn mouse_click(&self, button: &str) -> BitFunResult<()>;
+    async fn mouse_click(&self, button: &str) -> CoreResult<()>;
 
     /// Click at the current pointer after the host has moved it to a **trusted** target (`click_element`, `move_to_text`).
     /// Skips the vision fine-screenshot / stale-pointer guard that [`mouse_click`](Self::mouse_click) applies after a pointer move.
     /// Default: delegates to [`mouse_click`](Self::mouse_click).
-    async fn mouse_click_authoritative(&self, button: &str) -> BitFunResult<()> {
+    async fn mouse_click_authoritative(&self, button: &str) -> CoreResult<()> {
         self.mouse_click(button).await
     }
 
     /// Press a mouse button and hold it at the current pointer position.
     /// `button`: "left" | "right" | "middle"
-    async fn mouse_down(&self, _button: &str) -> BitFunResult<()> {
-        Err(BitFunError::tool(
+    async fn mouse_down(&self, _button: &str) -> CoreResult<()> {
+        Err(CoreError::tool(
             "mouse_down is not supported on this host.".to_string(),
         ))
     }
 
     /// Release a mouse button at the current pointer position.
     /// `button`: "left" | "right" | "middle"
-    async fn mouse_up(&self, _button: &str) -> BitFunResult<()> {
-        Err(BitFunError::tool(
+    async fn mouse_up(&self, _button: &str) -> CoreResult<()> {
+        Err(CoreError::tool(
             "mouse_up is not supported on this host.".to_string(),
         ))
     }
 
-    async fn scroll(&self, delta_x: i32, delta_y: i32) -> BitFunResult<()>;
+    async fn scroll(&self, delta_x: i32, delta_y: i32) -> CoreResult<()>;
 
     /// Press key combination; names like "command", "control", "shift", "alt", "return", "tab", "escape", "space", or single letters.
-    async fn key_chord(&self, keys: Vec<String>) -> BitFunResult<()>;
+    async fn key_chord(&self, keys: Vec<String>) -> CoreResult<()>;
 
     /// Type Unicode text (synthesized key events; may be imperfect for some IMEs).
-    async fn type_text(&self, text: &str) -> BitFunResult<()>;
+    async fn type_text(&self, text: &str) -> CoreResult<()>;
 
-    async fn wait_ms(&self, ms: u64) -> BitFunResult<()>;
+    async fn wait_ms(&self, ms: u64) -> CoreResult<()>;
 
     /// Current frontmost app and global pointer position for tool-result JSON (`computer_use_context`).
     /// Default: empty. Desktop overrides with platform queries (typically after each tool action).
@@ -502,13 +502,13 @@ pub trait ComputerUseHost: Send + Sync + std::fmt::Debug {
     /// Refuse `mouse_click` if the pointer moved (or a click happened) since the last screenshot,
     /// or if the latest capture is not a valid “fine” basis (desktop: ~500×500 point crop **or**
     /// quadrant navigation region with longest side < [`COMPUTER_USE_QUADRANT_CLICK_READY_MAX_LONG_EDGE`]).
-    fn computer_use_guard_click_allowed(&self) -> BitFunResult<()> {
+    fn computer_use_guard_click_allowed(&self) -> CoreResult<()> {
         Ok(())
     }
 
     /// Relaxed click guard for AX-based `click_element`: skips the fine-screenshot requirement.
     /// AX coordinates are authoritative, so no quadrant drill or point crop is needed.
-    fn computer_use_guard_click_allowed_relaxed(&self) -> BitFunResult<()> {
+    fn computer_use_guard_click_allowed_relaxed(&self) -> CoreResult<()> {
         Ok(())
     }
 
@@ -529,8 +529,8 @@ pub trait ComputerUseHost: Send + Sync + std::fmt::Debug {
     async fn locate_ui_element_screen_center(
         &self,
         _query: UiElementLocateQuery,
-    ) -> BitFunResult<UiElementLocateResult> {
-        Err(BitFunError::tool(
+    ) -> CoreResult<UiElementLocateResult> {
+        Err(CoreError::tool(
             "Native UI element (accessibility) lookup is not available on this host.".to_string(),
         ))
     }
@@ -569,8 +569,8 @@ pub trait ComputerUseHost: Send + Sync + std::fmt::Debug {
 
     /// Launch a macOS/Windows/Linux application by name and return its PID.
     /// Default: unsupported. Desktop host overrides with platform-specific implementation.
-    async fn open_app(&self, _app_name: &str) -> BitFunResult<OpenAppResult> {
-        Err(BitFunError::tool(
+    async fn open_app(&self, _app_name: &str) -> CoreResult<OpenAppResult> {
+        Err(CoreError::tool(
             "open_app is not available on this host.".to_string(),
         ))
     }
@@ -580,7 +580,7 @@ pub trait ComputerUseHost: Send + Sync + std::fmt::Debug {
     /// `ControlHub` exposes via `desktop.list_displays`.
     ///
     /// Default: empty (non-desktop hosts can't enumerate displays).
-    async fn list_displays(&self) -> BitFunResult<Vec<ComputerUseDisplayInfo>> {
+    async fn list_displays(&self) -> CoreResult<Vec<ComputerUseDisplayInfo>> {
         Ok(vec![])
     }
 
@@ -593,8 +593,8 @@ pub trait ComputerUseHost: Send + Sync + std::fmt::Debug {
     /// the target display from the cursor (which is wrong whenever the user
     /// has the keyboard focus on a different screen), the model can
     /// announce "I am working on display N" and the host will commit to it.
-    async fn focus_display(&self, _display_id: Option<u32>) -> BitFunResult<()> {
-        Err(BitFunError::tool(
+    async fn focus_display(&self, _display_id: Option<u32>) -> CoreResult<()> {
+        Err(CoreError::tool(
             "focus_display is not available on this host.".to_string(),
         ))
     }
@@ -635,7 +635,7 @@ pub trait ComputerUseHost: Send + Sync + std::fmt::Debug {
     /// Enumerate running applications, sorted by recency / launch count
     /// (Codex's `list_apps`). Default: empty list — callers should treat an
     /// empty result as "not available on this host".
-    async fn list_apps(&self, _include_hidden: bool) -> BitFunResult<Vec<AppInfo>> {
+    async fn list_apps(&self, _include_hidden: bool) -> CoreResult<Vec<AppInfo>> {
         Ok(vec![])
     }
 
@@ -648,8 +648,8 @@ pub trait ComputerUseHost: Send + Sync + std::fmt::Debug {
         _app: AppSelector,
         _max_depth: u32,
         _focus_window_only: bool,
-    ) -> BitFunResult<AppStateSnapshot> {
-        Err(BitFunError::tool(
+    ) -> CoreResult<AppStateSnapshot> {
+        Err(CoreError::tool(
             "get_app_state is not available on this host.".to_string(),
         ))
     }
@@ -659,8 +659,8 @@ pub trait ComputerUseHost: Send + Sync + std::fmt::Debug {
     /// (`AXUIElementPerformAction`) and falls back to a PID-scoped
     /// synthetic mouse event. Returns the after-state snapshot so the
     /// model can verify the change in a single round-trip.
-    async fn app_click(&self, _params: AppClickParams) -> BitFunResult<AppStateSnapshot> {
-        Err(BitFunError::tool(
+    async fn app_click(&self, _params: AppClickParams) -> CoreResult<AppStateSnapshot> {
+        Err(CoreError::tool(
             "app_click is not available on this host.".to_string(),
         ))
     }
@@ -672,8 +672,8 @@ pub trait ComputerUseHost: Send + Sync + std::fmt::Debug {
         _app: AppSelector,
         _text: &str,
         _focus: Option<ClickTarget>,
-    ) -> BitFunResult<AppStateSnapshot> {
-        Err(BitFunError::tool(
+    ) -> CoreResult<AppStateSnapshot> {
+        Err(CoreError::tool(
             "app_type_text is not available on this host.".to_string(),
         ))
     }
@@ -687,8 +687,8 @@ pub trait ComputerUseHost: Send + Sync + std::fmt::Debug {
         _focus: Option<ClickTarget>,
         _dx: i32,
         _dy: i32,
-    ) -> BitFunResult<AppStateSnapshot> {
-        Err(BitFunError::tool(
+    ) -> CoreResult<AppStateSnapshot> {
+        Err(CoreError::tool(
             "app_scroll is not available on this host.".to_string(),
         ))
     }
@@ -700,8 +700,8 @@ pub trait ComputerUseHost: Send + Sync + std::fmt::Debug {
         _app: AppSelector,
         _keys: Vec<String>,
         _focus_idx: Option<u32>,
-    ) -> BitFunResult<AppStateSnapshot> {
-        Err(BitFunError::tool(
+    ) -> CoreResult<AppStateSnapshot> {
+        Err(CoreError::tool(
             "app_key_chord is not available on this host.".to_string(),
         ))
     }
@@ -714,8 +714,8 @@ pub trait ComputerUseHost: Send + Sync + std::fmt::Debug {
         _pred: AppWaitPredicate,
         _timeout_ms: u32,
         _poll_ms: u32,
-    ) -> BitFunResult<AppStateSnapshot> {
-        Err(BitFunError::tool(
+    ) -> CoreResult<AppStateSnapshot> {
+        Err(CoreError::tool(
             "app_wait_for is not available on this host.".to_string(),
         ))
     }
@@ -749,8 +749,8 @@ pub trait ComputerUseHost: Send + Sync + std::fmt::Debug {
         &self,
         _app: AppSelector,
         _opts: InteractiveViewOpts,
-    ) -> BitFunResult<InteractiveView> {
-        Err(BitFunError::tool(
+    ) -> CoreResult<InteractiveView> {
+        Err(CoreError::tool(
             "build_interactive_view is not available on this host.".to_string(),
         ))
     }
@@ -763,8 +763,8 @@ pub trait ComputerUseHost: Send + Sync + std::fmt::Debug {
         &self,
         _app: AppSelector,
         _params: InteractiveClickParams,
-    ) -> BitFunResult<InteractiveActionResult> {
-        Err(BitFunError::tool(
+    ) -> CoreResult<InteractiveActionResult> {
+        Err(CoreError::tool(
             "interactive_click is not available on this host.".to_string(),
         ))
     }
@@ -776,8 +776,8 @@ pub trait ComputerUseHost: Send + Sync + std::fmt::Debug {
         &self,
         _app: AppSelector,
         _params: InteractiveTypeTextParams,
-    ) -> BitFunResult<InteractiveActionResult> {
-        Err(BitFunError::tool(
+    ) -> CoreResult<InteractiveActionResult> {
+        Err(CoreError::tool(
             "interactive_type_text is not available on this host.".to_string(),
         ))
     }
@@ -788,8 +788,8 @@ pub trait ComputerUseHost: Send + Sync + std::fmt::Debug {
         &self,
         _app: AppSelector,
         _params: InteractiveScrollParams,
-    ) -> BitFunResult<InteractiveActionResult> {
-        Err(BitFunError::tool(
+    ) -> CoreResult<InteractiveActionResult> {
+        Err(CoreError::tool(
             "interactive_scroll is not available on this host.".to_string(),
         ))
     }
@@ -806,8 +806,8 @@ pub trait ComputerUseHost: Send + Sync + std::fmt::Debug {
         &self,
         _app: AppSelector,
         _opts: VisualMarkViewOpts,
-    ) -> BitFunResult<VisualMarkView> {
-        Err(BitFunError::tool(
+    ) -> CoreResult<VisualMarkView> {
+        Err(CoreError::tool(
             "build_visual_mark_view is not available on this host.".to_string(),
         ))
     }
@@ -816,8 +816,8 @@ pub trait ComputerUseHost: Send + Sync + std::fmt::Debug {
         &self,
         _app: AppSelector,
         _params: VisualClickParams,
-    ) -> BitFunResult<VisualActionResult> {
-        Err(BitFunError::tool(
+    ) -> CoreResult<VisualActionResult> {
+        Err(CoreError::tool(
             "visual_click is not available on this host.".to_string(),
         ))
     }

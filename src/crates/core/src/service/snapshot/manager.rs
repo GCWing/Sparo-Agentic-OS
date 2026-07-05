@@ -334,7 +334,7 @@ impl Tool for WrappedTool {
         self.original_tool.name()
     }
 
-    async fn description(&self) -> crate::util::errors::BitFunResult<String> {
+    async fn description(&self) -> crate::error::CoreResult<String> {
         Ok(self.original_tool.description().await?)
     }
 
@@ -397,7 +397,7 @@ impl Tool for WrappedTool {
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> crate::util::errors::BitFunResult<Vec<ToolResult>> {
+    ) -> crate::error::CoreResult<Vec<ToolResult>> {
         if Self::is_file_modification_tool_name(self.name()) {
             if !context
                 .runtime_tool_restrictions
@@ -440,20 +440,20 @@ impl WrappedTool {
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> crate::util::errors::BitFunResult<Vec<ToolResult>> {
+    ) -> crate::error::CoreResult<Vec<ToolResult>> {
         let session_id = context.session_id.clone().ok_or_else(|| {
-            crate::util::errors::BitFunError::Tool(
+            crate::error::CoreError::Tool(
                 "session_id is required in ToolUseContext".to_string(),
             )
         })?;
 
         let raw_path = match self.extract_file_path_simple(input) {
             Ok(path) => path,
-            Err(e) => return Err(crate::util::errors::BitFunError::Tool(e.to_string())),
+            Err(e) => return Err(crate::error::CoreError::Tool(e.to_string())),
         };
 
         let snapshot_workspace = context.workspace_root().map(PathBuf::from).ok_or_else(|| {
-            crate::util::errors::BitFunError::Tool(
+            crate::error::CoreError::Tool(
                 "workspace is required in ToolUseContext for snapshot tracking".to_string(),
             )
         })?;
@@ -467,7 +467,7 @@ impl WrappedTool {
             .workspace_mount()
             .map(|mount| mount.snapshot_manager.clone())
             .ok_or_else(|| {
-                crate::util::errors::BitFunError::Tool(
+                crate::error::CoreError::Tool(
                     "snapshot manager not available: workspace not mounted in WorkspaceRegistry"
                         .to_string(),
                 )
@@ -490,7 +490,7 @@ impl WrappedTool {
                 snapshot_workspace.display()
             );
 
-            return Err(crate::util::errors::BitFunError::Tool(format!(
+            return Err(crate::error::CoreError::Tool(format!(
                 "File not found: {} (Snapshot workspace: {})",
                 file_path.display(),
                 snapshot_workspace.display()
@@ -518,7 +518,7 @@ impl WrappedTool {
                 context.tool_call_id.clone(),
             )
             .await
-            .map_err(|e| crate::util::errors::BitFunError::Tool(e.to_string()))?;
+            .map_err(|e| crate::error::CoreError::Tool(e.to_string()))?;
 
         debug!(
             "Recorded file modification operation: operation_id={}",
@@ -532,7 +532,7 @@ impl WrappedTool {
         snapshot_service
             .complete_file_modification(&session_id, &operation_id, duration_ms)
             .await
-            .map_err(|e| crate::util::errors::BitFunError::Tool(e.to_string()))?;
+            .map_err(|e| crate::error::CoreError::Tool(e.to_string()))?;
 
         debug!(
             "File modification tool completed: tool_name={}",

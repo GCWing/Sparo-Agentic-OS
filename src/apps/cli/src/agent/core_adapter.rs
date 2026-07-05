@@ -1,6 +1,6 @@
 //! Core Agent adapter
 //!
-//! Adapts bitfun-core's Agentic system to CLI's Agent interface
+//! Adapts sparo-core's Agentic system to CLI's Agent interface
 
 use anyhow::Result;
 use std::path::PathBuf;
@@ -10,12 +10,12 @@ use tokio::sync::{mpsc, Mutex};
 
 use super::{Agent, AgentEvent, AgentResponse};
 use crate::session::{ToolCall, ToolCallStatus};
-use bitfun_core::agentic::coordination::{
+use sparo_core::agentic::coordination::{
     ConversationCoordinator, DialogSubmissionPolicy, DialogTriggerSource,
 };
-use bitfun_core::agentic::core::SessionConfig;
-use bitfun_core::agentic::events::EventQueue;
-use bitfun_events::{AgenticEvent as CoreEvent, ToolEventData};
+use sparo_core::agentic::core::SessionConfig;
+use sparo_core::agentic::events::EventQueue;
+use sparo_events::{AgenticEvent as CoreEvent, ToolEventData};
 
 fn agent_display_name(agent_type: &str, workspace_path: Option<&PathBuf>) -> String {
     let agent_type = agent_type.trim();
@@ -23,7 +23,7 @@ fn agent_display_name(agent_type: &str, workspace_path: Option<&PathBuf>) -> Str
         return "Prime Builder".to_string();
     }
 
-    bitfun_core::agentic::agents::get_agent_registry()
+    sparo_core::agentic::agents::get_agent_registry()
         .get_agent(agent_type, workspace_path.map(|path| path.as_path()))
         .map(|agent| agent.name().to_string())
         .unwrap_or_else(|| agent_type.to_string())

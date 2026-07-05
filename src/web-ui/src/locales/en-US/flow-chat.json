@@ -187,7 +187,7 @@
     "title": "Agent",
     "select": "Select Agent",
     "default": "Default Assistant",
-    "coding": "Prime Builder",
+    "coding": "BitFun Coder",
     "review": "Code Review",
     "architect": "Architect",
     "custom": "Custom Agent"
@@ -430,9 +430,9 @@
     }
   },
   "exportImage": {
-    "subtitle": "AI Programming Assistant · Chat Record",
+    "subtitle": "BitFun Coder · Chat Record",
     "poweredBy": "Powered by",
-    "aiAssistant": "AI Programming Assistant",
+    "aiAssistant": "BitFun Coder",
     "dialogNotFound": "Dialog data not found",
     "containerNotFound": "Export container not found",
     "generateFailed": "Failed to generate image",

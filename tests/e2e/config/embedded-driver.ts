@@ -32,7 +32,7 @@ type BrowserLogEntry = {
 function executableCandidates(buildType: 'debug' | 'release'): string[] {
   const root = projectRoot();
   const suffix = process.platform === 'win32' ? '.exe' : '';
-  const binaryName = `bitfun-desktop${suffix}`;
+  const binaryName = `sparo-desktop${suffix}`;
 
   if (process.platform === 'darwin') {
     return [
@@ -147,17 +147,17 @@ async function probeDocumentReady(sessionId: string): Promise<boolean> {
       script: `() => {
         const root = document.getElementById('root');
         const appLayout = document.querySelector(
-          '[data-testid="app-layout"], .bitfun-app-layout, .sparo-app-layout'
+          '[data-testid="app-layout"], .sparo-app-layout, .sparo-app-layout'
         );
         const mainContent = document.querySelector(
-          '[data-testid="app-main-content"], .bitfun-app-main-workspace, .sparo-app-main-workspace'
+          '[data-testid="app-main-content"], .sparo-app-main-workspace, .sparo-app-main-workspace'
         );
         const shell = document.querySelector(
           [
-            '.bitfun-nav-panel',
-            '.bitfun-scene-bar',
-            '.bitfun-nav-bar',
-            '.bitfun-scene-viewport',
+            '.sparo-nav-panel',
+            '.sparo-scene-bar',
+            '.sparo-nav-bar',
+            '.sparo-scene-viewport',
             '.welcome-scene',
             '[data-testid="chat-input-container"]',
             '.composer-shell',
@@ -445,7 +445,7 @@ async function startSparoApp(): Promise<void> {
   if (!fs.existsSync(appPath)) {
     console.error(`Application not found at: ${appPath}`);
     console.error('Please build the debug application first with:');
-    console.error('cargo build -p bitfun-desktop');
+    console.error('cargo build -p sparo-desktop');
     throw new Error('Application not built');
   }
 
@@ -526,8 +526,8 @@ export function createEmbeddedConfig(specs: string[], label: string): Options.Te
     maxInstances: 1,
     capabilities: [{
       maxInstances: 1,
-      browserName: 'bitfun',
-      'bitfun:embedded': true,
+      browserName: 'sparo',
+      'sparo:embedded': true,
     } as any],
 
     logLevel: 'info',
@@ -563,7 +563,7 @@ export function createEmbeddedConfig(specs: string[], label: string): Options.Te
       if (!fs.existsSync(appPath)) {
         console.error(`Application not found at: ${appPath}`);
         console.error('Please build the debug application first with:');
-        console.error('cargo build -p bitfun-desktop');
+        console.error('cargo build -p sparo-desktop');
         throw new Error('Application not built');
       }
 

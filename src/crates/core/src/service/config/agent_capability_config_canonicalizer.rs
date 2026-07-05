@@ -7,7 +7,7 @@ use crate::agentic::agents::get_agent_registry;
 use crate::agentic::tools::registry::get_all_registered_tools;
 use crate::service::config::global::GlobalConfigManager;
 use crate::service::config::types::{AgentCapabilityConfig, AgentCapabilityConfigView};
-use crate::util::errors::*;
+use crate::error::*;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::{HashMap, HashSet};
@@ -64,12 +64,25 @@ fn normalize_subagent_ids(ids: Vec<String>) -> Vec<String> {
 fn normalize_skill_override_lists(
     disabled_user_skills: Vec<String>,
     enabled_user_skills: Vec<String>,
-) -> (Vec<String>, Vec<String>) {
+    disabled_user_skill_suites: Vec<String>,
+    enabled_user_skill_suites: Vec<String>,
+) -> (Vec<String>, Vec<String>, Vec<String>, Vec<String>) {
     let disabled_user_skills = normalize_skill_keys(disabled_user_skills);
     let disabled_set: HashSet<String> = disabled_user_skills.iter().cloned().collect();
     let mut enabled_user_skills = normalize_skill_keys(enabled_user_skills);
     enabled_user_skills.retain(|key| !disabled_set.contains(key));
-    (disabled_user_skills, enabled_user_skills)
+
+    let disabled_user_skill_suites = normalize_skill_keys(disabled_user_skill_suites);
+    let disabled_suite_set: HashSet<String> = disabled_user_skill_suites.iter().cloned().collect();
+    let mut enabled_user_skill_suites = normalize_skill_keys(enabled_user_skill_suites);
+    enabled_user_skill_suites.retain(|key| !disabled_suite_set.contains(key));
+
+    (
+        disabled_user_skills,
+        enabled_user_skills,
+        disabled_user_skill_suites,
+        enabled_user_skill_suites,
+    )
 }
 
 fn normalize_subagent_override_lists(
@@ -159,6 +172,8 @@ fn stored_agent_config_from_enabled_tools(
     enabled_tools: Vec<String>,
     disabled_user_skills: Vec<String>,
     enabled_user_skills: Vec<String>,
+    disabled_user_skill_suites: Vec<String>,
+    enabled_user_skill_suites: Vec<String>,
     disabled_subagents: Vec<String>,
     enabled_subagents: Vec<String>,
     default_tools: &[String],
@@ -190,6 +205,8 @@ fn stored_agent_config_from_enabled_tools(
         removed_tools,
         disabled_user_skills,
         enabled_user_skills,
+        disabled_user_skill_suites,
+        enabled_user_skill_suites,
         disabled_subagents,
         enabled_subagents,
         &default_tools,
@@ -204,6 +221,8 @@ fn stored_agent_config_from_overrides(
     removed_tools: Vec<String>,
     disabled_user_skills: Vec<String>,
     enabled_user_skills: Vec<String>,
+    disabled_user_skill_suites: Vec<String>,
+    enabled_user_skill_suites: Vec<String>,
     disabled_subagents: Vec<String>,
     enabled_subagents: Vec<String>,
     default_tools: &[String],
@@ -212,8 +231,17 @@ fn stored_agent_config_from_overrides(
     let default_set: HashSet<String> = default_tools.iter().cloned().collect();
     let mut added_tools = normalize_tools(added_tools, valid_tools);
     let mut removed_tools = normalize_tools(removed_tools, valid_tools);
-    let (disabled_user_skills, enabled_user_skills) =
-        normalize_skill_override_lists(disabled_user_skills, enabled_user_skills);
+    let (
+        disabled_user_skills,
+        enabled_user_skills,
+        disabled_user_skill_suites,
+        enabled_user_skill_suites,
+    ) = normalize_skill_override_lists(
+        disabled_user_skills,
+        enabled_user_skills,
+        disabled_user_skill_suites,
+        enabled_user_skill_suites,
+    );
     let (disabled_subagents, enabled_subagents) =
         normalize_subagent_override_lists(disabled_subagents, enabled_subagents);
 
@@ -228,6 +256,8 @@ fn stored_agent_config_from_overrides(
         && removed_tools.is_empty()
         && disabled_user_skills.is_empty()
         && enabled_user_skills.is_empty()
+        && disabled_user_skill_suites.is_empty()
+        && enabled_user_skill_suites.is_empty()
         && disabled_subagents.is_empty()
         && enabled_subagents.is_empty()
     {
@@ -241,6 +271,8 @@ fn stored_agent_config_from_overrides(
         enabled,
         disabled_user_skills,
         enabled_user_skills,
+        disabled_user_skill_suites,
+        enabled_user_skill_suites,
         disabled_subagents,
         enabled_subagents,
     })
@@ -258,14 +290,21 @@ fn build_agent_capability_view(
     let enabled = agent_capability_config
         .map(|config| config.enabled)
         .unwrap_or(true);
-    let (disabled_user_skills, enabled_user_skills) = agent_capability_config
+    let (
+        disabled_user_skills,
+        enabled_user_skills,
+        disabled_user_skill_suites,
+        enabled_user_skill_suites,
+    ) = agent_capability_config
         .map(|config| {
             normalize_skill_override_lists(
                 config.disabled_user_skills.clone(),
                 config.enabled_user_skills.clone(),
+                config.disabled_user_skill_suites.clone(),
+                config.enabled_user_skill_suites.clone(),
             )
         })
-        .unwrap_or_else(|| (Vec::new(), Vec::new()));
+        .unwrap_or_else(|| (Vec::new(), Vec::new(), Vec::new(), Vec::new()));
     AgentCapabilityConfigView {
         agent_id: agent_id.to_string(),
         enabled_tools,
@@ -273,6 +312,8 @@ fn build_agent_capability_view(
         enabled,
         disabled_user_skills,
         enabled_user_skills,
+        disabled_user_skill_suites,
+        enabled_user_skill_suites,
         enabled_subagents: Vec::new(),
         default_subagents: Vec::new(),
     }
@@ -283,14 +324,14 @@ fn canonicalize_agent_capability_config(
     raw_agent_config: Option<&Value>,
     default_tools: &[String],
     valid_tools: &HashSet<String>,
-) -> BitFunResult<Option<AgentCapabilityConfig>> {
+) -> CoreResult<Option<AgentCapabilityConfig>> {
     let Some(raw_agent_config) = raw_agent_config else {
         return Ok(None);
     };
 
     let mut stored: AgentCapabilityConfig = serde_json::from_value(raw_agent_config.clone())
         .map_err(|error| {
-            BitFunError::config(format!(
+            CoreError::config(format!(
                 "Failed to deserialize agent capability config '{}': {}",
                 agent_id, error
             ))
@@ -306,6 +347,8 @@ fn canonicalize_agent_capability_config(
         stored.removed_tools,
         stored.disabled_user_skills,
         stored.enabled_user_skills,
+        stored.disabled_user_skill_suites,
+        stored.enabled_user_skill_suites,
         stored.disabled_subagents,
         stored.enabled_subagents,
         default_tools,
@@ -331,7 +374,7 @@ async fn get_agent_defaults() -> HashMap<String, Vec<String>> {
 }
 
 pub async fn get_agent_capability_config_views(
-) -> BitFunResult<HashMap<String, AgentCapabilityConfigView>> {
+) -> CoreResult<HashMap<String, AgentCapabilityConfigView>> {
     let config_service = GlobalConfigManager::get_service().await?;
     let stored_configs: HashMap<String, AgentCapabilityConfig> = config_service
         .get_config(Some("ai.agent_capability_configs"))
@@ -356,18 +399,18 @@ pub async fn get_agent_capability_config_views(
 
 pub async fn get_agent_capability_config_view(
     agent_id: &str,
-) -> BitFunResult<AgentCapabilityConfigView> {
+) -> CoreResult<AgentCapabilityConfigView> {
     let views = get_agent_capability_config_views().await?;
     views
         .get(agent_id)
         .cloned()
-        .ok_or_else(|| BitFunError::config(format!("Agent does not exist: {}", agent_id)))
+        .ok_or_else(|| CoreError::config(format!("Agent does not exist: {}", agent_id)))
 }
 
 pub async fn persist_agent_capability_config_from_value(
     agent_id: &str,
     config: Value,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     let config_service = GlobalConfigManager::get_service().await?;
     let mut stored_configs: HashMap<String, AgentCapabilityConfig> = config_service
         .get_config(Some("ai.agent_capability_configs"))
@@ -376,7 +419,7 @@ pub async fn persist_agent_capability_config_from_value(
     let agent_defaults = get_agent_defaults().await;
     let default_tools = agent_defaults
         .get(agent_id)
-        .ok_or_else(|| BitFunError::config(format!("Agent does not exist: {}", agent_id)))?;
+        .ok_or_else(|| CoreError::config(format!("Agent does not exist: {}", agent_id)))?;
     let valid_tools = get_valid_tool_names().await;
     let current = stored_configs.get(agent_id);
 
@@ -386,7 +429,7 @@ pub async fn persist_agent_capability_config_from_value(
         .unwrap_or_else(|| current.map(|item| item.enabled).unwrap_or(true));
     let enabled_tools = if let Some(tools) = config.get("enabled_tools") {
         serde_json::from_value::<Vec<String>>(tools.clone()).map_err(|error| {
-            BitFunError::config(format!(
+            CoreError::config(format!(
                 "Invalid enabled_tools for agent {}': {}",
                 agent_id, error
             ))
@@ -404,7 +447,7 @@ pub async fn persist_agent_capability_config_from_value(
             Some(Value::Null) | None => Vec::new(),
             Some(value) => {
                 serde_json::from_value::<Vec<String>>(value.clone()).map_err(|error| {
-                    BitFunError::config(format!(
+                    CoreError::config(format!(
                         "Invalid disabled_user_skills for agent {}': {}",
                         agent_id, error
                     ))
@@ -425,7 +468,7 @@ pub async fn persist_agent_capability_config_from_value(
             Some(Value::Null) | None => Vec::new(),
             Some(value) => {
                 serde_json::from_value::<Vec<String>>(value.clone()).map_err(|error| {
-                    BitFunError::config(format!(
+                    CoreError::config(format!(
                         "Invalid enabled_user_skills for agent {}': {}",
                         agent_id, error
                     ))
@@ -437,6 +480,48 @@ pub async fn persist_agent_capability_config_from_value(
             .map(|item| item.enabled_user_skills.clone())
             .unwrap_or_default()
     };
+    let disabled_user_skill_suites = if config
+        .as_object()
+        .map(|obj| obj.contains_key("disabled_user_skill_suites"))
+        .unwrap_or(false)
+    {
+        match config.get("disabled_user_skill_suites") {
+            Some(Value::Null) | None => Vec::new(),
+            Some(value) => {
+                serde_json::from_value::<Vec<String>>(value.clone()).map_err(|error| {
+                    CoreError::config(format!(
+                        "Invalid disabled_user_skill_suites for agent {}': {}",
+                        agent_id, error
+                    ))
+                })?
+            }
+        }
+    } else {
+        current
+            .map(|item| item.disabled_user_skill_suites.clone())
+            .unwrap_or_default()
+    };
+    let enabled_user_skill_suites = if config
+        .as_object()
+        .map(|obj| obj.contains_key("enabled_user_skill_suites"))
+        .unwrap_or(false)
+    {
+        match config.get("enabled_user_skill_suites") {
+            Some(Value::Null) | None => Vec::new(),
+            Some(value) => {
+                serde_json::from_value::<Vec<String>>(value.clone()).map_err(|error| {
+                    CoreError::config(format!(
+                        "Invalid enabled_user_skill_suites for agent {}': {}",
+                        agent_id, error
+                    ))
+                })?
+            }
+        }
+    } else {
+        current
+            .map(|item| item.enabled_user_skill_suites.clone())
+            .unwrap_or_default()
+    };
     let disabled_subagents = if config
         .as_object()
         .map(|obj| obj.contains_key("disabled_subagents"))
@@ -446,7 +531,7 @@ pub async fn persist_agent_capability_config_from_value(
             Some(Value::Null) | None => Vec::new(),
             Some(value) => {
                 serde_json::from_value::<Vec<String>>(value.clone()).map_err(|error| {
-                    BitFunError::config(format!(
+                    CoreError::config(format!(
                         "Invalid disabled_subagents for agent {}': {}",
                         agent_id, error
                     ))
@@ -467,7 +552,7 @@ pub async fn persist_agent_capability_config_from_value(
             Some(Value::Null) | None => Vec::new(),
             Some(value) => {
                 serde_json::from_value::<Vec<String>>(value.clone()).map_err(|error| {
-                    BitFunError::config(format!(
+                    CoreError::config(format!(
                         "Invalid enabled_subagents for agent {}': {}",
                         agent_id, error
                     ))
@@ -486,6 +571,8 @@ pub async fn persist_agent_capability_config_from_value(
         enabled_tools,
         disabled_user_skills,
         enabled_user_skills,
+        disabled_user_skill_suites,
+        enabled_user_skill_suites,
         disabled_subagents,
         enabled_subagents,
         default_tools,
@@ -501,7 +588,7 @@ pub async fn persist_agent_capability_config_from_value(
         .await
 }
 
-pub async fn reset_agent_capability_config_to_default(agent_id: &str) -> BitFunResult<()> {
+pub async fn reset_agent_capability_config_to_default(agent_id: &str) -> CoreResult<()> {
     let config_service = GlobalConfigManager::get_service().await?;
     let mut stored_configs: HashMap<String, AgentCapabilityConfig> = config_service
         .get_config(Some("ai.agent_capability_configs"))
@@ -515,7 +602,7 @@ pub async fn reset_agent_capability_config_to_default(agent_id: &str) -> BitFunR
 
 /// Canonicalizes stored agent capability config overrides.
 pub async fn canonicalize_agent_capability_configs(
-) -> BitFunResult<AgentCapabilityConfigCanonicalizationReport> {
+) -> CoreResult<AgentCapabilityConfigCanonicalizationReport> {
     let config_service = GlobalConfigManager::get_service().await?;
     let valid_tools = get_valid_tool_names().await;
     let agent_defaults = get_agent_defaults().await;
@@ -523,7 +610,7 @@ pub async fn canonicalize_agent_capability_configs(
     let original_ai_value = ai_value.clone();
     let ai_object = ai_value
         .as_object_mut()
-        .ok_or_else(|| BitFunError::config("AI config must be a JSON object".to_string()))?;
+        .ok_or_else(|| CoreError::config("AI config must be a JSON object".to_string()))?;
 
     let raw_agent_capability_configs = ai_object
         .get("agent_capability_configs")
@@ -586,20 +673,30 @@ mod tests {
 
     #[test]
     fn normalize_skill_override_lists_removes_duplicates_and_conflicts() {
-        let (disabled, enabled) = normalize_skill_override_lists(
+        let (disabled, enabled, disabled_suites, enabled_suites) = normalize_skill_override_lists(
             vec![
-                "user::bitfun::pdf".to_string(),
-                "user::bitfun::pdf".to_string(),
+                "user::sparo::pdf".to_string(),
+                "user::sparo::pdf".to_string(),
             ],
             vec![
-                "user::bitfun::pdf".to_string(),
-                "user::bitfun::docx".to_string(),
-                "user::bitfun::docx".to_string(),
+                "user::sparo::pdf".to_string(),
+                "user::sparo::docx".to_string(),
+                "user::sparo::docx".to_string(),
+            ],
+            vec![
+                "office-documents".to_string(),
+                "office-documents".to_string(),
+            ],
+            vec![
+                "office-documents".to_string(),
+                "product-app-development".to_string(),
             ],
         );
 
-        assert_eq!(disabled, vec!["user::bitfun::pdf".to_string()]);
-        assert_eq!(enabled, vec!["user::bitfun::docx".to_string()]);
+        assert_eq!(disabled, vec!["user::sparo::pdf".to_string()]);
+        assert_eq!(enabled, vec!["user::sparo::docx".to_string()]);
+        assert_eq!(disabled_suites, vec!["office-documents".to_string()]);
+        assert_eq!(enabled_suites, vec!["product-app-development".to_string()]);
     }
 
     #[test]
@@ -611,7 +708,9 @@ mod tests {
             Vec::new(),
             Vec::new(),
             Vec::new(),
-            vec!["user::bitfun::pdf".to_string()],
+            vec!["user::sparo::pdf".to_string()],
+            Vec::new(),
+            Vec::new(),
             Vec::new(),
             Vec::new(),
             &[],
@@ -621,7 +720,7 @@ mod tests {
 
         assert_eq!(
             stored.enabled_user_skills,
-            vec!["user::bitfun::pdf".to_string()]
+            vec!["user::sparo::pdf".to_string()]
         );
         assert!(stored.disabled_user_skills.is_empty());
     }

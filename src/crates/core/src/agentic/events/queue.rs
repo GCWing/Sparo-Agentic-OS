@@ -3,7 +3,7 @@
 //! Provides priority queue and batch processing functionality
 
 use super::types::{AgenticEvent, EventEnvelope, EventPriority};
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 use log::{debug, trace, warn};
 use std::collections::BinaryHeap;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -74,7 +74,7 @@ impl EventQueue {
         &self,
         event: AgenticEvent,
         priority: Option<EventPriority>,
-    ) -> BitFunResult<String> {
+    ) -> CoreResult<String> {
         let priority = priority.unwrap_or_else(|| event.default_priority());
         let sequence = self.next_sequence.fetch_add(1, Ordering::Relaxed);
         let envelope = EventEnvelope::new(event, priority, sequence);
@@ -144,7 +144,7 @@ impl EventQueue {
     }
 
     /// Clear all events for a session
-    pub async fn clear_session(&self, session_id: &str) -> BitFunResult<()> {
+    pub async fn clear_session(&self, session_id: &str) -> CoreResult<()> {
         // Remove all events for this session from the queue
         let queue_len = {
             let mut queue = self.queue.lock().await;

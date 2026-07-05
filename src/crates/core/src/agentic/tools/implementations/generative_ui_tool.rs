@@ -2,7 +2,7 @@
 
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext, ValidationResult};
 use crate::service::config::get_global_config_service;
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
@@ -54,7 +54,7 @@ impl GenerativeUITool {
 
     fn builtin_theme_snapshot(theme_id: &str) -> Option<ThemePromptSnapshot> {
         match theme_id {
-            "dark" | "bitfun-dark" => Some(ThemePromptSnapshot {
+            "dark" | "sparo-dark" => Some(ThemePromptSnapshot {
                 id: "dark",
                 theme_type: "dark",
                 bg_primary: "#0e0e10",
@@ -71,7 +71,7 @@ impl GenerativeUITool {
                 shadow_base: "0 4px 8px rgba(0, 0, 0, 0.7)",
                 style_notes: "neutral dark workbench, restrained surfaces, Sparo ink-red accent used sparingly",
             }),
-            "light" | "bitfun-light" | "sparo-light" => Some(ThemePromptSnapshot {
+            "light" | "sparo-light" => Some(ThemePromptSnapshot {
                 id: "light",
                 theme_type: "light",
                 bg_primary: "#F8FAFC",
@@ -88,7 +88,7 @@ impl GenerativeUITool {
                 shadow_base: "0 5px 12px rgba(15, 23, 42, 0.08)",
                 style_notes: "light theme — cloud surfaces, ink text, print-red accent, calm contrast",
             }),
-            "slate" | "bitfun-slate" | "bitfun-midnight" => Some(ThemePromptSnapshot {
+            "slate" | "sparo-slate" | "sparo-midnight" => Some(ThemePromptSnapshot {
                 id: "slate",
                 theme_type: "dark",
                 bg_primary: "#14161a",
@@ -105,8 +105,8 @@ impl GenerativeUITool {
                 shadow_base: "0 4px 8px rgba(0, 0, 0, 0.75)",
                 style_notes: "cool gray geometric chrome, crisp edges, Sparo ink-red accent, dense desktop mood",
             }),
-            "bitfun-cyber" => Some(ThemePromptSnapshot {
-                id: "bitfun-cyber",
+            "sparo-cyber" => Some(ThemePromptSnapshot {
+                id: "sparo-cyber",
                 theme_type: "dark",
                 bg_primary: "#101010",
                 bg_secondary: "#151515",
@@ -122,8 +122,8 @@ impl GenerativeUITool {
                 shadow_base: "0 4px 12px rgba(0, 0, 0, 0.8)",
                 style_notes: "neon cyber tooling, black surfaces, glowing cyan accents, still compact and workbench-first",
             }),
-            "bitfun-china-style" => Some(ThemePromptSnapshot {
-                id: "bitfun-china-style",
+            "sparo-china-style" => Some(ThemePromptSnapshot {
+                id: "sparo-china-style",
                 theme_type: "light",
                 bg_primary: "#faf8f0",
                 bg_secondary: "#f5f3e8",
@@ -139,8 +139,8 @@ impl GenerativeUITool {
                 shadow_base: "0 4px 8px rgba(106, 92, 70, 0.1)",
                 style_notes: "warm rice-paper surfaces, ink-and-blue accenting, elegant and restrained",
             }),
-            "bitfun-china-night" => Some(ThemePromptSnapshot {
-                id: "bitfun-china-night",
+            "sparo-china-night" => Some(ThemePromptSnapshot {
+                id: "sparo-china-night",
                 theme_type: "dark",
                 bg_primary: "#1a1814",
                 bg_secondary: "#212019",
@@ -238,7 +238,7 @@ impl Tool for GenerativeUITool {
         "GenerativeUI"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(format!(
             r#"Use GenerativeUI to render visual HTML or SVG content.
 
@@ -285,7 +285,7 @@ Input rules:
     async fn description_with_context(
         &self,
         _context: Option<&ToolUseContext>,
-    ) -> BitFunResult<String> {
+    ) -> CoreResult<String> {
         let mut description = self.description().await?;
         if let Some(theme_context) = self.build_theme_prompt_context().await {
             description.push_str("\n\n");
@@ -465,7 +465,7 @@ Input rules:
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let title = input
             .get("title")
             .and_then(|v| v.as_str())

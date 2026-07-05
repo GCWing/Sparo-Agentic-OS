@@ -7,7 +7,7 @@ use crate::agentic::tools::framework::{
 };
 use crate::agentic::tools::workspace_paths::is_sparo_runtime_uri;
 use crate::service::filesystem::{format_directory_listing, list_directory_entries};
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use chrono::{DateTime, Local};
 use serde_json::{json, Value};
@@ -48,7 +48,7 @@ impl Tool for LSTool {
         "LS"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(r#"Recursively lists files and directories in a given path.
 
 Usage:
@@ -118,7 +118,7 @@ Usage:
                         return ValidationResult {
                             result: false,
                             message: Some(
-                                "Tool context is required to resolve bitfun runtime URIs"
+                                "Tool context is required to resolve sparo runtime URIs"
                                     .to_string(),
                             ),
                             error_code: Some(400),
@@ -222,11 +222,11 @@ Usage:
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let path = input
             .get("path")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BitFunError::tool("path is required".to_string()))?;
+            .ok_or_else(|| CoreError::tool("path is required".to_string()))?;
 
         let limit = input
             .get("limit")
@@ -239,7 +239,7 @@ Usage:
         // Remote workspace path: execute ls via SSH shell
         if resolved.uses_remote_workspace_backend() {
             let ws_shell = context.ws_shell().ok_or_else(|| {
-                BitFunError::tool("Workspace shell not available for remote LS".to_string())
+                CoreError::tool("Workspace shell not available for remote LS".to_string())
             })?;
 
             let ls_cmd = format!(
@@ -251,7 +251,7 @@ Usage:
 
             let (stdout, _stderr, _exit_code) =
                 ws_shell.exec(&ls_cmd, Some(15_000)).await.map_err(|e| {
-                    BitFunError::tool(format!("Failed to list remote directory: {}", e))
+                    CoreError::tool(format!("Failed to list remote directory: {}", e))
                 })?;
 
             let mut file_lines = Vec::new();
@@ -277,7 +277,7 @@ Usage:
                 shell_escape(&resolved.resolved_path)
             );
             let (ls_output, _, _) = ws_shell.exec(&stat_cmd, Some(15_000)).await.map_err(|e| {
-                BitFunError::tool(format!("Failed to list remote directory: {}", e))
+                CoreError::tool(format!("Failed to list remote directory: {}", e))
             })?;
 
             let result_text = format!(
@@ -319,7 +319,7 @@ Usage:
 
         // Local: original implementation
         let entries =
-            list_directory_entries(&resolved.resolved_path, limit).map_err(BitFunError::tool)?;
+            list_directory_entries(&resolved.resolved_path, limit).map_err(CoreError::tool)?;
 
         let entries_json = entries
             .iter()

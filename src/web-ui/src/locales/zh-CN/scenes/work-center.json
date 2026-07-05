@@ -48,6 +48,25 @@
   "board": {
     "label": "工作看板"
   },
+  "bulk": {
+    "label": "批量工作操作",
+    "selectAllVisible": "选择当前可见工作",
+    "selectWork": "选择 {{title}}",
+    "selectHint": "从当前 {{count}} 个工作中选择",
+    "selectedCount": "已选择 {{count}} / {{total}}",
+    "archive": "归档 {{count}}",
+    "reopen": "重开 {{count}}",
+    "cancel": "取消 {{count}}",
+    "delete": "删除",
+    "clearSelection": "清除选择",
+    "deleteDialog": {
+      "title": "删除 {{count}} 个工作项",
+      "description": "这会从工作中心移除所选工作。关联会话和产物不会被删除。",
+      "cancel": "取消",
+      "confirm": "删除工作",
+      "deleting": "正在删除..."
+    }
+  },
   "background": {
     "title": "后台进程",
     "subtitle": "{{running}} 个运行中 · {{attention}} 个需关注 · 共 {{total}} 个",
@@ -416,13 +435,19 @@
     "openWorkspaceFailed": "打开工作区失败",
     "switchWorkspaceFailed": "切换工作区失败",
     "closeWorkspaceFailed": "关闭工作区失败",
-    "removeWorkspaceFailed": "移除工作区历史失败"
+    "removeWorkspaceFailed": "移除工作区历史失败",
+    "bulkActionFailed": "{{count}} 个所选工作更新失败",
+    "bulkDeleteFailed": "{{count}} 个所选工作删除失败"
   },
   "messages": {
     "objectiveSaved": "目标已更新",
     "advanceSent": "指令已发送",
     "paused": "工作已暂停",
     "resumed": "工作已继续",
-    "reopened": "工作已重新打开"
+    "reopened": "工作已重新打开",
+    "bulkArchived": "已归档 {{count}} 个工作项",
+    "bulkReopened": "已重开 {{count}} 个工作项",
+    "bulkCancelled": "已取消 {{count}} 个工作运行",
+    "bulkDeleted": "已删除 {{count}} 个工作项"
   }
 }

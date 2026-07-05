@@ -3,7 +3,7 @@
 //! Used to create and store plan files during the planning phase
 
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -49,7 +49,7 @@ impl Tool for CreatePlanTool {
         "CreatePlan"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(r###"Use this tool to create a concise plan for accomplishing the user's request. This tool should be called at the end of the planning phase to finalize and store the plan for user approval.
 
 The plan should be:
@@ -142,22 +142,22 @@ Additional guidelines:
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         // Parse parameters
         let name = input
             .get("name")
             .and_then(|v| v.as_str())
-            .ok_or(BitFunError::validation("Missing required field: name"))?;
+            .ok_or(CoreError::validation("Missing required field: name"))?;
 
         let overview = input
             .get("overview")
             .and_then(|v| v.as_str())
-            .ok_or(BitFunError::validation("Missing required field: overview"))?;
+            .ok_or(CoreError::validation("Missing required field: overview"))?;
 
         let plan = input
             .get("plan")
             .and_then(|v| v.as_str())
-            .ok_or(BitFunError::validation("Missing required field: plan"))?;
+            .ok_or(CoreError::validation("Missing required field: plan"))?;
 
         let todos = input.get("todos").and_then(|v| v.as_array());
 
@@ -185,7 +185,7 @@ Additional guidelines:
         let plan_file_path = plans_dir.join(&plan_file_name);
         fs::write(&plan_file_path, &file_content)
             .await
-            .map_err(|e| BitFunError::tool(format!("Failed to write plan file: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("Failed to write plan file: {}", e)))?;
         let plan_file_path_str = plan_file_path.to_string_lossy().to_string();
 
         // Process todos for return result

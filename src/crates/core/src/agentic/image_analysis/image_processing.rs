@@ -5,7 +5,7 @@ use crate::service::config::get_global_config_service;
 use crate::service::config::types::{
     AIConfig as ServiceAIConfig, AIModelConfig, ModelCapability, ModelCategory,
 };
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use crate::util::types::Message;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use image::codecs::jpeg::JpegEncoder;
@@ -29,7 +29,7 @@ pub struct ProcessedImage {
 
 pub fn resolve_vision_model_from_ai_config(
     ai_config: &ServiceAIConfig,
-) -> BitFunResult<AIModelConfig> {
+) -> CoreResult<AIModelConfig> {
     let target_model_id = ai_config
         .default_models
         .image_understanding
@@ -38,7 +38,7 @@ pub fn resolve_vision_model_from_ai_config(
         .filter(|id| !id.is_empty());
 
     let Some(id) = target_model_id else {
-        return Err(BitFunError::service(
+        return Err(CoreError::service(
             "Image understanding model is not configured.\nPlease select a model in Settings."
                 .to_string(),
         ));
@@ -49,10 +49,10 @@ pub fn resolve_vision_model_from_ai_config(
         .iter()
         .find(|m| m.id == id)
         .cloned()
-        .ok_or_else(|| BitFunError::service(format!("Model not found: {}", id)))?;
+        .ok_or_else(|| CoreError::service(format!("Model not found: {}", id)))?;
 
     if !model.enabled {
-        return Err(BitFunError::service(format!("Model is disabled: {}", id)));
+        return Err(CoreError::service(format!("Model is disabled: {}", id)));
     }
 
     let supports_image_understanding = model
@@ -61,7 +61,7 @@ pub fn resolve_vision_model_from_ai_config(
         .any(|cap| matches!(cap, ModelCapability::ImageUnderstanding))
         || matches!(model.category, ModelCategory::Multimodal);
     if !supports_image_understanding {
-        return Err(BitFunError::service(format!(
+        return Err(CoreError::service(format!(
             "Model does not support image understanding: {}",
             id
         )));
@@ -70,17 +70,17 @@ pub fn resolve_vision_model_from_ai_config(
     Ok(model)
 }
 
-pub async fn resolve_vision_model_from_global_config() -> BitFunResult<AIModelConfig> {
+pub async fn resolve_vision_model_from_global_config() -> CoreResult<AIModelConfig> {
     let config_service = get_global_config_service().await?;
     let ai_config: ServiceAIConfig = config_service
         .get_config(Some("ai"))
         .await
-        .map_err(|e| BitFunError::service(format!("Failed to get AI config: {}", e)))?;
+        .map_err(|e| CoreError::service(format!("Failed to get AI config: {}", e)))?;
 
     resolve_vision_model_from_ai_config(&ai_config)
 }
 
-pub fn resolve_image_path(path: &str, workspace_path: Option<&Path>) -> BitFunResult<PathBuf> {
+pub fn resolve_image_path(path: &str, workspace_path: Option<&Path>) -> CoreResult<PathBuf> {
     let path_buf = PathBuf::from(path);
 
     if path_buf.is_absolute() {
@@ -95,20 +95,20 @@ pub fn resolve_image_path(path: &str, workspace_path: Option<&Path>) -> BitFunRe
 pub async fn load_image_from_path(
     path: &Path,
     _workspace_path: Option<&Path>,
-) -> BitFunResult<Vec<u8>> {
+) -> CoreResult<Vec<u8>> {
     fs::read(path)
         .await
-        .map_err(|e| BitFunError::io(format!("Failed to read image: {}", e)))
+        .map_err(|e| CoreError::io(format!("Failed to read image: {}", e)))
 }
 
-pub fn decode_data_url(data_url: &str) -> BitFunResult<(Vec<u8>, Option<String>)> {
+pub fn decode_data_url(data_url: &str) -> CoreResult<(Vec<u8>, Option<String>)> {
     if !data_url.starts_with("data:") {
-        return Err(BitFunError::validation("Invalid data URL format"));
+        return Err(CoreError::validation("Invalid data URL format"));
     }
 
     let parts: Vec<&str> = data_url.splitn(2, ',').collect();
     if parts.len() != 2 {
-        return Err(BitFunError::validation("Data URL format error"));
+        return Err(CoreError::validation("Data URL format error"));
     }
 
     let header = parts[0];
@@ -122,7 +122,7 @@ pub fn decode_data_url(data_url: &str) -> BitFunResult<(Vec<u8>, Option<String>)
     let base64_data = parts[1];
     let image_data = BASE64
         .decode(base64_data)
-        .map_err(|e| BitFunError::parse(format!("Base64 decode failed: {}", e)))?;
+        .map_err(|e| CoreError::parse(format!("Base64 decode failed: {}", e)))?;
 
     Ok((image_data, mime_type))
 }
@@ -130,7 +130,7 @@ pub fn decode_data_url(data_url: &str) -> BitFunResult<(Vec<u8>, Option<String>)
 pub fn detect_mime_type_from_bytes(
     image_data: &[u8],
     fallback_mime: Option<&str>,
-) -> BitFunResult<String> {
+) -> CoreResult<String> {
     if let Ok(format) = image::guess_format(image_data) {
         if let Some(mime) = image_format_to_mime(format) {
             return Ok(mime.to_string());
@@ -143,7 +143,7 @@ pub fn detect_mime_type_from_bytes(
         }
     }
 
-    Err(BitFunError::validation(
+    Err(CoreError::validation(
         "Unsupported or unrecognized image format",
     ))
 }
@@ -152,7 +152,7 @@ pub fn optimize_image_for_provider(
     image_data: Vec<u8>,
     provider: &str,
     fallback_mime: Option<&str>,
-) -> BitFunResult<ProcessedImage> {
+) -> CoreResult<ProcessedImage> {
     optimize_image_with_size_limit(image_data, provider, fallback_mime, None)
 }
 
@@ -164,7 +164,7 @@ pub fn optimize_image_with_size_limit(
     provider: &str,
     fallback_mime: Option<&str>,
     max_output_size: Option<usize>,
-) -> BitFunResult<ProcessedImage> {
+) -> CoreResult<ProcessedImage> {
     let limits = ImageLimits::for_provider(provider);
     let effective_max = match max_output_size {
         Some(cap) => cap.min(limits.max_size),
@@ -173,7 +173,7 @@ pub fn optimize_image_with_size_limit(
 
     let guessed_format = image::guess_format(&image_data).ok();
     let dynamic = image::load_from_memory(&image_data)
-        .map_err(|e| BitFunError::validation(format!("Failed to decode image data: {}", e)))?;
+        .map_err(|e| CoreError::validation(format!("Failed to decode image data: {}", e)))?;
 
     let (orig_width, orig_height) = (dynamic.width(), dynamic.height());
     let needs_resize = orig_width > limits.max_width || orig_height > limits.max_height;
@@ -246,7 +246,7 @@ pub fn build_multimodal_message(
     image_data: &[u8],
     mime_type: &str,
     provider: &str,
-) -> BitFunResult<Vec<Message>> {
+) -> CoreResult<Vec<Message>> {
     let base64_data = BASE64.encode(image_data);
     let provider_lower = provider.to_lowercase();
 
@@ -330,11 +330,11 @@ pub async fn process_image_contexts_for_provider(
     image_contexts: &[ImageContextData],
     provider: &str,
     workspace_path: Option<&Path>,
-) -> BitFunResult<Vec<ProcessedImage>> {
+) -> CoreResult<Vec<ProcessedImage>> {
     let limits = ImageLimits::for_provider(provider);
 
     if image_contexts.len() > limits.max_images_per_request {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Too many images in one request: {} > {}",
             image_contexts.len(),
             limits.max_images_per_request
@@ -353,7 +353,7 @@ pub async fn process_image_contexts_for_provider(
             let detected_mime = detect_mime_type_from_bytes(&data, Some(&ctx.mime_type)).ok();
             (data, detected_mime.or_else(|| Some(ctx.mime_type.clone())))
         } else {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Image context missing image_path/data_url: id={}",
                 ctx.id
             )));
@@ -371,7 +371,7 @@ pub fn build_multimodal_message_with_images(
     prompt: &str,
     images: &[ProcessedImage],
     provider: &str,
-) -> BitFunResult<Vec<Message>> {
+) -> CoreResult<Vec<Message>> {
     if images.is_empty() {
         return Ok(vec![Message::user(prompt.to_string())]);
     }
@@ -455,7 +455,7 @@ fn encode_dynamic_image(
     image: &DynamicImage,
     format: ImageFormat,
     jpeg_quality: u8,
-) -> BitFunResult<(Vec<u8>, String)> {
+) -> CoreResult<(Vec<u8>, String)> {
     let target_format = match format {
         ImageFormat::Jpeg => ImageFormat::Jpeg,
         _ => ImageFormat::Png,
@@ -474,13 +474,13 @@ fn encode_dynamic_image(
                     image.height(),
                     ColorType::Rgba8.into(),
                 )
-                .map_err(|e| BitFunError::tool(format!("PNG encode failed: {}", e)))?;
+                .map_err(|e| CoreError::tool(format!("PNG encode failed: {}", e)))?;
         }
         ImageFormat::Jpeg => {
             let mut encoder = JpegEncoder::new_with_quality(&mut buffer, jpeg_quality);
             encoder
                 .encode_image(image)
-                .map_err(|e| BitFunError::tool(format!("JPEG encode failed: {}", e)))?;
+                .map_err(|e| CoreError::tool(format!("JPEG encode failed: {}", e)))?;
         }
         _ => unreachable!("unsupported target format"),
     }

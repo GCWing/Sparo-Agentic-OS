@@ -3,7 +3,7 @@
 //! Used by OutcomeReview to return a structured, OSAgent-consumable verdict.
 
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
@@ -184,7 +184,7 @@ impl Tool for OutcomeReviewTool {
         Self::name_str()
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok("Submit an evidence-backed outcome review verdict for OSAgent. Use after inspecting the final effect of a Work result; this tool is read-only and does not change Work state.".to_string())
     }
 
@@ -208,7 +208,7 @@ impl Tool for OutcomeReviewTool {
         &self,
         input: &Value,
         _context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let mut filled_input = input.clone();
         Self::validate_and_fill_defaults(&mut filled_input);
         Ok(vec![ToolResult::Result {

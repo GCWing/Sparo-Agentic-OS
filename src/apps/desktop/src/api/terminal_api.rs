@@ -7,9 +7,9 @@ use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
 use tokio::sync::Mutex;
 
-use bitfun_core::infrastructure::get_path_manager_arc;
-use bitfun_core::service::runtime::RuntimeManager;
-use bitfun_core::service::terminal::{
+use sparo_core::infrastructure::get_path_manager_arc;
+use sparo_core::service::runtime::RuntimeManager;
+use sparo_core::service::terminal::{
     AcknowledgeRequest as CoreAcknowledgeRequest, CloseSessionRequest as CoreCloseSessionRequest,
     CommandCompletionReason as CoreCommandCompletionReason,
     CreateSessionRequest as CoreCreateSessionRequest,
@@ -42,7 +42,7 @@ impl TerminalState {
         if !*initialized {
             let mut config = TerminalConfig::default();
 
-            // Set scripts directory to app data dir: {config_dir}/bitfun/temp/scripts
+            // Set scripts directory to app data dir: {config_dir}/sparo/temp/scripts
             let scripts_dir = Self::get_scripts_dir();
             config.shell_integration.scripts_dir = Some(scripts_dir);
 

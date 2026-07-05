@@ -1,6 +1,6 @@
 # Sparo OS AI Adapters
 
-Shared AI protocol adapters used by both `bitfun-core` and the installer.
+Shared AI protocol adapters used by both `sparo-core` and the installer.
 
 This crate owns the portable AI integration layer:
 
@@ -19,7 +19,7 @@ This crate intentionally does **not** own Sparo OS runtime concerns such as:
 - application event systems
 - agent/session orchestration
 
-Those remain in `bitfun-core`, which maps app config into the shared `AIConfig`
+Those remain in `sparo-core`, which maps app config into the shared `AIConfig`
 and re-exports this crate where convenient.
 
 ## Module Guide

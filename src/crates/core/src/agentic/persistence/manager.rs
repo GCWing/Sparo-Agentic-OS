@@ -15,7 +15,7 @@ use crate::service::session::{
 };
 use crate::service::workspace_runtime::WorkspaceRuntimeService;
 use crate::service::workspace_session::{workspace_session_identity, LOCAL_WORKSPACE_SCOPE_HOST};
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use log::{info, warn};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -158,7 +158,7 @@ pub struct PersistenceManager {
 }
 
 impl PersistenceManager {
-    pub fn new(path_manager: Arc<PathManager>) -> BitFunResult<Self> {
+    pub fn new(path_manager: Arc<PathManager>) -> CoreResult<Self> {
         Ok(Self {
             runtime_service: Arc::new(WorkspaceRuntimeService::new(path_manager.clone())),
             path_manager,
@@ -282,12 +282,12 @@ impl PersistenceManager {
         dir.exists().then_some(dir)
     }
 
-    async fn ensure_runtime_for_write(&self, workspace_path: &Path) -> BitFunResult<()> {
+    async fn ensure_runtime_for_write(&self, workspace_path: &Path) -> CoreResult<()> {
         if workspace_path == self.path_manager.agentic_os_runtime_root() {
             fs::create_dir_all(self.workspace_sessions_dir(workspace_path))
                 .await
                 .map_err(|e| {
-                    BitFunError::io(format!("Failed to create Agentic OS runtime: {}", e))
+                    CoreError::io(format!("Failed to create Agentic OS runtime: {}", e))
                 })?;
             return Ok(());
         }
@@ -302,11 +302,11 @@ impl PersistenceManager {
         &self,
         workspace_path: &Path,
         session_id: &str,
-    ) -> BitFunResult<PathBuf> {
+    ) -> CoreResult<PathBuf> {
         let dir = self.session_dir(workspace_path, session_id);
         fs::create_dir_all(&dir)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to create session directory: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to create session directory: {}", e)))?;
         Ok(dir)
     }
 
@@ -314,11 +314,11 @@ impl PersistenceManager {
         &self,
         workspace_path: &Path,
         session_id: &str,
-    ) -> BitFunResult<PathBuf> {
+    ) -> CoreResult<PathBuf> {
         let dir = self.turns_dir(workspace_path, session_id);
         fs::create_dir_all(&dir)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to create turns directory: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to create turns directory: {}", e)))?;
         Ok(dir)
     }
 
@@ -326,11 +326,11 @@ impl PersistenceManager {
         &self,
         workspace_path: &Path,
         session_id: &str,
-    ) -> BitFunResult<PathBuf> {
+    ) -> CoreResult<PathBuf> {
         let dir = self.snapshots_dir(workspace_path, session_id);
         fs::create_dir_all(&dir)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to create snapshots directory: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to create snapshots directory: {}", e)))?;
         Ok(dir)
     }
 
@@ -338,24 +338,24 @@ impl PersistenceManager {
         &self,
         workspace_path: &Path,
         session_id: &str,
-    ) -> BitFunResult<PathBuf> {
+    ) -> CoreResult<PathBuf> {
         let dir = self.artifacts_dir(workspace_path, session_id);
         fs::create_dir_all(&dir)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to create artifacts directory: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to create artifacts directory: {}", e)))?;
         Ok(dir)
     }
 
     async fn read_json_optional<T: DeserializeOwned>(
         &self,
         path: &Path,
-    ) -> BitFunResult<Option<T>> {
+    ) -> CoreResult<Option<T>> {
         if !path.exists() {
             return Ok(None);
         }
 
         let content = fs::read_to_string(path).await.map_err(|e| {
-            BitFunError::io(format!(
+            CoreError::io(format!(
                 "Failed to read JSON file {}: {}",
                 path.display(),
                 e
@@ -363,7 +363,7 @@ impl PersistenceManager {
         })?;
 
         let value = serde_json::from_str::<T>(&content).map_err(|e| {
-            BitFunError::Deserialization(format!(
+            CoreError::Deserialization(format!(
                 "Failed to deserialize JSON file {}: {}",
                 path.display(),
                 e
@@ -373,9 +373,9 @@ impl PersistenceManager {
         Ok(Some(value))
     }
 
-    async fn write_json_atomic<T: Serialize>(&self, path: &Path, value: &T) -> BitFunResult<()> {
+    async fn write_json_atomic<T: Serialize>(&self, path: &Path, value: &T) -> CoreResult<()> {
         let parent = path.parent().ok_or_else(|| {
-            BitFunError::io(format!(
+            CoreError::io(format!(
                 "Target path has no parent directory: {}",
                 path.display()
             ))
@@ -383,10 +383,10 @@ impl PersistenceManager {
 
         fs::create_dir_all(parent)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to create parent directory: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to create parent directory: {}", e)))?;
 
         let json = serde_json::to_string_pretty(value)
-            .map_err(|e| BitFunError::serialization(format!("Failed to serialize JSON: {}", e)))?;
+            .map_err(|e| CoreError::serialization(format!("Failed to serialize JSON: {}", e)))?;
         let lock = Self::get_file_write_lock(path).await;
         let _lock_guard = lock.lock().await;
 
@@ -396,7 +396,7 @@ impl PersistenceManager {
         for attempt in 0..=JSON_WRITE_MAX_RETRIES {
             let tmp_path = Self::build_temp_json_path(path, attempt)?;
             if let Err(e) = fs::write(&tmp_path, &json_bytes).await {
-                return Err(BitFunError::io(format!(
+                return Err(CoreError::io(format!(
                     "Failed to write temp JSON file: {}",
                     e
                 )));
@@ -430,7 +430,7 @@ impl PersistenceManager {
                     path.display()
                 );
                 fs::write(path, &json_bytes).await.map_err(|e| {
-                    BitFunError::io(format!(
+                    CoreError::io(format!(
                         "Failed fallback JSON overwrite {}: {}",
                         path.display(),
                         e
@@ -439,13 +439,13 @@ impl PersistenceManager {
                 return Ok(());
             }
 
-            return Err(BitFunError::io(format!(
+            return Err(CoreError::io(format!(
                 "Failed to replace JSON file: {}",
                 error
             )));
         }
 
-        Err(BitFunError::io(format!(
+        Err(CoreError::io(format!(
             "Failed to replace JSON file {}: unknown error",
             path.display()
         )))
@@ -470,9 +470,9 @@ impl PersistenceManager {
             .clone()
     }
 
-    fn build_temp_json_path(path: &Path, attempt: usize) -> BitFunResult<PathBuf> {
+    fn build_temp_json_path(path: &Path, attempt: usize) -> CoreResult<PathBuf> {
         let parent = path.parent().ok_or_else(|| {
-            BitFunError::io(format!(
+            CoreError::io(format!(
                 "Target path has no parent directory: {}",
                 path.display()
             ))
@@ -900,7 +900,7 @@ impl PersistenceManager {
         session_id: &str,
         turns: &[DialogTurnData],
         options: &SessionTranscriptExportOptions,
-    ) -> BitFunResult<String> {
+    ) -> CoreResult<String> {
         let payload = TranscriptFingerprintPayload {
             session_id: session_id.to_string(),
             tools: options.tools,
@@ -949,7 +949,7 @@ impl PersistenceManager {
         };
 
         let bytes = serde_json::to_vec(&payload).map_err(|e| {
-            BitFunError::serialization(format!("Failed to serialize transcript fingerprint: {}", e))
+            CoreError::serialization(format!("Failed to serialize transcript fingerprint: {}", e))
         })?;
         let mut hasher = Sha256::new();
         hasher.update(bytes);
@@ -1055,9 +1055,9 @@ impl PersistenceManager {
 
     fn parse_transcript_turn_selectors(
         selectors: &[String],
-    ) -> BitFunResult<Vec<ParsedTranscriptTurnSelector>> {
+    ) -> CoreResult<Vec<ParsedTranscriptTurnSelector>> {
         if selectors.is_empty() {
-            return Err(BitFunError::Validation(
+            return Err(CoreError::Validation(
                 "turns cannot be an empty array".to_string(),
             ));
         }
@@ -1070,16 +1070,16 @@ impl PersistenceManager {
 
     fn parse_transcript_turn_selector(
         selector: &str,
-    ) -> BitFunResult<ParsedTranscriptTurnSelector> {
+    ) -> CoreResult<ParsedTranscriptTurnSelector> {
         let normalized = selector.trim();
         if normalized.is_empty() {
-            return Err(BitFunError::Validation(
+            return Err(CoreError::Validation(
                 "turns cannot contain empty selectors".to_string(),
             ));
         }
 
         if normalized.matches(':').count() > 1 {
-            return Err(BitFunError::Validation(format!(
+            return Err(CoreError::Validation(format!(
                 "Invalid turn selector '{}'. Use forms like ':20', '-20:', '10:30', or '15'.",
                 normalized
             )));
@@ -1110,9 +1110,9 @@ impl PersistenceManager {
         })
     }
 
-    fn parse_transcript_turn_value(value: &str, selector: &str) -> BitFunResult<isize> {
+    fn parse_transcript_turn_value(value: &str, selector: &str) -> CoreResult<isize> {
         value.parse::<isize>().map_err(|_| {
-            BitFunError::Validation(format!(
+            CoreError::Validation(format!(
                 "Invalid turn selector '{}'. Use forms like ':20', '-20:', '10:30', or '15'.",
                 selector
             ))
@@ -1199,22 +1199,22 @@ impl PersistenceManager {
     async fn scan_session_metadata_dirs(
         &self,
         workspace_path: &Path,
-    ) -> BitFunResult<Vec<SessionMetadata>> {
+    ) -> CoreResult<Vec<SessionMetadata>> {
         let Some(sessions_root) = self.existing_workspace_sessions_dir(workspace_path) else {
             return Ok(Vec::new());
         };
         let mut metadata_list = Vec::new();
         let mut entries = fs::read_dir(&sessions_root)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to read sessions root: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to read sessions root: {}", e)))?;
 
         while let Some(entry) = entries.next_entry().await.map_err(|e| {
-            BitFunError::io(format!("Failed to read session directory entry: {}", e))
+            CoreError::io(format!("Failed to read session directory entry: {}", e))
         })? {
             let file_type = entry
                 .file_type()
                 .await
-                .map_err(|e| BitFunError::io(format!("Failed to get file type: {}", e)))?;
+                .map_err(|e| CoreError::io(format!("Failed to get file type: {}", e)))?;
             if !file_type.is_dir() {
                 continue;
             }
@@ -1243,7 +1243,7 @@ impl PersistenceManager {
     async fn rebuild_index_locked(
         &self,
         workspace_path: &Path,
-    ) -> BitFunResult<Vec<SessionMetadata>> {
+    ) -> CoreResult<Vec<SessionMetadata>> {
         let metadata_list = self.scan_session_metadata_dirs(workspace_path).await?;
         let visible_sessions = metadata_list
             .into_iter()
@@ -1264,7 +1264,7 @@ impl PersistenceManager {
         &self,
         workspace_path: &Path,
         metadata: &SessionMetadata,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let index_path = self.index_path(workspace_path);
         let mut index = self
             .read_json_optional::<StoredSessionIndexFile>(&index_path)
@@ -1297,7 +1297,7 @@ impl PersistenceManager {
         &self,
         workspace_path: &Path,
         session_id: &str,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let index_path = self.index_path(workspace_path);
         let Some(mut index) = self
             .read_json_optional::<StoredSessionIndexFile>(&index_path)
@@ -1317,7 +1317,7 @@ impl PersistenceManager {
         &self,
         workspace_path: &Path,
         metadata: &SessionMetadata,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let lock = self.get_session_index_lock(workspace_path).await;
         let _guard = lock.lock().await;
         self.upsert_index_entry_locked(workspace_path, metadata)
@@ -1328,7 +1328,7 @@ impl PersistenceManager {
         &self,
         workspace_path: &Path,
         session_id: &str,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let lock = self.get_session_index_lock(workspace_path).await;
         let _guard = lock.lock().await;
         self.remove_index_entry_locked(workspace_path, session_id)
@@ -1338,7 +1338,7 @@ impl PersistenceManager {
     pub async fn list_session_metadata(
         &self,
         workspace_path: &Path,
-    ) -> BitFunResult<Vec<SessionMetadata>> {
+    ) -> CoreResult<Vec<SessionMetadata>> {
         if !workspace_path.exists() {
             return Ok(Vec::new());
         }
@@ -1378,7 +1378,7 @@ impl PersistenceManager {
     pub async fn list_session_metadata_including_internal(
         &self,
         workspace_path: &Path,
-    ) -> BitFunResult<Vec<SessionMetadata>> {
+    ) -> CoreResult<Vec<SessionMetadata>> {
         if !workspace_path.exists() {
             return Ok(Vec::new());
         }
@@ -1397,7 +1397,7 @@ impl PersistenceManager {
         &self,
         workspace_path: &Path,
         metadata: &SessionMetadata,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         self.ensure_runtime_for_write(workspace_path).await?;
         self.ensure_session_dir(workspace_path, &metadata.session_id)
             .await?;
@@ -1421,7 +1421,7 @@ impl PersistenceManager {
         &self,
         workspace_path: &Path,
         session_id: &str,
-    ) -> BitFunResult<Option<SessionMetadata>> {
+    ) -> CoreResult<Option<SessionMetadata>> {
         let path = self.metadata_path(workspace_path, session_id);
         Ok(self
             .read_json_optional::<StoredSessionMetadataFile>(&path)
@@ -1433,7 +1433,7 @@ impl PersistenceManager {
         &self,
         workspace_path: &Path,
         session_id: &str,
-    ) -> BitFunResult<Option<StoredSessionStateFile>> {
+    ) -> CoreResult<Option<StoredSessionStateFile>> {
         self.read_json_optional::<StoredSessionStateFile>(
             &self.state_path(workspace_path, session_id),
         )
@@ -1445,7 +1445,7 @@ impl PersistenceManager {
         workspace_path: &Path,
         session_id: &str,
         state: &StoredSessionStateFile,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         self.write_json_atomic(&self.state_path(workspace_path, session_id), state)
             .await
     }
@@ -1458,7 +1458,7 @@ impl PersistenceManager {
         session_id: &str,
         turn_index: usize,
         messages: &[Message],
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         self.ensure_runtime_for_write(workspace_path).await?;
         self.ensure_snapshots_dir(workspace_path, session_id)
             .await?;
@@ -1482,7 +1482,7 @@ impl PersistenceManager {
         workspace_path: &Path,
         session_id: &str,
         turn_index: usize,
-    ) -> BitFunResult<Option<Vec<Message>>> {
+    ) -> CoreResult<Option<Vec<Message>>> {
         let snapshot = self
             .read_json_optional::<StoredTurnContextSnapshotFile>(&self.context_snapshot_path(
                 workspace_path,
@@ -1497,7 +1497,7 @@ impl PersistenceManager {
         &self,
         workspace_path: &Path,
         session_id: &str,
-    ) -> BitFunResult<Option<(usize, Vec<Message>)>> {
+    ) -> CoreResult<Option<(usize, Vec<Message>)>> {
         let dir = self.snapshots_dir(workspace_path, session_id);
         if !dir.exists() {
             return Ok(None);
@@ -1506,12 +1506,12 @@ impl PersistenceManager {
         let mut latest: Option<usize> = None;
         let mut rd = fs::read_dir(&dir)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to read snapshots directory: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to read snapshots directory: {}", e)))?;
 
         while let Some(entry) = rd
             .next_entry()
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to iterate snapshots directory: {}", e)))?
+            .map_err(|e| CoreError::io(format!("Failed to iterate snapshots directory: {}", e)))?
         {
             let path = entry.path();
             if path.extension().and_then(|value| value.to_str()) != Some("json") {
@@ -1547,7 +1547,7 @@ impl PersistenceManager {
         workspace_path: &Path,
         session_id: &str,
         turn_index: usize,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let dir = self.snapshots_dir(workspace_path, session_id);
         if !dir.exists() {
             return Ok(());
@@ -1555,11 +1555,11 @@ impl PersistenceManager {
 
         let mut rd = fs::read_dir(&dir)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to read snapshots directory: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to read snapshots directory: {}", e)))?;
         while let Some(entry) = rd
             .next_entry()
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to iterate snapshots directory: {}", e)))?
+            .map_err(|e| CoreError::io(format!("Failed to iterate snapshots directory: {}", e)))?
         {
             let path = entry.path();
             if path.extension().and_then(|value| value.to_str()) != Some("json") {
@@ -1585,7 +1585,7 @@ impl PersistenceManager {
     // ============ Session Persistence ============
 
     /// Save session
-    pub async fn save_session(&self, workspace_path: &Path, session: &Session) -> BitFunResult<()> {
+    pub async fn save_session(&self, workspace_path: &Path, session: &Session) -> CoreResult<()> {
         self.ensure_runtime_for_write(workspace_path).await?;
         self.ensure_session_dir(workspace_path, &session.session_id)
             .await?;
@@ -1616,12 +1616,12 @@ impl PersistenceManager {
         &self,
         workspace_path: &Path,
         session_id: &str,
-    ) -> BitFunResult<Session> {
+    ) -> CoreResult<Session> {
         let metadata = self
             .load_session_metadata(workspace_path, session_id)
             .await?
             .ok_or_else(|| {
-                BitFunError::NotFound(format!("Session metadata not found: {}", session_id))
+                CoreError::NotFound(format!("Session metadata not found: {}", session_id))
             })?;
         let stored_state = self
             .load_stored_session_state(workspace_path, session_id)
@@ -1681,7 +1681,7 @@ impl PersistenceManager {
         workspace_path: &Path,
         session_id: &str,
         state: &SessionState,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         self.ensure_runtime_for_write(workspace_path).await?;
         let mut stored_state = self
             .load_stored_session_state(workspace_path, session_id)
@@ -1708,11 +1708,11 @@ impl PersistenceManager {
         &self,
         workspace_path: &Path,
         session_id: &str,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let dir = self.session_dir(workspace_path, session_id);
         if dir.exists() {
             fs::remove_dir_all(&dir).await.map_err(|e| {
-                BitFunError::io(format!("Failed to delete session directory: {}", e))
+                CoreError::io(format!("Failed to delete session directory: {}", e))
             })?;
         }
 
@@ -1722,7 +1722,7 @@ impl PersistenceManager {
     }
 
     /// List all sessions
-    pub async fn list_sessions(&self, workspace_path: &Path) -> BitFunResult<Vec<SessionSummary>> {
+    pub async fn list_sessions(&self, workspace_path: &Path) -> CoreResult<Vec<SessionSummary>> {
         let metadata_list = self.list_session_metadata(workspace_path).await?;
         let mut summaries = Vec::with_capacity(metadata_list.len());
 
@@ -1763,13 +1763,13 @@ impl PersistenceManager {
         &self,
         workspace_path: &Path,
         turn: &DialogTurnData,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         self.ensure_runtime_for_write(workspace_path).await?;
         let mut metadata = self
             .load_session_metadata(workspace_path, &turn.session_id)
             .await?
             .ok_or_else(|| {
-                BitFunError::NotFound(format!("Session metadata not found: {}", turn.session_id))
+                CoreError::NotFound(format!("Session metadata not found: {}", turn.session_id))
             })?;
 
         self.ensure_turns_dir(workspace_path, &turn.session_id)
@@ -1808,7 +1808,7 @@ impl PersistenceManager {
         workspace_path: &Path,
         session_id: &str,
         turn_index: usize,
-    ) -> BitFunResult<Option<DialogTurnData>> {
+    ) -> CoreResult<Option<DialogTurnData>> {
         Ok(self
             .read_json_optional::<StoredDialogTurnFile>(&self.turn_path(
                 workspace_path,
@@ -1823,7 +1823,7 @@ impl PersistenceManager {
         &self,
         workspace_path: &Path,
         session_id: &str,
-    ) -> BitFunResult<Vec<DialogTurnData>> {
+    ) -> CoreResult<Vec<DialogTurnData>> {
         let turns_dir = self.turns_dir(workspace_path, session_id);
         if !turns_dir.exists() {
             return Ok(Vec::new());
@@ -1832,12 +1832,12 @@ impl PersistenceManager {
         let mut indexed_paths = Vec::new();
         let mut entries = fs::read_dir(&turns_dir)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to read turns directory: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to read turns directory: {}", e)))?;
 
         while let Some(entry) = entries
             .next_entry()
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to iterate turns directory: {}", e)))?
+            .map_err(|e| CoreError::io(format!("Failed to iterate turns directory: {}", e)))?
         {
             let path = entry.path();
             if path.extension().and_then(|value| value.to_str()) != Some("json") {
@@ -1875,7 +1875,7 @@ impl PersistenceManager {
         workspace_path: &Path,
         session_id: &str,
         count: usize,
-    ) -> BitFunResult<Vec<DialogTurnData>> {
+    ) -> CoreResult<Vec<DialogTurnData>> {
         let turns = self.load_session_turns(workspace_path, session_id).await?;
         let start = turns.len().saturating_sub(count);
         Ok(turns[start..].to_vec())
@@ -1886,13 +1886,13 @@ impl PersistenceManager {
         workspace_path: &Path,
         session_id: &str,
         options: &SessionTranscriptExportOptions,
-    ) -> BitFunResult<SessionTranscriptExport> {
+    ) -> CoreResult<SessionTranscriptExport> {
         if self
             .load_session_metadata(workspace_path, session_id)
             .await?
             .is_none()
         {
-            return Err(BitFunError::NotFound(format!(
+            return Err(CoreError::NotFound(format!(
                 "Session metadata not found: {}",
                 session_id
             )));
@@ -2039,7 +2039,7 @@ impl PersistenceManager {
         fs::write(&transcript_path, transcript_content)
             .await
             .map_err(|e| {
-                BitFunError::io(format!(
+                CoreError::io(format!(
                     "Failed to write transcript file {}: {}",
                     transcript_path.display(),
                     e
@@ -2078,7 +2078,7 @@ impl PersistenceManager {
         workspace_path: &Path,
         session_id: &str,
         turn_index: usize,
-    ) -> BitFunResult<usize> {
+    ) -> CoreResult<usize> {
         let turns = self.load_session_turns(workspace_path, session_id).await?;
         let mut deleted = 0usize;
 
@@ -2090,7 +2090,7 @@ impl PersistenceManager {
             if path.exists() {
                 fs::remove_file(&path)
                     .await
-                    .map_err(|e| BitFunError::io(format!("Failed to delete turn file: {}", e)))?;
+                    .map_err(|e| CoreError::io(format!("Failed to delete turn file: {}", e)))?;
                 deleted += 1;
             }
         }
@@ -2122,7 +2122,7 @@ impl PersistenceManager {
         workspace_path: &Path,
         session_id: &str,
         turn_index: usize,
-    ) -> BitFunResult<usize> {
+    ) -> CoreResult<usize> {
         let turns = self.load_session_turns(workspace_path, session_id).await?;
         let mut deleted = 0usize;
 
@@ -2134,7 +2134,7 @@ impl PersistenceManager {
             if path.exists() {
                 fs::remove_file(&path)
                     .await
-                    .map_err(|e| BitFunError::io(format!("Failed to delete turn file: {}", e)))?;
+                    .map_err(|e| CoreError::io(format!("Failed to delete turn file: {}", e)))?;
                 deleted += 1;
             }
         }
@@ -2161,7 +2161,7 @@ impl PersistenceManager {
         Ok(deleted)
     }
 
-    pub async fn touch_session(&self, workspace_path: &Path, session_id: &str) -> BitFunResult<()> {
+    pub async fn touch_session(&self, workspace_path: &Path, session_id: &str) -> CoreResult<()> {
         if let Some(mut metadata) = self
             .load_session_metadata(workspace_path, session_id)
             .await?
@@ -2194,7 +2194,7 @@ mod tests {
     impl TestWorkspace {
         fn new() -> Self {
             let root = std::env::temp_dir()
-                .join(format!("bitfun-session-transcript-test-{}", Uuid::new_v4()));
+                .join(format!("sparo-session-transcript-test-{}", Uuid::new_v4()));
             let path = root.join("workspace");
             std::fs::create_dir_all(&path).expect("test workspace should be created");
             Self { root, path }

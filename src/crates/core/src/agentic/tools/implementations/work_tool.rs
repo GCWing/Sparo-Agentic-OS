@@ -5,7 +5,7 @@ use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
 };
 use crate::agentic_os::tools::work::{handle, WorkInput};
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 
 use super::work_tool_support::{work_owner_from_tool_context, work_service_from_tool_context};
 
@@ -23,7 +23,7 @@ impl Tool for WorkTool {
         "Work"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok("Run and manage specialist Work through one control-plane tool. action=start atomically creates and launches an Agent WorkSession and returns its work_id; action=continue sends more instructions to existing Work; action=status reads progress and results; action=control changes lifecycle state. Always target Work by the work_id from start, never by a session id.".to_string())
     }
 
@@ -72,7 +72,7 @@ impl Tool for WorkTool {
                 },
                 "executor": {
                     "type": "object",
-                    "description": "start only. Omit to default to agentic (Prime Builder).",
+                    "description": "start only. Omit to default to agentic (BitFun Coder).",
                     "properties": {
                         "kind": { "type": "string", "enum": ["agent"] },
                         "agent_type": {
@@ -153,9 +153,9 @@ impl Tool for WorkTool {
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let params: WorkInput = serde_json::from_value(input.clone())
-            .map_err(|error| BitFunError::tool(format!("Invalid input: {}", error)))?;
+            .map_err(|error| CoreError::tool(format!("Invalid input: {}", error)))?;
         let mut params = params;
         params.owner = work_owner_from_tool_context(context);
         let service = work_service_from_tool_context(context)?;

@@ -1,6 +1,6 @@
 //! DTO Module
 
-use bitfun_core::service::workspace::manager::WorkspaceKind;
+use sparo_core::service::workspace::manager::WorkspaceKind;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -32,7 +32,7 @@ pub struct WorkspaceInfoDto {
 
 impl WorkspaceInfoDto {
     pub fn from_workspace_info(
-        info: &bitfun_core::service::workspace::manager::WorkspaceInfo,
+        info: &sparo_core::service::workspace::manager::WorkspaceInfo,
     ) -> Self {
         Self {
             id: info.id.clone(),
@@ -51,7 +51,7 @@ impl WorkspaceInfoDto {
 
 impl WorkspaceIdentityDto {
     pub fn from_workspace_identity(
-        identity: &bitfun_core::service::workspace::manager::WorkspaceIdentity,
+        identity: &sparo_core::service::workspace::manager::WorkspaceIdentity,
     ) -> Self {
         Self {
             name: identity.name.clone(),

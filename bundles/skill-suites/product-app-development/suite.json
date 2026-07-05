@@ -1,0 +1,61 @@
+{
+  "id": "product-app-development",
+  "name": "Product App Development",
+  "description": "Create, review, polish, and validate Sparo Product Apps across app surface, runtime APIs, backend components, tools, bridges, agents, and app-private skills.",
+  "routerPath": "router.md",
+  "tags": ["product-app", "app-development"],
+  "members": [
+    {
+      "skillId": "product-app-api",
+      "role": "Runtime APIs, permissions, and app contracts",
+      "required": true,
+      "overridePolicy": "sparoManaged"
+    },
+    {
+      "skillId": "product-app-surface",
+      "role": "User-facing app surface and interaction model",
+      "required": true,
+      "overridePolicy": "sparoManaged"
+    },
+    {
+      "skillId": "product-app-ui-polish",
+      "role": "Visual quality, states, and responsive polish",
+      "required": true,
+      "overridePolicy": "sparoManaged"
+    },
+    {
+      "skillId": "product-app-agent-component",
+      "role": "Agent component packaging",
+      "required": false,
+      "overridePolicy": "sparoManaged"
+    },
+    {
+      "skillId": "product-app-bridge-component",
+      "role": "Bridge component packaging",
+      "required": false,
+      "overridePolicy": "sparoManaged"
+    },
+    {
+      "skillId": "product-app-runtime-component",
+      "role": "Runtime component packaging",
+      "required": false,
+      "overridePolicy": "sparoManaged"
+    },
+    {
+      "skillId": "product-app-tool-component",
+      "role": "Tool component packaging",
+      "required": false,
+      "overridePolicy": "sparoManaged"
+    },
+    {
+      "skillId": "product-app-skill-component",
+      "role": "App-private skill component packaging",
+      "required": false,
+      "overridePolicy": "sparoManaged"
+    }
+  ],
+  "defaultProfiles": {
+    "AppStudio": "enabled",
+    "agentic": "available"
+  }
+}

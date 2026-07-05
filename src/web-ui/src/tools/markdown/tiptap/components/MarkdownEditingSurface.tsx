@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useImperativeHandle, forwardRef, useRef } from 'react'
+import React, { useCallback, useEffect, useImperativeHandle, forwardRef, useRef } from 'react'
 import { createLogger } from '@/shared/utils/logger'
 import { activeEditTargetService } from '@/tools/editor/services/ActiveEditTargetService'
 import { useEditor } from '../hooks/useEditor'

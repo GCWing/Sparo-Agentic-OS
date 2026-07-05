@@ -11,8 +11,8 @@
       "description": "通用 AI 助手，可以回答各种问题"
     },
     "coder": {
-      "name": "构造师",
-      "description": "面向编码、调试和应用实现的软件构建 Agent"
+      "name": "BitFun Coder",
+      "description": "默认执行 Agent，负责把目标推进到经过验证的工作结果"
     },
     "projectQa": {
       "name": "项目问答助手",

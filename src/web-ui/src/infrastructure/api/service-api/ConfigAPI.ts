@@ -7,7 +7,7 @@ import type {
   AgentSkillInfo,
   AgentCapabilityConfigItem,
   RuntimeLoggingInfo,
-  SkillInfo,
+  SkillCatalog,
   SkillLevel,
   SkillMarketDownloadResult,
   SkillMarketItem,
@@ -32,9 +32,17 @@ export interface SetAgentSkillDisabledParams {
   workspacePath?: string;
 }
 
+export interface SetAgentSkillSuiteDisabledParams {
+  agentId: string;
+  suiteKey: string;
+  disabled: boolean;
+  workspacePath?: string;
+}
+
 export interface ReplaceAgentSkillSelectionParams {
   agentId: string;
   enabledSkillKeys: string[];
+  enabledSuiteKeys?: string[];
   workspacePath?: string;
 }
 
@@ -289,7 +297,7 @@ export class ConfigAPI {
   async getSkillConfigs({
     forceRefresh,
     workspacePath,
-  }: GetSkillConfigsParams = {}): Promise<SkillInfo[]> {
+  }: GetSkillConfigsParams = {}): Promise<SkillCatalog> {
     try {
       return await api.invoke('get_skill_configs', { forceRefresh, workspacePath });
     } catch (error) {
@@ -324,19 +332,41 @@ export class ConfigAPI {
     }
   }
 
+  async setAgentSkillSuiteDisabled({
+    agentId,
+    suiteKey,
+    disabled,
+    workspacePath,
+  }: SetAgentSkillSuiteDisabledParams): Promise<string> {
+    try {
+      return await api.invoke('set_agent_skill_suite_disabled', {
+        request: { agentId, suiteKey, disabled, workspacePath },
+      });
+    } catch (error) {
+      throw createTauriCommandError('set_agent_skill_suite_disabled', error, {
+        agentId,
+        suiteKey,
+        disabled,
+        workspacePath,
+      });
+    }
+  }
+
   async replaceAgentSkillSelection({
     agentId,
     enabledSkillKeys,
+    enabledSuiteKeys,
     workspacePath,
   }: ReplaceAgentSkillSelectionParams): Promise<string> {
     try {
       return await api.invoke('replace_agent_skill_selection', {
-        request: { agentId, enabledSkillKeys, workspacePath },
+        request: { agentId, enabledSkillKeys, enabledSuiteKeys, workspacePath },
       });
     } catch (error) {
       throw createTauriCommandError('replace_agent_skill_selection', error, {
         agentId,
         enabledSkillKeys,
+        enabledSuiteKeys,
         workspacePath,
       });
     }

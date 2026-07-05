@@ -1,6 +1,6 @@
 //! Native watchdog for the web UI runtime.
 
-use bitfun_core::infrastructure::constants::WINDOW_MAIN;
+use sparo_core::infrastructure::constants::WINDOW_MAIN;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{

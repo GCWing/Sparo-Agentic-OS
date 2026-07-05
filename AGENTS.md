@@ -76,7 +76,7 @@ Use broader suites such as `pnpm run e2e:test:l0`, `pnpm run e2e:test:l0:all`, `
 Core code must stay platform agnostic.
 
 - In `src/crates/core`, do not depend on Tauri types such as `tauri::AppHandle`.
-- Prefer `bitfun_events::EventEmitter`, service traits, and constructor-injected dependencies.
+- Prefer `sparo_events::EventEmitter`, service traits, and constructor-injected dependencies.
 - Desktop-specific code belongs under `src/apps/desktop` or an adapter layer.
 - Keep Tauri command DTOs and shared command request/response structs structured and serializable.
 

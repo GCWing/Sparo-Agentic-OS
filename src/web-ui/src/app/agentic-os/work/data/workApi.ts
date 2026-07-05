@@ -904,6 +904,17 @@ export class AgenticOsWorkApi {
     }
   }
 
+  async deleteWork(workId: string): Promise<boolean> {
+    try {
+      const response = await api.invoke<{ deleted: boolean }>('agentic_os_delete_work', {
+        request: { work_id: workId },
+      });
+      return response.deleted;
+    } catch (error) {
+      throw createTauriCommandError('agentic_os_delete_work', error, { workId });
+    }
+  }
+
   async getWorkExecutionGraph(workId: string): Promise<WorkExecutionGraph> {
     try {
       const response = await api.invoke<{ graph: RawWorkExecutionGraph }>('agentic_os_get_work_execution_graph', {

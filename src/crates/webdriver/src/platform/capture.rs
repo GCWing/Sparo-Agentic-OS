@@ -91,10 +91,10 @@ mod imp {
         let orientation = options.orientation.as_deref().unwrap_or("portrait");
         let css = format!(
             r#"(function() {{
-                let style = document.getElementById('__bitfun_webdriver_print_style');
+                let style = document.getElementById('__sparo_webdriver_print_style');
                 if (!style) {{
                     style = document.createElement('style');
-                    style.id = '__bitfun_webdriver_print_style';
+                    style.id = '__sparo_webdriver_print_style';
                     document.head.appendChild(style);
                 }}
                 style.textContent = `
@@ -150,7 +150,7 @@ mod imp {
 
         let response = await_base64_response(rx, timeout_ms, "Print").await;
         let _ = webview.eval(
-            "(() => { document.getElementById('__bitfun_webdriver_print_style')?.remove(); })();",
+            "(() => { document.getElementById('__sparo_webdriver_print_style')?.remove(); })();",
         );
         response
     }

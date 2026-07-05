@@ -1,4 +1,4 @@
-﻿import type { WorkspaceSurfaceContext } from '@/app/navigation/workspaceSurfaceTypes';
+import type { WorkspaceSurfaceContext } from '@/app/navigation/workspaceSurfaceTypes';
 import type { ProductAppCatalogEntry } from '@/infrastructure/api/service-api/AppCatalogAPI';
 import type { AppScope } from '@/shared/types/app-scope';
 import type { ProductAppRuntimeContext } from '@/shared/types/product-app-runtime';

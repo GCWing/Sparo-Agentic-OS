@@ -12,7 +12,7 @@ use crate::agentic::memory::store::{
 };
 use crate::agentic::tools::{ToolPathPolicy, ToolRuntimeRestrictions};
 use crate::service::workspace::{get_global_workspace_service, WorkspaceInfo, WorkspaceKind};
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use chrono::{Local, TimeZone};
 use log::{debug, info, warn};
 use serde::Serialize;
@@ -69,7 +69,7 @@ pub struct MemoryConsolidationService {
 }
 
 impl MemoryConsolidationService {
-    pub async fn new() -> BitFunResult<Arc<Self>> {
+    pub async fn new() -> CoreResult<Arc<Self>> {
         let state = load_state().await?;
         Ok(Arc::new(Self {
             state: Mutex::new(state),
@@ -106,7 +106,7 @@ impl MemoryConsolidationService {
     pub async fn run_now(
         &self,
         request: ManualMemoryConsolidationRequest,
-    ) -> BitFunResult<MemoryConsolidationSummary> {
+    ) -> CoreResult<MemoryConsolidationSummary> {
         self.run_once(Some(request), false).await
     }
 
@@ -136,7 +136,7 @@ impl MemoryConsolidationService {
         }
     }
 
-    async fn maybe_run_startup_catch_up(&self) -> BitFunResult<()> {
+    async fn maybe_run_startup_catch_up(&self) -> CoreResult<()> {
         let should_run = {
             let state = self.state.lock().await;
             should_run_startup_catch_up(state.last_completed_at_ms, Local::now())
@@ -162,7 +162,7 @@ impl MemoryConsolidationService {
         &self,
         request: Option<ManualMemoryConsolidationRequest>,
         persist_started_at: bool,
-    ) -> BitFunResult<MemoryConsolidationSummary> {
+    ) -> CoreResult<MemoryConsolidationSummary> {
         let _guard = self.run_lock.lock().await;
 
         let sources = self.collect_sources(request.as_ref()).await?;
@@ -225,7 +225,7 @@ impl MemoryConsolidationService {
     async fn collect_sources(
         &self,
         request: Option<&ManualMemoryConsolidationRequest>,
-    ) -> BitFunResult<Vec<MemoryConsolidationSource>> {
+    ) -> CoreResult<Vec<MemoryConsolidationSource>> {
         let path_manager = crate::infrastructure::get_path_manager_arc();
         ensure_memory_store_for_target(MemoryStoreTarget::GlobalAgenticOs).await?;
 
@@ -291,7 +291,7 @@ impl MemoryConsolidationService {
         global_soul_file: &Path,
         global_user_file: &Path,
         global_memory_file: &Path,
-    ) -> BitFunResult<bool> {
+    ) -> CoreResult<bool> {
         let prior_state = {
             let state = self.state.lock().await;
             state.source_state(&source.key)
@@ -318,7 +318,7 @@ impl MemoryConsolidationService {
             .unwrap_or_else(|| source.memory_dir.to_string_lossy().to_string());
         let restrictions = build_runtime_restrictions(source, global_memory_dir);
         let coordinator = get_global_coordinator()
-            .ok_or_else(|| BitFunError::service("Conversation coordinator is not initialized"))?;
+            .ok_or_else(|| CoreError::service("Conversation coordinator is not initialized"))?;
         let workspace_memory_file_path =
             matches!(source.kind, MemoryConsolidationSourceKind::Workspace)
                 .then_some(source.memory_dir.join(MEMORY_CANONICAL_FILE));
@@ -423,7 +423,7 @@ fn build_runtime_restrictions(
 async fn collect_new_journal_slices(
     memory_dir: &Path,
     source_state: &MemoryConsolidationSourceState,
-) -> BitFunResult<Vec<JournalSlice>> {
+) -> CoreResult<Vec<JournalSlice>> {
     let files = list_journal_files(memory_dir).await?;
     let mut slices = Vec::new();
 
@@ -436,7 +436,7 @@ async fn collect_new_journal_slices(
         };
 
         let content = fs::read_to_string(&file).await.map_err(|error| {
-            BitFunError::service(format!(
+            CoreError::service(format!(
                 "Failed to read memory journal {}: {}",
                 file.display(),
                 error
@@ -469,7 +469,7 @@ async fn collect_new_journal_slices(
     Ok(slices)
 }
 
-async fn list_journal_files(memory_dir: &Path) -> BitFunResult<Vec<PathBuf>> {
+async fn list_journal_files(memory_dir: &Path) -> CoreResult<Vec<PathBuf>> {
     let logs_dir = memory_dir.join("logs");
     let mut files = Vec::new();
     if !logs_dir.exists() {
@@ -479,7 +479,7 @@ async fn list_journal_files(memory_dir: &Path) -> BitFunResult<Vec<PathBuf>> {
     let mut pending = vec![logs_dir];
     while let Some(dir) = pending.pop() {
         let mut entries = fs::read_dir(&dir).await.map_err(|error| {
-            BitFunError::service(format!(
+            CoreError::service(format!(
                 "Failed to read journal directory {}: {}",
                 dir.display(),
                 error
@@ -487,7 +487,7 @@ async fn list_journal_files(memory_dir: &Path) -> BitFunResult<Vec<PathBuf>> {
         })?;
 
         while let Some(entry) = entries.next_entry().await.map_err(|error| {
-            BitFunError::service(format!(
+            CoreError::service(format!(
                 "Failed to iterate journal directory {}: {}",
                 dir.display(),
                 error
@@ -495,7 +495,7 @@ async fn list_journal_files(memory_dir: &Path) -> BitFunResult<Vec<PathBuf>> {
         })? {
             let path = entry.path();
             let file_type = entry.file_type().await.map_err(|error| {
-                BitFunError::service(format!(
+                CoreError::service(format!(
                     "Failed to inspect journal entry {}: {}",
                     path.display(),
                     error

@@ -1,4 +1,4 @@
-﻿import type { WorkspaceInfo } from './global-state';
+import type { WorkspaceInfo } from './global-state';
 import type { AppScope } from './app-scope';
 import { normalizeAppScope, systemAppScope } from './app-scope';
 import type { SessionStorageScope } from './session-history';

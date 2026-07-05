@@ -208,7 +208,7 @@ pub const COMMANDS: &[CommandSpec] = &[
     },
 ];
 
-pub fn agents_registry_message(agents: &[bitfun_core::agentic::agents::AgentInfo]) -> String {
+pub fn agents_registry_message(agents: &[sparo_core::agentic::agents::AgentInfo]) -> String {
     if agents.is_empty() {
         return "Available Agents:\nNo agents are currently registered.\n\nUse:\n- sparo agents list --json to inspect the live agent registry".to_string();
     }
@@ -626,7 +626,7 @@ mod tests {
 
     #[test]
     fn agents_registry_message_uses_live_agent_rows() {
-        let agent = bitfun_core::agentic::agents::AgentInfo {
+        let agent = sparo_core::agentic::agents::AgentInfo {
             id: "debug".to_string(),
             name: "Debug".to_string(),
             description: "Diagnose failures".to_string(),
@@ -653,7 +653,7 @@ mod tests {
 
     #[test]
     fn agents_registry_message_keeps_long_descriptions_compact() {
-        let agent = bitfun_core::agentic::agents::AgentInfo {
+        let agent = sparo_core::agentic::agents::AgentInfo {
             id: "deep".to_string(),
             name: "Deep".to_string(),
             description: "Produces a comprehensive deep-research report on any subject using parallel sub-agent orchestration. Dispatches multiple research agents concurrently to investigate different chapters and competitors simultaneously, then synthesizes findings into a cohesive report.".to_string(),

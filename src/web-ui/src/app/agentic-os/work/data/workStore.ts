@@ -31,6 +31,7 @@ interface WorkStoreState {
   updateWork: (request: UpdateWorkRequest) => Promise<WorkRecord>;
   advanceWork: (request: AdvanceWorkRequest) => Promise<WorkRecord>;
   controlWork: (request: ControlWorkRequest) => Promise<WorkRecord>;
+  deleteWork: (workId: string) => Promise<boolean>;
 }
 
 function upsertWork(works: WorkRecord[], next: WorkRecord): WorkRecord[] {
@@ -108,6 +109,19 @@ export const useWorkStore = create<WorkStoreState>((set, get) => ({
     const work = await agenticOsWorkApi.controlWork(request);
     set({ works: upsertWork(get().works, work), loaded: true, loading: false, error: null });
     return work;
+  },
+
+  deleteWork: async (workId) => {
+    const deleted = await agenticOsWorkApi.deleteWork(workId);
+    if (deleted) {
+      set({
+        works: get().works.filter((work) => work.id !== workId),
+        loaded: true,
+        loading: false,
+        error: null,
+      });
+    }
+    return deleted;
   },
 }));
 

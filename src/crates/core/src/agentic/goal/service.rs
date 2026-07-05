@@ -13,7 +13,7 @@ use crate::agentic::session_hooks::{
     SessionHookKind, SessionTurnOutcome, SessionWorkOwner, SessionWorkOwnerMatcher,
 };
 use crate::infrastructure::events::{emit_global_event, BackendEvent};
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use serde_json::json;
 use std::collections::HashMap;
 use std::path::Path;
@@ -84,17 +84,17 @@ impl GoalService {
         &self,
         workspace_path: impl AsRef<Path>,
         session_id: &str,
-    ) -> BitFunResult<Option<GoalRecord>> {
+    ) -> CoreResult<Option<GoalRecord>> {
         self.store
             .load_current(workspace_path.as_ref(), session_id)
             .await
     }
 
-    pub async fn status(&self, request: GoalStatusRequest) -> BitFunResult<GoalResponse> {
+    pub async fn status(&self, request: GoalStatusRequest) -> CoreResult<GoalResponse> {
         self.status_snapshot(request).await
     }
 
-    async fn status_snapshot(&self, request: GoalStatusRequest) -> BitFunResult<GoalResponse> {
+    async fn status_snapshot(&self, request: GoalStatusRequest) -> CoreResult<GoalResponse> {
         let goal = self
             .current(Path::new(&request.workspace_path), &request.session_id)
             .await?;
@@ -116,7 +116,7 @@ impl GoalService {
         session_id: &str,
         agent_type: Option<&str>,
         reason: &str,
-    ) -> BitFunResult<GoalResponse> {
+    ) -> CoreResult<GoalResponse> {
         let _guard = self.lock_session(session_id).await;
         let workspace_path = Path::new(workspace_path_string);
         let Some(mut record) = self.current(workspace_path, session_id).await? else {
@@ -225,7 +225,7 @@ impl GoalService {
     pub async fn handle_text_intake(
         &self,
         request: GoalUserRequest,
-    ) -> BitFunResult<Option<GoalResponse>> {
+    ) -> CoreResult<Option<GoalResponse>> {
         let intake = TextIntakeAnnotator::annotate(request);
         if let Some(action) = direct_goal_control_action(&intake) {
             let _guard = self.lock_session(&intake.session_id).await;
@@ -266,7 +266,7 @@ impl GoalService {
     async fn start_text_intake(
         &self,
         intake: &GoalTextIntake,
-    ) -> BitFunResult<(GoalExtractionRun, Option<GoalResponse>)> {
+    ) -> CoreResult<(GoalExtractionRun, Option<GoalResponse>)> {
         let _guard = self.lock_session(&intake.session_id).await;
         let workspace_path = Path::new(&intake.workspace_path);
         let active_goal = self.current(workspace_path, &intake.session_id).await?;
@@ -327,7 +327,7 @@ impl GoalService {
         workspace_path: &Path,
         intake: &GoalTextIntake,
         run: &GoalExtractionRun,
-    ) -> BitFunResult<Option<GoalRecord>> {
+    ) -> CoreResult<Option<GoalRecord>> {
         let Some(_objective) = immediate_goal_objective(intake) else {
             return Ok(None);
         };
@@ -339,11 +339,11 @@ impl GoalService {
         let contract = result
             .contract
             .clone()
-            .ok_or_else(|| BitFunError::validation("Immediate goal contract is required"))?;
+            .ok_or_else(|| CoreError::validation("Immediate goal contract is required"))?;
         let context_resolution = result
             .context_resolution
             .clone()
-            .ok_or_else(|| BitFunError::validation("Immediate goal context is required"))?;
+            .ok_or_else(|| CoreError::validation("Immediate goal context is required"))?;
         let now = now_ms();
         let _ = self
             .driver
@@ -410,7 +410,7 @@ impl GoalService {
         workspace_path: &Path,
         session_id: &str,
         run: &GoalExtractionRun,
-    ) -> BitFunResult<bool> {
+    ) -> CoreResult<bool> {
         let Some(record) = self.current(workspace_path, session_id).await? else {
             return Ok(false);
         };
@@ -423,7 +423,7 @@ impl GoalService {
         session_id: &str,
         run: &GoalExtractionRun,
         message: &str,
-    ) -> BitFunResult<Option<GoalRecord>> {
+    ) -> CoreResult<Option<GoalRecord>> {
         let Some(mut record) = self.current(workspace_path, session_id).await? else {
             return Ok(None);
         };
@@ -450,7 +450,7 @@ impl GoalService {
         &self,
         intake: GoalTextIntake,
         mut run: GoalExtractionRun,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let workspace_path_string = intake.workspace_path.clone();
         let output = match self
             .fork_runner
@@ -641,10 +641,10 @@ impl GoalService {
     pub async fn update_from_user_edit(
         &self,
         request: GoalEditRequest,
-    ) -> BitFunResult<GoalResponse> {
+    ) -> CoreResult<GoalResponse> {
         let edited_objective = request.edited_objective.trim().to_string();
         if edited_objective.is_empty() {
-            return Err(BitFunError::validation("Edited goal objective is required"));
+            return Err(CoreError::validation("Edited goal objective is required"));
         }
 
         let _guard = self.lock_session(&request.session_id).await;
@@ -653,7 +653,7 @@ impl GoalService {
             .store
             .load_current(workspace_path, &request.session_id)
             .await?
-            .ok_or_else(|| BitFunError::validation("No goal exists for this session"))?;
+            .ok_or_else(|| CoreError::validation("No goal exists for this session"))?;
         self.validate_expected(
             &current,
             request.expected_goal_id.as_deref(),
@@ -760,7 +760,7 @@ impl GoalService {
 
     // -- Control -------------------------------------------------------------
 
-    pub async fn control(&self, request: GoalControlRequest) -> BitFunResult<GoalResponse> {
+    pub async fn control(&self, request: GoalControlRequest) -> CoreResult<GoalResponse> {
         let _guard = self.lock_session(&request.session_id).await;
         let workspace_path = Path::new(&request.workspace_path);
         self.control_locked(
@@ -785,12 +785,12 @@ impl GoalService {
         action: GoalControlAction,
         expected_goal_id: Option<String>,
         expected_revision: Option<u64>,
-    ) -> BitFunResult<GoalResponse> {
+    ) -> CoreResult<GoalResponse> {
         let mut record = self
             .store
             .load_current(workspace_path, session_id)
             .await?
-            .ok_or_else(|| BitFunError::validation("No goal exists for this session"))?;
+            .ok_or_else(|| CoreError::validation("No goal exists for this session"))?;
         let expected_revision = if action == GoalControlAction::Review {
             None
         } else {
@@ -916,7 +916,7 @@ impl GoalService {
         &self,
         session_id: &str,
         record: &GoalRecord,
-    ) -> BitFunResult<Option<String>> {
+    ) -> CoreResult<Option<String>> {
         self.driver
             .cancel_active_turn(
                 session_id,
@@ -936,7 +936,7 @@ impl GoalService {
         workspace_path: &Path,
         session_id: &str,
         note: String,
-    ) -> BitFunResult<GoalResponse> {
+    ) -> CoreResult<GoalResponse> {
         let _guard = self.lock_session(session_id).await;
         self.record_progress_locked(workspace_path, session_id, note)
             .await
@@ -947,7 +947,7 @@ impl GoalService {
         workspace_path: &Path,
         session_id: &str,
         note: String,
-    ) -> BitFunResult<GoalResponse> {
+    ) -> CoreResult<GoalResponse> {
         let mut record = self.require_current(workspace_path, session_id).await?;
         push_bounded(&mut record.progress.notes, note.clone(), 50);
         record.revision += 1;
@@ -984,7 +984,7 @@ impl GoalService {
         workspace_path: &Path,
         session_id: &str,
         summary: String,
-    ) -> BitFunResult<GoalResponse> {
+    ) -> CoreResult<GoalResponse> {
         let _guard = self.lock_session(session_id).await;
         let mut record = self.require_current(workspace_path, session_id).await?;
         record.status = GoalStatus::Blocked;
@@ -1025,7 +1025,7 @@ impl GoalService {
 
     // -- Session hooks -------------------------------------------------------
 
-    pub async fn handle_session_hook(&self, context: SessionHookContext) -> BitFunResult<()> {
+    pub async fn handle_session_hook(&self, context: SessionHookContext) -> CoreResult<()> {
         let session_id = context.hook.session_id.as_str();
         let workspace_path = match context.workspace_path() {
             Some(path) => path.to_string(),
@@ -1202,7 +1202,7 @@ impl GoalService {
         workspace_path: &str,
         session_id: &str,
         reason: &str,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let _guard = self.lock_session(session_id).await;
         let Some(mut record) = self.current(Path::new(workspace_path), session_id).await? else {
             return Ok(());
@@ -1228,7 +1228,7 @@ impl GoalService {
         session_id: &str,
         turn_id: &str,
         tool_name: &str,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let _guard = self.lock_session(session_id).await;
         let Some(mut record) = self.current(Path::new(workspace_path), session_id).await? else {
             return Ok(());
@@ -1254,7 +1254,7 @@ impl GoalService {
         workspace_path: &str,
         session_id: &str,
         turn_id: &str,
-    ) -> BitFunResult<bool> {
+    ) -> CoreResult<bool> {
         let Some(record) = self.current(Path::new(workspace_path), session_id).await? else {
             return Ok(false);
         };
@@ -1277,7 +1277,7 @@ impl GoalService {
         workspace_path: &str,
         session_id: &str,
         note: String,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let _guard = self.lock_session(session_id).await;
         if self
             .current(Path::new(workspace_path), session_id)
@@ -1302,15 +1302,15 @@ impl GoalService {
         agent_type: Option<&str>,
         run: &GoalExtractionRun,
         result: GoalExtractionResult,
-    ) -> BitFunResult<GoalResponse> {
+    ) -> CoreResult<GoalResponse> {
         let contract = result
             .contract
             .clone()
-            .ok_or_else(|| BitFunError::validation("Goal contract is required"))?;
+            .ok_or_else(|| CoreError::validation("Goal contract is required"))?;
         let context_resolution = result
             .context_resolution
             .clone()
-            .ok_or_else(|| BitFunError::validation("Goal context resolution is required"))?;
+            .ok_or_else(|| CoreError::validation("Goal context resolution is required"))?;
         let now = now_ms();
         let latest_extraction = GoalExtractionSummary {
             extraction_id: run.extraction_id.clone(),
@@ -1509,7 +1509,7 @@ impl GoalService {
         previous_objective: &str,
         record: &GoalRecord,
         agent_type: Option<&str>,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         if !record.status.is_loop_active() {
             return Ok(());
         }
@@ -1558,7 +1558,7 @@ impl GoalService {
         &self,
         session_id: &str,
         turn_id: &str,
-    ) -> BitFunResult<bool> {
+    ) -> CoreResult<bool> {
         self.driver.is_turn_completed(session_id, turn_id).await
     }
 
@@ -1570,7 +1570,7 @@ impl GoalService {
         session_id: &str,
         record: &mut GoalRecord,
         reason: &str,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         record.revision += 1;
         record.updated_at_ms = now_ms();
         self.store
@@ -1595,7 +1595,7 @@ impl GoalService {
         session_id: &str,
         record: &GoalRecord,
         message: Option<&str>,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         self.store
             .save_current(workspace_path, session_id, record)
             .await?;
@@ -1617,7 +1617,7 @@ impl GoalService {
         workspace_path: &Path,
         session_id: &str,
         run: &GoalExtractionRun,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         self.save_extraction_run_with_message(workspace_path, session_id, run, None)
             .await
     }
@@ -1628,7 +1628,7 @@ impl GoalService {
         session_id: &str,
         run: &GoalExtractionRun,
         message: Option<&str>,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         self.store
             .save_extraction_run(workspace_path, session_id, run)
             .await?;
@@ -1662,7 +1662,7 @@ impl GoalService {
         workspace_path: &Path,
         session_id: &str,
         run: &GoalJudgeRun,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         self.store
             .save_judge_run(workspace_path, session_id, run)
             .await?;
@@ -1733,11 +1733,11 @@ impl GoalService {
         &self,
         workspace_path: &Path,
         session_id: &str,
-    ) -> BitFunResult<GoalRecord> {
+    ) -> CoreResult<GoalRecord> {
         self.store
             .load_current(workspace_path, session_id)
             .await?
-            .ok_or_else(|| BitFunError::validation("No active goal for this session"))
+            .ok_or_else(|| CoreError::validation("No active goal for this session"))
     }
 
     fn validate_expected(
@@ -1745,10 +1745,10 @@ impl GoalService {
         record: &GoalRecord,
         expected_goal_id: Option<&str>,
         expected_revision: Option<u64>,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         if let Some(goal_id) = expected_goal_id {
             if goal_id != record.goal_id {
-                return Err(BitFunError::validation(format!(
+                return Err(CoreError::validation(format!(
                     "Goal id mismatch: expected {} but current is {}",
                     goal_id, record.goal_id
                 )));
@@ -1756,7 +1756,7 @@ impl GoalService {
         }
         if let Some(revision) = expected_revision {
             if revision != record.revision {
-                return Err(BitFunError::validation(format!(
+                return Err(CoreError::validation(format!(
                     "Goal revision mismatch: expected {} but current is {}",
                     revision, record.revision
                 )));
@@ -1784,7 +1784,7 @@ fn parse_goal_extraction_output(
     run: &GoalExtractionRun,
     output_text: &str,
     explicit_goal_command: bool,
-) -> BitFunResult<ParsedGoalExtraction> {
+) -> CoreResult<ParsedGoalExtraction> {
     let result = match GoalStructuredOutputParser::parse_json::<GoalExtractionResult>(
         output_text,
         "goal extraction",

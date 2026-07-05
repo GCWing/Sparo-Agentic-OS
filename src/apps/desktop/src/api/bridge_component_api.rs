@@ -1,8 +1,8 @@
 //! Bridge Component API - implementation adapter management for Product App bridge backends.
 
 use crate::api::app_state::AppState;
-use bitfun_core::agentic::tools::registry::get_global_tool_registry;
-use bitfun_core::bridge_component::{
+use sparo_core::agentic::tools::registry::get_global_tool_registry;
+use sparo_core::bridge_component::{
     BridgeComponentConsumer, BridgeComponentConsumerKind, BridgeComponentManager,
     BridgeComponentManifest, BridgeComponentPackage, BridgeComponentRun, BridgeComponentRunResult,
 };
@@ -150,7 +150,7 @@ pub async fn delete_bridge_component(
 ) -> Result<(), String> {
     BridgeComponentManager::delete(&request.id).map_err(|e| e.to_string())?;
     refresh_bridge_component_runtime_tools().await;
-    let _ = bitfun_core::agentic::agents::get_agent_registry().remove_agent_component(&request.id);
+    let _ = sparo_core::agentic::agents::get_agent_registry().remove_agent_component(&request.id);
     refresh_bridge_component_agent_surfaces()?;
     Ok(())
 }
@@ -221,7 +221,7 @@ pub async fn get_bridge_component_run_artifacts(
 pub async fn stream_bridge_component_run_events(
     _state: State<'_, AppState>,
     request: BridgeRunEventsRequest,
-) -> Result<Vec<bitfun_core::bridge_component::BridgeComponentEvent>, String> {
+) -> Result<Vec<sparo_core::bridge_component::BridgeComponentEvent>, String> {
     BridgeComponentManager::stream_run_events(&request.run_id, request.after_index)
         .await
         .map_err(|e| e.to_string())

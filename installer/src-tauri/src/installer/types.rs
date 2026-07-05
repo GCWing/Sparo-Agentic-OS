@@ -60,8 +60,8 @@ pub struct RemoteModelInfo {
     pub display_name: Option<String>,
 }
 
-impl From<bitfun_ai_adapters::types::RemoteModelInfo> for RemoteModelInfo {
-    fn from(value: bitfun_ai_adapters::types::RemoteModelInfo) -> Self {
+impl From<sparo_ai_adapters::types::RemoteModelInfo> for RemoteModelInfo {
+    fn from(value: sparo_ai_adapters::types::RemoteModelInfo) -> Self {
         Self {
             id: value.id,
             display_name: value.display_name,
@@ -76,13 +76,13 @@ pub enum ConnectionTestMessageCode {
     ImageInputCheckFailed,
 }
 
-impl From<bitfun_ai_adapters::types::ConnectionTestMessageCode> for ConnectionTestMessageCode {
-    fn from(value: bitfun_ai_adapters::types::ConnectionTestMessageCode) -> Self {
+impl From<sparo_ai_adapters::types::ConnectionTestMessageCode> for ConnectionTestMessageCode {
+    fn from(value: sparo_ai_adapters::types::ConnectionTestMessageCode) -> Self {
         match value {
-            bitfun_ai_adapters::types::ConnectionTestMessageCode::ToolCallsNotDetected => {
+            sparo_ai_adapters::types::ConnectionTestMessageCode::ToolCallsNotDetected => {
                 Self::ToolCallsNotDetected
             }
-            bitfun_ai_adapters::types::ConnectionTestMessageCode::ImageInputCheckFailed => {
+            sparo_ai_adapters::types::ConnectionTestMessageCode::ImageInputCheckFailed => {
                 Self::ImageInputCheckFailed
             }
         }
@@ -102,8 +102,8 @@ pub struct ConnectionTestResult {
     pub error_details: Option<String>,
 }
 
-impl From<bitfun_ai_adapters::types::ConnectionTestResult> for ConnectionTestResult {
-    fn from(value: bitfun_ai_adapters::types::ConnectionTestResult) -> Self {
+impl From<sparo_ai_adapters::types::ConnectionTestResult> for ConnectionTestResult {
+    fn from(value: sparo_ai_adapters::types::ConnectionTestResult) -> Self {
         Self {
             success: value.success,
             response_time_ms: value.response_time_ms,

@@ -40,10 +40,11 @@ pub use runtime_bridge::{
 };
 pub use service::{
     AdvanceWorkRequest, AdvanceWorkResponse, ControlWorkAction, ControlWorkRequest,
-    ControlWorkResponse, CreateWorkRequest, DispatchNewWorkRequest, DispatchWorkRequest,
-    DispatchWorkResponse, LinkSessionToWorkRequest, PrimarySurfacePolicy, ResolveAppWorkRequest,
-    ResolveAppWorkResponse, ResolveComponentWorkRequest, ResolveComponentWorkResponse,
-    StartWorkRequest, StartWorkResponse, UpdateWorkRequest, WorkService,
+    ControlWorkResponse, CreateWorkRequest, DeleteWorkResponse, DispatchNewWorkRequest,
+    DispatchWorkRequest, DispatchWorkResponse, LinkSessionToWorkRequest, PrimarySurfacePolicy,
+    ResolveAppWorkRequest, ResolveAppWorkResponse, ResolveComponentWorkRequest,
+    ResolveComponentWorkResponse, StartWorkRequest, StartWorkResponse, UpdateWorkRequest,
+    WorkService,
 };
 pub use store::{default_work_store, FileWorkStore, MemoryWorkStore, WorkStore};
 pub use subject::{

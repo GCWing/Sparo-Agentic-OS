@@ -12,7 +12,7 @@ use crate::agentic::tools::registry::get_global_tool_registry;
 use crate::agentic::MessageContent;
 use crate::infrastructure::ai::AIClient;
 use crate::service::config::GlobalConfigManager;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use crate::util::types::Message as AIMessage;
 use crate::util::types::ToolDefinition;
 use dashmap::DashMap;
@@ -67,7 +67,7 @@ impl RoundExecutor {
         tool_definitions: Option<Vec<ToolDefinition>>,
         context_window: Option<usize>,
         context_snapshot_id: Option<String>,
-    ) -> BitFunResult<RoundResult> {
+    ) -> CoreResult<RoundResult> {
         let subagent_parent_info = context.subagent_parent_info.clone();
         let is_subagent = subagent_parent_info.is_some();
         let event_subagent_parent_info = subagent_parent_info.clone().map(|info| info.into());
@@ -140,7 +140,7 @@ impl RoundExecutor {
                         attempt_index += 1;
                         continue;
                     }
-                    return Err(BitFunError::AIClient(err_msg));
+                    return Err(CoreError::AiClient(err_msg));
                 }
             };
 
@@ -154,7 +154,7 @@ impl RoundExecutor {
                     "Cancel token detected before AI call, stopping execution: session_id={}",
                     context.session_id
                 );
-                return Err(BitFunError::Cancelled("Execution cancelled".to_string()));
+                return Err(CoreError::Cancelled("Execution cancelled".to_string()));
             }
 
             debug!(
@@ -275,7 +275,7 @@ impl RoundExecutor {
                 "Cancel token detected after stream processing, stopping execution: session_id={}",
                 context.session_id
             );
-            return Err(BitFunError::Cancelled("Execution cancelled".to_string()));
+            return Err(CoreError::Cancelled("Execution cancelled".to_string()));
         }
 
         // If stream response contains usage info, update token statistics
@@ -370,7 +370,7 @@ impl RoundExecutor {
                 "Cancel token detected before tool execution, stopping execution: session_id={}",
                 context.session_id
             );
-            return Err(BitFunError::Cancelled("Execution cancelled".to_string()));
+            return Err(CoreError::Cancelled("Execution cancelled".to_string()));
         }
 
         // Execute tool calls
@@ -575,7 +575,7 @@ impl RoundExecutor {
     }
 
     /// Cancel dialog turn (using dialog_turn_id)
-    pub async fn cancel_dialog_turn(&self, dialog_turn_id: &str) -> BitFunResult<()> {
+    pub async fn cancel_dialog_turn(&self, dialog_turn_id: &str) -> CoreResult<()> {
         debug!("Cancelling dialog turn: dialog_turn_id={}", dialog_turn_id);
 
         if let Some((_, token)) = self.cancellation_tokens.remove(dialog_turn_id) {

@@ -27,7 +27,7 @@
 //! - `remove(session_id)` is called by `close` or when CDP disconnects.
 
 use crate::agentic::tools::browser_control::cdp_client::{CdpClient, CdpEvent};
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use serde_json::{json, Value};
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -487,10 +487,10 @@ impl BrowserSessionRegistry {
     }
 
     /// Promote an existing session to the default. No-op if the id is unknown.
-    pub async fn set_default(&self, session_id: &str) -> BitFunResult<()> {
+    pub async fn set_default(&self, session_id: &str) -> CoreResult<()> {
         let mut g = self.inner.write().await;
         if !g.sessions.contains_key(session_id) {
-            return Err(BitFunError::tool(format!(
+            return Err(CoreError::tool(format!(
                 "Browser session '{}' not registered.",
                 session_id
             )));
@@ -506,14 +506,14 @@ impl BrowserSessionRegistry {
     /// the prune, the next `send` call would block until its 30-second
     /// internal timeout — confusing the model with a `TIMEOUT` error code
     /// that hides the real `WRONG_TAB` failure mode.
-    pub async fn get(&self, session_id: Option<&str>) -> BitFunResult<BrowserSession> {
+    pub async fn get(&self, session_id: Option<&str>) -> CoreResult<BrowserSession> {
         // First pass: read-only resolve.
         let resolved = {
             let g = self.inner.read().await;
             let id = match session_id {
                 Some(s) => s.to_string(),
                 None => g.default_id.clone().ok_or_else(|| {
-                    BitFunError::tool(
+                    CoreError::tool(
                         "No browser session registered. Use action 'connect' first.".to_string(),
                     )
                 })?,
@@ -522,7 +522,7 @@ impl BrowserSessionRegistry {
         };
 
         let (id, session) = resolved.ok_or_else(|| {
-            BitFunError::tool(
+            CoreError::tool(
                 "Browser session is not connected. Use action 'connect' or 'switch_page'."
                     .to_string(),
             )
@@ -536,7 +536,7 @@ impl BrowserSessionRegistry {
             if g.default_id.as_deref() == Some(id.as_str()) {
                 g.default_id = None;
             }
-            return Err(BitFunError::tool(format!(
+            return Err(CoreError::tool(format!(
                 "Browser session '{}' is no longer connected (the tab was likely closed). Call 'connect' or 'switch_page' to attach a new one.",
                 id
             )));

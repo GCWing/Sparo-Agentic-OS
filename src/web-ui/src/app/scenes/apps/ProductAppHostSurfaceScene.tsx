@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ProductAppHostSurfaceScene - standalone scene tab for a Product App host surface.
  * Mounts the Product App Runtime host runner; close via overlay home button (does not stop worker).
  */

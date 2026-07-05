@@ -1,7 +1,7 @@
 use super::manager::PersistenceManager;
 use crate::agentic::core::{Session, SessionKind};
 use crate::service::session::{DialogTurnData, SessionStatus};
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map as JsonMap, Value as JsonValue};
 use std::path::Path;
@@ -76,7 +76,7 @@ impl PersistenceManager {
         &self,
         workspace_path: &Path,
         request: &SessionBranchRequest,
-    ) -> BitFunResult<SessionBranchResult> {
+    ) -> CoreResult<SessionBranchResult> {
         let source_session = self
             .load_session(workspace_path, &request.source_session_id)
             .await?;
@@ -84,7 +84,7 @@ impl PersistenceManager {
             .load_session_metadata(workspace_path, &request.source_session_id)
             .await?
             .ok_or_else(|| {
-                BitFunError::NotFound(format!(
+                CoreError::NotFound(format!(
                     "Source session metadata not found: {}",
                     request.source_session_id
                 ))
@@ -94,7 +94,7 @@ impl PersistenceManager {
             .await?;
 
         if source_turns.is_empty() {
-            return Err(BitFunError::Validation(
+            return Err(CoreError::Validation(
                 "Source session has no persisted turns to branch".to_string(),
             ));
         }
@@ -103,7 +103,7 @@ impl PersistenceManager {
             .iter()
             .position(|turn| turn.turn_id == request.source_turn_id)
             .ok_or_else(|| {
-                BitFunError::NotFound(format!(
+                CoreError::NotFound(format!(
                     "Source turn not found in persisted session: {}",
                     request.source_turn_id
                 ))
@@ -200,7 +200,7 @@ impl PersistenceManager {
             self.save_session_metadata(workspace_path, &branched_metadata)
                 .await?;
 
-            Ok::<(), BitFunError>(())
+            Ok::<(), CoreError>(())
         }
         .await;
 
@@ -237,7 +237,7 @@ mod tests {
     impl TestWorkspace {
         fn new() -> Self {
             let root =
-                std::env::temp_dir().join(format!("bitfun-session-branch-test-{}", Uuid::new_v4()));
+                std::env::temp_dir().join(format!("sparo-session-branch-test-{}", Uuid::new_v4()));
             let path = root.join("workspace");
             std::fs::create_dir_all(&path).expect("test workspace should be created");
             Self { root, path }

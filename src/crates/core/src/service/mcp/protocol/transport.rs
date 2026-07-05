@@ -3,7 +3,7 @@
 //! Handles JSON-RPC message transport over stdin/stdout.
 
 use super::types::{MCPError, MCPMessage, MCPNotification, MCPRequest, MCPResponse};
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use log::{debug, error, info, warn};
 use serde_json::Value;
 use std::sync::Arc;
@@ -35,7 +35,7 @@ impl MCPTransport {
     }
 
     /// Sends a request.
-    pub async fn send_request(&self, method: String, params: Option<Value>) -> BitFunResult<u64> {
+    pub async fn send_request(&self, method: String, params: Option<Value>) -> CoreResult<u64> {
         let id = self.next_request_id().await;
         let request = MCPRequest::new(Value::Number(id.into()), method, params);
         self.send_message(MCPMessage::Request(request)).await?;
@@ -47,37 +47,37 @@ impl MCPTransport {
         &self,
         method: String,
         params: Option<Value>,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let notification = MCPNotification::new(method, params);
         self.send_message(MCPMessage::Notification(notification))
             .await
     }
 
     /// Sends a response.
-    pub async fn send_response(&self, id: Value, result: Value) -> BitFunResult<()> {
+    pub async fn send_response(&self, id: Value, result: Value) -> CoreResult<()> {
         let response = MCPResponse::success(id, result);
         self.send_message(MCPMessage::Response(response)).await
     }
 
     /// Sends an error response.
-    pub async fn send_error(&self, id: Value, error: MCPError) -> BitFunResult<()> {
+    pub async fn send_error(&self, id: Value, error: MCPError) -> CoreResult<()> {
         let response = MCPResponse::error(id, error);
         self.send_message(MCPMessage::Response(response)).await
     }
 
     /// Sends a message.
-    async fn send_message(&self, message: MCPMessage) -> BitFunResult<()> {
+    async fn send_message(&self, message: MCPMessage) -> CoreResult<()> {
         let json = serde_json::to_string(&message).map_err(|e| {
-            BitFunError::serialization(format!("Failed to serialize MCP message: {}", e))
+            CoreError::serialization(format!("Failed to serialize MCP message: {}", e))
         })?;
 
         let mut stdin = self.stdin.lock().await;
         stdin
             .write_all(json.as_bytes())
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to write to MCP server stdin: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to write to MCP server stdin: {}", e)))?;
         stdin.write_all(b"\n").await.map_err(|e| {
-            BitFunError::io(format!(
+            CoreError::io(format!(
                 "Failed to write newline to MCP server stdin: {}",
                 e
             ))
@@ -85,7 +85,7 @@ impl MCPTransport {
         stdin
             .flush()
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to flush MCP server stdin: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to flush MCP server stdin: {}", e)))?;
 
         debug!("Sent MCP message: {}", json);
         Ok(())

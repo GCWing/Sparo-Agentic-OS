@@ -161,9 +161,9 @@ function getCandidateAppExePaths(mode) {
         "desktop",
         "target",
         profile,
-        "bitfun-desktop.exe"
+        "sparo-desktop.exe"
       ),
-      path.join(REPO_ROOT, "target", profile, "bitfun-desktop.exe")
+      path.join(REPO_ROOT, "target", profile, "sparo-desktop.exe")
     );
   }
 

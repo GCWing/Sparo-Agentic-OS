@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -6,7 +7,7 @@ use async_trait::async_trait;
 use tokio::sync::RwLock;
 
 use crate::infrastructure::try_get_path_manager_arc;
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 
 use super::ids::WorkId;
 use super::record::WorkRecord;
@@ -15,12 +16,13 @@ const INVALID_RECORD_DIR: &str = "_invalid";
 
 #[async_trait]
 pub trait WorkStore: Send + Sync {
-    async fn list(&self) -> BitFunResult<Vec<WorkRecord>>;
-    async fn get(&self, id: &WorkId) -> BitFunResult<Option<WorkRecord>>;
-    async fn put(&self, record: &WorkRecord) -> BitFunResult<()>;
+    async fn list(&self) -> CoreResult<Vec<WorkRecord>>;
+    async fn get(&self, id: &WorkId) -> CoreResult<Option<WorkRecord>>;
+    async fn put(&self, record: &WorkRecord) -> CoreResult<()>;
+    async fn delete(&self, id: &WorkId) -> CoreResult<bool>;
 }
 
-pub fn default_work_store() -> BitFunResult<Arc<dyn WorkStore>> {
+pub fn default_work_store() -> CoreResult<Arc<dyn WorkStore>> {
     let path_manager = try_get_path_manager_arc()?;
     Ok(Arc::new(FileWorkStore::new(
         path_manager.agentic_os_runtime_root().join("works"),
@@ -41,7 +43,7 @@ impl FileWorkStore {
         self.root.join(format!("{}.json", id.as_str()))
     }
 
-    async fn ensure_root(&self) -> BitFunResult<()> {
+    async fn ensure_root(&self) -> CoreResult<()> {
         tokio::fs::create_dir_all(&self.root).await?;
         Ok(())
     }
@@ -88,7 +90,7 @@ impl FileWorkStore {
         }
     }
 
-    async fn load_record(&self, path: &Path) -> BitFunResult<Option<WorkRecord>> {
+    async fn load_record(&self, path: &Path) -> CoreResult<Option<WorkRecord>> {
         let content = tokio::fs::read_to_string(path).await?;
         match serde_json::from_str::<WorkRecord>(&content) {
             Ok(record) => Ok(Some(record)),
@@ -102,7 +104,7 @@ impl FileWorkStore {
 
 #[async_trait]
 impl WorkStore for FileWorkStore {
-    async fn list(&self) -> BitFunResult<Vec<WorkRecord>> {
+    async fn list(&self) -> CoreResult<Vec<WorkRecord>> {
         self.ensure_root().await?;
         let mut entries = tokio::fs::read_dir(&self.root).await?;
         let mut records = Vec::new();
@@ -124,7 +126,7 @@ impl WorkStore for FileWorkStore {
         Ok(records)
     }
 
-    async fn get(&self, id: &WorkId) -> BitFunResult<Option<WorkRecord>> {
+    async fn get(&self, id: &WorkId) -> CoreResult<Option<WorkRecord>> {
         self.ensure_root().await?;
         let path = self.path_for(id);
         if !path.exists() {
@@ -133,11 +135,21 @@ impl WorkStore for FileWorkStore {
         self.load_record(&path).await
     }
 
-    async fn put(&self, record: &WorkRecord) -> BitFunResult<()> {
+    async fn put(&self, record: &WorkRecord) -> CoreResult<()> {
         self.ensure_root().await?;
         let content = serde_json::to_string_pretty(record)?;
         tokio::fs::write(self.path_for(&record.id), content).await?;
         Ok(())
+    }
+
+    async fn delete(&self, id: &WorkId) -> CoreResult<bool> {
+        self.ensure_root().await?;
+        let path = self.path_for(id);
+        match tokio::fs::remove_file(path).await {
+            Ok(()) => Ok(true),
+            Err(error) if error.kind() == ErrorKind::NotFound => Ok(false),
+            Err(error) => Err(error.into()),
+        }
     }
 }
 
@@ -215,7 +227,7 @@ impl MemoryWorkStore {
 
 #[async_trait]
 impl WorkStore for MemoryWorkStore {
-    async fn list(&self) -> BitFunResult<Vec<WorkRecord>> {
+    async fn list(&self) -> CoreResult<Vec<WorkRecord>> {
         let records = self.records.read().await;
         let mut values = records.values().cloned().collect::<Vec<_>>();
         values.sort_by(|left, right| {
@@ -227,15 +239,19 @@ impl WorkStore for MemoryWorkStore {
         Ok(values)
     }
 
-    async fn get(&self, id: &WorkId) -> BitFunResult<Option<WorkRecord>> {
+    async fn get(&self, id: &WorkId) -> CoreResult<Option<WorkRecord>> {
         Ok(self.records.read().await.get(id).cloned())
     }
 
-    async fn put(&self, record: &WorkRecord) -> BitFunResult<()> {
+    async fn put(&self, record: &WorkRecord) -> CoreResult<()> {
         self.records
             .write()
             .await
             .insert(record.id.clone(), record.clone());
         Ok(())
+    }
+
+    async fn delete(&self, id: &WorkId) -> CoreResult<bool> {
+        Ok(self.records.write().await.remove(id).is_some())
     }
 }

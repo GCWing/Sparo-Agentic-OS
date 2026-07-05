@@ -1,6 +1,6 @@
 use super::auto_scan::HostAutoScanService;
 use crate::agentic::events::{AgenticEvent, EventSubscriber};
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 use log::error;
 use std::sync::Arc;
 
@@ -16,7 +16,7 @@ impl HostAutoScanEventSubscriber {
 
 #[async_trait::async_trait]
 impl EventSubscriber for HostAutoScanEventSubscriber {
-    async fn on_event(&self, event: &AgenticEvent) -> BitFunResult<()> {
+    async fn on_event(&self, event: &AgenticEvent) -> CoreResult<()> {
         let result = match event {
             AgenticEvent::DialogTurnCompleted { turn_id, .. } => {
                 self.service.handle_turn_completed(turn_id).await

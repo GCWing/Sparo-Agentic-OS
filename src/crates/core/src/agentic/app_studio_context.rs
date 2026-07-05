@@ -1,6 +1,6 @@
 use crate::agentic::WorkspaceBinding;
 use crate::infrastructure::try_get_path_manager_arc;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use serde_json::{json, Value};
 use std::path::PathBuf;
 
@@ -47,7 +47,7 @@ impl AppStudioExecutionContext {
         custom_metadata: Option<&Value>,
         turn_metadata: Option<&Value>,
         workspace: Option<&WorkspaceBinding>,
-    ) -> BitFunResult<Option<Self>> {
+    ) -> CoreResult<Option<Self>> {
         let binding = turn_metadata
             .and_then(|value| value.get("agentSessionBinding"))
             .or_else(|| custom_metadata.and_then(|value| value.get("agentSessionBinding")));
@@ -466,11 +466,11 @@ fn resolve_scope(
 fn resolve_package_root(
     subject: &AppStudioSubject,
     package_root_hint: Option<&str>,
-) -> BitFunResult<PathBuf> {
+) -> CoreResult<PathBuf> {
     if let Some(package_root_hint) = package_root_hint {
         let package_root = PathBuf::from(package_root_hint);
         if !package_root.is_absolute() {
-            return Err(BitFunError::validation(
+            return Err(CoreError::validation(
                 "AppStudio package root must be absolute".to_string(),
             ));
         }
@@ -478,7 +478,7 @@ fn resolve_package_root(
     }
 
     let path_manager = try_get_path_manager_arc()
-        .map_err(|e| BitFunError::tool(format!("PathManager not initialized: {}", e)))?;
+        .map_err(|e| CoreError::tool(format!("PathManager not initialized: {}", e)))?;
 
     match subject {
         AppStudioSubject::ProductApp {
@@ -512,7 +512,7 @@ fn resolve_package_root(
                     version,
                 ),
         }),
-        AppStudioSubject::StudioDraft { .. } => Err(BitFunError::validation(
+        AppStudioSubject::StudioDraft { .. } => Err(CoreError::validation(
             "AppStudio draft subject requires an absolute package root".to_string(),
         )),
     }

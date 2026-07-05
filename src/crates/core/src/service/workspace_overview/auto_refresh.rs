@@ -16,7 +16,7 @@ use crate::agentic::coordination::ConversationCoordinator;
 use crate::agentic::memory::routing::build_global_workspace_overviews_context;
 use crate::agentic::tools::{ToolPathPolicy, ToolRuntimeRestrictions};
 use crate::service::workspace::{get_global_workspace_service, WorkspaceInfo, WorkspaceKind};
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 use chrono::{Local, TimeZone};
 use log::{error, info, warn};
 use serde::Serialize;
@@ -65,7 +65,7 @@ pub struct WorkspaceOverviewAutoRefreshService {
 }
 
 impl WorkspaceOverviewAutoRefreshService {
-    pub async fn new(coordinator: Arc<ConversationCoordinator>) -> BitFunResult<Arc<Self>> {
+    pub async fn new(coordinator: Arc<ConversationCoordinator>) -> CoreResult<Arc<Self>> {
         let state = load_workspace_overview_refresh_state().await?;
         Ok(Arc::new(Self {
             coordinator,
@@ -95,7 +95,7 @@ impl WorkspaceOverviewAutoRefreshService {
         });
     }
 
-    pub async fn run_now(&self) -> BitFunResult<WorkspaceOverviewRefreshRunSummary> {
+    pub async fn run_now(&self) -> CoreResult<WorkspaceOverviewRefreshRunSummary> {
         if !self.tracked_turns.lock().await.is_empty() {
             return Ok(WorkspaceOverviewRefreshRunSummary {
                 started: false,
@@ -166,7 +166,7 @@ impl WorkspaceOverviewAutoRefreshService {
         })
     }
 
-    pub async fn handle_turn_completed(&self, turn_id: &str) -> BitFunResult<()> {
+    pub async fn handle_turn_completed(&self, turn_id: &str) -> CoreResult<()> {
         if let Some(tracked) = self.take_tracked_turn(turn_id).await {
             let finished_at_ms = now_ms();
             let mut state = self.state.lock().await;
@@ -185,7 +185,7 @@ impl WorkspaceOverviewAutoRefreshService {
         Ok(())
     }
 
-    pub async fn handle_turn_failed(&self, turn_id: &str, error_message: &str) -> BitFunResult<()> {
+    pub async fn handle_turn_failed(&self, turn_id: &str, error_message: &str) -> CoreResult<()> {
         if let Some(tracked) = self.take_tracked_turn(turn_id).await {
             let status_after = read_workspace_overview_directory_status()
                 .await
@@ -213,7 +213,7 @@ impl WorkspaceOverviewAutoRefreshService {
         Ok(())
     }
 
-    pub async fn handle_turn_cancelled(&self, turn_id: &str) -> BitFunResult<()> {
+    pub async fn handle_turn_cancelled(&self, turn_id: &str) -> CoreResult<()> {
         if let Some(tracked) = self.take_tracked_turn(turn_id).await {
             let status_after = read_workspace_overview_directory_status()
                 .await
@@ -274,7 +274,7 @@ impl WorkspaceOverviewAutoRefreshService {
         }
     }
 
-    async fn reconcile_startup_state(&self) -> BitFunResult<()> {
+    async fn reconcile_startup_state(&self) -> CoreResult<()> {
         let mut state = self.state.lock().await;
         if let Some(active_turn_id) = state.active_auto_turn_id.clone() {
             let status_after = read_workspace_overview_directory_status()
@@ -311,7 +311,7 @@ impl WorkspaceOverviewAutoRefreshService {
         Ok(())
     }
 
-    async fn reconcile_and_maybe_start_auto_refresh(&self) -> BitFunResult<Option<Duration>> {
+    async fn reconcile_and_maybe_start_auto_refresh(&self) -> CoreResult<Option<Duration>> {
         let tracked_turn_count = self.tracked_turns.lock().await.len();
         if tracked_turn_count != 0 {
             return Ok(None);
@@ -395,7 +395,7 @@ impl WorkspaceOverviewAutoRefreshService {
         &self,
         turn_id: &str,
         trigger: WorkspaceOverviewRefreshTrigger,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let turn_id = turn_id.trim();
         if turn_id.is_empty() {
             return Ok(());
@@ -425,7 +425,7 @@ impl WorkspaceOverviewAutoRefreshService {
         Ok(())
     }
 
-    async fn record_auto_launch_failure(&self, error_message: String) -> BitFunResult<()> {
+    async fn record_auto_launch_failure(&self, error_message: String) -> CoreResult<()> {
         let mut state = self.state.lock().await;
         let now = now_ms();
         state.last_attempt_started_at_ms = Some(now);
@@ -680,7 +680,7 @@ fn workspace_overview_was_updated_after_start(
         .unwrap_or(false)
 }
 
-async fn collect_refresh_targets() -> BitFunResult<RefreshTargetCollection> {
+async fn collect_refresh_targets() -> CoreResult<RefreshTargetCollection> {
     let Some(workspace_service) = get_global_workspace_service() else {
         return Ok(RefreshTargetCollection::ServiceUnavailable);
     };

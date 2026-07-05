@@ -1,4 +1,4 @@
-﻿/**
+/**
  * IR editor keyboard shortcut helpers.
  * Provides shortcut handlers for Markdown formatting and editing.
  */

@@ -25,11 +25,11 @@ use crate::infrastructure::ai::get_global_ai_client_factory;
 use crate::service::config::get_global_config_service;
 use crate::service::config::types::{ModelCapability, ModelCategory};
 use crate::service::context_stats::ContextStatsEstimator;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use crate::util::token_counter::TokenCounter;
 use crate::util::types::Message as AIMessage;
 use crate::util::types::ToolDefinition;
-use bitfun_events::agentic::SessionSurfaceMode;
+use sparo_events::agentic::SessionSurfaceMode;
 use log::{debug, error, info, trace, warn};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -317,10 +317,10 @@ impl ExecutionEngine {
         missing_path && missing_data_url && has_redaction_hint
     }
 
-    fn is_recoverable_historical_image_error(err: &BitFunError) -> bool {
+    fn is_recoverable_historical_image_error(err: &CoreError) -> bool {
         match err {
-            BitFunError::Io(_) | BitFunError::Deserialization(_) => true,
-            BitFunError::Validation(msg) => {
+            CoreError::Io(_) | CoreError::Deserialization(_) => true,
+            CoreError::Validation(msg) => {
                 msg.starts_with("Failed to decode image data")
                     || msg.starts_with("Unsupported or unrecognized image format")
                     || msg.starts_with("Invalid data URL format")
@@ -332,12 +332,12 @@ impl ExecutionEngine {
 
     fn can_fallback_to_text_only(
         images: &[ImageContextData],
-        err: &BitFunError,
+        err: &CoreError,
         is_current_turn_message: bool,
     ) -> bool {
         let is_redacted_payload_error = matches!(
             err,
-            BitFunError::Validation(msg) if msg.starts_with("Image context missing image_path/data_url")
+            CoreError::Validation(msg) if msg.starts_with("Image context missing image_path/data_url")
         ) && !images.is_empty()
             && images.iter().all(Self::is_redacted_image_context);
 
@@ -400,14 +400,14 @@ impl ExecutionEngine {
         workspace: Option<&WorkspaceBinding>,
         _original_user_input: &str,
         _turn_index: usize,
-    ) -> BitFunResult<String> {
+    ) -> CoreResult<String> {
         let agent_registry = get_agent_registry();
         let fallback_model_id = agent_registry
             .get_model_id_for_agent(agent_type, workspace.map(|binding| binding.root_path()))
             .await
-            .map_err(|e| BitFunError::AIClient(format!("Failed to get model ID: {}", e)))?;
+            .map_err(|e| CoreError::AiClient(format!("Failed to get model ID: {}", e)))?;
         let config_service = get_global_config_service().await.map_err(|e| {
-            BitFunError::AIClient(format!(
+            CoreError::AiClient(format!(
                 "Failed to get config service for model resolution: {}",
                 e
             ))
@@ -475,7 +475,7 @@ impl ExecutionEngine {
         current_turn_id: &str,
         attach_images: bool,
         prepended_user_context: Option<&str>,
-    ) -> BitFunResult<Vec<AIMessage>> {
+    ) -> CoreResult<Vec<AIMessage>> {
         /// Only the last this many **messages** that contain images keep their images for the API.
         const MAX_IMAGE_BEARING_MESSAGE_ROUNDS: usize = 2;
 
@@ -560,7 +560,7 @@ impl ExecutionEngine {
                         Ok(processed) => {
                             let next_count = attached_image_count + processed.len();
                             if next_count > limits.max_images_per_request {
-                                return Err(BitFunError::validation(format!(
+                                return Err(CoreError::validation(format!(
                                     "Too many images in one request: {} > {}",
                                     next_count, limits.max_images_per_request
                                 )));
@@ -573,7 +573,7 @@ impl ExecutionEngine {
                             result.extend(multimodal);
                         }
                         Err(err) => {
-                            if matches!(&err, BitFunError::Validation(msg) if msg.starts_with("Too many images in one request"))
+                            if matches!(&err, CoreError::Validation(msg) if msg.starts_with("Too many images in one request"))
                             {
                                 return Err(err);
                             }
@@ -606,7 +606,7 @@ impl ExecutionEngine {
                             if keep_this_message_images {
                                 let next_count = attached_image_count + atts.len();
                                 if next_count > limits.max_images_per_request {
-                                    return Err(BitFunError::validation(format!(
+                                    return Err(CoreError::validation(format!(
                                         "Too many images in one request: {} > {}",
                                         next_count, limits.max_images_per_request
                                     )));
@@ -686,12 +686,12 @@ impl ExecutionEngine {
         tool_definitions: &Option<Vec<ToolDefinition>>,
         system_prompt_message: Message,
         tail_policy: CompressionTailPolicy,
-    ) -> BitFunResult<Option<(usize, Vec<Message>)>> {
+    ) -> CoreResult<Option<(usize, Vec<Message>)>> {
         let event_subagent_parent_info = subagent_parent_info.map(|info| info.clone().into());
         let mut session = self
             .session_manager
             .get_session(session_id)
-            .ok_or_else(|| BitFunError::NotFound(format!("Session not found: {}", session_id)))?;
+            .ok_or_else(|| CoreError::NotFound(format!("Session not found: {}", session_id)))?;
 
         // Record start time
         let start_time = std::time::Instant::now();
@@ -810,7 +810,7 @@ impl ExecutionEngine {
                 )
                 .await;
 
-                Err(BitFunError::Session(e.to_string()))
+                Err(CoreError::Session(e.to_string()))
             }
         }
     }
@@ -827,11 +827,11 @@ impl ExecutionEngine {
         context_window: usize,
         trigger: &str,
         tail_policy: CompressionTailPolicy,
-    ) -> BitFunResult<ContextCompactionOutcome> {
+    ) -> CoreResult<ContextCompactionOutcome> {
         let mut session = self
             .session_manager
             .get_session(session_id)
-            .ok_or_else(|| BitFunError::NotFound(format!("Session not found: {}", session_id)))?;
+            .ok_or_else(|| CoreError::NotFound(format!("Session not found: {}", session_id)))?;
         let start_time = std::time::Instant::now();
         let compression_id = format!("compression_{}", uuid::Uuid::new_v4());
 
@@ -978,7 +978,7 @@ impl ExecutionEngine {
                 )
                 .await;
 
-                Err(BitFunError::Session(err.to_string()))
+                Err(CoreError::Session(err.to_string()))
             }
         }
     }
@@ -990,7 +990,7 @@ impl ExecutionEngine {
         agent_type: String,
         initial_messages: Vec<Message>,
         context: ExecutionContext,
-    ) -> BitFunResult<ExecutionResult> {
+    ) -> CoreResult<ExecutionResult> {
         let start_time = std::time::Instant::now();
         let initial_count = initial_messages.len();
 
@@ -1029,7 +1029,7 @@ impl ExecutionEngine {
         mut context: ExecutionContext,
         start_time: std::time::Instant,
         initial_count: usize,
-    ) -> BitFunResult<ExecutionResult> {
+    ) -> CoreResult<ExecutionResult> {
         let event_subagent_parent_info =
             context.subagent_parent_info.clone().map(|info| info.into());
         let dialog_turn_id = context.dialog_turn_id.clone();
@@ -1055,7 +1055,7 @@ impl ExecutionEngine {
                     .as_ref()
                     .map(|workspace| workspace.root_path()),
             )
-            .ok_or_else(|| BitFunError::NotFound(format!("Agent not found: {}", agent_type)))?;
+            .ok_or_else(|| CoreError::NotFound(format!("Agent not found: {}", agent_type)))?;
         info!(
             "Current Agent: {} ({})",
             current_agent.name(),
@@ -1067,7 +1067,7 @@ impl ExecutionEngine {
             .session_manager
             .get_session(&context.session_id)
             .ok_or_else(|| {
-                BitFunError::Session(format!("Session not found: {}", context.session_id))
+                CoreError::Session(format!("Session not found: {}", context.session_id))
             })?;
 
         // 2. Get AI client
@@ -1092,7 +1092,7 @@ impl ExecutionEngine {
         );
 
         let ai_client_factory = get_global_ai_client_factory().await.map_err(|e| {
-            BitFunError::AIClient(format!("Failed to get AI client factory: {}", e))
+            CoreError::AiClient(format!("Failed to get AI client factory: {}", e))
         })?;
 
         // Get AI client by model ID
@@ -1100,7 +1100,7 @@ impl ExecutionEngine {
             .get_client_resolved(&model_id)
             .await
             .map_err(|e| {
-                BitFunError::AIClient(format!(
+                CoreError::AiClient(format!(
                     "Failed to get AI client (model_id={}): {}",
                     model_id, e
                 ))
@@ -1564,7 +1564,7 @@ impl ExecutionEngine {
                         Ok(result) => break result,
                         Err(err) => {
                             let err_msg = err.to_string();
-                            let cancelled = matches!(err, BitFunError::Cancelled(_));
+                            let cancelled = matches!(err, CoreError::Cancelled(_));
                             let can_retry = !cancelled
                                 && round_attempt < MAX_ROUND_RETRIES
                                 && turn_round_retry_budget > 0
@@ -1763,7 +1763,7 @@ impl ExecutionEngine {
                 .await;
 
                 // Note: Token will be cleaned up when outer function exits
-                return Err(BitFunError::cancelled("Dialog cancelled"));
+                return Err(CoreError::cancelled("Dialog cancelled"));
             }
 
             // Continue to next round
@@ -1851,7 +1851,7 @@ impl ExecutionEngine {
     }
 
     /// Cancel dialog turn execution
-    pub async fn cancel_dialog_turn(&self, dialog_turn_id: &str) -> BitFunResult<()> {
+    pub async fn cancel_dialog_turn(&self, dialog_turn_id: &str) -> CoreResult<()> {
         debug!("Cancelling dialog turn: dialog_turn_id={}", dialog_turn_id);
         let result = self.round_executor.cancel_dialog_turn(dialog_turn_id).await;
         if result.is_ok() {

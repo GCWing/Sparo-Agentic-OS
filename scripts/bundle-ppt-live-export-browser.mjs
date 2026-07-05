@@ -14,7 +14,6 @@ const BUNDLE_DIR = join(
   ROOT,
   'bundles',
   'product-apps',
-  'builtin',
   'builtin-ppt-live',
   '150.0.0',
   'components',

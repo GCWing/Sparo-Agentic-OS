@@ -10,7 +10,7 @@ use crate::agentic::tools::framework::{
 use crate::agentic::SessionSummary;
 use crate::infrastructure::try_get_path_manager_arc;
 use crate::service::workspace::get_global_workspace_service;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -68,7 +68,7 @@ impl Tool for AgentHandoffTool {
         "AgentHandoff"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(r#"Hand work to Standard agent sessions as OSAgent.
 
 Actions:
@@ -80,7 +80,7 @@ Parameters for "handoff":
 - workspace: Absolute path to the project directory, or "global" for non-project tasks.
 - message: Full instructions sent to the target agent. Include all required context because the target session does not see the OSAgent conversation.
 - session_id: Optional existing session ID to reuse.
-- agent_type: Required only when creating a new session. One of "agentic" (Prime Builder: software development, coding, implementation, debugging), "Plan" (planning), "Cowork" (collaboration), "Design" (design work), or "debug" (debugging).
+- agent_type: Required only when creating a new session. One of "agentic" (BitFun Coder: default execution for coding, debugging, automation, and verified workspace results), "Plan" (planning), "Cowork" (collaboration), "Design" (design work), or "debug" (debugging).
 - session_name: Optional display name when creating a new session.
 
 Parameters for "list":
@@ -264,9 +264,9 @@ Parameters for "status":
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let params: AgentHandoffInput = serde_json::from_value(input.clone())
-            .map_err(|error| BitFunError::tool(format!("Invalid input: {}", error)))?;
+            .map_err(|error| CoreError::tool(format!("Invalid input: {}", error)))?;
 
         match params.action {
             AgentHandoffAction::Handoff => {
@@ -280,7 +280,7 @@ Parameters for "status":
                     .message
                     .filter(|value| !value.trim().is_empty())
                     .ok_or_else(|| {
-                        BitFunError::tool("message is required for handoff".to_string())
+                        CoreError::tool("message is required for handoff".to_string())
                     })?;
                 let source_session_id =
                     handoff_source_session_id(context, "AgentHandoff")?.to_string();
@@ -304,7 +304,7 @@ Parameters for "status":
                 };
 
                 let agentic = context.agentic().ok_or_else(|| {
-                    BitFunError::tool("agentic stack not initialized".to_string())
+                    CoreError::tool("agentic stack not initialized".to_string())
                 })?;
                 let outcome = handoff_to_agent_session(
                     agentic,
@@ -352,7 +352,7 @@ Parameters for "status":
                 let coordinator = context
                     .agentic()
                     .map(|h| h.coordinator.clone())
-                    .ok_or_else(|| BitFunError::tool("coordinator not initialized".to_string()))?;
+                    .ok_or_else(|| CoreError::tool("coordinator not initialized".to_string()))?;
                 let mut workspace_entries: Vec<Value> = Vec::new();
 
                 if let Ok(path_manager) = try_get_path_manager_arc() {
@@ -448,7 +448,7 @@ Parameters for "status":
                 let coordinator = context
                     .agentic()
                     .map(|h| h.coordinator.clone())
-                    .ok_or_else(|| BitFunError::tool("coordinator not initialized".to_string()))?;
+                    .ok_or_else(|| CoreError::tool("coordinator not initialized".to_string()))?;
                 let creator_marker = handoff_creator_marker(context, "AgentHandoff")?;
                 let legacy_creator_marker = handoff_creator_marker(context, "AgentDispatch").ok();
                 let workspace_path = context.workspace_root();

@@ -1,7 +1,7 @@
 use crate::agentic::app_studio_context::AppStudioSubject;
 use crate::agentic::tools::framework::ToolUseContext;
 use crate::agentic::tools::restrictions::is_local_path_within_root;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use std::path::{Path, PathBuf};
 
 pub use crate::agentic::tools::workspace_paths::{
@@ -15,14 +15,14 @@ pub fn has_app_studio_session_context(context: &ToolUseContext) -> bool {
 pub fn bound_app_studio_product_app_root(
     context: &ToolUseContext,
     tool_name: &str,
-) -> BitFunResult<Option<PathBuf>> {
+) -> CoreResult<Option<PathBuf>> {
     let Some(app_studio) = context.app_studio.as_ref() else {
         return Ok(None);
     };
 
     match &app_studio.subject {
         AppStudioSubject::ProductApp { .. } => Ok(Some(app_studio.package_root.clone())),
-        _ => Err(BitFunError::validation(format!(
+        _ => Err(CoreError::validation(format!(
             "{} requires a bound Product App subject",
             tool_name
         ))),
@@ -32,7 +32,7 @@ pub fn bound_app_studio_product_app_root(
 pub async fn enforce_app_studio_package_write(
     context: &ToolUseContext,
     resolved_path: &str,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     let target = Path::new(resolved_path);
     if let Some(app_studio) = context.app_studio.as_ref() {
         for root in &app_studio.allowed_write_roots {
@@ -41,7 +41,7 @@ pub async fn enforce_app_studio_package_write(
             }
         }
 
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "AppStudio is bound to package root '{}' and cannot write '{}'",
             app_studio.package_root.display(),
             target.display()
@@ -49,7 +49,7 @@ pub async fn enforce_app_studio_package_write(
     }
 
     if context.agent_type.as_deref() == Some("AppStudio") {
-        return Err(BitFunError::validation(
+        return Err(CoreError::validation(
             "AppStudio package writes require a bound App Studio execution context".to_string(),
         ));
     }

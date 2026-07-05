@@ -1,5 +1,5 @@
 use crate::agentic::memory::store::format_path_for_prompt;
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 use std::path::Path;
 
 const WORKSPACE_CONSOLIDATION_PROMPT_TEMPLATE: &str = include_str!("prompts/workspace.md");
@@ -38,7 +38,7 @@ pub struct MemoryConsolidationPromptInput<'a> {
 
 pub fn build_memory_consolidation_prompt(
     input: &MemoryConsolidationPromptInput<'_>,
-) -> BitFunResult<String> {
+) -> CoreResult<String> {
     let journal_context = input.journal_context.trim();
 
     let workspace_memory_file_path = input

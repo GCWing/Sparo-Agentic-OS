@@ -4,7 +4,7 @@
 /// - CLI (tokio::mpsc channels)
 /// - Tauri (app.emit events)
 use async_trait::async_trait;
-use bitfun_events::AgenticEvent;
+use sparo_events::AgenticEvent;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 

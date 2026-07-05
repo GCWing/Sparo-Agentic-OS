@@ -1,5 +1,5 @@
-use bitfun_core::infrastructure::app_paths::PathManager;
-use bitfun_core::product_app_runtime_host::ProductAppRuntimeHostManager;
+use sparo_core::infrastructure::app_paths::PathManager;
+use sparo_core::product_app_runtime_host::ProductAppRuntimeHostManager;
 use std::sync::Arc;
 
 #[tokio::main]

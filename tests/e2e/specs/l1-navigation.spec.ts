@@ -10,11 +10,11 @@ import { saveScreenshot, saveFailureScreenshot } from '../helpers/screenshot-uti
 import { ensureWorkspaceOpen } from '../helpers/workspace-utils';
 
 const NAV_ENTRY_SELECTORS = [
-  '.bitfun-nav-panel__item',
-  '.bitfun-nav-panel__item-slot',
-  '.bitfun-nav-panel__workspace-item-name-btn',
-  '.bitfun-nav-panel__inline-item',
-  '.bitfun-nav-panel__workspace-create-main',
+  '.sparo-nav-panel__item',
+  '.sparo-nav-panel__item-slot',
+  '.sparo-nav-panel__workspace-item-name-btn',
+  '.sparo-nav-panel__inline-item',
+  '.sparo-nav-panel__workspace-create-main',
 ];
 
 async function getNavigationEntryCounts(): Promise<Record<string, number>> {
@@ -68,7 +68,7 @@ describe('L1 Navigation', () => {
         return;
       }
 
-      const navPanel = await $('.bitfun-nav-panel');
+      const navPanel = await $('.sparo-nav-panel');
       const exists = await navPanel.isExisting();
       expect(exists).toBe(true);
       console.log('[L1] Navigation panel visible');
@@ -93,7 +93,7 @@ describe('L1 Navigation', () => {
         return;
       }
 
-      const sections = await browser.$$('.bitfun-nav-panel__section');
+      const sections = await browser.$$('.sparo-nav-panel__section');
       console.log('[L1] Navigation sections count:', sections.length);
       expect(sections.length).toBeGreaterThanOrEqual(0);
     });
@@ -142,7 +142,7 @@ describe('L1 Navigation', () => {
         return;
       }
 
-      const navItems = await browser.$$('.bitfun-nav-panel__item');
+      const navItems = await browser.$$('.sparo-nav-panel__item');
       if (navItems.length < 2) {
         console.log('[L1] Not enough nav items to test view switching');
         this.skip();
@@ -169,7 +169,7 @@ describe('L1 Navigation', () => {
         return;
       }
 
-      const activeItems = await browser.$$('.bitfun-nav-panel__item.is-active, .bitfun-nav-panel__inline-item.is-active');
+      const activeItems = await browser.$$('.sparo-nav-panel__item.is-active, .sparo-nav-panel__inline-item.is-active');
       const activeCount = activeItems.length;
       console.log('[L1] Active navigation items:', activeCount);
 
@@ -183,14 +183,14 @@ describe('L1 Navigation', () => {
         return;
       }
 
-      const navItems = await browser.$$('.bitfun-nav-panel__item');
+      const navItems = await browser.$$('.sparo-nav-panel__item');
       if (navItems.length < 2) {
         this.skip();
         return;
       }
 
       // Get initial active item
-      const initialActive = await browser.$$('.bitfun-nav-panel__item.is-active, .bitfun-nav-panel__inline-item.is-active');
+      const initialActive = await browser.$$('.sparo-nav-panel__item.is-active, .sparo-nav-panel__inline-item.is-active');
       const initialActiveCount = initialActive.length;
       console.log('[L1] Initial active items:', initialActiveCount);
 
@@ -228,7 +228,7 @@ describe('L1 Navigation', () => {
       }
 
       // Check for active state (don't fail if state doesn't change)
-      const afterActive = await browser.$$('.bitfun-nav-panel__item.is-active, .bitfun-nav-panel__inline-item.is-active');
+      const afterActive = await browser.$$('.sparo-nav-panel__item.is-active, .sparo-nav-panel__inline-item.is-active');
       console.log('[L1] Active items after click:', afterActive.length);
 
       // Verify active state detection completed
@@ -243,7 +243,7 @@ describe('L1 Navigation', () => {
         return;
       }
 
-      const sections = await browser.$$('.bitfun-nav-panel__section');
+      const sections = await browser.$$('.sparo-nav-panel__section');
       if (sections.length === 0) {
         console.log('[L1] No sections to test expand/collapse');
         this.skip();
@@ -251,7 +251,7 @@ describe('L1 Navigation', () => {
       }
 
       // Check for expandable sections
-      const expandableSections = await browser.$$('.bitfun-nav-panel__section-header');
+      const expandableSections = await browser.$$('.sparo-nav-panel__section-header');
       console.log('[L1] Expandable sections:', expandableSections.length);
 
       expect(expandableSections.length).toBeGreaterThanOrEqual(0);
@@ -263,7 +263,7 @@ describe('L1 Navigation', () => {
         return;
       }
 
-      const inlineLists = await browser.$$('.bitfun-nav-panel__inline-list');
+      const inlineLists = await browser.$$('.sparo-nav-panel__inline-list');
       console.log('[L1] Inline lists found:', inlineLists.length);
 
       expect(inlineLists.length).toBeGreaterThanOrEqual(0);

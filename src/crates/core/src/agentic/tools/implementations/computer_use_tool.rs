@@ -15,7 +15,7 @@ use crate::agentic::tools::computer_use_host::{
 use crate::agentic::tools::computer_use_optimizer::hash_screenshot_bytes;
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
 use crate::service::config::global::GlobalConfigManager;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use crate::util::types::ToolImageAttachment;
 use async_trait::async_trait;
 use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
@@ -230,7 +230,7 @@ The **primary model cannot consume images** in tool results — **do not** use *
         text_query: &str,
         ocr_region_native: Option<OcrRegionNative>,
         matches: &[ScreenOcrTextMatch],
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         Self::require_multimodal_tool_output_for_screenshot(context)?;
         let take = matches.len().min(Self::MOVE_TO_TEXT_DISAMBIGUATION_MAX);
         let mut attachments: Vec<ToolImageAttachment> = Vec::with_capacity(take);
@@ -313,7 +313,7 @@ The **primary model cannot consume images** in tool results — **do not** use *
         text_query: &str,
         ocr_region_native: Option<OcrRegionNative>,
         matches: &[ScreenOcrTextMatch],
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let take = matches.len().min(Self::MOVE_TO_TEXT_DISAMBIGUATION_MAX);
         let mut candidates: Vec<Value> = Vec::with_capacity(take);
         for (i, m) in matches.iter().take(take).enumerate() {
@@ -381,9 +381,9 @@ The **primary model cannot consume images** in tool results — **do not** use *
 
     /// Screenshot tool results attach JPEGs via `tool_image_attachments`; only providers whose
     /// request converters emit multimodal tool output are supported (Anthropic + OpenAI-compatible).
-    fn require_multimodal_tool_output_for_screenshot(ctx: &ToolUseContext) -> BitFunResult<()> {
+    fn require_multimodal_tool_output_for_screenshot(ctx: &ToolUseContext) -> CoreResult<()> {
         if !ctx.primary_model_supports_image_understanding() {
-            return Err(BitFunError::tool(
+            return Err(CoreError::tool(
                 "The primary model does not accept images; do not use ComputerUse action `screenshot` or other image-producing steps. Use `click_element`, `locate`, `move_to_text` (with `move_to_text_match_index` when listed), `mouse_move` with globals from tool JSON, `key_chord`, etc.".to_string(),
             ));
         }
@@ -394,7 +394,7 @@ The **primary model cannot consume images** in tool results — **do not** use *
         ) {
             return Ok(());
         }
-        Err(BitFunError::tool(
+        Err(CoreError::tool(
             "Screenshot results include images in tool results; set the primary model to Anthropic (Claude) or OpenAI-compatible API format. Other providers are not supported for screenshots yet.".to_string(),
         ))
     }
@@ -404,7 +404,7 @@ The **primary model cannot consume images** in tool results — **do not** use *
         input: &Value,
         x: i32,
         y: i32,
-    ) -> BitFunResult<(f64, f64)> {
+    ) -> CoreResult<(f64, f64)> {
         if use_screen_coordinates(input) {
             return Ok((x as f64, y as f64));
         }
@@ -416,19 +416,19 @@ The **primary model cannot consume images** in tool results — **do not** use *
     }
 
     /// `click` must not carry coordinate fields — use `mouse_move` (or `move_to_text`, etc.) separately.
-    fn ensure_click_has_no_coordinate_fields(input: &Value) -> BitFunResult<()> {
+    fn ensure_click_has_no_coordinate_fields(input: &Value) -> CoreResult<()> {
         if input.get("x").is_some() || input.get("y").is_some() {
-            return Err(BitFunError::tool(
+            return Err(CoreError::tool(
                 "click does not accept x or y. Position with move_to_text, click_element, or `mouse_move` with use_screen_coordinates: true (globals from tool results), then `click` with only button and num_clicks.".to_string(),
             ));
         }
         if input.get("coordinate_mode").is_some() {
-            return Err(BitFunError::tool(
+            return Err(CoreError::tool(
                 "click does not accept coordinate_mode. Use `mouse_move` with use_screen_coordinates: true, then `click`.".to_string(),
             ));
         }
         if input.get("use_screen_coordinates").is_some() {
-            return Err(BitFunError::tool(
+            return Err(CoreError::tool(
                 "click does not accept use_screen_coordinates. Use `mouse_move` with use_screen_coordinates, then `click`.".to_string(),
             ));
         }
@@ -458,7 +458,7 @@ The **primary model cannot consume images** in tool results — **do not** use *
         host_ref: &dyn crate::agentic::tools::computer_use_host::ComputerUseHost,
         text_query: &str,
         region_native: Option<crate::agentic::tools::computer_use_host::OcrRegionNative>,
-    ) -> BitFunResult<Vec<ScreenOcrTextMatch>> {
+    ) -> CoreResult<Vec<ScreenOcrTextMatch>> {
         let matches = host_ref
             .ocr_find_text_matches(text_query, region_native)
             .await?;
@@ -517,7 +517,7 @@ The **primary model cannot consume images** in tool results — **do not** use *
     async fn resolve_target_point(
         host_ref: &dyn crate::agentic::tools::computer_use_host::ComputerUseHost,
         input: &Value,
-    ) -> BitFunResult<ResolvedDesktopTarget> {
+    ) -> CoreResult<ResolvedDesktopTarget> {
         let mut query = parse_locate_query(input);
         if query.text_contains.is_none() {
             if let Some(target_text) = input
@@ -574,7 +574,7 @@ The **primary model cannot consume images** in tool results — **do not** use *
                 let selected = match requested_index {
                     Some(idx) if idx >= 1 && idx <= matches.len() => idx - 1,
                     Some(idx) => {
-                        return Err(BitFunError::tool(format!(
+                        return Err(CoreError::tool(format!(
                             "target_match_index/move_to_text_match_index must be between 1 and {} (got {}).",
                             matches.len(),
                             idx
@@ -635,7 +635,7 @@ The **primary model cannot consume images** in tool results — **do not** use *
             });
         }
 
-        Err(BitFunError::tool(
+        Err(CoreError::tool(
             "move_to_target/click_target requires a target: node_idx, target_text/text_query/text_contains/title_contains, role_substring, identifier_contains, or x/y with use_screen_coordinates: true.".to_string(),
         ))
     }
@@ -699,7 +699,7 @@ The **primary model cannot consume images** in tool results — **do not** use *
     async fn pack_screenshot_tool_output(
         shot: &ComputerScreenshot,
         debug_rel: Option<String>,
-    ) -> BitFunResult<(Value, ToolImageAttachment, String)> {
+    ) -> CoreResult<(Value, ToolImageAttachment, String)> {
         let b64 = B64.encode(&shot.bytes);
         let pointer_marker_note = match (shot.pointer_image_x, shot.pointer_image_y) {
             (Some(_), Some(_)) => "The JPEG includes a **synthetic red cursor with gray border** marking the **actual mouse position** on this bitmap (not the OS arrow). The **tip** is the true hotspot for **visual confirmation** only — **do not** use JPEG pixel indices for `mouse_move`; use `use_screen_coordinates: true` with globals from tool results (`pointer_global`, `move_to_text` global_center_*, `locate`, AX) or `move_to_text` / `click_element`.",
@@ -931,7 +931,7 @@ pub(crate) async fn ensure_global_xy_on_display(
     host: &dyn crate::agentic::tools::computer_use_host::ComputerUseHost,
     gx: f64,
     gy: f64,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     let displays = host.list_displays().await.unwrap_or_default();
     if displays.is_empty() {
         // Host can't enumerate displays (non-desktop runtime) — skip the guard.
@@ -961,7 +961,7 @@ pub(crate) async fn ensure_global_xy_on_display(
             )
         })
         .collect();
-    Err(BitFunError::tool(format!(
+    Err(CoreError::tool(format!(
         "[DESKTOP_COORD_OUT_OF_DISPLAY] global=({:.1},{:.1}) does not lie on any visible display. \
          Visible displays: [{}]. Hint: image-pixel coordinates are NOT screen coordinates. \
          Use screenshot.pointer_global, click_element/locate result.global_center_x/y, or move_to_text. \
@@ -976,7 +976,7 @@ pub(crate) async fn ensure_global_xy_on_display(
 pub(crate) async fn computer_use_execute_mouse_precise(
     host_ref: &dyn crate::agentic::tools::computer_use_host::ComputerUseHost,
     input: &Value,
-) -> BitFunResult<Vec<ToolResult>> {
+) -> CoreResult<Vec<ToolResult>> {
     ensure_pointer_move_uses_screen_coordinates_only(input)?;
     let snapshot_basis = computer_use_snapshot_coordinate_basis(host_ref);
     let x = req_i32(input, "x")?;
@@ -1023,12 +1023,12 @@ pub(crate) async fn computer_use_execute_mouse_precise(
 pub(crate) async fn computer_use_execute_mouse_step(
     host_ref: &dyn crate::agentic::tools::computer_use_host::ComputerUseHost,
     input: &Value,
-) -> BitFunResult<Vec<ToolResult>> {
+) -> CoreResult<Vec<ToolResult>> {
     let dir = input
         .get("direction")
         .and_then(|v| v.as_str())
         .ok_or_else(|| {
-            BitFunError::tool(
+            CoreError::tool(
                 "direction is required for ComputerUseMouseStep (up|down|left|right)".to_string(),
             )
         })?;
@@ -1044,7 +1044,7 @@ pub(crate) async fn computer_use_execute_mouse_step(
         "left" => (-px, 0),
         "right" => (px, 0),
         _ => {
-            return Err(BitFunError::tool(
+            return Err(CoreError::tool(
                 "direction must be up, down, left, or right".to_string(),
             ));
         }
@@ -1081,11 +1081,11 @@ pub(crate) async fn computer_use_execute_mouse_step(
 pub(crate) async fn computer_use_execute_mouse_click_tool(
     host_ref: &dyn crate::agentic::tools::computer_use_host::ComputerUseHost,
     input: &Value,
-) -> BitFunResult<Vec<ToolResult>> {
+) -> CoreResult<Vec<ToolResult>> {
     let act = input
         .get("action")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| BitFunError::tool("action is required (click or wheel)".to_string()))?;
+        .ok_or_else(|| CoreError::tool("action is required (click or wheel)".to_string()))?;
     match act {
         "click" => {
             let button = input
@@ -1128,7 +1128,7 @@ pub(crate) async fn computer_use_execute_mouse_click_tool(
             let dx = input.get("delta_x").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
             let dy = input.get("delta_y").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
             if dx == 0 && dy == 0 {
-                return Err(BitFunError::tool(
+                return Err(CoreError::tool(
                     "wheel requires non-zero delta_x and/or delta_y".to_string(),
                 ));
             }
@@ -1154,7 +1154,7 @@ pub(crate) async fn computer_use_execute_mouse_click_tool(
             let summary = format!("Mouse wheel at pointer: delta ({}, {}).", dx, dy);
             Ok(vec![ToolResult::ok(body, Some(summary))])
         }
-        _ => Err(BitFunError::tool(
+        _ => Err(CoreError::tool(
             "ComputerUseMouseClick action must be \"click\" or \"wheel\"".to_string(),
         )),
     }
@@ -1200,7 +1200,7 @@ fn parse_locate_query(input: &Value) -> UiElementLocateQuery {
 
 fn parse_ocr_region_native(
     input: &Value,
-) -> BitFunResult<Option<crate::agentic::tools::computer_use_host::OcrRegionNative>> {
+) -> CoreResult<Option<crate::agentic::tools::computer_use_host::OcrRegionNative>> {
     let v = input
         .get("ocr_region_native")
         .or_else(|| input.get("ocr_region"));
@@ -1211,25 +1211,25 @@ fn parse_ocr_region_native(
         return Ok(None);
     }
     let o = val.as_object().ok_or_else(|| {
-        BitFunError::tool(
+        CoreError::tool(
             "ocr_region_native must be an object { x0, y0, width, height } in global native pixels."
                 .to_string(),
         )
     })?;
     let x0 = o.get("x0").and_then(|x| x.as_i64()).ok_or_else(|| {
-        BitFunError::tool("ocr_region_native.x0 (integer) is required.".to_string())
+        CoreError::tool("ocr_region_native.x0 (integer) is required.".to_string())
     })? as i32;
     let y0 = o.get("y0").and_then(|x| x.as_i64()).ok_or_else(|| {
-        BitFunError::tool("ocr_region_native.y0 (integer) is required.".to_string())
+        CoreError::tool("ocr_region_native.y0 (integer) is required.".to_string())
     })? as i32;
     let width = o.get("width").and_then(|x| x.as_u64()).ok_or_else(|| {
-        BitFunError::tool("ocr_region_native.width (positive integer) is required.".to_string())
+        CoreError::tool("ocr_region_native.width (positive integer) is required.".to_string())
     })? as u32;
     let height = o.get("height").and_then(|x| x.as_u64()).ok_or_else(|| {
-        BitFunError::tool("ocr_region_native.height (positive integer) is required.".to_string())
+        CoreError::tool("ocr_region_native.height (positive integer) is required.".to_string())
     })? as u32;
     if width == 0 || height == 0 {
-        return Err(BitFunError::tool(
+        return Err(CoreError::tool(
             "ocr_region_native width and height must be greater than zero.".to_string(),
         ));
     }
@@ -1249,7 +1249,7 @@ impl Tool for ComputerUseTool {
         "ComputerUse"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         let os = Self::host_os_label();
         let keys = Self::key_chord_os_hint();
         Ok(format!(
@@ -1276,7 +1276,7 @@ impl Tool for ComputerUseTool {
     async fn description_with_context(
         &self,
         context: Option<&ToolUseContext>,
-    ) -> BitFunResult<String> {
+    ) -> CoreResult<String> {
         let vision = context
             .map(|c| c.primary_model_supports_image_understanding())
             .unwrap_or(true);
@@ -1413,9 +1413,9 @@ impl Tool for ComputerUseTool {
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         if context.is_remote() {
-            return Err(BitFunError::tool(
+            return Err(CoreError::tool(
                 "ComputerUse cannot run while the session workspace is remote (SSH).".to_string(),
             ));
         }
@@ -1423,7 +1423,7 @@ impl Tool for ComputerUseTool {
         let action = input
             .get("action")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BitFunError::tool("action is required".to_string()))?;
+            .ok_or_else(|| CoreError::tool("action is required".to_string()))?;
 
         match action {
             "open_url" | "open_file" | "clipboard_get" | "clipboard_set" | "run_script"
@@ -1442,7 +1442,7 @@ impl Tool for ComputerUseTool {
         }
 
         let host = context.computer_use_host.as_ref().ok_or_else(|| {
-            BitFunError::tool(
+            CoreError::tool(
                 "Computer use is only available in the Sparo OS desktop app.".to_string(),
             )
         })?;
@@ -1551,7 +1551,7 @@ impl Tool for ComputerUseTool {
                     && query.identifier_contains.is_none()
                     && query.node_idx.is_none()
                 {
-                    return Err(BitFunError::tool(
+                    return Err(CoreError::tool(
                         "click_element requires at least one of text_contains, title_contains, role_substring, identifier_contains, or node_idx.".to_string(),
                     ));
                 }
@@ -1648,7 +1648,7 @@ impl Tool for ComputerUseTool {
                     .map(str::trim)
                     .filter(|s| !s.is_empty())
                     .ok_or_else(|| {
-                        BitFunError::tool(
+                        CoreError::tool(
                             "move_to_text requires non-empty string field `text_query`."
                                 .to_string(),
                         )
@@ -1664,7 +1664,7 @@ impl Tool for ComputerUseTool {
                         Self::find_text_on_screen(host_ref, text_query, ocr_region_native.clone())
                             .await?;
                     if matches.is_empty() {
-                        return Err(BitFunError::tool(format!(
+                        return Err(CoreError::tool(format!(
                             "move_to_text found no visible OCR match for {:?}. Take a fresh screenshot and try a shorter or more distinctive substring, or use click_element.",
                             text_query
                         )));
@@ -1695,7 +1695,7 @@ impl Tool for ComputerUseTool {
                         None => 0,
                         Some(idx) => {
                             if idx < 1 || idx > n as u32 {
-                                return Err(BitFunError::tool(format!(
+                                return Err(CoreError::tool(format!(
                                     "move_to_text_match_index must be between 1 and {} ({} OCR matches for {:?}).",
                                     n, n, text_query
                                 )));
@@ -1859,7 +1859,7 @@ impl Tool for ComputerUseTool {
                 let dx = input.get("delta_x").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
                 let dy = input.get("delta_y").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
                 if dx == 0 && dy == 0 {
-                    return Err(BitFunError::tool(
+                    return Err(CoreError::tool(
                         "scroll requires non-zero delta_x and/or delta_y".to_string(),
                     ));
                 }
@@ -2021,7 +2021,7 @@ impl Tool for ComputerUseTool {
                     .and_then(|v| v.as_i64())
                     .unwrap_or(0) as i32;
                 if dx == 0 && dy == 0 {
-                    return Err(BitFunError::tool(
+                    return Err(CoreError::tool(
                         "pointer_move_rel requires a non-zero delta. Accepts `delta_x`|`dx` and `delta_y`|`dy` (screen pixels); at least one must be non-zero.".to_string(),
                     ));
                 }
@@ -2074,20 +2074,20 @@ impl Tool for ComputerUseTool {
                     None => match input.get("key").and_then(|v| v.as_str()) {
                         Some(s) => vec![s.to_string()],
                         None => {
-                            return Err(BitFunError::tool(
+                            return Err(CoreError::tool(
                                 "[INVALID_PARAMS] key_chord requires `keys` as a JSON array of key names\nHints: example { \"keys\": [\"command\", \"v\"] } | for a single key { \"keys\": [\"return\"] } | use lowercase canonical names: command, control, option, shift, return, escape, tab, space, delete, arrow_up/down/left/right, f1..f12"
                                     .to_string(),
                             ));
                         }
                     },
                     _ => {
-                        return Err(BitFunError::tool(
+                        return Err(CoreError::tool(
                             "[INVALID_PARAMS] key_chord `keys` must be a string or array of strings\nHints: example { \"keys\": [\"command\", \"v\"] }".to_string(),
                         ));
                     }
                 };
                 if keys.is_empty() {
-                    return Err(BitFunError::tool(
+                    return Err(CoreError::tool(
                         "[INVALID_PARAMS] key_chord `keys` must not be empty\nHints: example { \"keys\": [\"return\"] }".to_string(),
                     ));
                 }
@@ -2106,7 +2106,7 @@ impl Tool for ComputerUseTool {
                 let text = input
                     .get("text")
                     .and_then(|v| v.as_str())
-                    .ok_or_else(|| BitFunError::tool("text is required".to_string()))?;
+                    .ok_or_else(|| CoreError::tool("text is required".to_string()))?;
                 host_ref.type_text(text).await?;
                 let input_coords =
                     json!({ "kind": "type_text", "char_count": text.chars().count() });
@@ -2126,7 +2126,7 @@ impl Tool for ComputerUseTool {
                 let ms = input
                     .get("ms")
                     .and_then(|v| v.as_u64())
-                    .ok_or_else(|| BitFunError::tool("ms is required".to_string()))?;
+                    .ok_or_else(|| CoreError::tool("ms is required".to_string()))?;
                 host_ref.wait_ms(ms).await?;
                 let body = computer_use_augment_result_json(
                     host_ref,
@@ -2144,7 +2144,7 @@ impl Tool for ComputerUseTool {
                     .get("app_name")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| {
-                        BitFunError::tool("open_app requires `app_name` parameter.".to_string())
+                        CoreError::tool("open_app requires `app_name` parameter.".to_string())
                     })?;
                 let result = host_ref.open_app(app_name).await?;
                 let body = computer_use_augment_result_json(
@@ -2183,14 +2183,14 @@ impl Tool for ComputerUseTool {
                     .get("script")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| {
-                        BitFunError::tool(
+                        CoreError::tool(
                             "run_apple_script requires `script` parameter.".to_string(),
                         )
                     })?;
                 #[cfg(not(target_os = "macos"))]
                 {
                     let _ = script;
-                    return Err(BitFunError::tool(
+                    return Err(CoreError::tool(
                         "run_apple_script is only available on macOS.".to_string(),
                     ));
                 }
@@ -2203,8 +2203,8 @@ impl Tool for ComputerUseTool {
                             .output()
                     })
                     .await
-                    .map_err(|e| BitFunError::tool(format!("spawn: {}", e)))?
-                    .map_err(|e| BitFunError::tool(format!("osascript: {}", e)))?;
+                    .map_err(|e| CoreError::tool(format!("spawn: {}", e)))?
+                    .map_err(|e| CoreError::tool(format!("osascript: {}", e)))?;
 
                     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
                     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
@@ -2237,7 +2237,7 @@ impl Tool for ComputerUseTool {
                 }
             }
 
-            _ => Err(BitFunError::tool(format!("Unknown action: {}", action))),
+            _ => Err(CoreError::tool(format!("Unknown action: {}", action))),
         }
     }
 }
@@ -2268,10 +2268,10 @@ struct ScreenOcrTextMatch {
     bounds_height: f64,
 }
 
-fn req_i32(input: &Value, key: &str) -> BitFunResult<i32> {
+fn req_i32(input: &Value, key: &str) -> CoreResult<i32> {
     input
         .get(key)
         .and_then(|v| v.as_i64())
         .map(|v| v as i32)
-        .ok_or_else(|| BitFunError::tool(format!("{} is required (integer)", key)))
+        .ok_or_else(|| CoreError::tool(format!("{} is required (integer)", key)))
 }

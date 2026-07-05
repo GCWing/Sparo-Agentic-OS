@@ -4,7 +4,7 @@
 
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
 use crate::service::config::get_app_language_code;
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 use async_trait::async_trait;
 use log::warn;
 use serde_json::{json, Value};
@@ -217,7 +217,7 @@ impl Tool for CodeReviewTool {
         Self::name_str()
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         let lang = get_app_language_code().await;
         Ok(Self::description_for_language(lang.as_str()))
     }
@@ -251,7 +251,7 @@ impl Tool for CodeReviewTool {
         &self,
         input: &Value,
         _context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         // Fill missing default values
         let mut filled_input = input.clone();
         Self::validate_and_fill_defaults(&mut filled_input);

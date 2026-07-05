@@ -12,7 +12,7 @@ use crate::agentic::core::SessionConfig;
 use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
 };
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -73,17 +73,17 @@ impl SessionControlTool {
         Ok(())
     }
 
-    fn resolve_workspace(&self, workspace: &str) -> BitFunResult<String> {
+    fn resolve_workspace(&self, workspace: &str) -> CoreResult<String> {
         let workspace = workspace.trim();
         if workspace.is_empty() {
-            return Err(BitFunError::tool(
+            return Err(CoreError::tool(
                 "workspace is required and cannot be empty".to_string(),
             ));
         }
 
         let path = Path::new(workspace);
         if !path.is_absolute() {
-            return Err(BitFunError::tool(
+            return Err(CoreError::tool(
                 "workspace must be an absolute path".to_string(),
             ));
         }
@@ -91,13 +91,13 @@ impl SessionControlTool {
         let resolved = normalize_path(workspace);
         let path = Path::new(&resolved);
         if !path.exists() {
-            return Err(BitFunError::tool(format!(
+            return Err(CoreError::tool(format!(
                 "Workspace does not exist: {}",
                 resolved
             )));
         }
         if !path.is_dir() {
-            return Err(BitFunError::tool(format!(
+            return Err(CoreError::tool(format!(
                 "Workspace is not a directory: {}",
                 resolved
             )));
@@ -121,9 +121,9 @@ impl SessionControlTool {
         datetime.format("%Y-%m-%dT%H:%M:%S").to_string()
     }
 
-    fn creator_session_marker(&self, context: &ToolUseContext) -> BitFunResult<String> {
+    fn creator_session_marker(&self, context: &ToolUseContext) -> CoreResult<String> {
         let creator_session_id = context.session_id.as_ref().ok_or_else(|| {
-            BitFunError::tool("create requires a creator session in tool context".to_string())
+            CoreError::tool("create requires a creator session in tool context".to_string())
         })?;
         Ok(format!("session-{}", creator_session_id))
     }
@@ -193,7 +193,7 @@ impl SessionControlTool {
         workspace_path: &Path,
         workspace: &str,
         session_id: &str,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let existing_sessions = coordinator.list_sessions(workspace_path).await?;
         if existing_sessions
             .iter()
@@ -201,7 +201,7 @@ impl SessionControlTool {
         {
             Ok(())
         } else {
-            Err(BitFunError::NotFound(format!(
+            Err(CoreError::NotFound(format!(
                 "Session '{}' not found in workspace '{}'",
                 session_id, workspace
             )))
@@ -304,7 +304,7 @@ impl Tool for SessionControlTool {
         "SessionControl"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(
             r#"Manage persisted workspace-scoped agent sessions.
 
@@ -320,7 +320,7 @@ Required inputs:
 Optional inputs:
 - "session_name": Only used by create. Defaults to "New Session".
 - "agent_type": Only used by create. Defaults to "agentic".
-  - "agentic": Prime Builder, the software development agent for coding, implementation, debugging, tests, and code changes.
+  - "agentic": BitFun Coder, the default execution agent for coding, debugging, automation, tests, and verified workspace changes.
   - "Plan": Planning agent for clarifying requirements and producing an implementation plan before coding.
   - "Cowork": Collaborative agent for office-style work such as research, documentation, presentations, etc.
   - "Design": Design-focused agent for HTML prototypes, design artifacts, and visual exploration.
@@ -503,15 +503,15 @@ Optional inputs:
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let params: SessionControlInput = serde_json::from_value(input.clone())
-            .map_err(|e| BitFunError::tool(format!("Invalid input: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("Invalid input: {}", e)))?;
         let workspace = self.resolve_workspace(&params.workspace)?;
         let workspace_path = Path::new(&workspace);
         let coordinator = context
             .agentic()
             .map(|h| h.coordinator.clone())
-            .ok_or_else(|| BitFunError::tool("coordinator not initialized".to_string()))?;
+            .ok_or_else(|| CoreError::tool("coordinator not initialized".to_string()))?;
 
         match params.action {
             SessionControlAction::Create => {
@@ -565,11 +565,11 @@ Optional inputs:
             }
             SessionControlAction::Cancel => {
                 let session_id = params.session_id.as_deref().ok_or_else(|| {
-                    BitFunError::tool("session_id is required for cancel".to_string())
+                    CoreError::tool("session_id is required for cancel".to_string())
                 })?;
-                Self::validate_session_id(session_id).map_err(BitFunError::tool)?;
+                Self::validate_session_id(session_id).map_err(CoreError::tool)?;
                 if self.workspace_context_session(context, &workspace) == Some(session_id) {
-                    return Err(BitFunError::tool(
+                    return Err(CoreError::tool(
                         "cannot cancel the current session from SessionControl".to_string(),
                     ));
                 }
@@ -658,11 +658,11 @@ Optional inputs:
             }
             SessionControlAction::Delete => {
                 let session_id = params.session_id.as_deref().ok_or_else(|| {
-                    BitFunError::tool("session_id is required for delete".to_string())
+                    CoreError::tool("session_id is required for delete".to_string())
                 })?;
-                Self::validate_session_id(session_id).map_err(BitFunError::tool)?;
+                Self::validate_session_id(session_id).map_err(CoreError::tool)?;
                 if self.workspace_context_session(context, &workspace) == Some(session_id) {
-                    return Err(BitFunError::tool(
+                    return Err(CoreError::tool(
                         "cannot delete the current session from SessionControl".to_string(),
                     ));
                 }
@@ -740,7 +740,7 @@ mod tests {
 
     fn temp_workspace_path() -> String {
         let path = std::env::temp_dir().join(format!(
-            "bitfun-session-control-tool-test-{}",
+            "sparo-session-control-tool-test-{}",
             Uuid::new_v4()
         ));
         fs::create_dir_all(&path).expect("temp workspace should be created");

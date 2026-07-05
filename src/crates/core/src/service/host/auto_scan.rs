@@ -8,7 +8,7 @@ use crate::service::config::types::AppHostScanConfig;
 use crate::service::config::{
     get_global_config_service, subscribe_config_updates, ConfigUpdateEvent,
 };
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 use chrono::{Local, TimeZone};
 use log::{debug, error, info, warn};
 use serde::Serialize;
@@ -49,7 +49,7 @@ pub struct HostAutoScanService {
 }
 
 impl HostAutoScanService {
-    pub async fn new(coordinator: Arc<ConversationCoordinator>) -> BitFunResult<Arc<Self>> {
+    pub async fn new(coordinator: Arc<ConversationCoordinator>) -> CoreResult<Arc<Self>> {
         let state = load_host_scan_state().await?;
         debug!(
             "Loaded host auto scan state: last_attempt_status={:?}, last_attempt_trigger={:?}, next_auto_scan_not_before_ms={:?}, auto_failed_attempts_today={}, active_auto_turn_id={:?}",
@@ -91,7 +91,7 @@ impl HostAutoScanService {
         });
     }
 
-    pub async fn run_now(&self) -> BitFunResult<HostScanRunSummary> {
+    pub async fn run_now(&self) -> CoreResult<HostScanRunSummary> {
         if !self.tracked_turns.lock().await.is_empty() {
             return Ok(HostScanRunSummary {
                 started: false,
@@ -131,7 +131,7 @@ impl HostAutoScanService {
         &self,
         turn_id: &str,
         trigger: HostScanTrigger,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let turn_id = turn_id.trim();
         if turn_id.is_empty() {
             return Ok(());
@@ -168,7 +168,7 @@ impl HostAutoScanService {
         Ok(())
     }
 
-    pub async fn handle_turn_completed(&self, turn_id: &str) -> BitFunResult<()> {
+    pub async fn handle_turn_completed(&self, turn_id: &str) -> CoreResult<()> {
         if let Some(tracked) = self.take_tracked_turn(turn_id).await {
             let overview_after = read_host_overview_status().await.unwrap_or_default();
             let outcome = resolve_completed_turn_outcome(&tracked, overview_after.clone());
@@ -199,7 +199,7 @@ impl HostAutoScanService {
         Ok(())
     }
 
-    pub async fn handle_turn_failed(&self, turn_id: &str, error_message: &str) -> BitFunResult<()> {
+    pub async fn handle_turn_failed(&self, turn_id: &str, error_message: &str) -> CoreResult<()> {
         if let Some(tracked) = self.take_tracked_turn(turn_id).await {
             let overview_after = read_host_overview_status().await.unwrap_or_default();
             let outcome = resolve_failed_turn_outcome(
@@ -235,7 +235,7 @@ impl HostAutoScanService {
         Ok(())
     }
 
-    pub async fn handle_turn_cancelled(&self, turn_id: &str) -> BitFunResult<()> {
+    pub async fn handle_turn_cancelled(&self, turn_id: &str) -> CoreResult<()> {
         if let Some(tracked) = self.take_tracked_turn(turn_id).await {
             let overview_after = read_host_overview_status().await.unwrap_or_default();
             let outcome = resolve_failed_turn_outcome(
@@ -328,7 +328,7 @@ impl HostAutoScanService {
         }
     }
 
-    async fn reconcile_startup_state(&self) -> BitFunResult<()> {
+    async fn reconcile_startup_state(&self) -> CoreResult<()> {
         let mut state = self.state.lock().await;
         if let Some(active_turn_id) = state.active_auto_turn_id.clone() {
             let startup_status = read_host_overview_status().await.unwrap_or_default();
@@ -377,7 +377,7 @@ impl HostAutoScanService {
         Ok(())
     }
 
-    async fn reconcile_and_maybe_start_auto_scan(&self) -> BitFunResult<Option<Duration>> {
+    async fn reconcile_and_maybe_start_auto_scan(&self) -> CoreResult<Option<Duration>> {
         let config = load_host_scan_config().await;
         if !config.auto_scan_enabled {
             return Ok(None);
@@ -473,7 +473,7 @@ impl HostAutoScanService {
         Ok(None)
     }
 
-    async fn record_auto_launch_failure(&self, error_message: String) -> BitFunResult<()> {
+    async fn record_auto_launch_failure(&self, error_message: String) -> CoreResult<()> {
         let mut state = self.state.lock().await;
         let now = now_ms();
         state.last_attempt_started_at_ms = Some(now);

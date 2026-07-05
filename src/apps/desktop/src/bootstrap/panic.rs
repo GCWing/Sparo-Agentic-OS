@@ -49,7 +49,7 @@ pub fn install() {
 
         if !CLEANUP_RAN.swap(true, Ordering::SeqCst) {
             log::info!("Running panic cleanup hook");
-            bitfun_core::util::process_manager::cleanup_all_processes();
+            sparo_core::util::process_manager::cleanup_all_processes();
         }
 
         // Use abort() instead of exit() so OS crash dumps still fire if any

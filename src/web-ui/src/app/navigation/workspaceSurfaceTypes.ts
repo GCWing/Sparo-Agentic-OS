@@ -1,4 +1,4 @@
-﻿import type { WorkspaceSceneId } from './workspaceSceneTypes';
+import type { WorkspaceSceneId } from './workspaceSceneTypes';
 import { appScopeIdentity } from '@/shared/types/app-scope';
 import type { AppScope } from '@/shared/types/app-scope';
 import { runtimeScopeIdentity, type RuntimeScope } from '@/shared/types/runtime-scope';

@@ -12,7 +12,7 @@ use unic_langid::LanguageIdentifier;
 
 use super::types::{FluentValue, LocaleId, LocaleMetadata, TranslationArgs};
 use crate::service::config::ConfigService;
-use crate::util::errors::*;
+use crate::error::*;
 
 /// Type alias for a thread-safe `FluentBundle`.
 type ConcurrentBundle = ConcurrentFluentBundle<FluentResource>;
@@ -51,7 +51,7 @@ impl I18nService {
     }
 
     /// Initializes the i18n service.
-    pub async fn initialize(&self) -> BitFunResult<()> {
+    pub async fn initialize(&self) -> CoreResult<()> {
         let mut initialized = self.initialized.write().await;
         if *initialized {
             warn!("I18nService already initialized");
@@ -97,7 +97,7 @@ impl I18nService {
     }
 
     /// Loads all locale bundles.
-    async fn load_all_bundles(&self) -> BitFunResult<()> {
+    async fn load_all_bundles(&self) -> CoreResult<()> {
         let mut bundles = self.bundles.write().await;
 
         let zh_cn_ftl = include_str!("../../../locales/zh-CN.ftl");
@@ -131,7 +131,7 @@ impl I18nService {
     }
 
     /// Sets the current locale.
-    pub async fn set_locale(&self, locale: LocaleId) -> BitFunResult<()> {
+    pub async fn set_locale(&self, locale: LocaleId) -> CoreResult<()> {
         let old_locale = {
             let mut current = self.current_locale.write().await;
             let old = current.clone();
@@ -268,7 +268,7 @@ pub async fn set_global_i18n_service(service: Arc<I18nService>) {
 /// Initializes the global i18n service.
 pub async fn initialize_global_i18n_service(
     config_service: Option<Arc<ConfigService>>,
-) -> BitFunResult<Arc<I18nService>> {
+) -> CoreResult<Arc<I18nService>> {
     let service = match config_service {
         Some(cs) => Arc::new(I18nService::with_config_service(cs)),
         None => Arc::new(I18nService::new()),

@@ -13,7 +13,7 @@ use crate::app_platform::{
     SurfaceRef, WrittenProductAppPackage,
 };
 use crate::infrastructure::{try_get_path_manager_arc, PathManager};
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use log::warn;
 use serde::Serialize;
@@ -114,7 +114,7 @@ impl Tool for CreateProductAppTool {
         "CreateProductApp"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(r#"Create a new Product App package. The tool writes an app.json package with an explicit Product App entry: agent, surface, or surfaceAgent. It creates the required app-private Component scaffolds and a component lock.
 
 Input: name, description, category. Optional app_id can be supplied when the user names a durable package id.
@@ -188,7 +188,7 @@ Returns Product App identity, optional primary surface, optional agent component
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let name = required_string(input, "name")?;
         let app_name = name.clone();
         let description = optional_string(input, "description").unwrap_or_default();
@@ -249,7 +249,7 @@ Returns Product App identity, optional primary surface, optional agent component
         };
 
         let path_manager = try_get_path_manager_arc()
-            .map_err(|e| BitFunError::tool(format!("PathManager not initialized: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("PathManager not initialized: {}", e)))?;
         let written = create_product_app_package_with_options(
             &path_manager,
             CreateProductAppPackageDraft {
@@ -271,7 +271,7 @@ Returns Product App identity, optional primary surface, optional agent component
             },
         )
         .await
-        .map_err(|e| BitFunError::tool(format!("Failed to create Product App package: {}", e)))?;
+        .map_err(|e| CoreError::tool(format!("Failed to create Product App package: {}", e)))?;
 
         let package_dir = written.package_dir.to_string_lossy().to_string();
         let agent_component_file = agent_component_id.as_ref().map(|component_id| {
@@ -423,7 +423,7 @@ impl Tool for CreateProductAppComponentTool {
         "CreateProductAppComponent"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(r#"Create an app-private Component scaffold inside an existing Product App package, update app.json references, refresh app.lock.json, and return editable paths.
 
 Supports Product App private component kinds: surface, agent, bridge, runtime, tool, and skill. This is not shared Component Package authoring; use it when the current Product App needs another implementation unit."#
@@ -498,9 +498,9 @@ Supports Product App private component kinds: surface, agent, bridge, runtime, t
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let path_manager = try_get_path_manager_arc()
-            .map_err(|e| BitFunError::tool(format!("PathManager not initialized: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("PathManager not initialized: {}", e)))?;
         let package_dir = product_app_package_dir_from_input(
             input,
             "CreateProductAppComponent",
@@ -521,7 +521,7 @@ Supports Product App private component kinds: surface, agent, bridge, runtime, t
         let shared_components = list_installed_shared_components(&path_manager)
             .await
             .map_err(|e| {
-                BitFunError::tool(format!("Failed to read installed shared components: {}", e))
+                CoreError::tool(format!("Failed to read installed shared components: {}", e))
             })?;
 
         let written = create_product_app_component_scaffold(
@@ -540,7 +540,7 @@ Supports Product App private component kinds: surface, agent, bridge, runtime, t
         )
         .await
         .map_err(|e| {
-            BitFunError::tool(format!(
+            CoreError::tool(format!(
                 "Failed to create Product App component scaffold: {}",
                 e
             ))
@@ -596,7 +596,7 @@ impl Tool for GetProductAppPackageTool {
         "GetProductAppPackage"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(r#"Read the current Product App package and return its package, component graph, lock, rehearsal, and eval summary without modifying files.
 
 Input: path, or app_id plus optional version for standalone reads. In a bound AppStudio session, leave input empty; the current bound Product App package is always used."#
@@ -637,9 +637,9 @@ Input: path, or app_id plus optional version for standalone reads. In a bound Ap
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let path_manager = try_get_path_manager_arc()
-            .map_err(|e| BitFunError::tool(format!("PathManager not initialized: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("PathManager not initialized: {}", e)))?;
         let package_dir = product_app_package_dir_from_input(
             input,
             "GetProductAppPackage",
@@ -648,18 +648,18 @@ Input: path, or app_id plus optional version for standalone reads. In a bound Ap
         )?;
         let package = ProductAppResolver::read_product_app_package(&package_dir)
             .await
-            .map_err(|e| BitFunError::tool(format!("Failed to read Product App package: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("Failed to read Product App package: {}", e)))?;
         let lock = ProductAppResolver::read_lock(&package_dir)
             .await
-            .map_err(|e| BitFunError::tool(format!("Failed to read app.lock.json: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("Failed to read app.lock.json: {}", e)))?;
         let shared_components = list_installed_shared_components(&path_manager)
             .await
             .map_err(|e| {
-                BitFunError::tool(format!("Failed to read installed shared components: {}", e))
+                CoreError::tool(format!("Failed to read installed shared components: {}", e))
             })?;
         let resolved =
             ProductAppResolver::resolve_package_install(package.clone(), shared_components)
-                .map_err(|e| BitFunError::tool(format!("Product App resolver failed: {}", e)))?;
+                .map_err(|e| CoreError::tool(format!("Product App resolver failed: {}", e)))?;
         let declared_lock_digest = package.app.component_lock_id.clone();
         let file_lock_digest = lock.digest();
         let resolved_lock_digest = resolved.lock.digest();
@@ -744,7 +744,7 @@ impl Tool for UpdateProductAppPackageTool {
         "UpdateProductAppPackage"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(r#"Update structured Product App package metadata and launch fields, then refresh app.json component_lock_id and app.lock.json.
 
 Input: path, or app_id plus optional version for standalone updates. In a bound AppStudio session, leave package identity empty; the current bound Product App package is always used. Supported updates: name, description, goal, category, structured icon, tags, work_multiplicity, interaction_model, primary_surface_id, primary_surface_mode, launch_kind, launch_target_id, launch_scope_requirement, launch_agent_type, launch_surface_id. Use component authoring or file tools for private component source edits."#
@@ -847,9 +847,9 @@ Input: path, or app_id plus optional version for standalone updates. In a bound 
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let path_manager = try_get_path_manager_arc()
-            .map_err(|e| BitFunError::tool(format!("PathManager not initialized: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("PathManager not initialized: {}", e)))?;
         let package_dir = product_app_package_dir_from_input(
             input,
             "UpdateProductAppPackage",
@@ -858,7 +858,7 @@ Input: path, or app_id plus optional version for standalone updates. In a bound 
         )?;
         let mut package = ProductAppResolver::read_product_app_package(&package_dir)
             .await
-            .map_err(|e| BitFunError::tool(format!("Failed to read Product App package: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("Failed to read Product App package: {}", e)))?;
         let previous_app_id = package.app.id.clone();
         let previous_version = package.app.version.clone();
         let previous_lock = package.app.component_lock_id.clone();
@@ -976,7 +976,7 @@ Input: path, or app_id plus optional version for standalone updates. In a bound 
         }
 
         if changed_fields.is_empty() {
-            return Err(BitFunError::validation(
+            return Err(CoreError::validation(
                 "UpdateProductAppPackage requires at least one update field".to_string(),
             ));
         }
@@ -984,10 +984,10 @@ Input: path, or app_id plus optional version for standalone updates. In a bound 
         let shared_components = list_installed_shared_components(&path_manager)
             .await
             .map_err(|e| {
-                BitFunError::tool(format!("Failed to read installed shared components: {}", e))
+                CoreError::tool(format!("Failed to read installed shared components: {}", e))
             })?;
         let resolved = ProductAppResolver::resolve_package_install(package, shared_components)
-            .map_err(|e| BitFunError::tool(format!("Product App resolver failed: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("Product App resolver failed: {}", e)))?;
         enforce_product_app_package_write(context, &package_dir).await?;
         let component_lock_digest = resolved.lock.digest();
         let app_path = package_dir.join("app.json");
@@ -1033,7 +1033,7 @@ impl Tool for RefreshProductAppLockTool {
         "RefreshProductAppLock"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(r#"Refresh the component lock for a Product App package after package/component edits. The tool resolves the package, writes the updated app.json component_lock_id, and rewrites app.lock.json.
 
 Input: path, or app_id plus optional version for standalone refreshes. In a bound AppStudio session, leave input empty; the current bound Product App package is always used."#
@@ -1074,9 +1074,9 @@ Input: path, or app_id plus optional version for standalone refreshes. In a boun
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let path_manager = try_get_path_manager_arc()
-            .map_err(|e| BitFunError::tool(format!("PathManager not initialized: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("PathManager not initialized: {}", e)))?;
         let package_dir = product_app_package_dir_from_input(
             input,
             "RefreshProductAppLock",
@@ -1085,7 +1085,7 @@ Input: path, or app_id plus optional version for standalone refreshes. In a boun
         )?;
         let package = ProductAppResolver::read_product_app_package(&package_dir)
             .await
-            .map_err(|e| BitFunError::tool(format!("Failed to read Product App package: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("Failed to read Product App package: {}", e)))?;
         let app_id = package.app.id.clone();
         let app_version = package.app.version.clone();
         let previous_declared_lock = package.app.component_lock_id.clone();
@@ -1096,10 +1096,10 @@ Input: path, or app_id plus optional version for standalone refreshes. In a boun
         let shared_components = list_installed_shared_components(&path_manager)
             .await
             .map_err(|e| {
-                BitFunError::tool(format!("Failed to read installed shared components: {}", e))
+                CoreError::tool(format!("Failed to read installed shared components: {}", e))
             })?;
         let resolved = ProductAppResolver::resolve_package_install(package, shared_components)
-            .map_err(|e| BitFunError::tool(format!("Product App resolver failed: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("Product App resolver failed: {}", e)))?;
         enforce_product_app_package_write(context, &package_dir).await?;
         let component_lock_digest = resolved.lock.digest();
         let changed = previous_declared_lock != component_lock_digest
@@ -1139,7 +1139,7 @@ impl Tool for ResolveStudioPreviewTargetTool {
         "ResolveStudioPreviewTarget"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(r#"Resolve the current Product App package into a structured App Studio Preview Target without opening a runtime host or claiming execution evidence.
 
 Input: path, or app_id plus optional version for standalone resolution. In a bound AppStudio session, leave package identity empty; the current bound Product App package is always used. Optional mode can force product-app-preview, agent-chat, sidecar-ui, full-ui, embedded-object, capability, agent-eval, runtime-boundary, runtime-dependencies, permission-review, user-path-rehearsal, or release-rehearsal."#
@@ -1193,9 +1193,9 @@ Input: path, or app_id plus optional version for standalone resolution. In a bou
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let path_manager = try_get_path_manager_arc()
-            .map_err(|e| BitFunError::tool(format!("PathManager not initialized: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("PathManager not initialized: {}", e)))?;
         let package_dir = product_app_package_dir_from_input(
             input,
             "ResolveStudioPreviewTarget",
@@ -1204,15 +1204,15 @@ Input: path, or app_id plus optional version for standalone resolution. In a bou
         )?;
         let package = ProductAppResolver::read_product_app_package(&package_dir)
             .await
-            .map_err(|e| BitFunError::tool(format!("Failed to read Product App package: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("Failed to read Product App package: {}", e)))?;
         let shared_components = list_installed_shared_components(&path_manager)
             .await
             .map_err(|e| {
-                BitFunError::tool(format!("Failed to read installed shared components: {}", e))
+                CoreError::tool(format!("Failed to read installed shared components: {}", e))
             })?;
         let resolved =
             ProductAppResolver::resolve_package_install(package.clone(), shared_components)
-                .map_err(|e| BitFunError::tool(format!("Product App resolver failed: {}", e)))?;
+                .map_err(|e| CoreError::tool(format!("Product App resolver failed: {}", e)))?;
         let requested_mode = optional_string(input, "mode").unwrap_or_else(|| "auto".to_string());
         let mode = resolve_preview_mode(
             &requested_mode,
@@ -1292,7 +1292,7 @@ async fn bind_created_product_app_session(
     context: &ToolUseContext,
     written: &WrittenProductAppPackage,
     binding: CreatedProductAppSessionBinding<'_>,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     if context.agent_type.as_deref() != Some("AppStudio") {
         return Ok(());
     }
@@ -1464,7 +1464,7 @@ fn product_app_package_dir_from_input(
     tool_name: &str,
     path_manager: &PathManager,
     context: &ToolUseContext,
-) -> BitFunResult<PathBuf> {
+) -> CoreResult<PathBuf> {
     if let Some(package_root) = bound_app_studio_product_app_root(context, tool_name)? {
         return Ok(package_root);
     }
@@ -1477,7 +1477,7 @@ fn product_app_package_dir_from_input(
     Ok(path_manager.system_product_app_version_dir(&app_id, &version))
 }
 
-async fn write_json_file<T: Serialize>(path: &Path, value: &T) -> BitFunResult<()> {
+async fn write_json_file<T: Serialize>(path: &Path, value: &T) -> CoreResult<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).await?;
     }
@@ -1489,7 +1489,7 @@ async fn write_json_file<T: Serialize>(path: &Path, value: &T) -> BitFunResult<(
 async fn enforce_product_app_package_write(
     context: &ToolUseContext,
     package_dir: &Path,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     enforce_app_studio_package_write(context, package_dir.to_string_lossy().as_ref()).await
 }
 
@@ -1500,16 +1500,16 @@ fn now_ms() -> u64 {
         .unwrap_or(0)
 }
 
-fn required_string(input: &Value, field: &str) -> BitFunResult<String> {
+fn required_string(input: &Value, field: &str) -> CoreResult<String> {
     let value = optional_string(input, field)
-        .ok_or_else(|| BitFunError::validation(format!("Missing required field: {field}")))?;
+        .ok_or_else(|| CoreError::validation(format!("Missing required field: {field}")))?;
     if value.trim().is_empty() {
-        return Err(BitFunError::validation(format!("{field} cannot be empty")));
+        return Err(CoreError::validation(format!("{field} cannot be empty")));
     }
     Ok(value)
 }
 
-fn required_component_kind(input: &Value) -> BitFunResult<ComponentKind> {
+fn required_component_kind(input: &Value) -> CoreResult<ComponentKind> {
     let value = required_string(input, "kind")?;
     match value.to_ascii_lowercase().as_str() {
         "surface" | "surfacecomponent" => Ok(ComponentKind::Surface),
@@ -1518,7 +1518,7 @@ fn required_component_kind(input: &Value) -> BitFunResult<ComponentKind> {
         "runtime" | "runtimecomponent" => Ok(ComponentKind::Runtime),
         "tool" | "toolcomponent" => Ok(ComponentKind::Tool),
         "skill" | "skillcomponent" => Ok(ComponentKind::Skill),
-        other => Err(BitFunError::validation(format!(
+        other => Err(CoreError::validation(format!(
             "Unsupported Product App component kind: {other}"
         ))),
     }
@@ -1579,16 +1579,16 @@ fn optional_string(input: &Value, field: &str) -> Option<String> {
         .map(|value| value.trim().to_string())
 }
 
-fn optional_bool(input: &Value, field: &str) -> BitFunResult<Option<bool>> {
+fn optional_bool(input: &Value, field: &str) -> CoreResult<Option<bool>> {
     match input.get(field) {
         Some(value) => value.as_bool().map(Some).ok_or_else(|| {
-            BitFunError::validation(format!("{field} must be a boolean when provided"))
+            CoreError::validation(format!("{field} must be a boolean when provided"))
         }),
         None => Ok(None),
     }
 }
 
-fn optional_entry_kind(input: &Value) -> BitFunResult<Option<ProductAppEntryKind>> {
+fn optional_entry_kind(input: &Value) -> CoreResult<Option<ProductAppEntryKind>> {
     let Some(value) = optional_string(input, "entry_kind") else {
         return Ok(None);
     };
@@ -1597,7 +1597,7 @@ fn optional_entry_kind(input: &Value) -> BitFunResult<Option<ProductAppEntryKind
         "surface" => ProductAppEntryKind::Surface,
         "surfaceAgent" => ProductAppEntryKind::SurfaceAgent,
         _ => {
-            return Err(BitFunError::validation(
+            return Err(CoreError::validation(
                 "entry_kind must be agent, surface, or surfaceAgent".to_string(),
             ))
         }
@@ -1605,7 +1605,7 @@ fn optional_entry_kind(input: &Value) -> BitFunResult<Option<ProductAppEntryKind
     Ok(Some(kind))
 }
 
-fn optional_surface_mode(input: &Value) -> BitFunResult<Option<AppSurfaceMode>> {
+fn optional_surface_mode(input: &Value) -> CoreResult<Option<AppSurfaceMode>> {
     let Some(value) = optional_string(input, "primary_surface_mode") else {
         return Ok(None);
     };
@@ -1615,7 +1615,7 @@ fn optional_surface_mode(input: &Value) -> BitFunResult<Option<AppSurfaceMode>> 
         "immersivePrimary" => AppSurfaceMode::ImmersivePrimary,
         "embeddedObject" => AppSurfaceMode::EmbeddedObject,
         _ => {
-            return Err(BitFunError::validation(
+            return Err(CoreError::validation(
                 "primary_surface_mode must be one of chatPrimary, sidecarLinked, immersivePrimary, or embeddedObject"
                     .to_string(),
             ))
@@ -1624,7 +1624,7 @@ fn optional_surface_mode(input: &Value) -> BitFunResult<Option<AppSurfaceMode>> 
     Ok(Some(mode))
 }
 
-fn optional_interaction_model(input: &Value) -> BitFunResult<Option<AppInteractionModel>> {
+fn optional_interaction_model(input: &Value) -> CoreResult<Option<AppInteractionModel>> {
     let Some(value) = optional_string(input, "interaction_model") else {
         return Ok(None);
     };
@@ -1632,7 +1632,7 @@ fn optional_interaction_model(input: &Value) -> BitFunResult<Option<AppInteracti
         "conversation" => AppInteractionModel::Conversation,
         "interactiveWorkspace" => AppInteractionModel::InteractiveWorkspace,
         _ => {
-            return Err(BitFunError::validation(
+            return Err(CoreError::validation(
                 "interaction_model must be conversation or interactiveWorkspace".to_string(),
             ))
         }
@@ -1640,7 +1640,7 @@ fn optional_interaction_model(input: &Value) -> BitFunResult<Option<AppInteracti
     Ok(Some(model))
 }
 
-fn optional_work_multiplicity(input: &Value) -> BitFunResult<Option<AppWorkMultiplicity>> {
+fn optional_work_multiplicity(input: &Value) -> CoreResult<Option<AppWorkMultiplicity>> {
     let Some(value) = optional_string(input, "work_multiplicity") else {
         return Ok(None);
     };
@@ -1648,7 +1648,7 @@ fn optional_work_multiplicity(input: &Value) -> BitFunResult<Option<AppWorkMulti
         "multiple" => AppWorkMultiplicity::Multiple,
         "singleton" => AppWorkMultiplicity::Singleton,
         _ => {
-            return Err(BitFunError::validation(
+            return Err(CoreError::validation(
                 "work_multiplicity must be multiple or singleton".to_string(),
             ))
         }
@@ -1656,7 +1656,7 @@ fn optional_work_multiplicity(input: &Value) -> BitFunResult<Option<AppWorkMulti
     Ok(Some(multiplicity))
 }
 
-fn optional_launch_kind(input: &Value) -> BitFunResult<Option<ProductAppLaunchKind>> {
+fn optional_launch_kind(input: &Value) -> CoreResult<Option<ProductAppLaunchKind>> {
     let Some(value) = optional_string(input, "launch_kind") else {
         return Ok(None);
     };
@@ -1665,7 +1665,7 @@ fn optional_launch_kind(input: &Value) -> BitFunResult<Option<ProductAppLaunchKi
         "applicationSurface" => ProductAppLaunchKind::ApplicationSurface,
         "appStudio" => ProductAppLaunchKind::AppStudio,
         _ => {
-            return Err(BitFunError::validation(
+            return Err(CoreError::validation(
                 "launch_kind must be agentSession, applicationSurface, or appStudio".to_string(),
             ))
         }
@@ -1675,7 +1675,7 @@ fn optional_launch_kind(input: &Value) -> BitFunResult<Option<ProductAppLaunchKi
 
 fn optional_launch_scope_requirement(
     input: &Value,
-) -> BitFunResult<Option<ProductAppLaunchScopeRequirement>> {
+) -> CoreResult<Option<ProductAppLaunchScopeRequirement>> {
     let Some(value) = optional_string(input, "launch_scope_requirement") else {
         return Ok(None);
     };
@@ -1684,7 +1684,7 @@ fn optional_launch_scope_requirement(
         "workspaceOptional" => ProductAppLaunchScopeRequirement::WorkspaceOptional,
         "workspaceRequired" => ProductAppLaunchScopeRequirement::WorkspaceRequired,
         _ => {
-            return Err(BitFunError::validation(
+            return Err(CoreError::validation(
                 "launch_scope_requirement must be systemAllowed, workspaceOptional, or workspaceRequired"
                     .to_string(),
             ))
@@ -1693,17 +1693,17 @@ fn optional_launch_scope_requirement(
     Ok(Some(requirement))
 }
 
-fn optional_string_array(input: &Value, field: &str) -> BitFunResult<Option<Vec<String>>> {
+fn optional_string_array(input: &Value, field: &str) -> CoreResult<Option<Vec<String>>> {
     let Some(value) = input.get(field) else {
         return Ok(None);
     };
     let Some(values) = value.as_array() else {
-        return Err(BitFunError::validation(format!("{field} must be an array")));
+        return Err(CoreError::validation(format!("{field} must be an array")));
     };
     let mut result = Vec::new();
     for value in values {
         let Some(text) = value.as_str() else {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "{field} must contain only strings"
             )));
         };
@@ -1717,14 +1717,14 @@ fn optional_string_array(input: &Value, field: &str) -> BitFunResult<Option<Vec<
     Ok(Some(result))
 }
 
-fn optional_app_icon(input: &Value, field: &str) -> BitFunResult<Option<AppIconSpec>> {
+fn optional_app_icon(input: &Value, field: &str) -> CoreResult<Option<AppIconSpec>> {
     let Some(value) = input.get(field) else {
         return Ok(None);
     };
     serde_json::from_value::<AppIconSpec>(value.clone())
         .map(Some)
         .map_err(|error| {
-            BitFunError::validation(format!("{field} must be a valid AppIconSpec: {error}"))
+            CoreError::validation(format!("{field} must be a valid AppIconSpec: {error}"))
         })
 }
 
@@ -1734,16 +1734,16 @@ fn apply_string_update(
     target: &mut String,
     changed_fields: &mut Vec<String>,
     allow_empty: bool,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     let Some(value) = input.get(field) else {
         return Ok(());
     };
     let Some(text) = value.as_str() else {
-        return Err(BitFunError::validation(format!("{field} must be a string")));
+        return Err(CoreError::validation(format!("{field} must be a string")));
     };
     let text = text.trim().to_string();
     if !allow_empty && text.is_empty() {
-        return Err(BitFunError::validation(format!("{field} cannot be empty")));
+        return Err(CoreError::validation(format!("{field} cannot be empty")));
     }
     if target != &text {
         *target = text;
@@ -1758,7 +1758,7 @@ fn update_launch(
     _primary_surface_mode: Option<AppSurfaceMode>,
     app_id: &str,
     primary_surface_id: Option<&str>,
-) -> BitFunResult<bool> {
+) -> CoreResult<bool> {
     let requested_kind = optional_launch_kind(input)?;
     let should_resync_for_surface_mode = input.get("primary_surface_mode").is_some();
     let default_kind = if primary_surface_id.is_some() {
@@ -1814,7 +1814,7 @@ fn update_launch(
         });
 
     if kind == ProductAppLaunchKind::ApplicationSurface && primary_surface_id.is_none() {
-        return Err(BitFunError::validation(
+        return Err(CoreError::validation(
             "applicationSurface launch requires primary_surface_id and an app-private Product App surface"
                 .to_string(),
         ));
@@ -1849,7 +1849,7 @@ fn resolve_preview_mode(
     requested_mode: &str,
     surface_mode: Option<AppSurfaceMode>,
     launch_kind: Option<ProductAppLaunchKind>,
-) -> BitFunResult<String> {
+) -> CoreResult<String> {
     let mode = match requested_mode {
         "" | "auto" => {
             if launch_kind == Some(ProductAppLaunchKind::AgentSession) {
@@ -1876,7 +1876,7 @@ fn resolve_preview_mode(
         | "user-path-rehearsal"
         | "release-rehearsal" => requested_mode,
         _ => {
-            return Err(BitFunError::validation(
+            return Err(CoreError::validation(
                 "mode must be auto, product-app-preview, agent-chat, sidecar-ui, full-ui, embedded-object, capability, agent-eval, runtime-boundary, runtime-dependencies, permission-review, user-path-rehearsal, or release-rehearsal"
                     .to_string(),
             ))

@@ -5,9 +5,9 @@ use crate::agentic_os::work::{
     default_work_store, AgenticWorkRuntimeBridge, WorkOwnerRef, WorkRuntimeBridge, WorkService,
 };
 use crate::infrastructure::try_get_path_manager_arc;
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 
-pub fn work_service_from_tool_context(context: &ToolUseContext) -> BitFunResult<WorkService> {
+pub fn work_service_from_tool_context(context: &ToolUseContext) -> CoreResult<WorkService> {
     let store = default_work_store()?;
     let runtime: Arc<dyn WorkRuntimeBridge> = if let Some(agentic) = context.agentic() {
         Arc::new(AgenticWorkRuntimeBridge::new(

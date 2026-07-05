@@ -80,7 +80,7 @@
     "advancedHide": "Hide advanced settings",
     "simpleHint": "选择服务商，粘贴 API Key，挑选模型，完成。",
     "providers": {
-      "openbitfun": {
+      "opensparo": {
         "name": "Sparo 模型平台",
         "description": "Sparo OS 大模型平台"
       },
@@ -213,9 +213,9 @@
     "themeNames": {
       "dark": "暗色",
       "light": "亮色",
-      "bitfun-china-style": "墨韵",
-      "bitfun-china-night": "墨夜",
-      "bitfun-cyber": "赛博",
+      "sparo-china-style": "墨韵",
+      "sparo-china-night": "墨夜",
+      "sparo-cyber": "赛博",
       "slate": "石板灰"
     }
   },

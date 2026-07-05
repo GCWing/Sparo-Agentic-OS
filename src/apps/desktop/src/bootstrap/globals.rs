@@ -3,11 +3,11 @@
 //! Runs entirely on the Tauri async runtime. Independent of any webview.
 
 use anyhow::Context;
-use bitfun_core::runtime::{initialize_process_runtime, ProcessRuntimeOptions};
+use sparo_core::runtime::{initialize_process_runtime, ProcessRuntimeOptions};
 use std::sync::Arc;
 
 pub struct GlobalServices {
-    pub token_usage_service: Arc<bitfun_core::service::token_usage::TokenUsageService>,
+    pub token_usage_service: Arc<sparo_core::service::token_usage::TokenUsageService>,
 }
 
 /// Initialize process-wide globals required by every command and every

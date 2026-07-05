@@ -46,7 +46,7 @@ impl MCPService {
     /// Creates a new MCP service instance.
     pub fn new(
         config_service: Arc<crate::service::config::ConfigService>,
-    ) -> crate::util::errors::BitFunResult<Self> {
+    ) -> crate::error::CoreResult<Self> {
         let mcp_config_service = Arc::new(MCPConfigService::new(config_service)?);
         let server_manager = Arc::new(MCPServerManager::new(mcp_config_service.clone()));
         let context_provider = Arc::new(MCPContextProvider::new(server_manager.clone()));

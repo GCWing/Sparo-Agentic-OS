@@ -3,7 +3,7 @@
 //! Provides a global configuration service instance with dynamic updates and synchronization.
 
 use super::service::ConfigService;
-use crate::util::errors::*;
+use crate::error::*;
 use log::{debug, info, warn};
 use std::sync::Arc;
 use std::sync::OnceLock;
@@ -76,7 +76,7 @@ pub struct GlobalConfigManager;
 
 impl GlobalConfigManager {
     /// Initializes the global configuration service.
-    pub async fn initialize() -> BitFunResult<()> {
+    pub async fn initialize() -> CoreResult<()> {
         if Self::is_initialized() {
             debug!("Global config service already initialized, skipping");
             return Ok(());
@@ -84,14 +84,14 @@ impl GlobalConfigManager {
 
         let (sender, _) = tokio::sync::broadcast::channel(100);
         CONFIG_UPDATE_SENDER.set(sender).map_err(|_| {
-            BitFunError::config("Failed to initialize config update sender".to_string())
+            CoreError::config("Failed to initialize config update sender".to_string())
         })?;
 
         let config_service = Arc::new(ConfigService::new().await?);
         let service_wrapper = Arc::new(RwLock::new(Some(config_service)));
 
         GLOBAL_CONFIG_SERVICE.set(service_wrapper).map_err(|_| {
-            BitFunError::config("Failed to initialize global config service".to_string())
+            CoreError::config("Failed to initialize global config service".to_string())
         })?;
 
         info!("Global config service initialized");
@@ -119,22 +119,22 @@ impl GlobalConfigManager {
     }
 
     /// Returns the global configuration service instance.
-    pub async fn get_service() -> BitFunResult<Arc<ConfigService>> {
+    pub async fn get_service() -> CoreResult<Arc<ConfigService>> {
         let service_wrapper = GLOBAL_CONFIG_SERVICE.get().ok_or_else(|| {
-            BitFunError::config("Global config service not initialized".to_string())
+            CoreError::config("Global config service not initialized".to_string())
         })?;
 
         let service_guard = service_wrapper.read().await;
         service_guard
             .as_ref()
-            .ok_or_else(|| BitFunError::config("Global config service is None".to_string()))
+            .ok_or_else(|| CoreError::config("Global config service is None".to_string()))
             .map(Arc::clone)
     }
 
     /// Updates the global configuration service instance (used for configuration reload).
-    pub async fn update_service(new_service: Arc<ConfigService>) -> BitFunResult<()> {
+    pub async fn update_service(new_service: Arc<ConfigService>) -> CoreResult<()> {
         let service_wrapper = GLOBAL_CONFIG_SERVICE.get().ok_or_else(|| {
-            BitFunError::config("Global config service not initialized".to_string())
+            CoreError::config("Global config service not initialized".to_string())
         })?;
 
         {
@@ -152,7 +152,7 @@ impl GlobalConfigManager {
     ///
     /// Re-reads the config from disk into the existing `ConfigService` instance,
     /// preserving the `Arc` pointer so that all holders (e.g. `AppState`) stay in sync.
-    pub async fn reload() -> BitFunResult<()> {
+    pub async fn reload() -> CoreResult<()> {
         let service = Self::get_service().await?;
         service.reload().await?;
         if let Err(error) =
@@ -185,7 +185,7 @@ impl GlobalConfigManager {
         &self,
         model_id: &str,
         model: crate::service::config::types::AIModelConfig,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let model_name = model.name.clone();
         let service = Self::get_service().await?;
         service.update_ai_model(model_id, model).await?;
@@ -200,7 +200,7 @@ impl GlobalConfigManager {
     }
 
     /// Updates the theme configuration and broadcasts an event.
-    pub async fn update_theme(&self, theme_id: &str) -> BitFunResult<()> {
+    pub async fn update_theme(&self, theme_id: &str) -> CoreResult<()> {
         let service = Self::get_service().await?;
         service.set_config("theme.id", theme_id).await?;
 
@@ -219,17 +219,17 @@ impl GlobalConfigManager {
 }
 
 /// Convenience helper: get the global configuration service.
-pub async fn get_global_config_service() -> BitFunResult<Arc<ConfigService>> {
+pub async fn get_global_config_service() -> CoreResult<Arc<ConfigService>> {
     GlobalConfigManager::get_service().await
 }
 
 /// Convenience helper: initialize the global configuration service.
-pub async fn initialize_global_config() -> BitFunResult<()> {
+pub async fn initialize_global_config() -> CoreResult<()> {
     GlobalConfigManager::initialize().await
 }
 
 /// Convenience helper: reload the global configuration.
-pub async fn reload_global_config() -> BitFunResult<()> {
+pub async fn reload_global_config() -> CoreResult<()> {
     GlobalConfigManager::reload().await
 }
 

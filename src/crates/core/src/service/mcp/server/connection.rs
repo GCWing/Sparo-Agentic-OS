@@ -10,7 +10,7 @@ use crate::service::mcp::protocol::{
     PromptsListResult, RemoteMCPTransport, ResourcesListResult, ResourcesReadResult,
     ToolsListResult,
 };
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use log::{debug, warn};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -78,7 +78,7 @@ impl MCPConnection {
         url: String,
         headers: HashMap<String, String>,
         oauth_enabled: bool,
-    ) -> BitFunResult<Self> {
+    ) -> CoreResult<Self> {
         let request_timeout = Duration::from_secs(180);
         let transport = Arc::new(
             RemoteMCPTransport::new(server_id, url, headers, request_timeout, oauth_enabled)
@@ -157,7 +157,7 @@ impl MCPConnection {
         &self,
         method: String,
         params: Option<Value>,
-    ) -> BitFunResult<MCPResponse> {
+    ) -> CoreResult<MCPResponse> {
         match &self.transport {
             TransportType::Local(transport) => {
                 let request_id = transport.send_request(method.clone(), params).await?;
@@ -170,17 +170,17 @@ impl MCPConnection {
 
                 match tokio::time::timeout(self.request_timeout, rx).await {
                     Ok(Ok(response)) => Ok(response),
-                    Ok(Err(_)) => Err(BitFunError::MCPError(format!(
+                    Ok(Err(_)) => Err(CoreError::Mcp(format!(
                         "Request channel closed for method: {}",
                         method
                     ))),
-                    Err(_) => Err(BitFunError::Timeout(format!(
+                    Err(_) => Err(CoreError::Timeout(format!(
                         "Request timeout for method: {}",
                         method
                     ))),
                 }
             }
-            TransportType::Remote(_transport) => Err(BitFunError::NotImplemented(
+            TransportType::Remote(_transport) => Err(CoreError::NotImplemented(
                 "Generic JSON-RPC send_request is not supported for Streamable HTTP connections"
                     .to_string(),
             )),
@@ -192,7 +192,7 @@ impl MCPConnection {
         &self,
         client_name: &str,
         client_version: &str,
-    ) -> BitFunResult<InitializeResult> {
+    ) -> CoreResult<InitializeResult> {
         match &self.transport {
             TransportType::Local(_) => {
                 let request = create_initialize_request(0, client_name, client_version);
@@ -211,7 +211,7 @@ impl MCPConnection {
     pub async fn list_resources(
         &self,
         cursor: Option<String>,
-    ) -> BitFunResult<ResourcesListResult> {
+    ) -> CoreResult<ResourcesListResult> {
         match &self.transport {
             TransportType::Local(_) => {
                 let request = create_resources_list_request(0, cursor);
@@ -225,7 +225,7 @@ impl MCPConnection {
     }
 
     /// Reads a resource.
-    pub async fn read_resource(&self, uri: &str) -> BitFunResult<ResourcesReadResult> {
+    pub async fn read_resource(&self, uri: &str) -> CoreResult<ResourcesReadResult> {
         match &self.transport {
             TransportType::Local(_) => {
                 let request = create_resources_read_request(0, uri);
@@ -239,7 +239,7 @@ impl MCPConnection {
     }
 
     /// Lists prompts.
-    pub async fn list_prompts(&self, cursor: Option<String>) -> BitFunResult<PromptsListResult> {
+    pub async fn list_prompts(&self, cursor: Option<String>) -> CoreResult<PromptsListResult> {
         match &self.transport {
             TransportType::Local(_) => {
                 let request = create_prompts_list_request(0, cursor);
@@ -257,7 +257,7 @@ impl MCPConnection {
         &self,
         name: &str,
         arguments: Option<HashMap<String, String>>,
-    ) -> BitFunResult<PromptsGetResult> {
+    ) -> CoreResult<PromptsGetResult> {
         match &self.transport {
             TransportType::Local(_) => {
                 let request = create_prompts_get_request(0, name, arguments);
@@ -271,7 +271,7 @@ impl MCPConnection {
     }
 
     /// Lists tools.
-    pub async fn list_tools(&self, cursor: Option<String>) -> BitFunResult<ToolsListResult> {
+    pub async fn list_tools(&self, cursor: Option<String>) -> CoreResult<ToolsListResult> {
         match &self.transport {
             TransportType::Local(_) => {
                 let request = create_tools_list_request(0, cursor);
@@ -289,7 +289,7 @@ impl MCPConnection {
         &self,
         name: &str,
         arguments: Option<Value>,
-    ) -> BitFunResult<MCPToolResult> {
+    ) -> CoreResult<MCPToolResult> {
         match &self.transport {
             TransportType::Local(_) => {
                 debug!("Calling MCP tool: name={}", name);
@@ -306,7 +306,7 @@ impl MCPConnection {
     }
 
     /// Sends `ping` (heartbeat check).
-    pub async fn ping(&self) -> BitFunResult<()> {
+    pub async fn ping(&self) -> CoreResult<()> {
         match &self.transport {
             TransportType::Local(_) => {
                 let request = create_ping_request(0);
@@ -320,10 +320,10 @@ impl MCPConnection {
     }
 
     /// Sends a JSON-RPC success response for a server-initiated request.
-    pub async fn send_response(&self, request_id: Value, result: Value) -> BitFunResult<()> {
+    pub async fn send_response(&self, request_id: Value, result: Value) -> CoreResult<()> {
         match &self.transport {
             TransportType::Local(transport) => transport.send_response(request_id, result).await,
-            TransportType::Remote(_) => Err(BitFunError::NotImplemented(
+            TransportType::Remote(_) => Err(CoreError::NotImplemented(
                 "Sending server-request responses is not supported for Streamable HTTP connections"
                     .to_string(),
             )),
@@ -331,10 +331,10 @@ impl MCPConnection {
     }
 
     /// Sends a JSON-RPC error response for a server-initiated request.
-    pub async fn send_error(&self, request_id: Value, error: MCPError) -> BitFunResult<()> {
+    pub async fn send_error(&self, request_id: Value, error: MCPError) -> CoreResult<()> {
         match &self.transport {
             TransportType::Local(transport) => transport.send_error(request_id, error).await,
-            TransportType::Remote(_) => Err(BitFunError::NotImplemented(
+            TransportType::Remote(_) => Err(CoreError::NotImplemented(
                 "Sending server-request errors is not supported for Streamable HTTP connections"
                     .to_string(),
             )),

@@ -11,8 +11,8 @@
       "description": "General AI assistant that can answer a wide range of questions"
     },
     "coder": {
-      "name": "Prime Builder",
-      "description": "Software-building agent for coding, debugging, and implementing working applications"
+      "name": "BitFun Coder",
+      "description": "Default execution agent for turning goals into verified workspace results"
     },
     "projectQa": {
       "name": "Project QA Agent",

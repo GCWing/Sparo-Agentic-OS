@@ -1,5 +1,5 @@
 use super::model::{GoalCriterionVerdict, GoalVerdict, GoalVerdictState};
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 
@@ -8,12 +8,12 @@ pub struct GoalStructuredOutputParser;
 impl GoalStructuredOutputParser {
     /// Strict-ish parse used for the extraction contract. Extracts the first
     /// balanced JSON object from `text`, then deserializes it.
-    pub fn parse_json<T: DeserializeOwned>(text: &str, label: &str) -> BitFunResult<T> {
+    pub fn parse_json<T: DeserializeOwned>(text: &str, label: &str) -> CoreResult<T> {
         let value = Self::extract_json_value(text).ok_or_else(|| {
-            BitFunError::validation(format!("{} output did not contain a JSON object", label))
+            CoreError::validation(format!("{} output did not contain a JSON object", label))
         })?;
         serde_json::from_value(value).map_err(|error| {
-            BitFunError::validation(format!("Failed to parse {} JSON: {}", label, error))
+            CoreError::validation(format!("Failed to parse {} JSON: {}", label, error))
         })
     }
 

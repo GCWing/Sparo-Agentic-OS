@@ -3,11 +3,11 @@
 use std::collections::BTreeMap;
 
 use crate::api::app_state::AppState;
-use bitfun_core::agentic_os::work::{
+use sparo_core::agentic_os::work::{
     default_work_store, RuntimeInstanceRef, WorkRuntimeIssueSeverity, WorkRuntimeLogLevel,
     WorkRuntimeRunStatus, WorkService,
 };
-use bitfun_core::app_platform::{
+use sparo_core::app_platform::{
     install_product_app as write_product_app_installed, list_installed_package_components,
     list_installed_product_app_catalog_with_issues, list_product_app_catalog_source_with_issues,
     list_product_app_home_catalog as read_product_app_home_catalog, native_app_shell_catalog,
@@ -15,7 +15,7 @@ use bitfun_core::app_platform::{
     uninstall_product_app as write_product_app_uninstalled, AppCatalogEntry, AppCatalogVisibility,
     ComponentDefinition, ComponentKind, NativeAppCatalogEntry, ProductAppCatalogIssue,
 };
-use bitfun_core::bridge_component::{
+use sparo_core::bridge_component::{
     BridgeComponentConsumer, BridgeComponentConsumerKind, BridgeComponentManager,
     BridgeComponentRunStatus,
 };
@@ -262,7 +262,7 @@ pub async fn list_product_app_library(
 
 async fn list_visible_app_catalog_entries(
     state: &AppState,
-) -> Result<bitfun_core::app_platform::ProductAppCatalogEntries, String> {
+) -> Result<sparo_core::app_platform::ProductAppCatalogEntries, String> {
     let path_manager = state.workspace_service.path_manager().clone();
     let mut result = list_installed_product_app_catalog_with_issues(&path_manager)
         .await
@@ -1096,7 +1096,7 @@ fn app_visibility_rank(visibility: AppCatalogVisibility) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::{build_component_health_response, ComponentRuntimeHealth};
-    use bitfun_core::app_platform::{
+    use sparo_core::app_platform::{
         AppComponentRef, CapabilityRef, ComponentDefinition, ComponentKind, ComponentPackageSource,
         ComponentSource, ComponentVisibility,
     };

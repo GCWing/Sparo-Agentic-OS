@@ -1,22 +1,29 @@
 //! Built-in skills shipped with Sparo OS.
 //!
-//! These skills are embedded into the `bitfun-core` binary and installed into the user skills
+//! These skills are embedded into the `sparo-core` binary and installed into the user skills
 //! directory on demand and kept in sync with bundled versions.
 
+use crate::agentic::tools::implementations::skills::types::SkillSuiteManifest;
 use crate::infrastructure::get_path_manager_arc;
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 use include_dir::{include_dir, Dir};
 use log::{debug, error};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use tokio::fs;
 
-static BUILTIN_SKILLS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/../../../bundles/skills");
+static BUILTIN_STANDALONE_SKILLS_DIR: Dir =
+    include_dir!("$CARGO_MANIFEST_DIR/../../../bundles/skills");
+static BUILTIN_SKILL_SUITES_DIR: Dir =
+    include_dir!("$CARGO_MANIFEST_DIR/../../../bundles/skill-suites");
 static BUILTIN_SKILL_DIR_NAMES: OnceLock<HashSet<String>> = OnceLock::new();
+static BUILTIN_SKILL_SUITE_KEYS: OnceLock<HashMap<String, String>> = OnceLock::new();
+static BUILTIN_SKILL_SUITE_MANIFESTS: OnceLock<HashMap<String, SkillSuiteManifest>> =
+    OnceLock::new();
 
-fn collect_builtin_skill_dir_names() -> HashSet<String> {
-    BUILTIN_SKILLS_DIR
+fn standalone_skill_dir_names() -> HashSet<String> {
+    BUILTIN_STANDALONE_SKILLS_DIR
         .dirs()
         .filter_map(|dir| {
             let rel = dir.path();
@@ -31,31 +38,129 @@ fn collect_builtin_skill_dir_names() -> HashSet<String> {
         .collect()
 }
 
+fn collect_builtin_skill_suite_manifest_map() -> HashMap<String, SkillSuiteManifest> {
+    let mut manifests = HashMap::new();
+    for suite_dir in BUILTIN_SKILL_SUITES_DIR.dirs() {
+        let rel = suite_dir.path();
+        if rel.components().count() != 1 {
+            continue;
+        }
+
+        let dir_name = rel
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_else(|| panic!("Invalid built-in skill suite path: {}", rel.display()));
+        let manifest_rel_path = format!("{}/suite.json", dir_name);
+        let file = BUILTIN_SKILL_SUITES_DIR
+            .get_file(&manifest_rel_path)
+            .unwrap_or_else(|| {
+                panic!(
+                    "Missing built-in skill suite manifest: {}/suite.json",
+                    dir_name
+                )
+            });
+        let manifest: SkillSuiteManifest =
+            serde_json::from_slice(file.contents()).unwrap_or_else(|error| {
+                panic!("Invalid built-in suite manifest '{}': {}", dir_name, error)
+            });
+
+        if manifest.id != dir_name {
+            panic!(
+                "Built-in suite manifest id '{}' must match directory '{}'",
+                manifest.id, dir_name
+            );
+        }
+
+        if manifests.insert(manifest.id.clone(), manifest).is_some() {
+            panic!("Duplicate built-in suite id: {}", dir_name);
+        }
+    }
+
+    manifests
+}
+
+pub fn builtin_skill_suite_manifest_map() -> &'static HashMap<String, SkillSuiteManifest> {
+    BUILTIN_SKILL_SUITE_MANIFESTS.get_or_init(collect_builtin_skill_suite_manifest_map)
+}
+
+pub fn builtin_skill_suite_manifests() -> Vec<SkillSuiteManifest> {
+    let mut manifests: Vec<SkillSuiteManifest> = builtin_skill_suite_manifest_map()
+        .values()
+        .cloned()
+        .collect();
+    manifests.sort_by(|a, b| a.id.cmp(&b.id));
+    manifests
+}
+
+fn collect_builtin_skill_suite_keys() -> HashMap<String, String> {
+    let standalone = standalone_skill_dir_names();
+    let mut map = HashMap::new();
+
+    for manifest in builtin_skill_suite_manifest_map().values() {
+        for member in &manifest.members {
+            if standalone.contains(&member.skill_id) {
+                panic!(
+                    "Built-in skill '{}' cannot be both standalone and suite-managed",
+                    member.skill_id
+                );
+            }
+
+            if let Some(previous_suite) = map.insert(member.skill_id.clone(), manifest.id.clone()) {
+                panic!(
+                    "Built-in skill '{}' cannot belong to both '{}' and '{}'",
+                    member.skill_id, previous_suite, manifest.id
+                );
+            }
+        }
+    }
+
+    map
+}
+
+fn collect_builtin_skill_dir_names() -> HashSet<String> {
+    let mut names = standalone_skill_dir_names();
+    names.extend(builtin_skill_suite_keys().keys().cloned());
+    names
+}
+
 pub fn builtin_skill_dir_names() -> &'static HashSet<String> {
     BUILTIN_SKILL_DIR_NAMES.get_or_init(collect_builtin_skill_dir_names)
+}
+
+pub fn builtin_skill_suite_keys() -> &'static HashMap<String, String> {
+    BUILTIN_SKILL_SUITE_KEYS.get_or_init(collect_builtin_skill_suite_keys)
 }
 
 pub fn is_builtin_skill_dir_name(dir_name: &str) -> bool {
     builtin_skill_dir_names().contains(dir_name)
 }
 
-pub fn builtin_skill_group_key(dir_name: &str) -> Option<&'static str> {
-    match dir_name {
-        "docx" | "pdf" | "pptx" | "xlsx" | "ppt-design" => Some("office"),
-        "find-skills" | "writing-skills" => Some("meta"),
-        _ => Some("superpowers"),
-    }
+pub fn builtin_skill_suite_key(dir_name: &str) -> Option<String> {
+    builtin_skill_suite_keys().get(dir_name).cloned()
 }
 
-pub async fn ensure_builtin_skills_installed() -> BitFunResult<()> {
-    let pm = get_path_manager_arc();
-    let dest_root = pm.user_skills_dir();
+pub fn is_builtin_suite_key(suite_key: &str) -> bool {
+    builtin_skill_suite_manifest_map().contains_key(suite_key)
+}
 
-    // Create user skills directory if needed.
-    if let Err(e) = fs::create_dir_all(&dest_root).await {
+pub async fn ensure_builtin_skills_installed() -> CoreResult<()> {
+    let pm = get_path_manager_arc();
+    let standalone_dest_root = pm.user_skills_dir();
+    let suites_dest_root = pm.user_skill_suites_dir();
+
+    if let Err(e) = fs::create_dir_all(&standalone_dest_root).await {
         error!(
             "Failed to create user skills directory: path={}, error={}",
-            dest_root.display(),
+            standalone_dest_root.display(),
+            e
+        );
+        return Err(e.into());
+    }
+
+    if let Err(e) = fs::create_dir_all(&suites_dest_root).await {
+        error!(
+            "Failed to create user skill suites directory: path={}, error={}",
+            suites_dest_root.display(),
             e
         );
         return Err(e.into());
@@ -64,25 +169,38 @@ pub async fn ensure_builtin_skills_installed() -> BitFunResult<()> {
     let mut installed = 0usize;
     let mut updated = 0usize;
     let mut removed = 0usize;
-    for skill_dir in BUILTIN_SKILLS_DIR.dirs() {
+    for skill_dir in BUILTIN_STANDALONE_SKILLS_DIR.dirs() {
         let rel = skill_dir.path();
         if rel.components().count() != 1 {
             continue;
         }
 
-        let stats = sync_dir(skill_dir, &dest_root).await?;
+        let stats = sync_dir(skill_dir, &standalone_dest_root).await?;
         installed += stats.installed;
         updated += stats.updated;
-        removed += prune_stale_files(skill_dir, &dest_root).await?;
+        removed += prune_stale_files(skill_dir, &standalone_dest_root).await?;
+    }
+
+    for suite_dir in BUILTIN_SKILL_SUITES_DIR.dirs() {
+        let rel = suite_dir.path();
+        if rel.components().count() != 1 {
+            continue;
+        }
+
+        let stats = sync_dir(suite_dir, &suites_dest_root).await?;
+        installed += stats.installed;
+        updated += stats.updated;
+        removed += prune_stale_files(suite_dir, &suites_dest_root).await?;
     }
 
     if installed > 0 || updated > 0 || removed > 0 {
         debug!(
-            "Built-in skills synchronized: installed={}, updated={}, removed={}, dest_root={}",
+            "Built-in skills synchronized: installed={}, updated={}, removed={}, standalone_root={}, suites_root={}",
             installed,
             updated,
             removed,
-            dest_root.display()
+            standalone_dest_root.display(),
+            suites_dest_root.display()
         );
     }
 
@@ -95,7 +213,7 @@ struct SyncStats {
     updated: usize,
 }
 
-async fn sync_dir(dir: &Dir<'_>, dest_root: &Path) -> BitFunResult<SyncStats> {
+async fn sync_dir(dir: &Dir<'_>, dest_root: &Path) -> CoreResult<SyncStats> {
     let mut files: Vec<&include_dir::File<'_>> = Vec::new();
     collect_files(dir, &mut files);
 
@@ -130,7 +248,7 @@ async fn sync_dir(dir: &Dir<'_>, dest_root: &Path) -> BitFunResult<SyncStats> {
 /// fully managed by Sparo, so stale files (for example removed style-preset references) must
 /// not linger after an upgrade. Only the given built-in skill directory is touched; other
 /// user-installed skills are never affected.
-async fn prune_stale_files(skill_dir: &Dir<'_>, dest_root: &Path) -> BitFunResult<usize> {
+async fn prune_stale_files(skill_dir: &Dir<'_>, dest_root: &Path) -> CoreResult<usize> {
     let mut embedded_files: Vec<&include_dir::File<'_>> = Vec::new();
     collect_files(skill_dir, &mut embedded_files);
     let embedded: HashSet<PathBuf> = embedded_files
@@ -197,9 +315,9 @@ fn collect_files<'a>(dir: &'a Dir<'a>, out: &mut Vec<&'a include_dir::File<'a>>)
     }
 }
 
-fn safe_join(root: &Path, relative: &Path) -> BitFunResult<PathBuf> {
+fn safe_join(root: &Path, relative: &Path) -> CoreResult<PathBuf> {
     if relative.is_absolute() {
-        return Err(crate::util::errors::BitFunError::validation(format!(
+        return Err(crate::error::CoreError::validation(format!(
             "Unexpected absolute path in built-in skills: {}",
             relative.display()
         )));
@@ -208,7 +326,7 @@ fn safe_join(root: &Path, relative: &Path) -> BitFunResult<PathBuf> {
     // Prevent `..` traversal even though include_dir should only contain clean relative paths.
     for c in relative.components() {
         if matches!(c, std::path::Component::ParentDir) {
-            return Err(crate::util::errors::BitFunError::validation(format!(
+            return Err(crate::error::CoreError::validation(format!(
                 "Unexpected parent dir component in built-in skills path: {}",
                 relative.display()
             )));
@@ -221,14 +339,14 @@ fn safe_join(root: &Path, relative: &Path) -> BitFunResult<PathBuf> {
 async fn desired_file_content(
     file: &include_dir::File<'_>,
     _dest_path: &Path,
-) -> BitFunResult<Vec<u8>> {
+) -> CoreResult<Vec<u8>> {
     Ok(file.contents().to_vec())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::builtin_skill_group_key;
-    use super::{prune_stale_files, sync_dir, BUILTIN_SKILLS_DIR};
+    use super::builtin_skill_suite_key;
+    use super::{prune_stale_files, sync_dir, BUILTIN_SKILL_SUITES_DIR};
 
     #[tokio::test]
     async fn prune_removes_stale_files_only_inside_builtin_skill_dir() {
@@ -238,15 +356,17 @@ mod tests {
         ));
         let _ = tokio::fs::remove_dir_all(&dest_root).await;
 
-        let skill_dir = BUILTIN_SKILLS_DIR
-            .get_dir("ppt-design")
-            .expect("ppt-design must be embedded in bundles/skills");
+        let skill_dir = BUILTIN_SKILL_SUITES_DIR
+            .get_dir("presentation-workflow/skills/ppt-design")
+            .expect("ppt-design must be embedded in presentation-workflow");
         sync_dir(skill_dir, &dest_root).await.unwrap();
 
         // Stale leftovers inside the managed skill directory.
-        let stale_preset = dest_root.join("ppt-design/references/style-presets/zz-removed.md");
+        let stale_preset = dest_root
+            .join("presentation-workflow/skills/ppt-design/references/style-presets/zz-removed.md");
         tokio::fs::write(&stale_preset, b"stale").await.unwrap();
-        let stale_nested = dest_root.join("ppt-design/obsolete-dir/old.txt");
+        let stale_nested =
+            dest_root.join("presentation-workflow/skills/ppt-design/obsolete-dir/old.txt");
         tokio::fs::create_dir_all(stale_nested.parent().unwrap())
             .await
             .unwrap();
@@ -270,9 +390,11 @@ mod tests {
             !stale_nested.parent().unwrap().exists(),
             "emptied directory should be removed"
         );
-        assert!(dest_root.join("ppt-design/SKILL.md").exists());
         assert!(dest_root
-            .join("ppt-design/references/style-presets/insight-report.md")
+            .join("presentation-workflow/skills/ppt-design/SKILL.md")
+            .exists());
+        assert!(dest_root
+            .join("presentation-workflow/skills/ppt-design/references/style-presets/insight-report.md")
             .exists());
         assert!(foreign.exists(), "sibling skills must be untouched");
 
@@ -280,17 +402,32 @@ mod tests {
     }
 
     #[test]
-    fn builtin_skill_groups_match_expected_sets() {
-        assert_eq!(builtin_skill_group_key("docx"), Some("office"));
-        assert_eq!(builtin_skill_group_key("pdf"), Some("office"));
-        assert_eq!(builtin_skill_group_key("pptx"), Some("office"));
-        assert_eq!(builtin_skill_group_key("xlsx"), Some("office"));
-        assert_eq!(builtin_skill_group_key("ppt-design"), Some("office"));
-        assert_eq!(builtin_skill_group_key("find-skills"), Some("meta"));
-        assert_eq!(builtin_skill_group_key("writing-skills"), Some("meta"));
+    fn builtin_skill_suite_members_match_expected_sets() {
         assert_eq!(
-            builtin_skill_group_key("test-driven-development"),
-            Some("superpowers")
+            builtin_skill_suite_key("docx"),
+            Some("office-documents".to_string())
         );
+        assert_eq!(
+            builtin_skill_suite_key("pdf"),
+            Some("office-documents".to_string())
+        );
+        assert_eq!(
+            builtin_skill_suite_key("pptx"),
+            Some("office-documents".to_string())
+        );
+        assert_eq!(
+            builtin_skill_suite_key("xlsx"),
+            Some("office-documents".to_string())
+        );
+        assert_eq!(
+            builtin_skill_suite_key("ppt-design"),
+            Some("presentation-workflow".to_string())
+        );
+        assert_eq!(
+            builtin_skill_suite_key("product-app-skill-component"),
+            Some("product-app-development".to_string())
+        );
+        assert_eq!(builtin_skill_suite_key("find-skills"), None);
+        assert_eq!(builtin_skill_suite_key("writing-skills"), None);
     }
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { SkillInfo } from '@/infrastructure/config/types';
+import type { SkillInfo, SkillSuiteInfo } from '@/infrastructure/config/types';
 import { createLogger } from '@/shared/utils/logger';
 
 const log = createLogger('ComposerBoostSkills');
@@ -12,6 +12,7 @@ export function useComposerBoostSkills({
   workspacePath?: string;
 }) {
   const [boostPanelSkills, setBoostPanelSkills] = useState<SkillInfo[]>([]);
+  const [boostPanelSuites, setBoostPanelSuites] = useState<SkillSuiteInfo[]>([]);
   const [boostSkillsLoading, setBoostSkillsLoading] = useState(false);
   const [skillsFlyoutOpen, setSkillsFlyoutOpen] = useState(false);
   const [skillsFlyoutLeft, setSkillsFlyoutLeft] = useState(false);
@@ -74,15 +75,19 @@ export function useComposerBoostSkills({
     (async () => {
       try {
         const { configAPI } = await import('@/infrastructure/api');
-        const list = await configAPI.getSkillConfigs({
+        const catalog = await configAPI.getSkillConfigs({
           workspacePath: workspacePath || undefined,
         });
         if (!cancelled) {
-          setBoostPanelSkills(list);
+          setBoostPanelSkills(catalog.skills);
+          setBoostPanelSuites(catalog.suites);
         }
       } catch (err) {
         log.error('Failed to load skills for boost panel', { err });
-        if (!cancelled) setBoostPanelSkills([]);
+        if (!cancelled) {
+          setBoostPanelSkills([]);
+          setBoostPanelSuites([]);
+        }
       } finally {
         if (!cancelled) setBoostSkillsLoading(false);
       }
@@ -113,6 +118,7 @@ export function useComposerBoostSkills({
 
   return {
     boostPanelSkills,
+    boostPanelSuites,
     boostSkillsLoading,
     closeSkillsFlyout,
     dismissSkillsFlyout,

@@ -118,17 +118,17 @@ pnpm install
 
 # 构建应用（从项目根目录）
 cd ../..
-cargo build -p bitfun-desktop
+cargo build -p sparo-desktop
 ```
 
 ### 2. 验证安装
 
 检查应用二进制文件是否存在：
 
-**Windows**: `target/debug/bitfun-desktop.exe`
-**Linux/macOS**: `target/debug/bitfun-desktop`
+**Windows**: `target/debug/sparo-desktop.exe`
+**Linux/macOS**: `target/debug/sparo-desktop`
 
-`bitfun-desktop` 是 Sparo OS 桌面应用当前保留的技术 binary/package 名称。
+`sparo-desktop` 是 Sparo OS 桌面应用当前保留的技术 binary/package 名称。
 
 ### 3. 运行测试
 
@@ -153,7 +153,7 @@ pnpm test -- --spec ./specs/l0-smoke.spec.ts
 测试框架统一运行在 debug/dev 模式：
 
 #### Debug 模式（默认）
-- **应用路径**: `target/debug/bitfun-desktop.exe`
+- **应用路径**: `target/debug/sparo-desktop.exe`
 - **特点**: 包含调试符号、需要 dev server（端口 1422）
 - **使用场景**: 本地开发、快速迭代
 
@@ -163,11 +163,11 @@ pnpm test -- --spec ./specs/l0-smoke.spec.ts
 
 ```bash
 # Debug 模式输出
-application: <PROJECT_ROOT>\target\debug\bitfun-desktop.exe
+application: <PROJECT_ROOT>\target\debug\sparo-desktop.exe
 Debug build detected, checking dev server...
 ```
 
-**核心原理**: E2E 只使用 `target/debug/bitfun-desktop.exe`。如果 debug 二进制不存在，应直接失败，而不是回退到 `release`。
+**核心原理**: E2E 只使用 `target/debug/sparo-desktop.exe`。如果 debug 二进制不存在，应直接失败，而不是回退到 `release`。
 
 ## 测试结构
 
@@ -402,7 +402,7 @@ it('当工作区打开时应测试功能', async function () {
 **解决方案**:
 ```bash
 # 构建 debug 桌面应用
-cargo build -p bitfun-desktop
+cargo build -p sparo-desktop
 
 # 用 debug 模式运行测试，Sparo OS 会在进程内启动 WebDriver
 SPARO_E2E_APP_MODE=debug pnpm --dir tests/e2e run test:l0:protocol
@@ -412,18 +412,18 @@ SPARO_E2E_APP_MODE=debug pnpm --dir tests/e2e run test:l0:protocol
 
 #### 2. 应用未构建
 
-**症状**: `Application not found at target/debug/bitfun-desktop.exe`
+**症状**: `Application not found at target/debug/sparo-desktop.exe`
 
 **解决方案**:
 ```bash
 # 构建应用（从项目根目录）
-cargo build -p bitfun-desktop
+cargo build -p sparo-desktop
 
 # 验证二进制文件存在
 # Windows
-dir target\debug\bitfun-desktop.exe
+dir target\debug\sparo-desktop.exe
 # Linux/macOS
-ls -la target/debug/bitfun-desktop
+ls -la target/debug/sparo-desktop
 ```
 
 #### 3. 测试超时
@@ -565,7 +565,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
       - name: 构建应用
-        run: cargo build -p bitfun-desktop
+        run: cargo build -p sparo-desktop
       - name: 安装测试依赖
         run: cd tests/e2e && pnpm install
       - name: 运行 L0 测试
@@ -578,7 +578,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: 构建应用
-        run: cargo build -p bitfun-desktop
+        run: cargo build -p sparo-desktop
       - name: 运行 L1 测试
         run: cd tests/e2e && SPARO_E2E_APP_MODE=debug pnpm run test:l1
 ```
