@@ -1,4 +1,4 @@
-﻿import type { ProductAppHostSurfaceMeta } from '@/infrastructure/api/service-api/ProductAppRuntimeHostAPI';
+import type { ProductAppHostSurfaceMeta } from '@/infrastructure/api/service-api/ProductAppRuntimeHostAPI';
 
 export interface ResolvedProductAppHostSurfaceMeta {
   name: string;

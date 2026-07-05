@@ -1,4 +1,4 @@
-use bitfun_core::command::agentic_os::AgenticOsSnapshot;
+use sparo_core::command::agentic_os::AgenticOsSnapshot;
 use ratatui::{
     layout::{Alignment, Margin, Rect},
     style::Style,
@@ -949,7 +949,7 @@ pub fn selected_memory_file(overlay: &OverlayState) -> Option<std::path::PathBuf
 
 pub fn selected_session_row(
     overlay: &OverlayState,
-) -> Option<bitfun_core::command::agentic_os::AgenticOsSessionRow> {
+) -> Option<sparo_core::command::agentic_os::AgenticOsSessionRow> {
     let OverlayKind::Panel(PanelKind::Sessions) = overlay.kind else {
         return None;
     };
@@ -959,7 +959,7 @@ pub fn selected_session_row(
 
 pub fn selected_task_row(
     overlay: &OverlayState,
-) -> Option<bitfun_core::command::agentic_os::AgenticOsTaskRow> {
+) -> Option<sparo_core::command::agentic_os::AgenticOsTaskRow> {
     let OverlayKind::Panel(PanelKind::Tasks) = overlay.kind else {
         return None;
     };
@@ -968,7 +968,7 @@ pub fn selected_task_row(
 }
 
 fn selected_memory_path(
-    memory: &bitfun_core::command::agentic_os::AgenticOsMemoryRow,
+    memory: &sparo_core::command::agentic_os::AgenticOsMemoryRow,
 ) -> std::path::PathBuf {
     std::path::Path::new(&memory.target).join(&memory.file)
 }
@@ -1936,7 +1936,7 @@ fn snapshot_panel_count(kind: PanelKind, snapshot: Option<&AgenticOsSnapshot>) -
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bitfun_core::command::agentic_os::{
+    use sparo_core::command::agentic_os::{
         AgenticOsAppRow, AgenticOsMemoryRow, AgenticOsSessionRow, AgenticOsSnapshot,
         AgenticOsTaskRow, AgenticOsWorkspaceRow,
     };

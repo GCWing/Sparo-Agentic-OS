@@ -1,6 +1,6 @@
 use super::overview::ensure_workspace_overview_runtime_dir;
 use crate::infrastructure::get_path_manager_arc;
-use crate::util::errors::*;
+use crate::error::*;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 
@@ -42,7 +42,7 @@ pub(crate) fn workspace_overview_refresh_state_file_path() -> std::path::PathBuf
 }
 
 pub(crate) async fn load_workspace_overview_refresh_state(
-) -> BitFunResult<WorkspaceOverviewRefreshState> {
+) -> CoreResult<WorkspaceOverviewRefreshState> {
     ensure_workspace_overview_runtime_dir().await?;
 
     let path = workspace_overview_refresh_state_file_path();
@@ -51,7 +51,7 @@ pub(crate) async fn load_workspace_overview_refresh_state(
     }
 
     let content = fs::read_to_string(&path).await.map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to read workspace overview refresh state file {}: {}",
             path.display(),
             error
@@ -63,7 +63,7 @@ pub(crate) async fn load_workspace_overview_refresh_state(
     }
 
     serde_json::from_str(&content).map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to parse workspace overview refresh state file {}: {}",
             path.display(),
             error
@@ -73,12 +73,12 @@ pub(crate) async fn load_workspace_overview_refresh_state(
 
 pub(crate) async fn save_workspace_overview_refresh_state(
     state: &WorkspaceOverviewRefreshState,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     ensure_workspace_overview_runtime_dir().await?;
 
     let path = workspace_overview_refresh_state_file_path();
     let content = serde_json::to_string_pretty(state).map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to serialize workspace overview refresh state for {}: {}",
             path.display(),
             error
@@ -86,7 +86,7 @@ pub(crate) async fn save_workspace_overview_refresh_state(
     })?;
 
     fs::write(&path, content).await.map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to write workspace overview refresh state file {}: {}",
             path.display(),
             error

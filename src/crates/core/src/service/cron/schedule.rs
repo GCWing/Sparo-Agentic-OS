@@ -1,18 +1,18 @@
 //! Schedule calculation helpers.
 
 use super::types::{CronJob, CronSchedule};
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use chrono::{DateTime, Local, TimeZone, Utc};
 use chrono_tz::Tz;
 use cron::Schedule;
 use std::str::FromStr;
 
-pub fn validate_schedule(schedule: &CronSchedule, created_at_ms: i64) -> BitFunResult<()> {
+pub fn validate_schedule(schedule: &CronSchedule, created_at_ms: i64) -> CoreResult<()> {
     let _ = compute_next_run_after_ms(schedule, created_at_ms, created_at_ms - 1)?;
     Ok(())
 }
 
-pub fn compute_initial_next_run_at_ms(job: &CronJob, now_ms: i64) -> BitFunResult<Option<i64>> {
+pub fn compute_initial_next_run_at_ms(job: &CronJob, now_ms: i64) -> CoreResult<Option<i64>> {
     match &job.schedule {
         CronSchedule::At { .. } => {
             if job.state.last_enqueued_at_ms.is_some() || job.state.active_turn_id.is_some() {
@@ -29,7 +29,7 @@ pub fn compute_next_run_after_ms(
     schedule: &CronSchedule,
     created_at_ms: i64,
     after_ms: i64,
-) -> BitFunResult<Option<i64>> {
+) -> CoreResult<Option<i64>> {
     match schedule {
         CronSchedule::At { .. } => {
             let at_ms = parse_at_timestamp_ms(schedule)?;
@@ -50,22 +50,22 @@ pub fn compute_next_run_after_ms(
     }
 }
 
-pub fn parse_at_timestamp_ms(schedule: &CronSchedule) -> BitFunResult<i64> {
+pub fn parse_at_timestamp_ms(schedule: &CronSchedule) -> CoreResult<i64> {
     let CronSchedule::At { at } = schedule else {
-        return Err(BitFunError::validation(
+        return Err(CoreError::validation(
             "parse_at_timestamp_ms requires an 'at' schedule",
         ));
     };
 
     let parsed = DateTime::parse_from_rfc3339(at).map_err(|error| {
-        BitFunError::validation(format!("Invalid ISO-8601 timestamp '{}': {}", at, error))
+        CoreError::validation(format!("Invalid ISO-8601 timestamp '{}': {}", at, error))
     })?;
     Ok(parsed.timestamp_millis())
 }
 
-fn compute_every_next_run_ms(every_ms: u64, anchor_ms: i64, after_ms: i64) -> BitFunResult<i64> {
+fn compute_every_next_run_ms(every_ms: u64, anchor_ms: i64, after_ms: i64) -> CoreResult<i64> {
     if every_ms == 0 {
-        return Err(BitFunError::validation(
+        return Err(CoreError::validation(
             "Recurring schedule everyMs must be greater than 0",
         ));
     }
@@ -81,13 +81,13 @@ fn compute_every_next_run_ms(every_ms: u64, anchor_ms: i64, after_ms: i64) -> Bi
     let next = anchor + (steps * interval);
 
     i64::try_from(next)
-        .map_err(|_| BitFunError::service("Recurring schedule next run timestamp overflowed i64"))
+        .map_err(|_| CoreError::service("Recurring schedule next run timestamp overflowed i64"))
 }
 
-fn compute_cron_next_run_ms(expr: &str, tz: Option<&str>, after_ms: i64) -> BitFunResult<i64> {
+fn compute_cron_next_run_ms(expr: &str, tz: Option<&str>, after_ms: i64) -> CoreResult<i64> {
     let normalized_expr = normalize_cron_expr(expr)?;
     let schedule = Schedule::from_str(&normalized_expr).map_err(|error| {
-        BitFunError::validation(format!("Invalid cron expression '{}': {}", expr, error))
+        CoreError::validation(format!("Invalid cron expression '{}': {}", expr, error))
     })?;
 
     match tz {
@@ -97,7 +97,7 @@ fn compute_cron_next_run_ms(expr: &str, tz: Option<&str>, after_ms: i64) -> BitF
                 .timestamp_millis_opt(after_ms)
                 .single()
                 .ok_or_else(|| {
-                    BitFunError::validation(format!(
+                    CoreError::validation(format!(
                         "Unable to interpret timestamp {} in timezone {}",
                         after_ms, tz_name
                     ))
@@ -108,7 +108,7 @@ fn compute_cron_next_run_ms(expr: &str, tz: Option<&str>, after_ms: i64) -> BitF
                 .next()
                 .map(|next| next.with_timezone(&Utc).timestamp_millis())
                 .ok_or_else(|| {
-                    BitFunError::validation(format!(
+                    CoreError::validation(format!(
                         "Cron expression '{}' produced no future run time",
                         expr
                     ))
@@ -119,7 +119,7 @@ fn compute_cron_next_run_ms(expr: &str, tz: Option<&str>, after_ms: i64) -> BitF
                 .timestamp_millis_opt(after_ms)
                 .single()
                 .ok_or_else(|| {
-                    BitFunError::validation(format!(
+                    CoreError::validation(format!(
                         "Unable to interpret local timestamp {}",
                         after_ms
                     ))
@@ -130,7 +130,7 @@ fn compute_cron_next_run_ms(expr: &str, tz: Option<&str>, after_ms: i64) -> BitF
                 .next()
                 .map(|next| next.with_timezone(&Utc).timestamp_millis())
                 .ok_or_else(|| {
-                    BitFunError::validation(format!(
+                    CoreError::validation(format!(
                         "Cron expression '{}' produced no future run time",
                         expr
                     ))
@@ -139,18 +139,18 @@ fn compute_cron_next_run_ms(expr: &str, tz: Option<&str>, after_ms: i64) -> BitF
     }
 }
 
-fn parse_timezone(tz_name: &str) -> BitFunResult<Tz> {
+fn parse_timezone(tz_name: &str) -> CoreResult<Tz> {
     Tz::from_str(tz_name).map_err(|error| {
-        BitFunError::validation(format!("Invalid timezone '{}': {}", tz_name, error))
+        CoreError::validation(format!("Invalid timezone '{}': {}", tz_name, error))
     })
 }
 
-fn normalize_cron_expr(expr: &str) -> BitFunResult<String> {
+fn normalize_cron_expr(expr: &str) -> CoreResult<String> {
     let fields = expr.split_whitespace().collect::<Vec<_>>();
     match fields.len() {
         5 => Ok(format!("0 {}", expr)),
         6 | 7 => Ok(expr.to_string()),
-        other => Err(BitFunError::validation(format!(
+        other => Err(CoreError::validation(format!(
             "Cron expression '{}' must contain 5, 6, or 7 fields, found {}",
             expr, other
         ))),

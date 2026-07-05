@@ -18,7 +18,7 @@ use crate::service::mcp::auth::{
     MCPRemoteOAuthSessionSnapshot, MCPRemoteOAuthStatus,
 };
 use crate::service::mcp::server::MCPServerType;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 
 use super::{ActiveRemoteOAuthSession, MCPServerManager};
 
@@ -536,17 +536,17 @@ impl MCPServerManager {
     pub async fn start_remote_oauth_authorization(
         &self,
         server_id: &str,
-    ) -> BitFunResult<MCPRemoteOAuthSessionSnapshot> {
+    ) -> CoreResult<MCPRemoteOAuthSessionSnapshot> {
         let config = self
             .config_service
             .get_server_config(server_id)
             .await?
             .ok_or_else(|| {
-                BitFunError::NotFound(format!("MCP server config not found: {}", server_id))
+                CoreError::NotFound(format!("MCP server config not found: {}", server_id))
             })?;
 
         if config.server_type != MCPServerType::Remote {
-            return Err(BitFunError::Validation(format!(
+            return Err(CoreError::Validation(format!(
                 "MCP server '{}' is not a remote server",
                 server_id
             )));
@@ -559,7 +559,7 @@ impl MCPServerManager {
         let prepared = prepare_remote_oauth_authorization(&config).await?;
         let callback_path = Url::parse(&prepared.redirect_uri)
             .map_err(|error| {
-                BitFunError::MCPError(format!(
+                CoreError::Mcp(format!(
                     "Invalid OAuth redirect URI for server '{}': {}",
                     server_id, error
                 ))
@@ -761,7 +761,7 @@ impl MCPServerManager {
         Some(snapshot)
     }
 
-    pub async fn cancel_remote_oauth_authorization(&self, server_id: &str) -> BitFunResult<()> {
+    pub async fn cancel_remote_oauth_authorization(&self, server_id: &str) -> CoreResult<()> {
         let session = self.oauth_sessions.write().await.remove(server_id);
         if let Some(session) = session {
             let _ = MCPServerManager::update_oauth_snapshot(&session, |snapshot| {
@@ -774,7 +774,7 @@ impl MCPServerManager {
         Ok(())
     }
 
-    pub async fn clear_remote_oauth_credentials(&self, server_id: &str) -> BitFunResult<()> {
+    pub async fn clear_remote_oauth_credentials(&self, server_id: &str) -> CoreResult<()> {
         self.cancel_remote_oauth_authorization(server_id).await?;
         clear_stored_oauth_credentials(server_id).await
     }

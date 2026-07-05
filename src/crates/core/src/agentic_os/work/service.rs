@@ -6,7 +6,7 @@ use crate::app_platform::{
     get_installed_product_app_by_lock, seed_builtin_product_app_packages, ComponentKind,
 };
 use crate::infrastructure::try_get_path_manager_arc;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 
 use super::assignment::{WorkAssignmentKind, WorkAssignmentRef};
 use super::execution_binding::{
@@ -246,6 +246,11 @@ pub struct ControlWorkResponse {
     pub work: WorkRecord,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeleteWorkResponse {
+    pub deleted: bool,
+}
+
 const MAX_WORK_RUNTIME_ISSUES: usize = 200;
 const MAX_WORK_RUNTIME_LOGS: usize = 500;
 
@@ -273,11 +278,11 @@ impl WorkService {
         }
     }
 
-    pub async fn list(&self) -> BitFunResult<Vec<WorkRecord>> {
+    pub async fn list(&self) -> CoreResult<Vec<WorkRecord>> {
         self.store.list().await
     }
 
-    pub async fn reconcile_orphaned_executions(&self) -> BitFunResult<Vec<WorkRecord>> {
+    pub async fn reconcile_orphaned_executions(&self) -> CoreResult<Vec<WorkRecord>> {
         let now = now_millis();
         let mut reconciled = Vec::new();
 
@@ -307,17 +312,23 @@ impl WorkService {
         Ok(reconciled)
     }
 
-    pub async fn get(&self, id: &WorkId) -> BitFunResult<WorkRecord> {
+    pub async fn get(&self, id: &WorkId) -> CoreResult<WorkRecord> {
         self.store
             .get(id)
             .await?
-            .ok_or_else(|| BitFunError::NotFound(format!("Work not found: {}", id)))
+            .ok_or_else(|| CoreError::NotFound(format!("Work not found: {}", id)))
+    }
+
+    pub async fn delete(&self, id: &WorkId) -> CoreResult<DeleteWorkResponse> {
+        Ok(DeleteWorkResponse {
+            deleted: self.store.delete(id).await?,
+        })
     }
 
     pub async fn resolve_app_work(
         &self,
         request: ResolveAppWorkRequest,
-    ) -> BitFunResult<ResolveAppWorkResponse> {
+    ) -> CoreResult<ResolveAppWorkResponse> {
         validate_required("app.app_id", &request.app.app_id)?;
         validate_required("title", &request.title)?;
         validate_required("objective", &request.objective)?;
@@ -380,7 +391,7 @@ impl WorkService {
     pub async fn resolve_component_work(
         &self,
         request: ResolveComponentWorkRequest,
-    ) -> BitFunResult<ResolveComponentWorkResponse> {
+    ) -> CoreResult<ResolveComponentWorkResponse> {
         validate_required("component.component_id", &request.component.component_id)?;
         validate_required(
             "component.component_kind",
@@ -444,7 +455,7 @@ impl WorkService {
         })
     }
 
-    pub async fn create(&self, request: CreateWorkRequest) -> BitFunResult<WorkRecord> {
+    pub async fn create(&self, request: CreateWorkRequest) -> CoreResult<WorkRecord> {
         validate_required("title", &request.title)?;
         validate_required("objective", &request.objective)?;
 
@@ -500,12 +511,12 @@ impl WorkService {
                     &record.primary_surface,
                     WorkSurfaceRef::ApplicationSurface { .. }
                 ) {
-                    return Err(BitFunError::validation(
+                    return Err(CoreError::validation(
                         "primary_surface.kind=application_surface is required when primary_surface_policy=application_surface",
                     ));
                 }
                 let Some(app_ref) = record.subject.app_ref().cloned() else {
-                    return Err(BitFunError::validation(
+                    return Err(CoreError::validation(
                         "subject.kind=app is required when primary_surface_policy=application_surface",
                     ));
                 };
@@ -527,7 +538,7 @@ impl WorkService {
     pub async fn link_session_to_work(
         &self,
         request: LinkSessionToWorkRequest,
-    ) -> BitFunResult<WorkRecord> {
+    ) -> CoreResult<WorkRecord> {
         validate_required("session_id", &request.session_id)?;
         let now = now_millis();
         let mut record = self.get(&request.work_id).await?;
@@ -555,7 +566,7 @@ impl WorkService {
         &self,
         id: &WorkId,
         request: UpdateWorkRequest,
-    ) -> BitFunResult<WorkRecord> {
+    ) -> CoreResult<WorkRecord> {
         let now = now_millis();
         let mut record = self.get(id).await?;
 
@@ -599,7 +610,7 @@ impl WorkService {
         session_id: &str,
         title: &str,
         lock_as_user_title: bool,
-    ) -> BitFunResult<Vec<WorkRecord>> {
+    ) -> CoreResult<Vec<WorkRecord>> {
         let session_id = session_id.trim();
         let title = title.trim();
         if session_id.is_empty() || title.is_empty() {
@@ -640,7 +651,7 @@ impl WorkService {
         &self,
         application_id: &str,
         title: &str,
-    ) -> BitFunResult<Vec<WorkRecord>> {
+    ) -> CoreResult<Vec<WorkRecord>> {
         let application_id = application_id.trim();
         let title = title.trim();
         if application_id.is_empty() || title.is_empty() {
@@ -674,7 +685,7 @@ impl WorkService {
         id: &WorkId,
         surface: WorkSurfaceRef,
         set_primary: bool,
-    ) -> BitFunResult<WorkRecord> {
+    ) -> CoreResult<WorkRecord> {
         let now = now_millis();
         let mut record = self.get(id).await?;
         record.bind_surface(surface, set_primary, now);
@@ -682,7 +693,7 @@ impl WorkService {
         Ok(record)
     }
 
-    pub async fn execution_graph(&self, id: &WorkId) -> BitFunResult<WorkExecutionGraph> {
+    pub async fn execution_graph(&self, id: &WorkId) -> CoreResult<WorkExecutionGraph> {
         let record = self.get(id).await?;
         Ok(WorkExecutionGraph::from_parts(
             record.id.clone(),
@@ -703,7 +714,7 @@ impl WorkService {
         &self,
         id: &WorkId,
         artifact: ArtifactRef,
-    ) -> BitFunResult<WorkRecord> {
+    ) -> CoreResult<WorkRecord> {
         let now = now_millis();
         let mut record = self.get(id).await?;
         if let Some(existing) = record
@@ -737,7 +748,7 @@ impl WorkService {
         component_id: String,
         action: String,
         status: WorkExecutionBindingStatus,
-    ) -> BitFunResult<WorkRecord> {
+    ) -> CoreResult<WorkRecord> {
         validate_required("runtime_instance_id", &runtime_instance_id)?;
         validate_required("run_id", &run_id)?;
         validate_required("component_id", &component_id)?;
@@ -767,7 +778,7 @@ impl WorkService {
         &self,
         id: &WorkId,
         mut run: WorkRuntimeRun,
-    ) -> BitFunResult<WorkRecord> {
+    ) -> CoreResult<WorkRecord> {
         validate_required("runtime_instance_id", &run.runtime_instance_id)?;
         validate_required("run_id", &run.run_id)?;
         validate_required("component_id", &run.component_id)?;
@@ -845,7 +856,7 @@ impl WorkService {
         &self,
         id: &WorkId,
         issue: WorkRuntimeIssue,
-    ) -> BitFunResult<WorkRecord> {
+    ) -> CoreResult<WorkRecord> {
         validate_required("runtime_instance_id", &issue.runtime_instance_id)?;
         validate_required("product_app_id", &issue.product_app_id)?;
         validate_required("component_id", &issue.component_id)?;
@@ -866,7 +877,7 @@ impl WorkService {
         &self,
         id: &WorkId,
         log: WorkRuntimeLog,
-    ) -> BitFunResult<WorkRecord> {
+    ) -> CoreResult<WorkRecord> {
         validate_required("runtime_instance_id", &log.runtime_instance_id)?;
         validate_required("product_app_id", &log.product_app_id)?;
         validate_required("component_id", &log.component_id)?;
@@ -888,10 +899,10 @@ impl WorkService {
         &self,
         id: &WorkId,
         mut preview_result: WorkStudioPreviewResult,
-    ) -> BitFunResult<WorkRecord> {
+    ) -> CoreResult<WorkRecord> {
         validate_required("preview_result.id", &preview_result.id)?;
         if preview_result.work_id != *id {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "preview_result.work_id={} does not match work_id={}",
                 preview_result.work_id, id
             )));
@@ -920,7 +931,7 @@ impl WorkService {
         &self,
         id: &WorkId,
         issue: WorkStudioIssue,
-    ) -> BitFunResult<WorkRecord> {
+    ) -> CoreResult<WorkRecord> {
         validate_required("studio_issue.id", &issue.id)?;
         validate_required("studio_issue.app_id", &issue.app_id)?;
         validate_required("studio_issue.message", &issue.message)?;
@@ -942,11 +953,11 @@ impl WorkService {
         &self,
         id: &WorkId,
         mut validation_result: WorkStudioValidationResult,
-    ) -> BitFunResult<WorkRecord> {
+    ) -> CoreResult<WorkRecord> {
         validate_required("validation_result.id", &validation_result.id)?;
         validate_required("validation_result.tool_name", &validation_result.tool_name)?;
         if validation_result.work_id != *id {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "validation_result.work_id={} does not match work_id={}",
                 validation_result.work_id, id
             )));
@@ -995,7 +1006,7 @@ impl WorkService {
         id: &WorkId,
         issue_id: &str,
         status: WorkStudioIssueStatus,
-    ) -> BitFunResult<WorkRecord> {
+    ) -> CoreResult<WorkRecord> {
         validate_required("issue_id", issue_id)?;
 
         let now = now_millis();
@@ -1006,7 +1017,7 @@ impl WorkService {
                 .iter_mut()
                 .find(|issue| issue.id == issue_id)
                 .ok_or_else(|| {
-                    BitFunError::NotFound(format!("Studio issue not found: {}", issue_id))
+                    CoreError::NotFound(format!("Studio issue not found: {}", issue_id))
                 })?;
             issue.status = status;
             issue.resolved_at = match status {
@@ -1029,16 +1040,16 @@ impl WorkService {
     pub async fn dispatch(
         &self,
         request: DispatchWorkRequest,
-    ) -> BitFunResult<DispatchWorkResponse> {
+    ) -> CoreResult<DispatchWorkResponse> {
         match request {
             DispatchWorkRequest::DispatchNew(request) => self.dispatch_new(request).await,
         }
     }
 
-    pub async fn start(&self, request: StartWorkRequest) -> BitFunResult<StartWorkResponse> {
+    pub async fn start(&self, request: StartWorkRequest) -> CoreResult<StartWorkResponse> {
         validate_required("instructions", &request.instructions)?;
         if request.primary_surface_policy != PrimarySurfacePolicy::WorkSession {
-            return Err(BitFunError::validation(
+            return Err(CoreError::validation(
                 "Work action=start currently requires primary_surface_policy=work_session",
             ));
         }
@@ -1047,7 +1058,7 @@ impl WorkService {
             .assignment
             .unwrap_or_else(|| WorkAssignmentRef::agent("agentic"));
         if assignment.kind != WorkAssignmentKind::Agent {
-            return Err(BitFunError::validation(
+            return Err(CoreError::validation(
                 "Work action=start currently requires assignment.kind=agent",
             ));
         }
@@ -1058,7 +1069,7 @@ impl WorkService {
             .unwrap_or_default()
             .is_empty()
         {
-            return Err(BitFunError::validation(
+            return Err(CoreError::validation(
                 "assignment.agent_type is required for Work action=start",
             ));
         }
@@ -1104,7 +1115,7 @@ impl WorkService {
     pub async fn dispatch_new(
         &self,
         request: DispatchNewWorkRequest,
-    ) -> BitFunResult<DispatchWorkResponse> {
+    ) -> CoreResult<DispatchWorkResponse> {
         let parent = self.get(&request.parent_work_id).await?;
         let mut child = self
             .create(CreateWorkRequest {
@@ -1162,7 +1173,7 @@ impl WorkService {
         })
     }
 
-    pub async fn advance(&self, request: AdvanceWorkRequest) -> BitFunResult<AdvanceWorkResponse> {
+    pub async fn advance(&self, request: AdvanceWorkRequest) -> CoreResult<AdvanceWorkResponse> {
         validate_required("instructions", &request.instructions)?;
         let now = now_millis();
         let mut record = self.get(&request.work_id).await?;
@@ -1170,7 +1181,7 @@ impl WorkService {
 
         let session_id = record
             .work_session_id()
-            .ok_or_else(|| BitFunError::service("WorkSession was not bound"))?
+            .ok_or_else(|| CoreError::service("WorkSession was not bound"))?
             .to_string();
         let agent_type = record
             .assignment
@@ -1216,7 +1227,7 @@ impl WorkService {
         })
     }
 
-    pub async fn control(&self, request: ControlWorkRequest) -> BitFunResult<ControlWorkResponse> {
+    pub async fn control(&self, request: ControlWorkRequest) -> CoreResult<ControlWorkResponse> {
         let now = now_millis();
         let mut record = self.get(&request.work_id).await?;
         match request.action {
@@ -1256,7 +1267,7 @@ impl WorkService {
     pub async fn mark_agent_session_turn_completed(
         &self,
         turn_id: &str,
-    ) -> BitFunResult<Option<WorkRecord>> {
+    ) -> CoreResult<Option<WorkRecord>> {
         self.mark_agent_session_turn_terminal(
             turn_id,
             WorkExecutionBindingStatus::Completed,
@@ -1270,7 +1281,7 @@ impl WorkService {
         &self,
         turn_id: &str,
         error: &str,
-    ) -> BitFunResult<Option<WorkRecord>> {
+    ) -> CoreResult<Option<WorkRecord>> {
         let label = if error.trim().is_empty() {
             "agent session failed".to_string()
         } else {
@@ -1288,7 +1299,7 @@ impl WorkService {
     pub async fn mark_agent_session_turn_cancelled(
         &self,
         turn_id: &str,
-    ) -> BitFunResult<Option<WorkRecord>> {
+    ) -> CoreResult<Option<WorkRecord>> {
         self.mark_agent_session_turn_terminal(
             turn_id,
             WorkExecutionBindingStatus::Cancelled,
@@ -1302,7 +1313,7 @@ impl WorkService {
         &self,
         session_id: &str,
         turn_id: &str,
-    ) -> BitFunResult<Option<WorkRecord>> {
+    ) -> CoreResult<Option<WorkRecord>> {
         self.mark_agent_session_turn_started_with_app_studio_context(session_id, turn_id, None)
             .await
     }
@@ -1312,7 +1323,7 @@ impl WorkService {
         session_id: &str,
         turn_id: &str,
         app_studio: Option<WorkExecutionAppStudioContext>,
-    ) -> BitFunResult<Option<WorkRecord>> {
+    ) -> CoreResult<Option<WorkRecord>> {
         let session_id = session_id.trim();
         let turn_id = turn_id.trim();
         if session_id.is_empty() || turn_id.is_empty() {
@@ -1371,7 +1382,7 @@ impl WorkService {
     pub async fn mark_agent_session_turn_waiting_user(
         &self,
         turn_id: &str,
-    ) -> BitFunResult<Option<WorkRecord>> {
+    ) -> CoreResult<Option<WorkRecord>> {
         self.mark_agent_session_turn_execution_state(
             turn_id,
             WorkExecutionBindingStatus::WaitingUser,
@@ -1384,7 +1395,7 @@ impl WorkService {
     pub async fn mark_agent_session_turn_running(
         &self,
         turn_id: &str,
-    ) -> BitFunResult<Option<WorkRecord>> {
+    ) -> CoreResult<Option<WorkRecord>> {
         self.mark_agent_session_turn_execution_state(
             turn_id,
             WorkExecutionBindingStatus::Running,
@@ -1400,7 +1411,7 @@ impl WorkService {
         binding_status: WorkExecutionBindingStatus,
         work_status: Option<WorkStatus>,
         label: impl Into<String>,
-    ) -> BitFunResult<Option<WorkRecord>> {
+    ) -> CoreResult<Option<WorkRecord>> {
         let turn_id = turn_id.trim();
         if turn_id.is_empty() {
             return Ok(None);
@@ -1445,7 +1456,7 @@ impl WorkService {
         binding_status: WorkExecutionBindingStatus,
         work_status: WorkStatus,
         label: impl Into<String>,
-    ) -> BitFunResult<Option<WorkRecord>> {
+    ) -> CoreResult<Option<WorkRecord>> {
         let turn_id = turn_id.trim();
         if turn_id.is_empty() {
             return Ok(None);
@@ -1514,7 +1525,7 @@ impl WorkService {
     pub async fn mark_agent_session_turn_work_message_queued(
         &self,
         turn_id: &str,
-    ) -> BitFunResult<Option<WorkRecord>> {
+    ) -> CoreResult<Option<WorkRecord>> {
         let turn_id = turn_id.trim();
         if turn_id.is_empty() {
             return Ok(None);
@@ -1544,7 +1555,7 @@ impl WorkService {
         &self,
         record: &mut WorkRecord,
         agent_type_override: Option<String>,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         if record.work_session_id().is_some() {
             return Ok(());
         }
@@ -1585,9 +1596,9 @@ impl WorkService {
 
 async fn application_surface_for_product_app_subject(
     subject: &WorkSubject,
-) -> BitFunResult<WorkSurfaceRef> {
+) -> CoreResult<WorkSurfaceRef> {
     let app = subject.app_ref().ok_or_else(|| {
-        BitFunError::validation(
+        CoreError::validation(
             "subject.kind=app is required when primary_surface_policy=application_surface",
         )
     })?;
@@ -1615,7 +1626,7 @@ async fn application_surface_for_product_app_subject(
     .await?;
 
     let primary_surface = resolved_app.app.primary_surface.as_ref().ok_or_else(|| {
-        BitFunError::validation(format!(
+        CoreError::validation(format!(
             "Product App {}@{} does not declare a primary surface for application surface Work",
             app.app_id, app.app_version
         ))
@@ -1639,7 +1650,7 @@ async fn application_surface_for_product_app_subject(
     if !resolved_app.components.iter().any(|component| {
         component.kind == ComponentKind::Surface && component.id == product_app_surface_id
     }) {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Product App {} lock does not resolve primary Product App surface {}",
             app.app_id, product_app_surface_id
         )));
@@ -1652,7 +1663,7 @@ async fn application_surface_for_product_app_subject(
     })
 }
 
-fn validate_surface_ref(label: &str, surface: &WorkSurfaceRef) -> BitFunResult<()> {
+fn validate_surface_ref(label: &str, surface: &WorkSurfaceRef) -> CoreResult<()> {
     match surface {
         WorkSurfaceRef::OsAgentHome {
             agentic_os_session_id,
@@ -1684,9 +1695,9 @@ fn validate_surface_ref(label: &str, surface: &WorkSurfaceRef) -> BitFunResult<(
     Ok(())
 }
 
-fn validate_required(field: &str, value: &str) -> BitFunResult<()> {
+fn validate_required(field: &str, value: &str) -> CoreResult<()> {
     if value.trim().is_empty() {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "{} cannot be empty",
             field
         )));
@@ -1694,7 +1705,7 @@ fn validate_required(field: &str, value: &str) -> BitFunResult<()> {
     Ok(())
 }
 
-fn resolve_runtime_workspace_path(scope: &WorkScope) -> BitFunResult<String> {
+fn resolve_runtime_workspace_path(scope: &WorkScope) -> CoreResult<String> {
     match scope {
         WorkScope::Workspace { workspace_path } => {
             validate_required("workspace_path", workspace_path)?;
@@ -3700,7 +3711,7 @@ mod tests {
         async fn create_work_session(
             &self,
             request: CreateWorkSessionRequest,
-        ) -> BitFunResult<super::super::runtime_bridge::CreateWorkSessionOutcome> {
+        ) -> CoreResult<super::super::runtime_bridge::CreateWorkSessionOutcome> {
             Ok(super::super::runtime_bridge::CreateWorkSessionOutcome {
                 session_id: format!("session_{}", request.work_id.as_str()),
                 session_name: request.title,
@@ -3711,7 +3722,7 @@ mod tests {
         async fn advance_work_session(
             &self,
             request: WorkSessionAdvanceRequest,
-        ) -> BitFunResult<super::super::runtime_bridge::WorkSessionAdvanceOutcome> {
+        ) -> CoreResult<super::super::runtime_bridge::WorkSessionAdvanceOutcome> {
             Ok(super::super::runtime_bridge::WorkSessionAdvanceOutcome {
                 session_id: request.session_id,
                 turn_id: format!("turn_{}", request.work_id.as_str()),

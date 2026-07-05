@@ -1,8 +1,8 @@
-use bitfun_core::service::{get_global_global_milestone_service, GlobalMilestoneRunSummary};
+use sparo_core::service::{get_global_global_milestone_service, GlobalMilestoneRunSummary};
 use log::{debug, error};
 
 fn global_milestone_service(
-) -> Result<std::sync::Arc<bitfun_core::service::GlobalMilestoneService>, String> {
+) -> Result<std::sync::Arc<sparo_core::service::GlobalMilestoneService>, String> {
     get_global_global_milestone_service()
         .ok_or_else(|| "Global milestone service is not initialized".to_string())
 }

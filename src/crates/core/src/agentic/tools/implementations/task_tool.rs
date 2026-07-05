@@ -4,7 +4,7 @@ use crate::agentic::tools::framework::{
 };
 use crate::agentic::tools::pipeline::SubagentParentInfo;
 use crate::agentic::tools::InputValidator;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use std::path::Path;
@@ -160,14 +160,14 @@ impl Tool for TaskTool {
         "Task"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(self.build_description(None, None).await)
     }
 
     async fn description_with_context(
         &self,
         context: Option<&ToolUseContext>,
-    ) -> BitFunResult<String> {
+    ) -> CoreResult<String> {
         Ok(self
             .build_description(
                 context.and_then(|ctx| ctx.workspace_root()),
@@ -252,7 +252,7 @@ impl Tool for TaskTool {
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let start_time = std::time::Instant::now();
 
         // description is only used for frontend display
@@ -261,7 +261,7 @@ impl Tool for TaskTool {
             .get("prompt")
             .and_then(|v| v.as_str())
             .ok_or_else(|| {
-                BitFunError::tool(
+                CoreError::tool(
                     "Required parameters: subagent_type, prompt, description. Missing prompt"
                         .to_string(),
                 )
@@ -271,14 +271,14 @@ impl Tool for TaskTool {
         let subagent_type = input
             .get("subagent_type")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BitFunError::tool("Required parameters: subagent_type, prompt, description. Missing subagent_type".to_string()))?
+            .ok_or_else(|| CoreError::tool("Required parameters: subagent_type, prompt, description. Missing subagent_type".to_string()))?
             .to_string();
         let workspace_root = context.workspace_root();
         let all_agent_types = self
             .get_agents_types(workspace_root, context.agent_type.as_deref())
             .await;
         if !all_agent_types.contains(&subagent_type) {
-            return Err(BitFunError::tool(format!(
+            return Err(CoreError::tool(format!(
                 "subagent_type {} is not valid, must be one of: {}",
                 subagent_type,
                 all_agent_types.join(", ")
@@ -297,13 +297,13 @@ impl Tool for TaskTool {
                 .as_deref()
                 .or(workspace_context_path.as_deref())
                 .ok_or_else(|| {
-                    BitFunError::tool(
+                    CoreError::tool(
                         "workspace_path is required for Explore/FileFinder agent".to_string(),
                     )
                 })?;
 
             if workspace_path.is_empty() {
-                return Err(BitFunError::tool(
+                return Err(CoreError::tool(
                     "workspace_path cannot be empty for Explore/FileFinder agent".to_string(),
                 ));
             }
@@ -313,13 +313,13 @@ impl Tool for TaskTool {
             if !context.is_remote() {
                 let path = std::path::Path::new(&workspace_path);
                 if !path.exists() {
-                    return Err(BitFunError::tool(format!(
+                    return Err(CoreError::tool(format!(
                         "workspace_path '{}' does not exist",
                         workspace_path
                     )));
                 }
                 if !path.is_dir() {
-                    return Err(BitFunError::tool(format!(
+                    return Err(CoreError::tool(format!(
                         "workspace_path '{}' is not a directory",
                         workspace_path
                     )));
@@ -334,7 +334,7 @@ impl Tool for TaskTool {
             .clone()
             .or(workspace_context_path)
             .ok_or_else(|| {
-                BitFunError::tool(
+                CoreError::tool(
                     "workspace_path is required when the current workspace is unavailable"
                         .to_string(),
                 )
@@ -343,7 +343,7 @@ impl Tool for TaskTool {
         let session_id = if let Some(session_id) = &context.session_id {
             session_id.clone()
         } else {
-            return Err(BitFunError::tool(
+            return Err(CoreError::tool(
                 "session_id is required in context".to_string(),
             ));
         };
@@ -352,7 +352,7 @@ impl Tool for TaskTool {
         let tool_call_id = if let Some(tool_id) = &context.tool_call_id {
             tool_id.clone()
         } else {
-            return Err(BitFunError::tool(
+            return Err(CoreError::tool(
                 "tool_call_id is required in context".to_string(),
             ));
         };
@@ -361,7 +361,7 @@ impl Tool for TaskTool {
         let dialog_turn_id = if let Some(turn_id) = &context.dialog_turn_id {
             turn_id.clone()
         } else {
-            return Err(BitFunError::tool(
+            return Err(CoreError::tool(
                 "dialog_turn_id is required in context".to_string(),
             ));
         };
@@ -369,7 +369,7 @@ impl Tool for TaskTool {
         let coordinator = context
             .agentic()
             .map(|h| h.coordinator.clone())
-            .ok_or_else(|| BitFunError::tool("coordinator not initialized".to_string()))?;
+            .ok_or_else(|| CoreError::tool("coordinator not initialized".to_string()))?;
 
         // Use coordinator to execute subagent, passing parent tool ID, parent turn_id and cancellation token
         let result = coordinator

@@ -1,6 +1,6 @@
 use super::overview::ensure_host_overview_runtime_dir;
 use crate::infrastructure::get_path_manager_arc;
-use crate::util::errors::*;
+use crate::error::*;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 
@@ -42,7 +42,7 @@ pub(crate) fn host_scan_state_file_path() -> std::path::PathBuf {
     get_path_manager_arc().agentic_os_host_scan_state_path()
 }
 
-pub(crate) async fn load_host_scan_state() -> BitFunResult<HostScanState> {
+pub(crate) async fn load_host_scan_state() -> CoreResult<HostScanState> {
     ensure_host_overview_runtime_dir().await?;
 
     let path = host_scan_state_file_path();
@@ -51,7 +51,7 @@ pub(crate) async fn load_host_scan_state() -> BitFunResult<HostScanState> {
     }
 
     let content = fs::read_to_string(&path).await.map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to read host scan state file {}: {}",
             path.display(),
             error
@@ -63,7 +63,7 @@ pub(crate) async fn load_host_scan_state() -> BitFunResult<HostScanState> {
     }
 
     serde_json::from_str(&content).map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to parse host scan state file {}: {}",
             path.display(),
             error
@@ -71,12 +71,12 @@ pub(crate) async fn load_host_scan_state() -> BitFunResult<HostScanState> {
     })
 }
 
-pub(crate) async fn save_host_scan_state(state: &HostScanState) -> BitFunResult<()> {
+pub(crate) async fn save_host_scan_state(state: &HostScanState) -> CoreResult<()> {
     ensure_host_overview_runtime_dir().await?;
 
     let path = host_scan_state_file_path();
     let content = serde_json::to_string_pretty(state).map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to serialize host scan state for {}: {}",
             path.display(),
             error
@@ -84,7 +84,7 @@ pub(crate) async fn save_host_scan_state(state: &HostScanState) -> BitFunResult<
     })?;
 
     fs::write(&path, content).await.map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to write host scan state file {}: {}",
             path.display(),
             error

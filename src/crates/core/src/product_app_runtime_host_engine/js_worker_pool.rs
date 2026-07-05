@@ -3,7 +3,7 @@
 use crate::product_app_runtime_host_engine::js_worker::JsWorker;
 use crate::product_app_runtime_host_engine::runtime_detect::{detect_runtime, DetectedRuntime};
 use crate::product_app_runtime_host_engine::types::{NodePermissions, NpmDep};
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use serde_json::Value;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -37,9 +37,9 @@ impl JsWorkerPool {
     pub fn new(
         path_manager: Arc<crate::infrastructure::PathManager>,
         worker_host_path: PathBuf,
-    ) -> BitFunResult<Self> {
+    ) -> CoreResult<Self> {
         let runtime = detect_runtime().ok_or_else(|| {
-            BitFunError::validation("No JS runtime found (install Bun or Node.js)".to_string())
+            CoreError::validation("No JS runtime found (install Bun or Node.js)".to_string())
         })?;
         let workers = Arc::new(Mutex::new(
             std::collections::HashMap::<String, WorkerEntry>::new(),
@@ -97,7 +97,7 @@ impl JsWorkerPool {
         worker_revision: &str,
         policy_json: &str,
         node_perms: Option<&NodePermissions>,
-    ) -> BitFunResult<Arc<Mutex<JsWorker>>> {
+    ) -> CoreResult<Arc<Mutex<JsWorker>>> {
         let mut guard = self.workers.lock().await;
         self.evict_idle(&mut guard).await;
 
@@ -117,7 +117,7 @@ impl JsWorkerPool {
 
         let app_dir = self.path_manager.product_app_runtime_host_dir(app_id);
         if !app_dir.exists() {
-            return Err(BitFunError::NotFound(format!(
+            return Err(CoreError::NotFound(format!(
                 "Product App Runtime Host surface dir not found: {}",
                 app_id
             )));
@@ -131,7 +131,7 @@ impl JsWorkerPool {
             worker_id.to_string(),
         )
         .await
-        .map_err(BitFunError::validation)?;
+        .map_err(CoreError::validation)?;
 
         let _timeout_ms = node_perms.and_then(|n| n.timeout_ms).unwrap_or(30_000);
         let worker = Arc::new(Mutex::new(worker));
@@ -201,7 +201,7 @@ impl JsWorkerPool {
         permissions: Option<&NodePermissions>,
         method: &str,
         params: Value,
-    ) -> BitFunResult<Value> {
+    ) -> CoreResult<Value> {
         let worker = self
             .get_or_spawn(worker_id, app_id, worker_revision, policy_json, permissions)
             .await?;
@@ -210,7 +210,7 @@ impl JsWorkerPool {
         guard
             .call(method, params, timeout_ms)
             .await
-            .map_err(BitFunError::validation)
+            .map_err(CoreError::validation)
     }
 
     /// Stop and remove the Worker for the app.
@@ -254,7 +254,7 @@ impl JsWorkerPool {
         &self,
         app_id: &str,
         _deps: &[NpmDep],
-    ) -> BitFunResult<InstallResult> {
+    ) -> CoreResult<InstallResult> {
         let app_dir = self.path_manager.product_app_runtime_host_dir(app_id);
         let package_json = app_dir.join("package.json");
         if !package_json.exists() {
@@ -283,7 +283,7 @@ impl JsWorkerPool {
             .current_dir(&app_dir)
             .output()
             .await
-            .map_err(|e| BitFunError::io(format!("install_deps failed: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("install_deps failed: {}", e)))?;
 
         Ok(InstallResult {
             success: output.status.success(),

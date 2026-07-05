@@ -278,7 +278,7 @@ impl AutoMemoryManager {
                         Ok(did_run) => {
                             executed = did_run;
                         }
-                        Err(crate::util::errors::BitFunError::Cancelled(_)) => {
+                        Err(crate::error::CoreError::Cancelled(_)) => {
                             debug!(
                                 "Auto memory cycle cancelled: workspace_key={}, session_id={}",
                                 workspace_key, session_id

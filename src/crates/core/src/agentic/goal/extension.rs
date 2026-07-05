@@ -2,7 +2,7 @@ use super::GoalService;
 use crate::agentic::session_hooks::{
     SessionDriver, SessionDriverIntent, SessionExtension, SessionHookContext,
 };
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 use async_trait::async_trait;
 use std::sync::Arc;
 
@@ -26,7 +26,7 @@ impl SessionExtension for GoalSessionExtension {
         &self,
         context: SessionHookContext,
         _driver: Arc<dyn SessionDriver>,
-    ) -> BitFunResult<Vec<SessionDriverIntent>> {
+    ) -> CoreResult<Vec<SessionDriverIntent>> {
         self.service.handle_session_hook(context).await?;
         Ok(Vec::new())
     }

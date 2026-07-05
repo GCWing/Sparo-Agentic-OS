@@ -1,7 +1,7 @@
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext, ValidationResult};
 use crate::agentic::tools::user_input_manager::get_user_input_manager;
 use crate::infrastructure::get_path_manager_arc;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use chrono::Utc;
 use log::{debug, warn};
@@ -53,30 +53,30 @@ impl DesignTokensTool {
         Self
     }
 
-    fn workspace_root(context: &ToolUseContext) -> BitFunResult<PathBuf> {
+    fn workspace_root(context: &ToolUseContext) -> CoreResult<PathBuf> {
         context
             .workspace_root()
             .map(Path::to_path_buf)
-            .ok_or_else(|| BitFunError::tool("DesignTokens requires an active workspace binding"))
+            .ok_or_else(|| CoreError::tool("DesignTokens requires an active workspace binding"))
     }
 
-    fn root_tokens_file(context: &ToolUseContext) -> BitFunResult<PathBuf> {
+    fn root_tokens_file(context: &ToolUseContext) -> CoreResult<PathBuf> {
         let workspace_root = Self::workspace_root(context)?;
         Ok(get_path_manager_arc().workspace_design_tokens_file(&workspace_root))
     }
 
-    fn artifact_tokens_file(context: &ToolUseContext, artifact_id: &str) -> BitFunResult<PathBuf> {
+    fn artifact_tokens_file(context: &ToolUseContext, artifact_id: &str) -> CoreResult<PathBuf> {
         let workspace_root = Self::workspace_root(context)?;
         Ok(get_path_manager_arc()
             .workspace_design_artifact_dir(&workspace_root, artifact_id)
             .join("tokens.json"))
     }
 
-    async fn ensure_parent(path: &Path) -> BitFunResult<()> {
+    async fn ensure_parent(path: &Path) -> CoreResult<()> {
         if let Some(parent) = path.parent() {
             if !parent.exists() {
                 fs::create_dir_all(parent).await.map_err(|e| {
-                    BitFunError::tool(format!(
+                    CoreError::tool(format!(
                         "DesignTokens: failed to create {}: {}",
                         parent.display(),
                         e
@@ -87,7 +87,7 @@ impl DesignTokensTool {
         Ok(())
     }
 
-    async fn load_or_default(path: &Path) -> BitFunResult<DesignTokensDocument> {
+    async fn load_or_default(path: &Path) -> CoreResult<DesignTokensDocument> {
         if !path.exists() {
             return Ok(DesignTokensDocument {
                 version: 1,
@@ -98,14 +98,14 @@ impl DesignTokensTool {
             });
         }
         let raw = fs::read_to_string(path).await.map_err(|e| {
-            BitFunError::tool(format!(
+            CoreError::tool(format!(
                 "DesignTokens: failed to read {}: {}",
                 path.display(),
                 e
             ))
         })?;
         serde_json::from_str(&raw).map_err(|e| {
-            BitFunError::tool(format!(
+            CoreError::tool(format!(
                 "DesignTokens: invalid json at {}: {}",
                 path.display(),
                 e
@@ -113,12 +113,12 @@ impl DesignTokensTool {
         })
     }
 
-    async fn save(path: &Path, document: &DesignTokensDocument) -> BitFunResult<()> {
+    async fn save(path: &Path, document: &DesignTokensDocument) -> CoreResult<()> {
         Self::ensure_parent(path).await?;
         let raw = serde_json::to_string_pretty(document)
-            .map_err(|e| BitFunError::tool(format!("DesignTokens: serialize failed: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("DesignTokens: serialize failed: {}", e)))?;
         fs::write(path, raw).await.map_err(|e| {
-            BitFunError::tool(format!(
+            CoreError::tool(format!(
                 "DesignTokens: failed to write {}: {}",
                 path.display(),
                 e
@@ -246,7 +246,7 @@ impl Tool for DesignTokensTool {
         "DesignTokens"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok("Propose, commit, preview, and list structured design token systems before creating a Design artifact. Use `propose` first to record 2-3 aesthetically distinct directions. The committed design token system persisted in the workspace file system is the single source of truth — always use `get` / `preview` to read it before building or patching an artifact, and build against those exact token values instead of relying on prior chat memory.".to_string())
     }
 
@@ -427,11 +427,11 @@ impl Tool for DesignTokensTool {
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let action = input
             .get("action")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BitFunError::tool("DesignTokens: action is required"))?;
+            .ok_or_else(|| CoreError::tool("DesignTokens: action is required"))?;
 
         let artifact_id = input.get("artifact_id").and_then(|v| v.as_str());
         let target_path = if let Some(artifact_id) = artifact_id {
@@ -448,7 +448,7 @@ impl Tool for DesignTokensTool {
                         .get("proposals")
                         .and_then(|v| v.as_array())
                         .ok_or_else(|| {
-                            BitFunError::tool("DesignTokens.propose requires proposals")
+                            CoreError::tool("DesignTokens.propose requires proposals")
                         })?;
                     doc.proposals = proposals
                         .iter()
@@ -456,7 +456,7 @@ impl Tool for DesignTokensTool {
                         .map(|proposal| {
                             let mut p: DesignTokenProposal = serde_json::from_value(proposal)
                                 .map_err(|e| {
-                                    BitFunError::tool(format!(
+                                    CoreError::tool(format!(
                                         "DesignTokens.propose invalid proposal: {}",
                                         e
                                     ))
@@ -464,9 +464,9 @@ impl Tool for DesignTokensTool {
                             if p.created_at.trim().is_empty() {
                                 p.created_at = Utc::now().to_rfc3339();
                             }
-                            Ok::<_, BitFunError>(p)
+                            Ok::<_, CoreError>(p)
                         })
-                        .collect::<BitFunResult<Vec<_>>>()?;
+                        .collect::<CoreResult<Vec<_>>>()?;
                     doc.scope = Some(if artifact_id.is_some() {
                         "artifact".to_string()
                     } else {
@@ -477,7 +477,7 @@ impl Tool for DesignTokensTool {
                     doc.committed_at = None;
                     Self::save(&target_path, &doc).await?;
                 } else if doc.proposals.is_empty() {
-                    return Err(BitFunError::tool(
+                    return Err(CoreError::tool(
                         "DesignTokens.await_selection: no proposals on disk — call propose first",
                     ));
                 }
@@ -602,10 +602,10 @@ impl Tool for DesignTokensTool {
                 let proposal_id = input
                     .get("proposal_id")
                     .and_then(|v| v.as_str())
-                    .ok_or_else(|| BitFunError::tool("DesignTokens.commit requires proposal_id"))?;
+                    .ok_or_else(|| CoreError::tool("DesignTokens.commit requires proposal_id"))?;
                 let mut doc = Self::load_or_default(&target_path).await?;
                 if !doc.proposals.iter().any(|p| p.id == proposal_id) {
-                    return Err(BitFunError::tool(format!(
+                    return Err(CoreError::tool(format!(
                         "DesignTokens.commit: proposal_id '{}' not found",
                         proposal_id
                     )));
@@ -624,10 +624,10 @@ impl Tool for DesignTokensTool {
             "update" => {
                 let mut edited: DesignTokenProposal =
                     serde_json::from_value(input.get("proposal").cloned().ok_or_else(|| {
-                        BitFunError::tool("DesignTokens.update requires proposal")
+                        CoreError::tool("DesignTokens.update requires proposal")
                     })?)
                     .map_err(|e| {
-                        BitFunError::tool(format!("DesignTokens.update invalid proposal: {}", e))
+                        CoreError::tool(format!("DesignTokens.update invalid proposal: {}", e))
                     })?;
                 let mut doc = Self::load_or_default(&target_path).await?;
                 let Some(existing_index) = doc
@@ -635,7 +635,7 @@ impl Tool for DesignTokensTool {
                     .iter()
                     .position(|proposal| proposal.id == edited.id)
                 else {
-                    return Err(BitFunError::tool(format!(
+                    return Err(CoreError::tool(format!(
                         "DesignTokens.update: proposal_id '{}' not found",
                         edited.id
                     )));
@@ -668,14 +668,14 @@ impl Tool for DesignTokensTool {
                 let mut paths = vec![Self::root_tokens_file(context)?];
                 if design_root.exists() {
                     let mut entries = fs::read_dir(&design_root).await.map_err(|e| {
-                        BitFunError::tool(format!(
+                        CoreError::tool(format!(
                             "DesignTokens.list: failed to read {}: {}",
                             design_root.display(),
                             e
                         ))
                     })?;
                     while let Some(entry) = entries.next_entry().await.map_err(|e| {
-                        BitFunError::tool(format!("DesignTokens.list: read_dir failed: {}", e))
+                        CoreError::tool(format!("DesignTokens.list: read_dir failed: {}", e))
                     })? {
                         let path = entry.path().join("tokens.json");
                         if path.exists() {
@@ -694,7 +694,7 @@ impl Tool for DesignTokensTool {
                     "tokens-listed",
                 )])
             }
-            _ => Err(BitFunError::tool(format!(
+            _ => Err(CoreError::tool(format!(
                 "DesignTokens: unknown action '{}'",
                 action
             ))),

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Bottom host adapter for the Product App runtime iframe.
  * Injects the bridge script (already in compiledHtml from Rust compiler)
  * and handles all postMessage RPC via useProductAppRuntimeBridge.

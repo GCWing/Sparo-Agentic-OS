@@ -1232,7 +1232,7 @@ impl RemoteSessionStateTracker {
     }
 
     fn handle_event(&self, event: &crate::agentic::events::AgenticEvent) {
-        use bitfun_events::AgenticEvent as AE;
+        use sparo_events::AgenticEvent as AE;
 
         let is_direct = event.session_id() == Some(self.target_session_id.as_str());
         let is_subagent = if !is_direct {
@@ -1575,7 +1575,7 @@ impl crate::agentic::events::EventSubscriber for Arc<RemoteSessionStateTracker> 
     async fn on_event(
         &self,
         event: &crate::agentic::events::AgenticEvent,
-    ) -> crate::util::errors::BitFunResult<()> {
+    ) -> crate::error::CoreResult<()> {
         self.handle_event(event);
         Ok(())
     }

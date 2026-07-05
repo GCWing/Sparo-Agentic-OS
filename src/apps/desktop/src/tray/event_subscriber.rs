@@ -1,8 +1,8 @@
 //! EventSubscriber that updates the tray icon based on agent lifecycle events.
 
 use crate::tray::status;
-use bitfun_core::agentic::events::{AgenticEvent, EventSubscriber};
-use bitfun_core::util::errors::BitFunResult;
+use sparo_core::agentic::events::{AgenticEvent, EventSubscriber};
+use sparo_core::error::CoreResult;
 use tauri::AppHandle;
 
 pub struct TrayStatusSubscriber {
@@ -17,7 +17,7 @@ impl TrayStatusSubscriber {
 
 #[async_trait::async_trait]
 impl EventSubscriber for TrayStatusSubscriber {
-    async fn on_event(&self, event: &AgenticEvent) -> BitFunResult<()> {
+    async fn on_event(&self, event: &AgenticEvent) -> CoreResult<()> {
         match event {
             AgenticEvent::DialogTurnStarted { .. } => {
                 status::increment_running(&self.app);

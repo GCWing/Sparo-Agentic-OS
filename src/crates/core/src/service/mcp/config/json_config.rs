@@ -1,6 +1,6 @@
 use log::{debug, error, info};
 
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 
 use super::service::MCPConfigService;
 
@@ -38,7 +38,7 @@ impl MCPConfigService {
     }
 
     /// Loads MCP JSON config (Cursor format).
-    pub async fn load_mcp_json_config(&self) -> BitFunResult<String> {
+    pub async fn load_mcp_json_config(&self) -> CoreResult<String> {
         match self
             .config_service
             .get_config::<serde_json::Value>(Some("mcp_servers"))
@@ -47,7 +47,7 @@ impl MCPConfigService {
             Ok(value) => {
                 if value.get("mcpServers").is_some() {
                     return serde_json::to_string_pretty(&value).map_err(|e| {
-                        BitFunError::serialization(format!("Failed to serialize MCP config: {}", e))
+                        CoreError::serialization(format!("Failed to serialize MCP config: {}", e))
                     });
                 }
 
@@ -64,7 +64,7 @@ impl MCPConfigService {
                 }
 
                 serde_json::to_string_pretty(&value).map_err(|e| {
-                    BitFunError::serialization(format!("Failed to serialize MCP config: {}", e))
+                    CoreError::serialization(format!("Failed to serialize MCP config: {}", e))
                 })
             }
             Err(_) => Ok(serde_json::to_string_pretty(&serde_json::json!({
@@ -74,19 +74,19 @@ impl MCPConfigService {
     }
 
     /// Saves MCP JSON config (Cursor format).
-    pub async fn save_mcp_json_config(&self, json_config: &str) -> BitFunResult<()> {
+    pub async fn save_mcp_json_config(&self, json_config: &str) -> CoreResult<()> {
         debug!("Saving MCP JSON config to app.json");
 
         let config_value: serde_json::Value = serde_json::from_str(json_config).map_err(|e| {
             let error_msg = format!("JSON parsing failed: {}. Please check JSON format", e);
             error!("{}", error_msg);
-            BitFunError::validation(error_msg)
+            CoreError::validation(error_msg)
         })?;
 
         if config_value.get("mcpServers").is_none() {
             let error_msg = "Config missing 'mcpServers' field";
             error!("{}", error_msg);
-            return Err(BitFunError::validation(error_msg.to_string()));
+            return Err(CoreError::validation(error_msg.to_string()));
         }
 
         if config_value
@@ -96,7 +96,7 @@ impl MCPConfigService {
         {
             let error_msg = "'mcpServers' field must be an object";
             error!("{}", error_msg);
-            return Err(BitFunError::validation(error_msg.to_string()));
+            return Err(CoreError::validation(error_msg.to_string()));
         }
 
         if let Some(servers) = config_value.get("mcpServers").and_then(|v| v.as_object()) {
@@ -137,7 +137,7 @@ impl MCPConfigService {
                                 server_id
                             );
                             error!("{}", error_msg);
-                            return Err(BitFunError::validation(error_msg));
+                            return Err(CoreError::validation(error_msg));
                         }
                         (false, false) => {
                             let error_msg = format!(
@@ -145,14 +145,14 @@ impl MCPConfigService {
                                 server_id
                             );
                             error!("{}", error_msg);
-                            return Err(BitFunError::validation(error_msg));
+                            return Err(CoreError::validation(error_msg));
                         }
                         _ => {}
                     }
 
                     let legacy_type = match type_str {
                         Some(value) => Self::normalize_legacy_type(value).ok_or_else(|| {
-                            BitFunError::validation(format!(
+                            CoreError::validation(format!(
                                 "Server '{}' has unsupported 'type' value: '{}'",
                                 server_id, value
                             ))
@@ -162,7 +162,7 @@ impl MCPConfigService {
 
                     let explicit_source = match source_str {
                         Some(value) => Some(Self::normalize_source(value).ok_or_else(|| {
-                            BitFunError::validation(format!(
+                            CoreError::validation(format!(
                                 "Server '{}' has unsupported 'source' value: '{}'",
                                 server_id, value
                             ))
@@ -171,7 +171,7 @@ impl MCPConfigService {
                     };
                     let explicit_transport = match transport_str {
                         Some(value) => Some(Self::normalize_transport(value).ok_or_else(|| {
-                            BitFunError::validation(format!(
+                            CoreError::validation(format!(
                                 "Server '{}' has unsupported 'transport' value: '{}'",
                                 server_id, value
                             ))
@@ -187,7 +187,7 @@ impl MCPConfigService {
                                     server_id
                                 );
                                 error!("{}", error_msg);
-                                return Err(BitFunError::validation(error_msg));
+                                return Err(CoreError::validation(error_msg));
                             }
                             Some(source) => source,
                             None => "local",
@@ -200,7 +200,7 @@ impl MCPConfigService {
                                     explicit_source.unwrap_or("unknown")
                                 );
                                 error!("{}", error_msg);
-                                return Err(BitFunError::validation(error_msg));
+                                return Err(CoreError::validation(error_msg));
                             }
                             Some(source) => source,
                             None => "remote",
@@ -217,7 +217,7 @@ impl MCPConfigService {
                                         server_id, effective_source
                                     );
                                     error!("{}", error_msg);
-                                    return Err(BitFunError::validation(error_msg));
+                                    return Err(CoreError::validation(error_msg));
                                 }
                             }
                             "stdio"
@@ -232,7 +232,7 @@ impl MCPConfigService {
                                     server_id
                                 );
                                 error!("{}", error_msg);
-                                return Err(BitFunError::validation(error_msg));
+                                return Err(CoreError::validation(error_msg));
                             }
                         },
                         _ => unreachable!(),
@@ -244,7 +244,7 @@ impl MCPConfigService {
                             server_id
                         );
                         error!("{}", error_msg);
-                        return Err(BitFunError::validation(error_msg));
+                        return Err(CoreError::validation(error_msg));
                     }
 
                     if (effective_transport == "streamable-http" || effective_transport == "sse")
@@ -255,7 +255,7 @@ impl MCPConfigService {
                             server_id, effective_transport
                         );
                         error!("{}", error_msg);
-                        return Err(BitFunError::validation(error_msg));
+                        return Err(CoreError::validation(error_msg));
                     }
 
                     if let Some(args) = obj.get("args") {
@@ -263,7 +263,7 @@ impl MCPConfigService {
                             let error_msg =
                                 format!("Server '{}' 'args' field must be an array", server_id);
                             error!("{}", error_msg);
-                            return Err(BitFunError::validation(error_msg));
+                            return Err(CoreError::validation(error_msg));
                         }
                     }
 
@@ -272,7 +272,7 @@ impl MCPConfigService {
                             let error_msg =
                                 format!("Server '{}' 'env' field must be an object", server_id);
                             error!("{}", error_msg);
-                            return Err(BitFunError::validation(error_msg));
+                            return Err(CoreError::validation(error_msg));
                         }
                     }
 
@@ -281,7 +281,7 @@ impl MCPConfigService {
                             let error_msg =
                                 format!("Server '{}' 'headers' field must be an object", server_id);
                             error!("{}", error_msg);
-                            return Err(BitFunError::validation(error_msg));
+                            return Err(CoreError::validation(error_msg));
                         }
                     }
 
@@ -290,7 +290,7 @@ impl MCPConfigService {
                             let error_msg =
                                 format!("Server '{}' 'oauth' field must be an object", server_id);
                             error!("{}", error_msg);
-                            return Err(BitFunError::validation(error_msg));
+                            return Err(CoreError::validation(error_msg));
                         }
                     }
 
@@ -299,13 +299,13 @@ impl MCPConfigService {
                             let error_msg =
                                 format!("Server '{}' 'xaa' field must be an object", server_id);
                             error!("{}", error_msg);
-                            return Err(BitFunError::validation(error_msg));
+                            return Err(CoreError::validation(error_msg));
                         }
                     }
                 } else {
                     let error_msg = format!("Server '{}' config must be an object", server_id);
                     error!("{}", error_msg);
-                    return Err(BitFunError::validation(error_msg));
+                    return Err(CoreError::validation(error_msg));
                 }
             }
         }
@@ -315,16 +315,16 @@ impl MCPConfigService {
             .await
             .map_err(|e| {
                 let error_msg = match e {
-                    BitFunError::Io(ref io_err) => {
+                    CoreError::Io(ref io_err) => {
                         format!("Failed to write config file: {}", io_err)
                     }
-                    BitFunError::Serialization(ref ser_err) => {
+                    CoreError::Serialization(ref ser_err) => {
                         format!("Failed to serialize config: {}", ser_err)
                     }
                     _ => format!("Failed to save config: {}", e),
                 };
                 error!("{}", error_msg);
-                BitFunError::config(error_msg)
+                CoreError::config(error_msg)
             })?;
 
         info!("MCP config saved to app.json");

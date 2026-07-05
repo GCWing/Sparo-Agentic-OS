@@ -1,7 +1,7 @@
 //! Storage Management API
 
 use crate::api::AppState;
-use bitfun_core::infrastructure::storage::{
+use sparo_core::infrastructure::storage::{
     CleanupPolicy, CleanupResult, CleanupService, ResetApplicationDataRequest,
     ResetApplicationDataResult, ResetApplicationDataService,
 };

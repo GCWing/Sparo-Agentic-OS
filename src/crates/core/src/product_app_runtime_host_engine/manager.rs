@@ -13,7 +13,7 @@ use crate::product_app_runtime_host_engine::types::{
     ProductAppRuntimeHostRuntimeState, ProductAppRuntimeHostSource, ProductAppRuntimeHostSurface,
     ProductAppRuntimeHostSurfaceMeta,
 };
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use chrono::Utc;
 use serde_json::json;
 use std::collections::{HashMap, VecDeque};
@@ -230,7 +230,7 @@ impl ProductAppRuntimeHostManager {
         runtime: &ProductAppRuntimeHostRuntimeState,
         theme: &str,
         workspace_root: Option<&Path>,
-    ) -> BitFunResult<String> {
+    ) -> CoreResult<String> {
         let app_data_dir = self.path_manager.product_app_runtime_host_dir(app_id);
         let app_data_dir_str = app_data_dir.to_string_lossy().to_string();
         let workspace_dir = Self::workspace_dir_string(workspace_root);
@@ -247,7 +247,7 @@ impl ProductAppRuntimeHostManager {
     }
 
     /// List all ProductAppRuntimeHostSurface metadata.
-    pub async fn list(&self) -> BitFunResult<Vec<ProductAppRuntimeHostSurfaceMeta>> {
+    pub async fn list(&self) -> CoreResult<Vec<ProductAppRuntimeHostSurfaceMeta>> {
         let ids = self.storage.list_app_ids().await?;
         let mut metas = Vec::with_capacity(ids.len());
         for id in ids {
@@ -279,10 +279,10 @@ impl ProductAppRuntimeHostManager {
             .join(RECENT_PRODUCT_APP_RUNTIME_HOSTS_FILE)
     }
 
-    async fn save_recent_opened_ids(&self, ids: &[String]) -> BitFunResult<()> {
+    async fn save_recent_opened_ids(&self, ids: &[String]) -> CoreResult<()> {
         let root = self.path_manager.product_app_runtime_hosts_dir();
         tokio::fs::create_dir_all(&root).await.map_err(|e| {
-            BitFunError::io(format!(
+            CoreError::io(format!(
                 "Failed to create Product Apps dir {}: {}",
                 root.display(),
                 e
@@ -290,13 +290,13 @@ impl ProductAppRuntimeHostManager {
         })?;
         let path = self.recent_opened_path();
         let content = serde_json::to_string_pretty(ids).map_err(|e| {
-            BitFunError::parse(format!(
+            CoreError::parse(format!(
                 "Failed to encode recent Product App Runtime hosts: {}",
                 e
             ))
         })?;
         tokio::fs::write(&path, content).await.map_err(|e| {
-            BitFunError::io(format!(
+            CoreError::io(format!(
                 "Failed to write recent Product App Runtime hosts {}: {}",
                 path.display(),
                 e
@@ -305,13 +305,13 @@ impl ProductAppRuntimeHostManager {
     }
 
     /// List recently opened Product App Runtime Host surface IDs, newest first.
-    pub async fn list_recent_opened(&self) -> BitFunResult<Vec<String>> {
+    pub async fn list_recent_opened(&self) -> CoreResult<Vec<String>> {
         let path = self.recent_opened_path();
         let content = match tokio::fs::read_to_string(&path).await {
             Ok(content) => content,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
             Err(e) => {
-                return Err(BitFunError::io(format!(
+                return Err(CoreError::io(format!(
                     "Failed to read recent Product App Runtime hosts {}: {}",
                     path.display(),
                     e
@@ -336,7 +336,7 @@ impl ProductAppRuntimeHostManager {
     }
 
     /// Record a Product App Runtime Host surface as recently opened and persist the newest-first list.
-    pub async fn record_recent_opened(&self, app_id: &str) -> BitFunResult<Vec<String>> {
+    pub async fn record_recent_opened(&self, app_id: &str) -> CoreResult<Vec<String>> {
         self.storage.load_meta(app_id).await?;
         let mut ids = self.list_recent_opened().await?;
         ids.retain(|id| id != app_id);
@@ -346,7 +346,7 @@ impl ProductAppRuntimeHostManager {
         Ok(ids)
     }
 
-    async fn remove_recent_opened(&self, app_id: &str) -> BitFunResult<()> {
+    async fn remove_recent_opened(&self, app_id: &str) -> CoreResult<()> {
         let mut ids = self.list_recent_opened().await?;
         let original_len = ids.len();
         ids.retain(|id| id != app_id);
@@ -357,7 +357,7 @@ impl ProductAppRuntimeHostManager {
     }
 
     /// Get full ProductAppRuntimeHostSurface by id.
-    pub async fn get(&self, app_id: &str) -> BitFunResult<ProductAppRuntimeHostSurface> {
+    pub async fn get(&self, app_id: &str) -> CoreResult<ProductAppRuntimeHostSurface> {
         let mut app = self.storage.load(app_id).await?;
         if Self::ensure_runtime_state(&mut app) {
             self.storage.save(&app).await?;
@@ -382,7 +382,7 @@ impl ProductAppRuntimeHostManager {
         ai_context: Option<ProductAppRuntimeHostAiContext>,
         permission_rationale: Option<String>,
         workspace_root: Option<&Path>,
-    ) -> BitFunResult<ProductAppRuntimeHostSurface> {
+    ) -> CoreResult<ProductAppRuntimeHostSurface> {
         let id = Uuid::new_v4().to_string();
         let now = Utc::now().timestamp_millis();
 
@@ -440,7 +440,7 @@ impl ProductAppRuntimeHostManager {
         ai_context: Option<ProductAppRuntimeHostAiContext>,
         permission_rationale: Option<String>,
         workspace_root: Option<&Path>,
-    ) -> BitFunResult<ProductAppRuntimeHostSurface> {
+    ) -> CoreResult<ProductAppRuntimeHostSurface> {
         let mut app = self.storage.load(app_id).await?;
         let previous_app = app.clone();
         let source_changed = source.is_some();
@@ -489,7 +489,7 @@ impl ProductAppRuntimeHostManager {
                 .map(str::trim)
                 .is_some_and(|value| !value.is_empty());
             if !has_rationale {
-                return Err(crate::util::errors::BitFunError::validation(
+                return Err(crate::error::CoreError::validation(
                     "Product App Runtime Host permissions include {workspace}; meta.permission_rationale is required"
                         .to_string(),
                 ));
@@ -550,7 +550,7 @@ impl ProductAppRuntimeHostManager {
         backends: Vec<ProductAppRuntimeHostBackendBinding>,
         interaction: Option<ProductAppRuntimeHostInteraction>,
         workspace_root: Option<&Path>,
-    ) -> BitFunResult<ProductAppRuntimeHostSurface> {
+    ) -> CoreResult<ProductAppRuntimeHostSurface> {
         match self.storage.load(app_id).await {
             Ok(existing)
                 if existing.name == name
@@ -601,7 +601,7 @@ impl ProductAppRuntimeHostManager {
                 self.clear_runtime_issues(app_id).await;
                 Ok(existing)
             }
-            Err(BitFunError::NotFound(_)) => {
+            Err(CoreError::NotFound(_)) => {
                 let now = Utc::now().timestamp_millis();
                 let runtime = Self::build_runtime_state(
                     1,
@@ -647,7 +647,7 @@ impl ProductAppRuntimeHostManager {
     }
 
     /// Delete ProductAppRuntimeHostSurface and its directory.
-    pub async fn delete(&self, app_id: &str) -> BitFunResult<()> {
+    pub async fn delete(&self, app_id: &str) -> CoreResult<()> {
         self.granted_paths.write().await.remove(app_id);
         self.remove_recent_opened(app_id).await?;
         self.storage.delete(app_id).await
@@ -691,7 +691,7 @@ impl ProductAppRuntimeHostManager {
     }
 
     /// Get app storage (KV) value.
-    pub async fn get_storage(&self, app_id: &str, key: &str) -> BitFunResult<serde_json::Value> {
+    pub async fn get_storage(&self, app_id: &str, key: &str) -> CoreResult<serde_json::Value> {
         let storage = self.storage.load_app_storage(app_id).await?;
         Ok(storage.get(key).cloned().unwrap_or(serde_json::Value::Null))
     }
@@ -970,14 +970,14 @@ impl ProductAppRuntimeHostManager {
         app_id: &str,
         key: &str,
         value: serde_json::Value,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         self.storage.save_app_storage(app_id, key, value).await
     }
 
     pub async fn mark_deps_installed(
         &self,
         app_id: &str,
-    ) -> BitFunResult<ProductAppRuntimeHostSurface> {
+    ) -> CoreResult<ProductAppRuntimeHostSurface> {
         let mut app = self.storage.load(app_id).await?;
         Self::ensure_runtime_state(&mut app);
         app.runtime.deps_dirty = false;
@@ -989,7 +989,7 @@ impl ProductAppRuntimeHostManager {
     pub async fn clear_worker_restart_required(
         &self,
         app_id: &str,
-    ) -> BitFunResult<ProductAppRuntimeHostSurface> {
+    ) -> CoreResult<ProductAppRuntimeHostSurface> {
         let mut app = self.storage.load(app_id).await?;
         Self::ensure_runtime_state(&mut app);
         if app.runtime.worker_restart_required {
@@ -1000,7 +1000,7 @@ impl ProductAppRuntimeHostManager {
     }
 
     /// List version numbers for an app.
-    pub async fn list_versions(&self, app_id: &str) -> BitFunResult<Vec<u32>> {
+    pub async fn list_versions(&self, app_id: &str) -> CoreResult<Vec<u32>> {
         self.storage.list_versions(app_id).await
     }
 
@@ -1009,7 +1009,7 @@ impl ProductAppRuntimeHostManager {
         &self,
         app_id: &str,
         version: u32,
-    ) -> BitFunResult<ProductAppRuntimeHostSurface> {
+    ) -> CoreResult<ProductAppRuntimeHostSurface> {
         let current = self.storage.load(app_id).await?;
         let mut app = self.storage.load_version(app_id, version).await?;
         let now = Utc::now().timestamp_millis();
@@ -1037,7 +1037,7 @@ impl ProductAppRuntimeHostManager {
         app_id: &str,
         theme: &str,
         workspace_root: Option<&Path>,
-    ) -> BitFunResult<ProductAppRuntimeHostSurface> {
+    ) -> CoreResult<ProductAppRuntimeHostSurface> {
         let mut app = self.storage.load(app_id).await?;
         Self::ensure_runtime_state(&mut app);
         app.compiled_html = self.compile_source(
@@ -1060,7 +1060,7 @@ impl ProductAppRuntimeHostManager {
         app_id: &str,
         theme: &str,
         workspace_root: Option<&Path>,
-    ) -> BitFunResult<ProductAppRuntimeHostSurface> {
+    ) -> CoreResult<ProductAppRuntimeHostSurface> {
         let previous_app = self.storage.load(app_id).await?;
         let mut app = previous_app.clone();
         let meta = self.storage.load_meta(app_id).await?;
@@ -1080,7 +1080,7 @@ impl ProductAppRuntimeHostManager {
                 .map(str::trim)
                 .is_some_and(|value| !value.is_empty());
             if !has_rationale {
-                return Err(BitFunError::validation(
+                return Err(CoreError::validation(
                     "Product App Runtime Host permissions include {workspace}; meta.permission_rationale is required"
                         .to_string(),
                 ));
@@ -1120,12 +1120,12 @@ impl ProductAppRuntimeHostManager {
         &self,
         source_path: PathBuf,
         workspace_root: Option<&Path>,
-    ) -> BitFunResult<ProductAppRuntimeHostSurface> {
-        use crate::util::errors::BitFunError;
+    ) -> CoreResult<ProductAppRuntimeHostSurface> {
+        use crate::error::CoreError;
 
         let src = source_path.as_path();
         if !src.is_dir() {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Not a directory: {}",
                 src.display()
             )));
@@ -1134,20 +1134,20 @@ impl ProductAppRuntimeHostManager {
         let meta_path = src.join("meta.json");
         let source_dir = src.join("source");
         if !meta_path.exists() {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Missing meta.json in {}",
                 src.display()
             )));
         }
         if !source_dir.is_dir() {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Missing source/ directory in {}",
                 src.display()
             )));
         }
         for required in &["index.html", "worker.js"] {
             if !source_dir.join(required).exists() {
-                return Err(BitFunError::validation(format!(
+                return Err(CoreError::validation(format!(
                     "Missing source/{} in {}",
                     required,
                     src.display()
@@ -1157,9 +1157,9 @@ impl ProductAppRuntimeHostManager {
 
         let meta_content = tokio::fs::read_to_string(&meta_path)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to read meta.json: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to read meta.json: {}", e)))?;
         let mut meta: ProductAppRuntimeHostSurfaceMeta = serde_json::from_str(&meta_content)
-            .map_err(|e| BitFunError::parse(format!("Invalid meta.json: {}", e)))?;
+            .map_err(|e| CoreError::parse(format!("Invalid meta.json: {}", e)))?;
 
         let id = Uuid::new_v4().to_string();
         let now = Utc::now().timestamp_millis();
@@ -1171,12 +1171,12 @@ impl ProductAppRuntimeHostManager {
         let dest_source = dest_dir.join("source");
         tokio::fs::create_dir_all(&dest_source)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to create app dir: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to create app dir: {}", e)))?;
 
-        let meta_json = serde_json::to_string_pretty(&meta).map_err(BitFunError::from)?;
+        let meta_json = serde_json::to_string_pretty(&meta).map_err(CoreError::from)?;
         tokio::fs::write(dest_dir.join("meta.json"), meta_json)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to write meta.json: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to write meta.json: {}", e)))?;
 
         ProductAppRuntimeHostStorage::copy_source_dir_recursive(&source_dir, &dest_source).await?;
         let esm_path = source_dir.join("esm_dependencies.json");
@@ -1184,29 +1184,29 @@ impl ProductAppRuntimeHostManager {
             tokio::fs::copy(&esm_path, dest_source.join("esm_dependencies.json"))
                 .await
                 .map_err(|e| {
-                    BitFunError::io(format!("Failed to copy esm_dependencies.json: {}", e))
+                    CoreError::io(format!("Failed to copy esm_dependencies.json: {}", e))
                 })?;
         } else {
             tokio::fs::write(dest_source.join("esm_dependencies.json"), "[]")
                 .await
-                .map_err(|_e| BitFunError::io("Failed to write esm_dependencies.json"))?;
+                .map_err(|_e| CoreError::io("Failed to write esm_dependencies.json"))?;
         }
         let i18n_path = source_dir.join("i18n.json");
         if i18n_path.exists() {
             tokio::fs::copy(&i18n_path, dest_source.join("i18n.json"))
                 .await
-                .map_err(|e| BitFunError::io(format!("Failed to copy i18n.json: {}", e)))?;
+                .map_err(|e| CoreError::io(format!("Failed to copy i18n.json: {}", e)))?;
         } else {
             tokio::fs::write(dest_source.join("i18n.json"), "{}")
                 .await
-                .map_err(|_e| BitFunError::io("Failed to write i18n.json"))?;
+                .map_err(|_e| CoreError::io("Failed to write i18n.json"))?;
         }
 
         let pkg_src = src.join("package.json");
         if pkg_src.exists() {
             tokio::fs::copy(&pkg_src, dest_dir.join("package.json"))
                 .await
-                .map_err(|e| BitFunError::io(format!("Failed to copy package.json: {}", e)))?;
+                .map_err(|e| CoreError::io(format!("Failed to copy package.json: {}", e)))?;
         } else {
             let pkg = serde_json::json!({
                 "name": format!("product-app-{}", id),
@@ -1215,27 +1215,27 @@ impl ProductAppRuntimeHostManager {
             });
             tokio::fs::write(
                 dest_dir.join("package.json"),
-                serde_json::to_string_pretty(&pkg).map_err(BitFunError::from)?,
+                serde_json::to_string_pretty(&pkg).map_err(CoreError::from)?,
             )
             .await
-            .map_err(|_e| BitFunError::io("Failed to write package.json"))?;
+            .map_err(|_e| CoreError::io("Failed to write package.json"))?;
         }
 
         let storage_src = src.join("storage.json");
         if storage_src.exists() {
             tokio::fs::copy(&storage_src, dest_dir.join("storage.json"))
                 .await
-                .map_err(|e| BitFunError::io(format!("Failed to copy storage.json: {}", e)))?;
+                .map_err(|e| CoreError::io(format!("Failed to copy storage.json: {}", e)))?;
         } else {
             tokio::fs::write(dest_dir.join("storage.json"), "{}")
                 .await
-                .map_err(|_e| BitFunError::io("Failed to write storage.json"))?;
+                .map_err(|_e| CoreError::io("Failed to write storage.json"))?;
         }
 
         let placeholder_html = "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body>Loading...</body></html>";
         tokio::fs::write(dest_dir.join("compiled.html"), placeholder_html)
             .await
-            .map_err(|_e| BitFunError::io("Failed to write placeholder compiled.html"))?;
+            .map_err(|_e| CoreError::io("Failed to write placeholder compiled.html"))?;
 
         let mut app = self.recompile(&id, "dark", workspace_root).await?;
         app.runtime = Self::build_runtime_state(

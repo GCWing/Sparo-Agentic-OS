@@ -63,11 +63,11 @@ describe('L1 File Tree', () => {
       
       // Try to click on Files nav item - try multiple selectors
       const fileNavSelectors = [
-        '//button[contains(@class, "bitfun-nav-panel__item")]//span[contains(text(), "Files")]/..',
-        '//button[contains(@class, "bitfun-nav-panel__item")]//span[contains(text(), "文件")]/..',
-        '.bitfun-nav-panel__item[aria-label*="Files"]',
-        '.bitfun-nav-panel__item[aria-label*="文件"]',
-        'button.bitfun-nav-panel__item:first-child', // Files is usually first
+        '//button[contains(@class, "sparo-nav-panel__item")]//span[contains(text(), "Files")]/..',
+        '//button[contains(@class, "sparo-nav-panel__item")]//span[contains(text(), "文件")]/..',
+        '.sparo-nav-panel__item[aria-label*="Files"]',
+        '.sparo-nav-panel__item[aria-label*="文件"]',
+        'button.sparo-nav-panel__item:first-child', // Files is usually first
       ];
 
       let navigated = false;
@@ -113,12 +113,12 @@ describe('L1 File Tree', () => {
       await browser.pause(1000);
 
       const selectors = [
-        '.bitfun-file-explorer__tree',
+        '.sparo-file-explorer__tree',
         '[data-file-tree]',
         '.file-tree',
         '[class*="file-tree"]',
         '[class*="FileTree"]',
-        '.bitfun-file-explorer',
+        '.sparo-file-explorer',
         '[class*="file-explorer"]',
       ];
 
@@ -139,7 +139,7 @@ describe('L1 File Tree', () => {
       if (!treeFound) {
         // Try to find any file-related container
         console.log('[L1] Searching for any file-related elements...');
-        const fileExplorer = await $('.bitfun-file-explorer, .bitfun-explorer-scene, [class*="Explorer"]');
+        const fileExplorer = await $('.sparo-file-explorer, .sparo-explorer-scene, [class*="Explorer"]');
         const explorerExists = await fileExplorer.isExisting();
         console.log(`[L1] File explorer exists: ${explorerExists}`);
         
@@ -171,7 +171,7 @@ describe('L1 File Tree', () => {
         return;
       }
 
-      const fileNodes = await browser.$$('.bitfun-file-explorer__node');
+      const fileNodes = await browser.$$('.sparo-file-explorer__node');
       console.log('[L1] File nodes count:', fileNodes.length);
 
       if (fileNodes.length === 0) {
@@ -269,7 +269,7 @@ describe('L1 File Tree', () => {
         return;
       }
 
-      const dirContent = await browser.$$('.bitfun-file-explorer__node-content');
+      const dirContent = await browser.$$('.sparo-file-explorer__node-content');
       if (dirContent.length === 0) {
         console.log('[L1] No directory content to click');
         this.skip();
@@ -320,7 +320,7 @@ describe('L1 File Tree', () => {
       console.log('[L1] Clicking file:', filePath);
 
       // Click on the node content, not the node itself
-      const content = await firstFile.$('.bitfun-file-explorer__node-content');
+      const content = await firstFile.$('.sparo-file-explorer__node-content');
       const contentExists = await content.isExisting();
 
       if (contentExists) {
@@ -341,7 +341,7 @@ describe('L1 File Tree', () => {
         return;
       }
 
-      const selectedNodes = await browser.$$('.bitfun-file-explorer__node-content--selected');
+      const selectedNodes = await browser.$$('.sparo-file-explorer__node-content--selected');
       console.log('[L1] Selected nodes:', selectedNodes.length);
 
       expect(selectedNodes.length).toBeGreaterThanOrEqual(0);

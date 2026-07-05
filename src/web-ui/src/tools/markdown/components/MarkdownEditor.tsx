@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Markdown Editor Component
  * 
  * File-oriented Markdown editor with source, preview, and rich Tiptap modes.

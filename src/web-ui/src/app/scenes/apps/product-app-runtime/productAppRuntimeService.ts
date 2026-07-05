@@ -1,4 +1,4 @@
-﻿import { productAppRuntimeAPI } from '@/infrastructure/api/service-api/ProductAppRuntimeAPI';
+import { productAppRuntimeAPI } from '@/infrastructure/api/service-api/ProductAppRuntimeAPI';
 import type {
   ProductAppCatalogEntry,
 } from '@/infrastructure/api/service-api/AppCatalogAPI';

@@ -7,7 +7,7 @@ use crate::agent_component::{
 };
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
 use crate::agentic::tools::get_all_registered_tool_names;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
@@ -34,11 +34,11 @@ fn examples_from_value(value: Option<&Value>) -> Vec<AgentComponentExample> {
 fn manifest_from_input(
     input: &Value,
     context: &ToolUseContext,
-) -> BitFunResult<AgentComponentManifest> {
+) -> CoreResult<AgentComponentManifest> {
     let name = input
         .get("name")
         .and_then(Value::as_str)
-        .ok_or_else(|| BitFunError::validation("name is required"))?
+        .ok_or_else(|| CoreError::validation("name is required"))?
         .trim()
         .to_string();
     let id = input
@@ -72,7 +72,7 @@ fn manifest_from_input(
         .unwrap_or_default();
     let level = parse_level(input.get("level"));
     if level == AgentComponentLevel::Project && workspace_root(context).is_none() {
-        return Err(BitFunError::validation(
+        return Err(CoreError::validation(
             "Project Agent Components require a workspace path",
         ));
     }
@@ -214,7 +214,7 @@ fn agent_component_schema(required_prompt: bool) -> Value {
     })
 }
 
-async fn validate_selected_tools(manifest: &AgentComponentManifest) -> BitFunResult<()> {
+async fn validate_selected_tools(manifest: &AgentComponentManifest) -> CoreResult<()> {
     let valid_tools = get_all_registered_tool_names().await;
     let invalid: Vec<String> = manifest
         .tools
@@ -223,7 +223,7 @@ async fn validate_selected_tools(manifest: &AgentComponentManifest) -> BitFunRes
         .cloned()
         .collect();
     if !invalid.is_empty() {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Unknown tools: {}",
             invalid.join(", ")
         )));
@@ -238,7 +238,7 @@ impl Tool for ListAgentComponentsTool {
     fn name(&self) -> &str {
         "ListAgentComponents"
     }
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok("List installed Agent Component implementation packages.".to_string())
     }
     fn input_schema(&self) -> Value {
@@ -251,7 +251,7 @@ impl Tool for ListAgentComponentsTool {
         &self,
         _input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let apps = AgentComponentManager::list(workspace_root(context).as_deref())?;
         Ok(vec![ToolResult::ok(
             json!({ "apps": apps }),
@@ -267,7 +267,7 @@ impl Tool for GetAgentComponentTool {
     fn name(&self) -> &str {
         "GetAgentComponent"
     }
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok("Read a complete Agent Component package manifest and prompt.".to_string())
     }
     fn input_schema(&self) -> Value {
@@ -280,11 +280,11 @@ impl Tool for GetAgentComponentTool {
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let id = input
             .get("id")
             .and_then(Value::as_str)
-            .ok_or_else(|| BitFunError::validation("id is required"))?;
+            .ok_or_else(|| CoreError::validation("id is required"))?;
         let level = input.get("level").map(|v| parse_level(Some(v)));
         let package = AgentComponentManager::get(id, level, workspace_root(context).as_deref())?;
         Ok(vec![ToolResult::ok(
@@ -301,7 +301,7 @@ impl Tool for ValidateAgentComponentPackageTool {
     fn name(&self) -> &str {
         "ValidateAgentComponentPackage"
     }
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok("Validate an Agent Component draft before creating or updating it.".to_string())
     }
     fn input_schema(&self) -> Value {
@@ -314,12 +314,12 @@ impl Tool for ValidateAgentComponentPackageTool {
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let mut manifest = manifest_from_input(input, context)?;
         AgentComponentManager::validate_manifest(&mut manifest)?;
         let prompt = input.get("prompt").and_then(Value::as_str).unwrap_or("");
         if prompt.trim().is_empty() {
-            return Err(BitFunError::validation("prompt is required"));
+            return Err(CoreError::validation("prompt is required"));
         }
         validate_selected_tools(&manifest).await?;
         Ok(vec![ToolResult::ok(
@@ -336,7 +336,7 @@ impl Tool for CreateAgentComponentTool {
     fn name(&self) -> &str {
         "CreateAgentComponent"
     }
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok("Create and register an Agent Component implementation package.".to_string())
     }
     fn input_schema(&self) -> Value {
@@ -352,14 +352,14 @@ impl Tool for CreateAgentComponentTool {
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let mut manifest = manifest_from_input(input, context)?;
         AgentComponentManager::validate_manifest(&mut manifest)?;
         validate_selected_tools(&manifest).await?;
         let prompt = input
             .get("prompt")
             .and_then(Value::as_str)
-            .ok_or_else(|| BitFunError::validation("prompt is required"))?;
+            .ok_or_else(|| CoreError::validation("prompt is required"))?;
         let package = AgentComponentManager::create_or_update(
             manifest,
             prompt.to_string(),
@@ -381,7 +381,7 @@ impl Tool for UpdateAgentComponentTool {
     fn name(&self) -> &str {
         "UpdateAgentComponent"
     }
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok("Update and re-register an Agent Component implementation package.".to_string())
     }
     fn input_schema(&self) -> Value {
@@ -397,14 +397,14 @@ impl Tool for UpdateAgentComponentTool {
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let mut manifest = manifest_from_input(input, context)?;
         AgentComponentManager::validate_manifest(&mut manifest)?;
         validate_selected_tools(&manifest).await?;
         let prompt = input
             .get("prompt")
             .and_then(Value::as_str)
-            .ok_or_else(|| BitFunError::validation("prompt is required"))?;
+            .ok_or_else(|| CoreError::validation("prompt is required"))?;
         let package = AgentComponentManager::create_or_update(
             manifest,
             prompt.to_string(),
@@ -426,7 +426,7 @@ impl Tool for ListAgentComponentToolOptionsTool {
     fn name(&self) -> &str {
         "ListAgentComponentToolOptions"
     }
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok("List tools that can be selected for an Agent Component.".to_string())
     }
     fn input_schema(&self) -> Value {
@@ -439,7 +439,7 @@ impl Tool for ListAgentComponentToolOptionsTool {
         &self,
         _input: &Value,
         _context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let tools = get_all_registered_tool_names().await;
         Ok(vec![ToolResult::ok(
             json!({ "tools": tools }),
@@ -455,7 +455,7 @@ impl Tool for CreateAgentComponentJsToolTool {
     fn name(&self) -> &str {
         "CreateAgentComponentJsTool"
     }
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok("Create a JavaScript runtime tool inside an Agent Component package.".to_string())
     }
     fn input_schema(&self) -> Value {
@@ -481,21 +481,21 @@ impl Tool for CreateAgentComponentJsToolTool {
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let component_id = input
             .get("componentId")
             .and_then(Value::as_str)
-            .ok_or_else(|| BitFunError::validation("componentId is required"))?;
+            .ok_or_else(|| CoreError::validation("componentId is required"))?;
         let manifest: AgentComponentJsToolManifest = serde_json::from_value(
             input
                 .get("manifest")
                 .cloned()
-                .ok_or_else(|| BitFunError::validation("manifest is required"))?,
+                .ok_or_else(|| CoreError::validation("manifest is required"))?,
         )?;
         let source = input
             .get("source")
             .and_then(Value::as_str)
-            .ok_or_else(|| BitFunError::validation("source is required"))?;
+            .ok_or_else(|| CoreError::validation("source is required"))?;
         let tool_name = AgentComponentManager::create_js_tool(
             component_id,
             input.get("level").map(|v| parse_level(Some(v))),
@@ -518,7 +518,7 @@ impl Tool for TestAgentComponentJsToolTool {
     fn name(&self) -> &str {
         "TestAgentComponentJsTool"
     }
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok("Run an Agent Component JavaScript runtime tool with test input.".to_string())
     }
     fn input_schema(&self) -> Value {
@@ -541,15 +541,15 @@ impl Tool for TestAgentComponentJsToolTool {
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let component_id = input
             .get("componentId")
             .and_then(Value::as_str)
-            .ok_or_else(|| BitFunError::validation("componentId is required"))?;
+            .ok_or_else(|| CoreError::validation("componentId is required"))?;
         let tool_name = input
             .get("toolName")
             .and_then(Value::as_str)
-            .ok_or_else(|| BitFunError::validation("toolName is required"))?;
+            .ok_or_else(|| CoreError::validation("toolName is required"))?;
         let tool_input = input.get("input").unwrap_or(&Value::Null);
         let result = AgentComponentManager::test_js_tool(
             component_id,

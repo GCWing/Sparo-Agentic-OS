@@ -4,7 +4,7 @@ use crate::agentic::tools::computer_use_capability::computer_use_desktop_availab
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
 use crate::agentic::tools::implementations::computer_use_tool::computer_use_execute_mouse_step;
 use crate::service::config::global::GlobalConfigManager;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
@@ -28,7 +28,7 @@ impl Tool for ComputerUseMouseStepTool {
         "ComputerUseMouseStep"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(
             "Move the pointer **one cardinal step** (up / down / left / right) by **`pixels`** (default 32, clamped 1..400) — same as **`ComputerUse`** **`pointer_move_rel`** on macOS scale. **Host blocks this immediately after a `screenshot`** until you reposition with **`move_to_text`**, **`mouse_move`** (`use_screen_coordinates`: true), or **`click_element`** (do not nudge from the JPEG). For diagonals, use **`ComputerUse`** **`pointer_move_rel`**.".to_string(),
         )
@@ -81,15 +81,15 @@ impl Tool for ComputerUseMouseStepTool {
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         if context.is_remote() {
-            return Err(BitFunError::tool(
+            return Err(CoreError::tool(
                 "ComputerUseMouseStep cannot run while the session workspace is remote (SSH)."
                     .to_string(),
             ));
         }
         let host = context.computer_use_host.as_ref().ok_or_else(|| {
-            BitFunError::tool(
+            CoreError::tool(
                 "Computer use is only available in the Sparo OS desktop app.".to_string(),
             )
         })?;

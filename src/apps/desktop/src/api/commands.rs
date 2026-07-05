@@ -8,14 +8,14 @@ use crate::api::path_target::{
     get_path_metadata, path_exists, read_text_file, rename_path, resolve_desktop_path_target,
     write_text_file,
 };
-use bitfun_core::infrastructure::{
+use sparo_core::infrastructure::{
     BatchedFileSearchProgressSink, FileSearchResult, FileSearchResultGroup, FileTreeNode,
     SearchMatchType,
 };
-use bitfun_core::service::file_watch;
-use bitfun_core::service::files_context::FilesContext;
-use bitfun_core::service::workspace::{WorkspaceInfo, WorkspaceKind, WorkspaceOpenOptions};
-use bitfun_core::service::{
+use sparo_core::service::file_watch;
+use sparo_core::service::files_context::FilesContext;
+use sparo_core::service::workspace::{WorkspaceInfo, WorkspaceKind, WorkspaceOpenOptions};
+use sparo_core::service::{
     archive_path_to_zip, copy_path_recursive, default_archive_path, default_extract_path,
     extract_zip_to_dir, move_path_recoverably,
 };
@@ -287,7 +287,7 @@ struct SearchCommandResponse {
 }
 
 fn serialize_search_response(
-    outcome: bitfun_core::infrastructure::FileSearchOutcome,
+    outcome: sparo_core::infrastructure::FileSearchOutcome,
     limit: usize,
 ) -> serde_json::Value {
     serde_json::to_value(SearchCommandResponse {
@@ -335,12 +335,12 @@ pub struct ReorderOpenedWorkspacesRequest {
 
 #[derive(Debug, Deserialize)]
 pub struct TestAIConfigConnectionRequest {
-    pub config: bitfun_core::service::config::types::AIModelConfig,
+    pub config: sparo_core::service::config::types::AIModelConfig,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct ListAIModelsByConfigRequest {
-    pub config: bitfun_core::service::config::types::AIModelConfig,
+    pub config: sparo_core::service::config::types::AIModelConfig,
 }
 
 #[derive(Debug, Deserialize)]
@@ -589,16 +589,16 @@ pub struct SystemFsWritePathRequest {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FileWorkbenchPlanOperationsRequest {
-    pub scope: bitfun_core::service::WorkbenchFileScope,
+    pub scope: sparo_core::service::WorkbenchFileScope,
     pub cwd: String,
-    pub selection: Vec<bitfun_core::service::WorkbenchFileEntry>,
-    pub intent: bitfun_core::service::FileOperationIntent,
+    pub selection: Vec<sparo_core::service::WorkbenchFileEntry>,
+    pub intent: sparo_core::service::FileOperationIntent,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FileWorkbenchExecutePlanRequest {
-    pub plan: bitfun_core::service::FileOperationPlan,
+    pub plan: sparo_core::service::FileOperationPlan,
     pub confirmation_token: String,
 }
 
@@ -692,7 +692,7 @@ async fn clear_active_workspace_context(state: &State<'_, AppState>, app: &AppHa
 async fn apply_active_workspace_context(
     state: &State<'_, AppState>,
     app: &AppHandle,
-    workspace_info: &bitfun_core::service::workspace::manager::WorkspaceInfo,
+    workspace_info: &sparo_core::service::workspace::manager::WorkspaceInfo,
 ) {
     #[cfg(not(target_os = "macos"))]
     let _ = app;
@@ -701,7 +701,7 @@ async fn apply_active_workspace_context(
 
     *state.workspace_path.write().await = Some(workspace_info.root_path.clone());
 
-    if let Err(e) = bitfun_core::service::snapshot::initialize_snapshot_manager_for_workspace(
+    if let Err(e) = sparo_core::service::snapshot::initialize_snapshot_manager_for_workspace(
         workspace_info.root_path.clone(),
         None,
     )
@@ -785,11 +785,11 @@ pub async fn test_ai_connection(state: State<'_, AppState>) -> Result<bool, Stri
 #[tauri::command]
 pub async fn initialize_ai(state: State<'_, AppState>) -> Result<String, String> {
     let config_service = &state.config_service;
-    let global_config: bitfun_core::service::config::GlobalConfig = config_service
+    let global_config: sparo_core::service::config::GlobalConfig = config_service
         .get_config(None)
         .await
         .map_err(|e| format!("Failed to get configuration: {}", e))?;
-    let stream_options = bitfun_core::infrastructure::ai::build_stream_options(&global_config.ai);
+    let stream_options = sparo_core::infrastructure::ai::build_stream_options(&global_config.ai);
 
     let primary_model_id = global_config.ai.default_models.primary.ok_or_else(|| {
         "Primary model not configured, please configure it in settings".to_string()
@@ -801,9 +801,9 @@ pub async fn initialize_ai(state: State<'_, AppState>) -> Result<String, String>
         .find(|m| m.id == primary_model_id)
         .ok_or_else(|| format!("Primary model '{}' does not exist", primary_model_id))?;
 
-    let ai_config = bitfun_core::util::types::AIConfig::try_from(model_config.clone())
+    let ai_config = sparo_core::util::types::AIConfig::try_from(model_config.clone())
         .map_err(|e| format!("Failed to convert AI configuration: {}", e))?;
-    let ai_client = bitfun_core::infrastructure::ai::AIClient::new_with_runtime_options(
+    let ai_client = sparo_core::infrastructure::ai::AIClient::new_with_runtime_options(
         ai_config,
         None,
         stream_options,
@@ -823,18 +823,18 @@ pub async fn initialize_ai(state: State<'_, AppState>) -> Result<String, String>
 
 async fn create_transient_ai_client_for_config(
     state: &State<'_, AppState>,
-    model_config: bitfun_core::service::config::types::AIModelConfig,
-) -> Result<bitfun_core::infrastructure::ai::AIClient, String> {
+    model_config: sparo_core::service::config::types::AIModelConfig,
+) -> Result<sparo_core::infrastructure::ai::AIClient, String> {
     let auth = model_config.auth.clone();
-    let mut ai_config: bitfun_core::util::types::AIConfig = model_config
+    let mut ai_config: sparo_core::util::types::AIConfig = model_config
         .try_into()
         .map_err(|e| format!("Failed to convert configuration: {}", e))?;
 
-    bitfun_core::infrastructure::ai::client_factory::apply_cli_credential(&auth, &mut ai_config)
+    sparo_core::infrastructure::ai::client_factory::apply_cli_credential(&auth, &mut ai_config)
         .await
         .map_err(|e| format!("Failed to resolve CLI credential: {}", e))?;
 
-    let global_config: bitfun_core::service::config::GlobalConfig = state
+    let global_config: sparo_core::service::config::GlobalConfig = state
         .config_service
         .get_config(None)
         .await
@@ -844,10 +844,10 @@ async fn create_transient_ai_client_for_config(
     } else {
         None
     };
-    let stream_options = bitfun_core::infrastructure::ai::build_stream_options(&global_config.ai);
+    let stream_options = sparo_core::infrastructure::ai::build_stream_options(&global_config.ai);
 
     Ok(
-        bitfun_core::infrastructure::ai::AIClient::new_with_runtime_options(
+        sparo_core::infrastructure::ai::AIClient::new_with_runtime_options(
             ai_config,
             proxy_config,
             stream_options,
@@ -859,16 +859,16 @@ async fn create_transient_ai_client_for_config(
 pub async fn test_ai_config_connection(
     state: State<'_, AppState>,
     request: TestAIConfigConnectionRequest,
-) -> Result<bitfun_core::util::types::ConnectionTestResult, String> {
+) -> Result<sparo_core::util::types::ConnectionTestResult, String> {
     let model_name = request.config.name.clone();
     let supports_image_input = request.config.capabilities.iter().any(|cap| {
         matches!(
             cap,
-            bitfun_core::service::config::types::ModelCapability::ImageUnderstanding
+            sparo_core::service::config::types::ModelCapability::ImageUnderstanding
         )
     }) || matches!(
         request.config.category,
-        bitfun_core::service::config::types::ModelCategory::Multimodal
+        sparo_core::service::config::types::ModelCategory::Multimodal
     );
 
     let ai_client = create_transient_ai_client_for_config(&state, request.config)
@@ -895,7 +895,7 @@ pub async fn test_ai_config_connection(
                             result.response_time_ms + image_result.response_time_ms;
 
                         if !image_result.success {
-                            let merged = bitfun_core::util::types::ConnectionTestResult {
+                            let merged = sparo_core::util::types::ConnectionTestResult {
                                 success: false,
                                 response_time_ms,
                                 model_response: image_result
@@ -911,7 +911,7 @@ pub async fn test_ai_config_connection(
                             return Ok(merged);
                         }
 
-                        let merged = bitfun_core::util::types::ConnectionTestResult {
+                        let merged = sparo_core::util::types::ConnectionTestResult {
                             success: true,
                             response_time_ms,
                             model_response: image_result.model_response.or(result.model_response),
@@ -954,7 +954,7 @@ pub async fn test_ai_config_connection(
 pub async fn list_ai_models_by_config(
     state: State<'_, AppState>,
     request: ListAIModelsByConfigRequest,
-) -> Result<Vec<bitfun_core::util::types::RemoteModelInfo>, String> {
+) -> Result<Vec<sparo_core::util::types::RemoteModelInfo>, String> {
     let config_name = request.config.name.clone();
     let ai_client = create_transient_ai_client_for_config(&state, request.config).await?;
 
@@ -972,7 +972,7 @@ pub async fn fix_mermaid_code(
     state: State<'_, AppState>,
     request: FixMermaidCodeRequest,
 ) -> Result<String, String> {
-    use bitfun_core::util::types::message::Message;
+    use sparo_core::util::types::message::Message;
 
     let ai_client_guard = state.ai_client.read().await;
     let ai_client = ai_client_guard.as_ref().ok_or_else(|| {
@@ -1046,7 +1046,7 @@ pub async fn set_agent_model(
     model_id: String,
 ) -> Result<String, String> {
     let config_service = &state.config_service;
-    let global_config: bitfun_core::service::config::GlobalConfig = config_service
+    let global_config: sparo_core::service::config::GlobalConfig = config_service
         .get_config(None)
         .await
         .map_err(|e| e.to_string())?;
@@ -1075,7 +1075,7 @@ pub async fn get_agent_models(
     state: State<'_, AppState>,
 ) -> Result<std::collections::HashMap<String, String>, String> {
     let config_service = &state.config_service;
-    let global_config: bitfun_core::service::config::GlobalConfig = config_service
+    let global_config: sparo_core::service::config::GlobalConfig = config_service
         .get_config(None)
         .await
         .map_err(|e| e.to_string())?;
@@ -2019,13 +2019,13 @@ pub async fn reveal_in_explorer(
     {
         if is_directory {
             let normalized_path = path_str.replace("/", "\\");
-            bitfun_core::util::process_manager::create_command("explorer")
+            sparo_core::util::process_manager::create_command("explorer")
                 .arg(&normalized_path)
                 .spawn()
                 .map_err(|e| format!("Failed to open explorer: {}", e))?;
         } else {
             let normalized_path = path_str.replace("/", "\\");
-            bitfun_core::util::process_manager::create_command("explorer")
+            sparo_core::util::process_manager::create_command("explorer")
                 .args(["/select,", &normalized_path])
                 .spawn()
                 .map_err(|e| format!("Failed to open explorer: {}", e))?;
@@ -2035,12 +2035,12 @@ pub async fn reveal_in_explorer(
     #[cfg(target_os = "macos")]
     {
         if is_directory {
-            bitfun_core::util::process_manager::create_command("open")
+            sparo_core::util::process_manager::create_command("open")
                 .arg(&path_str)
                 .spawn()
                 .map_err(|e| format!("Failed to open finder: {}", e))?;
         } else {
-            bitfun_core::util::process_manager::create_command("open")
+            sparo_core::util::process_manager::create_command("open")
                 .args(["-R", &path_str])
                 .spawn()
                 .map_err(|e| format!("Failed to open finder: {}", e))?;
@@ -2056,7 +2056,7 @@ pub async fn reveal_in_explorer(
                 .ok_or_else(|| "Failed to get parent directory".to_string())?
                 .to_path_buf()
         };
-        bitfun_core::util::process_manager::create_command("xdg-open")
+        sparo_core::util::process_manager::create_command("xdg-open")
             .arg(target)
             .spawn()
             .map_err(|e| format!("Failed to open file manager: {}", e))?;
@@ -2066,55 +2066,55 @@ pub async fn reveal_in_explorer(
 }
 
 #[tauri::command]
-pub async fn system_fs_list_drives() -> Result<Vec<bitfun_core::service::DriveInfo>, String> {
-    bitfun_core::service::system_list_drives().map_err(|e| e.to_string())
+pub async fn system_fs_list_drives() -> Result<Vec<sparo_core::service::DriveInfo>, String> {
+    sparo_core::service::system_list_drives().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub async fn system_fs_list_quick_folders() -> Result<Vec<bitfun_core::service::QuickFolder>, String>
+pub async fn system_fs_list_quick_folders() -> Result<Vec<sparo_core::service::QuickFolder>, String>
 {
-    Ok(bitfun_core::service::system_list_quick_folders())
+    Ok(sparo_core::service::system_list_quick_folders())
 }
 
 #[tauri::command]
 pub async fn system_fs_list_dir(
     request: SystemFsPathRequest,
-) -> Result<Vec<bitfun_core::service::FsEntry>, String> {
-    bitfun_core::service::system_list_dir(&request.path).map_err(|e| e.to_string())
+) -> Result<Vec<sparo_core::service::FsEntry>, String> {
+    sparo_core::service::system_list_dir(&request.path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn system_fs_stat(
     request: SystemFsPathRequest,
-) -> Result<bitfun_core::service::FsEntry, String> {
-    bitfun_core::service::system_stat(&request.path).map_err(|e| e.to_string())
+) -> Result<sparo_core::service::FsEntry, String> {
+    sparo_core::service::system_stat(&request.path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn system_fs_create_file(
     state: State<'_, AppState>,
     request: SystemFsWritePathRequest,
-) -> Result<bitfun_core::service::OperationResult, String> {
+) -> Result<sparo_core::service::OperationResult, String> {
     ensure_system_fs_write_allowed(&state, &request.path, request.scope.as_ref())?;
-    Ok(bitfun_core::service::system_create_file(&request.path))
+    Ok(sparo_core::service::system_create_file(&request.path))
 }
 
 #[tauri::command]
 pub async fn system_fs_create_dir(
     state: State<'_, AppState>,
     request: SystemFsWritePathRequest,
-) -> Result<bitfun_core::service::OperationResult, String> {
+) -> Result<sparo_core::service::OperationResult, String> {
     ensure_system_fs_write_allowed(&state, &request.path, request.scope.as_ref())?;
-    Ok(bitfun_core::service::system_create_dir(&request.path))
+    Ok(sparo_core::service::system_create_dir(&request.path))
 }
 
 #[tauri::command]
 pub async fn system_fs_delete(
     state: State<'_, AppState>,
     request: SystemFsDeleteRequest,
-) -> Result<bitfun_core::service::OperationResult, String> {
+) -> Result<sparo_core::service::OperationResult, String> {
     ensure_system_fs_write_allowed(&state, &request.path, request.scope.as_ref())?;
-    Ok(bitfun_core::service::system_delete_path(
+    Ok(sparo_core::service::system_delete_path(
         &request.path,
         request.recursive.unwrap_or(true),
     ))
@@ -2124,17 +2124,17 @@ pub async fn system_fs_delete(
 pub async fn system_fs_rename(
     state: State<'_, AppState>,
     request: SystemFsRenameRequest,
-) -> Result<bitfun_core::service::OperationResult, String> {
+) -> Result<sparo_core::service::OperationResult, String> {
     ensure_system_fs_write_allowed(&state, &request.old_path, request.scope.as_ref())?;
     ensure_system_fs_write_allowed(&state, &request.new_path, request.scope.as_ref())?;
     match std::fs::rename(&request.old_path, &request.new_path) {
-        Ok(_) => Ok(bitfun_core::service::OperationResult {
+        Ok(_) => Ok(sparo_core::service::OperationResult {
             success: true,
             error: None,
             before: Some(request.old_path),
             after: Some(request.new_path),
         }),
-        Err(error) => Ok(bitfun_core::service::OperationResult {
+        Err(error) => Ok(sparo_core::service::OperationResult {
             success: false,
             error: Some(error.to_string()),
             before: Some(request.old_path),
@@ -2145,19 +2145,19 @@ pub async fn system_fs_rename(
 
 #[tauri::command]
 pub async fn system_fs_reveal_in_os(request: SystemFsPathRequest) -> Result<(), String> {
-    bitfun_core::service::system_reveal_in_os(&request.path).map_err(|e| e.to_string())
+    sparo_core::service::system_reveal_in_os(&request.path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn system_fs_open_with_default(request: SystemFsPathRequest) -> Result<(), String> {
-    bitfun_core::service::system_open_with_default(&request.path).map_err(|e| e.to_string())
+    sparo_core::service::system_open_with_default(&request.path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn file_workbench_plan_operations(
     request: FileWorkbenchPlanOperationsRequest,
-) -> Result<bitfun_core::service::FileOperationPlan, String> {
-    Ok(bitfun_core::service::plan_file_operations(
+) -> Result<sparo_core::service::FileOperationPlan, String> {
+    Ok(sparo_core::service::plan_file_operations(
         request.scope,
         request.cwd,
         &request.selection,
@@ -2169,9 +2169,9 @@ pub async fn file_workbench_plan_operations(
 pub async fn file_workbench_execute_plan(
     state: State<'_, AppState>,
     request: FileWorkbenchExecutePlanRequest,
-) -> Result<bitfun_core::service::FileOperationAuditRecord, String> {
+) -> Result<sparo_core::service::FileOperationAuditRecord, String> {
     let trash_root = file_operation_trash_dir(&state);
-    let audit = bitfun_core::service::execute_file_operation_plan_with(
+    let audit = sparo_core::service::execute_file_operation_plan_with(
         &request.plan,
         &request.confirmation_token,
         |item| apply_file_workbench_plan_item(item, &request.plan.id, &trash_root),
@@ -2183,7 +2183,7 @@ pub async fn file_workbench_execute_plan(
 #[tauri::command]
 pub async fn file_workbench_audit_list(
     state: State<'_, AppState>,
-) -> Result<Vec<bitfun_core::service::FileOperationAuditRecord>, String> {
+) -> Result<Vec<sparo_core::service::FileOperationAuditRecord>, String> {
     read_file_operation_audits(&state)
 }
 
@@ -2191,7 +2191,7 @@ pub async fn file_workbench_audit_list(
 pub async fn file_workbench_restore_audit_item(
     state: State<'_, AppState>,
     request: FileWorkbenchRestoreAuditItemRequest,
-) -> Result<bitfun_core::service::FileOperationAuditRecord, String> {
+) -> Result<sparo_core::service::FileOperationAuditRecord, String> {
     if request.confirmation_token != format!("restore:{}", request.plan_id) {
         return Err("File operation restore confirmation token is invalid".to_string());
     }
@@ -2214,12 +2214,12 @@ pub async fn file_workbench_restore_audit_item(
 
     apply_file_operation_recovery(recovery)?;
 
-    let restored = bitfun_core::service::FileOperationAuditRecord {
+    let restored = sparo_core::service::FileOperationAuditRecord {
         plan_id: format!("{}:restore:{}", request.plan_id, request.item_id),
         started_at: chrono::Utc::now(),
         completed_at: Some(chrono::Utc::now()),
         success: true,
-        results: vec![bitfun_core::service::FileOperationItemResult {
+        results: vec![sparo_core::service::FileOperationItemResult {
             item_id: request.item_id,
             success: true,
             error: None,
@@ -2232,11 +2232,11 @@ pub async fn file_workbench_restore_audit_item(
 }
 
 fn apply_file_workbench_plan_item(
-    item: &bitfun_core::service::FileOperationPlanItem,
+    item: &sparo_core::service::FileOperationPlanItem,
     plan_id: &str,
     trash_root: &Path,
-) -> Result<bitfun_core::service::FileOperationApplyResult, String> {
-    use bitfun_core::service::{FileOperationRecovery, FileOperationType};
+) -> Result<sparo_core::service::FileOperationApplyResult, String> {
+    use sparo_core::service::{FileOperationRecovery, FileOperationType};
 
     let source = item.source_path.as_deref();
     let target = item.target_path.as_deref();
@@ -2335,13 +2335,13 @@ fn apply_file_workbench_plan_item(
         }
     }
 
-    Ok(bitfun_core::service::FileOperationApplyResult {
+    Ok(sparo_core::service::FileOperationApplyResult {
         refresh_paths: refresh_paths_for_plan_item(item),
         recovery,
     })
 }
 
-fn refresh_paths_for_plan_item(item: &bitfun_core::service::FileOperationPlanItem) -> Vec<String> {
+fn refresh_paths_for_plan_item(item: &sparo_core::service::FileOperationPlanItem) -> Vec<String> {
     let mut paths = Vec::new();
     if let Some(source_path) = item.source_path.as_deref().and_then(parent_path_string) {
         paths.push(source_path);
@@ -2373,7 +2373,7 @@ fn file_operation_trash_dir(state: &State<'_, AppState>) -> PathBuf {
 fn trash_path_for_item(
     trash_root: &Path,
     plan_id: &str,
-    item: &bitfun_core::service::FileOperationPlanItem,
+    item: &sparo_core::service::FileOperationPlanItem,
     source_path: &str,
 ) -> Result<PathBuf, String> {
     let file_name = Path::new(source_path)
@@ -2425,9 +2425,9 @@ fn safe_path_segment(value: &str) -> String {
 }
 
 fn apply_file_operation_recovery(
-    recovery: &bitfun_core::service::FileOperationRecovery,
+    recovery: &sparo_core::service::FileOperationRecovery,
 ) -> Result<(), String> {
-    use bitfun_core::service::FileOperationType;
+    use sparo_core::service::FileOperationType;
 
     match recovery.operation_type {
         FileOperationType::Move | FileOperationType::Rename => {
@@ -2454,7 +2454,7 @@ fn apply_file_operation_recovery(
 }
 
 fn refresh_paths_for_recovery(
-    recovery: &bitfun_core::service::FileOperationRecovery,
+    recovery: &sparo_core::service::FileOperationRecovery,
 ) -> Vec<String> {
     let mut paths = Vec::new();
     if let Some(path) = parent_path_string(&recovery.source_path) {
@@ -2479,7 +2479,7 @@ fn file_operation_audit_file(state: &State<'_, AppState>) -> PathBuf {
 
 fn read_file_operation_audits(
     state: &State<'_, AppState>,
-) -> Result<Vec<bitfun_core::service::FileOperationAuditRecord>, String> {
+) -> Result<Vec<sparo_core::service::FileOperationAuditRecord>, String> {
     let path = file_operation_audit_file(state);
     if !path.exists() {
         return Ok(Vec::new());
@@ -2492,7 +2492,7 @@ fn read_file_operation_audits(
 
 fn append_file_operation_audit(
     state: &State<'_, AppState>,
-    audit: &bitfun_core::service::FileOperationAuditRecord,
+    audit: &sparo_core::service::FileOperationAuditRecord,
 ) -> Result<(), String> {
     let path = file_operation_audit_file(state);
     if let Some(parent) = path.parent() {
@@ -2694,7 +2694,7 @@ pub async fn pinned_reorder(
 
 #[tauri::command]
 pub async fn stash_files_context(request: StashFilesContextRequest) -> Result<(), String> {
-    bitfun_core::service::stash_files_context(request.session_id, request.context);
+    sparo_core::service::stash_files_context(request.session_id, request.context);
     Ok(())
 }
 
@@ -2703,7 +2703,7 @@ pub async fn search_files(
     state: State<'_, AppState>,
     request: SearchFilesRequest,
 ) -> Result<serde_json::Value, String> {
-    use bitfun_core::service::filesystem::FileSearchOptions;
+    use sparo_core::service::filesystem::FileSearchOptions;
 
     let search_id = request.search_id.clone();
     let cancel_flag = register_search(&state, search_id.as_deref());
@@ -2805,7 +2805,7 @@ pub async fn search_filenames(
     state: State<'_, AppState>,
     request: SearchFilenamesRequest,
 ) -> Result<serde_json::Value, String> {
-    use bitfun_core::service::filesystem::FileSearchOptions;
+    use sparo_core::service::filesystem::FileSearchOptions;
 
     let search_id = request.search_id.clone();
     let cancel_flag = register_search(&state, search_id.as_deref());
@@ -2853,7 +2853,7 @@ pub async fn search_file_contents(
     state: State<'_, AppState>,
     request: SearchFileContentsRequest,
 ) -> Result<serde_json::Value, String> {
-    use bitfun_core::service::filesystem::FileSearchOptions;
+    use sparo_core::service::filesystem::FileSearchOptions;
 
     let search_id = request.search_id.clone();
     let cancel_flag = register_search(&state, search_id.as_deref());
@@ -2902,7 +2902,7 @@ pub async fn start_search_filenames_stream(
     state: State<'_, AppState>,
     request: SearchFilenamesRequest,
 ) -> Result<serde_json::Value, String> {
-    use bitfun_core::service::filesystem::FileSearchOptions;
+    use sparo_core::service::filesystem::FileSearchOptions;
 
     let search_id = ensure_search_id(request.search_id.clone(), "filenames-stream");
     let cancel_flag = register_search(&state, Some(&search_id));
@@ -2998,7 +2998,7 @@ pub async fn start_search_file_contents_stream(
     state: State<'_, AppState>,
     request: SearchFileContentsRequest,
 ) -> Result<serde_json::Value, String> {
-    use bitfun_core::service::filesystem::FileSearchOptions;
+    use sparo_core::service::filesystem::FileSearchOptions;
 
     let search_id = ensure_search_id(request.search_id.clone(), "content-stream");
     let cancel_flag = register_search(&state, Some(&search_id));
@@ -3098,7 +3098,7 @@ pub async fn cancel_search(
 
 #[tauri::command]
 pub async fn reload_global_config() -> Result<String, String> {
-    match bitfun_core::service::config::reload_global_config().await {
+    match sparo_core::service::config::reload_global_config().await {
         Ok(_) => {
             info!("Global config reloaded");
             Ok("Configuration reloaded successfully".to_string())
@@ -3112,12 +3112,12 @@ pub async fn reload_global_config() -> Result<String, String> {
 
 #[tauri::command]
 pub async fn get_global_config_status() -> Result<bool, String> {
-    Ok(bitfun_core::service::config::GlobalConfigManager::is_initialized())
+    Ok(sparo_core::service::config::GlobalConfigManager::is_initialized())
 }
 
 #[tauri::command]
 pub async fn subscribe_config_updates() -> Result<(), String> {
-    if let Some(mut receiver) = bitfun_core::service::config::subscribe_config_updates() {
+    if let Some(mut receiver) = sparo_core::service::config::subscribe_config_updates() {
         tokio::spawn(async move {
             while let Ok(event) = receiver.recv().await {
                 debug!("Config update event: {:?}", event);
@@ -3226,7 +3226,7 @@ pub async fn refresh_cli_credential(
 #[cfg(test)]
 mod file_workbench_command_tests {
     use super::*;
-    use bitfun_core::service::files::model::FileOperationRisk;
+    use sparo_core::service::files::model::FileOperationRisk;
 
     #[test]
     fn delete_to_trash_records_recovery_metadata() {
@@ -3238,9 +3238,9 @@ mod file_workbench_command_tests {
         std::fs::create_dir_all(&source_dir).expect("source dir");
         std::fs::write(&source_file, "hello").expect("source file");
 
-        let item = bitfun_core::service::FileOperationPlanItem {
+        let item = sparo_core::service::FileOperationPlanItem {
             id: "item-1".to_string(),
-            operation_type: bitfun_core::service::FileOperationType::DeleteToTrash,
+            operation_type: sparo_core::service::FileOperationType::DeleteToTrash,
             source_path: Some(source_file.to_string_lossy().to_string()),
             target_path: None,
             reason: "cleanup".to_string(),
@@ -3303,9 +3303,9 @@ mod file_workbench_command_tests {
         std::fs::create_dir_all(&nested_dir).expect("nested source dir");
         std::fs::write(&source_file, "copy me").expect("source file");
 
-        let item = bitfun_core::service::FileOperationPlanItem {
+        let item = sparo_core::service::FileOperationPlanItem {
             id: "item-copy".to_string(),
-            operation_type: bitfun_core::service::FileOperationType::Copy,
+            operation_type: sparo_core::service::FileOperationType::Copy,
             source_path: Some(source_dir.to_string_lossy().to_string()),
             target_path: Some(target_dir.to_string_lossy().to_string()),
             reason: "copy directory".to_string(),
@@ -3342,9 +3342,9 @@ mod file_workbench_command_tests {
         std::fs::create_dir_all(&nested_dir).expect("nested source dir");
         std::fs::write(&source_file, "archive me").expect("source file");
 
-        let archive_item = bitfun_core::service::FileOperationPlanItem {
+        let archive_item = sparo_core::service::FileOperationPlanItem {
             id: "item-archive".to_string(),
-            operation_type: bitfun_core::service::FileOperationType::Archive,
+            operation_type: sparo_core::service::FileOperationType::Archive,
             source_path: Some(source_dir.to_string_lossy().to_string()),
             target_path: Some(archive_path.to_string_lossy().to_string()),
             reason: "archive directory".to_string(),
@@ -3358,9 +3358,9 @@ mod file_workbench_command_tests {
             .expect("archive should execute");
         assert!(archive_path.exists());
 
-        let extract_item = bitfun_core::service::FileOperationPlanItem {
+        let extract_item = sparo_core::service::FileOperationPlanItem {
             id: "item-extract".to_string(),
-            operation_type: bitfun_core::service::FileOperationType::Extract,
+            operation_type: sparo_core::service::FileOperationType::Extract,
             source_path: Some(archive_path.to_string_lossy().to_string()),
             target_path: Some(extract_dir.to_string_lossy().to_string()),
             reason: "extract directory".to_string(),

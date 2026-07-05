@@ -1,7 +1,7 @@
-use bitfun_core::agentic_os::background_process::{
+use sparo_core::agentic_os::background_process::{
     BackgroundProcessList, RunBackgroundProcessRequest, RunBackgroundProcessResponse,
 };
-use bitfun_core::command::agentic_os::{
+use sparo_core::command::agentic_os::{
     list_background_processes_command, run_background_process_command,
 };
 use log::{debug, error};

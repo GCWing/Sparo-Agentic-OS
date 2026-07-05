@@ -1,5 +1,5 @@
 use crate::infrastructure::get_path_manager_arc;
-use crate::util::errors::*;
+use crate::error::*;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 
@@ -30,10 +30,10 @@ pub(crate) fn global_daily_report_state_file_path() -> std::path::PathBuf {
     get_path_manager_arc().agentic_os_daily_reports_state_path()
 }
 
-pub(crate) async fn ensure_global_daily_report_runtime_dir() -> BitFunResult<()> {
+pub(crate) async fn ensure_global_daily_report_runtime_dir() -> CoreResult<()> {
     let dir = get_path_manager_arc().agentic_os_daily_reports_dir();
     fs::create_dir_all(&dir).await.map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to create global daily report runtime directory {}: {}",
             dir.display(),
             error
@@ -42,7 +42,7 @@ pub(crate) async fn ensure_global_daily_report_runtime_dir() -> BitFunResult<()>
     Ok(())
 }
 
-pub(crate) async fn load_global_daily_report_state() -> BitFunResult<GlobalDailyReportState> {
+pub(crate) async fn load_global_daily_report_state() -> CoreResult<GlobalDailyReportState> {
     ensure_global_daily_report_runtime_dir().await?;
 
     let path = global_daily_report_state_file_path();
@@ -51,7 +51,7 @@ pub(crate) async fn load_global_daily_report_state() -> BitFunResult<GlobalDaily
     }
 
     let content = fs::read_to_string(&path).await.map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to read global daily report state file {}: {}",
             path.display(),
             error
@@ -63,7 +63,7 @@ pub(crate) async fn load_global_daily_report_state() -> BitFunResult<GlobalDaily
     }
 
     serde_json::from_str(&content).map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to parse global daily report state file {}: {}",
             path.display(),
             error
@@ -73,12 +73,12 @@ pub(crate) async fn load_global_daily_report_state() -> BitFunResult<GlobalDaily
 
 pub(crate) async fn save_global_daily_report_state(
     state: &GlobalDailyReportState,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     ensure_global_daily_report_runtime_dir().await?;
 
     let path = global_daily_report_state_file_path();
     let content = serde_json::to_string_pretty(state).map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to serialize global daily report state for {}: {}",
             path.display(),
             error
@@ -86,7 +86,7 @@ pub(crate) async fn save_global_daily_report_state(
     })?;
 
     fs::write(&path, content).await.map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to write global daily report state file {}: {}",
             path.display(),
             error

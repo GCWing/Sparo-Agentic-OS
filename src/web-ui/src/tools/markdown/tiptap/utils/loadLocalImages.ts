@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Async local image loader.
  * After Markdown render, resolves images marked with `data-local-image`.
  */

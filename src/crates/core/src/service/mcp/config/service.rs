@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::service::config::ConfigService;
 use crate::service::mcp::server::MCPServerConfig;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 
 use super::ConfigLocation;
 
@@ -172,12 +172,12 @@ impl MCPConfigService {
     }
 
     /// Creates a new MCP configuration service.
-    pub fn new(config_service: Arc<ConfigService>) -> BitFunResult<Self> {
+    pub fn new(config_service: Arc<ConfigService>) -> CoreResult<Self> {
         Ok(Self { config_service })
     }
 
     /// Loads all MCP server configurations.
-    pub async fn load_all_configs(&self) -> BitFunResult<Vec<MCPServerConfig>> {
+    pub async fn load_all_configs(&self) -> CoreResult<Vec<MCPServerConfig>> {
         let builtin_configs = self.load_builtin_configs().await?;
         let user_configs = match self.load_user_configs().await {
             Ok(user_configs) => user_configs,
@@ -222,13 +222,13 @@ impl MCPConfigService {
     }
 
     /// Loads built-in configurations.
-    async fn load_builtin_configs(&self) -> BitFunResult<Vec<MCPServerConfig>> {
+    async fn load_builtin_configs(&self) -> CoreResult<Vec<MCPServerConfig>> {
         Ok(Vec::new())
     }
 
     /// Loads user-level configuration (supports Cursor format `{ "mcpServers": { "id": {..} } }`
     /// and array format `[{..}]`).
-    async fn load_user_configs(&self) -> BitFunResult<Vec<MCPServerConfig>> {
+    async fn load_user_configs(&self) -> CoreResult<Vec<MCPServerConfig>> {
         match self
             .config_service
             .get_config::<serde_json::Value>(Some("mcp_servers"))
@@ -255,7 +255,7 @@ impl MCPConfigService {
     }
 
     /// Loads project-level configuration.
-    async fn load_project_configs(&self) -> BitFunResult<Vec<MCPServerConfig>> {
+    async fn load_project_configs(&self) -> CoreResult<Vec<MCPServerConfig>> {
         match self
             .config_service
             .get_config::<serde_json::Value>(Some("project.mcp_servers"))
@@ -288,15 +288,15 @@ impl MCPConfigService {
     pub async fn get_server_config(
         &self,
         server_id: &str,
-    ) -> BitFunResult<Option<MCPServerConfig>> {
+    ) -> CoreResult<Option<MCPServerConfig>> {
         let all_configs = self.load_all_configs().await?;
         Ok(all_configs.into_iter().find(|c| c.id == server_id))
     }
 
     /// Saves a server configuration.
-    pub async fn save_server_config(&self, config: &MCPServerConfig) -> BitFunResult<()> {
+    pub async fn save_server_config(&self, config: &MCPServerConfig) -> CoreResult<()> {
         match config.location {
-            ConfigLocation::BuiltIn => Err(BitFunError::Configuration(
+            ConfigLocation::BuiltIn => Err(CoreError::Configuration(
                 "Cannot modify built-in MCP server configuration".to_string(),
             )),
             ConfigLocation::User => self.save_user_config(config).await,
@@ -308,13 +308,13 @@ impl MCPConfigService {
         &self,
         server_id: &str,
         authorization_value: &str,
-    ) -> BitFunResult<MCPServerConfig> {
+    ) -> CoreResult<MCPServerConfig> {
         let mut config = self.get_server_config(server_id).await?.ok_or_else(|| {
-            BitFunError::NotFound(format!("MCP server config not found: {}", server_id))
+            CoreError::NotFound(format!("MCP server config not found: {}", server_id))
         })?;
 
         if config.server_type != crate::service::mcp::server::MCPServerType::Remote {
-            return Err(BitFunError::Validation(format!(
+            return Err(CoreError::Validation(format!(
                 "MCP server '{}' is not a remote server",
                 server_id
             )));
@@ -322,7 +322,7 @@ impl MCPConfigService {
 
         let normalized =
             Self::normalize_authorization_value(authorization_value).ok_or_else(|| {
-                BitFunError::Validation("Authorization value cannot be empty".to_string())
+                CoreError::Validation("Authorization value cannot be empty".to_string())
             })?;
 
         Self::remove_authorization_keys(&mut config.headers);
@@ -338,13 +338,13 @@ impl MCPConfigService {
     pub async fn clear_remote_authorization(
         &self,
         server_id: &str,
-    ) -> BitFunResult<MCPServerConfig> {
+    ) -> CoreResult<MCPServerConfig> {
         let mut config = self.get_server_config(server_id).await?.ok_or_else(|| {
-            BitFunError::NotFound(format!("MCP server config not found: {}", server_id))
+            CoreError::NotFound(format!("MCP server config not found: {}", server_id))
         })?;
 
         if config.server_type != crate::service::mcp::server::MCPServerType::Remote {
-            return Err(BitFunError::Validation(format!(
+            return Err(CoreError::Validation(format!(
                 "MCP server '{}' is not a remote server",
                 server_id
             )));
@@ -357,7 +357,7 @@ impl MCPConfigService {
     }
 
     /// Saves user-level configuration.
-    async fn save_user_config(&self, config: &MCPServerConfig) -> BitFunResult<()> {
+    async fn save_user_config(&self, config: &MCPServerConfig) -> CoreResult<()> {
         let current_value = self
             .config_service
             .get_config::<serde_json::Value>(Some("mcp_servers"))
@@ -390,7 +390,7 @@ impl MCPConfigService {
     }
 
     /// Saves project-level configuration.
-    async fn save_project_config(&self, config: &MCPServerConfig) -> BitFunResult<()> {
+    async fn save_project_config(&self, config: &MCPServerConfig) -> CoreResult<()> {
         let mut configs = self.load_project_configs().await.unwrap_or_default();
 
         if let Some(existing) = configs.iter_mut().find(|c| c.id == config.id) {
@@ -400,7 +400,7 @@ impl MCPConfigService {
         }
 
         let value = serde_json::to_value(&configs).map_err(|e| {
-            BitFunError::serialization(format!("Failed to serialize MCP config: {}", e))
+            CoreError::serialization(format!("Failed to serialize MCP config: {}", e))
         })?;
 
         self.config_service
@@ -410,7 +410,7 @@ impl MCPConfigService {
     }
 
     /// Deletes a server configuration.
-    pub async fn delete_server_config(&self, server_id: &str) -> BitFunResult<()> {
+    pub async fn delete_server_config(&self, server_id: &str) -> CoreResult<()> {
         let current_value = self
             .config_service
             .get_config::<serde_json::Value>(Some("mcp_servers"))
@@ -421,14 +421,14 @@ impl MCPConfigService {
             if let Some(obj) = current_value.get("mcpServers").and_then(|v| v.as_object()) {
                 obj.clone()
             } else {
-                return Err(BitFunError::NotFound(format!(
+                return Err(CoreError::NotFound(format!(
                     "MCP server config not found: {}",
                     server_id
                 )));
             };
 
         if mcp_servers.remove(server_id).is_none() {
-            return Err(BitFunError::NotFound(format!(
+            return Err(CoreError::NotFound(format!(
                 "MCP server config not found: {}",
                 server_id
             )));

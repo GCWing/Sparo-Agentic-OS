@@ -21,11 +21,11 @@ export function getApplicationPath(): string {
   let appName: string;
   
   if (isWindows) {
-    appName = 'bitfun-desktop.exe';
+    appName = 'sparo-desktop.exe';
   } else if (isMac) {
     appName = 'Sparo OS.app/Contents/MacOS/Sparo OS';
   } else {
-    appName = 'bitfun-desktop';
+    appName = 'sparo-desktop';
   }
   
   return path.resolve(__dirname, '..', '..', '..', 'target', 'debug', appName);

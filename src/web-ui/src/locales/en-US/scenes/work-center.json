@@ -48,6 +48,25 @@
   "board": {
     "label": "Work board"
   },
+  "bulk": {
+    "label": "Bulk work actions",
+    "selectAllVisible": "Select all visible work",
+    "selectWork": "Select {{title}}",
+    "selectHint": "Select work from {{count}} shown",
+    "selectedCount": "{{count}} of {{total}} selected",
+    "archive": "Archive {{count}}",
+    "reopen": "Reopen {{count}}",
+    "cancel": "Cancel {{count}}",
+    "delete": "Delete",
+    "clearSelection": "Clear selection",
+    "deleteDialog": {
+      "title": "Delete {{count}} work item",
+      "description": "This removes the selected work from Work Center. Linked sessions and artifacts are not deleted.",
+      "cancel": "Cancel",
+      "confirm": "Delete work",
+      "deleting": "Deleting..."
+    }
+  },
   "background": {
     "title": "Background processes",
     "subtitle": "{{running}} running · {{attention}} attention · {{total}} total",
@@ -416,13 +435,19 @@
     "openWorkspaceFailed": "Failed to open workspace",
     "switchWorkspaceFailed": "Failed to switch workspace",
     "closeWorkspaceFailed": "Failed to close workspace",
-    "removeWorkspaceFailed": "Failed to remove workspace history"
+    "removeWorkspaceFailed": "Failed to remove workspace history",
+    "bulkActionFailed": "Failed to update {{count}} selected work",
+    "bulkDeleteFailed": "Failed to delete {{count}} selected work"
   },
   "messages": {
     "objectiveSaved": "Objective updated",
     "advanceSent": "Instruction sent",
     "paused": "Work paused",
     "resumed": "Work resumed",
-    "reopened": "Work reopened"
+    "reopened": "Work reopened",
+    "bulkArchived": "Archived {{count}} work item",
+    "bulkReopened": "Reopened {{count}} work item",
+    "bulkCancelled": "Cancelled {{count}} work run",
+    "bulkDeleted": "Deleted {{count}} work item"
   }
 }

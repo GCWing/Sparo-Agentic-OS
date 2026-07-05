@@ -1,7 +1,7 @@
 use crate::agentic::memory::store::{ensure_markdown_placeholder, format_path_for_prompt};
 use crate::infrastructure::get_path_manager_arc;
 use crate::service::workspace::{get_global_workspace_service, WorkspaceInfo, WorkspaceKind};
-use crate::util::errors::*;
+use crate::error::*;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
@@ -43,12 +43,12 @@ enum WorkspaceCandidateRenderMode {
     NameOnly,
 }
 
-pub(crate) async fn ensure_global_workspace_overview_files() -> BitFunResult<()> {
+pub(crate) async fn ensure_global_workspace_overview_files() -> CoreResult<()> {
     let overview_dir = workspace_overview_dir();
     tokio::fs::create_dir_all(&overview_dir)
         .await
         .map_err(|e| {
-            BitFunError::service(format!(
+            CoreError::service(format!(
                 "Failed to create workspace overview directory {}: {}",
                 overview_dir.display(),
                 e
@@ -76,7 +76,7 @@ pub(crate) async fn ensure_global_workspace_overview_files() -> BitFunResult<()>
     Ok(())
 }
 
-pub(crate) async fn build_workspace_candidates_context() -> BitFunResult<Option<String>> {
+pub(crate) async fn build_workspace_candidates_context() -> CoreResult<Option<String>> {
     let overview_dir = workspace_overview_dir();
     let candidates = collect_workspace_candidate_overviews().await?;
     Ok(render_workspace_candidates_context(
@@ -85,7 +85,7 @@ pub(crate) async fn build_workspace_candidates_context() -> BitFunResult<Option<
     ))
 }
 
-pub(crate) async fn build_global_workspace_overviews_context() -> BitFunResult<Option<String>> {
+pub(crate) async fn build_global_workspace_overviews_context() -> CoreResult<Option<String>> {
     ensure_global_workspace_overview_files().await?;
 
     let overview_dir = workspace_overview_dir();
@@ -149,7 +149,7 @@ pub(crate) async fn build_global_workspace_overviews_context() -> BitFunResult<O
     }
 }
 
-pub async fn list_workspace_overview_bindings() -> BitFunResult<Vec<WorkspaceOverviewBinding>> {
+pub async fn list_workspace_overview_bindings() -> CoreResult<Vec<WorkspaceOverviewBinding>> {
     ensure_global_workspace_overview_files().await?;
 
     let overview_dir = workspace_overview_dir();
@@ -173,7 +173,7 @@ pub async fn list_workspace_overview_bindings() -> BitFunResult<Vec<WorkspaceOve
     Ok(bindings)
 }
 
-async fn collect_workspace_candidate_overviews() -> BitFunResult<Vec<WorkspaceCandidateOverview>> {
+async fn collect_workspace_candidate_overviews() -> CoreResult<Vec<WorkspaceCandidateOverview>> {
     ensure_global_workspace_overview_files().await?;
 
     let overview_dir = workspace_overview_dir();
@@ -211,7 +211,7 @@ fn workspace_overview_dir() -> PathBuf {
 async fn ensure_workspace_overview_file(
     overview_dir: &Path,
     workspace: &WorkspaceInfo,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     let overview_path = overview_dir.join(workspace_overview_file_name(workspace));
     let content = format_workspace_overview(workspace);
     ensure_markdown_placeholder(&overview_path, &content).await?;
@@ -264,7 +264,7 @@ async fn build_workspace_overview_path_map(_overview_dir: &Path) -> HashMap<Stri
 
 async fn ordered_workspace_overview_paths(
     overview_dir: &Path,
-) -> BitFunResult<Vec<std::path::PathBuf>> {
+) -> CoreResult<Vec<std::path::PathBuf>> {
     let mut ordered = Vec::new();
     let mut seen = HashSet::new();
 
@@ -276,7 +276,7 @@ async fn ordered_workspace_overview_paths(
 
     let mut remaining = Vec::new();
     let mut entries = fs::read_dir(overview_dir).await.map_err(|e| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to read global workspace overview directory {}: {}",
             overview_dir.display(),
             e
@@ -284,7 +284,7 @@ async fn ordered_workspace_overview_paths(
     })?;
 
     while let Some(entry) = entries.next_entry().await.map_err(|e| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to iterate global workspace overview directory {}: {}",
             overview_dir.display(),
             e

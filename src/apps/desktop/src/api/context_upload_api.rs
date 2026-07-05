@@ -1,6 +1,6 @@
 //! Temporary Image Storage API
 
-use bitfun_core::agentic::tools::image_context::{
+use sparo_core::agentic::tools::image_context::{
     create_image_context_provider as create_core_image_context_provider, store_image_contexts,
     GlobalImageContextProvider, ImageContextData as CoreImageContextData,
 };

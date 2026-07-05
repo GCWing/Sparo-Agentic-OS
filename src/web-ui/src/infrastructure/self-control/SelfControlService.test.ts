@@ -345,7 +345,7 @@ describe('SelfControlService', () => {
   it('enable_model flips a disabled model and writes ai.models', async () => {
     resetConfigState({
       'ai.models': [
-        { id: 'k1', name: 'Sparo Model Platform', model_name: 'kimi-k2.6', provider: 'openbitfun', enabled: false },
+        { id: 'k1', name: 'Sparo Model Platform', model_name: 'kimi-k2.6', provider: 'opensparo', enabled: false },
         { id: 'g1', name: 'OpenAI', model_name: 'gpt-5', provider: 'openai', enabled: true },
       ],
     });
@@ -358,7 +358,7 @@ describe('SelfControlService', () => {
     } as any);
     expect(result).toContain('Enabled model');
     expect(setConfigMock).toHaveBeenCalledWith('ai.models', [
-      { id: 'k1', name: 'Sparo Model Platform', model_name: 'kimi-k2.6', provider: 'openbitfun', enabled: true },
+      { id: 'k1', name: 'Sparo Model Platform', model_name: 'kimi-k2.6', provider: 'opensparo', enabled: true },
       { id: 'g1', name: 'OpenAI', model_name: 'gpt-5', provider: 'openai', enabled: true },
     ]);
   });

@@ -8,64 +8,47 @@ use std::collections::HashSet;
 struct BuiltinSkillProfile {
     /// Baseline state for built-in skills in this mode.
     default_enabled: bool,
+    /// Built-in suite ids whose state differs from `default_enabled`.
+    overridden_suites: &'static [&'static str],
     /// Built-in skill directory names whose state differs from `default_enabled`.
     overridden_skills: &'static [&'static str],
 }
 
 const ENABLE_ALL_BUILTINS: BuiltinSkillProfile = BuiltinSkillProfile {
     default_enabled: true,
+    overridden_suites: &[],
     overridden_skills: &[],
 };
 
 const DISABLE_ALL_BUILTINS: BuiltinSkillProfile = BuiltinSkillProfile {
     default_enabled: false,
+    overridden_suites: &[],
     overridden_skills: &[],
 };
 
 const AGENTIC_PROFILE: BuiltinSkillProfile = BuiltinSkillProfile {
     default_enabled: true,
-    overridden_skills: &["docx", "pdf", "pptx", "xlsx"],
+    overridden_suites: &["office-documents"],
+    overridden_skills: &[],
 };
 
 const COWORK_PROFILE: BuiltinSkillProfile = BuiltinSkillProfile {
     default_enabled: false,
-    overridden_skills: &[
-        "docx",
-        "pdf",
-        "pptx",
-        "xlsx",
-        "ppt-design",
-        "find-skills",
-        "writing-skills",
-    ],
+    overridden_suites: &["office-documents", "presentation-workflow"],
+    overridden_skills: &["find-skills", "writing-skills"],
 };
 
 const DESIGN_PROFILE: BuiltinSkillProfile = BuiltinSkillProfile {
     default_enabled: false,
-    overridden_skills: &[
-        "docx",
-        "pdf",
-        "pptx",
-        "xlsx",
-        "ppt-design",
-        "find-skills",
-        "writing-skills",
-    ],
+    overridden_suites: &["office-documents", "presentation-workflow"],
+    overridden_skills: &["find-skills", "writing-skills"],
 };
 
 /// Studio only needs focused Product App authoring skills; other built-ins clutter the Skill tool list.
 const APP_STUDIO_PROFILE: BuiltinSkillProfile = BuiltinSkillProfile {
     default_enabled: false,
-    overridden_skills: &[
-        "product-app-api",
-        "product-app-ui-polish",
-        "product-app-surface",
-        "product-app-agent-component",
-        "product-app-bridge-component",
-        "product-app-runtime-component",
-        "product-app-tool-component",
-        "product-app-skill-component",
-    ],
+    overridden_suites: &["product-app-development"],
+    overridden_skills: &[],
 };
 
 fn builtin_profile_for_agent(agent_id: &str) -> BuiltinSkillProfile {
@@ -85,7 +68,26 @@ pub fn is_enabled_by_default_for_agent(skill: &SkillInfo, agent_id: &str) -> boo
     }
 
     let profile = builtin_profile_for_agent(agent_id);
+    let mut enabled = profile.default_enabled;
+
+    if skill
+        .suite_key
+        .as_deref()
+        .is_some_and(|suite_key| profile.overridden_suites.contains(&suite_key))
+    {
+        enabled = !profile.default_enabled;
+    }
+
     if profile.overridden_skills.contains(&skill.dir_name.as_str()) {
+        enabled = !profile.default_enabled;
+    }
+
+    enabled
+}
+
+pub fn is_builtin_suite_enabled_by_default_for_agent(suite_key: &str, agent_id: &str) -> bool {
+    let profile = builtin_profile_for_agent(agent_id);
+    if profile.overridden_suites.contains(&suite_key) {
         !profile.default_enabled
     } else {
         profile.default_enabled
@@ -97,13 +99,40 @@ pub fn is_skill_enabled_for_agent(
     agent_id: &str,
     user_overrides: &UserAgentSkillOverrides,
     disabled_project_skills: &HashSet<String>,
+    disabled_project_suites: &HashSet<String>,
 ) -> bool {
     match skill.level {
-        SkillLocation::Project => !disabled_project_skills.contains(&skill.key),
-        SkillLocation::User => {
-            let default_enabled = is_enabled_by_default_for_agent(skill, agent_id);
+        SkillLocation::Project => {
+            if skill
+                .suite_key
+                .as_deref()
+                .is_some_and(|suite_key| disabled_project_suites.contains(suite_key))
+            {
+                return false;
+            }
 
-            if default_enabled {
+            !disabled_project_skills.contains(&skill.key)
+        }
+        SkillLocation::User => {
+            let mut enabled = is_enabled_by_default_for_agent(skill, agent_id);
+
+            if let Some(suite_key) = skill.suite_key.as_deref() {
+                if enabled
+                    && user_overrides
+                        .disabled_suites
+                        .contains(&suite_key.to_string())
+                {
+                    enabled = false;
+                } else if !enabled
+                    && user_overrides
+                        .enabled_suites
+                        .contains(&suite_key.to_string())
+                {
+                    enabled = true;
+                }
+            }
+
+            if enabled {
                 !user_overrides.disabled_skills.contains(&skill.key)
             } else {
                 user_overrides.enabled_skills.contains(&skill.key)
@@ -116,56 +145,73 @@ pub fn is_skill_enabled_for_agent(
 mod tests {
     use super::{is_enabled_by_default_for_agent, is_skill_enabled_for_agent};
     use crate::agentic::tools::implementations::skills::agent_overrides::UserAgentSkillOverrides;
-    use crate::agentic::tools::implementations::skills::types::{SkillInfo, SkillLocation};
+    use crate::agentic::tools::implementations::skills::types::{
+        SkillGovernance, SkillInfo, SkillLocation,
+    };
     use std::collections::HashSet;
 
-    fn builtin_skill(dir_name: &str) -> SkillInfo {
+    fn builtin_skill(dir_name: &str, suite_key: Option<&str>) -> SkillInfo {
         SkillInfo {
-            key: format!("user::bitfun::{}", dir_name),
+            key: format!("user::sparo::{}", dir_name),
             name: dir_name.to_string(),
             description: String::new(),
             path: format!("/tmp/{}", dir_name),
             level: SkillLocation::User,
-            source_slot: "bitfun".to_string(),
+            source_slot: "sparo".to_string(),
             dir_name: dir_name.to_string(),
             is_builtin: true,
-            group_key: None,
+            governance: SkillGovernance::SparoManaged,
+            suite_key: suite_key.map(str::to_string),
+            suite_member_override_policy: None,
+            tags: Vec::new(),
+            can_delete: false,
+            can_edit: false,
+            can_update: false,
         }
     }
 
     fn custom_user_skill(dir_name: &str) -> SkillInfo {
         SkillInfo {
-            key: format!("user::bitfun::{}", dir_name),
+            key: format!("user::sparo::{}", dir_name),
             name: dir_name.to_string(),
             description: String::new(),
             path: format!("/tmp/{}", dir_name),
             level: SkillLocation::User,
-            source_slot: "bitfun".to_string(),
+            source_slot: "sparo".to_string(),
             dir_name: dir_name.to_string(),
             is_builtin: false,
-            group_key: None,
+            governance: SkillGovernance::UserManaged,
+            suite_key: None,
+            suite_member_override_policy: None,
+            tags: Vec::new(),
+            can_delete: true,
+            can_edit: true,
+            can_update: false,
         }
     }
 
     #[test]
     fn builtin_defaults_follow_mode_profiles() {
-        let pdf = builtin_skill("pdf");
-        let tdd = builtin_skill("test-driven-development");
+        let pdf = builtin_skill("pdf", Some("office-documents"));
+        let find_skills = builtin_skill("find-skills", None);
+        let general = builtin_skill("general-purpose", None);
 
         assert!(!is_enabled_by_default_for_agent(&pdf, "agentic"));
-        assert!(is_enabled_by_default_for_agent(&tdd, "agentic"));
+        assert!(is_enabled_by_default_for_agent(&find_skills, "agentic"));
         assert!(is_enabled_by_default_for_agent(&pdf, "Cowork"));
-        assert!(!is_enabled_by_default_for_agent(&tdd, "Cowork"));
+        assert!(is_enabled_by_default_for_agent(&find_skills, "Cowork"));
+        assert!(!is_enabled_by_default_for_agent(&general, "Cowork"));
         assert!(is_enabled_by_default_for_agent(&pdf, "Design"));
-        assert!(!is_enabled_by_default_for_agent(&tdd, "Design"));
+        assert!(is_enabled_by_default_for_agent(&find_skills, "Design"));
+        assert!(!is_enabled_by_default_for_agent(&general, "Design"));
         assert!(!is_enabled_by_default_for_agent(&pdf, "Plan"));
-        assert!(!is_enabled_by_default_for_agent(&tdd, "debug"));
+        assert!(!is_enabled_by_default_for_agent(&find_skills, "debug"));
     }
 
     #[test]
     fn agentic_enables_ppt_design_builtin() {
-        let ppt_design = builtin_skill("ppt-design");
-        let pdf = builtin_skill("pdf");
+        let ppt_design = builtin_skill("ppt-design", Some("presentation-workflow"));
+        let pdf = builtin_skill("pdf", Some("office-documents"));
 
         assert!(is_enabled_by_default_for_agent(&ppt_design, "agentic"));
         assert!(!is_enabled_by_default_for_agent(&pdf, "agentic"));
@@ -183,17 +229,17 @@ mod tests {
             "product-app-tool-component",
             "product-app-skill-component",
         ];
-        let pdf = builtin_skill("pdf");
-        let tdd = builtin_skill("test-driven-development");
+        let pdf = builtin_skill("pdf", Some("office-documents"));
+        let general = builtin_skill("general-purpose", None);
 
         for skill_name in enabled {
             assert!(is_enabled_by_default_for_agent(
-                &builtin_skill(skill_name),
+                &builtin_skill(skill_name, Some("product-app-development")),
                 "AppStudio"
             ));
         }
         assert!(!is_enabled_by_default_for_agent(&pdf, "AppStudio"));
-        assert!(!is_enabled_by_default_for_agent(&tdd, "AppStudio"));
+        assert!(!is_enabled_by_default_for_agent(&general, "AppStudio"));
     }
 
     #[test]
@@ -205,15 +251,17 @@ mod tests {
 
     #[test]
     fn user_overrides_apply_on_top_of_defaults() {
-        let pdf = builtin_skill("pdf");
+        let pdf = builtin_skill("pdf", Some("office-documents"));
         let mut overrides = UserAgentSkillOverrides::default();
         let disabled_project = HashSet::new();
+        let disabled_project_suites = HashSet::new();
 
         assert!(!is_skill_enabled_for_agent(
             &pdf,
             "agentic",
             &overrides,
             &disabled_project,
+            &disabled_project_suites,
         ));
 
         overrides.enabled_skills.push(pdf.key.clone());
@@ -222,6 +270,7 @@ mod tests {
             "agentic",
             &overrides,
             &disabled_project,
+            &disabled_project_suites,
         ));
     }
 }

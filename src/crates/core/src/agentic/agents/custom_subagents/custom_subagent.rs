@@ -1,6 +1,6 @@
 use crate::agentic::agents::{Agent, RequestContextPolicy};
 use crate::agentic::agents::{PromptBuilder, PromptBuilderContext};
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use crate::util::FrontMatterMarkdown;
 use async_trait::async_trait;
 use serde_yaml::Value;
@@ -50,7 +50,7 @@ impl Agent for CustomSubagent {
         ""
     }
 
-    async fn build_prompt(&self, context: &PromptBuilderContext) -> BitFunResult<String> {
+    async fn build_prompt(&self, context: &PromptBuilderContext) -> CoreResult<String> {
         let prompt_builder = PromptBuilder::new(context.clone());
 
         let prompt = prompt_builder
@@ -96,17 +96,17 @@ impl CustomSubagent {
         }
     }
 
-    pub fn from_file(path: &str, kind: CustomSubagentKind) -> BitFunResult<Self> {
+    pub fn from_file(path: &str, kind: CustomSubagentKind) -> CoreResult<Self> {
         let (metadata, content) = FrontMatterMarkdown::load(path)?;
         let name = metadata
             .get("name")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BitFunError::Agent("Missing name field".to_string()))?
+            .ok_or_else(|| CoreError::Agent("Missing name field".to_string()))?
             .to_string();
         let description = metadata
             .get("description")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BitFunError::Agent("Missing description field".to_string()))?
+            .ok_or_else(|| CoreError::Agent("Missing description field".to_string()))?
             .to_string();
         let tools: Vec<String> = metadata
             .get("tools")
@@ -166,7 +166,7 @@ impl CustomSubagent {
     /// - `model`: Override model value, None uses self.model
     ///
     /// Fields equal to default values are not saved
-    pub fn save_to_file(&self, enabled: Option<bool>, model: Option<&str>) -> BitFunResult<()> {
+    pub fn save_to_file(&self, enabled: Option<bool>, model: Option<&str>) -> CoreResult<()> {
         let enabled = enabled.unwrap_or(self.enabled);
         let model = model.unwrap_or(&self.model);
 
@@ -200,6 +200,6 @@ impl CustomSubagent {
             );
         }
         let metadata = Value::Mapping(metadata);
-        FrontMatterMarkdown::save(&self.path, &metadata, &self.prompt).map_err(BitFunError::Agent)
+        FrontMatterMarkdown::save(&self.path, &metadata, &self.prompt).map_err(CoreError::Agent)
     }
 }

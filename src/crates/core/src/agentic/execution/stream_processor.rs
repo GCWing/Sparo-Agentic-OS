@@ -12,7 +12,7 @@ use crate::infrastructure::ai::ai_stream_handlers::UnifiedResponse;
 use crate::infrastructure::ai::tool_call_accumulator::{
     FinalizedToolCall, PendingToolCalls, ToolCallBoundary, ToolCallStreamKey,
 };
-use crate::util::errors::BitFunError;
+use crate::error::CoreError;
 use crate::util::types::ai::GeminiUsage;
 use futures::{Stream, StreamExt};
 use log::{debug, error, trace};
@@ -129,12 +129,12 @@ pub struct StreamResult {
 /// Stream processing error with output diagnostics.
 #[derive(Debug)]
 pub struct StreamProcessError {
-    pub error: BitFunError,
+    pub error: CoreError,
     pub has_effective_output: bool,
 }
 
 impl StreamProcessError {
-    fn new(error: BitFunError, has_effective_output: bool) -> Self {
+    fn new(error: CoreError, has_effective_output: bool) -> Self {
         Self {
             error,
             has_effective_output,
@@ -365,7 +365,7 @@ impl StreamProcessor {
             self.graceful_shutdown_from_ctx(ctx, "User cancelled stream processing".to_string())
                 .await;
             Some(Err(StreamProcessError::new(
-                BitFunError::Cancelled("Stream processing cancelled".to_string()),
+                CoreError::Cancelled("Stream processing cancelled".to_string()),
                 ctx.has_effective_output,
             )))
         } else {
@@ -731,7 +731,7 @@ impl StreamProcessor {
                     debug!("Cancel token detected, stopping stream processing: session_id={}", ctx.session_id);
                     self.graceful_shutdown_from_ctx(&mut ctx, "User cancelled stream processing".to_string()).await;
                     return Err(StreamProcessError::new(
-                        BitFunError::Cancelled("Stream processing cancelled".to_string()),
+                        CoreError::Cancelled("Stream processing cancelled".to_string()),
                         ctx.has_effective_output,
                     ));
                 }
@@ -759,7 +759,7 @@ impl StreamProcessor {
                             flush_sse_on_error(&sse_collector, &error_msg).await;
                             self.graceful_shutdown_from_ctx(&mut ctx, error_msg.clone()).await;
                             return Err(StreamProcessError::new(
-                                BitFunError::AIClient(error_msg),
+                                CoreError::AiClient(error_msg),
                                 ctx.has_effective_output,
                             ));
                         }
@@ -785,7 +785,7 @@ impl StreamProcessor {
                             }
                             self.graceful_shutdown_from_ctx(&mut ctx, error_msg.clone()).await;
                             return Err(StreamProcessError::new(
-                                BitFunError::AIClient(error_msg),
+                                CoreError::AiClient(error_msg),
                                 ctx.has_effective_output,
                             ));
                         }

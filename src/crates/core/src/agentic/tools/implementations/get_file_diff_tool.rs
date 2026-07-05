@@ -3,7 +3,7 @@ use crate::agentic::tools::framework::{
 };
 use crate::agentic::tools::workspace_paths::is_sparo_runtime_uri;
 use crate::service::snapshot::SnapshotManager;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use log::{debug, warn};
 use serde_json::{json, Value};
@@ -58,7 +58,7 @@ impl GetFileDiffTool {
         &self,
         file_path: &Path,
         snapshot_manager: Option<Arc<SnapshotManager>>,
-    ) -> Option<BitFunResult<Value>> {
+    ) -> Option<CoreResult<Value>> {
         let snapshot_manager = snapshot_manager?;
 
         // Get snapshot service
@@ -109,9 +109,9 @@ impl GetFileDiffTool {
     }
 
     /// Return full file content
-    fn return_full_content(&self, file_path: &Path) -> BitFunResult<Value> {
+    fn return_full_content(&self, file_path: &Path) -> CoreResult<Value> {
         let content = fs::read_to_string(file_path)
-            .map_err(|e| BitFunError::tool(format!("Failed to read file: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("Failed to read file: {}", e)))?;
 
         let total_lines = content.lines().count();
 
@@ -138,7 +138,7 @@ impl Tool for GetFileDiffTool {
         "GetFileDiff"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(
             r#"Gets the diff for a file, showing changes from its baseline snapshot when available.
 
@@ -213,7 +213,7 @@ Usage:
                         return ValidationResult {
                             result: false,
                             message: Some(
-                                "Tool context is required to resolve bitfun runtime URIs"
+                                "Tool context is required to resolve sparo runtime URIs"
                                     .to_string(),
                             ),
                             error_code: Some(400),
@@ -319,11 +319,11 @@ Usage:
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let file_path = input
             .get("file_path")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BitFunError::tool("file_path is required".to_string()))?;
+            .ok_or_else(|| CoreError::tool("file_path is required".to_string()))?;
 
         let resolved = context.resolve_tool_path(file_path)?;
 
@@ -334,12 +334,12 @@ Usage:
 
         if resolved.uses_remote_workspace_backend() {
             let ws_fs = context.ws_fs().ok_or_else(|| {
-                BitFunError::tool("Workspace file system not available for remote diff".to_string())
+                CoreError::tool("Workspace file system not available for remote diff".to_string())
             })?;
             let content = ws_fs
                 .read_file_text(&resolved.resolved_path)
                 .await
-                .map_err(|e| BitFunError::tool(format!("Failed to read file: {}", e)))?;
+                .map_err(|e| CoreError::tool(format!("Failed to read file: {}", e)))?;
             let total_lines = content.lines().count();
             let data = json!({
                 "file_path": resolved.logical_path,
@@ -367,7 +367,7 @@ Usage:
         let path = Path::new(&resolved.resolved_path);
         if resolved.is_runtime_artifact() {
             let content = fs::read_to_string(path)
-                .map_err(|e| BitFunError::tool(format!("Failed to read file: {}", e)))?;
+                .map_err(|e| CoreError::tool(format!("Failed to read file: {}", e)))?;
             let total_lines = content.lines().count();
             let data = json!({
                 "file_path": resolved.logical_path,

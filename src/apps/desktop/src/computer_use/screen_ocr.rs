@@ -1,8 +1,8 @@
-use bitfun_core::agentic::tools::computer_use_host::{
+use sparo_core::agentic::tools::computer_use_host::{
     ComputerScreenshot, ComputerUseImageContentRect, OcrRegionNative,
 };
-use bitfun_core::infrastructure::{try_get_path_manager_arc, APP_HIDDEN_DIR_NAME};
-use bitfun_core::util::errors::{BitFunError, BitFunResult};
+use sparo_core::infrastructure::{try_get_path_manager_arc, APP_HIDDEN_DIR_NAME};
+use sparo_core::error::{CoreError, CoreResult};
 use image::codecs::jpeg::JpegEncoder;
 use log::{info, warn};
 use std::fs;
@@ -26,7 +26,7 @@ pub struct OcrTextMatch {
 pub fn find_text_matches(
     shot: &ComputerScreenshot,
     text_query: &str,
-) -> BitFunResult<Vec<OcrTextMatch>> {
+) -> CoreResult<Vec<OcrTextMatch>> {
     let query = normalize_query(text_query)?;
     save_ocr_debug_jpeg(shot, &query);
 
@@ -46,7 +46,7 @@ pub fn find_text_matches(
     }
 
     #[allow(unreachable_code)]
-    Err(BitFunError::tool(
+    Err(CoreError::tool(
         "move_to_text OCR is not supported on this platform.".to_string(),
     ))
 }
@@ -129,10 +129,10 @@ fn save_ocr_debug_jpeg(shot: &ComputerScreenshot, text_query: &str) {
     }
 }
 
-fn normalize_query(text_query: &str) -> BitFunResult<String> {
+fn normalize_query(text_query: &str) -> CoreResult<String> {
     let q = text_query.trim();
     if q.is_empty() {
-        return Err(BitFunError::tool(
+        return Err(CoreError::tool(
             "move_to_text requires a non-empty text_query.".to_string(),
         ));
     }
@@ -328,15 +328,15 @@ pub fn image_box_to_global_match(
 pub fn crop_shot_to_ocr_region(
     shot: ComputerScreenshot,
     region: &OcrRegionNative,
-) -> BitFunResult<ComputerScreenshot> {
+) -> CoreResult<ComputerScreenshot> {
     if region.width == 0 || region.height == 0 {
-        return Err(BitFunError::tool(
+        return Err(CoreError::tool(
             "ocr_region_native width and height must be non-zero.".to_string(),
         ));
     }
     let (cl, ct, cw, ch) = image_content_rect_or_full(&shot);
     if cw == 0 || ch == 0 {
-        return Err(BitFunError::tool(
+        return Err(CoreError::tool(
             "Screenshot content rect is empty; cannot crop for OCR.".to_string(),
         ));
     }
@@ -356,7 +356,7 @@ pub fn crop_shot_to_ocr_region(
     let ix1 = (rx0 + rw).min(ox + nw);
     let iy1 = (ry0 + rh).min(oy + nh);
     if ix1 <= ix0 || iy1 <= iy0 {
-        return Err(BitFunError::tool(
+        return Err(CoreError::tool(
             "ocr_region_native does not intersect the captured display. Check coordinates (global native pixels).".to_string(),
         ));
     }
@@ -371,13 +371,13 @@ pub fn crop_shot_to_ocr_region(
     let px1 = jx1.ceil().min(shot.image_width as f64) as u32;
     let py1 = jy1.ceil().min(shot.image_height as f64) as u32;
     if px1 <= px0 || py1 <= py0 {
-        return Err(BitFunError::tool(
+        return Err(CoreError::tool(
             "OCR crop region is empty after mapping to image pixels.".to_string(),
         ));
     }
 
     let dyn_img = image::load_from_memory(&shot.bytes)
-        .map_err(|e| BitFunError::tool(format!("OCR crop: decode JPEG: {}", e)))?;
+        .map_err(|e| CoreError::tool(format!("OCR crop: decode JPEG: {}", e)))?;
     let rgb = dyn_img.to_rgb8();
     let img_w = rgb.width();
     let img_h = rgb.height();
@@ -385,14 +385,14 @@ pub fn crop_shot_to_ocr_region(
     let px1 = px1.min(img_w);
     let py1 = py1.min(img_h);
     if px1 <= px0 || py1 <= py0 {
-        return Err(BitFunError::tool(
+        return Err(CoreError::tool(
             "OCR crop region is empty after clamping to decoded JPEG size.".to_string(),
         ));
     }
     let crop_w = px1 - px0;
     let crop_h = py1 - py0;
     if px0.saturating_add(crop_w) > img_w || py0.saturating_add(crop_h) > img_h {
-        return Err(BitFunError::tool(
+        return Err(CoreError::tool(
             "OCR crop rectangle is out of image bounds.".to_string(),
         ));
     }
@@ -408,7 +408,7 @@ pub fn crop_shot_to_ocr_region(
         cropped.height(),
         image::ColorType::Rgb8,
     )
-    .map_err(|e| BitFunError::tool(format!("OCR crop: encode JPEG: {}", e)))?;
+    .map_err(|e| CoreError::tool(format!("OCR crop: encode JPEG: {}", e)))?;
 
     // Affine mapping must match `image_box_to_global_match`: global = origin + (jpeg_px - content_left) / content_w * native_capture.
     // Do **not** use ix0/ix1 (intersection clip) as display_origin/native size — they disagree with floor/ceil JPEG bounds px0..px1.
@@ -451,7 +451,7 @@ pub fn crop_shot_to_ocr_region(
             height: cropped.height(),
         }),
         image_global_bounds: Some(
-            bitfun_core::agentic::tools::computer_use_host::ComputerUseImageGlobalBounds {
+            sparo_core::agentic::tools::computer_use_host::ComputerUseImageGlobalBounds {
                 left: native_left,
                 top: native_top,
                 width: native_w as f64,
@@ -472,8 +472,8 @@ mod macos {
         filter_and_rank, fuzzy_text_matches_query, image_box_to_global_match,
         image_content_rect_or_full, levenshtein_chars, normalize_for_match, OcrTextMatch,
     };
-    use bitfun_core::agentic::tools::computer_use_host::ComputerScreenshot;
-    use bitfun_core::util::errors::{BitFunError, BitFunResult};
+    use sparo_core::agentic::tools::computer_use_host::ComputerScreenshot;
+    use sparo_core::error::{CoreError, CoreResult};
     use objc2::msg_send;
     use objc2::rc::Retained;
     use objc2::AnyThread;
@@ -490,11 +490,11 @@ mod macos {
     pub fn find_text_matches(
         shot: &ComputerScreenshot,
         text_query: &str,
-    ) -> BitFunResult<Vec<OcrTextMatch>> {
+    ) -> CoreResult<Vec<OcrTextMatch>> {
         let (_content_left, _content_top, content_width, content_height) =
             image_content_rect_or_full(shot);
         if content_width == 0 || content_height == 0 {
-            return Err(BitFunError::tool(
+            return Err(CoreError::tool(
                 "Screenshot content rect is empty; cannot run macOS Vision OCR.".to_string(),
             ));
         }
@@ -509,7 +509,7 @@ mod macos {
 
         let ranked = filter_and_rank(text_query, raw_matches);
         if ranked.is_empty() {
-            return Err(BitFunError::tool(format!(
+            return Err(CoreError::tool(format!(
                 "No OCR text matched {:?} on screen (macOS Vision found {} text regions total). \
                  Matching strips whitespace between glyphs and allows small edit distance for OCR errors. \
                  If the UI is Chinese, try a shorter substring or ensure the text is visible in the capture.",
@@ -522,7 +522,7 @@ mod macos {
 
     fn recognize_text_observations(
         jpeg_bytes: &[u8],
-    ) -> BitFunResult<Vec<Retained<VNRecognizedTextObservation>>> {
+    ) -> CoreResult<Vec<Retained<VNRecognizedTextObservation>>> {
         // Create NSData from the raw JPEG bytes.
         let ns_data = NSData::with_bytes(jpeg_bytes);
 
@@ -564,7 +564,7 @@ mod macos {
         // Perform the request synchronously.
         handler
             .performRequests_error(&requests)
-            .map_err(ns_error_to_bitfun)?;
+            .map_err(ns_error_to_sparo)?;
 
         // Collect results.
         let results = match request.results() {
@@ -574,9 +574,9 @@ mod macos {
         Ok(results.to_vec())
     }
 
-    fn ns_error_to_bitfun(err: Retained<NSError>) -> BitFunError {
+    fn ns_error_to_sparo(err: Retained<NSError>) -> CoreError {
         let desc = err.localizedDescription().to_string();
-        BitFunError::tool(format!("macOS Vision OCR failed: {}", desc))
+        CoreError::tool(format!("macOS Vision OCR failed: {}", desc))
     }
 
     fn observation_to_match(
@@ -669,8 +669,8 @@ mod windows_backend {
         filter_and_rank, fuzzy_text_matches_query, image_box_to_global_match,
         image_content_rect_or_full, normalize_for_match, OcrTextMatch,
     };
-    use bitfun_core::agentic::tools::computer_use_host::ComputerScreenshot;
-    use bitfun_core::util::errors::{BitFunError, BitFunResult};
+    use sparo_core::agentic::tools::computer_use_host::ComputerScreenshot;
+    use sparo_core::error::{CoreError, CoreResult};
     use windows::core::HSTRING;
     use windows::Graphics::Imaging::BitmapDecoder;
     use windows::Media::Ocr::{OcrEngine, OcrWord};
@@ -680,18 +680,18 @@ mod windows_backend {
         COINIT_DISABLE_OLE1DDE,
     };
 
-    fn w<T>(r: windows::core::Result<T>) -> BitFunResult<T> {
-        r.map_err(|e| BitFunError::tool(format!("Windows OCR: {}", e)))
+    fn w<T>(r: windows::core::Result<T>) -> CoreResult<T> {
+        r.map_err(|e| CoreError::tool(format!("Windows OCR: {}", e)))
     }
 
     pub fn find_text_matches(
         shot: &ComputerScreenshot,
         text_query: &str,
-    ) -> BitFunResult<Vec<OcrTextMatch>> {
+    ) -> CoreResult<Vec<OcrTextMatch>> {
         let (content_left, content_top, content_width, content_height) =
             image_content_rect_or_full(shot);
         if content_width == 0 || content_height == 0 {
-            return Err(BitFunError::tool(
+            return Err(CoreError::tool(
                 "Screenshot content rect is empty; cannot run Windows OCR.".to_string(),
             ));
         }
@@ -704,7 +704,7 @@ mod windows_backend {
             let hr =
                 unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE) };
             if hr.is_err() {
-                return Err(BitFunError::tool(format!(
+                return Err(CoreError::tool(format!(
                     "Windows OCR COM initialization failed: {:?}",
                     hr
                 )));
@@ -712,7 +712,7 @@ mod windows_backend {
             co_init = Some(());
         }
 
-        let result = (|| -> BitFunResult<Vec<OcrTextMatch>> {
+        let result = (|| -> CoreResult<Vec<OcrTextMatch>> {
             // 1. Write JPEG bytes to in-memory stream
             let stream = w(InMemoryRandomAccessStream::new())?;
             let writer = w(DataWriter::CreateDataWriter(&stream))?;
@@ -734,7 +734,7 @@ mod windows_backend {
                         &HSTRING::from("en-US"),
                     ))?;
                     if !w(OcrEngine::IsLanguageSupported(&lang))? {
-                        return Err(BitFunError::tool(
+                        return Err(CoreError::tool(
                             "Windows OCR: No supported language packs installed.".to_string(),
                         ));
                     }
@@ -767,7 +767,7 @@ mod windows_backend {
 
             let ranked = filter_and_rank(text_query, raw_matches);
             if ranked.is_empty() {
-                return Err(BitFunError::tool(format!(
+                return Err(CoreError::tool(format!(
                     "No OCR text matched {:?} on screen (Windows OCR found {} text regions total).",
                     text_query, line_count
                 )));
@@ -823,19 +823,19 @@ mod linux_backend {
         filter_and_rank, fuzzy_text_matches_query, image_box_to_global_match,
         image_content_rect_or_full, normalize_for_match, OcrTextMatch,
     };
-    use bitfun_core::agentic::tools::computer_use_host::ComputerScreenshot;
-    use bitfun_core::util::errors::{BitFunError, BitFunResult};
+    use sparo_core::agentic::tools::computer_use_host::ComputerScreenshot;
+    use sparo_core::error::{CoreError, CoreResult};
     use leptess::capi::TessPageIteratorLevel_RIL_WORD;
     use leptess::{leptonica, tesseract::TessApi};
 
     pub fn find_text_matches(
         shot: &ComputerScreenshot,
         text_query: &str,
-    ) -> BitFunResult<Vec<OcrTextMatch>> {
+    ) -> CoreResult<Vec<OcrTextMatch>> {
         let (content_left, content_top, content_width, content_height) =
             image_content_rect_or_full(shot);
         if content_width == 0 || content_height == 0 {
-            return Err(BitFunError::tool(
+            return Err(CoreError::tool(
                 "Screenshot content rect is empty; cannot run Linux Tesseract OCR.".to_string(),
             ));
         }
@@ -859,14 +859,14 @@ mod linux_backend {
                         }
                     }
                 }
-                api.ok_or_else(|| BitFunError::tool(
+                api.ok_or_else(|| CoreError::tool(
                     "Linux OCR: Tesseract initialization failed. Please install tesseract-ocr and tesseract-ocr-eng packages, or ensure TESSDATA_PREFIX is set correctly.".to_string()
                 ))?
             }
         };
 
         let pix = leptonica::pix_read_mem(&shot.bytes).map_err(|e| {
-            BitFunError::tool(format!(
+            CoreError::tool(format!(
                 "Linux OCR: Failed to decode screenshot image with Leptonica: {}",
                 e
             ))
@@ -874,7 +874,7 @@ mod linux_backend {
 
         api.set_image(&pix);
         if api.recognize() != 0 {
-            return Err(BitFunError::tool(
+            return Err(CoreError::tool(
                 "Linux OCR: Tesseract recognition failed.".to_string(),
             ));
         }
@@ -882,7 +882,7 @@ mod linux_backend {
         let boxa = api
             .get_component_images(TessPageIteratorLevel_RIL_WORD, true)
             .ok_or_else(|| {
-                BitFunError::tool("Linux OCR: Tesseract did not return word regions.".to_string())
+                CoreError::tool("Linux OCR: Tesseract did not return word regions.".to_string())
             })?;
 
         let word_region_count = boxa.get_n();
@@ -923,7 +923,7 @@ mod linux_backend {
 
         let ranked = filter_and_rank(text_query, raw_matches);
         if ranked.is_empty() {
-            return Err(BitFunError::tool(format!(
+            return Err(CoreError::tool(format!(
                 "No OCR text matched {:?} on screen (Tesseract found {} word regions total).",
                 text_query, word_region_count
             )));

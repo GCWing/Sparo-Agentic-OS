@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Keeps Product App Runtime catalog and host lifecycle state in sync.
  */
 import { useCallback, useEffect } from 'react';

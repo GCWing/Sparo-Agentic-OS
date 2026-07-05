@@ -10,7 +10,7 @@ use super::state_store::AnnouncementStateStore;
 use super::tips_pool::builtin_tips;
 use super::types::{AnnouncementCard, AnnouncementState, TriggerCondition};
 use crate::infrastructure::app_paths::PathManager;
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 use log::{debug, info};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -27,7 +27,7 @@ pub struct AnnouncementScheduler {
 
 impl AnnouncementScheduler {
     /// Create a new scheduler and load persisted state from disk.
-    pub async fn new(path_manager: &Arc<PathManager>) -> BitFunResult<Self> {
+    pub async fn new(path_manager: &Arc<PathManager>) -> CoreResult<Self> {
         let store = AnnouncementStateStore::new(path_manager);
         let remote_fetcher = RemoteFetcher::new(path_manager);
         let state = store.load().await?;
@@ -48,7 +48,7 @@ impl AnnouncementScheduler {
     ///
     /// Should be called once during application startup (non-blocking – awaited
     /// inside the Tauri `setup` callback or from `announcement_api`).
-    pub async fn run(&self, locale: &str) -> BitFunResult<Vec<AnnouncementCard>> {
+    pub async fn run(&self, locale: &str) -> CoreResult<Vec<AnnouncementCard>> {
         let mut state = self.state.write().await;
         let is_version_first_open = state.last_seen_version != self.current_version;
 
@@ -117,21 +117,21 @@ impl AnnouncementScheduler {
     }
 
     /// Record that the user has seen (opened the modal for) a card.
-    pub async fn mark_seen(&self, id: &str) -> BitFunResult<()> {
+    pub async fn mark_seen(&self, id: &str) -> CoreResult<()> {
         let mut state = self.state.write().await;
         state.seen_ids.insert(id.to_string());
         self.store.save(&state).await
     }
 
     /// Dismiss a card for the current version cycle.
-    pub async fn dismiss(&self, id: &str) -> BitFunResult<()> {
+    pub async fn dismiss(&self, id: &str) -> CoreResult<()> {
         let mut state = self.state.write().await;
         state.dismissed_ids.insert(id.to_string());
         self.store.save(&state).await
     }
 
     /// Permanently suppress a card.
-    pub async fn never_show(&self, id: &str) -> BitFunResult<()> {
+    pub async fn never_show(&self, id: &str) -> CoreResult<()> {
         let mut state = self.state.write().await;
         state.never_show_ids.insert(id.to_string());
         self.store.save(&state).await

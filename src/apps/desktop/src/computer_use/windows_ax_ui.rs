@@ -1,10 +1,10 @@
 //! Windows UI Automation (UIA) tree walk for stable screen coordinates.
 
 use crate::computer_use::ui_locate_common;
-use bitfun_core::agentic::tools::computer_use_host::{
+use sparo_core::agentic::tools::computer_use_host::{
     OcrAccessibilityHit, UiElementLocateQuery, UiElementLocateResult,
 };
-use bitfun_core::util::errors::{BitFunError, BitFunResult};
+use sparo_core::error::{CoreError, CoreResult};
 use std::collections::VecDeque;
 use windows::Win32::Foundation::POINT;
 use windows::Win32::System::Com::{
@@ -22,7 +22,7 @@ fn bstr_to_string(b: windows_core::BSTR) -> String {
 fn walker_children(
     walker: &IUIAutomationTreeWalker,
     parent: &IUIAutomationElement,
-) -> BitFunResult<Vec<IUIAutomationElement>> {
+) -> CoreResult<Vec<IUIAutomationElement>> {
     let mut out = Vec::new();
     let first = unsafe { walker.GetFirstChildElement(parent) };
     let Ok(mut cur) = first else {
@@ -50,11 +50,11 @@ fn localized_control_type_string(elem: &IUIAutomationElement) -> String {
 /// Foreground window root, then UIA RawViewWalker BFS.
 pub fn locate_ui_element_center(
     query: &UiElementLocateQuery,
-) -> BitFunResult<UiElementLocateResult> {
+) -> CoreResult<UiElementLocateResult> {
     ui_locate_common::validate_query(query)?;
 
     if query.node_idx.is_some() {
-        return Err(BitFunError::tool(
+        return Err(CoreError::tool(
             "[AX_IDX_NOT_SUPPORTED] node_idx lookup is only implemented on macOS. \
              Fall back to `text_contains` / `title_contains` + `role_substring` on this host."
                 .to_string(),
@@ -70,7 +70,7 @@ pub fn locate_ui_element_center(
 
     let automation: IUIAutomation = unsafe {
         CoCreateInstance(&CUIAutomation, None, CLSCTX_INPROC_SERVER).map_err(|e| {
-            BitFunError::tool(format!(
+            CoreError::tool(format!(
                 "UI Automation (CoCreateInstance CUIAutomation): {}.",
                 e
             ))
@@ -79,21 +79,21 @@ pub fn locate_ui_element_center(
 
     let hwnd = unsafe { GetForegroundWindow() };
     if hwnd.is_invalid() {
-        return Err(BitFunError::tool(
+        return Err(CoreError::tool(
             "No foreground window (GetForegroundWindow returned null).".to_string(),
         ));
     }
 
     let root = unsafe {
         automation.ElementFromHandle(hwnd).map_err(|e| {
-            BitFunError::tool(format!("UI Automation ElementFromHandle failed: {}.", e))
+            CoreError::tool(format!("UI Automation ElementFromHandle failed: {}.", e))
         })?
     };
 
     let walker = unsafe {
         automation
             .RawViewWalker()
-            .map_err(|e| BitFunError::tool(format!("UI Automation RawViewWalker: {}.", e)))?
+            .map_err(|e| CoreError::tool(format!("UI Automation RawViewWalker: {}.", e)))?
     };
 
     struct Queued {
@@ -107,7 +107,7 @@ pub fn locate_ui_element_center(
 
     loop {
         let Some(cur) = q.pop_front() else {
-            return Err(BitFunError::tool(
+            return Err(CoreError::tool(
                 "No UI element matched in the foreground window for this query. Refine filters or use ComputerUse screenshot. Locate uses the same UI Automation permission as mouse/keyboard automation."
                     .to_string(),
             ));
@@ -117,7 +117,7 @@ pub fn locate_ui_element_center(
         }
         visited += 1;
         if visited > max_nodes {
-            return Err(BitFunError::tool(
+            return Err(CoreError::tool(
                 "UI Automation search limit reached; narrow title/role/identifier filters."
                     .to_string(),
             ));
@@ -200,13 +200,13 @@ pub fn locate_ui_element_center(
 pub fn accessibility_hit_at_global_point(
     gx: f64,
     gy: f64,
-) -> BitFunResult<Option<OcrAccessibilityHit>> {
+) -> CoreResult<Option<OcrAccessibilityHit>> {
     unsafe {
         let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
     }
     let automation: IUIAutomation = unsafe {
         CoCreateInstance(&CUIAutomation, None, CLSCTX_INPROC_SERVER)
-            .map_err(|e| BitFunError::tool(format!("UI Automation (CoCreateInstance): {}.", e)))?
+            .map_err(|e| CoreError::tool(format!("UI Automation (CoCreateInstance): {}.", e)))?
     };
     let pt = POINT {
         x: gx.round() as i32,

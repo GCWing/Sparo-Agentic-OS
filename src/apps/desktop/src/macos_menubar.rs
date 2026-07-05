@@ -16,12 +16,12 @@ pub enum EditMenuMode {
     Renderer,
 }
 
-pub const MENU_ID_EDIT_UNDO: &str = "bitfun.edit.undo";
-pub const MENU_ID_EDIT_REDO: &str = "bitfun.edit.redo";
-pub const MENU_ID_EDIT_CUT: &str = "bitfun.edit.cut";
-pub const MENU_ID_EDIT_COPY: &str = "bitfun.edit.copy";
-pub const MENU_ID_EDIT_PASTE: &str = "bitfun.edit.paste";
-pub const MENU_ID_EDIT_SELECT_ALL: &str = "bitfun.edit.select_all";
+pub const MENU_ID_EDIT_UNDO: &str = "sparo.edit.undo";
+pub const MENU_ID_EDIT_REDO: &str = "sparo.edit.redo";
+pub const MENU_ID_EDIT_CUT: &str = "sparo.edit.cut";
+pub const MENU_ID_EDIT_COPY: &str = "sparo.edit.copy";
+pub const MENU_ID_EDIT_PASTE: &str = "sparo.edit.paste";
+pub const MENU_ID_EDIT_SELECT_ALL: &str = "sparo.edit.select_all";
 
 pub fn menu_event_name_for_id(id: &str) -> Option<&'static str> {
     match id {

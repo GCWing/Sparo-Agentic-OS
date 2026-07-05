@@ -37,5 +37,5 @@ pub trait ServiceBridgeAdapter: Send + Sync {
     fn request(
         &self,
         request: ServiceBridgeRequest,
-    ) -> crate::util::errors::BitFunResult<ServiceBridgeResponse>;
+    ) -> crate::error::CoreResult<ServiceBridgeResponse>;
 }

@@ -1,15 +1,15 @@
 //! Application state management
 
-use bitfun_core::agentic::side_question::SideQuestionRuntime;
-use bitfun_core::agentic::{agents, tools};
-use bitfun_core::app_platform::seed_builtin_product_app_packages;
-use bitfun_core::infrastructure::ai::{AIClient, AIClientFactory};
-use bitfun_core::product_app_runtime_host::{
+use sparo_core::agentic::side_question::SideQuestionRuntime;
+use sparo_core::agentic::{agents, tools};
+use sparo_core::app_platform::seed_builtin_product_app_packages;
+use sparo_core::infrastructure::ai::{AIClient, AIClientFactory};
+use sparo_core::product_app_runtime_host::{
     initialize_global_product_app_runtime_host_manager, ProductAppRuntimeHostManager,
     ProductAppRuntimeHostWorkerPool,
 };
-use bitfun_core::service::{announcement, config, filesystem, mcp, token_usage, workspace};
-use bitfun_core::util::errors::*;
+use sparo_core::service::{announcement, config, filesystem, mcp, token_usage, workspace};
+use sparo_core::error::*;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -58,16 +58,16 @@ pub struct AppState {
 impl AppState {
     pub async fn new_async(
         token_usage_service: Arc<token_usage::TokenUsageService>,
-    ) -> BitFunResult<Self> {
+    ) -> CoreResult<Self> {
         let start_time = std::time::Instant::now();
 
         let config_service = config::get_global_config_service().await.map_err(|e| {
-            BitFunError::config(format!("Failed to get global config service: {}", e))
+            CoreError::config(format!("Failed to get global config service: {}", e))
         })?;
 
         let ai_client = Arc::new(RwLock::new(None));
         let ai_client_factory = AIClientFactory::get_global().await.map_err(|e| {
-            BitFunError::service(format!("Failed to get global AIClientFactory: {}", e))
+            CoreError::service(format!("Failed to get global AIClientFactory: {}", e))
         })?;
         let side_question_runtime = Arc::new(SideQuestionRuntime::new());
 
@@ -101,7 +101,7 @@ impl AppState {
             announcement::AnnouncementScheduler::new(&path_manager)
                 .await
                 .map_err(|e| {
-                    BitFunError::service(format!(
+                    CoreError::service(format!(
                         "Failed to initialize announcement scheduler: {}",
                         e
                     ))
@@ -153,7 +153,7 @@ impl AppState {
 
         if let Some(workspace_path) = initial_workspace_path.clone() {
             if let Err(e) =
-                bitfun_core::service::snapshot::initialize_snapshot_manager_for_workspace(
+                sparo_core::service::snapshot::initialize_snapshot_manager_for_workspace(
                     workspace_path.clone(),
                     None,
                 )

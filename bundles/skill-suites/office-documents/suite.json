@@ -1,0 +1,38 @@
+{
+  "id": "office-documents",
+  "name": "Office Documents",
+  "description": "Work with documents, PDFs, presentations, and spreadsheets using format-aware creation, editing, inspection, and verification workflows.",
+  "routerPath": "router.md",
+  "tags": ["documents", "office"],
+  "members": [
+    {
+      "skillId": "docx",
+      "role": "Word and DOCX document creation, editing, comments, redlines, and layout verification",
+      "required": false,
+      "overridePolicy": "sparoManaged"
+    },
+    {
+      "skillId": "pdf",
+      "role": "PDF reading, creation, inspection, rendering, and visual layout verification",
+      "required": false,
+      "overridePolicy": "sparoManaged"
+    },
+    {
+      "skillId": "pptx",
+      "role": "PowerPoint and presentation deck creation or editing",
+      "required": false,
+      "overridePolicy": "sparoManaged"
+    },
+    {
+      "skillId": "xlsx",
+      "role": "Spreadsheet creation, modification, analysis, formulas, formatting, and charts",
+      "required": false,
+      "overridePolicy": "sparoManaged"
+    }
+  ],
+  "defaultProfiles": {
+    "Cowork": "enabled",
+    "Design": "enabled",
+    "agentic": "disabled"
+  }
+}

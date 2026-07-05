@@ -1,4 +1,4 @@
-﻿pub fn normalize_string(s: &str) -> String {
+pub fn normalize_string(s: &str) -> String {
     if s.contains("\r\n") {
         s.replace("\r\n", "\n")
     } else {

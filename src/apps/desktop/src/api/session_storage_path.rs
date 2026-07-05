@@ -1,7 +1,7 @@
 //! Shared desktop resolution of on-disk session roots for local workspaces.
 
 use crate::api::app_state::AppState;
-use bitfun_core::service::workspace_session::workspace_session_identity;
+use sparo_core::service::workspace_session::workspace_session_identity;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 

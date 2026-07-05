@@ -6,7 +6,7 @@ use crate::service::{
     FileOperationType, FilesContext, FilesContextScope, FilesContextSelectionKind,
     WorkbenchFileEntry, WorkbenchFileEntryKind, WorkbenchFileScope,
 };
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -48,12 +48,12 @@ impl FileOperationPlanTool {
 fn session_id_from_input_or_context(
     input_session_id: Option<String>,
     context: &ToolUseContext,
-) -> BitFunResult<String> {
+) -> CoreResult<String> {
     input_session_id
         .or_else(|| context.session_id.clone())
         .filter(|value| !value.trim().is_empty())
         .ok_or_else(|| {
-            BitFunError::tool("A sessionId is required to read Files context".to_string())
+            CoreError::tool("A sessionId is required to read Files context".to_string())
         })
 }
 
@@ -114,10 +114,10 @@ fn plan_from_files_context(
     operation_type: FileOperationType,
     target_dir: Option<String>,
     reason: String,
-) -> BitFunResult<FileOperationPlan> {
+) -> CoreResult<FileOperationPlan> {
     let entries = workbench_entries_from_context(context);
     if entries.is_empty() {
-        return Err(BitFunError::tool(
+        return Err(CoreError::tool(
             "Files context has no selected files to plan against".to_string(),
         ));
     }
@@ -143,7 +143,7 @@ impl Tool for FileContextReadTool {
         "FileContextRead"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok("Read the structured File Workbench context for the current session, including cwd, selected files, summary, capabilities, and recent paths. Use this before planning file organization work from the Files scene.".to_string())
     }
 
@@ -180,14 +180,14 @@ impl Tool for FileContextReadTool {
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let input: FileContextReadInput =
             serde_json::from_value(input.clone()).map_err(|error| {
-                BitFunError::tool(format!("Invalid FileContextRead input: {}", error))
+                CoreError::tool(format!("Invalid FileContextRead input: {}", error))
             })?;
         let session_id = session_id_from_input_or_context(input.session_id, context)?;
         let context = get_files_context(&session_id).ok_or_else(|| {
-            BitFunError::tool("No Files context is available for this session".to_string())
+            CoreError::tool("No Files context is available for this session".to_string())
         })?;
         let assistant = format!(
             "Files context loaded: cwd={}, selected_items={}",
@@ -204,7 +204,7 @@ impl Tool for FileOperationPlanTool {
         "FileOperationPlan"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok("Create a reviewed, non-executing File Workbench operation plan from the current Files context selection. This tool never changes files; execution must happen through the app's confirmed operation flow.".to_string())
     }
 
@@ -287,14 +287,14 @@ impl Tool for FileOperationPlanTool {
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let input: FileOperationPlanInput =
             serde_json::from_value(input.clone()).map_err(|error| {
-                BitFunError::tool(format!("Invalid FileOperationPlan input: {}", error))
+                CoreError::tool(format!("Invalid FileOperationPlan input: {}", error))
             })?;
         let session_id = session_id_from_input_or_context(input.session_id, context)?;
         let files_context = get_files_context(&session_id).ok_or_else(|| {
-            BitFunError::tool("No Files context is available for this session".to_string())
+            CoreError::tool("No Files context is available for this session".to_string())
         })?;
         let plan = plan_from_files_context(
             &files_context,

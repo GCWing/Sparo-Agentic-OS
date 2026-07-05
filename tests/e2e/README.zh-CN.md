@@ -12,13 +12,13 @@
 
 ```bash
 # 构建 debug 应用
-cargo build -p bitfun-desktop
+cargo build -p sparo-desktop
 
 # 安装测试依赖
 cd tests/e2e && pnpm install
 ```
 
-`bitfun-desktop` 是 Sparo OS 桌面应用当前保留的技术 Cargo package 名称。
+`sparo-desktop` 是 Sparo OS 桌面应用当前保留的技术 Cargo package 名称。
 
 ### 2. 运行测试
 
@@ -64,7 +64,7 @@ tests/e2e/
 ### 应用未构建
 
 ```bash
-cargo build -p bitfun-desktop
+cargo build -p sparo-desktop
 ```
 
 ### 测试超时

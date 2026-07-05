@@ -120,7 +120,7 @@ Key behavior:
 Local debug command:
 
 ```bash
-npx tauri dev -- -- --uninstall "D:\\tmp\\bitfun-uninstall-test"
+npx tauri dev -- -- --uninstall "D:\\tmp\\sparo-uninstall-test"
 ```
 
 Core implementation:

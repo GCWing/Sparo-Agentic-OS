@@ -3,7 +3,7 @@
 This directory contains bundled product content that is shipped with Sparo OS but
 is not part of the core runtime implementation.
 
-- `product-apps/builtin/`: built-in Product App packages. Each app owns one
+- `product-apps/`: built-in Product App packages. Each app owns one
   top-level directory, with versioned packages below it. Product App private
   Surface source lives under each package's
   `components/surfaces/<surface-id>/source/` directory and is locked with the

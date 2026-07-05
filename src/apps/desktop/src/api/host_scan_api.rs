@@ -1,7 +1,7 @@
-use bitfun_core::service::{get_global_host_auto_scan_service, HostScanRunSummary};
+use sparo_core::service::{get_global_host_auto_scan_service, HostScanRunSummary};
 use log::{debug, error};
 
-fn host_scan_service() -> Result<std::sync::Arc<bitfun_core::service::HostAutoScanService>, String>
+fn host_scan_service() -> Result<std::sync::Arc<sparo_core::service::HostAutoScanService>, String>
 {
     get_global_host_auto_scan_service()
         .ok_or_else(|| "Host auto scan service is not initialized".to_string())

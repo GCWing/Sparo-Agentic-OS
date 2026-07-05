@@ -7,7 +7,7 @@ use crate::infrastructure::events::event_system::BackendEvent::{
     ToolExecutionProgress, ToolTerminalReady,
 };
 use crate::service::config::global::get_global_config_service;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use crate::util::types::event::{ToolExecutionProgressInfo, ToolTerminalReadyInfo};
 use agentshell::session::SessionSource;
 use agentshell::shell::{ShellDetector, ShellType};
@@ -288,8 +288,8 @@ impl BashTool {
             .is_some_and(|token| token.is_cancelled())
     }
 
-    fn cancellation_error(stage: &str) -> BitFunError {
-        BitFunError::cancelled(format!("Bash tool execution cancelled {}", stage))
+    fn cancellation_error(stage: &str) -> CoreError {
+        CoreError::cancelled(format!("Bash tool execution cancelled {}", stage))
     }
 }
 
@@ -299,7 +299,7 @@ impl Tool for BashTool {
         "Bash"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         let shell_info = Self::resolve_shell().await.display_name;
 
         Ok(format!(
@@ -361,7 +361,7 @@ Usage notes:
     async fn description_with_context(
         &self,
         context: Option<&ToolUseContext>,
-    ) -> BitFunResult<String> {
+    ) -> CoreResult<String> {
         let mut base = self.description().await?;
         if context.map(|c| c.is_remote()).unwrap_or(false) {
             base = format!(
@@ -577,20 +577,20 @@ Usage notes:
         &self,
         _input: &Value,
         _context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
-        Err(BitFunError::tool(
+    ) -> CoreResult<Vec<ToolResult>> {
+        Err(CoreError::tool(
             "Bash tool call_impl should not be called".to_string(),
         ))
     }
 
-    async fn call(&self, input: &Value, context: &ToolUseContext) -> BitFunResult<Vec<ToolResult>> {
+    async fn call(&self, input: &Value, context: &ToolUseContext) -> CoreResult<Vec<ToolResult>> {
         let start_time = Instant::now();
 
         // Get command parameter
         let command_str = input
             .get("command")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BitFunError::tool("command is required".to_string()))?;
+            .ok_or_else(|| CoreError::tool("command is required".to_string()))?;
 
         if let Some(agent_type) = context.agent_type.as_deref() {
             if let Some(allowlist) =
@@ -601,7 +601,7 @@ Usage notes:
             {
                 if !allowlist.is_empty() && !allowlist.iter().any(|allowed| allowed == command_str)
                 {
-                    return Err(BitFunError::validation(format!(
+                    return Err(CoreError::validation(format!(
                         "Command is not allowed for Agent Component '{}': {}",
                         agent_type, command_str
                     )));
@@ -632,7 +632,7 @@ Usage notes:
                     )
                     .await
                     .map_err(|e| {
-                        BitFunError::tool(format!("Remote command execution failed: {}", e))
+                        CoreError::tool(format!("Remote command execution failed: {}", e))
                     })?;
 
                 let output = exec_result.combined_output();
@@ -689,7 +689,7 @@ Usage notes:
         let chat_session_id = context
             .session_id
             .as_ref()
-            .ok_or_else(|| BitFunError::tool("session_id is required for Bash tool".to_string()))?;
+            .ok_or_else(|| CoreError::tool("session_id is required for Bash tool".to_string()))?;
 
         // Get tool call ID (for sending progress events)
         let tool_use_id = context
@@ -699,7 +699,7 @@ Usage notes:
 
         // 1. Get Terminal API
         let terminal_api = TerminalApi::from_singleton()
-            .map_err(|e| BitFunError::tool(format!("Terminal not initialized: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("Terminal not initialized: {}", e)))?;
 
         // 2. Resolve shell type
         let shell_type = Self::resolve_shell().await.shell_type;
@@ -708,7 +708,7 @@ Usage notes:
         let workspace_path = context
             .workspace_root()
             .ok_or_else(|| {
-                BitFunError::tool("workspace_path is required for Bash tool".to_string())
+                CoreError::tool("workspace_path is required for Bash tool".to_string())
             })?
             .to_string_lossy()
             .to_string();
@@ -765,7 +765,7 @@ Usage notes:
                 },
             )
             .await
-            .map_err(|e| BitFunError::tool(format!("Failed to create Terminal session: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("Failed to create Terminal session: {}", e)))?;
 
         Self::emit_terminal_ready_event(&tool_use_id, &primary_session_id);
 
@@ -910,7 +910,7 @@ Usage notes:
                         "Bash command execution error: {}, tool_id: {}",
                         message, tool_use_id
                     );
-                    return Err(BitFunError::tool(format!(
+                    return Err(CoreError::tool(format!(
                         "Command execution error: {}",
                         message
                     )));
@@ -973,7 +973,7 @@ impl BashTool {
         terminal_api: &TerminalApi,
         binding: &TerminalSessionBinding,
         start_time: Instant,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         debug!(
             "Bash tool starting background command: {}, owner: {}",
             command_str, chat_session_id
@@ -1001,7 +1001,7 @@ impl BashTool {
             )
             .await
             .map_err(|e| {
-                BitFunError::tool(format!(
+                CoreError::tool(format!(
                     "Failed to create background terminal session: {}",
                     e
                 ))
@@ -1035,7 +1035,7 @@ impl BashTool {
                 command: command_str.to_string(),
             })
             .await
-            .map_err(|e| BitFunError::tool(format!("Failed to send background command: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("Failed to send background command: {}", e)))?;
 
         debug!(
             "Background command started, session_id: {}, owner: {}",

@@ -1,16 +1,16 @@
 [package]
-name = "bitfun-transport"
+name = "sparo-transport"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
 description = "Sparo OS transport layer for Desktop and CLI hosts"
 
 [lib]
-name = "bitfun_transport"
+name = "sparo_transport"
 
 [dependencies]
 # Events layer
-bitfun-events = { path = "../events" }
+sparo-events = { path = "../events" }
 
 # Inherited from workspace
 tokio = { workspace = true }

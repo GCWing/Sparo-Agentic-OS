@@ -6,7 +6,7 @@ use super::agent_session_handoff::{
 use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
 };
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -81,12 +81,12 @@ impl Tool for SessionMessageTool {
         "SessionMessage"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(
             r#"Asynchronously send a message to another agent session. When the target session finishes, its result is automatically sent back to you as a follow-up message.
 
 You must provide the target workspace as an absolute path, and you can optionally set agent_type to choose how the target session handles the request:
-- "agentic": Prime Builder, the software development agent for coding, implementation, debugging, tests, and code changes.
+- "agentic": BitFun Coder, the default execution agent for coding, debugging, automation, tests, and verified workspace changes.
 - "Plan": Planning agent for clarifying requirements and producing an implementation plan before coding.
 - "Cowork": Collaborative agent for office-style work such as research, documentation, presentations, etc.
 - "Design": Design-focused agent for HTML prototypes, design artifacts, and visual exploration.
@@ -256,22 +256,22 @@ When overriding an existing session's agent_type, only switching between "agenti
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let params: SessionMessageInput = serde_json::from_value(input.clone())
-            .map_err(|e| BitFunError::tool(format!("Invalid input: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("Invalid input: {}", e)))?;
         let workspace = resolve_handoff_workspace(&params.workspace, context, false).await?;
         let source_session_id = handoff_source_session_id(context, "SessionMessage")?.to_string();
         let target_session_id = params.session_id.clone();
 
         if source_session_id == target_session_id {
-            return Err(BitFunError::tool(
+            return Err(CoreError::tool(
                 "SessionMessage cannot send a message to the same session".to_string(),
             ));
         }
 
         let source_workspace = handoff_source_workspace(context, "SessionMessage")?;
         let agentic = context.agentic().ok_or_else(|| {
-            crate::util::errors::BitFunError::tool("agentic stack not initialized".to_string())
+            crate::error::CoreError::tool("agentic stack not initialized".to_string())
         })?;
         let target_session =
             find_existing_session(&agentic.coordinator, &workspace, &target_session_id).await?;
@@ -282,7 +282,7 @@ When overriding an existing session's agent_type, only switching between "agenti
                 SessionMessageAgentType::Agentic
             } else {
                 SessionMessageAgentType::from_str(persisted_agent_type).ok_or_else(|| {
-                    BitFunError::tool(format!(
+                    CoreError::tool(format!(
                         "SessionMessage agent_type override is only supported for sessions using 'agentic', 'Plan', 'Cowork', or 'Design'. Current agent type is '{}'.",
                         persisted_agent_type
                     ))
@@ -292,7 +292,7 @@ When overriding an existing session's agent_type, only switching between "agenti
             if requested_agent_type.as_str() != current_agent_type.as_str()
                 && !(requested_agent_type.is_coding_mode() && current_agent_type.is_coding_mode())
             {
-                return Err(BitFunError::tool(format!(
+                return Err(CoreError::tool(format!(
                     "SessionMessage only allows agent_type override between 'agentic' and 'Plan'. Cannot switch session '{}' from '{}' to '{}'.",
                     target_session_id,
                     current_agent_type.as_str(),

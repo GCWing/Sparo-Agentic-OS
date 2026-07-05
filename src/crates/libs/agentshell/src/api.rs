@@ -1,4 +1,4 @@
-﻿//! API module - Public interface for terminal operations
+//! API module - Public interface for terminal operations
 //!
 //! This module provides the public API for external consumers (Tauri, WebSocket, etc.)
 //! It defines request/response types and the main service interface.

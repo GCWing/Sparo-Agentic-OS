@@ -1,11 +1,11 @@
 //! Subagent API
 
 use crate::api::app_state::AppState;
-use bitfun_core::agentic::agents::{
+use sparo_core::agentic::agents::{
     AgentCategory, AgentInfo, CustomSubagent, CustomSubagentConfig, CustomSubagentDetail,
     CustomSubagentKind, SubAgentSource,
 };
-use bitfun_core::service::config::types::SubAgentConfig;
+use sparo_core::service::config::types::SubAgentConfig;
 use log::warn;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -160,7 +160,7 @@ pub async fn replace_agent_subagent_selection(
         .filter(|id| !default_subagents.contains(id))
         .collect();
 
-    bitfun_core::service::config::agent_capability_config_canonicalizer::persist_agent_capability_config_from_value(
+    sparo_core::service::config::agent_capability_config_canonicalizer::persist_agent_capability_config_from_value(
         &request.agent_id,
         json!({
             "disabled_subagents": disabled_subagents,
@@ -170,7 +170,7 @@ pub async fn replace_agent_subagent_selection(
     .await
     .map_err(|e| format!("Failed to update agent subagents: {}", e))?;
 
-    if let Err(e) = bitfun_core::service::config::reload_global_config().await {
+    if let Err(e) = sparo_core::service::config::reload_global_config().await {
         warn!(
             "Failed to reload global config after agent subagent update: agent_id={}, error={}",
             request.agent_id, e
@@ -258,7 +258,7 @@ pub async fn delete_subagent(
         );
     }
 
-    if let Err(e) = bitfun_core::service::config::reload_global_config().await {
+    if let Err(e) = sparo_core::service::config::reload_global_config().await {
         warn!(
             "Failed to reload global config after subagent deletion: subagent_id={}, error={}",
             subagent_id, e
@@ -510,7 +510,7 @@ pub async fn update_subagent_config(
                 .map_err(|e| format!("Failed to update model configuration: {}", e))?;
         }
 
-        if let Err(e) = bitfun_core::service::config::reload_global_config().await {
+        if let Err(e) = sparo_core::service::config::reload_global_config().await {
             warn!(
                 "Failed to reload global config after subagent config update: subagent_id={}, error={}",
                 subagent_id, e

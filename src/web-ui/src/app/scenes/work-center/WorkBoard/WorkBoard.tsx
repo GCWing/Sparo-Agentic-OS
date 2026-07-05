@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Archive, ArrowRight, Check, ChevronDown, ExternalLink, FolderOpen, ListChecks, Pencil, Plus, Send, Trash2, X, XCircle } from 'lucide-react';
+import { Archive, ArchiveRestore, ArrowRight, Check, ChevronDown, ExternalLink, FolderOpen, ListChecks, Pencil, Plus, Send, Trash2, X, XCircle } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-dialog';
 import {
   Badge,
   Button,
+  Checkbox,
   Dialog,
   DialogBody,
   DialogFooter,
@@ -21,6 +22,7 @@ import { openWork, openWorkSurface } from '@/app/agentic-os/work/navigation/open
 import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
 import type {
   ArtifactRef,
+  ControlWorkAction,
   WorkExecutionGraph,
   WorkExecutionSource,
   WorkExecutionBindingStatus,
@@ -393,6 +395,7 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
   const updateWork = useWorkStore((state) => state.updateWork);
   const advanceWork = useWorkStore((state) => state.advanceWork);
   const controlWork = useWorkStore((state) => state.controlWork);
+  const deleteWork = useWorkStore((state) => state.deleteWork);
   const {
     openWorkspace,
     switchWorkspace,
@@ -410,6 +413,9 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
   const [copiedSurfaceKey, setCopiedSurfaceKey] = useState<string | null>(null);
   const [executionGraph, setExecutionGraph] = useState<WorkExecutionGraph | null>(null);
   const [executionGraphLoading, setExecutionGraphLoading] = useState(false);
+  const [selectedWorkIds, setSelectedWorkIds] = useState<string[]>([]);
+  const [batchSubmitting, setBatchSubmitting] = useState(false);
+  const [deleteDialogWorkIds, setDeleteDialogWorkIds] = useState<string[] | null>(null);
   const objectiveTextareaRef = useRef<HTMLTextAreaElement>(null);
   const advanceTextareaRef = useRef<HTMLTextAreaElement>(null);
   const copyResetTimerRef = useRef<number | null>(null);
@@ -418,6 +424,36 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
     () => buildGroups(result.all, grouping),
     [grouping, result.all]
   );
+
+  const selectedWorkIdSet = useMemo(
+    () => new Set(selectedWorkIds),
+    [selectedWorkIds]
+  );
+
+  const selectedWorks = useMemo(
+    () => result.all.filter((work) => selectedWorkIdSet.has(work.id)),
+    [result.all, selectedWorkIdSet]
+  );
+
+  const batchArchiveTargets = useMemo(
+    () => selectedWorks.filter((work) => work.status !== 'archived'),
+    [selectedWorks]
+  );
+
+  const batchReopenTargets = useMemo(
+    () => selectedWorks.filter((work) => work.status === 'archived'),
+    [selectedWorks]
+  );
+
+  const batchCancelTargets = useMemo(
+    () => selectedWorks.filter((work) => isCancellableStatus(work.status)),
+    [selectedWorks]
+  );
+
+  const selectedWorkCount = selectedWorks.length;
+  const selectableWorkCount = result.all.length;
+  const allVisibleWorkSelected = selectableWorkCount > 0 && selectedWorkCount === selectableWorkCount;
+  const someVisibleWorkSelected = selectedWorkCount > 0 && selectedWorkCount < selectableWorkCount;
 
   const activeWorkspaceIds = useMemo(
     () => new Set(activeWorkspaces.map((workspace) => workspace.id)),
@@ -467,6 +503,18 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
     : null;
 
   const showWorkspaceOverview = scope.kind === 'workspaces';
+
+  useEffect(() => {
+    if (showWorkspaceOverview) {
+      setSelectedWorkIds([]);
+      return;
+    }
+    const visibleIds = new Set(result.all.map((work) => work.id));
+    setSelectedWorkIds((current) => {
+      const next = current.filter((workId) => visibleIds.has(workId));
+      return next.length === current.length ? current : next;
+    });
+  }, [result.all, showWorkspaceOverview]);
 
   useEffect(() => {
     if (!selectedWorkId) return;
@@ -690,6 +738,122 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
       notificationService.error(t('errors.removeFailed'));
     }
   }, [controlWork, t]);
+
+  const handleToggleWorkSelection = useCallback((workId: string, checked: boolean) => {
+    setSelectedWorkIds((current) => {
+      if (checked) {
+        return current.includes(workId) ? current : [...current, workId];
+      }
+      return current.filter((id) => id !== workId);
+    });
+  }, []);
+
+  const handleToggleAllVisibleWork = useCallback((checked: boolean) => {
+    setSelectedWorkIds(checked ? result.all.map((work) => work.id) : []);
+  }, [result.all]);
+
+  const handleClearWorkSelection = useCallback(() => {
+    setSelectedWorkIds([]);
+  }, []);
+
+  const handleBatchControl = useCallback(async (action: ControlWorkAction) => {
+    const targets = action === 'archive'
+      ? batchArchiveTargets
+      : action === 'reopen'
+        ? batchReopenTargets
+        : batchCancelTargets;
+    if (targets.length === 0 || batchSubmitting) return;
+
+    setBatchSubmitting(true);
+    const results = await Promise.allSettled(
+      targets.map((work) => controlWork({ workId: work.id, action }))
+    );
+    const succeededIds = targets
+      .filter((_, index) => results[index]?.status === 'fulfilled')
+      .map((work) => work.id);
+    const failedCount = results.filter((result) => result.status === 'rejected').length;
+
+    if (succeededIds.length > 0) {
+      const succeededSet = new Set(succeededIds);
+      setSelectedWorkIds((current) => current.filter((workId) => !succeededSet.has(workId)));
+    }
+
+    if (failedCount > 0) {
+      const firstFailure = results.find((result) => result.status === 'rejected');
+      log.error('Failed to run batch work control from Work Center', {
+        action,
+        failedCount,
+        error: firstFailure && firstFailure.status === 'rejected' ? firstFailure.reason : undefined,
+      });
+      notificationService.error(t('errors.bulkActionFailed', { count: failedCount }));
+    } else {
+      const messageKey = action === 'archive'
+        ? 'messages.bulkArchived'
+        : action === 'reopen'
+          ? 'messages.bulkReopened'
+          : 'messages.bulkCancelled';
+      notificationService.success(t(messageKey, { count: succeededIds.length }), { duration: 2500 });
+    }
+
+    setBatchSubmitting(false);
+  }, [
+    batchArchiveTargets,
+    batchCancelTargets,
+    batchReopenTargets,
+    batchSubmitting,
+    controlWork,
+    t,
+  ]);
+
+  const handleOpenDeleteDialog = useCallback(() => {
+    if (selectedWorks.length === 0 || batchSubmitting) return;
+    setDeleteDialogWorkIds(selectedWorks.map((work) => work.id));
+  }, [batchSubmitting, selectedWorks]);
+
+  const handleDeleteDialogOpenChange = useCallback((open: boolean) => {
+    if (!open && !batchSubmitting) {
+      setDeleteDialogWorkIds(null);
+    }
+  }, [batchSubmitting]);
+
+  const handleConfirmDeleteSelected = useCallback(async () => {
+    const workIds = deleteDialogWorkIds ?? [];
+    if (workIds.length === 0 || batchSubmitting) return;
+
+    setBatchSubmitting(true);
+    const results = await Promise.allSettled(workIds.map((workId) => deleteWork(workId)));
+    const settledIds = workIds.filter((_, index) => results[index]?.status === 'fulfilled');
+    const failedCount = results.filter((result) => result.status === 'rejected').length;
+
+    if (settledIds.length > 0) {
+      const settledSet = new Set(settledIds);
+      setSelectedWorkIds((current) => current.filter((workId) => !settledSet.has(workId)));
+      if (selectedWorkId && settledSet.has(selectedWorkId)) {
+        onSelectedWorkChange(null);
+      }
+    }
+
+    if (failedCount > 0) {
+      const firstFailure = results.find((result) => result.status === 'rejected');
+      log.error('Failed to delete selected work from Work Center', {
+        failedCount,
+        error: firstFailure && firstFailure.status === 'rejected' ? firstFailure.reason : undefined,
+      });
+      notificationService.error(t('errors.bulkDeleteFailed', { count: failedCount }));
+    } else {
+      notificationService.success(t('messages.bulkDeleted', { count: settledIds.length }), { duration: 2500 });
+      setDeleteDialogWorkIds(null);
+    }
+
+    setBatchSubmitting(false);
+  }, [
+    batchSubmitting,
+    deleteDialogWorkIds,
+    deleteWork,
+    onSelectedWorkChange,
+    selectedWorkId,
+    t,
+  ]);
 
   const handleOpenObjectiveDialog = useCallback((work: WorkRecord) => {
     setObjectiveDialogWorkId(work.id);
@@ -1375,6 +1539,86 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
     );
   };
 
+  const renderBatchToolbar = () => {
+    if (showWorkspaceOverview || selectableWorkCount === 0) return null;
+
+    return (
+      <div
+        className={['ab-board__bulk', selectedWorkCount > 0 && 'has-selection'].filter(Boolean).join(' ')}
+        role="toolbar"
+        aria-label={t('bulk.label')}
+      >
+        <Checkbox
+          className="ab-board__bulk-check"
+          size="small"
+          checked={allVisibleWorkSelected}
+          indeterminate={someVisibleWorkSelected}
+          disabled={batchSubmitting}
+          onChange={(event) => handleToggleAllVisibleWork(event.currentTarget.checked)}
+          aria-label={t('bulk.selectAllVisible')}
+        />
+        <span className="ab-board__bulk-copy">
+          {selectedWorkCount > 0
+            ? t('bulk.selectedCount', { count: selectedWorkCount, total: selectableWorkCount })
+            : t('bulk.selectHint', { count: selectableWorkCount })}
+        </span>
+        {selectedWorkCount > 0 ? (
+          <>
+            <span className="ab-board__bulk-divider" aria-hidden="true" />
+            <div className="ab-board__bulk-actions">
+              <Button
+                size="small"
+                variant="ghost"
+                disabled={batchSubmitting || batchArchiveTargets.length === 0}
+                onClick={() => void handleBatchControl('archive')}
+              >
+                <Archive size={13} />
+                {t('bulk.archive', { count: batchArchiveTargets.length })}
+              </Button>
+              <Button
+                size="small"
+                variant="ghost"
+                disabled={batchSubmitting || batchReopenTargets.length === 0}
+                onClick={() => void handleBatchControl('reopen')}
+              >
+                <ArchiveRestore size={13} />
+                {t('bulk.reopen', { count: batchReopenTargets.length })}
+              </Button>
+              <Button
+                size="small"
+                variant="ghost"
+                disabled={batchSubmitting || batchCancelTargets.length === 0}
+                onClick={() => void handleBatchControl('cancel_current_execution')}
+              >
+                <XCircle size={13} />
+                {t('bulk.cancel', { count: batchCancelTargets.length })}
+              </Button>
+              <Button
+                size="small"
+                variant="danger"
+                disabled={batchSubmitting}
+                onClick={handleOpenDeleteDialog}
+              >
+                <Trash2 size={13} />
+                {t('bulk.delete')}
+              </Button>
+              <IconButton
+                size="xs"
+                variant="ghost"
+                aria-label={t('bulk.clearSelection')}
+                tooltip={t('bulk.clearSelection')}
+                disabled={batchSubmitting}
+                onClick={handleClearWorkSelection}
+              >
+                <X size={13} />
+              </IconButton>
+            </div>
+          </>
+        ) : null}
+      </div>
+    );
+  };
+
   const renderWorkspaceCard = (workspace: WorkspaceInfo, placement: 'active' | 'history', cardIndex: number) => {
     const count = workspaceCounts.get(workspace.id) ?? { total: 0, running: 0, attention: 0 };
     const selected = workspaceFilter.kind === 'workspace' && workspaceFilter.id === workspace.id;
@@ -1579,6 +1823,7 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
       ) : (
       <div className={['ab-board__content', selectedWork && 'ab-board__content--with-detail'].filter(Boolean).join(' ')}>
       <div className={['ab-board__scroll', result.all.length === 0 && 'ab-board__scroll--empty'].filter(Boolean).join(' ')}>
+        {renderBatchToolbar()}
         {result.all.length === 0 ? (
           <div className="ab-board__empty">
             <ListChecks size={28} />
@@ -1636,6 +1881,7 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
                         const showRemoveAction = !showCancelAction && work.status !== 'archived';
                         const category = getWorkCategory(work.kind);
                         const statusModifier = work.status.replace('_', '-');
+                        const bulkSelected = selectedWorkIdSet.has(work.id);
                         return (
                           <article
                             key={work.id}
@@ -1643,6 +1889,7 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
                               'wc-card',
                               `wc-card--${statusModifier}`,
                               selectedWorkId === work.id && 'is-selected',
+                              bulkSelected && 'is-bulk-selected',
                             ].filter(Boolean).join(' ')}
                             style={{ '--wc-i': Math.min(workIndex, 11) } as React.CSSProperties}
                             data-sparo-work-id={work.id}
@@ -1652,6 +1899,7 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
                             role="button"
                             aria-label={t('detail.openDetailsFor', { title: work.title })}
                             aria-pressed={selectedWorkId === work.id}
+                            aria-selected={bulkSelected}
                             onKeyDown={(event) => {
                               if (event.key === 'Enter' || event.key === ' ') {
                                 event.preventDefault();
@@ -1660,9 +1908,24 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
                             }}
                           >
                             <span className="wc-card__top">
-                              <span className={`wc-card__status wc-card__status--${statusModifier}`}>
-                                <span className="wc-card__status-dot" aria-hidden="true" />
-                                {t(`status.${work.status}`)}
+                              <span className="wc-card__status-line">
+                                <span
+                                  className="wc-card__select"
+                                  onClick={(event) => event.stopPropagation()}
+                                  onKeyDown={(event) => event.stopPropagation()}
+                                >
+                                  <Checkbox
+                                    size="small"
+                                    checked={bulkSelected}
+                                    disabled={batchSubmitting}
+                                    onChange={(event) => handleToggleWorkSelection(work.id, event.currentTarget.checked)}
+                                    aria-label={t('bulk.selectWork', { title: work.title })}
+                                  />
+                                </span>
+                                <span className={`wc-card__status wc-card__status--${statusModifier}`}>
+                                  <span className="wc-card__status-dot" aria-hidden="true" />
+                                  {t(`status.${work.status}`)}
+                                </span>
                               </span>
                               {showCancelAction || showRemoveAction ? (
                                 <span className="wc-card__top-actions">
@@ -1721,6 +1984,40 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
       {selectedWork ? renderWorkDetail(selectedWork) : null}
       </div>
       )}
+      <Dialog
+        open={deleteDialogWorkIds !== null}
+        onOpenChange={handleDeleteDialogOpenChange}
+        title={t('bulk.deleteDialog.title', { count: deleteDialogWorkIds?.length ?? 0 })}
+        size="small"
+        closeLabel={t('bulk.deleteDialog.cancel')}
+      >
+        <DialogBody className="ab-bulk-delete-dialog__body">
+          <p className="ab-bulk-delete-dialog__copy">
+            {t('bulk.deleteDialog.description', { count: deleteDialogWorkIds?.length ?? 0 })}
+          </p>
+        </DialogBody>
+        <DialogFooter>
+          <Button
+            size="small"
+            variant="ghost"
+            disabled={batchSubmitting}
+            onClick={() => setDeleteDialogWorkIds(null)}
+          >
+            {t('bulk.deleteDialog.cancel')}
+          </Button>
+          <Button
+            size="small"
+            variant="danger"
+            isLoading={batchSubmitting}
+            loadingLabel={t('bulk.deleteDialog.deleting')}
+            disabled={!deleteDialogWorkIds || deleteDialogWorkIds.length === 0 || batchSubmitting}
+            onClick={() => void handleConfirmDeleteSelected()}
+          >
+            <Trash2 size={13} />
+            {t('bulk.deleteDialog.confirm')}
+          </Button>
+        </DialogFooter>
+      </Dialog>
     </section>
   );
 };

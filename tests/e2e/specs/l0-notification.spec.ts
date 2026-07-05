@@ -48,7 +48,7 @@ describe('L0 Notification', () => {
       await browser.pause(500);
 
       // Notification button is in NavPanel footer (not header)
-      const notificationBtn = await $('.bitfun-nav-panel__footer-btn.bitfun-notification-btn');
+      const notificationBtn = await $('.sparo-nav-panel__footer-btn.sparo-notification-btn');
       const btnExists = await notificationBtn.isExisting();
 
       console.log('[L0] Notification button found:', btnExists);
@@ -64,7 +64,7 @@ describe('L0 Notification', () => {
 
       // Use JavaScript to click notification button (bypasses overlay)
       const clicked = await browser.execute(() => {
-        const btn = document.querySelector('.bitfun-nav-panel__footer-btn.bitfun-notification-btn') as HTMLElement;
+        const btn = document.querySelector('.sparo-nav-panel__footer-btn.sparo-notification-btn') as HTMLElement;
         if (btn) {
           btn.click();
           return true;
@@ -87,7 +87,7 @@ describe('L0 Notification', () => {
       // Close it
       if (centerExists) {
         await browser.execute(() => {
-          const btn = document.querySelector('.bitfun-nav-panel__footer-btn.bitfun-notification-btn') as HTMLElement;
+          const btn = document.querySelector('.sparo-nav-panel__footer-btn.sparo-notification-btn') as HTMLElement;
           if (btn) btn.click();
         });
         await browser.pause(500);

@@ -4,7 +4,7 @@
 //! Sparo OS application data and asks the desktop shell to restart afterwards.
 
 use crate::infrastructure::{PathManager, APP_HIDDEN_DIR_NAME};
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use chrono::Utc;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
@@ -76,9 +76,9 @@ impl ResetApplicationDataService {
     pub async fn reset(
         &self,
         request: ResetApplicationDataRequest,
-    ) -> BitFunResult<ResetApplicationDataResult> {
+    ) -> CoreResult<ResetApplicationDataResult> {
         if request.confirmation.trim() != RESET_CONFIRMATION {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Reset confirmation must be '{}'",
                 RESET_CONFIRMATION
             )));
@@ -125,7 +125,7 @@ impl ResetApplicationDataService {
         })
     }
 
-    fn build_plan(&self, request: &ResetApplicationDataRequest) -> BitFunResult<ResetPlan> {
+    fn build_plan(&self, request: &ResetApplicationDataRequest) -> CoreResult<ResetPlan> {
         let mut delete_roots = Vec::new();
         let mut preserved_roots = Vec::new();
 
@@ -167,6 +167,7 @@ impl ResetApplicationDataService {
                     delete_roots.extend([
                         self.path_manager.user_agents_dir(),
                         self.path_manager.user_skills_dir(),
+                        self.path_manager.user_skill_suites_dir(),
                         self.path_manager.managed_runtimes_dir(),
                     ]);
                 }
@@ -187,10 +188,10 @@ impl ResetApplicationDataService {
         })
     }
 
-    async fn create_reset_backup(&self, reset_id: &str, mode: ResetMode) -> BitFunResult<PathBuf> {
+    async fn create_reset_backup(&self, reset_id: &str, mode: ResetMode) -> CoreResult<PathBuf> {
         let backup_dir = self.path_manager.reset_backups_dir().join(reset_id);
         fs::create_dir_all(&backup_dir).await.map_err(|error| {
-            BitFunError::io(format!(
+            CoreError::io(format!(
                 "Failed to create reset backup directory {}: {}",
                 backup_dir.display(),
                 error
@@ -221,7 +222,7 @@ impl ResetApplicationDataService {
         )
         .await
         .map_err(|error| {
-            BitFunError::io(format!("Failed to write reset backup manifest: {}", error))
+            CoreError::io(format!("Failed to write reset backup manifest: {}", error))
         })?;
 
         Ok(backup_dir)
@@ -234,10 +235,10 @@ impl ResetApplicationDataService {
         deleted_roots: &[PathBuf],
         preserved_roots: &[PathBuf],
         backup_dir: Option<&Path>,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let logs_dir = self.path_manager.logs_dir();
         fs::create_dir_all(&logs_dir).await.map_err(|error| {
-            BitFunError::io(format!(
+            CoreError::io(format!(
                 "Failed to create logs directory {}: {}",
                 logs_dir.display(),
                 error
@@ -260,21 +261,21 @@ impl ResetApplicationDataService {
             serde_json::to_vec_pretty(&report)?,
         )
         .await
-        .map_err(|error| BitFunError::io(format!("Failed to write reset report: {}", error)))?;
+        .map_err(|error| CoreError::io(format!("Failed to write reset report: {}", error)))?;
 
         Ok(())
     }
 
-    fn validate_project_local_sparo_dir(path: &Path) -> BitFunResult<()> {
+    fn validate_project_local_sparo_dir(path: &Path) -> CoreResult<()> {
         if path.file_name().and_then(|name| name.to_str()) != Some(APP_HIDDEN_DIR_NAME) {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Project-local reset path must end with {}: {}",
                 APP_HIDDEN_DIR_NAME,
                 path.display()
             )));
         }
         if path.parent().is_none() {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Project-local reset path has no parent workspace: {}",
                 path.display()
             )));
@@ -293,7 +294,7 @@ impl ResetApplicationDataService {
         out
     }
 
-    async fn sum_existing_roots_size(paths: &[PathBuf]) -> BitFunResult<u64> {
+    async fn sum_existing_roots_size(paths: &[PathBuf]) -> CoreResult<u64> {
         let mut total = 0;
         for path in paths {
             total += Self::dir_size(path).await?;
@@ -303,13 +304,13 @@ impl ResetApplicationDataService {
 
     fn dir_size(
         path: &Path,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = BitFunResult<u64>> + Send + '_>> {
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = CoreResult<u64>> + Send + '_>> {
         Box::pin(async move {
             if !path.exists() {
                 return Ok(0);
             }
             let metadata = fs::metadata(path).await.map_err(|error| {
-                BitFunError::io(format!("Failed to stat {}: {}", path.display(), error))
+                CoreError::io(format!("Failed to stat {}: {}", path.display(), error))
             })?;
             if metadata.is_file() {
                 return Ok(metadata.len());
@@ -317,10 +318,10 @@ impl ResetApplicationDataService {
 
             let mut total = 0;
             let mut entries = fs::read_dir(path).await.map_err(|error| {
-                BitFunError::io(format!("Failed to read {}: {}", path.display(), error))
+                CoreError::io(format!("Failed to read {}: {}", path.display(), error))
             })?;
             while let Some(entry) = entries.next_entry().await.map_err(|error| {
-                BitFunError::io(format!("Failed to iterate {}: {}", path.display(), error))
+                CoreError::io(format!("Failed to iterate {}: {}", path.display(), error))
             })? {
                 total += Self::dir_size(&entry.path()).await?;
             }
@@ -328,47 +329,47 @@ impl ResetApplicationDataService {
         })
     }
 
-    async fn remove_root_if_exists(path: &Path) -> BitFunResult<()> {
+    async fn remove_root_if_exists(path: &Path) -> CoreResult<()> {
         if !path.exists() {
             return Ok(());
         }
         let metadata = fs::metadata(path).await.map_err(|error| {
-            BitFunError::io(format!("Failed to stat {}: {}", path.display(), error))
+            CoreError::io(format!("Failed to stat {}: {}", path.display(), error))
         })?;
         if metadata.is_dir() {
             fs::remove_dir_all(path).await.map_err(|error| {
-                BitFunError::io(format!("Failed to delete {}: {}", path.display(), error))
+                CoreError::io(format!("Failed to delete {}: {}", path.display(), error))
             })?;
         } else {
             fs::remove_file(path).await.map_err(|error| {
-                BitFunError::io(format!("Failed to delete {}: {}", path.display(), error))
+                CoreError::io(format!("Failed to delete {}: {}", path.display(), error))
             })?;
         }
         Ok(())
     }
 
-    async fn copy_dir_if_exists(source: &Path, target: &Path) -> BitFunResult<()> {
+    async fn copy_dir_if_exists(source: &Path, target: &Path) -> CoreResult<()> {
         if !source.exists() {
             return Ok(());
         }
         let mut pending = vec![(source.to_path_buf(), target.to_path_buf())];
         while let Some((current_source, current_target)) = pending.pop() {
             fs::create_dir_all(&current_target).await.map_err(|error| {
-                BitFunError::io(format!(
+                CoreError::io(format!(
                     "Failed to create backup directory {}: {}",
                     current_target.display(),
                     error
                 ))
             })?;
             let mut entries = fs::read_dir(&current_source).await.map_err(|error| {
-                BitFunError::io(format!(
+                CoreError::io(format!(
                     "Failed to read backup source {}: {}",
                     current_source.display(),
                     error
                 ))
             })?;
             while let Some(entry) = entries.next_entry().await.map_err(|error| {
-                BitFunError::io(format!(
+                CoreError::io(format!(
                     "Failed to iterate backup source {}: {}",
                     current_source.display(),
                     error
@@ -377,7 +378,7 @@ impl ResetApplicationDataService {
                 let source_path = entry.path();
                 let target_path = current_target.join(entry.file_name());
                 let file_type = entry.file_type().await.map_err(|error| {
-                    BitFunError::io(format!(
+                    CoreError::io(format!(
                         "Failed to stat {}: {}",
                         source_path.display(),
                         error

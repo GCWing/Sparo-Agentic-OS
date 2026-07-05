@@ -31,7 +31,7 @@
 
 use super::errors::ErrorCode;
 use crate::agentic::tools::framework::ToolResult;
-use crate::util::errors::BitFunError;
+use crate::error::CoreError;
 use serde_json::{json, Value};
 
 /// Lightweight error type carried inside a successful tool call (vs returning
@@ -121,7 +121,7 @@ pub fn ok_response_full(
 }
 
 /// Build the failure envelope as a *successful* tool call (so the model
-/// receives the structured error JSON instead of a plain BitFunError text).
+/// receives the structured error JSON instead of a plain CoreError text).
 pub fn err_response(domain: &str, action: &str, err: ControlHubError) -> Vec<ToolResult> {
     let summary = format!("{}: {}", err.code.as_str(), err.message);
     let body = json!({
@@ -133,14 +133,14 @@ pub fn err_response(domain: &str, action: &str, err: ControlHubError) -> Vec<Too
     vec![ToolResult::ok(body, Some(summary))]
 }
 
-/// Convenience: lift a `BitFunError` into the structured envelope using the
+/// Convenience: lift a `CoreError` into the structured envelope using the
 /// supplied default error code. Used as a fallback when an underlying domain
 /// implementation still returns `Err` instead of a structured envelope.
 pub fn lift_error(
     domain: &str,
     action: &str,
     default_code: ErrorCode,
-    err: BitFunError,
+    err: CoreError,
 ) -> Vec<ToolResult> {
     err_response(
         domain,

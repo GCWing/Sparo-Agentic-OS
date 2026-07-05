@@ -1,4 +1,4 @@
-﻿import type { SessionStorageScope } from '@/shared/types/session-history';
+import type { SessionStorageScope } from '@/shared/types/session-history';
 
 export type SessionHostKind = 'system-agentic-os' | 'agent-component' | 'evolution-lab' | 'product-app-runtime';
 

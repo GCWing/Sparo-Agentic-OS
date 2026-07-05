@@ -15,7 +15,7 @@ use tokio::sync::Mutex;
 
 use crate::infrastructure::try_get_path_manager_arc;
 use crate::service::mcp::server::{MCPServerConfig, MCPServerOAuthConfig};
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 
 const NONCE_LEN: usize = 12;
 
@@ -80,7 +80,7 @@ pub struct MCPRemoteOAuthCredentialVault {
 }
 
 impl MCPRemoteOAuthCredentialVault {
-    pub fn new() -> BitFunResult<Self> {
+    pub fn new() -> CoreResult<Self> {
         let secrets_dir = try_get_path_manager_arc()?.secrets_dir();
         Ok(Self {
             key_path: secrets_dir.join(".mcp_oauth_vault.key"),
@@ -290,17 +290,17 @@ impl CredentialStore for MCPRemoteOAuthCredentialStore {
     }
 }
 
-pub fn map_auth_error(error: impl ToString) -> BitFunError {
-    BitFunError::MCPError(format!("OAuth error: {}", error.to_string()))
+pub fn map_auth_error(error: impl ToString) -> CoreError {
+    CoreError::Mcp(format!("OAuth error: {}", error.to_string()))
 }
 
-pub async fn has_stored_oauth_credentials(server_id: &str) -> BitFunResult<bool> {
+pub async fn has_stored_oauth_credentials(server_id: &str) -> CoreResult<bool> {
     let store = MCPRemoteOAuthCredentialStore::new(server_id.to_string());
     let credentials = store.load().await.map_err(map_auth_error)?;
     Ok(credentials.and_then(|entry| entry.token_response).is_some())
 }
 
-pub async fn clear_stored_oauth_credentials(server_id: &str) -> BitFunResult<()> {
+pub async fn clear_stored_oauth_credentials(server_id: &str) -> CoreResult<()> {
     MCPRemoteOAuthCredentialStore::new(server_id.to_string())
         .clear()
         .await
@@ -310,7 +310,7 @@ pub async fn clear_stored_oauth_credentials(server_id: &str) -> BitFunResult<()>
 pub async fn build_authorization_manager(
     server_id: &str,
     server_url: &str,
-) -> BitFunResult<(AuthorizationManager, bool)> {
+) -> CoreResult<(AuthorizationManager, bool)> {
     let mut manager = AuthorizationManager::new(server_url)
         .await
         .map_err(map_auth_error)?;
@@ -357,10 +357,10 @@ fn effective_oauth_config(config: &MCPServerConfig) -> MCPServerOAuthConfig {
 
 pub async fn prepare_remote_oauth_authorization(
     config: &MCPServerConfig,
-) -> BitFunResult<PreparedMCPRemoteOAuthAuthorization> {
+) -> CoreResult<PreparedMCPRemoteOAuthAuthorization> {
     let oauth = effective_oauth_config(config);
     let server_url = config.url.as_deref().ok_or_else(|| {
-        BitFunError::Configuration(format!(
+        CoreError::Configuration(format!(
             "Remote MCP server '{}' must have a URL for OAuth",
             config.id
         ))
@@ -370,7 +370,7 @@ pub async fn prepare_remote_oauth_authorization(
     let listener = TcpListener::bind((host.as_str(), oauth.callback_port.unwrap_or(0)))
         .await
         .map_err(|error| {
-            BitFunError::MCPError(format!(
+            CoreError::Mcp(format!(
                 "Failed to bind OAuth callback listener for server '{}': {}",
                 config.id, error
             ))
@@ -378,7 +378,7 @@ pub async fn prepare_remote_oauth_authorization(
     let port = listener
         .local_addr()
         .map_err(|error| {
-            BitFunError::MCPError(format!(
+            CoreError::Mcp(format!(
                 "Failed to resolve OAuth callback listener for server '{}': {}",
                 config.id, error
             ))

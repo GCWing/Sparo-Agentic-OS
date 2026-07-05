@@ -6,7 +6,7 @@ impl MCPServerManager {
         server_id: &str,
         server_name: &str,
         connection: Arc<MCPConnection>,
-    ) -> BitFunResult<usize> {
+    ) -> CoreResult<usize> {
         Self::unregister_mcp_tools(server_id).await;
         Self::register_mcp_tools(server_id, server_name, connection).await
     }
@@ -16,7 +16,7 @@ impl MCPServerManager {
         server_id: &str,
         server_name: &str,
         connection: Arc<MCPConnection>,
-    ) -> BitFunResult<usize> {
+    ) -> CoreResult<usize> {
         info!(
             "Registering MCP tools: server_name={} server_id={}",
             server_name, server_id

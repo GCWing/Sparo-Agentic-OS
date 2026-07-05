@@ -10,7 +10,7 @@ COPY Cargo.toml ./
 RUN mkdir -p src && echo 'fn main() { println!("placeholder"); }' > src/main.rs
 RUN cargo build --release 2>/dev/null || true
 
-RUN rm -rf src target/release/bitfun-relay-server target/release/deps/bitfun*
+RUN rm -rf src target/release/sparo-relay-server target/release/deps/sparo*
 
 COPY src/ src/
 
@@ -21,11 +21,11 @@ FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY --from=builder /build/target/release/bitfun-relay-server /app/bitfun-relay-server
+COPY --from=builder /build/target/release/sparo-relay-server /app/sparo-relay-server
 RUN mkdir -p /app/static
 
 ENV RELAY_PORT=9700
 ENV RELAY_STATIC_DIR=/app/static
 EXPOSE 9700
 
-CMD ["/app/bitfun-relay-server"]
+CMD ["/app/sparo-relay-server"]

@@ -21,7 +21,7 @@ use crate::service::workspace_overview::{
         WorkspaceOverviewRefreshTrigger,
     },
 };
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -182,7 +182,7 @@ pub struct RunBackgroundProcessResponse {
     pub reason: Option<String>,
 }
 
-pub async fn list_background_processes() -> BitFunResult<BackgroundProcessList> {
+pub async fn list_background_processes() -> CoreResult<BackgroundProcessList> {
     let mut processes = Vec::new();
 
     processes.push(host_scan_process().await?);
@@ -201,11 +201,11 @@ pub async fn list_background_processes() -> BitFunResult<BackgroundProcessList> 
 
 pub async fn run_background_process(
     request: RunBackgroundProcessRequest,
-) -> BitFunResult<RunBackgroundProcessResponse> {
+) -> CoreResult<RunBackgroundProcessResponse> {
     match request.kind {
         BackgroundProcessKind::HostScan => {
             let service = get_global_host_auto_scan_service()
-                .ok_or_else(|| BitFunError::service("Host scan service is not initialized"))?;
+                .ok_or_else(|| CoreError::service("Host scan service is not initialized"))?;
             let summary = service.run_now().await?;
             Ok(RunBackgroundProcessResponse {
                 kind: request.kind,
@@ -217,7 +217,7 @@ pub async fn run_background_process(
         BackgroundProcessKind::WorkspaceOverviewRefresh => {
             let service =
                 get_global_workspace_overview_auto_refresh_service().ok_or_else(|| {
-                    BitFunError::service("Workspace overview refresh service is not initialized")
+                    CoreError::service("Workspace overview refresh service is not initialized")
                 })?;
             let summary = service.run_now().await?;
             Ok(RunBackgroundProcessResponse {
@@ -229,7 +229,7 @@ pub async fn run_background_process(
         }
         BackgroundProcessKind::MemoryConsolidation => {
             let service = get_global_memory_consolidation_service().ok_or_else(|| {
-                BitFunError::service("Memory consolidation service is not initialized")
+                CoreError::service("Memory consolidation service is not initialized")
             })?;
             let snapshot = service.status_snapshot().await;
             if snapshot.active {
@@ -255,7 +255,7 @@ pub async fn run_background_process(
         }
         BackgroundProcessKind::GlobalMilestone => {
             let service = get_global_global_milestone_service().ok_or_else(|| {
-                BitFunError::service("Global milestone service is not initialized")
+                CoreError::service("Global milestone service is not initialized")
             })?;
             let summary = service.run_now().await?;
             Ok(RunBackgroundProcessResponse {
@@ -276,7 +276,7 @@ pub async fn run_background_process(
     }
 }
 
-async fn host_scan_process() -> BitFunResult<BackgroundProcess> {
+async fn host_scan_process() -> CoreResult<BackgroundProcess> {
     let state = load_host_scan_state().await?;
     let output_path = get_path_manager_arc().agentic_os_host_overview_path();
     let status = attempt_status(
@@ -318,7 +318,7 @@ async fn host_scan_process() -> BitFunResult<BackgroundProcess> {
     })
 }
 
-async fn workspace_overview_process() -> BitFunResult<BackgroundProcess> {
+async fn workspace_overview_process() -> CoreResult<BackgroundProcess> {
     let state = load_workspace_overview_refresh_state().await?;
     let output_path = get_path_manager_arc().agentic_os_workspaces_overview_dir();
     let status = attempt_status(
@@ -440,7 +440,7 @@ async fn memory_consolidation_process() -> BackgroundProcess {
     }
 }
 
-async fn global_daily_report_process() -> BitFunResult<BackgroundProcess> {
+async fn global_daily_report_process() -> CoreResult<BackgroundProcess> {
     let state = load_global_daily_report_state().await?;
     let output_path = get_path_manager_arc().agentic_os_daily_reports_dir();
     let status = match state.last_attempt_status.as_ref() {
@@ -481,7 +481,7 @@ async fn global_daily_report_process() -> BitFunResult<BackgroundProcess> {
     })
 }
 
-async fn global_milestone_process() -> BitFunResult<BackgroundProcess> {
+async fn global_milestone_process() -> CoreResult<BackgroundProcess> {
     let state = load_global_milestone_state().await?;
     let output_path = get_path_manager_arc()
         .agentic_os_memory_dir()

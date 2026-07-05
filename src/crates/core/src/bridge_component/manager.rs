@@ -9,7 +9,7 @@ use crate::agentic::agents::{
 };
 use crate::agentic::tools::implementations::bridge_component_runtime_tool_name;
 use crate::infrastructure::get_path_manager_arc;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use chrono::Utc;
 use log::warn;
@@ -112,7 +112,7 @@ impl Agent for BridgeComponentAgent {
         ""
     }
 
-    async fn build_prompt(&self, context: &PromptBuilderContext) -> BitFunResult<String> {
+    async fn build_prompt(&self, context: &PromptBuilderContext) -> CoreResult<String> {
         PromptBuilder::new(context.clone())
             .build_prompt_from_template(&self.prompt)
             .await
@@ -183,12 +183,12 @@ fn bridge_component_dir(app_id: &str) -> PathBuf {
     bridge_component_root().join(app_id)
 }
 
-fn read_json_file<T: for<'de> serde::Deserialize<'de>>(path: &Path) -> BitFunResult<T> {
+fn read_json_file<T: for<'de> serde::Deserialize<'de>>(path: &Path) -> CoreResult<T> {
     let text = std::fs::read_to_string(path)?;
-    serde_json::from_str(&text).map_err(BitFunError::from)
+    serde_json::from_str(&text).map_err(CoreError::from)
 }
 
-fn write_json_file<T: serde::Serialize>(path: &Path, value: &T) -> BitFunResult<()> {
+fn write_json_file<T: serde::Serialize>(path: &Path, value: &T) -> CoreResult<()> {
     let text = serde_json::to_string_pretty(value)?;
     std::fs::write(path, format!("{text}\n"))?;
     Ok(())
@@ -209,22 +209,22 @@ fn normalize_consumer(mut consumer: BridgeComponentConsumer) -> BridgeComponentC
 fn validate_capability(
     manifest: &BridgeComponentManifest,
     capability: &BridgeComponentCapability,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     if capability.id.trim().is_empty() {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Bridge Component '{}' has a capability with an empty id",
             manifest.id
         )));
     }
     if capability.actions.is_empty() {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Bridge capability '{}' must expose at least one action",
             capability.id
         )));
     }
     for action in &capability.actions {
         if !manifest.actions.iter().any(|decl| decl.name == *action) {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Bridge capability '{}' references undeclared action '{}'",
                 capability.id, action
             )));
@@ -237,20 +237,20 @@ fn validate_manifest_action(
     manifest: &BridgeComponentManifest,
     capability_id: Option<&str>,
     action: &str,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     if let Some(capability_id) = capability_id {
         let capability = manifest
             .capabilities
             .iter()
             .find(|capability| capability.id == capability_id)
             .ok_or_else(|| {
-                BitFunError::validation(format!(
+                CoreError::validation(format!(
                     "Bridge Component '{}' does not expose capability '{}'",
                     manifest.id, capability_id
                 ))
             })?;
         if !capability.actions.iter().any(|declared| declared == action) {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Bridge capability '{}' does not expose action '{}'",
                 capability_id, action
             )));
@@ -268,7 +268,7 @@ fn validate_manifest_action(
     {
         return Ok(());
     }
-    Err(BitFunError::validation(format!(
+    Err(CoreError::validation(format!(
         "Bridge Component '{}' does not expose action '{}'",
         manifest.id, action
     )))
@@ -315,7 +315,7 @@ fn runtime_shell_executable(
     }
 }
 
-fn validate_runtime_shell_permission(manifest: &BridgeComponentManifest) -> BitFunResult<()> {
+fn validate_runtime_shell_permission(manifest: &BridgeComponentManifest) -> CoreResult<()> {
     let executable = runtime_shell_executable(
         manifest.runtime.language,
         manifest.runtime.package_manager.as_deref(),
@@ -328,7 +328,7 @@ fn validate_runtime_shell_permission(manifest: &BridgeComponentManifest) -> BitF
     {
         return Ok(());
     }
-    Err(BitFunError::validation(format!(
+    Err(CoreError::validation(format!(
         "Bridge Component '{}' must declare '{}' in permissions.shell to start its runtime",
         manifest.id, executable
     )))
@@ -356,14 +356,14 @@ fn validate_consumer_permission(
     capability_id: Option<&str>,
     action: &str,
     consumer: &BridgeComponentConsumer,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     let Some(capability) = capability_for_run(manifest, capability_id, action) else {
         return Ok(());
     };
     if capability.usable_by.is_empty() || capability.usable_by.contains(&consumer.kind) {
         return Ok(());
     }
-    Err(BitFunError::validation(format!(
+    Err(CoreError::validation(format!(
         "Bridge capability '{}' cannot be used by {:?}",
         capability.id, consumer.kind
     )))
@@ -373,7 +373,7 @@ fn validate_gui_permission(
     manifest: &BridgeComponentManifest,
     capability_id: Option<&str>,
     action: &str,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     let capability = capability_for_run(manifest, capability_id, action);
     let requires_gui = matches!(manifest.kind, super::BridgeComponentKind::Gui)
         || capability
@@ -382,13 +382,13 @@ fn validate_gui_permission(
     if !requires_gui || !manifest.permissions.gui.is_empty() {
         return Ok(());
     }
-    Err(BitFunError::validation(format!(
+    Err(CoreError::validation(format!(
         "Bridge Component '{}' requires explicit permissions.gui declarations for GUI capabilities",
         manifest.id
     )))
 }
 
-fn normalize_permission_path(path: &Path) -> BitFunResult<PathBuf> {
+fn normalize_permission_path(path: &Path) -> CoreResult<PathBuf> {
     if path.exists() {
         return Ok(path.canonicalize()?);
     }
@@ -425,7 +425,7 @@ fn validate_workspace_permission(
     manifest: &BridgeComponentManifest,
     app_dir: &Path,
     workspace_path: Option<&str>,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     let Some(workspace_path) = workspace_path
         .map(str::trim)
         .filter(|path| !path.is_empty())
@@ -450,7 +450,7 @@ fn validate_workspace_permission(
             return Ok(());
         }
     }
-    Err(BitFunError::validation(format!(
+    Err(CoreError::validation(format!(
         "Bridge Component '{}' cannot access workspace '{}' because permissions.fs does not include '{{workspace}}' or a containing path",
         manifest.id,
         workspace.display()
@@ -540,11 +540,11 @@ async fn update_run_output(run_id: &str, output: Value) {
 pub struct BridgeComponentManager;
 
 impl BridgeComponentManager {
-    pub fn seed_builtin_bridge_components() -> BitFunResult<()> {
+    pub fn seed_builtin_bridge_components() -> CoreResult<()> {
         super::builtin::seed_builtin_bridge_components()
     }
 
-    pub fn register_agent_surfaces() -> BitFunResult<Vec<String>> {
+    pub fn register_agent_surfaces() -> CoreResult<Vec<String>> {
         let packages = Self::list()?;
         let registry = crate::agentic::agents::get_agent_registry();
         let mut registered = Vec::new();
@@ -572,17 +572,17 @@ impl BridgeComponentManager {
     pub fn register_private_package_dir(
         component_id: &str,
         package_dir: PathBuf,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let package = Self::load_package_from_dir(&package_dir)?;
         if package.manifest.id != component_id {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Private Bridge Component package id '{}' does not match component '{}'",
                 package.manifest.id, component_id
             )));
         }
         let mut guard = PRIVATE_BRIDGE_COMPONENT_DIRS
             .write()
-            .map_err(|_| BitFunError::service("Private Bridge Component registry poisoned"))?;
+            .map_err(|_| CoreError::service("Private Bridge Component registry poisoned"))?;
         guard.insert(component_id.to_string(), package_dir);
         Ok(())
     }
@@ -594,7 +594,7 @@ impl BridgeComponentManager {
             .and_then(|guard| guard.get(component_id).cloned())
     }
 
-    pub fn list() -> BitFunResult<Vec<BridgeComponentPackage>> {
+    pub fn list() -> CoreResult<Vec<BridgeComponentPackage>> {
         let _ = Self::seed_builtin_bridge_components();
         let root = bridge_component_root();
         if !root.exists() {
@@ -621,7 +621,7 @@ impl BridgeComponentManager {
         Ok(packages)
     }
 
-    pub fn get(app_id: &str) -> BitFunResult<BridgeComponentPackage> {
+    pub fn get(app_id: &str) -> CoreResult<BridgeComponentPackage> {
         if let Some(dir) = Self::private_package_dir(app_id) {
             if dir.join(BRIDGE_COMPONENT_MANIFEST).exists() {
                 return Self::load_package_from_dir(&dir);
@@ -638,7 +638,7 @@ impl BridgeComponentManager {
         if dir.join(BRIDGE_COMPONENT_MANIFEST).exists() {
             return Self::load_package_from_dir(&dir);
         }
-        Err(BitFunError::NotFound(format!(
+        Err(CoreError::NotFound(format!(
             "Bridge Component not found: {app_id}"
         )))
     }
@@ -646,11 +646,11 @@ impl BridgeComponentManager {
     pub fn create_or_update(
         mut manifest: BridgeComponentManifest,
         overwrite: bool,
-    ) -> BitFunResult<BridgeComponentPackage> {
+    ) -> CoreResult<BridgeComponentPackage> {
         Self::validate_manifest(&mut manifest)?;
         let dir = bridge_component_dir(&manifest.id);
         if dir.exists() && !overwrite {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Bridge Component '{}' already exists",
                 manifest.id
             )));
@@ -663,16 +663,16 @@ impl BridgeComponentManager {
     pub fn import_from_path(
         source_path: PathBuf,
         overwrite: bool,
-    ) -> BitFunResult<BridgeComponentPackage> {
+    ) -> CoreResult<BridgeComponentPackage> {
         if !source_path.is_dir() {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Bridge Component import path is not a directory: {}",
                 source_path.display()
             )));
         }
         let source_manifest = source_path.join(BRIDGE_COMPONENT_MANIFEST);
         if !source_manifest.exists() {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Missing {} in Bridge Component import path {}",
                 BRIDGE_COMPONENT_MANIFEST,
                 source_path.display()
@@ -684,7 +684,7 @@ impl BridgeComponentManager {
         let dir = bridge_component_dir(&manifest.id);
         if dir.exists() {
             if !overwrite {
-                return Err(BitFunError::validation(format!(
+                return Err(CoreError::validation(format!(
                     "Bridge Component '{}' already exists",
                     manifest.id
                 )));
@@ -707,10 +707,10 @@ impl BridgeComponentManager {
         Self::load_package_from_dir(&dir)
     }
 
-    pub fn delete(app_id: &str) -> BitFunResult<()> {
+    pub fn delete(app_id: &str) -> CoreResult<()> {
         let dir = bridge_component_dir(app_id);
         if !dir.exists() {
-            return Err(BitFunError::NotFound(format!(
+            return Err(CoreError::NotFound(format!(
                 "Bridge Component not found: {app_id}"
             )));
         }
@@ -724,7 +724,7 @@ impl BridgeComponentManager {
         input: Value,
         workspace_path: Option<String>,
         run_id: String,
-    ) -> BitFunResult<BridgeComponentRunResult> {
+    ) -> CoreResult<BridgeComponentRunResult> {
         Self::run_capability_action(
             app_id,
             None,
@@ -745,7 +745,7 @@ impl BridgeComponentManager {
         workspace_path: Option<String>,
         run_id: String,
         consumer: BridgeComponentConsumer,
-    ) -> BitFunResult<BridgeComponentRunResult> {
+    ) -> CoreResult<BridgeComponentRunResult> {
         let package = Self::get(app_id)?;
         Self::run_capability_action_with_package(
             app_id,
@@ -768,7 +768,7 @@ impl BridgeComponentManager {
         workspace_path: Option<String>,
         run_id: String,
         consumer: BridgeComponentConsumer,
-    ) -> BitFunResult<BridgeComponentRunResult> {
+    ) -> CoreResult<BridgeComponentRunResult> {
         let package = Self::load_package_from_dir(package_dir)?;
         let app_id = package.manifest.id.clone();
         Self::run_capability_action_with_package(
@@ -793,7 +793,7 @@ impl BridgeComponentManager {
         workspace_path: Option<String>,
         run_id: String,
         consumer: BridgeComponentConsumer,
-    ) -> BitFunResult<BridgeComponentRunResult> {
+    ) -> CoreResult<BridgeComponentRunResult> {
         validate_manifest_action(&package.manifest, capability_id, action)?;
         validate_runtime_shell_permission(&package.manifest)?;
         let app_dir = PathBuf::from(&package.path);
@@ -808,7 +808,7 @@ impl BridgeComponentManager {
         validate_workspace_permission(&package.manifest, &app_dir, workspace_path.as_deref())?;
         let entry = app_dir.join(&package.manifest.runtime.entry);
         if !entry.exists() {
-            return Err(BitFunError::NotFound(format!(
+            return Err(CoreError::NotFound(format!(
                 "Bridge Component runtime entry not found: {}",
                 entry.display()
             )));
@@ -858,7 +858,7 @@ impl BridgeComponentManager {
         command.stderr(Stdio::piped());
 
         let mut child = command.spawn().map_err(|e| {
-            BitFunError::ProcessError(format!("Failed to start Bridge Component: {e}"))
+            CoreError::Process(format!("Failed to start Bridge Component: {e}"))
         })?;
         if let Some(mut stdin) = child.stdin.take() {
             stdin.write_all(&request_json).await?;
@@ -867,10 +867,10 @@ impl BridgeComponentManager {
         }
 
         let stdout = child.stdout.take().ok_or_else(|| {
-            BitFunError::ProcessError("Bridge Component stdout was not piped".to_string())
+            CoreError::Process("Bridge Component stdout was not piped".to_string())
         })?;
         let stderr = child.stderr.take().ok_or_else(|| {
-            BitFunError::ProcessError("Bridge Component stderr was not piped".to_string())
+            CoreError::Process("Bridge Component stderr was not piped".to_string())
         })?;
         let stderr_task = tokio::spawn(async move {
             let mut reader = BufReader::new(stderr);
@@ -916,11 +916,11 @@ impl BridgeComponentManager {
 
             let exit_status = child.wait().await?;
             let stderr = stderr_task.await.map_err(|e| {
-                BitFunError::ProcessError(format!(
+                CoreError::Process(format!(
                     "Failed to join Bridge Component stderr task: {e}"
                 ))
             })??;
-            Ok::<_, BitFunError>((exit_status, events, final_output, event_failed, stderr))
+            Ok::<_, CoreError>((exit_status, events, final_output, event_failed, stderr))
         };
 
         let (exit_status, events, final_output, event_failed, stderr) = tokio::time::timeout(
@@ -928,7 +928,7 @@ impl BridgeComponentManager {
             execution,
         )
         .await
-        .map_err(|_| BitFunError::Timeout("Bridge Component run timed out".to_string()))??;
+        .map_err(|_| CoreError::Timeout("Bridge Component run timed out".to_string()))??;
 
         let status = if !exit_status.success() || event_failed {
             BridgeComponentRunStatus::Failed
@@ -976,7 +976,7 @@ impl BridgeComponentManager {
         input: Value,
         workspace_path: Option<String>,
         consumer: BridgeComponentConsumer,
-    ) -> BitFunResult<BridgeComponentRunResult> {
+    ) -> CoreResult<BridgeComponentRunResult> {
         Self::run_capability_action(
             app_id,
             capability_id,
@@ -996,7 +996,7 @@ impl BridgeComponentManager {
         input: Value,
         workspace_path: Option<String>,
         consumer: BridgeComponentConsumer,
-    ) -> BitFunResult<BridgeComponentRunResult> {
+    ) -> CoreResult<BridgeComponentRunResult> {
         Self::run_capability_action_from_package_dir(
             package_dir,
             capability_id,
@@ -1028,19 +1028,19 @@ impl BridgeComponentManager {
     pub async fn stream_run_events(
         run_id: &str,
         after_index: Option<usize>,
-    ) -> BitFunResult<Vec<BridgeComponentEvent>> {
+    ) -> CoreResult<Vec<BridgeComponentEvent>> {
         let run = Self::get_run(run_id)
             .await
-            .ok_or_else(|| BitFunError::NotFound(format!("Bridge run not found: {run_id}")))?;
+            .ok_or_else(|| CoreError::NotFound(format!("Bridge run not found: {run_id}")))?;
         let start = after_index.unwrap_or(0).min(run.events.len());
         Ok(run.events[start..].to_vec())
     }
 
-    pub async fn cancel_run(run_id: &str) -> BitFunResult<BridgeComponentRun> {
+    pub async fn cancel_run(run_id: &str) -> CoreResult<BridgeComponentRun> {
         let mut runs = BRIDGE_RUN_REGISTRY.write().await;
         let run = runs
             .get_mut(run_id)
-            .ok_or_else(|| BitFunError::NotFound(format!("Bridge run not found: {run_id}")))?;
+            .ok_or_else(|| CoreError::NotFound(format!("Bridge run not found: {run_id}")))?;
         if matches!(
             run.status,
             BridgeComponentRunStatus::Completed | BridgeComponentRunStatus::Failed
@@ -1055,31 +1055,31 @@ impl BridgeComponentManager {
         Ok(run.clone())
     }
 
-    pub async fn get_artifacts(run_id: &str) -> BitFunResult<Vec<Value>> {
+    pub async fn get_artifacts(run_id: &str) -> CoreResult<Vec<Value>> {
         Self::get_run(run_id)
             .await
             .map(|run| run.artifacts)
-            .ok_or_else(|| BitFunError::NotFound(format!("Bridge run not found: {run_id}")))
+            .ok_or_else(|| CoreError::NotFound(format!("Bridge run not found: {run_id}")))
     }
 
-    pub fn validate_manifest(manifest: &mut BridgeComponentManifest) -> BitFunResult<()> {
+    pub fn validate_manifest(manifest: &mut BridgeComponentManifest) -> CoreResult<()> {
         if manifest.schema_version == 0 {
             manifest.schema_version = BRIDGE_COMPONENT_SCHEMA_VERSION;
         }
         if manifest.schema_version != BRIDGE_COMPONENT_SCHEMA_VERSION {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Unsupported Bridge Component schema version: {}",
                 manifest.schema_version
             )));
         }
         validate_bridge_component_id(&manifest.id)?;
         if manifest.name.trim().is_empty() {
-            return Err(BitFunError::validation(
+            return Err(CoreError::validation(
                 "Bridge Component name cannot be empty",
             ));
         }
         if manifest.description.trim().is_empty() {
-            return Err(BitFunError::validation(
+            return Err(CoreError::validation(
                 "Bridge Component description cannot be empty",
             ));
         }
@@ -1089,12 +1089,12 @@ impl BridgeComponentManager {
                 .components()
                 .any(|component| !matches!(component, Component::Normal(_)))
         {
-            return Err(BitFunError::validation(
+            return Err(CoreError::validation(
                 "Bridge Component runtime entry must be a relative path inside the Bridge Component",
             ));
         }
         if manifest.capabilities.is_empty() {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Bridge Component '{}' must declare at least one capability",
                 manifest.id
             )));
@@ -1104,7 +1104,7 @@ impl BridgeComponentManager {
         }
         for tool in &manifest.tools {
             if tool.name.trim().is_empty() {
-                return Err(BitFunError::validation(
+                return Err(CoreError::validation(
                     "Bridge Component tool name cannot be empty",
                 ));
             }
@@ -1116,7 +1116,7 @@ impl BridgeComponentManager {
         Ok(())
     }
 
-    pub fn load_package_from_dir(dir: &Path) -> BitFunResult<BridgeComponentPackage> {
+    pub fn load_package_from_dir(dir: &Path) -> CoreResult<BridgeComponentPackage> {
         let mut manifest: BridgeComponentManifest =
             read_json_file(&dir.join(BRIDGE_COMPONENT_MANIFEST))?;
         Self::validate_manifest(&mut manifest)?;
@@ -1127,21 +1127,21 @@ impl BridgeComponentManager {
     }
 }
 
-pub fn validate_bridge_component_id(id: &str) -> BitFunResult<()> {
+pub fn validate_bridge_component_id(id: &str) -> CoreResult<()> {
     if id.is_empty() {
-        return Err(BitFunError::validation(
+        return Err(CoreError::validation(
             "Bridge Component id cannot be empty",
         ));
     }
     let mut chars = id.chars();
     if !chars.next().is_some_and(|c| c.is_ascii_alphabetic()) {
-        return Err(BitFunError::validation(
+        return Err(CoreError::validation(
             "Bridge Component id must start with an ASCII letter",
         ));
     }
     for c in chars {
         if !c.is_ascii_alphanumeric() && c != '-' && c != '_' {
-            return Err(BitFunError::validation(
+            return Err(CoreError::validation(
                 "Bridge Component id can only contain ASCII letters, numbers, -, _",
             ));
         }
@@ -1182,7 +1182,7 @@ fn runtime_command(
     }
 }
 
-fn copy_dir_recursive(source: &Path, target: &Path) -> BitFunResult<()> {
+fn copy_dir_recursive(source: &Path, target: &Path) -> CoreResult<()> {
     for entry in std::fs::read_dir(source)? {
         let entry = entry?;
         let source_path = entry.path();

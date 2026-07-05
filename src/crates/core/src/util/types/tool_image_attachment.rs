@@ -1,1 +1,1 @@
-pub use bitfun_ai_adapters::types::ToolImageAttachment;
+pub use sparo_ai_adapters::types::ToolImageAttachment;

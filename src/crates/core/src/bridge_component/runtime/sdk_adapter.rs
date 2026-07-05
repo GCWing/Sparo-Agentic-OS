@@ -30,5 +30,5 @@ pub trait SdkBridgeAdapter: Send + Sync {
     fn invoke(
         &self,
         invocation: SdkBridgeInvocation,
-    ) -> crate::util::errors::BitFunResult<SdkBridgeResponse>;
+    ) -> crate::error::CoreResult<SdkBridgeResponse>;
 }

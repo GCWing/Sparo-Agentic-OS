@@ -9,7 +9,11 @@ pub mod registry;
 pub mod types;
 
 pub use registry::SkillRegistry;
-pub use types::{AgentSkillInfo, SkillData, SkillInfo, SkillLocation};
+pub use types::{
+    AgentSkillInfo, SkillCatalog, SkillData, SkillGovernance, SkillInfo, SkillLocation,
+    SkillSuiteDefaultProfileIntent, SkillSuiteInfo, SkillSuiteManifest,
+    SkillSuiteMemberOverridePolicy, SkillSuiteMemberRef,
+};
 
 /// Get global Skill registry instance
 pub fn get_skill_registry() -> &'static SkillRegistry {

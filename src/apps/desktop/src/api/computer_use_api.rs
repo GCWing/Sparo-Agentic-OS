@@ -2,8 +2,8 @@
 
 use crate::api::app_state::AppState;
 use crate::computer_use::DesktopComputerUseHost;
-use bitfun_core::agentic::tools::computer_use_host::ComputerUseHost;
-use bitfun_core::service::config::types::AIConfig;
+use sparo_core::agentic::tools::computer_use_host::ComputerUseHost;
+use sparo_core::service::config::types::AIConfig;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 

@@ -1,12 +1,12 @@
 [package]
-name = "bitfun-ai-adapters"
+name = "sparo-ai-adapters"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
 description = "Shared AI protocol adapters for Sparo OS core and installer"
 
 [lib]
-name = "bitfun_ai_adapters"
+name = "sparo_ai_adapters"
 crate-type = ["rlib"]
 
 [dependencies]

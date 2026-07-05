@@ -4,7 +4,7 @@
 
 use super::manager::{ConfigManager, ConfigManagerSettings, ConfigStatistics};
 use super::types::*;
-use crate::util::errors::*;
+use crate::error::*;
 use log::{info, warn};
 use std::collections::HashSet;
 
@@ -46,7 +46,7 @@ pub struct ConfigHealthStatus {
 
 impl ConfigService {
     /// Creates a new configuration service.
-    pub async fn new() -> BitFunResult<Self> {
+    pub async fn new() -> CoreResult<Self> {
         let settings = ConfigManagerSettings::default();
         Self::with_settings(settings).await
     }
@@ -56,7 +56,7 @@ impl ConfigService {
     /// Runs an initial [`Self::reconcile_models`] pass so any pre-existing
     /// persisted config that points at a now-disabled / missing model (e.g.
     /// from before this guard was introduced) is cleaned up on startup.
-    pub async fn with_settings(settings: ConfigManagerSettings) -> BitFunResult<Self> {
+    pub async fn with_settings(settings: ConfigManagerSettings) -> CoreResult<Self> {
         let manager = ConfigManager::new(settings).await?;
 
         let service = Self {
@@ -71,7 +71,7 @@ impl ConfigService {
     }
 
     /// Gets a configuration value (supports dot-paths).
-    pub async fn get_config<T>(&self, path: Option<&str>) -> BitFunResult<T>
+    pub async fn get_config<T>(&self, path: Option<&str>) -> CoreResult<T>
     where
         T: serde::de::DeserializeOwned,
     {
@@ -82,7 +82,7 @@ impl ConfigService {
         } else {
             let config = manager.get_config();
             serde_json::from_value(serde_json::to_value(config)?)
-                .map_err(|e| BitFunError::config(format!("Failed to serialize config: {}", e)))
+                .map_err(|e| CoreError::config(format!("Failed to serialize config: {}", e)))
         }
     }
 
@@ -91,7 +91,7 @@ impl ConfigService {
     /// When the path touches AI models / default model slots / agent-model
     /// mappings, runs [`Self::reconcile_models`] afterwards so the config can
     /// never end up referencing a disabled or deleted model.
-    pub async fn set_config<T>(&self, path: &str, value: T) -> BitFunResult<()>
+    pub async fn set_config<T>(&self, path: &str, value: T) -> CoreResult<()>
     where
         T: serde::Serialize,
     {
@@ -125,7 +125,7 @@ impl ConfigService {
     /// When the reset target touches AI models (or is a global reset),
     /// triggers [`Self::reconcile_models`] so default-slot / agent-model
     /// references can never linger pointing at a now-missing model.
-    pub async fn reset_config(&self, path: Option<&str>) -> BitFunResult<()> {
+    pub async fn reset_config(&self, path: Option<&str>) -> CoreResult<()> {
         {
             let mut manager = self.manager.write().await;
             manager.reset(path).await?;
@@ -148,13 +148,13 @@ impl ConfigService {
     }
 
     /// Validates configuration.
-    pub async fn validate_config(&self) -> BitFunResult<ConfigValidationResult> {
+    pub async fn validate_config(&self) -> CoreResult<ConfigValidationResult> {
         let manager = self.manager.read().await;
         manager.validate_config().await
     }
 
     /// Exports configuration.
-    pub async fn export_config(&self) -> BitFunResult<ConfigExport> {
+    pub async fn export_config(&self) -> CoreResult<ConfigExport> {
         let manager = self.manager.read().await;
         let config_value = manager.export_config()?;
         let config: GlobalConfig = serde_json::from_value(config_value)?;
@@ -169,7 +169,7 @@ impl ConfigService {
     /// Imports configuration. Triggers a model reconcile pass on success so an
     /// imported config that references missing / disabled models is brought
     /// back into a self-consistent state.
-    pub async fn import_config(&self, export: ConfigExport) -> BitFunResult<ConfigImportResult> {
+    pub async fn import_config(&self, export: ConfigExport) -> CoreResult<ConfigImportResult> {
         let import_result = {
             let mut manager = self.manager.write().await;
             manager
@@ -203,7 +203,7 @@ impl ConfigService {
     }
 
     /// Runs a health check.
-    pub async fn health_check(&self) -> BitFunResult<ConfigHealthStatus> {
+    pub async fn health_check(&self) -> CoreResult<ConfigHealthStatus> {
         let manager = self.manager.read().await;
         let stats = manager.get_statistics();
         let validation_result = manager.validate_config().await?;
@@ -251,7 +251,7 @@ impl ConfigService {
     }
 
     /// Reloads configuration.
-    pub async fn reload(&self) -> BitFunResult<()> {
+    pub async fn reload(&self) -> CoreResult<()> {
         let settings = ConfigManagerSettings::default();
         let new_manager = ConfigManager::new(settings).await?;
 
@@ -269,7 +269,7 @@ impl ConfigService {
     }
 
     /// Creates a configuration backup.
-    pub async fn create_backup(&self) -> BitFunResult<std::path::PathBuf> {
+    pub async fn create_backup(&self) -> CoreResult<std::path::PathBuf> {
         let manager = self.manager.read().await;
         manager.create_backup().await
     }
@@ -281,27 +281,27 @@ impl ConfigService {
     }
 
     /// Returns all AI model configurations.
-    pub async fn get_ai_models(&self) -> BitFunResult<Vec<AIModelConfig>> {
+    pub async fn get_ai_models(&self) -> CoreResult<Vec<AIModelConfig>> {
         let config: GlobalConfig = self.get_config(None).await?;
         Ok(config.ai.models)
     }
 
     /// Adds an AI model configuration.
-    pub async fn add_ai_model(&self, model: AIModelConfig) -> BitFunResult<()> {
+    pub async fn add_ai_model(&self, model: AIModelConfig) -> CoreResult<()> {
         let mut config: GlobalConfig = self.get_config(None).await?;
         config.ai.models.push(model);
         self.set_config("ai.models", &config.ai.models).await
     }
 
     /// Updates an AI model configuration.
-    pub async fn update_ai_model(&self, model_id: &str, model: AIModelConfig) -> BitFunResult<()> {
+    pub async fn update_ai_model(&self, model_id: &str, model: AIModelConfig) -> CoreResult<()> {
         let mut config: GlobalConfig = self.get_config(None).await?;
 
         if let Some(existing_model) = config.ai.models.iter_mut().find(|m| m.id == model_id) {
             *existing_model = model;
             self.set_config("ai.models", &config.ai.models).await
         } else {
-            Err(BitFunError::config(format!(
+            Err(CoreError::config(format!(
                 "AI model '{}' not found",
                 model_id
             )))
@@ -309,14 +309,14 @@ impl ConfigService {
     }
 
     /// Deletes an AI model configuration.
-    pub async fn delete_ai_model(&self, model_id: &str) -> BitFunResult<()> {
+    pub async fn delete_ai_model(&self, model_id: &str) -> CoreResult<()> {
         let mut config: GlobalConfig = self.get_config(None).await?;
 
         let original_len = config.ai.models.len();
         config.ai.models.retain(|m| m.id != model_id);
 
         if config.ai.models.len() == original_len {
-            return Err(BitFunError::config(format!(
+            return Err(CoreError::config(format!(
                 "AI model '{}' not found",
                 model_id
             )));
@@ -343,7 +343,7 @@ impl ConfigService {
     ///   and the AI client cache can react in lockstep.
     ///
     /// `caller` is logged for diagnostics (e.g. `set_config`, `update_ai_model`).
-    pub async fn reconcile_models(&self, caller: &str) -> BitFunResult<ReconcileModelsReport> {
+    pub async fn reconcile_models(&self, caller: &str) -> CoreResult<ReconcileModelsReport> {
         let mut config = {
             let manager = self.manager.read().await;
             manager.get_config().clone()

@@ -6,11 +6,11 @@
 //! - Supports streaming output and cancellation by request id
 
 use crate::api::app_state::AppState;
-use bitfun_core::agentic::markdown_coauthor::{
+use sparo_core::agentic::markdown_coauthor::{
     build_proposal_prompt, normalize_proposal, proposal_system_prompt,
     MarkdownCoauthorPromptRequest, MarkdownDocumentProfile,
 };
-use bitfun_core::util::types::message::Message as AIMessage;
+use sparo_core::util::types::message::Message as AIMessage;
 use futures::StreamExt;
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};

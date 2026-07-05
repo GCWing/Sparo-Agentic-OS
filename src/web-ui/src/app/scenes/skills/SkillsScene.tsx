@@ -124,6 +124,10 @@ const SkillsScene: React.FC = () => {
     () => new Map(installed.skills.map((skill) => [skill.name, skill])),
     [installed.skills],
   );
+  const installedSuiteById = useMemo(
+    () => new Map(installed.suites.map((suite) => [suite.id, suite])),
+    [installed.suites],
+  );
 
   const market = useSkillMarket({
     searchQuery: marketQuery,
@@ -321,6 +325,11 @@ const SkillsScene: React.FC = () => {
                             <StatusPill tone={skill.level === 'user' ? 'info' : 'success'} size="small">
                               {skill.level === 'user' ? t('list.item.user') : t('list.item.project')}
                             </StatusPill>
+                            <StatusPill tone={skill.suiteKey ? 'warning' : 'neutral'} size="small">
+                              {skill.suiteKey
+                                ? (installedSuiteById.get(skill.suiteKey)?.name ?? skill.suiteKey)
+                                : t('list.item.standalone')}
+                            </StatusPill>
                           </span>
                         )}
                         actions={[
@@ -332,7 +341,7 @@ const SkillsScene: React.FC = () => {
                             tone: 'muted' as const,
                             onClick: () => void handleRevealSkillPath(skill.path),
                           }] : []),
-                          ...(!skill.isBuiltin ? [{
+                          ...(skill.canDelete ? [{
                             id: 'delete',
                             icon: <Trash2 size={13} />,
                             ariaLabel: t('list.item.deleteTooltip'),
@@ -524,6 +533,11 @@ const SkillsScene: React.FC = () => {
             <StatusPill tone={selectedInstalledSkill.level === 'user' ? 'info' : 'success'} size="small">
               {selectedInstalledSkill.level === 'user' ? t('list.item.user') : t('list.item.project')}
             </StatusPill>
+            <StatusPill tone={selectedInstalledSkill.suiteKey ? 'warning' : 'neutral'} size="small">
+              {selectedInstalledSkill.suiteKey
+                ? (installedSuiteById.get(selectedInstalledSkill.suiteKey)?.name ?? selectedInstalledSkill.suiteKey)
+                : t('list.item.standalone')}
+            </StatusPill>
           </>
         ) : selectedMarketSkill && installedSkillNames.has(selectedMarketSkill.name) ? (
           <StatusPill tone="success" size="small">
@@ -537,7 +551,7 @@ const SkillsScene: React.FC = () => {
             {selectedMarketSkill.installs ?? 0}
           </span>
         ) : null}
-        actions={selectedInstalledSkill && !selectedInstalledSkill.isBuiltin ? (
+        actions={selectedInstalledSkill && selectedInstalledSkill.canDelete ? (
           <Button
             variant="danger"
             size="small"

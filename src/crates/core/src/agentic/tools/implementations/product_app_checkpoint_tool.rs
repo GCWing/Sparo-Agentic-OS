@@ -32,7 +32,7 @@ use crate::app_platform::{
     WrittenProductAppFromReleaseTemplate, WrittenProductAppRelease,
 };
 use crate::infrastructure::{try_get_path_manager_arc, PathManager};
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 
 pub struct CreateProductAppCheckpointTool;
 pub struct RestoreProductAppCheckpointTool;
@@ -132,7 +132,7 @@ impl Tool for CreateProductAppCheckpointTool {
         "CreateProductAppCheckpoint"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(r#"Create a stable Product App checkpoint artifact for the current package. The checkpoint verifies app.json, app.lock.json, and resolver lock consistency, records deterministic source file hashes, and writes checkpoints/<checkpoint_id>/checkpoint.json.
 
 Input: path, or app_id plus optional version for standalone checkpoints. In a bound AppStudio Product App session, leave package identity empty; the current package is always used. Optional work_id binds the checkpoint as a Work artifact. This is a draft checkpoint, not a release artifact, install, rollback, or share payload."#
@@ -185,15 +185,15 @@ Input: path, or app_id plus optional version for standalone checkpoints. In a bo
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let path_manager = try_get_path_manager_arc()
-            .map_err(|e| BitFunError::tool(format!("PathManager not initialized: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("PathManager not initialized: {}", e)))?;
         let package_dir =
             package_dir_for_write_from_input(input, self.name(), &path_manager, context).await?;
         let shared_components = list_installed_shared_components(&path_manager)
             .await
             .map_err(|e| {
-                BitFunError::tool(format!("Failed to read installed shared components: {}", e))
+                CoreError::tool(format!("Failed to read installed shared components: {}", e))
             })?;
         let label = optional_string(input, "label").filter(|value| !value.trim().is_empty());
         let summary = optional_string(input, "summary").filter(|value| !value.trim().is_empty());
@@ -207,7 +207,7 @@ Input: path, or app_id plus optional version for standalone checkpoints. In a bo
         })
         .await
         .map_err(|e| {
-            BitFunError::tool(format!("Failed to create Product App checkpoint: {}", e))
+            CoreError::tool(format!("Failed to create Product App checkpoint: {}", e))
         })?;
 
         let bound_work_id =
@@ -263,7 +263,7 @@ impl Tool for RestoreProductAppCheckpointTool {
         "RestoreProductAppCheckpoint"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(r#"Restore a Product App package from a checkpoint created by CreateProductAppCheckpoint. This overwrites package files and removes package files that are not present in the checkpoint snapshot; checkpoints, releases, node_modules, .git, and .sparo_os are excluded.
 
 Input: checkpoint_id and confirm=true. In a bound AppStudio Product App session, leave package identity empty; the current package is always used. This is destructive package editing and is not a release or rollback of installed user data."#
@@ -312,9 +312,9 @@ Input: checkpoint_id and confirm=true. In a bound AppStudio Product App session,
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let path_manager = try_get_path_manager_arc()
-            .map_err(|e| BitFunError::tool(format!("PathManager not initialized: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("PathManager not initialized: {}", e)))?;
         let package_dir =
             package_dir_for_write_from_input(input, self.name(), &path_manager, context).await?;
         let checkpoint_id = required_string(input, "checkpoint_id")?;
@@ -325,7 +325,7 @@ Input: checkpoint_id and confirm=true. In a bound AppStudio Product App session,
         let shared_components = list_installed_shared_components(&path_manager)
             .await
             .map_err(|e| {
-                BitFunError::tool(format!("Failed to read installed shared components: {}", e))
+                CoreError::tool(format!("Failed to read installed shared components: {}", e))
             })?;
         let restored = restore_product_app_checkpoint(RestoreProductAppCheckpointRequest {
             package_dir: package_dir.clone(),
@@ -335,7 +335,7 @@ Input: checkpoint_id and confirm=true. In a bound AppStudio Product App session,
         })
         .await
         .map_err(|e| {
-            BitFunError::tool(format!("Failed to restore Product App checkpoint: {}", e))
+            CoreError::tool(format!("Failed to restore Product App checkpoint: {}", e))
         })?;
 
         let result_text = format!(
@@ -372,7 +372,7 @@ impl Tool for RestoreProductAppReleaseTool {
         "RestoreProductAppRelease"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(r#"Restore a Product App package from an immutable release artifact created by CreateProductAppRelease. This overwrites package files and removes package files that are not present in the release source snapshot; checkpoints, releases, node_modules, .git, .sparo_os, and release catalog provenance are excluded.
 
 Input: release_id and confirm=true. In a bound AppStudio Product App session, leave package identity empty; the current package is always used. This is package rollback to a released source snapshot; it does not roll back installed user data, Work history, runtime storage, or private memory."#
@@ -421,9 +421,9 @@ Input: release_id and confirm=true. In a bound AppStudio Product App session, le
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let path_manager = try_get_path_manager_arc()
-            .map_err(|e| BitFunError::tool(format!("PathManager not initialized: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("PathManager not initialized: {}", e)))?;
         let package_dir =
             package_dir_for_write_from_input(input, self.name(), &path_manager, context).await?;
         let release_id = required_string(input, "release_id")?;
@@ -434,7 +434,7 @@ Input: release_id and confirm=true. In a bound AppStudio Product App session, le
         let shared_components = list_installed_shared_components(&path_manager)
             .await
             .map_err(|e| {
-                BitFunError::tool(format!("Failed to read installed shared components: {}", e))
+                CoreError::tool(format!("Failed to read installed shared components: {}", e))
             })?;
         let restored = restore_product_app_release(RestoreProductAppReleaseRequest {
             package_dir: package_dir.clone(),
@@ -443,7 +443,7 @@ Input: release_id and confirm=true. In a bound AppStudio Product App session, le
             confirm,
         })
         .await
-        .map_err(|e| BitFunError::tool(format!("Failed to restore Product App release: {}", e)))?;
+        .map_err(|e| CoreError::tool(format!("Failed to restore Product App release: {}", e)))?;
 
         let result_text = format!(
             "Product App release restored for {}@{}. release_id: {}. restored_files={}, removed_files={}.",
@@ -480,7 +480,7 @@ impl Tool for CompareProductAppRevisionsTool {
         "CompareProductAppRevisions"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(r#"Compare Product App package revisions using checkpoint manifests, release manifests, or the current package files. This is read-only history comparison for package source snapshots.
 
 Input: base_kind plus base_id unless base_kind is current. Optional target_kind and target_id; target_kind defaults to current. Allowed revision kinds are checkpoint, release, and current. Optional path/app_id/version. The tool returns added, removed, and modified package files by deterministic sha256 hash."#
@@ -539,9 +539,9 @@ Input: base_kind plus base_id unless base_kind is current. Optional target_kind 
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let path_manager = try_get_path_manager_arc()
-            .map_err(|e| BitFunError::tool(format!("PathManager not initialized: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("PathManager not initialized: {}", e)))?;
         let package_dir = package_dir_from_input(input, self.name(), &path_manager, context)?;
         let base = revision_ref_from_input(input, "base", false)?;
         let target = revision_ref_from_input(input, "target", true)?;
@@ -552,7 +552,7 @@ Input: base_kind plus base_id unless base_kind is current. Optional target_kind 
         })
         .await
         .map_err(|e| {
-            BitFunError::tool(format!("Failed to compare Product App revisions: {}", e))
+            CoreError::tool(format!("Failed to compare Product App revisions: {}", e))
         })?;
         let result_text = format!(
             "Product App revision comparison complete. changed={}, unchanged={}.",
@@ -581,7 +581,7 @@ impl Tool for CreateProductAppFromReleaseTemplateTool {
         "CreateProductAppFromReleaseTemplate"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(r#"Create a new Product App package from an immutable release source snapshot. This copies only release package source files, rebases app id/name/version and app-private component ownership, writes a fresh component lock, and excludes Work history, runtime storage, user private data, checkpoints, releases, and catalog provenance.
 
 Input: release_id, new_app_id, name. Optional description, goal, version, path/app_id/version for standalone source release package resolution. In a bound AppStudio Product App session, leave source package identity empty; the current package is always used."#
@@ -646,9 +646,9 @@ Input: release_id, new_app_id, name. Optional description, goal, version, path/a
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let path_manager = try_get_path_manager_arc()
-            .map_err(|e| BitFunError::tool(format!("PathManager not initialized: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("PathManager not initialized: {}", e)))?;
         let source_package_dir =
             package_dir_from_input(input, self.name(), &path_manager, context)?;
         let release_id = required_string(input, "release_id")?;
@@ -661,7 +661,7 @@ Input: release_id, new_app_id, name. Optional description, goal, version, path/a
         let shared_components = list_installed_shared_components(&path_manager)
             .await
             .map_err(|e| {
-                BitFunError::tool(format!("Failed to read installed shared components: {}", e))
+                CoreError::tool(format!("Failed to read installed shared components: {}", e))
             })?;
         let written =
             create_product_app_from_release_template(CreateProductAppFromReleaseTemplateRequest {
@@ -677,7 +677,7 @@ Input: release_id, new_app_id, name. Optional description, goal, version, path/a
             })
             .await
             .map_err(|e| {
-                BitFunError::tool(format!(
+                CoreError::tool(format!(
                     "Failed to create Product App from release template: {}",
                     e
                 ))
@@ -726,7 +726,7 @@ impl Tool for CreateProductAppReleaseTool {
         "CreateProductAppRelease"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(r#"Create an immutable Product App release artifact from the current package. This tool requires a Work id whose derived release-rehearsal readiness is passed; it verifies the Work subject app id/version/component lock matches the current package before writing releases/<release_id>/release.json plus a package source snapshot.
 
 Input: work_id. Optional path/app_id/version for standalone release creation, plus label and notes. In a bound AppStudio Product App session, leave package identity empty; the current package is always used. This creates a release artifact only; it does not include Work history, runtime storage, user private data, or sensitive memory."#
@@ -779,9 +779,9 @@ Input: work_id. Optional path/app_id/version for standalone release creation, pl
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let path_manager = try_get_path_manager_arc()
-            .map_err(|e| BitFunError::tool(format!("PathManager not initialized: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("PathManager not initialized: {}", e)))?;
         let package_dir =
             package_dir_for_write_from_input(input, self.name(), &path_manager, context).await?;
         let work_id = required_work_id(input)?;
@@ -792,7 +792,7 @@ Input: work_id. Optional path/app_id/version for standalone release creation, pl
         let shared_components = list_installed_shared_components(&path_manager)
             .await
             .map_err(|e| {
-                BitFunError::tool(format!("Failed to read installed shared components: {}", e))
+                CoreError::tool(format!("Failed to read installed shared components: {}", e))
             })?;
         let label = optional_string(input, "label").filter(|value| !value.trim().is_empty());
         let notes = optional_string(input, "notes").filter(|value| !value.trim().is_empty());
@@ -806,7 +806,7 @@ Input: work_id. Optional path/app_id/version for standalone release creation, pl
             created_at_ms: now_ms(),
         })
         .await
-        .map_err(|e| BitFunError::tool(format!("Failed to create Product App release: {}", e)))?;
+        .map_err(|e| CoreError::tool(format!("Failed to create Product App release: {}", e)))?;
 
         bind_release_artifact(&service, &work_id, &release, label.as_deref()).await?;
         if let Err(error) =
@@ -856,7 +856,7 @@ impl Tool for PublishProductAppReleaseTool {
         "PublishProductAppRelease"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(r#"Publish an existing Product App release artifact into the local Product App catalog source. The release must already have passed CreateProductAppRelease readiness; this tool preserves the release source snapshot and component lock, writes release-source.json provenance, and makes the app discoverable/installable without including Work history, runtime storage, user private data, or sensitive memory.
 
 Input: release_id. Optional path/app_id/version for standalone publishing, plus work_id. In a bound AppStudio Product App session, leave package identity empty; the current package is always used."#
@@ -905,9 +905,9 @@ Input: release_id. Optional path/app_id/version for standalone publishing, plus 
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let path_manager = try_get_path_manager_arc()
-            .map_err(|e| BitFunError::tool(format!("PathManager not initialized: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("PathManager not initialized: {}", e)))?;
         let package_dir = package_dir_from_input(input, self.name(), &path_manager, context)?;
         let release_id = required_string(input, "release_id")?;
         let release_manifest_path = package_dir
@@ -925,7 +925,7 @@ Input: release_id. Optional path/app_id/version for standalone publishing, plus 
         )
         .await
         .map_err(|e| {
-            BitFunError::tool(format!(
+            CoreError::tool(format!(
                 "Failed to publish Product App release to catalog: {}",
                 e
             ))
@@ -982,7 +982,7 @@ fn package_dir_from_input(
     operation_name: &str,
     path_manager: &PathManager,
     context: &ToolUseContext,
-) -> BitFunResult<PathBuf> {
+) -> CoreResult<PathBuf> {
     if let Some(package_root) = bound_app_studio_product_app_root(context, operation_name)? {
         return Ok(package_root);
     }
@@ -1000,29 +1000,29 @@ async fn package_dir_for_write_from_input(
     operation_name: &str,
     path_manager: &PathManager,
     context: &ToolUseContext,
-) -> BitFunResult<PathBuf> {
+) -> CoreResult<PathBuf> {
     let package_dir = package_dir_from_input(input, operation_name, path_manager, context)?;
     enforce_app_studio_package_write(context, package_dir.to_string_lossy().as_ref()).await?;
     Ok(package_dir)
 }
 
-fn required_work_id(input: &Value) -> BitFunResult<WorkId> {
+fn required_work_id(input: &Value) -> CoreResult<WorkId> {
     let work_id = required_string(input, "work_id")?;
     WorkId::parse(work_id)
-        .map_err(|error| BitFunError::validation(format!("Invalid work_id: {error}")))
+        .map_err(|error| CoreError::validation(format!("Invalid work_id: {error}")))
 }
 
 async fn verify_work_matches_package(
     record: &WorkRecord,
     package_dir: &PathBuf,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     let Some(app_ref) = record.subject.app_ref() else {
-        return Err(BitFunError::validation(
+        return Err(CoreError::validation(
             "CreateProductAppRelease requires a Product App Work subject".to_string(),
         ));
     };
     if app_ref.kind != WorkAppKind::ProductApp {
-        return Err(BitFunError::validation(
+        return Err(CoreError::validation(
             "CreateProductAppRelease requires a Product App Work subject".to_string(),
         ));
     }
@@ -1033,7 +1033,7 @@ async fn verify_work_matches_package(
         || app_ref.app_version != package.app.version
         || app_ref.component_lock_digest != file_lock_digest
     {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Release Work subject does not match current package. work={}@{} lock={}, package={}@{} lock={}",
             app_ref.app_id,
             app_ref.app_version,
@@ -1048,16 +1048,16 @@ async fn verify_work_matches_package(
 
 fn release_readiness_from_work(
     record: &WorkRecord,
-) -> BitFunResult<ProductAppReleaseReadinessSnapshot> {
+) -> CoreResult<ProductAppReleaseReadinessSnapshot> {
     let preview = latest_derived_release_rehearsal(record).ok_or_else(|| {
-        BitFunError::validation(
+        CoreError::validation(
             "CreateProductAppRelease requires a derived release-rehearsal readiness fact on the Work graph"
                 .to_string(),
         )
     })?;
 
     if preview.status != WorkStudioFactStatus::Passed {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "CreateProductAppRelease requires release readiness passed, got {}",
             work_fact_status_string(preview.status)
         )));
@@ -1067,13 +1067,13 @@ fn release_readiness_from_work(
         .iter()
         .find(|check| check.id == "releaseGate")
         .ok_or_else(|| {
-            BitFunError::validation(
+            CoreError::validation(
                 "CreateProductAppRelease requires a releaseGate check in readiness facts"
                     .to_string(),
             )
         })?;
     if release_gate.status != WorkStudioFactStatus::Passed {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "CreateProductAppRelease requires releaseGate passed, got {}",
             work_fact_status_string(release_gate.status)
         )));
@@ -1083,7 +1083,7 @@ fn release_readiness_from_work(
         .iter()
         .find(|check| check.status != WorkStudioFactStatus::Passed)
     {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "CreateProductAppRelease requires every readiness check to pass. {}={}",
             check.id,
             work_fact_status_string(check.status)
@@ -1141,13 +1141,13 @@ fn work_fact_status_string(status: WorkStudioFactStatus) -> &'static str {
 fn verify_publish_work_id(
     input: &Value,
     published: &PublishedProductAppReleaseCatalogSource,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     let Some(work_id) = optional_string(input, "work_id").filter(|value| !value.trim().is_empty())
     else {
         return Ok(());
     };
     if work_id != published.work_id {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "PublishProductAppRelease work_id does not match release readiness. input={}, release={}",
             work_id, published.work_id
         )));
@@ -1159,13 +1159,13 @@ fn revision_ref_from_input(
     input: &Value,
     prefix: &str,
     default_current: bool,
-) -> BitFunResult<ProductAppRevisionRef> {
+) -> CoreResult<ProductAppRevisionRef> {
     let kind_field = format!("{prefix}_kind");
     let id_field = format!("{prefix}_id");
     let kind = optional_string(input, &kind_field)
         .filter(|value| !value.trim().is_empty())
         .or_else(|| default_current.then(|| "current".to_string()))
-        .ok_or_else(|| BitFunError::validation(format!("Missing required field: {kind_field}")))?;
+        .ok_or_else(|| CoreError::validation(format!("Missing required field: {kind_field}")))?;
 
     match kind.as_str() {
         "current" => Ok(ProductAppRevisionRef::CurrentPackage),
@@ -1175,7 +1175,7 @@ fn revision_ref_from_input(
         "release" => Ok(ProductAppRevisionRef::Release(required_string(
             input, &id_field,
         )?)),
-        _ => Err(BitFunError::validation(format!(
+        _ => Err(CoreError::validation(format!(
             "{kind_field} must be checkpoint, release, or current"
         ))),
     }
@@ -1185,12 +1185,12 @@ async fn bind_checkpoint_artifact(
     context: &ToolUseContext,
     work_id_input: Option<String>,
     checkpoint: &WrittenProductAppCheckpoint,
-) -> BitFunResult<Option<String>> {
+) -> CoreResult<Option<String>> {
     let Some(work_id_input) = work_id_input.filter(|value| !value.trim().is_empty()) else {
         return Ok(None);
     };
     let work_id = WorkId::parse(work_id_input)
-        .map_err(|error| BitFunError::validation(format!("Invalid work_id: {error}")))?;
+        .map_err(|error| CoreError::validation(format!("Invalid work_id: {error}")))?;
     let service = work_service_from_tool_context(context)?;
     service
         .bind_artifact(
@@ -1214,7 +1214,7 @@ async fn bind_release_artifact(
     work_id: &WorkId,
     release: &WrittenProductAppRelease,
     label: Option<&str>,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     service
         .bind_artifact(
             work_id,
@@ -1239,9 +1239,9 @@ async fn bind_release_artifact(
 async fn bind_publish_artifact(
     context: &ToolUseContext,
     published: &PublishedProductAppReleaseCatalogSource,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     let work_id = WorkId::parse(&published.work_id)
-        .map_err(|error| BitFunError::validation(format!("Invalid release work_id: {error}")))?;
+        .map_err(|error| CoreError::validation(format!("Invalid release work_id: {error}")))?;
     let service = work_service_from_tool_context(context)?;
     service
         .bind_artifact(
@@ -1265,7 +1265,7 @@ async fn bind_checkpoint_session(
     checkpoint: &WrittenProductAppCheckpoint,
     label: Option<&str>,
     summary: Option<&str>,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     if !has_app_studio_session_context(context) {
         return Ok(());
     }
@@ -1309,7 +1309,7 @@ async fn bind_release_session(
     release: &WrittenProductAppRelease,
     label: Option<&str>,
     notes: Option<&str>,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     if !has_app_studio_session_context(context) {
         return Ok(());
     }
@@ -1357,7 +1357,7 @@ async fn bind_release_session(
 async fn bind_publish_session(
     context: &ToolUseContext,
     published: &PublishedProductAppReleaseCatalogSource,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     if !has_app_studio_session_context(context) {
         return Ok(());
     }
@@ -1402,7 +1402,7 @@ async fn bind_publish_session(
 async fn bind_template_session(
     context: &ToolUseContext,
     written: &WrittenProductAppFromReleaseTemplate,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     if !has_app_studio_session_context(context) {
         return Ok(());
     }
@@ -1517,11 +1517,11 @@ async fn bind_template_session(
     Ok(())
 }
 
-fn required_string(input: &Value, field: &str) -> BitFunResult<String> {
+fn required_string(input: &Value, field: &str) -> CoreResult<String> {
     let value = optional_string(input, field)
-        .ok_or_else(|| BitFunError::validation(format!("Missing required field: {field}")))?;
+        .ok_or_else(|| CoreError::validation(format!("Missing required field: {field}")))?;
     if value.trim().is_empty() {
-        return Err(BitFunError::validation(format!("{field} cannot be empty")));
+        return Err(CoreError::validation(format!("{field} cannot be empty")));
     }
     Ok(value)
 }

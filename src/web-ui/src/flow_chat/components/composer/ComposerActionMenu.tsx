@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { Badge, Button, SelectableRow, Spinner, Tooltip } from '@/design-system';
 import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
-import type { SkillInfo } from '@/infrastructure/config/types';
+import type { SkillInfo, SkillSuiteInfo } from '@/infrastructure/config/types';
 import type {
   ComposerActionDescriptor,
   ComposerActionIconId,
@@ -32,6 +32,7 @@ interface ComposerActionMenuProps {
   skillsFlyoutUp: boolean;
   skillsTooltipSuppressed: boolean;
   boostPanelSkills: SkillInfo[];
+  boostPanelSuites: SkillSuiteInfo[];
   boostSkillsLoading: boolean;
   selectedAgentLabel?: string | null;
   labels: {
@@ -41,6 +42,8 @@ interface ComposerActionMenuProps {
     switchAgent: string;
     boostSkillsLoading: string;
     boostSkillsEmpty: string;
+    boostSkillsStandalone: string;
+    boostSkillsSuiteFallback: string;
     openSkillsLibrary: string;
   };
   onToggleDropdown: (event: React.MouseEvent) => void;
@@ -94,6 +97,7 @@ export function ComposerActionMenu({
   skillsFlyoutUp,
   skillsTooltipSuppressed,
   boostPanelSkills,
+  boostPanelSuites,
   boostSkillsLoading,
   selectedAgentLabel,
   labels,
@@ -111,6 +115,28 @@ export function ComposerActionMenu({
   const intentSectionHover = useMovingHoverHighlight<HTMLDivElement>();
   const appSectionHover = useMovingHoverHighlight<HTMLDivElement>();
   const skillsPanelHover = useMovingHoverHighlight<HTMLDivElement>();
+  const boostSkillGroups = React.useMemo(() => {
+    const suiteById = new Map(boostPanelSuites.map(suite => [suite.id, suite]));
+    const suiteOrder = new Map(boostPanelSuites.map((suite, index) => [suite.id, index]));
+    const groups = new Map<string, { key: string; label: string; order: number; skills: SkillInfo[] }>();
+
+    for (const skill of boostPanelSkills) {
+      const suiteKey = skill.suiteKey ?? '__standalone';
+      const suite = skill.suiteKey ? suiteById.get(skill.suiteKey) : undefined;
+      const group = groups.get(suiteKey) ?? {
+        key: suiteKey,
+        label: skill.suiteKey
+          ? (suite?.name ?? `${labels.boostSkillsSuiteFallback}: ${skill.suiteKey}`)
+          : labels.boostSkillsStandalone,
+        order: skill.suiteKey ? (suiteOrder.get(skill.suiteKey) ?? 1000) : 2000,
+        skills: [],
+      };
+      group.skills.push(skill);
+      groups.set(suiteKey, group);
+    }
+
+    return Array.from(groups.values()).sort((a, b) => a.order - b.order || a.label.localeCompare(b.label));
+  }, [boostPanelSkills, boostPanelSuites, labels.boostSkillsStandalone, labels.boostSkillsSuiteFallback]);
 
   const sectionHover = {
     agent: agentSectionHover,
@@ -239,24 +265,31 @@ export function ComposerActionMenu({
               <div className="sparo-chat-input__boost-submenu-empty">{labels.boostSkillsEmpty}</div>
             ) : (
               <div className="sparo-chat-input__boost-submenu-list" onScroll={onSkillsListScroll}>
-                {boostPanelSkills.map(skill => (
-                  <Tooltip
-                    key={skill.name}
-                    content={skill.description || skill.name}
-                    disabled={skillsTooltipSuppressed}
-                    placement="left"
-                  >
-                    <Button
-                      className="sparo-chat-input__boost-submenu-entry"
-                      {...skillsPanelHover.getItemHandlers()}
-                      onClick={e => onInsertSkill(skill.name, e)}
-                      size="small"
-                      variant="ghost"
-                    >
-                      <BookOpen size={14} className="sparo-chat-input__boost-context-icon" aria-hidden />
-                      <span className="sparo-chat-input__boost-submenu-entry-name">{skill.name}</span>
-                    </Button>
-                  </Tooltip>
+                {boostSkillGroups.map(group => (
+                  <React.Fragment key={group.key}>
+                    <div className="sparo-chat-input__boost-submenu-group-label">
+                      {group.label}
+                    </div>
+                    {group.skills.map(skill => (
+                      <Tooltip
+                        key={skill.key}
+                        content={skill.description || skill.name}
+                        disabled={skillsTooltipSuppressed}
+                        placement="left"
+                      >
+                        <Button
+                          className="sparo-chat-input__boost-submenu-entry"
+                          {...skillsPanelHover.getItemHandlers()}
+                          onClick={e => onInsertSkill(skill.name, e)}
+                          size="small"
+                          variant="ghost"
+                        >
+                          <BookOpen size={14} className="sparo-chat-input__boost-context-icon" aria-hidden />
+                          <span className="sparo-chat-input__boost-submenu-entry-name">{skill.name}</span>
+                        </Button>
+                      </Tooltip>
+                    ))}
+                  </React.Fragment>
                 ))}
               </div>
             )}

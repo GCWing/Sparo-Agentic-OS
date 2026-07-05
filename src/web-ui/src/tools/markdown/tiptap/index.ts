@@ -1,4 +1,4 @@
-﻿export { MarkdownEditingSurface } from './components/MarkdownEditingSurface'
+export { MarkdownEditingSurface } from './components/MarkdownEditingSurface'
 export type { MarkdownEditingSurfaceProps } from './components/MarkdownEditingSurface'
 
 export { EditArea } from './components/EditArea'

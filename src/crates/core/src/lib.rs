@@ -9,6 +9,7 @@ pub mod agentic_os; // Agentic OS domain objects and OS-level tools
 pub mod app_platform; // Shared app catalog, surfaces, manifest, and permission primitives
 pub mod bridge_component; // Bridge implementation adapters behind Component packages and runtime tools
 pub mod command; // Host-agnostic command handlers shared by Desktop and CLI
+pub mod error; // Shared core error boundary
 pub mod infrastructure; // Infrastructure layer - AI clients, storage, logging, events
 pub mod product_app_runtime_host; // Product App Runtime host, worker, permissions, and UI runtime
 pub(crate) mod product_app_runtime_host_engine;
@@ -19,7 +20,7 @@ pub mod util; // Utility layer - General types, errors, helper functions
 pub use infrastructure::debug_log as debug;
 
 // Export main types
-pub use util::errors::*;
+pub use error::{CoreError, CoreErrorKind, CoreResult};
 pub use util::types::*;
 
 // Export service layer components

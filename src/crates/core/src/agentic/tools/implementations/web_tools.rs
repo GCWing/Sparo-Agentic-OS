@@ -1,7 +1,7 @@
 //! Web tool implementation - WebSearchTool and URLFetcherTool
 
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext, ValidationResult};
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use log::{error, info};
 use serde::Deserialize;
@@ -49,11 +49,11 @@ impl WebSearchTool {
         kind: &str,
         crawl: &str,
         ctx: u64,
-    ) -> BitFunResult<String> {
+    ) -> CoreResult<String> {
         let cli = reqwest::Client::builder()
             .timeout(Duration::from_secs(25))
             .build()
-            .map_err(|err| BitFunError::tool(format!("Failed to create HTTP client: {}", err)))?;
+            .map_err(|err| CoreError::tool(format!("Failed to create HTTP client: {}", err)))?;
 
         let body = json!({
             "jsonrpc": "2.0",
@@ -78,7 +78,7 @@ impl WebSearchTool {
             .json(&body)
             .send()
             .await
-            .map_err(|err| BitFunError::tool(format!("Failed to send request: {}", err)))?;
+            .map_err(|err| CoreError::tool(format!("Failed to send request: {}", err)))?;
 
         let status = res.status();
         if !status.is_success() {
@@ -87,7 +87,7 @@ impl WebSearchTool {
                 .await
                 .unwrap_or_else(|_| String::from("Unknown error"));
             error!("WebSearch Exa error: status={}, error={}", status, err);
-            return Err(BitFunError::tool(format!(
+            return Err(CoreError::tool(format!(
                 "Web search error {}: {}",
                 status, err
             )));
@@ -96,12 +96,12 @@ impl WebSearchTool {
         let text = res
             .text()
             .await
-            .map_err(|err| BitFunError::tool(format!("Failed to read response: {}", err)))?;
+            .map_err(|err| CoreError::tool(format!("Failed to read response: {}", err)))?;
 
         self.parse_sse(&text)
     }
 
-    fn parse_sse(&self, text: &str) -> BitFunResult<String> {
+    fn parse_sse(&self, text: &str) -> CoreResult<String> {
         let out = text
             .lines()
             .filter_map(|line| line.strip_prefix("data: "))
@@ -120,7 +120,7 @@ impl WebSearchTool {
                     .filter(|item| !item.trim().is_empty())
             });
 
-        out.ok_or_else(|| BitFunError::tool("Web search returned no content".to_string()))
+        out.ok_or_else(|| CoreError::tool("Web search returned no content".to_string()))
     }
 
     fn results(&self, text: &str) -> Vec<Value> {
@@ -211,7 +211,7 @@ impl Tool for WebSearchTool {
         "WebSearch"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(
             r#"- Allows Sparo OS to search the web and use the results to inform responses
 - Provides up-to-date information for current events and recent data
@@ -289,11 +289,11 @@ Advanced features:
         &self,
         input: &Value,
         _context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let query = input
             .get("query")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BitFunError::tool("query is required".to_string()))?;
+            .ok_or_else(|| CoreError::tool("query is required".to_string()))?;
 
         let num_results = input
             .get("num_results")
@@ -443,7 +443,7 @@ impl Tool for WebFetchTool {
         "WebFetch"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(r#"Fetch content from a URL.
 
 Use this tool to:
@@ -542,11 +542,11 @@ Example usage:
         &self,
         input: &Value,
         _context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let url = input
             .get("url")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BitFunError::tool("url is required".to_string()))?;
+            .ok_or_else(|| CoreError::tool("url is required".to_string()))?;
 
         let format = input
             .get("format")
@@ -558,16 +558,16 @@ Example usage:
             .user_agent("SparoOS/1.0")
             .timeout(std::time::Duration::from_secs(30))
             .build()
-            .map_err(|e| BitFunError::tool(format!("Failed to create HTTP client: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("Failed to create HTTP client: {}", e)))?;
 
         let response = client
             .get(url)
             .send()
             .await
-            .map_err(|e| BitFunError::tool(format!("Failed to fetch URL: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("Failed to fetch URL: {}", e)))?;
 
         if !response.status().is_success() {
-            return Err(BitFunError::tool(format!(
+            return Err(CoreError::tool(format!(
                 "HTTP error {}: {}",
                 response.status(),
                 response
@@ -586,7 +586,7 @@ Example usage:
         let content = response
             .text()
             .await
-            .map_err(|e| BitFunError::tool(format!("Failed to read response: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("Failed to read response: {}", e)))?;
 
         let processed_content = match format {
             "raw" => content,
@@ -603,7 +603,7 @@ Example usage:
             "json" => {
                 // Validate if it's valid JSON
                 serde_json::from_str::<Value>(&content)
-                    .map_err(|e| BitFunError::tool(format!("Invalid JSON response: {}", e)))?;
+                    .map_err(|e| CoreError::tool(format!("Invalid JSON response: {}", e)))?;
                 content
             }
             _ => {

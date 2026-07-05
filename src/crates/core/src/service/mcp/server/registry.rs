@@ -25,7 +25,7 @@ impl MCPServerRegistry {
     pub async fn register(
         &self,
         config: &MCPServerConfig,
-    ) -> crate::util::errors::BitFunResult<()> {
+    ) -> crate::error::CoreResult<()> {
         config.validate()?;
 
         let process =
@@ -42,7 +42,7 @@ impl MCPServerRegistry {
     }
 
     /// Unregisters a server.
-    pub async fn unregister(&self, server_id: &str) -> crate::util::errors::BitFunResult<()> {
+    pub async fn unregister(&self, server_id: &str) -> crate::error::CoreResult<()> {
         let mut servers = self.servers.write().await;
 
         if let Some(process) = servers.remove(server_id) {
@@ -51,7 +51,7 @@ impl MCPServerRegistry {
             info!("Unregistered MCP server: id={}", server_id);
             Ok(())
         } else {
-            Err(crate::util::errors::BitFunError::NotFound(format!(
+            Err(crate::error::CoreError::NotFound(format!(
                 "MCP server not found: {}",
                 server_id
             )))
@@ -83,7 +83,7 @@ impl MCPServerRegistry {
     }
 
     /// Clears the registry.
-    pub async fn clear(&self) -> crate::util::errors::BitFunResult<()> {
+    pub async fn clear(&self) -> crate::error::CoreResult<()> {
         let mut servers = self.servers.write().await;
 
         for process in servers.values() {

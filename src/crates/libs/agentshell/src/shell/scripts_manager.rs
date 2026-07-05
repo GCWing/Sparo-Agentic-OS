@@ -27,9 +27,9 @@ impl ScriptsManager {
     /// Create a new ScriptsManager with optional custom directory
     ///
     /// If `scripts_dir` is None, uses the default location:
-    /// - Linux: `~/.cache/bitfun_terminal/scripts/`
-    /// - Windows: `%LOCALAPPDATA%\bitfun_terminal\scripts\`
-    /// - macOS: `~/Library/Caches/bitfun_terminal/scripts/`
+    /// - Linux: `~/.cache/sparo_terminal/scripts/`
+    /// - Windows: `%LOCALAPPDATA%\sparo_terminal\scripts\`
+    /// - macOS: `~/Library/Caches/sparo_terminal/scripts/`
     pub fn new(scripts_dir: Option<PathBuf>) -> Self {
         let dir = scripts_dir.unwrap_or_else(Self::default_scripts_dir);
         Self { scripts_dir: dir }

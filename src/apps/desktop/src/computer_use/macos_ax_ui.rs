@@ -3,10 +3,10 @@
 //! Coordinates match CoreGraphics global space used by [`crate::computer_use::DesktopComputerUseHost`].
 
 use crate::computer_use::ui_locate_common;
-use bitfun_core::agentic::tools::computer_use_host::{
+use sparo_core::agentic::tools::computer_use_host::{
     OcrAccessibilityHit, UiElementLocateQuery, UiElementLocateResult,
 };
-use bitfun_core::util::errors::{BitFunError, BitFunResult};
+use sparo_core::error::{CoreError, CoreResult};
 use core_foundation::array::{CFArray, CFArrayRef};
 use core_foundation::base::{CFGetTypeID, CFTypeRef, TCFType};
 use core_foundation::string::{CFString, CFStringRef};
@@ -48,16 +48,16 @@ unsafe extern "C" {
 const K_AX_VALUE_CGPOINT: u32 = 1;
 const K_AX_VALUE_CGSIZE: u32 = 2;
 
-fn frontmost_pid() -> BitFunResult<i32> {
+fn frontmost_pid() -> CoreResult<i32> {
     let out = std::process::Command::new("/usr/bin/osascript")
         .args([
             "-e",
             "tell application \"System Events\" to get unix id of first process whose frontmost is true",
         ])
         .output()
-        .map_err(|e| BitFunError::tool(format!("osascript spawn: {}", e)))?;
+        .map_err(|e| CoreError::tool(format!("osascript spawn: {}", e)))?;
     if !out.status.success() {
-        return Err(BitFunError::tool(format!(
+        return Err(CoreError::tool(format!(
             "osascript failed: {}",
             String::from_utf8_lossy(&out.stderr)
         )));
@@ -65,7 +65,7 @@ fn frontmost_pid() -> BitFunResult<i32> {
     let s = String::from_utf8_lossy(&out.stdout);
     s.trim()
         .parse::<i32>()
-        .map_err(|_| BitFunError::tool("Could not parse frontmost process id.".to_string()))
+        .map_err(|_| CoreError::tool("Could not parse frontmost process id.".to_string()))
 }
 
 unsafe fn ax_release(v: CFTypeRef) {
@@ -528,7 +528,7 @@ const MAX_CANDIDATES: usize = 10;
 /// Collects all matches, filters invisible/off-screen ones, ranks by relevance, returns the best.
 pub fn locate_ui_element_center(
     query: &UiElementLocateQuery,
-) -> BitFunResult<UiElementLocateResult> {
+) -> CoreResult<UiElementLocateResult> {
     ui_locate_common::validate_query(query)?;
 
     // ── Batch 5: node_idx fast path ──────────────────────────────────────────
@@ -545,7 +545,7 @@ pub fn locate_ui_element_center(
         let ax = match cached {
             Some(r) => r,
             None => {
-                return Err(BitFunError::tool(format!(
+                return Err(CoreError::tool(format!(
                     "[AX_IDX_STALE] node_idx={} no longer present in cached app state for pid={}. \
                      Re-call `desktop.get_app_state` and reuse the freshly returned idx.",
                     idx, pid
@@ -554,7 +554,7 @@ pub fn locate_ui_element_center(
         };
         let nt = unsafe { read_node_text(ax.0) };
         let frame = unsafe { element_frame_global(ax.0) }.ok_or_else(|| {
-            BitFunError::tool(format!(
+            CoreError::tool(format!(
                 "[AX_IDX_STALE] node_idx={} resolved but has no AXFrame (off-screen / minimised). \
                  Re-call `desktop.get_app_state`.",
                 idx
@@ -588,7 +588,7 @@ pub fn locate_ui_element_center(
     let pid = frontmost_pid()?;
     let root = unsafe { AXUIElementCreateApplication(pid) };
     if root.is_null() {
-        return Err(BitFunError::tool(
+        return Err(CoreError::tool(
             "AXUIElementCreateApplication returned null.".to_string(),
         ));
     }
@@ -718,7 +718,7 @@ pub fn locate_ui_element_center(
     }
 
     if candidates.is_empty() {
-        return Err(BitFunError::tool(
+        return Err(CoreError::tool(
             "No accessibility element matched in the frontmost app. Tips: `role_substring` **`TextArea`** also matches **`AXTextField`** (WeChat compose is often TextField). Use `filter_combine: \"any\"` for OR matching; match UI language; ensure the target app is focused. For chat apps, if the conversation is already open, **`type_text`** may work without clicking. Or use `move_to_text` / `screenshot`."
                 .to_string(),
         ));
@@ -1095,16 +1095,16 @@ pub fn accessibility_hit_at_global_point(gx: f64, gy: f64) -> Option<OcrAccessib
 
 /// Bounds of the foreground app's focused or main window in global screen coordinates (same space as pointer / screen capture).
 /// Used to crop **raw** pixels for Vision OCR without pointer overlays from the agent screenshot path.
-pub fn frontmost_window_bounds_global() -> BitFunResult<(i32, i32, u32, u32)> {
+pub fn frontmost_window_bounds_global() -> CoreResult<(i32, i32, u32, u32)> {
     let pid = frontmost_pid()?;
     window_bounds_global_for_pid(pid)
 }
 
 /// Bounds of the selected app's focused or main window in global screen coordinates.
-pub fn window_bounds_global_for_pid(pid: i32) -> BitFunResult<(i32, i32, u32, u32)> {
+pub fn window_bounds_global_for_pid(pid: i32) -> CoreResult<(i32, i32, u32, u32)> {
     let app = unsafe { AXUIElementCreateApplication(pid) };
     if app.is_null() {
-        return Err(BitFunError::tool(
+        return Err(CoreError::tool(
             "AXUIElementCreateApplication returned null for window bounds.".to_string(),
         ));
     }
@@ -1112,19 +1112,19 @@ pub fn window_bounds_global_for_pid(pid: i32) -> BitFunResult<(i32, i32, u32, u3
         let win = try_frontmost_window_element(app);
         ax_release(app as CFTypeRef);
         let Some(win) = win else {
-            return Err(BitFunError::tool(
+            return Err(CoreError::tool(
                 "No AX window for target app (try AXFocusedWindow / AXMainWindow / AXWindows)."
                     .to_string(),
             ));
         };
         let frame = element_frame_global(win).ok_or_else(|| {
             ax_release(win as CFTypeRef);
-            BitFunError::tool("Could not read AXPosition/AXSize for target window.".to_string())
+            CoreError::tool("Could not read AXPosition/AXSize for target window.".to_string())
         })?;
         ax_release(win as CFTypeRef);
         let (_, _, bl, bt, bw, bh) = frame;
         if bw < 1.0 || bh < 1.0 {
-            return Err(BitFunError::tool(
+            return Err(CoreError::tool(
                 "Target window has invalid size for screenshot.".to_string(),
             ));
         }

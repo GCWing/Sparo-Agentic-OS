@@ -4,7 +4,7 @@ use crate::agentic::coordination::ConversationCoordinator;
 use crate::agentic::core::Message;
 use crate::agentic::fork_agent::ForkAgentExecutionRequest;
 use crate::agentic::tools::ToolRuntimeRestrictions;
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 use async_trait::async_trait;
 use std::collections::{BTreeSet, HashMap};
 use std::sync::Arc;
@@ -49,9 +49,9 @@ pub trait GoalForkRunner: Send + Sync {
     async fn run_extraction(
         &self,
         request: GoalExtractionRunRequest,
-    ) -> BitFunResult<GoalExtractionRunOutput>;
+    ) -> CoreResult<GoalExtractionRunOutput>;
 
-    async fn run_judge(&self, request: GoalJudgeRunRequest) -> BitFunResult<GoalJudgeRunOutput>;
+    async fn run_judge(&self, request: GoalJudgeRunRequest) -> CoreResult<GoalJudgeRunOutput>;
 }
 
 fn judge_tool_restrictions() -> ToolRuntimeRestrictions {
@@ -79,7 +79,7 @@ impl GoalForkRunner for CoordinatorGoalForkRunner {
     async fn run_extraction(
         &self,
         request: GoalExtractionRunRequest,
-    ) -> BitFunResult<GoalExtractionRunOutput> {
+    ) -> CoreResult<GoalExtractionRunOutput> {
         let snapshot = self
             .coordinator
             .capture_fork_agent_context_snapshot(&request.run.parent_session_id)
@@ -119,7 +119,7 @@ impl GoalForkRunner for CoordinatorGoalForkRunner {
         })
     }
 
-    async fn run_judge(&self, request: GoalJudgeRunRequest) -> BitFunResult<GoalJudgeRunOutput> {
+    async fn run_judge(&self, request: GoalJudgeRunRequest) -> CoreResult<GoalJudgeRunOutput> {
         let snapshot = self
             .coordinator
             .capture_fork_agent_context_snapshot(&request.run.parent_session_id)
@@ -168,7 +168,7 @@ impl GoalForkRunner for DeterministicGoalForkRunner {
     async fn run_extraction(
         &self,
         request: GoalExtractionRunRequest,
-    ) -> BitFunResult<GoalExtractionRunOutput> {
+    ) -> CoreResult<GoalExtractionRunOutput> {
         let result = fallback_extraction_result(
             &request.run,
             "Deterministic extraction for tests/e2e profile.",
@@ -180,7 +180,7 @@ impl GoalForkRunner for DeterministicGoalForkRunner {
         })
     }
 
-    async fn run_judge(&self, request: GoalJudgeRunRequest) -> BitFunResult<GoalJudgeRunOutput> {
+    async fn run_judge(&self, request: GoalJudgeRunRequest) -> CoreResult<GoalJudgeRunOutput> {
         let verdict = deterministic_verdict(&request.run);
         Ok(GoalJudgeRunOutput {
             final_text: serde_json::to_string_pretty(&verdict).unwrap_or_else(|_| "{}".to_string()),

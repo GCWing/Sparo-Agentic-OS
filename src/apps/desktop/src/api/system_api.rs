@@ -1,7 +1,7 @@
 //! System API
 
 use crate::api::app_state::AppState;
-use bitfun_core::service::system;
+use sparo_core::service::system;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -33,7 +33,7 @@ pub async fn get_system_info() -> Result<SystemInfoResponse, String> {
 
 #[tauri::command]
 pub async fn get_main_window_close_intent() -> Result<MainWindowCloseIntentResponse, String> {
-    use bitfun_core::service::config::{get_global_config_service, GlobalConfig};
+    use sparo_core::service::config::{get_global_config_service, GlobalConfig};
 
     let close_to_tray = if let Ok(service) = get_global_config_service().await {
         service

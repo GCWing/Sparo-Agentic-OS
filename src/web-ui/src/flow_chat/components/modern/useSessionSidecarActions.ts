@@ -1,4 +1,4 @@
-﻿import { useMemo } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCanvasStore } from '@/app/components/panels/content-canvas/stores';
 import { openSessionSidecarPanel, useSessionProfile } from '@/app/session-profiles';

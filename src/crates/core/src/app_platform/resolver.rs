@@ -8,7 +8,7 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use tokio::fs;
 
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 
 use super::catalog::{
     build_component_lock_with_implementation_digests, stable_digest, AppCatalogEntry,
@@ -71,7 +71,7 @@ pub struct ProductAppResolveRequest {
 pub struct ProductAppResolver;
 
 impl ProductAppResolver {
-    pub fn resolve_install(request: ProductAppResolveRequest) -> BitFunResult<ResolvedProductApp> {
+    pub fn resolve_install(request: ProductAppResolveRequest) -> CoreResult<ResolvedProductApp> {
         Self::resolve_install_with_implementation_digests(request, BTreeMap::new(), BTreeMap::new())
     }
 
@@ -79,7 +79,7 @@ impl ProductAppResolver {
         request: ProductAppResolveRequest,
         component_implementation_digests: BTreeMap<String, String>,
         private_surface_sources: BTreeMap<String, ProductAppRuntimeHostSource>,
-    ) -> BitFunResult<ResolvedProductApp> {
+    ) -> CoreResult<ResolvedProductApp> {
         Self::resolve_install_with_implementation_digests_and_rehearsal(
             request,
             component_implementation_digests,
@@ -92,7 +92,7 @@ impl ProductAppResolver {
     pub fn resolve_package_install(
         package: ProductAppPackage,
         shared_components: Vec<ComponentDefinition>,
-    ) -> BitFunResult<ResolvedProductApp> {
+    ) -> CoreResult<ResolvedProductApp> {
         let package_dir = package.package_dir.clone();
         let mut resolved = Self::resolve_install_with_implementation_digests_and_rehearsal(
             ProductAppResolveRequest {
@@ -113,7 +113,7 @@ impl ProductAppResolver {
     pub(crate) fn hydrate_package_icon(
         resolved: &mut ResolvedProductApp,
         package_dir: &Path,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         hydrate_package_icon(resolved, package_dir)
     }
 
@@ -123,7 +123,7 @@ impl ProductAppResolver {
         private_surface_sources: BTreeMap<String, ProductAppRuntimeHostSource>,
         rehearsal_plan: Option<ProductAppRehearsalPlan>,
         eval_plan: Option<ProductAppEvalPlan>,
-    ) -> BitFunResult<ResolvedProductApp> {
+    ) -> CoreResult<ResolvedProductApp> {
         validate_app_identity(&request.app)?;
         validate_work_object_kinds(&request.app)?;
         validate_component_refs("app.components", &request.app.components)?;
@@ -163,7 +163,7 @@ impl ProductAppResolver {
         lock: ComponentLock,
         component_implementation_digests: BTreeMap<String, String>,
         private_surface_sources: BTreeMap<String, ProductAppRuntimeHostSource>,
-    ) -> BitFunResult<ResolvedProductApp> {
+    ) -> CoreResult<ResolvedProductApp> {
         validate_component_implementation_refs(&app, &components)?;
         validate_runtime_lock(&app, &components, &lock, &component_implementation_digests)?;
         app.component_lock_id = lock.digest();
@@ -178,7 +178,7 @@ impl ProductAppResolver {
         })
     }
 
-    pub async fn read_product_app_package(package_dir: &Path) -> BitFunResult<ProductAppPackage> {
+    pub async fn read_product_app_package(package_dir: &Path) -> CoreResult<ProductAppPackage> {
         let app_path = package_dir.join("app.json");
         let app: AppDefinition = read_product_app_definition(&app_path).await?;
         reject_work_objects_sidecar(package_dir, &app)?;
@@ -206,7 +206,7 @@ impl ProductAppResolver {
         })
     }
 
-    pub async fn read_component_package(package_dir: &Path) -> BitFunResult<ComponentPackage> {
+    pub async fn read_component_package(package_dir: &Path) -> CoreResult<ComponentPackage> {
         let component_path = package_dir.join("component.json");
         let component: ComponentDefinition = read_json(&component_path).await?;
         validate_shared_component(&component)?;
@@ -216,7 +216,7 @@ impl ProductAppResolver {
         })
     }
 
-    pub async fn write_lock(package_dir: &Path, lock: &ComponentLock) -> BitFunResult<PathBuf> {
+    pub async fn write_lock(package_dir: &Path, lock: &ComponentLock) -> CoreResult<PathBuf> {
         fs::create_dir_all(package_dir).await?;
         let lock_path = package_dir.join("app.lock.json");
         let bytes = serde_json::to_vec_pretty(lock)?;
@@ -224,7 +224,7 @@ impl ProductAppResolver {
         Ok(lock_path)
     }
 
-    pub async fn read_lock(package_dir: &Path) -> BitFunResult<ComponentLock> {
+    pub async fn read_lock(package_dir: &Path) -> CoreResult<ComponentLock> {
         read_json(&package_dir.join("app.lock.json")).await
     }
 }
@@ -242,14 +242,14 @@ impl InstallResolver {
         app: AppDefinition,
         private_components: Vec<ComponentDefinition>,
         shared_components: Vec<ComponentDefinition>,
-    ) -> BitFunResult<Self> {
+    ) -> CoreResult<Self> {
         let private_components = private_components
             .into_iter()
             .map(|component| {
                 validate_private_component(&app, &component)?;
                 Ok((ComponentKey::new(component.kind, &component.id), component))
             })
-            .collect::<BitFunResult<BTreeMap<_, _>>>()?;
+            .collect::<CoreResult<BTreeMap<_, _>>>()?;
 
         let mut shared_by_key = BTreeMap::<ComponentKey, Vec<ComponentDefinition>>::new();
         for component in shared_components {
@@ -276,7 +276,7 @@ impl InstallResolver {
         })
     }
 
-    fn resolve(&mut self) -> BitFunResult<Vec<ComponentDefinition>> {
+    fn resolve(&mut self) -> CoreResult<Vec<ComponentDefinition>> {
         let refs = self.app.components.clone();
         for component_ref in refs {
             self.resolve_ref(&component_ref)?;
@@ -284,7 +284,7 @@ impl InstallResolver {
         Ok(self.resolved.values().cloned().collect())
     }
 
-    fn resolve_ref(&mut self, component_ref: &AppComponentRef) -> BitFunResult<()> {
+    fn resolve_ref(&mut self, component_ref: &AppComponentRef) -> CoreResult<()> {
         validate_component_ref("component ref", component_ref)?;
         let component = match component_ref.source {
             ComponentSource::Private => self.resolve_private(component_ref)?,
@@ -295,7 +295,7 @@ impl InstallResolver {
             return Ok(());
         }
         if !self.visiting.insert(fqid.clone()) {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Component dependency cycle detected at {}",
                 fqid
             )));
@@ -317,9 +317,9 @@ impl InstallResolver {
     fn resolve_private(
         &self,
         component_ref: &AppComponentRef,
-    ) -> BitFunResult<ComponentDefinition> {
+    ) -> CoreResult<ComponentDefinition> {
         if component_ref.version.is_some() {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Private component {} must not declare an independent version",
                 component_ref.component_id
             )));
@@ -331,7 +331,7 @@ impl InstallResolver {
             ))
             .cloned()
             .ok_or_else(|| {
-                BitFunError::validation(format!(
+                CoreError::validation(format!(
                     "Private component not found: {}/{}",
                     component_ref.kind.path_segment(),
                     component_ref.component_id
@@ -339,15 +339,15 @@ impl InstallResolver {
             })
     }
 
-    fn resolve_shared(&self, component_ref: &AppComponentRef) -> BitFunResult<ComponentDefinition> {
+    fn resolve_shared(&self, component_ref: &AppComponentRef) -> CoreResult<ComponentDefinition> {
         let requirement = component_ref.version.as_deref().ok_or_else(|| {
-            BitFunError::validation(format!(
+            CoreError::validation(format!(
                 "Shared component {} must declare a semver range",
                 component_ref.component_id
             ))
         })?;
         let req = VersionReq::parse(requirement).map_err(|error| {
-            BitFunError::validation(format!(
+            CoreError::validation(format!(
                 "Invalid semver range for shared component {}: {}",
                 component_ref.component_id, error
             ))
@@ -359,7 +359,7 @@ impl InstallResolver {
                 &component_ref.component_id,
             ))
             .ok_or_else(|| {
-                BitFunError::validation(format!(
+                CoreError::validation(format!(
                     "Shared component not found: {}/{}",
                     component_ref.kind.path_segment(),
                     component_ref.component_id
@@ -376,7 +376,7 @@ impl InstallResolver {
             })
             .cloned()
             .ok_or_else(|| {
-                BitFunError::validation(format!(
+                CoreError::validation(format!(
                     "No shared component version matches {} for {}/{}",
                     requirement,
                     component_ref.kind.path_segment(),
@@ -401,7 +401,7 @@ impl ComponentKey {
     }
 }
 
-fn validate_app_identity(app: &AppDefinition) -> BitFunResult<()> {
+fn validate_app_identity(app: &AppDefinition) -> CoreResult<()> {
     validate_required("app.id", &app.id)?;
     validate_required("app.version", &app.version)?;
     validate_required("app.name", &app.name)?;
@@ -409,9 +409,9 @@ fn validate_app_identity(app: &AppDefinition) -> BitFunResult<()> {
     Ok(())
 }
 
-fn validate_work_object_kinds(app: &AppDefinition) -> BitFunResult<()> {
+fn validate_work_object_kinds(app: &AppDefinition) -> CoreResult<()> {
     if app.work_object_kinds.is_empty() && !is_studio_product_app(app) {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Product App {}@{} must declare at least one workObjectKinds entry",
             app.id, app.version
         )));
@@ -421,7 +421,7 @@ fn validate_work_object_kinds(app: &AppDefinition) -> BitFunResult<()> {
         validate_required("workObjectKinds.id", &kind.id)?;
         validate_required("workObjectKinds.label", &kind.label)?;
         if !ids.insert(kind.id.clone()) {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Duplicate work object kind in app.json: {}",
                 kind.id
             )));
@@ -437,9 +437,9 @@ fn is_studio_product_app(app: &AppDefinition) -> bool {
     )
 }
 
-fn validate_product_app_entry(app: &AppDefinition) -> BitFunResult<()> {
+fn validate_product_app_entry(app: &AppDefinition) -> CoreResult<()> {
     let Some(launch) = app.launch.as_ref() else {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Product App {}@{} must declare a launch entry",
             app.id, app.version
         )));
@@ -455,22 +455,22 @@ fn validate_product_app_entry(app: &AppDefinition) -> BitFunResult<()> {
 fn validate_application_surface_entry(
     app: &AppDefinition,
     launch: &ProductAppLaunch,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     let Some(primary_surface) = app.primary_surface.as_ref() else {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Product App {}@{} launches an application surface but does not declare primarySurface",
             app.id, app.version
         )));
     };
     validate_required("primarySurface.componentId", &primary_surface.component_id)?;
     if app.primary_surface_mode.is_none() {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Product App {}@{} launches an application surface but does not declare primarySurfaceMode",
             app.id, app.version
         )));
     }
     if launch.target_id != app.id {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Product App {}@{} applicationSurface launch target must be the app id",
             app.id, app.version
         )));
@@ -481,7 +481,7 @@ fn validate_application_surface_entry(
     }) {
         return Ok(());
     }
-    Err(BitFunError::validation(format!(
+    Err(CoreError::validation(format!(
         "Product App primary surface {} must be present in app.components",
         primary_surface.component_id
     )))
@@ -490,7 +490,7 @@ fn validate_application_surface_entry(
 fn validate_agent_session_entry(
     app: &AppDefinition,
     launch: &ProductAppLaunch,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     validate_required("launch.targetId", &launch.target_id)?;
     let has_agent_component = app
         .components
@@ -499,7 +499,7 @@ fn validate_agent_session_entry(
     if has_agent_component || launch.agent_type.is_some() || app.permissions.ai {
         return Ok(());
     }
-    Err(BitFunError::validation(format!(
+    Err(CoreError::validation(format!(
         "Product App {}@{} launches an agent session but declares no Agent Component, launch.agentType, or AI permission",
         app.id, app.version
     )))
@@ -508,14 +508,14 @@ fn validate_agent_session_entry(
 fn validate_implementation_digests(
     components: &[ComponentDefinition],
     digests: &BTreeMap<String, String>,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     let component_fqids = components
         .iter()
         .map(ComponentDefinition::fqid)
         .collect::<BTreeSet<_>>();
     for fqid in digests.keys() {
         if !component_fqids.contains(fqid) {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Implementation digest references unresolved component {}",
                 fqid
             )));
@@ -527,25 +527,25 @@ fn validate_implementation_digests(
 fn validate_component_implementation_refs(
     app: &AppDefinition,
     components: &[ComponentDefinition],
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     for component in components {
         match component.kind {
             ComponentKind::Surface => {
                 let implementation_ref =
                     component.implementation_ref.as_deref().ok_or_else(|| {
-                        BitFunError::validation(format!(
+                        CoreError::validation(format!(
                             "Product App surface {} must declare implementationRef",
                             component.id
                         ))
                     })?;
                 if implementation_ref.starts_with("bundle://surface-components/") {
-                    return Err(BitFunError::validation(format!(
+                    return Err(CoreError::validation(format!(
                         "Product App {}@{} uses deprecated surface bundle implementationRef {}. Package surface source under the app and use app://.",
                         app.id, app.version, implementation_ref
                     )));
                 }
                 if !implementation_ref.starts_with("app://") {
-                    return Err(BitFunError::validation(format!(
+                    return Err(CoreError::validation(format!(
                         "Product App {}@{} surface {} must use app:// implementationRef",
                         app.id, app.version, component.id
                     )));
@@ -565,19 +565,19 @@ fn validate_component_implementation_refs(
     Ok(())
 }
 
-fn validate_component_refs(label: &str, refs: &[AppComponentRef]) -> BitFunResult<()> {
+fn validate_component_refs(label: &str, refs: &[AppComponentRef]) -> CoreResult<()> {
     for component_ref in refs {
         validate_component_ref(label, component_ref)?;
     }
     Ok(())
 }
 
-fn validate_component_ref(label: &str, component_ref: &AppComponentRef) -> BitFunResult<()> {
+fn validate_component_ref(label: &str, component_ref: &AppComponentRef) -> CoreResult<()> {
     validate_required(&format!("{label}.componentId"), &component_ref.component_id)?;
     validate_required(&format!("{label}.role"), &component_ref.role)?;
     match component_ref.source {
         ComponentSource::Private if component_ref.version.is_some() => {
-            Err(BitFunError::validation(format!(
+            Err(CoreError::validation(format!(
                 "{label}: private component {} must not declare version",
                 component_ref.component_id
             )))
@@ -586,7 +586,7 @@ fn validate_component_ref(label: &str, component_ref: &AppComponentRef) -> BitFu
             let version = component_ref.version.as_deref().unwrap_or_default();
             validate_required(&format!("{label}.version"), version)?;
             VersionReq::parse(version).map_err(|error| {
-                BitFunError::validation(format!(
+                CoreError::validation(format!(
                     "{label}: invalid shared component semver range for {}: {}",
                     component_ref.component_id, error
                 ))
@@ -600,28 +600,28 @@ fn validate_component_ref(label: &str, component_ref: &AppComponentRef) -> BitFu
 fn validate_private_component(
     app: &AppDefinition,
     component: &ComponentDefinition,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     validate_required("component.id", &component.id)?;
     if component.package_source != ComponentPackageSource::AppPrivate {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Private component {} must use packageSource=appPrivate",
             component.id
         )));
     }
     if component.version.is_some() {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "App-private component {} must not declare an independent version",
             component.id
         )));
     }
     let owner = component.owner_app.as_ref().ok_or_else(|| {
-        BitFunError::validation(format!(
+        CoreError::validation(format!(
             "App-private component {} must declare ownerApp",
             component.id
         ))
     })?;
     if owner.app_id != app.id || owner.app_version != app.version {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "App-private component {} ownerApp must match {}@{}",
             component.id, app.id, app.version
         )));
@@ -629,16 +629,16 @@ fn validate_private_component(
     Ok(())
 }
 
-fn validate_shared_component(component: &ComponentDefinition) -> BitFunResult<()> {
+fn validate_shared_component(component: &ComponentDefinition) -> CoreResult<()> {
     validate_required("component.id", &component.id)?;
     if component.package_source != ComponentPackageSource::Shared {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Shared component {} must use packageSource=shared",
             component.id
         )));
     }
     if component.owner_app.is_some() {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Shared component {} must not declare ownerApp",
             component.id
         )));
@@ -646,7 +646,7 @@ fn validate_shared_component(component: &ComponentDefinition) -> BitFunResult<()
     let version = component.version.as_deref().unwrap_or_default();
     validate_required("component.version", version)?;
     Version::parse(version).map_err(|error| {
-        BitFunError::validation(format!(
+        CoreError::validation(format!(
             "Invalid shared component version for {}: {}",
             component.id, error
         ))
@@ -659,9 +659,9 @@ fn validate_runtime_lock(
     components: &[ComponentDefinition],
     lock: &ComponentLock,
     component_implementation_digests: &BTreeMap<String, String>,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     if lock.app_id != app.id || lock.version != app.version {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Lock {}@{} does not match app {}@{}",
             lock.app_id, lock.version, app.id, app.version
         )));
@@ -673,17 +673,17 @@ fn validate_runtime_lock(
         component_implementation_digests,
     );
     if lock.permission_digest != expected.permission_digest {
-        return Err(BitFunError::validation(
+        return Err(CoreError::validation(
             "App lock permission digest does not match component definitions",
         ));
     }
     if lock.component_graph_digest != expected.component_graph_digest {
-        return Err(BitFunError::validation(
+        return Err(CoreError::validation(
             "App lock component graph digest does not match component definitions",
         ));
     }
     if lock.resolved_components.len() != expected.resolved_components.len() {
-        return Err(BitFunError::validation(
+        return Err(CoreError::validation(
             "App lock resolved component count does not match component definitions",
         ));
     }
@@ -693,19 +693,19 @@ fn validate_runtime_lock(
             .iter()
             .find(|entry| entry.fqid == expected_entry.fqid)
         else {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "App lock is missing resolved component {}",
                 expected_entry.fqid
             )));
         };
         if actual_entry.digest != expected_entry.digest {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "App lock digest mismatch for {}",
                 expected_entry.fqid
             )));
         }
         if actual_entry.implementation_digest != expected_entry.implementation_digest {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "App lock implementation digest mismatch for {}",
                 expected_entry.fqid
             )));
@@ -748,7 +748,7 @@ fn build_catalog_entry(
 
 const MAX_APP_ICON_ASSET_BYTES: u64 = 2 * 1024 * 1024;
 
-fn hydrate_package_icon(resolved: &mut ResolvedProductApp, package_dir: &Path) -> BitFunResult<()> {
+fn hydrate_package_icon(resolved: &mut ResolvedProductApp, package_dir: &Path) -> CoreResult<()> {
     hydrate_package_icon_spec(&mut resolved.app.icon, package_dir)?;
     resolved.catalog_entry.app.icon = resolved.app.icon.clone();
     Ok(())
@@ -757,7 +757,7 @@ fn hydrate_package_icon(resolved: &mut ResolvedProductApp, package_dir: &Path) -
 pub(crate) fn hydrate_package_icon_spec(
     icon: &mut AppIconSpec,
     package_dir: &Path,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     let AppIconSpec::PackageAsset {
         path,
         mime_type,
@@ -772,19 +772,19 @@ pub(crate) fn hydrate_package_icon_spec(
     validate_package_icon_asset_path(path)?;
     let asset_path = package_dir.join(path.as_str());
     let metadata = std::fs::metadata(&asset_path).map_err(|error| {
-        BitFunError::validation(format!(
+        CoreError::validation(format!(
             "Product App icon asset not found or unreadable: {} ({})",
             path, error
         ))
     })?;
     if !metadata.is_file() {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Product App icon asset must be a file: {}",
             path
         )));
     }
     if metadata.len() > MAX_APP_ICON_ASSET_BYTES {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Product App icon asset exceeds {} bytes: {}",
             MAX_APP_ICON_ASSET_BYTES, path
         )));
@@ -804,24 +804,24 @@ pub(crate) fn hydrate_package_icon_spec(
     Ok(())
 }
 
-fn validate_package_icon_asset_path(path: &str) -> BitFunResult<()> {
+fn validate_package_icon_asset_path(path: &str) -> CoreResult<()> {
     let relative = Path::new(path);
     if path.trim().is_empty() || relative.is_absolute() {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Product App icon asset path must be package-relative: {}",
             path
         )));
     }
     for component in relative.components() {
         if !matches!(component, Component::Normal(_)) {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Product App icon asset path must not escape the package: {}",
                 path
             )));
         }
     }
     if !path.starts_with("assets/") && !path.starts_with("assets\\") {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Product App icon asset must live under assets/: {}",
             path
         )));
@@ -829,7 +829,7 @@ fn validate_package_icon_asset_path(path: &str) -> BitFunResult<()> {
     Ok(())
 }
 
-fn detect_icon_asset_mime_type(path: &Path) -> BitFunResult<&'static str> {
+fn detect_icon_asset_mime_type(path: &Path) -> CoreResult<&'static str> {
     match path
         .extension()
         .and_then(|extension| extension.to_str())
@@ -840,30 +840,30 @@ fn detect_icon_asset_mime_type(path: &Path) -> BitFunResult<&'static str> {
         "png" => Ok("image/png"),
         "webp" => Ok("image/webp"),
         "svg" => Ok("image/svg+xml"),
-        extension => Err(BitFunError::validation(format!(
+        extension => Err(CoreError::validation(format!(
             "Unsupported Product App icon asset extension: {}",
             extension
         ))),
     }
 }
 
-fn validate_icon_asset_bytes(path: &str, mime_type: &str, bytes: &[u8]) -> BitFunResult<()> {
+fn validate_icon_asset_bytes(path: &str, mime_type: &str, bytes: &[u8]) -> CoreResult<()> {
     if bytes.is_empty() {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Product App icon asset is empty: {}",
             path
         )));
     }
     if mime_type == "image/svg+xml" {
         let svg = std::str::from_utf8(bytes).map_err(|error| {
-            BitFunError::validation(format!(
+            CoreError::validation(format!(
                 "Product App SVG icon must be valid UTF-8: {} ({})",
                 path, error
             ))
         })?;
         let lower = svg.to_ascii_lowercase();
         if lower.contains("<script") || lower.contains("onload=") || lower.contains("javascript:") {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Product App SVG icon contains unsafe executable content: {}",
                 path
             )));
@@ -892,28 +892,28 @@ fn dependency_summary(components: &[ComponentDefinition]) -> String {
         .join(", ")
 }
 
-async fn read_json<T>(path: &Path) -> BitFunResult<T>
+async fn read_json<T>(path: &Path) -> CoreResult<T>
 where
     T: for<'de> Deserialize<'de>,
 {
     let bytes = fs::read(path).await.map_err(|error| {
-        BitFunError::io(format!("Failed to read {}: {}", path.display(), error))
+        CoreError::io(format!("Failed to read {}: {}", path.display(), error))
     })?;
-    serde_json::from_slice(&bytes).map_err(BitFunError::from)
+    serde_json::from_slice(&bytes).map_err(CoreError::from)
 }
 
-async fn read_product_app_definition(path: &Path) -> BitFunResult<AppDefinition> {
+async fn read_product_app_definition(path: &Path) -> CoreResult<AppDefinition> {
     let bytes = fs::read(path).await.map_err(|error| {
-        BitFunError::io(format!("Failed to read {}: {}", path.display(), error))
+        CoreError::io(format!("Failed to read {}: {}", path.display(), error))
     })?;
-    let mut value: Value = serde_json::from_slice(&bytes).map_err(BitFunError::from)?;
+    let mut value: Value = serde_json::from_slice(&bytes).map_err(CoreError::from)?;
     if canonicalize_legacy_icon_value(&mut value) {
-        let bytes = serde_json::to_vec_pretty(&value).map_err(BitFunError::from)?;
+        let bytes = serde_json::to_vec_pretty(&value).map_err(CoreError::from)?;
         fs::write(path, bytes).await.map_err(|error| {
-            BitFunError::io(format!("Failed to write {}: {}", path.display(), error))
+            CoreError::io(format!("Failed to write {}: {}", path.display(), error))
         })?;
     }
-    serde_json::from_value(value).map_err(BitFunError::from)
+    serde_json::from_value(value).map_err(CoreError::from)
 }
 
 fn canonicalize_legacy_icon_value(value: &mut Value) -> bool {
@@ -940,16 +940,16 @@ fn canonicalize_legacy_icon_value(value: &mut Value) -> bool {
     true
 }
 
-async fn read_optional_json<T>(path: &Path) -> BitFunResult<Option<T>>
+async fn read_optional_json<T>(path: &Path) -> CoreResult<Option<T>>
 where
     T: for<'de> Deserialize<'de>,
 {
     match fs::read(path).await {
         Ok(bytes) => serde_json::from_slice(&bytes)
             .map(Some)
-            .map_err(BitFunError::from),
+            .map_err(CoreError::from),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
-        Err(error) => Err(BitFunError::io(format!(
+        Err(error) => Err(CoreError::io(format!(
             "Failed to read {}: {}",
             path.display(),
             error
@@ -957,21 +957,21 @@ where
     }
 }
 
-fn reject_work_objects_sidecar(package_dir: &Path, app: &AppDefinition) -> BitFunResult<()> {
+fn reject_work_objects_sidecar(package_dir: &Path, app: &AppDefinition) -> CoreResult<()> {
     let sidecar = package_dir.join("work-objects");
     if !sidecar.exists() {
         return Ok(());
     }
     let has_entries = std::fs::read_dir(&sidecar)
-        .map_err(BitFunError::from)?
+        .map_err(CoreError::from)?
         .next()
         .transpose()
-        .map_err(BitFunError::from)?
+        .map_err(CoreError::from)?
         .is_some();
     if !has_entries {
         return Ok(());
     }
-    Err(BitFunError::validation(format!(
+    Err(CoreError::validation(format!(
         "Product App {}@{} uses deprecated work-objects sidecar files. Declare workObjectKinds in app.json.",
         app.id, app.version
     )))
@@ -981,7 +981,7 @@ async fn read_private_surface_sources(
     package_dir: &Path,
     app: &AppDefinition,
     components: &[ComponentDefinition],
-) -> BitFunResult<(
+) -> CoreResult<(
     BTreeMap<String, ProductAppRuntimeHostSource>,
     BTreeMap<String, String>,
 )> {
@@ -1006,7 +1006,7 @@ async fn read_private_surface_sources(
         } else {
             let source_dir = component_dir.join("source");
             if !source_dir.is_dir() {
-                return Err(BitFunError::validation(format!(
+                return Err(CoreError::validation(format!(
                     "App-private Product App component {} must include source/",
                     component_dir.display()
                 )));
@@ -1021,29 +1021,29 @@ fn validate_private_component_ref(
     implementation_ref: &str,
     app: &AppDefinition,
     component: &ComponentDefinition,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     let Some(rest) = implementation_ref.strip_prefix("app://") else {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Invalid private component implementationRef: {}",
             implementation_ref
         )));
     };
     let Some((identity, path)) = rest.split_once('/') else {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Invalid private component implementationRef: {}",
             implementation_ref
         )));
     };
     let expected_identity = format!("{}@{}", app.id, app.version);
     if identity != expected_identity {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Private component {} does not belong to Product App {}",
             implementation_ref, expected_identity
         )));
     }
     let expected_path = format!("{}/{}", component.kind.path_segment(), component.id);
     if path != expected_path {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Private component {} does not match app-private Product App component {}",
             implementation_ref, component.id
         )));
@@ -1053,10 +1053,10 @@ fn validate_private_component_ref(
 
 async fn read_surface_source_from_package(
     component_dir: &Path,
-) -> BitFunResult<ProductAppRuntimeHostSource> {
+) -> CoreResult<ProductAppRuntimeHostSource> {
     let source_dir = component_dir.join("source");
     if !source_dir.is_dir() {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "App-private Product App surface {} must include source/",
             component_dir.display()
         )));
@@ -1067,13 +1067,13 @@ async fn read_surface_source_from_package(
     let ui_js = read_optional_text(&source_dir.join("ui.js")).await?;
     let worker_js = read_optional_text(&source_dir.join("worker.js")).await?;
     if html.trim().is_empty() {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "App-private surface source {} must include non-empty index.html",
             source_dir.display()
         )));
     }
     if ui_js.trim().is_empty() {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "App-private surface source {} must include non-empty ui.js",
             source_dir.display()
         )));
@@ -1105,7 +1105,7 @@ async fn read_surface_source_from_package(
     })
 }
 
-fn filesystem_source_digest(source_dir: &Path) -> BitFunResult<String> {
+fn filesystem_source_digest(source_dir: &Path) -> CoreResult<String> {
     let mut files = Vec::new();
     collect_source_files(source_dir, &mut files)?;
     files.sort_by(|left, right| normalized_digest_path(left).cmp(&normalized_digest_path(right)));
@@ -1113,7 +1113,7 @@ fn filesystem_source_digest(source_dir: &Path) -> BitFunResult<String> {
     let mut hasher = Sha256::new();
     for file in files {
         let relative = file.strip_prefix(source_dir).map_err(|error| {
-            BitFunError::io(format!("Invalid component source path: {}", error))
+            CoreError::io(format!("Invalid component source path: {}", error))
         })?;
         hasher.update(normalized_digest_path(relative).as_bytes());
         hasher.update([0]);
@@ -1123,7 +1123,7 @@ fn filesystem_source_digest(source_dir: &Path) -> BitFunResult<String> {
     Ok(format!("sha256:{:x}", hasher.finalize()))
 }
 
-fn collect_source_files(dir: &Path, out: &mut Vec<PathBuf>) -> BitFunResult<()> {
+fn collect_source_files(dir: &Path, out: &mut Vec<PathBuf>) -> CoreResult<()> {
     for entry in std::fs::read_dir(dir)? {
         let path = entry?.path();
         if path.is_dir() {
@@ -1142,16 +1142,16 @@ fn normalized_digest_path(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
 }
 
-async fn read_optional_text(path: &Path) -> BitFunResult<String> {
+async fn read_optional_text(path: &Path) -> CoreResult<String> {
     if !path.exists() {
         return Ok(String::new());
     }
     fs::read_to_string(path)
         .await
-        .map_err(|error| BitFunError::io(format!("Failed to read {}: {}", path.display(), error)))
+        .map_err(|error| CoreError::io(format!("Failed to read {}: {}", path.display(), error)))
 }
 
-async fn read_optional_package_dependencies(path: &Path) -> BitFunResult<Vec<NpmDep>> {
+async fn read_optional_package_dependencies(path: &Path) -> CoreResult<Vec<NpmDep>> {
     let Some(package_json): Option<serde_json::Value> = read_optional_json(path).await? else {
         return Ok(Vec::new());
     };
@@ -1174,7 +1174,7 @@ async fn read_optional_package_dependencies(path: &Path) -> BitFunResult<Vec<Npm
 
 async fn read_extra_surface_source_files(
     source_dir: &Path,
-) -> BitFunResult<Vec<ProductAppRuntimeHostSourceFile>> {
+) -> CoreResult<Vec<ProductAppRuntimeHostSourceFile>> {
     const STANDARD_SOURCE_FILES: &[&str] = &[
         "index.html",
         "style.css",
@@ -1189,11 +1189,11 @@ async fn read_extra_surface_source_files(
     while let Some(dir) = stack.pop() {
         let mut read_dir = fs::read_dir(&dir)
             .await
-            .map_err(|error| BitFunError::io(format!("Failed to read source dir: {}", error)))?;
+            .map_err(|error| CoreError::io(format!("Failed to read source dir: {}", error)))?;
         while let Some(entry) = read_dir
             .next_entry()
             .await
-            .map_err(|error| BitFunError::io(format!("Failed to read source entry: {}", error)))?
+            .map_err(|error| CoreError::io(format!("Failed to read source entry: {}", error)))?
         {
             let path = entry.path();
             if path.is_dir() {
@@ -1205,7 +1205,7 @@ async fn read_extra_surface_source_files(
             }
             let relative = path
                 .strip_prefix(source_dir)
-                .map_err(|error| BitFunError::io(format!("Invalid source path: {}", error)))?
+                .map_err(|error| CoreError::io(format!("Invalid source path: {}", error)))?
                 .to_string_lossy()
                 .replace('\\', "/");
             if STANDARD_SOURCE_FILES.contains(&relative.as_str()) {
@@ -1239,7 +1239,7 @@ fn infer_surface_source_file_kind(path: &str) -> ProductAppRuntimeHostSourceFile
 async fn read_private_components(
     components_dir: &Path,
     owner_app: ComponentOwnerApp,
-) -> BitFunResult<Vec<ComponentDefinition>> {
+) -> CoreResult<Vec<ComponentDefinition>> {
     if !components_dir.exists() {
         return Ok(Vec::new());
     }
@@ -1283,9 +1283,9 @@ fn parse_component_version(component: &ComponentDefinition) -> Version {
         .unwrap_or_else(|| Version::new(0, 0, 0))
 }
 
-fn validate_required(field: &str, value: &str) -> BitFunResult<()> {
+fn validate_required(field: &str, value: &str) -> CoreResult<()> {
     if value.trim().is_empty() {
-        return Err(BitFunError::validation(format!("{field} cannot be empty")));
+        return Err(CoreError::validation(format!("{field} cannot be empty")));
     }
     Ok(())
 }

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use bitfun_core::agentic::{
+use sparo_core::agentic::{
     tools::framework::ToolUseContext,
     tools::{get_all_tools, get_readonly_tools},
     WorkspaceBinding,
@@ -305,15 +305,15 @@ pub async fn execute_tool(request: ToolExecutionRequest) -> Result<ToolExecution
                 Ok(results) => {
                     let combined_result = if results.len() == 1 {
                         match &results[0] {
-                            bitfun_core::agentic::tools::framework::ToolResult::Result {
+                            sparo_core::agentic::tools::framework::ToolResult::Result {
                                 data,
                                 ..
                             } => Some(data.clone()),
-                            bitfun_core::agentic::tools::framework::ToolResult::Progress {
+                            sparo_core::agentic::tools::framework::ToolResult::Progress {
                                 content,
                                 ..
                             } => Some(content.clone()),
-                            bitfun_core::agentic::tools::framework::ToolResult::StreamChunk {
+                            sparo_core::agentic::tools::framework::ToolResult::StreamChunk {
                                 data,
                                 ..
                             } => Some(data.clone()),
@@ -321,11 +321,11 @@ pub async fn execute_tool(request: ToolExecutionRequest) -> Result<ToolExecution
                     } else {
                         Some(serde_json::json!({
                                         "results": results.iter().map(|r| match r {
-                        bitfun_core::agentic::tools::framework::ToolResult::Result { data, .. } => {
+                        sparo_core::agentic::tools::framework::ToolResult::Result { data, .. } => {
                             data.clone()
                         }
-                        bitfun_core::agentic::tools::framework::ToolResult::Progress { content, .. } => content.clone(),
-                        bitfun_core::agentic::tools::framework::ToolResult::StreamChunk { data, .. } => data.clone(),
+                        sparo_core::agentic::tools::framework::ToolResult::Progress { content, .. } => content.clone(),
+                        sparo_core::agentic::tools::framework::ToolResult::StreamChunk { data, .. } => data.clone(),
                                         }).collect::<Vec<_>>()
                                     }))
                     };
@@ -374,7 +374,7 @@ pub async fn submit_user_answers(
     tool_id: String,
     answers: serde_json::Value,
 ) -> Result<(), String> {
-    use bitfun_core::agentic::tools::user_input_manager::get_user_input_manager;
+    use sparo_core::agentic::tools::user_input_manager::get_user_input_manager;
     let manager = get_user_input_manager();
 
     manager.send_answer(&tool_id, answers).map_err(|e| {

@@ -126,7 +126,7 @@ impl IsolationManager {
     }
 
     /// Returns the snapshot runtime directory path.
-    pub fn get_bitfun_dir(&self) -> &Path {
+    pub fn get_sparo_dir(&self) -> &Path {
         &self.runtime_context.runtime_root
     }
 

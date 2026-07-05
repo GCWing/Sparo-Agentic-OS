@@ -76,7 +76,7 @@ E2E 要和改动规模匹配：小的文案、样式或类型级修改，通常�
 Core 代码必须保持平台无关。
 
 - 在 `src/crates/core` 中不要依赖 `tauri::AppHandle` 等 Tauri 类型。
-- 优先使用 `bitfun_events::EventEmitter`、服务 trait 和构造函数注入依赖。
+- 优先使用 `sparo_events::EventEmitter`、服务 trait 和构造函数注入依赖。
 - 桌面端特有逻辑放在 `src/apps/desktop` 或适配层。
 - Tauri command DTO 与共享 command request/response 结构必须保持结构化、可序列化。
 

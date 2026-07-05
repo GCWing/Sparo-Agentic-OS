@@ -6,7 +6,7 @@ use crate::app_platform::{
     create_component_package, ComponentKind, CreateComponentPackageDraft, WrittenComponentPackage,
 };
 use crate::infrastructure::try_get_path_manager_arc;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use log::warn;
 use serde_json::{json, Value};
@@ -32,7 +32,7 @@ impl Tool for CreateComponentPackageTool {
         "CreateComponentPackage"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(r#"Create a shared Component Package through App Studio component authoring.
 
 Supports the final component kinds: surface, agent, bridge, runtime, tool, and skill. The result is a reusable component package under the system component package root. Components are not Product Apps and do not enter the App Catalog until referenced by a Product App lock."#
@@ -86,7 +86,7 @@ Supports the final component kinds: surface, agent, bridge, runtime, tool, and s
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let component_id = required_string(input, "component_id")?;
         let kind = required_component_kind(input)?;
         let name = required_string(input, "name")?;
@@ -98,7 +98,7 @@ Supports the final component kinds: surface, agent, bridge, runtime, tool, and s
             optional_string(input, "implementation_ref").filter(|value| !value.trim().is_empty());
 
         let path_manager = try_get_path_manager_arc()
-            .map_err(|e| BitFunError::tool(format!("PathManager not initialized: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("PathManager not initialized: {}", e)))?;
         let written = create_component_package(
             &path_manager,
             CreateComponentPackageDraft {
@@ -111,7 +111,7 @@ Supports the final component kinds: surface, agent, bridge, runtime, tool, and s
             },
         )
         .await
-        .map_err(|e| BitFunError::tool(format!("Failed to create Component package: {}", e)))?;
+        .map_err(|e| CoreError::tool(format!("Failed to create Component package: {}", e)))?;
 
         let package_dir = written.package_dir.to_string_lossy().to_string();
         let kind = component_kind_name(written.kind);
@@ -176,7 +176,7 @@ async fn bind_created_component_session(
     context: &ToolUseContext,
     written: &WrittenComponentPackage,
     binding: CreatedComponentSessionBinding<'_>,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     if !has_app_studio_session_context(context) {
         return Ok(());
     }
@@ -345,7 +345,7 @@ fn component_kind_name(kind: ComponentKind) -> &'static str {
     }
 }
 
-fn required_component_kind(input: &Value) -> BitFunResult<ComponentKind> {
+fn required_component_kind(input: &Value) -> CoreResult<ComponentKind> {
     let kind = required_string(input, "kind")?;
     let normalized = kind
         .trim()
@@ -360,17 +360,17 @@ fn required_component_kind(input: &Value) -> BitFunResult<ComponentKind> {
         "runtime" | "runtimecomponent" => Ok(ComponentKind::Runtime),
         "tool" | "toolcomponent" => Ok(ComponentKind::Tool),
         "skill" | "skillcomponent" => Ok(ComponentKind::Skill),
-        _ => Err(BitFunError::validation(
+        _ => Err(CoreError::validation(
             "kind must be one of surface, agent, bridge, runtime, tool, or skill".to_string(),
         )),
     }
 }
 
-fn required_string(input: &Value, field: &str) -> BitFunResult<String> {
+fn required_string(input: &Value, field: &str) -> CoreResult<String> {
     let value = optional_string(input, field)
-        .ok_or_else(|| BitFunError::validation(format!("Missing required field: {field}")))?;
+        .ok_or_else(|| CoreError::validation(format!("Missing required field: {field}")))?;
     if value.trim().is_empty() {
-        return Err(BitFunError::validation(format!("{field} cannot be empty")));
+        return Err(CoreError::validation(format!("{field} cannot be empty")));
     }
     Ok(value)
 }

@@ -1,6 +1,6 @@
 use super::service::GlobalMilestoneService;
 use crate::agentic::events::{AgenticEvent, EventSubscriber};
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 use log::error;
 use std::sync::Arc;
 
@@ -16,7 +16,7 @@ impl GlobalMilestoneEventSubscriber {
 
 #[async_trait::async_trait]
 impl EventSubscriber for GlobalMilestoneEventSubscriber {
-    async fn on_event(&self, event: &AgenticEvent) -> BitFunResult<()> {
+    async fn on_event(&self, event: &AgenticEvent) -> CoreResult<()> {
         let result = match event {
             AgenticEvent::DialogTurnCompleted { turn_id, .. } => {
                 self.service.handle_turn_completed(turn_id).await

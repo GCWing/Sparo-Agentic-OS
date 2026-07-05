@@ -15,9 +15,9 @@ export type ThemeId =
   | 'dark'
   | 'light'
   | 'slate'
-  | 'bitfun-china-style'
-  | 'bitfun-china-night'
-  | 'bitfun-cyber';
+  | 'sparo-china-style'
+  | 'sparo-china-night'
+  | 'sparo-cyber';
 
 /** Matches main app `themes.current` when following OS appearance. */
 export const SYSTEM_THEME_ID = 'system' as const;

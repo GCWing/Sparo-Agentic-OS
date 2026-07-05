@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Sparo OS API unified exports.
  *
  * Follows the Sparo OS Tauri command conventions.

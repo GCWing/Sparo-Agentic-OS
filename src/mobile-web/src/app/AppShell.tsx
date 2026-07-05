@@ -141,10 +141,10 @@ const AppShell: React.FC = () => {
     else if (action === 'lang-en') setLanguage('en-US' as const);
     else if (action === 'lang-zh') setLanguage('zh-CN' as const);
     else if (action === 'signout') {
-      localStorage.removeItem('bitfun.mobile.user_id');
-      localStorage.removeItem('bitfun.mobile.install_id');
-      localStorage.removeItem('bitfun.mobile.user_id_lock_until');
-      localStorage.removeItem('bitfun.mobile.user_id_failure_count');
+      localStorage.removeItem('sparo.mobile.user_id');
+      localStorage.removeItem('sparo.mobile.install_id');
+      localStorage.removeItem('sparo.mobile.user_id_lock_until');
+      localStorage.removeItem('sparo.mobile.user_id_failure_count');
       clientRef.current = null;
       sessionMgrRef.current = null;
       setPaired(false);

@@ -7,7 +7,7 @@
 use crate::agentic::app_studio_context::AppStudioExecutionContext;
 use crate::agentic::core::{Message, Session, SessionConfig};
 use crate::agentic::tools::ToolRuntimeRestrictions;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use std::collections::HashMap;
 
 /// Immutable snapshot of a parent session's runtime context at fork time.
@@ -26,13 +26,13 @@ impl ForkAgentContextSnapshot {
     pub fn from_parent_session(
         parent_session: &Session,
         messages: Vec<Message>,
-    ) -> BitFunResult<Self> {
+    ) -> CoreResult<Self> {
         let workspace_path = parent_session
             .config
             .workspace_path
             .clone()
             .ok_or_else(|| {
-                BitFunError::Validation(format!(
+                CoreError::Validation(format!(
                     "workspace_path is required when forking session: {}",
                     parent_session.session_id
                 ))

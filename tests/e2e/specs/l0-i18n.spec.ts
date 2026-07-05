@@ -57,12 +57,12 @@ describe('L0 Internationalization', () => {
       await browser.pause(500);
 
       // Open more options menu in footer
-      const moreBtn = await $('.bitfun-nav-panel__footer-btn--icon');
+      const moreBtn = await $('.sparo-nav-panel__footer-btn--icon');
       await moreBtn.click();
       await browser.pause(500);
 
       // Click settings menu item
-      const menuItems = await $$('.bitfun-nav-panel__footer-menu-item');
+      const menuItems = await $$('.sparo-nav-panel__footer-menu-item');
       let settingsItem = null;
       for (const item of menuItems) {
         const html = await item.getHTML();
@@ -77,7 +77,7 @@ describe('L0 Internationalization', () => {
       await browser.pause(2000);
 
       // Navigate to Basics tab (language selector lives there)
-      const navItems = await $$('.bitfun-settings-nav__item');
+      const navItems = await $$('.sparo-settings-nav__item');
       console.log(`[L0] Found ${navItems.length} settings nav items`);
 
       let basicsTab = null;

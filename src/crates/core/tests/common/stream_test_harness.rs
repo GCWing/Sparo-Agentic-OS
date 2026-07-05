@@ -1,14 +1,14 @@
 use super::fixture_loader::load_fixture_bytes;
 use super::sse_fixture_server::{FixtureSseServer, FixtureSseServerOptions};
-use bitfun_ai_adapters::stream::{
+use sparo_ai_adapters::stream::{
     handle_anthropic_stream, handle_gemini_stream, handle_openai_stream, handle_responses_stream,
     UnifiedResponse,
 };
-use bitfun_core::agentic::events::{
+use sparo_core::agentic::events::{
     AgenticEvent, EventQueue, EventQueueConfig, SessionSurfaceMode,
 };
-use bitfun_core::agentic::execution::{StreamProcessError, StreamResult};
-use bitfun_core::StreamProcessor;
+use sparo_core::agentic::execution::{StreamProcessError, StreamResult};
+use sparo_core::StreamProcessor;
 use futures::StreamExt;
 use std::sync::Arc;
 use tokio::sync::mpsc;

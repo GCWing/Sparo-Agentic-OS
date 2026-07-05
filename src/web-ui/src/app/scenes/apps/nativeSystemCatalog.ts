@@ -14,9 +14,9 @@ function nativeSystemIcon(assetId: string, fileName: string): AppIconSpec {
 export const NATIVE_SYSTEM_APP_CATALOG: NativeAppCatalogEntry[] = [
   {
     id: 'prime-builder',
-    name: 'Prime Builder',
-    description: 'Native software development workspace for implementation, debugging, and verification.',
-    goal: 'Plan, implement, verify, and hand off software changes in a workspace.',
+    name: 'BitFun Coder',
+    description: 'Native default execution workspace for flexible implementation, debugging, automation, and verification.',
+    goal: 'Take a goal, choose the next action, execute, verify, and hand off the result.',
     interactionModel: 'conversation',
     workMultiplicity: 'multiple',
     workObjectKinds: [],

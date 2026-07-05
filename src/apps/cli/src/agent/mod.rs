@@ -1,6 +1,6 @@
 /// Agent integration module
 ///
-/// Wraps interaction with bitfun-core's Agent system
+/// Wraps interaction with sparo-core's Agent system
 pub mod agentic_system;
 pub mod core_adapter;
 

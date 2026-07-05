@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Flow Chat global state store
  * Prevents state loss when components remount
  */

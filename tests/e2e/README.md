@@ -12,13 +12,13 @@ E2E test framework using WebDriverIO + the embedded Sparo OS WebDriver.
 
 ```bash
 # Build the debug app
-cargo build -p bitfun-desktop
+cargo build -p sparo-desktop
 
 # Install test dependencies
 cd tests/e2e && pnpm install
 ```
 
-`bitfun-desktop` is the current technical Cargo package name for the Sparo OS desktop app.
+`sparo-desktop` is the current technical Cargo package name for the Sparo OS desktop app.
 
 ### 2. Run Tests
 
@@ -64,7 +64,7 @@ The test runner starts Sparo OS directly and waits for the embedded WebDriver se
 ### App not built
 
 ```bash
-cargo build -p bitfun-desktop
+cargo build -p sparo-desktop
 ```
 
 ### Test timeout

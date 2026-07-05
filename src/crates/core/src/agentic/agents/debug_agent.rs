@@ -5,7 +5,7 @@ use super::{Agent, RequestContextPolicy};
 use crate::service::config::global::GlobalConfigManager;
 use crate::service::config::types::{DebugModeConfig, GlobalConfig, LanguageDebugTemplate};
 use crate::service::project_detection::{ProjectDetector, ProjectInfo};
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 use async_trait::async_trait;
 use log::debug;
 use std::path::Path;
@@ -294,7 +294,7 @@ impl Agent for DebugAgent {
         RequestContextPolicy::workspace_agent_default()
     }
 
-    async fn build_prompt(&self, context: &PromptBuilderContext) -> BitFunResult<String> {
+    async fn build_prompt(&self, context: &PromptBuilderContext) -> CoreResult<String> {
         let workspace_path = context.workspace_path.as_str();
         let prompt_components = PromptBuilder::new(context.clone());
         let env_info = prompt_components.get_env_info();
@@ -332,7 +332,7 @@ impl Agent for DebugAgent {
         Ok(prompt_list.join(""))
     }
 
-    async fn get_system_reminder(&self, _index: usize) -> BitFunResult<String> {
+    async fn get_system_reminder(&self, _index: usize) -> CoreResult<String> {
         Ok(self.build_system_reminder())
     }
 

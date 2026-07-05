@@ -9,14 +9,14 @@ use crate::api::app_state::AppState;
 use crate::api::session_storage_path::{
     desktop_effective_session_storage_path, SessionStorageScopeDto,
 };
-use bitfun_core::agentic::coordination::{
+use sparo_core::agentic::coordination::{
     ConversationCoordinator, DialogGuidedTurnSnapshot, DialogQueuePauseSnapshot,
     DialogQueuedTurnSnapshot, DialogScheduler, DialogSubmissionPolicy, DialogSubmitOutcome,
     DialogTriggerSource, SessionControlActor, TurnCancellationReason,
 };
-use bitfun_core::agentic::core::*;
-use bitfun_core::agentic::image_analysis::ImageContextData;
-use bitfun_core::agentic::tools::image_context::get_image_context;
+use sparo_core::agentic::core::*;
+use sparo_core::agentic::image_analysis::ImageContextData;
+use sparo_core::agentic::tools::image_context::get_image_context;
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateSessionRequest {

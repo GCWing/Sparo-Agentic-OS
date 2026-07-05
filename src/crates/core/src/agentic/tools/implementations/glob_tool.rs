@@ -1,5 +1,5 @@
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use globset::{GlobBuilder, GlobMatcher};
 use ignore::WalkBuilder;
@@ -352,7 +352,7 @@ impl Tool for GlobTool {
         "Glob"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(r#"Fast file pattern matching tool support Standard Unix-style glob syntax
 - Supports glob patterns like "**/*.js" or "src/**/*.ts"
 - Returns matching file paths
@@ -403,11 +403,11 @@ impl Tool for GlobTool {
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let pattern = input
             .get("pattern")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BitFunError::tool("pattern is required".to_string()))?;
+            .ok_or_else(|| CoreError::tool("pattern is required".to_string()))?;
 
         let resolved = match input.get("path").and_then(|v| v.as_str()) {
             Some(user_path) => context.resolve_tool_path(user_path)?,
@@ -417,7 +417,7 @@ impl Tool for GlobTool {
                     .as_ref()
                     .map(|w| w.root_path_string())
                     .ok_or_else(|| {
-                        BitFunError::tool(
+                        CoreError::tool(
                             "workspace_path is required when Glob path is omitted".to_string(),
                         )
                     })?;
@@ -444,8 +444,8 @@ impl Tool for GlobTool {
             call_rg(&resolved_str_for_rg, &pattern_for_rg, limit)
         })
         .await
-        .map_err(|err| BitFunError::tool(format!("Glob tool task failed: {}", err)))?
-        .map_err(BitFunError::tool)?;
+        .map_err(|err| CoreError::tool(format!("Glob tool task failed: {}", err)))?
+        .map_err(CoreError::tool)?;
 
         let matches = matches
             .into_iter()
@@ -490,7 +490,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_nanos();
-        let dir = std::env::temp_dir().join(format!("bitfun-glob-tool-{name}-{unique}"));
+        let dir = std::env::temp_dir().join(format!("sparo-glob-tool-{name}-{unique}"));
         fs::create_dir_all(&dir).unwrap();
         dir
     }
@@ -513,7 +513,7 @@ mod tests {
 
     #[test]
     fn does_not_expand_walk_root_outside_search_path() {
-        let root = std::env::temp_dir().join("bitfun-glob-root");
+        let root = std::env::temp_dir().join("sparo-glob-root");
         let (walk_root, relative_pattern) = derive_walk_root(&root, "../*.rs");
 
         assert_eq!(walk_root, root);

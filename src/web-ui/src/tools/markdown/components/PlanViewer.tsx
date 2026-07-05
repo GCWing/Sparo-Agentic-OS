@@ -1,4 +1,4 @@
-﻿/** Optimized viewer/editor for `.plan.md` files (frontmatter + markdown body). */
+/** Optimized viewer/editor for `.plan.md` files (frontmatter + markdown body). */
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Circle, ArrowRight, Check, XCircle, CheckCircle, AlertCircle, FileText, Pencil, X, ChevronDown, Trash2, Plus } from 'lucide-react';

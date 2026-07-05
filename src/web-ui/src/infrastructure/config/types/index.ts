@@ -240,6 +240,8 @@ export interface StoredAgentCapabilityConfigItem {
   enabled: boolean;
   disabled_user_skills?: string[];
   enabled_user_skills?: string[];
+  disabled_user_skill_suites?: string[];
+  enabled_user_skill_suites?: string[];
   disabled_subagents?: string[];
   enabled_subagents?: string[];
 }
@@ -251,6 +253,8 @@ export interface AgentCapabilityConfigItem {
   default_tools: string[];
   disabled_user_skills?: string[];
   enabled_user_skills?: string[];
+  disabled_user_skill_suites?: string[];
+  enabled_user_skill_suites?: string[];
   enabled_subagents?: string[];
   default_subagents?: string[];
 }
@@ -295,6 +299,39 @@ export interface SubAgentConfigItem {
 }
 
 export type SkillLevel = 'user' | 'project';
+export type SkillGovernance = 'sparoManaged' | 'userManaged' | 'projectManaged';
+export type SkillSuiteMemberOverridePolicy = 'sparoManaged' | 'suiteLocal' | 'workspaceMayOverride';
+
+export interface SkillSuiteMemberRef {
+  skillId: string;
+  role?: string | null;
+  required: boolean;
+  overridePolicy: SkillSuiteMemberOverridePolicy;
+}
+
+export interface SkillSuiteInfo {
+  key: string;
+  id: string;
+  name: string;
+  description: string;
+  level: SkillLevel;
+  sourceSlot: string;
+  path: string;
+  governance: SkillGovernance;
+  routerPath?: string | null;
+  memberSkillKeys: string[];
+  missingRefs: SkillSuiteMemberRef[];
+  tags: string[];
+  isBuiltin: boolean;
+  canDelete: boolean;
+  canEdit: boolean;
+  canUpdate: boolean;
+}
+
+export interface SkillCatalog {
+  skills: SkillInfo[];
+  suites: SkillSuiteInfo[];
+}
 
 export interface SkillInfo {
   key: string;
@@ -305,7 +342,13 @@ export interface SkillInfo {
   sourceSlot: string;
   dirName: string;
   isBuiltin: boolean;
-  groupKey?: string | null;
+  governance: SkillGovernance;
+  suiteKey?: string | null;
+  suiteMemberOverridePolicy?: SkillSuiteMemberOverridePolicy | null;
+  tags: string[];
+  canDelete: boolean;
+  canEdit: boolean;
+  canUpdate: boolean;
 }
 
 export interface AgentSkillInfo extends SkillInfo {

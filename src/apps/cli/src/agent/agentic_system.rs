@@ -3,12 +3,12 @@
 //! Initialize the complete agentic system, including coordinator, execution engine, session management, etc.
 
 use anyhow::Result;
-use bitfun_core::infrastructure::ai::AIClientFactory;
-use bitfun_core::runtime::{initialize_agentic_runtime, AgenticRuntimeOptions};
+use sparo_core::infrastructure::ai::AIClientFactory;
+use sparo_core::runtime::{initialize_agentic_runtime, AgenticRuntimeOptions};
 use std::sync::Arc;
 
-use bitfun_core::agentic::coordination;
-use bitfun_core::agentic::events;
+use sparo_core::agentic::coordination;
+use sparo_core::agentic::events;
 
 /// Agentic system state
 pub struct AgenticSystem {

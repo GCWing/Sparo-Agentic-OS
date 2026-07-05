@@ -1,12 +1,12 @@
 [package]
-name = "bitfun-core"
+name = "sparo-core"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
 description = "Sparo OS Core Library - Platform-agnostic business logic"
 
 [lib]
-name = "bitfun_core"
+name = "sparo_core"
 crate-type = ["rlib"]
 
 [dependencies]
@@ -79,7 +79,7 @@ rmcp = { version = "0.12.0", default-features = false, features = [
 sse-stream = "0.2.1"
 
 # Shared AI protocol adapters
-bitfun-ai-adapters = { path = "../ai-adapters" }
+sparo-ai-adapters = { path = "../ai-adapters" }
 cli-credential = { path = "../libs/cli-credential" }
 
 # Tool runtime
@@ -110,13 +110,13 @@ qrcode = { workspace = true }
 tokio-tungstenite = { workspace = true }
 
 # Relay server shared library (embedded relay reuses standalone relay logic)
-bitfun-relay-server = { path = "../../apps/relay-server" }
+sparo-relay-server = { path = "../../apps/relay-server" }
 
 # Event layer dependency (lowest layer)
-bitfun-events = { path = "../events" }
+sparo-events = { path = "../events" }
 
 # Transport layer dependency
-bitfun-transport = { path = "../transport" }
+sparo-transport = { path = "../transport" }
 
 # Tauri dependency (optional, enabled only when needed)
 tauri = { workspace = true, optional = true }

@@ -62,7 +62,7 @@ describe('L0 Smoke Tests', () => {
   describe('Core UI components', () => {
     it('Header should be visible', async () => {
       await browser.pause(2000);
-      const header = await $('.bitfun-nav-panel, .bitfun-scene-bar, .bitfun-nav-bar, [data-testid="header-container"]');
+      const header = await $('.sparo-nav-panel, .sparo-scene-bar, .sparo-nav-bar, [data-testid="header-container"]');
       const exists = await header.isExisting();
 
       if (exists) {
@@ -71,9 +71,9 @@ describe('L0 Smoke Tests', () => {
       } else {
         console.log('[L0] Checking fallback selectors...');
         const selectors = [
-          '.bitfun-nav-panel',
-          '.bitfun-scene-bar',
-          '.bitfun-nav-bar',
+          '.sparo-nav-panel',
+          '.sparo-scene-bar',
+          '.sparo-nav-bar',
           'header',
           '.header',
           '[class*="header"]',
@@ -117,7 +117,7 @@ describe('L0 Smoke Tests', () => {
       const welcomeSelectors = [
         '.welcome-scene--first-time',
         '.welcome-scene',
-        '.bitfun-scene-viewport--welcome',
+        '.sparo-scene-viewport--welcome',
       ];
 
       let welcomeExists = await browser.execute((selectors) => {
@@ -127,7 +127,7 @@ describe('L0 Smoke Tests', () => {
       if (!welcomeExists) {
         // Fallback: check for scene viewport
         welcomeExists = await browser.execute(() => Boolean(
-          document.querySelector('.bitfun-scene-viewport, .sparo-app-main-workspace, main[data-testid="app-main-content"]')
+          document.querySelector('.sparo-scene-viewport, .sparo-app-main-workspace, main[data-testid="app-main-content"]')
         ));
         console.log('[L0] Fallback check - app workspace shell exists:', welcomeExists);
       }

@@ -191,7 +191,7 @@ Route by the user's intended outcome and work surface; keywords are a secondary 
 
 | Intended outcome | `agent_type` |
 | --- | --- |
-| Repository-backed engineering: analyze a codebase, inspect architecture or dependencies, implement, debug, refactor, test, or fix build/runtime errors | `agentic` (Prime Builder) |
+| Repository-backed engineering: analyze a codebase, inspect architecture or dependencies, implement, debug, refactor, test, or fix build/runtime errors | `agentic` (BitFun Coder) |
 | Office deliverables: docs, reports, PPT, tables, summaries, email or plan drafts | `Cowork` |
 | Product or visual design: UI/UX, visual direction, design review | `Design` |
 | Deep research, synthesis, or evidence gathering | `DeepResearch` |

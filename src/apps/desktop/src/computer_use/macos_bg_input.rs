@@ -19,7 +19,7 @@
 
 #![allow(dead_code)]
 
-use bitfun_core::util::errors::{BitFunError, BitFunResult};
+use sparo_core::error::{CoreError, CoreResult};
 use core_graphics::event::{CGEvent, CGEventFlags, CGEventType, CGMouseButton, ScrollEventUnit};
 use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
 use core_graphics::geometry::CGPoint;
@@ -158,9 +158,9 @@ fn accessibility_is_trusted() -> bool {
     unsafe { AXIsProcessTrustedWithOptions(std::ptr::null()) }
 }
 
-fn private_source(label: &str) -> BitFunResult<CGEventSource> {
+fn private_source(label: &str) -> CoreResult<CGEventSource> {
     CGEventSource::new(CGEventSourceStateID::Private)
-        .map_err(|_| BitFunError::tool(format!("CGEventSource::Private failed ({})", label)))
+        .map_err(|_| CoreError::tool(format!("CGEventSource::Private failed ({})", label)))
 }
 
 /// Compose modifier flags for a chord.
@@ -182,7 +182,7 @@ pub fn bg_click(
     button: BgMouseButton,
     click_count: u32,
     modifiers: &[BgModifier],
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     if click_count == 0 {
         return Ok(());
     }
@@ -226,7 +226,7 @@ pub fn bg_click(
     // hit-testing in the target app sees the right coordinates. Does NOT
     // move the user's real cursor because we post pid-scoped, not global.
     let mv = CGEvent::new_mouse_event(src.clone(), CGEventType::MouseMoved, pt, button.cg())
-        .map_err(|_| BitFunError::tool("CGEvent MouseMoved failed".to_string()))?;
+        .map_err(|_| CoreError::tool("CGEvent MouseMoved failed".to_string()))?;
     if !flags.is_empty() {
         mv.set_flags(flags);
     }
@@ -234,7 +234,7 @@ pub fn bg_click(
 
     for i in 1..=click_count {
         let down = CGEvent::new_mouse_event(src.clone(), button.down(), pt, button.cg())
-            .map_err(|_| BitFunError::tool("CGEvent MouseDown failed".to_string()))?;
+            .map_err(|_| CoreError::tool("CGEvent MouseDown failed".to_string()))?;
         // Click count field lets the target app recognise double / triple
         // clicks within its own quench-time window.
         down.set_integer_value_field(
@@ -247,7 +247,7 @@ pub fn bg_click(
         down.post_to_pid(pid);
 
         let up = CGEvent::new_mouse_event(src.clone(), button.up(), pt, button.cg())
-            .map_err(|_| BitFunError::tool("CGEvent MouseUp failed".to_string()))?;
+            .map_err(|_| CoreError::tool("CGEvent MouseUp failed".to_string()))?;
         up.set_integer_value_field(
             core_graphics::event::EventField::MOUSE_EVENT_CLICK_STATE,
             i as i64,
@@ -297,7 +297,7 @@ fn frontmost_pid_macos() -> Option<i32> {
 ///
 /// Returns `Ok(true)` when the activation call returned success, `Ok(false)`
 /// when the app could not be found, and `Err(_)` on AppKit FFI failures.
-pub fn activate_pid_macos(pid: i32) -> BitFunResult<bool> {
+pub fn activate_pid_macos(pid: i32) -> CoreResult<bool> {
     use objc2::msg_send;
     use objc2::runtime::AnyObject;
     let started = Instant::now();
@@ -331,7 +331,7 @@ pub fn activate_pid_macos(pid: i32) -> BitFunResult<bool> {
 /// Pixel-delta scroll inside the focused scroll container of the target
 /// pid's frontmost window. Positive `dy` scrolls content down (matches
 /// trackpad / `wheel1>0` direction).
-pub fn bg_scroll(pid: i32, dx: i32, dy: i32) -> BitFunResult<()> {
+pub fn bg_scroll(pid: i32, dx: i32, dy: i32) -> CoreResult<()> {
     info!(
         target: "computer_use::bg_input",
         "bg_scroll.enter pid={} dx={} dy={}",
@@ -342,7 +342,7 @@ pub fn bg_scroll(pid: i32, dx: i32, dy: i32) -> BitFunResult<()> {
     // Sign convention matches the system trackpad (positive dy = content
     // moves down on screen, i.e. user is looking further into the document).
     let ev = CGEvent::new_scroll_event(src, ScrollEventUnit::PIXEL, 2, dy, dx, 0)
-        .map_err(|_| BitFunError::tool("CGEventCreateScrollWheelEvent2 failed".to_string()))?;
+        .map_err(|_| CoreError::tool("CGEventCreateScrollWheelEvent2 failed".to_string()))?;
     ev.post_to_pid(pid);
     Ok(())
 }
@@ -351,7 +351,7 @@ pub fn bg_scroll(pid: i32, dx: i32, dy: i32) -> BitFunResult<()> {
 /// `kCGEventKeyboardEventUnicodeString` field. This bypasses keymap
 /// translation entirely, so it correctly handles emoji, CJK and other
 /// non-Latin input without touching the system IME.
-pub fn bg_type_text(pid: i32, text: &str) -> BitFunResult<()> {
+pub fn bg_type_text(pid: i32, text: &str) -> CoreResult<()> {
     if text.is_empty() {
         return Ok(());
     }
@@ -372,13 +372,13 @@ pub fn bg_type_text(pid: i32, text: &str) -> BitFunResult<()> {
     for ch in text.chars() {
         // Keycode 0 is irrelevant when the unicode string field is set.
         let ev = CGEvent::new_keyboard_event(src.clone(), 0, true)
-            .map_err(|_| BitFunError::tool("CGEventCreateKeyboardEvent failed".to_string()))?;
+            .map_err(|_| CoreError::tool("CGEventCreateKeyboardEvent failed".to_string()))?;
         let buf: Vec<u16> = ch.encode_utf16(&mut [0u16; 2]).to_vec();
         ev.set_string_from_utf16_unchecked(&buf);
         ev.post_to_pid(pid);
         // Match keyup so the target app sees a complete keystroke.
         let ev2 = CGEvent::new_keyboard_event(src.clone(), 0, false)
-            .map_err(|_| BitFunError::tool("CGEventCreateKeyboardEvent (up) failed".to_string()))?;
+            .map_err(|_| CoreError::tool("CGEventCreateKeyboardEvent (up) failed".to_string()))?;
         ev2.set_string_from_utf16_unchecked(&buf);
         ev2.post_to_pid(pid);
         // 8ms inter-key gap matches Codex / native typing rates and avoids
@@ -393,7 +393,7 @@ pub fn bg_type_text(pid: i32, text: &str) -> BitFunResult<()> {
 /// Send a key chord (modifier+key combo) to the target pid using the
 /// private event source. `key` is the AX / Carbon virtual keycode; callers
 /// can use `keycode_for_char` for ASCII letters or pass a literal keycode.
-pub fn bg_key_chord(pid: i32, modifiers: &[BgModifier], key: u16) -> BitFunResult<()> {
+pub fn bg_key_chord(pid: i32, modifiers: &[BgModifier], key: u16) -> CoreResult<()> {
     info!(
         target: "computer_use::bg_input",
         "bg_key_chord.enter pid={} keycode={} modifiers={:?}",
@@ -407,27 +407,27 @@ pub fn bg_key_chord(pid: i32, modifiers: &[BgModifier], key: u16) -> BitFunResul
     // Press modifiers.
     for m in modifiers {
         let ev = CGEvent::new_keyboard_event(src.clone(), m.keycode(), true)
-            .map_err(|_| BitFunError::tool("CGEvent ModDown failed".to_string()))?;
+            .map_err(|_| CoreError::tool("CGEvent ModDown failed".to_string()))?;
         ev.set_flags(flags);
         ev.post_to_pid(pid);
     }
     // Press main key.
     {
         let ev = CGEvent::new_keyboard_event(src.clone(), key, true)
-            .map_err(|_| BitFunError::tool("CGEvent KeyDown failed".to_string()))?;
+            .map_err(|_| CoreError::tool("CGEvent KeyDown failed".to_string()))?;
         ev.set_flags(flags);
         ev.post_to_pid(pid);
     }
     {
         let ev = CGEvent::new_keyboard_event(src.clone(), key, false)
-            .map_err(|_| BitFunError::tool("CGEvent KeyUp failed".to_string()))?;
+            .map_err(|_| CoreError::tool("CGEvent KeyUp failed".to_string()))?;
         ev.set_flags(flags);
         ev.post_to_pid(pid);
     }
     // Release modifiers in reverse press order.
     for m in modifiers.iter().rev() {
         let ev = CGEvent::new_keyboard_event(src.clone(), m.keycode(), false)
-            .map_err(|_| BitFunError::tool("CGEvent ModUp failed".to_string()))?;
+            .map_err(|_| CoreError::tool("CGEvent ModUp failed".to_string()))?;
         // Drop this modifier from the flag set as we release it.
         let remaining = modifiers
             .iter()
@@ -443,16 +443,16 @@ pub fn bg_key_chord(pid: i32, modifiers: &[BgModifier], key: u16) -> BitFunResul
 /// Parse a key spec the dispatch layer might pass us, of the form
 /// `"command+shift+p"` / `"return"` / `"escape"` / `"a"`. Returns the
 /// modifier list and the resolved keycode.
-pub fn parse_key_spec(spec: &str) -> BitFunResult<(Vec<BgModifier>, u16)> {
+pub fn parse_key_spec(spec: &str) -> CoreResult<(Vec<BgModifier>, u16)> {
     let mut mods = Vec::new();
     let parts: Vec<&str> = spec.split('+').map(str::trim).collect();
     if parts.is_empty() {
-        return Err(BitFunError::tool("empty key spec".to_string()));
+        return Err(CoreError::tool("empty key spec".to_string()));
     }
     let (last, head) = parts.split_last().unwrap();
     for p in head {
         let m = BgModifier::from_str(p)
-            .ok_or_else(|| BitFunError::tool(format!("unknown modifier in key spec: {}", p)))?;
+            .ok_or_else(|| CoreError::tool(format!("unknown modifier in key spec: {}", p)))?;
         mods.push(m);
     }
     let kc = keycode_for_named(last)
@@ -465,15 +465,15 @@ pub fn parse_key_spec(spec: &str) -> BitFunResult<(Vec<BgModifier>, u16)> {
             }
             keycode_for_char(c)
         })
-        .ok_or_else(|| BitFunError::tool(format!("unknown key in key spec: {}", last)))?;
+        .ok_or_else(|| CoreError::tool(format!("unknown key in key spec: {}", last)))?;
     Ok((mods, kc))
 }
 
 /// Parse the ControlHub/Codex chord shape: `["command", "shift", "p"]`,
 /// `["command+shift+p"]`, or `["return"]`.
-pub fn parse_key_sequence(keys: &[String]) -> BitFunResult<(Vec<BgModifier>, u16)> {
+pub fn parse_key_sequence(keys: &[String]) -> CoreResult<(Vec<BgModifier>, u16)> {
     if keys.is_empty() {
-        return Err(BitFunError::tool("empty key sequence".to_string()));
+        return Err(CoreError::tool("empty key sequence".to_string()));
     }
     if keys.len() == 1 {
         return parse_key_spec(&keys[0]);
@@ -483,7 +483,7 @@ pub fn parse_key_sequence(keys: &[String]) -> BitFunResult<(Vec<BgModifier>, u16
     let mut mods = Vec::with_capacity(head.len());
     for p in head {
         let m = BgModifier::from_str(p)
-            .ok_or_else(|| BitFunError::tool(format!("unknown modifier in key sequence: {}", p)))?;
+            .ok_or_else(|| CoreError::tool(format!("unknown modifier in key sequence: {}", p)))?;
         mods.push(m);
     }
     let kc = keycode_for_named(last)
@@ -495,7 +495,7 @@ pub fn parse_key_sequence(keys: &[String]) -> BitFunResult<(Vec<BgModifier>, u16
             }
             keycode_for_char(c)
         })
-        .ok_or_else(|| BitFunError::tool(format!("unknown key in key sequence: {}", last)))?;
+        .ok_or_else(|| CoreError::tool(format!("unknown key in key sequence: {}", last)))?;
     Ok((mods, kc))
 }
 

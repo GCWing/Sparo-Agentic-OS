@@ -1,6 +1,6 @@
 /// Agentic OS Agentic OS home for the CLI.
 use anyhow::Result;
-use bitfun_core::command::agentic_os::{AgenticOsSnapshot, AgenticOsSnapshotRequest};
+use sparo_core::command::agentic_os::{AgenticOsSnapshot, AgenticOsSnapshotRequest};
 use crossterm::event::{
     self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent,
     MouseEventKind,
@@ -108,8 +108,8 @@ pub struct StartupPage {
 
 impl StartupPage {
     pub async fn load_snapshot(workspace_hint: Option<String>) -> AgenticOsSnapshot {
-        let runtime = match bitfun_core::runtime::initialize_process_runtime(
-            bitfun_core::runtime::ProcessRuntimeOptions {
+        let runtime = match sparo_core::runtime::initialize_process_runtime(
+            sparo_core::runtime::ProcessRuntimeOptions {
                 initialize_i18n: false,
                 initialize_token_usage: false,
             },
@@ -126,7 +126,7 @@ impl StartupPage {
             }
         };
 
-        bitfun_core::command::agentic_os::get_snapshot(
+        sparo_core::command::agentic_os::get_snapshot(
             &runtime.command_context(),
             AgenticOsSnapshotRequest { workspace_hint },
         )
@@ -1650,7 +1650,7 @@ fn startup_composer_block(theme: &Theme, hints: &[(&'static str, &'static str)])
 }
 
 fn live_agents_reference_message() -> String {
-    let registry = bitfun_core::agentic::agents::get_agent_registry();
+    let registry = sparo_core::agentic::agents::get_agent_registry();
     let agents = if let Ok(handle) = tokio::runtime::Handle::try_current() {
         tokio::task::block_in_place(|| handle.block_on(registry.list_agents_info()))
     } else {
@@ -1991,7 +1991,7 @@ fn format_clock(timestamp_ms: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bitfun_core::command::agentic_os::{
+    use sparo_core::command::agentic_os::{
         AgenticOsAppRow, AgenticOsMemoryRow, AgenticOsSessionRow, AgenticOsSnapshot,
         AgenticOsTaskRow, AgenticOsWorkspaceRow,
     };

@@ -509,8 +509,8 @@
       "evolutionLab": "Evolution Lab"
     },
     "coding": {
-      "name": "构造师",
-      "description": "面向软件开发的智能体，擅长规划、编码、调试，并把应用从意图实现到可运行结果。"
+      "name": "BitFun Coder",
+      "description": "默认执行 Agent，负责接住目标、选择下一步动作，并交付经过验证的工作结果。"
     },
     "cowork": {
       "name": "办公助理",

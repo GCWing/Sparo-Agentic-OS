@@ -77,7 +77,7 @@ impl SnapshotService {
             isolation_manager.check_isolation_status().await?
         };
         info!(
-            "Snapshot service initialized: git_isolated={} bitfun_dir={}",
+            "Snapshot service initialized: git_isolated={} sparo_dir={}",
             isolation_status,
             self.runtime_context.runtime_root.display()
         );
@@ -372,7 +372,7 @@ impl SnapshotService {
         };
         Ok(SystemStats {
             git_isolated: isolation_status,
-            bitfun_dir: self.runtime_context.runtime_root.clone(),
+            sparo_dir: self.runtime_context.runtime_root.clone(),
         })
     }
 
@@ -520,7 +520,7 @@ impl SnapshotService {
         &self.workspace_dir
     }
 
-    pub fn get_bitfun_dir(&self) -> &Path {
+    pub fn get_sparo_dir(&self) -> &Path {
         &self.runtime_context.runtime_root
     }
 
@@ -551,5 +551,5 @@ impl SnapshotService {
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct SystemStats {
     pub git_isolated: bool,
-    pub bitfun_dir: PathBuf,
+    pub sparo_dir: PathBuf,
 }

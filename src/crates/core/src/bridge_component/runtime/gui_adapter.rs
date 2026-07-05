@@ -57,5 +57,5 @@ pub trait GuiBridgeAdapter: Send + Sync {
     fn handle(
         &self,
         request: GuiBridgeRequest,
-    ) -> crate::util::errors::BitFunResult<GuiBridgeResponse>;
+    ) -> crate::error::CoreResult<GuiBridgeResponse>;
 }

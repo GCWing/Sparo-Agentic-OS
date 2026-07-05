@@ -61,7 +61,7 @@
     "formatHint": "已根据提供商自动选择，通常无需修改"
   },
   "providers": {
-    "openbitfun": {
+    "opensparo": {
       "name": "Sparo 模型平台",
       "description": "Sparo OS 大模型平台"
     },

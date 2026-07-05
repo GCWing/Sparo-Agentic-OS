@@ -1,6 +1,6 @@
 use super::manager::{WorkspaceInfo, WorkspaceSummary};
 use super::service::{BatchImportResult, WorkspaceHealthStatus, WorkspaceService};
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 use std::sync::Arc;
 
 /// Workspace provider - simplified workspace access API
@@ -10,7 +10,7 @@ pub struct WorkspaceProvider {
 
 impl WorkspaceProvider {
     /// Creates a new workspace provider.
-    pub async fn new() -> BitFunResult<Self> {
+    pub async fn new() -> CoreResult<Self> {
         let service = Arc::new(WorkspaceService::new().await?);
         Ok(Self { service })
     }
@@ -21,12 +21,12 @@ impl WorkspaceProvider {
     }
 
     /// Quick-opens a workspace.
-    pub async fn open(&self, path: &str) -> BitFunResult<WorkspaceInfo> {
+    pub async fn open(&self, path: &str) -> CoreResult<WorkspaceInfo> {
         self.service.quick_open(path).await
     }
 
     /// Quickly creates a new project workspace.
-    pub async fn create_project(&self, path: &str) -> BitFunResult<WorkspaceInfo> {
+    pub async fn create_project(&self, path: &str) -> CoreResult<WorkspaceInfo> {
         self.service
             .open_workspace(std::path::PathBuf::from(path))
             .await
@@ -38,7 +38,7 @@ impl WorkspaceProvider {
     }
 
     /// Remembers a workspace as last-used.
-    pub async fn remember(&self, workspace_id: &str) -> BitFunResult<()> {
+    pub async fn remember(&self, workspace_id: &str) -> CoreResult<()> {
         self.service.remember_workspace_by_id(workspace_id).await
     }
 
@@ -55,7 +55,7 @@ impl WorkspaceProvider {
     }
 
     /// Closes the last-used workspace.
-    pub async fn close_last_used(&self) -> BitFunResult<()> {
+    pub async fn close_last_used(&self) -> CoreResult<()> {
         self.service.close_last_used_workspace().await
     }
 
@@ -96,7 +96,7 @@ impl WorkspaceProvider {
     }
 
     /// Quick cleanup.
-    pub async fn quick_cleanup(&self) -> BitFunResult<WorkspaceCleanupResult> {
+    pub async fn quick_cleanup(&self) -> CoreResult<WorkspaceCleanupResult> {
         let invalid_count = self.service.cleanup_invalid_workspaces().await?;
 
         Ok(WorkspaceCleanupResult {
@@ -109,12 +109,12 @@ impl WorkspaceProvider {
     pub async fn import_directories(
         &self,
         directories: Vec<String>,
-    ) -> BitFunResult<BatchImportResult> {
+    ) -> CoreResult<BatchImportResult> {
         self.service.batch_import_workspaces(directories).await
     }
 
     /// Rescans a workspace.
-    pub async fn rescan(&self, workspace_id: &str) -> BitFunResult<WorkspaceInfo> {
+    pub async fn rescan(&self, workspace_id: &str) -> CoreResult<WorkspaceInfo> {
         self.service.rescan_workspace(workspace_id).await
     }
 }

@@ -3,14 +3,14 @@
 //! Uses the official `rmcp` Rust SDK to implement the MCP Streamable HTTP client transport.
 
 use super::types::{
-    InitializeResult as BitFunInitializeResult, MCPAnnotations, MCPCapability, MCPPrompt,
+    InitializeResult as SparoInitializeResult, MCPAnnotations, MCPCapability, MCPPrompt,
     MCPPromptArgument, MCPPromptMessage, MCPPromptMessageContent, MCPPromptMessageContentBlock,
     MCPResource, MCPResourceContent, MCPResourceIcon, MCPServerInfo, MCPTool, MCPToolAnnotations,
     MCPToolResult, MCPToolResultContent, PromptsGetResult, PromptsListResult, ResourcesListResult,
     ResourcesReadResult, ToolsListResult,
 };
 use crate::service::mcp::auth::build_authorization_manager;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use futures::StreamExt;
 use log::{debug, error, info, warn};
 use reqwest::header::{
@@ -47,11 +47,11 @@ use tokio::sync::Mutex;
 use sse_stream::{Sse, SseStream};
 
 #[derive(Clone)]
-struct BitFunRmcpClientHandler {
+struct SparoRmcpClientHandler {
     info: ClientInfo,
 }
 
-impl ClientHandler for BitFunRmcpClientHandler {
+impl ClientHandler for SparoRmcpClientHandler {
     fn get_info(&self) -> ClientInfo {
         self.info.clone()
     }
@@ -105,20 +105,20 @@ impl ClientHandler for BitFunRmcpClientHandler {
 
 enum ClientState {
     Connecting {
-        transport: Option<StreamableHttpClientTransport<BitFunStreamableHttpClient>>,
+        transport: Option<StreamableHttpClientTransport<SparoStreamableHttpClient>>,
     },
     Ready {
-        service: Arc<RunningService<RoleClient, BitFunRmcpClientHandler>>,
+        service: Arc<RunningService<RoleClient, SparoRmcpClientHandler>>,
     },
 }
 
 #[derive(Clone)]
-struct BitFunStreamableHttpClient {
+struct SparoStreamableHttpClient {
     client: reqwest::Client,
     oauth_manager: Option<Arc<Mutex<AuthorizationManager>>>,
 }
 
-impl BitFunStreamableHttpClient {
+impl SparoStreamableHttpClient {
     async fn resolve_auth_token(
         &self,
         auth_token: Option<String>,
@@ -136,7 +136,7 @@ impl BitFunStreamableHttpClient {
     }
 }
 
-impl StreamableHttpClient for BitFunStreamableHttpClient {
+impl StreamableHttpClient for SparoStreamableHttpClient {
     type Error = reqwest::Error;
 
     async fn get_stream(
@@ -381,7 +381,7 @@ impl RemoteMCPTransport {
         headers: HashMap<String, String>,
         request_timeout: Duration,
         oauth_enabled: bool,
-    ) -> BitFunResult<Self> {
+    ) -> CoreResult<Self> {
         let default_headers = Self::build_default_headers(&headers);
         let oauth_manager = if oauth_enabled
             && !default_headers.contains_key(reqwest::header::AUTHORIZATION)
@@ -412,7 +412,7 @@ impl RemoteMCPTransport {
             });
 
         let transport = StreamableHttpClientTransport::with_client(
-            BitFunStreamableHttpClient {
+            SparoStreamableHttpClient {
                 client: http_client,
                 oauth_manager: oauth_manager.clone(),
             },
@@ -453,11 +453,11 @@ impl RemoteMCPTransport {
 
     async fn service(
         &self,
-    ) -> BitFunResult<Arc<RunningService<RoleClient, BitFunRmcpClientHandler>>> {
+    ) -> CoreResult<Arc<RunningService<RoleClient, SparoRmcpClientHandler>>> {
         let guard = self.state.lock().await;
         match &*guard {
             ClientState::Ready { service } => Ok(Arc::clone(service)),
-            ClientState::Connecting { .. } => Err(BitFunError::MCPError(
+            ClientState::Connecting { .. } => Err(CoreError::Mcp(
                 "Remote MCP client not initialized".to_string(),
             )),
         }
@@ -488,23 +488,23 @@ impl RemoteMCPTransport {
         &self,
         client_name: &str,
         client_version: &str,
-    ) -> BitFunResult<BitFunInitializeResult> {
+    ) -> CoreResult<SparoInitializeResult> {
         let mut guard = self.state.lock().await;
         match &mut *guard {
             ClientState::Ready { service } => {
                 let info = service.peer().peer_info().ok_or_else(|| {
-                    BitFunError::MCPError("Handshake succeeded but server info missing".to_string())
+                    CoreError::Mcp("Handshake succeeded but server info missing".to_string())
                 })?;
                 Ok(map_initialize_result(info))
             }
             ClientState::Connecting { transport } => {
                 let Some(transport) = transport.take() else {
-                    return Err(BitFunError::MCPError(
+                    return Err(CoreError::Mcp(
                         "Remote MCP client already initializing".to_string(),
                     ));
                 };
 
-                let handler = BitFunRmcpClientHandler {
+                let handler = SparoRmcpClientHandler {
                     info: Self::build_client_info(client_name, client_version),
                 };
 
@@ -514,16 +514,16 @@ impl RemoteMCPTransport {
                 let service = tokio::time::timeout(self.request_timeout, transport_fut)
                     .await
                     .map_err(|_| {
-                        BitFunError::Timeout(format!(
+                        CoreError::Timeout(format!(
                             "Timed out handshaking with MCP server after {:?}: {}",
                             self.request_timeout, self.url
                         ))
                     })?
-                    .map_err(|e| BitFunError::MCPError(format!("Handshake failed: {}", e)))?;
+                    .map_err(|e| CoreError::Mcp(format!("Handshake failed: {}", e)))?;
 
                 let service = Arc::new(service);
                 let info = service.peer().peer_info().ok_or_else(|| {
-                    BitFunError::MCPError("Handshake succeeded but server info missing".to_string())
+                    CoreError::Mcp("Handshake succeeded but server info missing".to_string())
                 })?;
 
                 let mut guard = self.state.lock().await;
@@ -537,19 +537,19 @@ impl RemoteMCPTransport {
     }
 
     /// Sends `ping` (heartbeat check).
-    pub async fn ping(&self) -> BitFunResult<()> {
+    pub async fn ping(&self) -> CoreResult<()> {
         let service = self.service().await?;
         let fut = service.send_request(rmcp::model::ClientRequest::PingRequest(
             RequestNoParam::default(),
         ));
         let result = tokio::time::timeout(self.request_timeout, fut)
             .await
-            .map_err(|_| BitFunError::Timeout("MCP ping timeout".to_string()))?
-            .map_err(|e| BitFunError::MCPError(format!("MCP ping failed: {}", e)))?;
+            .map_err(|_| CoreError::Timeout("MCP ping timeout".to_string()))?
+            .map_err(|e| CoreError::Mcp(format!("MCP ping failed: {}", e)))?;
 
         match result {
             rmcp::model::ServerResult::EmptyResult(_) => Ok(()),
-            other => Err(BitFunError::MCPError(format!(
+            other => Err(CoreError::Mcp(format!(
                 "Unexpected ping response: {:?}",
                 other
             ))),
@@ -559,30 +559,30 @@ impl RemoteMCPTransport {
     pub async fn list_resources(
         &self,
         cursor: Option<String>,
-    ) -> BitFunResult<ResourcesListResult> {
+    ) -> CoreResult<ResourcesListResult> {
         let service = self.service().await?;
         let fut = service
             .peer()
             .list_resources(Some(PaginatedRequestParam { cursor }));
         let result = tokio::time::timeout(self.request_timeout, fut)
             .await
-            .map_err(|_| BitFunError::Timeout("MCP resources/list timeout".to_string()))?
-            .map_err(|e| BitFunError::MCPError(format!("MCP resources/list failed: {}", e)))?;
+            .map_err(|_| CoreError::Timeout("MCP resources/list timeout".to_string()))?
+            .map_err(|e| CoreError::Mcp(format!("MCP resources/list failed: {}", e)))?;
         Ok(ResourcesListResult {
             resources: result.resources.into_iter().map(map_resource).collect(),
             next_cursor: result.next_cursor,
         })
     }
 
-    pub async fn read_resource(&self, uri: &str) -> BitFunResult<ResourcesReadResult> {
+    pub async fn read_resource(&self, uri: &str) -> CoreResult<ResourcesReadResult> {
         let service = self.service().await?;
         let fut = service.peer().read_resource(ReadResourceRequestParam {
             uri: uri.to_string(),
         });
         let result = tokio::time::timeout(self.request_timeout, fut)
             .await
-            .map_err(|_| BitFunError::Timeout("MCP resources/read timeout".to_string()))?
-            .map_err(|e| BitFunError::MCPError(format!("MCP resources/read failed: {}", e)))?;
+            .map_err(|_| CoreError::Timeout("MCP resources/read timeout".to_string()))?
+            .map_err(|e| CoreError::Mcp(format!("MCP resources/read failed: {}", e)))?;
         Ok(ResourcesReadResult {
             contents: result
                 .contents
@@ -592,15 +592,15 @@ impl RemoteMCPTransport {
         })
     }
 
-    pub async fn list_prompts(&self, cursor: Option<String>) -> BitFunResult<PromptsListResult> {
+    pub async fn list_prompts(&self, cursor: Option<String>) -> CoreResult<PromptsListResult> {
         let service = self.service().await?;
         let fut = service
             .peer()
             .list_prompts(Some(PaginatedRequestParam { cursor }));
         let result = tokio::time::timeout(self.request_timeout, fut)
             .await
-            .map_err(|_| BitFunError::Timeout("MCP prompts/list timeout".to_string()))?
-            .map_err(|e| BitFunError::MCPError(format!("MCP prompts/list failed: {}", e)))?;
+            .map_err(|_| CoreError::Timeout("MCP prompts/list timeout".to_string()))?
+            .map_err(|e| CoreError::Mcp(format!("MCP prompts/list failed: {}", e)))?;
         Ok(PromptsListResult {
             prompts: result.prompts.into_iter().map(map_prompt).collect(),
             next_cursor: result.next_cursor,
@@ -611,7 +611,7 @@ impl RemoteMCPTransport {
         &self,
         name: &str,
         arguments: Option<HashMap<String, String>>,
-    ) -> BitFunResult<PromptsGetResult> {
+    ) -> CoreResult<PromptsGetResult> {
         let service = self.service().await?;
 
         let arguments = arguments.map(|args| {
@@ -628,8 +628,8 @@ impl RemoteMCPTransport {
         });
         let result = tokio::time::timeout(self.request_timeout, fut)
             .await
-            .map_err(|_| BitFunError::Timeout("MCP prompts/get timeout".to_string()))?
-            .map_err(|e| BitFunError::MCPError(format!("MCP prompts/get failed: {}", e)))?;
+            .map_err(|_| CoreError::Timeout("MCP prompts/get timeout".to_string()))?
+            .map_err(|e| CoreError::Mcp(format!("MCP prompts/get failed: {}", e)))?;
 
         Ok(PromptsGetResult {
             description: result.description,
@@ -641,15 +641,15 @@ impl RemoteMCPTransport {
         })
     }
 
-    pub async fn list_tools(&self, cursor: Option<String>) -> BitFunResult<ToolsListResult> {
+    pub async fn list_tools(&self, cursor: Option<String>) -> CoreResult<ToolsListResult> {
         let service = self.service().await?;
         let fut = service
             .peer()
             .list_tools(Some(PaginatedRequestParam { cursor }));
         let result = tokio::time::timeout(self.request_timeout, fut)
             .await
-            .map_err(|_| BitFunError::Timeout("MCP tools/list timeout".to_string()))?
-            .map_err(|e| BitFunError::MCPError(format!("MCP tools/list failed: {}", e)))?;
+            .map_err(|_| CoreError::Timeout("MCP tools/list timeout".to_string()))?
+            .map_err(|e| CoreError::Mcp(format!("MCP tools/list failed: {}", e)))?;
 
         Ok(ToolsListResult {
             tools: result.tools.into_iter().map(map_tool).collect(),
@@ -661,14 +661,14 @@ impl RemoteMCPTransport {
         &self,
         name: &str,
         arguments: Option<Value>,
-    ) -> BitFunResult<MCPToolResult> {
+    ) -> CoreResult<MCPToolResult> {
         let service = self.service().await?;
 
         let arguments = match arguments {
             None => None,
             Some(Value::Object(map)) => Some(map),
             Some(other) => {
-                return Err(BitFunError::Validation(format!(
+                return Err(CoreError::Validation(format!(
                     "MCP tool arguments must be an object, got: {}",
                     other
                 )));
@@ -681,15 +681,15 @@ impl RemoteMCPTransport {
         });
         let result = tokio::time::timeout(self.request_timeout, fut)
             .await
-            .map_err(|_| BitFunError::Timeout("MCP tools/call timeout".to_string()))?
-            .map_err(|e| BitFunError::MCPError(format!("MCP tools/call failed: {}", e)))?;
+            .map_err(|_| CoreError::Timeout("MCP tools/call timeout".to_string()))?
+            .map_err(|e| CoreError::Mcp(format!("MCP tools/call failed: {}", e)))?;
 
         Ok(map_tool_result(result))
     }
 }
 
-fn map_initialize_result(info: &rmcp::model::ServerInfo) -> BitFunInitializeResult {
-    BitFunInitializeResult {
+fn map_initialize_result(info: &rmcp::model::ServerInfo) -> SparoInitializeResult {
+    SparoInitializeResult {
         protocol_version: info.protocol_version.to_string(),
         capabilities: map_server_capabilities(&info.capabilities),
         server_info: MCPServerInfo {

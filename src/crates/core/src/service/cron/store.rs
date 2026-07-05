@@ -3,7 +3,7 @@
 use super::types::{CronJob, CronJobsFile, CRON_JOBS_VERSION};
 use crate::infrastructure::storage::{PersistenceService, StorageOptions};
 use crate::infrastructure::PathManager;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use std::sync::Arc;
 
 pub struct CronJobStore {
@@ -12,7 +12,7 @@ pub struct CronJobStore {
 }
 
 impl CronJobStore {
-    pub async fn new(path_manager: Arc<PathManager>) -> BitFunResult<Self> {
+    pub async fn new(path_manager: Arc<PathManager>) -> CoreResult<Self> {
         let cron_dir = path_manager.user_cron_dir();
         path_manager.ensure_dir(&cron_dir).await?;
 
@@ -28,11 +28,11 @@ impl CronJobStore {
         self.path_manager.cron_jobs_file()
     }
 
-    pub async fn load(&self) -> BitFunResult<CronJobsFile> {
+    pub async fn load(&self) -> CoreResult<CronJobsFile> {
         let data = self.persistence.load_json::<CronJobsFile>("jobs").await?;
         match data {
             Some(file) if file.version == CRON_JOBS_VERSION => Ok(file),
-            Some(file) => Err(BitFunError::service(format!(
+            Some(file) => Err(CoreError::service(format!(
                 "Unsupported cron jobs file version {} in {:?}",
                 file.version,
                 self.jobs_file_path()
@@ -41,7 +41,7 @@ impl CronJobStore {
         }
     }
 
-    pub async fn save_jobs(&self, jobs: Vec<CronJob>) -> BitFunResult<()> {
+    pub async fn save_jobs(&self, jobs: Vec<CronJob>) -> CoreResult<()> {
         let mut jobs = jobs;
         jobs.sort_by(|left, right| {
             left.created_at_ms

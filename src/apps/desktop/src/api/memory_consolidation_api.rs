@@ -1,4 +1,4 @@
-use bitfun_core::agentic::memory::{
+use sparo_core::agentic::memory::{
     get_global_memory_consolidation_service, ManualMemoryConsolidationRequest,
     MemoryConsolidationSummary,
 };
@@ -17,7 +17,7 @@ fn default_true() -> bool {
 }
 
 fn memory_consolidation_service(
-) -> Result<std::sync::Arc<bitfun_core::agentic::memory::MemoryConsolidationService>, String> {
+) -> Result<std::sync::Arc<sparo_core::agentic::memory::MemoryConsolidationService>, String> {
     get_global_memory_consolidation_service()
         .ok_or_else(|| "Memory consolidation service is not initialized".to_string())
 }

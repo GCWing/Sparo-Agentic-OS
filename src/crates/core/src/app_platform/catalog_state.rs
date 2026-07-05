@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::infrastructure::PathManager;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 
 use super::native::is_native_system_lifecycle_id;
 use super::{
@@ -37,7 +37,7 @@ pub async fn install_product_app(
     path_manager: &PathManager,
     app_id: &str,
     app_version: &str,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     install_product_app_with_source(path_manager, app_id, app_version, None).await
 }
 
@@ -46,7 +46,7 @@ pub async fn install_product_app_with_source(
     app_id: &str,
     app_version: &str,
     installed_from: Option<ProductAppCatalogSourceKind>,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     reject_native_system_lifecycle_target(app_id)?;
     ensure_product_app_package_exists(path_manager, app_id, app_version).await?;
     let mut state = load_catalog_state(path_manager).await?;
@@ -66,13 +66,13 @@ pub async fn set_product_app_enabled(
     app_id: &str,
     app_version: &str,
     enabled: bool,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     reject_native_system_lifecycle_target(app_id)?;
     ensure_product_app_package_exists(path_manager, app_id, app_version).await?;
     let mut state = load_catalog_state(path_manager).await?;
     let visibility = product_app_catalog_visibility(path_manager, app_id, app_version).await?;
     if !product_app_is_installed(state.apps.get(&state_key(app_id, app_version)), visibility) {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Product App is not installed: {}@{}",
             app_id, app_version
         )));
@@ -89,7 +89,7 @@ pub async fn uninstall_product_app(
     path_manager: &PathManager,
     app_id: &str,
     app_version: &str,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     reject_native_system_lifecycle_target(app_id)?;
     validate_catalog_identity("app_id", app_id)?;
     validate_catalog_identity("app_version", app_version)?;
@@ -109,7 +109,7 @@ pub async fn product_app_installed_source_kind(
     path_manager: &PathManager,
     app_id: &str,
     app_version: &str,
-) -> BitFunResult<Option<ProductAppCatalogSourceKind>> {
+) -> CoreResult<Option<ProductAppCatalogSourceKind>> {
     validate_catalog_identity("app_id", app_id)?;
     validate_catalog_identity("app_version", app_version)?;
     let state = load_catalog_state(path_manager).await?;
@@ -122,7 +122,7 @@ pub async fn product_app_installed_source_kind(
 pub async fn apply_product_app_catalog_source_state(
     path_manager: &PathManager,
     apps: Vec<ResolvedProductApp>,
-) -> BitFunResult<Vec<ResolvedProductApp>> {
+) -> CoreResult<Vec<ResolvedProductApp>> {
     let state = load_catalog_state(path_manager).await?;
     Ok(apps
         .into_iter()
@@ -138,7 +138,7 @@ pub async fn apply_product_app_catalog_source_state(
 pub async fn apply_product_app_catalog_state(
     path_manager: &PathManager,
     apps: Vec<ResolvedProductApp>,
-) -> BitFunResult<Vec<ResolvedProductApp>> {
+) -> CoreResult<Vec<ResolvedProductApp>> {
     let state = load_catalog_state(path_manager).await?;
     let mut projected = Vec::with_capacity(apps.len());
     for mut app in apps {
@@ -155,7 +155,7 @@ pub async fn apply_product_app_catalog_state(
 
 pub(crate) async fn load_product_app_catalog_state(
     path_manager: &PathManager,
-) -> BitFunResult<ProductAppCatalogState> {
+) -> CoreResult<ProductAppCatalogState> {
     load_catalog_state(path_manager).await
 }
 
@@ -309,14 +309,14 @@ async fn ensure_product_app_package_exists(
     path_manager: &PathManager,
     app_id: &str,
     app_version: &str,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     validate_catalog_identity("app_id", app_id)?;
     validate_catalog_identity("app_version", app_version)?;
     let app_json = path_manager
         .system_product_app_version_dir(app_id, app_version)
         .join("app.json");
     if !app_json.exists() {
-        return Err(BitFunError::NotFound(format!(
+        return Err(CoreError::NotFound(format!(
             "Product App package not found: {}@{}",
             app_id, app_version
         )));
@@ -328,44 +328,44 @@ async fn product_app_catalog_visibility(
     path_manager: &PathManager,
     app_id: &str,
     app_version: &str,
-) -> BitFunResult<AppCatalogVisibility> {
+) -> CoreResult<AppCatalogVisibility> {
     validate_catalog_identity("app_id", app_id)?;
     validate_catalog_identity("app_version", app_version)?;
     let app_json = path_manager
         .system_product_app_version_dir(app_id, app_version)
         .join("app.json");
     let bytes = tokio::fs::read(&app_json).await.map_err(|error| {
-        BitFunError::io(format!("Failed to read {}: {}", app_json.display(), error))
+        CoreError::io(format!("Failed to read {}: {}", app_json.display(), error))
     })?;
-    let value: Value = serde_json::from_slice(&bytes).map_err(BitFunError::from)?;
+    let value: Value = serde_json::from_slice(&bytes).map_err(CoreError::from)?;
     value
         .get("catalogVisibility")
         .cloned()
         .map(serde_json::from_value)
         .transpose()
-        .map_err(BitFunError::from)?
+        .map_err(CoreError::from)?
         .ok_or_else(|| {
-            BitFunError::validation(format!(
+            CoreError::validation(format!(
                 "Product App package {}@{} does not declare catalogVisibility",
                 app_id, app_version
             ))
         })
 }
 
-async fn load_catalog_state(path_manager: &PathManager) -> BitFunResult<ProductAppCatalogState> {
+async fn load_catalog_state(path_manager: &PathManager) -> CoreResult<ProductAppCatalogState> {
     let path = path_manager.product_app_catalog_state_path();
     if !path.exists() {
         return Ok(ProductAppCatalogState::default());
     }
     let bytes = tokio::fs::read(&path).await.map_err(|error| {
-        BitFunError::io(format!(
+        CoreError::io(format!(
             "Failed to read Product App catalog state {}: {}",
             path.display(),
             error
         ))
     })?;
     serde_json::from_slice(&bytes).map_err(|error| {
-        BitFunError::parse(format!(
+        CoreError::parse(format!(
             "Invalid Product App catalog state {}: {}",
             path.display(),
             error
@@ -376,20 +376,20 @@ async fn load_catalog_state(path_manager: &PathManager) -> BitFunResult<ProductA
 async fn save_catalog_state(
     path_manager: &PathManager,
     state: &ProductAppCatalogState,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     let path = path_manager.product_app_catalog_state_path();
     if let Some(parent) = path.parent() {
         tokio::fs::create_dir_all(parent).await.map_err(|error| {
-            BitFunError::io(format!(
+            CoreError::io(format!(
                 "Failed to create Product App catalog state dir {}: {}",
                 parent.display(),
                 error
             ))
         })?;
     }
-    let bytes = serde_json::to_vec_pretty(state).map_err(BitFunError::from)?;
+    let bytes = serde_json::to_vec_pretty(state).map_err(CoreError::from)?;
     tokio::fs::write(&path, bytes).await.map_err(|error| {
-        BitFunError::io(format!(
+        CoreError::io(format!(
             "Failed to write Product App catalog state {}: {}",
             path.display(),
             error
@@ -405,10 +405,10 @@ fn is_false(value: &bool) -> bool {
     !*value
 }
 
-fn reject_native_system_lifecycle_target(app_id: &str) -> BitFunResult<()> {
+fn reject_native_system_lifecycle_target(app_id: &str) -> CoreResult<()> {
     validate_catalog_identity("app_id", app_id)?;
     if is_native_system_lifecycle_id(app_id) {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Native system apps are always available and cannot be installed, uninstalled, enabled, or disabled: {}",
             app_id
         )));
@@ -416,9 +416,9 @@ fn reject_native_system_lifecycle_target(app_id: &str) -> BitFunResult<()> {
     Ok(())
 }
 
-fn validate_catalog_identity(label: &str, value: &str) -> BitFunResult<()> {
+fn validate_catalog_identity(label: &str, value: &str) -> CoreResult<()> {
     if value.trim().is_empty() {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "{} cannot be empty",
             label
         )));
@@ -427,7 +427,7 @@ fn validate_catalog_identity(label: &str, value: &str) -> BitFunResult<()> {
         .chars()
         .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '-' || ch == '.')
     {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "{} can only contain ASCII letters, numbers, '.', '-' and '_'",
             label
         )));

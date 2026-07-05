@@ -1,15 +1,15 @@
 //! MCP API
 
 use crate::api::app_state::AppState;
-use bitfun_core::service::mcp::auth::{
+use sparo_core::service::mcp::auth::{
     has_stored_oauth_credentials, MCPRemoteOAuthSessionSnapshot,
 };
-use bitfun_core::service::mcp::config::MCPConfigService;
-use bitfun_core::service::mcp::protocol::{
+use sparo_core::service::mcp::config::MCPConfigService;
+use sparo_core::service::mcp::protocol::{
     MCPPrompt, MCPResource, PromptsGetResult, ResourcesReadResult,
 };
-use bitfun_core::service::mcp::MCPServerType;
-use bitfun_core::service::runtime::{RuntimeManager, RuntimeSource};
+use sparo_core::service::mcp::MCPServerType;
+use sparo_core::service::runtime::{RuntimeManager, RuntimeSource};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tauri::State;
@@ -82,7 +82,7 @@ pub struct GetMCPPromptRequest {
 }
 
 async fn load_mcp_resources(
-    mcp_service: &bitfun_core::service::mcp::MCPService,
+    mcp_service: &sparo_core::service::mcp::MCPService,
     server_id: &str,
     refresh: bool,
 ) -> Result<Vec<MCPResource>, String> {
@@ -101,7 +101,7 @@ async fn load_mcp_resources(
 }
 
 async fn load_mcp_prompts(
-    mcp_service: &bitfun_core::service::mcp::MCPService,
+    mcp_service: &sparo_core::service::mcp::MCPService,
     server_id: &str,
     refresh: bool,
 ) -> Result<Vec<MCPPrompt>, String> {
@@ -186,7 +186,7 @@ pub async fn get_mcp_servers(state: State<'_, AppState>) -> Result<Vec<MCPServer
         };
 
         let (command, command_available, command_source, command_resolved_path) =
-            if transport == bitfun_core::service::mcp::MCPServerTransport::Stdio {
+            if transport == sparo_core::service::mcp::MCPServerTransport::Stdio {
                 if let Some(command) = config.command.clone() {
                     let capability = runtime_manager
                         .as_ref()
@@ -544,7 +544,7 @@ pub async fn get_mcp_tool_ui_uri(
     if !tool_name.starts_with("mcp__") {
         return Ok(None);
     }
-    let registry = bitfun_core::agentic::tools::registry::get_global_tool_registry();
+    let registry = sparo_core::agentic::tools::registry::get_global_tool_registry();
     let guard = registry.read().await;
     let tool = guard.get_tool(&tool_name);
     drop(guard);

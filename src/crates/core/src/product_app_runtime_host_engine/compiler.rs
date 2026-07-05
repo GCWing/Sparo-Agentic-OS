@@ -13,7 +13,7 @@ use crate::product_app_runtime_host_engine::types::{
     ProductAppRuntimeHostRuntimeState, ProductAppRuntimeHostSource,
     ProductAppRuntimeHostSourceFileKind,
 };
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use base64::{engine::general_purpose, Engine as _};
 use std::collections::BTreeMap;
 
@@ -28,7 +28,7 @@ pub fn compile(
     app_data_dir: &str,
     workspace_dir: &str,
     theme: &str,
-) -> BitFunResult<String> {
+) -> CoreResult<String> {
     let platform = if cfg!(target_os = "windows") {
         "win32"
     } else if cfg!(target_os = "macos") {
@@ -177,7 +177,7 @@ fn script_src_value(open_tag: &str) -> Option<String> {
     Some(after_equals[..end].to_string())
 }
 
-fn build_user_script_tag(source: &ProductAppRuntimeHostSource) -> BitFunResult<String> {
+fn build_user_script_tag(source: &ProductAppRuntimeHostSource) -> CoreResult<String> {
     match source.entry.build_mode {
         ProductAppRuntimeHostBuildMode::NativeEsm | ProductAppRuntimeHostBuildMode::Bundled => {
             let entry = source.entry.ui_entry.trim();
@@ -210,7 +210,7 @@ fn build_style_content(source: &ProductAppRuntimeHostSource) -> String {
 fn resolve_ui_entry_code(
     source: &ProductAppRuntimeHostSource,
     entry: &str,
-) -> BitFunResult<String> {
+) -> CoreResult<String> {
     if entry.is_empty() || entry == "ui.js" {
         return Ok(source.ui_js.clone());
     }
@@ -220,7 +220,7 @@ fn resolve_ui_entry_code(
         .find(|file| normalize_source_path(&file.path) == normalize_source_path(entry))
         .map(|file| file.content.clone())
         .ok_or_else(|| {
-            BitFunError::validation(format!(
+            CoreError::validation(format!(
                 "Product App Runtime Host UI entry not found: {}",
                 entry
             ))
@@ -231,7 +231,7 @@ fn build_embedded_esm_entry(
     source: &ProductAppRuntimeHostSource,
     entry: &str,
     entry_code: &str,
-) -> BitFunResult<String> {
+) -> CoreResult<String> {
     let mut modules: BTreeMap<String, String> = source
         .source_files
         .iter()
@@ -261,10 +261,10 @@ fn build_embedded_esm_entry(
         })
         .collect();
     let import_map_json = serde_json::to_string(&serde_json::json!({ "imports": imports }))
-        .map_err(BitFunError::from)?
+        .map_err(CoreError::from)?
         .replace("</script", "<\\/script");
     let entry_specifier = serde_json::to_string(&embedded_module_specifier(&entry_path))
-        .map_err(BitFunError::from)?;
+        .map_err(CoreError::from)?;
 
     Ok(format!(
         "<script type=\"importmap\">{}</script>\n<script type=\"module\">\nimport {};\n</script>",
@@ -406,12 +406,12 @@ fn inject_data_theme_type(html: &str, theme: &str) -> String {
     html.to_string()
 }
 
-fn inject_into_head(html: &str, content: &str) -> BitFunResult<String> {
+fn inject_into_head(html: &str, content: &str) -> CoreResult<String> {
     if let Some(head_start) = html.find("<head") {
         let after_head_open = if let Some(close_bracket) = html[head_start..].find('>') {
             head_start + close_bracket + 1
         } else {
-            return Err(BitFunError::validation(
+            return Err(CoreError::validation(
                 "Invalid HTML: <head> not properly opened".to_string(),
             ));
         };
@@ -424,7 +424,7 @@ fn inject_into_head(html: &str, content: &str) -> BitFunResult<String> {
         let after_html_open = if let Some(close_bracket) = html[html_open..].find('>') {
             html_open + close_bracket + 1
         } else {
-            return Err(BitFunError::validation(
+            return Err(CoreError::validation(
                 "Invalid HTML: <html> not properly opened".to_string(),
             ));
         };

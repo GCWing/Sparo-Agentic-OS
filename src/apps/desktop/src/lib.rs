@@ -25,10 +25,10 @@ pub mod theme;
 pub mod tray;
 pub mod window;
 
-use bitfun_core::infrastructure::constants::{
+use sparo_core::infrastructure::constants::{
     APP_PRODUCT_NAME, EVENT_SYSTEM_NOTIFICATION, WINDOW_MAIN,
 };
-use bitfun_transport::TauriTransportAdapter;
+use sparo_transport::TauriTransportAdapter;
 use serde::Deserialize;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -80,13 +80,13 @@ pub(crate) fn wants_exit() -> bool {
 /// `tauri::State<CoordinatorState>` argument.
 #[derive(Clone)]
 pub struct CoordinatorState {
-    pub coordinator: Arc<bitfun_core::agentic::coordination::ConversationCoordinator>,
+    pub coordinator: Arc<sparo_core::agentic::coordination::ConversationCoordinator>,
 }
 
 /// Dialog scheduler state, primary entry point for user messages.
 #[derive(Clone)]
 pub struct SchedulerState {
-    pub scheduler: Arc<bitfun_core::agentic::coordination::DialogScheduler>,
+    pub scheduler: Arc<sparo_core::agentic::coordination::DialogScheduler>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -98,7 +98,7 @@ struct WebdriverBridgeResultRequest {
 #[tauri::command]
 async fn webdriver_bridge_result(request: WebdriverBridgeResultRequest) -> Result<(), String> {
     log::debug!("webdriver_bridge_result command invoked");
-    bitfun_webdriver::handle_bridge_result(request.payload)
+    sparo_webdriver::handle_bridge_result(request.payload)
 }
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -126,7 +126,7 @@ pub fn run() {
     let container = AppContainer::new(boot.clone());
     container.startup_log_level.store(Arc::new(startup_level));
 
-    let path_manager = bitfun_core::infrastructure::get_path_manager_arc();
+    let path_manager = sparo_core::infrastructure::get_path_manager_arc();
 
     let container_setup = container.clone();
     let container_close = container.clone();
@@ -255,6 +255,7 @@ pub fn run() {
             api::agentic_api::list_agents,
             api::agentic_os_api::agentic_os_list_works,
             api::agentic_os_api::agentic_os_get_work,
+            api::agentic_os_api::agentic_os_delete_work,
             api::agentic_os_api::agentic_os_get_work_execution_graph,
             api::agentic_os_api::agentic_os_create_work,
             api::agentic_os_api::agentic_os_resolve_app_work,
@@ -454,6 +455,7 @@ pub fn run() {
             search_skill_market,
             download_skill_market,
             set_agent_skill_disabled,
+            set_agent_skill_suite_disabled,
             replace_agent_skill_selection,
             validate_skill_path,
             add_skill,
@@ -705,7 +707,7 @@ fn spawn_boot_pipeline(
             });
         }
 
-        bitfun_webdriver::maybe_start(app_handle.clone());
+        sparo_webdriver::maybe_start(app_handle.clone());
 
         #[cfg(target_os = "macos")]
         macos_menubar_initial_setup(app_handle.clone());
@@ -745,7 +747,7 @@ fn macos_menubar_initial_setup(app_handle: tauri::AppHandle) {
 }
 
 async fn wire_infrastructure_events(transport: Arc<TauriTransportAdapter>) {
-    use bitfun_core::{infrastructure, service};
+    use sparo_core::{infrastructure, service};
 
     let emitter: Arc<dyn infrastructure::events::EventEmitter> =
         Arc::new(infrastructure::events::TransportEmitter::new(transport));
@@ -772,7 +774,7 @@ fn handle_main_close(
             .is_ok()
         {
             log::info!("Main window close requested with wants_exit, cleaning up");
-            bitfun_core::util::process_manager::cleanup_all_processes();
+            sparo_core::util::process_manager::cleanup_all_processes();
             api::remote_connect_api::cleanup_on_exit();
             window.app_handle().exit(0);
         } else {
@@ -836,7 +838,7 @@ fn register_bundled_mobile_web(app: &tauri::AppHandle) {
 
 /// Show a one-time OS notification telling the user the app is in the tray.
 async fn maybe_show_tray_hint(app: &tauri::AppHandle) {
-    use bitfun_core::service::config::get_global_config_service;
+    use sparo_core::service::config::get_global_config_service;
     const HINT_KEY: &str = "app.tray.hide_to_tray_hint_shown";
 
     let already_shown = if let Ok(config_service) = get_global_config_service().await {
@@ -866,7 +868,7 @@ async fn maybe_show_tray_hint(app: &tauri::AppHandle) {
 }
 
 async fn read_close_to_tray_pref() -> bool {
-    use bitfun_core::service::config::{get_global_config_service, GlobalConfig};
+    use sparo_core::service::config::{get_global_config_service, GlobalConfig};
     if let Ok(svc) = get_global_config_service().await {
         svc.get_config::<GlobalConfig>(None)
             .await
@@ -880,7 +882,7 @@ async fn read_close_to_tray_pref() -> bool {
 // ─────────────────────────────────────────────── Config listeners ───
 
 fn spawn_runtime_log_level_listener(default_level: log::LevelFilter) {
-    use bitfun_core::service::config::{subscribe_config_updates, ConfigUpdateEvent};
+    use sparo_core::service::config::{subscribe_config_updates, ConfigUpdateEvent};
     tauri::async_runtime::spawn(async move {
         if let Some(mut receiver) = subscribe_config_updates() {
             loop {
@@ -914,7 +916,7 @@ fn spawn_runtime_log_level_listener(default_level: log::LevelFilter) {
 }
 
 async fn resolve_runtime_log_level(default_level: log::LevelFilter) -> log::LevelFilter {
-    use bitfun_core::service::config::get_global_config_service;
+    use sparo_core::service::config::get_global_config_service;
     if let Ok(config_service) = get_global_config_service().await {
         if let Ok(config_level) = config_service
             .get_config::<String>(Some("app.logging.level"))
@@ -934,18 +936,18 @@ async fn resolve_runtime_log_level(default_level: log::LevelFilter) -> log::Leve
 }
 
 fn spawn_ingest_server_with_config_listener() {
-    use bitfun_core::infrastructure::debug_log::IngestServerManager;
-    use bitfun_core::service::config::{
+    use sparo_core::infrastructure::debug_log::IngestServerManager;
+    use sparo_core::service::config::{
         get_global_config_service, subscribe_config_updates, ConfigUpdateEvent,
     };
-    use bitfun_core::service::workspace::get_global_workspace_service;
+    use sparo_core::service::workspace::get_global_workspace_service;
 
     tauri::async_runtime::spawn(async move {
         let (initial_config, configured_port) = if let Ok(config_service) =
             get_global_config_service().await
         {
             if let Ok(config) = config_service
-                .get_config::<bitfun_core::service::config::GlobalConfig>(None)
+                .get_config::<sparo_core::service::config::GlobalConfig>(None)
                 .await
             {
                 let debug_config = config
@@ -958,7 +960,7 @@ fn spawn_ingest_server_with_config_listener() {
                     .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
                 (
                     Some(
-                        bitfun_core::infrastructure::debug_log::IngestServerConfig::from_debug_mode_config(
+                        sparo_core::infrastructure::debug_log::IngestServerConfig::from_debug_mode_config(
                             debug_config.ingest_port,
                             workspace_path.join(&debug_config.log_path),
                         ),
@@ -1020,7 +1022,7 @@ fn spawn_ingest_server_with_config_listener() {
                     Ok(ConfigUpdateEvent::ConfigReloaded) => {
                         if let Ok(config_service) = get_global_config_service().await {
                             if let Ok(config) = config_service
-                                .get_config::<bitfun_core::service::config::GlobalConfig>(None)
+                                .get_config::<sparo_core::service::config::GlobalConfig>(None)
                                 .await
                             {
                                 let debug_config = config

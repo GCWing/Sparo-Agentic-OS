@@ -13,7 +13,7 @@ use crate::bridge_component::{
     BridgeComponentPermissions, BridgeComponentRunStatus, BridgeComponentRuntime,
     BridgeComponentRuntimeLanguage, BridgeComponentSurfaces, BridgeComponentToolDefinition,
 };
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
@@ -47,12 +47,12 @@ impl BridgeComponentRuntimeToolAdapter {
         }
     }
 
-    fn select_action_and_payload(&self, input: &Value) -> BitFunResult<(String, Value)> {
+    fn select_action_and_payload(&self, input: &Value) -> CoreResult<(String, Value)> {
         let requested_action = input.get("action").and_then(Value::as_str);
         let action = requested_action.unwrap_or(&self.tool.action).to_string();
         let allowed_actions = self.allowed_actions();
         if !allowed_actions.iter().any(|allowed| *allowed == action) {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Bridge Component tool '{}' does not allow action '{}'. Allowed actions: {}",
                 self.tool.name,
                 action,
@@ -109,7 +109,7 @@ impl Tool for BridgeComponentRuntimeToolAdapter {
         &self.name
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(self.tool.description.clone())
     }
 
@@ -137,7 +137,7 @@ impl Tool for BridgeComponentRuntimeToolAdapter {
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let (action, payload) = self.select_action_and_payload(input)?;
         let workspace_path = context
             .workspace_root()
@@ -162,7 +162,7 @@ impl Tool for BridgeComponentRuntimeToolAdapter {
         .await?;
 
         if result.status == BridgeComponentRunStatus::Failed {
-            return Err(BitFunError::tool(bridge_run_failure_message(
+            return Err(CoreError::tool(bridge_run_failure_message(
                 &self.tool.name,
                 &result,
             )));
@@ -187,12 +187,12 @@ impl Tool for BridgeComponentRuntimeToolAdapter {
     }
 }
 
-fn manifest_from_input(input: &Value) -> BitFunResult<BridgeComponentManifest> {
+fn manifest_from_input(input: &Value) -> CoreResult<BridgeComponentManifest> {
     let manifest_value = input
         .get("manifest")
         .cloned()
         .unwrap_or_else(|| input.clone());
-    serde_json::from_value(manifest_value).map_err(BitFunError::from)
+    serde_json::from_value(manifest_value).map_err(CoreError::from)
 }
 
 fn bridge_manifest_schema() -> Value {
@@ -269,7 +269,7 @@ fn standard_action(name: &str, description: &str) -> BridgeComponentAction {
     }
 }
 
-fn bridge_kind(value: &str) -> BitFunResult<BridgeComponentKind> {
+fn bridge_kind(value: &str) -> CoreResult<BridgeComponentKind> {
     match value {
         "cli" => Ok(BridgeComponentKind::Cli),
         "sdk" => Ok(BridgeComponentKind::Sdk),
@@ -277,7 +277,7 @@ fn bridge_kind(value: &str) -> BitFunResult<BridgeComponentKind> {
         "service" => Ok(BridgeComponentKind::Service),
         "mcp" => Ok(BridgeComponentKind::Mcp),
         "daemon" => Ok(BridgeComponentKind::Daemon),
-        other => Err(BitFunError::validation(format!(
+        other => Err(CoreError::validation(format!(
             "Unsupported Bridge template kind: {other}"
         ))),
     }
@@ -294,7 +294,7 @@ fn runtime_language_for_kind(kind: BridgeComponentKind) -> BridgeComponentRuntim
     }
 }
 
-fn write_text(path: &Path, text: &str) -> BitFunResult<()> {
+fn write_text(path: &Path, text: &str) -> CoreResult<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
@@ -419,7 +419,7 @@ impl Tool for ListBridgeComponentsTool {
     fn name(&self) -> &str {
         "ListBridgeComponents"
     }
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok("List installed Bridge Components and their declared capabilities.".to_string())
     }
     fn input_schema(&self) -> Value {
@@ -432,7 +432,7 @@ impl Tool for ListBridgeComponentsTool {
         &self,
         _input: &Value,
         _context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let apps = BridgeComponentManager::list()?;
         Ok(vec![ToolResult::ok(
             json!({ "apps": apps }),
@@ -448,7 +448,7 @@ impl Tool for GetBridgeComponentTool {
     fn name(&self) -> &str {
         "GetBridgeComponent"
     }
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok("Read a complete Bridge Component package manifest.".to_string())
     }
     fn input_schema(&self) -> Value {
@@ -466,11 +466,11 @@ impl Tool for GetBridgeComponentTool {
         &self,
         input: &Value,
         _context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let id = input
             .get("id")
             .and_then(Value::as_str)
-            .ok_or_else(|| BitFunError::validation("id is required"))?;
+            .ok_or_else(|| CoreError::validation("id is required"))?;
         let package = BridgeComponentManager::get(id)?;
         Ok(vec![ToolResult::ok(
             json!({ "package": package }),
@@ -486,7 +486,7 @@ impl Tool for ValidateBridgeComponentPackageTool {
     fn name(&self) -> &str {
         "ValidateBridgeComponentPackage"
     }
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok("Validate a Bridge Component manifest before writing it.".to_string())
     }
     fn input_schema(&self) -> Value {
@@ -499,7 +499,7 @@ impl Tool for ValidateBridgeComponentPackageTool {
         &self,
         input: &Value,
         _context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let mut manifest = manifest_from_input(input)?;
         BridgeComponentManager::validate_manifest(&mut manifest)?;
         Ok(vec![ToolResult::ok(
@@ -516,7 +516,7 @@ impl Tool for CreateBridgeComponentTool {
     fn name(&self) -> &str {
         "CreateBridgeComponent"
     }
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok("Create and register a Bridge Component manifest.".to_string())
     }
     fn input_schema(&self) -> Value {
@@ -529,7 +529,7 @@ impl Tool for CreateBridgeComponentTool {
         &self,
         input: &Value,
         _context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let manifest = manifest_from_input(input)?;
         let overwrite = input
             .get("overwrite")
@@ -550,7 +550,7 @@ impl Tool for UpdateBridgeComponentTool {
     fn name(&self) -> &str {
         "UpdateBridgeComponent"
     }
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok("Update an existing Bridge Component manifest.".to_string())
     }
     fn input_schema(&self) -> Value {
@@ -563,7 +563,7 @@ impl Tool for UpdateBridgeComponentTool {
         &self,
         input: &Value,
         _context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let manifest = manifest_from_input(input)?;
         let package = BridgeComponentManager::create_or_update(manifest, true)?;
         Ok(vec![ToolResult::ok(
@@ -580,7 +580,7 @@ impl Tool for CreateBridgeComponentTemplateTool {
     fn name(&self) -> &str {
         "CreateBridgeComponentTemplate"
     }
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(
             "Create a Bridge Component template package and optionally generate its Agent Component wrapper."
                 .to_string(),
@@ -612,16 +612,16 @@ impl Tool for CreateBridgeComponentTemplateTool {
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let name = input
             .get("name")
             .and_then(Value::as_str)
-            .ok_or_else(|| BitFunError::validation("name is required"))?
+            .ok_or_else(|| CoreError::validation("name is required"))?
             .trim();
         let description = input
             .get("description")
             .and_then(Value::as_str)
-            .ok_or_else(|| BitFunError::validation("description is required"))?
+            .ok_or_else(|| CoreError::validation("description is required"))?
             .trim();
         let kind = bridge_kind(input.get("kind").and_then(Value::as_str).unwrap_or("sdk"))?;
         let bridge_id = input

@@ -80,7 +80,7 @@
     "advancedHide": "Hide advanced settings",
     "simpleHint": "Choose a provider, paste your API key, pick a model — done.",
     "providers": {
-      "openbitfun": {
+      "opensparo": {
         "name": "Sparo Model Platform",
         "description": "Sparo OS model platform"
       },
@@ -213,9 +213,9 @@
     "themeNames": {
       "dark": "Dark",
       "light": "Light",
-      "bitfun-china-style": "Ink Charm",
-      "bitfun-china-night": "Ink Night",
-      "bitfun-cyber": "Cyber",
+      "sparo-china-style": "Ink Charm",
+      "sparo-china-night": "Ink Night",
+      "sparo-cyber": "Cyber",
       "slate": "Slate"
     }
   },

@@ -5,7 +5,8 @@ use crate::service::workspace_session::{
     local_workspace_stable_storage_id, normalize_local_workspace_root_for_stable_id,
     LOCAL_WORKSPACE_SCOPE_HOST,
 };
-use crate::util::{errors::*, FrontMatterMarkdown};
+use crate::error::{CoreError, CoreResult};
+use crate::util::FrontMatterMarkdown;
 use log::warn;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -169,7 +170,7 @@ impl Default for WorkspaceOpenOptions {
 
 impl WorkspaceInfo {
     /// Creates a new workspace record.
-    pub async fn new(root_path: PathBuf, options: WorkspaceOpenOptions) -> BitFunResult<Self> {
+    pub async fn new(root_path: PathBuf, options: WorkspaceOpenOptions) -> CoreResult<Self> {
         let default_name = root_path
             .file_name()
             .and_then(|n| n.to_str())
@@ -179,7 +180,7 @@ impl WorkspaceInfo {
 
         let now = chrono::Utc::now();
         let (canonical_pb, norm_str) =
-            canonicalize_local_workspace_root(&root_path).map_err(BitFunError::service)?;
+            canonicalize_local_workspace_root(&root_path).map_err(CoreError::service)?;
         let id = local_workspace_stable_storage_id(&norm_str);
 
         let mut workspace = Self {
@@ -300,19 +301,19 @@ impl WorkspaceManager {
     }
 
     /// Reassigns a workspace id (e.g. migrating from UUID to `local_*` stable id).
-    pub fn rekey_workspace_id(&mut self, old_id: &str, new_id: String) -> BitFunResult<()> {
+    pub fn rekey_workspace_id(&mut self, old_id: &str, new_id: String) -> CoreResult<()> {
         if old_id == new_id.as_str() {
             return Ok(());
         }
         let Some(mut workspace) = self.workspaces.remove(old_id) else {
-            return Err(BitFunError::service(format!(
+            return Err(CoreError::service(format!(
                 "rekey_workspace_id: workspace not found: {}",
                 old_id
             )));
         };
         if self.workspaces.contains_key(&new_id) {
             self.workspaces.insert(old_id.to_string(), workspace);
-            return Err(BitFunError::service(format!(
+            return Err(CoreError::service(format!(
                 "rekey_workspace_id: target id already exists: {}",
                 new_id
             )));
@@ -346,7 +347,7 @@ impl WorkspaceManager {
     }
 
     /// Opens a workspace.
-    pub async fn open_workspace(&mut self, path: PathBuf) -> BitFunResult<WorkspaceInfo> {
+    pub async fn open_workspace(&mut self, path: PathBuf) -> CoreResult<WorkspaceInfo> {
         self.open_workspace_with_options(path, WorkspaceOpenOptions::default())
             .await
     }
@@ -356,7 +357,7 @@ impl WorkspaceManager {
         &mut self,
         path: PathBuf,
         options: WorkspaceOpenOptions,
-    ) -> BitFunResult<WorkspaceInfo> {
+    ) -> CoreResult<WorkspaceInfo> {
         self.upsert_workspace_with_options(path, options, true)
             .await
     }
@@ -366,7 +367,7 @@ impl WorkspaceManager {
         &mut self,
         path: PathBuf,
         options: WorkspaceOpenOptions,
-    ) -> BitFunResult<WorkspaceInfo> {
+    ) -> CoreResult<WorkspaceInfo> {
         self.upsert_workspace_with_options(path, options, false)
             .await
     }
@@ -376,16 +377,16 @@ impl WorkspaceManager {
         path: PathBuf,
         options: WorkspaceOpenOptions,
         keep_opened: bool,
-    ) -> BitFunResult<WorkspaceInfo> {
+    ) -> CoreResult<WorkspaceInfo> {
         if !path.exists() {
-            return Err(BitFunError::service(format!(
+            return Err(CoreError::service(format!(
                 "Workspace path does not exist: {:?}",
                 path
             )));
         }
 
         if !path.is_dir() {
-            return Err(BitFunError::service(format!(
+            return Err(CoreError::service(format!(
                 "Workspace path is not a directory: {:?}",
                 path
             )));
@@ -394,7 +395,7 @@ impl WorkspaceManager {
         let existing_workspace_id = {
             let canon_norm = match normalize_local_workspace_root_for_stable_id(&path) {
                 Ok(n) => n,
-                Err(e) => return Err(BitFunError::service(e)),
+                Err(e) => return Err(CoreError::service(e)),
             };
             let stable_local_id = local_workspace_stable_storage_id(&canon_norm);
 
@@ -447,7 +448,7 @@ impl WorkspaceManager {
                 self.touch_workspace_access(&workspace_id, options.add_to_recent);
             }
             return self.workspaces.get(&workspace_id).cloned().ok_or_else(|| {
-                BitFunError::service(format!(
+                CoreError::service(format!(
                     "Workspace '{}' disappeared after selecting it",
                     workspace_id
                 ))
@@ -475,7 +476,7 @@ impl WorkspaceManager {
     }
 
     /// Closes the last-used workspace if it is still opened.
-    pub fn close_last_used_workspace(&mut self) -> BitFunResult<()> {
+    pub fn close_last_used_workspace(&mut self) -> CoreResult<()> {
         let last_used_workspace_id = self.last_used_workspace_id.clone();
         match last_used_workspace_id {
             Some(workspace_id) => self.close_workspace(&workspace_id),
@@ -484,9 +485,9 @@ impl WorkspaceManager {
     }
 
     /// Closes the specified workspace.
-    pub fn close_workspace(&mut self, workspace_id: &str) -> BitFunResult<()> {
+    pub fn close_workspace(&mut self, workspace_id: &str) -> CoreResult<()> {
         if !self.workspaces.contains_key(workspace_id) {
-            return Err(BitFunError::service(format!(
+            return Err(CoreError::service(format!(
                 "Workspace not found: {}",
                 workspace_id
             )));
@@ -505,13 +506,13 @@ impl WorkspaceManager {
     }
 
     /// Remembers a workspace as the last-used workspace among already opened workspaces.
-    pub fn remember_workspace(&mut self, workspace_id: &str) -> BitFunResult<()> {
+    pub fn remember_workspace(&mut self, workspace_id: &str) -> CoreResult<()> {
         if !self
             .opened_workspace_ids
             .iter()
             .any(|id| id == workspace_id)
         {
-            return Err(BitFunError::service(format!(
+            return Err(CoreError::service(format!(
                 "Workspace is not opened: {}",
                 workspace_id
             )));
@@ -521,7 +522,7 @@ impl WorkspaceManager {
     }
 
     /// Sets the last-used workspace.
-    pub fn set_last_used_workspace(&mut self, workspace_id: String) -> BitFunResult<()> {
+    pub fn set_last_used_workspace(&mut self, workspace_id: String) -> CoreResult<()> {
         self.set_last_used_workspace_with_recent_policy(workspace_id, true)
     }
 
@@ -529,9 +530,9 @@ impl WorkspaceManager {
         &mut self,
         workspace_id: String,
         add_to_recent: bool,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         if !self.workspaces.contains_key(&workspace_id) {
-            return Err(BitFunError::service(format!(
+            return Err(CoreError::service(format!(
                 "Workspace not found: {}",
                 workspace_id
             )));
@@ -620,7 +621,7 @@ impl WorkspaceManager {
     }
 
     /// Removes a workspace.
-    pub fn remove_workspace(&mut self, workspace_id: &str) -> BitFunResult<()> {
+    pub fn remove_workspace(&mut self, workspace_id: &str) -> CoreResult<()> {
         if self.workspaces.remove(workspace_id).is_some() {
             if self.last_used_workspace_id.as_ref() == Some(&workspace_id.to_string()) {
                 self.last_used_workspace_id = None;
@@ -631,7 +632,7 @@ impl WorkspaceManager {
 
             Ok(())
         } else {
-            Err(BitFunError::service(format!(
+            Err(CoreError::service(format!(
                 "Workspace not found: {}",
                 workspace_id
             )))
@@ -639,7 +640,7 @@ impl WorkspaceManager {
     }
 
     /// Cleans up invalid workspaces.
-    pub async fn cleanup_invalid_workspaces(&mut self) -> BitFunResult<usize> {
+    pub async fn cleanup_invalid_workspaces(&mut self) -> CoreResult<usize> {
         let mut invalid_workspaces = Vec::new();
 
         for (workspace_id, workspace) in &self.workspaces {

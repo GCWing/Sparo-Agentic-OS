@@ -7,7 +7,7 @@ use crate::agentic::tools::framework::{
 };
 use crate::service::mcp::protocol::{MCPTool, MCPToolResult};
 use crate::service::mcp::server::MCPConnection;
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 use async_trait::async_trait;
 use log::{debug, error, info, warn};
 use serde_json::Value;
@@ -92,7 +92,7 @@ impl Tool for MCPToolWrapper {
         &self.full_name
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         let mut description = format!(
             "Tool '{}' from MCP server '{}': {}",
             self.tool_title(),
@@ -231,7 +231,7 @@ impl Tool for MCPToolWrapper {
         &self,
         input: &Value,
         _context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         info!(
             "Calling MCP tool: {} from server: {}",
             self.tool_title(),
@@ -280,7 +280,7 @@ impl MCPToolAdapter {
         server_id: &str,
         server_name: &str,
         connection: Arc<MCPConnection>,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         info!(
             "Loading tools from MCP server: {} (id={})",
             server_name, server_id

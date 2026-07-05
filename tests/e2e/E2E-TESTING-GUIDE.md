@@ -118,17 +118,17 @@ pnpm install
 
 # Build the application (from project root)
 cd ../..
-cargo build -p bitfun-desktop
+cargo build -p sparo-desktop
 ```
 
 ### 2. Verify Installation
 
 Check that the app binary exists:
 
-**Windows**: `target/debug/bitfun-desktop.exe`
-**Linux/macOS**: `target/debug/bitfun-desktop`
+**Windows**: `target/debug/sparo-desktop.exe`
+**Linux/macOS**: `target/debug/sparo-desktop`
 
-`bitfun-desktop` is the current technical binary/package name for the Sparo OS desktop app.
+`sparo-desktop` is the current technical binary/package name for the Sparo OS desktop app.
 
 ### 3. Run Tests
 
@@ -153,7 +153,7 @@ pnpm test -- --spec ./specs/l0-smoke.spec.ts
 The test framework runs in debug/dev mode:
 
 #### Debug Mode (Default)
-- **Application Path**: `target/debug/bitfun-desktop.exe`
+- **Application Path**: `target/debug/sparo-desktop.exe`
 - **Characteristics**: Includes debug symbols, requires dev server (port 1422)
 - **Use Case**: Local development, rapid iteration
 
@@ -163,11 +163,11 @@ When running tests, check the first few lines of output:
 
 ```bash
 # Debug Mode Output
-application: <PROJECT_ROOT>\target\debug\bitfun-desktop.exe
+application: <PROJECT_ROOT>\target\debug\sparo-desktop.exe
 Debug build detected, checking dev server...
 ```
 
-**Core Principle**: E2E uses `target/debug/bitfun-desktop.exe` only. If the debug binary is missing, the run should fail instead of falling back to `release`.
+**Core Principle**: E2E uses `target/debug/sparo-desktop.exe` only. If the debug binary is missing, the run should fail instead of falling back to `release`.
 
 ## Test Structure
 
@@ -402,7 +402,7 @@ it('should test feature when workspace is open', async function () {
 **Solution**:
 ```bash
 # Build the debug desktop app
-cargo build -p bitfun-desktop
+cargo build -p sparo-desktop
 
 # Run tests in debug mode so the embedded driver starts inside Sparo OS
 SPARO_E2E_APP_MODE=debug pnpm --dir tests/e2e run test:l0:protocol
@@ -412,18 +412,18 @@ SPARO_E2E_APP_MODE=debug pnpm --dir tests/e2e run test:l0:protocol
 
 #### 2. App not built
 
-**Symptom**: `Application not found at target/debug/bitfun-desktop.exe`
+**Symptom**: `Application not found at target/debug/sparo-desktop.exe`
 
 **Solution**:
 ```bash
 # Build the app (from project root)
-cargo build -p bitfun-desktop
+cargo build -p sparo-desktop
 
 # Verify binary exists
 # Windows
-dir target\debug\bitfun-desktop.exe
+dir target\debug\sparo-desktop.exe
 # Linux/macOS
-ls -la target/debug/bitfun-desktop
+ls -la target/debug/sparo-desktop
 ```
 
 #### 3. Test timeouts
@@ -565,7 +565,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
       - name: Build app
-        run: cargo build -p bitfun-desktop
+        run: cargo build -p sparo-desktop
       - name: Install test dependencies
         run: cd tests/e2e && pnpm install
       - name: Run L0 tests
@@ -578,7 +578,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Build app
-        run: cargo build -p bitfun-desktop
+        run: cargo build -p sparo-desktop
       - name: Run L1 tests
         run: cd tests/e2e && SPARO_E2E_APP_MODE=debug pnpm run test:l1
 ```

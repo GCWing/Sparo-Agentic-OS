@@ -1,4 +1,4 @@
-﻿import type { ProductAppCatalogEntry } from '@/infrastructure/api/service-api/AppCatalogAPI';
+import type { ProductAppCatalogEntry } from '@/infrastructure/api/service-api/AppCatalogAPI';
 import type {
   RuntimeInstanceRef,
   WorkAppRef,

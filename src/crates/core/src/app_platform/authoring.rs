@@ -7,7 +7,7 @@ use serde_json::json;
 use tokio::fs;
 
 use crate::infrastructure::PathManager;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 
 use super::catalog::{
     AppCatalogVisibility, AppComponentRef, AppDataLifecyclePolicy, AppDefinition, AppIconSpec,
@@ -125,7 +125,7 @@ pub struct WrittenComponentPackage {
 pub async fn create_product_app_package(
     path_manager: &PathManager,
     draft: CreateProductAppPackageDraft,
-) -> BitFunResult<WrittenProductAppPackage> {
+) -> CoreResult<WrittenProductAppPackage> {
     create_product_app_package_with_options(
         path_manager,
         draft,
@@ -138,7 +138,7 @@ pub async fn create_product_app_package_with_options(
     path_manager: &PathManager,
     draft: CreateProductAppPackageDraft,
     options: CreateProductAppPackageOptions,
-) -> BitFunResult<WrittenProductAppPackage> {
+) -> CoreResult<WrittenProductAppPackage> {
     validate_package_id("appId", &draft.app_id)?;
     validate_required("name", &draft.name)?;
     validate_required("goal", &draft.goal)?;
@@ -388,12 +388,12 @@ pub async fn create_product_app_package_with_options(
 pub async fn create_product_app_component_scaffold(
     draft: CreateProductAppComponentDraft,
     shared_components: Vec<ComponentDefinition>,
-) -> BitFunResult<WrittenProductAppComponentScaffold> {
+) -> CoreResult<WrittenProductAppComponentScaffold> {
     validate_package_id("componentId", &draft.component_id)?;
     validate_required("name", &draft.name)?;
     validate_required("description", &draft.description)?;
     if draft.make_primary_surface && draft.kind != ComponentKind::Surface {
-        return Err(BitFunError::validation(
+        return Err(CoreError::validation(
             "makePrimarySurface is only valid for Surface components".to_string(),
         ));
     }
@@ -416,7 +416,7 @@ pub async fn create_product_app_component_scaffold(
         .iter()
         .any(|component| component.id == draft.component_id && component.kind == draft.kind)
     {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "App-private component already exists: {}/{}",
             draft.kind.path_segment(),
             draft.component_id
@@ -427,7 +427,7 @@ pub async fn create_product_app_component_scaffold(
             && component_ref.kind == draft.kind
             && component_ref.component_id == draft.component_id
     }) {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "Product App already references private component {}/{}",
             draft.kind.path_segment(),
             draft.component_id
@@ -573,7 +573,7 @@ pub async fn create_product_app_component_scaffold(
 pub async fn create_component_package(
     path_manager: &PathManager,
     draft: CreateComponentPackageDraft,
-) -> BitFunResult<WrittenComponentPackage> {
+) -> CoreResult<WrittenComponentPackage> {
     validate_package_id("componentId", &draft.component_id)?;
     validate_required("name", &draft.name)?;
     validate_required("description", &draft.description)?;
@@ -633,12 +633,12 @@ fn resolve_include_agent(
     draft: &CreateProductAppPackageDraft,
     options: &CreateProductAppPackageOptions,
     include_surface: bool,
-) -> BitFunResult<bool> {
+) -> CoreResult<bool> {
     let include_agent = options
         .include_agent
         .unwrap_or(!include_surface || draft.primary_surface_mode == AppSurfaceMode::ChatPrimary);
     if !include_surface && !include_agent {
-        return Err(BitFunError::validation(
+        return Err(CoreError::validation(
             "Product Apps without a surface require an app-private Agent Component".to_string(),
         ));
     }
@@ -754,7 +754,7 @@ async fn write_private_component_scaffold_files(
     component: &ComponentDefinition,
     app: &AppDefinition,
     agent_type: &str,
-) -> BitFunResult<Vec<PathBuf>> {
+) -> CoreResult<Vec<PathBuf>> {
     match component.kind {
         ComponentKind::Surface => {
             write_private_surface_source(component_dir, &component.name, &component.description)
@@ -1210,7 +1210,7 @@ fn default_product_app_eval_plan_for_agent(
     }
 }
 
-async fn write_json(path: PathBuf, value: &impl Serialize) -> BitFunResult<()> {
+async fn write_json(path: PathBuf, value: &impl Serialize) -> CoreResult<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).await?;
     }
@@ -1219,7 +1219,7 @@ async fn write_json(path: PathBuf, value: &impl Serialize) -> BitFunResult<()> {
     Ok(())
 }
 
-async fn write_text(path: PathBuf, value: &str) -> BitFunResult<()> {
+async fn write_text(path: PathBuf, value: &str) -> CoreResult<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).await?;
     }
@@ -1227,7 +1227,7 @@ async fn write_text(path: PathBuf, value: &str) -> BitFunResult<()> {
     Ok(())
 }
 
-async fn write_default_app_icon(package_dir: &PathBuf, label: &str) -> BitFunResult<()> {
+async fn write_default_app_icon(package_dir: &PathBuf, label: &str) -> CoreResult<()> {
     let initial = label
         .chars()
         .find(|character| character.is_alphanumeric())
@@ -1244,7 +1244,7 @@ async fn write_private_surface_source(
     component_dir: &PathBuf,
     app_name: &str,
     app_goal: &str,
-) -> BitFunResult<()> {
+) -> CoreResult<()> {
     let source_dir = component_dir.join("source");
     write_text(
         source_dir.join("index.html"),
@@ -1339,9 +1339,9 @@ if (root) {{
     write_text(source_dir.join("worker.js"), "").await
 }
 
-async fn ensure_new_package_dir(path: &PathBuf) -> BitFunResult<()> {
+async fn ensure_new_package_dir(path: &PathBuf) -> CoreResult<()> {
     if fs::try_exists(path).await? {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "package already exists: {}",
             path.display()
         )));
@@ -1349,20 +1349,20 @@ async fn ensure_new_package_dir(path: &PathBuf) -> BitFunResult<()> {
     Ok(())
 }
 
-fn validate_required(field: &str, value: &str) -> BitFunResult<()> {
+fn validate_required(field: &str, value: &str) -> CoreResult<()> {
     if value.trim().is_empty() {
-        return Err(BitFunError::validation(format!("{field} is required")));
+        return Err(CoreError::validation(format!("{field} is required")));
     }
     Ok(())
 }
 
-fn validate_package_id(field: &str, value: &str) -> BitFunResult<()> {
+fn validate_package_id(field: &str, value: &str) -> CoreResult<()> {
     validate_required(field, value)?;
     let valid = value
         .chars()
         .all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '_');
     if !valid {
-        return Err(BitFunError::validation(format!(
+        return Err(CoreError::validation(format!(
             "{field} must contain only ASCII letters, numbers, '-' or '_'"
         )));
     }

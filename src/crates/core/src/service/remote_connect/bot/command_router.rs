@@ -2070,7 +2070,7 @@ mod handle_chat_tests {
         state.workspace_context_path = Some("/tmp/project".into());
         state.current_session_id = Some("s1".into());
         let s = strings_for(BotLanguage::ZhCN);
-        let result = handle_chat(&mut state, "hello bitfun", vec![], s).await;
+        let result = handle_chat(&mut state, "hello sparo", vec![], s).await;
 
         assert!(
             result.forward_to_session.is_some(),

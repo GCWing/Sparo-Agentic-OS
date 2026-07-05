@@ -1,6 +1,6 @@
 //! Logging Configuration
 
-use bitfun_core::infrastructure::get_path_manager_arc;
+use sparo_core::infrastructure::get_path_manager_arc;
 use chrono::Local;
 use serde::Serialize;
 use std::path::PathBuf;

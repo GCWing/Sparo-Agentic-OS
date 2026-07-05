@@ -1,5 +1,5 @@
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use std::str::FromStr;
@@ -98,15 +98,15 @@ impl GrepTool {
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let ws_shell = context
             .ws_shell()
-            .ok_or_else(|| BitFunError::tool("Workspace shell not available".to_string()))?;
+            .ok_or_else(|| CoreError::tool("Workspace shell not available".to_string()))?;
 
         let pattern = input
             .get("pattern")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BitFunError::tool("pattern is required".to_string()))?;
+            .ok_or_else(|| CoreError::tool("pattern is required".to_string()))?;
 
         let search_path = input.get("path").and_then(|v| v.as_str()).unwrap_or(".");
         let resolved = context.resolve_tool_path(search_path)?;
@@ -197,7 +197,7 @@ impl GrepTool {
         let (stdout, _stderr, _exit_code) = ws_shell
             .exec(&full_cmd, Some(30_000))
             .await
-            .map_err(|e| BitFunError::tool(format!("Remote grep failed: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("Remote grep failed: {}", e)))?;
 
         let lines: Vec<&str> = stdout.lines().collect();
         let total_matches = lines.len();
@@ -227,11 +227,11 @@ impl GrepTool {
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<GrepOptions> {
+    ) -> CoreResult<GrepOptions> {
         let pattern = input
             .get("pattern")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BitFunError::tool("pattern is required".to_string()))?;
+            .ok_or_else(|| CoreError::tool("pattern is required".to_string()))?;
 
         let search_path = input.get("path").and_then(|v| v.as_str()).unwrap_or(".");
         let resolved = context.resolve_tool_path(search_path)?;
@@ -247,7 +247,7 @@ impl GrepTool {
             .and_then(|v| v.as_str())
             .unwrap_or("files_with_matches");
         let output_mode =
-            OutputMode::from_str(output_mode_str).map_err(|e| BitFunError::tool(e.to_string()))?;
+            OutputMode::from_str(output_mode_str).map_err(|e| CoreError::tool(e.to_string()))?;
         let show_line_numbers = input
             .get("-n")
             .and_then(|v| v.as_bool())
@@ -346,7 +346,7 @@ impl Tool for GrepTool {
         "Grep"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(r#"A powerful search tool built on ripgrep
 
 Usage:
@@ -451,7 +451,7 @@ Usage:
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         // Remote workspace: use shell-based grep/rg
         let search_path = input.get("path").and_then(|v| v.as_str()).unwrap_or(".");
         let resolved = context.resolve_tool_path(search_path)?;
@@ -515,8 +515,8 @@ Usage:
             applied_offset,
         } = match search_result {
             Ok(Ok(result)) => result,
-            Ok(Err(e)) => return Err(BitFunError::tool(e)),
-            Err(e) => return Err(BitFunError::tool(format!("grep search failed: {}", e))),
+            Ok(Err(e)) => return Err(CoreError::tool(e)),
+            Err(e) => return Err(CoreError::tool(format!("grep search failed: {}", e))),
         };
 
         Ok(vec![ToolResult::Result {

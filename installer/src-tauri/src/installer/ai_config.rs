@@ -1,7 +1,7 @@
 //! Map installer `ModelConfig` to shared AI adapter config.
 
 use crate::installer::types::ModelConfig;
-use bitfun_ai_adapters::types::{resolve_request_url, AIConfig, ReasoningMode};
+use sparo_ai_adapters::types::{resolve_request_url, AIConfig, ReasoningMode};
 use log::warn;
 
 /// Build `AIConfig` for the shared AI client.

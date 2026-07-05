@@ -5,7 +5,7 @@ use crate::agentic::tools::framework::{
 };
 use crate::infrastructure::PathManager;
 use crate::service::session::SessionTranscriptExportOptions;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -47,17 +47,17 @@ impl SessionHistoryTool {
         Ok(())
     }
 
-    fn resolve_workspace(&self, workspace: &str) -> BitFunResult<String> {
+    fn resolve_workspace(&self, workspace: &str) -> CoreResult<String> {
         let workspace = workspace.trim();
         if workspace.is_empty() {
-            return Err(BitFunError::tool(
+            return Err(CoreError::tool(
                 "workspace is required and cannot be empty".to_string(),
             ));
         }
 
         let path = Path::new(workspace);
         if !path.is_absolute() {
-            return Err(BitFunError::tool(
+            return Err(CoreError::tool(
                 "workspace must be an absolute path".to_string(),
             ));
         }
@@ -65,13 +65,13 @@ impl SessionHistoryTool {
         let resolved = normalize_path(workspace);
         let path = Path::new(&resolved);
         if !path.exists() {
-            return Err(BitFunError::tool(format!(
+            return Err(CoreError::tool(format!(
                 "Workspace does not exist: {}",
                 resolved
             )));
         }
         if !path.is_dir() {
-            return Err(BitFunError::tool(format!(
+            return Err(CoreError::tool(format!(
                 "Workspace is not a directory: {}",
                 resolved
             )));
@@ -80,9 +80,9 @@ impl SessionHistoryTool {
         Ok(resolved)
     }
 
-    fn resolve_session_id(&self, session_id: &str) -> BitFunResult<String> {
+    fn resolve_session_id(&self, session_id: &str) -> CoreResult<String> {
         let session_id = session_id.trim().to_string();
-        Self::validate_session_id(&session_id).map_err(BitFunError::tool)?;
+        Self::validate_session_id(&session_id).map_err(CoreError::tool)?;
         Ok(session_id)
     }
 }
@@ -107,7 +107,7 @@ impl Tool for SessionHistoryTool {
         "SessionHistory"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(
             r#"Use this tool when you need the history of an agent session.
 
@@ -291,9 +291,9 @@ Examples:
         &self,
         input: &Value,
         _context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let params: SessionHistoryInput = serde_json::from_value(input.clone())
-            .map_err(|e| BitFunError::tool(format!("Invalid input: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("Invalid input: {}", e)))?;
 
         let workspace = self.resolve_workspace(&params.workspace)?;
         let session_id = self.resolve_session_id(&params.session_id)?;

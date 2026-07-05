@@ -15,20 +15,26 @@ use tokio::task::JoinSet;
 use tokio::time::{timeout, Duration};
 
 use crate::api::app_state::AppState;
-use bitfun_core::agentic::tools::implementations::skills::agent_overrides::{
-    get_disabled_agent_skills_from_document, load_project_agent_skills_document_local,
-    load_user_agent_skill_overrides, save_project_agent_skills_document_local,
-    set_agent_skill_disabled_in_document, set_disabled_agent_skills_in_document,
-    set_user_agent_skill_state,
+use sparo_core::agentic::tools::implementations::skills::agent_overrides::{
+    get_disabled_agent_skill_suites_from_document, get_disabled_agent_skills_from_document,
+    load_project_agent_skills_document_local, load_user_agent_skill_overrides,
+    save_project_agent_skills_document_local, set_agent_skill_disabled_in_document,
+    set_agent_skill_suite_disabled_in_document, set_disabled_agent_skill_suites_in_document,
+    set_disabled_agent_skills_in_document, set_user_agent_skill_state,
+    set_user_agent_skill_suite_state,
 };
-use bitfun_core::agentic::tools::implementations::skills::{
-    default_profiles::{is_enabled_by_default_for_agent, is_skill_enabled_for_agent},
-    AgentSkillInfo, SkillData, SkillInfo, SkillLocation, SkillRegistry,
+use sparo_core::agentic::tools::implementations::skills::{
+    default_profiles::{
+        is_builtin_suite_enabled_by_default_for_agent, is_enabled_by_default_for_agent,
+        is_skill_enabled_for_agent,
+    },
+    AgentSkillInfo, SkillCatalog, SkillData, SkillInfo, SkillLocation, SkillRegistry,
+    SkillSuiteInfo,
 };
-use bitfun_core::infrastructure::get_path_manager_arc;
-use bitfun_core::infrastructure::APP_HIDDEN_DIR_NAME;
-use bitfun_core::service::runtime::RuntimeManager;
-use bitfun_core::util::process_manager;
+use sparo_core::infrastructure::get_path_manager_arc;
+use sparo_core::infrastructure::APP_HIDDEN_DIR_NAME;
+use sparo_core::service::runtime::RuntimeManager;
+use sparo_core::util::process_manager;
 
 const SKILLS_SEARCH_API_BASE: &str = "https://skills.sh";
 const DEFAULT_MARKET_QUERY: &str = "skill";
@@ -85,6 +91,17 @@ pub struct SkillMarketDownloadResponse {
 pub struct ReplaceAgentSkillSelectionRequest {
     pub agent_id: String,
     pub enabled_skill_keys: Vec<String>,
+    #[serde(default)]
+    pub enabled_suite_keys: Option<Vec<String>>,
+    pub workspace_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetAgentSkillSuiteDisabledRequest {
+    pub agent_id: String,
+    pub suite_key: String,
+    pub disabled: bool,
     pub workspace_path: Option<String>,
 }
 
@@ -141,6 +158,16 @@ async fn get_all_skills_for_workspace_input(
         .await)
 }
 
+async fn get_skill_catalog_for_workspace_input(
+    _state: &State<'_, AppState>,
+    registry: &SkillRegistry,
+    workspace_path: Option<&str>,
+) -> Result<SkillCatalog, String> {
+    Ok(registry
+        .get_skill_catalog_for_workspace(workspace_root_from_input(workspace_path).as_deref())
+        .await)
+}
+
 async fn get_agent_skill_infos_for_workspace_input(
     state: &State<'_, AppState>,
     registry: &SkillRegistry,
@@ -161,6 +188,10 @@ async fn get_agent_skill_infos_for_workspace_input(
         get_disabled_agent_skills_from_document(&project_config, agent_id)
             .into_iter()
             .collect();
+    let disabled_project_suites: HashSet<String> =
+        get_disabled_agent_skill_suites_from_document(&project_config, agent_id)
+            .into_iter()
+            .collect();
     let resolved_skills = registry
         .get_resolved_skills_for_workspace(Some(&workspace_root), Some(agent_id))
         .await;
@@ -171,8 +202,13 @@ async fn get_agent_skill_infos_for_workspace_input(
     Ok(all_skills
         .into_iter()
         .map(|skill| {
-            let disabled_by_agent =
-                !is_skill_enabled_for_agent(&skill, agent_id, &user_overrides, &disabled_project);
+            let disabled_by_agent = !is_skill_enabled_for_agent(
+                &skill,
+                agent_id,
+                &user_overrides,
+                &disabled_project,
+                &disabled_project_suites,
+            );
             let selected_for_runtime = resolved_keys.contains(&skill.key);
 
             AgentSkillInfo {
@@ -206,10 +242,14 @@ fn normalize_skill_key_list(keys: Vec<String>) -> Vec<String> {
 async fn persist_user_agent_skill_selection(
     agent_id: &str,
     all_skills: &[SkillInfo],
+    all_suites: &[SkillSuiteInfo],
     enabled_keys: &HashSet<String>,
+    enabled_suite_keys: Option<&HashSet<String>>,
 ) -> Result<(), String> {
     let mut disabled_user_skills = Vec::new();
     let mut enabled_user_skills = Vec::new();
+    let mut disabled_user_skill_suites = Vec::new();
+    let mut enabled_user_skill_suites = Vec::new();
 
     for skill in all_skills
         .iter()
@@ -225,12 +265,49 @@ async fn persist_user_agent_skill_selection(
         }
     }
 
-    bitfun_core::service::config::agent_capability_config_canonicalizer::persist_agent_capability_config_from_value(
+    if let Some(enabled_suite_keys) = enabled_suite_keys {
+        for suite in all_suites
+            .iter()
+            .filter(|suite| suite.level == SkillLocation::User)
+        {
+            let should_enable = enabled_suite_keys.contains(&suite.id);
+            let default_enabled = if suite.is_builtin {
+                is_builtin_suite_enabled_by_default_for_agent(&suite.id, agent_id)
+            } else {
+                true
+            };
+
+            if default_enabled && !should_enable {
+                disabled_user_skill_suites.push(suite.id.clone());
+            } else if !default_enabled && should_enable {
+                enabled_user_skill_suites.push(suite.id.clone());
+            }
+        }
+    }
+
+    let mut config = serde_json::Map::new();
+    config.insert(
+        "disabled_user_skills".to_string(),
+        serde_json::json!(normalize_skill_key_list(disabled_user_skills)),
+    );
+    config.insert(
+        "enabled_user_skills".to_string(),
+        serde_json::json!(normalize_skill_key_list(enabled_user_skills)),
+    );
+    if enabled_suite_keys.is_some() {
+        config.insert(
+            "disabled_user_skill_suites".to_string(),
+            serde_json::json!(normalize_skill_key_list(disabled_user_skill_suites)),
+        );
+        config.insert(
+            "enabled_user_skill_suites".to_string(),
+            serde_json::json!(normalize_skill_key_list(enabled_user_skill_suites)),
+        );
+    }
+
+    sparo_core::service::config::agent_capability_config_canonicalizer::persist_agent_capability_config_from_value(
         agent_id,
-        serde_json::json!({
-            "disabled_user_skills": normalize_skill_key_list(disabled_user_skills),
-            "enabled_user_skills": normalize_skill_key_list(enabled_user_skills),
-        }),
+        serde_json::Value::Object(config),
     )
     .await
     .map_err(|e| format!("Failed to update user skill overrides: {}", e))
@@ -248,16 +325,37 @@ fn build_disabled_project_skill_keys(
         .collect()
 }
 
+fn build_disabled_project_suite_keys(
+    all_suites: &[SkillSuiteInfo],
+    enabled_suite_keys: &HashSet<String>,
+) -> Vec<String> {
+    all_suites
+        .iter()
+        .filter(|suite| suite.level == SkillLocation::Project)
+        .filter(|suite| !enabled_suite_keys.contains(&suite.id))
+        .map(|suite| suite.id.clone())
+        .collect()
+}
+
 async fn persist_project_agent_skill_selection_local(
     agent_id: &str,
     workspace_root: &Path,
     disabled_project_skills: Vec<String>,
+    disabled_project_suites: Option<Vec<String>>,
 ) -> Result<(), String> {
     let mut document = load_project_agent_skills_document_local(workspace_root)
         .await
         .map_err(|e| format!("Failed to load project agent skills: {}", e))?;
     set_disabled_agent_skills_in_document(&mut document, agent_id, disabled_project_skills)
         .map_err(|e| format!("Failed to update project skill overrides: {}", e))?;
+    if let Some(disabled_project_suites) = disabled_project_suites {
+        set_disabled_agent_skill_suites_in_document(
+            &mut document,
+            agent_id,
+            disabled_project_suites,
+        )
+        .map_err(|e| format!("Failed to update project skill suite overrides: {}", e))?;
+    }
     save_project_agent_skills_document_local(workspace_root, &document)
         .await
         .map_err(|e| format!("Failed to save project agent skills: {}", e))
@@ -275,11 +373,10 @@ pub async fn get_skill_configs(
         registry.refresh().await;
     }
 
-    let all_skills =
-        get_all_skills_for_workspace_input(&state, registry, workspace_path.as_deref()).await?;
+    let catalog =
+        get_skill_catalog_for_workspace_input(&state, registry, workspace_path.as_deref()).await?;
 
-    serde_json::to_value(all_skills)
-        .map_err(|e| format!("Failed to serialize skill configs: {}", e))
+    serde_json::to_value(catalog).map_err(|e| format!("Failed to serialize skill configs: {}", e))
 }
 
 #[tauri::command]
@@ -329,7 +426,7 @@ pub async fn set_agent_skill_disabled(
         set_user_agent_skill_state(&agent_id, &skill_key, !disabled, default_enabled)
             .await
             .map_err(|e| format!("Failed to update user skill override: {}", e))?;
-        if let Err(e) = bitfun_core::service::config::reload_global_config().await {
+        if let Err(e) = sparo_core::service::config::reload_global_config().await {
             log::warn!(
                 "Failed to reload global config after user skill override change: agent_id={}, skill_key={}, error={}",
                 agent_id,
@@ -365,14 +462,82 @@ pub async fn set_agent_skill_disabled(
 }
 
 #[tauri::command]
+pub async fn set_agent_skill_suite_disabled(
+    state: State<'_, AppState>,
+    request: SetAgentSkillSuiteDisabledRequest,
+) -> Result<String, String> {
+    let registry = SkillRegistry::global();
+    let workspace_root = workspace_root_from_input(request.workspace_path.as_deref());
+    let catalog =
+        get_skill_catalog_for_workspace_input(&state, registry, request.workspace_path.as_deref())
+            .await?;
+    let suite = catalog
+        .suites
+        .into_iter()
+        .find(|suite| suite.id == request.suite_key || suite.key == request.suite_key)
+        .ok_or_else(|| format!("Skill suite '{}' not found", request.suite_key))?;
+
+    match suite.level {
+        SkillLocation::User => {
+            let default_enabled = if suite.is_builtin {
+                is_builtin_suite_enabled_by_default_for_agent(&suite.id, &request.agent_id)
+            } else {
+                true
+            };
+            set_user_agent_skill_suite_state(
+                &request.agent_id,
+                &suite.id,
+                !request.disabled,
+                default_enabled,
+            )
+            .await
+            .map_err(|e| format!("Failed to update user skill suite override: {}", e))?;
+            if let Err(e) = sparo_core::service::config::reload_global_config().await {
+                log::warn!(
+                    "Failed to reload global config after user skill suite override change: agent_id={}, suite_key={}, error={}",
+                    request.agent_id,
+                    suite.id,
+                    e
+                );
+            }
+        }
+        SkillLocation::Project => {
+            let workspace_root = workspace_root.ok_or_else(|| {
+                "Project-level skill suite overrides require an open workspace".to_string()
+            })?;
+            let mut document = load_project_agent_skills_document_local(&workspace_root)
+                .await
+                .map_err(|e| format!("Failed to load project agent skills: {}", e))?;
+            set_agent_skill_suite_disabled_in_document(
+                &mut document,
+                &request.agent_id,
+                &suite.id,
+                request.disabled,
+            )
+            .map_err(|e| format!("Failed to update project skill suite override: {}", e))?;
+            save_project_agent_skills_document_local(&workspace_root, &document)
+                .await
+                .map_err(|e| format!("Failed to save project agent skills: {}", e))?;
+        }
+    }
+
+    Ok(format!(
+        "Agent {}' skill suite '{}' updated successfully",
+        request.agent_id, suite.id
+    ))
+}
+
+#[tauri::command]
 pub async fn replace_agent_skill_selection(
     state: State<'_, AppState>,
     request: ReplaceAgentSkillSelectionRequest,
 ) -> Result<String, String> {
     let registry = SkillRegistry::global();
-    let all_skills =
-        get_all_skills_for_workspace_input(&state, registry, request.workspace_path.as_deref())
+    let catalog =
+        get_skill_catalog_for_workspace_input(&state, registry, request.workspace_path.as_deref())
             .await?;
+    let all_skills = catalog.skills;
+    let all_suites = catalog.suites;
 
     let enabled_skill_keys = normalize_skill_key_list(request.enabled_skill_keys);
     let enabled_keys: HashSet<String> = enabled_skill_keys.iter().cloned().collect();
@@ -390,23 +555,66 @@ pub async fn replace_agent_skill_selection(
         ));
     }
 
-    persist_user_agent_skill_selection(&request.agent_id, &all_skills, &enabled_keys).await?;
+    let enabled_suite_keys = request
+        .enabled_suite_keys
+        .map(normalize_skill_key_list)
+        .map(|suite_keys| suite_keys.into_iter().collect::<HashSet<_>>());
+    if let Some(enabled_suite_keys) = enabled_suite_keys.as_ref() {
+        let known_suite_ids: HashSet<String> =
+            all_suites.iter().map(|suite| suite.id.clone()).collect();
+        let known_suite_keys: HashSet<String> =
+            all_suites.iter().map(|suite| suite.key.clone()).collect();
+        let unknown_suite_keys: Vec<String> = enabled_suite_keys
+            .iter()
+            .filter(|key| !known_suite_ids.contains(*key) && !known_suite_keys.contains(*key))
+            .cloned()
+            .collect();
+        if !unknown_suite_keys.is_empty() {
+            return Err(format!(
+                "Unknown skill suite keys for agent '{}': {}",
+                request.agent_id,
+                unknown_suite_keys.join(", ")
+            ));
+        }
+    }
+
+    let enabled_suite_ids = enabled_suite_keys.as_ref().map(|suite_keys| {
+        all_suites
+            .iter()
+            .filter(|suite| suite_keys.contains(&suite.id) || suite_keys.contains(&suite.key))
+            .map(|suite| suite.id.clone())
+            .collect::<HashSet<_>>()
+    });
+
+    persist_user_agent_skill_selection(
+        &request.agent_id,
+        &all_skills,
+        &all_suites,
+        &enabled_keys,
+        enabled_suite_ids.as_ref(),
+    )
+    .await?;
 
     let disabled_project_skills = normalize_skill_key_list(build_disabled_project_skill_keys(
         &all_skills,
         &enabled_keys,
     ));
 
+    let disabled_project_suites = enabled_suite_ids.as_ref().map(|suite_ids| {
+        normalize_skill_key_list(build_disabled_project_suite_keys(&all_suites, suite_ids))
+    });
+
     if let Some(workspace_root) = workspace_root_from_input(request.workspace_path.as_deref()) {
         persist_project_agent_skill_selection_local(
             &request.agent_id,
             &workspace_root,
             disabled_project_skills,
+            disabled_project_suites,
         )
         .await?;
     }
 
-    if let Err(e) = bitfun_core::service::config::reload_global_config().await {
+    if let Err(e) = sparo_core::service::config::reload_global_config().await {
         log::warn!(
             "Failed to reload global config after batch skill update: agent_id={}, error={}",
             request.agent_id,
@@ -580,6 +788,13 @@ pub async fn delete_skill(
         .find_skill_by_key_for_workspace(&skill_key, workspace_root.as_deref())
         .await
         .ok_or_else(|| format!("Skill '{}' not found", skill_key))?;
+
+    if !skill_info.can_delete {
+        return Err(format!(
+            "Skill '{}' is managed by Sparo OS and cannot be deleted",
+            skill_info.name
+        ));
+    }
 
     let skill_path = std::path::PathBuf::from(&skill_info.path);
 

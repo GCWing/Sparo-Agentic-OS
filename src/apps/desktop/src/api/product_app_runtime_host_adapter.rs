@@ -8,8 +8,8 @@ use tauri::{AppHandle, State};
 use crate::api::app_state::AppState;
 use crate::api::ppt_live_export_api::product_app_runtime_render_slide_page_via_webview;
 use crate::api::product_app_runtime_host_engine as host_engine;
-use bitfun_core::agentic::coordination::{ConversationCoordinator, DialogScheduler};
-pub(crate) use bitfun_core::product_app_runtime_host::ProductAppRuntimeHostInstallResult as HostAdapterInstallResult;
+use sparo_core::agentic::coordination::{ConversationCoordinator, DialogScheduler};
+pub(crate) use sparo_core::product_app_runtime_host::ProductAppRuntimeHostInstallResult as HostAdapterInstallResult;
 
 pub(crate) use crate::api::product_app_runtime_host_engine::{
     ProductAppRuntimeHostAiCancelRequest as HostAdapterAiCancelRequest,
@@ -41,7 +41,7 @@ pub(crate) use crate::api::product_app_runtime_host_engine::{
     ProductAppRuntimeHostGetRequest as HostAdapterGetRequest,
     ProductAppRuntimeHostRecordRecentRequest as HostAdapterRecordRecentRequest,
 };
-pub(crate) use bitfun_core::product_app_runtime_host::{
+pub(crate) use sparo_core::product_app_runtime_host::{
     ProductAppRuntimeHostBackendActionBinding as HostAdapterCoreBackendActionBinding,
     ProductAppRuntimeHostBackendBinding as HostAdapterCoreBackendBinding,
     ProductAppRuntimeHostBackendKind as HostAdapterCoreBackendKind,

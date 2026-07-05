@@ -4,7 +4,7 @@ use crate::api::app_state::AppState;
 use crate::frontend_runtime_watchdog::{
     self, FrontendRuntimeHeartbeatRequest, FrontendRuntimeWatchdogSnapshot,
 };
-use bitfun_core::service::runtime::{RuntimeCommandCapability, RuntimeManager};
+use sparo_core::service::runtime::{RuntimeCommandCapability, RuntimeManager};
 use tauri::State;
 
 #[tauri::command]

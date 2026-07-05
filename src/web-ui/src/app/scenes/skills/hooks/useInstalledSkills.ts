@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useTranslation } from 'react-i18next';
 import { configAPI } from '@/infrastructure/api';
-import type { SkillInfo, SkillLevel, SkillValidationResult } from '@/infrastructure/config/types';
+import type { SkillInfo, SkillLevel, SkillSuiteInfo, SkillValidationResult } from '@/infrastructure/config/types';
 import { useWorkspaceManagerSync } from '@/infrastructure/hooks/useWorkspaceManagerSync';
 import { useNotification } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
@@ -21,6 +21,7 @@ export function useInstalledSkills({ searchQuery, activeFilter }: UseInstalledSk
   const { workspacePath, hasWorkspace } = useWorkspaceManagerSync();
 
   const [skills, setSkills] = useState<SkillInfo[]>([]);
+  const [suites, setSuites] = useState<SkillSuiteInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,20 +38,22 @@ export function useInstalledSkills({ searchQuery, activeFilter }: UseInstalledSk
     try {
       setLoading(true);
       setError(null);
-      const list = await configAPI.getSkillConfigs({
+      const catalog = await configAPI.getSkillConfigs({
         forceRefresh,
         workspacePath: workspacePath || undefined,
       });
       if (requestId !== loadRequestIdRef.current) {
         return;
       }
-      setSkills(list);
+      setSkills(catalog.skills);
+      setSuites(catalog.suites);
     } catch (err) {
       if (requestId !== loadRequestIdRef.current) {
         return;
       }
       log.error('Failed to load skills', err);
       setError(err instanceof Error ? err.message : String(err));
+      setSuites([]);
     } finally {
       if (requestId === loadRequestIdRef.current) {
         setLoading(false);
@@ -172,13 +175,14 @@ export function useInstalledSkills({ searchQuery, activeFilter }: UseInstalledSk
       } else if (activeFilter === 'builtin') {
         matchesFilter = skill.isBuiltin;
       } else if (activeFilter === 'suite') {
-        matchesFilter = false;
+        matchesFilter = Boolean(skill.suiteKey);
       }
 
       const matchesQuery = !normalizedQuery || [
         skill.name,
         skill.description,
         skill.path,
+        skill.suiteKey,
       ].some((field) => field?.toLowerCase().includes(normalizedQuery));
       return matchesFilter && matchesQuery;
     });
@@ -189,11 +193,12 @@ export function useInstalledSkills({ searchQuery, activeFilter }: UseInstalledSk
     builtin: skills.filter((skill) => skill.isBuiltin).length,
     user: skills.filter((skill) => skill.level === 'user' && !skill.isBuiltin).length,
     project: skills.filter((skill) => skill.level === 'project' && !skill.isBuiltin).length,
-    suite: 0,
+    suite: skills.filter((skill) => Boolean(skill.suiteKey)).length,
   }), [skills]);
 
   return {
     skills,
+    suites,
     filteredSkills,
     counts,
     loading,

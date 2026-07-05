@@ -16,7 +16,7 @@ use crate::agentic::coordination::DialogQueuePriority;
 use crate::agentic::session_hooks::{
     SessionDriverSubmit, SessionDriverSubmitOutcome, SessionWorkOwner,
 };
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 use serde_json::json;
 use std::path::Path;
 use uuid::Uuid;
@@ -31,7 +31,7 @@ impl GoalService {
         workspace_path: &str,
         session_id: &str,
         turn_id: &str,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let _guard = self.lock_session(session_id).await;
         let workspace = Path::new(&workspace_path);
         let Some(mut record) = self.current(workspace, session_id).await? else {
@@ -85,7 +85,7 @@ impl GoalService {
         mut record: GoalRecord,
         agent_type: Option<&str>,
         trigger: GoalJudgeTrigger,
-    ) -> BitFunResult<GoalResponse> {
+    ) -> CoreResult<GoalResponse> {
         if record.progress.judge_runs >= record.budgets.max_judge_runs {
             record.status = GoalStatus::BudgetLimited;
             record.driver.phase = GoalDriverPhase::Idle;
@@ -242,7 +242,7 @@ impl GoalService {
         agent_type: Option<&str>,
         record: &GoalRecord,
         run: &mut GoalJudgeRun,
-    ) -> BitFunResult<Option<GoalVerdict>> {
+    ) -> CoreResult<Option<GoalVerdict>> {
         let mut last_error: Option<String> = None;
         for attempt in 0..JUDGE_PARSE_ATTEMPTS {
             let mut attempt_run = run.clone();
@@ -302,7 +302,7 @@ impl GoalService {
         run: &GoalJudgeRun,
         verdict: GoalVerdict,
         agent_type: Option<&str>,
-    ) -> BitFunResult<GoalResponse> {
+    ) -> CoreResult<GoalResponse> {
         let met = verdict.met_count();
         let gaps = verdict.gaps_as_objects();
 
@@ -427,7 +427,7 @@ impl GoalService {
         record: &GoalRecord,
         continuation_text: &str,
         agent_type: Option<&str>,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         if !record.status.is_loop_active() {
             return Ok(());
         }

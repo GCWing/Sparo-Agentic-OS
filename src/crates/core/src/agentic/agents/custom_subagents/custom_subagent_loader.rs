@@ -42,12 +42,12 @@ impl CustomSubagentLoader {
             }
         }
 
-        // User subagents: agents under bitfun user config
+        // User subagents: agents under sparo user config
         let pm = get_path_manager_arc();
-        let bitfun_agents = pm.user_agents_dir();
-        if bitfun_agents.exists() && bitfun_agents.is_dir() {
+        let sparo_agents = pm.user_agents_dir();
+        if sparo_agents.exists() && sparo_agents.is_dir() {
             entries.push(SubagentDirEntry {
-                path: bitfun_agents,
+                path: sparo_agents,
                 kind: CustomSubagentKind::User,
             });
         }
@@ -56,7 +56,7 @@ impl CustomSubagentLoader {
         if let Some(home) = dirs::home_dir() {
             for (parent, sub) in PROJECT_AGENT_SUBDIRS {
                 if *parent == APP_HIDDEN_DIR_NAME {
-                    continue; // bitfun user path already handled by path_manager
+                    continue; // sparo user path already handled by path_manager
                 }
                 let p = home.join(parent).join(sub);
                 if p.exists() && p.is_dir() {

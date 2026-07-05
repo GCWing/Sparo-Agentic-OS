@@ -1,7 +1,7 @@
 use log::warn;
 
 use crate::service::mcp::server::{MCPServerConfig, MCPServerTransport, MCPServerType};
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 
 use super::ConfigLocation;
 
@@ -95,7 +95,7 @@ pub(super) fn config_to_cursor_format(config: &MCPServerConfig) -> serde_json::V
 
 pub(super) fn parse_cursor_format(
     config: &serde_json::Value,
-) -> BitFunResult<Vec<MCPServerConfig>> {
+) -> CoreResult<Vec<MCPServerConfig>> {
     let mut servers = Vec::new();
 
     if let Some(mcp_servers) = config.get("mcpServers").and_then(|v| v.as_object()) {

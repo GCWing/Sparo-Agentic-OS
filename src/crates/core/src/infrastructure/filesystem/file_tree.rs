@@ -2,7 +2,7 @@
 //!
 //! Provides file tree building, directory scanning, and file search
 
-use crate::util::errors::*;
+use crate::error::*;
 use log::warn;
 
 use ignore::WalkBuilder;
@@ -370,15 +370,15 @@ impl FileTreeService {
     pub async fn build_tree_with_stats(
         &self,
         root_path: &str,
-    ) -> BitFunResult<(Vec<FileTreeNode>, FileTreeStatistics)> {
+    ) -> CoreResult<(Vec<FileTreeNode>, FileTreeStatistics)> {
         let root_path_buf = PathBuf::from(root_path);
 
         if !root_path_buf.exists() {
-            return Err(BitFunError::service("Directory does not exist".to_string()));
+            return Err(CoreError::service("Directory does not exist".to_string()));
         }
 
         if !root_path_buf.is_dir() {
-            return Err(BitFunError::service("Path is not a directory".to_string()));
+            return Err(CoreError::service("Path is not a directory".to_string()));
         }
 
         let mut visited = HashSet::new();
@@ -402,7 +402,7 @@ impl FileTreeService {
                 &mut stats,
             )
             .await
-            .map_err(BitFunError::service)?;
+            .map_err(CoreError::service)?;
 
         Ok((nodes, stats))
     }
@@ -928,7 +928,7 @@ impl FileTreeService {
         root_path: &str,
         pattern: &str,
         search_content: bool,
-    ) -> BitFunResult<Vec<FileSearchResult>> {
+    ) -> CoreResult<Vec<FileSearchResult>> {
         self.search_files_with_options(root_path, pattern, search_content, false, false, false)
             .await
     }
@@ -941,7 +941,7 @@ impl FileTreeService {
         case_sensitive: bool,
         use_regex: bool,
         whole_word: bool,
-    ) -> BitFunResult<Vec<FileSearchResult>> {
+    ) -> CoreResult<Vec<FileSearchResult>> {
         let filename_outcome = self
             .search_file_names(
                 root_path,
@@ -985,7 +985,7 @@ impl FileTreeService {
         root_path: &str,
         pattern: &str,
         options: FileNameSearchOptions,
-    ) -> BitFunResult<FileSearchOutcome> {
+    ) -> CoreResult<FileSearchOutcome> {
         self.search_file_names_with_progress(root_path, pattern, options, None)
             .await
     }
@@ -996,11 +996,11 @@ impl FileTreeService {
         pattern: &str,
         options: FileNameSearchOptions,
         progress_sink: Option<Arc<dyn FileSearchProgressSink>>,
-    ) -> BitFunResult<FileSearchOutcome> {
+    ) -> CoreResult<FileSearchOutcome> {
         let root_path_buf = PathBuf::from(root_path);
 
         if !root_path_buf.exists() {
-            return Err(BitFunError::service("Directory does not exist".to_string()));
+            return Err(CoreError::service("Directory does not exist".to_string()));
         }
 
         let matcher = Arc::new(Self::compile_search_regex(
@@ -1137,7 +1137,7 @@ impl FileTreeService {
         root_path: &str,
         pattern: &str,
         options: FileContentSearchOptions,
-    ) -> BitFunResult<FileSearchOutcome> {
+    ) -> CoreResult<FileSearchOutcome> {
         self.search_file_contents_with_progress(root_path, pattern, options, None)
             .await
     }
@@ -1148,11 +1148,11 @@ impl FileTreeService {
         pattern: &str,
         options: FileContentSearchOptions,
         progress_sink: Option<Arc<dyn FileSearchProgressSink>>,
-    ) -> BitFunResult<FileSearchOutcome> {
+    ) -> CoreResult<FileSearchOutcome> {
         let root_path_buf = PathBuf::from(root_path);
 
         if !root_path_buf.exists() {
-            return Err(BitFunError::service("Directory does not exist".to_string()));
+            return Err(CoreError::service("Directory does not exist".to_string()));
         }
 
         let matcher = Arc::new(Self::compile_search_regex(
@@ -1286,7 +1286,7 @@ impl FileTreeService {
         case_sensitive: bool,
         use_regex: bool,
         whole_word: bool,
-    ) -> BitFunResult<Regex> {
+    ) -> CoreResult<Regex> {
         let search_pattern = if use_regex {
             pattern.to_string()
         } else if whole_word {
@@ -1298,7 +1298,7 @@ impl FileTreeService {
         RegexBuilder::new(&search_pattern)
             .case_insensitive(!case_sensitive)
             .build()
-            .map_err(|error| BitFunError::service(format!("Invalid regex pattern: {}", error)))
+            .map_err(|error| CoreError::service(format!("Invalid regex pattern: {}", error)))
     }
 
     fn take_first_chars(text: &str, max_chars: usize) -> String {
@@ -1449,14 +1449,14 @@ impl FileTreeService {
         limit_reached: &Arc<AtomicBool>,
         cancel_flag: Option<&Arc<AtomicBool>>,
         progress_sink: Option<&Arc<dyn FileSearchProgressSink>>,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         if should_stop.load(Ordering::Relaxed) || cancellation_requested(cancel_flag) {
             should_stop.store(true, Ordering::Relaxed);
             return Ok(());
         }
 
         let file = File::open(path)
-            .map_err(|error| BitFunError::service(format!("Failed to open file: {}", error)))?;
+            .map_err(|error| CoreError::service(format!("Failed to open file: {}", error)))?;
         let reader = BufReader::new(file);
         let mut matched_results = Vec::new();
 
@@ -1467,7 +1467,7 @@ impl FileTreeService {
             }
 
             let line_bytes = line_result
-                .map_err(|error| BitFunError::service(format!("Failed to read file: {}", error)))?;
+                .map_err(|error| CoreError::service(format!("Failed to read file: {}", error)))?;
             let line = String::from_utf8_lossy(&line_bytes)
                 .trim_end_matches('\r')
                 .to_string();

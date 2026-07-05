@@ -10,7 +10,7 @@ use tokio::fs;
 use tokio::io::AsyncReadExt;
 
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 
 /// LogTool - log viewing and analysis tool
 pub struct LogTool;
@@ -37,11 +37,11 @@ impl LogTool {
     }
 
     /// Read log file
-    async fn read_log(&self, log_path: &str, lines: Option<usize>) -> BitFunResult<String> {
+    async fn read_log(&self, log_path: &str, lines: Option<usize>) -> CoreResult<String> {
         let path = PathBuf::from(log_path);
 
         if !path.exists() {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Log file does not exist: {}",
                 log_path
             )));
@@ -49,12 +49,12 @@ impl LogTool {
 
         let mut file = fs::File::open(&path)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to open log file: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to open log file: {}", e)))?;
 
         let mut content = String::new();
         file.read_to_string(&mut content)
             .await
-            .map_err(|e| BitFunError::io(format!("Failed to read log file: {}", e)))?;
+            .map_err(|e| CoreError::io(format!("Failed to read log file: {}", e)))?;
 
         // If number of lines is specified, only return last N lines
         if let Some(n) = lines {
@@ -76,7 +76,7 @@ impl LogTool {
         log_path: &str,
         pattern: &str,
         level: Option<String>,
-    ) -> BitFunResult<String> {
+    ) -> CoreResult<String> {
         let content = self.read_log(log_path, None).await?;
 
         let mut results = Vec::new();
@@ -107,7 +107,7 @@ impl LogTool {
     }
 
     /// Analyze log statistics
-    async fn analyze_log(&self, log_path: &str) -> BitFunResult<Value> {
+    async fn analyze_log(&self, log_path: &str) -> CoreResult<Value> {
         let content = self.read_log(log_path, None).await?;
 
         let lines: Vec<&str> = content.lines().collect();
@@ -148,7 +148,7 @@ impl Tool for LogTool {
         "Log"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(r#"Read and analyze log files to debug issues, monitor application behavior, and understand system events.
 
 Available actions:
@@ -230,16 +230,16 @@ The tool will return the log content or analysis results that you can use to dia
         &self,
         input: &Value,
         _context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         // Validate input
         let action = input
             .get("action")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BitFunError::validation("Missing required field: action"))?;
+            .ok_or_else(|| CoreError::validation("Missing required field: action"))?;
 
         let valid_actions = ["read", "tail", "search", "analyze"];
         if !valid_actions.contains(&action) {
-            return Err(BitFunError::validation(format!(
+            return Err(CoreError::validation(format!(
                 "Invalid action '{}'. Must be one of: {}",
                 action,
                 valid_actions.join(", ")
@@ -248,26 +248,26 @@ The tool will return the log content or analysis results that you can use to dia
 
         // Validate tail operation requires lines parameter
         if action == "tail" && input.get("lines").is_none() {
-            return Err(BitFunError::validation(
+            return Err(CoreError::validation(
                 "tail action requires 'lines' parameter",
             ));
         }
 
         // Validate search operation requires pattern parameter
         if action == "search" && input.get("pattern").is_none() {
-            return Err(BitFunError::validation(
+            return Err(CoreError::validation(
                 "search action requires 'pattern' parameter",
             ));
         }
 
         // Parse input
         let log_input: LogToolInput = serde_json::from_value(input.clone())
-            .map_err(|e| BitFunError::validation(format!("Invalid input: {}", e)))?;
+            .map_err(|e| CoreError::validation(format!("Invalid input: {}", e)))?;
 
         let log_path = log_input
             .log_path
             .as_ref()
-            .ok_or_else(|| BitFunError::validation("log_path is required"))?;
+            .ok_or_else(|| CoreError::validation("log_path is required"))?;
 
         let result = match log_input.action.as_str() {
             "read" => {
@@ -292,7 +292,7 @@ The tool will return the log content or analysis results that you can use to dia
             }
             "search" => {
                 let pattern = log_input.pattern.as_ref().ok_or_else(|| {
-                    BitFunError::validation("pattern is required for search action")
+                    CoreError::validation("pattern is required for search action")
                 })?;
                 let level_filter = log_input.level.clone();
                 let results = self
@@ -311,7 +311,7 @@ The tool will return the log content or analysis results that you can use to dia
                 stats
             }
             _ => {
-                return Err(BitFunError::validation(format!(
+                return Err(CoreError::validation(format!(
                     "Unknown action: {}",
                     log_input.action
                 )));

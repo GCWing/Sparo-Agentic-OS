@@ -4,7 +4,7 @@
 
 use super::types::AnnouncementState;
 use crate::infrastructure::app_paths::PathManager;
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 use log::{debug, warn};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -23,7 +23,7 @@ impl AnnouncementStateStore {
     }
 
     /// Load state from disk.  Returns a default state if the file does not exist.
-    pub async fn load(&self) -> BitFunResult<AnnouncementState> {
+    pub async fn load(&self) -> CoreResult<AnnouncementState> {
         match fs::read_to_string(&self.state_file).await {
             Ok(content) => {
                 let state =
@@ -46,7 +46,7 @@ impl AnnouncementStateStore {
     }
 
     /// Persist state to disk.
-    pub async fn save(&self, state: &AnnouncementState) -> BitFunResult<()> {
+    pub async fn save(&self, state: &AnnouncementState) -> CoreResult<()> {
         if let Some(parent) = self.state_file.parent() {
             if !parent.exists() {
                 fs::create_dir_all(parent).await?;

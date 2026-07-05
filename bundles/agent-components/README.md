@@ -6,7 +6,7 @@ bundles.
 Product App-specific agents belong inside the owning Product App package at:
 
 ```text
-bundles/product-apps/builtin/<app-id>/<version>/components/agents/<component-id>/source/
+bundles/product-apps/<app-id>/<version>/components/agents/<component-id>/source/
 ```
 
 Do not place app-private agents here.

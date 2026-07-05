@@ -1,5 +1,5 @@
 use crate::infrastructure::get_path_manager_arc;
-use crate::util::errors::*;
+use crate::error::*;
 use std::time::UNIX_EPOCH;
 use tokio::fs::{self, File};
 use tokio::io::AsyncReadExt;
@@ -17,10 +17,10 @@ pub(crate) fn workspace_overview_dir_path() -> std::path::PathBuf {
     get_path_manager_arc().agentic_os_workspaces_overview_dir()
 }
 
-pub(crate) async fn ensure_workspace_overview_runtime_dir() -> BitFunResult<()> {
+pub(crate) async fn ensure_workspace_overview_runtime_dir() -> CoreResult<()> {
     let dir = workspace_overview_dir_path();
     fs::create_dir_all(&dir).await.map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to create workspace overview runtime directory {}: {}",
             dir.display(),
             error
@@ -30,7 +30,7 @@ pub(crate) async fn ensure_workspace_overview_runtime_dir() -> BitFunResult<()> 
 }
 
 pub(crate) async fn read_workspace_overview_directory_status(
-) -> BitFunResult<WorkspaceOverviewDirectoryStatus> {
+) -> CoreResult<WorkspaceOverviewDirectoryStatus> {
     ensure_workspace_overview_runtime_dir().await?;
 
     let dir = workspace_overview_dir_path();
@@ -41,7 +41,7 @@ pub(crate) async fn read_workspace_overview_directory_status(
     let mut latest_modified_at_ms: Option<i64> = None;
     let mut has_non_empty_files = false;
     let mut entries = fs::read_dir(&dir).await.map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to read workspace overview directory {}: {}",
             dir.display(),
             error
@@ -49,7 +49,7 @@ pub(crate) async fn read_workspace_overview_directory_status(
     })?;
 
     while let Some(entry) = entries.next_entry().await.map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to iterate workspace overview directory {}: {}",
             dir.display(),
             error
@@ -66,7 +66,7 @@ pub(crate) async fn read_workspace_overview_directory_status(
         }
 
         let metadata = entry.metadata().await.map_err(|error| {
-            BitFunError::service(format!(
+            CoreError::service(format!(
                 "Failed to read workspace overview metadata {}: {}",
                 path.display(),
                 error
@@ -95,9 +95,9 @@ pub(crate) async fn read_workspace_overview_directory_status(
     })
 }
 
-async fn file_contains_non_whitespace(path: &std::path::Path) -> BitFunResult<bool> {
+async fn file_contains_non_whitespace(path: &std::path::Path) -> CoreResult<bool> {
     let mut file = File::open(path).await.map_err(|error| {
-        BitFunError::service(format!(
+        CoreError::service(format!(
             "Failed to open workspace overview file {}: {}",
             path.display(),
             error
@@ -109,7 +109,7 @@ async fn file_contains_non_whitespace(path: &std::path::Path) -> BitFunResult<bo
 
     loop {
         let bytes_read = file.read(&mut buffer).await.map_err(|error| {
-            BitFunError::service(format!(
+            CoreError::service(format!(
                 "Failed to read workspace overview file {}: {}",
                 path.display(),
                 error

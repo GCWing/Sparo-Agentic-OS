@@ -1,4 +1,4 @@
-use crate::util::errors::*;
+use crate::error::*;
 use std::path::Path;
 use tokio::fs;
 
@@ -10,7 +10,7 @@ struct InstructionFile {
     content: String,
 }
 
-async fn load_instruction_files(workspace_root: &Path) -> BitFunResult<Vec<InstructionFile>> {
+async fn load_instruction_files(workspace_root: &Path) -> CoreResult<Vec<InstructionFile>> {
     let mut files = Vec::new();
 
     for file_name in WORKSPACE_INSTRUCTION_FILE_NAMES {
@@ -20,7 +20,7 @@ async fn load_instruction_files(workspace_root: &Path) -> BitFunResult<Vec<Instr
         }
 
         let content = fs::read_to_string(&path).await.map_err(|e| {
-            BitFunError::service(format!(
+            CoreError::service(format!(
                 "Failed to read workspace instruction file {}: {}",
                 path.display(),
                 e
@@ -64,7 +64,7 @@ Codebase and user instructions are shown below. Be sure to adhere to these instr
 
 pub(crate) async fn build_instruction_files_context(
     workspace_root: &Path,
-) -> BitFunResult<Option<String>> {
+) -> CoreResult<Option<String>> {
     let instruction_files = load_instruction_files(workspace_root).await?;
     Ok(render_instruction_files_section(&instruction_files))
 }

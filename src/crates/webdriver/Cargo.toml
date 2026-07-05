@@ -1,5 +1,5 @@
 [package]
-name = "bitfun-webdriver"
+name = "sparo-webdriver"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true

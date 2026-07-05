@@ -818,7 +818,7 @@ impl DialogScheduler {
         dialog_turn_id: &str,
         reason: TurnCancellationReason,
         actor: SessionControlActor,
-    ) -> crate::util::errors::BitFunResult<()> {
+    ) -> crate::error::CoreResult<()> {
         let Some(session) = self.session_manager.get_session(session_id) else {
             return Ok(());
         };
@@ -853,7 +853,7 @@ impl DialogScheduler {
         reason: TurnCancellationReason,
         actor: SessionControlActor,
         wait_timeout: Duration,
-    ) -> crate::util::errors::BitFunResult<Option<String>> {
+    ) -> crate::error::CoreResult<Option<String>> {
         let Some(session) = self.session_manager.get_session(session_id) else {
             return Ok(None);
         };
@@ -883,7 +883,7 @@ impl DialogScheduler {
         target_session_id: &str,
         requester_session_id: &str,
         wait_timeout: Duration,
-    ) -> crate::util::errors::BitFunResult<Option<String>> {
+    ) -> crate::error::CoreResult<Option<String>> {
         let suppression_key = self
             .active_turns
             .get(target_session_id)
@@ -943,7 +943,7 @@ impl DialogScheduler {
         reason: TurnCancellationReason,
         actor: SessionControlActor,
         wait_timeout: Duration,
-    ) -> crate::util::errors::BitFunResult<Option<String>> {
+    ) -> crate::error::CoreResult<Option<String>> {
         let Some(session) = self.session_manager.get_session(session_id) else {
             return Ok(None);
         };

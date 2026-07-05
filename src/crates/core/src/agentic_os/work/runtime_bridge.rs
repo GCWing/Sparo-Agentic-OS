@@ -8,7 +8,7 @@ use crate::agentic::coordination::{
     DialogTriggerSource, SessionControlActor, TurnCancellationReason,
 };
 use crate::agentic::core::SessionConfig;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 
 use super::ids::WorkId;
 
@@ -48,14 +48,14 @@ pub trait WorkRuntimeBridge: Send + Sync {
     async fn create_work_session(
         &self,
         request: CreateWorkSessionRequest,
-    ) -> BitFunResult<CreateWorkSessionOutcome>;
+    ) -> CoreResult<CreateWorkSessionOutcome>;
 
     async fn advance_work_session(
         &self,
         request: WorkSessionAdvanceRequest,
-    ) -> BitFunResult<WorkSessionAdvanceOutcome>;
+    ) -> CoreResult<WorkSessionAdvanceOutcome>;
 
-    async fn cancel_work_session_run(&self, _session_id: &str) -> BitFunResult<()> {
+    async fn cancel_work_session_run(&self, _session_id: &str) -> CoreResult<()> {
         Ok(())
     }
 }
@@ -68,8 +68,8 @@ impl WorkRuntimeBridge for NoopWorkRuntimeBridge {
     async fn create_work_session(
         &self,
         _request: CreateWorkSessionRequest,
-    ) -> BitFunResult<CreateWorkSessionOutcome> {
-        Err(BitFunError::service(
+    ) -> CoreResult<CreateWorkSessionOutcome> {
+        Err(CoreError::service(
             "Work runtime bridge is required to create a WorkSession",
         ))
     }
@@ -77,8 +77,8 @@ impl WorkRuntimeBridge for NoopWorkRuntimeBridge {
     async fn advance_work_session(
         &self,
         _request: WorkSessionAdvanceRequest,
-    ) -> BitFunResult<WorkSessionAdvanceOutcome> {
-        Err(BitFunError::service(
+    ) -> CoreResult<WorkSessionAdvanceOutcome> {
+        Err(CoreError::service(
             "Work runtime bridge is required to advance a WorkSession",
         ))
     }
@@ -104,7 +104,7 @@ impl WorkRuntimeBridge for AgenticWorkRuntimeBridge {
     async fn create_work_session(
         &self,
         request: CreateWorkSessionRequest,
-    ) -> BitFunResult<CreateWorkSessionOutcome> {
+    ) -> CoreResult<CreateWorkSessionOutcome> {
         let session = self
             .coordinator
             .create_session_with_workspace_and_creator(
@@ -130,9 +130,9 @@ impl WorkRuntimeBridge for AgenticWorkRuntimeBridge {
     async fn advance_work_session(
         &self,
         request: WorkSessionAdvanceRequest,
-    ) -> BitFunResult<WorkSessionAdvanceOutcome> {
+    ) -> CoreResult<WorkSessionAdvanceOutcome> {
         if request.instructions.trim().is_empty() {
-            return Err(BitFunError::validation("instructions cannot be empty"));
+            return Err(CoreError::validation("instructions cannot be empty"));
         }
 
         let outcome = self
@@ -150,7 +150,7 @@ impl WorkRuntimeBridge for AgenticWorkRuntimeBridge {
                 None,
             )
             .await
-            .map_err(BitFunError::tool)?;
+            .map_err(CoreError::tool)?;
 
         let (session_id, turn_id, started) = match outcome {
             DialogSubmitOutcome::Started {
@@ -170,7 +170,7 @@ impl WorkRuntimeBridge for AgenticWorkRuntimeBridge {
         })
     }
 
-    async fn cancel_work_session_run(&self, session_id: &str) -> BitFunResult<()> {
+    async fn cancel_work_session_run(&self, session_id: &str) -> CoreResult<()> {
         self.scheduler
             .cancel_active_turn_for_session(
                 session_id,

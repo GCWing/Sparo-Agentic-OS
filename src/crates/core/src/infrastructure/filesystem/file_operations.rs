@@ -2,7 +2,7 @@
 //!
 //! Provides safe file read/write and operations
 
-use crate::util::errors::*;
+use crate::error::*;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
@@ -100,20 +100,20 @@ impl FileOperationService {
         }
     }
 
-    pub async fn read_file(&self, file_path: &str) -> BitFunResult<FileReadResult> {
+    pub async fn read_file(&self, file_path: &str) -> CoreResult<FileReadResult> {
         let path = Path::new(file_path);
 
         self.validate_file_access(path, false).await?;
 
         if !path.exists() {
-            return Err(BitFunError::service(format!(
+            return Err(CoreError::service(format!(
                 "File does not exist: {}",
                 file_path
             )));
         }
 
         if path.is_dir() {
-            return Err(BitFunError::service(format!(
+            return Err(CoreError::service(format!(
                 "Path is a directory: {}",
                 file_path
             )));
@@ -121,11 +121,11 @@ impl FileOperationService {
 
         let metadata = fs::metadata(path)
             .await
-            .map_err(|e| BitFunError::service(format!("Failed to read file metadata: {}", e)))?;
+            .map_err(|e| CoreError::service(format!("Failed to read file metadata: {}", e)))?;
 
         let file_size = metadata.len();
         if file_size > self.max_file_size_mb * 1024 * 1024 {
-            return Err(BitFunError::service(format!(
+            return Err(CoreError::service(format!(
                 "File too large: {}MB (max: {}MB)",
                 file_size / (1024 * 1024),
                 self.max_file_size_mb
@@ -146,7 +146,7 @@ impl FileOperationService {
             Err(_) => {
                 let bytes = fs::read(path)
                     .await
-                    .map_err(|e| BitFunError::service(format!("Failed to read file: {}", e)))?;
+                    .map_err(|e| CoreError::service(format!("Failed to read file: {}", e)))?;
 
                 let is_binary = self.is_binary_content(&bytes);
 
@@ -187,20 +187,20 @@ impl FileOperationService {
     }
 
     /// Reads the file from disk and returns the editor-sync hash (see `editor_sync_sha256_hex_from_raw_bytes`).
-    pub async fn editor_sync_content_sha256_hex(&self, file_path: &str) -> BitFunResult<String> {
+    pub async fn editor_sync_content_sha256_hex(&self, file_path: &str) -> CoreResult<String> {
         let path = Path::new(file_path);
 
         self.validate_file_access(path, false).await?;
 
         if !path.exists() {
-            return Err(BitFunError::service(format!(
+            return Err(CoreError::service(format!(
                 "File does not exist: {}",
                 file_path
             )));
         }
 
         if path.is_dir() {
-            return Err(BitFunError::service(format!(
+            return Err(CoreError::service(format!(
                 "Path is a directory: {}",
                 file_path
             )));
@@ -208,11 +208,11 @@ impl FileOperationService {
 
         let metadata = fs::metadata(path)
             .await
-            .map_err(|e| BitFunError::service(format!("Failed to read file metadata: {}", e)))?;
+            .map_err(|e| CoreError::service(format!("Failed to read file metadata: {}", e)))?;
 
         let file_size = metadata.len();
         if file_size > self.max_file_size_mb * 1024 * 1024 {
-            return Err(BitFunError::service(format!(
+            return Err(CoreError::service(format!(
                 "File too large: {}MB (max: {}MB)",
                 file_size / (1024 * 1024),
                 self.max_file_size_mb
@@ -221,7 +221,7 @@ impl FileOperationService {
 
         let bytes = fs::read(path)
             .await
-            .map_err(|e| BitFunError::service(format!("Failed to read file: {}", e)))?;
+            .map_err(|e| CoreError::service(format!("Failed to read file: {}", e)))?;
 
         Ok(self.editor_sync_sha256_hex_from_raw_bytes(&bytes))
     }
@@ -231,7 +231,7 @@ impl FileOperationService {
         file_path: &str,
         content: &str,
         options: FileOperationOptions,
-    ) -> BitFunResult<FileWriteResult> {
+    ) -> CoreResult<FileWriteResult> {
         let path = Path::new(file_path);
 
         self.validate_file_access(path, true).await?;
@@ -247,13 +247,13 @@ impl FileOperationService {
 
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).await.map_err(|e| {
-                BitFunError::service(format!("Failed to create parent directory: {}", e))
+                CoreError::service(format!("Failed to create parent directory: {}", e))
             })?;
         }
 
         fs::write(path, content)
             .await
-            .map_err(|e| BitFunError::service(format!("Failed to write file: {}", e)))?;
+            .map_err(|e| CoreError::service(format!("Failed to write file: {}", e)))?;
 
         let bytes_written = content.len() as u64;
 
@@ -269,7 +269,7 @@ impl FileOperationService {
         file_path: &str,
         data: &[u8],
         options: FileOperationOptions,
-    ) -> BitFunResult<FileWriteResult> {
+    ) -> CoreResult<FileWriteResult> {
         let path = Path::new(file_path);
 
         self.validate_file_access(path, true).await?;
@@ -285,13 +285,13 @@ impl FileOperationService {
 
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).await.map_err(|e| {
-                BitFunError::service(format!("Failed to create parent directory: {}", e))
+                CoreError::service(format!("Failed to create parent directory: {}", e))
             })?;
         }
 
         fs::write(path, data)
             .await
-            .map_err(|e| BitFunError::service(format!("Failed to write binary file: {}", e)))?;
+            .map_err(|e| CoreError::service(format!("Failed to write binary file: {}", e)))?;
 
         let bytes_written = data.len() as u64;
 
@@ -302,7 +302,7 @@ impl FileOperationService {
         })
     }
 
-    pub async fn copy_file(&self, from: &str, to: &str) -> BitFunResult<u64> {
+    pub async fn copy_file(&self, from: &str, to: &str) -> CoreResult<u64> {
         let from_trim = from.trim();
         let to_trim = to.trim();
         let from_path = Path::new(from_trim);
@@ -315,32 +315,32 @@ impl FileOperationService {
         // returns false for broken symlinks and some reparse-point / cloud placeholder edge cases
         // even though the name is listed in the directory.
         if fs::symlink_metadata(from_path).await.is_err() {
-            return Err(BitFunError::service(format!(
+            return Err(CoreError::service(format!(
                 "Source file does not exist: {}",
                 from_trim
             )));
         }
 
         if from_path.is_dir() {
-            return Err(BitFunError::service(
+            return Err(CoreError::service(
                 "Cannot copy directory as file".to_string(),
             ));
         }
 
         if let Some(parent) = to_path.parent() {
             fs::create_dir_all(parent).await.map_err(|e| {
-                BitFunError::service(format!("Failed to create target directory: {}", e))
+                CoreError::service(format!("Failed to create target directory: {}", e))
             })?;
         }
 
         let bytes_copied = fs::copy(from_path, to_path)
             .await
-            .map_err(|e| BitFunError::service(format!("Failed to copy file: {}", e)))?;
+            .map_err(|e| CoreError::service(format!("Failed to copy file: {}", e)))?;
 
         Ok(bytes_copied)
     }
 
-    pub async fn move_file(&self, from: &str, to: &str) -> BitFunResult<()> {
+    pub async fn move_file(&self, from: &str, to: &str) -> CoreResult<()> {
         let from_trim = from.trim();
         let to_trim = to.trim();
         let from_path = Path::new(from_trim);
@@ -350,7 +350,7 @@ impl FileOperationService {
         self.validate_file_access(to_path, true).await?;
 
         if fs::symlink_metadata(from_path).await.is_err() {
-            return Err(BitFunError::service(format!(
+            return Err(CoreError::service(format!(
                 "Source file does not exist: {}",
                 from_trim
             )));
@@ -358,49 +358,49 @@ impl FileOperationService {
 
         if let Some(parent) = to_path.parent() {
             fs::create_dir_all(parent).await.map_err(|e| {
-                BitFunError::service(format!("Failed to create target directory: {}", e))
+                CoreError::service(format!("Failed to create target directory: {}", e))
             })?;
         }
 
         fs::rename(from_path, to_path)
             .await
-            .map_err(|e| BitFunError::service(format!("Failed to move file: {}", e)))?;
+            .map_err(|e| CoreError::service(format!("Failed to move file: {}", e)))?;
 
         Ok(())
     }
 
-    pub async fn delete_file(&self, file_path: &str) -> BitFunResult<()> {
+    pub async fn delete_file(&self, file_path: &str) -> CoreResult<()> {
         let path = Path::new(file_path);
 
         self.validate_file_access(path, true).await?;
 
         if !path.exists() {
-            return Err(BitFunError::service(format!(
+            return Err(CoreError::service(format!(
                 "File does not exist: {}",
                 file_path
             )));
         }
 
         if path.is_dir() {
-            return Err(BitFunError::service(
+            return Err(CoreError::service(
                 "Cannot delete directory as file".to_string(),
             ));
         }
 
         fs::remove_file(path)
             .await
-            .map_err(|e| BitFunError::service(format!("Failed to delete file: {}", e)))?;
+            .map_err(|e| CoreError::service(format!("Failed to delete file: {}", e)))?;
 
         Ok(())
     }
 
-    pub async fn get_file_info(&self, file_path: &str) -> BitFunResult<FileInfo> {
+    pub async fn get_file_info(&self, file_path: &str) -> CoreResult<FileInfo> {
         let path = Path::new(file_path);
 
         self.validate_file_access(path, false).await?;
 
         if !path.exists() {
-            return Err(BitFunError::service(format!(
+            return Err(CoreError::service(format!(
                 "File does not exist: {}",
                 file_path
             )));
@@ -408,7 +408,7 @@ impl FileOperationService {
 
         let metadata = fs::metadata(path)
             .await
-            .map_err(|e| BitFunError::service(format!("Failed to read file metadata: {}", e)))?;
+            .map_err(|e| CoreError::service(format!("Failed to read file metadata: {}", e)))?;
 
         let file_name = path
             .file_name()
@@ -459,51 +459,51 @@ impl FileOperationService {
         })
     }
 
-    pub async fn create_directory(&self, dir_path: &str) -> BitFunResult<()> {
+    pub async fn create_directory(&self, dir_path: &str) -> CoreResult<()> {
         let path = Path::new(dir_path);
 
         self.validate_file_access(path, true).await?;
 
         fs::create_dir_all(path)
             .await
-            .map_err(|e| BitFunError::service(format!("Failed to create directory: {}", e)))?;
+            .map_err(|e| CoreError::service(format!("Failed to create directory: {}", e)))?;
 
         Ok(())
     }
 
-    pub async fn delete_directory(&self, dir_path: &str, recursive: bool) -> BitFunResult<()> {
+    pub async fn delete_directory(&self, dir_path: &str, recursive: bool) -> CoreResult<()> {
         let path = Path::new(dir_path);
 
         self.validate_file_access(path, true).await?;
 
         if !path.exists() {
-            return Err(BitFunError::service(format!(
+            return Err(CoreError::service(format!(
                 "Directory does not exist: {}",
                 dir_path
             )));
         }
 
         if !path.is_dir() {
-            return Err(BitFunError::service("Path is not a directory".to_string()));
+            return Err(CoreError::service("Path is not a directory".to_string()));
         }
 
         if recursive {
             fs::remove_dir_all(path).await.map_err(|e| {
-                BitFunError::service(format!("Failed to delete directory recursively: {}", e))
+                CoreError::service(format!("Failed to delete directory recursively: {}", e))
             })?;
         } else {
             fs::remove_dir(path)
                 .await
-                .map_err(|e| BitFunError::service(format!("Failed to delete directory: {}", e)))?;
+                .map_err(|e| CoreError::service(format!("Failed to delete directory: {}", e)))?;
         }
 
         Ok(())
     }
 
-    async fn validate_file_access(&self, path: &Path, is_write: bool) -> BitFunResult<()> {
+    async fn validate_file_access(&self, path: &Path, is_write: bool) -> CoreResult<()> {
         for restricted in &self.restricted_paths {
             if path.starts_with(restricted) {
-                return Err(BitFunError::service(format!(
+                return Err(CoreError::service(format!(
                     "Access denied: path is in restricted list: {:?}",
                     path
                 )));
@@ -513,7 +513,7 @@ impl FileOperationService {
         if let Some(allowed_extensions) = &self.allowed_extensions {
             if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
                 if !allowed_extensions.contains(&ext.to_lowercase()) {
-                    return Err(BitFunError::service(format!(
+                    return Err(CoreError::service(format!(
                         "File extension not allowed: {}",
                         ext
                     )));
@@ -525,14 +525,14 @@ impl FileOperationService {
             if let Some(parent) = path.parent() {
                 if parent.exists() {
                     let metadata = fs::metadata(parent).await.map_err(|e| {
-                        BitFunError::service(format!(
+                        CoreError::service(format!(
                             "Failed to check parent directory permissions: {}",
                             e
                         ))
                     })?;
 
                     if metadata.permissions().readonly() {
-                        return Err(BitFunError::service(
+                        return Err(CoreError::service(
                             "Parent directory is read-only".to_string(),
                         ));
                     }
@@ -543,10 +543,10 @@ impl FileOperationService {
         Ok(())
     }
 
-    async fn create_backup(&self, path: &Path) -> BitFunResult<String> {
+    async fn create_backup(&self, path: &Path) -> CoreResult<String> {
         let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S");
         let file_name = path.file_name().ok_or_else(|| {
-            BitFunError::service(format!(
+            CoreError::service(format!(
                 "Failed to create backup: path has no file name: {}",
                 path.display()
             ))
@@ -561,7 +561,7 @@ impl FileOperationService {
 
         fs::copy(path, &backup_path)
             .await
-            .map_err(|e| BitFunError::service(format!("Failed to create backup: {}", e)))?;
+            .map_err(|e| CoreError::service(format!("Failed to create backup: {}", e)))?;
 
         Ok(backup_path.to_string_lossy().to_string())
     }

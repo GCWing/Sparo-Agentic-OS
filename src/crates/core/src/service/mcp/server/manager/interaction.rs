@@ -234,14 +234,14 @@ impl MCPServerManager {
         error_message: Option<String>,
         error_code: Option<i32>,
         error_data: Option<Value>,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let pending = {
             let mut interactions = self.pending_interactions.write().await;
             interactions.remove(interaction_id)
         };
 
         let Some(pending) = pending else {
-            return Err(BitFunError::NotFound(format!(
+            return Err(CoreError::NotFound(format!(
                 "MCP interaction not found: {}",
                 interaction_id
             )));
@@ -263,7 +263,7 @@ impl MCPServerManager {
         };
 
         pending.sender.send(decision).map_err(|_| {
-            BitFunError::MCPError(format!(
+            CoreError::Mcp(format!(
                 "Failed to deliver MCP interaction response (receiver dropped): {}",
                 interaction_id
             ))

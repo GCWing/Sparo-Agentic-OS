@@ -6,7 +6,7 @@ use super::connection::MCPConnection;
 use super::MCPServerConfig;
 use crate::service::mcp::protocol::{InitializeResult, MCPMessage, MCPServerInfo, MCPTransport};
 use crate::service::mcp::server::MCPServerTransport;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use log::{debug, error, info, warn};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -55,7 +55,7 @@ pub struct MCPServerProcess {
 }
 
 impl MCPServerProcess {
-    fn is_auth_error(error: &BitFunError) -> bool {
+    fn is_auth_error(error: &CoreError) -> bool {
         let msg = error.to_string().to_ascii_lowercase();
         let patterns = [
             "unauthorized",
@@ -107,7 +107,7 @@ impl MCPServerProcess {
         command: &str,
         args: &[String],
         env: &std::collections::HashMap<String, String>,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         info!("Starting MCP server: name={} id={}", self.name, self.id);
         self.set_status(MCPServerStatus::Starting).await;
 
@@ -143,7 +143,7 @@ impl MCPServerProcess {
                 "Failed to spawn MCP server process: command={} error={}",
                 final_command, e
             );
-            BitFunError::ProcessError(format!(
+            CoreError::Process(format!(
                 "Failed to start MCP server '{}': {}",
                 final_command, e
             ))
@@ -160,11 +160,11 @@ impl MCPServerProcess {
         let stdin = child
             .stdin
             .take()
-            .ok_or_else(|| BitFunError::ProcessError("Failed to capture stdin".to_string()))?;
+            .ok_or_else(|| CoreError::Process("Failed to capture stdin".to_string()))?;
         let stdout = child
             .stdout
             .take()
-            .ok_or_else(|| BitFunError::ProcessError("Failed to capture stdout".to_string()))?;
+            .ok_or_else(|| CoreError::Process("Failed to capture stdout".to_string()))?;
 
         let (tx, rx) = mpsc::unbounded_channel();
 
@@ -202,13 +202,13 @@ impl MCPServerProcess {
     }
 
     /// Starts a remote server (Streamable HTTP).
-    pub async fn start_remote(&mut self, config: &MCPServerConfig) -> BitFunResult<()> {
+    pub async fn start_remote(&mut self, config: &MCPServerConfig) -> CoreResult<()> {
         let url = config.url.as_deref().ok_or_else(|| {
-            BitFunError::Configuration(format!("Remote MCP server '{}' is missing a URL", self.id))
+            CoreError::Configuration(format!("Remote MCP server '{}' is missing a URL", self.id))
         })?;
         let transport = config.resolved_transport();
         if transport != MCPServerTransport::StreamableHttp {
-            return Err(BitFunError::NotImplemented(format!(
+            return Err(CoreError::NotImplemented(format!(
                 "Remote MCP transport '{}' is not yet supported",
                 transport.as_str()
             )));
@@ -277,11 +277,11 @@ impl MCPServerProcess {
     }
 
     /// Performs the handshake (`initialize`).
-    async fn handshake(&mut self) -> BitFunResult<()> {
+    async fn handshake(&mut self) -> CoreResult<()> {
         let connection = self
             .connection
             .as_ref()
-            .ok_or_else(|| BitFunError::MCPError("Connection not established".to_string()))?;
+            .ok_or_else(|| CoreError::Mcp("Connection not established".to_string()))?;
 
         debug!(
             "Initiating handshake with MCP server: name={} id={}",
@@ -306,7 +306,7 @@ impl MCPServerProcess {
     }
 
     /// Stops the server process.
-    pub async fn stop(&mut self) -> BitFunResult<()> {
+    pub async fn stop(&mut self) -> CoreResult<()> {
         info!("Stopping MCP server: name={} id={}", self.name, self.id);
         self.set_status(MCPServerStatus::Stopping).await;
 
@@ -333,7 +333,7 @@ impl MCPServerProcess {
         command: &str,
         args: &[String],
         env: &std::collections::HashMap<String, String>,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         if self.restart_count >= self.max_restarts {
             error!(
                 "Max restart attempts reached: name={} id={} max_restarts={}",
@@ -347,7 +347,7 @@ impl MCPServerProcess {
                 )),
             )
             .await;
-            return Err(BitFunError::MCPError(format!(
+            return Err(CoreError::Mcp(format!(
                 "Max restart attempts ({}) reached",
                 self.max_restarts
             )));
@@ -482,20 +482,20 @@ impl Drop for MCPServerProcess {
 #[cfg(test)]
 mod tests {
     use super::MCPServerProcess;
-    use crate::util::errors::BitFunError;
+    use crate::error::CoreError;
 
     #[test]
     fn detect_auth_error_patterns() {
         let unauthorized =
-            BitFunError::MCPError("Handshake failed: Unauthorized (401)".to_string());
+            CoreError::Mcp("Handshake failed: Unauthorized (401)".to_string());
         assert!(MCPServerProcess::is_auth_error(&unauthorized));
 
-        let oauth_refresh = BitFunError::MCPError(
+        let oauth_refresh = CoreError::Mcp(
             "Ping failed: OAuth token refresh failed: no refresh token available".to_string(),
         );
         assert!(MCPServerProcess::is_auth_error(&oauth_refresh));
 
-        let generic = BitFunError::MCPError("Handshake failed: connection reset".to_string());
+        let generic = CoreError::Mcp("Handshake failed: connection reset".to_string());
         assert!(!MCPServerProcess::is_auth_error(&generic));
     }
 }

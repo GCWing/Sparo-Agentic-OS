@@ -1,11 +1,11 @@
 //! Configuration API
 
 use crate::api::app_state::AppState;
-use bitfun_core::agent_component::AgentComponentManager;
-use bitfun_core::agentic::agents::AgentCategory;
-use bitfun_core::agentic::tools::get_all_registered_tool_names;
-use bitfun_core::command::config as core_config_command;
-use bitfun_core::command::CommandContext;
+use sparo_core::agent_component::AgentComponentManager;
+use sparo_core::agentic::agents::AgentCategory;
+use sparo_core::agentic::tools::get_all_registered_tool_names;
+use sparo_core::command::config as core_config_command;
+use sparo_core::command::CommandContext;
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -134,7 +134,7 @@ pub async fn export_config(state: State<'_, AppState>) -> Result<Value, String> 
 
 #[tauri::command]
 pub async fn import_config(state: State<'_, AppState>, config: Value) -> Result<Value, String> {
-    let export_data: bitfun_core::service::config::ConfigExport =
+    let export_data: sparo_core::service::config::ConfigExport =
         serde_json::from_value(config).map_err(|e| format!("Invalid config format: {}", e))?;
 
     match core_config_command::import_config(
@@ -258,7 +258,7 @@ async fn validate_known_skills(
     skill_keys: &[String],
     workspace_path: Option<&str>,
 ) -> Result<(), String> {
-    let registry = bitfun_core::agentic::tools::implementations::skills::SkillRegistry::global();
+    let registry = sparo_core::agentic::tools::implementations::skills::SkillRegistry::global();
     let workspace = workspace_root_from_request(workspace_path);
     let all_skills = registry
         .get_all_skills_for_workspace(workspace.as_deref())
@@ -317,7 +317,7 @@ async fn update_agent_capability_profile_for_builtin_agent(
         );
     }
     if !config.is_empty() {
-        bitfun_core::service::config::agent_capability_config_canonicalizer::persist_agent_capability_config_from_value(
+        sparo_core::service::config::agent_capability_config_canonicalizer::persist_agent_capability_config_from_value(
             &request.agent_id,
             Value::Object(config),
         )
@@ -331,6 +331,7 @@ async fn update_agent_capability_profile_for_builtin_agent(
             crate::api::skill_api::ReplaceAgentSkillSelectionRequest {
                 agent_id: request.agent_id.clone(),
                 enabled_skill_keys: normalize_unique_list(skills),
+                enabled_suite_keys: None,
                 workspace_path: request.workspace_path.clone(),
             },
         )
@@ -353,7 +354,7 @@ async fn update_agent_capability_profile_for_builtin_agent(
         set_agent_model_config(&state, &request.agent_id, request.model).await?;
     }
 
-    if let Err(e) = bitfun_core::service::config::reload_global_config().await {
+    if let Err(e) = sparo_core::service::config::reload_global_config().await {
         warn!(
             "Failed to reload global config after agent capability update: agent_id={}, error={}",
             request.agent_id, e
@@ -479,7 +480,7 @@ async fn update_subagent_capability_profile(
         }
     } else {
         if let Some(enabled) = request.enabled {
-            let config = bitfun_core::service::config::types::SubAgentConfig { enabled };
+            let config = sparo_core::service::config::types::SubAgentConfig { enabled };
             let path = format!("ai.subagent_configs.{}", request.agent_id);
             let config_value = serde_json::to_value(&config)
                 .map_err(|e| format!("Failed to serialize subagent config: {}", e))?;
@@ -495,7 +496,7 @@ async fn update_subagent_capability_profile(
         }
     }
 
-    if let Err(e) = bitfun_core::service::config::reload_global_config().await {
+    if let Err(e) = sparo_core::service::config::reload_global_config().await {
         warn!(
             "Failed to reload global config after subagent capability update: agent_id={}, error={}",
             request.agent_id, e
@@ -573,7 +574,7 @@ pub async fn update_agent_capability_profile(
 #[tauri::command]
 pub async fn get_agent_capability_configs(_state: State<'_, AppState>) -> Result<Value, String> {
     let agent_capability_configs =
-        bitfun_core::service::config::agent_capability_config_canonicalizer::get_agent_capability_config_views()
+        sparo_core::service::config::agent_capability_config_canonicalizer::get_agent_capability_config_views()
             .await
             .map_err(|e| format!("Failed to get agent capability configs: {}", e))?;
 
@@ -586,7 +587,7 @@ pub async fn get_agent_capability_config(
     agent_id: String,
 ) -> Result<Value, String> {
     let config =
-        bitfun_core::service::config::agent_capability_config_canonicalizer::get_agent_capability_config_view(&agent_id)
+        sparo_core::service::config::agent_capability_config_canonicalizer::get_agent_capability_config_view(&agent_id)
             .await
             .map_err(|e| format!("Failed to get agent capability config: {}", e))?;
 
@@ -601,13 +602,13 @@ pub async fn set_agent_capability_config(
 ) -> Result<String, String> {
     let _ = state;
 
-    match bitfun_core::service::config::agent_capability_config_canonicalizer::persist_agent_capability_config_from_value(
+    match sparo_core::service::config::agent_capability_config_canonicalizer::persist_agent_capability_config_from_value(
         &agent_id, config,
     )
     .await
     {
         Ok(_) => {
-            if let Err(e) = bitfun_core::service::config::reload_global_config().await {
+            if let Err(e) = sparo_core::service::config::reload_global_config().await {
                 warn!(
                     "Failed to reload global config after agent capability config change: agent_id={}, error={}",
                     agent_id, e
@@ -636,13 +637,13 @@ pub async fn reset_agent_capability_config(
     _state: State<'_, AppState>,
     agent_id: String,
 ) -> Result<String, String> {
-    match bitfun_core::service::config::agent_capability_config_canonicalizer::reset_agent_capability_config_to_default(
+    match sparo_core::service::config::agent_capability_config_canonicalizer::reset_agent_capability_config_to_default(
         &agent_id,
     )
     .await
     {
         Ok(_) => {
-            if let Err(e) = bitfun_core::service::config::reload_global_config().await {
+            if let Err(e) = sparo_core::service::config::reload_global_config().await {
                 warn!(
                     "Failed to reload global config after agent capability config reset: agent_id={}, error={}",
                     agent_id, e
@@ -671,7 +672,7 @@ pub async fn reset_agent_capability_config(
 
 #[tauri::command]
 pub async fn get_subagent_configs(state: State<'_, AppState>) -> Result<Value, String> {
-    use bitfun_core::service::config::types::SubAgentConfig;
+    use sparo_core::service::config::types::SubAgentConfig;
     use std::collections::HashMap;
 
     let config_service = &state.config_service;
@@ -720,7 +721,7 @@ pub async fn set_subagent_config(
     subagent_id: String,
     enabled: bool,
 ) -> Result<String, String> {
-    use bitfun_core::service::config::types::SubAgentConfig;
+    use sparo_core::service::config::types::SubAgentConfig;
 
     let config_service = &state.config_service;
     let config = SubAgentConfig { enabled };
@@ -729,7 +730,7 @@ pub async fn set_subagent_config(
 
     match config_service.set_config(&path, config_value).await {
         Ok(_) => {
-            if let Err(e) = bitfun_core::service::config::reload_global_config().await {
+            if let Err(e) = sparo_core::service::config::reload_global_config().await {
                 warn!("Failed to reload global config after subagent config change: subagent_id={}, error={}", subagent_id, e);
             } else {
                 info!("Global config reloaded after subagent config change: subagent_id={}, enabled={}", subagent_id, enabled);
@@ -754,7 +755,7 @@ pub async fn set_subagent_config(
 pub async fn canonicalize_agent_capability_configs(
     _state: State<'_, AppState>,
 ) -> Result<Value, String> {
-    match bitfun_core::service::config::agent_capability_config_canonicalizer::canonicalize_agent_capability_configs().await
+    match sparo_core::service::config::agent_capability_config_canonicalizer::canonicalize_agent_capability_configs().await
     {
         Ok(report) => {
             info!(

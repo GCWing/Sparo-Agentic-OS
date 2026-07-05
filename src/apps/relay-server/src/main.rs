@@ -8,7 +8,7 @@ use tracing::info;
 
 mod config;
 
-use bitfun_relay_server::{build_relay_router, DiskAssetStore, RoomManager, WebAssetStore};
+use sparo_relay_server::{build_relay_router, DiskAssetStore, RoomManager, WebAssetStore};
 use config::RelayConfig;
 
 #[tokio::main]

@@ -4,7 +4,7 @@ Truly shared built-in Bridge Component packages belong here. Product App-specifi
 runtime bridges belong inside their owning Product App package at:
 
 ```text
-bundles/product-apps/builtin/<app-id>/<version>/components/bridges/<component-id>/source/
+bundles/product-apps/<app-id>/<version>/components/bridges/<component-id>/source/
 ```
 
 Each package should be self-contained:

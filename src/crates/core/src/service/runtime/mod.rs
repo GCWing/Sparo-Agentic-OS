@@ -6,7 +6,7 @@
 
 use crate::infrastructure::get_path_manager_arc;
 use crate::service::system;
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -51,7 +51,7 @@ struct ManagedCommandSpec {
 }
 
 impl RuntimeManager {
-    pub fn new() -> BitFunResult<Self> {
+    pub fn new() -> CoreResult<Self> {
         let pm = get_path_manager_arc();
         Ok(Self {
             runtime_root: pm.managed_runtimes_dir(),
@@ -358,7 +358,7 @@ mod tests {
     fn temp_runtime_root() -> PathBuf {
         let mut p = std::env::temp_dir();
         let id = format!(
-            "bitfun-runtime-test-{}-{}",
+            "sparo-runtime-test-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)

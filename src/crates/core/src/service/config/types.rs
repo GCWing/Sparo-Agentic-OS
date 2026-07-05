@@ -2,7 +2,7 @@
 //!
 //! Defines all configuration-related types shared between backend and frontend.
 
-use crate::util::errors::*;
+use crate::error::*;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -86,7 +86,7 @@ pub struct SmartAppsConfig {
 impl SmartAppsConfig {
     pub const PRIME_BUILDER_APP_ID: &'static str = "coding-app";
 
-    /// Returns the Prime Builder debug config, if the app has one configured.
+    /// Returns the BitFun Coder debug config, if the app has one configured.
     pub fn prime_builder_debug_config(&self) -> Option<&DebugModeConfig> {
         self.apps
             .get(Self::PRIME_BUILDER_APP_ID)
@@ -469,7 +469,7 @@ pub enum ModelCategory {
     SpeechRecognition,
 }
 
-pub use bitfun_ai_adapters::types::ReasoningMode;
+pub use sparo_ai_adapters::types::ReasoningMode;
 
 /// Default model configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -698,6 +698,14 @@ pub struct AgentCapabilityConfig {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub enabled_user_skills: Vec<String>,
 
+    /// User-level suites disabled for this mode.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub disabled_user_skill_suites: Vec<String>,
+
+    /// User-level suites explicitly enabled even though the mode default disables them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub enabled_user_skill_suites: Vec<String>,
+
     /// Default subagents explicitly disabled for this mode.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub disabled_subagents: Vec<String>,
@@ -719,6 +727,10 @@ pub struct AgentCapabilityConfigView {
     pub disabled_user_skills: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub enabled_user_skills: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub disabled_user_skill_suites: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub enabled_user_skill_suites: Vec<String>,
     pub enabled_subagents: Vec<String>,
     pub default_subagents: Vec<String>,
 }
@@ -795,6 +807,8 @@ impl Default for AgentCapabilityConfig {
             enabled: true,
             disabled_user_skills: Vec::new(),
             enabled_user_skills: Vec::new(),
+            disabled_user_skill_suites: Vec::new(),
+            enabled_user_skill_suites: Vec::new(),
             disabled_subagents: Vec::new(),
             enabled_subagents: Vec::new(),
         }
@@ -810,6 +824,8 @@ impl Default for AgentCapabilityConfigView {
             enabled: true,
             disabled_user_skills: Vec::new(),
             enabled_user_skills: Vec::new(),
+            disabled_user_skill_suites: Vec::new(),
+            enabled_user_skill_suites: Vec::new(),
             enabled_subagents: Vec::new(),
             default_subagents: Vec::new(),
         }
@@ -1248,7 +1264,7 @@ impl AIModelConfig {
     }
 }
 
-pub use bitfun_ai_adapters::types::ProxyConfig;
+pub use sparo_ai_adapters::types::ProxyConfig;
 
 /// Configuration provider interface.
 #[async_trait]
@@ -1260,21 +1276,21 @@ pub trait ConfigProvider: Send + Sync {
     fn get_default_config(&self) -> serde_json::Value;
 
     /// Validates configuration.
-    async fn validate_config(&self, config: &serde_json::Value) -> BitFunResult<Vec<String>>;
+    async fn validate_config(&self, config: &serde_json::Value) -> CoreResult<Vec<String>>;
 
     /// Called when configuration changes.
     async fn on_config_changed(
         &self,
         old_config: &serde_json::Value,
         new_config: &serde_json::Value,
-    ) -> BitFunResult<()>;
+    ) -> CoreResult<()>;
 
     /// Migrates configuration (used for version upgrades).
     async fn migrate_config(
         &self,
         version: &str,
         config: serde_json::Value,
-    ) -> BitFunResult<serde_json::Value>;
+    ) -> CoreResult<serde_json::Value>;
 }
 
 /// Configuration change event.

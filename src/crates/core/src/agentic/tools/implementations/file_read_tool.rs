@@ -2,7 +2,7 @@ use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
 };
 use crate::agentic::tools::workspace_paths::is_sparo_runtime_uri;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use std::path::Path;
@@ -47,16 +47,16 @@ impl FileReadTool {
         start_line: usize,
         limit: usize,
         context: &ToolUseContext,
-    ) -> BitFunResult<tool_runtime::fs::read_file::ReadFileResult> {
+    ) -> CoreResult<tool_runtime::fs::read_file::ReadFileResult> {
         const TOTAL_LINES_MARKER: &str = "__SPARO_TOTAL_LINES__=";
         const HIT_TOTAL_CHAR_LIMIT_MARKER: &str = "__SPARO_HIT_TOTAL_CHAR_LIMIT__=";
 
         let end_line = start_line
             .checked_add(limit.saturating_sub(1))
-            .ok_or_else(|| BitFunError::tool("Requested line range is too large".to_string()))?;
+            .ok_or_else(|| CoreError::tool("Requested line range is too large".to_string()))?;
 
         let ws_shell = context.ws_shell().ok_or_else(|| {
-            BitFunError::tool("Remote workspace shell is unavailable".to_string())
+            CoreError::tool("Remote workspace shell is unavailable".to_string())
         })?;
 
         let escaped_path = shell_escape(resolved_path);
@@ -74,7 +74,7 @@ impl FileReadTool {
         let (stdout, stderr, status) = ws_shell
             .exec(&command, None)
             .await
-            .map_err(|e| BitFunError::tool(format!("Failed to read file: {}", e)))?;
+            .map_err(|e| CoreError::tool(format!("Failed to read file: {}", e)))?;
 
         let mut total_lines = None;
         let mut hit_total_char_limit = false;
@@ -100,11 +100,11 @@ impl FileReadTool {
                     status
                 )
             };
-            return Err(BitFunError::tool(message));
+            return Err(CoreError::tool(message));
         }
 
         let total_lines = total_lines.ok_or_else(|| {
-            BitFunError::tool("Failed to read file: remote line count was unavailable".to_string())
+            CoreError::tool("Failed to read file: remote line count was unavailable".to_string())
         })?;
 
         if total_lines == 0 {
@@ -118,7 +118,7 @@ impl FileReadTool {
         }
 
         if start_line > total_lines {
-            return Err(BitFunError::tool(format!(
+            return Err(CoreError::tool(format!(
                 "`start_line` {} is larger than the number of lines in the file: {}",
                 start_line, total_lines
             )));
@@ -156,7 +156,7 @@ impl Tool for FileReadTool {
         "Read"
     }
 
-    async fn description(&self) -> BitFunResult<String> {
+    async fn description(&self) -> CoreResult<String> {
         Ok(format!(
             r#"Reads a file from the local filesystem. You can access any file directly by using this tool.
 Assume this tool is able to read all files on the machine. If the User provides a path to a file assume that path is valid. It is okay to read a file that does not exist; an error will be returned.
@@ -249,7 +249,7 @@ Usage:
                     return ValidationResult {
                         result: false,
                         message: Some(
-                            "Tool context is required to resolve bitfun runtime URIs".to_string(),
+                            "Tool context is required to resolve sparo runtime URIs".to_string(),
                         ),
                         error_code: Some(400),
                         meta: None,
@@ -327,11 +327,11 @@ Usage:
         &self,
         input: &Value,
         context: &ToolUseContext,
-    ) -> BitFunResult<Vec<ToolResult>> {
+    ) -> CoreResult<Vec<ToolResult>> {
         let file_path = input
             .get("file_path")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| BitFunError::tool("file_path is required".to_string()))?;
+            .ok_or_else(|| CoreError::tool("file_path is required".to_string()))?;
 
         let start_line = input
             .get("start_line")
@@ -356,7 +356,7 @@ Usage:
                 self.max_line_chars,
                 self.max_total_chars,
             )
-            .map_err(BitFunError::tool)?
+            .map_err(CoreError::tool)?
         };
 
         let mut result_for_assistant = format!(

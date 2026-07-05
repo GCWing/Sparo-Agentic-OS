@@ -131,6 +131,7 @@
       "user": "User",
       "project": "Project",
       "builtin": "Built-in",
+      "standalone": "Standalone",
       "userInstalled": "Installed",
       "deleteTooltip": "Delete",
       "detail": "Details",

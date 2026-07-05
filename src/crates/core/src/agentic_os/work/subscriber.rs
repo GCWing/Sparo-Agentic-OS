@@ -6,7 +6,7 @@ use crate::agentic::coordination::{
 use crate::agentic::core::PromptEnvelope;
 use crate::agentic::events::{AgenticEvent, EventSubscriber, ToolEventData};
 use crate::infrastructure::try_get_path_manager_arc;
-use crate::util::errors::BitFunResult;
+use crate::error::CoreResult;
 
 use super::{
     default_work_store, WorkExecutionAppStudioContext, WorkExecutionBindingStatus,
@@ -31,7 +31,7 @@ impl WorkEventSubscriber {
 
 #[async_trait::async_trait]
 impl EventSubscriber for WorkEventSubscriber {
-    async fn on_event(&self, event: &AgenticEvent) -> BitFunResult<()> {
+    async fn on_event(&self, event: &AgenticEvent) -> CoreResult<()> {
         let service = WorkService::new(default_work_store()?);
         match event {
             AgenticEvent::SessionTitleGenerated {
@@ -132,7 +132,7 @@ impl WorkEventSubscriber {
         turn_id: &str,
         execution_status: WorkExecutionBindingStatus,
         error: Option<&str>,
-    ) -> BitFunResult<()> {
+    ) -> CoreResult<()> {
         let Some(scheduler) = self.scheduler.as_ref() else {
             return Ok(());
         };
@@ -217,7 +217,7 @@ impl WorkEventSubscriber {
                 Some(metadata),
             )
             .await
-            .map_err(crate::util::errors::BitFunError::tool)?;
+            .map_err(crate::error::CoreError::tool)?;
         service
             .mark_agent_session_turn_work_message_queued(turn_id)
             .await?;

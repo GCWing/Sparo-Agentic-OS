@@ -1,10 +1,10 @@
 //! Snapshot Service API
 
-use bitfun_core::agentic::coordination::{
+use sparo_core::agentic::coordination::{
     DialogScheduler, SessionControlActor, TurnCancellationReason,
 };
-use bitfun_core::infrastructure::try_get_path_manager_arc;
-use bitfun_core::service::snapshot::{
+use sparo_core::infrastructure::try_get_path_manager_arc;
+use sparo_core::service::snapshot::{
     ensure_snapshot_manager_for_workspace, get_snapshot_manager_for_workspace,
     initialize_snapshot_manager_for_workspace, OperationType, SnapshotConfig, SnapshotManager,
 };
@@ -327,7 +327,7 @@ pub async fn rollback_to_turn(
     request: RollbackTurnRequest,
 ) -> Result<Vec<String>, String> {
     {
-        use bitfun_core::agentic::coordination::get_global_coordinator;
+        use sparo_core::agentic::coordination::get_global_coordinator;
 
         if let Some(coordinator) = get_global_coordinator() {
             coordinator.cancel_auto_memory_for_session(&request.session_id);
@@ -364,7 +364,7 @@ pub async fn rollback_to_turn(
     if request.delete_turns {
         let workspace_path = PathBuf::from(&request.workspace_path);
         {
-            use bitfun_core::agentic::coordination::get_global_coordinator;
+            use sparo_core::agentic::coordination::get_global_coordinator;
 
             if let Some(coordinator) = get_global_coordinator() {
                 if let Err(e) = coordinator
@@ -386,7 +386,7 @@ pub async fn rollback_to_turn(
             }
         }
 
-        use bitfun_core::agentic::persistence::PersistenceManager;
+        use sparo_core::agentic::persistence::PersistenceManager;
 
         match try_get_path_manager_arc() {
             Ok(path_manager) => match PersistenceManager::new(path_manager) {
@@ -539,7 +539,7 @@ pub async fn get_session_turns(
     _app_handle: AppHandle,
     request: GetSessionTurnsRequest,
 ) -> Result<Vec<usize>, String> {
-    use bitfun_core::agentic::persistence::PersistenceManager;
+    use sparo_core::agentic::persistence::PersistenceManager;
 
     let workspace_path = PathBuf::from(&request.workspace_path);
     if let Ok(path_manager) = try_get_path_manager_arc() {

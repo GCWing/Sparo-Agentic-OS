@@ -32,6 +32,16 @@ pub struct AgenticOsGetWorkResponse {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct AgenticOsDeleteWorkRequest {
+    pub work_id: WorkId,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AgenticOsDeleteWorkResponse {
+    pub deleted: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct AgenticOsCreateWorkRequest {
     #[serde(flatten)]
     pub work: CreateWorkRequest,
@@ -197,6 +207,26 @@ pub async fn get_work(request: AgenticOsGetWorkRequest) -> CommandResult<Agentic
         .await
         .map_err(CommandError::session)?;
     Ok(AgenticOsGetWorkResponse { work })
+}
+
+pub async fn delete_work(
+    request: AgenticOsDeleteWorkRequest,
+) -> CommandResult<AgenticOsDeleteWorkResponse> {
+    let service = WorkService::new(default_work_store().map_err(CommandError::session)?);
+    delete_work_with_service(&service, request).await
+}
+
+pub async fn delete_work_with_service(
+    service: &WorkService,
+    request: AgenticOsDeleteWorkRequest,
+) -> CommandResult<AgenticOsDeleteWorkResponse> {
+    let response = service
+        .delete(&request.work_id)
+        .await
+        .map_err(CommandError::session)?;
+    Ok(AgenticOsDeleteWorkResponse {
+        deleted: response.deleted,
+    })
 }
 
 pub async fn create_work(

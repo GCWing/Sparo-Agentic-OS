@@ -2,7 +2,7 @@
 
 use super::MCPServerType;
 use crate::service::mcp::config::ConfigLocation;
-use crate::util::errors::{BitFunError, BitFunResult};
+use crate::error::{CoreError, CoreResult};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -102,15 +102,15 @@ impl MCPServerConfig {
     }
 
     /// Validates the configuration.
-    pub fn validate(&self) -> BitFunResult<()> {
+    pub fn validate(&self) -> CoreResult<()> {
         if self.id.is_empty() {
-            return Err(BitFunError::Configuration(
+            return Err(CoreError::Configuration(
                 "MCP server id cannot be empty".to_string(),
             ));
         }
 
         if self.name.is_empty() {
-            return Err(BitFunError::Configuration(
+            return Err(CoreError::Configuration(
                 "MCP server name cannot be empty".to_string(),
             ));
         }
@@ -119,14 +119,14 @@ impl MCPServerConfig {
         match self.server_type {
             MCPServerType::Local => {
                 if self.command.is_none() {
-                    return Err(BitFunError::Configuration(format!(
+                    return Err(CoreError::Configuration(format!(
                         "Local MCP server '{}' must have a command",
                         self.id
                     )));
                 }
 
                 if transport != MCPServerTransport::Stdio {
-                    return Err(BitFunError::Configuration(format!(
+                    return Err(CoreError::Configuration(format!(
                         "Local MCP server '{}' must use stdio transport, got '{}'",
                         self.id,
                         transport.as_str()
@@ -135,7 +135,7 @@ impl MCPServerConfig {
             }
             MCPServerType::Remote => {
                 if self.url.is_none() {
-                    return Err(BitFunError::Configuration(format!(
+                    return Err(CoreError::Configuration(format!(
                         "Remote MCP server '{}' must have a URL",
                         self.id
                     )));
@@ -144,7 +144,7 @@ impl MCPServerConfig {
                 if let Some(oauth) = &self.oauth {
                     if let Some(port) = oauth.callback_port {
                         if port == 0 {
-                            return Err(BitFunError::Configuration(format!(
+                            return Err(CoreError::Configuration(format!(
                                 "Remote MCP server '{}' OAuth callbackPort must be greater than 0",
                                 self.id
                             )));
@@ -156,7 +156,7 @@ impl MCPServerConfig {
                     transport,
                     MCPServerTransport::StreamableHttp | MCPServerTransport::Sse
                 ) {
-                    return Err(BitFunError::Configuration(format!(
+                    return Err(CoreError::Configuration(format!(
                         "Remote MCP server '{}' must use streamable-http or sse transport, got '{}'",
                         self.id,
                         transport.as_str()
