@@ -28,6 +28,7 @@ const ignoredDirs = new Set([
   'target',
   'dist',
   'build',
+  'docs',
   '.turbo',
 ]);
 
