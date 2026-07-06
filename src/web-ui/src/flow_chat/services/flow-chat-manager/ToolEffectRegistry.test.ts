@@ -31,7 +31,7 @@ describe('ToolEffectRegistry', () => {
     vi.restoreAllMocks();
   });
 
-  it('dispatches RunStudioPreview results for App Studio Workbench projection', async () => {
+  it('dispatches RunBuilderPreview results for App Builder Workbench projection', async () => {
     globalThis.window = new EventTarget() as Window & typeof globalThis;
     if (typeof globalThis.CustomEvent === 'undefined') {
       globalThis.CustomEvent = class CustomEvent<T = unknown> extends Event {
@@ -46,7 +46,7 @@ describe('ToolEffectRegistry', () => {
     const { requestWorkRefresh } = await import('@/app/agentic-os/work/data/workStore');
     const { runCompletedToolEffects } = await import('./ToolEffectRegistry');
     const listener = vi.fn();
-    window.addEventListener('app-studio-preview-result', listener);
+    window.addEventListener('app-builder-preview-result', listener);
 
     const result = {
       status: 'passed',
@@ -57,7 +57,7 @@ describe('ToolEffectRegistry', () => {
       sessionId: 'session-1',
       turnId: 'turn-1',
       toolId: 'tool-1',
-      toolName: 'RunStudioPreview',
+      toolName: 'RunBuilderPreview',
       result,
     });
 
@@ -65,11 +65,11 @@ describe('ToolEffectRegistry', () => {
     expect(listener.mock.calls[0]?.[0]).toBeInstanceOf(CustomEvent);
     expect((listener.mock.calls[0]?.[0] as CustomEvent).detail).toEqual({
       result,
-      toolName: 'RunStudioPreview',
+      toolName: 'RunBuilderPreview',
       turnId: 'turn-1',
     });
-    expect(requestWorkRefresh).toHaveBeenCalledWith('studio-preview-completed');
+    expect(requestWorkRefresh).toHaveBeenCalledWith('builder-preview-completed');
 
-    window.removeEventListener('app-studio-preview-result', listener);
+    window.removeEventListener('app-builder-preview-result', listener);
   });
 });

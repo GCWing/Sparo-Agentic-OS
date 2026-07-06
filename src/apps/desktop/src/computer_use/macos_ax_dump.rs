@@ -17,14 +17,14 @@
 // without weakening real warnings elsewhere.
 #![allow(dead_code)]
 
-use sparo_core::agentic::tools::computer_use_host::{AppStateSnapshot, AxNode};
-use sparo_core::error::{CoreError, CoreResult};
 use core_foundation::array::{CFArray, CFArrayRef};
 use core_foundation::base::{CFGetTypeID, CFTypeRef, TCFType};
 use core_foundation::boolean::{CFBooleanGetTypeID, CFBooleanRef};
 use core_foundation::string::{CFString, CFStringRef};
 use core_graphics::geometry::{CGPoint, CGSize};
 use sha1::{Digest, Sha1};
+use sparo_core::agentic::tools::computer_use_host::{AppStateSnapshot, AxNode};
+use sparo_core::error::{CoreError, CoreResult};
 use std::collections::{HashMap, VecDeque};
 use std::ffi::c_void;
 use std::sync::{Mutex, OnceLock};

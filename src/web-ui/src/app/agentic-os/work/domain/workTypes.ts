@@ -118,7 +118,7 @@ export type WorkExecutionSource =
   | { source: 'runtime_subagent_run'; runId: string }
   | { source: 'external'; label: string; reference: string };
 
-export interface WorkExecutionAppStudioContext {
+export interface WorkExecutionAppBuilderContext {
   workId?: WorkId | null;
   issueId: string;
   productAppId?: string | null;
@@ -138,7 +138,7 @@ export interface WorkExecutionBinding {
   id: string;
   status: WorkExecutionBindingStatus;
   source: WorkExecutionSource;
-  appStudio?: WorkExecutionAppStudioContext | null;
+  appBuilder?: WorkExecutionAppBuilderContext | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -191,7 +191,7 @@ export type WorkRuntimeInstanceStatus =
 
 export type WorkRuntimeIssueSeverity = 'fatal' | 'warning' | 'noise';
 export type WorkRuntimeLogLevel = 'debug' | 'info' | 'warn' | 'error';
-export type WorkStudioPreviewKind =
+export type WorkBuilderPreviewKind =
   | 'product-app-preview'
   | 'agent-chat'
   | 'sidecar'
@@ -204,13 +204,13 @@ export type WorkStudioPreviewKind =
   | 'permission-review'
   | 'user-path-rehearsal'
   | 'release-rehearsal';
-export type WorkStudioPreviewSource =
+export type WorkBuilderPreviewSource =
   | 'runtime-fact'
   | 'runtime-observation'
   | 'preview-harness'
   | 'fix-rerun'
   | 'release-rehearsal';
-export type WorkStudioFactStatus =
+export type WorkBuilderFactStatus =
   | 'passed'
   | 'warning'
   | 'failed'
@@ -220,9 +220,9 @@ export type WorkStudioFactStatus =
   | 'running'
   | 'ready'
   | 'waiting';
-export type WorkStudioValidationTargetKind = 'product-app' | 'component';
-export type WorkStudioIssueStatus = 'open' | 'acknowledged' | 'stillOpen' | 'regressed' | 'fixed';
-export type WorkStudioIssueOrigin =
+export type WorkBuilderValidationTargetKind = 'product-app' | 'component';
+export type WorkBuilderIssueStatus = 'open' | 'acknowledged' | 'stillOpen' | 'regressed' | 'fixed';
+export type WorkBuilderIssueOrigin =
   | 'runtime-event'
   | 'work-execution-graph'
   | 'validation'
@@ -265,15 +265,15 @@ export interface WorkRuntimeLog {
   timestampMs: number;
 }
 
-export interface WorkStudioPreviewResult {
+export interface WorkBuilderPreviewResult {
   id: string;
-  kind: WorkStudioPreviewKind;
-  status: WorkStudioFactStatus;
-  source: WorkStudioPreviewSource;
+  kind: WorkBuilderPreviewKind;
+  status: WorkBuilderFactStatus;
+  source: WorkBuilderPreviewSource;
   harnessMode?: string | null;
   triggerTurnId?: string | null;
   detail?: string | null;
-  checks?: WorkStudioFactCheck[];
+  checks?: WorkBuilderFactCheck[];
   workId: WorkId;
   runtimeInstanceId?: string | null;
   productAppId?: string | null;
@@ -286,17 +286,17 @@ export interface WorkStudioPreviewResult {
   warningIssueCount: number;
 }
 
-export interface WorkStudioFactCheck {
+export interface WorkBuilderFactCheck {
   id: string;
-  status: WorkStudioFactStatus;
+  status: WorkBuilderFactStatus;
   detail?: string | null;
 }
 
-export interface WorkStudioValidationResult {
+export interface WorkBuilderValidationResult {
   id: string;
   toolName: string;
-  targetKind: WorkStudioValidationTargetKind;
-  status: WorkStudioFactStatus;
+  targetKind: WorkBuilderValidationTargetKind;
+  status: WorkBuilderFactStatus;
   workId: WorkId;
   appId?: string | null;
   componentId?: string | null;
@@ -306,10 +306,10 @@ export interface WorkStudioValidationResult {
   observedAt: number;
   failedCount: number;
   warningCount: number;
-  checks: WorkStudioFactCheck[];
+  checks: WorkBuilderFactCheck[];
 }
 
-export interface WorkStudioIssue {
+export interface WorkBuilderIssue {
   id: string;
   appId: string;
   productAppId?: string | null;
@@ -317,12 +317,12 @@ export interface WorkStudioIssue {
   runtimeInstanceId?: string | null;
   previewResultId?: string | null;
   severity: WorkRuntimeIssueSeverity;
-  status: WorkStudioIssueStatus;
+  status: WorkBuilderIssueStatus;
   message: string;
   source?: string | null;
   category?: string | null;
   timestampMs: number;
-  origin: WorkStudioIssueOrigin;
+  origin: WorkBuilderIssueOrigin;
   resolvedAt?: number | null;
 }
 
@@ -360,9 +360,9 @@ export interface WorkExecutionGraph {
   artifacts: WorkArtifactNode[];
   issues: WorkRuntimeIssue[];
   logs: WorkRuntimeLog[];
-  studioPreviewResults: WorkStudioPreviewResult[];
-  studioValidationResults: WorkStudioValidationResult[];
-  studioIssues: WorkStudioIssue[];
+  builderPreviewResults: WorkBuilderPreviewResult[];
+  builderValidationResults: WorkBuilderValidationResult[];
+  builderIssues: WorkBuilderIssue[];
   summary: WorkExecutionGraphSummary;
 }
 
@@ -496,12 +496,12 @@ export interface ControlWorkRequest {
   action: ControlWorkAction;
 }
 
-export interface RecordStudioValidationResultRequest {
+export interface RecordBuilderValidationResultRequest {
   workId: WorkId;
-  validationResult: WorkStudioValidationResult;
+  validationResult: WorkBuilderValidationResult;
 }
 
-export interface RecordStudioPreviewResultRequest {
+export interface RecordBuilderPreviewResultRequest {
   workId: WorkId;
-  previewResult: WorkStudioPreviewResult;
+  previewResult: WorkBuilderPreviewResult;
 }

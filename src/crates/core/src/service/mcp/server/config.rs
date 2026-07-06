@@ -1,8 +1,8 @@
 //! MCP server configuration types.
 
 use super::MCPServerType;
-use crate::service::mcp::config::ConfigLocation;
 use crate::error::{CoreError, CoreResult};
+use crate::service::mcp::config::ConfigLocation;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;

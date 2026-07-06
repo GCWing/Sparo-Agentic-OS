@@ -1,4 +1,4 @@
-﻿import fs from 'node:fs';
+import fs from 'node:fs';
 import { browser, expect, $ } from '@wdio/globals';
 
 import { callProductAppRuntimeBackend } from '../helpers/product-app-runtime-helper';

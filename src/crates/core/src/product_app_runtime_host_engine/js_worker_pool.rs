@@ -1,9 +1,9 @@
 //! JS Worker pool — LRU pool, get_or_spawn, call, stop_all, install_deps.
 
+use crate::error::{CoreError, CoreResult};
 use crate::product_app_runtime_host_engine::js_worker::JsWorker;
 use crate::product_app_runtime_host_engine::runtime_detect::{detect_runtime, DetectedRuntime};
 use crate::product_app_runtime_host_engine::types::{NodePermissions, NpmDep};
-use crate::error::{CoreError, CoreResult};
 use serde_json::Value;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -250,11 +250,7 @@ impl JsWorkerPool {
     }
 
     /// Install npm dependencies for the app (bun install or npm/pnpm install).
-    pub async fn install_deps(
-        &self,
-        app_id: &str,
-        _deps: &[NpmDep],
-    ) -> CoreResult<InstallResult> {
+    pub async fn install_deps(&self, app_id: &str, _deps: &[NpmDep]) -> CoreResult<InstallResult> {
         let app_dir = self.path_manager.product_app_runtime_host_dir(app_id);
         let package_json = app_dir.join("package.json");
         if !package_json.exists() {

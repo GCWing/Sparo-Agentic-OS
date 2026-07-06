@@ -21,9 +21,9 @@
 
 #![allow(dead_code)]
 
+use image::{ImageOutputFormat, Rgba, RgbaImage};
 use sparo_core::agentic::tools::computer_use_host::InteractiveElement;
 use sparo_core::error::{CoreError, CoreResult};
-use image::{ImageOutputFormat, Rgba, RgbaImage};
 use std::io::Cursor;
 
 /// Render the SoM overlay onto `jpeg_bytes` and return a fresh JPEG.

@@ -1,5 +1,5 @@
 import { browser, expect, $, $$ } from '@wdio/globals';
-import { ensureCodeSessionOpen, openWorkspace } from '../helpers/workspace-helper';
+import { ensureBitFunCoderSessionOpen, openWorkspace } from '../helpers/workspace-helper';
 import { saveElementScreenshot } from '../helpers/screenshot-utils';
 
 describe('Model selector hover highlight', () => {
@@ -47,7 +47,7 @@ describe('Model selector hover highlight', () => {
       });
     });
 
-    await ensureCodeSessionOpen();
+    await ensureBitFunCoderSessionOpen();
 
     const trigger = await $('.sparo-model-selector__trigger');
     await trigger.waitForDisplayed({ timeout: 15000 });

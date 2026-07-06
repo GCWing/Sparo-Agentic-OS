@@ -9,7 +9,7 @@ import type { AppScope } from '@/shared/types/app-scope';
 import type { WorkspaceSurfaceContext } from '@/app/navigation/workspaceSurfaceTypes';
 import type { ResolvedProductAppRuntimeInstance } from '@/infrastructure/api/service-api/ProductAppRuntimeAPI';
 
-export interface ProductAppStudioPreviewFailureContext {
+export interface ProductAppBuilderPreviewFailureContext {
   kind: 'product-app-preview';
   stage: 'runtime-resolve' | 'host-surface-load';
   productApp: ProductAppCatalogEntry;
@@ -23,12 +23,12 @@ export interface ProductAppStudioPreviewFailureContext {
   workspacePath?: string;
 }
 
-export class ProductAppStudioPreviewResolveError extends Error {
-  readonly context: ProductAppStudioPreviewFailureContext;
+export class ProductAppBuilderPreviewResolveError extends Error {
+  readonly context: ProductAppBuilderPreviewFailureContext;
 
-  constructor(message: string, context: ProductAppStudioPreviewFailureContext, cause?: unknown) {
+  constructor(message: string, context: ProductAppBuilderPreviewFailureContext, cause?: unknown) {
     super(message);
-    this.name = 'ProductAppStudioPreviewResolveError';
+    this.name = 'ProductAppBuilderPreviewResolveError';
     this.context = context;
     if (cause !== undefined) {
       (this as Error & { cause?: unknown }).cause = cause;
@@ -36,8 +36,8 @@ export class ProductAppStudioPreviewResolveError extends Error {
   }
 }
 
-export function isProductAppStudioPreviewResolveError(
+export function isProductAppBuilderPreviewResolveError(
   error: unknown,
-): error is ProductAppStudioPreviewResolveError {
-  return error instanceof ProductAppStudioPreviewResolveError;
+): error is ProductAppBuilderPreviewResolveError {
+  return error instanceof ProductAppBuilderPreviewResolveError;
 }

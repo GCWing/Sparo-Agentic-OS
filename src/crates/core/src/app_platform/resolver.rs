@@ -10,13 +10,15 @@ use tokio::fs;
 
 use crate::error::{CoreError, CoreResult};
 
+use super::capability_binding::validate_app_capability_bindings;
 use super::catalog::{
-    build_component_lock_with_implementation_digests, stable_digest, AppCatalogEntry,
+    build_component_lock_with_implementation_digests, stable_digest, AppAuthor, AppCatalogEntry,
     AppComponentRef, AppDefinition, AppIconSpec, ComponentDefinition, ComponentKind, ComponentLock,
     ComponentOwnerApp, ComponentPackageSource, ComponentSource, ProductAppCatalogEntry,
     ProductAppLaunch, ProductAppLaunchKind,
 };
 use super::eval::ProductAppEvalPlan;
+use super::launch_binding::validate_product_app_launch_binding;
 use super::rehearsal::ProductAppRehearsalPlan;
 use crate::product_app_runtime_host::{
     ProductAppRuntimeHostNpmDep as NpmDep, ProductAppRuntimeHostSource,
@@ -136,6 +138,7 @@ impl ProductAppResolver {
         )?;
         let components = resolver.resolve()?;
         let mut app = request.app;
+        validate_app_capability_bindings(&app, &components)?;
         validate_component_implementation_refs(&app, &components)?;
         validate_implementation_digests(&components, &component_implementation_digests)?;
         let lock = build_component_lock_with_implementation_digests(
@@ -165,6 +168,7 @@ impl ProductAppResolver {
         private_surface_sources: BTreeMap<String, ProductAppRuntimeHostSource>,
     ) -> CoreResult<ResolvedProductApp> {
         validate_component_implementation_refs(&app, &components)?;
+        validate_app_capability_bindings(&app, &components)?;
         validate_runtime_lock(&app, &components, &lock, &component_implementation_digests)?;
         app.component_lock_id = lock.digest();
         let catalog_entry = build_catalog_entry(app.clone(), &components, &lock, None, None);
@@ -314,10 +318,7 @@ impl InstallResolver {
         Ok(())
     }
 
-    fn resolve_private(
-        &self,
-        component_ref: &AppComponentRef,
-    ) -> CoreResult<ComponentDefinition> {
+    fn resolve_private(&self, component_ref: &AppComponentRef) -> CoreResult<ComponentDefinition> {
         if component_ref.version.is_some() {
             return Err(CoreError::validation(format!(
                 "Private component {} must not declare an independent version",
@@ -405,12 +406,12 @@ fn validate_app_identity(app: &AppDefinition) -> CoreResult<()> {
     validate_required("app.id", &app.id)?;
     validate_required("app.version", &app.version)?;
     validate_required("app.name", &app.name)?;
-    validate_required("app.goal", &app.goal)?;
+    validate_required("app.description", &app.description)?;
     Ok(())
 }
 
 fn validate_work_object_kinds(app: &AppDefinition) -> CoreResult<()> {
-    if app.work_object_kinds.is_empty() && !is_studio_product_app(app) {
+    if app.work_object_kinds.is_empty() && !is_app_builder_product_app(app) {
         return Err(CoreError::validation(format!(
             "Product App {}@{} must declare at least one workObjectKinds entry",
             app.id, app.version
@@ -430,14 +431,16 @@ fn validate_work_object_kinds(app: &AppDefinition) -> CoreResult<()> {
     Ok(())
 }
 
-fn is_studio_product_app(app: &AppDefinition) -> bool {
+fn is_app_builder_product_app(app: &AppDefinition) -> bool {
     matches!(
         app.launch.as_ref().map(|launch| launch.kind),
-        Some(ProductAppLaunchKind::AppStudio)
+        Some(ProductAppLaunchKind::AppBuilder)
     )
 }
 
 fn validate_product_app_entry(app: &AppDefinition) -> CoreResult<()> {
+    validate_app_authors(&app.authors)?;
+
     let Some(launch) = app.launch.as_ref() else {
         return Err(CoreError::validation(format!(
             "Product App {}@{} must declare a launch entry",
@@ -448,8 +451,35 @@ fn validate_product_app_entry(app: &AppDefinition) -> CoreResult<()> {
     match launch.kind {
         ProductAppLaunchKind::ApplicationSurface => validate_application_surface_entry(app, launch),
         ProductAppLaunchKind::AgentSession => validate_agent_session_entry(app, launch),
-        ProductAppLaunchKind::AppStudio => Ok(()),
+        ProductAppLaunchKind::AppBuilder => Ok(()),
+    }?;
+
+    validate_product_app_launch_binding(app)
+}
+
+fn validate_app_authors(authors: &[AppAuthor]) -> CoreResult<()> {
+    for (index, author) in authors.iter().enumerate() {
+        let name_field = format!("authors[{index}].name");
+        validate_required(&name_field, &author.name)?;
+        if let Some(url) = author.url.as_ref() {
+            let url_field = format!("authors[{index}].url");
+            validate_required(&url_field, url)?;
+            if url.trim() != url {
+                return Err(CoreError::validation(format!(
+                    "{url_field} cannot contain leading or trailing whitespace"
+                )));
+            }
+            let parsed = reqwest::Url::parse(url).map_err(|error| {
+                CoreError::validation(format!("{url_field} must be a valid URL: {error}"))
+            })?;
+            if !matches!(parsed.scheme(), "http" | "https") {
+                return Err(CoreError::validation(format!(
+                    "{url_field} must use http or https"
+                )));
+            }
+        }
     }
+    Ok(())
 }
 
 fn validate_application_surface_entry(
@@ -487,10 +517,7 @@ fn validate_application_surface_entry(
     )))
 }
 
-fn validate_agent_session_entry(
-    app: &AppDefinition,
-    launch: &ProductAppLaunch,
-) -> CoreResult<()> {
+fn validate_agent_session_entry(app: &AppDefinition, launch: &ProductAppLaunch) -> CoreResult<()> {
     validate_required("launch.targetId", &launch.target_id)?;
     let has_agent_component = app
         .components
@@ -804,7 +831,7 @@ pub(crate) fn hydrate_package_icon_spec(
     Ok(())
 }
 
-fn validate_package_icon_asset_path(path: &str) -> CoreResult<()> {
+pub(crate) fn validate_package_icon_asset_path(path: &str) -> CoreResult<()> {
     let relative = Path::new(path);
     if path.trim().is_empty() || relative.is_absolute() {
         return Err(CoreError::validation(format!(
@@ -896,16 +923,16 @@ async fn read_json<T>(path: &Path) -> CoreResult<T>
 where
     T: for<'de> Deserialize<'de>,
 {
-    let bytes = fs::read(path).await.map_err(|error| {
-        CoreError::io(format!("Failed to read {}: {}", path.display(), error))
-    })?;
+    let bytes = fs::read(path)
+        .await
+        .map_err(|error| CoreError::io(format!("Failed to read {}: {}", path.display(), error)))?;
     serde_json::from_slice(&bytes).map_err(CoreError::from)
 }
 
 async fn read_product_app_definition(path: &Path) -> CoreResult<AppDefinition> {
-    let bytes = fs::read(path).await.map_err(|error| {
-        CoreError::io(format!("Failed to read {}: {}", path.display(), error))
-    })?;
+    let bytes = fs::read(path)
+        .await
+        .map_err(|error| CoreError::io(format!("Failed to read {}: {}", path.display(), error)))?;
     let mut value: Value = serde_json::from_slice(&bytes).map_err(CoreError::from)?;
     if canonicalize_legacy_icon_value(&mut value) {
         let bytes = serde_json::to_vec_pretty(&value).map_err(CoreError::from)?;
@@ -1112,9 +1139,9 @@ fn filesystem_source_digest(source_dir: &Path) -> CoreResult<String> {
 
     let mut hasher = Sha256::new();
     for file in files {
-        let relative = file.strip_prefix(source_dir).map_err(|error| {
-            CoreError::io(format!("Invalid component source path: {}", error))
-        })?;
+        let relative = file
+            .strip_prefix(source_dir)
+            .map_err(|error| CoreError::io(format!("Invalid component source path: {}", error)))?;
         hasher.update(normalized_digest_path(relative).as_bytes());
         hasher.update([0]);
         hasher.update(std::fs::read(&file)?);
@@ -1346,6 +1373,7 @@ mod tests {
                 role: "runtimeHost".to_string(),
                 version: None,
                 capabilities: vec![],
+                uses_capabilities: vec![],
             },
         ]);
         let error = ProductAppResolver::resolve_install(ProductAppResolveRequest {
@@ -1363,7 +1391,7 @@ mod tests {
     }
 
     #[test]
-    fn resolver_rejects_non_studio_product_app_without_work_objects() {
+    fn resolver_rejects_non_builder_product_app_without_work_objects() {
         let mut app = test_app(vec![private_ref(
             "preview",
             ComponentKind::Surface,
@@ -1376,13 +1404,13 @@ mod tests {
             shared_components: vec![],
             app,
         })
-        .expect_err("non-Studio Product App must declare Work Objects");
+        .expect_err("non-Builder Product App must declare Work Objects");
 
         assert!(error.to_string().contains("workObjectKinds"));
     }
 
     #[test]
-    fn resolver_allows_studio_product_app_without_work_objects() {
+    fn resolver_allows_app_builder_product_app_without_work_objects() {
         let mut app = test_app(vec![private_ref(
             "preview",
             ComponentKind::Surface,
@@ -1390,10 +1418,10 @@ mod tests {
         )]);
         app.work_object_kinds.clear();
         app.launch = Some(ProductAppLaunch {
-            kind: ProductAppLaunchKind::AppStudio,
-            target_id: "AppStudio".to_string(),
+            kind: ProductAppLaunchKind::AppBuilder,
+            target_id: "AppBuilder".to_string(),
             scope_requirement: ProductAppLaunchScopeRequirement::SystemAllowed,
-            agent_type: Some("AppStudio".to_string()),
+            agent_type: Some("AppBuilder".to_string()),
             surface_id: Some("primary".to_string()),
         });
 
@@ -1402,7 +1430,7 @@ mod tests {
             shared_components: vec![],
             app,
         })
-        .expect("Studio Product Apps are outside this Work Object enforcement slice");
+        .expect("App Builder Product Apps are outside this Work Object enforcement slice");
 
         assert!(resolved.app.component_lock_id.starts_with("sha256:"));
     }
@@ -1462,7 +1490,8 @@ mod tests {
             version: "1.0.0".to_string(),
             name: "Remotion Live".to_string(),
             description: "Preview and edit Remotion projects.".to_string(),
-            goal: "Collaborate on a Remotion video project.".to_string(),
+            authors: Vec::new(),
+            i18n: Default::default(),
             interaction_model: AppInteractionModel::InteractiveWorkspace,
             work_multiplicity: AppWorkMultiplicity::Multiple,
             work_object_kinds: vec![WorkObjectKind {
@@ -1482,6 +1511,7 @@ mod tests {
             components,
             component_lock_id: String::new(),
             permissions: AppPermissionSummary::default(),
+            os_capabilities: Vec::new(),
             install_scope: AppInstallScope::System,
             catalog_visibility: AppCatalogVisibility::Discoverable,
             enabled: true,
@@ -1510,6 +1540,7 @@ mod tests {
             role: role.to_string(),
             version: None,
             capabilities: vec![],
+            uses_capabilities: vec![],
         }
     }
 
@@ -1526,6 +1557,7 @@ mod tests {
             role: role.to_string(),
             version: Some(version.to_string()),
             capabilities: vec![],
+            uses_capabilities: vec![],
         }
     }
 
@@ -1556,6 +1588,7 @@ mod tests {
             }),
             capabilities: vec![],
             permissions: vec![],
+            uses_capabilities: vec![],
             used_by_apps: vec![app.id.clone()],
             visibility: ComponentVisibility::AppDependency,
             dependencies: vec![],
@@ -1574,6 +1607,7 @@ mod tests {
             owner_app: None,
             capabilities: vec![],
             permissions: vec![],
+            uses_capabilities: vec![],
             used_by_apps: vec![],
             visibility: ComponentVisibility::Developer,
             dependencies: vec![],

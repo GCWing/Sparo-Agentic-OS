@@ -48,7 +48,7 @@ pub enum WorkExecutionSource {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WorkExecutionAppStudioContext {
+pub struct WorkExecutionAppBuilderContext {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub work_id: Option<WorkId>,
     pub issue_id: String,
@@ -76,9 +76,9 @@ pub struct WorkExecutionAppStudioContext {
     pub message: Option<String>,
 }
 
-impl WorkExecutionAppStudioContext {
+impl WorkExecutionAppBuilderContext {
     pub fn from_turn_metadata(metadata: Option<&Value>) -> Option<Self> {
-        let issue = metadata?.get("appStudioIssueContext")?;
+        let issue = metadata?.get("appBuilderIssueContext")?;
         let issue_id = string_field(issue, "issueId")?;
         Some(Self {
             work_id: string_field(issue, "workId").and_then(|value| WorkId::parse(value).ok()),
@@ -104,7 +104,7 @@ pub struct WorkExecutionBinding {
     pub status: WorkExecutionBindingStatus,
     pub source: WorkExecutionSource,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub app_studio: Option<WorkExecutionAppStudioContext>,
+    pub app_builder: Option<WorkExecutionAppBuilderContext>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub work_message_queued_at: Option<i64>,
     pub created_at: i64,
@@ -117,7 +117,7 @@ impl WorkExecutionBinding {
             id: format!("exec_{}", uuid::Uuid::new_v4().simple()),
             source,
             status,
-            app_studio: None,
+            app_builder: None,
             work_message_queued_at: None,
             created_at: now,
             updated_at: now,
@@ -162,25 +162,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn app_studio_context_from_turn_metadata_parses_work_and_issue() {
+    fn app_builder_context_from_turn_metadata_parses_work_and_issue() {
         let metadata = json!({
-            "appStudioIssueContext": {
+            "appBuilderIssueContext": {
                 "workId": "work_123",
-                "issueId": "studio-issue-1",
+                "issueId": "builder-issue-1",
                 "runtimeInstanceId": "runtime-1",
                 "componentId": "surface-1",
                 "packageRoot": "product-app://app@1.0.0"
             }
         });
 
-        let context = WorkExecutionAppStudioContext::from_turn_metadata(Some(&metadata))
-            .expect("app studio context");
+        let context = WorkExecutionAppBuilderContext::from_turn_metadata(Some(&metadata))
+            .expect("app builder context");
 
         assert_eq!(
             context.work_id.as_ref().map(WorkId::as_str),
             Some("work_123")
         );
-        assert_eq!(context.issue_id, "studio-issue-1");
+        assert_eq!(context.issue_id, "builder-issue-1");
         assert_eq!(context.runtime_instance_id.as_deref(), Some("runtime-1"));
         assert_eq!(context.component_id.as_deref(), Some("surface-1"));
     }

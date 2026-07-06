@@ -2,6 +2,7 @@ use crate::agentic::coordination::get_global_coordinator;
 use crate::agentic::memory::{
     get_global_memory_consolidation_service, ManualMemoryConsolidationRequest,
 };
+use crate::error::{CoreError, CoreResult};
 use crate::infrastructure::get_path_manager_arc;
 use crate::service::global_daily_report::state::{
     load_global_daily_report_state, GlobalDailyReportAttemptStatus,
@@ -21,7 +22,10 @@ use crate::service::workspace_overview::{
         WorkspaceOverviewRefreshTrigger,
     },
 };
-use crate::error::{CoreError, CoreResult};
+use crate::service::{
+    get_global_daily_letter_service, global_daily_letters_output_dir, DailyLetterAttemptStatus,
+    DailyLetterGenerateRequest, DailyLetterScope, DailyLetterTrigger,
+};
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -33,6 +37,7 @@ pub enum BackgroundProcessKind {
     HostScan,
     WorkspaceOverviewRefresh,
     GlobalDailyReport,
+    DailyLetter,
     GlobalMilestone,
 }
 
@@ -85,6 +90,7 @@ pub enum BackgroundProcessPhase {
     ConsolidatingMemory,
     ExtractingMemory,
     GeneratingReport,
+    WritingDailyLetter,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -189,6 +195,7 @@ pub async fn list_background_processes() -> CoreResult<BackgroundProcessList> {
     processes.push(workspace_overview_process().await?);
     processes.push(memory_consolidation_process().await);
     processes.push(global_daily_report_process().await?);
+    processes.push(daily_letter_process().await);
     processes.push(global_milestone_process().await?);
     processes.extend(auto_memory_processes());
 
@@ -254,14 +261,31 @@ pub async fn run_background_process(
             })
         }
         BackgroundProcessKind::GlobalMilestone => {
-            let service = get_global_global_milestone_service().ok_or_else(|| {
-                CoreError::service("Global milestone service is not initialized")
-            })?;
+            let service = get_global_global_milestone_service()
+                .ok_or_else(|| CoreError::service("Global milestone service is not initialized"))?;
             let summary = service.run_now().await?;
             Ok(RunBackgroundProcessResponse {
                 kind: request.kind,
                 started: summary.started,
                 turn_id: summary.turn_id,
+                reason: summary.reason,
+            })
+        }
+        BackgroundProcessKind::DailyLetter => {
+            let service = get_global_daily_letter_service()
+                .ok_or_else(|| CoreError::service("Daily letter service is not initialized"))?;
+            let summary = service
+                .run_now(DailyLetterGenerateRequest {
+                    date: None,
+                    scope: Some(DailyLetterScope::AgenticOs),
+                    workspace_path: None,
+                    force: false,
+                })
+                .await?;
+            Ok(RunBackgroundProcessResponse {
+                kind: request.kind,
+                started: summary.started,
+                turn_id: None,
                 reason: summary.reason,
             })
         }
@@ -479,6 +503,76 @@ async fn global_daily_report_process() -> CoreResult<BackgroundProcess> {
         }],
         actions: read_only_actions(status),
     })
+}
+
+async fn daily_letter_process() -> BackgroundProcess {
+    let output_path = global_daily_letters_output_dir();
+    let Some(service) = get_global_daily_letter_service() else {
+        return BackgroundProcess {
+            id: "daily_letter".to_string(),
+            kind: BackgroundProcessKind::DailyLetter,
+            category: BackgroundProcessCategory::Report,
+            title: "Daily letter".to_string(),
+            status: BackgroundProcessStatus::Disabled,
+            scope: BackgroundProcessScope::System,
+            trigger: Some(BackgroundProcessTrigger::Scheduled),
+            phase: Some(BackgroundProcessPhase::Idle),
+            started_at: None,
+            finished_at: None,
+            next_run_at: None,
+            active_turn_id: None,
+            active_session_id: None,
+            last_error: None,
+            last_result: None,
+            output_refs: vec![BackgroundProcessOutputRef {
+                label: "Daily letters".to_string(),
+                path: Some(path_string(output_path)),
+                uri: None,
+            }],
+            actions: vec![BackgroundProcessAction::OpenSettings],
+        };
+    };
+
+    let state = service.state_snapshot().await;
+    let status = attempt_status(
+        state.last_attempt_status.as_ref().map(daily_letter_status),
+        state.next_auto_run_not_before_ms,
+        state.last_error.as_deref(),
+    );
+    BackgroundProcess {
+        id: "daily_letter".to_string(),
+        kind: BackgroundProcessKind::DailyLetter,
+        category: BackgroundProcessCategory::Report,
+        title: "Daily letter".to_string(),
+        status,
+        scope: BackgroundProcessScope::System,
+        trigger: state
+            .last_attempt_trigger
+            .as_ref()
+            .map(daily_letter_trigger),
+        phase: phase_for_attempt_status(
+            status,
+            BackgroundProcessPhase::WritingDailyLetter,
+            state.next_auto_run_not_before_ms,
+        ),
+        started_at: state.last_attempt_started_at_ms,
+        finished_at: state.last_attempt_finished_at_ms,
+        next_run_at: state.next_auto_run_not_before_ms,
+        active_turn_id: None,
+        active_session_id: None,
+        last_error: state.last_error.clone(),
+        last_result: terminal_result(
+            state.last_attempt_status.as_ref().map(daily_letter_status),
+            state.last_attempt_finished_at_ms,
+            state.last_error.clone(),
+        ),
+        output_refs: vec![BackgroundProcessOutputRef {
+            label: "Daily letters".to_string(),
+            path: Some(path_string(output_path)),
+            uri: None,
+        }],
+        actions: actions_for_status(status),
+    }
 }
 
 async fn global_milestone_process() -> CoreResult<BackgroundProcess> {
@@ -707,6 +801,16 @@ fn global_daily_status(status: &GlobalDailyReportAttemptStatus) -> BackgroundPro
     }
 }
 
+fn daily_letter_status(status: &DailyLetterAttemptStatus) -> BackgroundProcessStatus {
+    match status {
+        DailyLetterAttemptStatus::Running => BackgroundProcessStatus::Running,
+        DailyLetterAttemptStatus::Ok => BackgroundProcessStatus::Succeeded,
+        DailyLetterAttemptStatus::Error => BackgroundProcessStatus::Failed,
+        DailyLetterAttemptStatus::Cancelled => BackgroundProcessStatus::Cancelled,
+        DailyLetterAttemptStatus::SkippedNoSources => BackgroundProcessStatus::Skipped,
+    }
+}
+
 fn global_milestone_status(status: &GlobalMilestoneAttemptStatus) -> BackgroundProcessStatus {
     match status {
         GlobalMilestoneAttemptStatus::Running => BackgroundProcessStatus::Running,
@@ -737,6 +841,13 @@ fn global_milestone_trigger(trigger: &GlobalMilestoneTrigger) -> BackgroundProce
     match trigger {
         GlobalMilestoneTrigger::Manual => BackgroundProcessTrigger::Manual,
         GlobalMilestoneTrigger::Auto => BackgroundProcessTrigger::Auto,
+    }
+}
+
+fn daily_letter_trigger(trigger: &DailyLetterTrigger) -> BackgroundProcessTrigger {
+    match trigger {
+        DailyLetterTrigger::Manual => BackgroundProcessTrigger::Manual,
+        DailyLetterTrigger::Auto => BackgroundProcessTrigger::Auto,
     }
 }
 

@@ -1,8 +1,8 @@
 //! System API
 
 use crate::api::app_state::AppState;
-use sparo_core::service::system;
 use serde::{Deserialize, Serialize};
+use sparo_core::service::system;
 use tauri::State;
 
 #[derive(Debug, Serialize, Deserialize)]

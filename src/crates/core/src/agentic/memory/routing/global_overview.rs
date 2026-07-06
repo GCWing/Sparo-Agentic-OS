@@ -1,7 +1,7 @@
 use crate::agentic::memory::store::{ensure_markdown_placeholder, format_path_for_prompt};
+use crate::error::*;
 use crate::infrastructure::get_path_manager_arc;
 use crate::service::workspace::{get_global_workspace_service, WorkspaceInfo, WorkspaceKind};
-use crate::error::*;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};

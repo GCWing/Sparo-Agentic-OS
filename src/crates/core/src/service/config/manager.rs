@@ -4,8 +4,8 @@
 
 use super::providers::ConfigProviderRegistry;
 use super::types::*;
-use crate::infrastructure::{try_get_path_manager_arc, PathManager};
 use crate::error::*;
+use crate::infrastructure::{try_get_path_manager_arc, PathManager};
 use log::{debug, info, warn};
 
 use serde::{Deserialize, Serialize};
@@ -130,7 +130,7 @@ impl ConfigManager {
             }
         }
 
-        Self::ensure_smart_apps_config_value(&mut config_value);
+        Self::ensure_product_apps_config_value(&mut config_value);
 
         match serde_json::from_value::<GlobalConfig>(config_value.clone()) {
             Ok(mut config) => {
@@ -163,13 +163,12 @@ impl ConfigManager {
 
     /// Performs a smart merge from a JSON value.
     async fn smart_merge_config_from_value(&mut self, mut user_value: Value) -> CoreResult<()> {
-        Self::ensure_smart_apps_config_value(&mut user_value);
+        Self::ensure_product_apps_config_value(&mut user_value);
 
         let base_config = self.providers.get_default_config();
 
-        let base_value = serde_json::to_value(&base_config).map_err(|e| {
-            CoreError::config(format!("Failed to serialize default config: {}", e))
-        })?;
+        let base_value = serde_json::to_value(&base_config)
+            .map_err(|e| CoreError::config(format!("Failed to serialize default config: {}", e)))?;
         let merged_value = deep_merge(base_value, user_value);
 
         let mut config: GlobalConfig = serde_json::from_value(merged_value).map_err(|e| {
@@ -225,8 +224,8 @@ impl ConfigManager {
         }
     }
 
-    /// Copies legacy BitFun Coder debug config into the Smart App namespace when needed.
-    fn ensure_smart_apps_config_value(config: &mut Value) {
+    /// Ensures Product App-scoped BitFun Coder debug config exists when loading older configs.
+    fn ensure_product_apps_config_value(config: &mut Value) {
         let Some(root) = config.as_object_mut() else {
             return;
         };
@@ -238,26 +237,26 @@ impl ConfigManager {
             return;
         };
 
-        let smart_apps = root
-            .entry("smart_apps".to_string())
+        let product_apps = root
+            .entry("product_apps".to_string())
             .or_insert_with(|| serde_json::json!({}));
-        let Some(smart_apps_obj) = smart_apps.as_object_mut() else {
+        let Some(product_apps_obj) = product_apps.as_object_mut() else {
             return;
         };
-        let apps = smart_apps_obj
+        let apps = product_apps_obj
             .entry("apps".to_string())
             .or_insert_with(|| serde_json::json!({}));
         let Some(apps_obj) = apps.as_object_mut() else {
             return;
         };
-        let prime_builder = apps_obj
-            .entry(SmartAppsConfig::PRIME_BUILDER_APP_ID.to_string())
+        let bitfun_coder = apps_obj
+            .entry(ProductAppsConfig::BITFUN_CODER_APP_ID.to_string())
             .or_insert_with(|| serde_json::json!({}));
-        let Some(prime_builder_obj) = prime_builder.as_object_mut() else {
+        let Some(bitfun_coder_obj) = bitfun_coder.as_object_mut() else {
             return;
         };
 
-        prime_builder_obj
+        bitfun_coder_obj
             .entry("debug".to_string())
             .or_insert(legacy_debug_config);
     }
@@ -394,7 +393,7 @@ impl ConfigManager {
     pub async fn import_config(&mut self, mut config_data: serde_json::Value) -> CoreResult<()> {
         let old_config = self.config.clone();
 
-        Self::ensure_smart_apps_config_value(&mut config_data);
+        Self::ensure_product_apps_config_value(&mut config_data);
 
         let imported_config: GlobalConfig = serde_json::from_value(config_data)
             .map_err(|e| CoreError::config(format!("Failed to parse imported config: {}", e)))?;
@@ -539,11 +538,7 @@ impl ConfigManager {
     }
 
     /// Notifies about a configuration change.
-    async fn notify_config_changed(
-        &self,
-        path: &str,
-        old_config: &GlobalConfig,
-    ) -> CoreResult<()> {
+    async fn notify_config_changed(&self, path: &str, old_config: &GlobalConfig) -> CoreResult<()> {
         self.check_and_broadcast_debug_mode_change(old_config).await;
         self.check_and_broadcast_log_level_change(old_config).await;
 
@@ -554,8 +549,8 @@ impl ConfigManager {
 
     /// Detects and broadcasts debug-mode configuration changes.
     async fn check_and_broadcast_debug_mode_change(&self, old_config: &GlobalConfig) {
-        let old_debug = Self::effective_prime_builder_debug_config(old_config);
-        let new_debug = Self::effective_prime_builder_debug_config(&self.config);
+        let old_debug = Self::effective_bitfun_coder_debug_config(old_config);
+        let new_debug = Self::effective_bitfun_coder_debug_config(&self.config);
 
         if old_debug.ingest_port != new_debug.ingest_port
             || old_debug.log_path != new_debug.log_path
@@ -577,10 +572,10 @@ impl ConfigManager {
         }
     }
 
-    fn effective_prime_builder_debug_config(config: &GlobalConfig) -> &DebugModeConfig {
+    fn effective_bitfun_coder_debug_config(config: &GlobalConfig) -> &DebugModeConfig {
         config
-            .smart_apps
-            .prime_builder_debug_config()
+            .product_apps
+            .bitfun_coder_debug_config()
             .unwrap_or(&config.ai.debug_mode_config)
     }
 

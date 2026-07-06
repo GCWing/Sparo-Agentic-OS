@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { codingProfile } from '@/app/session-profiles';
+import { bitfunCoderProfile } from '@/app/session-profiles';
 import { SESSION_DESCRIPTORS, type SessionDescriptor } from '@/flow_chat/domain/sessionDescriptor';
 import type { AgentInfo } from '../../../reducers/agentReducer';
 import { resolveComposerActionModel } from '../actions/composerActionResolver';
@@ -15,7 +15,7 @@ const t = ((_key: string, options?: { defaultValue?: string }) => (
 )) as any;
 
 const debugAgent: AgentInfo = {
-  id: 'debug',
+  id: 'bitfun-debug',
   name: 'Debug',
   description: 'Debug with evidence',
   isReadonly: false,
@@ -36,7 +36,7 @@ const promptCommand: ComposerMcpPromptCommand = {
 };
 
 function resolveActions({
-  descriptor = SESSION_DESCRIPTORS.coding,
+  descriptor = SESSION_DESCRIPTORS.bitfunCoder,
   agents = [debugAgent],
   prompts = [promptCommand],
   isBtwSession = false,
@@ -52,7 +52,7 @@ function resolveActions({
 } = {}): ComposerActionDescriptor[] {
   return resolveComposerActionModel({
     t,
-    profile: codingProfile,
+    profile: bitfunCoderProfile,
     descriptor,
     targetSessionId: 'session-1',
     workspacePath: 'D:/workspace/example',
@@ -79,7 +79,7 @@ describe('composerCommandRegistry', () => {
 
     expect(options.map(option => option.command)).toEqual([
       '/btw',
-      '/debug',
+      '/bitfun-debug',
       '/goal',
       '/compact',
       '/init',
@@ -105,11 +105,11 @@ describe('composerCommandRegistry', () => {
       enabled: true,
     };
     const descriptor: SessionDescriptor = {
-      ...SESSION_DESCRIPTORS.coding,
+      ...SESSION_DESCRIPTORS.bitfunCoder,
       agentPolicy: {
-        defaultAgentId: 'agentic',
-        activeAgentId: 'agentic',
-        switchableAgentIds: ['agentic', 'Reviewer'],
+        defaultAgentId: 'bitfun-coder',
+        activeAgentId: 'bitfun-coder',
+        switchableAgentIds: ['bitfun-coder', 'Reviewer'],
       },
     };
 

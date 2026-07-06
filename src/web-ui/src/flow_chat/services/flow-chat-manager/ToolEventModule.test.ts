@@ -211,7 +211,7 @@ function createSessionWithTool(
     lastActiveAt: 1,
     error: null,
     maxContextTokens: 128128,
-    mode: 'agentic',
+    mode: 'runno',
     workspaceId: 'test-workspace',
     storageScope: 'workspace',
     isTransient: true,

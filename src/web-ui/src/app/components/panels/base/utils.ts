@@ -210,9 +210,9 @@ export const PANEL_CONTENT_CONFIGS: Record<PanelContentType, PanelContentConfig>
     supportsDownload: false,
     showHeader: false
   },
-  'app-studio': {
-    type: 'app-studio',
-    displayName: 'App Studio',
+  'app-builder': {
+    type: 'app-builder',
+    displayName: 'App Builder',
     icon: AppWindow,
     supportsCopy: false,
     supportsDownload: false,

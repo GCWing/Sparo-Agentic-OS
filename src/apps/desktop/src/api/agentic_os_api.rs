@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
+use serde::{Deserialize, Serialize};
 use sparo_core::agentic::coordination::{ConversationCoordinator, DialogScheduler};
 use sparo_core::agentic_os::work::{
     default_work_store, AgenticWorkRuntimeBridge, WorkExecutionGraph, WorkId, WorkService,
 };
 use sparo_core::command::agentic_os as agentic_os_command;
-use serde::{Deserialize, Serialize};
 use tauri::State;
 
 fn work_service(
@@ -174,19 +174,19 @@ pub async fn agentic_os_control_work(
 }
 
 #[tauri::command]
-pub async fn agentic_os_record_studio_preview_result(
-    request: agentic_os_command::AgenticOsRecordStudioPreviewResultRequest,
-) -> Result<agentic_os_command::AgenticOsRecordStudioPreviewResultResponse, String> {
-    agentic_os_command::record_studio_preview_result(request)
+pub async fn agentic_os_record_builder_preview_result(
+    request: agentic_os_command::AgenticOsRecordBuilderPreviewResultRequest,
+) -> Result<agentic_os_command::AgenticOsRecordBuilderPreviewResultResponse, String> {
+    agentic_os_command::record_builder_preview_result(request)
         .await
         .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-pub async fn agentic_os_record_studio_validation_result(
-    request: agentic_os_command::AgenticOsRecordStudioValidationResultRequest,
-) -> Result<agentic_os_command::AgenticOsRecordStudioValidationResultResponse, String> {
-    agentic_os_command::record_studio_validation_result(request)
+pub async fn agentic_os_record_builder_validation_result(
+    request: agentic_os_command::AgenticOsRecordBuilderValidationResultRequest,
+) -> Result<agentic_os_command::AgenticOsRecordBuilderValidationResultResponse, String> {
+    agentic_os_command::record_builder_validation_result(request)
         .await
         .map_err(|error| error.to_string())
 }

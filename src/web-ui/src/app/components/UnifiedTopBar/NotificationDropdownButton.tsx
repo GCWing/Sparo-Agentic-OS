@@ -316,11 +316,16 @@ const NotificationDropdownButton: React.FC = () => {
     return <Bell size={16} />;
   };
 
+  const getNotificationMessageText = (notification: Notification | NotificationRecord) => {
+    if (notification.variant === 'progress' && notification.progressText) {
+      return notification.progressText;
+    }
+    return notification.message;
+  };
+
   const shouldShowExpandAction = (notification: NotificationRecord) => {
     if (notification.messageNode) return true;
-    const message = notification.variant === 'progress' && notification.progressText
-      ? notification.progressText
-      : notification.message;
+    const message = getNotificationMessageText(notification);
     return notification.title.length > 34 || message.length > 48 || /[\r\n]/.test(message);
   };
 
@@ -333,6 +338,7 @@ const NotificationDropdownButton: React.FC = () => {
   const renderActiveTaskItem = (notification: Notification) => {
     const isProgress = notification.variant === 'progress';
     const isLoading = notification.variant === 'loading';
+    const messageText = getNotificationMessageText(notification);
 
     const progressInfo = (() => {
       if (isLoading) return null;
@@ -350,7 +356,14 @@ const NotificationDropdownButton: React.FC = () => {
     })();
 
     return (
-      <div key={notification.id} className="notif-panel__active-item">
+      <div
+        key={notification.id}
+        className="notif-panel__active-item"
+        data-notification-id={notification.id}
+        data-context-type="notification"
+        data-notification-title={notification.title}
+        data-notification-message={messageText}
+      >
         <div className="notif-panel__active-icon">
           <DotMatrixLoader size="tiny" className="notif-panel__spinner" />
         </div>
@@ -362,9 +375,7 @@ const NotificationDropdownButton: React.FC = () => {
             )}
           </div>
           <div className="notif-panel__active-message">
-            {isProgress && notification.progressText
-              ? notification.progressText
-              : (notification.messageNode ?? notification.message)}
+            {notification.messageNode ?? messageText}
           </div>
           {isProgress && (() => {
             const mode = notification.progressMode || (notification.textOnly ? 'text-only' : 'percentage');
@@ -396,6 +407,7 @@ const NotificationDropdownButton: React.FC = () => {
     const isExpanded = expandedIds.has(notification.id);
     const statusTone = getStatusTone(notification.type, notification.status);
     const showExpandAction = shouldShowExpandAction(notification);
+    const messageText = getNotificationMessageText(notification);
 
     return (
       <div
@@ -414,6 +426,8 @@ const NotificationDropdownButton: React.FC = () => {
         onKeyDown={(event) => handleNotificationKeyDown(event, notification, showExpandAction)}
         data-notification-id={notification.id}
         data-context-type="notification"
+        data-notification-title={notification.title}
+        data-notification-message={messageText}
       >
         <div className={`notif-panel__item-icon is-${statusTone}`} aria-hidden="true">
           {renderNotificationIcon(notification)}
@@ -434,9 +448,7 @@ const NotificationDropdownButton: React.FC = () => {
             })()}
           </div>
           <div className="notif-panel__item-message">
-            {isProgress && notification.progressText
-              ? notification.progressText
-              : (notification.messageNode ?? notification.message)}
+            {notification.messageNode ?? messageText}
           </div>
           {isProgress && (() => {
             const mode = notification.progressMode || (notification.textOnly ? 'text-only' : 'percentage');

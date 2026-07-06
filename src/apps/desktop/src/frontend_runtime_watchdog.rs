@@ -1,8 +1,8 @@
 //! Native watchdog for the web UI runtime.
 
-use sparo_core::infrastructure::constants::WINDOW_MAIN;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use sparo_core::infrastructure::constants::WINDOW_MAIN;
 use std::{
     fs,
     io::Write,

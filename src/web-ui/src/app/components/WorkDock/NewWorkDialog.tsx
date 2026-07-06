@@ -9,6 +9,7 @@ import {
 } from '@/infrastructure/contexts/WorkspaceContext';
 import {
   appCatalogAPI,
+  localizeCatalogApps,
   type NativeAppCatalogEntry,
   type ProductAppCatalogEntry,
   type ProductAppLaunchScopeRequirement,
@@ -43,20 +44,17 @@ const SYSTEM_WORKSPACE_VALUE = '__system_work__';
 const BROWSED_WORKSPACE_VALUE = '__browsed_workspace__';
 const PRODUCT_APP_CHOICE_PREFIX = 'product-app:';
 const NATIVE_AGENT_APP_IDS: Record<string, string> = {
-  agentic: 'prime-builder',
-  Cowork: 'cowork',
-  Design: 'design',
-  AppStudio: 'app-studio',
+  OSAgent: 'os-agent',
+  Runno: 'runno',
+  AppBuilder: 'app-builder',
 };
 
 type NewWorkStartMode = 'manual' | 'agentic-os';
 
 export type NewWorkAgentChoice =
-  | 'agentic'
-  | 'Cowork'
-  | 'Design'
-  | 'DeepResearch'
-  | 'AppStudio'
+  | 'OSAgent'
+  | 'Runno'
+  | 'AppBuilder'
   | (string & {});
 
 export interface NewWorkDialogProps {
@@ -98,16 +96,12 @@ function labelForChoice(agentChoice: NewWorkAgentChoice): string {
   }
 
   switch (agentChoice) {
-    case 'agentic':
-      return 'Code Work';
-    case 'Cowork':
-      return 'Cowork Work';
-    case 'Design':
-      return 'Design Work';
-    case 'DeepResearch':
-      return 'Research Work';
-    case 'AppStudio':
-      return 'App Studio Work';
+    case 'OSAgent':
+      return 'OS Work';
+    case 'Runno':
+      return 'Runno Work';
+    case 'AppBuilder':
+      return 'App Builder Work';
     default:
       return `${agentChoice} Work`;
   }
@@ -156,13 +150,7 @@ function resolveDescriptorFromChoice(agentChoice: NewWorkAgentChoice): SessionDe
 
 function syncSessionModeStore(descriptor: SessionDescriptor): void {
   const displayMode = resolveSessionTypeDefinitionForDescriptor(descriptor).lifecycle.displayMode;
-  const sessionMode: SessionMode =
-    displayMode === 'cowork' ||
-    displayMode === 'design' ||
-    displayMode === 'appstudio'
-      ? displayMode
-      : 'code';
-  useSessionModeStore.getState().setMode(sessionMode);
+  useSessionModeStore.getState().setMode(displayMode as SessionMode);
 }
 
 // Re-exported for other modules; HMR is fine without fast-refresh for this non-component.
@@ -197,7 +185,7 @@ export async function launchWorkForChoice(params: {
     const launch = productApp.launch;
     resolvedAppRef = productAppRef;
     resolvedTitle = resolvedTitle || productApp.name;
-    resolvedObjective = resolvedObjective || productApp.goal || productApp.description || productApp.name;
+    resolvedObjective = resolvedObjective || productApp.description || productApp.name;
 
     if (!launch) {
       throw new Error(`Product App ${productApp.name} has no launch target.`);
@@ -255,11 +243,11 @@ export async function launchWorkForChoice(params: {
       return work;
     }
 
-    if (launch.kind !== 'agentSession' && launch.kind !== 'appStudio') {
+    if (launch.kind !== 'agentSession' && launch.kind !== 'appBuilder') {
       throw new Error(`Product App ${productApp.name} cannot start a work session.`);
     }
 
-    resolvedAgentChoice = (launch.agentType || launch.targetId || 'agentic') as NewWorkAgentChoice;
+    resolvedAgentChoice = (launch.agentType || launch.targetId || 'Runno') as NewWorkAgentChoice;
   }
 
   const descriptor = resolveDescriptorFromChoice(resolvedAgentChoice);
@@ -327,7 +315,7 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
   initialAgentChoice,
   initialScopeRequirement,
 }) => {
-  const { t } = useI18n('common');
+  const { t, currentLanguage } = useI18n('common');
   const {
     openedWorkspacesList,
     recentWorkspaces,
@@ -336,7 +324,7 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
     openWorkspace,
   } = useWorkspaceContext();
 
-  const [agentChoice, setAgentChoice] = useState<NewWorkAgentChoice>('agentic');
+  const [agentChoice, setAgentChoice] = useState<NewWorkAgentChoice>('Runno');
   const [startMode, setStartMode] = useState<NewWorkStartMode>('manual');
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [browsedWorkspacePath, setBrowsedWorkspacePath] = useState<string | null>(null);
@@ -344,9 +332,17 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [nativeApps, setNativeApps] = useState<NativeAppCatalogEntry[]>([]);
   const [productApps, setProductApps] = useState<ProductAppCatalogEntry[]>([]);
+  const localizedNativeApps = useMemo(
+    () => localizeCatalogApps(nativeApps, currentLanguage),
+    [currentLanguage, nativeApps],
+  );
+  const localizedProductApps = useMemo(
+    () => localizeCatalogApps(productApps, currentLanguage),
+    [currentLanguage, productApps],
+  );
 
   const knownBuiltinChoices = useMemo<Set<string>>(
-    () => new Set(['agentic', 'Cowork', 'Design']),
+    () => new Set(['OSAgent', 'Runno', 'AppBuilder']),
     []
   );
 
@@ -382,7 +378,7 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
       /* ignore */
     }
 
-    setAgentChoice(normalizedInitialChoice ?? storedAgent ?? 'agentic');
+    setAgentChoice(normalizedInitialChoice ?? storedAgent ?? 'Runno');
     setStartMode('manual');
     setBrowsedWorkspacePath(null);
     setObjective('');
@@ -494,36 +490,30 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
 
   const agentOptions = useMemo<SelectOption[]>(
     () => {
-      const nativeById = new Map(nativeApps.map((app) => [app.id, app]));
+      const nativeById = new Map(localizedNativeApps.map((app) => [app.id, app]));
       const systemOptions = [
         {
-          value: 'agentic',
-          label: nativeById.get('prime-builder')?.name ?? t('nav.workDock.executor.primeBuilder'),
-          description: nativeById.get('prime-builder')?.goal ?? t('nav.workDock.executor.primeBuilderDescription'),
+          value: 'Runno',
+          label: nativeById.get('runno')?.name ?? 'Runno',
+          description: nativeById.get('runno')?.description ?? 'Sparo OS general execution unit.',
           group: t('nav.workDock.executor.systemGroup'),
         },
         {
-          value: 'Cowork',
-          label: nativeById.get('cowork')?.name ?? t('nav.workDock.executor.cowork'),
-          description: nativeById.get('cowork')?.goal ?? t('nav.workDock.executor.coworkDescription'),
-          group: t('nav.workDock.executor.systemGroup'),
-        },
-        {
-          value: 'Design',
-          label: nativeById.get('design')?.name ?? t('nav.workDock.executor.design'),
-          description: nativeById.get('design')?.goal ?? t('nav.workDock.executor.designDescription'),
+          value: 'OSAgent',
+          label: nativeById.get('os-agent')?.name ?? 'OSAgent',
+          description: nativeById.get('os-agent')?.description ?? 'Coordinate Sparo OS work, sessions, and memory.',
           group: t('nav.workDock.executor.systemGroup'),
         },
       ];
-      const productOptions = productApps.map((app) => ({
+      const productOptions = localizedProductApps.map((app) => ({
         value: productAppWorkChoice(app.id),
         label: app.name,
-        description: app.goal || app.description,
+        description: app.description,
         group: t('nav.workDock.executor.productAppGroup'),
       }));
       return [...systemOptions, ...productOptions];
     },
-    [nativeApps, productApps, t]
+    [localizedNativeApps, localizedProductApps, t]
   );
 
   const startModeOptions = useMemo<Array<{

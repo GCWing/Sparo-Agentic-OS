@@ -1,5 +1,7 @@
 //! Snapshot Service API
 
+use log::{info, warn};
+use serde::{Deserialize, Serialize};
 use sparo_core::agentic::coordination::{
     DialogScheduler, SessionControlActor, TurnCancellationReason,
 };
@@ -8,8 +10,6 @@ use sparo_core::service::snapshot::{
     ensure_snapshot_manager_for_workspace, get_snapshot_manager_for_workspace,
     initialize_snapshot_manager_for_workspace, OperationType, SnapshotConfig, SnapshotManager,
 };
-use log::{info, warn};
-use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Arc, time::Duration};
 use tauri::{AppHandle, Emitter, State};
 

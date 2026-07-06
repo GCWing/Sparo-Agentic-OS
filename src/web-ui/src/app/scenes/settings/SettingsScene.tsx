@@ -15,7 +15,7 @@ import './SettingsScene.scss';
 import AIModelConfig from '../../../infrastructure/config/components/AIModelConfig';
 import AIUsageConfig from '../../../infrastructure/config/components/AIUsageConfig';
 import PersonalizationConfig from '../../../infrastructure/config/components/PersonalizationConfig';
-import PrimeBuilderConfig from '../../../infrastructure/config/components/PrimeBuilderConfig';
+import BitFunCoderConfig from '../../../infrastructure/config/components/BitFunCoderConfig';
 import PermissionsConfig from '../../../infrastructure/config/components/PermissionsConfig';
 import MemoryConfig from '../../../infrastructure/config/components/MemoryConfig';
 import EditorConfig from '../../../infrastructure/config/components/EditorConfig';
@@ -44,7 +44,7 @@ const SettingsScene: React.FC = () => {
       case 'aiUsage':          Content = AIUsageConfig;    break;
       case 'dataStorage':      Content = DataStorageConfig; break;
       case 'personalization':  Content = PersonalizationConfig; break;
-      case 'primeBuilder':     Content = PrimeBuilderConfig; break;
+      case 'bitfunCoder':      Content = BitFunCoderConfig; break;
       case 'permissions':      Content = PermissionsConfig; break;
       case 'memory':           Content = MemoryConfig; break;
       case 'editor':           Content = EditorConfig;     break;

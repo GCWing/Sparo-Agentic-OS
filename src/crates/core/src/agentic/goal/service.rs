@@ -12,8 +12,8 @@ use crate::agentic::session_hooks::{
     SessionDriver, SessionDriverSubmit, SessionDriverSubmitOutcome, SessionHookContext,
     SessionHookKind, SessionTurnOutcome, SessionWorkOwner, SessionWorkOwnerMatcher,
 };
-use crate::infrastructure::events::{emit_global_event, BackendEvent};
 use crate::error::{CoreError, CoreResult};
+use crate::infrastructure::events::{emit_global_event, BackendEvent};
 use serde_json::json;
 use std::collections::HashMap;
 use std::path::Path;
@@ -1536,7 +1536,7 @@ impl GoalService {
                 user_input: steering_text,
                 original_user_input: Some(display_text),
                 turn_id: Some(turn_id),
-                agent_type: agent_type.unwrap_or("agentic").to_string(),
+                agent_type: agent_type.unwrap_or("Runno").to_string(),
                 system_reminder_override: Some(system_reminder),
                 owner: SessionWorkOwner::goal(record.goal_id.clone(), record.revision),
                 queue_priority: crate::agentic::coordination::DialogQueuePriority::High,

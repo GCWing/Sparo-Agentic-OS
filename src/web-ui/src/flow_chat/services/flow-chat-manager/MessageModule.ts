@@ -36,7 +36,7 @@ const log = createLogger('MessageModule');
 const ONE_SHOT_AGENT_TYPES_FOR_SESSION = new Set(['Init']);
 
 function resolveDialogAgentType(session: Session, requestedAgentType?: string): string {
-  const sessionAgentType = getBackendAgentType(session.descriptor).trim() || 'agentic';
+  const sessionAgentType = getBackendAgentType(session.descriptor).trim() || 'Runno';
   const requested = requestedAgentType?.trim();
 
   if (!requested) {

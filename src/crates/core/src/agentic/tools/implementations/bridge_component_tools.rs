@@ -1,4 +1,4 @@
-//! Bridge Component tools used by App Studio component authoring.
+//! Bridge Component tools used by App Builder component authoring.
 
 use crate::agent_component::{
     AgentComponentBridgeCapabilityRef, AgentComponentExample, AgentComponentLevel,
@@ -775,7 +775,7 @@ impl Tool for CreateBridgeComponentTemplateTool {
                     "action": "health",
                     "runId": "smoke-health",
                     "input": {},
-                    "consumer": { "kind": "management", "id": "bridge-studio" }
+                    "consumer": { "kind": "management", "id": "bridge-builder" }
                 })
                 .to_string(),
             ),

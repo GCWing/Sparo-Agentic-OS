@@ -1,0 +1,98 @@
+{
+  "title": "今日来信",
+  "rail": {
+    "label": "今日来信导航",
+    "eyebrow": "Letters",
+    "today": "今天",
+    "todayEmpty": "还没有来信",
+    "empty": "还没有来信",
+    "allLetters": "全部来信",
+    "filteredEmpty": "没有符合条件的来信。",
+    "total": "共 {{count}} 封"
+  },
+  "states": {
+    "loading": "正在找信",
+    "generating": "写信中...",
+    "noDate": "未选择日期"
+  },
+  "messages": {
+    "loadFailed": "加载今日来信失败。",
+    "generateFailed": "生成今日来信失败。",
+    "generateNoSources": "今天还没有足够的授权上下文，暂时写不出来。",
+    "generateNoResult": "这次没有写出新的来信，请稍后再试。",
+    "receiptFailed": "提交回执失败。",
+    "sealFailed": "封存今日来信失败。",
+    "continuationFailed": "更新明日线索失败。"
+  },
+  "writing": {
+    "chip": "写信中",
+    "title": "我在整理今天",
+    "body": "正在把今天真正留下来的东西轻轻收好，写成一封可以带到明天的信。",
+    "hint": "写好后这封信会自动展开，你可以先去做别的事。",
+    "elapsed": "已写 {{seconds}} 秒",
+    "elapsedMinutes": "已写 {{minutes}} 分 {{seconds}} 秒"
+  },
+  "paper": {
+    "label": "来信全文",
+    "eyebrow": "今日来信",
+    "writtenAt": "写于 {{time}}",
+    "pending": "还有 {{count}} 条记忆等你回执",
+    "signature": "来信"
+  },
+  "actions": {
+    "generate": "轻催来信",
+    "full": "展信阅读",
+    "receipt": "给回执",
+    "continueTomorrow": "明天接着这里",
+    "seal": "封存今天",
+    "close": "关闭"
+  },
+  "date": {
+    "label": "日期",
+    "from": "从",
+    "to": "到",
+    "clear": "清除日期"
+  },
+  "scope": {
+    "agenticOs": "全局",
+    "workspace": "工作区"
+  },
+  "empty": {
+    "title": "今天还没有来信",
+    "body": "等今天有足够的授权上下文后，Sparo 会在这里写下一封有温度的信。",
+    "loadingBody": "正在寻找已经抵达的来信。"
+  },
+  "status": {
+    "ready": "已写好",
+    "insufficient_context": "安静的一天",
+    "needs_receipt": "待回执",
+    "sealed": "已封存"
+  },
+  "receipt": {
+    "label": "回执建议",
+    "title": "等你回执",
+    "empty": "这封信里没有需要你确认的记忆。",
+    "accept": "收下",
+    "edit": "修订",
+    "dismiss": "略过",
+    "editPrompt": "收下前可以先修订这条记忆",
+    "editTitle": "改一下再留",
+    "status": {
+      "pending": "待回执",
+      "accepted": "已收下",
+      "edited": "已修订",
+      "dismissed": "已略过"
+    }
+  },
+  "next": {
+    "label": "明日线索",
+    "title": "明天可以顺手拾起",
+    "empty": "没有明显需要接着做的线索。",
+    "remind": "明天提醒",
+    "reminding": "明天会提醒"
+  },
+  "app": {
+    "label": "App 想法",
+    "title": "P.S."
+  }
+}

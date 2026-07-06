@@ -111,7 +111,7 @@ const AppShell: React.FC = () => {
 
   const handleSelectSession = useCallback((sessionId: string, sessionName?: string, sessionMode?: string) => {
     const ctx: SessionContext = {
-      // sessionMode carries the raw agent_type string (e.g. 'agentic', 'Design', 'OSAgent')
+      // sessionMode carries the raw agent_type string (e.g. 'bitfun-coder', 'Design', 'OSAgent')
       mode: sessionMode ?? 'Session',
       agentType: sessionMode,
       sessionId,

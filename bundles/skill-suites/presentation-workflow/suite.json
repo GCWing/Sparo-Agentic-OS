@@ -19,7 +19,8 @@
     }
   ],
   "defaultProfiles": {
-    "agentic": "enabled",
+    "Runno": "enabled",
+    "bitfun-coder": "enabled",
     "Cowork": "enabled",
     "Design": "enabled"
   }

@@ -5,20 +5,21 @@ use serde::{Deserialize, Serialize};
 use crate::app_platform::{
     get_installed_product_app_by_lock, seed_builtin_product_app_packages, ComponentKind,
 };
-use crate::infrastructure::try_get_path_manager_arc;
 use crate::error::{CoreError, CoreResult};
+use crate::infrastructure::try_get_path_manager_arc;
 
 use super::assignment::{WorkAssignmentKind, WorkAssignmentRef};
 use super::execution_binding::{
-    WorkExecutionAppStudioContext, WorkExecutionBinding, WorkExecutionBindingStatus,
+    WorkExecutionAppBuilderContext, WorkExecutionBinding, WorkExecutionBindingStatus,
     WorkExecutionSource,
 };
 use super::execution_graph::{
-    WorkArtifactNode, WorkExecutionGraph, WorkRuntimeIssue, WorkRuntimeIssueSeverity,
-    WorkRuntimeLog, WorkRuntimeLogLevel, WorkRuntimeRun, WorkRuntimeRunStatus, WorkStudioFactCheck,
-    WorkStudioFactStatus, WorkStudioIssue, WorkStudioIssueOrigin, WorkStudioIssueStatus,
-    WorkStudioPreviewKind, WorkStudioPreviewResult, WorkStudioPreviewSource,
-    WorkStudioValidationResult, WorkStudioValidationTargetKind,
+    WorkArtifactNode, WorkBuilderFactCheck, WorkBuilderFactStatus, WorkBuilderIssue,
+    WorkBuilderIssueOrigin, WorkBuilderIssueStatus, WorkBuilderPreviewKind,
+    WorkBuilderPreviewResult, WorkBuilderPreviewSource, WorkBuilderValidationResult,
+    WorkBuilderValidationTargetKind, WorkExecutionGraph, WorkRuntimeIssue,
+    WorkRuntimeIssueSeverity, WorkRuntimeLog, WorkRuntimeLogLevel, WorkRuntimeRun,
+    WorkRuntimeRunStatus,
 };
 use super::ids::WorkId;
 use super::lifecycle::WorkSummary;
@@ -562,11 +563,7 @@ impl WorkService {
         Ok(record)
     }
 
-    pub async fn update(
-        &self,
-        id: &WorkId,
-        request: UpdateWorkRequest,
-    ) -> CoreResult<WorkRecord> {
+    pub async fn update(&self, id: &WorkId, request: UpdateWorkRequest) -> CoreResult<WorkRecord> {
         let now = now_millis();
         let mut record = self.get(id).await?;
 
@@ -704,9 +701,9 @@ impl WorkService {
             record.runtime_issues.clone(),
             record.runtime_logs.clone(),
             artifact_nodes_for_record(&record),
-            record.studio_preview_results.clone(),
-            record.studio_validation_results.clone(),
-            record.studio_issues.clone(),
+            record.builder_preview_results.clone(),
+            record.builder_validation_results.clone(),
+            record.builder_issues.clone(),
         ))
     }
 
@@ -864,7 +861,7 @@ impl WorkService {
 
         let now = now_millis();
         let mut record = self.get(id).await?;
-        apply_runtime_issue_to_studio_facts(&mut record, &issue);
+        apply_runtime_issue_to_builder_facts(&mut record, &issue);
         record.runtime_issues.push(issue);
         trim_runtime_issues(&mut record.runtime_issues);
         refresh_release_rehearsal_preview_result(&mut record, now);
@@ -886,7 +883,7 @@ impl WorkService {
 
         let now = now_millis();
         let mut record = self.get(id).await?;
-        apply_runtime_log_to_studio_facts(&mut record, &log);
+        apply_runtime_log_to_builder_facts(&mut record, &log);
         record.runtime_logs.push(log);
         trim_runtime_logs(&mut record.runtime_logs);
         refresh_release_rehearsal_preview_result(&mut record, now);
@@ -895,10 +892,10 @@ impl WorkService {
         Ok(record)
     }
 
-    pub async fn record_studio_preview_result(
+    pub async fn record_builder_preview_result(
         &self,
         id: &WorkId,
-        mut preview_result: WorkStudioPreviewResult,
+        mut preview_result: WorkBuilderPreviewResult,
     ) -> CoreResult<WorkRecord> {
         validate_required("preview_result.id", &preview_result.id)?;
         if preview_result.work_id != *id {
@@ -913,12 +910,12 @@ impl WorkService {
             preview_result.observed_at = now;
         }
         let refresh_release_rehearsal = preview_result.kind
-            != WorkStudioPreviewKind::ReleaseRehearsal
-            || preview_result.source != WorkStudioPreviewSource::ReleaseRehearsal;
+            != WorkBuilderPreviewKind::ReleaseRehearsal
+            || preview_result.source != WorkBuilderPreviewSource::ReleaseRehearsal;
         let mut record = self.get(id).await?;
-        apply_preview_result_to_studio_issues(&mut record, &preview_result);
-        reconcile_studio_issues_for_preview_result(&mut record, &mut preview_result, now);
-        upsert_studio_preview_result(&mut record, preview_result);
+        apply_preview_result_to_builder_issues(&mut record, &preview_result);
+        reconcile_builder_issues_for_preview_result(&mut record, &mut preview_result, now);
+        upsert_builder_preview_result(&mut record, preview_result);
         if refresh_release_rehearsal {
             refresh_release_rehearsal_preview_result(&mut record, now);
         }
@@ -927,21 +924,21 @@ impl WorkService {
         Ok(record)
     }
 
-    pub async fn record_studio_issue(
+    pub async fn record_builder_issue(
         &self,
         id: &WorkId,
-        issue: WorkStudioIssue,
+        issue: WorkBuilderIssue,
     ) -> CoreResult<WorkRecord> {
-        validate_required("studio_issue.id", &issue.id)?;
-        validate_required("studio_issue.app_id", &issue.app_id)?;
-        validate_required("studio_issue.message", &issue.message)?;
+        validate_required("builder_issue.id", &issue.id)?;
+        validate_required("builder_issue.app_id", &issue.app_id)?;
+        validate_required("builder_issue.message", &issue.message)?;
 
         let now = now_millis();
         let runtime_instance_id = issue.runtime_instance_id.clone();
         let mut record = self.get(id).await?;
-        upsert_studio_issue(&mut record, issue);
+        upsert_builder_issue(&mut record, issue);
         if let Some(runtime_instance_id) = runtime_instance_id.as_deref() {
-            refresh_studio_preview_result_for_runtime_instance(&mut record, runtime_instance_id);
+            refresh_builder_preview_result_for_runtime_instance(&mut record, runtime_instance_id);
         }
         refresh_release_rehearsal_preview_result(&mut record, now);
         record.touch(now);
@@ -949,10 +946,10 @@ impl WorkService {
         Ok(record)
     }
 
-    pub async fn record_studio_validation_result(
+    pub async fn record_builder_validation_result(
         &self,
         id: &WorkId,
-        mut validation_result: WorkStudioValidationResult,
+        mut validation_result: WorkBuilderValidationResult,
     ) -> CoreResult<WorkRecord> {
         validate_required("validation_result.id", &validation_result.id)?;
         validate_required("validation_result.tool_name", &validation_result.tool_name)?;
@@ -963,13 +960,13 @@ impl WorkService {
             )));
         }
         match validation_result.target_kind {
-            WorkStudioValidationTargetKind::ProductApp => {
+            WorkBuilderValidationTargetKind::ProductApp => {
                 validate_required(
                     "validation_result.app_id",
                     validation_result.app_id.as_deref().unwrap_or_default(),
                 )?;
             }
-            WorkStudioValidationTargetKind::Component => {
+            WorkBuilderValidationTargetKind::Component => {
                 validate_required(
                     "validation_result.component_id",
                     validation_result
@@ -992,20 +989,20 @@ impl WorkService {
             validation_result.observed_at = now;
         }
         let mut record = self.get(id).await?;
-        apply_validation_result_to_studio_issues(&mut record, &validation_result, now);
+        apply_validation_result_to_builder_issues(&mut record, &validation_result, now);
         refresh_capability_preview_result_for_validation(&mut record, &validation_result);
-        upsert_studio_validation_result(&mut record, validation_result);
+        upsert_builder_validation_result(&mut record, validation_result);
         refresh_release_rehearsal_preview_result(&mut record, now);
         record.touch(now);
         self.store.put(&record).await?;
         Ok(record)
     }
 
-    pub async fn update_studio_issue_status(
+    pub async fn update_builder_issue_status(
         &self,
         id: &WorkId,
         issue_id: &str,
-        status: WorkStudioIssueStatus,
+        status: WorkBuilderIssueStatus,
     ) -> CoreResult<WorkRecord> {
         validate_required("issue_id", issue_id)?;
 
@@ -1013,23 +1010,23 @@ impl WorkService {
         let mut record = self.get(id).await?;
         let runtime_instance_id = {
             let issue = record
-                .studio_issues
+                .builder_issues
                 .iter_mut()
                 .find(|issue| issue.id == issue_id)
                 .ok_or_else(|| {
-                    CoreError::NotFound(format!("Studio issue not found: {}", issue_id))
+                    CoreError::NotFound(format!("Builder issue not found: {}", issue_id))
                 })?;
             issue.status = status;
             issue.resolved_at = match status {
-                WorkStudioIssueStatus::Open
-                | WorkStudioIssueStatus::StillOpen
-                | WorkStudioIssueStatus::Regressed => None,
-                WorkStudioIssueStatus::Acknowledged | WorkStudioIssueStatus::Fixed => Some(now),
+                WorkBuilderIssueStatus::Open
+                | WorkBuilderIssueStatus::StillOpen
+                | WorkBuilderIssueStatus::Regressed => None,
+                WorkBuilderIssueStatus::Acknowledged | WorkBuilderIssueStatus::Fixed => Some(now),
             };
             issue.runtime_instance_id.clone()
         };
         if let Some(runtime_instance_id) = runtime_instance_id.as_deref() {
-            refresh_studio_preview_result_for_runtime_instance(&mut record, runtime_instance_id);
+            refresh_builder_preview_result_for_runtime_instance(&mut record, runtime_instance_id);
         }
         refresh_release_rehearsal_preview_result(&mut record, now);
         record.touch(now);
@@ -1037,10 +1034,7 @@ impl WorkService {
         Ok(record)
     }
 
-    pub async fn dispatch(
-        &self,
-        request: DispatchWorkRequest,
-    ) -> CoreResult<DispatchWorkResponse> {
+    pub async fn dispatch(&self, request: DispatchWorkRequest) -> CoreResult<DispatchWorkResponse> {
         match request {
             DispatchWorkRequest::DispatchNew(request) => self.dispatch_new(request).await,
         }
@@ -1056,7 +1050,7 @@ impl WorkService {
 
         let assignment = request
             .assignment
-            .unwrap_or_else(|| WorkAssignmentRef::agent("agentic"));
+            .unwrap_or_else(|| WorkAssignmentRef::agent("Runno"));
         if assignment.kind != WorkAssignmentKind::Agent {
             return Err(CoreError::validation(
                 "Work action=start currently requires assignment.kind=agent",
@@ -1187,7 +1181,7 @@ impl WorkService {
             .assignment
             .as_ref()
             .and_then(|assignment| assignment.agent_type.clone())
-            .unwrap_or_else(|| "agentic".to_string());
+            .unwrap_or_else(|| "Runno".to_string());
         let workspace_path = resolve_runtime_workspace_path(&record.scope)?;
 
         let advance_outcome = self
@@ -1314,15 +1308,15 @@ impl WorkService {
         session_id: &str,
         turn_id: &str,
     ) -> CoreResult<Option<WorkRecord>> {
-        self.mark_agent_session_turn_started_with_app_studio_context(session_id, turn_id, None)
+        self.mark_agent_session_turn_started_with_app_builder_context(session_id, turn_id, None)
             .await
     }
 
-    pub async fn mark_agent_session_turn_started_with_app_studio_context(
+    pub async fn mark_agent_session_turn_started_with_app_builder_context(
         &self,
         session_id: &str,
         turn_id: &str,
-        app_studio: Option<WorkExecutionAppStudioContext>,
+        app_builder: Option<WorkExecutionAppBuilderContext>,
     ) -> CoreResult<Option<WorkRecord>> {
         let session_id = session_id.trim();
         let turn_id = turn_id.trim();
@@ -1331,7 +1325,7 @@ impl WorkService {
         }
 
         let now = now_millis();
-        if let Some(work_id) = app_studio
+        if let Some(work_id) = app_builder
             .as_ref()
             .and_then(|context| context.work_id.clone())
         {
@@ -1341,7 +1335,7 @@ impl WorkService {
                     &mut record,
                     session_id,
                     turn_id,
-                    app_studio.clone(),
+                    app_builder.clone(),
                     now,
                 );
                 if should_reopen_for_agent_session_activity(record.status) {
@@ -1363,7 +1357,7 @@ impl WorkService {
                 &mut record,
                 session_id,
                 turn_id,
-                app_studio.clone(),
+                app_builder.clone(),
                 now,
             );
 
@@ -1481,7 +1475,7 @@ impl WorkService {
                         binding.set_status(binding_status, now);
                         matched = true;
                         if binding_status == WorkExecutionBindingStatus::Completed {
-                            if let Some(context) = binding.app_studio.as_ref() {
+                            if let Some(context) = binding.app_builder.as_ref() {
                                 fixed_issue_ids.push(context.issue_id.clone());
                             }
                         }
@@ -1491,7 +1485,7 @@ impl WorkService {
 
             if matched {
                 if binding_status == WorkExecutionBindingStatus::Completed {
-                    mark_studio_issues_fixed(&mut record, &fixed_issue_ids, now);
+                    mark_builder_issues_fixed(&mut record, &fixed_issue_ids, now);
                 }
                 let has_running_binding = record
                     .execution_bindings
@@ -1567,7 +1561,7 @@ impl WorkService {
                     .as_ref()
                     .and_then(|assignment| assignment.agent_type.clone())
             })
-            .unwrap_or_else(|| "agentic".to_string());
+            .unwrap_or_else(|| "Runno".to_string());
         let workspace_path = resolve_runtime_workspace_path(&record.scope)?;
         let outcome = self
             .runtime_bridge
@@ -1697,10 +1691,7 @@ fn validate_surface_ref(label: &str, surface: &WorkSurfaceRef) -> CoreResult<()>
 
 fn validate_required(field: &str, value: &str) -> CoreResult<()> {
     if value.trim().is_empty() {
-        return Err(CoreError::validation(format!(
-            "{} cannot be empty",
-            field
-        )));
+        return Err(CoreError::validation(format!("{} cannot be empty", field)));
     }
     Ok(())
 }
@@ -1843,14 +1834,14 @@ fn upsert_agent_session_run_binding(
     record: &mut WorkRecord,
     session_id: &str,
     turn_id: &str,
-    app_studio: Option<WorkExecutionAppStudioContext>,
+    app_builder: Option<WorkExecutionAppBuilderContext>,
     now: i64,
 ) {
     for binding in &mut record.execution_bindings {
         if agent_session_binding_matches_turn(binding, turn_id) {
             binding.set_status(WorkExecutionBindingStatus::Running, now);
-            if app_studio.is_some() {
-                binding.app_studio = app_studio;
+            if app_builder.is_some() {
+                binding.app_builder = app_builder;
             }
             return;
         }
@@ -1864,24 +1855,24 @@ fn upsert_agent_session_run_binding(
         WorkExecutionBindingStatus::Running,
         now,
     );
-    binding.app_studio = app_studio;
+    binding.app_builder = app_builder;
     record.execution_bindings.push(binding);
 }
 
-fn mark_studio_issues_fixed(record: &mut WorkRecord, issue_ids: &[String], now: i64) {
+fn mark_builder_issues_fixed(record: &mut WorkRecord, issue_ids: &[String], now: i64) {
     let mut runtime_instance_ids = Vec::new();
     for issue_id in issue_ids {
         let Some(issue) = record
-            .studio_issues
+            .builder_issues
             .iter_mut()
             .find(|issue| issue.id == *issue_id)
         else {
             continue;
         };
-        if issue.status == WorkStudioIssueStatus::Fixed {
+        if issue.status == WorkBuilderIssueStatus::Fixed {
             continue;
         }
-        issue.status = WorkStudioIssueStatus::Fixed;
+        issue.status = WorkBuilderIssueStatus::Fixed;
         issue.resolved_at = Some(now);
         if let Some(runtime_instance_id) = issue.runtime_instance_id.clone() {
             runtime_instance_ids.push(runtime_instance_id);
@@ -1891,7 +1882,7 @@ fn mark_studio_issues_fixed(record: &mut WorkRecord, issue_ids: &[String], now: 
     runtime_instance_ids.sort();
     runtime_instance_ids.dedup();
     for runtime_instance_id in runtime_instance_ids {
-        refresh_studio_preview_result_for_runtime_instance(record, &runtime_instance_id);
+        refresh_builder_preview_result_for_runtime_instance(record, &runtime_instance_id);
     }
 }
 
@@ -2003,9 +1994,9 @@ fn trim_runtime_logs(logs: &mut Vec<WorkRuntimeLog>) {
     logs.drain(0..excess);
 }
 
-fn apply_runtime_issue_to_studio_facts(record: &mut WorkRecord, issue: &WorkRuntimeIssue) {
-    let studio_issue = WorkStudioIssue {
-        id: studio_issue_id(&[
+fn apply_runtime_issue_to_builder_facts(record: &mut WorkRecord, issue: &WorkRuntimeIssue) {
+    let builder_issue = WorkBuilderIssue {
+        id: builder_issue_id(&[
             "runtime-issue",
             issue.runtime_instance_id.as_str(),
             &issue.timestamp_ms.to_string(),
@@ -2016,24 +2007,24 @@ fn apply_runtime_issue_to_studio_facts(record: &mut WorkRecord, issue: &WorkRunt
         product_app_id: Some(issue.product_app_id.clone()),
         component_id: Some(issue.component_id.clone()),
         runtime_instance_id: Some(issue.runtime_instance_id.clone()),
-        preview_result_id: Some(studio_preview_result_id(&issue.runtime_instance_id)),
+        preview_result_id: Some(builder_preview_result_id(&issue.runtime_instance_id)),
         severity: issue.severity,
-        status: WorkStudioIssueStatus::Open,
+        status: WorkBuilderIssueStatus::Open,
         message: issue.message.clone(),
         source: issue.source.clone(),
         category: issue.category.clone(),
         timestamp_ms: issue.timestamp_ms,
-        origin: WorkStudioIssueOrigin::WorkExecutionGraph,
+        origin: WorkBuilderIssueOrigin::WorkExecutionGraph,
         resolved_at: None,
     };
-    upsert_studio_issue(record, studio_issue);
-    refresh_studio_preview_result_for_runtime_instance(record, &issue.runtime_instance_id);
+    upsert_builder_issue(record, builder_issue);
+    refresh_builder_preview_result_for_runtime_instance(record, &issue.runtime_instance_id);
 }
 
-fn apply_runtime_log_to_studio_facts(record: &mut WorkRecord, log: &WorkRuntimeLog) {
-    if let Some(severity) = studio_issue_severity_for_log(log.level) {
-        let studio_issue = WorkStudioIssue {
-            id: studio_issue_id(&[
+fn apply_runtime_log_to_builder_facts(record: &mut WorkRecord, log: &WorkRuntimeLog) {
+    if let Some(severity) = builder_issue_severity_for_log(log.level) {
+        let builder_issue = WorkBuilderIssue {
+            id: builder_issue_id(&[
                 "runtime-log",
                 log.runtime_instance_id.as_str(),
                 &log.timestamp_ms.to_string(),
@@ -2045,24 +2036,24 @@ fn apply_runtime_log_to_studio_facts(record: &mut WorkRecord, log: &WorkRuntimeL
             product_app_id: Some(log.product_app_id.clone()),
             component_id: Some(log.component_id.clone()),
             runtime_instance_id: Some(log.runtime_instance_id.clone()),
-            preview_result_id: Some(studio_preview_result_id(&log.runtime_instance_id)),
+            preview_result_id: Some(builder_preview_result_id(&log.runtime_instance_id)),
             severity,
-            status: WorkStudioIssueStatus::Open,
+            status: WorkBuilderIssueStatus::Open,
             message: log.message.clone(),
             source: log.source.clone(),
             category: Some(log.category.clone()),
             timestamp_ms: log.timestamp_ms,
-            origin: WorkStudioIssueOrigin::WorkExecutionGraph,
+            origin: WorkBuilderIssueOrigin::WorkExecutionGraph,
             resolved_at: None,
         };
-        upsert_studio_issue(record, studio_issue);
+        upsert_builder_issue(record, builder_issue);
     }
-    refresh_studio_preview_result_for_runtime_instance(record, &log.runtime_instance_id);
+    refresh_builder_preview_result_for_runtime_instance(record, &log.runtime_instance_id);
 }
 
-fn apply_validation_result_to_studio_issues(
+fn apply_validation_result_to_builder_issues(
     record: &mut WorkRecord,
-    validation_result: &WorkStudioValidationResult,
+    validation_result: &WorkBuilderValidationResult,
     now: i64,
 ) {
     let mut active_issue_ids = Vec::new();
@@ -2072,10 +2063,10 @@ fn apply_validation_result_to_studio_issues(
         };
         let issue_id = validation_issue_id(validation_result, check);
         active_issue_ids.push(issue_id.clone());
-        reopen_existing_studio_issue(record, &issue_id);
-        upsert_studio_issue(
+        reopen_existing_builder_issue(record, &issue_id);
+        upsert_builder_issue(
             record,
-            WorkStudioIssue {
+            WorkBuilderIssue {
                 id: issue_id,
                 app_id: validation_target_app_id(validation_result),
                 product_app_id: validation_result.app_id.clone(),
@@ -2083,19 +2074,19 @@ fn apply_validation_result_to_studio_issues(
                 runtime_instance_id: None,
                 preview_result_id: None,
                 severity,
-                status: WorkStudioIssueStatus::Open,
+                status: WorkBuilderIssueStatus::Open,
                 message: validation_issue_message(check),
                 source: Some(validation_result.tool_name.clone()),
                 category: Some(validation_issue_category(check)),
                 timestamp_ms: validation_result.observed_at,
-                origin: WorkStudioIssueOrigin::Validation,
+                origin: WorkBuilderIssueOrigin::Validation,
                 resolved_at: None,
             },
         );
     }
 
-    for issue in record.studio_issues.iter_mut() {
-        if !matches!(issue.origin, WorkStudioIssueOrigin::Validation) {
+    for issue in record.builder_issues.iter_mut() {
+        if !matches!(issue.origin, WorkBuilderIssueOrigin::Validation) {
             continue;
         }
         if !validation_issue_matches_target(issue, validation_result) {
@@ -2107,72 +2098,74 @@ fn apply_validation_result_to_studio_issues(
         {
             continue;
         }
-        if issue.status != WorkStudioIssueStatus::Fixed {
-            issue.status = WorkStudioIssueStatus::Fixed;
+        if issue.status != WorkBuilderIssueStatus::Fixed {
+            issue.status = WorkBuilderIssueStatus::Fixed;
             issue.resolved_at = Some(now);
         }
     }
 }
 
-fn upsert_studio_issue(record: &mut WorkRecord, issue: WorkStudioIssue) {
+fn upsert_builder_issue(record: &mut WorkRecord, issue: WorkBuilderIssue) {
     if let Some(existing) = record
-        .studio_issues
+        .builder_issues
         .iter_mut()
         .find(|existing| existing.id == issue.id)
     {
         let status = match existing.status {
-            WorkStudioIssueStatus::Open => issue.status,
-            WorkStudioIssueStatus::StillOpen | WorkStudioIssueStatus::Regressed => existing.status,
-            WorkStudioIssueStatus::Acknowledged => WorkStudioIssueStatus::Acknowledged,
-            WorkStudioIssueStatus::Fixed => {
+            WorkBuilderIssueStatus::Open => issue.status,
+            WorkBuilderIssueStatus::StillOpen | WorkBuilderIssueStatus::Regressed => {
+                existing.status
+            }
+            WorkBuilderIssueStatus::Acknowledged => WorkBuilderIssueStatus::Acknowledged,
+            WorkBuilderIssueStatus::Fixed => {
                 if existing
                     .resolved_at
                     .is_some_and(|resolved_at| issue.timestamp_ms >= resolved_at)
                 {
-                    WorkStudioIssueStatus::Regressed
+                    WorkBuilderIssueStatus::Regressed
                 } else {
-                    WorkStudioIssueStatus::Fixed
+                    WorkBuilderIssueStatus::Fixed
                 }
             }
         };
         let resolved_at = match status {
-            WorkStudioIssueStatus::Acknowledged | WorkStudioIssueStatus::Fixed => {
+            WorkBuilderIssueStatus::Acknowledged | WorkBuilderIssueStatus::Fixed => {
                 existing.resolved_at.or(issue.resolved_at)
             }
-            WorkStudioIssueStatus::Open
-            | WorkStudioIssueStatus::StillOpen
-            | WorkStudioIssueStatus::Regressed => None,
+            WorkBuilderIssueStatus::Open
+            | WorkBuilderIssueStatus::StillOpen
+            | WorkBuilderIssueStatus::Regressed => None,
         };
-        *existing = WorkStudioIssue {
+        *existing = WorkBuilderIssue {
             status,
             resolved_at,
             ..issue
         };
     } else {
-        record.studio_issues.push(issue);
+        record.builder_issues.push(issue);
     }
 }
 
-fn upsert_studio_validation_result(
+fn upsert_builder_validation_result(
     record: &mut WorkRecord,
-    validation_result: WorkStudioValidationResult,
+    validation_result: WorkBuilderValidationResult,
 ) {
     if let Some(existing) = record
-        .studio_validation_results
+        .builder_validation_results
         .iter_mut()
         .find(|existing| existing.id == validation_result.id)
     {
         *existing = validation_result;
     } else {
-        record.studio_validation_results.push(validation_result);
+        record.builder_validation_results.push(validation_result);
     }
 }
 
 fn refresh_capability_preview_result_for_validation(
     record: &mut WorkRecord,
-    validation_result: &WorkStudioValidationResult,
+    validation_result: &WorkBuilderValidationResult,
 ) {
-    if validation_result.target_kind != WorkStudioValidationTargetKind::Component {
+    if validation_result.target_kind != WorkBuilderValidationTargetKind::Component {
         return;
     }
 
@@ -2190,45 +2183,45 @@ fn refresh_capability_preview_result_for_validation(
         .filter(|check| {
             matches!(
                 check.status,
-                WorkStudioFactStatus::Failed | WorkStudioFactStatus::Blocked
+                WorkBuilderFactStatus::Failed | WorkBuilderFactStatus::Blocked
             )
         })
         .count();
     let warning_issue_count = checks
         .iter()
-        .filter(|check| check.status == WorkStudioFactStatus::Warning)
+        .filter(|check| check.status == WorkBuilderFactStatus::Warning)
         .count();
     let has_running = checks.iter().any(|check| {
         matches!(
             check.status,
-            WorkStudioFactStatus::Running | WorkStudioFactStatus::Waiting
+            WorkBuilderFactStatus::Running | WorkBuilderFactStatus::Waiting
         )
     });
     let has_unverified = checks.iter().any(|check| {
         matches!(
             check.status,
-            WorkStudioFactStatus::NotRun | WorkStudioFactStatus::NotVerified
+            WorkBuilderFactStatus::NotRun | WorkBuilderFactStatus::NotVerified
         )
     });
     let status = if fatal_issue_count > 0 {
-        WorkStudioFactStatus::Failed
+        WorkBuilderFactStatus::Failed
     } else if warning_issue_count > 0 {
-        WorkStudioFactStatus::Warning
+        WorkBuilderFactStatus::Warning
     } else if has_running {
-        WorkStudioFactStatus::Running
+        WorkBuilderFactStatus::Running
     } else if has_unverified {
-        WorkStudioFactStatus::NotVerified
+        WorkBuilderFactStatus::NotVerified
     } else {
-        WorkStudioFactStatus::Passed
+        WorkBuilderFactStatus::Passed
     };
 
-    upsert_studio_preview_result(
+    upsert_builder_preview_result(
         record,
-        WorkStudioPreviewResult {
+        WorkBuilderPreviewResult {
             id: capability_preview_result_id(validation_result),
-            kind: WorkStudioPreviewKind::Capability,
+            kind: WorkBuilderPreviewKind::Capability,
             status,
-            source: WorkStudioPreviewSource::PreviewHarness,
+            source: WorkBuilderPreviewSource::PreviewHarness,
             harness_mode: Some("capability".to_string()),
             trigger_turn_id: None,
             detail: Some(capability_preview_detail(validation_result, &checks)),
@@ -2260,22 +2253,22 @@ fn capability_preview_check_id(id: &str) -> bool {
 }
 
 fn capability_preview_detail(
-    validation_result: &WorkStudioValidationResult,
-    checks: &[&WorkStudioFactCheck],
+    validation_result: &WorkBuilderValidationResult,
+    checks: &[&WorkBuilderFactCheck],
 ) -> String {
     let failed = checks
         .iter()
         .filter(|check| {
             matches!(
                 check.status,
-                WorkStudioFactStatus::Failed | WorkStudioFactStatus::Blocked
+                WorkBuilderFactStatus::Failed | WorkBuilderFactStatus::Blocked
             )
         })
         .map(|check| check.id.as_str())
         .collect::<Vec<_>>();
     let warnings = checks
         .iter()
-        .filter(|check| check.status == WorkStudioFactStatus::Warning)
+        .filter(|check| check.status == WorkBuilderFactStatus::Warning)
         .map(|check| check.id.as_str())
         .collect::<Vec<_>>();
     let pending = checks
@@ -2283,10 +2276,10 @@ fn capability_preview_detail(
         .filter(|check| {
             matches!(
                 check.status,
-                WorkStudioFactStatus::NotRun
-                    | WorkStudioFactStatus::NotVerified
-                    | WorkStudioFactStatus::Running
-                    | WorkStudioFactStatus::Waiting
+                WorkBuilderFactStatus::NotRun
+                    | WorkBuilderFactStatus::NotVerified
+                    | WorkBuilderFactStatus::Running
+                    | WorkBuilderFactStatus::Waiting
             )
         })
         .map(|check| check.id.as_str())
@@ -2316,23 +2309,26 @@ fn capability_preview_detail(
     }
 }
 
-fn upsert_studio_preview_result(record: &mut WorkRecord, preview_result: WorkStudioPreviewResult) {
+fn upsert_builder_preview_result(
+    record: &mut WorkRecord,
+    preview_result: WorkBuilderPreviewResult,
+) {
     if let Some(existing) = record
-        .studio_preview_results
+        .builder_preview_results
         .iter_mut()
         .find(|existing| existing.id == preview_result.id)
     {
         *existing = preview_result;
     } else {
-        record.studio_preview_results.push(preview_result);
+        record.builder_preview_results.push(preview_result);
     }
 }
 
-fn apply_preview_result_to_studio_issues(
+fn apply_preview_result_to_builder_issues(
     record: &mut WorkRecord,
-    preview_result: &WorkStudioPreviewResult,
+    preview_result: &WorkBuilderPreviewResult,
 ) {
-    if preview_result.source == WorkStudioPreviewSource::RuntimeFact
+    if preview_result.source == WorkBuilderPreviewSource::RuntimeFact
         || !preview_result_is_not_clean(preview_result)
     {
         return;
@@ -2341,14 +2337,14 @@ fn apply_preview_result_to_studio_issues(
         .runtime_instance_id
         .as_deref()
         .is_some_and(|runtime_instance_id| {
-            record.studio_issues.iter().any(|issue| {
+            record.builder_issues.iter().any(|issue| {
                 issue.runtime_instance_id.as_deref() == Some(runtime_instance_id)
                     && issue.severity != WorkRuntimeIssueSeverity::Noise
                     && matches!(
                         issue.origin,
-                        WorkStudioIssueOrigin::RuntimeEvent
-                            | WorkStudioIssueOrigin::WorkExecutionGraph
-                            | WorkStudioIssueOrigin::Preview
+                        WorkBuilderIssueOrigin::RuntimeEvent
+                            | WorkBuilderIssueOrigin::WorkExecutionGraph
+                            | WorkBuilderIssueOrigin::Preview
                     )
             })
         })
@@ -2356,11 +2352,11 @@ fn apply_preview_result_to_studio_issues(
         return;
     }
 
-    let issue_id = studio_issue_id(&["preview", preview_result.id.as_str()]);
-    reopen_existing_studio_issue(record, &issue_id);
-    upsert_studio_issue(
+    let issue_id = builder_issue_id(&["preview", preview_result.id.as_str()]);
+    reopen_existing_builder_issue(record, &issue_id);
+    upsert_builder_issue(
         record,
-        WorkStudioIssue {
+        WorkBuilderIssue {
             id: issue_id,
             app_id: preview_issue_app_id(record, preview_result),
             product_app_id: preview_result.product_app_id.clone(),
@@ -2371,23 +2367,23 @@ fn apply_preview_result_to_studio_issues(
             runtime_instance_id: preview_result.runtime_instance_id.clone(),
             preview_result_id: Some(preview_result.id.clone()),
             severity: preview_issue_severity(preview_result),
-            status: WorkStudioIssueStatus::Open,
+            status: WorkBuilderIssueStatus::Open,
             message: preview_issue_message(preview_result),
             source: Some(preview_source_label(preview_result.source).to_string()),
             category: Some(preview_issue_category(preview_result)),
             timestamp_ms: preview_result.observed_at,
-            origin: WorkStudioIssueOrigin::Preview,
+            origin: WorkBuilderIssueOrigin::Preview,
             resolved_at: None,
         },
     );
 }
 
-fn reconcile_studio_issues_for_preview_result(
+fn reconcile_builder_issues_for_preview_result(
     record: &mut WorkRecord,
-    preview_result: &mut WorkStudioPreviewResult,
+    preview_result: &mut WorkBuilderPreviewResult,
     _now: i64,
 ) {
-    if preview_result.source == WorkStudioPreviewSource::RuntimeFact {
+    if preview_result.source == WorkBuilderPreviewSource::RuntimeFact {
         return;
     }
     let Some(runtime_instance_id) = preview_result.runtime_instance_id.as_deref() else {
@@ -2399,42 +2395,42 @@ fn reconcile_studio_issues_for_preview_result(
 
     if preview_ready {
         for issue in record
-            .studio_issues
+            .builder_issues
             .iter_mut()
             .filter(|issue| preview_reconciles_issue(preview_result, issue))
         {
-            issue.status = WorkStudioIssueStatus::Fixed;
+            issue.status = WorkBuilderIssueStatus::Fixed;
             issue.resolved_at = Some(preview_result.observed_at);
         }
     } else if preview_failed {
-        for issue in record.studio_issues.iter_mut().filter(|issue| {
+        for issue in record.builder_issues.iter_mut().filter(|issue| {
             issue.runtime_instance_id.as_deref() == Some(runtime_instance_id)
                 && issue.severity != WorkRuntimeIssueSeverity::Noise
                 && matches!(
                     issue.origin,
-                    WorkStudioIssueOrigin::RuntimeEvent
-                        | WorkStudioIssueOrigin::WorkExecutionGraph
-                        | WorkStudioIssueOrigin::Preview
+                    WorkBuilderIssueOrigin::RuntimeEvent
+                        | WorkBuilderIssueOrigin::WorkExecutionGraph
+                        | WorkBuilderIssueOrigin::Preview
                 )
         }) {
-            if issue.status == WorkStudioIssueStatus::Fixed {
-                if preview_result.source == WorkStudioPreviewSource::FixRerun
+            if issue.status == WorkBuilderIssueStatus::Fixed {
+                if preview_result.source == WorkBuilderPreviewSource::FixRerun
                     || issue
                         .resolved_at
                         .is_some_and(|resolved_at| preview_result.observed_at >= resolved_at)
                 {
-                    issue.status = WorkStudioIssueStatus::Regressed;
+                    issue.status = WorkBuilderIssueStatus::Regressed;
                     issue.resolved_at = None;
                 }
             } else {
-                issue.status = WorkStudioIssueStatus::StillOpen;
+                issue.status = WorkBuilderIssueStatus::StillOpen;
                 issue.resolved_at = None;
             }
         }
     }
 
     let active_issues = record
-        .studio_issues
+        .builder_issues
         .iter()
         .filter(|issue| preview_reconciles_issue(preview_result, issue))
         .collect::<Vec<_>>();
@@ -2455,48 +2451,48 @@ fn reconcile_studio_issues_for_preview_result(
 }
 
 fn preview_reconciles_issue(
-    preview_result: &WorkStudioPreviewResult,
-    issue: &WorkStudioIssue,
+    preview_result: &WorkBuilderPreviewResult,
+    issue: &WorkBuilderIssue,
 ) -> bool {
     issue.runtime_instance_id.as_deref() == preview_result.runtime_instance_id.as_deref()
         && preview_result.runtime_instance_id.is_some()
-        && issue.status != WorkStudioIssueStatus::Fixed
+        && issue.status != WorkBuilderIssueStatus::Fixed
         && issue.severity != WorkRuntimeIssueSeverity::Noise
         && matches!(
             issue.origin,
-            WorkStudioIssueOrigin::RuntimeEvent
-                | WorkStudioIssueOrigin::WorkExecutionGraph
-                | WorkStudioIssueOrigin::Preview
+            WorkBuilderIssueOrigin::RuntimeEvent
+                | WorkBuilderIssueOrigin::WorkExecutionGraph
+                | WorkBuilderIssueOrigin::Preview
         )
 }
 
 fn refresh_release_rehearsal_preview_result(record: &mut WorkRecord, now: i64) {
-    let has_external_preview_evidence = record.studio_preview_results.iter().any(|preview| {
-        preview.kind != WorkStudioPreviewKind::ReleaseRehearsal
-            || preview.source != WorkStudioPreviewSource::ReleaseRehearsal
+    let has_external_preview_evidence = record.builder_preview_results.iter().any(|preview| {
+        preview.kind != WorkBuilderPreviewKind::ReleaseRehearsal
+            || preview.source != WorkBuilderPreviewSource::ReleaseRehearsal
     });
-    if record.studio_validation_results.is_empty()
+    if record.builder_validation_results.is_empty()
         && !has_external_preview_evidence
-        && record.studio_issues.is_empty()
+        && record.builder_issues.is_empty()
     {
         return;
     }
 
     let preview_results = record
-        .studio_preview_results
+        .builder_preview_results
         .iter()
         .filter(|preview| is_product_preview_evidence(preview))
         .collect::<Vec<_>>();
     let latest_release_harness = record
-        .studio_preview_results
+        .builder_preview_results
         .iter()
         .filter(|preview| is_release_readiness_harness_evidence(preview))
         .max_by_key(|preview| preview.observed_at);
     let active_issues = record
-        .studio_issues
+        .builder_issues
         .iter()
         .filter(|issue| {
-            issue.status != WorkStudioIssueStatus::Fixed
+            issue.status != WorkBuilderIssueStatus::Fixed
                 && issue.severity != WorkRuntimeIssueSeverity::Noise
         })
         .collect::<Vec<_>>();
@@ -2508,35 +2504,35 @@ fn refresh_release_rehearsal_preview_result(record: &mut WorkRecord, now: i64) {
         .iter()
         .filter(|issue| issue.severity == WorkRuntimeIssueSeverity::Warning)
         .count();
-    let validation_failed = record.studio_validation_results.iter().any(|validation| {
+    let validation_failed = record.builder_validation_results.iter().any(|validation| {
         matches!(
             validation.status,
-            WorkStudioFactStatus::Failed | WorkStudioFactStatus::Blocked
+            WorkBuilderFactStatus::Failed | WorkBuilderFactStatus::Blocked
         )
     });
     let validation_warning = record
-        .studio_validation_results
+        .builder_validation_results
         .iter()
-        .any(|validation| validation.status == WorkStudioFactStatus::Warning);
-    let validation_running = record.studio_validation_results.iter().any(|validation| {
+        .any(|validation| validation.status == WorkBuilderFactStatus::Warning);
+    let validation_running = record.builder_validation_results.iter().any(|validation| {
         matches!(
             validation.status,
-            WorkStudioFactStatus::Running | WorkStudioFactStatus::Waiting
+            WorkBuilderFactStatus::Running | WorkBuilderFactStatus::Waiting
         )
     });
     let validation_unverified = record
-        .studio_validation_results
+        .builder_validation_results
         .iter()
         .flat_map(|validation| validation.checks.iter())
         .any(|check| {
             matches!(
                 check.status,
-                WorkStudioFactStatus::NotRun
-                    | WorkStudioFactStatus::NotVerified
-                    | WorkStudioFactStatus::Waiting
+                WorkBuilderFactStatus::NotRun
+                    | WorkBuilderFactStatus::NotVerified
+                    | WorkBuilderFactStatus::Waiting
             )
         });
-    let missing_release_gate = record.studio_validation_results.iter().all(|validation| {
+    let missing_release_gate = record.builder_validation_results.iter().all(|validation| {
         validation
             .checks
             .iter()
@@ -2545,24 +2541,24 @@ fn refresh_release_rehearsal_preview_result(record: &mut WorkRecord, now: i64) {
     let preview_failed = preview_results.iter().any(|preview| {
         matches!(
             preview.status,
-            WorkStudioFactStatus::Failed | WorkStudioFactStatus::Blocked
+            WorkBuilderFactStatus::Failed | WorkBuilderFactStatus::Blocked
         )
     });
     let preview_warning = preview_results
         .iter()
-        .any(|preview| preview.status == WorkStudioFactStatus::Warning);
+        .any(|preview| preview.status == WorkBuilderFactStatus::Warning);
     let preview_running = preview_results.iter().any(|preview| {
         matches!(
             preview.status,
-            WorkStudioFactStatus::Running | WorkStudioFactStatus::Waiting
+            WorkBuilderFactStatus::Running | WorkBuilderFactStatus::Waiting
         )
     });
     let preview_unverified = preview_results.iter().any(|preview| {
         matches!(
             preview.status,
-            WorkStudioFactStatus::NotRun
-                | WorkStudioFactStatus::NotVerified
-                | WorkStudioFactStatus::Ready
+            WorkBuilderFactStatus::NotRun
+                | WorkBuilderFactStatus::NotVerified
+                | WorkBuilderFactStatus::Ready
         ) || preview.checks.is_empty()
             || preview
                 .checks
@@ -2583,7 +2579,7 @@ fn refresh_release_rehearsal_preview_result(record: &mut WorkRecord, now: i64) {
         .iter()
         .any(|check| fact_status_is_unverified(check.status));
     let release_readiness_pending = release_readiness_pending_ids(&release_readiness_checks);
-    let has_validation = !record.studio_validation_results.is_empty();
+    let has_validation = !record.builder_validation_results.is_empty();
     let has_preview = !preview_results.is_empty();
     let release_checks = release_rehearsal_checks(
         has_validation,
@@ -2609,15 +2605,15 @@ fn refresh_release_rehearsal_preview_result(record: &mut WorkRecord, now: i64) {
     let status =
         if fatal_issue_count > 0 || validation_failed || preview_failed || release_readiness_failed
         {
-            WorkStudioFactStatus::Failed
+            WorkBuilderFactStatus::Failed
         } else if warning_issue_count > 0
             || validation_warning
             || preview_warning
             || release_readiness_warning
         {
-            WorkStudioFactStatus::Warning
+            WorkBuilderFactStatus::Warning
         } else if validation_running || preview_running || release_readiness_running {
-            WorkStudioFactStatus::Running
+            WorkBuilderFactStatus::Running
         } else if !has_validation
             || !has_preview
             || validation_unverified
@@ -2625,12 +2621,12 @@ fn refresh_release_rehearsal_preview_result(record: &mut WorkRecord, now: i64) {
             || missing_release_gate
             || release_readiness_unverified
         {
-            WorkStudioFactStatus::NotVerified
+            WorkBuilderFactStatus::NotVerified
         } else {
-            WorkStudioFactStatus::Passed
+            WorkBuilderFactStatus::Passed
         };
     let observed_at = record
-        .studio_validation_results
+        .builder_validation_results
         .iter()
         .map(|validation| validation.observed_at)
         .chain(preview_results.iter().map(|preview| preview.observed_at))
@@ -2639,13 +2635,13 @@ fn refresh_release_rehearsal_preview_result(record: &mut WorkRecord, now: i64) {
         .max()
         .unwrap_or(now);
 
-    upsert_studio_preview_result(
+    upsert_builder_preview_result(
         record,
-        WorkStudioPreviewResult {
+        WorkBuilderPreviewResult {
             id: release_rehearsal_preview_result_id(&record.id),
-            kind: WorkStudioPreviewKind::ReleaseRehearsal,
+            kind: WorkBuilderPreviewKind::ReleaseRehearsal,
             status,
-            source: WorkStudioPreviewSource::ReleaseRehearsal,
+            source: WorkBuilderPreviewSource::ReleaseRehearsal,
             harness_mode: Some("release-rehearsal".to_string()),
             trigger_turn_id: None,
             detail: Some(release_rehearsal_detail(
@@ -2675,37 +2671,37 @@ fn refresh_release_rehearsal_preview_result(record: &mut WorkRecord, now: i64) {
     );
 }
 
-fn preview_result_is_clean_ready(preview_result: &WorkStudioPreviewResult) -> bool {
-    preview_result.status == WorkStudioFactStatus::Passed
+fn preview_result_is_clean_ready(preview_result: &WorkBuilderPreviewResult) -> bool {
+    preview_result.status == WorkBuilderFactStatus::Passed
         && preview_result.issue_count == 0
         && preview_result.fatal_issue_count == 0
         && preview_result.warning_issue_count == 0
 }
 
-fn preview_result_is_not_clean(preview_result: &WorkStudioPreviewResult) -> bool {
+fn preview_result_is_not_clean(preview_result: &WorkBuilderPreviewResult) -> bool {
     matches!(
         preview_result.status,
-        WorkStudioFactStatus::Failed
-            | WorkStudioFactStatus::Blocked
-            | WorkStudioFactStatus::Warning
+        WorkBuilderFactStatus::Failed
+            | WorkBuilderFactStatus::Blocked
+            | WorkBuilderFactStatus::Warning
     ) || preview_result.issue_count > 0
         || preview_result.fatal_issue_count > 0
         || preview_result.warning_issue_count > 0
 }
 
-fn reconciled_preview_status(preview_result: &WorkStudioPreviewResult) -> WorkStudioFactStatus {
+fn reconciled_preview_status(preview_result: &WorkBuilderPreviewResult) -> WorkBuilderFactStatus {
     if preview_result.fatal_issue_count > 0 {
-        WorkStudioFactStatus::Failed
+        WorkBuilderFactStatus::Failed
     } else if preview_result.warning_issue_count > 0 {
-        WorkStudioFactStatus::Warning
-    } else if preview_result.status == WorkStudioFactStatus::Passed {
-        WorkStudioFactStatus::Passed
+        WorkBuilderFactStatus::Warning
+    } else if preview_result.status == WorkBuilderFactStatus::Passed {
+        WorkBuilderFactStatus::Passed
     } else {
         preview_result.status
     }
 }
 
-fn refresh_studio_preview_result_for_runtime_instance(
+fn refresh_builder_preview_result_for_runtime_instance(
     record: &mut WorkRecord,
     runtime_instance_id: &str,
 ) {
@@ -2719,11 +2715,11 @@ fn refresh_studio_preview_result_for_runtime_instance(
     };
 
     let active_issues = record
-        .studio_issues
+        .builder_issues
         .iter()
         .filter(|issue| {
             issue.runtime_instance_id.as_deref() == Some(runtime_instance_id)
-                && issue.status != WorkStudioIssueStatus::Fixed
+                && issue.status != WorkBuilderIssueStatus::Fixed
                 && issue.severity != WorkRuntimeIssueSeverity::Noise
         })
         .collect::<Vec<_>>();
@@ -2740,7 +2736,7 @@ fn refresh_studio_preview_result_for_runtime_instance(
         .map(|issue| issue.timestamp_ms)
         .chain(
             record
-                .studio_preview_results
+                .builder_preview_results
                 .iter()
                 .filter(|preview| {
                     preview.runtime_instance_id.as_deref() == Some(runtime_instance_id)
@@ -2750,20 +2746,20 @@ fn refresh_studio_preview_result_for_runtime_instance(
         .max()
         .unwrap_or(record.updated_at);
     let status = if fatal_issue_count > 0 {
-        WorkStudioFactStatus::Failed
+        WorkBuilderFactStatus::Failed
     } else if warning_issue_count > 0 {
-        WorkStudioFactStatus::Warning
+        WorkBuilderFactStatus::Warning
     } else {
-        WorkStudioFactStatus::Ready
+        WorkBuilderFactStatus::Ready
     };
 
-    upsert_studio_preview_result(
+    upsert_builder_preview_result(
         record,
-        WorkStudioPreviewResult {
-            id: studio_preview_result_id(runtime_instance_id),
-            kind: WorkStudioPreviewKind::ProductAppPreview,
+        WorkBuilderPreviewResult {
+            id: builder_preview_result_id(runtime_instance_id),
+            kind: WorkBuilderPreviewKind::ProductAppPreview,
             status,
-            source: WorkStudioPreviewSource::RuntimeFact,
+            source: WorkBuilderPreviewSource::RuntimeFact,
             harness_mode: Some("product-app-preview".to_string()),
             trigger_turn_id: None,
             detail: Some("Derived from runtime issues and logs.".to_string()),
@@ -2782,39 +2778,39 @@ fn refresh_studio_preview_result_for_runtime_instance(
     );
 }
 
-fn validation_issue_severity(status: WorkStudioFactStatus) -> Option<WorkRuntimeIssueSeverity> {
+fn validation_issue_severity(status: WorkBuilderFactStatus) -> Option<WorkRuntimeIssueSeverity> {
     match status {
-        WorkStudioFactStatus::Failed | WorkStudioFactStatus::Blocked => {
+        WorkBuilderFactStatus::Failed | WorkBuilderFactStatus::Blocked => {
             Some(WorkRuntimeIssueSeverity::Fatal)
         }
-        WorkStudioFactStatus::Warning => Some(WorkRuntimeIssueSeverity::Warning),
-        WorkStudioFactStatus::Passed
-        | WorkStudioFactStatus::NotRun
-        | WorkStudioFactStatus::NotVerified
-        | WorkStudioFactStatus::Running
-        | WorkStudioFactStatus::Ready
-        | WorkStudioFactStatus::Waiting => None,
+        WorkBuilderFactStatus::Warning => Some(WorkRuntimeIssueSeverity::Warning),
+        WorkBuilderFactStatus::Passed
+        | WorkBuilderFactStatus::NotRun
+        | WorkBuilderFactStatus::NotVerified
+        | WorkBuilderFactStatus::Running
+        | WorkBuilderFactStatus::Ready
+        | WorkBuilderFactStatus::Waiting => None,
     }
 }
 
 fn validation_issue_id(
-    validation_result: &WorkStudioValidationResult,
-    check: &WorkStudioFactCheck,
+    validation_result: &WorkBuilderValidationResult,
+    check: &WorkBuilderFactCheck,
 ) -> String {
-    studio_issue_id(&[
+    builder_issue_id(&[
         "validation",
         validation_target_key(validation_result).as_str(),
         check.id.as_str(),
     ])
 }
 
-fn validation_target_key(validation_result: &WorkStudioValidationResult) -> String {
+fn validation_target_key(validation_result: &WorkBuilderValidationResult) -> String {
     match validation_result.target_kind {
-        WorkStudioValidationTargetKind::ProductApp => format!(
+        WorkBuilderValidationTargetKind::ProductApp => format!(
             "product-app:{}",
             validation_result.app_id.as_deref().unwrap_or("unknown")
         ),
-        WorkStudioValidationTargetKind::Component => format!(
+        WorkBuilderValidationTargetKind::Component => format!(
             "component:{}:{}",
             validation_result
                 .component_kind
@@ -2828,12 +2824,12 @@ fn validation_target_key(validation_result: &WorkStudioValidationResult) -> Stri
     }
 }
 
-fn validation_target_app_id(validation_result: &WorkStudioValidationResult) -> String {
+fn validation_target_app_id(validation_result: &WorkBuilderValidationResult) -> String {
     validation_result
         .app_id
         .clone()
         .or_else(|| validation_result.component_id.clone())
-        .unwrap_or_else(|| "app-studio-validation".to_string())
+        .unwrap_or_else(|| "app-builder-validation".to_string())
 }
 
 fn release_rehearsal_product_app_id(record: &WorkRecord) -> Option<String> {
@@ -2849,13 +2845,13 @@ fn release_rehearsal_product_app_id(record: &WorkRecord) -> Option<String> {
         })
         .or_else(|| {
             record
-                .studio_validation_results
+                .builder_validation_results
                 .iter()
                 .find_map(|validation| validation.app_id.clone())
         })
         .or_else(|| {
             record
-                .studio_preview_results
+                .builder_preview_results
                 .iter()
                 .find_map(|preview| preview.product_app_id.clone())
         })
@@ -2901,32 +2897,32 @@ fn release_rehearsal_detail(
     }
 }
 
-fn fact_status_is_failed(status: WorkStudioFactStatus) -> bool {
+fn fact_status_is_failed(status: WorkBuilderFactStatus) -> bool {
     matches!(
         status,
-        WorkStudioFactStatus::Failed | WorkStudioFactStatus::Blocked
+        WorkBuilderFactStatus::Failed | WorkBuilderFactStatus::Blocked
     )
 }
 
-fn fact_status_is_warning(status: WorkStudioFactStatus) -> bool {
-    status == WorkStudioFactStatus::Warning
+fn fact_status_is_warning(status: WorkBuilderFactStatus) -> bool {
+    status == WorkBuilderFactStatus::Warning
 }
 
-fn fact_status_is_running(status: WorkStudioFactStatus) -> bool {
+fn fact_status_is_running(status: WorkBuilderFactStatus) -> bool {
     matches!(
         status,
-        WorkStudioFactStatus::Running | WorkStudioFactStatus::Waiting
+        WorkBuilderFactStatus::Running | WorkBuilderFactStatus::Waiting
     )
 }
 
-fn fact_status_is_unverified(status: WorkStudioFactStatus) -> bool {
+fn fact_status_is_unverified(status: WorkBuilderFactStatus) -> bool {
     matches!(
         status,
-        WorkStudioFactStatus::NotRun | WorkStudioFactStatus::NotVerified
+        WorkBuilderFactStatus::NotRun | WorkBuilderFactStatus::NotVerified
     )
 }
 
-fn release_readiness_evidence_checks(record: &WorkRecord) -> Vec<WorkStudioFactCheck> {
+fn release_readiness_evidence_checks(record: &WorkRecord) -> Vec<WorkBuilderFactCheck> {
     let required_ids = release_readiness_required_check_ids(record);
     let mut checks = required_ids
         .into_iter()
@@ -2999,7 +2995,7 @@ fn release_readiness_required_check_ids(record: &WorkRecord) -> Vec<&'static str
 
 fn release_readiness_requires_permission_review(
     record: &WorkRecord,
-    checks: &[WorkStudioFactCheck],
+    checks: &[WorkBuilderFactCheck],
 ) -> bool {
     if checks.iter().any(|check| check.id == "permissionReview") {
         return false;
@@ -3010,7 +3006,7 @@ fn release_readiness_requires_permission_review(
             .any(|check| check.id == "permissions" && fact_status_is_warning(check.status))
 }
 
-fn release_readiness_evidence_check(record: &WorkRecord, id: &str) -> WorkStudioFactCheck {
+fn release_readiness_evidence_check(record: &WorkRecord, id: &str) -> WorkBuilderFactCheck {
     if id == "permissionReview" {
         return release_readiness_permission_review_check(record);
     }
@@ -3056,7 +3052,7 @@ fn release_readiness_evidence_check(record: &WorkRecord, id: &str) -> WorkStudio
     }
 }
 
-fn release_readiness_permission_review_check(record: &WorkRecord) -> WorkStudioFactCheck {
+fn release_readiness_permission_review_check(record: &WorkRecord) -> WorkBuilderFactCheck {
     let Some((review_observed_at, check)) =
         latest_release_harness_check_with_observed_at(record, "permissionReview")
     else {
@@ -3066,9 +3062,9 @@ fn release_readiness_permission_review_check(record: &WorkRecord) -> WorkStudioF
     if latest_permission_warning_observed_at(record)
         .is_some_and(|permissions_observed_at| permissions_observed_at > review_observed_at)
     {
-        return WorkStudioFactCheck {
+        return WorkBuilderFactCheck {
             id: "permissionReview".to_string(),
-            status: WorkStudioFactStatus::NotVerified,
+            status: WorkBuilderFactStatus::NotVerified,
             detail: Some(
                 "Elevated permissions changed after the last explicit review.".to_string(),
             ),
@@ -3095,11 +3091,11 @@ fn latest_component_runtime_preview_check<'a>(
     record: &'a WorkRecord,
     id: &str,
     component_id: &str,
-) -> Option<&'a WorkStudioFactCheck> {
+) -> Option<&'a WorkBuilderFactCheck> {
     record
-        .studio_preview_results
+        .builder_preview_results
         .iter()
-        .filter(|preview| preview.kind != WorkStudioPreviewKind::ReleaseRehearsal)
+        .filter(|preview| preview.kind != WorkBuilderPreviewKind::ReleaseRehearsal)
         .filter(|preview| preview.component_id.as_deref() == Some(component_id))
         .filter(|preview| component_runtime_preview_source_is_strong(id, preview.source))
         .filter_map(|preview| {
@@ -3113,20 +3109,20 @@ fn latest_component_runtime_preview_check<'a>(
         .map(|(_, check)| check)
 }
 
-fn component_runtime_preview_source_is_strong(id: &str, source: WorkStudioPreviewSource) -> bool {
+fn component_runtime_preview_source_is_strong(id: &str, source: WorkBuilderPreviewSource) -> bool {
     if id == "agentEval" {
         return matches!(
             source,
-            WorkStudioPreviewSource::PreviewHarness
-                | WorkStudioPreviewSource::RuntimeObservation
-                | WorkStudioPreviewSource::FixRerun
+            WorkBuilderPreviewSource::PreviewHarness
+                | WorkBuilderPreviewSource::RuntimeObservation
+                | WorkBuilderPreviewSource::FixRerun
         );
     }
 
-    source == WorkStudioPreviewSource::RuntimeObservation
+    source == WorkBuilderPreviewSource::RuntimeObservation
 }
 
-fn validation_runtime_check_is_blocker(status: WorkStudioFactStatus) -> bool {
+fn validation_runtime_check_is_blocker(status: WorkBuilderFactStatus) -> bool {
     fact_status_is_failed(status)
 }
 
@@ -3145,7 +3141,7 @@ fn latest_permission_warning_observed_at(record: &WorkRecord) -> Option<i64> {
 fn release_readiness_optional_evidence_check(
     record: &WorkRecord,
     id: &str,
-) -> Option<WorkStudioFactCheck> {
+) -> Option<WorkBuilderFactCheck> {
     let check = latest_release_harness_check(record, id)
         .cloned()
         .or_else(|| latest_preview_check(record, id).cloned());
@@ -3162,16 +3158,16 @@ fn release_readiness_optional_evidence_check(
 fn latest_release_harness_check<'a>(
     record: &'a WorkRecord,
     id: &str,
-) -> Option<&'a WorkStudioFactCheck> {
+) -> Option<&'a WorkBuilderFactCheck> {
     latest_release_harness_check_with_observed_at(record, id).map(|(_, check)| check)
 }
 
 fn latest_release_harness_check_with_observed_at<'a>(
     record: &'a WorkRecord,
     id: &str,
-) -> Option<(i64, &'a WorkStudioFactCheck)> {
+) -> Option<(i64, &'a WorkBuilderFactCheck)> {
     record
-        .studio_preview_results
+        .builder_preview_results
         .iter()
         .filter(|preview| is_release_readiness_harness_evidence(preview))
         .filter_map(|preview| {
@@ -3184,9 +3180,9 @@ fn latest_release_harness_check_with_observed_at<'a>(
         .max_by_key(|(observed_at, _)| *observed_at)
 }
 
-fn latest_preview_check<'a>(record: &'a WorkRecord, id: &str) -> Option<&'a WorkStudioFactCheck> {
+fn latest_preview_check<'a>(record: &'a WorkRecord, id: &str) -> Option<&'a WorkBuilderFactCheck> {
     record
-        .studio_preview_results
+        .builder_preview_results
         .iter()
         .filter(|preview| is_product_preview_evidence(preview))
         .filter_map(|preview| {
@@ -3200,11 +3196,11 @@ fn latest_preview_check<'a>(record: &'a WorkRecord, id: &str) -> Option<&'a Work
         .map(|(_, check)| check)
 }
 
-fn latest_agent_eval_check<'a>(record: &'a WorkRecord) -> Option<&'a WorkStudioFactCheck> {
+fn latest_agent_eval_check<'a>(record: &'a WorkRecord) -> Option<&'a WorkBuilderFactCheck> {
     record
-        .studio_preview_results
+        .builder_preview_results
         .iter()
-        .filter(|preview| preview.kind == WorkStudioPreviewKind::AgentEval)
+        .filter(|preview| preview.kind == WorkBuilderPreviewKind::AgentEval)
         .filter_map(|preview| {
             preview
                 .checks
@@ -3216,42 +3212,42 @@ fn latest_agent_eval_check<'a>(record: &'a WorkRecord) -> Option<&'a WorkStudioF
         .map(|(_, check)| check)
 }
 
-fn is_product_preview_evidence(preview: &WorkStudioPreviewResult) -> bool {
+fn is_product_preview_evidence(preview: &WorkBuilderPreviewResult) -> bool {
     matches!(
         preview.kind,
-        WorkStudioPreviewKind::ProductAppPreview
-            | WorkStudioPreviewKind::AgentChat
-            | WorkStudioPreviewKind::Sidecar
-            | WorkStudioPreviewKind::FullApp
-            | WorkStudioPreviewKind::Embedded
-            | WorkStudioPreviewKind::Capability
+        WorkBuilderPreviewKind::ProductAppPreview
+            | WorkBuilderPreviewKind::AgentChat
+            | WorkBuilderPreviewKind::Sidecar
+            | WorkBuilderPreviewKind::FullApp
+            | WorkBuilderPreviewKind::Embedded
+            | WorkBuilderPreviewKind::Capability
     )
 }
 
-fn is_release_readiness_harness_evidence(preview: &WorkStudioPreviewResult) -> bool {
-    preview.source == WorkStudioPreviewSource::RuntimeObservation
+fn is_release_readiness_harness_evidence(preview: &WorkBuilderPreviewResult) -> bool {
+    preview.source == WorkBuilderPreviewSource::RuntimeObservation
         && matches!(
             preview.kind,
-            WorkStudioPreviewKind::RuntimeBoundary
-                | WorkStudioPreviewKind::RuntimeDependencies
-                | WorkStudioPreviewKind::PermissionReview
-                | WorkStudioPreviewKind::UserPathRehearsal
+            WorkBuilderPreviewKind::RuntimeBoundary
+                | WorkBuilderPreviewKind::RuntimeDependencies
+                | WorkBuilderPreviewKind::PermissionReview
+                | WorkBuilderPreviewKind::UserPathRehearsal
         )
 }
 
 fn latest_validation_check<'a>(
     record: &'a WorkRecord,
     id: &str,
-) -> Option<&'a WorkStudioFactCheck> {
+) -> Option<&'a WorkBuilderFactCheck> {
     latest_validation_check_with_observed_at(record, id).map(|(_, check)| check)
 }
 
 fn latest_validation_check_with_observed_at<'a>(
     record: &'a WorkRecord,
     id: &str,
-) -> Option<(i64, &'a WorkStudioFactCheck)> {
+) -> Option<(i64, &'a WorkBuilderFactCheck)> {
     record
-        .studio_validation_results
+        .builder_validation_results
         .iter()
         .filter_map(|validation| {
             validation
@@ -3266,13 +3262,13 @@ fn latest_validation_check_with_observed_at<'a>(
 fn latest_validation_checks<'a>(
     record: &'a WorkRecord,
     ids: &[&str],
-) -> Vec<&'a WorkStudioFactCheck> {
+) -> Vec<&'a WorkBuilderFactCheck> {
     ids.iter()
         .filter_map(|id| latest_validation_check(record, id))
         .collect()
 }
 
-fn critical_path_evidence_from_validation(record: &WorkRecord) -> WorkStudioFactCheck {
+fn critical_path_evidence_from_validation(record: &WorkRecord) -> WorkBuilderFactCheck {
     let checks =
         latest_validation_checks(record, &["primarySurface", "surfaceSource", "launchPolicy"]);
     if checks.len() < 3 {
@@ -3282,9 +3278,9 @@ fn critical_path_evidence_from_validation(record: &WorkRecord) -> WorkStudioFact
         .iter()
         .any(|check| fact_status_is_failed(check.status))
     {
-        return WorkStudioFactCheck {
+        return WorkBuilderFactCheck {
             id: "criticalPath".to_string(),
-            status: WorkStudioFactStatus::Failed,
+            status: WorkBuilderFactStatus::Failed,
             detail: Some(
                 "Primary surface, source, or launch policy validation failed.".to_string(),
             ),
@@ -3294,9 +3290,9 @@ fn critical_path_evidence_from_validation(record: &WorkRecord) -> WorkStudioFact
         .iter()
         .any(|check| fact_status_is_warning(check.status))
     {
-        return WorkStudioFactCheck {
+        return WorkBuilderFactCheck {
             id: "criticalPath".to_string(),
-            status: WorkStudioFactStatus::Warning,
+            status: WorkBuilderFactStatus::Warning,
             detail: Some(
                 "Primary surface, source, or launch policy validation has warnings.".to_string(),
             ),
@@ -3306,18 +3302,18 @@ fn critical_path_evidence_from_validation(record: &WorkRecord) -> WorkStudioFact
         .iter()
         .any(|check| fact_status_is_running(check.status))
     {
-        return WorkStudioFactCheck {
+        return WorkBuilderFactCheck {
             id: "criticalPath".to_string(),
-            status: WorkStudioFactStatus::Running,
+            status: WorkBuilderFactStatus::Running,
             detail: Some(
                 "Primary surface, source, or launch policy validation is still running."
                     .to_string(),
             ),
         };
     }
-    WorkStudioFactCheck {
+    WorkBuilderFactCheck {
         id: "criticalPath".to_string(),
-        status: WorkStudioFactStatus::NotVerified,
+        status: WorkBuilderFactStatus::NotVerified,
         detail: Some(
             "Package surface and launch checks passed; no new-user critical path rehearsal has executed."
                 .to_string(),
@@ -3325,10 +3321,10 @@ fn critical_path_evidence_from_validation(record: &WorkRecord) -> WorkStudioFact
     }
 }
 
-fn missing_release_readiness_check(id: &str) -> WorkStudioFactCheck {
-    WorkStudioFactCheck {
+fn missing_release_readiness_check(id: &str) -> WorkBuilderFactCheck {
+    WorkBuilderFactCheck {
         id: id.to_string(),
-        status: WorkStudioFactStatus::NotVerified,
+        status: WorkBuilderFactStatus::NotVerified,
         detail: Some(match id {
             "criticalPath" => {
                 "No critical path package or rehearsal evidence is recorded.".to_string()
@@ -3359,14 +3355,14 @@ fn missing_release_readiness_check(id: &str) -> WorkStudioFactCheck {
             "agentEval" => "No Agent Eval readiness evidence is recorded.".to_string(),
             "userPath" => "No executed user-path rehearsal evidence is recorded.".to_string(),
             "permissionReview" => {
-                "No explicit App Studio permission review evidence is recorded.".to_string()
+                "No explicit App Builder permission review evidence is recorded.".to_string()
             }
             _ => format!("No {id} release readiness evidence is recorded."),
         }),
     }
 }
 
-fn release_readiness_pending_ids(checks: &[WorkStudioFactCheck]) -> Vec<String> {
+fn release_readiness_pending_ids(checks: &[WorkBuilderFactCheck]) -> Vec<String> {
     checks
         .iter()
         .filter(|check| {
@@ -3392,28 +3388,28 @@ fn release_rehearsal_checks(
     preview_unverified: bool,
     fatal_issue_count: usize,
     warning_issue_count: usize,
-    release_readiness_checks: Vec<WorkStudioFactCheck>,
+    release_readiness_checks: Vec<WorkBuilderFactCheck>,
     release_readiness_pending: Vec<String>,
     release_readiness_failed: bool,
     release_readiness_warning: bool,
     release_readiness_running: bool,
     release_readiness_unverified: bool,
-) -> Vec<WorkStudioFactCheck> {
+) -> Vec<WorkBuilderFactCheck> {
     let mut checks = vec![
-        WorkStudioFactCheck {
+        WorkBuilderFactCheck {
             id: "validation".to_string(),
             status: if !has_validation {
-                WorkStudioFactStatus::NotVerified
+                WorkBuilderFactStatus::NotVerified
             } else if validation_failed {
-                WorkStudioFactStatus::Failed
+                WorkBuilderFactStatus::Failed
             } else if validation_warning {
-                WorkStudioFactStatus::Warning
+                WorkBuilderFactStatus::Warning
             } else if validation_running {
-                WorkStudioFactStatus::Running
+                WorkBuilderFactStatus::Running
             } else if validation_unverified {
-                WorkStudioFactStatus::NotVerified
+                WorkBuilderFactStatus::NotVerified
             } else {
-                WorkStudioFactStatus::Passed
+                WorkBuilderFactStatus::Passed
             },
             detail: Some(if !has_validation {
                 "No package validation result is recorded.".to_string()
@@ -3423,20 +3419,20 @@ fn release_rehearsal_checks(
                 "Package validation evidence is recorded.".to_string()
             }),
         },
-        WorkStudioFactCheck {
+        WorkBuilderFactCheck {
             id: "preview".to_string(),
             status: if !has_preview {
-                WorkStudioFactStatus::NotVerified
+                WorkBuilderFactStatus::NotVerified
             } else if preview_failed {
-                WorkStudioFactStatus::Failed
+                WorkBuilderFactStatus::Failed
             } else if preview_warning {
-                WorkStudioFactStatus::Warning
+                WorkBuilderFactStatus::Warning
             } else if preview_running {
-                WorkStudioFactStatus::Running
+                WorkBuilderFactStatus::Running
             } else if preview_unverified {
-                WorkStudioFactStatus::NotVerified
+                WorkBuilderFactStatus::NotVerified
             } else {
-                WorkStudioFactStatus::Passed
+                WorkBuilderFactStatus::Passed
             },
             detail: Some(if !has_preview {
                 "No non-rehearsal preview result is recorded.".to_string()
@@ -3446,14 +3442,14 @@ fn release_rehearsal_checks(
                 "Preview evidence is recorded.".to_string()
             }),
         },
-        WorkStudioFactCheck {
+        WorkBuilderFactCheck {
             id: "issues".to_string(),
             status: if fatal_issue_count > 0 {
-                WorkStudioFactStatus::Failed
+                WorkBuilderFactStatus::Failed
             } else if warning_issue_count > 0 {
-                WorkStudioFactStatus::Warning
+                WorkBuilderFactStatus::Warning
             } else {
-                WorkStudioFactStatus::Passed
+                WorkBuilderFactStatus::Passed
             },
             detail: Some(format!(
                 "{fatal_issue_count} fatal issue(s), {warning_issue_count} warning issue(s)."
@@ -3461,20 +3457,20 @@ fn release_rehearsal_checks(
         },
     ];
     checks.extend(release_readiness_checks);
-    checks.push(WorkStudioFactCheck {
+    checks.push(WorkBuilderFactCheck {
         id: "releaseGate".to_string(),
         status: if missing_release_gate {
-            WorkStudioFactStatus::NotVerified
+            WorkBuilderFactStatus::NotVerified
         } else if validation_failed || release_readiness_failed {
-            WorkStudioFactStatus::Failed
+            WorkBuilderFactStatus::Failed
         } else if validation_warning || release_readiness_warning {
-            WorkStudioFactStatus::Warning
+            WorkBuilderFactStatus::Warning
         } else if validation_running || release_readiness_running {
-            WorkStudioFactStatus::Running
+            WorkBuilderFactStatus::Running
         } else if validation_unverified || release_readiness_unverified {
-            WorkStudioFactStatus::NotVerified
+            WorkBuilderFactStatus::NotVerified
         } else {
-            WorkStudioFactStatus::Passed
+            WorkBuilderFactStatus::Passed
         },
         detail: Some(if missing_release_gate {
             "No releaseGate validation check is recorded.".to_string()
@@ -3490,7 +3486,7 @@ fn release_rehearsal_checks(
     checks
 }
 
-fn preview_issue_app_id(record: &WorkRecord, preview_result: &WorkStudioPreviewResult) -> String {
+fn preview_issue_app_id(record: &WorkRecord, preview_result: &WorkBuilderPreviewResult) -> String {
     preview_result
         .product_app_id
         .clone()
@@ -3506,7 +3502,7 @@ fn preview_issue_app_id(record: &WorkRecord, preview_result: &WorkStudioPreviewR
         .unwrap_or_else(|| format!("work:{}", record.id))
 }
 
-fn preview_issue_message(preview_result: &WorkStudioPreviewResult) -> String {
+fn preview_issue_message(preview_result: &WorkBuilderPreviewResult) -> String {
     preview_result
         .detail
         .as_deref()
@@ -3514,13 +3510,13 @@ fn preview_issue_message(preview_result: &WorkStudioPreviewResult) -> String {
         .map(str::to_string)
         .unwrap_or_else(|| {
             format!(
-                "Studio preview '{}' is {:?}",
+                "Builder preview '{}' is {:?}",
                 preview_result.id, preview_result.status
             )
         })
 }
 
-fn preview_issue_category(preview_result: &WorkStudioPreviewResult) -> String {
+fn preview_issue_category(preview_result: &WorkBuilderPreviewResult) -> String {
     format!(
         "preview:{}",
         preview_result
@@ -3530,17 +3526,17 @@ fn preview_issue_category(preview_result: &WorkStudioPreviewResult) -> String {
     )
 }
 
-fn preview_issue_severity(preview_result: &WorkStudioPreviewResult) -> WorkRuntimeIssueSeverity {
+fn preview_issue_severity(preview_result: &WorkBuilderPreviewResult) -> WorkRuntimeIssueSeverity {
     if preview_result.fatal_issue_count > 0
         || matches!(
             preview_result.status,
-            WorkStudioFactStatus::Failed | WorkStudioFactStatus::Blocked
+            WorkBuilderFactStatus::Failed | WorkBuilderFactStatus::Blocked
         )
     {
         WorkRuntimeIssueSeverity::Fatal
     } else if preview_result.warning_issue_count > 0
         || preview_result.issue_count > 0
-        || preview_result.status == WorkStudioFactStatus::Warning
+        || preview_result.status == WorkBuilderFactStatus::Warning
     {
         WorkRuntimeIssueSeverity::Warning
     } else {
@@ -3548,34 +3544,34 @@ fn preview_issue_severity(preview_result: &WorkStudioPreviewResult) -> WorkRunti
     }
 }
 
-fn preview_kind_label(kind: WorkStudioPreviewKind) -> &'static str {
+fn preview_kind_label(kind: WorkBuilderPreviewKind) -> &'static str {
     match kind {
-        WorkStudioPreviewKind::ProductAppPreview => "product-app-preview",
-        WorkStudioPreviewKind::AgentChat => "agent-chat",
-        WorkStudioPreviewKind::Sidecar => "sidecar",
-        WorkStudioPreviewKind::FullApp => "full-app",
-        WorkStudioPreviewKind::Embedded => "embedded",
-        WorkStudioPreviewKind::Capability => "capability",
-        WorkStudioPreviewKind::AgentEval => "agent-eval",
-        WorkStudioPreviewKind::RuntimeBoundary => "runtime-boundary",
-        WorkStudioPreviewKind::RuntimeDependencies => "runtime-dependencies",
-        WorkStudioPreviewKind::PermissionReview => "permission-review",
-        WorkStudioPreviewKind::UserPathRehearsal => "user-path-rehearsal",
-        WorkStudioPreviewKind::ReleaseRehearsal => "release-rehearsal",
+        WorkBuilderPreviewKind::ProductAppPreview => "product-app-preview",
+        WorkBuilderPreviewKind::AgentChat => "agent-chat",
+        WorkBuilderPreviewKind::Sidecar => "sidecar",
+        WorkBuilderPreviewKind::FullApp => "full-app",
+        WorkBuilderPreviewKind::Embedded => "embedded",
+        WorkBuilderPreviewKind::Capability => "capability",
+        WorkBuilderPreviewKind::AgentEval => "agent-eval",
+        WorkBuilderPreviewKind::RuntimeBoundary => "runtime-boundary",
+        WorkBuilderPreviewKind::RuntimeDependencies => "runtime-dependencies",
+        WorkBuilderPreviewKind::PermissionReview => "permission-review",
+        WorkBuilderPreviewKind::UserPathRehearsal => "user-path-rehearsal",
+        WorkBuilderPreviewKind::ReleaseRehearsal => "release-rehearsal",
     }
 }
 
-fn preview_source_label(source: WorkStudioPreviewSource) -> &'static str {
+fn preview_source_label(source: WorkBuilderPreviewSource) -> &'static str {
     match source {
-        WorkStudioPreviewSource::RuntimeFact => "runtime-fact",
-        WorkStudioPreviewSource::RuntimeObservation => "runtime-observation",
-        WorkStudioPreviewSource::PreviewHarness => "preview-harness",
-        WorkStudioPreviewSource::FixRerun => "fix-rerun",
-        WorkStudioPreviewSource::ReleaseRehearsal => "release-rehearsal",
+        WorkBuilderPreviewSource::RuntimeFact => "runtime-fact",
+        WorkBuilderPreviewSource::RuntimeObservation => "runtime-observation",
+        WorkBuilderPreviewSource::PreviewHarness => "preview-harness",
+        WorkBuilderPreviewSource::FixRerun => "fix-rerun",
+        WorkBuilderPreviewSource::ReleaseRehearsal => "release-rehearsal",
     }
 }
 
-fn validation_issue_message(check: &WorkStudioFactCheck) -> String {
+fn validation_issue_message(check: &WorkBuilderFactCheck) -> String {
     check
         .detail
         .as_deref()
@@ -3584,36 +3580,36 @@ fn validation_issue_message(check: &WorkStudioFactCheck) -> String {
         .unwrap_or_else(|| format!("Validation check '{}' is {:?}", check.id, check.status))
 }
 
-fn validation_issue_category(check: &WorkStudioFactCheck) -> String {
+fn validation_issue_category(check: &WorkBuilderFactCheck) -> String {
     format!("validation:{}", check.id)
 }
 
 fn validation_issue_matches_target(
-    issue: &WorkStudioIssue,
-    validation_result: &WorkStudioValidationResult,
+    issue: &WorkBuilderIssue,
+    validation_result: &WorkBuilderValidationResult,
 ) -> bool {
     match validation_result.target_kind {
-        WorkStudioValidationTargetKind::ProductApp => {
+        WorkBuilderValidationTargetKind::ProductApp => {
             issue.product_app_id.as_deref() == validation_result.app_id.as_deref()
         }
-        WorkStudioValidationTargetKind::Component => {
+        WorkBuilderValidationTargetKind::Component => {
             issue.component_id.as_deref() == validation_result.component_id.as_deref()
         }
     }
 }
 
-fn reopen_existing_studio_issue(record: &mut WorkRecord, issue_id: &str) {
+fn reopen_existing_builder_issue(record: &mut WorkRecord, issue_id: &str) {
     if let Some(existing) = record
-        .studio_issues
+        .builder_issues
         .iter_mut()
         .find(|existing| existing.id == issue_id)
     {
-        existing.status = WorkStudioIssueStatus::Open;
+        existing.status = WorkBuilderIssueStatus::Open;
         existing.resolved_at = None;
     }
 }
 
-fn studio_issue_severity_for_log(level: WorkRuntimeLogLevel) -> Option<WorkRuntimeIssueSeverity> {
+fn builder_issue_severity_for_log(level: WorkRuntimeLogLevel) -> Option<WorkRuntimeIssueSeverity> {
     match level {
         WorkRuntimeLogLevel::Error => Some(WorkRuntimeIssueSeverity::Fatal),
         WorkRuntimeLogLevel::Warn => Some(WorkRuntimeIssueSeverity::Warning),
@@ -3621,7 +3617,7 @@ fn studio_issue_severity_for_log(level: WorkRuntimeLogLevel) -> Option<WorkRunti
     }
 }
 
-fn studio_preview_result_id(runtime_instance_id: &str) -> String {
+fn builder_preview_result_id(runtime_instance_id: &str) -> String {
     format!("preview:{runtime_instance_id}")
 }
 
@@ -3629,16 +3625,16 @@ fn release_rehearsal_preview_result_id(work_id: &WorkId) -> String {
     format!("preview:release-rehearsal:{work_id}")
 }
 
-fn capability_preview_result_id(validation_result: &WorkStudioValidationResult) -> String {
+fn capability_preview_result_id(validation_result: &WorkBuilderValidationResult) -> String {
     format!(
         "preview:capability:{}",
         compact_id_part(&validation_target_key(validation_result))
     )
 }
 
-fn studio_issue_id(parts: &[&str]) -> String {
+fn builder_issue_id(parts: &[&str]) -> String {
     format!(
-        "studio-issue:{}",
+        "builder-issue:{}",
         parts
             .iter()
             .map(|part| compact_id_part(part))
@@ -3694,8 +3690,8 @@ mod tests {
     use async_trait::async_trait;
 
     use super::super::execution_graph::{
-        WorkRuntimeInstanceStatus, WorkRuntimeIssueSeverity, WorkRuntimeLogLevel,
-        WorkStudioFactStatus, WorkStudioIssueStatus,
+        WorkBuilderFactStatus, WorkBuilderIssueStatus, WorkRuntimeInstanceStatus,
+        WorkRuntimeIssueSeverity, WorkRuntimeLogLevel,
     };
     use super::super::record::ArtifactRuntimeProvenance;
     use super::*;
@@ -3738,26 +3734,26 @@ mod tests {
         )
     }
 
-    fn passed_runtime_preview_checks() -> Vec<WorkStudioFactCheck> {
+    fn passed_runtime_preview_checks() -> Vec<WorkBuilderFactCheck> {
         vec![
-            WorkStudioFactCheck {
+            WorkBuilderFactCheck {
                 id: "runtimeReady".to_string(),
-                status: WorkStudioFactStatus::Passed,
+                status: WorkBuilderFactStatus::Passed,
                 detail: Some("Runtime bridge reported ready.".to_string()),
             },
-            WorkStudioFactCheck {
+            WorkBuilderFactCheck {
                 id: "visualRoot".to_string(),
-                status: WorkStudioFactStatus::Passed,
+                status: WorkBuilderFactStatus::Passed,
                 detail: Some("Runtime DOM reported visible elements.".to_string()),
             },
-            WorkStudioFactCheck {
+            WorkBuilderFactCheck {
                 id: "viewport".to_string(),
-                status: WorkStudioFactStatus::Passed,
+                status: WorkBuilderFactStatus::Passed,
                 detail: Some("Runtime viewport reported non-zero size.".to_string()),
             },
-            WorkStudioFactCheck {
+            WorkBuilderFactCheck {
                 id: "interactionSurface".to_string(),
-                status: WorkStudioFactStatus::Passed,
+                status: WorkBuilderFactStatus::Passed,
                 detail: Some("Runtime interaction surface was verified.".to_string()),
             },
         ]
@@ -3808,7 +3804,7 @@ mod tests {
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::WorkSession,
                 primary_surface: None,
-                assignment: Some(WorkAssignmentRef::agent("agentic")),
+                assignment: Some(WorkAssignmentRef::agent("Runno")),
                 title_state: None,
                 delegation: None,
             })
@@ -3835,7 +3831,7 @@ mod tests {
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::WorkSession,
                 primary_surface: None,
-                assignment: Some(WorkAssignmentRef::agent("agentic")),
+                assignment: Some(WorkAssignmentRef::agent("Runno")),
                 title_state: Some(WorkTitleState::template()),
                 delegation: None,
             })
@@ -3874,7 +3870,7 @@ mod tests {
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::WorkSession,
                 primary_surface: None,
-                assignment: Some(WorkAssignmentRef::agent("agentic")),
+                assignment: Some(WorkAssignmentRef::agent("Runno")),
                 title_state: Some(WorkTitleState::template()),
                 delegation: None,
             })
@@ -3913,7 +3909,7 @@ mod tests {
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::WorkSession,
                 primary_surface: None,
-                assignment: Some(WorkAssignmentRef::agent("agentic")),
+                assignment: Some(WorkAssignmentRef::agent("Runno")),
                 title_state: None,
                 delegation: None,
             })
@@ -3949,7 +3945,7 @@ mod tests {
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::WorkSession,
                 primary_surface: None,
-                assignment: Some(WorkAssignmentRef::agent("agentic")),
+                assignment: Some(WorkAssignmentRef::agent("Runno")),
                 title_state: Some(WorkTitleState::template()),
                 delegation: None,
             })
@@ -4329,47 +4325,47 @@ mod tests {
                 .as_deref(),
             Some(runtime_instance_id.as_str())
         );
-        assert_eq!(graph.studio_issues.len(), 2);
+        assert_eq!(graph.builder_issues.len(), 2);
         assert!(graph
-            .studio_issues
+            .builder_issues
             .iter()
-            .all(|issue| issue.status == WorkStudioIssueStatus::Open));
-        assert_eq!(graph.studio_preview_results.len(), 1);
+            .all(|issue| issue.status == WorkBuilderIssueStatus::Open));
+        assert_eq!(graph.builder_preview_results.len(), 1);
         assert_eq!(
-            graph.studio_preview_results[0].id,
+            graph.builder_preview_results[0].id,
             format!("preview:{runtime_instance_id}")
         );
         assert_eq!(
-            graph.studio_preview_results[0].status,
-            WorkStudioFactStatus::Warning
+            graph.builder_preview_results[0].status,
+            WorkBuilderFactStatus::Warning
         );
-        assert_eq!(graph.studio_preview_results[0].warning_issue_count, 2);
+        assert_eq!(graph.builder_preview_results[0].warning_issue_count, 2);
 
         for issue_id in graph
-            .studio_issues
+            .builder_issues
             .iter()
             .map(|issue| issue.id.clone())
             .collect::<Vec<_>>()
         {
             service
-                .update_studio_issue_status(&work_id, &issue_id, WorkStudioIssueStatus::Fixed)
+                .update_builder_issue_status(&work_id, &issue_id, WorkBuilderIssueStatus::Fixed)
                 .await
-                .expect("mark studio issue fixed");
+                .expect("mark builder issue fixed");
         }
         let graph = service.execution_graph(&work_id).await.expect("graph");
         assert!(graph
-            .studio_issues
+            .builder_issues
             .iter()
-            .all(|issue| issue.status == WorkStudioIssueStatus::Fixed));
+            .all(|issue| issue.status == WorkBuilderIssueStatus::Fixed));
         assert_eq!(
-            graph.studio_preview_results[0].status,
-            WorkStudioFactStatus::Ready
+            graph.builder_preview_results[0].status,
+            WorkBuilderFactStatus::Ready
         );
-        assert_eq!(graph.studio_preview_results[0].issue_count, 0);
+        assert_eq!(graph.builder_preview_results[0].issue_count, 0);
     }
 
     #[tokio::test]
-    async fn studio_validation_result_records_fact_and_resolves_validation_issues() {
+    async fn builder_validation_result_records_fact_and_resolves_validation_issues() {
         let app_ref = WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:lock");
         let service = service();
         let work = service
@@ -4395,13 +4391,13 @@ mod tests {
         let work_id = work.id.clone();
 
         service
-            .record_studio_validation_result(
+            .record_builder_validation_result(
                 &work_id,
-                WorkStudioValidationResult {
+                WorkBuilderValidationResult {
                     id: "validation:product-app:product-app-1".to_string(),
                     tool_name: "ValidateProductAppPackage".to_string(),
-                    target_kind: WorkStudioValidationTargetKind::ProductApp,
-                    status: WorkStudioFactStatus::Failed,
+                    target_kind: WorkBuilderValidationTargetKind::ProductApp,
+                    status: WorkBuilderFactStatus::Failed,
                     work_id: work_id.clone(),
                     app_id: Some("product-app-1".to_string()),
                     component_id: None,
@@ -4412,14 +4408,14 @@ mod tests {
                     failed_count: 1,
                     warning_count: 0,
                     checks: vec![
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "package".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Package exists.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "releaseGate".to_string(),
-                            status: WorkStudioFactStatus::Failed,
+                            status: WorkBuilderFactStatus::Failed,
                             detail: Some("Release gate is blocked.".to_string()),
                         },
                     ],
@@ -4429,41 +4425,41 @@ mod tests {
             .expect("record validation result");
 
         let graph = service.execution_graph(&work_id).await.expect("graph");
-        assert_eq!(graph.studio_validation_results.len(), 1);
+        assert_eq!(graph.builder_validation_results.len(), 1);
         assert_eq!(
-            graph.studio_validation_results[0].status,
-            WorkStudioFactStatus::Failed
+            graph.builder_validation_results[0].status,
+            WorkBuilderFactStatus::Failed
         );
-        assert_eq!(graph.studio_issues.len(), 1);
+        assert_eq!(graph.builder_issues.len(), 1);
         assert_eq!(
-            graph.studio_issues[0].origin,
-            WorkStudioIssueOrigin::Validation
+            graph.builder_issues[0].origin,
+            WorkBuilderIssueOrigin::Validation
         );
-        assert_eq!(graph.studio_issues[0].status, WorkStudioIssueStatus::Open);
+        assert_eq!(graph.builder_issues[0].status, WorkBuilderIssueStatus::Open);
         assert_eq!(
-            graph.studio_issues[0].category.as_deref(),
+            graph.builder_issues[0].category.as_deref(),
             Some("validation:releaseGate")
         );
         let release_rehearsal = graph
-            .studio_preview_results
+            .builder_preview_results
             .iter()
-            .find(|preview| preview.kind == WorkStudioPreviewKind::ReleaseRehearsal)
+            .find(|preview| preview.kind == WorkBuilderPreviewKind::ReleaseRehearsal)
             .expect("release rehearsal preview result");
-        assert_eq!(release_rehearsal.status, WorkStudioFactStatus::Failed);
+        assert_eq!(release_rehearsal.status, WorkBuilderFactStatus::Failed);
         assert_eq!(
             release_rehearsal.source,
-            WorkStudioPreviewSource::ReleaseRehearsal
+            WorkBuilderPreviewSource::ReleaseRehearsal
         );
         assert_eq!(release_rehearsal.fatal_issue_count, 1);
 
         service
-            .record_studio_validation_result(
+            .record_builder_validation_result(
                 &work_id,
-                WorkStudioValidationResult {
+                WorkBuilderValidationResult {
                     id: "validation:product-app:product-app-1".to_string(),
                     tool_name: "ValidateProductAppPackage".to_string(),
-                    target_kind: WorkStudioValidationTargetKind::ProductApp,
-                    status: WorkStudioFactStatus::Passed,
+                    target_kind: WorkBuilderValidationTargetKind::ProductApp,
+                    status: WorkBuilderFactStatus::Passed,
                     work_id: work_id.clone(),
                     app_id: Some("product-app-1".to_string()),
                     component_id: None,
@@ -4473,9 +4469,9 @@ mod tests {
                     observed_at: 300,
                     failed_count: 0,
                     warning_count: 0,
-                    checks: vec![WorkStudioFactCheck {
+                    checks: vec![WorkBuilderFactCheck {
                         id: "releaseGate".to_string(),
-                        status: WorkStudioFactStatus::Passed,
+                        status: WorkBuilderFactStatus::Passed,
                         detail: Some("Release gate passed.".to_string()),
                     }],
                 },
@@ -4485,37 +4481,40 @@ mod tests {
 
         let graph = service.execution_graph(&work_id).await.expect("graph");
         assert_eq!(
-            graph.studio_validation_results[0].status,
-            WorkStudioFactStatus::Passed
+            graph.builder_validation_results[0].status,
+            WorkBuilderFactStatus::Passed
         );
-        assert_eq!(graph.studio_issues.len(), 1);
-        assert_eq!(graph.studio_issues[0].status, WorkStudioIssueStatus::Fixed);
-        assert!(graph.studio_issues[0].resolved_at.is_some());
+        assert_eq!(graph.builder_issues.len(), 1);
+        assert_eq!(
+            graph.builder_issues[0].status,
+            WorkBuilderIssueStatus::Fixed
+        );
+        assert!(graph.builder_issues[0].resolved_at.is_some());
         let release_rehearsal = graph
-            .studio_preview_results
+            .builder_preview_results
             .iter()
-            .find(|preview| preview.kind == WorkStudioPreviewKind::ReleaseRehearsal)
+            .find(|preview| preview.kind == WorkBuilderPreviewKind::ReleaseRehearsal)
             .expect("release rehearsal preview result");
-        assert_eq!(release_rehearsal.status, WorkStudioFactStatus::NotVerified);
+        assert_eq!(release_rehearsal.status, WorkBuilderFactStatus::NotVerified);
     }
 
     #[test]
     fn release_readiness_harness_evidence_requires_runtime_observation_source() {
         let work_id = WorkId::generate();
-        let mut preview = WorkStudioPreviewResult {
+        let mut preview = WorkBuilderPreviewResult {
             id: "preview:runtime-boundary:runtime-1".to_string(),
-            kind: WorkStudioPreviewKind::RuntimeBoundary,
-            status: WorkStudioFactStatus::Passed,
-            source: WorkStudioPreviewSource::PreviewHarness,
+            kind: WorkBuilderPreviewKind::RuntimeBoundary,
+            status: WorkBuilderFactStatus::Passed,
+            source: WorkBuilderPreviewSource::PreviewHarness,
             harness_mode: Some("runtime-boundary".to_string()),
             trigger_turn_id: None,
             detail: Some(
                 "Tool-level preview harness result should not satisfy release readiness."
                     .to_string(),
             ),
-            checks: vec![WorkStudioFactCheck {
+            checks: vec![WorkBuilderFactCheck {
                 id: "runtimeStorage".to_string(),
-                status: WorkStudioFactStatus::Passed,
+                status: WorkBuilderFactStatus::Passed,
                 detail: Some("Runtime storage passed.".to_string()),
             }],
             work_id,
@@ -4532,7 +4531,7 @@ mod tests {
 
         assert!(!is_release_readiness_harness_evidence(&preview));
 
-        preview.source = WorkStudioPreviewSource::RuntimeObservation;
+        preview.source = WorkBuilderPreviewSource::RuntimeObservation;
         assert!(is_release_readiness_harness_evidence(&preview));
     }
 
@@ -4540,19 +4539,19 @@ mod tests {
     fn component_runtime_readiness_preview_source_requires_strong_evidence() {
         assert!(component_runtime_preview_source_is_strong(
             "runtimeDependencies",
-            WorkStudioPreviewSource::RuntimeObservation
+            WorkBuilderPreviewSource::RuntimeObservation
         ));
         assert!(!component_runtime_preview_source_is_strong(
             "runtimeDependencies",
-            WorkStudioPreviewSource::PreviewHarness
+            WorkBuilderPreviewSource::PreviewHarness
         ));
         assert!(!component_runtime_preview_source_is_strong(
             "runtimeDependencies",
-            WorkStudioPreviewSource::RuntimeFact
+            WorkBuilderPreviewSource::RuntimeFact
         ));
         assert!(component_runtime_preview_source_is_strong(
             "agentEval",
-            WorkStudioPreviewSource::PreviewHarness
+            WorkBuilderPreviewSource::PreviewHarness
         ));
     }
 
@@ -4583,13 +4582,13 @@ mod tests {
         let work_id = response.work.id.clone();
 
         service
-            .record_studio_validation_result(
+            .record_builder_validation_result(
                 &work_id,
-                WorkStudioValidationResult {
+                WorkBuilderValidationResult {
                     id: "validation:component:agents:shared-agent".to_string(),
                     tool_name: "ValidateComponentPackage".to_string(),
-                    target_kind: WorkStudioValidationTargetKind::Component,
-                    status: WorkStudioFactStatus::Warning,
+                    target_kind: WorkBuilderValidationTargetKind::Component,
+                    status: WorkBuilderFactStatus::Warning,
                     work_id: work_id.clone(),
                     app_id: None,
                     component_id: Some("shared-agent".to_string()),
@@ -4600,24 +4599,24 @@ mod tests {
                     failed_count: 0,
                     warning_count: 1,
                     checks: vec![
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "componentContract".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Contract exists.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "capabilities".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Capabilities are declared.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "agentEval".to_string(),
-                            status: WorkStudioFactStatus::Warning,
+                            status: WorkBuilderFactStatus::Warning,
                             detail: Some("Representative eval has not passed yet.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "consumerCompatibility".to_string(),
-                            status: WorkStudioFactStatus::Warning,
+                            status: WorkBuilderFactStatus::Warning,
                             detail: Some("No consumer app verified.".to_string()),
                         },
                     ],
@@ -4628,14 +4627,14 @@ mod tests {
 
         let graph = service.execution_graph(&work_id).await.expect("graph");
         let capability_preview = graph
-            .studio_preview_results
+            .builder_preview_results
             .iter()
-            .find(|preview| preview.kind == WorkStudioPreviewKind::Capability)
+            .find(|preview| preview.kind == WorkBuilderPreviewKind::Capability)
             .expect("capability preview result");
-        assert_eq!(capability_preview.status, WorkStudioFactStatus::Warning);
+        assert_eq!(capability_preview.status, WorkBuilderFactStatus::Warning);
         assert_eq!(
             capability_preview.source,
-            WorkStudioPreviewSource::PreviewHarness
+            WorkBuilderPreviewSource::PreviewHarness
         );
         assert_eq!(
             capability_preview.harness_mode.as_deref(),
@@ -4657,26 +4656,26 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["componentContract", "capabilities", "agentEval"]
         );
-        assert!(graph.studio_issues.iter().any(|issue| {
+        assert!(graph.builder_issues.iter().any(|issue| {
             issue.category.as_deref() == Some("validation:agentEval")
-                && issue.origin == WorkStudioIssueOrigin::Validation
+                && issue.origin == WorkBuilderIssueOrigin::Validation
         }));
         assert!(graph
-            .studio_issues
+            .builder_issues
             .iter()
             .all(
                 |issue| issue.category.as_deref() != Some("validation:consumerCompatibility")
-                    || issue.origin == WorkStudioIssueOrigin::Validation
+                    || issue.origin == WorkBuilderIssueOrigin::Validation
             ));
 
         service
-            .record_studio_validation_result(
+            .record_builder_validation_result(
                 &work_id,
-                WorkStudioValidationResult {
+                WorkBuilderValidationResult {
                     id: "validation:component:agents:shared-agent".to_string(),
                     tool_name: "ValidateComponentPackage".to_string(),
-                    target_kind: WorkStudioValidationTargetKind::Component,
-                    status: WorkStudioFactStatus::Passed,
+                    target_kind: WorkBuilderValidationTargetKind::Component,
+                    status: WorkBuilderFactStatus::Passed,
                     work_id: work_id.clone(),
                     app_id: None,
                     component_id: Some("shared-agent".to_string()),
@@ -4687,44 +4686,44 @@ mod tests {
                     failed_count: 0,
                     warning_count: 0,
                     checks: vec![
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "componentContract".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Contract exists.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "capabilities".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Capabilities are declared.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "dependencies".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Only shared dependencies are declared.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "implementation".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("implementationRef resolves.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "consumerCompatibility".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Consumer Product App lock validated.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "permissions".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Permission boundary passed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "data".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Data boundary passed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "releaseGate".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Component validation release gate passed.".to_string()),
                         },
                     ],
@@ -4735,24 +4734,25 @@ mod tests {
 
         let graph = service.execution_graph(&work_id).await.expect("graph");
         let capability_preview = graph
-            .studio_preview_results
+            .builder_preview_results
             .iter()
-            .find(|preview| preview.kind == WorkStudioPreviewKind::Capability)
+            .find(|preview| preview.kind == WorkBuilderPreviewKind::Capability)
             .expect("capability preview result");
-        assert_eq!(capability_preview.status, WorkStudioFactStatus::Passed);
+        assert_eq!(capability_preview.status, WorkBuilderFactStatus::Passed);
         assert_eq!(capability_preview.issue_count, 0);
         let release_rehearsal = graph
-            .studio_preview_results
+            .builder_preview_results
             .iter()
-            .find(|preview| preview.kind == WorkStudioPreviewKind::ReleaseRehearsal)
+            .find(|preview| preview.kind == WorkBuilderPreviewKind::ReleaseRehearsal)
             .expect("release rehearsal preview result");
-        assert_eq!(release_rehearsal.status, WorkStudioFactStatus::NotVerified);
+        assert_eq!(release_rehearsal.status, WorkBuilderFactStatus::NotVerified);
         assert!(release_rehearsal
             .detail
             .as_deref()
             .is_some_and(|detail| detail.contains("agentEval")));
         assert!(release_rehearsal.checks.iter().any(|check| {
-            check.id == "consumerCompatibility" && check.status == WorkStudioFactStatus::NotVerified
+            check.id == "consumerCompatibility"
+                && check.status == WorkBuilderFactStatus::NotVerified
         }));
         assert_eq!(
             release_rehearsal
@@ -4778,9 +4778,9 @@ mod tests {
             ]
         );
         assert!(graph
-            .studio_issues
+            .builder_issues
             .iter()
-            .all(|issue| issue.status == WorkStudioIssueStatus::Fixed));
+            .all(|issue| issue.status == WorkBuilderIssueStatus::Fixed));
     }
 
     #[tokio::test]
@@ -4810,13 +4810,13 @@ mod tests {
         let work_id = response.work.id.clone();
 
         service
-            .record_studio_validation_result(
+            .record_builder_validation_result(
                 &work_id,
-                WorkStudioValidationResult {
+                WorkBuilderValidationResult {
                     id: "validation:component:agents:shared-agent".to_string(),
                     tool_name: "ValidateComponentPackage".to_string(),
-                    target_kind: WorkStudioValidationTargetKind::Component,
-                    status: WorkStudioFactStatus::Passed,
+                    target_kind: WorkBuilderValidationTargetKind::Component,
+                    status: WorkBuilderFactStatus::Passed,
                     work_id: work_id.clone(),
                     app_id: None,
                     component_id: Some("shared-agent".to_string()),
@@ -4827,44 +4827,44 @@ mod tests {
                     failed_count: 0,
                     warning_count: 0,
                     checks: vec![
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "componentContract".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Contract exists.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "capabilities".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Capabilities are declared.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "dependencies".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Only shared dependencies are declared.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "implementation".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("implementationRef resolves.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "consumerCompatibility".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Consumer Product App lock validated.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "permissions".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Permission boundary passed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "data".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Data boundary passed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "releaseGate".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Component validation release gate passed.".to_string()),
                         },
                     ],
@@ -4874,21 +4874,21 @@ mod tests {
             .expect("record component validation");
 
         service
-            .record_studio_preview_result(
+            .record_builder_preview_result(
                 &work_id,
-                WorkStudioPreviewResult {
+                WorkBuilderPreviewResult {
                     id: "preview:consumer-compatibility:shared-agent".to_string(),
-                    kind: WorkStudioPreviewKind::Capability,
-                    status: WorkStudioFactStatus::Passed,
-                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    kind: WorkBuilderPreviewKind::Capability,
+                    status: WorkBuilderFactStatus::Passed,
+                    source: WorkBuilderPreviewSource::RuntimeObservation,
                     harness_mode: Some("consumer-compatibility".to_string()),
                     trigger_turn_id: None,
                     detail: Some(
                         "Consumer Product App loaded shared Component at runtime.".to_string(),
                     ),
-                    checks: vec![WorkStudioFactCheck {
+                    checks: vec![WorkBuilderFactCheck {
                         id: "consumerCompatibility".to_string(),
-                        status: WorkStudioFactStatus::Passed,
+                        status: WorkBuilderFactStatus::Passed,
                         detail: Some(
                             "Consuming Product App runtime-ready and primary preview checks passed."
                                 .to_string(),
@@ -4910,27 +4910,27 @@ mod tests {
             .expect("record consumer compatibility runtime evidence");
 
         service
-            .record_studio_preview_result(
+            .record_builder_preview_result(
                 &work_id,
-                WorkStudioPreviewResult {
+                WorkBuilderPreviewResult {
                     id: "preview:component-runtime-boundary:shared-agent".to_string(),
-                    kind: WorkStudioPreviewKind::RuntimeBoundary,
-                    status: WorkStudioFactStatus::Passed,
-                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    kind: WorkBuilderPreviewKind::RuntimeBoundary,
+                    status: WorkBuilderFactStatus::Passed,
+                    source: WorkBuilderPreviewSource::RuntimeObservation,
                     harness_mode: Some("runtime-boundary".to_string()),
                     trigger_turn_id: None,
                     detail: Some(
                         "Component consumer runtime boundary evidence passed.".to_string(),
                     ),
                     checks: vec![
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "data".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Consumer runtime data boundary passed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "dataSummary".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Consumer runtime data/share summary passed.".to_string()),
                         },
                     ],
@@ -4950,19 +4950,19 @@ mod tests {
             .expect("record component runtime boundary evidence");
 
         service
-            .record_studio_preview_result(
+            .record_builder_preview_result(
                 &work_id,
-                WorkStudioPreviewResult {
+                WorkBuilderPreviewResult {
                     id: "preview:component-release-evidence:shared-agent".to_string(),
-                    kind: WorkStudioPreviewKind::RuntimeDependencies,
-                    status: WorkStudioFactStatus::Passed,
-                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    kind: WorkBuilderPreviewKind::RuntimeDependencies,
+                    status: WorkBuilderFactStatus::Passed,
+                    source: WorkBuilderPreviewSource::RuntimeObservation,
                     harness_mode: Some("runtime-dependencies".to_string()),
                     trigger_turn_id: None,
                     detail: Some("Component release evidence passed.".to_string()),
-                    checks: vec![WorkStudioFactCheck {
+                    checks: vec![WorkBuilderFactCheck {
                         id: "runtimeDependencies".to_string(),
-                        status: WorkStudioFactStatus::Passed,
+                        status: WorkBuilderFactStatus::Passed,
                         detail: Some("Consumer runtime dependencies are current.".to_string()),
                     }],
                     work_id: work_id.clone(),
@@ -4981,19 +4981,19 @@ mod tests {
             .expect("record component release evidence");
 
         service
-            .record_studio_preview_result(
+            .record_builder_preview_result(
                 &work_id,
-                WorkStudioPreviewResult {
+                WorkBuilderPreviewResult {
                     id: "preview:agent-eval:shared-agent".to_string(),
-                    kind: WorkStudioPreviewKind::AgentEval,
-                    status: WorkStudioFactStatus::Passed,
-                    source: WorkStudioPreviewSource::PreviewHarness,
+                    kind: WorkBuilderPreviewKind::AgentEval,
+                    status: WorkBuilderFactStatus::Passed,
+                    source: WorkBuilderPreviewSource::PreviewHarness,
                     harness_mode: Some("agent-eval".to_string()),
                     trigger_turn_id: None,
                     detail: Some("Component Agent Eval evidence passed.".to_string()),
-                    checks: vec![WorkStudioFactCheck {
+                    checks: vec![WorkBuilderFactCheck {
                         id: "agentEval".to_string(),
-                        status: WorkStudioFactStatus::Passed,
+                        status: WorkBuilderFactStatus::Passed,
                         detail: Some("Representative Component eval passed.".to_string()),
                     }],
                     work_id: work_id.clone(),
@@ -5013,14 +5013,14 @@ mod tests {
 
         let graph = service.execution_graph(&work_id).await.expect("graph");
         let release_rehearsal = graph
-            .studio_preview_results
+            .builder_preview_results
             .iter()
             .find(|preview| {
-                preview.kind == WorkStudioPreviewKind::ReleaseRehearsal
-                    && preview.source == WorkStudioPreviewSource::ReleaseRehearsal
+                preview.kind == WorkBuilderPreviewKind::ReleaseRehearsal
+                    && preview.source == WorkBuilderPreviewSource::ReleaseRehearsal
             })
             .expect("release rehearsal preview result");
-        assert_eq!(release_rehearsal.status, WorkStudioFactStatus::Passed);
+        assert_eq!(release_rehearsal.status, WorkBuilderFactStatus::Passed);
         assert_eq!(
             release_rehearsal
                 .checks
@@ -5028,20 +5028,20 @@ mod tests {
                 .map(|check| (check.id.as_str(), check.status))
                 .collect::<Vec<_>>(),
             vec![
-                ("validation", WorkStudioFactStatus::Passed),
-                ("preview", WorkStudioFactStatus::Passed),
-                ("issues", WorkStudioFactStatus::Passed),
-                ("componentContract", WorkStudioFactStatus::Passed),
-                ("capabilities", WorkStudioFactStatus::Passed),
-                ("dependencies", WorkStudioFactStatus::Passed),
-                ("implementation", WorkStudioFactStatus::Passed),
-                ("consumerCompatibility", WorkStudioFactStatus::Passed),
-                ("permissions", WorkStudioFactStatus::Passed),
-                ("data", WorkStudioFactStatus::Passed),
-                ("dataSummary", WorkStudioFactStatus::Passed),
-                ("runtimeDependencies", WorkStudioFactStatus::Passed),
-                ("agentEval", WorkStudioFactStatus::Passed),
-                ("releaseGate", WorkStudioFactStatus::Passed),
+                ("validation", WorkBuilderFactStatus::Passed),
+                ("preview", WorkBuilderFactStatus::Passed),
+                ("issues", WorkBuilderFactStatus::Passed),
+                ("componentContract", WorkBuilderFactStatus::Passed),
+                ("capabilities", WorkBuilderFactStatus::Passed),
+                ("dependencies", WorkBuilderFactStatus::Passed),
+                ("implementation", WorkBuilderFactStatus::Passed),
+                ("consumerCompatibility", WorkBuilderFactStatus::Passed),
+                ("permissions", WorkBuilderFactStatus::Passed),
+                ("data", WorkBuilderFactStatus::Passed),
+                ("dataSummary", WorkBuilderFactStatus::Passed),
+                ("runtimeDependencies", WorkBuilderFactStatus::Passed),
+                ("agentEval", WorkBuilderFactStatus::Passed),
+                ("releaseGate", WorkBuilderFactStatus::Passed),
             ]
         );
     }
@@ -5054,7 +5054,7 @@ mod tests {
             .resolve_app_work(ResolveAppWorkRequest {
                 app,
                 intent: WorkAppIntent::Develop,
-                title: "Product App Studio".to_string(),
+                title: "Product App Builder".to_string(),
                 objective: "Verify release rehearsal".to_string(),
                 scope: WorkScope::System,
                 visibility: WorkVisibility::Secondary,
@@ -5073,13 +5073,13 @@ mod tests {
         let runtime_instance_id = response.work.runtime_instances[0].id.clone();
 
         service
-            .record_studio_validation_result(
+            .record_builder_validation_result(
                 &work_id,
-                WorkStudioValidationResult {
+                WorkBuilderValidationResult {
                     id: "validation:product-app:product-app-1".to_string(),
                     tool_name: "ValidateProductAppPackage".to_string(),
-                    target_kind: WorkStudioValidationTargetKind::ProductApp,
-                    status: WorkStudioFactStatus::Passed,
+                    target_kind: WorkBuilderValidationTargetKind::ProductApp,
+                    status: WorkBuilderFactStatus::Passed,
                     work_id: work_id.clone(),
                     app_id: Some("product-app-1".to_string()),
                     component_id: None,
@@ -5090,30 +5090,30 @@ mod tests {
                     failed_count: 0,
                     warning_count: 0,
                     checks: vec![
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "package".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Package exists.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "data".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some(
                                 "1 work object kind declares the Product App data boundary."
                                     .to_string(),
                             ),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "dataLifecycle".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some(
                                 "Data lifecycle policy declares retention and deletion."
                                     .to_string(),
                             ),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "releaseGate".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Release gate passed.".to_string()),
                         },
                     ],
@@ -5123,13 +5123,13 @@ mod tests {
             .expect("record validation result");
 
         service
-            .record_studio_preview_result(
+            .record_builder_preview_result(
                 &work_id,
-                WorkStudioPreviewResult {
+                WorkBuilderPreviewResult {
                     id: format!("preview:{runtime_instance_id}"),
-                    kind: WorkStudioPreviewKind::ProductAppPreview,
-                    status: WorkStudioFactStatus::Passed,
-                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    kind: WorkBuilderPreviewKind::ProductAppPreview,
+                    status: WorkBuilderFactStatus::Passed,
+                    source: WorkBuilderPreviewSource::RuntimeObservation,
                     harness_mode: Some("product-app-preview".to_string()),
                     trigger_turn_id: None,
                     detail: Some("Preview iframe loaded.".to_string()),
@@ -5151,70 +5151,70 @@ mod tests {
 
         let graph = service.execution_graph(&work_id).await.expect("graph");
         let release_rehearsal = graph
-            .studio_preview_results
+            .builder_preview_results
             .iter()
             .find(|preview| {
-                preview.kind == WorkStudioPreviewKind::ReleaseRehearsal
-                    && preview.source == WorkStudioPreviewSource::ReleaseRehearsal
+                preview.kind == WorkBuilderPreviewKind::ReleaseRehearsal
+                    && preview.source == WorkBuilderPreviewSource::ReleaseRehearsal
             })
             .expect("release rehearsal preview result");
-        assert_eq!(release_rehearsal.status, WorkStudioFactStatus::NotVerified);
+        assert_eq!(release_rehearsal.status, WorkBuilderFactStatus::NotVerified);
         assert!(release_rehearsal
             .checks
             .iter()
             .any(|check| check.id == "criticalPath"
-                && check.status == WorkStudioFactStatus::NotVerified));
+                && check.status == WorkBuilderFactStatus::NotVerified));
         assert!(release_rehearsal
             .checks
             .iter()
-            .any(|check| check.id == "data" && check.status == WorkStudioFactStatus::NotVerified));
+            .any(|check| check.id == "data" && check.status == WorkBuilderFactStatus::NotVerified));
         assert!(release_rehearsal.checks.iter().any(|check| {
-            check.id == "dataLifecycle" && check.status == WorkStudioFactStatus::NotVerified
+            check.id == "dataLifecycle" && check.status == WorkBuilderFactStatus::NotVerified
         }));
         assert!(release_rehearsal.checks.iter().any(|check| {
-            check.id == "runtimeStorage" && check.status == WorkStudioFactStatus::NotVerified
+            check.id == "runtimeStorage" && check.status == WorkBuilderFactStatus::NotVerified
         }));
 
         service
-            .record_studio_preview_result(
+            .record_builder_preview_result(
                 &work_id,
-                WorkStudioPreviewResult {
+                WorkBuilderPreviewResult {
                     id: "preview:release-rehearsal:product-app-1".to_string(),
-                    kind: WorkStudioPreviewKind::ReleaseRehearsal,
-                    status: WorkStudioFactStatus::Passed,
-                    source: WorkStudioPreviewSource::PreviewHarness,
+                    kind: WorkBuilderPreviewKind::ReleaseRehearsal,
+                    status: WorkBuilderFactStatus::Passed,
+                    source: WorkBuilderPreviewSource::PreviewHarness,
                     harness_mode: Some("release-rehearsal".to_string()),
                     trigger_turn_id: None,
                     detail: Some("Release rehearsal package evidence passed.".to_string()),
                     checks: vec![
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "criticalPath".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Critical path rehearsal passed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "permissions".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Permission boundary passed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "data".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Data boundary passed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "dataLifecycle".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Data lifecycle policy passed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "dataSummary".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Data summary passed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "runtimeStorage".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Runtime storage scope passed.".to_string()),
                         },
                     ],
@@ -5234,19 +5234,19 @@ mod tests {
             .expect("record release rehearsal package evidence");
 
         service
-            .record_studio_preview_result(
+            .record_builder_preview_result(
                 &work_id,
-                WorkStudioPreviewResult {
+                WorkBuilderPreviewResult {
                     id: "preview:agent-eval:product-app-1".to_string(),
-                    kind: WorkStudioPreviewKind::AgentEval,
-                    status: WorkStudioFactStatus::Passed,
-                    source: WorkStudioPreviewSource::PreviewHarness,
+                    kind: WorkBuilderPreviewKind::AgentEval,
+                    status: WorkBuilderFactStatus::Passed,
+                    source: WorkBuilderPreviewSource::PreviewHarness,
                     harness_mode: Some("agent-eval".to_string()),
                     trigger_turn_id: None,
                     detail: Some("Agent Eval evidence passed.".to_string()),
-                    checks: vec![WorkStudioFactCheck {
+                    checks: vec![WorkBuilderFactCheck {
                         id: "agentEval".to_string(),
-                        status: WorkStudioFactStatus::Passed,
+                        status: WorkBuilderFactStatus::Passed,
                         detail: Some("Agent eval passed.".to_string()),
                     }],
                     work_id: work_id.clone(),
@@ -5265,42 +5265,42 @@ mod tests {
             .expect("record agent eval evidence");
 
         service
-            .record_studio_preview_result(
+            .record_builder_preview_result(
                 &work_id,
-                WorkStudioPreviewResult {
+                WorkBuilderPreviewResult {
                     id: "preview:runtime-boundary:product-app-1".to_string(),
-                    kind: WorkStudioPreviewKind::RuntimeBoundary,
-                    status: WorkStudioFactStatus::Passed,
-                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    kind: WorkBuilderPreviewKind::RuntimeBoundary,
+                    status: WorkBuilderFactStatus::Passed,
+                    source: WorkBuilderPreviewSource::RuntimeObservation,
                     harness_mode: Some("runtime-boundary".to_string()),
                     trigger_turn_id: None,
                     detail: Some("Runtime boundary evidence passed.".to_string()),
                     checks: vec![
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "runtimeStorage".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Runtime storage scope resolved.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "permissions".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Runtime permission boundary passed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "data".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Runtime data boundary passed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "dataLifecycle".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some(
                                 "Runtime retention and share-impact evidence passed.".to_string(),
                             ),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "dataSummary".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Runtime data summary passed.".to_string()),
                         },
                     ],
@@ -5320,19 +5320,19 @@ mod tests {
             .expect("record runtime boundary release rehearsal evidence");
 
         service
-            .record_studio_preview_result(
+            .record_builder_preview_result(
                 &work_id,
-                WorkStudioPreviewResult {
+                WorkBuilderPreviewResult {
                     id: "preview:runtime-dependencies:product-app-1".to_string(),
-                    kind: WorkStudioPreviewKind::RuntimeDependencies,
-                    status: WorkStudioFactStatus::Passed,
-                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    kind: WorkBuilderPreviewKind::RuntimeDependencies,
+                    status: WorkBuilderFactStatus::Passed,
+                    source: WorkBuilderPreviewSource::RuntimeObservation,
                     harness_mode: Some("runtime-dependencies".to_string()),
                     trigger_turn_id: None,
                     detail: Some("Runtime dependency health evidence passed.".to_string()),
-                    checks: vec![WorkStudioFactCheck {
+                    checks: vec![WorkBuilderFactCheck {
                         id: "runtimeDependencies".to_string(),
-                        status: WorkStudioFactStatus::Passed,
+                        status: WorkBuilderFactStatus::Passed,
                         detail: Some("Runtime dependencies are installed and current.".to_string()),
                     }],
                     work_id: work_id.clone(),
@@ -5351,20 +5351,20 @@ mod tests {
             .expect("record runtime dependency release rehearsal evidence");
 
         service
-            .record_studio_preview_result(
+            .record_builder_preview_result(
                 &work_id,
-                WorkStudioPreviewResult {
+                WorkBuilderPreviewResult {
                     id: "preview:permission-review:product-app-1".to_string(),
-                    kind: WorkStudioPreviewKind::PermissionReview,
-                    status: WorkStudioFactStatus::Passed,
-                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    kind: WorkBuilderPreviewKind::PermissionReview,
+                    status: WorkBuilderFactStatus::Passed,
+                    source: WorkBuilderPreviewSource::RuntimeObservation,
                     harness_mode: Some("permission-review".to_string()),
                     trigger_turn_id: None,
                     detail: Some("Explicit permission review evidence passed.".to_string()),
-                    checks: vec![WorkStudioFactCheck {
+                    checks: vec![WorkBuilderFactCheck {
                         id: "permissionReview".to_string(),
-                        status: WorkStudioFactStatus::Passed,
-                        detail: Some("Explicit App Studio permission review passed.".to_string()),
+                        status: WorkBuilderFactStatus::Passed,
+                        detail: Some("Explicit App Builder permission review passed.".to_string()),
                     }],
                     work_id: work_id.clone(),
                     runtime_instance_id: Some(runtime_instance_id.clone()),
@@ -5382,25 +5382,25 @@ mod tests {
             .expect("record permission review release rehearsal evidence");
 
         service
-            .record_studio_preview_result(
+            .record_builder_preview_result(
                 &work_id,
-                WorkStudioPreviewResult {
+                WorkBuilderPreviewResult {
                     id: "preview:user-path-rehearsal:product-app-1".to_string(),
-                    kind: WorkStudioPreviewKind::UserPathRehearsal,
-                    status: WorkStudioFactStatus::Passed,
-                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    kind: WorkBuilderPreviewKind::UserPathRehearsal,
+                    status: WorkBuilderFactStatus::Passed,
+                    source: WorkBuilderPreviewSource::RuntimeObservation,
                     harness_mode: Some("user-path-rehearsal".to_string()),
                     trigger_turn_id: None,
                     detail: Some("User path rehearsal passed.".to_string()),
                     checks: vec![
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "criticalPath".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("New-user critical path rehearsal passed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "userPath".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("User path rehearsal passed.".to_string()),
                         },
                     ],
@@ -5421,17 +5421,17 @@ mod tests {
 
         let graph = service.execution_graph(&work_id).await.expect("graph");
         let release_rehearsal = graph
-            .studio_preview_results
+            .builder_preview_results
             .iter()
             .find(|preview| {
-                preview.kind == WorkStudioPreviewKind::ReleaseRehearsal
-                    && preview.source == WorkStudioPreviewSource::ReleaseRehearsal
+                preview.kind == WorkBuilderPreviewKind::ReleaseRehearsal
+                    && preview.source == WorkBuilderPreviewSource::ReleaseRehearsal
             })
             .expect("release rehearsal preview result");
-        assert_eq!(release_rehearsal.status, WorkStudioFactStatus::Passed);
+        assert_eq!(release_rehearsal.status, WorkBuilderFactStatus::Passed);
         assert_eq!(
             release_rehearsal.source,
-            WorkStudioPreviewSource::ReleaseRehearsal
+            WorkBuilderPreviewSource::ReleaseRehearsal
         );
         assert_eq!(release_rehearsal.issue_count, 0);
         assert_eq!(
@@ -5445,20 +5445,20 @@ mod tests {
                 .map(|check| (check.id.as_str(), check.status))
                 .collect::<Vec<_>>(),
             vec![
-                ("validation", WorkStudioFactStatus::Passed),
-                ("preview", WorkStudioFactStatus::Passed),
-                ("issues", WorkStudioFactStatus::Passed),
-                ("criticalPath", WorkStudioFactStatus::Passed),
-                ("permissions", WorkStudioFactStatus::Passed),
-                ("permissionReview", WorkStudioFactStatus::Passed),
-                ("data", WorkStudioFactStatus::Passed),
-                ("dataLifecycle", WorkStudioFactStatus::Passed),
-                ("dataSummary", WorkStudioFactStatus::Passed),
-                ("runtimeStorage", WorkStudioFactStatus::Passed),
-                ("runtimeDependencies", WorkStudioFactStatus::Passed),
-                ("agentEval", WorkStudioFactStatus::Passed),
-                ("userPath", WorkStudioFactStatus::Passed),
-                ("releaseGate", WorkStudioFactStatus::Passed),
+                ("validation", WorkBuilderFactStatus::Passed),
+                ("preview", WorkBuilderFactStatus::Passed),
+                ("issues", WorkBuilderFactStatus::Passed),
+                ("criticalPath", WorkBuilderFactStatus::Passed),
+                ("permissions", WorkBuilderFactStatus::Passed),
+                ("permissionReview", WorkBuilderFactStatus::Passed),
+                ("data", WorkBuilderFactStatus::Passed),
+                ("dataLifecycle", WorkBuilderFactStatus::Passed),
+                ("dataSummary", WorkBuilderFactStatus::Passed),
+                ("runtimeStorage", WorkBuilderFactStatus::Passed),
+                ("runtimeDependencies", WorkBuilderFactStatus::Passed),
+                ("agentEval", WorkBuilderFactStatus::Passed),
+                ("userPath", WorkBuilderFactStatus::Passed),
+                ("releaseGate", WorkBuilderFactStatus::Passed),
             ]
         );
     }
@@ -5471,7 +5471,7 @@ mod tests {
             .resolve_app_work(ResolveAppWorkRequest {
                 app,
                 intent: WorkAppIntent::Develop,
-                title: "Product App Studio".to_string(),
+                title: "Product App Builder".to_string(),
                 objective: "Verify release rehearsal".to_string(),
                 scope: WorkScope::System,
                 visibility: WorkVisibility::Secondary,
@@ -5490,13 +5490,13 @@ mod tests {
         let runtime_instance_id = response.work.runtime_instances[0].id.clone();
 
         service
-            .record_studio_validation_result(
+            .record_builder_validation_result(
                 &work_id,
-                WorkStudioValidationResult {
+                WorkBuilderValidationResult {
                     id: "validation:product-app:product-app-1".to_string(),
                     tool_name: "ValidateProductAppPackage".to_string(),
-                    target_kind: WorkStudioValidationTargetKind::ProductApp,
-                    status: WorkStudioFactStatus::Passed,
+                    target_kind: WorkBuilderValidationTargetKind::ProductApp,
+                    status: WorkBuilderFactStatus::Passed,
                     work_id: work_id.clone(),
                     app_id: Some("product-app-1".to_string()),
                     component_id: None,
@@ -5507,27 +5507,27 @@ mod tests {
                     failed_count: 0,
                     warning_count: 0,
                     checks: vec![
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "package".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Package exists.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "data".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Data boundary declared.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "agentEval".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some(
                                 "Validation claimed Agent Eval passed, but did not run a harness."
                                     .to_string(),
                             ),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "releaseGate".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Release gate passed.".to_string()),
                         },
                     ],
@@ -5537,13 +5537,13 @@ mod tests {
             .expect("record validation result");
 
         service
-            .record_studio_preview_result(
+            .record_builder_preview_result(
                 &work_id,
-                WorkStudioPreviewResult {
+                WorkBuilderPreviewResult {
                     id: format!("preview:{runtime_instance_id}"),
-                    kind: WorkStudioPreviewKind::ProductAppPreview,
-                    status: WorkStudioFactStatus::Passed,
-                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    kind: WorkBuilderPreviewKind::ProductAppPreview,
+                    status: WorkBuilderFactStatus::Passed,
+                    source: WorkBuilderPreviewSource::RuntimeObservation,
                     harness_mode: Some("product-app-preview".to_string()),
                     trigger_turn_id: None,
                     detail: Some("Preview iframe loaded.".to_string()),
@@ -5564,45 +5564,45 @@ mod tests {
             .expect("record preview result");
 
         service
-            .record_studio_preview_result(
+            .record_builder_preview_result(
                 &work_id,
-                WorkStudioPreviewResult {
+                WorkBuilderPreviewResult {
                     id: "preview:release-rehearsal:product-app-1".to_string(),
-                    kind: WorkStudioPreviewKind::ReleaseRehearsal,
-                    status: WorkStudioFactStatus::Passed,
-                    source: WorkStudioPreviewSource::PreviewHarness,
+                    kind: WorkBuilderPreviewKind::ReleaseRehearsal,
+                    status: WorkBuilderFactStatus::Passed,
+                    source: WorkBuilderPreviewSource::PreviewHarness,
                     harness_mode: Some("release-rehearsal".to_string()),
                     trigger_turn_id: None,
                     detail: Some("Release rehearsal package evidence passed.".to_string()),
                     checks: vec![
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "criticalPath".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Critical path rehearsal passed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "permissions".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Permission boundary passed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "data".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Data boundary passed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "dataLifecycle".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Data lifecycle policy passed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "dataSummary".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Data summary passed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "runtimeStorage".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Runtime storage scope passed.".to_string()),
                         },
                     ],
@@ -5622,25 +5622,25 @@ mod tests {
             .expect("record release rehearsal package evidence");
 
         service
-            .record_studio_preview_result(
+            .record_builder_preview_result(
                 &work_id,
-                WorkStudioPreviewResult {
+                WorkBuilderPreviewResult {
                     id: "preview:user-path-rehearsal:product-app-1".to_string(),
-                    kind: WorkStudioPreviewKind::UserPathRehearsal,
-                    status: WorkStudioFactStatus::Passed,
-                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    kind: WorkBuilderPreviewKind::UserPathRehearsal,
+                    status: WorkBuilderFactStatus::Passed,
+                    source: WorkBuilderPreviewSource::RuntimeObservation,
                     harness_mode: Some("user-path-rehearsal".to_string()),
                     trigger_turn_id: None,
                     detail: Some("User path rehearsal passed.".to_string()),
                     checks: vec![
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "criticalPath".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("New-user critical path rehearsal passed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "userPath".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("User path rehearsal passed.".to_string()),
                         },
                     ],
@@ -5661,11 +5661,11 @@ mod tests {
 
         let graph = service.execution_graph(&work_id).await.expect("graph");
         let release_rehearsal = graph
-            .studio_preview_results
+            .builder_preview_results
             .iter()
             .find(|preview| {
-                preview.kind == WorkStudioPreviewKind::ReleaseRehearsal
-                    && preview.source == WorkStudioPreviewSource::ReleaseRehearsal
+                preview.kind == WorkBuilderPreviewKind::ReleaseRehearsal
+                    && preview.source == WorkBuilderPreviewSource::ReleaseRehearsal
             })
             .expect("release rehearsal preview result");
         let agent_eval = release_rehearsal
@@ -5674,8 +5674,8 @@ mod tests {
             .find(|check| check.id == "agentEval")
             .expect("agentEval check");
 
-        assert_eq!(release_rehearsal.status, WorkStudioFactStatus::NotVerified);
-        assert_eq!(agent_eval.status, WorkStudioFactStatus::NotVerified);
+        assert_eq!(release_rehearsal.status, WorkBuilderFactStatus::NotVerified);
+        assert_eq!(agent_eval.status, WorkBuilderFactStatus::NotVerified);
         assert!(agent_eval
             .detail
             .as_deref()
@@ -5690,7 +5690,7 @@ mod tests {
             .resolve_app_work(ResolveAppWorkRequest {
                 app,
                 intent: WorkAppIntent::Develop,
-                title: "Product App Studio".to_string(),
+                title: "Product App Builder".to_string(),
                 objective: "Verify release rehearsal warnings".to_string(),
                 scope: WorkScope::System,
                 visibility: WorkVisibility::Secondary,
@@ -5708,13 +5708,13 @@ mod tests {
         let work_id = response.work.id.clone();
 
         service
-            .record_studio_validation_result(
+            .record_builder_validation_result(
                 &work_id,
-                WorkStudioValidationResult {
+                WorkBuilderValidationResult {
                     id: "validation:product-app:product-app-1".to_string(),
                     tool_name: "ValidateProductAppPackage".to_string(),
-                    target_kind: WorkStudioValidationTargetKind::ProductApp,
-                    status: WorkStudioFactStatus::Passed,
+                    target_kind: WorkBuilderValidationTargetKind::ProductApp,
+                    status: WorkBuilderFactStatus::Passed,
                     work_id: work_id.clone(),
                     app_id: Some("product-app-1".to_string()),
                     component_id: None,
@@ -5725,29 +5725,29 @@ mod tests {
                     failed_count: 0,
                     warning_count: 0,
                     checks: vec![
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "primarySurface".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Primary surface resolves.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "surfaceSource".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Surface source resolves.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "launchPolicy".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Launch policy resolves.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "dataLifecycle".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Data lifecycle policy passed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "releaseGate".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Release gate validation passed.".to_string()),
                         },
                     ],
@@ -5757,13 +5757,13 @@ mod tests {
             .expect("record validation result");
 
         service
-            .record_studio_preview_result(
+            .record_builder_preview_result(
                 &work_id,
-                WorkStudioPreviewResult {
+                WorkBuilderPreviewResult {
                     id: "preview:runtime:product-app-1".to_string(),
-                    kind: WorkStudioPreviewKind::ProductAppPreview,
-                    status: WorkStudioFactStatus::Passed,
-                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    kind: WorkBuilderPreviewKind::ProductAppPreview,
+                    status: WorkBuilderFactStatus::Passed,
+                    source: WorkBuilderPreviewSource::RuntimeObservation,
                     harness_mode: Some("product-app-preview".to_string()),
                     trigger_turn_id: None,
                     detail: Some("Preview iframe loaded.".to_string()),
@@ -5788,35 +5788,35 @@ mod tests {
             .expect("record preview result");
 
         service
-            .record_studio_preview_result(
+            .record_builder_preview_result(
                 &work_id,
-                WorkStudioPreviewResult {
+                WorkBuilderPreviewResult {
                     id: "preview:runtime-boundary:product-app-1".to_string(),
-                    kind: WorkStudioPreviewKind::RuntimeBoundary,
-                    status: WorkStudioFactStatus::Warning,
-                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    kind: WorkBuilderPreviewKind::RuntimeBoundary,
+                    status: WorkBuilderFactStatus::Warning,
+                    source: WorkBuilderPreviewSource::RuntimeObservation,
                     harness_mode: Some("runtime-boundary".to_string()),
                     trigger_turn_id: None,
                     detail: Some("Runtime boundary found an elevated permission.".to_string()),
                     checks: vec![
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "runtimeStorage".to_string(),
-                            status: WorkStudioFactStatus::NotVerified,
+                            status: WorkBuilderFactStatus::NotVerified,
                             detail: Some("Runtime storage scope has not been probed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "permissions".to_string(),
-                            status: WorkStudioFactStatus::Warning,
+                            status: WorkBuilderFactStatus::Warning,
                             detail: Some("Elevated permission declared.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "data".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Data boundary declared.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "dataSummary".to_string(),
-                            status: WorkStudioFactStatus::NotVerified,
+                            status: WorkBuilderFactStatus::NotVerified,
                             detail: Some(
                                 "Runtime data/share summary has not been recorded.".to_string(),
                             ),
@@ -5839,15 +5839,15 @@ mod tests {
 
         let graph = service.execution_graph(&work_id).await.expect("graph");
         let release_rehearsal = graph
-            .studio_preview_results
+            .builder_preview_results
             .iter()
             .find(|preview| {
-                preview.kind == WorkStudioPreviewKind::ReleaseRehearsal
-                    && preview.source == WorkStudioPreviewSource::ReleaseRehearsal
+                preview.kind == WorkBuilderPreviewKind::ReleaseRehearsal
+                    && preview.source == WorkBuilderPreviewSource::ReleaseRehearsal
             })
             .expect("derived release rehearsal preview result");
 
-        assert_eq!(release_rehearsal.status, WorkStudioFactStatus::Warning);
+        assert_eq!(release_rehearsal.status, WorkBuilderFactStatus::Warning);
         assert_eq!(
             release_rehearsal
                 .checks
@@ -5855,20 +5855,20 @@ mod tests {
                 .map(|check| (check.id.as_str(), check.status))
                 .collect::<Vec<_>>(),
             vec![
-                ("validation", WorkStudioFactStatus::Passed),
-                ("preview", WorkStudioFactStatus::Passed),
-                ("issues", WorkStudioFactStatus::Warning),
-                ("criticalPath", WorkStudioFactStatus::NotVerified),
-                ("permissions", WorkStudioFactStatus::Warning),
-                ("permissionReview", WorkStudioFactStatus::NotVerified),
-                ("data", WorkStudioFactStatus::Passed),
-                ("dataLifecycle", WorkStudioFactStatus::NotVerified),
-                ("dataSummary", WorkStudioFactStatus::NotVerified),
-                ("runtimeStorage", WorkStudioFactStatus::NotVerified),
-                ("runtimeDependencies", WorkStudioFactStatus::NotVerified),
-                ("agentEval", WorkStudioFactStatus::NotVerified),
-                ("userPath", WorkStudioFactStatus::NotVerified),
-                ("releaseGate", WorkStudioFactStatus::Warning),
+                ("validation", WorkBuilderFactStatus::Passed),
+                ("preview", WorkBuilderFactStatus::Passed),
+                ("issues", WorkBuilderFactStatus::Warning),
+                ("criticalPath", WorkBuilderFactStatus::NotVerified),
+                ("permissions", WorkBuilderFactStatus::Warning),
+                ("permissionReview", WorkBuilderFactStatus::NotVerified),
+                ("data", WorkBuilderFactStatus::Passed),
+                ("dataLifecycle", WorkBuilderFactStatus::NotVerified),
+                ("dataSummary", WorkBuilderFactStatus::NotVerified),
+                ("runtimeStorage", WorkBuilderFactStatus::NotVerified),
+                ("runtimeDependencies", WorkBuilderFactStatus::NotVerified),
+                ("agentEval", WorkBuilderFactStatus::NotVerified),
+                ("userPath", WorkBuilderFactStatus::NotVerified),
+                ("releaseGate", WorkBuilderFactStatus::Warning),
             ]
         );
     }
@@ -5881,7 +5881,7 @@ mod tests {
             .resolve_app_work(ResolveAppWorkRequest {
                 app,
                 intent: WorkAppIntent::Develop,
-                title: "Product App Studio".to_string(),
+                title: "Product App Builder".to_string(),
                 objective: "Verify permission review evidence".to_string(),
                 scope: WorkScope::System,
                 visibility: WorkVisibility::Secondary,
@@ -5900,13 +5900,13 @@ mod tests {
         let runtime_instance_id = response.work.runtime_instances[0].id.clone();
 
         service
-            .record_studio_validation_result(
+            .record_builder_validation_result(
                 &work_id,
-                WorkStudioValidationResult {
+                WorkBuilderValidationResult {
                     id: "validation:product-app:product-app-1".to_string(),
                     tool_name: "ValidateProductAppPackage".to_string(),
-                    target_kind: WorkStudioValidationTargetKind::ProductApp,
-                    status: WorkStudioFactStatus::Passed,
+                    target_kind: WorkBuilderValidationTargetKind::ProductApp,
+                    status: WorkBuilderFactStatus::Passed,
                     work_id: work_id.clone(),
                     app_id: Some("product-app-1".to_string()),
                     component_id: None,
@@ -5917,29 +5917,29 @@ mod tests {
                     failed_count: 0,
                     warning_count: 0,
                     checks: vec![
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "primarySurface".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Primary surface resolves.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "surfaceSource".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Surface source resolves.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "launchPolicy".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Launch policy resolves.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "dataLifecycle".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Data lifecycle policy passed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "releaseGate".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Release gate validation passed.".to_string()),
                         },
                     ],
@@ -5949,13 +5949,13 @@ mod tests {
             .expect("record validation result");
 
         service
-            .record_studio_preview_result(
+            .record_builder_preview_result(
                 &work_id,
-                WorkStudioPreviewResult {
+                WorkBuilderPreviewResult {
                     id: format!("preview:{runtime_instance_id}"),
-                    kind: WorkStudioPreviewKind::ProductAppPreview,
-                    status: WorkStudioFactStatus::Passed,
-                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    kind: WorkBuilderPreviewKind::ProductAppPreview,
+                    status: WorkBuilderFactStatus::Passed,
+                    source: WorkBuilderPreviewSource::RuntimeObservation,
                     harness_mode: Some("product-app-preview".to_string()),
                     trigger_turn_id: None,
                     detail: Some("Preview iframe loaded.".to_string()),
@@ -5976,42 +5976,42 @@ mod tests {
             .expect("record preview result");
 
         service
-            .record_studio_preview_result(
+            .record_builder_preview_result(
                 &work_id,
-                WorkStudioPreviewResult {
+                WorkBuilderPreviewResult {
                     id: "preview:runtime-boundary:product-app-1".to_string(),
-                    kind: WorkStudioPreviewKind::RuntimeBoundary,
-                    status: WorkStudioFactStatus::Warning,
-                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    kind: WorkBuilderPreviewKind::RuntimeBoundary,
+                    status: WorkBuilderFactStatus::Warning,
+                    source: WorkBuilderPreviewSource::RuntimeObservation,
                     harness_mode: Some("runtime-boundary".to_string()),
                     trigger_turn_id: None,
                     detail: Some("Runtime boundary found elevated permission.".to_string()),
                     checks: vec![
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "permissions".to_string(),
-                            status: WorkStudioFactStatus::Warning,
+                            status: WorkBuilderFactStatus::Warning,
                             detail: Some("Elevated permission declared.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "data".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Data boundary passed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "dataLifecycle".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some(
                                 "Runtime retention and share-impact evidence passed.".to_string(),
                             ),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "dataSummary".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Data summary passed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "runtimeStorage".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Runtime storage scope passed.".to_string()),
                         },
                     ],
@@ -6031,19 +6031,19 @@ mod tests {
             .expect("record runtime boundary warning");
 
         service
-            .record_studio_preview_result(
+            .record_builder_preview_result(
                 &work_id,
-                WorkStudioPreviewResult {
+                WorkBuilderPreviewResult {
                     id: "preview:runtime-dependencies:product-app-1".to_string(),
-                    kind: WorkStudioPreviewKind::RuntimeDependencies,
-                    status: WorkStudioFactStatus::Passed,
-                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    kind: WorkBuilderPreviewKind::RuntimeDependencies,
+                    status: WorkBuilderFactStatus::Passed,
+                    source: WorkBuilderPreviewSource::RuntimeObservation,
                     harness_mode: Some("runtime-dependencies".to_string()),
                     trigger_turn_id: None,
                     detail: Some("Runtime dependency health passed.".to_string()),
-                    checks: vec![WorkStudioFactCheck {
+                    checks: vec![WorkBuilderFactCheck {
                         id: "runtimeDependencies".to_string(),
-                        status: WorkStudioFactStatus::Passed,
+                        status: WorkBuilderFactStatus::Passed,
                         detail: Some("Runtime dependency health passed.".to_string()),
                     }],
                     work_id: work_id.clone(),
@@ -6062,25 +6062,25 @@ mod tests {
             .expect("record runtime dependency evidence");
 
         service
-            .record_studio_preview_result(
+            .record_builder_preview_result(
                 &work_id,
-                WorkStudioPreviewResult {
+                WorkBuilderPreviewResult {
                     id: "preview:user-path-rehearsal:product-app-1".to_string(),
-                    kind: WorkStudioPreviewKind::UserPathRehearsal,
-                    status: WorkStudioFactStatus::Passed,
-                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    kind: WorkBuilderPreviewKind::UserPathRehearsal,
+                    status: WorkBuilderFactStatus::Passed,
+                    source: WorkBuilderPreviewSource::RuntimeObservation,
                     harness_mode: Some("user-path-rehearsal".to_string()),
                     trigger_turn_id: None,
                     detail: Some("User path rehearsal passed.".to_string()),
                     checks: vec![
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "criticalPath".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("New-user critical path rehearsal passed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "userPath".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("User path passed.".to_string()),
                         },
                     ],
@@ -6100,19 +6100,19 @@ mod tests {
             .expect("record user path evidence");
 
         service
-            .record_studio_preview_result(
+            .record_builder_preview_result(
                 &work_id,
-                WorkStudioPreviewResult {
+                WorkBuilderPreviewResult {
                     id: "preview:agent-eval:product-app-1".to_string(),
-                    kind: WorkStudioPreviewKind::AgentEval,
-                    status: WorkStudioFactStatus::Passed,
-                    source: WorkStudioPreviewSource::PreviewHarness,
+                    kind: WorkBuilderPreviewKind::AgentEval,
+                    status: WorkBuilderFactStatus::Passed,
+                    source: WorkBuilderPreviewSource::PreviewHarness,
                     harness_mode: Some("agent-eval".to_string()),
                     trigger_turn_id: None,
                     detail: Some("Agent Eval evidence passed.".to_string()),
-                    checks: vec![WorkStudioFactCheck {
+                    checks: vec![WorkBuilderFactCheck {
                         id: "agentEval".to_string(),
-                        status: WorkStudioFactStatus::Passed,
+                        status: WorkBuilderFactStatus::Passed,
                         detail: Some("Agent eval passed.".to_string()),
                     }],
                     work_id: work_id.clone(),
@@ -6132,16 +6132,16 @@ mod tests {
 
         let graph = service.execution_graph(&work_id).await.expect("graph");
         let release_rehearsal = graph
-            .studio_preview_results
+            .builder_preview_results
             .iter()
             .find(|preview| {
-                preview.kind == WorkStudioPreviewKind::ReleaseRehearsal
-                    && preview.source == WorkStudioPreviewSource::ReleaseRehearsal
+                preview.kind == WorkBuilderPreviewKind::ReleaseRehearsal
+                    && preview.source == WorkBuilderPreviewSource::ReleaseRehearsal
             })
             .expect("derived release rehearsal preview result");
-        assert_eq!(release_rehearsal.status, WorkStudioFactStatus::Warning);
+        assert_eq!(release_rehearsal.status, WorkBuilderFactStatus::Warning);
         assert!(release_rehearsal.checks.iter().any(|check| {
-            check.id == "permissionReview" && check.status == WorkStudioFactStatus::NotVerified
+            check.id == "permissionReview" && check.status == WorkBuilderFactStatus::NotVerified
         }));
         assert!(release_rehearsal
             .checks
@@ -6151,25 +6151,25 @@ mod tests {
             .is_some_and(|detail| detail.contains("permissionReview")));
 
         service
-            .record_studio_preview_result(
+            .record_builder_preview_result(
                 &work_id,
-                WorkStudioPreviewResult {
+                WorkBuilderPreviewResult {
                     id: "preview:permission-review:product-app-1".to_string(),
-                    kind: WorkStudioPreviewKind::PermissionReview,
-                    status: WorkStudioFactStatus::Passed,
-                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    kind: WorkBuilderPreviewKind::PermissionReview,
+                    status: WorkBuilderFactStatus::Passed,
+                    source: WorkBuilderPreviewSource::RuntimeObservation,
                     harness_mode: Some("permission-review".to_string()),
                     trigger_turn_id: None,
                     detail: Some("Elevated permission reviewed.".to_string()),
                     checks: vec![
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "permissions".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Elevated permission reviewed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "permissionReview".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Explicit permission review recorded.".to_string()),
                         },
                     ],
@@ -6190,51 +6190,51 @@ mod tests {
 
         let graph = service.execution_graph(&work_id).await.expect("graph");
         let release_rehearsal = graph
-            .studio_preview_results
+            .builder_preview_results
             .iter()
             .find(|preview| {
-                preview.kind == WorkStudioPreviewKind::ReleaseRehearsal
-                    && preview.source == WorkStudioPreviewSource::ReleaseRehearsal
+                preview.kind == WorkBuilderPreviewKind::ReleaseRehearsal
+                    && preview.source == WorkBuilderPreviewSource::ReleaseRehearsal
             })
             .expect("derived release rehearsal preview result");
-        assert_eq!(release_rehearsal.status, WorkStudioFactStatus::Passed);
+        assert_eq!(release_rehearsal.status, WorkBuilderFactStatus::Passed);
         assert!(release_rehearsal.checks.iter().any(|check| {
-            check.id == "permissionReview" && check.status == WorkStudioFactStatus::Passed
+            check.id == "permissionReview" && check.status == WorkBuilderFactStatus::Passed
         }));
         assert!(release_rehearsal.checks.iter().any(|check| {
-            check.id == "permissions" && check.status == WorkStudioFactStatus::Passed
+            check.id == "permissions" && check.status == WorkBuilderFactStatus::Passed
         }));
 
         service
-            .record_studio_preview_result(
+            .record_builder_preview_result(
                 &work_id,
-                WorkStudioPreviewResult {
+                WorkBuilderPreviewResult {
                     id: "preview:runtime-boundary:product-app-1".to_string(),
-                    kind: WorkStudioPreviewKind::RuntimeBoundary,
-                    status: WorkStudioFactStatus::Warning,
-                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    kind: WorkBuilderPreviewKind::RuntimeBoundary,
+                    status: WorkBuilderFactStatus::Warning,
+                    source: WorkBuilderPreviewSource::RuntimeObservation,
                     harness_mode: Some("runtime-boundary".to_string()),
                     trigger_turn_id: None,
                     detail: Some("Runtime boundary found a new elevated permission.".to_string()),
                     checks: vec![
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "runtimeStorage".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Runtime storage scope passed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "permissions".to_string(),
-                            status: WorkStudioFactStatus::Warning,
+                            status: WorkBuilderFactStatus::Warning,
                             detail: Some("New elevated permission declared.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "data".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Runtime data boundary passed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "dataSummary".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Runtime data summary passed.".to_string()),
                         },
                     ],
@@ -6255,20 +6255,20 @@ mod tests {
 
         let graph = service.execution_graph(&work_id).await.expect("graph");
         let release_rehearsal = graph
-            .studio_preview_results
+            .builder_preview_results
             .iter()
             .find(|preview| {
-                preview.kind == WorkStudioPreviewKind::ReleaseRehearsal
-                    && preview.source == WorkStudioPreviewSource::ReleaseRehearsal
+                preview.kind == WorkBuilderPreviewKind::ReleaseRehearsal
+                    && preview.source == WorkBuilderPreviewSource::ReleaseRehearsal
             })
             .expect("derived release rehearsal preview result");
-        assert_eq!(release_rehearsal.status, WorkStudioFactStatus::Warning);
+        assert_eq!(release_rehearsal.status, WorkBuilderFactStatus::Warning);
         let permission_review = release_rehearsal
             .checks
             .iter()
             .find(|check| check.id == "permissionReview")
             .expect("permissionReview check");
-        assert_eq!(permission_review.status, WorkStudioFactStatus::NotVerified);
+        assert_eq!(permission_review.status, WorkBuilderFactStatus::NotVerified);
         assert!(permission_review
             .detail
             .as_deref()
@@ -6283,7 +6283,7 @@ mod tests {
             .resolve_app_work(ResolveAppWorkRequest {
                 app,
                 intent: WorkAppIntent::Develop,
-                title: "Product App Studio".to_string(),
+                title: "Product App Builder".to_string(),
                 objective: "Verify release rehearsal visual checks".to_string(),
                 scope: WorkScope::System,
                 visibility: WorkVisibility::Secondary,
@@ -6302,13 +6302,13 @@ mod tests {
         let runtime_instance_id = response.work.runtime_instances[0].id.clone();
 
         service
-            .record_studio_validation_result(
+            .record_builder_validation_result(
                 &work_id,
-                WorkStudioValidationResult {
+                WorkBuilderValidationResult {
                     id: "validation:product-app:product-app-1".to_string(),
                     tool_name: "ValidateProductAppPackage".to_string(),
-                    target_kind: WorkStudioValidationTargetKind::ProductApp,
-                    status: WorkStudioFactStatus::Passed,
+                    target_kind: WorkBuilderValidationTargetKind::ProductApp,
+                    status: WorkBuilderFactStatus::Passed,
                     work_id: work_id.clone(),
                     app_id: Some("product-app-1".to_string()),
                     component_id: None,
@@ -6319,29 +6319,29 @@ mod tests {
                     failed_count: 0,
                     warning_count: 0,
                     checks: vec![
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "primarySurface".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Primary surface resolves.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "surfaceSource".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Surface source resolves.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "launchPolicy".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Launch policy resolves.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "dataLifecycle".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Data lifecycle policy passed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "releaseGate".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Release gate validation passed.".to_string()),
                         },
                     ],
@@ -6351,35 +6351,35 @@ mod tests {
             .expect("record validation result");
 
         service
-            .record_studio_preview_result(
+            .record_builder_preview_result(
                 &work_id,
-                WorkStudioPreviewResult {
+                WorkBuilderPreviewResult {
                     id: format!("preview:{runtime_instance_id}"),
-                    kind: WorkStudioPreviewKind::ProductAppPreview,
-                    status: WorkStudioFactStatus::NotVerified,
-                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    kind: WorkBuilderPreviewKind::ProductAppPreview,
+                    status: WorkBuilderFactStatus::NotVerified,
+                    source: WorkBuilderPreviewSource::RuntimeObservation,
                     harness_mode: Some("product-app-preview".to_string()),
                     trigger_turn_id: None,
                     detail: Some("Preview iframe runtime bridge reported ready.".to_string()),
                     checks: vec![
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "runtimeReady".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Runtime bridge reported ready.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "visualRoot".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Runtime DOM reported visible elements.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "viewport".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Runtime viewport reported non-zero size.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "interactionSurface".to_string(),
-                            status: WorkStudioFactStatus::NotVerified,
+                            status: WorkBuilderFactStatus::NotVerified,
                             detail: Some("No user path interaction has run.".to_string()),
                         },
                     ],
@@ -6399,42 +6399,42 @@ mod tests {
             .expect("record runtime preview result");
 
         service
-            .record_studio_preview_result(
+            .record_builder_preview_result(
                 &work_id,
-                WorkStudioPreviewResult {
+                WorkBuilderPreviewResult {
                     id: "preview:runtime-boundary:product-app-1".to_string(),
-                    kind: WorkStudioPreviewKind::RuntimeBoundary,
-                    status: WorkStudioFactStatus::Passed,
-                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    kind: WorkBuilderPreviewKind::RuntimeBoundary,
+                    status: WorkBuilderFactStatus::Passed,
+                    source: WorkBuilderPreviewSource::RuntimeObservation,
                     harness_mode: Some("runtime-boundary".to_string()),
                     trigger_turn_id: None,
                     detail: Some("Runtime boundary evidence passed.".to_string()),
                     checks: vec![
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "permissions".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Permission boundary passed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "data".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Data boundary passed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "dataLifecycle".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some(
                                 "Runtime retention and share-impact evidence passed.".to_string(),
                             ),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "dataSummary".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Data summary passed.".to_string()),
                         },
-                        WorkStudioFactCheck {
+                        WorkBuilderFactCheck {
                             id: "runtimeStorage".to_string(),
-                            status: WorkStudioFactStatus::Passed,
+                            status: WorkBuilderFactStatus::Passed,
                             detail: Some("Runtime storage scope passed.".to_string()),
                         },
                     ],
@@ -6454,19 +6454,19 @@ mod tests {
             .expect("record runtime boundary evidence");
 
         service
-            .record_studio_preview_result(
+            .record_builder_preview_result(
                 &work_id,
-                WorkStudioPreviewResult {
+                WorkBuilderPreviewResult {
                     id: "preview:agent-eval:product-app-1".to_string(),
-                    kind: WorkStudioPreviewKind::AgentEval,
-                    status: WorkStudioFactStatus::Passed,
-                    source: WorkStudioPreviewSource::PreviewHarness,
+                    kind: WorkBuilderPreviewKind::AgentEval,
+                    status: WorkBuilderFactStatus::Passed,
+                    source: WorkBuilderPreviewSource::PreviewHarness,
                     harness_mode: Some("agent-eval".to_string()),
                     trigger_turn_id: None,
                     detail: Some("Agent Eval evidence passed.".to_string()),
-                    checks: vec![WorkStudioFactCheck {
+                    checks: vec![WorkBuilderFactCheck {
                         id: "agentEval".to_string(),
-                        status: WorkStudioFactStatus::Passed,
+                        status: WorkBuilderFactStatus::Passed,
                         detail: Some("Agent eval passed.".to_string()),
                     }],
                     work_id: work_id.clone(),
@@ -6486,15 +6486,15 @@ mod tests {
 
         let graph = service.execution_graph(&work_id).await.expect("graph");
         let release_rehearsal = graph
-            .studio_preview_results
+            .builder_preview_results
             .iter()
             .find(|preview| {
-                preview.kind == WorkStudioPreviewKind::ReleaseRehearsal
-                    && preview.source == WorkStudioPreviewSource::ReleaseRehearsal
+                preview.kind == WorkBuilderPreviewKind::ReleaseRehearsal
+                    && preview.source == WorkBuilderPreviewSource::ReleaseRehearsal
             })
             .expect("derived release rehearsal preview result");
 
-        assert_eq!(release_rehearsal.status, WorkStudioFactStatus::NotVerified);
+        assert_eq!(release_rehearsal.status, WorkBuilderFactStatus::NotVerified);
         assert_eq!(
             release_rehearsal
                 .checks
@@ -6502,24 +6502,24 @@ mod tests {
                 .map(|check| (check.id.as_str(), check.status))
                 .collect::<Vec<_>>(),
             vec![
-                ("validation", WorkStudioFactStatus::Passed),
-                ("preview", WorkStudioFactStatus::NotVerified),
-                ("issues", WorkStudioFactStatus::Passed),
-                ("criticalPath", WorkStudioFactStatus::Passed),
-                ("permissions", WorkStudioFactStatus::Passed),
-                ("permissionReview", WorkStudioFactStatus::NotVerified),
-                ("data", WorkStudioFactStatus::Passed),
-                ("dataLifecycle", WorkStudioFactStatus::Passed),
-                ("dataSummary", WorkStudioFactStatus::Passed),
-                ("runtimeStorage", WorkStudioFactStatus::Passed),
-                ("runtimeDependencies", WorkStudioFactStatus::NotVerified),
-                ("agentEval", WorkStudioFactStatus::Passed),
-                ("userPath", WorkStudioFactStatus::NotVerified),
-                ("runtimeReady", WorkStudioFactStatus::Passed),
-                ("visualRoot", WorkStudioFactStatus::Passed),
-                ("viewport", WorkStudioFactStatus::Passed),
-                ("interactionSurface", WorkStudioFactStatus::NotVerified),
-                ("releaseGate", WorkStudioFactStatus::NotVerified),
+                ("validation", WorkBuilderFactStatus::Passed),
+                ("preview", WorkBuilderFactStatus::NotVerified),
+                ("issues", WorkBuilderFactStatus::Passed),
+                ("criticalPath", WorkBuilderFactStatus::Passed),
+                ("permissions", WorkBuilderFactStatus::Passed),
+                ("permissionReview", WorkBuilderFactStatus::NotVerified),
+                ("data", WorkBuilderFactStatus::Passed),
+                ("dataLifecycle", WorkBuilderFactStatus::Passed),
+                ("dataSummary", WorkBuilderFactStatus::Passed),
+                ("runtimeStorage", WorkBuilderFactStatus::Passed),
+                ("runtimeDependencies", WorkBuilderFactStatus::NotVerified),
+                ("agentEval", WorkBuilderFactStatus::Passed),
+                ("userPath", WorkBuilderFactStatus::NotVerified),
+                ("runtimeReady", WorkBuilderFactStatus::Passed),
+                ("visualRoot", WorkBuilderFactStatus::Passed),
+                ("viewport", WorkBuilderFactStatus::Passed),
+                ("interactionSurface", WorkBuilderFactStatus::NotVerified),
+                ("releaseGate", WorkBuilderFactStatus::NotVerified),
             ]
         );
         assert!(release_rehearsal.checks.iter().any(|check| {
@@ -6671,7 +6671,7 @@ mod tests {
                 kind: WorkKind::DelegatedWork,
                 title: "Child".to_string(),
                 objective: "Investigate auth".to_string(),
-                assignment: WorkAssignmentRef::agent("agentic"),
+                assignment: WorkAssignmentRef::agent("Runno"),
                 instructions: "Check auth flow".to_string(),
                 scope: WorkScope::Workspace {
                     workspace_path: "D:/workspace/project".to_string(),
@@ -6704,7 +6704,7 @@ mod tests {
                 },
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::WorkSession,
-                assignment: Some(WorkAssignmentRef::agent("agentic")),
+                assignment: Some(WorkAssignmentRef::agent("Runno")),
                 idempotency_key: None,
                 owner: None,
             })
@@ -6752,7 +6752,7 @@ mod tests {
                 },
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::WorkSession,
-                assignment: Some(WorkAssignmentRef::agent("agentic")),
+                assignment: Some(WorkAssignmentRef::agent("Runno")),
                 idempotency_key: None,
                 owner: Some(WorkOwnerRef {
                     session_id: "os-session".to_string(),
@@ -6789,7 +6789,7 @@ mod tests {
                 },
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::WorkSession,
-                assignment: Some(WorkAssignmentRef::agent("agentic")),
+                assignment: Some(WorkAssignmentRef::agent("Runno")),
                 idempotency_key: None,
                 owner: None,
             })
@@ -6810,14 +6810,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn completed_app_studio_fix_turn_marks_bound_studio_issue_fixed() {
+    async fn completed_app_builder_fix_turn_marks_bound_builder_issue_fixed() {
         let service = service();
         let app = WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:test-lock");
         let response = service
             .resolve_app_work(ResolveAppWorkRequest {
                 app: app.clone(),
                 intent: WorkAppIntent::Develop,
-                title: "Product App Studio".to_string(),
+                title: "Product App Builder".to_string(),
                 objective: "Fix runtime issues".to_string(),
                 scope: WorkScope::System,
                 visibility: WorkVisibility::Secondary,
@@ -6853,18 +6853,18 @@ mod tests {
             .expect("record runtime issue");
 
         let graph = service.execution_graph(&work_id).await.expect("graph");
-        let issue_id = graph.studio_issues[0].id.clone();
-        assert_eq!(graph.studio_issues[0].status, WorkStudioIssueStatus::Open);
+        let issue_id = graph.builder_issues[0].id.clone();
+        assert_eq!(graph.builder_issues[0].status, WorkBuilderIssueStatus::Open);
         assert_eq!(
-            graph.studio_preview_results[0].status,
-            WorkStudioFactStatus::Failed
+            graph.builder_preview_results[0].status,
+            WorkBuilderFactStatus::Failed
         );
 
         service
-            .mark_agent_session_turn_started_with_app_studio_context(
-                "app-studio-session",
+            .mark_agent_session_turn_started_with_app_builder_context(
+                "app-builder-session",
                 "fix-turn-1",
-                Some(WorkExecutionAppStudioContext {
+                Some(WorkExecutionAppBuilderContext {
                     work_id: Some(work_id.clone()),
                     issue_id: issue_id.clone(),
                     product_app_id: Some("product-app-1".to_string()),
@@ -6890,31 +6890,31 @@ mod tests {
             .expect("mark completed")
             .expect("matched work");
         let issue = completed
-            .studio_issues
+            .builder_issues
             .iter()
             .find(|issue| issue.id == issue_id)
-            .expect("studio issue");
-        assert_eq!(issue.status, WorkStudioIssueStatus::Fixed);
+            .expect("builder issue");
+        assert_eq!(issue.status, WorkBuilderIssueStatus::Fixed);
         assert!(issue.resolved_at.is_some());
         assert_eq!(
-            completed.studio_preview_results[0].status,
-            WorkStudioFactStatus::Ready
+            completed.builder_preview_results[0].status,
+            WorkBuilderFactStatus::Ready
         );
         assert!(completed.execution_bindings.iter().any(|binding| binding
-            .app_studio
+            .app_builder
             .as_ref()
             .is_some_and(|context| context.issue_id == issue_id)));
     }
 
     #[tokio::test]
-    async fn studio_preview_observation_ready_resolves_runtime_issues() {
+    async fn builder_preview_observation_ready_resolves_runtime_issues() {
         let service = service();
         let app = WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:test-lock");
         let response = service
             .resolve_app_work(ResolveAppWorkRequest {
                 app,
                 intent: WorkAppIntent::Develop,
-                title: "Product App Studio".to_string(),
+                title: "Product App Builder".to_string(),
                 objective: "Verify preview".to_string(),
                 scope: WorkScope::System,
                 visibility: WorkVisibility::Secondary,
@@ -6950,17 +6950,17 @@ mod tests {
             .expect("record runtime issue");
 
         let graph = service.execution_graph(&work_id).await.expect("graph");
-        let issue_id = graph.studio_issues[0].id.clone();
-        assert_eq!(graph.studio_issues[0].status, WorkStudioIssueStatus::Open);
+        let issue_id = graph.builder_issues[0].id.clone();
+        assert_eq!(graph.builder_issues[0].status, WorkBuilderIssueStatus::Open);
 
         service
-            .record_studio_preview_result(
+            .record_builder_preview_result(
                 &work_id,
-                WorkStudioPreviewResult {
+                WorkBuilderPreviewResult {
                     id: format!("preview:{runtime_instance_id}"),
-                    kind: WorkStudioPreviewKind::ProductAppPreview,
-                    status: WorkStudioFactStatus::Ready,
-                    source: WorkStudioPreviewSource::RuntimeObservation,
+                    kind: WorkBuilderPreviewKind::ProductAppPreview,
+                    status: WorkBuilderFactStatus::Ready,
+                    source: WorkBuilderPreviewSource::RuntimeObservation,
                     harness_mode: Some("product-app-preview".to_string()),
                     trigger_turn_id: None,
                     detail: Some("Preview iframe loaded.".to_string()),
@@ -6982,20 +6982,20 @@ mod tests {
 
         let graph = service.execution_graph(&work_id).await.expect("graph");
         let issue = graph
-            .studio_issues
+            .builder_issues
             .iter()
             .find(|issue| issue.id == issue_id)
-            .expect("studio issue");
-        assert_eq!(issue.status, WorkStudioIssueStatus::Fixed);
+            .expect("builder issue");
+        assert_eq!(issue.status, WorkBuilderIssueStatus::Fixed);
         assert_eq!(issue.resolved_at, Some(900));
         assert_eq!(
-            graph.studio_preview_results[0].status,
-            WorkStudioFactStatus::Ready
+            graph.builder_preview_results[0].status,
+            WorkBuilderFactStatus::Ready
         );
-        assert_eq!(graph.studio_preview_results[0].issue_count, 0);
+        assert_eq!(graph.builder_preview_results[0].issue_count, 0);
         assert_eq!(
-            graph.studio_preview_results[0].source,
-            WorkStudioPreviewSource::RuntimeObservation
+            graph.builder_preview_results[0].source,
+            WorkBuilderPreviewSource::RuntimeObservation
         );
     }
 
@@ -7007,7 +7007,7 @@ mod tests {
             .resolve_app_work(ResolveAppWorkRequest {
                 app,
                 intent: WorkAppIntent::Develop,
-                title: "Product App Studio".to_string(),
+                title: "Product App Builder".to_string(),
                 objective: "Verify preview".to_string(),
                 scope: WorkScope::System,
                 visibility: WorkVisibility::Secondary,
@@ -7043,13 +7043,13 @@ mod tests {
             .expect("record runtime issue");
 
         service
-            .record_studio_preview_result(
+            .record_builder_preview_result(
                 &work_id,
-                WorkStudioPreviewResult {
+                WorkBuilderPreviewResult {
                     id: format!("preview:{runtime_instance_id}"),
-                    kind: WorkStudioPreviewKind::ProductAppPreview,
-                    status: WorkStudioFactStatus::Failed,
-                    source: WorkStudioPreviewSource::PreviewHarness,
+                    kind: WorkBuilderPreviewKind::ProductAppPreview,
+                    status: WorkBuilderFactStatus::Failed,
+                    source: WorkBuilderPreviewSource::PreviewHarness,
                     harness_mode: Some("product-app-preview".to_string()),
                     trigger_turn_id: None,
                     detail: Some("Preview runtime fatal: Preview crashed".to_string()),
@@ -7071,16 +7071,16 @@ mod tests {
 
         let graph = service.execution_graph(&work_id).await.expect("graph");
         assert_eq!(
-            graph.studio_issues[0].status,
-            WorkStudioIssueStatus::StillOpen
+            graph.builder_issues[0].status,
+            WorkBuilderIssueStatus::StillOpen
         );
         assert_eq!(
-            graph.studio_preview_results[0].status,
-            WorkStudioFactStatus::Failed
+            graph.builder_preview_results[0].status,
+            WorkBuilderFactStatus::Failed
         );
         assert_eq!(
-            graph.studio_preview_results[0].source,
-            WorkStudioPreviewSource::PreviewHarness
+            graph.builder_preview_results[0].source,
+            WorkBuilderPreviewSource::PreviewHarness
         );
     }
 
@@ -7092,7 +7092,7 @@ mod tests {
             .resolve_app_work(ResolveAppWorkRequest {
                 app,
                 intent: WorkAppIntent::Develop,
-                title: "Product App Studio".to_string(),
+                title: "Product App Builder".to_string(),
                 objective: "Verify preview".to_string(),
                 scope: WorkScope::System,
                 visibility: WorkVisibility::Secondary,
@@ -7110,13 +7110,13 @@ mod tests {
         let work_id = response.work.id.clone();
 
         service
-            .record_studio_preview_result(
+            .record_builder_preview_result(
                 &work_id,
-                WorkStudioPreviewResult {
+                WorkBuilderPreviewResult {
                     id: format!("preview:{work_id}:runtime-resolve"),
-                    kind: WorkStudioPreviewKind::ProductAppPreview,
-                    status: WorkStudioFactStatus::Blocked,
-                    source: WorkStudioPreviewSource::PreviewHarness,
+                    kind: WorkBuilderPreviewKind::ProductAppPreview,
+                    status: WorkBuilderFactStatus::Blocked,
+                    source: WorkBuilderPreviewSource::PreviewHarness,
                     harness_mode: Some("product-app-preview".to_string()),
                     trigger_turn_id: None,
                     detail: Some(
@@ -7141,31 +7141,31 @@ mod tests {
 
         let graph = service.execution_graph(&work_id).await.expect("graph");
         let blocked_preview = graph
-            .studio_preview_results
+            .builder_preview_results
             .iter()
-            .find(|preview| preview.kind == WorkStudioPreviewKind::ProductAppPreview)
+            .find(|preview| preview.kind == WorkBuilderPreviewKind::ProductAppPreview)
             .expect("blocked preview result");
-        assert_eq!(blocked_preview.status, WorkStudioFactStatus::Blocked);
+        assert_eq!(blocked_preview.status, WorkBuilderFactStatus::Blocked);
         assert_eq!(blocked_preview.runtime_instance_id, None);
         let release_rehearsal = graph
-            .studio_preview_results
+            .builder_preview_results
             .iter()
-            .find(|preview| preview.kind == WorkStudioPreviewKind::ReleaseRehearsal)
+            .find(|preview| preview.kind == WorkBuilderPreviewKind::ReleaseRehearsal)
             .expect("release rehearsal preview result");
-        assert_eq!(release_rehearsal.status, WorkStudioFactStatus::Failed);
-        assert_eq!(graph.studio_issues.len(), 1);
+        assert_eq!(release_rehearsal.status, WorkBuilderFactStatus::Failed);
+        assert_eq!(graph.builder_issues.len(), 1);
         assert_eq!(
-            graph.studio_issues[0].origin,
-            WorkStudioIssueOrigin::Preview
+            graph.builder_issues[0].origin,
+            WorkBuilderIssueOrigin::Preview
         );
-        assert_eq!(graph.studio_issues[0].runtime_instance_id, None);
+        assert_eq!(graph.builder_issues[0].runtime_instance_id, None);
         assert_eq!(
-            graph.studio_issues[0].preview_result_id.as_deref(),
+            graph.builder_issues[0].preview_result_id.as_deref(),
             Some(blocked_preview.id.as_str())
         );
-        assert_eq!(graph.studio_issues[0].status, WorkStudioIssueStatus::Open);
+        assert_eq!(graph.builder_issues[0].status, WorkBuilderIssueStatus::Open);
         assert_eq!(
-            graph.studio_issues[0].severity,
+            graph.builder_issues[0].severity,
             WorkRuntimeIssueSeverity::Fatal
         );
     }
@@ -7178,7 +7178,7 @@ mod tests {
             .resolve_app_work(ResolveAppWorkRequest {
                 app,
                 intent: WorkAppIntent::Develop,
-                title: "Product App Studio".to_string(),
+                title: "Product App Builder".to_string(),
                 objective: "Verify preview".to_string(),
                 scope: WorkScope::System,
                 visibility: WorkVisibility::Secondary,
@@ -7216,22 +7216,22 @@ mod tests {
             .execution_graph(&work_id)
             .await
             .expect("graph")
-            .studio_issues[0]
+            .builder_issues[0]
             .id
             .clone();
         service
-            .update_studio_issue_status(&work_id, &issue_id, WorkStudioIssueStatus::Fixed)
+            .update_builder_issue_status(&work_id, &issue_id, WorkBuilderIssueStatus::Fixed)
             .await
             .expect("mark fixed");
 
         service
-            .record_studio_preview_result(
+            .record_builder_preview_result(
                 &work_id,
-                WorkStudioPreviewResult {
+                WorkBuilderPreviewResult {
                     id: format!("preview:{runtime_instance_id}"),
-                    kind: WorkStudioPreviewKind::ProductAppPreview,
-                    status: WorkStudioFactStatus::Failed,
-                    source: WorkStudioPreviewSource::FixRerun,
+                    kind: WorkBuilderPreviewKind::ProductAppPreview,
+                    status: WorkBuilderFactStatus::Failed,
+                    source: WorkBuilderPreviewSource::FixRerun,
                     harness_mode: Some("product-app-preview".to_string()),
                     trigger_turn_id: Some("fix-turn-1".to_string()),
                     detail: Some("Preview rerun failed.".to_string()),
@@ -7253,20 +7253,20 @@ mod tests {
 
         let graph = service.execution_graph(&work_id).await.expect("graph");
         let issue = graph
-            .studio_issues
+            .builder_issues
             .iter()
             .find(|issue| issue.id == issue_id)
-            .expect("studio issue");
-        assert_eq!(issue.status, WorkStudioIssueStatus::Regressed);
+            .expect("builder issue");
+        assert_eq!(issue.status, WorkBuilderIssueStatus::Regressed);
         assert_eq!(issue.resolved_at, None);
         assert_eq!(
-            graph.studio_preview_results[0].status,
-            WorkStudioFactStatus::Failed
+            graph.builder_preview_results[0].status,
+            WorkBuilderFactStatus::Failed
         );
-        assert_eq!(graph.studio_preview_results[0].fatal_issue_count, 1);
+        assert_eq!(graph.builder_preview_results[0].fatal_issue_count, 1);
         assert_eq!(
-            graph.studio_preview_results[0].source,
-            WorkStudioPreviewSource::FixRerun
+            graph.builder_preview_results[0].source,
+            WorkBuilderPreviewSource::FixRerun
         );
     }
 
@@ -7286,7 +7286,7 @@ mod tests {
                 },
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::WorkSession,
-                assignment: Some(WorkAssignmentRef::agent("agentic")),
+                assignment: Some(WorkAssignmentRef::agent("Runno")),
                 idempotency_key: None,
                 owner: None,
             })
@@ -7333,7 +7333,7 @@ mod tests {
                 },
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::WorkSession,
-                assignment: Some(WorkAssignmentRef::agent("agentic")),
+                assignment: Some(WorkAssignmentRef::agent("Runno")),
                 idempotency_key: None,
                 owner: None,
             })
@@ -7375,7 +7375,7 @@ mod tests {
                 },
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::WorkSession,
-                assignment: Some(WorkAssignmentRef::agent("agentic")),
+                assignment: Some(WorkAssignmentRef::agent("Runno")),
                 idempotency_key: None,
                 owner: None,
             })
@@ -7411,7 +7411,7 @@ mod tests {
                 },
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::WorkSession,
-                assignment: Some(WorkAssignmentRef::agent("agentic")),
+                assignment: Some(WorkAssignmentRef::agent("Runno")),
                 idempotency_key: None,
                 owner: None,
             })
@@ -7450,7 +7450,7 @@ mod tests {
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::WorkSession,
                 primary_surface: None,
-                assignment: Some(WorkAssignmentRef::agent("agentic")),
+                assignment: Some(WorkAssignmentRef::agent("Runno")),
                 title_state: Some(WorkTitleState::template()),
                 delegation: None,
             })
@@ -7493,7 +7493,7 @@ mod tests {
                 },
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::WorkSession,
-                assignment: Some(WorkAssignmentRef::agent("agentic")),
+                assignment: Some(WorkAssignmentRef::agent("Runno")),
                 idempotency_key: None,
                 owner: None,
             })

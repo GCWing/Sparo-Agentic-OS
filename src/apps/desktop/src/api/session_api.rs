@@ -4,6 +4,8 @@ use crate::api::app_state::AppState;
 use crate::api::session_storage_path::{
     desktop_effective_session_storage_path, SessionStorageScopeDto,
 };
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use sparo_core::agentic::persistence::{
     PersistenceManager, SessionBranchRequest, SessionBranchResult,
 };
@@ -16,8 +18,6 @@ use sparo_core::service::session::{
     DialogTurnData, SessionMetadata, SessionTranscriptExport, SessionTranscriptExportOptions,
 };
 use sparo_core::util::types::ToolDefinition;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -161,15 +161,17 @@ fn resolve_model_config_for_budget<'a>(
 
 fn normalize_context_budget_agent_type(agent_type: &str) -> String {
     match agent_type.trim().to_ascii_lowercase().as_str() {
-        "" | "code" | "coding" | "agentic" => "agentic".to_string(),
-        "plan" => "Plan".to_string(),
+        "" => "Runno".to_string(),
+        "runno" => "Runno".to_string(),
+        "bitfun-coder" | "bitfun_coder" => "bitfun-coder".to_string(),
+        "bitfun-plan" | "bitfun_plan" => "bitfun-plan".to_string(),
         "cowork" => "Cowork".to_string(),
         "design" => "Design".to_string(),
-        "debug" => "debug".to_string(),
-        "team" => "Team".to_string(),
+        "bitfun-debug" | "bitfun_debug" => "bitfun-debug".to_string(),
+        "bitfun-team" | "bitfun_team" => "bitfun-team".to_string(),
         "osagent" | "os-agent" | "os_agent" => "OSAgent".to_string(),
         "deepresearch" | "deep-research" | "deep_research" => "DeepResearch".to_string(),
-        "appstudio" | "app-studio" | "app_studio" => "AppStudio".to_string(),
+        "appbuilder" | "app-builder" | "app_builder" => "AppBuilder".to_string(),
         _ => agent_type.trim().to_string(),
     }
 }
@@ -193,7 +195,7 @@ async fn build_tool_definitions_for_budget(
         dialog_turn_id: None,
         workspace: workspace.cloned(),
         custom_data: tool_opts_custom,
-        app_studio: None,
+        app_builder: None,
         computer_use_host: None,
         cancellation_token: None,
         runtime_tool_restrictions: ToolRuntimeRestrictions::default(),

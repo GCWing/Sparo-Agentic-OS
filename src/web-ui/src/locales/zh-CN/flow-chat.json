@@ -40,7 +40,8 @@
     "toBottom": "回到底部",
     "toBottomWithCount": "回到底部 ({{count}} 条新消息)",
     "toLatest": "跳转到最新消息",
-    "clickToLatest": "点击跳转到最新"
+    "clickToLatest": "点击跳转到最新",
+    "anchorJumpToTurn": "跳转到{{turn}}：{{title}}"
   },
   "message": {
     "user": "用户",
@@ -335,7 +336,7 @@
       "more": "更多面板",
       "designs": "设计产物",
       "designTokens": "设计令牌",
-      "appStudio": "应用工作室"
+      "appBuilder": "应用构建器"
     },
     "goalPanel": {
       "open": "目标详情",

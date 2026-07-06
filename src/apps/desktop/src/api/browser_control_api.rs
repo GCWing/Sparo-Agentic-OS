@@ -1,10 +1,10 @@
 //! Browser control API — Tauri commands for CDP-based browser control.
 
+use serde::{Deserialize, Serialize};
 use sparo_core::agentic::tools::browser_control::browser_launcher::{
     BrowserKind, BrowserLauncher, LaunchResult, DEFAULT_CDP_PORT,
 };
 use sparo_core::agentic::tools::browser_control::cdp_client::CdpClient;
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -6,9 +6,9 @@ describe('resolveWorkspaceChatInputMode', () => {
   it('keeps unchanged agents as-is', () => {
     expect(
       resolveWorkspaceChatInputMode({
-        currentAgent: 'Plan',
+        currentAgent: 'bitfun-plan',
         isAssistantWorkspace: false,
-        sessionMode: 'Plan',
+        sessionMode: 'bitfun-plan',
       })
     ).toBeNull();
   });
@@ -16,37 +16,37 @@ describe('resolveWorkspaceChatInputMode', () => {
   it('syncs when switching between project sessions with different agents', () => {
     expect(
       resolveWorkspaceChatInputMode({
-        currentAgent: 'Plan',
+        currentAgent: 'bitfun-plan',
         isAssistantWorkspace: false,
-        sessionMode: 'agentic',
+        sessionMode: 'bitfun-coder',
       })
-    ).toBe('agentic');
+    ).toBe('bitfun-coder');
   });
 
-  it('restores agentic when the current mode is stale', () => {
+  it('restores BitFun Coder when the current mode is stale', () => {
     expect(
       resolveWorkspaceChatInputMode({
-        currentAgent: 'Plan',
+        currentAgent: 'bitfun-plan',
         isAssistantWorkspace: false,
-        sessionMode: 'agentic',
+        sessionMode: 'bitfun-coder',
       })
-    ).toBe('agentic');
+    ).toBe('bitfun-coder');
   });
 
   it('restores Cowork when the current mode is stale', () => {
     expect(
       resolveWorkspaceChatInputMode({
-        currentAgent: 'agentic',
+        currentAgent: 'bitfun-coder',
         isAssistantWorkspace: false,
         sessionMode: 'Cowork',
       })
     ).toBe('Cowork');
   });
 
-  it('falls back to agentic if a project session has no mode yet', () => {
+  it('keeps the current mode if a project session has no mode yet', () => {
     expect(
       resolveWorkspaceChatInputMode({
-        currentAgent: 'Plan',
+        currentAgent: 'bitfun-plan',
         isAssistantWorkspace: false,
         sessionMode: undefined,
       })

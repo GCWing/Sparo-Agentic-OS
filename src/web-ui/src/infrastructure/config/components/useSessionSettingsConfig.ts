@@ -17,8 +17,7 @@ const log = createLogger('SessionSettingsConfig');
 
 export const IS_TAURI_DESKTOP = typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || '__TAURI__' in window);
 export const AGENT_SESSION_TITLE = 'session-title-func-agent';
-const PRIME_BUILDER_DEBUG_CONFIG_PATH = 'smart_apps.apps.coding-app.debug';
-const LEGACY_DEBUG_CONFIG_PATH = 'ai.debug_mode_config';
+const BITFUN_CODER_DEBUG_CONFIG_PATH = 'product_apps.apps.builtin-bitfun-coder.debug';
 const DEFAULT_GOAL_MAX_CONTINUATION_TURNS = 100;
 const MIN_GOAL_MAX_CONTINUATION_TURNS = 1;
 const MAX_GOAL_MAX_CONTINUATION_TURNS = 1000;
@@ -41,13 +40,9 @@ type UseSessionSettingsConfigOptions = {
   loadDesktopStatus?: boolean;
 };
 
-async function loadPrimeBuilderDebugConfig(): Promise<DebugModeConfig | null> {
-  const current = await configManager
-    .getConfig<DebugModeConfig>(PRIME_BUILDER_DEBUG_CONFIG_PATH)
-    .catch(() => null);
-  if (current) return current;
+async function loadBitFunCoderDebugConfig(): Promise<DebugModeConfig | null> {
   return configManager
-    .getConfig<DebugModeConfig>(LEGACY_DEBUG_CONFIG_PATH)
+    .getConfig<DebugModeConfig>(BITFUN_CODER_DEBUG_CONFIG_PATH)
     .catch(() => null);
 }
 
@@ -153,7 +148,7 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
         configManager.getConfig<number | null>('ai.tool_execution_timeout_secs'),
         configManager.getConfig<number | null>('ai.tool_confirmation_timeout_secs'),
         configManager.getConfig<number | null>('ai.goal_mode.max_continuation_turns'),
-        loadPrimeBuilderDebugConfig(),
+        loadBitFunCoderDebugConfig(),
         configManager.getConfig<boolean>('ai.computer_use_enabled'),
       ]);
 
@@ -408,7 +403,7 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
   const saveDebugConfig = async () => {
     try {
       setDebugSaving(true);
-      await configManager.setConfig(PRIME_BUILDER_DEBUG_CONFIG_PATH, debugConfig);
+      await configManager.setConfig(BITFUN_CODER_DEBUG_CONFIG_PATH, debugConfig);
       setDebugHasChanges(false);
       notificationService.success(tDebug('messages.saveSuccess'), { duration: 2000 });
     } catch (error) {
@@ -420,7 +415,7 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
   };
 
   const cancelDebugChanges = async () => {
-    const data = await loadPrimeBuilderDebugConfig();
+    const data = await loadBitFunCoderDebugConfig();
     setDebugConfig(data ?? DEFAULT_DEBUG_MODE_CONFIG);
     setDebugHasChanges(false);
   };
@@ -437,8 +432,8 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
 
   const resetDebugTemplates = async () => {
     try {
-      await configManager.resetConfig(PRIME_BUILDER_DEBUG_CONFIG_PATH);
-      const data = await loadPrimeBuilderDebugConfig();
+      await configManager.resetConfig(BITFUN_CODER_DEBUG_CONFIG_PATH);
+      const data = await loadBitFunCoderDebugConfig();
       setDebugConfig(data ?? DEFAULT_DEBUG_MODE_CONFIG);
       setDebugHasChanges(false);
       notificationService.success(tDebug('messages.resetSuccess'), { duration: 2000 });
@@ -470,7 +465,7 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
     };
     setDebugConfig(newConfig);
     try {
-      await configManager.setConfig(PRIME_BUILDER_DEBUG_CONFIG_PATH, newConfig);
+      await configManager.setConfig(BITFUN_CODER_DEBUG_CONFIG_PATH, newConfig);
       const templateName = debugConfig.language_templates[language]?.display_name || language;
       notificationService.success(
         newEnabled

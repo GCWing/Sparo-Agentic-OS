@@ -1,0 +1,57 @@
+{
+  "id": "builtin-design-agent",
+  "kind": "agent",
+  "name": "Design Agent",
+  "description": "Design backend agent for artifacts, prototypes, and visual systems.",
+  "packageSource": "appPrivate",
+  "ownerApp": {
+    "appId": "builtin-design",
+    "appVersion": "1.0.0"
+  },
+  "capabilities": [
+    {
+      "id": "design",
+      "title": "Design",
+      "description": "Create and refine visual and product design artifacts.",
+      "actions": [
+        "design",
+        "revise"
+      ]
+    },
+    {
+      "id": "prototype",
+      "title": "Prototype",
+      "description": "Shape interactive prototypes and implementation-ready design guidance.",
+      "actions": [
+        "prototype",
+        "handoff"
+      ]
+    }
+  ],
+  "permissions": [
+    {
+      "kind": "ai",
+      "summary": "Uses the Design agent.",
+      "scopes": [
+        "Design"
+      ]
+    }
+  ],
+  "usedByApps": [
+    "builtin-design"
+  ],
+  "visibility": "appDependency",
+  "dependencies": [],
+  "implementationRef": "agent://Design",
+  "usesCapabilities": [
+    "filesystem.read",
+    "filesystem.write",
+    "workspace.inspect",
+    "workspace.modify",
+    "session.read",
+    "session.write",
+    "memory.read",
+    "model.invoke",
+    "tool.invoke"
+  ]
+}

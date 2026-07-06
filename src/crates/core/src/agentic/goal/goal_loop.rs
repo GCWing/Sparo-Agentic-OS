@@ -469,7 +469,7 @@ impl GoalService {
                 user_input: display_text.clone(),
                 original_user_input: Some(display_text),
                 turn_id: None,
-                agent_type: agent_type.unwrap_or("agentic").to_string(),
+                agent_type: agent_type.unwrap_or("Runno").to_string(),
                 system_reminder_override: Some(system_reminder),
                 owner: SessionWorkOwner::goal(record.goal_id.clone(), record.revision),
                 queue_priority: DialogQueuePriority::Low,

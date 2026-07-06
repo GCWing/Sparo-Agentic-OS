@@ -32,6 +32,8 @@ import {
 } from '@/design-system';
 import {
   appCatalogAPI,
+  localizeCatalogApps,
+  type AppAuthor,
   type AppComponentRef,
   type AppIconSpec,
   type ComponentDefinition,
@@ -78,15 +80,14 @@ const MANAGE_SORT_KEYS: ManageSortKey[] = ['attention', 'name', 'status', 'scope
 const HOME_APP_FIRST_REVEAL_DELAY_MS = 40;
 const HOME_APP_REVEAL_INTERVAL_MS = 120;
 
-const NATIVE_AGENT_CHOICES_BY_APP_ID: Record<string, 'agentic' | 'Cowork' | 'Design'> = {
-  'prime-builder': 'agentic',
-  cowork: 'Cowork',
-  design: 'Design',
+const NATIVE_AGENT_CHOICES_BY_APP_ID: Record<string, 'Runno' | 'AppBuilder'> = {
+  runno: 'Runno',
+  'app-builder': 'AppBuilder',
 };
 
 type AppDisplayEntry = Pick<
   NativeAppCatalogEntry | ProductAppCatalogEntry,
-  'id' | 'name' | 'description' | 'goal' | 'icon' | 'category' | 'tags'
+  'id' | 'name' | 'description' | 'authors' | 'icon' | 'category' | 'tags'
 > & {
   dependencySummary?: string | null;
 };
@@ -168,7 +169,6 @@ function appMatchesSearch(app: AppDisplayEntry, query: string): boolean {
     app.id,
     app.name,
     app.description,
-    app.goal,
     app.category,
     ...(app.tags ?? []),
     app.dependencySummary ?? '',
@@ -231,6 +231,51 @@ function nativeAgentChoiceForApp(app: NativeAppCatalogEntry): string | null {
   return NATIVE_AGENT_CHOICES_BY_APP_ID[app.id] ?? app.launch?.agentType ?? app.launch?.targetId ?? null;
 }
 
+function visibleAuthors(authors?: AppAuthor[] | null): AppAuthor[] {
+  return (authors ?? []).filter((author) => author.name.trim().length > 0);
+}
+
+function AppAuthorLine({
+  authors,
+  t,
+}: {
+  authors?: AppAuthor[] | null;
+  t: (key: string, options?: Record<string, unknown>) => string;
+}) {
+  const visible = visibleAuthors(authors);
+  if (!visible.length) return null;
+
+  const label = visible.length > 1
+    ? t('productSystem.fields.authors')
+    : t('productSystem.fields.author');
+
+  return (
+    <span className="apps-scene__app-card-authors">
+      <span className="apps-scene__app-card-authors-label">{label}</span>
+      <span className="apps-scene__app-card-authors-separator" aria-hidden>·</span>
+      <span className="apps-scene__app-card-authors-list">
+        {visible.map((author, index) => (
+          <React.Fragment key={`${author.name}-${author.url ?? index}`}>
+            {index > 0 ? ', ' : null}
+            {author.url ? (
+              <a
+                href={author.url}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(event) => event.stopPropagation()}
+              >
+                {author.name}
+              </a>
+            ) : (
+              <span>{author.name}</span>
+            )}
+          </React.Fragment>
+        ))}
+      </span>
+    </span>
+  );
+}
+
 function appRefFromWork(work: WorkRecord): WorkAppRef | null {
   if (work.subject.kind === 'app') return work.subject.app;
   return work.appRefs.find((relation) => relation.role === 'subject')?.app
@@ -271,7 +316,7 @@ function modeForPage(page: ReturnType<typeof useAppsStore.getState>['page']): Ap
 }
 
 export const AppsScene: React.FC = () => {
-  const { t } = useTranslation('scenes/apps');
+  const { t, i18n } = useTranslation('scenes/apps');
   const {
     lastUsedWorkspace,
     rememberWorkspace,
@@ -619,9 +664,30 @@ export const AppsScene: React.FC = () => {
     }
   }, [refreshWorks, worksLoaded]);
 
-  const homeDisplayApps = visibleHomeApps;
-  const managementApps = libraryLoaded ? libraryApps : homeApps;
-  const detailApps = libraryLoaded ? libraryApps : homeApps;
+  const currentLocale = i18n.language;
+  const displayNativeApps = useMemo(
+    () => localizeCatalogApps(nativeApps, currentLocale),
+    [currentLocale, nativeApps],
+  );
+  const localizedHomeApps = useMemo(
+    () => localizeCatalogApps(homeApps, currentLocale),
+    [currentLocale, homeApps],
+  );
+  const localizedVisibleHomeApps = useMemo(
+    () => localizeCatalogApps(visibleHomeApps, currentLocale),
+    [currentLocale, visibleHomeApps],
+  );
+  const localizedVisibleDiscoverApps = useMemo(
+    () => localizeCatalogApps(visibleDiscoverApps, currentLocale),
+    [currentLocale, visibleDiscoverApps],
+  );
+  const localizedLibraryApps = useMemo(
+    () => localizeCatalogApps(libraryApps, currentLocale),
+    [currentLocale, libraryApps],
+  );
+  const homeDisplayApps = localizedVisibleHomeApps;
+  const managementApps = libraryLoaded ? localizedLibraryApps : localizedHomeApps;
+  const detailApps = libraryLoaded ? localizedLibraryApps : localizedHomeApps;
   const homeSyncActive = productHomeLoading || homeRevealPendingCount > 0;
   const discoverSyncActive = libraryLoading || discoverRevealPendingCount > 0;
   const loading = nativeLoading || productHomeLoading || libraryLoading || componentsLoading;
@@ -642,8 +708,8 @@ export const AppsScene: React.FC = () => {
     [runningProductAppRuntimeIds],
   );
 
-  const launchNativeApps = useMemo(() => nativeApps
-    .filter((app) => appMatchesSearch(app, launchQuery)), [launchQuery, nativeApps]);
+  const launchNativeApps = useMemo(() => displayNativeApps
+    .filter((app) => appMatchesSearch(app, launchQuery)), [displayNativeApps, launchQuery]);
 
   const launchApps = useMemo(() => homeDisplayApps
     .filter((app) => app.installed === true)
@@ -654,8 +720,8 @@ export const AppsScene: React.FC = () => {
 
   const launchCardCount = launchNativeApps.length + launchApps.length;
 
-  const discoverApps = useMemo(() => visibleDiscoverApps
-    .filter((app) => appMatchesSearch(app, launchQuery)), [launchQuery, visibleDiscoverApps]);
+  const discoverApps = useMemo(() => localizedVisibleDiscoverApps
+    .filter((app) => appMatchesSearch(app, launchQuery)), [launchQuery, localizedVisibleDiscoverApps]);
   const showDiscoverPanel = discoverSyncActive || discoverApps.length > 0;
 
   const manageApps = useMemo(() => {
@@ -670,7 +736,7 @@ export const AppsScene: React.FC = () => {
     .map((work) => ({ work, appRef: appRefFromWork(work) }))
     .filter((item): item is { work: WorkRecord; appRef: WorkAppRef } => Boolean(item.appRef))
     .filter((item) => {
-      const nativeApp = nativeApps.find((candidate) => sameAppRef(nativeAppWorkRef(candidate.id), item.appRef));
+      const nativeApp = displayNativeApps.find((candidate) => sameAppRef(nativeAppWorkRef(candidate.id), item.appRef));
       if (nativeApp) {
         return nativeAppSupportsMultipleWorks(nativeApp)
           && workMatchesSearch(item.work, nativeApp.name, launchQuery);
@@ -682,7 +748,7 @@ export const AppsScene: React.FC = () => {
         && getCatalogAppLaunchBehavior(app).supportsMultipleWorks
         && workMatchesSearch(item.work, app?.name, launchQuery);
     })
-    .sort((left, right) => right.work.updatedAt - left.work.updatedAt), [homeDisplayApps, launchQuery, nativeApps, works]);
+    .sort((left, right) => right.work.updatedAt - left.work.updatedAt), [displayNativeApps, homeDisplayApps, launchQuery, works]);
 
   const filteredComponents = useMemo(() => components
     .filter((component) => componentFilter === 'all' || component.kind === componentFilter)
@@ -690,7 +756,7 @@ export const AppsScene: React.FC = () => {
 
   const selectedApp = selectedAppId ? appsById.get(selectedAppId) ?? null : null;
   const selectedNativeApp = selectedAppKind === 'native' && selectedAppId
-    ? nativeApps.find((app) => app.id === selectedAppId) ?? null
+    ? displayNativeApps.find((app) => app.id === selectedAppId) ?? null
     : null;
   const selectedAppComponents = useMemo(
     () => selectedApp ? resolveAppComponents(selectedApp, components) : [],
@@ -716,14 +782,14 @@ export const AppsScene: React.FC = () => {
   const continueWorksByNativeAppId = useMemo(() => {
     const byApp = new Map<string, Array<{ work: WorkRecord; appRef: WorkAppRef }>>();
     for (const item of continueWorks) {
-      const app = nativeApps.find((candidate) => sameAppRef(nativeAppWorkRef(candidate.id), item.appRef));
+      const app = displayNativeApps.find((candidate) => sameAppRef(nativeAppWorkRef(candidate.id), item.appRef));
       if (!app) continue;
       const current = byApp.get(app.id) ?? [];
       current.push(item);
       byApp.set(app.id, current);
     }
     return byApp;
-  }, [continueWorks, nativeApps]);
+  }, [continueWorks, displayNativeApps]);
 
   const handleLaunchApp = useCallback(async (app: ProductAppCatalogEntry) => {
     if (app.installed !== true) {
@@ -735,7 +801,7 @@ export const AppsScene: React.FC = () => {
       if (
         app.launch?.kind === 'applicationSurface'
         || app.launch?.kind === 'agentSession'
-        || app.launch?.kind === 'appStudio'
+        || app.launch?.kind === 'appBuilder'
       ) {
         if (catalogAppRequiresWorkspace(app)) {
           setWorkspaceLaunchApp(app);
@@ -746,7 +812,7 @@ export const AppsScene: React.FC = () => {
           workspace: lastUsedWorkspace ?? null,
           rememberWorkspace,
           title: app.name,
-          objective: app.goal || app.description || app.name,
+          objective: app.description || app.name,
         });
         return;
       }
@@ -765,7 +831,7 @@ export const AppsScene: React.FC = () => {
   const handleLaunchNativeApp = useCallback(async (app: NativeAppCatalogEntry) => {
     setLaunchingAppId(app.id);
     try {
-      if (app.launch?.kind === 'agentSession' || app.launch?.kind === 'appStudio') {
+      if (app.launch?.kind === 'agentSession' || app.launch?.kind === 'appBuilder') {
         const agentChoice = nativeAgentChoiceForApp(app);
         if (!agentChoice) {
           notificationService.error(t('productSystem.messages.noLaunch', { name: app.name }));
@@ -776,7 +842,7 @@ export const AppsScene: React.FC = () => {
           workspace: lastUsedWorkspace ?? null,
           rememberWorkspace,
           title: app.name,
-          objective: app.goal || app.description || app.name,
+          objective: app.description || app.name,
           appRef: nativeAppWorkRef(app.id),
           workResolutionMode: getCatalogAppLaunchBehavior(app).workResolutionMode,
         });
@@ -899,14 +965,14 @@ export const AppsScene: React.FC = () => {
     setFlippedAppId((current) => (current === appId ? null : appId));
   }, []);
 
-  const handleOpenAppStudio = useCallback(async () => {
-    const appStudio = nativeApps.find((app) => app.id === 'app-studio') ?? null;
-    if (!appStudio) {
-      notificationService.error(t('productSystem.messages.noLaunch', { name: 'App Studio' }));
+  const handleOpenAppBuilder = useCallback(async () => {
+    const appBuilder = displayNativeApps.find((app) => app.id === 'app-builder') ?? null;
+    if (!appBuilder) {
+      notificationService.error(t('productSystem.messages.noLaunch', { name: 'App Builder' }));
       return;
     }
-    await handleLaunchNativeApp(appStudio);
-  }, [handleLaunchNativeApp, nativeApps, t]);
+    await handleLaunchNativeApp(appBuilder);
+  }, [displayNativeApps, handleLaunchNativeApp, t]);
 
   const workspaceLaunchDialog = (
     <NewWorkDialog
@@ -973,7 +1039,7 @@ export const AppsScene: React.FC = () => {
           onFilter={setComponentFilter}
           onSelect={(component) => openComponentCenter(component.id)}
           onClearSelection={() => openComponentCenter(null)}
-          onCreateComponent={handleOpenAppStudio}
+          onCreateComponent={handleOpenAppBuilder}
           t={t}
         />
         {appDetailDialog}
@@ -1013,7 +1079,7 @@ export const AppsScene: React.FC = () => {
           onInstall={(app) => void handleInstallProductApp(app)}
           onSetEnabled={(app, enabled) => void handleSetProductAppEnabled(app, enabled)}
           onUninstall={(app) => void handleUninstallProductApp(app)}
-          onCreateApp={handleOpenAppStudio}
+          onCreateApp={handleOpenAppBuilder}
           t={t}
         />
         {appDetailDialog}
@@ -1061,7 +1127,7 @@ export const AppsScene: React.FC = () => {
           }}
           actions={(
             <div className="apps-scene__header-actions apps-scene__launch-actions">
-              <Button variant="primary" size="small" onClick={() => void handleOpenAppStudio()}>
+              <Button variant="primary" size="small" onClick={() => void handleOpenAppBuilder()}>
                 <Plus size={14} aria-hidden />
                 <span>{t('productSystem.actions.createApp')}</span>
               </Button>
@@ -1085,7 +1151,7 @@ export const AppsScene: React.FC = () => {
             {continueWorks.length ? (
               <div className="apps-scene__inline-resume-items">
                 {continueWorks.map(({ work, appRef }) => {
-                  const nativeApp = nativeApps.find((candidate) => sameAppRef(nativeAppWorkRef(candidate.id), appRef));
+                  const nativeApp = displayNativeApps.find((candidate) => sameAppRef(nativeAppWorkRef(candidate.id), appRef));
                   const app = nativeApp
                     ?? homeDisplayApps.find((candidate) => sameProductAppRef(productAppWorkRef(candidate), appRef));
                   return (
@@ -1568,6 +1634,7 @@ function NativeAppCard({
                 />
                 <ItemCardTitle className="apps-scene__app-card-title">
                   <span>{app.name}</span>
+                  <AppAuthorLine authors={app.authors} t={t} />
                 </ItemCardTitle>
                 <CardPrimaryAction
                   supportsMultipleWorks={supportsMultipleWorks}
@@ -1585,7 +1652,7 @@ function NativeAppCard({
                   hasStack && 'apps-scene__app-card-description--compact',
                 ].filter(Boolean).join(' ')}
               >
-                {app.goal || app.description}
+                {app.description}
               </p>
               {hasStack ? (
                 <CardStackLink count={relatedWorks.length} onClick={onToggleFlip} t={t} />
@@ -1648,6 +1715,7 @@ function DiscoverAppCard({
         </span>
         <ItemCardTitle className="apps-scene__app-card-title">
           <span>{app.name}</span>
+          <AppAuthorLine authors={app.authors} t={t} />
         </ItemCardTitle>
         <IconButton
           variant="ghost"
@@ -1663,7 +1731,7 @@ function DiscoverAppCard({
           <Download size={14} aria-hidden />
         </IconButton>
       </ItemCardTop>
-      <p className="apps-scene__app-card-description">{app.goal || app.description}</p>
+      <p className="apps-scene__app-card-description">{app.description}</p>
     </ItemCard>
   );
 }
@@ -1735,6 +1803,7 @@ function ProductAppCard({
                 />
                 <ItemCardTitle className="apps-scene__app-card-title">
                   <span>{app.name}</span>
+                  <AppAuthorLine authors={app.authors} t={t} />
                 </ItemCardTitle>
                 <CardPrimaryAction
                   supportsMultipleWorks={supportsMultipleWorks}
@@ -1752,7 +1821,7 @@ function ProductAppCard({
                   hasStack && 'apps-scene__app-card-description--compact',
                 ].filter(Boolean).join(' ')}
               >
-                {app.goal || app.description}
+                {app.description}
               </p>
               {hasStack ? (
                 <CardStackLink count={relatedWorks.length} onClick={onToggleFlip} t={t} />

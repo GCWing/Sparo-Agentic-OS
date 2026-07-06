@@ -42,10 +42,7 @@ pub(crate) async fn build_memory_files_context_for_target(
     }
 }
 
-async fn build_memory_space_sections(
-    scope: MemoryScope,
-    memory_dir: &Path,
-) -> CoreResult<String> {
+async fn build_memory_space_sections(scope: MemoryScope, memory_dir: &Path) -> CoreResult<String> {
     let primary_sections = build_primary_memory_sections(scope, memory_dir).await?;
     let recent_logs_section = build_recent_log_section(memory_dir).await?;
 

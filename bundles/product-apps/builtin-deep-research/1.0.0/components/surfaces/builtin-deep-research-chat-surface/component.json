@@ -36,5 +36,9 @@
       ]
     }
   ],
-  "implementationRef": "app://builtin-deep-research@1.0.0/surfaces/builtin-deep-research-chat-surface"
+  "implementationRef": "app://builtin-deep-research@1.0.0/surfaces/builtin-deep-research-chat-surface",
+  "usesCapabilities": [
+    "session.read",
+    "component.run"
+  ]
 }

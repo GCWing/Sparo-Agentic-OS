@@ -20,7 +20,7 @@ use sparo_events::{AgenticEvent as CoreEvent, ToolEventData};
 fn agent_display_name(agent_type: &str, workspace_path: Option<&PathBuf>) -> String {
     let agent_type = agent_type.trim();
     if agent_type.is_empty() {
-        return "Prime Builder".to_string();
+        return "Runno".to_string();
     }
 
     sparo_core::agentic::agents::get_agent_registry()
@@ -81,7 +81,7 @@ impl CoreAgentAdapter {
         self.agent_type
             .read()
             .map(|agent_type| agent_type.clone())
-            .unwrap_or_else(|_| "agentic".to_string())
+            .unwrap_or_else(|_| "Runno".to_string())
     }
 
     async fn ensure_session(&self) -> Result<String> {
@@ -448,7 +448,7 @@ impl Agent for CoreAgentAdapter {
     fn set_agent_type(&self, agent_type: String) -> Result<()> {
         if let Ok(mut current_agent_type) = self.agent_type.write() {
             *current_agent_type = if agent_type.trim().is_empty() {
-                "agentic".to_string()
+                "Runno".to_string()
             } else {
                 agent_type
             };
@@ -472,7 +472,7 @@ impl Agent for CoreAgentAdapter {
 
         if let Ok(mut current_agent_type) = self.agent_type.write() {
             *current_agent_type = if agent_type.trim().is_empty() {
-                "agentic".to_string()
+                "Runno".to_string()
             } else {
                 agent_type
             };
@@ -529,8 +529,9 @@ mod tests {
 
     #[test]
     fn agent_display_name_uses_live_registry_names() {
-        assert_eq!(agent_display_name("agentic", None), "Prime Builder");
-        assert_eq!(agent_display_name("debug", None), "Debug");
+        assert_eq!(agent_display_name("Runno", None), "Runno");
+        assert_eq!(agent_display_name("bitfun-coder", None), "BitFun Coder");
+        assert_eq!(agent_display_name("bitfun-debug", None), "Debug");
     }
 
     #[test]
@@ -539,6 +540,6 @@ mod tests {
             agent_display_name("custom-experimental-agent", None),
             "custom-experimental-agent"
         );
-        assert_eq!(agent_display_name("  ", None), "Prime Builder");
+        assert_eq!(agent_display_name("  ", None), "Runno");
     }
 }

@@ -1,6 +1,14 @@
 //! Cross-platform `ComputerUseHost` via `screenshots` + `enigo`.
 
 use async_trait::async_trait;
+use enigo::{Axis, Button, Coordinate, Direction, Enigo, Key, Keyboard, Mouse, Settings};
+use image::codecs::jpeg::JpegEncoder;
+use image::{DynamicImage, Rgb, RgbImage};
+use log::{debug, warn};
+use resvg::tiny_skia::{Pixmap, Transform};
+use resvg::usvg;
+use screenshots::display_info::DisplayInfo;
+use screenshots::Screen;
 #[cfg(target_os = "macos")]
 use sparo_core::agentic::tools::computer_use_host::VisualMark;
 use sparo_core::agentic::tools::computer_use_host::{
@@ -23,14 +31,6 @@ use sparo_core::agentic::tools::computer_use_host::{
 };
 use sparo_core::agentic::tools::computer_use_optimizer::ComputerUseOptimizer;
 use sparo_core::error::{CoreError, CoreResult};
-use enigo::{Axis, Button, Coordinate, Direction, Enigo, Key, Keyboard, Mouse, Settings};
-use image::codecs::jpeg::JpegEncoder;
-use image::{DynamicImage, Rgb, RgbImage};
-use log::{debug, warn};
-use resvg::tiny_skia::{Pixmap, Transform};
-use resvg::usvg;
-use screenshots::display_info::DisplayInfo;
-use screenshots::Screen;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
@@ -1088,10 +1088,8 @@ end tell"#])
         use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
         use core_graphics::geometry::CGPoint;
 
-        let source =
-            CGEventSource::new(CGEventSourceStateID::CombinedSessionState).map_err(|_| {
-                CoreError::tool("CGEventSource create failed (mouse_move)".to_string())
-            })?;
+        let source = CGEventSource::new(CGEventSourceStateID::CombinedSessionState)
+            .map_err(|_| CoreError::tool("CGEventSource create failed (mouse_move)".to_string()))?;
         let pt = CGPoint { x, y };
         let ev = CGEvent::new_mouse_event(source, CGEventType::MouseMoved, pt, CGMouseButton::Left)
             .map_err(|_| CoreError::tool("CGEvent MouseMoved failed".to_string()))?;
@@ -1337,11 +1335,7 @@ end tell"#])
     }
 
     /// Square region in global logical coordinates for raw OCR preview crops around `(cx, cy)`.
-    fn ocr_region_square_around_point(
-        cx: f64,
-        cy: f64,
-        half: u32,
-    ) -> CoreResult<OcrRegionNative> {
+    fn ocr_region_square_around_point(cx: f64, cy: f64, half: u32) -> CoreResult<OcrRegionNative> {
         let hh = half as f64;
         let x0 = (cx - hh).floor() as i32;
         let y0 = (cy - hh).floor() as i32;
@@ -1581,9 +1575,7 @@ end tell"#])
                 native_h,
             );
             let Some(new_rect) = intersect_navigation_rect(expanded, full_rect) else {
-                return Err(CoreError::tool(
-                    "Quadrant crop out of bounds.".to_string(),
-                ));
+                return Err(CoreError::tool("Quadrant crop out of bounds.".to_string()));
             };
             let cropped = Self::crop_rgb(
                 &full_frame,
@@ -2921,9 +2913,7 @@ impl ComputerUseHost for DesktopComputerUseHost {
                 .or_else(|| Screen::from_point(mx, my).ok())
                 .or_else(|| Screen::from_point(0, 0).ok())
                 .ok_or_else(|| {
-                    CoreError::tool(
-                        "Screen capture init (peek): no display available".to_string(),
-                    )
+                    CoreError::tool("Screen capture init (peek): no display available".to_string())
                 })?;
             let rgba = screen
                 .capture()

@@ -28,42 +28,73 @@ impl SessionMessageTool {
 
 #[derive(Debug, Clone, Deserialize)]
 enum SessionMessageAgentType {
-    #[serde(rename = "agentic", alias = "Agentic", alias = "AGENTIC")]
-    Agentic,
-    #[serde(rename = "Plan", alias = "plan", alias = "PLAN")]
-    Plan,
+    #[serde(rename = "Runno", alias = "runno", alias = "RUNNO")]
+    Runno,
+    #[serde(rename = "bitfun-coder", alias = "BitFunCoder", alias = "bitfun_coder")]
+    BitFunCoder,
+    #[serde(rename = "bitfun-plan", alias = "BitFunPlan", alias = "bitfun_plan")]
+    BitFunPlan,
+    #[serde(rename = "bitfun-debug", alias = "BitFunDebug", alias = "bitfun_debug")]
+    BitFunDebug,
+    #[serde(rename = "bitfun-team", alias = "BitFunTeam", alias = "bitfun_team")]
+    BitFunTeam,
     #[serde(rename = "Cowork", alias = "cowork", alias = "COWORK")]
     Cowork,
     #[serde(rename = "Design", alias = "design", alias = "DESIGN")]
     Design,
+    #[serde(
+        rename = "DeepResearch",
+        alias = "deepresearch",
+        alias = "deep-research",
+        alias = "deep_research"
+    )]
+    DeepResearch,
 }
 
 impl SessionMessageAgentType {
     fn as_str(&self) -> &'static str {
         match self {
-            Self::Agentic => "agentic",
-            Self::Plan => "Plan",
+            Self::Runno => "Runno",
+            Self::BitFunCoder => "bitfun-coder",
+            Self::BitFunPlan => "bitfun-plan",
+            Self::BitFunDebug => "bitfun-debug",
+            Self::BitFunTeam => "bitfun-team",
             Self::Cowork => "Cowork",
             Self::Design => "Design",
+            Self::DeepResearch => "DeepResearch",
         }
     }
 
     fn from_str(value: &str) -> Option<Self> {
-        if value.eq_ignore_ascii_case("agentic") {
-            Some(Self::Agentic)
-        } else if value.eq_ignore_ascii_case("plan") {
-            Some(Self::Plan)
+        if value.eq_ignore_ascii_case("Runno") {
+            Some(Self::Runno)
+        } else if value.eq_ignore_ascii_case("bitfun-coder") {
+            Some(Self::BitFunCoder)
+        } else if value.eq_ignore_ascii_case("bitfun-plan") {
+            Some(Self::BitFunPlan)
+        } else if value.eq_ignore_ascii_case("bitfun-debug") {
+            Some(Self::BitFunDebug)
+        } else if value.eq_ignore_ascii_case("bitfun-team") {
+            Some(Self::BitFunTeam)
         } else if value.eq_ignore_ascii_case("cowork") {
             Some(Self::Cowork)
         } else if value.eq_ignore_ascii_case("design") {
             Some(Self::Design)
+        } else if value.eq_ignore_ascii_case("deepresearch")
+            || value.eq_ignore_ascii_case("deep-research")
+            || value.eq_ignore_ascii_case("deep_research")
+        {
+            Some(Self::DeepResearch)
         } else {
             None
         }
     }
 
     fn is_coding_mode(&self) -> bool {
-        matches!(self, Self::Agentic | Self::Plan)
+        matches!(
+            self,
+            Self::BitFunCoder | Self::BitFunPlan | Self::BitFunDebug | Self::BitFunTeam
+        )
     }
 }
 
@@ -86,12 +117,16 @@ impl Tool for SessionMessageTool {
             r#"Asynchronously send a message to another agent session. When the target session finishes, its result is automatically sent back to you as a follow-up message.
 
 You must provide the target workspace as an absolute path, and you can optionally set agent_type to choose how the target session handles the request:
-- "agentic": BitFun Coder, the default execution agent for coding, debugging, automation, tests, and verified workspace changes.
-- "Plan": Planning agent for clarifying requirements and producing an implementation plan before coding.
+- "Runno": OS-native general execution for planning, automation, implementation, and verification.
+- "bitfun-coder": BitFun Coder's default coding mode.
+- "bitfun-plan": BitFun Coder planning mode for clarifying requirements and producing an implementation plan before coding.
+- "bitfun-debug": BitFun Coder debugging mode for diagnosing and repairing defects with evidence.
+- "bitfun-team": BitFun Coder team mode for role-based software delivery.
 - "Cowork": Collaborative agent for office-style work such as research, documentation, presentations, etc.
 - "Design": Design-focused agent for HTML prototypes, design artifacts, and visual exploration.
+- "DeepResearch": Deep research agent for source-backed research and synthesis.
 
-When overriding an existing session's agent_type, only switching between "agentic" and "Plan" is allowed. It will not switch coding sessions to or from "Cowork" or "Design"."#
+When overriding an existing BitFun Coder session's agent_type, only switching among the "bitfun-*" modes is allowed. It will not switch sessions to or from "Runno", "Cowork", "Design", or "DeepResearch"."#
                 .to_string(),
         )
     }
@@ -114,7 +149,7 @@ When overriding an existing session's agent_type, only switching between "agenti
                 },
                 "agent_type": {
                     "type": "string",
-                    "enum": ["agentic", "Plan", "Cowork", "Design"],
+                    "enum": ["Runno", "bitfun-coder", "bitfun-plan", "bitfun-debug", "bitfun-team", "Cowork", "Design", "DeepResearch"],
                     "description": "Optional target agent type. Defaults to the target session's current agent type."
                 }
             },
@@ -279,11 +314,11 @@ When overriding an existing session's agent_type, only switching between "agenti
         let persisted_agent_type = target_session.agent_type.trim();
         let target_agent_type = if let Some(requested_agent_type) = params.agent_type.as_ref() {
             let current_agent_type = if persisted_agent_type.is_empty() {
-                SessionMessageAgentType::Agentic
+                SessionMessageAgentType::Runno
             } else {
                 SessionMessageAgentType::from_str(persisted_agent_type).ok_or_else(|| {
                     CoreError::tool(format!(
-                        "SessionMessage agent_type override is only supported for sessions using 'agentic', 'Plan', 'Cowork', or 'Design'. Current agent type is '{}'.",
+                        "SessionMessage agent_type override is only supported for sessions using 'Runno', 'bitfun-coder', 'bitfun-plan', 'bitfun-debug', 'bitfun-team', 'Cowork', 'Design', or 'DeepResearch'. Current agent type is '{}'.",
                         persisted_agent_type
                     ))
                 })?
@@ -293,7 +328,7 @@ When overriding an existing session's agent_type, only switching between "agenti
                 && !(requested_agent_type.is_coding_mode() && current_agent_type.is_coding_mode())
             {
                 return Err(CoreError::tool(format!(
-                    "SessionMessage only allows agent_type override between 'agentic' and 'Plan'. Cannot switch session '{}' from '{}' to '{}'.",
+                    "SessionMessage only allows agent_type override among BitFun Coder modes. Cannot switch session '{}' from '{}' to '{}'.",
                     target_session_id,
                     current_agent_type.as_str(),
                     requested_agent_type.as_str()
@@ -302,7 +337,7 @@ When overriding an existing session's agent_type, only switching between "agenti
 
             requested_agent_type.as_str().to_string()
         } else if persisted_agent_type.is_empty() {
-            "agentic".to_string()
+            "Runno".to_string()
         } else {
             persisted_agent_type.to_string()
         };

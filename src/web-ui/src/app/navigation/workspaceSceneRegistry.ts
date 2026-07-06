@@ -8,6 +8,7 @@ import {
   Wrench,
   ExternalLink,
   LayoutDashboard,
+  MailOpen,
 } from 'lucide-react';
 import { SparoSubagentIcon } from '@/design-system';
 import type { WorkspaceSceneDef, WorkspaceSceneId } from './workspaceSceneTypes';
@@ -78,6 +79,12 @@ export const WORKSPACE_SCENE_REGISTRY: WorkspaceSceneDef[] = [
     label: 'Work Center',
     labelKey: 'scenes.workCenter',
     Icon: LayoutDashboard,
+  },
+  {
+    id: 'daily-letter',
+    label: 'Daily Letter',
+    labelKey: 'scenes.dailyLetter',
+    Icon: MailOpen,
   },
 ];
 

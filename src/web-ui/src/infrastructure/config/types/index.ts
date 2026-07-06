@@ -7,7 +7,7 @@ export interface GlobalConfig {
   terminal: TerminalConfig;
   workspace: WorkspaceConfig;
   ai: AIConfig;
-  smart_apps?: SmartAppsConfig;
+  product_apps?: ProductAppsConfig;
   version: string;
   last_modified: number;
 }
@@ -224,11 +224,11 @@ export interface AutoMemoryScopeConfig {
   force_extract_after_pending_eligible_turns?: number | null;
 }
 
-export interface SmartAppsConfig {
-  apps: Record<string, SmartAppConfig>;
+export interface ProductAppsConfig {
+  apps: Record<string, ProductAppConfig>;
 }
 
-export interface SmartAppConfig {
+export interface ProductAppConfig {
   debug?: DebugModeConfig | null;
   [key: string]: unknown;
 }

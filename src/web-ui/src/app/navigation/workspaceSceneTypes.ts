@@ -4,6 +4,7 @@ export type WorkspaceSceneId =
   | 'terminal'
   | 'settings'
   | 'file-viewer'
+  | 'daily-letter'
   | 'memory'
   | 'apps'
   | 'subagents'

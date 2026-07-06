@@ -1,8 +1,8 @@
 use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
 };
-use crate::infrastructure::events::event_system::{get_global_event_system, BackendEvent};
 use crate::error::{CoreError, CoreResult};
+use crate::infrastructure::events::event_system::{get_global_event_system, BackendEvent};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};

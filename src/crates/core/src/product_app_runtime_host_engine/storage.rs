@@ -1,11 +1,11 @@
 //! Product App Runtime Host storage: persist and load under user data dir.
 
+use crate::error::{CoreError, CoreResult};
 use crate::product_app_runtime_host_engine::types::{
     NpmDep, ProductAppRuntimeHostEntry, ProductAppRuntimeHostSource,
     ProductAppRuntimeHostSourceFile, ProductAppRuntimeHostSourceFileKind,
     ProductAppRuntimeHostSurface, ProductAppRuntimeHostSurfaceMeta,
 };
-use crate::error::{CoreError, CoreResult};
 use serde_json;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -317,10 +317,7 @@ impl ProductAppRuntimeHostStorage {
     }
 
     /// Load only source files and package dependencies from disk.
-    pub async fn load_source_only(
-        &self,
-        app_id: &str,
-    ) -> CoreResult<ProductAppRuntimeHostSource> {
+    pub async fn load_source_only(&self, app_id: &str) -> CoreResult<ProductAppRuntimeHostSource> {
         self.load_source(app_id).await
     }
 
@@ -402,13 +399,11 @@ impl ProductAppRuntimeHostStorage {
             })?;
         }
 
-        let esm_json = serde_json::to_string_pretty(&app.source.esm_dependencies)
-            .map_err(CoreError::from)?;
+        let esm_json =
+            serde_json::to_string_pretty(&app.source.esm_dependencies).map_err(CoreError::from)?;
         tokio::fs::write(sd.join(ESM_DEPS_JSON), esm_json)
             .await
-            .map_err(|e| {
-                CoreError::io(format!("Failed to write esm_dependencies.json: {}", e))
-            })?;
+            .map_err(|e| CoreError::io(format!("Failed to write esm_dependencies.json: {}", e)))?;
         let i18n_json =
             serde_json::to_string_pretty(&app.source.i18n_messages).map_err(CoreError::from)?;
         tokio::fs::write(sd.join(I18N_JSON), i18n_json)
@@ -458,9 +453,9 @@ impl ProductAppRuntimeHostStorage {
                             CoreError::io(format!("Failed to create source file dir: {}", e))
                         })?;
                     }
-                    tokio::fs::copy(&path, &dest).await.map_err(|e| {
-                        CoreError::io(format!("Failed to copy source file: {}", e))
-                    })?;
+                    tokio::fs::copy(&path, &dest)
+                        .await
+                        .map_err(|e| CoreError::io(format!("Failed to copy source file: {}", e)))?;
                 }
             }
         }

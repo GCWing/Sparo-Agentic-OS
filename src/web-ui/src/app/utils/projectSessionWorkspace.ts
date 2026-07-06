@@ -51,7 +51,7 @@ function isEmptyReusableSession(session: Session, workspace: WorkspaceInfo, buck
 
 /**
  * If the workspace already has a main session with no dialog turns for the same UI mode
- * (Code / Cowork / Design / App Studio), return its id so callers can switch instead of creating another.
+ * (Runno / BitFun Coder / Cowork / Design / App Builder), return its id so callers can switch instead of creating another.
  */
 export function findReusableEmptySessionId(
   workspace: WorkspaceInfo,
@@ -72,10 +72,10 @@ export function findReusableEmptySessionId(
 }
 
 /**
- * Reuses an in-memory empty App Studio session (any storage), or global agentic_os empty ones.
+ * Reuses an in-memory empty App Builder session (any storage), or global agentic_os empty ones.
  * Product App data lives under the app data dir; the chat session is not tied to a user-picked project path.
  */
-export function findReusableEmptyAppStudioSessionId(): string | null {
+export function findReusableEmptyAppBuilderSessionId(): string | null {
   const sessions = flowChatStore.getState().sessions;
   let best: { id: string; lastActiveAt: number } | null = null;
   for (const session of sessions.values()) {
@@ -88,7 +88,7 @@ export function findReusableEmptyAppStudioSessionId(): string | null {
     if (session.dialogTurns.length > 0) {
       continue;
     }
-    if (sessionDisplayBucket(session) !== 'appstudio') {
+    if (sessionDisplayBucket(session) !== 'app-builder') {
       continue;
     }
     if (!best || session.lastActiveAt > best.lastActiveAt) {
@@ -99,7 +99,7 @@ export function findReusableEmptyAppStudioSessionId(): string | null {
 }
 
 /**
- * Code / Cowork / Design sessions belong to project workspaces.
+ * Workspace-scoped task sessions belong to project workspaces.
  */
 export function pickWorkspaceForProjectChatSession(
   lastUsedWorkspace: WorkspaceInfo | null | undefined,

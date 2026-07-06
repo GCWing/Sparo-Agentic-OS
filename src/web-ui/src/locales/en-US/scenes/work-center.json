@@ -112,6 +112,7 @@
       "host_scan": "Host scan",
       "workspace_overview_refresh": "Workspace overview refresh",
       "global_daily_report": "Global daily report",
+      "daily_letter": "Daily letter",
       "global_milestone": "Global milestone"
     },
     "categories": {
@@ -151,7 +152,8 @@
       "refreshing_workspace_overview": "Refreshing overview",
       "consolidating_memory": "Consolidating memory",
       "extracting_memory": "Extracting memory",
-      "generating_report": "Generating report"
+      "generating_report": "Generating report",
+      "writing_daily_letter": "Writing daily letter"
     },
     "scopeLabel": {
       "system": "System"

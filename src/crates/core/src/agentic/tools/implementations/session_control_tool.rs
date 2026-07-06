@@ -268,23 +268,40 @@ impl SessionControlAction {
 
 #[derive(Debug, Clone, Deserialize)]
 enum SessionControlAgentType {
-    #[serde(rename = "agentic", alias = "Agentic", alias = "AGENTIC")]
-    Agentic,
-    #[serde(rename = "Plan", alias = "plan", alias = "PLAN")]
-    Plan,
+    #[serde(rename = "Runno", alias = "runno", alias = "RUNNO")]
+    Runno,
+    #[serde(rename = "bitfun-coder", alias = "BitFunCoder", alias = "bitfun_coder")]
+    BitFunCoder,
+    #[serde(rename = "bitfun-plan", alias = "BitFunPlan", alias = "bitfun_plan")]
+    BitFunPlan,
+    #[serde(rename = "bitfun-debug", alias = "BitFunDebug", alias = "bitfun_debug")]
+    BitFunDebug,
+    #[serde(rename = "bitfun-team", alias = "BitFunTeam", alias = "bitfun_team")]
+    BitFunTeam,
     #[serde(rename = "Cowork", alias = "cowork", alias = "COWORK")]
     Cowork,
     #[serde(rename = "Design", alias = "design", alias = "DESIGN")]
     Design,
+    #[serde(
+        rename = "DeepResearch",
+        alias = "deepresearch",
+        alias = "deep-research",
+        alias = "deep_research"
+    )]
+    DeepResearch,
 }
 
 impl SessionControlAgentType {
     fn as_str(&self) -> &'static str {
         match self {
-            Self::Agentic => "agentic",
-            Self::Plan => "Plan",
+            Self::Runno => "Runno",
+            Self::BitFunCoder => "bitfun-coder",
+            Self::BitFunPlan => "bitfun-plan",
+            Self::BitFunDebug => "bitfun-debug",
+            Self::BitFunTeam => "bitfun-team",
             Self::Cowork => "Cowork",
             Self::Design => "Design",
+            Self::DeepResearch => "DeepResearch",
         }
     }
 }
@@ -319,11 +336,15 @@ Required inputs:
 
 Optional inputs:
 - "session_name": Only used by create. Defaults to "New Session".
-- "agent_type": Only used by create. Defaults to "agentic".
-  - "agentic": BitFun Coder, the default execution agent for coding, debugging, automation, tests, and verified workspace changes.
-  - "Plan": Planning agent for clarifying requirements and producing an implementation plan before coding.
+- "agent_type": Only used by create. Defaults to "Runno".
+  - "Runno": OS-native general execution for planning, automation, implementation, and verification.
+  - "bitfun-coder": BitFun Coder, the system built-in Product App agent for coding, debugging, automation, tests, and verified workspace changes.
+  - "bitfun-plan": BitFun Coder planning mode for clarifying requirements and producing an implementation plan before coding.
+  - "bitfun-debug": BitFun Coder debugging mode for diagnosing and repairing defects with evidence.
+  - "bitfun-team": BitFun Coder team mode for role-based software delivery.
   - "Cowork": Collaborative agent for office-style work such as research, documentation, presentations, etc.
   - "Design": Design-focused agent for HTML prototypes, design artifacts, and visual exploration.
+  - "DeepResearch": Deep research agent for source-backed research and synthesis.
 - "session_id": Required for cancel and delete."#
                 .to_string(),
         )
@@ -352,8 +373,8 @@ Optional inputs:
                 },
                 "agent_type": {
                     "type": "string",
-                    "enum": ["agentic", "Plan", "Cowork", "Design"],
-                    "description": "Optional agent type when creating a session. Defaults to agentic."
+                    "enum": ["Runno", "bitfun-coder", "bitfun-plan", "bitfun-debug", "bitfun-team", "Cowork", "Design", "DeepResearch"],
+                    "description": "Optional agent type when creating a session. Defaults to Runno."
                 }
             },
             "required": ["action", "workspace"],
@@ -524,7 +545,7 @@ Optional inputs:
                     .agent_type
                     .as_ref()
                     .map(|agent_type| agent_type.as_str().to_string())
-                    .unwrap_or_else(|| "agentic".to_string());
+                    .unwrap_or_else(|| "Runno".to_string());
                 let created_by = self.creator_session_marker(context)?;
 
                 let session = coordinator
@@ -728,7 +749,7 @@ mod tests {
             dialog_turn_id: None,
             workspace: None,
             custom_data: HashMap::new(),
-            app_studio: None,
+            app_builder: None,
             computer_use_host: None,
             cancellation_token: None,
             runtime_tool_restrictions: Default::default(),

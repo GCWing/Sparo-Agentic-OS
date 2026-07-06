@@ -70,5 +70,9 @@
       ]
     }
   ],
-  "implementationRef": "app://builtin-harmony-dev@13.0.0/surfaces/builtin-harmony-dev-surface"
+  "implementationRef": "app://builtin-harmony-dev@13.0.0/surfaces/builtin-harmony-dev-surface",
+  "usesCapabilities": [
+    "session.read",
+    "component.run"
+  ]
 }

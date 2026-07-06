@@ -6,14 +6,22 @@
     "welcome": "Welcome to Sparo OS"
   },
   "agents": {
-    "general": {
-      "name": "General Assistant",
-      "description": "General AI assistant that can answer a wide range of questions"
-    },
-    "coder": {
-      "name": "BitFun Coder",
-      "description": "Default execution agent for turning goals into verified workspace results"
-    },
+      "general": {
+        "name": "General Assistant",
+        "description": "General AI assistant that can answer a wide range of questions"
+      },
+      "runno": {
+        "name": "Runno",
+        "description": "Native general execution agent for planning, automation, implementation, and verification"
+      },
+      "coder": {
+        "name": "BitFun Coder",
+        "description": "Professional coding Product App for implementation, debugging, automation, verification, and handoff"
+      },
+      "bitfunCoder": {
+        "name": "BitFun Coder",
+        "description": "Professional coding Product App for implementation, debugging, automation, verification, and handoff"
+      },
     "projectQa": {
       "name": "Project QA Agent",
       "description": "Project assistant focused on Q&A and codebase exploration"
@@ -403,7 +411,8 @@
     "mermaidEditor": "Mermaid",
     "shell": "Shell",
     "panelView": "Panel View",
-    "workCenter": "Work Center"
+    "workCenter": "Work Center",
+    "dailyLetter": "Daily Letter"
   },
   "overlay": {
     "returnToAgenticOS": "Return to Agentic OS"

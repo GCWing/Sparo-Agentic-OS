@@ -4,8 +4,8 @@
 //! standalone relay-server binary. Uses `MemoryAssetStore` for in-memory
 //! mobile-web file storage (no disk I/O for uploaded assets).
 
-use sparo_relay_server::{build_relay_router, MemoryAssetStore, RoomManager};
 use log::info;
+use sparo_relay_server::{build_relay_router, MemoryAssetStore, RoomManager};
 use std::sync::Arc;
 
 /// Start the embedded relay and return a shutdown handle.

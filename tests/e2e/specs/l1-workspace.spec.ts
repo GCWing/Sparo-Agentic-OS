@@ -4,7 +4,7 @@
  */
 
 import { browser, expect, $ } from '@wdio/globals';
-import { ensureCodeSessionOpen, getWorkspaceState, openWorkspace } from '../helpers/workspace-helper';
+import { ensureBitFunCoderSessionOpen, getWorkspaceState, openWorkspace } from '../helpers/workspace-helper';
 
 describe('L1 Workspace Management', () => {
   let hasWorkspace = false;
@@ -92,7 +92,7 @@ describe('L1 Workspace Management', () => {
         return;
       }
 
-      await ensureCodeSessionOpen();
+      await ensureBitFunCoderSessionOpen();
 
       const chatInputSelectors = [
         '[data-testid="chat-input-container"]',

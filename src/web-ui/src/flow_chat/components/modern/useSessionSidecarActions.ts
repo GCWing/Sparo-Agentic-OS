@@ -33,7 +33,7 @@ export function useSessionSidecarActions(): FlowChatSidecarActionViewModel[] {
   const primaryGroup = useCanvasStore(state => state.primaryGroup);
   const secondaryGroup = useCanvasStore(state => state.secondaryGroup);
   const tertiaryGroup = useCanvasStore(state => state.tertiaryGroup);
-  const storeStudioAppId = useProductAppRuntimeStore(state =>
+  const storeBuilderAppId = useProductAppRuntimeStore(state =>
     activeSession?.sessionId ? state.sessionAppIds[activeSession.sessionId] : undefined
   );
 
@@ -43,13 +43,13 @@ export function useSessionSidecarActions(): FlowChatSidecarActionViewModel[] {
     }
 
     const agentSessionBinding = activeSession.customMetadata?.agentSessionBinding;
-    const studioAppId = agentSessionBinding?.subject.kind === 'product-app'
+    const builderAppId = agentSessionBinding?.subject.kind === 'product-app'
       ? agentSessionBinding.subject.id
-      : storeStudioAppId;
+      : storeBuilderAppId;
 
     const extra: Record<string, unknown> = {
-      appId: studioAppId,
-      tabTitle: 'App Studio',
+      appId: builderAppId,
+      tabTitle: 'App Builder',
       agentSessionBinding,
       customMetadata: activeSession.customMetadata,
       productAppRuntime: activeSession.customMetadata?.productAppRuntime,
@@ -109,7 +109,7 @@ export function useSessionSidecarActions(): FlowChatSidecarActionViewModel[] {
     primaryGroup,
     profile,
     secondaryGroup,
-    storeStudioAppId,
+    storeBuilderAppId,
     t,
     tertiaryGroup,
   ]);

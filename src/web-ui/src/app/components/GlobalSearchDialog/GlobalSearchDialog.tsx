@@ -12,6 +12,7 @@ import type { WorkspaceInfo } from '@/shared/types';
 import { sessionAPI } from '@/infrastructure/api';
 import {
   appCatalogAPI,
+  localizeCatalogApps,
   type ComponentDefinition,
   type ProductAppCatalogEntry,
   type WorkObjectKind,
@@ -30,7 +31,7 @@ import { isSystemAgenticOsSession } from '@/flow_chat/domain/sessionDescriptor';
 import { notificationService } from '@/shared/notification-system';
 import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
 import { useAppsStore } from '@/app/scenes/apps/appsStore';
-import { openAppStudioSession } from '@/app/scenes/apps/app-studio/openAppStudioSession';
+import { openAppBuilderSession } from '@/app/scenes/apps/app-builder/openAppBuilderSession';
 import type { ArtifactRef, WorkRecord } from '@/app/agentic-os/work/domain/workTypes';
 import './GlobalSearchDialog.scss';
 
@@ -75,7 +76,6 @@ function matchesProductApp(query: string, app: ProductAppCatalogEntry): boolean 
     app.id,
     app.name,
     app.description,
-    app.goal,
     app.category,
     app.dependencySummary,
     ...(app.tags ?? [])
@@ -106,7 +106,6 @@ function matchesWorkObject(query: string, app: ProductAppCatalogEntry, workObjec
     query,
     app.id,
     app.name,
-    app.goal,
     app.description,
     workObject.id,
     workObject.label,
@@ -232,7 +231,7 @@ function buildMergedSessionEntries(
 }
 
 const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }) => {
-  const { t } = useI18n('common');
+  const { t, currentLanguage } = useI18n('common');
   const { t: tApps } = useI18n('scenes/apps');
   const { openedWorkspacesList, lastUsedWorkspace, rememberWorkspace } = useWorkspaceContext();
   const { works, projections } = useWorks();
@@ -335,6 +334,10 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
     () => new Set(openedWorkspacesList.map(workspace => workspace.id)),
     [openedWorkspacesList]
   );
+  const localizedProductApps = useMemo(
+    () => localizeCatalogApps(productApps, currentLanguage),
+    [currentLanguage, productApps],
+  );
 
   const sessionsInOpenedWorkspaces = useMemo((): Array<{ session: Session; workspace: WorkspaceInfo }> => {
     const result: Array<{ session: Session; workspace: WorkspaceInfo }> = [];
@@ -420,7 +423,7 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
       });
     }
 
-    const filteredProductApps = productApps
+    const filteredProductApps = localizedProductApps
       .filter(app => matchesProductApp(trimmedQuery, app))
       .slice(0, MAX_PER_GROUP);
     for (const app of filteredProductApps) {
@@ -428,13 +431,13 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
         kind: 'app',
         id: app.id,
         label: app.name,
-        sublabel: app.goal || app.description,
+        sublabel: app.description,
         productApp: app,
       });
     }
 
     const workObjectMatches: SearchResultItem[] = [];
-    for (const app of productApps) {
+    for (const app of localizedProductApps) {
       for (const workObject of app.workObjectKinds ?? []) {
         if (!matchesWorkObject(trimmedQuery, app, workObject)) continue;
         const scope = tApps(`productSystem.workObjectScope.${workObject.scope}`);
@@ -511,10 +514,10 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
     return items;
   }, [
     components,
+    localizedProductApps,
     openedWorkspaceIdSet,
     openedWorkspacesList,
     persistedOpenWorkspaceSessions,
-    productApps,
     projections,
     query,
     t,
@@ -552,13 +555,13 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
             workspace: lastUsedWorkspace,
             rememberWorkspace,
             title: app.name,
-            objective: app.goal || app.description,
+            objective: app.description,
           });
           return;
         }
 
-        if (app.launch?.kind === 'appStudio') {
-          await openAppStudioSession();
+        if (app.launch?.kind === 'appBuilder') {
+          await openAppBuilderSession();
           return;
         }
 

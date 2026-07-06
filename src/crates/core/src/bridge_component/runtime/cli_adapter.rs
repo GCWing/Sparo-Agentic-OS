@@ -38,10 +38,7 @@ pub struct CliBridgeResponse {
 }
 
 pub trait CliBridgeAdapter: Send + Sync {
-    fn run(
-        &self,
-        request: CliBridgeRequest,
-    ) -> crate::error::CoreResult<CliBridgeResponse>;
+    fn run(&self, request: CliBridgeRequest) -> crate::error::CoreResult<CliBridgeResponse>;
 }
 
 fn default_timeout_ms() -> u64 {

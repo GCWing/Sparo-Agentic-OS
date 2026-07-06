@@ -33,6 +33,8 @@
   "defaultProfiles": {
     "Cowork": "enabled",
     "Design": "enabled",
-    "agentic": "disabled"
+    "Runno": "disabled",
+    "bitfun-coder": "disabled",
+    "bitfun-team": "disabled"
   }
 }

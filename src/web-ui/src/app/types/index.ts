@@ -238,10 +238,10 @@ export const DEFAULT_LAYOUT_STATE: LayoutState = {
 // Default agents
 export const DEFAULT_AGENTS: Agent[] = [
   {
-    id: 'general',
-    name: i18nService.t('common:agents.general.name'),
-    description: i18nService.t('common:agents.general.description'),
-    capabilities: ['chat', 'code', 'analysis'],
+    id: 'Runno',
+    name: i18nService.t('common:agents.runno.name'),
+    description: i18nService.t('common:agents.runno.description'),
+    capabilities: ['chat', 'execute', 'analysis'],
     isActive: true,
     config: {
       model: 'gpt-3.5-turbo',
@@ -250,9 +250,9 @@ export const DEFAULT_AGENTS: Agent[] = [
     }
   },
   {
-    id: 'coder',
-    name: i18nService.t('common:agents.coder.name'),
-    description: i18nService.t('common:agents.coder.description'),
+    id: 'bitfun-coder',
+    name: i18nService.t('common:agents.bitfunCoder.name'),
+    description: i18nService.t('common:agents.bitfunCoder.description'),
     capabilities: ['code', 'debug', 'refactor'],
     isActive: false,
     config: {

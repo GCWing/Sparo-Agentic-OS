@@ -110,9 +110,9 @@
     min-width: 18px;
     border-radius: var(--ds-radius-full);
     color: color-mix(in srgb, var(--ds-chat-danger) 76%, var(--ds-chat-text-primary));
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
+    opacity: 0.72;
+    visibility: visible;
+    pointer-events: auto;
     transform: none;
 
     &:hover:not(:disabled) {
@@ -138,7 +138,7 @@
 
   &__action-anchor--agent-selected:hover &__action-anchor-reset.icon-btn,
   &__action-anchor--agent-selected:focus-within &__action-anchor-reset.icon-btn {
-    opacity: 0.72;
+    opacity: 1;
     visibility: visible;
     pointer-events: auto;
   }

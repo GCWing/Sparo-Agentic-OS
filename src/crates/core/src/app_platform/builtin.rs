@@ -9,11 +9,11 @@ use include_dir::{include_dir, Dir, File};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-use crate::infrastructure::PathManager;
 use crate::error::{CoreError, CoreResult};
+use crate::infrastructure::PathManager;
 
 use super::catalog_state::{
-    apply_product_app_entry_catalog_state,
+    apply_product_app_entry_catalog_state, ensure_product_app_seed_installed,
     install_product_app_with_source as mark_product_app_installed, load_product_app_catalog_state,
     product_app_installed_source_kind, uninstall_product_app as mark_product_app_uninstalled,
     ProductAppCatalogState,
@@ -42,10 +42,22 @@ static BUILTIN_PACKAGE_SEED_CACHE: LazyLock<Mutex<BTreeSet<BuiltinPackageSeedKey
     LazyLock::new(|| Mutex::new(BTreeSet::new()));
 static PRODUCT_APP_SOURCE_SEED_CACHE: LazyLock<Mutex<BTreeSet<PathBuf>>> =
     LazyLock::new(|| Mutex::new(BTreeSet::new()));
+static BUILTIN_MARKETPLACE_METADATA_SYNC_CACHE: LazyLock<
+    Mutex<BTreeSet<BuiltinMarketplaceMetadataSyncKey>>,
+> = LazyLock::new(|| Mutex::new(BTreeSet::new()));
 
 const APP_JSON: &str = "app.json";
 const APP_LOCK_JSON: &str = "app.lock.json";
 const COMPONENT_JSON: &str = "component.json";
+const PRODUCT_APP_DISPLAY_METADATA_FIELDS: &[&str] = &[
+    "name",
+    "description",
+    "authors",
+    "i18n",
+    "icon",
+    "category",
+    "tags",
+];
 // Legacy bundle roots are kept out of Product App catalog scans while older
 // worktrees finish deleting or migrating them.
 const LEGACY_NON_PRODUCT_APP_ROOT_DIRS: &[&str] = &[
@@ -56,6 +68,13 @@ const LEGACY_NON_PRODUCT_APP_ROOT_DIRS: &[&str] = &[
     "liveapps",
     "surface_components",
 ];
+const SYSTEM_INSTALLED_PRODUCT_APP_IDS: &[&str] = &[
+    "builtin-bitfun-coder",
+    "builtin-cowork",
+    "builtin-deep-research",
+    "builtin-design",
+];
+const RETIRED_SYSTEM_PRODUCT_APP_IDS: &[&str] = &["builtin-app-studio", "builtin-coding"];
 
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -76,6 +95,12 @@ struct ProductAppProjectionBatch {
 struct BuiltinPackageSeedKey {
     product_apps_dir: PathBuf,
     components_dir: PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct BuiltinMarketplaceMetadataSyncKey {
+    product_apps_dir: PathBuf,
+    product_app_sources_dir: PathBuf,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -115,6 +140,8 @@ pub async fn seed_builtin_product_app_packages(
 async fn ensure_builtin_product_app_packages_seeded_unlocked(
     path_manager: &PathManager,
 ) -> CoreResult<Vec<String>> {
+    prune_retired_system_product_app_packages(path_manager).await?;
+
     let key = BuiltinPackageSeedKey {
         product_apps_dir: path_manager.system_product_apps_dir(),
         components_dir: path_manager.system_components_dir(),
@@ -134,6 +161,8 @@ async fn ensure_builtin_product_app_packages_seeded_unlocked(
 async fn ensure_product_app_catalog_sources_seeded_unlocked(
     path_manager: &PathManager,
 ) -> CoreResult<Vec<PathBuf>> {
+    prune_retired_system_product_app_packages(path_manager).await?;
+
     let key = product_app_sources_dir(path_manager);
     if seed_cache_contains(&PRODUCT_APP_SOURCE_SEED_CACHE, &key) && key.exists() {
         return Ok(Vec::new());
@@ -183,6 +212,18 @@ async fn seed_builtin_product_app_packages_unlocked(
         }
     }
 
+    for app_source in collect_product_app_package_sources() {
+        if let Err(error) =
+            seed_system_installed_product_app_package(path_manager, &app_source).await
+        {
+            log::warn!(
+                "seed system-installed product app package '{}' failed: {}",
+                app_source.display(),
+                error
+            );
+        }
+    }
+
     let mut installed_app_dirs = Vec::new();
     installed_app_dirs.extend(collect_installed_product_app_dirs(
         &path_manager.system_product_apps_dir(),
@@ -204,6 +245,42 @@ async fn seed_builtin_product_app_packages_unlocked(
     Ok(seeded)
 }
 
+async fn prune_retired_system_product_app_packages(path_manager: &PathManager) -> CoreResult<()> {
+    prune_retired_product_app_root(
+        &path_manager.system_product_apps_dir(),
+        "system installed Product App",
+    );
+    prune_retired_product_app_root(
+        &product_app_sources_dir(path_manager),
+        "Product App source catalog",
+    );
+    Ok(())
+}
+
+fn prune_retired_product_app_root(root: &Path, label: &str) {
+    for app_id in RETIRED_SYSTEM_PRODUCT_APP_IDS {
+        let app_dir = root.join(app_id);
+        if !app_dir.exists() {
+            continue;
+        }
+        match remove_package_dir(&app_dir, root) {
+            Ok(()) => log::info!(
+                "removed retired {} package: app_id={}, path={}",
+                label,
+                app_id,
+                app_dir.display()
+            ),
+            Err(error) => log::warn!(
+                "failed to remove retired {} package: app_id={}, path={}, error={}",
+                label,
+                app_id,
+                app_dir.display(),
+                error
+            ),
+        }
+    }
+}
+
 pub async fn list_installed_product_app_catalog(
     path_manager: &PathManager,
 ) -> CoreResult<Vec<AppCatalogEntry>> {
@@ -215,6 +292,9 @@ pub async fn list_installed_product_app_catalog(
 pub async fn list_product_app_home_catalog(
     path_manager: &PathManager,
 ) -> CoreResult<ProductAppCatalogEntries> {
+    let _guard = BUILTIN_PACKAGE_CATALOG_LOCK.lock().await;
+    ensure_builtin_product_app_packages_seeded_unlocked(path_manager).await?;
+    ensure_installed_builtin_marketplace_metadata_current_unlocked(path_manager).await?;
     let state = load_product_app_catalog_state(path_manager).await?;
     let mut entries = Vec::new();
     let mut issues = Vec::new();
@@ -243,6 +323,7 @@ pub async fn list_installed_product_app_catalog_with_issues(
 ) -> CoreResult<ProductAppCatalogEntries> {
     let _guard = BUILTIN_PACKAGE_CATALOG_LOCK.lock().await;
     ensure_builtin_product_app_packages_seeded_unlocked(path_manager).await?;
+    ensure_installed_builtin_marketplace_metadata_current_unlocked(path_manager).await?;
     let batch = list_installed_product_apps_unlocked_with_issues(path_manager).await?;
     let mut entries = batch
         .apps
@@ -290,6 +371,7 @@ pub async fn list_installed_product_apps(
 ) -> CoreResult<Vec<ResolvedProductApp>> {
     let _guard = BUILTIN_PACKAGE_CATALOG_LOCK.lock().await;
     ensure_builtin_product_app_packages_seeded_unlocked(path_manager).await?;
+    ensure_installed_builtin_marketplace_metadata_current_unlocked(path_manager).await?;
     list_installed_product_apps_unlocked(path_manager).await
 }
 
@@ -1124,6 +1206,256 @@ async fn seed_product_app_source(
     Ok(dest_dir)
 }
 
+async fn ensure_installed_builtin_marketplace_metadata_current_unlocked(
+    path_manager: &PathManager,
+) -> CoreResult<()> {
+    ensure_product_app_catalog_sources_seeded_unlocked(path_manager).await?;
+
+    let key = BuiltinMarketplaceMetadataSyncKey {
+        product_apps_dir: path_manager.system_product_apps_dir(),
+        product_app_sources_dir: product_app_sources_dir(path_manager),
+    };
+    if seed_cache_contains(&BUILTIN_MARKETPLACE_METADATA_SYNC_CACHE, &key)
+        && key.product_apps_dir.exists()
+        && key.product_app_sources_dir.exists()
+    {
+        return Ok(());
+    }
+
+    sync_installed_builtin_marketplace_metadata(path_manager).await?;
+    seed_cache_insert(&BUILTIN_MARKETPLACE_METADATA_SYNC_CACHE, key);
+    Ok(())
+}
+
+async fn sync_installed_builtin_marketplace_metadata(path_manager: &PathManager) -> CoreResult<()> {
+    let installed_root = path_manager.system_product_apps_dir();
+    let source_root = product_app_sources_dir(path_manager);
+    for app_dir in collect_installed_product_app_dirs(&installed_root)? {
+        let app = match read_product_app_definition_for_catalog_issue(&app_dir).await {
+            Ok(app) => app,
+            Err(error) => {
+                log::warn!(
+                    "skip Product App metadata sync for unreadable installed package: package_dir={}, error={}",
+                    app_dir.display(),
+                    error
+                );
+                continue;
+            }
+        };
+        if is_native_system_lifecycle_id(&app.id) {
+            continue;
+        }
+
+        let source_dir = source_root.join(&app.id).join(&app.version);
+        if !source_dir.join(APP_JSON).is_file() {
+            continue;
+        }
+        if read_release_source_manifest(&source_dir).await?.is_some() {
+            continue;
+        }
+
+        let source_kind = match installed_product_app_source_kind(
+            path_manager,
+            &app.id,
+            &app.version,
+            &app_dir,
+        )
+        .await
+        {
+            Ok(source_kind) => source_kind,
+            Err(error) => {
+                log::warn!(
+                    "skip Product App metadata sync because source kind could not be inferred: app_id={}, app_version={}, package_dir={}, error={}",
+                    app.id,
+                    app.version,
+                    app_dir.display(),
+                    error
+                );
+                continue;
+            }
+        };
+        if source_kind != Some(ProductAppCatalogSourceKind::BuiltinMarketplace) {
+            continue;
+        }
+
+        match sync_installed_app_metadata_from_source(&app_dir, &source_dir, &app.id, &app.version)
+            .await
+        {
+            Ok(true) => log::info!(
+                "refreshed installed built-in Product App metadata from source: app_id={}, app_version={}, package_dir={}, source_dir={}",
+                app.id,
+                app.version,
+                app_dir.display(),
+                source_dir.display()
+            ),
+            Ok(false) => {}
+            Err(error) => log::warn!(
+                "failed to refresh installed built-in Product App metadata from source: app_id={}, app_version={}, package_dir={}, source_dir={}, error={}",
+                app.id,
+                app.version,
+                app_dir.display(),
+                source_dir.display(),
+                error
+            ),
+        }
+    }
+    Ok(())
+}
+
+async fn sync_installed_app_metadata_from_source(
+    app_dir: &Path,
+    source_dir: &Path,
+    app_id: &str,
+    app_version: &str,
+) -> CoreResult<bool> {
+    let installed_app_path = app_dir.join(APP_JSON);
+    let source_app_path = source_dir.join(APP_JSON);
+    let installed_bytes = tokio::fs::read(&installed_app_path)
+        .await
+        .map_err(|error| {
+            CoreError::io(format!(
+                "Failed to read installed Product App metadata {}: {}",
+                installed_app_path.display(),
+                error
+            ))
+        })?;
+    let source_bytes = tokio::fs::read(&source_app_path).await.map_err(|error| {
+        CoreError::io(format!(
+            "Failed to read Product App source metadata {}: {}",
+            source_app_path.display(),
+            error
+        ))
+    })?;
+    let mut installed: Value = serde_json::from_slice(&installed_bytes).map_err(CoreError::from)?;
+    let source: Value = serde_json::from_slice(&source_bytes).map_err(CoreError::from)?;
+    validate_source_metadata_identity(&source, source_dir, app_id, app_version)?;
+
+    let before = installed.clone();
+    let installed_object = installed.as_object_mut().ok_or_else(|| {
+        CoreError::validation(format!(
+            "Installed Product App app.json is not an object: {}",
+            installed_app_path.display()
+        ))
+    })?;
+    let source_object = source.as_object().ok_or_else(|| {
+        CoreError::validation(format!(
+            "Product App source app.json is not an object: {}",
+            source_app_path.display()
+        ))
+    })?;
+
+    for field in PRODUCT_APP_DISPLAY_METADATA_FIELDS {
+        match source_object.get(*field) {
+            Some(value) => {
+                installed_object.insert((*field).to_string(), value.clone());
+            }
+            None => {
+                installed_object.remove(*field);
+            }
+        }
+    }
+    installed_object.remove("goal");
+    let package_files_changed = sync_installed_app_package_files_from_source(app_dir, source_dir)?;
+
+    if installed == before && !package_files_changed {
+        return Ok(false);
+    }
+
+    if installed != before {
+        let bytes = serde_json::to_vec_pretty(&installed).map_err(CoreError::from)?;
+        tokio::fs::write(&installed_app_path, bytes)
+            .await
+            .map_err(|error| {
+                CoreError::io(format!(
+                    "Failed to write installed Product App metadata {}: {}",
+                    installed_app_path.display(),
+                    error
+                ))
+            })?;
+    }
+    Ok(true)
+}
+
+fn sync_installed_app_package_files_from_source(
+    app_dir: &Path,
+    source_dir: &Path,
+) -> CoreResult<bool> {
+    let mut changed = false;
+    for source_file in collect_files_from_filesystem(source_dir)? {
+        let relative = source_file.strip_prefix(source_dir).map_err(|_| {
+            CoreError::validation(format!(
+                "unexpected Product App source path: {}",
+                source_file.display()
+            ))
+        })?;
+        if relative.parent().is_none()
+            && relative
+                .file_name()
+                .is_some_and(|name| name == APP_JSON || name == APP_LOCK_JSON)
+        {
+            continue;
+        }
+        let source_bytes = std::fs::read(&source_file)?;
+        let installed_file = app_dir.join(relative);
+        let installed_matches = installed_file.is_file()
+            && std::fs::read(&installed_file)
+                .map(|installed_bytes| installed_bytes == source_bytes)
+                .unwrap_or(false);
+        if installed_matches {
+            continue;
+        }
+        write_bytes(installed_file, &source_bytes)?;
+        changed = true;
+    }
+    Ok(changed)
+}
+
+fn validate_source_metadata_identity(
+    source: &Value,
+    source_dir: &Path,
+    app_id: &str,
+    app_version: &str,
+) -> CoreResult<()> {
+    let source_id = source.get("id").and_then(Value::as_str).unwrap_or_default();
+    let source_version = source
+        .get("version")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if source_id != app_id || source_version != app_version {
+        return Err(CoreError::validation(format!(
+            "Product App source identity does not match installed package. installed={}@{}, source={}@{}, source_dir={}",
+            app_id,
+            app_version,
+            source_id,
+            source_version,
+            source_dir.display()
+        )));
+    }
+    Ok(())
+}
+
+async fn seed_system_installed_product_app_package(
+    path_manager: &PathManager,
+    source_dir: &Path,
+) -> CoreResult<Option<PathBuf>> {
+    let app = read_source_app_definition(source_dir)?;
+    if !SYSTEM_INSTALLED_PRODUCT_APP_IDS.contains(&app.id.as_str()) {
+        return Ok(None);
+    }
+
+    let dest_dir = path_manager.system_product_app_version_dir(&app.id, &app.version);
+    reset_dir(&dest_dir, &path_manager.system_product_apps_dir())?;
+    copy_source_dir(source_dir, &dest_dir, CopyMode::ProductAppPackage)?;
+    ensure_product_app_seed_installed(
+        path_manager,
+        &app.id,
+        &app.version,
+        ProductAppCatalogSourceKind::BuiltinMarketplace,
+    )
+    .await?;
+    Ok(Some(dest_dir))
+}
+
 async fn refresh_installed_app_lock(
     app_dir: &Path,
     shared_components: &[ComponentDefinition],
@@ -1158,8 +1490,7 @@ async fn write_app_work_multiplicity(
         CoreError::io(format!("Failed to read {}: {}", app_path.display(), error))
     })?;
     let mut value: Value = serde_json::from_slice(&bytes).map_err(CoreError::from)?;
-    value["workMultiplicity"] =
-        serde_json::to_value(work_multiplicity).map_err(CoreError::from)?;
+    value["workMultiplicity"] = serde_json::to_value(work_multiplicity).map_err(CoreError::from)?;
     let bytes = serde_json::to_vec_pretty(&value).map_err(CoreError::from)?;
     tokio::fs::write(&app_path, bytes).await.map_err(|error| {
         CoreError::io(format!("Failed to write {}: {}", app_path.display(), error))
@@ -1902,6 +2233,31 @@ mod tests {
         assert_eq!(dirs, vec![valid_dir]);
     }
 
+    #[tokio::test]
+    async fn seeding_prunes_retired_system_product_app_packages() {
+        let path_manager = path_manager("prune-retired-product-apps");
+        let installed_root = path_manager.system_product_apps_dir();
+        let source_root = product_app_sources_dir(&path_manager);
+        let valid_installed = installed_root.join("sample-app").join("1.0.0");
+        let retired_installed = installed_root.join("builtin-app-studio").join("1.0.0");
+        let retired_source = source_root.join("builtin-coding").join("1.0.0");
+
+        std::fs::create_dir_all(&valid_installed).expect("valid installed dir");
+        std::fs::write(valid_installed.join(APP_JSON), "{}").expect("valid app json");
+        std::fs::create_dir_all(&retired_installed).expect("retired installed dir");
+        std::fs::write(retired_installed.join(APP_JSON), "{}").expect("retired app json");
+        std::fs::create_dir_all(&retired_source).expect("retired source dir");
+        std::fs::write(retired_source.join(APP_JSON), "{}").expect("retired source app json");
+
+        prune_retired_system_product_app_packages(&path_manager)
+            .await
+            .expect("retired builtins should be pruned");
+
+        assert!(valid_installed.exists());
+        assert!(!installed_root.join("builtin-app-studio").exists());
+        assert!(!source_root.join("builtin-coding").exists());
+    }
+
     #[test]
     fn component_dir_collection_uses_versioned_component_shape() {
         let path_manager = path_manager("collect-component-dirs");
@@ -1937,7 +2293,8 @@ mod tests {
             version: version.to_string(),
             name: "Sample App".to_string(),
             description: "A sample Product App".to_string(),
-            goal: "Run the sample Product App".to_string(),
+            authors: Vec::new(),
+            i18n: Default::default(),
             interaction_model: AppInteractionModel::InteractiveWorkspace,
             work_multiplicity: AppWorkMultiplicity::Multiple,
             work_object_kinds: Vec::new(),
@@ -1951,6 +2308,7 @@ mod tests {
             components: Vec::new(),
             component_lock_id: "sha256:sample".to_string(),
             permissions: AppPermissionSummary::default(),
+            os_capabilities: Vec::new(),
             install_scope: AppInstallScope::System,
             catalog_visibility: AppCatalogVisibility::Discoverable,
             enabled: true,
@@ -2107,7 +2465,10 @@ mod tests {
         }
 
         for expected in [
+            "builtin-bitfun-coder",
+            "builtin-cowork",
             "builtin-deep-research",
+            "builtin-design",
             "builtin-harmony-dev",
             "builtin-ppt-live",
             "builtin-remotion-live",
@@ -2253,60 +2614,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn retired_native_product_app_packages_are_not_manageable() {
-        let path_manager = path_manager("retired-native-product-app");
-        create_product_app_package(
-            &path_manager,
-            CreateProductAppPackageDraft {
-                app_id: "builtin-coding".to_string(),
-                name: "BitFun Coder".to_string(),
-                description: "Retired native Product App package.".to_string(),
-                goal: "This legacy package is now a native system app.".to_string(),
-                version: "1.0.0".to_string(),
-                agent_type: "agentic".to_string(),
-                category: "developer".to_string(),
-                tags: Vec::new(),
-                primary_surface_mode: AppSurfaceMode::ChatPrimary,
-                work_multiplicity: Default::default(),
-                truth_source: None,
-            },
-        )
-        .await
-        .expect("write stale native Product App package");
-
-        let installed = list_installed_product_app_catalog(&path_manager)
-            .await
-            .expect("installed catalog should still load");
-        assert!(
-            installed.iter().all(|app| app.app.id != "builtin-coding"),
-            "retired native Product App packages should not be projected into App Management"
-        );
-
-        let enable_error = crate::app_platform::set_product_app_enabled(
-            &path_manager,
-            "builtin-coding",
-            "1.0.0",
-            false,
-        )
-        .await
-        .expect_err("retired native Product Apps must not be disable-able");
-        assert!(enable_error
-            .to_string()
-            .contains("Native system apps are always available"));
-
-        let uninstall_error = uninstall_product_app(&path_manager, "builtin-coding", "1.0.0")
-            .await
-            .expect_err("retired native Product Apps must not be uninstallable");
-        assert!(uninstall_error
-            .to_string()
-            .contains("Native system apps are always available"));
-        assert!(path_manager
-            .system_product_app_version_dir("builtin-coding", "1.0.0")
-            .join(APP_JSON)
-            .exists());
-    }
-
-    #[tokio::test]
     async fn installed_catalog_refreshes_stale_component_lock_before_projection() {
         let path_manager = path_manager("stale-installed-lock");
         let written = create_product_app_package(
@@ -2315,10 +2622,10 @@ mod tests {
                 app_id: "lock-repair-app".to_string(),
                 name: "Lock Repair App".to_string(),
                 description: "Exercises installed Product App lock repair.".to_string(),
-                goal: "Repair a stale installed Product App lock before catalog projection."
-                    .to_string(),
+                authors: Vec::new(),
+                i18n: Default::default(),
                 version: "1.0.0".to_string(),
-                agent_type: "agentic".to_string(),
+                agent_type: "Runno".to_string(),
                 category: "utility".to_string(),
                 tags: Vec::new(),
                 primary_surface_mode: AppSurfaceMode::ImmersivePrimary,
@@ -2358,6 +2665,138 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn installed_builtin_marketplace_metadata_syncs_from_source_catalog() {
+        let path_manager = path_manager("builtin-marketplace-metadata-sync");
+        let app_id = "metadata-sync-app";
+        let version = "1.0.0";
+        let written = create_product_app_package(
+            &path_manager,
+            CreateProductAppPackageDraft {
+                app_id: app_id.to_string(),
+                name: "Metadata Sync App".to_string(),
+                description: "Old installed English description.".to_string(),
+                authors: Vec::new(),
+                i18n: Default::default(),
+                version: version.to_string(),
+                agent_type: "Runno".to_string(),
+                category: "utility".to_string(),
+                tags: vec!["old".to_string()],
+                primary_surface_mode: AppSurfaceMode::ChatPrimary,
+                work_multiplicity: Default::default(),
+                truth_source: None,
+            },
+        )
+        .await
+        .expect("create installed package");
+        let lock_before = ProductAppResolver::read_lock(&written.package_dir)
+            .await
+            .expect("read installed lock")
+            .digest();
+
+        let source_root = product_app_sources_dir(&path_manager);
+        let source_dir = source_root.join(app_id).join(version);
+        reset_dir(&source_dir, &source_root).expect("create source dir");
+        copy_filesystem_dir(
+            &written.package_dir,
+            &source_dir,
+            CopyMode::ProductAppPackage,
+        )
+        .expect("copy source package");
+
+        let source_app_path = source_dir.join(APP_JSON);
+        let mut source_app: Value =
+            serde_json::from_slice(&std::fs::read(&source_app_path).expect("read source app"))
+                .expect("parse source app");
+        source_app["description"] = Value::String("新的中文展示描述。".to_string());
+        source_app["i18n"] = json!({
+            "locales": {
+                "zh-CN": {
+                    "name": "Metadata Sync App",
+                    "description": "新的中文展示描述。",
+                    "tags": ["新"]
+                },
+                "en-US": {
+                    "name": "Metadata Sync App",
+                    "description": "New source description.",
+                    "tags": ["new"]
+                }
+            }
+        });
+        source_app["tags"] = json!(["new"]);
+        std::fs::write(
+            &source_app_path,
+            serde_json::to_vec_pretty(&source_app).expect("serialize source app"),
+        )
+        .expect("write source app");
+
+        let installed_app_path = written.package_dir.join(APP_JSON);
+        let mut installed_app: Value = serde_json::from_slice(
+            &std::fs::read(&installed_app_path).expect("read installed app"),
+        )
+        .expect("parse installed app");
+        installed_app["description"] =
+            Value::String("Old installed English description.".to_string());
+        installed_app["goal"] = Value::String("Legacy goal should be removed.".to_string());
+        installed_app
+            .as_object_mut()
+            .expect("installed app object")
+            .remove("i18n");
+        std::fs::write(
+            &installed_app_path,
+            serde_json::to_vec_pretty(&installed_app).expect("serialize installed app"),
+        )
+        .expect("write installed app");
+        let installed_agent_dir = written
+            .package_dir
+            .join("components")
+            .join(ComponentKind::Agent.path_segment())
+            .join(format!("{app_id}-agent"));
+        let installed_agent_component = installed_agent_dir.join(COMPONENT_JSON);
+        assert!(
+            installed_agent_component.exists(),
+            "test package should start with a private agent component"
+        );
+        std::fs::remove_dir_all(&installed_agent_dir).expect("remove installed private agent");
+        assert!(
+            !installed_agent_component.exists(),
+            "installed package should be missing the private agent before sync"
+        );
+        mark_product_app_installed(
+            &path_manager,
+            app_id,
+            version,
+            Some(ProductAppCatalogSourceKind::BuiltinMarketplace),
+        )
+        .await
+        .expect("mark installed from built-in marketplace");
+
+        ensure_installed_builtin_marketplace_metadata_current_unlocked(&path_manager)
+            .await
+            .expect("sync metadata");
+
+        let synced_app: Value = serde_json::from_slice(
+            &std::fs::read(&installed_app_path).expect("read synced installed app"),
+        )
+        .expect("parse synced installed app");
+        assert_eq!(synced_app["description"], "新的中文展示描述。");
+        assert_eq!(
+            synced_app["i18n"]["locales"]["zh-CN"]["description"],
+            "新的中文展示描述。"
+        );
+        assert_eq!(synced_app["tags"], json!(["new"]));
+        assert!(synced_app.get("goal").is_none());
+        assert!(
+            installed_agent_component.exists(),
+            "source catalog sync should repair missing installed package files"
+        );
+        let lock_after = ProductAppResolver::read_lock(&written.package_dir)
+            .await
+            .expect("read installed lock after metadata sync")
+            .digest();
+        assert_eq!(lock_after, lock_before);
+    }
+
+    #[tokio::test]
     async fn installed_catalog_skips_invalid_private_component_package_and_reports_issue() {
         let path_manager = path_manager("skip-invalid-private-component");
         create_product_app_package(
@@ -2366,9 +2805,10 @@ mod tests {
                 app_id: "healthy-product-app".to_string(),
                 name: "Healthy Product App".to_string(),
                 description: "Valid package that should still load.".to_string(),
-                goal: "Stay visible when a neighboring Product App package is invalid.".to_string(),
+                authors: Vec::new(),
+                i18n: Default::default(),
                 version: "1.0.0".to_string(),
-                agent_type: "agentic".to_string(),
+                agent_type: "Runno".to_string(),
                 category: "utility".to_string(),
                 tags: Vec::new(),
                 primary_surface_mode: AppSurfaceMode::ChatPrimary,
@@ -2384,9 +2824,10 @@ mod tests {
                 app_id: "broken-product-app".to_string(),
                 name: "Broken Product App".to_string(),
                 description: "Package with a missing private agent component.".to_string(),
-                goal: "Exercise per-package catalog failure isolation.".to_string(),
+                authors: Vec::new(),
+                i18n: Default::default(),
                 version: "1.0.0".to_string(),
-                agent_type: "agentic".to_string(),
+                agent_type: "Runno".to_string(),
                 category: "utility".to_string(),
                 tags: Vec::new(),
                 primary_surface_mode: AppSurfaceMode::ChatPrimary,
@@ -2469,9 +2910,10 @@ mod tests {
                 app_id: "private-product-app".to_string(),
                 name: "Private Product App".to_string(),
                 description: "Creates app-private components.".to_string(),
-                goal: "Exercise shared component lookup isolation.".to_string(),
+                authors: Vec::new(),
+                i18n: Default::default(),
                 version: "1.0.0".to_string(),
-                agent_type: "agentic".to_string(),
+                agent_type: "Runno".to_string(),
                 category: "utility".to_string(),
                 tags: Vec::new(),
                 primary_surface_mode: AppSurfaceMode::ChatPrimary,
@@ -2511,9 +2953,10 @@ mod tests {
                 app_id: "legacy-full-surface-app".to_string(),
                 name: "Legacy Full Surface App".to_string(),
                 description: "Exercises legacy generated multiplicity repair.".to_string(),
-                goal: "Repair a legacy full-surface default before catalog projection.".to_string(),
+                authors: Vec::new(),
+                i18n: Default::default(),
                 version: "1.0.0".to_string(),
-                agent_type: "agentic".to_string(),
+                agent_type: "Runno".to_string(),
                 category: "utility".to_string(),
                 tags: Vec::new(),
                 primary_surface_mode: AppSurfaceMode::ImmersivePrimary,
@@ -2557,9 +3000,10 @@ mod tests {
                 app_id: "release-catalog-app".to_string(),
                 name: "Release Catalog App".to_string(),
                 description: "Published release source test app".to_string(),
-                goal: "Publish a release to the catalog source.".to_string(),
+                authors: Vec::new(),
+                i18n: Default::default(),
                 version: "1.0.0".to_string(),
-                agent_type: "agentic".to_string(),
+                agent_type: "Runno".to_string(),
                 category: "utility".to_string(),
                 tags: Vec::new(),
                 primary_surface_mode: AppSurfaceMode::ImmersivePrimary,
@@ -2699,9 +3143,10 @@ mod tests {
                 app_id: "release-update-app".to_string(),
                 name: "Release Update App".to_string(),
                 description: "Original release".to_string(),
-                goal: "Detect release source updates.".to_string(),
+                authors: Vec::new(),
+                i18n: Default::default(),
                 version: "1.0.0".to_string(),
-                agent_type: "agentic".to_string(),
+                agent_type: "Runno".to_string(),
                 category: "utility".to_string(),
                 tags: Vec::new(),
                 primary_surface_mode: AppSurfaceMode::ImmersivePrimary,

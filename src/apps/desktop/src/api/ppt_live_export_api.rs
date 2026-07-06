@@ -3,8 +3,8 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use sparo_webdriver::platform::{print_page, take_screenshot, PrintOptions};
 use serde::Deserialize;
+use sparo_webdriver::platform::{print_page, take_screenshot, PrintOptions};
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 use uuid::Uuid;
 

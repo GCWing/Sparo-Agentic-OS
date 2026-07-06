@@ -196,14 +196,25 @@ function validateCompositeInteraction(app: ProductAppHostSurface | ProductAppHos
     return;
   }
 
-  const chatBackendId = interaction.chat?.backendId?.trim();
-  if (!chatBackendId) {
-    return;
+  if (!interaction.chat) {
+    throw new Error(`Product App host surface "${app.id}" uses composite runtime interaction but declares no chat backend`);
   }
 
-  const hasBackend = app.backends?.some(backend => backend.id === chatBackendId);
-  if (!hasBackend) {
+  const chatBackendId = interaction.chat.backendId?.trim();
+  if (!chatBackendId) {
+    throw new Error(`Product App host surface "${app.id}" uses composite runtime interaction but declares no chat backend id`);
+  }
+
+  const backend = app.backends?.find(candidate => candidate.id === chatBackendId);
+  if (!backend) {
     throw new Error(`Product App host surface declares chat backend "${chatBackendId}" but no matching backend binding exists`);
+  }
+  if (backend.kind !== 'agentComponent') {
+    throw new Error(`Product App host surface chat backend "${chatBackendId}" must bind to an Agent Component`);
+  }
+  const agentComponentId = interaction.chat.agentComponentId?.trim() || backend.componentId.trim();
+  if (!agentComponentId) {
+    throw new Error(`Product App host surface chat backend "${chatBackendId}" does not declare an Agent Component id`);
   }
 }
 

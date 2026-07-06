@@ -1,11 +1,11 @@
 //! Agent-specific skill override helpers.
 
 use crate::agentic::workspace::WorkspaceFileSystem;
+use crate::error::{CoreError, CoreResult};
 use crate::infrastructure::get_path_manager_arc;
 use crate::service::config::agent_capability_config_canonicalizer::persist_agent_capability_config_from_value;
 use crate::service::config::global::GlobalConfigManager;
 use crate::service::config::types::AgentCapabilityConfig;
-use crate::error::{CoreError, CoreResult};
 use serde_json::{json, Map, Value};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -193,9 +193,9 @@ fn agent_skills_object_mut(document: &mut Value) -> CoreResult<&mut Map<String, 
         *document = Value::Object(Map::new());
     }
 
-    document.as_object_mut().ok_or_else(|| {
-        CoreError::config("Project agent skills must be a JSON object".to_string())
-    })
+    document
+        .as_object_mut()
+        .ok_or_else(|| CoreError::config("Project agent skills must be a JSON object".to_string()))
 }
 
 fn agent_skills_object(document: &Value) -> Option<&Map<String, Value>> {
@@ -254,9 +254,9 @@ pub fn set_agent_skill_disabled_in_document(
         *agent_entry = Value::Object(Map::new());
     }
 
-    let agent_object = agent_entry.as_object_mut().ok_or_else(|| {
-        CoreError::config("Agent skills entry must be a JSON object".to_string())
-    })?;
+    let agent_object = agent_entry
+        .as_object_mut()
+        .ok_or_else(|| CoreError::config("Agent skills entry must be a JSON object".to_string()))?;
 
     let current = agent_object
         .get(DISABLED_SKILLS_KEY)
@@ -303,9 +303,9 @@ pub fn set_agent_skill_suite_disabled_in_document(
         *agent_entry = Value::Object(Map::new());
     }
 
-    let agent_object = agent_entry.as_object_mut().ok_or_else(|| {
-        CoreError::config("Agent skills entry must be a JSON object".to_string())
-    })?;
+    let agent_object = agent_entry
+        .as_object_mut()
+        .ok_or_else(|| CoreError::config("Agent skills entry must be a JSON object".to_string()))?;
 
     let current = agent_object
         .get(DISABLED_SUITES_KEY)
@@ -370,9 +370,9 @@ pub fn set_disabled_agent_skills_in_document(
         *agent_entry = Value::Object(Map::new());
     }
 
-    let agent_object = agent_entry.as_object_mut().ok_or_else(|| {
-        CoreError::config("Agent skills entry must be a JSON object".to_string())
-    })?;
+    let agent_object = agent_entry
+        .as_object_mut()
+        .ok_or_else(|| CoreError::config("Agent skills entry must be a JSON object".to_string()))?;
 
     agent_object.insert(
         DISABLED_SKILLS_KEY.to_string(),
@@ -415,9 +415,9 @@ pub fn set_disabled_agent_skill_suites_in_document(
         *agent_entry = Value::Object(Map::new());
     }
 
-    let agent_object = agent_entry.as_object_mut().ok_or_else(|| {
-        CoreError::config("Agent skills entry must be a JSON object".to_string())
-    })?;
+    let agent_object = agent_entry
+        .as_object_mut()
+        .ok_or_else(|| CoreError::config("Agent skills entry must be a JSON object".to_string()))?;
 
     agent_object.insert(
         DISABLED_SUITES_KEY.to_string(),
@@ -427,9 +427,7 @@ pub fn set_disabled_agent_skill_suites_in_document(
     Ok(next)
 }
 
-pub async fn load_project_agent_skills_document_local(
-    workspace_root: &Path,
-) -> CoreResult<Value> {
+pub async fn load_project_agent_skills_document_local(workspace_root: &Path) -> CoreResult<Value> {
     let path = get_path_manager_arc().project_agent_skills_file(workspace_root);
     match tokio::fs::read_to_string(&path).await {
         Ok(content) => Ok(normalize_project_document_value(serde_json::from_str(

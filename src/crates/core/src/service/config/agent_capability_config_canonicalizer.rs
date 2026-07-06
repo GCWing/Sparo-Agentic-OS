@@ -5,9 +5,9 @@
 
 use crate::agentic::agents::get_agent_registry;
 use crate::agentic::tools::registry::get_all_registered_tools;
+use crate::error::*;
 use crate::service::config::global::GlobalConfigManager;
 use crate::service::config::types::{AgentCapabilityConfig, AgentCapabilityConfigView};
-use crate::error::*;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::{HashMap, HashSet};
@@ -703,7 +703,7 @@ mod tests {
     fn stored_agent_config_from_overrides_keeps_enabled_user_skills() {
         let valid_tools = HashSet::new();
         let stored = stored_agent_config_from_overrides(
-            "agentic",
+            "Runno",
             true,
             Vec::new(),
             Vec::new(),

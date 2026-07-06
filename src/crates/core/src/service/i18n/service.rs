@@ -11,8 +11,8 @@ use tokio::sync::RwLock;
 use unic_langid::LanguageIdentifier;
 
 use super::types::{FluentValue, LocaleId, LocaleMetadata, TranslationArgs};
-use crate::service::config::ConfigService;
 use crate::error::*;
+use crate::service::config::ConfigService;
 
 /// Type alias for a thread-safe `FluentBundle`.
 type ConcurrentBundle = ConcurrentFluentBundle<FluentResource>;

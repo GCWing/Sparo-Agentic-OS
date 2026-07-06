@@ -22,7 +22,7 @@
     "title": "Apps",
     "subtitle": "Resume product work, launch installed Product Apps, and inspect the component graph behind every runtime.",
     "searchLabel": "Search Product Apps",
-    "searchPlaceholder": "Search apps, work goals, components, or tags...",
+    "searchPlaceholder": "Search apps, active work, components, or tags...",
     "loading": "Loading Product Apps...",
     "meta": {
       "apps": "{{count}} apps",
@@ -42,7 +42,7 @@
     },
     "manage": {
       "searchLabel": "Search managed apps",
-      "searchPlaceholder": "Search by app, category, goal, tag, or component summary...",
+      "searchPlaceholder": "Search by app, category, description, tag, or component summary...",
       "emptyTitle": "No apps match this view",
       "emptyDescription": "Adjust search or filters to review another app group.",
       "listLabel": "Managed apps list",
@@ -443,7 +443,7 @@
     "launchKind": {
       "agentSession": "Start an agent-backed work session.",
       "applicationSurface": "Open an interactive app surface.",
-      "appStudio": "Open App Studio.",
+      "appBuilder": "Open App Builder.",
       "none": "No launch target"
     },
     "launchScope": {
@@ -455,6 +455,8 @@
       "id": "ID",
       "kind": "Kind",
       "version": "Version",
+      "author": "Author",
+      "authors": "Authors",
       "target": "Target",
       "surface": "Surface",
       "agent": "Agent",
@@ -508,29 +510,37 @@
       "standaloneAgentComponent": "Single Agent",
       "evolutionLab": "Evolution Lab"
     },
-    "coding": {
+    "agenticOs": {
+      "name": "Sparo OS",
+      "description": "System control plane for orchestration and lifecycle coordination; not shown as an app entry."
+    },
+    "runno": {
+      "name": "Runno",
+      "description": "Sparo OS's general execution unit: flexible, efficient, and strongly goal-oriented for handling all kinds of tasks."
+    },
+    "bitfunCoder": {
       "name": "BitFun Coder",
-      "description": "The default execution agent for taking goals, choosing the next action, and delivering verified workspace results."
+      "description": "An efficient, high-completion Code Agent from the open-source community for implementation, debugging, refactoring, troubleshooting, and other software development work."
     },
     "cowork": {
       "name": "Cowork Assistant",
-      "description": "A standalone Agent app for office collaboration, drafting, and day-to-day execution."
+      "description": "An office delivery Agent for documents, spreadsheets, slides, and material organization, turning everyday work into polished output."
     },
     "design": {
       "name": "Designer",
-      "description": "A standalone Agent app for HTML prototypes, visual artifacts, and design exploration."
+      "description": "A product and UI design Agent that turns ideas, requirements, and references into prototypes, interfaces, and visual directions."
     },
     "deepResearch": {
       "name": "Deep Research",
-      "description": "A standalone Agent app for open-ended research that dispatches parallel sub-agents and synthesizes comprehensive sourced reports."
+      "description": "A deep research Agent for finding sources, comparing viewpoints, organizing evidence, and turning complex questions into clear conclusions."
     },
     "productAppRuntime": {
       "name": "Product App Runtime",
       "description": "Runs Product Apps with FlowChat, app-owned tools, runtime state, and issue feedback bound to the active Work."
     },
-    "appStudio": {
-      "name": "App Studio",
-      "description": "Create Product Apps with goals, work objects, primary surfaces, components, permissions, and package metadata."
+    "appBuilder": {
+      "name": "App Builder",
+      "description": "Build a personal intelligent app around your way of working by understanding your needs or existing apps, then recomposing features, workflows, and methods."
     }
   },
   "productAppRuntime": {

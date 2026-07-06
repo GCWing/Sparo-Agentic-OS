@@ -19,11 +19,11 @@
 
 #![allow(dead_code)]
 
-use sparo_core::error::{CoreError, CoreResult};
 use core_graphics::event::{CGEvent, CGEventFlags, CGEventType, CGMouseButton, ScrollEventUnit};
 use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
 use core_graphics::geometry::CGPoint;
 use log::{debug, info, warn};
+use sparo_core::error::{CoreError, CoreResult};
 use std::thread;
 use std::time::{Duration, Instant};
 

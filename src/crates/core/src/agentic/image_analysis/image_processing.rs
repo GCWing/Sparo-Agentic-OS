@@ -1,11 +1,11 @@
 //! Shared image processing utilities used by both API-side image analysis and tool-driven image analysis.
 
 use super::types::{ImageContextData, ImageLimits};
+use crate::error::{CoreError, CoreResult};
 use crate::service::config::get_global_config_service;
 use crate::service::config::types::{
     AIConfig as ServiceAIConfig, AIModelConfig, ModelCapability, ModelCategory,
 };
-use crate::error::{CoreError, CoreResult};
 use crate::util::types::Message;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use image::codecs::jpeg::JpegEncoder;

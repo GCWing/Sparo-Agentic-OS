@@ -371,9 +371,9 @@
       "summary": "Refresh a Product App component lock.",
       "what": "Resolves a Product App package, updates app.json with the latest component lock digest, and rewrites app.lock.json."
     },
-    "ResolveStudioPreviewTarget": {
-      "name": "ResolveStudioPreviewTarget",
-      "summary": "Resolve a Studio preview target.",
+    "ResolveBuilderPreviewTarget": {
+      "name": "ResolveBuilderPreviewTarget",
+      "summary": "Resolve a Builder preview target.",
       "what": "Resolves Product App preview identity, mode, Workbench placement, and evidence boundary without claiming runtime execution."
     },
     "ComputerUse": {

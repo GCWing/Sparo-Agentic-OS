@@ -1,11 +1,11 @@
 //! Shared desktop resolution and access helpers for local and runtime paths.
 
 use crate::api::app_state::AppState;
+use serde::Serialize;
 use sparo_core::agentic::tools::workspace_paths::{is_sparo_runtime_uri, parse_sparo_runtime_uri};
 use sparo_core::infrastructure::get_path_manager_arc;
 use sparo_core::infrastructure::FileOperationOptions;
 use sparo_core::service::workspace::WorkspaceInfo;
-use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 

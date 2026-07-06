@@ -27,15 +27,15 @@ import {
   workspacePathFromAppScope,
 } from '@/shared/types/app-scope';
 import type { WorkspaceSurfaceContext } from '@/app/navigation/workspaceSurfaceTypes';
-import { ProductAppStudioPreviewResolveError } from './productAppRuntimePreviewError';
+import { ProductAppBuilderPreviewResolveError } from './productAppRuntimePreviewError';
 import {
   productAppRuntimeHostAPI,
   type ProductAppHostSurface,
 } from '@/infrastructure/api/service-api/ProductAppRuntimeHostAPI';
 export {
-  ProductAppStudioPreviewResolveError,
-  isProductAppStudioPreviewResolveError,
-  type ProductAppStudioPreviewFailureContext,
+  ProductAppBuilderPreviewResolveError,
+  isProductAppBuilderPreviewResolveError,
+  type ProductAppBuilderPreviewFailureContext,
 } from './productAppRuntimePreviewError';
 
 export interface OpenProductAppRuntimeForWorkSurfaceRequest {
@@ -48,12 +48,12 @@ export interface OpenProductAppRuntimeForWorkSurfaceRequest {
   surfaceId?: string | null;
 }
 
-export interface ResolveProductAppStudioPreviewOptions {
+export interface ResolveProductAppBuilderPreviewOptions {
   scope?: AppScope | null;
   theme?: string | null;
 }
 
-export interface ProductAppStudioPreviewTarget {
+export interface ProductAppBuilderPreviewTarget {
   kind: 'product-app-preview';
   productApp: ProductAppCatalogEntry;
   work: WorkRecord;
@@ -117,7 +117,7 @@ function runtimeInstanceForSurface(
   ) ?? null;
 }
 
-async function resolveProductAppStudioPreviewWork(
+async function resolveProductAppBuilderPreviewWork(
   app: ProductAppCatalogEntry,
   scope: AppScope,
 ): Promise<WorkRecord> {
@@ -126,8 +126,8 @@ async function resolveProductAppStudioPreviewWork(
   const response = await workStore.resolveAppWork({
     app: appRef,
     intent: 'develop',
-    title: `${app.name} Studio Preview`,
-    objective: app.goal || app.description || app.name,
+    title: `${app.name} Builder Preview`,
+    objective: app.description || app.name,
     appRefs: [
       { app: appRef, role: 'subject' },
       { app: appRef, role: 'executor' },
@@ -149,7 +149,7 @@ async function resolveProductAppRuntimeWork(
 ): Promise<WorkRecord> {
   const appRef = productAppWorkRef(app);
   const title = app.name;
-  const objective = app.goal || app.description || app.name;
+  const objective = app.description || app.name;
   const assignment = {
     kind: 'application' as const,
     applicationId: app.id,
@@ -229,16 +229,16 @@ async function resolveProductAppRuntimeHostTarget(
   };
 }
 
-export async function resolveProductAppStudioPreviewTarget(
+export async function resolveProductAppBuilderPreviewTarget(
   appOrId: ProductAppCatalogEntry | string,
-  options: ResolveProductAppStudioPreviewOptions = {},
-): Promise<ProductAppStudioPreviewTarget> {
+  options: ResolveProductAppBuilderPreviewOptions = {},
+): Promise<ProductAppBuilderPreviewTarget> {
   const scope = normalizeAppScope(options.scope ?? systemAppScope());
   const workspacePath = workspacePathFromAppScope(scope);
   const productApp = typeof appOrId === 'string'
     ? await appCatalogAPI.getProductApp(appOrId)
     : appOrId;
-  const work = await resolveProductAppStudioPreviewWork(productApp, scope);
+  const work = await resolveProductAppBuilderPreviewWork(productApp, scope);
   const surface = applicationSurfaceForWork(work);
   const appRef = productAppRefForSurface(work, surface.productAppId);
   const runtimeInstance = runtimeInstanceForSurface(work, surface);
@@ -265,7 +265,7 @@ export async function resolveProductAppStudioPreviewTarget(
       surfaceId: surface.surfaceId,
     });
   } catch (error) {
-    throw new ProductAppStudioPreviewResolveError(
+    throw new ProductAppBuilderPreviewResolveError(
       error instanceof Error ? error.message : String(error),
       {
         ...failureContextBase,
@@ -274,7 +274,7 @@ export async function resolveProductAppStudioPreviewTarget(
       error,
     );
   }
-  requestWorkRefresh('product-app-studio-preview-resolved');
+  requestWorkRefresh('product-app-builder-preview-resolved');
   let hostSurface: ProductAppHostSurface;
   try {
     hostSurface = await productAppRuntimeHostAPI.getHostSurface(
@@ -283,7 +283,7 @@ export async function resolveProductAppStudioPreviewTarget(
       workspacePath,
     );
   } catch (error) {
-    throw new ProductAppStudioPreviewResolveError(
+    throw new ProductAppBuilderPreviewResolveError(
       error instanceof Error ? error.message : String(error),
       {
         ...failureContextBase,

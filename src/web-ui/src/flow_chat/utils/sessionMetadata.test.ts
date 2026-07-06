@@ -25,14 +25,14 @@ function createSession(overrides: Partial<Session> = {}): Session {
     status: 'idle',
     config: {
       modelName: 'gpt-test',
-      agentType: 'agentic',
+      agentType: 'Runno',
     },
     createdAt: 1000,
     lastActiveAt: 1000,
     error: null,
     todos: [],
     maxContextTokens: 128128,
-    mode: 'agentic',
+    mode: 'runno',
     workspacePath: '/workspace',
     parentSessionId: undefined,
     sessionKind: 'normal',
@@ -104,7 +104,7 @@ describe('sessionMetadata', () => {
     const existingMetadata: SessionMetadata = {
       sessionId: 'child-1',
       sessionName: 'Old Name',
-      agentType: 'agentic',
+      agentType: 'Runno',
       modelName: 'old-model',
       createdAt: 10,
       lastActiveAt: 10,
@@ -149,7 +149,7 @@ describe('sessionMetadata', () => {
     const metadata = buildSessionMetadata(session, {
       sessionId: 'session-1',
       sessionName: 'Session Title',
-      agentType: 'agentic',
+      agentType: 'Runno',
       modelName: 'gpt-test',
       createdAt: 1000,
       lastActiveAt: 1000,
@@ -183,7 +183,7 @@ describe('sessionMetadata', () => {
     const metadata = buildSessionMetadata(session, {
       sessionId: 'session-1',
       sessionName: 'Session Title',
-      agentType: 'agentic',
+      agentType: 'Runno',
       modelName: 'gpt-test',
       createdAt: 1000,
       lastActiveAt: 1000,
@@ -211,7 +211,7 @@ describe('sessionMetadata', () => {
     const metadata: SessionMetadata = {
       sessionId: 'child-1',
       sessionName: 'BTW Child',
-      agentType: 'agentic',
+      agentType: 'Runno',
       modelName: 'gpt-test',
       createdAt: 1000,
       lastActiveAt: 1001,

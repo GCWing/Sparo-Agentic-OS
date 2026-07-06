@@ -2,18 +2,18 @@
 
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
 use crate::agentic::tools::implementations::util::{
-    bound_app_studio_product_app_root, enforce_app_studio_package_write,
+    bound_app_builder_product_app_root, enforce_app_builder_package_write,
 };
 use crate::app_platform::{
     create_product_app_component_scaffold, create_product_app_package_with_options,
     default_product_app_work_multiplicity_for_surface_mode, list_installed_shared_components,
-    AppIconSpec, AppInteractionModel, AppSurfaceMode, AppWorkMultiplicity, ComponentKind,
-    CreateProductAppComponentDraft, CreateProductAppPackageDraft, CreateProductAppPackageOptions,
-    ProductAppLaunch, ProductAppLaunchKind, ProductAppLaunchScopeRequirement, ProductAppResolver,
-    SurfaceRef, WrittenProductAppPackage,
+    AppAuthor, AppI18n, AppIconSpec, AppInteractionModel, AppSurfaceMode, AppWorkMultiplicity,
+    ComponentKind, CreateProductAppComponentDraft, CreateProductAppPackageDraft,
+    CreateProductAppPackageOptions, ProductAppLaunch, ProductAppLaunchKind,
+    ProductAppLaunchScopeRequirement, ProductAppResolver, SurfaceRef, WrittenProductAppPackage,
 };
-use crate::infrastructure::{try_get_path_manager_arc, PathManager};
 use crate::error::{CoreError, CoreResult};
+use crate::infrastructure::{try_get_path_manager_arc, PathManager};
 use async_trait::async_trait;
 use log::warn;
 use serde::Serialize;
@@ -27,7 +27,7 @@ pub struct CreateProductAppComponentTool;
 pub struct GetProductAppPackageTool;
 pub struct UpdateProductAppPackageTool;
 pub struct RefreshProductAppLockTool;
-pub struct ResolveStudioPreviewTargetTool;
+pub struct ResolveBuilderPreviewTargetTool;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ProductAppEntryKind {
@@ -96,13 +96,13 @@ impl Default for RefreshProductAppLockTool {
     }
 }
 
-impl ResolveStudioPreviewTargetTool {
+impl ResolveBuilderPreviewTargetTool {
     pub fn new() -> Self {
         Self
     }
 }
 
-impl Default for ResolveStudioPreviewTargetTool {
+impl Default for ResolveBuilderPreviewTargetTool {
     fn default() -> Self {
         Self::new()
     }
@@ -127,7 +127,7 @@ Returns Product App identity, optional primary surface, optional agent component
         json!({
             "type": "object",
             "additionalProperties": false,
-            "required": ["name"],
+            "required": ["name", "description"],
             "properties": {
                 "app_id": {
                     "type": "string",
@@ -139,11 +139,24 @@ Returns Product App identity, optional primary surface, optional agent component
                 },
                 "description": {
                     "type": "string",
-                    "description": "One-sentence app description. Default empty."
+                    "description": "One-sentence catalog description that tells users when to choose this Product App."
                 },
-                "goal": {
-                    "type": "string",
-                    "description": "The Product App goal. Defaults to the description or app name."
+                "i18n": {
+                    "type": "object",
+                    "description": "Optional localized catalog metadata, shaped as { locales: { \"zh-CN\": { name, description, tags }, \"en-US\": { name, description, tags } } }."
+                },
+                "authors": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["name"],
+                        "properties": {
+                            "name": { "type": "string" },
+                            "url": { "type": "string" }
+                        }
+                    },
+                    "description": "Optional Product App authors. Use one item for a single author; include url for a clickable catalog link."
                 },
                 "category": {
                     "type": "string",
@@ -151,7 +164,7 @@ Returns Product App identity, optional primary surface, optional agent component
                 },
                 "agent_type": {
                     "type": "string",
-                    "description": "Agent runtime type for the generated private agent component when include_agent is true. Default agentic."
+                    "description": "Agent runtime type for the generated private agent component when include_agent is true. Default Runno."
                 },
                 "entry_kind": {
                     "type": "string",
@@ -191,23 +204,16 @@ Returns Product App identity, optional primary surface, optional agent component
     ) -> CoreResult<Vec<ToolResult>> {
         let name = required_string(input, "name")?;
         let app_name = name.clone();
-        let description = optional_string(input, "description").unwrap_or_default();
+        let description = required_string(input, "description")?;
         let app_description = description.clone();
-        let goal = optional_string(input, "goal")
-            .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| {
-                if description.trim().is_empty() {
-                    format!("Use {} as a focused Product App workflow.", name)
-                } else {
-                    description.clone()
-                }
-            });
         let app_id = optional_string(input, "app_id")
             .filter(|value| !value.trim().is_empty())
             .unwrap_or_else(|| generated_app_id(&name));
         let category = optional_string(input, "category").unwrap_or_else(|| "utility".to_string());
+        let i18n = optional_i18n(input)?;
+        let authors = optional_authors(input)?.unwrap_or_default();
         let agent_type =
-            optional_string(input, "agent_type").unwrap_or_else(|| "agentic".to_string());
+            optional_string(input, "agent_type").unwrap_or_else(|| "Runno".to_string());
         let include_agent_hint = optional_bool(input, "include_agent")?;
         let entry_kind = optional_entry_kind(input)?.unwrap_or_else(|| match include_agent_hint {
             Some(true) => ProductAppEntryKind::SurfaceAgent,
@@ -256,7 +262,8 @@ Returns Product App identity, optional primary surface, optional agent component
                 app_id,
                 name,
                 description,
-                goal: goal.clone(),
+                authors,
+                i18n,
                 version: "1.0.0".to_string(),
                 agent_type,
                 category,
@@ -346,7 +353,7 @@ Returns Product App identity, optional primary surface, optional agent component
         .await
         {
             warn!(
-                "Failed to bind created Product App to AppStudio session: session_id={:?}, app_id={}, error={}",
+                "Failed to bind created Product App to AppBuilder session: session_id={:?}, app_id={}, error={}",
                 context.session_id,
                 written.app_id,
                 error
@@ -372,7 +379,7 @@ Returns Product App identity, optional primary surface, optional agent component
                 "files": files,
                 "skill_hints": skill_hints,
                 "blueprint_seed": {
-                    "what_it_does": goal,
+                    "what_it_does": app_description,
                     "how_i_use_it": if !include_surface {
                         "Use the Product App through its app-private agent in the normal session UI."
                     } else if primary_surface_mode == AppSurfaceMode::SidecarLinked {
@@ -408,7 +415,7 @@ Returns Product App identity, optional primary surface, optional agent component
                     "Read the generated source files before editing behavior.",
                     "Call CreateProductAppComponent when the Product App needs another app-private implementation unit.",
                     "Run ValidateProductAppPackage after meaningful package or component edits.",
-                    "Run RunStudioPreview for runtime, user-path, and agent-eval evidence when applicable."
+                    "Run RunBuilderPreview for runtime, user-path, and agent-eval evidence when applicable."
                 ]
             }),
             result_for_assistant: Some(result_text),
@@ -438,7 +445,7 @@ Supports Product App private component kinds: surface, agent, bridge, runtime, t
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "Standalone Product App package directory. Leave empty in a bound AppStudio session; the current bound package is used."
+                    "description": "Standalone Product App package directory. Leave empty in a bound AppBuilder session; the current bound package is used."
                 },
                 "app_id": {
                     "type": "string",
@@ -475,7 +482,7 @@ Supports Product App private component kinds: surface, agent, bridge, runtime, t
                 },
                 "agent_type": {
                     "type": "string",
-                    "description": "Agent runtime type when kind=agent and implementation_ref is omitted. Defaults to agentic."
+                    "description": "Agent runtime type when kind=agent and implementation_ref is omitted. Defaults to Runno."
                 },
                 "make_primary_surface": {
                     "type": "boolean",
@@ -507,7 +514,7 @@ Supports Product App private component kinds: surface, agent, bridge, runtime, t
             &path_manager,
             context,
         )?;
-        enforce_app_studio_package_write(context, &package_dir.to_string_lossy()).await?;
+        enforce_app_builder_package_write(context, &package_dir.to_string_lossy()).await?;
         let component_id = required_string(input, "component_id")?;
         let kind = required_component_kind(input)?;
         let name = required_string(input, "name")?;
@@ -576,7 +583,7 @@ Supports Product App private component kinds: surface, agent, bridge, runtime, t
                     "Read the generated component.json and source scaffold before editing behavior.",
                     "Implement only the component behavior the Product App actually needs.",
                     "Run ValidateProductAppPackage after meaningful component edits.",
-                    "Run RunStudioPreview for package, runtime, user-path, and agent-eval evidence when applicable."
+                    "Run RunBuilderPreview for package, runtime, user-path, and agent-eval evidence when applicable."
                 ]
             }),
             result_for_assistant: Some(format!(
@@ -599,7 +606,7 @@ impl Tool for GetProductAppPackageTool {
     async fn description(&self) -> CoreResult<String> {
         Ok(r#"Read the current Product App package and return its package, component graph, lock, rehearsal, and eval summary without modifying files.
 
-Input: path, or app_id plus optional version for standalone reads. In a bound AppStudio session, leave input empty; the current bound Product App package is always used."#
+Input: path, or app_id plus optional version for standalone reads. In a bound AppBuilder session, leave input empty; the current bound Product App package is always used."#
             .to_string())
     }
 
@@ -621,7 +628,7 @@ Input: path, or app_id plus optional version for standalone reads. In a bound Ap
                     "description": "Product App version. Defaults to 1.0.0 when app_id is used."
                 }
             },
-            "description": "Use path/app_id only for standalone reads. Leave empty in a bound AppStudio session; the current Product App package is used."
+            "description": "Use path/app_id only for standalone reads. Leave empty in a bound AppBuilder session; the current Product App package is used."
         })
     }
 
@@ -747,7 +754,7 @@ impl Tool for UpdateProductAppPackageTool {
     async fn description(&self) -> CoreResult<String> {
         Ok(r#"Update structured Product App package metadata and launch fields, then refresh app.json component_lock_id and app.lock.json.
 
-Input: path, or app_id plus optional version for standalone updates. In a bound AppStudio session, leave package identity empty; the current bound Product App package is always used. Supported updates: name, description, goal, category, structured icon, tags, work_multiplicity, interaction_model, primary_surface_id, primary_surface_mode, launch_kind, launch_target_id, launch_scope_requirement, launch_agent_type, launch_surface_id. Use component authoring or file tools for private component source edits."#
+Input: path, or app_id plus optional version for standalone updates. In a bound AppBuilder session, leave package identity empty; the current bound Product App package is always used. Supported updates: name, description, authors, i18n, category, structured icon, tags, work_multiplicity, interaction_model, primary_surface_id, primary_surface_mode, launch_kind, launch_target_id, launch_scope_requirement, launch_agent_type, launch_surface_id. Use component authoring or file tools for private component source edits."#
             .to_string())
     }
 
@@ -761,7 +768,23 @@ Input: path, or app_id plus optional version for standalone updates. In a bound 
                 "version": { "type": "string" },
                 "name": { "type": "string" },
                 "description": { "type": "string" },
-                "goal": { "type": "string" },
+                "i18n": {
+                    "type": "object",
+                    "description": "Localized catalog metadata, shaped as { locales: { \"zh-CN\": { name, description, tags }, \"en-US\": { name, description, tags } } }."
+                },
+                "authors": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["name"],
+                        "properties": {
+                            "name": { "type": "string" },
+                            "url": { "type": "string" }
+                        }
+                    },
+                    "description": "Replace Product App authors. Use an empty array to clear authors."
+                },
                 "category": { "type": "string" },
                 "icon": {
                     "type": "object",
@@ -821,7 +844,7 @@ Input: path, or app_id plus optional version for standalone updates. In a bound 
                 },
                 "launch_kind": {
                     "type": "string",
-                    "enum": ["agentSession", "applicationSurface", "appStudio"]
+                    "enum": ["agentSession", "applicationSurface", "appBuilder"]
                 },
                 "launch_target_id": { "type": "string" },
                 "launch_scope_requirement": {
@@ -880,18 +903,23 @@ Input: path, or app_id plus optional version for standalone updates. In a bound 
         )?;
         apply_string_update(
             input,
-            "goal",
-            &mut package.app.goal,
-            &mut changed_fields,
-            false,
-        )?;
-        apply_string_update(
-            input,
             "category",
             &mut package.app.category,
             &mut changed_fields,
             true,
         )?;
+        if let Some(i18n) = optional_i18n_update(input)? {
+            if package.app.i18n != i18n {
+                package.app.i18n = i18n;
+                changed_fields.push("i18n".to_string());
+            }
+        }
+        if let Some(authors) = optional_authors(input)? {
+            if package.app.authors != authors {
+                package.app.authors = authors;
+                changed_fields.push("authors".to_string());
+            }
+        }
         if let Some(icon) = optional_app_icon(input, "icon")? {
             if package.app.icon != icon {
                 package.app.icon = icon;
@@ -1036,7 +1064,7 @@ impl Tool for RefreshProductAppLockTool {
     async fn description(&self) -> CoreResult<String> {
         Ok(r#"Refresh the component lock for a Product App package after package/component edits. The tool resolves the package, writes the updated app.json component_lock_id, and rewrites app.lock.json.
 
-Input: path, or app_id plus optional version for standalone refreshes. In a bound AppStudio session, leave input empty; the current bound Product App package is always used."#
+Input: path, or app_id plus optional version for standalone refreshes. In a bound AppBuilder session, leave input empty; the current bound Product App package is always used."#
             .to_string())
     }
 
@@ -1058,7 +1086,7 @@ Input: path, or app_id plus optional version for standalone refreshes. In a boun
                     "description": "Product App version. Defaults to 1.0.0 when app_id is used."
                 }
             },
-            "description": "Use path/app_id only for standalone refreshes. Leave empty in a bound AppStudio session; the current Product App package is used."
+            "description": "Use path/app_id only for standalone refreshes. Leave empty in a bound AppBuilder session; the current Product App package is used."
         })
     }
 
@@ -1134,15 +1162,15 @@ Input: path, or app_id plus optional version for standalone refreshes. In a boun
 }
 
 #[async_trait]
-impl Tool for ResolveStudioPreviewTargetTool {
+impl Tool for ResolveBuilderPreviewTargetTool {
     fn name(&self) -> &str {
-        "ResolveStudioPreviewTarget"
+        "ResolveBuilderPreviewTarget"
     }
 
     async fn description(&self) -> CoreResult<String> {
-        Ok(r#"Resolve the current Product App package into a structured App Studio Preview Target without opening a runtime host or claiming execution evidence.
+        Ok(r#"Resolve the current Product App package into a structured App Builder Preview Target without opening a runtime host or claiming execution evidence.
 
-Input: path, or app_id plus optional version for standalone resolution. In a bound AppStudio session, leave package identity empty; the current bound Product App package is always used. Optional mode can force product-app-preview, agent-chat, sidecar-ui, full-ui, embedded-object, capability, agent-eval, runtime-boundary, runtime-dependencies, permission-review, user-path-rehearsal, or release-rehearsal."#
+Input: path, or app_id plus optional version for standalone resolution. In a bound AppBuilder session, leave package identity empty; the current bound Product App package is always used. Optional mode can force product-app-preview, agent-chat, sidecar-ui, full-ui, embedded-object, capability, agent-eval, runtime-boundary, runtime-dependencies, permission-review, user-path-rehearsal, or release-rehearsal."#
             .to_string())
     }
 
@@ -1177,7 +1205,7 @@ Input: path, or app_id plus optional version for standalone resolution. In a bou
                 "theme": { "type": "string" },
                 "viewport": { "type": "string" }
             },
-            "description": "Resolve preview target identity and placement only. RunStudioPreview produces evidence."
+            "description": "Resolve preview target identity and placement only. RunBuilderPreview produces evidence."
         })
     }
 
@@ -1198,7 +1226,7 @@ Input: path, or app_id plus optional version for standalone resolution. In a bou
             .map_err(|e| CoreError::tool(format!("PathManager not initialized: {}", e)))?;
         let package_dir = product_app_package_dir_from_input(
             input,
-            "ResolveStudioPreviewTarget",
+            "ResolveBuilderPreviewTarget",
             &path_manager,
             context,
         )?;
@@ -1230,7 +1258,7 @@ Input: path, or app_id plus optional version for standalone resolution. In a bou
         let primary_surface_mode = package.app.primary_surface_mode;
         let launch = package.app.launch.clone();
         let app_name = package.app.name.clone();
-        let app_goal = package.app.goal.clone();
+        let app_description = package.app.description.clone();
         let component_lock_digest = resolved.lock.digest();
 
         Ok(vec![ToolResult::Result {
@@ -1255,7 +1283,7 @@ Input: path, or app_id plus optional version for standalone resolution. In a bou
                     "id": app_id.clone(),
                     "version": app_version.clone(),
                     "name": app_name,
-                    "goal": app_goal,
+                    "description": app_description,
                 },
                 "component_graph": {
                     "resolved_component_count": resolved.components.len(),
@@ -1263,11 +1291,11 @@ Input: path, or app_id plus optional version for standalone resolution. In a bou
                 },
                 "evidence_boundary": {
                     "status": "targetResolved",
-                    "detail": "ResolveStudioPreviewTarget resolves identity and placement only. RunStudioPreview or the Product App runtime host must produce execution evidence."
+                    "detail": "ResolveBuilderPreviewTarget resolves identity and placement only. RunBuilderPreview or the Product App runtime host must produce execution evidence."
                 }
             }),
             result_for_assistant: Some(format!(
-                "Resolved Studio preview target for {}@{} using mode {}.",
+                "Resolved Builder preview target for {}@{} using mode {}.",
                 app_id, app_version, mode
             )),
             image_attachments: None,
@@ -1293,7 +1321,7 @@ async fn bind_created_product_app_session(
     written: &WrittenProductAppPackage,
     binding: CreatedProductAppSessionBinding<'_>,
 ) -> CoreResult<()> {
-    if context.agent_type.as_deref() != Some("AppStudio") {
+    if context.agent_type.as_deref() != Some("AppBuilder") {
         return Ok(());
     }
     let Some(session_id) = context.session_id.as_deref() else {
@@ -1339,7 +1367,7 @@ fn created_product_app_session_metadata_patch(
         "agentSessionBinding": {
             "schemaVersion": 1,
             "intent": {
-                "agentType": "AppStudio",
+                "agentType": "AppBuilder",
                 "mode": "edit"
             },
             "subject": {
@@ -1358,7 +1386,7 @@ fn created_product_app_session_metadata_patch(
                 }
             },
             "surface": {
-                "contentType": "app-studio",
+                "contentType": "app-builder",
                 "title": format!("Edit {}", binding.app_name),
                 "data": {
                     "appId": written.app_id,
@@ -1374,7 +1402,7 @@ fn created_product_app_session_metadata_patch(
             "openedFrom": "CreateProductApp",
             "updatedAt": updated_at
         },
-        "appStudioFacts": {
+        "appBuilderFacts": {
             "subject": {
                 "kind": "product-app",
                 "appId": written.app_id,
@@ -1465,7 +1493,7 @@ fn product_app_package_dir_from_input(
     path_manager: &PathManager,
     context: &ToolUseContext,
 ) -> CoreResult<PathBuf> {
-    if let Some(package_root) = bound_app_studio_product_app_root(context, tool_name)? {
+    if let Some(package_root) = bound_app_builder_product_app_root(context, tool_name)? {
         return Ok(package_root);
     }
 
@@ -1490,7 +1518,7 @@ async fn enforce_product_app_package_write(
     context: &ToolUseContext,
     package_dir: &Path,
 ) -> CoreResult<()> {
-    enforce_app_studio_package_write(context, package_dir.to_string_lossy().as_ref()).await
+    enforce_app_builder_package_write(context, package_dir.to_string_lossy().as_ref()).await
 }
 
 fn now_ms() -> u64 {
@@ -1588,6 +1616,38 @@ fn optional_bool(input: &Value, field: &str) -> CoreResult<Option<bool>> {
     }
 }
 
+fn optional_i18n(input: &Value) -> CoreResult<AppI18n> {
+    optional_i18n_update(input).map(|value| value.unwrap_or_default())
+}
+
+fn optional_i18n_update(input: &Value) -> CoreResult<Option<AppI18n>> {
+    let Some(value) = input.get("i18n") else {
+        return Ok(None);
+    };
+    if value.is_null() {
+        return Ok(Some(AppI18n::default()));
+    }
+    serde_json::from_value::<AppI18n>(value.clone())
+        .map(Some)
+        .map_err(|error| CoreError::validation(format!("i18n must be valid AppI18n: {error}")))
+}
+
+fn optional_authors(input: &Value) -> CoreResult<Option<Vec<AppAuthor>>> {
+    let Some(value) = input.get("authors") else {
+        return Ok(None);
+    };
+    if value.is_null() {
+        return Ok(Some(Vec::new()));
+    }
+    serde_json::from_value::<Vec<AppAuthor>>(value.clone())
+        .map(Some)
+        .map_err(|error| {
+            CoreError::validation(format!(
+                "authors must be an array of {{ name, url? }} objects: {error}"
+            ))
+        })
+}
+
 fn optional_entry_kind(input: &Value) -> CoreResult<Option<ProductAppEntryKind>> {
     let Some(value) = optional_string(input, "entry_kind") else {
         return Ok(None);
@@ -1663,10 +1723,10 @@ fn optional_launch_kind(input: &Value) -> CoreResult<Option<ProductAppLaunchKind
     let kind = match value.as_str() {
         "agentSession" => ProductAppLaunchKind::AgentSession,
         "applicationSurface" => ProductAppLaunchKind::ApplicationSurface,
-        "appStudio" => ProductAppLaunchKind::AppStudio,
+        "appBuilder" => ProductAppLaunchKind::AppBuilder,
         _ => {
             return Err(CoreError::validation(
-                "launch_kind must be agentSession, applicationSurface, or appStudio".to_string(),
+                "launch_kind must be agentSession, applicationSurface, or appBuilder".to_string(),
             ))
         }
     };
@@ -1797,7 +1857,7 @@ fn update_launch(
                 launch
                     .as_ref()
                     .and_then(|launch| launch.agent_type.clone())
-                    .unwrap_or_else(|| primary_surface_id.unwrap_or("agentic").to_string())
+                    .unwrap_or_else(|| primary_surface_id.unwrap_or("Runno").to_string())
             }
         });
     let scope_requirement = optional_launch_scope_requirement(input)?
@@ -2029,19 +2089,19 @@ mod tests {
         );
         assert_eq!(
             patch
-                .pointer("/appStudioFacts/subject/packageRoot")
+                .pointer("/appBuilderFacts/subject/packageRoot")
                 .and_then(Value::as_str),
             Some(package_dir_string.as_str())
         );
         assert_eq!(
             patch
-                .pointer("/appStudioFacts/validationSummary/status")
+                .pointer("/appBuilderFacts/validationSummary/status")
                 .and_then(Value::as_str),
             Some("notRun")
         );
         assert_eq!(
             patch
-                .pointer("/appStudioFacts/createResult/createdAt")
+                .pointer("/appBuilderFacts/createResult/createdAt")
                 .and_then(Value::as_u64),
             Some(1234)
         );

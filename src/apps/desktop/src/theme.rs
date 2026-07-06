@@ -4,10 +4,10 @@
 //! `crate::window`; the menu-event handler that resolves Agent Companion
 //! context-menu IDs lives in `crate::window::companion_window`.
 
-use sparo_core::infrastructure::try_get_path_manager_arc;
-use sparo_core::service::config::types::GlobalConfig;
 use dark_light::Mode;
 use log::{debug, warn};
+use sparo_core::infrastructure::try_get_path_manager_arc;
+use sparo_core::service::config::types::GlobalConfig;
 
 // Re-export window commands so the `tauri::generate_handler!` invocation in
 // `lib.rs` keeps its compact import surface.

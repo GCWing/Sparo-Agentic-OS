@@ -28,8 +28,8 @@ interface ChatPageProps {
   /** When true, hides the chat's own header (used inside AppShell where TopBar provides navigation). */
   embedded?: boolean;
   /**
-   * Raw agent_type string from backend (e.g. 'agentic', 'Design', 'Cowork', 'OSAgent').
-   * Controls which UI affordances are shown (e.g. mode pill is only relevant for 'agentic').
+   * Raw agent_type string from backend (e.g. 'bitfun-coder', 'Design', 'Cowork', 'OSAgent').
+   * Controls which UI affordances are shown (e.g. mode pill is only relevant for BitFun Coder).
    */
   agentType?: string;
 }
@@ -1935,15 +1935,20 @@ const ModelSelectorPill: React.FC<{
 
 // ─── Agent Mode ─────────────────────────────────────────────────────────────
 
-type AgentMode = 'agentic' | 'Plan' | 'debug';
+type AgentMode = 'bitfun-coder' | 'bitfun-plan' | 'bitfun-debug' | 'bitfun-team';
 
 // ─── ChatPage ───────────────────────────────────────────────────────────────
 
-// Agent types that support manual sub-mode switching (agentic/Plan/debug)
-const SUPPORTS_MODE_PILL = new Set(['agentic', 'Agentic', 'code', undefined]);
+const BITFUN_MODE_AGENT_TYPES = new Set(['bitfun-coder', 'bitfun-plan', 'bitfun-debug', 'bitfun-team']);
+
+function normalizeBitFunAgentMode(agentType?: string): AgentMode {
+  return agentType === 'bitfun-plan' || agentType === 'bitfun-debug' || agentType === 'bitfun-team'
+    ? agentType
+    : 'bitfun-coder';
+}
 
 const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName, onBack, autoFocus, embedded = false, agentType }) => {
-  const showModePill = SUPPORTS_MODE_PILL.has(agentType);
+  const showModePill = agentType ? BITFUN_MODE_AGENT_TYPES.has(agentType) : false;
   const { t } = useI18n();
   const {
     getMessages,
@@ -1959,13 +1964,14 @@ const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName,
 
   const { isDark, toggleTheme } = useTheme();
   const modeOptions: { id: AgentMode; label: string }[] = useMemo(() => ([
-    { id: 'agentic', label: t('chat.modeAgentic') },
-    { id: 'Plan', label: t('chat.modePlan') },
-    { id: 'debug', label: t('chat.modeDebug') },
+    { id: 'bitfun-coder', label: t('chat.modeBitFunCoder') },
+    { id: 'bitfun-plan', label: t('chat.modePlan') },
+    { id: 'bitfun-debug', label: t('chat.modeDebug') },
+    { id: 'bitfun-team', label: t('chat.modeTeam') },
   ]), [t]);
   const messages = getMessages(sessionId);
   const [input, setInput] = useState('');
-  const [agentMode, setAgentMode] = useState<AgentMode>('agentic');
+  const [agentMode, setAgentMode] = useState<AgentMode>(() => normalizeBitFunAgentMode(agentType));
   const [liveTitle, setLiveTitle] = useState(sessionName);
   const [modelCatalog, setModelCatalog] = useState<RemoteModelCatalog | null>(null);
   const [selectedModelId, setSelectedModelId] = useState<string>('primary');
@@ -1992,6 +1998,10 @@ const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName,
   const [infoToast, setInfoToast] = useState<string | null>(null);
 
   const isStreaming = activeTurn != null && activeTurn.status === 'active';
+
+  useEffect(() => {
+    setAgentMode(normalizeBitFunAgentMode(agentType));
+  }, [agentType, sessionId]);
 
   const [now, setNow] = useState(() => Date.now());
   const handleAnswerQuestion = useCallback(async (toolId: string, answers: any) => {
@@ -2286,7 +2296,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName,
     }
 
     try {
-      // Only override agent_type for sessions that support sub-mode switching (agentic/code).
+      // Only override agent_type for BitFun Coder sessions that support sub-mode switching.
       // For Design, Cowork, DeepResearch, etc. pass undefined so the backend uses
       // the session's own agent_type and doesn't overwrite it.
       const modeOverride = showModePill ? agentMode : undefined;
@@ -2306,7 +2316,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName,
       setImageAnalyzing(false);
       setOptimisticMsg(null);
     }
-  }, [agentMode, imageAnalyzing, input, isStreaming, pendingImages, sessionId, sessionMgr, setError, t]);
+  }, [agentMode, imageAnalyzing, input, isStreaming, pendingImages, sessionId, sessionMgr, setError, showModePill, t]);
 
   const handleImageSelect = useCallback(() => {
     fileInputRef.current?.click();
@@ -2735,9 +2745,9 @@ const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName,
                 <>
                   {showModePill && (
                   <button
-                    className={`chat-page__mode-pill${agentMode !== 'agentic' ? ` chat-page__mode-pill--${agentMode}` : ''}`}
+                    className={`chat-page__mode-pill${agentMode !== 'bitfun-coder' ? ` chat-page__mode-pill--${agentMode}` : ''}`}
                     onClick={() => {
-                      const modes: AgentMode[] = ['agentic', 'Plan', 'debug'];
+                      const modes: AgentMode[] = ['bitfun-coder', 'bitfun-plan', 'bitfun-debug', 'bitfun-team'];
                       const idx = modes.indexOf(agentMode);
                       setAgentMode(modes[(idx + 1) % modes.length]);
                     }}

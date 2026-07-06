@@ -47,7 +47,7 @@ const legacyNamespaceShims: LegacyNamespaceShim[] = [
   { namespace: 'flow-chat/session', legacyNamespace: 'flow-chat', legacyKey: 'session' },
   { namespace: 'flow-chat/tool-cards', legacyNamespace: 'flow-chat', legacyKey: 'toolCards' },
   { namespace: 'flow-chat/welcome', legacyNamespace: 'flow-chat', legacyKey: 'welcome' },
-  { namespace: 'scenes/app-studio', legacyNamespace: 'common', legacyKey: 'appStudio' },
+  { namespace: 'scenes/app-builder', legacyNamespace: 'common', legacyKey: 'appBuilder' },
   { namespace: 'scenes/memory', legacyNamespace: 'common', legacyKey: 'memoryLibrary' },
   { namespace: 'scenes/work-center', legacyNamespace: 'common', legacyKey: 'workCenterScene' },
   { namespace: 'scenes/welcome', legacyNamespace: 'common', legacyKey: 'welcomeScene' },

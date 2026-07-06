@@ -6,10 +6,10 @@
 //! 3. Invalidate cache when configuration changes
 //! 4. Provide global singleton access
 
+use crate::error::{CoreError, CoreResult};
 use crate::infrastructure::ai::{build_stream_options, AIClient};
 use crate::service::config::types::AuthConfig;
 use crate::service::config::{get_global_config_service, ConfigService};
-use crate::error::{CoreError, CoreResult};
 use crate::util::types::AIConfig;
 use anyhow::{anyhow, Result};
 use cli_credential::{codex::CodexResolver, gemini::GeminiResolver, CredentialResolver};

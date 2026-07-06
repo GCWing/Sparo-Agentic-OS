@@ -22,10 +22,7 @@ impl MCPServerRegistry {
     }
 
     /// Registers a server.
-    pub async fn register(
-        &self,
-        config: &MCPServerConfig,
-    ) -> crate::error::CoreResult<()> {
+    pub async fn register(&self, config: &MCPServerConfig) -> crate::error::CoreResult<()> {
         config.validate()?;
 
         let process =

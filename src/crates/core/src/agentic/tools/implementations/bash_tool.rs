@@ -2,12 +2,12 @@ use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
 };
 use crate::agentic::workspace::WorkspaceCommandOptions;
+use crate::error::{CoreError, CoreResult};
 use crate::infrastructure::events::event_system::get_global_event_system;
 use crate::infrastructure::events::event_system::BackendEvent::{
     ToolExecutionProgress, ToolTerminalReady,
 };
 use crate::service::config::global::get_global_config_service;
-use crate::error::{CoreError, CoreResult};
 use crate::util::types::event::{ToolExecutionProgressInfo, ToolTerminalReadyInfo};
 use agentshell::session::SessionSource;
 use agentshell::shell::{ShellDetector, ShellType};
@@ -707,9 +707,7 @@ Usage notes:
         let binding = terminal_api.session_manager().binding();
         let workspace_path = context
             .workspace_root()
-            .ok_or_else(|| {
-                CoreError::tool("workspace_path is required for Bash tool".to_string())
-            })?
+            .ok_or_else(|| CoreError::tool("workspace_path is required for Bash tool".to_string()))?
             .to_string_lossy()
             .to_string();
 

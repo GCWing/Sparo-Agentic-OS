@@ -719,7 +719,7 @@ ${JSON.stringify(simpleTodos, null, 2)}
 </attached_file>`;
 
       const displayMessage = t('markdown.planViewer.buildPlanTitle', { name: planData.name });
-      await flowChatManager.sendMessage(message, undefined, displayMessage, 'agentic', 'agentic');
+      await flowChatManager.sendMessage(message, undefined, displayMessage, 'bitfun-coder', 'bitfun-coder');
     } catch (err) {
       log.error('Build failed', err);
       planBuildStateService.cancelBuild(filePath);

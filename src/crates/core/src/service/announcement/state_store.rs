@@ -3,8 +3,8 @@
 //! Reads and writes `announcement-state.json` in the user config directory.
 
 use super::types::AnnouncementState;
-use crate::infrastructure::app_paths::PathManager;
 use crate::error::CoreResult;
+use crate::infrastructure::app_paths::PathManager;
 use log::{debug, warn};
 use std::path::PathBuf;
 use std::sync::Arc;

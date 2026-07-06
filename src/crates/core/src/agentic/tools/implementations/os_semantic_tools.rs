@@ -49,7 +49,7 @@ impl Tool for CapabilityRegistryTool {
                 },
                 "capability_id": {
                     "type": "string",
-                    "description": "Required for get. The capability or agent id (for example agentic, Cowork, Design)."
+                    "description": "Required for get. The capability or agent id (for example Runno, bitfun-coder, Cowork)."
                 }
             },
             "required": ["action"]
@@ -159,7 +159,20 @@ struct CapabilityGuidance {
 
 fn capability_guidance(id: &str) -> CapabilityGuidance {
     match id {
-        "agentic" => CapabilityGuidance {
+        "Runno" => CapabilityGuidance {
+            domain: "general_execution",
+            best_for: &[
+                "general automation, implementation, local commands, and verification",
+                "tasks that need broad OS atomic capabilities without a specialist Product App",
+                "turning a concrete goal into executed work and a clear handoff",
+            ],
+            avoid_for: &[
+                "coding work that expects BitFun Coder modes",
+                "specialized office, design, or research deliverables",
+            ],
+            quality_signal: "Plans, executes, verifies, and hands off a completed general task.",
+        },
+        "bitfun-coder" | "bitfun-plan" | "bitfun-debug" | "bitfun-team" => CapabilityGuidance {
             domain: "software_engineering",
             best_for: &[
                 "coding, debugging, refactoring, and tests",
@@ -204,7 +217,7 @@ fn capability_guidance(id: &str) -> CapabilityGuidance {
             avoid_for: &["small known facts", "direct local implementation tasks"],
             quality_signal: "Returns sourced findings, uncertainty, and decision implications.",
         },
-        "AppStudio" => CapabilityGuidance {
+        "AppBuilder" => CapabilityGuidance {
             domain: "product_apps",
             best_for: &[
                 "create, repair, inspect, or operate Product App experiences",

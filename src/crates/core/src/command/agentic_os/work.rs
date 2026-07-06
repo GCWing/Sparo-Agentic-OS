@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use crate::agentic_os::work::{
     default_work_store, AdvanceWorkRequest, ControlWorkRequest, CreateWorkRequest,
     DispatchWorkRequest, LinkSessionToWorkRequest, ResolveAppWorkRequest,
-    ResolveComponentWorkRequest, StartWorkRequest, UpdateWorkRequest, WorkAppRef, WorkId,
-    WorkRecord, WorkService, WorkStudioPreviewResult, WorkStudioValidationResult,
+    ResolveComponentWorkRequest, StartWorkRequest, UpdateWorkRequest, WorkAppRef,
+    WorkBuilderPreviewResult, WorkBuilderValidationResult, WorkId, WorkRecord, WorkService,
 };
 
 use super::super::{CommandError, CommandResult};
@@ -153,24 +153,24 @@ pub struct AgenticOsControlWorkResponse {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct AgenticOsRecordStudioPreviewResultRequest {
+pub struct AgenticOsRecordBuilderPreviewResultRequest {
     pub work_id: WorkId,
-    pub preview_result: WorkStudioPreviewResult,
+    pub preview_result: WorkBuilderPreviewResult,
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct AgenticOsRecordStudioPreviewResultResponse {
+pub struct AgenticOsRecordBuilderPreviewResultResponse {
     pub work: WorkRecord,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct AgenticOsRecordStudioValidationResultRequest {
+pub struct AgenticOsRecordBuilderValidationResultRequest {
     pub work_id: WorkId,
-    pub validation_result: WorkStudioValidationResult,
+    pub validation_result: WorkBuilderValidationResult,
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct AgenticOsRecordStudioValidationResultResponse {
+pub struct AgenticOsRecordBuilderValidationResultResponse {
     pub work: WorkRecord,
 }
 
@@ -413,38 +413,38 @@ pub async fn control_work_with_service(
     })
 }
 
-pub async fn record_studio_preview_result(
-    request: AgenticOsRecordStudioPreviewResultRequest,
-) -> CommandResult<AgenticOsRecordStudioPreviewResultResponse> {
+pub async fn record_builder_preview_result(
+    request: AgenticOsRecordBuilderPreviewResultRequest,
+) -> CommandResult<AgenticOsRecordBuilderPreviewResultResponse> {
     let service = WorkService::new(default_work_store().map_err(CommandError::session)?);
-    record_studio_preview_result_with_service(&service, request).await
+    record_builder_preview_result_with_service(&service, request).await
 }
 
-pub async fn record_studio_preview_result_with_service(
+pub async fn record_builder_preview_result_with_service(
     service: &WorkService,
-    request: AgenticOsRecordStudioPreviewResultRequest,
-) -> CommandResult<AgenticOsRecordStudioPreviewResultResponse> {
+    request: AgenticOsRecordBuilderPreviewResultRequest,
+) -> CommandResult<AgenticOsRecordBuilderPreviewResultResponse> {
     let work = service
-        .record_studio_preview_result(&request.work_id, request.preview_result)
+        .record_builder_preview_result(&request.work_id, request.preview_result)
         .await
         .map_err(CommandError::session)?;
-    Ok(AgenticOsRecordStudioPreviewResultResponse { work })
+    Ok(AgenticOsRecordBuilderPreviewResultResponse { work })
 }
 
-pub async fn record_studio_validation_result(
-    request: AgenticOsRecordStudioValidationResultRequest,
-) -> CommandResult<AgenticOsRecordStudioValidationResultResponse> {
+pub async fn record_builder_validation_result(
+    request: AgenticOsRecordBuilderValidationResultRequest,
+) -> CommandResult<AgenticOsRecordBuilderValidationResultResponse> {
     let service = WorkService::new(default_work_store().map_err(CommandError::session)?);
-    record_studio_validation_result_with_service(&service, request).await
+    record_builder_validation_result_with_service(&service, request).await
 }
 
-pub async fn record_studio_validation_result_with_service(
+pub async fn record_builder_validation_result_with_service(
     service: &WorkService,
-    request: AgenticOsRecordStudioValidationResultRequest,
-) -> CommandResult<AgenticOsRecordStudioValidationResultResponse> {
+    request: AgenticOsRecordBuilderValidationResultRequest,
+) -> CommandResult<AgenticOsRecordBuilderValidationResultResponse> {
     let work = service
-        .record_studio_validation_result(&request.work_id, request.validation_result)
+        .record_builder_validation_result(&request.work_id, request.validation_result)
         .await
         .map_err(CommandError::session)?;
-    Ok(AgenticOsRecordStudioValidationResultResponse { work })
+    Ok(AgenticOsRecordBuilderValidationResultResponse { work })
 }

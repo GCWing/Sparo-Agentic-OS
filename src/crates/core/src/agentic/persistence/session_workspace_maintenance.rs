@@ -126,10 +126,8 @@ mod tests {
 
     impl TestWorkspace {
         fn new() -> Self {
-            let root = std::env::temp_dir().join(format!(
-                "sparo-session-maintenance-test-{}",
-                Uuid::new_v4()
-            ));
+            let root = std::env::temp_dir()
+                .join(format!("sparo-session-maintenance-test-{}", Uuid::new_v4()));
             let path = root.join("workspace");
             std::fs::create_dir_all(&path).expect("test workspace should be created");
             Self { root, path }

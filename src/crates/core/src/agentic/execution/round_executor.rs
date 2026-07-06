@@ -10,9 +10,9 @@ use crate::agentic::tools::computer_use_host::ComputerUseHostRef;
 use crate::agentic::tools::pipeline::{ToolExecutionContext, ToolExecutionOptions, ToolPipeline};
 use crate::agentic::tools::registry::get_global_tool_registry;
 use crate::agentic::MessageContent;
+use crate::error::{CoreError, CoreResult};
 use crate::infrastructure::ai::AIClient;
 use crate::service::config::GlobalConfigManager;
-use crate::error::{CoreError, CoreResult};
 use crate::util::types::Message as AIMessage;
 use crate::util::types::ToolDefinition;
 use dashmap::DashMap;
@@ -391,7 +391,7 @@ impl RoundExecutor {
                 subagent_parent_info,
                 allowed_tools: context.available_tools.clone(),
                 runtime_tool_restrictions: context.runtime_tool_restrictions.clone(),
-                app_studio: context.app_studio.clone(),
+                app_builder: context.app_builder.clone(),
                 workspace_services: context.workspace_services.clone(),
                 workspace_mount: context.workspace_mount.clone(),
                 agentic: context.agentic.clone(),

@@ -6,8 +6,8 @@ use crate::agentic::tools::computer_use_host::{
 };
 use crate::agentic::tools::framework::{ToolResult, ToolUseContext};
 use crate::agentic::tools::implementations::computer_use_tool::computer_use_augment_result_json;
-use crate::service::config::global::GlobalConfigManager;
 use crate::error::{CoreError, CoreResult};
+use crate::service::config::global::GlobalConfigManager;
 use serde_json::{json, Value};
 
 /// Runs native UI locate (AX / UIA / AT-SPI) for the foreground app -- `ComputerUse` `action: "locate"`.

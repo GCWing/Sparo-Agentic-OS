@@ -15,8 +15,8 @@ use super::state::{
 use crate::agentic::coordination::ConversationCoordinator;
 use crate::agentic::memory::routing::build_global_workspace_overviews_context;
 use crate::agentic::tools::{ToolPathPolicy, ToolRuntimeRestrictions};
-use crate::service::workspace::{get_global_workspace_service, WorkspaceInfo, WorkspaceKind};
 use crate::error::CoreResult;
+use crate::service::workspace::{get_global_workspace_service, WorkspaceInfo, WorkspaceKind};
 use chrono::{Local, TimeZone};
 use log::{error, info, warn};
 use serde::Serialize;

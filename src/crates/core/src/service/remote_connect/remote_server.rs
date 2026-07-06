@@ -892,15 +892,17 @@ fn strip_user_input_tags(content: &str) -> String {
 
 fn resolve_agent_type(mobile_type: Option<&str>) -> &'static str {
     match mobile_type {
-        Some("code") | Some("agentic") | Some("Agentic") => "agentic",
+        Some("bitfun-coder") | Some("BitFunCoder") => "bitfun-coder",
+        Some("bitfun-plan") => "bitfun-plan",
+        Some("bitfun-debug") => "bitfun-debug",
+        Some("bitfun-team") => "bitfun-team",
+        Some("runno") | Some("Runno") => "Runno",
         Some("cowork") | Some("Cowork") => "Cowork",
         Some("design") | Some("Design") => "Design",
         Some("deepresearch") | Some("DeepResearch") => "DeepResearch",
-        Some("appstudio") | Some("AppStudio") => "AppStudio",
-        Some("plan") | Some("Plan") => "Plan",
-        Some("debug") | Some("Debug") => "debug",
+        Some("appbuilder") | Some("AppBuilder") => "AppBuilder",
         Some("osagent") | Some("OSAgent") | Some("os-agent") | Some("os_agent") => "OSAgent",
-        _ => "agentic",
+        _ => "Runno",
     }
 }
 
@@ -1749,8 +1751,8 @@ impl RemoteExecutionDispatcher {
             });
         }
 
-        // When agent_type is explicitly provided, use it (supports sub-mode switching for agentic sessions).
-        // When None, use the session's own agent_type so we never override Design/Cowork/etc. with "agentic".
+        // When agent_type is explicitly provided, use it.
+        // When None, use the session's own agent_type so we never override Design/Cowork/etc. with Runno.
         let resolved_agent_type = match agent_type {
             Some(t) => resolve_agent_type(Some(t)).to_string(),
             None => {
@@ -1763,7 +1765,7 @@ impl RemoteExecutionDispatcher {
                             .get_session(session_id)
                             .map(|s| s.agent_type.clone())
                     });
-                session_agent_type.unwrap_or_else(|| "agentic".to_string())
+                session_agent_type.unwrap_or_else(|| "Runno".to_string())
             }
         };
 
@@ -2597,7 +2599,7 @@ impl RemoteServer {
                             "Cowork" => "Remote Cowork Session",
                             "Design" => "Remote Design Session",
                             "DeepResearch" => "Remote Research Session",
-                            "AppStudio" => "Remote App Studio Session",
+                            "AppBuilder" => "Remote App Builder Session",
                             "OSAgent" => "Sparo OS",
                             _ => "Remote Code Session",
                         });
@@ -2612,11 +2614,11 @@ impl RemoteServer {
                     agent, requested_ws_path, binding_ws_str
                 );
 
-                // OSAgent and App Studio are workspace-independent.
+                // OSAgent and App Builder are workspace-independent.
                 // Prefer the currently opened workspace; otherwise fall back to the Sparo home directory
                 // so the session can always be created regardless of what is open on the desktop.
                 let binding_ws_str = binding_ws_str.or_else(|| {
-                    if matches!(agent, "AppStudio" | "OSAgent") {
+                    if matches!(agent, "AppBuilder" | "OSAgent") {
                         last_used_workspace_path()
                             .map(|p| p.to_string_lossy().to_string())
                             .or_else(|| {
@@ -2825,7 +2827,7 @@ impl RemoteServer {
                     .unwrap_or_else(|| images_to_contexts(images.as_ref()));
                 info!(
                     "Remote send_message: session={session_id}, agent_type={}, image_contexts={}",
-                    requested_agent_type.as_deref().unwrap_or("agentic"),
+                    requested_agent_type.as_deref().unwrap_or("Runno"),
                     resolved_contexts.len()
                 );
                 match dispatcher

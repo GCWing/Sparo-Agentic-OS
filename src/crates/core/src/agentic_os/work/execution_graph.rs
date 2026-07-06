@@ -44,7 +44,7 @@ pub enum WorkRuntimeLogLevel {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum WorkStudioPreviewKind {
+pub enum WorkBuilderPreviewKind {
     ProductAppPreview,
     AgentChat,
     Sidecar,
@@ -61,7 +61,7 @@ pub enum WorkStudioPreviewKind {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum WorkStudioPreviewSource {
+pub enum WorkBuilderPreviewSource {
     RuntimeFact,
     RuntimeObservation,
     PreviewHarness,
@@ -71,7 +71,7 @@ pub enum WorkStudioPreviewSource {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum WorkStudioFactStatus {
+pub enum WorkBuilderFactStatus {
     Passed,
     Warning,
     Failed,
@@ -85,23 +85,23 @@ pub enum WorkStudioFactStatus {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum WorkStudioValidationTargetKind {
+pub enum WorkBuilderValidationTargetKind {
     ProductApp,
     Component,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WorkStudioFactCheck {
+pub struct WorkBuilderFactCheck {
     pub id: String,
-    pub status: WorkStudioFactStatus,
+    pub status: WorkBuilderFactStatus,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum WorkStudioIssueStatus {
+pub enum WorkBuilderIssueStatus {
     Open,
     Acknowledged,
     StillOpen,
@@ -111,7 +111,7 @@ pub enum WorkStudioIssueStatus {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum WorkStudioIssueOrigin {
+pub enum WorkBuilderIssueOrigin {
     RuntimeEvent,
     WorkExecutionGraph,
     Validation,
@@ -169,12 +169,12 @@ pub struct WorkRuntimeLog {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WorkStudioPreviewResult {
+pub struct WorkBuilderPreviewResult {
     pub id: String,
-    pub kind: WorkStudioPreviewKind,
-    pub status: WorkStudioFactStatus,
-    #[serde(default = "default_studio_preview_source")]
-    pub source: WorkStudioPreviewSource,
+    pub kind: WorkBuilderPreviewKind,
+    pub status: WorkBuilderFactStatus,
+    #[serde(default = "default_builder_preview_source")]
+    pub source: WorkBuilderPreviewSource,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub harness_mode: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -182,7 +182,7 @@ pub struct WorkStudioPreviewResult {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub checks: Vec<WorkStudioFactCheck>,
+    pub checks: Vec<WorkBuilderFactCheck>,
     pub work_id: WorkId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runtime_instance_id: Option<String>,
@@ -202,11 +202,11 @@ pub struct WorkStudioPreviewResult {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WorkStudioValidationResult {
+pub struct WorkBuilderValidationResult {
     pub id: String,
     pub tool_name: String,
-    pub target_kind: WorkStudioValidationTargetKind,
-    pub status: WorkStudioFactStatus,
+    pub target_kind: WorkBuilderValidationTargetKind,
+    pub status: WorkBuilderFactStatus,
     pub work_id: WorkId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub app_id: Option<String>,
@@ -222,12 +222,12 @@ pub struct WorkStudioValidationResult {
     pub failed_count: usize,
     pub warning_count: usize,
     #[serde(default)]
-    pub checks: Vec<WorkStudioFactCheck>,
+    pub checks: Vec<WorkBuilderFactCheck>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WorkStudioIssue {
+pub struct WorkBuilderIssue {
     pub id: String,
     pub app_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -239,15 +239,15 @@ pub struct WorkStudioIssue {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preview_result_id: Option<String>,
     pub severity: WorkRuntimeIssueSeverity,
-    #[serde(default = "default_studio_issue_status")]
-    pub status: WorkStudioIssueStatus,
+    #[serde(default = "default_builder_issue_status")]
+    pub status: WorkBuilderIssueStatus,
     pub message: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub category: Option<String>,
     pub timestamp_ms: i64,
-    pub origin: WorkStudioIssueOrigin,
+    pub origin: WorkBuilderIssueOrigin,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub resolved_at: Option<i64>,
 }
@@ -304,11 +304,11 @@ pub struct WorkExecutionGraph {
     #[serde(default)]
     pub logs: Vec<WorkRuntimeLog>,
     #[serde(default)]
-    pub studio_preview_results: Vec<WorkStudioPreviewResult>,
+    pub builder_preview_results: Vec<WorkBuilderPreviewResult>,
     #[serde(default)]
-    pub studio_validation_results: Vec<WorkStudioValidationResult>,
+    pub builder_validation_results: Vec<WorkBuilderValidationResult>,
     #[serde(default)]
-    pub studio_issues: Vec<WorkStudioIssue>,
+    pub builder_issues: Vec<WorkBuilderIssue>,
     pub summary: WorkExecutionGraphSummary,
 }
 
@@ -322,9 +322,9 @@ impl WorkExecutionGraph {
         issues: Vec<WorkRuntimeIssue>,
         logs: Vec<WorkRuntimeLog>,
         artifacts: Vec<WorkArtifactNode>,
-        studio_preview_results: Vec<WorkStudioPreviewResult>,
-        studio_validation_results: Vec<WorkStudioValidationResult>,
-        studio_issues: Vec<WorkStudioIssue>,
+        builder_preview_results: Vec<WorkBuilderPreviewResult>,
+        builder_validation_results: Vec<WorkBuilderValidationResult>,
+        builder_issues: Vec<WorkBuilderIssue>,
     ) -> Self {
         let runtime_instance_graphs = runtime_instances
             .into_iter()
@@ -378,12 +378,12 @@ impl WorkExecutionGraph {
             .chain(issues.iter().map(|issue| issue.timestamp_ms))
             .chain(logs.iter().map(|log| log.timestamp_ms))
             .chain(
-                studio_preview_results
+                builder_preview_results
                     .iter()
                     .map(|preview| preview.observed_at),
             )
             .chain(
-                studio_validation_results
+                builder_validation_results
                     .iter()
                     .map(|validation| validation.observed_at),
             )
@@ -425,20 +425,20 @@ impl WorkExecutionGraph {
             artifacts,
             issues,
             logs,
-            studio_preview_results,
-            studio_validation_results,
-            studio_issues,
+            builder_preview_results,
+            builder_validation_results,
+            builder_issues,
             summary,
         }
     }
 }
 
-fn default_studio_issue_status() -> WorkStudioIssueStatus {
-    WorkStudioIssueStatus::Open
+fn default_builder_issue_status() -> WorkBuilderIssueStatus {
+    WorkBuilderIssueStatus::Open
 }
 
-fn default_studio_preview_source() -> WorkStudioPreviewSource {
-    WorkStudioPreviewSource::RuntimeFact
+fn default_builder_preview_source() -> WorkBuilderPreviewSource {
+    WorkBuilderPreviewSource::RuntimeFact
 }
 
 fn derive_runtime_instance_status(

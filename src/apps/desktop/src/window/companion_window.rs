@@ -5,12 +5,12 @@
 //! sizing is clamped to a sane envelope so the window cannot grow to cover
 //! the desktop if the renderer reports a garbage size.
 
+use log::{error, warn};
 use sparo_core::infrastructure::constants::{
     EVENT_AGENT_COMPANION_OPEN_LATEST_TASK, EVENT_AGENT_COMPANION_OPEN_SETTINGS,
     EVENT_AGENT_COMPANION_SETTINGS_UPDATED, WINDOW_AGENT_COMPANION, WINDOW_MAIN,
 };
 use sparo_core::service::config::{get_global_config_service, types::GlobalConfig};
-use log::{error, warn};
 use std::sync::{OnceLock, RwLock};
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},

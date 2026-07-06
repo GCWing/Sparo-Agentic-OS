@@ -1,7 +1,7 @@
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext, ValidationResult};
 use crate::agentic::tools::user_input_manager::get_user_input_manager;
-use crate::infrastructure::get_path_manager_arc;
 use crate::error::{CoreError, CoreResult};
+use crate::infrastructure::get_path_manager_arc;
 use async_trait::async_trait;
 use chrono::Utc;
 use log::{debug, warn};
@@ -622,13 +622,15 @@ impl Tool for DesignTokensTool {
                 )])
             }
             "update" => {
-                let mut edited: DesignTokenProposal =
-                    serde_json::from_value(input.get("proposal").cloned().ok_or_else(|| {
-                        CoreError::tool("DesignTokens.update requires proposal")
-                    })?)
-                    .map_err(|e| {
-                        CoreError::tool(format!("DesignTokens.update invalid proposal: {}", e))
-                    })?;
+                let mut edited: DesignTokenProposal = serde_json::from_value(
+                    input
+                        .get("proposal")
+                        .cloned()
+                        .ok_or_else(|| CoreError::tool("DesignTokens.update requires proposal"))?,
+                )
+                .map_err(|e| {
+                    CoreError::tool(format!("DesignTokens.update invalid proposal: {}", e))
+                })?;
                 let mut doc = Self::load_or_default(&target_path).await?;
                 let Some(existing_index) = doc
                     .proposals

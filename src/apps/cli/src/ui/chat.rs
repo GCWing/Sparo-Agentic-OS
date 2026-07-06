@@ -992,8 +992,8 @@ impl ChatView {
 mod tests {
     use super::*;
     use crate::ui::commands::PanelKind;
-    use sparo_core::command::agentic_os::AgenticOsSnapshot;
     use ratatui::{backend::TestBackend, buffer::Buffer, Terminal};
+    use sparo_core::command::agentic_os::AgenticOsSnapshot;
 
     fn render_view(view: &mut ChatView, width: u16, height: u16) {
         let backend = TestBackend::new(width, height);

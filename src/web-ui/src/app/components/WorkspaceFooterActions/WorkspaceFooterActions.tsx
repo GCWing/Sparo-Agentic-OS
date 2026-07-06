@@ -10,6 +10,7 @@ import {
   Brain,
   AppWindow,
   LayoutDashboard,
+  MailOpen,
   Settings,
   Code2,
   Wrench,
@@ -97,6 +98,7 @@ const WorkspaceFooterActions: React.FC = () => {
 
   const isMemoryActive = activeSceneId === 'memory';
   const isWorkCenterActive = activeSceneId === 'work-center';
+  const isDailyLetterActive = activeSceneId === 'daily-letter';
   const isAppsActive = activeSceneId === 'apps'
     || (typeof activeSceneId === 'string' && activeSceneId.startsWith('app-surface:'));
   const isSkillsActive = activeSceneId === 'skills';
@@ -198,6 +200,11 @@ const WorkspaceFooterActions: React.FC = () => {
   const handleOpenWorkCenter = useCallback(() => {
     closeMenu();
     openWorkCenterHome();
+  }, [closeMenu]);
+
+  const handleOpenDailyLetter = useCallback(() => {
+    closeMenu();
+    openWorkspaceScene('daily-letter');
   }, [closeMenu]);
 
   const handleOpenApps = useCallback(() => {
@@ -322,6 +329,16 @@ const WorkspaceFooterActions: React.FC = () => {
                       onClick={handleOpenWorkCenter}
                     >
                       {t('scenes.workCenter')}
+                    </FooterAction>
+
+                    <FooterAction
+                      active={isDailyLetterActive}
+                      icon={<MailOpen size={14} />}
+                      movingHoverHandlers={menuHover.getItemHandlers()}
+                      testId="workspace-footer-daily-letter-button"
+                      onClick={handleOpenDailyLetter}
+                    >
+                      {t('scenes.dailyLetter')}
                     </FooterAction>
 
                     <div className="sparo-workspace-footer__separator" />

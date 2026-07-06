@@ -1,6 +1,6 @@
 use super::model::{GoalExtractionRun, GoalJudgeRun, GoalRecord, GoalStoreEvent};
-use crate::infrastructure::PathManager;
 use crate::error::{CoreError, CoreResult};
+use crate::infrastructure::PathManager;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;

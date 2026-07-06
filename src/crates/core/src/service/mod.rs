@@ -6,6 +6,7 @@ pub mod announcement; // Announcement / feature-demo / tips system
 pub mod config; // Config management
 pub mod context_stats; // Context budget estimation and snapshots
 pub mod cron; // Scheduled jobs
+pub mod daily_letter; // Today letter runtime, storage, and receipts
 pub mod file_watch;
 pub mod files;
 pub mod files_context;
@@ -37,6 +38,14 @@ pub use announcement::{AnnouncementCard, AnnouncementScheduler, AnnouncementSche
 pub use config::{ConfigManager, ConfigProvider, ConfigService};
 pub use cron::{
     get_global_cron_service, install_global_cron_service, CronEventSubscriber, CronService,
+};
+pub use daily_letter::{
+    get_global_daily_letter_service, global_daily_letter_markdown_path,
+    global_daily_letters_output_dir, install_global_daily_letter_service,
+    DailyLetterApplyReceiptsRequest, DailyLetterAttemptStatus, DailyLetterGenerateRequest,
+    DailyLetterGetRequest, DailyLetterListRequest, DailyLetterRecord, DailyLetterRunSummary,
+    DailyLetterScope, DailyLetterSealRequest, DailyLetterService, DailyLetterState,
+    DailyLetterTrigger, DailyLetterUpdateContinuationRequest,
 };
 pub use file_watch::{
     get_global_file_watch_service, get_watched_paths, initialize_file_watch_service,

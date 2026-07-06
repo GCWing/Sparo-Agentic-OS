@@ -11,7 +11,7 @@ function sessionWith(turn: DialogTurn): Session {
     metadata: {
       sessionId: 'session-1',
       sessionName: 'Session',
-      agentType: 'agentic',
+      agentType: 'Runno',
       sessionKind: 'standard',
       storageScope: 'workspace',
       createdAt: 1,

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
-  ProductAppStudioPreviewResolveError,
-  isProductAppStudioPreviewResolveError,
-  type ProductAppStudioPreviewFailureContext,
+  ProductAppBuilderPreviewResolveError,
+  isProductAppBuilderPreviewResolveError,
+  type ProductAppBuilderPreviewFailureContext,
 } from './productAppRuntimePreviewError';
 
 describe('productAppRuntimePreviewError', () => {
@@ -29,11 +29,11 @@ describe('productAppRuntimePreviewError', () => {
         surfaceId: 'primary',
       },
       scope: { kind: 'system' },
-    } as ProductAppStudioPreviewFailureContext;
+    } as ProductAppBuilderPreviewFailureContext;
 
-    const error = new ProductAppStudioPreviewResolveError('Resolver failed', context);
+    const error = new ProductAppBuilderPreviewResolveError('Resolver failed', context);
 
-    expect(isProductAppStudioPreviewResolveError(error)).toBe(true);
+    expect(isProductAppBuilderPreviewResolveError(error)).toBe(true);
     expect(error.context.work.id).toBe('work-1');
     expect(error.context.runtimeInstance?.id).toBe('runtime-1');
     expect(error.context.surface.productAppSurfaceId).toBe('surface-1');

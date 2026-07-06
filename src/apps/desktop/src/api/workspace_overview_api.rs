@@ -1,8 +1,8 @@
+use log::{debug, error};
 use sparo_core::agentic::memory::routing::WorkspaceOverviewBinding;
 use sparo_core::service::{
     get_global_workspace_overview_auto_refresh_service, WorkspaceOverviewRefreshRunSummary,
 };
-use log::{debug, error};
 
 fn workspace_overview_service(
 ) -> Result<std::sync::Arc<sparo_core::service::WorkspaceOverviewAutoRefreshService>, String> {

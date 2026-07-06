@@ -1,10 +1,10 @@
+use log::{debug, error};
 use sparo_core::agentic_os::background_process::{
     BackgroundProcessList, RunBackgroundProcessRequest, RunBackgroundProcessResponse,
 };
 use sparo_core::command::agentic_os::{
     list_background_processes_command, run_background_process_command,
 };
-use log::{debug, error};
 
 #[tauri::command]
 pub async fn agentic_os_list_background_processes() -> Result<BackgroundProcessList, String> {

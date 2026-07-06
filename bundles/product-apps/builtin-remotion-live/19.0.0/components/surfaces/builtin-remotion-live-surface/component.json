@@ -75,5 +75,9 @@
       ]
     }
   ],
-  "implementationRef": "app://builtin-remotion-live@19.0.0/surfaces/builtin-remotion-live-surface"
+  "implementationRef": "app://builtin-remotion-live@19.0.0/surfaces/builtin-remotion-live-surface",
+  "usesCapabilities": [
+    "session.read",
+    "component.run"
+  ]
 }

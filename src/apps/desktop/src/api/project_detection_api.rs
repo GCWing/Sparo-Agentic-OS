@@ -1,7 +1,7 @@
 //! Workspace project detection (shared with language tooling; no LSP).
 
-use sparo_core::service::project_detection::ProjectDetector;
 use serde::Deserialize;
+use sparo_core::service::project_detection::ProjectDetector;
 use std::path::PathBuf;
 
 #[derive(Debug, Deserialize)]

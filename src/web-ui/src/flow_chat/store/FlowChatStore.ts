@@ -651,7 +651,7 @@ export class FlowChatStore {
   /**
    * Update the active inner agent for sessions that support agent switching.
    * @param sessionId Session ID
-   * @param agentId Agent ID (e.g., 'agentic', 'Plan')
+   * @param agentId Agent ID (e.g., 'bitfun-coder', 'bitfun-plan')
    */
   public updateSessionActiveAgent(sessionId: string, agentId: string): void {
     this.setState(prev => {
@@ -2109,7 +2109,7 @@ export class FlowChatStore {
           return prev;
         }
 
-        const rawAgentType = metadata.agentType || 'agentic';
+        const rawAgentType = metadata.agentType || 'Runno';
         const descriptor = descriptorFromSessionMetadata(metadata, rawAgentType);
         const backendAgentType = getBackendAgentType(descriptor);
 

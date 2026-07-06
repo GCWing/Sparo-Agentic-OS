@@ -104,6 +104,48 @@
   font-variant-numeric: tabular-nums;
 }
 
+.management-list__author,
+.management-list__card-author {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-size-xs);
+  font-weight: var(--ds-font-weight-normal, 400);
+  line-height: var(--ds-line-height-base);
+}
+
+.management-list__author > span:first-child,
+.management-list__card-author > span:first-child,
+.management-list__author-separator {
+  flex: 0 0 auto;
+}
+
+.management-list__author-names {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.management-list__author a,
+.management-list__card-author a {
+  color: inherit;
+  text-decoration: none;
+
+  &:hover {
+    color: var(--ds-color-accent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ds-focus-outline);
+    outline-offset: 2px;
+  }
+}
+
 .management-list__row-controls {
   display: flex;
   align-items: center;

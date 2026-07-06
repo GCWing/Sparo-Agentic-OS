@@ -107,14 +107,14 @@ async function activateGoalTestCodeSession(info: ActiveSessionInfo): Promise<voi
       current?.sessionId === info.sessionId &&
       current.workspacePath === info.workspacePath &&
       current.storageScope === 'workspace' &&
-      current.profileId === 'coding' &&
+      current.profileId === 'bitfun-coder' &&
       surface?.kind === 'session' &&
       surface?.sessionId === info.sessionId
     );
   }, {
     timeout: 20000,
     interval: 500,
-    timeoutMsg: 'Goal-mode Code session did not become active in Flow Chat',
+    timeoutMsg: 'Goal-mode BitFun Coder session did not become active in Flow Chat',
   });
 }
 
@@ -125,10 +125,10 @@ async function ensureGoalTestCodeSession(workspacePath: string): Promise<ActiveS
         const { workspaceManager } = await import('/src/infrastructure/services/business/workspaceManager.ts');
         const { flowChatManager } = await import('/src/flow_chat/services/FlowChatManager.ts');
         const { flowChatStore } = await import('/src/flow_chat/store/FlowChatStore.ts');
-        const { getDefaultSessionDescriptor } = await import('/src/flow_chat/domain/sessionDescriptor.ts');
+        const { descriptorFromAgentType } = await import('/src/flow_chat/domain/sessionDescriptor.ts');
         const { openWorkspaceSession } = await import('/src/app/navigation/workspaceNavigation.ts');
 
-        const descriptor = getDefaultSessionDescriptor();
+        const descriptor = descriptorFromAgentType('bitfun-coder');
         await workspaceManager.openWorkspace(targetWorkspacePath);
         await flowChatManager.initializeWorkspaceSessionState(targetWorkspacePath, {
           preferredDescriptor: descriptor,
@@ -138,7 +138,7 @@ async function ensureGoalTestCodeSession(workspacePath: string): Promise<ActiveS
         const state = flowChatStore.getState();
         let session = Array.from(state.sessions.values()).find(candidate =>
           candidate.workspacePath === targetWorkspacePath &&
-          candidate.descriptor.profileId === 'coding'
+          candidate.descriptor.profileId === 'bitfun-coder'
         );
 
         if (!session) {
@@ -150,7 +150,7 @@ async function ensureGoalTestCodeSession(workspacePath: string): Promise<ActiveS
         }
 
         if (!session?.sessionId) {
-          throw new Error('Unable to create a goal-mode Code session');
+          throw new Error('Unable to create a goal-mode BitFun Coder session');
         }
 
         await openWorkspaceSession(session.sessionId);
@@ -173,7 +173,7 @@ async function ensureGoalTestCodeSession(workspacePath: string): Promise<ActiveS
   );
 
   if (!info.sessionId) {
-    throw new Error(`Failed to prepare goal-mode Code session: ${info.workspacePath}`);
+    throw new Error(`Failed to prepare goal-mode BitFun Coder session: ${info.workspacePath}`);
   }
 
   await activateGoalTestCodeSession(info);

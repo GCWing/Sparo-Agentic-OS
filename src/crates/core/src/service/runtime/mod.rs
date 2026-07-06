@@ -4,9 +4,9 @@
 //! - command capability snapshot (system vs Sparo OS-managed runtime)
 //! - command resolution used by higher-level services (e.g. MCP local servers)
 
+use crate::error::CoreResult;
 use crate::infrastructure::get_path_manager_arc;
 use crate::service::system;
-use crate::error::CoreResult;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};

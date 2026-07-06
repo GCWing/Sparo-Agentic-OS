@@ -11,10 +11,10 @@ import type {
   ResolveAppWorkRequest,
   ResolveComponentWorkRequest,
   RuntimeInstanceRef,
-  RecordStudioPreviewResultRequest,
+  RecordBuilderPreviewResultRequest,
   StartWorkRequest,
   UpdateWorkRequest,
-  RecordStudioValidationResultRequest,
+  RecordBuilderValidationResultRequest,
   WorkAssignmentRef,
   WorkAppIntent,
   WorkAppRef,
@@ -37,14 +37,14 @@ import type {
   WorkRuntimeRun,
   WorkRuntimeRunStatus,
   WorkScope,
-  WorkStudioFactStatus,
-  WorkStudioIssue,
-  WorkStudioIssueOrigin,
-  WorkStudioIssueStatus,
-  WorkStudioPreviewKind,
-  WorkStudioPreviewResult,
-  WorkStudioPreviewSource,
-  WorkStudioValidationResult,
+  WorkBuilderFactStatus,
+  WorkBuilderIssue,
+  WorkBuilderIssueOrigin,
+  WorkBuilderIssueStatus,
+  WorkBuilderPreviewKind,
+  WorkBuilderPreviewResult,
+  WorkBuilderPreviewSource,
+  WorkBuilderValidationResult,
   WorkSubject,
   WorkSurfaceRef,
   WorkTitleState,
@@ -97,7 +97,7 @@ type RawWorkExecutionBinding = {
   id: string;
   status: WorkExecutionBinding['status'];
   source: RawWorkExecutionSource;
-  app_studio?: WorkExecutionBinding['appStudio'] | null;
+  app_builder?: WorkExecutionBinding['appBuilder'] | null;
   created_at: number;
   updated_at: number;
 };
@@ -229,15 +229,15 @@ type RawWorkRuntimeLog = {
   timestampMs: number;
 };
 
-type RawWorkStudioPreviewResult = {
+type RawWorkBuilderPreviewResult = {
   id: string;
-  kind: WorkStudioPreviewKind;
-  status: WorkStudioFactStatus;
-  source?: WorkStudioPreviewSource;
+  kind: WorkBuilderPreviewKind;
+  status: WorkBuilderFactStatus;
+  source?: WorkBuilderPreviewSource;
   harnessMode?: string | null;
   triggerTurnId?: string | null;
   detail?: string | null;
-  checks?: RawWorkStudioFactCheck[];
+  checks?: RawWorkBuilderFactCheck[];
   workId: string;
   runtimeInstanceId?: string | null;
   productAppId?: string | null;
@@ -250,17 +250,17 @@ type RawWorkStudioPreviewResult = {
   warningIssueCount: number;
 };
 
-type RawWorkStudioFactCheck = {
+type RawWorkBuilderFactCheck = {
   id: string;
-  status: WorkStudioFactStatus;
+  status: WorkBuilderFactStatus;
   detail?: string | null;
 };
 
-type RawWorkStudioValidationResult = {
+type RawWorkBuilderValidationResult = {
   id: string;
   toolName: string;
-  targetKind: WorkStudioValidationResult['targetKind'];
-  status: WorkStudioValidationResult['status'];
+  targetKind: WorkBuilderValidationResult['targetKind'];
+  status: WorkBuilderValidationResult['status'];
   workId: string;
   appId?: string | null;
   componentId?: string | null;
@@ -270,10 +270,10 @@ type RawWorkStudioValidationResult = {
   observedAt: number;
   failedCount: number;
   warningCount: number;
-  checks?: RawWorkStudioFactCheck[];
+  checks?: RawWorkBuilderFactCheck[];
 };
 
-type RawWorkStudioIssue = {
+type RawWorkBuilderIssue = {
   id: string;
   appId: string;
   productAppId?: string | null;
@@ -281,12 +281,12 @@ type RawWorkStudioIssue = {
   runtimeInstanceId?: string | null;
   previewResultId?: string | null;
   severity: WorkRuntimeIssueSeverity;
-  status: WorkStudioIssueStatus;
+  status: WorkBuilderIssueStatus;
   message: string;
   source?: string | null;
   category?: string | null;
   timestampMs: number;
-  origin: WorkStudioIssueOrigin;
+  origin: WorkBuilderIssueOrigin;
   resolvedAt?: number | null;
 };
 
@@ -324,9 +324,9 @@ type RawWorkExecutionGraph = {
   artifacts: RawWorkArtifactNode[];
   issues?: RawWorkRuntimeIssue[];
   logs?: RawWorkRuntimeLog[];
-  studioPreviewResults?: RawWorkStudioPreviewResult[];
-  studioValidationResults?: RawWorkStudioValidationResult[];
-  studioIssues?: RawWorkStudioIssue[];
+  builderPreviewResults?: RawWorkBuilderPreviewResult[];
+  builderValidationResults?: RawWorkBuilderValidationResult[];
+  builderIssues?: RawWorkBuilderIssue[];
   summary: RawWorkExecutionGraphSummary;
 };
 
@@ -535,7 +535,7 @@ function fromRawExecutionBinding(binding: RawWorkExecutionBinding): WorkExecutio
     id: binding.id,
     status: binding.status,
     source: fromRawExecutionSource(binding.source),
-    appStudio: binding.app_studio ?? undefined,
+    appBuilder: binding.app_builder ?? undefined,
     createdAt: binding.created_at,
     updatedAt: binding.updated_at,
   };
@@ -683,7 +683,7 @@ function fromRawRuntimeLog(log: RawWorkRuntimeLog): WorkRuntimeLog {
   };
 }
 
-function fromRawStudioPreviewResult(preview: RawWorkStudioPreviewResult): WorkStudioPreviewResult {
+function fromRawBuilderPreviewResult(preview: RawWorkBuilderPreviewResult): WorkBuilderPreviewResult {
   return {
     id: preview.id,
     kind: preview.kind,
@@ -710,7 +710,7 @@ function fromRawStudioPreviewResult(preview: RawWorkStudioPreviewResult): WorkSt
   };
 }
 
-function toRawStudioPreviewResult(preview: WorkStudioPreviewResult): RawWorkStudioPreviewResult {
+function toRawBuilderPreviewResult(preview: WorkBuilderPreviewResult): RawWorkBuilderPreviewResult {
   return {
     id: preview.id,
     kind: preview.kind,
@@ -737,7 +737,7 @@ function toRawStudioPreviewResult(preview: WorkStudioPreviewResult): RawWorkStud
   };
 }
 
-function fromRawStudioValidationResult(validation: RawWorkStudioValidationResult): WorkStudioValidationResult {
+function fromRawBuilderValidationResult(validation: RawWorkBuilderValidationResult): WorkBuilderValidationResult {
   return {
     id: validation.id,
     toolName: validation.toolName,
@@ -760,7 +760,7 @@ function fromRawStudioValidationResult(validation: RawWorkStudioValidationResult
   };
 }
 
-function fromRawStudioIssue(issue: RawWorkStudioIssue): WorkStudioIssue {
+function fromRawBuilderIssue(issue: RawWorkBuilderIssue): WorkBuilderIssue {
   return {
     id: issue.id,
     appId: issue.appId,
@@ -820,9 +820,9 @@ function fromRawExecutionGraph(graph: RawWorkExecutionGraph): WorkExecutionGraph
     artifacts: graph.artifacts.map(fromRawArtifactNode),
     issues: (graph.issues ?? []).map(fromRawRuntimeIssue),
     logs: (graph.logs ?? []).map(fromRawRuntimeLog),
-    studioPreviewResults: (graph.studioPreviewResults ?? []).map(fromRawStudioPreviewResult),
-    studioValidationResults: (graph.studioValidationResults ?? []).map(fromRawStudioValidationResult),
-    studioIssues: (graph.studioIssues ?? []).map(fromRawStudioIssue),
+    builderPreviewResults: (graph.builderPreviewResults ?? []).map(fromRawBuilderPreviewResult),
+    builderValidationResults: (graph.builderValidationResults ?? []).map(fromRawBuilderValidationResult),
+    builderIssues: (graph.builderIssues ?? []).map(fromRawBuilderIssue),
     summary: fromRawExecutionGraphSummary(graph.summary),
   };
 }
@@ -855,7 +855,7 @@ function toRawUpdateWorkRequest(request: UpdateWorkRequest): Record<string, unkn
   };
 }
 
-function toRawStudioValidationResult(validation: WorkStudioValidationResult): RawWorkStudioValidationResult {
+function toRawBuilderValidationResult(validation: WorkBuilderValidationResult): RawWorkBuilderValidationResult {
   return {
     id: validation.id,
     toolName: validation.toolName,
@@ -1044,31 +1044,31 @@ export class AgenticOsWorkApi {
     }
   }
 
-  async recordStudioPreviewResult(request: RecordStudioPreviewResultRequest): Promise<WorkRecord> {
+  async recordBuilderPreviewResult(request: RecordBuilderPreviewResultRequest): Promise<WorkRecord> {
     try {
-      const response = await api.invoke<{ work: RawWorkRecord }>('agentic_os_record_studio_preview_result', {
+      const response = await api.invoke<{ work: RawWorkRecord }>('agentic_os_record_builder_preview_result', {
         request: {
           work_id: request.workId,
-          preview_result: toRawStudioPreviewResult(request.previewResult),
+          preview_result: toRawBuilderPreviewResult(request.previewResult),
         },
       });
       return fromRawWorkRecord(response.work);
     } catch (error) {
-      throw createTauriCommandError('agentic_os_record_studio_preview_result', error, request);
+      throw createTauriCommandError('agentic_os_record_builder_preview_result', error, request);
     }
   }
 
-  async recordStudioValidationResult(request: RecordStudioValidationResultRequest): Promise<WorkRecord> {
+  async recordBuilderValidationResult(request: RecordBuilderValidationResultRequest): Promise<WorkRecord> {
     try {
-      const response = await api.invoke<{ work: RawWorkRecord }>('agentic_os_record_studio_validation_result', {
+      const response = await api.invoke<{ work: RawWorkRecord }>('agentic_os_record_builder_validation_result', {
         request: {
           work_id: request.workId,
-          validation_result: toRawStudioValidationResult(request.validationResult),
+          validation_result: toRawBuilderValidationResult(request.validationResult),
         },
       });
       return fromRawWorkRecord(response.work);
     } catch (error) {
-      throw createTauriCommandError('agentic_os_record_studio_validation_result', error, request);
+      throw createTauriCommandError('agentic_os_record_builder_validation_result', error, request);
     }
   }
 }

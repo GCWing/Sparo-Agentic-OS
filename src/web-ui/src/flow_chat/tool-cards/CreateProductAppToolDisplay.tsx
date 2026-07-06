@@ -11,7 +11,7 @@ import {
 } from './templates';
 import { deriveToolRuntimeState } from '../runtime/statusModel';
 import { getToolViewState } from '../runtime/toolViewState';
-import { resolveToolSessionAppScope } from './appStudioToolScope';
+import { resolveToolSessionAppScope } from './appBuilderToolScope';
 import './CreateProductAppToolDisplay.scss';
 
 export const CreateProductAppDisplay: React.FC<ToolCardProps> = ({ toolItem, sessionId }) => {
@@ -39,17 +39,17 @@ export const CreateProductAppDisplay: React.FC<ToolCardProps> = ({ toolItem, ses
   const success = toolResult?.success === true;
   const isLoading = viewState.phase === 'running' || viewState.phase === 'receiving_input' || viewState.phase === 'preparing';
   const isFailed = viewState.phase === 'error' || (isCompleted && toolResult != null && toolResult.success === false);
-  const canOpenStudio = isCompleted && success && Boolean(appId);
+  const canOpenBuilder = isCompleted && success && Boolean(appId);
   const appScope = useMemo(() => resolveToolSessionAppScope(sessionId), [sessionId]);
 
-  const handleOpenStudio = useCallback(() => {
-    if (!canOpenStudio || !appId) return;
+  const handleOpenBuilder = useCallback(() => {
+    if (!canOpenBuilder || !appId) return;
 
-    const duplicateCheckKey = `app-studio:${sessionId ?? `${appId}:${appScopeIdentity(appScope)}`}`;
+    const duplicateCheckKey = `app-builder:${sessionId ?? `${appId}:${appScopeIdentity(appScope)}`}`;
     window.dispatchEvent(new CustomEvent('agent-create-tab', {
       detail: {
-        type: 'app-studio',
-        title: t('toolCards.appStudio.studioTitle'),
+        type: 'app-builder',
+        title: t('toolCards.appBuilder.builderTitle'),
         data: {
           sessionId: sessionId ?? null,
           appId,
@@ -65,8 +65,8 @@ export const CreateProductAppDisplay: React.FC<ToolCardProps> = ({ toolItem, ses
           },
         },
         metadata: {
-          appStudioSessionId: sessionId,
-          appStudioAppId: appId,
+          appBuilderSessionId: sessionId,
+          appBuilderAppId: appId,
           appScope,
           productAppFacts: {
             appId,
@@ -83,7 +83,7 @@ export const CreateProductAppDisplay: React.FC<ToolCardProps> = ({ toolItem, ses
         replaceExisting: true,
       },
     }));
-  }, [appId, appScope, canOpenStudio, componentLockDigest, launchKind, path, primarySurfaceId, primarySurfaceMode, sessionId, t, version]);
+  }, [appId, appScope, canOpenBuilder, componentLockDigest, launchKind, path, primarySurfaceId, primarySurfaceMode, sessionId, t, version]);
 
   const getErrorMessage = () => {
     if (toolResult && 'error' in toolResult && toolResult.error) {
@@ -166,9 +166,9 @@ export const CreateProductAppDisplay: React.FC<ToolCardProps> = ({ toolItem, ses
       meta={extra}
       isRunning={isLoading}
       showHeaderExpandHint={Boolean((success && appId) || isFailed)}
-      headerRail={canOpenStudio ? {
-        label: t('toolCards.appStudio.openStudio'),
-        onClick: handleOpenStudio,
+      headerRail={canOpenBuilder ? {
+        label: t('toolCards.appBuilder.openBuilder'),
+        onClick: handleOpenBuilder,
         icon: (
           <>
             <ChevronRight size={18} strokeWidth={2} absoluteStrokeWidth />

@@ -12,13 +12,13 @@ use reqwest::Url;
 use tokio::sync::{oneshot, Mutex};
 use tokio::time::{timeout, Duration};
 
+use crate::error::{CoreError, CoreResult};
 use crate::service::config::app_language::get_app_language_code;
 use crate::service::mcp::auth::{
     clear_stored_oauth_credentials, map_auth_error, prepare_remote_oauth_authorization,
     MCPRemoteOAuthSessionSnapshot, MCPRemoteOAuthStatus,
 };
 use crate::service::mcp::server::MCPServerType;
-use crate::error::{CoreError, CoreResult};
 
 use super::{ActiveRemoteOAuthSession, MCPServerManager};
 

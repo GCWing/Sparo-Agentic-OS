@@ -2,8 +2,27 @@
   "id": "builtin-ppt-live",
   "version": "150.0.0",
   "name": "PPT Live",
-  "description": "AI deck studio for generating, editing, previewing, and exporting presentation decks.",
-  "goal": "Create and refine a presentation deck from outline through designed slides and export.",
+  "description": "A presentation creation workspace that turns a topic into structure, slides, and speaking flow, producing an editable deck.",
+  "authors": [
+    {
+      "name": "bobleer",
+      "url": "https://github.com/bobleer"
+    }
+  ],
+  "i18n": {
+    "locales": {
+      "en-US": {
+        "name": "PPT Live",
+        "description": "A presentation creation workspace that turns a topic into structure, slides, and speaking flow, producing an editable deck.",
+        "tags": ["built-in", "presentation", "deck", "export"]
+      },
+      "zh-CN": {
+        "name": "PPT Live",
+        "description": "专注演示稿创作，从主题到结构、页面和讲述节奏，生成可以继续编辑和展示的 PPT。",
+        "tags": ["内置", "演示文稿", "幻灯片", "导出"]
+      }
+    }
+  },
   "interactionModel": "interactiveWorkspace",
   "workMultiplicity": "multiple",
   "workObjectKinds": [
@@ -112,6 +131,10 @@
       "role": "primarySurface",
       "capabilities": [
         "interactiveSurface"
+      ],
+      "usesCapabilities": [
+        "session.read",
+        "component.run"
       ]
     },
     {
@@ -122,6 +145,11 @@
       "capabilities": [
         "generateDeck",
         "reviseSlide"
+      ],
+      "usesCapabilities": [
+        "session.read",
+        "model.invoke",
+        "tool.invoke"
       ]
     },
     {
@@ -132,6 +160,9 @@
       "version": "^1.0.0",
       "capabilities": [
         "uiWorker"
+      ],
+      "usesCapabilities": [
+        "component.run"
       ]
     }
   ],
@@ -155,13 +186,19 @@
   "tags": [
     "built-in",
     "presentation",
-    "ppt",
-    "ai"
+    "deck",
+    "export"
   ],
   "launch": {
     "kind": "applicationSurface",
     "targetId": "builtin-ppt-live",
     "scopeRequirement": "workspaceOptional",
     "surfaceId": "primary"
-  }
+  },
+  "osCapabilities": [
+    "session.read",
+    "component.run",
+    "model.invoke",
+    "tool.invoke"
+  ]
 }

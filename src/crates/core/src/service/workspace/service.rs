@@ -7,13 +7,13 @@ use super::manager::{
     WorkspaceManagerStatistics, WorkspaceOpenOptions, WorkspaceStatus, WorkspaceSummary,
 };
 use crate::agentic::persistence::{PersistenceManager, SessionWorkspaceMaintenanceService};
+use crate::error::*;
 use crate::infrastructure::storage::{PersistenceService, StorageOptions};
 use crate::infrastructure::{try_get_path_manager_arc, PathManager};
 use crate::service::workspace_runtime::{
     try_get_workspace_runtime_service_arc, WorkspaceRuntimeService,
 };
 use crate::service::workspace_session::local_workspace_roots_equal;
-use crate::error::*;
 use log::{info, warn};
 
 use serde::{Deserialize, Serialize};

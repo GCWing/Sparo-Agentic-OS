@@ -1,7 +1,7 @@
 use log::warn;
 
-use crate::service::mcp::server::{MCPServerConfig, MCPServerTransport, MCPServerType};
 use crate::error::CoreResult;
+use crate::service::mcp::server::{MCPServerConfig, MCPServerTransport, MCPServerType};
 
 use super::ConfigLocation;
 
@@ -93,9 +93,7 @@ pub(super) fn config_to_cursor_format(config: &MCPServerConfig) -> serde_json::V
     serde_json::Value::Object(cursor_config)
 }
 
-pub(super) fn parse_cursor_format(
-    config: &serde_json::Value,
-) -> CoreResult<Vec<MCPServerConfig>> {
+pub(super) fn parse_cursor_format(config: &serde_json::Value) -> CoreResult<Vec<MCPServerConfig>> {
     let mut servers = Vec::new();
 
     if let Some(mcp_servers) = config.get("mcpServers").and_then(|v| v.as_object()) {

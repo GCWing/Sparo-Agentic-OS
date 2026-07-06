@@ -371,9 +371,9 @@
       "summary": "刷新 Product App 组件锁。",
       "what": "解析 Product App package，更新 app.json 中的组件锁摘要，并重写 app.lock.json。"
     },
-    "ResolveStudioPreviewTarget": {
-      "name": "ResolveStudioPreviewTarget",
-      "summary": "解析 Studio 预览目标。",
+    "ResolveBuilderPreviewTarget": {
+      "name": "ResolveBuilderPreviewTarget",
+      "summary": "解析 Builder 预览目标。",
       "what": "解析 Product App 预览身份、模式、Workbench 位置和证据边界，但不声称已经执行运行时预览。"
     },
     "ComputerUse": {

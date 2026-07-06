@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agenticOsProfile, codingProfile } from '@/app/session-profiles';
+import { agenticOsProfile, bitfunCoderProfile } from '@/app/session-profiles';
 import { SESSION_DESCRIPTORS } from '@/flow_chat/domain/sessionDescriptor';
 import type { AgentInfo } from '../../../reducers/agentReducer';
 import { resolveComposerActionModel } from './composerActionResolver';
@@ -12,8 +12,8 @@ const t = ((_key: string, options?: { defaultValue?: string }) => (
   options?.defaultValue ?? _key
 )) as any;
 
-const enabledDebugAgent: AgentInfo = {
-  id: 'debug',
+const enabledBitfunDebugAgent: AgentInfo = {
+  id: 'bitfun-debug',
   name: 'Debug',
   description: 'Debug with evidence',
   isReadonly: false,
@@ -24,14 +24,14 @@ const enabledDebugAgent: AgentInfo = {
 function baseInput(overrides = {}) {
   return {
     t,
-    profile: codingProfile,
-    descriptor: SESSION_DESCRIPTORS.coding,
+    profile: bitfunCoderProfile,
+    descriptor: SESSION_DESCRIPTORS.bitfunCoder,
     targetSessionId: 'session-1',
     workspacePath: 'D:/workspace/example',
     storageScope: 'workspace',
     customMetadata: undefined,
-    availableAgents: [enabledDebugAgent],
-    currentAgent: 'agentic',
+    availableAgents: [enabledBitfunDebugAgent],
+    currentAgent: 'bitfun-coder',
     isComposerActive: true,
     hasCurrentSession: true,
     hasTargetSession: true,
@@ -50,32 +50,32 @@ describe('composerActionResolver', () => {
 
     expect(agentActions.every(action => action.providerId === 'session-agent-switch')).toBe(true);
     expect(agentActions.map(action => action.id)).toEqual([
-      'agent:Plan',
-      'agent:debug',
-      'agent:Team',
+      'agent:bitfun-plan',
+      'agent:bitfun-debug',
+      'agent:bitfun-team',
     ]);
-    expect(agentActions.find(action => action.id === 'agent:debug')?.availability.state).toBe('enabled');
-    expect(agentActions.find(action => action.id === 'agent:Plan')?.availability.state).toBe('disabled');
-    expect(model.switchableAgents.map(agent => agent.id)).toEqual(['debug']);
+    expect(agentActions.find(action => action.id === 'agent:bitfun-debug')?.availability.state).toBe('enabled');
+    expect(agentActions.find(action => action.id === 'agent:bitfun-plan')?.availability.state).toBe('disabled');
+    expect(model.switchableAgents.map(agent => agent.id)).toEqual(['bitfun-debug']);
   });
 
-  it('normalizes legacy BitFun Coder descriptors before resolving agent actions', () => {
+  it('normalizes stale BitFun Coder descriptors before resolving agent actions', () => {
     const model = resolveComposerActionModel(baseInput({
       descriptor: {
-        ...SESSION_DESCRIPTORS.coding,
+        ...SESSION_DESCRIPTORS.bitfunCoder,
         agentPolicy: {
-          defaultAgentId: 'agentic',
-          activeAgentId: 'agentic',
-          switchableAgentIds: ['agentic'],
+          defaultAgentId: 'bitfun-coder',
+          activeAgentId: 'bitfun-plan',
+          switchableAgentIds: ['bitfun-coder', 'bitfun-plan'],
         },
       },
     }));
     const agentActions = model.actions.filter(action => action.kind === 'agent-switch');
 
     expect(agentActions.map(action => action.id)).toEqual([
-      'agent:Plan',
-      'agent:debug',
-      'agent:Team',
+      'agent:bitfun-plan',
+      'agent:bitfun-debug',
+      'agent:bitfun-team',
     ]);
   });
 
@@ -98,7 +98,7 @@ describe('composerActionResolver', () => {
     const model = resolveComposerActionModel(baseInput({
       profile: agenticOsProfile,
       descriptor: SESSION_DESCRIPTORS.agenticOs,
-      availableAgents: [enabledDebugAgent],
+      availableAgents: [enabledBitfunDebugAgent],
       currentAgent: 'OSAgent',
     }));
 
@@ -139,9 +139,9 @@ describe('composerActionResolver', () => {
     try {
       const model = resolveComposerActionModel(baseInput({
         profile: {
-          ...codingProfile,
+          ...bitfunCoderProfile,
           composer: {
-            ...codingProfile.composer,
+            ...bitfunCoderProfile.composer,
             providers: ['profile'],
           },
         },

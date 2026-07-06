@@ -7,7 +7,7 @@ use super::{
     turn_outcome::{SessionControlActor, TurnCancellationReason, TurnOutcome},
 };
 use crate::agentic::agents::get_agent_registry;
-use crate::agentic::app_studio_context::AppStudioExecutionContext;
+use crate::agentic::app_builder_context::AppBuilderExecutionContext;
 use crate::agentic::core::{
     has_prompt_markup, Message, MessageContent, ProcessingPhase, PromptEnvelope, Session,
     SessionConfig, SessionKind, SessionState, SessionStorageScope, SessionSummary, TurnStats,
@@ -40,7 +40,11 @@ use crate::agentic::side_question::build_btw_user_input;
 use crate::agentic::tools::pipeline::{SubagentParentInfo, ToolPipeline};
 use crate::agentic::tools::ToolRuntimeRestrictions;
 use crate::agentic::WorkspaceBinding;
+use crate::error::{CoreError, CoreResult};
 use crate::infrastructure::get_path_manager_arc;
+use crate::service::daily_letter::{
+    get_global_daily_letter_service, prompt::daily_letter_allowed_tools,
+};
 use crate::service::global_daily_report::prompt::global_daily_report_allowed_tools;
 use crate::service::global_milestone::prompt::global_milestone_allowed_tools;
 use crate::service::host::{
@@ -48,7 +52,6 @@ use crate::service::host::{
 };
 use crate::service::workspace::{get_global_workspace_service, WorkspaceCreateOptions};
 use crate::service::workspace_overview::prompt::workspace_overview_refresh_allowed_tools;
-use crate::error::{CoreError, CoreResult};
 use chrono::TimeZone;
 use log::{debug, error, info, warn};
 use std::collections::HashMap;
@@ -66,6 +69,7 @@ const MANUAL_COMPACTION_COMMAND: &str = "/compact";
 const CONTEXT_COMPRESSION_TOOL_NAME: &str = "ContextCompression";
 const AUTO_MEMORY_FORK_MAX_TURNS: usize = 5;
 const SESSION_SUMMARY_FORK_MAX_TURNS: usize = 4;
+const DAILY_LETTER_WRITER_AGENT_TYPE: &str = "DailyLetterWriter";
 
 fn current_time_ms() -> i64 {
     SystemTime::now()
@@ -165,7 +169,7 @@ struct HiddenSubagentExecutionRequest {
     subagent_parent_info: Option<SubagentParentInfo>,
     context: HashMap<String, String>,
     runtime_tool_restrictions: ToolRuntimeRestrictions,
-    app_studio: Option<AppStudioExecutionContext>,
+    app_builder: Option<AppBuilderExecutionContext>,
     enable_tools_override: Option<bool>,
 }
 
@@ -340,34 +344,34 @@ impl ConversationCoordinator {
         ))
     }
 
-    pub async fn load_app_studio_execution_context(
+    pub async fn load_app_builder_execution_context(
         &self,
         session_id: &str,
         workspace: Option<&WorkspaceBinding>,
         turn_metadata: Option<&serde_json::Value>,
-    ) -> Option<AppStudioExecutionContext> {
-        self.build_app_studio_execution_context(session_id, workspace, turn_metadata)
+    ) -> Option<AppBuilderExecutionContext> {
+        self.build_app_builder_execution_context(session_id, workspace, turn_metadata)
             .await
     }
 
-    async fn build_app_studio_execution_context(
+    async fn build_app_builder_execution_context(
         &self,
         session_id: &str,
         workspace: Option<&WorkspaceBinding>,
         turn_metadata: Option<&serde_json::Value>,
-    ) -> Option<AppStudioExecutionContext> {
+    ) -> Option<AppBuilderExecutionContext> {
         let session_metadata = match self.session_manager.load_session_metadata(session_id).await {
             Ok(metadata) => metadata,
             Err(error) => {
                 warn!(
-                    "Failed to load AppStudio session metadata: session_id={}, error={}",
+                    "Failed to load AppBuilder session metadata: session_id={}, error={}",
                     session_id, error
                 );
                 None
             }
         };
 
-        match AppStudioExecutionContext::from_metadata(
+        match AppBuilderExecutionContext::from_metadata(
             session_metadata
                 .as_ref()
                 .and_then(|metadata| metadata.custom_metadata.as_ref()),
@@ -377,7 +381,7 @@ impl ConversationCoordinator {
             Ok(context) => context,
             Err(error) => {
                 warn!(
-                    "Failed to build AppStudio execution context: session_id={}, error={}",
+                    "Failed to build AppBuilder execution context: session_id={}, error={}",
                     session_id, error
                 );
                 None
@@ -387,7 +391,7 @@ impl ConversationCoordinator {
 
     fn normalize_agent_type(agent_type: &str) -> String {
         if agent_type.trim().is_empty() {
-            "agentic".to_string()
+            "Runno".to_string()
         } else {
             agent_type.trim().to_string()
         }
@@ -659,9 +663,7 @@ impl ConversationCoordinator {
         config: SessionConfig,
     ) -> CoreResult<Session> {
         let workspace_path = config.workspace_path.clone().ok_or_else(|| {
-            CoreError::Validation(
-                "workspace_path is required when creating a session".to_string(),
-            )
+            CoreError::Validation("workspace_path is required when creating a session".to_string())
         })?;
         self.create_session_with_workspace_and_creator(
             None,
@@ -683,9 +685,7 @@ impl ConversationCoordinator {
         config: SessionConfig,
     ) -> CoreResult<Session> {
         let workspace_path = config.workspace_path.clone().ok_or_else(|| {
-            CoreError::Validation(
-                "workspace_path is required when creating a session".to_string(),
-            )
+            CoreError::Validation("workspace_path is required when creating a session".to_string())
         })?;
         self.create_session_with_workspace_and_creator(
             session_id,
@@ -909,7 +909,7 @@ impl ConversationCoordinator {
             let metadata = SessionMetadata {
                 session_id: session_id.to_string(),
                 session_name: "Recovered Session".to_string(),
-                agent_type: "agentic".to_string(),
+                agent_type: "Runno".to_string(),
                 created_by: None,
                 session_kind: SessionKind::Standard,
                 model_name: "default".to_string(),
@@ -1414,7 +1414,7 @@ impl ConversationCoordinator {
         } else if !session.agent_type.is_empty() {
             session.agent_type.clone()
         } else {
-            "agentic".to_string()
+            "Runno".to_string()
         };
         let effective_agent_type = Self::normalize_agent_type(&provisional_agent_type);
 
@@ -1761,8 +1761,8 @@ impl ConversationCoordinator {
                 .as_deref()
                 .map(std::path::Path::new),
         );
-        let app_studio = self
-            .build_app_studio_execution_context(
+        let app_builder = self
+            .build_app_builder_execution_context(
                 &session_id,
                 session_workspace.as_ref(),
                 user_message_metadata.as_ref(),
@@ -1781,7 +1781,7 @@ impl ConversationCoordinator {
             subagent_parent_info: None,
             skip_tool_confirmation: submission_policy.skip_tool_confirmation,
             runtime_tool_restrictions: execution_settings.runtime_tool_restrictions,
-            app_studio,
+            app_builder,
             workspace_services,
             workspace_mount,
             agentic,
@@ -1930,6 +1930,12 @@ impl ConversationCoordinator {
                                 &store_key,
                                 queue_action,
                             );
+                        }
+                    }
+
+                    if matches!(session_kind, SessionKind::Standard) {
+                        if let Some(service) = get_global_daily_letter_service() {
+                            service.notify_idle_opportunity();
                         }
                     }
 
@@ -2166,7 +2172,7 @@ impl ConversationCoordinator {
                     runtime_tool_restrictions: build_session_summary_runtime_restrictions(
                         &summary_path.to_string_lossy().replace('\\', "/"),
                     ),
-                    app_studio: None,
+                    app_builder: None,
                     enable_tools_override: None,
                     max_turns: Some(SESSION_SUMMARY_FORK_MAX_TURNS),
                 },
@@ -2321,7 +2327,7 @@ impl ConversationCoordinator {
                         runtime_tool_restrictions: build_auto_memory_runtime_restrictions(
                             &memory_dir.to_string_lossy(),
                         ),
-                        app_studio: None,
+                        app_builder: None,
                         enable_tools_override: None,
                         max_turns: Some(AUTO_MEMORY_FORK_MAX_TURNS),
                     },
@@ -2548,11 +2554,7 @@ impl ConversationCoordinator {
     }
 
     /// Delete session
-    pub async fn delete_session(
-        &self,
-        workspace_path: &Path,
-        session_id: &str,
-    ) -> CoreResult<()> {
+    pub async fn delete_session(&self, workspace_path: &Path, session_id: &str) -> CoreResult<()> {
         self.auto_memory_manager.cancel_session(session_id);
         self.session_manager
             .delete_session(workspace_path, session_id)
@@ -2703,7 +2705,7 @@ impl ConversationCoordinator {
             subagent_parent_info,
             context,
             runtime_tool_restrictions,
-            app_studio,
+            app_builder,
             enable_tools_override,
         } = request;
 
@@ -2722,16 +2724,16 @@ impl ConversationCoordinator {
             )
             .await?;
 
-        if let Some(app_studio_context) = app_studio.as_ref() {
-            let patch = app_studio_context
-                .to_session_metadata_patch("InheritedAppStudioExecutionContext", Self::now_ms());
+        if let Some(app_builder_context) = app_builder.as_ref() {
+            let patch = app_builder_context
+                .to_session_metadata_patch("InheritedAppBuilderExecutionContext", Self::now_ms());
             let merged = self
                 .session_manager
                 .merge_session_custom_metadata(&session.session_id, patch)
                 .await?;
             if merged.is_none() {
                 return Err(CoreError::service(format!(
-                    "Failed to persist inherited AppStudio context for hidden subagent session: session_id={}",
+                    "Failed to persist inherited AppBuilder context for hidden subagent session: session_id={}",
                     session.session_id
                 )));
             }
@@ -2807,7 +2809,7 @@ impl ConversationCoordinator {
             // confirmation channel that nobody will ever respond to.
             skip_tool_confirmation: true,
             runtime_tool_restrictions,
-            app_studio,
+            app_builder,
             workspace_services: subagent_services,
             workspace_mount: subagent_mount,
             agentic: subagent_handles,
@@ -2928,9 +2930,7 @@ impl ConversationCoordinator {
         model_id: Option<&str>,
     ) -> CoreResult<String> {
         if request_id.trim().is_empty() {
-            return Err(CoreError::Validation(
-                "request_id is required".to_string(),
-            ));
+            return Err(CoreError::Validation("request_id is required".to_string()));
         }
         if parent_session_id.trim().is_empty() {
             return Err(CoreError::Validation(
@@ -2992,9 +2992,7 @@ impl ConversationCoordinator {
         model_id: Option<&str>,
     ) -> CoreResult<String> {
         if request_id.trim().is_empty() {
-            return Err(CoreError::Validation(
-                "request_id is required".to_string(),
-            ));
+            return Err(CoreError::Validation("request_id is required".to_string()));
         }
 
         let child_session = self
@@ -3059,9 +3057,7 @@ impl ConversationCoordinator {
         model_id: Option<&str>,
     ) -> CoreResult<String> {
         if request_id.trim().is_empty() {
-            return Err(CoreError::Validation(
-                "request_id is required".to_string(),
-            ));
+            return Err(CoreError::Validation("request_id is required".to_string()));
         }
 
         let child_session = self
@@ -3133,9 +3129,7 @@ impl ConversationCoordinator {
         model_id: Option<&str>,
     ) -> CoreResult<String> {
         if request_id.trim().is_empty() {
-            return Err(CoreError::Validation(
-                "request_id is required".to_string(),
-            ));
+            return Err(CoreError::Validation("request_id is required".to_string()));
         }
 
         let child_session = self
@@ -3199,9 +3193,7 @@ impl ConversationCoordinator {
         model_id: Option<&str>,
     ) -> CoreResult<String> {
         if request_id.trim().is_empty() {
-            return Err(CoreError::Validation(
-                "request_id is required".to_string(),
-            ));
+            return Err(CoreError::Validation("request_id is required".to_string()));
         }
 
         let child_session = self
@@ -3306,10 +3298,10 @@ impl ConversationCoordinator {
         let agent_type = request.agent_type.clone();
         let session_config = request.child_session_config();
         let workspace = Self::build_workspace_binding(&session_config).await;
-        let app_studio = match request.app_studio.clone() {
+        let app_builder = match request.app_builder.clone() {
             Some(context) => Some(context),
             None => {
-                self.build_app_studio_execution_context(
+                self.build_app_builder_execution_context(
                     &request.snapshot.parent_session_id,
                     workspace.as_ref(),
                     None,
@@ -3331,7 +3323,7 @@ impl ConversationCoordinator {
                     subagent_parent_info: None,
                     context: request.context,
                     runtime_tool_restrictions: request.runtime_tool_restrictions,
-                    app_studio,
+                    app_builder,
                     enable_tools_override: request.enable_tools_override,
                 },
                 cancel_token,
@@ -3364,7 +3356,7 @@ impl ConversationCoordinator {
         subagent_parent_info: SubagentParentInfo,
         workspace_path: Option<String>,
         context: Option<HashMap<String, String>>,
-        app_studio: Option<AppStudioExecutionContext>,
+        app_builder: Option<AppBuilderExecutionContext>,
         cancel_token: Option<&CancellationToken>,
     ) -> CoreResult<SubagentResult> {
         let workspace_path = workspace_path.ok_or_else(|| {
@@ -3387,7 +3379,7 @@ impl ConversationCoordinator {
                 subagent_parent_info: Some(subagent_parent_info),
                 context: context.unwrap_or_default(),
                 runtime_tool_restrictions: ToolRuntimeRestrictions::default(),
-                app_studio,
+                app_builder,
                 enable_tools_override: None,
             },
             cancel_token,
@@ -3420,8 +3412,50 @@ impl ConversationCoordinator {
                     subagent_parent_info: None,
                     context: HashMap::new(),
                     runtime_tool_restrictions,
-                    app_studio: None,
+                    app_builder: None,
                     enable_tools_override: None,
+                },
+                cancel_token,
+            )
+            .await?;
+
+        Ok(result.text)
+    }
+
+    pub async fn execute_hidden_daily_letter_writer(
+        &self,
+        request_id: &str,
+        session_name: String,
+        workspace_path: String,
+        prompt: String,
+        cancel_token: Option<&CancellationToken>,
+    ) -> CoreResult<String> {
+        if request_id.trim().is_empty() {
+            return Err(CoreError::Validation("request_id is required".to_string()));
+        }
+
+        let result = self
+            .execute_hidden_subagent_internal(
+                HiddenSubagentExecutionRequest {
+                    session_name,
+                    agent_type: DAILY_LETTER_WRITER_AGENT_TYPE.to_string(),
+                    session_config: SessionConfig {
+                        workspace_path: Some(workspace_path),
+                        ..SessionConfig::default()
+                    },
+                    initial_messages: vec![Message::user(prompt)],
+                    created_by: Some(format!("background-daily-letter-{}", request_id.trim())),
+                    surface_mode: SessionSurfaceMode::InternalBackground,
+                    subagent_parent_info: None,
+                    context: HashMap::new(),
+                    runtime_tool_restrictions: ToolRuntimeRestrictions {
+                        allowed_tool_names: daily_letter_allowed_tools().into_iter().collect(),
+                        denied_tool_names: Default::default(),
+                        path_policy: Default::default(),
+                        disable_snapshot_tracking: true,
+                    },
+                    app_builder: None,
+                    enable_tools_override: Some(true),
                 },
                 cancel_token,
             )
@@ -3538,11 +3572,7 @@ impl ConversationCoordinator {
         Ok(resolved.title)
     }
 
-    pub async fn update_session_title(
-        &self,
-        session_id: &str,
-        title: &str,
-    ) -> CoreResult<String> {
+    pub async fn update_session_title(&self, session_id: &str, title: &str) -> CoreResult<String> {
         let normalized = title.trim().to_string();
         if normalized.is_empty() {
             return Err(CoreError::validation(

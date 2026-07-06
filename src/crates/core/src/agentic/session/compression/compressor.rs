@@ -9,12 +9,12 @@ use crate::agentic::core::{
     render_system_reminder, CompressedTodoSnapshot, CompressionEntry, CompressionPayload, Message,
     MessageHelper, MessageRole, MessageSemanticKind,
 };
-use crate::infrastructure::ai::{get_global_ai_client_factory, AIClient};
 use crate::error::{CoreError, CoreResult};
+use crate::infrastructure::ai::{get_global_ai_client_factory, AIClient};
 use crate::util::types::Message as AIMessage;
 use anyhow;
-use sparo_ai_adapters::types::ReasoningMode;
 use log::{debug, trace, warn};
+use sparo_ai_adapters::types::ReasoningMode;
 use std::sync::Arc;
 
 /// Context compressor configuration

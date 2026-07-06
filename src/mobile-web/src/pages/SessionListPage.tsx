@@ -35,9 +35,8 @@ function formatTime(
 
 function agentLabel(agentType: string, t: (key: string) => string): string {
   switch (agentType) {
-    case 'code':
-    case 'agentic':
-      return t('sessions.agentCode');
+    case 'bitfun-coder':
+      return t('sessions.agentBitFunCoder');
     case 'cowork':
     case 'Cowork':
       return t('sessions.agentCowork');
@@ -430,11 +429,11 @@ const SessionListPage: React.FC<SessionListPageProps> = ({ sessionMgr, onSelectS
             <div className="session-list__create-row">
               <button
                 className="session-list__create-btn session-list__create-btn--code"
-                onClick={() => void handleCreate('code')}
+                onClick={() => void handleCreate('bitfun-coder')}
                 disabled={creating}
               >
                 <div className="session-list__create-icon">
-                  <SessionTypeIcon agentType="code" />
+                  <SessionTypeIcon agentType="bitfun-coder" />
                 </div>
                 <div className="session-list__create-copy">
                   <span className="session-list__create-title">{t('sessions.codeSession')}</span>

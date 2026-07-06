@@ -1,7 +1,7 @@
 //! Detect and launch the user's default browser with CDP debug port enabled.
 
-use crate::infrastructure::get_path_manager_arc;
 use crate::error::{CoreError, CoreResult};
+use crate::infrastructure::get_path_manager_arc;
 #[allow(unused_imports)]
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
@@ -403,10 +403,7 @@ impl BrowserLauncher {
                     })
                 }
             }
-            Err(e) => Err(CoreError::tool(format!(
-                "Failed to launch {}: {}",
-                kind, e
-            ))),
+            Err(e) => Err(CoreError::tool(format!("Failed to launch {}: {}", kind, e))),
         }
     }
 

@@ -2,8 +2,8 @@
 //!
 //! Provides storage cleanup policies and scheduling
 
-use crate::infrastructure::PathManager;
 use crate::error::*;
+use crate::infrastructure::PathManager;
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};

@@ -74,7 +74,7 @@ export type SessionComposerBuiltinActionId =
 export type SessionComposerActionProviderId =
   | 'profile'
   | 'product-app-runtime'
-  | 'app-studio';
+  | 'app-builder';
 
 export type SessionComposerAgentSwitching =
   | { mode: 'disabled' }
@@ -84,7 +84,7 @@ export type SessionComposerAgentSwitching =
       source?: 'session-policy';
       /**
        * Whether to render the descriptor default agent as a switch action.
-       * Code sessions keep the default agent as the reset chip instead.
+       * BitFun Coder sessions keep the default agent as the reset chip instead.
        */
       includeDefaultAgent?: boolean;
       /** Whether the current agent row should be rendered as selected. */

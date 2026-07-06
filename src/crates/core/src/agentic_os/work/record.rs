@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use super::assignment::WorkAssignmentRef;
 use super::execution_binding::WorkExecutionBinding;
 use super::execution_graph::{
-    WorkRuntimeIssue, WorkRuntimeLog, WorkRuntimeRun, WorkStudioIssue, WorkStudioPreviewResult,
-    WorkStudioValidationResult,
+    WorkBuilderIssue, WorkBuilderPreviewResult, WorkBuilderValidationResult, WorkRuntimeIssue,
+    WorkRuntimeLog, WorkRuntimeRun,
 };
 use super::ids::WorkId;
 use super::lifecycle::{WorkLifecycle, WorkSummary};
@@ -145,11 +145,11 @@ pub struct WorkRecord {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub runtime_logs: Vec<WorkRuntimeLog>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub studio_preview_results: Vec<WorkStudioPreviewResult>,
+    pub builder_preview_results: Vec<WorkBuilderPreviewResult>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub studio_validation_results: Vec<WorkStudioValidationResult>,
+    pub builder_validation_results: Vec<WorkBuilderValidationResult>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub studio_issues: Vec<WorkStudioIssue>,
+    pub builder_issues: Vec<WorkBuilderIssue>,
     pub artifact_refs: Vec<ArtifactRef>,
     pub memory_refs: Vec<MemoryRef>,
     pub created_at: i64,
@@ -194,9 +194,9 @@ impl WorkRecord {
             runtime_runs: Vec::new(),
             runtime_issues: Vec::new(),
             runtime_logs: Vec::new(),
-            studio_preview_results: Vec::new(),
-            studio_validation_results: Vec::new(),
-            studio_issues: Vec::new(),
+            builder_preview_results: Vec::new(),
+            builder_validation_results: Vec::new(),
+            builder_issues: Vec::new(),
             artifact_refs: Vec::new(),
             memory_refs: Vec::new(),
             created_at: now,

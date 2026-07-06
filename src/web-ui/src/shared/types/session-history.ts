@@ -66,14 +66,14 @@ export type AgentSessionBindingMode =
 export type AgentSessionBoundSubjectKind =
   | 'product-app'
   | 'component'
-  | 'studio-draft'
+  | 'builder-draft'
   | 'artifact'
   | 'file'
   | 'workspace'
   | 'work'
   | (string & {});
 
-export type AppStudioSubject =
+export type AppBuilderSubject =
   | {
       kind: 'product-app';
       appId: string;
@@ -88,12 +88,12 @@ export type AppStudioSubject =
       packageRoot: string;
     }
   | {
-      kind: 'studio-draft';
+      kind: 'builder-draft';
       draftId: string;
       packageRoot: string;
     };
 
-export type AppStudioFactStatus =
+export type AppBuilderFactStatus =
   | 'passed'
   | 'warning'
   | 'failed'
@@ -104,13 +104,13 @@ export type AppStudioFactStatus =
   | 'ready'
   | 'waiting';
 
-export interface AppStudioFactCheck {
+export interface AppBuilderFactCheck {
   id: string;
-  status: AppStudioFactStatus | (string & {});
+  status: AppBuilderFactStatus | (string & {});
   detail?: string;
 }
 
-export interface AppStudioBlueprintSummary {
+export interface AppBuilderBlueprintSummary {
   whatItDoes?: string;
   howIUseIt?: string;
   whatAiDoes?: string;
@@ -118,15 +118,15 @@ export interface AppStudioBlueprintSummary {
   howReady?: string;
 }
 
-export interface AppStudioPreviewResult {
+export interface AppBuilderPreviewResult {
   id: string;
   kind: 'product-app-preview' | 'agent-chat' | 'sidecar' | 'full-app' | 'embedded' | 'capability' | 'agent-eval' | 'runtime-boundary' | 'runtime-dependencies' | 'permission-review' | 'user-path-rehearsal' | 'release-rehearsal' | (string & {});
-  status: AppStudioFactStatus | (string & {});
+  status: AppBuilderFactStatus | (string & {});
   source?: 'runtime-fact' | 'runtime-observation' | 'preview-harness' | 'fix-rerun' | 'release-rehearsal' | (string & {});
   harnessMode?: string | null;
   triggerTurnId?: string | null;
   detail?: string | null;
-  checks?: AppStudioFactCheck[];
+  checks?: AppBuilderFactCheck[];
   workId?: string;
   runtimeInstanceId?: string;
   productAppId?: string;
@@ -139,7 +139,7 @@ export interface AppStudioPreviewResult {
   warningIssueCount: number;
 }
 
-export interface AppStudioIssue {
+export interface AppBuilderIssue {
   id: string;
   appId: string;
   productAppId?: string;
@@ -156,7 +156,7 @@ export interface AppStudioIssue {
   origin: 'runtime-event' | 'work-execution-graph' | 'validation' | 'preview' | (string & {});
 }
 
-export interface AppStudioRuntimeLog {
+export interface AppBuilderRuntimeLog {
   id: string;
   appId: string;
   productAppId?: string;
@@ -172,7 +172,7 @@ export interface AppStudioRuntimeLog {
   origin: 'runtime-event' | 'work-execution-graph' | (string & {});
 }
 
-export interface AppStudioComponentGraphSummary {
+export interface AppBuilderComponentGraphSummary {
   primarySurfaceId?: string;
   primarySurfaceMode?: string;
   sourceFileCount?: number;
@@ -187,13 +187,13 @@ export interface AppStudioComponentGraphSummary {
   }>;
 }
 
-export interface AppStudioAgentSummary {
+export interface AppBuilderAgentSummary {
   backendActionCount: number;
   memoryScopes: string[];
   sessionPolicies: string[];
 }
 
-export interface AppStudioDataSummary {
+export interface AppBuilderDataSummary {
   readsWorkspace: boolean;
   writesWorkspace: boolean;
   usesRuntimeStorage: boolean;
@@ -207,28 +207,28 @@ export interface AppStudioDataSummary {
   lastActivityAt?: number | null;
 }
 
-export interface AppStudioEvalSummary {
-  status: AppStudioFactStatus | (string & {});
+export interface AppBuilderEvalSummary {
+  status: AppBuilderFactStatus | (string & {});
   caseCount: number;
   detail?: string;
 }
 
-export interface AppStudioValidationSummary {
-  status: AppStudioFactStatus | (string & {});
+export interface AppBuilderValidationSummary {
+  status: AppBuilderFactStatus | (string & {});
   failed: number;
   warnings: number;
-  checks: AppStudioFactCheck[];
+  checks: AppBuilderFactCheck[];
   updatedAt: number;
   source: 'tool' | 'derived' | (string & {});
 }
 
-export interface AppStudioVersionSummary {
+export interface AppBuilderVersionSummary {
   currentVersion?: string;
   sourceRevision?: string | null;
   componentLockDigest?: string;
   checkpointCount?: number;
   releaseCount?: number;
-  releaseStatus?: AppStudioFactStatus | (string & {});
+  releaseStatus?: AppBuilderFactStatus | (string & {});
   latestCheckpoint?: {
     checkpointId: string;
     artifactUri?: string;
@@ -263,7 +263,7 @@ export interface AppStudioVersionSummary {
   };
 }
 
-export interface AppStudioShareSummary {
+export interface AppBuilderShareSummary {
   visibility: 'privateDraft' | 'privateRelease' | 'catalogSource' | 'workspace' | 'public' | (string & {});
   installLocation?: string;
   privateDataExcluded: boolean;
@@ -272,20 +272,20 @@ export interface AppStudioShareSummary {
   catalogStatus?: string;
 }
 
-export interface AppStudioFacts {
-  subject: AppStudioSubject | null;
-  blueprint?: AppStudioBlueprintSummary;
+export interface AppBuilderFacts {
+  subject: AppBuilderSubject | null;
+  blueprint?: AppBuilderBlueprintSummary;
   technicalBlueprint?: Record<string, unknown>;
-  previewResults: AppStudioPreviewResult[];
-  issues: AppStudioIssue[];
-  logs?: AppStudioRuntimeLog[];
-  componentGraph?: AppStudioComponentGraphSummary;
-  agentSummary?: AppStudioAgentSummary;
-  dataSummary?: AppStudioDataSummary;
-  evalSummary?: AppStudioEvalSummary;
-  validationSummary?: AppStudioValidationSummary;
-  versionSummary?: AppStudioVersionSummary;
-  shareSummary?: AppStudioShareSummary;
+  previewResults: AppBuilderPreviewResult[];
+  issues: AppBuilderIssue[];
+  logs?: AppBuilderRuntimeLog[];
+  componentGraph?: AppBuilderComponentGraphSummary;
+  agentSummary?: AppBuilderAgentSummary;
+  dataSummary?: AppBuilderDataSummary;
+  evalSummary?: AppBuilderEvalSummary;
+  validationSummary?: AppBuilderValidationSummary;
+  versionSummary?: AppBuilderVersionSummary;
+  shareSummary?: AppBuilderShareSummary;
 }
 
 export interface AgentSessionBindingMetadata {
@@ -327,7 +327,7 @@ export interface SessionCustomMetadata extends Record<string, unknown> {
   } | null;
   lastFinishedAt?: number | null;
   agentSessionBinding?: AgentSessionBindingMetadata;
-  appStudioFacts?: AppStudioFacts;
+  appBuilderFacts?: AppBuilderFacts;
   productAppRuntime?: ProductAppRuntimeSessionMetadata;
 }
 

@@ -1,14 +1,14 @@
 //! Configuration API
 
 use crate::api::app_state::AppState;
+use log::{error, info, warn};
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use sparo_core::agent_component::AgentComponentManager;
 use sparo_core::agentic::agents::AgentCategory;
 use sparo_core::agentic::tools::get_all_registered_tool_names;
 use sparo_core::command::config as core_config_command;
 use sparo_core::command::CommandContext;
-use log::{error, info, warn};
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
 use tauri::State;
 

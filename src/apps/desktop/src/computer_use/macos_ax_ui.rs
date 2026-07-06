@@ -3,14 +3,14 @@
 //! Coordinates match CoreGraphics global space used by [`crate::computer_use::DesktopComputerUseHost`].
 
 use crate::computer_use::ui_locate_common;
-use sparo_core::agentic::tools::computer_use_host::{
-    OcrAccessibilityHit, UiElementLocateQuery, UiElementLocateResult,
-};
-use sparo_core::error::{CoreError, CoreResult};
 use core_foundation::array::{CFArray, CFArrayRef};
 use core_foundation::base::{CFGetTypeID, CFTypeRef, TCFType};
 use core_foundation::string::{CFString, CFStringRef};
 use core_graphics::geometry::{CGPoint, CGSize};
+use sparo_core::agentic::tools::computer_use_host::{
+    OcrAccessibilityHit, UiElementLocateQuery, UiElementLocateResult,
+};
+use sparo_core::error::{CoreError, CoreResult};
 use std::collections::VecDeque;
 use std::ffi::c_void;
 
@@ -526,9 +526,7 @@ const MAX_CANDIDATES: usize = 10;
 
 /// Search the **frontmost** app's accessibility tree (BFS) for elements matching filters.
 /// Collects all matches, filters invisible/off-screen ones, ranks by relevance, returns the best.
-pub fn locate_ui_element_center(
-    query: &UiElementLocateQuery,
-) -> CoreResult<UiElementLocateResult> {
+pub fn locate_ui_element_center(query: &UiElementLocateQuery) -> CoreResult<UiElementLocateResult> {
     ui_locate_common::validate_query(query)?;
 
     // ── Batch 5: node_idx fast path ──────────────────────────────────────────

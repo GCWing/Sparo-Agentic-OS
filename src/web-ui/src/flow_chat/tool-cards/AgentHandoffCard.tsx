@@ -126,10 +126,12 @@ async function ensureSessionAvailable(sessionId: string, workspace?: string): Pr
 // ---------------------------------------------------------------------------
 
 const AGENT_TYPE_COLORS: Record<string, string> = {
-  agentic: 'var(--ds-status-surface-info-fg)',
-  Plan: 'var(--ds-status-surface-warning-fg)',
+  Runno: 'var(--ds-status-surface-info-fg)',
+  'bitfun-coder': 'var(--ds-status-surface-info-fg)',
+  'bitfun-plan': 'var(--ds-status-surface-warning-fg)',
+  'bitfun-debug': 'var(--ds-status-surface-danger-fg)',
+  'bitfun-team': 'var(--ds-status-surface-success-fg)',
   Cowork: 'var(--ds-status-surface-success-fg)',
-  debug: 'var(--ds-status-surface-danger-fg)',
 };
 
 function AgentBadge({ agentType, compact }: { agentType: string; compact?: boolean }) {

@@ -2,10 +2,10 @@
 ///
 /// Interactive chat mode with TUI interface
 use anyhow::Result;
-use sparo_core::infrastructure::try_get_path_manager_arc;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
+use sparo_core::infrastructure::try_get_path_manager_arc;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
@@ -1677,7 +1677,7 @@ mod tests {
             }],
             tasks: vec![AgenticOsTaskRow {
                 title: "Fix bug".to_string(),
-                agent: "debug".to_string(),
+                agent: "bitfun-debug".to_string(),
                 status: "active".to_string(),
                 detail: "2 turns".to_string(),
                 session_id: Some("task-session".to_string()),
@@ -1785,7 +1785,7 @@ mod tests {
         assert!(view.input.is_empty());
         assert_eq!(view.session.id, "task-session");
         assert_eq!(view.session.title, "Fix bug");
-        assert_eq!(view.session.agent, "debug");
+        assert_eq!(view.session.agent, "bitfun-debug");
         assert_eq!(
             view.session.workspace.as_deref(),
             Some("D:\\workspace\\project")
@@ -1810,7 +1810,7 @@ mod tests {
                 .map(|path| path.to_string_lossy().to_string()),
             Some("D:\\workspace\\project".to_string())
         );
-        assert_eq!(context.2, "debug");
+        assert_eq!(context.2, "bitfun-debug");
         assert_eq!(
             mode.current_persisted_session_id().as_deref(),
             Some("task-session")
@@ -1831,7 +1831,7 @@ mod tests {
             .unwrap();
 
         assert!(view.overlay.is_none());
-        assert_eq!(view.session.agent, "debug");
+        assert_eq!(view.session.agent, "bitfun-debug");
         assert!(view.input.contains("Use the task detail above"));
         assert!(view.input.contains("Fix bug"));
         assert!(!view.input.contains("sparo tasks"));
@@ -1844,14 +1844,17 @@ mod tests {
             .contains("Task detail"));
         assert_eq!(
             view.status.as_deref(),
-            Some("Loaded task context for debug; press Enter to analyze")
+            Some("Loaded task context for bitfun-debug; press Enter to analyze")
         );
         assert_eq!(
             view.input_history.front().map(String::as_str),
             Some("keep this draft")
         );
         assert!(mode.current_persisted_session_id().is_none());
-        assert_eq!(fake.agent_type.lock().unwrap().as_deref(), Some("debug"));
+        assert_eq!(
+            fake.agent_type.lock().unwrap().as_deref(),
+            Some("bitfun-debug")
+        );
         assert!(fake.session_context.lock().unwrap().is_none());
     }
 
@@ -1926,7 +1929,7 @@ mod tests {
         snapshot.sessions.push(AgenticOsSessionRow {
             id: "session-review".to_string(),
             title: "Review TUI panels".to_string(),
-            agent: "debug".to_string(),
+            agent: "bitfun-debug".to_string(),
             workspace: Some("D:\\workspace\\project".to_string()),
             parent_session_id: None,
             is_dispatch_task: false,
@@ -2657,7 +2660,10 @@ mod tests {
         let mut pending_response = None;
         let mut assistant_text = String::new();
         let mut tool_map = std::collections::HashMap::new();
-        let mut view = ChatView::new(Session::new("debug".to_string(), None), Theme::dark());
+        let mut view = ChatView::new(
+            Session::new("bitfun-debug".to_string(), None),
+            Theme::dark(),
+        );
         view.input = "diagnose this".to_string();
         view.cursor = view.input.chars().count();
 
@@ -2673,7 +2679,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(view.status.as_deref(), Some("debug is thinking..."));
+        assert_eq!(view.status.as_deref(), Some("bitfun-debug is thinking..."));
         if let Some(handle) = pending_response.take() {
             handle.abort();
         }
@@ -2968,7 +2974,7 @@ mod tests {
         let mode = chat_mode_with_fake_agent(fake.clone());
         mode.set_persisted_session_id(Some("debug-session".to_string()));
         let mut session = Session::new(
-            "debug".to_string(),
+            "bitfun-debug".to_string(),
             Some("D:\\workspace\\project".to_string()),
         );
         session.id = "debug-session".to_string();

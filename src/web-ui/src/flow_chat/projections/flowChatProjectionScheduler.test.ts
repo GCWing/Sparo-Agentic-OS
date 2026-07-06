@@ -58,7 +58,7 @@ function sessionWithRounds(rounds: ModelRound[]): Session {
     descriptor: {
       kind: 'project',
       scope: 'workspace',
-      agentType: 'coding',
+      agentType: 'bitfun-coder',
       title: 'Test',
     },
     sessionKind: 'user_dialog',

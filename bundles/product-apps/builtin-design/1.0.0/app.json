@@ -1,0 +1,116 @@
+{
+  "id": "builtin-design",
+  "version": "1.0.0",
+  "name": "Design",
+  "description": "A product and UI design Agent that turns ideas, requirements, and references into prototypes, interfaces, and visual directions.",
+  "authors": [
+    {
+      "name": "GCWing",
+      "url": "https://github.com/GCWing"
+    }
+  ],
+  "i18n": {
+    "locales": {
+      "en-US": {
+        "name": "Design",
+        "description": "A product and UI design Agent that turns ideas, requirements, and references into prototypes, interfaces, and visual directions.",
+        "tags": ["built-in", "design", "ui", "prototype"]
+      },
+      "zh-CN": {
+        "name": "Design",
+        "description": "面向产品与界面设计的 Agent，把想法、需求和参考图转成原型、界面和视觉方案。",
+        "tags": ["内置", "设计", "ui", "原型"]
+      }
+    }
+  },
+  "interactionModel": "conversation",
+  "workMultiplicity": "multiple",
+  "workObjectKinds": [
+    {
+      "id": "design-task",
+      "label": "Design Task",
+      "scope": "workspace",
+      "identitySchema": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string"
+          }
+        }
+      },
+      "contextSchema": {
+        "type": "object",
+        "properties": {
+          "artifactType": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ],
+  "primarySurfaceMode": "chatPrimary",
+  "components": [
+    {
+      "componentId": "builtin-design-agent",
+      "kind": "agent",
+      "source": "private",
+      "role": "assistant",
+      "capabilities": [
+        "design",
+        "prototype"
+      ],
+      "usesCapabilities": [
+        "filesystem.read",
+        "filesystem.write",
+        "workspace.inspect",
+        "workspace.modify",
+        "session.read",
+        "session.write",
+        "memory.read",
+        "model.invoke",
+        "tool.invoke"
+      ]
+    }
+  ],
+  "componentLockId": "",
+  "permissions": {
+    "fs": true,
+    "net": true,
+    "shell": true,
+    "gui": false,
+    "secrets": false,
+    "ai": true
+  },
+  "installScope": "system",
+  "catalogVisibility": "discoverable",
+  "enabled": true,
+  "icon": {
+    "kind": "packageAsset",
+    "path": "assets/icon.png",
+    "mimeType": "image/png"
+  },
+  "category": "creative",
+  "tags": [
+    "built-in",
+    "design",
+    "ui",
+    "prototype"
+  ],
+  "launch": {
+    "kind": "agentSession",
+    "targetId": "Design",
+    "scopeRequirement": "workspaceOptional",
+    "agentType": "Design"
+  },
+  "osCapabilities": [
+    "filesystem.read",
+    "filesystem.write",
+    "workspace.inspect",
+    "workspace.modify",
+    "session.read",
+    "session.write",
+    "memory.read",
+    "model.invoke",
+    "tool.invoke"
+  ]
+}

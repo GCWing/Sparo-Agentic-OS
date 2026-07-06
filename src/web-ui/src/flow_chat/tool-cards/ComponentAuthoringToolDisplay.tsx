@@ -21,7 +21,7 @@ import {
 import { deriveToolRuntimeState } from '../runtime/statusModel';
 import { getToolViewState } from '../runtime/toolViewState';
 import { appScopeIdentity } from '@/shared/types/app-scope';
-import { resolveToolSessionAppScope } from './appStudioToolScope';
+import { resolveToolSessionAppScope } from './appBuilderToolScope';
 import './ComponentAuthoringToolDisplay.scss';
 
 const EMPTY_TOOL_RESULT: Record<string, unknown> = {};
@@ -30,7 +30,7 @@ interface ToolLabelEntry {
   icon: React.ReactNode;
   tagKey: string;
   layout: 'compact' | 'standard';
-  /** Whether to show the App Studio workbench affordance for mutating component tools. */
+  /** Whether to show the App Builder workbench affordance for mutating component tools. */
   openable?: boolean;
 }
 
@@ -437,7 +437,7 @@ export const ComponentAuthoringToolDisplay: React.FC<ToolCardProps> = ({ toolIte
     return null;
   }, [toolName, result, input, t]);
 
-  // Resolve the component id this tool produced/touched, so App Studio can
+  // Resolve the component id this tool produced/touched, so App Builder can
   // project the component authoring fact into the right-side workbench.
   const resolvedComponentId = useMemo<string | undefined>(() => {
     const manifest = pickManifest(result);
@@ -501,14 +501,14 @@ export const ComponentAuthoringToolDisplay: React.FC<ToolCardProps> = ({ toolIte
   }, [input, result]);
   const appScope = useMemo(() => resolveToolSessionAppScope(sessionId), [sessionId]);
 
-  const handleOpenStudioPanel = useCallback(() => {
+  const handleOpenBuilderPanel = useCallback(() => {
     if (!resolvedComponentId || !resolvedComponentKind) return;
-    const duplicateCheckKey = `app-studio:component:${sessionId ?? `${resolvedComponentId}:${appScopeIdentity(appScope)}`}`;
+    const duplicateCheckKey = `app-builder:component:${sessionId ?? `${resolvedComponentId}:${appScopeIdentity(appScope)}`}`;
     window.dispatchEvent(new CustomEvent('expand-right-panel'));
     window.dispatchEvent(new CustomEvent('agent-create-tab', {
       detail: {
-        type: 'app-studio',
-        title: t('toolCards.componentAuthoring.previewPanelTitle', { defaultValue: 'App Studio' }),
+        type: 'app-builder',
+        title: t('toolCards.componentAuthoring.previewPanelTitle', { defaultValue: 'App Builder' }),
         data: {
           sessionId: sessionId ?? null,
           componentId: resolvedComponentId,
@@ -520,9 +520,9 @@ export const ComponentAuthoringToolDisplay: React.FC<ToolCardProps> = ({ toolIte
           scope: appScope,
         },
         metadata: {
-          appStudioSessionId: sessionId,
-          appStudioComponentId: resolvedComponentId,
-          appStudioComponentKind: resolvedComponentKind,
+          appBuilderSessionId: sessionId,
+          appBuilderComponentId: resolvedComponentId,
+          appBuilderComponentKind: resolvedComponentKind,
           componentVersion: resolvedComponentVersion,
           componentPackageRoot: resolvedComponentPackageRoot,
           componentName: resolvedComponentName,
@@ -535,7 +535,7 @@ export const ComponentAuthoringToolDisplay: React.FC<ToolCardProps> = ({ toolIte
         replaceExisting: true,
       },
     }));
-    // Notify any mounted App Studio workbench to refresh its component facts.
+    // Notify any mounted App Builder workbench to refresh its component facts.
     window.dispatchEvent(new CustomEvent('component-updated', {
       detail: { componentId: resolvedComponentId, componentKind: resolvedComponentKind, scope: appScope },
     }));
@@ -551,7 +551,7 @@ export const ComponentAuthoringToolDisplay: React.FC<ToolCardProps> = ({ toolIte
     t,
   ]);
 
-  const canOpenStudioPanel =
+  const canOpenBuilderPanel =
     label.openable === true &&
     isCompleted &&
     !isFailed &&
@@ -584,7 +584,7 @@ export const ComponentAuthoringToolDisplay: React.FC<ToolCardProps> = ({ toolIte
       toolName={toolName}
       status={status}
       isFailed={isFailed}
-      className={`component-authoring-tool-display${canOpenStudioPanel ? ' component-authoring-tool-display--panel-only' : ''}`}
+      className={`component-authoring-tool-display${canOpenBuilderPanel ? ' component-authoring-tool-display--panel-only' : ''}`}
       icon={label.icon}
       title={
         <span className="component-authoring-tool-info">
@@ -599,11 +599,11 @@ export const ComponentAuthoringToolDisplay: React.FC<ToolCardProps> = ({ toolIte
           ) : null}
         </span>
       }
-      showHeaderExpandHint={!canOpenStudioPanel && Boolean(expandedBody)}
+      showHeaderExpandHint={!canOpenBuilderPanel && Boolean(expandedBody)}
       isRunning={isToolRunning}
-      headerRail={canOpenStudioPanel ? {
-        label: t('toolCards.componentAuthoring.openStudioPanel'),
-        onClick: handleOpenStudioPanel,
+      headerRail={canOpenBuilderPanel ? {
+        label: t('toolCards.componentAuthoring.openBuilderPanel'),
+        onClick: handleOpenBuilderPanel,
         icon: (
           <>
             <ChevronRight size={18} strokeWidth={2} absoluteStrokeWidth />
@@ -613,7 +613,7 @@ export const ComponentAuthoringToolDisplay: React.FC<ToolCardProps> = ({ toolIte
           </>
         ),
       } : undefined}
-      expandedContent={canOpenStudioPanel ? undefined : expandedBody}
+      expandedContent={canOpenBuilderPanel ? undefined : expandedBody}
     />
   );
 };

@@ -6,11 +6,20 @@ use crate::agentic::core::{PromptEnvelope, SessionConfig};
 use crate::agentic::tools::framework::ToolUseContext;
 use crate::agentic::tools::workspace_paths::posix_style_path_is_absolute;
 use crate::agentic::SessionSummary;
-use crate::infrastructure::try_get_path_manager_arc;
 use crate::error::{CoreError, CoreResult};
+use crate::infrastructure::try_get_path_manager_arc;
 use std::path::Path;
 
-pub const STANDARD_AGENT_TYPES: &[&str] = &["agentic", "Plan", "Cowork", "Design", "debug"];
+pub const STANDARD_AGENT_TYPES: &[&str] = &[
+    "Runno",
+    "bitfun-coder",
+    "bitfun-plan",
+    "bitfun-debug",
+    "bitfun-team",
+    "Cowork",
+    "Design",
+    "DeepResearch",
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AgentSessionHandoffKind {
@@ -240,7 +249,7 @@ pub async fn handoff_to_agent_session(
             let agent_type = existing.agent_type.unwrap_or_else(|| {
                 let persisted_agent_type = session.agent_type.trim();
                 if persisted_agent_type.is_empty() {
-                    "agentic".to_string()
+                    "Runno".to_string()
                 } else {
                     persisted_agent_type.to_string()
                 }

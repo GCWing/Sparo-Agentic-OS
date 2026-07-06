@@ -401,12 +401,16 @@
     cursor: not-allowed;
   }
 
-  &--Plan {
+  &--bitfun-plan {
     background: rgba(6, 182, 212, 0.15);
   }
 
-  &--debug {
+  &--bitfun-debug {
     background: rgba(249, 115, 22, 0.15);
+  }
+
+  &--bitfun-team {
+    background: rgba(139, 92, 246, 0.15);
   }
 }
 

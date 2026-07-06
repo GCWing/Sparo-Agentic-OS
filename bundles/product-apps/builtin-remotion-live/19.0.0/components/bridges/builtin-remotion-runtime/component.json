@@ -65,5 +65,13 @@
   ],
   "visibility": "appDependency",
   "dependencies": [],
-  "implementationRef": "app://builtin-remotion-live@19.0.0/bridges/builtin-remotion-runtime"
+  "implementationRef": "app://builtin-remotion-live@19.0.0/bridges/builtin-remotion-runtime",
+  "usesCapabilities": [
+    "filesystem.read",
+    "filesystem.write",
+    "terminal.run",
+    "process.spawn",
+    "workspace.inspect",
+    "component.run"
+  ]
 }

@@ -6,4 +6,4 @@ auto_dismiss_secs: 10
 
 # Product App
 
-Ask App Studio to generate a runnable Product App directly through conversation
+Ask App Builder to generate a runnable Product App directly through conversation

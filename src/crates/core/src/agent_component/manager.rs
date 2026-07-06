@@ -11,8 +11,8 @@ use crate::agentic::tools::registry::{get_global_tool_registry, ToolRegistry};
 use crate::bridge_component::{
     BridgeComponentConsumer, BridgeComponentConsumerKind, BridgeComponentManager,
 };
-use crate::infrastructure::get_path_manager_arc;
 use crate::error::{CoreError, CoreResult};
+use crate::infrastructure::get_path_manager_arc;
 use async_trait::async_trait;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
@@ -36,9 +36,7 @@ const OBSOLETE_BUILTIN_FILE_AGENT_COMPONENT_IDS: &[&str] = &[
 
 pub fn validate_agent_component_id(id: &str) -> CoreResult<()> {
     if id.is_empty() {
-        return Err(CoreError::validation(
-            "Agent Component id cannot be empty",
-        ));
+        return Err(CoreError::validation("Agent Component id cannot be empty"));
     }
     let mut chars = id.chars();
     if !chars.next().is_some_and(|c| c.is_ascii_alphabetic()) {
@@ -342,9 +340,7 @@ impl AgentComponentManager {
         Ok(packages.iter().map(package_to_info).collect())
     }
 
-    pub async fn register_runtime_tools(
-        workspace_root: Option<&Path>,
-    ) -> CoreResult<Vec<String>> {
+    pub async fn register_runtime_tools(workspace_root: Option<&Path>) -> CoreResult<Vec<String>> {
         let packages = Self::load_packages(workspace_root)?;
         let mut registered = Vec::new();
         let registry = get_global_tool_registry();
@@ -474,13 +470,13 @@ impl AgentComponentManager {
         );
         let context = ToolUseContext {
             tool_call_id: None,
-            agent_type: Some("AppStudio".to_string()),
+            agent_type: Some("AppBuilder".to_string()),
             session_id: None,
             dialog_turn_id: None,
             workspace: workspace_root
                 .map(|root| crate::agentic::WorkspaceBinding::new(None, root.to_path_buf())),
             custom_data: HashMap::new(),
-            app_studio: None,
+            app_builder: None,
             computer_use_host: None,
             cancellation_token: None,
             runtime_tool_restrictions: Default::default(),
@@ -938,9 +934,9 @@ fn validate_js_input_subset(schema: &Value, input: &Value) -> CoreResult<()> {
     if schema.get("type").and_then(Value::as_str) != Some("object") {
         return Ok(());
     }
-    let object = input.as_object().ok_or_else(|| {
-        CoreError::validation("Agent Component JS tool input must be an object")
-    })?;
+    let object = input
+        .as_object()
+        .ok_or_else(|| CoreError::validation("Agent Component JS tool input must be an object"))?;
     if let Some(required) = schema.get("required").and_then(Value::as_array) {
         for field in required.iter().filter_map(Value::as_str) {
             if !object.contains_key(field) {

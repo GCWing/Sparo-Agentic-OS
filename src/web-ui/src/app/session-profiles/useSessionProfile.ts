@@ -3,7 +3,7 @@ import { SessionProfileContext, type SessionProfileContextValue } from './Sessio
 
 /**
  * Returns the profile for the currently active session.
- * Falls back to codingProfile when no session is active.
+ * Falls back to Runno when no session is active.
  */
 export function useSessionProfile(): SessionProfileContextValue {
   return useContext(SessionProfileContext);

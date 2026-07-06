@@ -1,8 +1,8 @@
 //! Logging Configuration
 
-use sparo_core::infrastructure::get_path_manager_arc;
 use chrono::Local;
 use serde::Serialize;
+use sparo_core::infrastructure::get_path_manager_arc;
 use std::path::PathBuf;
 use std::sync::{
     atomic::{AtomicU8, Ordering},

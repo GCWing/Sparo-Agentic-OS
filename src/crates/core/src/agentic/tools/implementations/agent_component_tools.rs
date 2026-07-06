@@ -1,4 +1,4 @@
-//! Agent Component tools used by App Studio component authoring.
+//! Agent Component tools used by App Builder component authoring.
 
 use crate::agent_component::{
     slugify_agent_component_id, AgentComponentExample, AgentComponentJsToolManifest,

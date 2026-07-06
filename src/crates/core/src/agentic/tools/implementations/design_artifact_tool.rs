@@ -20,8 +20,8 @@
 //! always includes the full manifest plus an `artifact_event` describing what changed.
 
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext, ValidationResult};
-use crate::infrastructure::get_path_manager_arc;
 use crate::error::{CoreError, CoreResult};
+use crate::infrastructure::get_path_manager_arc;
 use async_trait::async_trait;
 use base64::Engine as _;
 use chrono::Utc;
@@ -1021,10 +1021,7 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
     /// The rebase protocol: caller passes the version they believed was current;
     /// if the server has since advanced (another writer committed), we reject
     /// so the UI can refresh and retry.
-    fn check_expected_version(
-        input: &Value,
-        manifest: &DesignArtifactManifest,
-    ) -> CoreResult<()> {
+    fn check_expected_version(input: &Value, manifest: &DesignArtifactManifest) -> CoreResult<()> {
         let Some(expected) = input.get("expected_version").and_then(|v| v.as_str()) else {
             return Ok(());
         };
@@ -1162,9 +1159,7 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
         let artifact_id = input
             .get("artifact_id")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| {
-                CoreError::tool("DesignArtifact.set_entry: artifact_id is required")
-            })?;
+            .ok_or_else(|| CoreError::tool("DesignArtifact.set_entry: artifact_id is required"))?;
         let new_entry = input
             .get("entry")
             .and_then(|v| v.as_str())
@@ -1444,9 +1439,7 @@ body {\n  background: var(--dt-background);\n  color: var(--dt-text);\n  font-fa
         let artifact_id = input
             .get("artifact_id")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| {
-                CoreError::tool("DesignArtifact.zip_export: artifact_id is required")
-            })?;
+            .ok_or_else(|| CoreError::tool("DesignArtifact.zip_export: artifact_id is required"))?;
         let artifact_dir = Self::artifact_dir(context, artifact_id)?;
         let manifest = Self::load_manifest(&artifact_dir).await?;
         let mut buffer: Vec<u8> = Vec::new();

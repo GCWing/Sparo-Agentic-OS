@@ -6,41 +6,51 @@ import {
   type SessionDescriptor,
 } from './sessionDescriptor';
 
-const CODE_AGENT_IDS = ['agentic', 'Plan', 'debug', 'Team'];
+const BITFUN_CODER_AGENT_IDS = ['bitfun-coder', 'bitfun-plan', 'bitfun-debug', 'bitfun-team'];
 
 describe('sessionDescriptor', () => {
-  it('treats agentic as the BitFun Coder default agent with full switch policy', () => {
-    const descriptor = descriptorFromAgentType('agentic');
+  it('treats Runno as the default native execution agent', () => {
+    const descriptor = descriptorFromAgentType('Runno');
 
-    expect(descriptor.profileId).toBe('coding');
-    expect(descriptor.identityId).toBe('code');
-    expect(descriptor.agentPolicy.defaultAgentId).toBe('agentic');
-    expect(descriptor.agentPolicy.activeAgentId).toBe('agentic');
-    expect(descriptor.agentPolicy.switchableAgentIds).toEqual(CODE_AGENT_IDS);
+    expect(descriptor.profileId).toBe('runno');
+    expect(descriptor.identityId).toBe('runno');
+    expect(descriptor.agentPolicy.defaultAgentId).toBe('Runno');
+    expect(descriptor.agentPolicy.activeAgentId).toBe('Runno');
+    expect(descriptor.agentPolicy.switchableAgentIds).toEqual(['Runno']);
   });
 
-  it('normalizes legacy single-agent BitFun Coder descriptors', () => {
-    const legacyDescriptor: SessionDescriptor = {
-      ...SESSION_DESCRIPTORS.coding,
+  it('treats BitFun Coder as an independent profile with full switch policy', () => {
+    const descriptor = descriptorFromAgentType('bitfun-coder');
+
+    expect(descriptor.profileId).toBe('bitfun-coder');
+    expect(descriptor.identityId).toBe('bitfun-coder');
+    expect(descriptor.agentPolicy.defaultAgentId).toBe('bitfun-coder');
+    expect(descriptor.agentPolicy.activeAgentId).toBe('bitfun-coder');
+    expect(descriptor.agentPolicy.switchableAgentIds).toEqual(BITFUN_CODER_AGENT_IDS);
+  });
+
+  it('normalizes stale BitFun Coder switchable lists without legacy agent ids', () => {
+    const staleDescriptor: SessionDescriptor = {
+      ...SESSION_DESCRIPTORS.bitfunCoder,
       agentPolicy: {
-        defaultAgentId: 'agentic',
-        activeAgentId: 'agentic',
-        switchableAgentIds: ['agentic'],
+        defaultAgentId: 'bitfun-coder',
+        activeAgentId: 'bitfun-plan',
+        switchableAgentIds: ['bitfun-coder', 'bitfun-plan'],
       },
     };
 
-    const descriptor = normalizeSessionDescriptor(legacyDescriptor);
+    const descriptor = normalizeSessionDescriptor(staleDescriptor);
 
-    expect(descriptor.agentPolicy.switchableAgentIds).toEqual(CODE_AGENT_IDS);
-    expect(descriptor.agentPolicy.activeAgentId).toBe('agentic');
+    expect(descriptor.agentPolicy.switchableAgentIds).toEqual(BITFUN_CODER_AGENT_IDS);
+    expect(descriptor.agentPolicy.activeAgentId).toBe('bitfun-plan');
   });
 
-  it('keeps custom single-agent descriptors scoped to their own agent', () => {
+  it('falls unknown agent type requests back to Runno', () => {
     const descriptor = descriptorFromAgentType('Reviewer');
 
-    expect(descriptor.profileId).toBe('coding');
-    expect(descriptor.agentPolicy.defaultAgentId).toBe('Reviewer');
-    expect(descriptor.agentPolicy.activeAgentId).toBe('Reviewer');
-    expect(descriptor.agentPolicy.switchableAgentIds).toEqual(['Reviewer']);
+    expect(descriptor.profileId).toBe('runno');
+    expect(descriptor.agentPolicy.defaultAgentId).toBe('Runno');
+    expect(descriptor.agentPolicy.activeAgentId).toBe('Runno');
+    expect(descriptor.agentPolicy.switchableAgentIds).toEqual(['Runno']);
   });
 });

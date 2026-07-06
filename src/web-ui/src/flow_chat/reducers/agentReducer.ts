@@ -29,7 +29,7 @@ export type AgentAction =
   | { type: 'TOGGLE_DROPDOWN' };
 
 export const initialAgentState: AgentState = {
-  current: 'agentic',
+  current: 'Runno',
   available: [],
   dropdownOpen: false,
 };

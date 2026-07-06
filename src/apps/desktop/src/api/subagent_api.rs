@@ -1,14 +1,14 @@
 //! Subagent API
 
 use crate::api::app_state::AppState;
+use log::warn;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 use sparo_core::agentic::agents::{
     AgentCategory, AgentInfo, CustomSubagent, CustomSubagentConfig, CustomSubagentDetail,
     CustomSubagentKind, SubAgentSource,
 };
 use sparo_core::service::config::types::SubAgentConfig;
-use log::warn;
-use serde::{Deserialize, Serialize};
-use serde_json::json;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;

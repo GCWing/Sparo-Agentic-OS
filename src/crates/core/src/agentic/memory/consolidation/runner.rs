@@ -11,8 +11,8 @@ use crate::agentic::memory::store::{
     MEMORY_CANONICAL_FILE,
 };
 use crate::agentic::tools::{ToolPathPolicy, ToolRuntimeRestrictions};
-use crate::service::workspace::{get_global_workspace_service, WorkspaceInfo, WorkspaceKind};
 use crate::error::{CoreError, CoreResult};
+use crate::service::workspace::{get_global_workspace_service, WorkspaceInfo, WorkspaceKind};
 use chrono::{Local, TimeZone};
 use log::{debug, info, warn};
 use serde::Serialize;

@@ -241,7 +241,7 @@ export function buildSessionMetadata(
       getBackendAgentType(session.descriptor as SessionDescriptor) ||
       session.config.agentType ||
       existingMetadata?.agentType ||
-      'agentic',
+      'Runno',
     modelName:
       session.config.modelName || existingMetadata?.modelName || 'primary',
     createdAt: existingMetadata?.createdAt ?? session.createdAt,

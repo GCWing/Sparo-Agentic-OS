@@ -342,9 +342,9 @@
     "labelPath": "path",
     "nameLabel": "应用：{{name}}"
   },
-  "appStudio": {
+  "appBuilder": {
     "title": "产品应用界面",
-    "studioTitle": "应用工作室",
+    "builderTitle": "应用构建器",
     "recompile": "重新编译",
     "probe": "诊断",
     "matrix": "截图矩阵",
@@ -353,7 +353,7 @@
     "probeSummary": "{{fatal}} 致命 · {{warning}} 警告 · {{noise}} 噪声",
     "matrixRequested": "已请求截图矩阵",
     "matrixStates": "{{count}} 个状态",
-    "openStudio": "打开应用工作室"
+    "openBuilder": "打开应用构建器"
   },
   "productAppValidation": {
     "title": "校验",
@@ -381,7 +381,7 @@
     "failed": "失败项",
     "warnings": "警告项",
     "check": "检查项",
-    "failedMessage": "Studio 预览未通过"
+    "failedMessage": "构建器预览未通过"
   },
   "componentAuthoring": {
     "title": "组件包",
@@ -425,8 +425,8 @@
     "fieldToolName": "工具名",
     "fieldSummary": "摘要",
     "openAppsPanel": "打开组件中心",
-    "openStudioPanel": "在应用工作室打开",
-    "previewPanelTitle": "应用工作室"
+    "openBuilderPanel": "在应用构建器打开",
+    "previewPanelTitle": "应用构建器"
   },
   "bridgeCall": {
     "title": "Bridge",
@@ -896,7 +896,7 @@
     "startNewChat": "开始新对话...",
     "openSessionMenu": "会话与新建",
     "moreMenu": "更多",
-    "newCodeSessionItem": "BitFun Coder 会话",
+    "newBitfunCoderSessionItem": "BitFun Coder 会话",
     "newCoworkSessionItem": "办公助理会话",
     "newDesignSessionItem": "设计师会话"
   },

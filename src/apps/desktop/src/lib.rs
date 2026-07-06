@@ -25,11 +25,11 @@ pub mod theme;
 pub mod tray;
 pub mod window;
 
+use serde::Deserialize;
 use sparo_core::infrastructure::constants::{
     APP_PRODUCT_NAME, EVENT_SYSTEM_NOTIFICATION, WINDOW_MAIN,
 };
 use sparo_transport::TauriTransportAdapter;
-use serde::Deserialize;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -42,6 +42,7 @@ use api::commands::*;
 use api::computer_use_api::*;
 use api::config_api::*;
 use api::cron_api::*;
+use api::daily_letter_api::*;
 use api::diff_api::*;
 use api::global_milestone_api::*;
 use api::host_scan_api::*;
@@ -266,10 +267,17 @@ pub fn run() {
             api::agentic_os_api::agentic_os_dispatch_work,
             api::agentic_os_api::agentic_os_advance_work,
             api::agentic_os_api::agentic_os_control_work,
-            api::agentic_os_api::agentic_os_record_studio_preview_result,
-            api::agentic_os_api::agentic_os_record_studio_validation_result,
+            api::agentic_os_api::agentic_os_record_builder_preview_result,
+            api::agentic_os_api::agentic_os_record_builder_validation_result,
             agentic_os_list_background_processes,
             agentic_os_run_background_process,
+            daily_letter_list,
+            daily_letter_get,
+            daily_letter_generate,
+            daily_letter_apply_receipts,
+            daily_letter_seal,
+            daily_letter_update_continuation,
+            daily_letter_state,
             api::token_usage_api::get_token_usage,
             api::token_usage_api::clear_token_usage,
             api::agent_component_api::list_agent_components,
@@ -653,7 +661,7 @@ fn spawn_boot_pipeline(
                 Ok(a) => a,
                 Err(e) => {
                     log::error!("Stage-D agentic init failed: {}", e);
-                    container.boot.fail("agentic", e);
+                    container.boot.fail("agentic_runtime", e);
                     return;
                 }
             };
@@ -951,8 +959,8 @@ fn spawn_ingest_server_with_config_listener() {
                 .await
             {
                 let debug_config = config
-                    .smart_apps
-                    .prime_builder_debug_config()
+                    .product_apps
+                    .bitfun_coder_debug_config()
                     .unwrap_or(&config.ai.debug_mode_config)
                     .clone();
                 let workspace_path = get_global_workspace_service()
@@ -984,7 +992,10 @@ fn spawn_ingest_server_with_config_listener() {
             if actual_port != cfg_port {
                 if let Ok(config_service) = get_global_config_service().await {
                     if let Err(e) = config_service
-                        .set_config("smart_apps.apps.coding-app.debug.ingest_port", actual_port)
+                        .set_config(
+                            "product_apps.apps.builtin-bitfun-coder.debug.ingest_port",
+                            actual_port,
+                        )
                         .await
                     {
                         log::error!("Failed to sync actual port to config: {}", e);
@@ -1026,8 +1037,8 @@ fn spawn_ingest_server_with_config_listener() {
                                 .await
                             {
                                 let debug_config = config
-                                    .smart_apps
-                                    .prime_builder_debug_config()
+                                    .product_apps
+                                    .bitfun_coder_debug_config()
                                     .unwrap_or(&config.ai.debug_mode_config);
                                 let workspace_path = get_global_workspace_service()
                                     .and_then(|service| service.try_get_last_used_workspace_path())

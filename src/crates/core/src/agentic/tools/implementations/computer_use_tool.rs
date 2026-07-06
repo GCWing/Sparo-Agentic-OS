@@ -14,8 +14,8 @@ use crate::agentic::tools::computer_use_host::{
 };
 use crate::agentic::tools::computer_use_optimizer::hash_screenshot_bytes;
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
-use crate::service::config::global::GlobalConfigManager;
 use crate::error::{CoreError, CoreResult};
+use crate::service::config::global::GlobalConfigManager;
 use crate::util::types::ToolImageAttachment;
 use async_trait::async_trait;
 use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
@@ -1216,12 +1216,14 @@ fn parse_ocr_region_native(
                 .to_string(),
         )
     })?;
-    let x0 = o.get("x0").and_then(|x| x.as_i64()).ok_or_else(|| {
-        CoreError::tool("ocr_region_native.x0 (integer) is required.".to_string())
-    })? as i32;
-    let y0 = o.get("y0").and_then(|x| x.as_i64()).ok_or_else(|| {
-        CoreError::tool("ocr_region_native.y0 (integer) is required.".to_string())
-    })? as i32;
+    let x0 =
+        o.get("x0").and_then(|x| x.as_i64()).ok_or_else(|| {
+            CoreError::tool("ocr_region_native.x0 (integer) is required.".to_string())
+        })? as i32;
+    let y0 =
+        o.get("y0").and_then(|x| x.as_i64()).ok_or_else(|| {
+            CoreError::tool("ocr_region_native.y0 (integer) is required.".to_string())
+        })? as i32;
     let width = o.get("width").and_then(|x| x.as_u64()).ok_or_else(|| {
         CoreError::tool("ocr_region_native.width (positive integer) is required.".to_string())
     })? as u32;
@@ -2183,9 +2185,7 @@ impl Tool for ComputerUseTool {
                     .get("script")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| {
-                        CoreError::tool(
-                            "run_apple_script requires `script` parameter.".to_string(),
-                        )
+                        CoreError::tool("run_apple_script requires `script` parameter.".to_string())
                     })?;
                 #[cfg(not(target_os = "macos"))]
                 {

@@ -12,9 +12,7 @@ impl GoalValidationGate {
             return Err(CoreError::validation("Extraction id mismatch"));
         }
         if result.parent_session_id != run.parent_session_id {
-            return Err(CoreError::validation(
-                "Extraction parent session mismatch",
-            ));
+            return Err(CoreError::validation("Extraction parent session mismatch"));
         }
         if result.trigger_turn_id != run.trigger_turn_id {
             return Err(CoreError::validation("Extraction trigger turn mismatch"));

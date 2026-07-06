@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   agenticOsProfile,
-  codingProfile,
+  bitfunCoderProfile,
   productAppRuntimeProfile,
 } from '@/app/session-profiles';
 import { SESSION_DESCRIPTORS } from '@/flow_chat/domain/sessionDescriptor';
@@ -11,8 +11,8 @@ describe('resolveComposerSessionProfile', () => {
   it('uses the target session descriptor instead of the surrounding surface profile', () => {
     expect(resolveComposerSessionProfile({
       surfaceProfile: agenticOsProfile,
-      targetDescriptor: SESSION_DESCRIPTORS.coding,
-    })).toBe(codingProfile);
+      targetDescriptor: SESSION_DESCRIPTORS.bitfunCoder,
+    })).toBe(bitfunCoderProfile);
   });
 
   it('falls back to the surrounding surface profile when no target descriptor exists', () => {

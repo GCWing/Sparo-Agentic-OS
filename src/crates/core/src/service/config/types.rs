@@ -58,9 +58,9 @@ pub struct GlobalConfig {
     pub terminal: TerminalConfig,
     pub workspace: WorkspaceConfig,
     pub ai: AIConfig,
-    /// Smart App-scoped configuration keyed by stable app id (for example `coding-app`).
+    /// Product App-scoped configuration keyed by stable Product App id.
     #[serde(default)]
-    pub smart_apps: SmartAppsConfig,
+    pub product_apps: ProductAppsConfig,
     /// MCP server configuration (stored uniformly; supports both JSON and structured formats).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mcp_servers: Option<serde_json::Value>,
@@ -75,30 +75,30 @@ pub struct GlobalConfig {
     pub last_modified: chrono::DateTime<chrono::Utc>,
 }
 
-/// Configuration owned by Smart Apps.
+/// Configuration owned by Product Apps.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
-pub struct SmartAppsConfig {
+pub struct ProductAppsConfig {
     /// App id -> app-specific configuration.
-    pub apps: HashMap<String, SmartAppConfig>,
+    pub apps: HashMap<String, ProductAppConfig>,
 }
 
-impl SmartAppsConfig {
-    pub const PRIME_BUILDER_APP_ID: &'static str = "coding-app";
+impl ProductAppsConfig {
+    pub const BITFUN_CODER_APP_ID: &'static str = "builtin-bitfun-coder";
 
     /// Returns the BitFun Coder debug config, if the app has one configured.
-    pub fn prime_builder_debug_config(&self) -> Option<&DebugModeConfig> {
+    pub fn bitfun_coder_debug_config(&self) -> Option<&DebugModeConfig> {
         self.apps
-            .get(Self::PRIME_BUILDER_APP_ID)
+            .get(Self::BITFUN_CODER_APP_ID)
             .and_then(|app| app.debug.as_ref())
     }
 }
 
 /// App-scoped configuration. Typed fields cover built-in runtime contracts; extra values allow
-/// future Smart Apps to add narrow settings without expanding the global config schema first.
+/// future Product Apps to add narrow settings without expanding the global config schema first.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
-pub struct SmartAppConfig {
+pub struct ProductAppConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub debug: Option<DebugModeConfig>,
     #[serde(flatten)]
@@ -1337,7 +1337,7 @@ impl Default for GlobalConfig {
             terminal: TerminalConfig::default(),
             workspace: WorkspaceConfig::default(),
             ai: AIConfig::default(),
-            smart_apps: SmartAppsConfig::default(),
+            product_apps: ProductAppsConfig::default(),
             mcp_servers: None,
             themes: Some(ThemesConfig::default()),
             font: None,
@@ -1347,12 +1347,12 @@ impl Default for GlobalConfig {
     }
 }
 
-impl Default for SmartAppsConfig {
+impl Default for ProductAppsConfig {
     fn default() -> Self {
         let mut apps = HashMap::new();
         apps.insert(
-            Self::PRIME_BUILDER_APP_ID.to_string(),
-            SmartAppConfig {
+            Self::BITFUN_CODER_APP_ID.to_string(),
+            ProductAppConfig {
                 debug: Some(DebugModeConfig::default()),
                 extra: HashMap::new(),
             },
@@ -1361,7 +1361,7 @@ impl Default for SmartAppsConfig {
     }
 }
 
-impl Default for SmartAppConfig {
+impl Default for ProductAppConfig {
     fn default() -> Self {
         Self {
             debug: None,

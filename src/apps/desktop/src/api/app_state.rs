@@ -3,13 +3,13 @@
 use sparo_core::agentic::side_question::SideQuestionRuntime;
 use sparo_core::agentic::{agents, tools};
 use sparo_core::app_platform::seed_builtin_product_app_packages;
+use sparo_core::error::*;
 use sparo_core::infrastructure::ai::{AIClient, AIClientFactory};
 use sparo_core::product_app_runtime_host::{
     initialize_global_product_app_runtime_host_manager, ProductAppRuntimeHostManager,
     ProductAppRuntimeHostWorkerPool,
 };
 use sparo_core::service::{announcement, config, filesystem, mcp, token_usage, workspace};
-use sparo_core::error::*;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

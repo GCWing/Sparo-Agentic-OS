@@ -3,6 +3,8 @@
 use std::collections::BTreeMap;
 
 use crate::api::app_state::AppState;
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use sparo_core::agentic_os::work::{
     default_work_store, RuntimeInstanceRef, WorkRuntimeIssueSeverity, WorkRuntimeLogLevel,
     WorkRuntimeRunStatus, WorkService,
@@ -19,8 +21,6 @@ use sparo_core::bridge_component::{
     BridgeComponentConsumer, BridgeComponentConsumerKind, BridgeComponentManager,
     BridgeComponentRunStatus,
 };
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
 use tauri::State;
 
 const COMPONENT_HEALTH_ACTION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(12);
@@ -1117,6 +1117,7 @@ mod tests {
                 actions: Vec::new(),
             }],
             permissions: Vec::new(),
+            uses_capabilities: Vec::new(),
             used_by_apps: Vec::new(),
             visibility: ComponentVisibility::Developer,
             dependencies: Vec::new(),
@@ -1134,6 +1135,7 @@ mod tests {
             role: "executor".to_string(),
             version: None,
             capabilities: Vec::new(),
+            uses_capabilities: Vec::new(),
         });
 
         let health = build_component_health_response(

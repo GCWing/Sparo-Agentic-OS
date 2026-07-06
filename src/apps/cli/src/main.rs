@@ -11,9 +11,9 @@ mod session;
 mod ui;
 
 use anyhow::{Context, Result};
-use sparo_core::infrastructure::APP_CONFIG_DIR_NAME;
 use clap::{error::ErrorKind as ClapErrorKind, Parser, Subcommand, ValueEnum};
 use serde::{Deserialize, Serialize};
+use sparo_core::infrastructure::APP_CONFIG_DIR_NAME;
 
 use config::{canonical_shortcut, CliConfig};
 use modes::chat::{task_without_session_followup_prompt, ChatMode};
@@ -617,7 +617,7 @@ fn batch_example_value(format: BatchExampleFormat) -> serde_json::Value {
                 "Summarize the current workspace",
                 {
                     "message": "Run a focused code review on the CLI changes",
-                    "agent": "debug",
+                    "agent": "bitfun-coder",
                     "workspace": ".",
                     "output_patch": "review.patch"
                 }
@@ -630,7 +630,7 @@ fn batch_example_value(format: BatchExampleFormat) -> serde_json::Value {
                 },
                 {
                     "message": "Run a focused code review on the CLI changes",
-                    "agent": "debug",
+                    "agent": "bitfun-coder",
                     "workspace": ".",
                     "output_patch": "review.patch"
                 }
@@ -1073,7 +1073,7 @@ fn render_batch_example(format: BatchExampleFormat) -> &'static str {
     "Summarize the current workspace",
     {
       "message": "Run a focused code review on the CLI changes",
-      "agent": "debug",
+      "agent": "bitfun-coder",
       "workspace": ".",
       "output_patch": "review.patch"
     }
@@ -1086,7 +1086,7 @@ message = "Summarize the current workspace"
 
 [[tasks]]
 message = "Run a focused code review on the CLI changes"
-agent = "debug"
+agent = "bitfun-coder"
 workspace = "."
 output_patch = "review.patch""#
         }
@@ -2320,9 +2320,7 @@ struct TaskSessionResumeContext {
     context_messages: Vec<String>,
 }
 
-fn task_detail_context_message(
-    task: &sparo_core::command::agentic_os::AgenticOsTaskRow,
-) -> String {
+fn task_detail_context_message(task: &sparo_core::command::agentic_os::AgenticOsTaskRow) -> String {
     format!(
         "Task detail\nTitle: {}\nAgent: {}\nStatus: {}\nDetail: {}\nSession: {}\nWorkspace: {}",
         task.title,
@@ -4432,7 +4430,7 @@ fn apps_list_human_lines(
 
         return vec![
             "No Product Apps, Agent Components, or Bridge Components installed.".to_string(),
-            "Create one from chat with App Studio component authoring.".to_string(),
+            "Create one from chat with App Builder component authoring.".to_string(),
             "Inspect creation schemas: sparo tool schema CreateAgentComponent --json; sparo tool schema CreateProductApp --json".to_string(),
             format!("Open app-building chat: sparo chat{}", workspace_arg),
             "Machine output: sparo apps list --json".to_string(),
@@ -6399,11 +6397,14 @@ mod tests {
     #[test]
     fn default_agent_pref_fills_missing_cli_agent() {
         let mut config = CliConfig::default();
-        config.behavior.default_agent = "debug".to_string();
+        config.behavior.default_agent = "bitfun-debug".to_string();
 
-        assert_eq!(effective_cli_agent(&config, None), "debug");
-        assert_eq!(effective_cli_agent(&config, Some("")), "debug");
-        assert_eq!(effective_cli_agent(&config, Some("Plan")), "Plan");
+        assert_eq!(effective_cli_agent(&config, None), "bitfun-debug");
+        assert_eq!(effective_cli_agent(&config, Some("")), "bitfun-debug");
+        assert_eq!(
+            effective_cli_agent(&config, Some("bitfun-plan")),
+            "bitfun-plan"
+        );
     }
 
     #[test]
@@ -6413,7 +6414,7 @@ mod tests {
         let registry_default = registry.default_agent_type();
 
         assert_eq!(config.behavior.default_agent, registry_default);
-        assert_eq!(registry_default, "agentic");
+        assert_eq!(registry_default, "Runno");
     }
 
     #[test]
@@ -6729,7 +6730,7 @@ mod tests {
                 .unwrap();
         assert_eq!(json_tasks.len(), 2);
         assert_eq!(json_tasks[0].message(), "Summarize the current workspace");
-        assert_eq!(json_tasks[1].agent("OSAgent"), "debug");
+        assert_eq!(json_tasks[1].agent("OSAgent"), "bitfun-coder");
 
         let toml_tasks =
             parse_batch_task_file(render_batch_example(BatchExampleFormat::Toml), "tasks.toml")
@@ -6796,7 +6797,7 @@ mod tests {
             },
             BatchTaskResult {
                 index: 2,
-                agent: "debug".to_string(),
+                agent: "bitfun-debug".to_string(),
                 message: "two".to_string(),
                 session_id: None,
                 success: false,
@@ -6868,7 +6869,7 @@ mod tests {
     fn batch_summary_human_lines_include_failure_rerun_guidance() {
         let results = vec![BatchTaskResult {
             index: 1,
-            agent: "debug".to_string(),
+            agent: "bitfun-debug".to_string(),
             message: "review".to_string(),
             session_id: None,
             success: false,
@@ -6917,7 +6918,7 @@ mod tests {
 
         assert!(output.contains("History sessions (total 1)"));
         assert!(output.contains("1. Review CLI sessions (ID: session-1)"));
-        assert!(output.contains("Agent: debug | Turns: 3 | Messages: 6"));
+        assert!(output.contains("Agent: bitfun-debug | Turns: 3 | Messages: 6"));
         assert!(output.contains("Next actions:"));
         assert!(output.contains(
             "Resume latest: sparo sessions --workspace \"D:\\workspace\\my project\" resume session-1"
@@ -6945,7 +6946,7 @@ mod tests {
         sparo_core::service::session::SessionMetadata {
             session_id: "session-1".to_string(),
             session_name: "Review CLI sessions".to_string(),
-            agent_type: "debug".to_string(),
+            agent_type: "bitfun-debug".to_string(),
             created_by: None,
             session_kind: sparo_core::agentic::core::SessionKind::Standard,
             model_name: "gpt-test".to_string(),
@@ -7035,7 +7036,7 @@ mod tests {
     #[test]
     fn agent_summary_line_matches_cli_agents_table_contract() {
         let agent = sparo_core::agentic::agents::AgentInfo {
-            id: "debug".to_string(),
+            id: "bitfun-debug".to_string(),
             name: "Debug".to_string(),
             description: "Diagnose failures".to_string(),
             is_readonly: false,
@@ -7053,7 +7054,7 @@ mod tests {
 
         assert_eq!(
             agent_summary_line(&agent),
-            "debug | Debug | enabled | 3 tools | write"
+            "bitfun-debug | Debug | enabled | 3 tools | write"
         );
     }
 
@@ -7160,7 +7161,7 @@ mod tests {
         set_cli_pref(&mut config, "ui.theme", "light").unwrap();
         set_cli_pref(&mut config, "ui.show_tips", "off").unwrap();
         set_cli_pref(&mut config, "ui.color_scheme", "blue").unwrap();
-        set_cli_pref(&mut config, "behavior.default_agent", "debug").unwrap();
+        set_cli_pref(&mut config, "behavior.default_agent", "bitfun-debug").unwrap();
         set_cli_pref(&mut config, "behavior.confirm_dangerous", "false").unwrap();
         set_cli_pref(&mut config, "workspace.default_path", "D:\\workspace").unwrap();
         set_cli_pref(&mut config, "shortcuts.send_message", "ctrl+s").unwrap();
@@ -7181,7 +7182,7 @@ mod tests {
         );
         assert_eq!(
             cli_prefs_value(&config, Some("behavior.default_agent")).unwrap(),
-            serde_json::json!("debug")
+            serde_json::json!("bitfun-debug")
         );
         assert_eq!(
             cli_prefs_value(&config, Some("behavior.confirm_dangerous")).unwrap(),
@@ -7208,17 +7209,17 @@ mod tests {
     #[test]
     fn cli_prefs_human_output_respects_json_flag_contract() {
         let mut config = CliConfig::default();
-        config.behavior.default_agent = "debug".to_string();
+        config.behavior.default_agent = "bitfun-debug".to_string();
         config.workspace.default_path = "D:\\workspace".to_string();
 
         assert_eq!(
             cli_prefs_get_human_output(&config, Some("behavior.default_agent")).unwrap(),
-            "behavior.default_agent = debug"
+            "behavior.default_agent = bitfun-debug"
         );
 
         let full = cli_prefs_get_human_output(&config, None).unwrap();
         assert!(full.contains("CLI Preferences"));
-        assert!(full.contains("Default Agent: debug"));
+        assert!(full.contains("Default Agent: bitfun-debug"));
         assert!(full.contains("Default workspace: D:\\workspace"));
         assert!(full.contains("Exclude patterns: node_modules, .git, target, dist"));
         assert!(full.contains("CLI preference file: "));
@@ -7254,8 +7255,8 @@ mod tests {
                     "search": null
                 },
                 "agent_models": {
-                    "agentic": "primary",
-                    "Plan": "fast"
+                    "Runno": "primary",
+                    "bitfun-plan": "fast"
                 }
             },
             "app": {
@@ -7423,13 +7424,13 @@ mod tests {
     #[test]
     fn cli_presentation_preferences_summary_includes_operational_defaults() {
         let mut config = CliConfig::default();
-        config.behavior.default_agent = "debug".to_string();
+        config.behavior.default_agent = "bitfun-debug".to_string();
         config.behavior.confirm_dangerous = false;
         config.workspace.default_path = "D:\\workspace\\project".to_string();
 
         let lines = cli_presentation_preference_lines(&config).join("\n");
 
-        assert!(lines.contains("Default Agent: debug"));
+        assert!(lines.contains("Default Agent: bitfun-debug"));
         assert!(lines.contains("Confirm dangerous tools: false"));
         assert!(lines.contains("Default workspace: D:\\workspace\\project"));
         assert!(lines.contains("Send shortcut: Ctrl+D"));
@@ -7565,8 +7566,8 @@ mod tests {
     #[test]
     fn app_human_detail_lines_explain_inspect_only_apps() {
         let app = sparo_core::command::agentic_os::AgenticOsAppRow {
-            id: "agentic".to_string(),
-            name: "Agentic".to_string(),
+            id: "runno".to_string(),
+            name: "Runno".to_string(),
             kind: "AGENT APP".to_string(),
             description: "Built-in agent app".to_string(),
             capability: "inspect".to_string(),
@@ -7576,7 +7577,7 @@ mod tests {
         let output = app_human_detail_lines(&app, None).join("\n");
 
         assert!(output.contains("Target: not available"));
-        assert!(output.contains("Inspect: sparo apps show agentic"));
+        assert!(output.contains("Inspect: sparo apps show runno"));
         assert!(output.contains("Open: unavailable because this app has no local target."));
     }
 
@@ -7639,8 +7640,8 @@ mod tests {
     #[test]
     fn apps_list_human_lines_explain_inspect_only_latest_app() {
         let apps = vec![sparo_core::command::agentic_os::AgenticOsAppRow {
-            id: "agentic".to_string(),
-            name: "Agentic".to_string(),
+            id: "runno".to_string(),
+            name: "Runno".to_string(),
             kind: "AGENT APP".to_string(),
             description: "Built-in agent app".to_string(),
             capability: "inspect".to_string(),
@@ -7649,7 +7650,7 @@ mod tests {
 
         let output = apps_list_human_lines(&apps, None, false).join("\n");
 
-        assert!(output.contains("Inspect latest: sparo apps show agentic"));
+        assert!(output.contains("Inspect latest: sparo apps show runno"));
         assert!(output.contains("Open latest: unavailable because this app has no local target."));
         assert!(output.contains("Discuss in chat: sparo chat"));
     }
@@ -7662,7 +7663,7 @@ mod tests {
         assert!(
             output.contains("No Product Apps, Agent Components, or Bridge Components installed.")
         );
-        assert!(output.contains("App Studio component authoring"));
+        assert!(output.contains("App Builder component authoring"));
         assert!(output.contains("sparo tool schema CreateAgentComponent --json"));
         assert!(output.contains(
             "Open app-building chat: sparo chat --workspace \"D:\\workspace\\my project\""
@@ -7679,7 +7680,7 @@ mod tests {
         );
         assert!(output.contains("sparo health"));
         assert!(output.contains("Machine output: sparo apps list --json"));
-        assert!(!output.contains("App Studio component authoring"));
+        assert!(!output.contains("App Builder component authoring"));
     }
 
     #[test]
@@ -8005,7 +8006,7 @@ mod tests {
     fn find_task_row_matches_session_id_or_title() {
         let tasks = vec![sparo_core::command::agentic_os::AgenticOsTaskRow {
             title: "Fix bug".to_string(),
-            agent: "debug".to_string(),
+            agent: "bitfun-debug".to_string(),
             status: "active".to_string(),
             detail: "2 turns".to_string(),
             session_id: Some("task-session".to_string()),
@@ -8039,7 +8040,7 @@ mod tests {
     fn task_human_detail_lines_include_next_actions_for_persisted_tasks() {
         let task = sparo_core::command::agentic_os::AgenticOsTaskRow {
             title: "Review CLI task flow".to_string(),
-            agent: "debug".to_string(),
+            agent: "bitfun-debug".to_string(),
             status: "active".to_string(),
             detail: "Needs handoff".to_string(),
             session_id: Some("task-session".to_string()),
@@ -8063,7 +8064,7 @@ mod tests {
     fn task_human_detail_lines_explain_unsaved_task_export_limit() {
         let task = sparo_core::command::agentic_os::AgenticOsTaskRow {
             title: "Review CLI task flow".to_string(),
-            agent: "debug".to_string(),
+            agent: "bitfun-debug".to_string(),
             status: "active".to_string(),
             detail: "Needs handoff".to_string(),
             session_id: None,
@@ -8105,7 +8106,7 @@ mod tests {
     fn tasks_list_human_lines_include_next_actions_for_persisted_latest_task() {
         let tasks = vec![sparo_core::command::agentic_os::AgenticOsTaskRow {
             title: "Review CLI task flow".to_string(),
-            agent: "debug".to_string(),
+            agent: "bitfun-debug".to_string(),
             status: "active".to_string(),
             detail: "Needs handoff".to_string(),
             session_id: Some("task-session".to_string()),
@@ -8133,7 +8134,7 @@ mod tests {
     fn tasks_list_human_lines_explain_no_session_latest_task() {
         let tasks = vec![sparo_core::command::agentic_os::AgenticOsTaskRow {
             title: "Review CLI task flow".to_string(),
-            agent: "debug".to_string(),
+            agent: "bitfun-debug".to_string(),
             status: "active".to_string(),
             detail: "Needs handoff".to_string(),
             session_id: None,
@@ -8167,7 +8168,7 @@ mod tests {
     fn task_tui_launch_context_prepares_unsaved_task_for_chat() {
         let task = sparo_core::command::agentic_os::AgenticOsTaskRow {
             title: "Review CLI task flow".to_string(),
-            agent: "debug".to_string(),
+            agent: "bitfun-debug".to_string(),
             status: "active".to_string(),
             detail: "Needs handoff".to_string(),
             session_id: None,
@@ -8178,7 +8179,7 @@ mod tests {
             task_tui_launch_context(&task, Some("D:\\workspace\\fallback".to_string()), None);
 
         assert_eq!(launch.workspace.as_deref(), Some("D:\\workspace\\fallback"));
-        assert_eq!(launch.agent, "debug");
+        assert_eq!(launch.agent, "bitfun-debug");
         assert_eq!(launch.title, "Review CLI task flow");
         assert_eq!(launch.context_messages.len(), 1);
         assert!(launch.context_messages[0].contains("Task detail"));
@@ -8187,14 +8188,14 @@ mod tests {
         let message = launch.initial_message.as_deref().unwrap();
         assert!(message.contains("Use the task detail above"));
         assert!(message.contains("Review CLI task flow"));
-        assert!(message.contains("debug"));
+        assert!(message.contains("bitfun-debug"));
     }
 
     #[test]
     fn task_tui_launch_context_preserves_explicit_resume_message() {
         let task = sparo_core::command::agentic_os::AgenticOsTaskRow {
             title: "Review CLI task flow".to_string(),
-            agent: "debug".to_string(),
+            agent: "bitfun-debug".to_string(),
             status: "active".to_string(),
             detail: "Needs handoff".to_string(),
             session_id: None,
@@ -8218,7 +8219,7 @@ mod tests {
     fn task_session_resume_context_carries_task_detail_into_chat() {
         let task = sparo_core::command::agentic_os::AgenticOsTaskRow {
             title: "Review CLI task flow".to_string(),
-            agent: "debug".to_string(),
+            agent: "bitfun-debug".to_string(),
             status: "active".to_string(),
             detail: "Needs handoff".to_string(),
             session_id: Some("task-session".to_string()),

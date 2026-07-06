@@ -56,5 +56,9 @@
       ]
     }
   ],
-  "implementationRef": "app://builtin-spark-board@1.0.0/surfaces/builtin-spark-board-surface"
+  "implementationRef": "app://builtin-spark-board@1.0.0/surfaces/builtin-spark-board-surface",
+  "usesCapabilities": [
+    "session.read",
+    "component.run"
+  ]
 }

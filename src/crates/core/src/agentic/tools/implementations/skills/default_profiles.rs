@@ -26,7 +26,7 @@ const DISABLE_ALL_BUILTINS: BuiltinSkillProfile = BuiltinSkillProfile {
     overridden_skills: &[],
 };
 
-const AGENTIC_PROFILE: BuiltinSkillProfile = BuiltinSkillProfile {
+const EXECUTION_PROFILE: BuiltinSkillProfile = BuiltinSkillProfile {
     default_enabled: true,
     overridden_suites: &["office-documents"],
     overridden_skills: &[],
@@ -44,8 +44,8 @@ const DESIGN_PROFILE: BuiltinSkillProfile = BuiltinSkillProfile {
     overridden_skills: &["find-skills", "writing-skills"],
 };
 
-/// Studio only needs focused Product App authoring skills; other built-ins clutter the Skill tool list.
-const APP_STUDIO_PROFILE: BuiltinSkillProfile = BuiltinSkillProfile {
+/// App Builder only needs focused Product App authoring skills; other built-ins clutter the Skill tool list.
+const APP_BUILDER_PROFILE: BuiltinSkillProfile = BuiltinSkillProfile {
     default_enabled: false,
     overridden_suites: &["product-app-development"],
     overridden_skills: &[],
@@ -53,11 +53,11 @@ const APP_STUDIO_PROFILE: BuiltinSkillProfile = BuiltinSkillProfile {
 
 fn builtin_profile_for_agent(agent_id: &str) -> BuiltinSkillProfile {
     match agent_id {
-        "Plan" | "debug" => DISABLE_ALL_BUILTINS,
-        "agentic" => AGENTIC_PROFILE,
+        "bitfun-plan" | "bitfun-debug" => DISABLE_ALL_BUILTINS,
+        "Runno" | "bitfun-coder" | "bitfun-team" => EXECUTION_PROFILE,
         "Cowork" => COWORK_PROFILE,
         "Design" => DESIGN_PROFILE,
-        "AppStudio" => APP_STUDIO_PROFILE,
+        "AppBuilder" => APP_BUILDER_PROFILE,
         _ => ENABLE_ALL_BUILTINS,
     }
 }
@@ -196,29 +196,32 @@ mod tests {
         let find_skills = builtin_skill("find-skills", None);
         let general = builtin_skill("general-purpose", None);
 
-        assert!(!is_enabled_by_default_for_agent(&pdf, "agentic"));
-        assert!(is_enabled_by_default_for_agent(&find_skills, "agentic"));
+        assert!(!is_enabled_by_default_for_agent(&pdf, "Runno"));
+        assert!(is_enabled_by_default_for_agent(&find_skills, "Runno"));
         assert!(is_enabled_by_default_for_agent(&pdf, "Cowork"));
         assert!(is_enabled_by_default_for_agent(&find_skills, "Cowork"));
         assert!(!is_enabled_by_default_for_agent(&general, "Cowork"));
         assert!(is_enabled_by_default_for_agent(&pdf, "Design"));
         assert!(is_enabled_by_default_for_agent(&find_skills, "Design"));
         assert!(!is_enabled_by_default_for_agent(&general, "Design"));
-        assert!(!is_enabled_by_default_for_agent(&pdf, "Plan"));
-        assert!(!is_enabled_by_default_for_agent(&find_skills, "debug"));
+        assert!(!is_enabled_by_default_for_agent(&pdf, "bitfun-plan"));
+        assert!(!is_enabled_by_default_for_agent(
+            &find_skills,
+            "bitfun-debug"
+        ));
     }
 
     #[test]
-    fn agentic_enables_ppt_design_builtin() {
+    fn runno_enables_ppt_design_builtin() {
         let ppt_design = builtin_skill("ppt-design", Some("presentation-workflow"));
         let pdf = builtin_skill("pdf", Some("office-documents"));
 
-        assert!(is_enabled_by_default_for_agent(&ppt_design, "agentic"));
-        assert!(!is_enabled_by_default_for_agent(&pdf, "agentic"));
+        assert!(is_enabled_by_default_for_agent(&ppt_design, "Runno"));
+        assert!(!is_enabled_by_default_for_agent(&pdf, "Runno"));
     }
 
     #[test]
-    fn app_studio_enables_only_product_app_authoring_builtins() {
+    fn app_builder_enables_only_product_app_authoring_builtins() {
         let enabled = [
             "product-app-api",
             "product-app-ui-polish",
@@ -235,18 +238,18 @@ mod tests {
         for skill_name in enabled {
             assert!(is_enabled_by_default_for_agent(
                 &builtin_skill(skill_name, Some("product-app-development")),
-                "AppStudio"
+                "AppBuilder"
             ));
         }
-        assert!(!is_enabled_by_default_for_agent(&pdf, "AppStudio"));
-        assert!(!is_enabled_by_default_for_agent(&general, "AppStudio"));
+        assert!(!is_enabled_by_default_for_agent(&pdf, "AppBuilder"));
+        assert!(!is_enabled_by_default_for_agent(&general, "AppBuilder"));
     }
 
     #[test]
     fn non_builtin_user_skills_remain_enabled_by_default() {
         let custom = custom_user_skill("my-custom-skill");
-        assert!(is_enabled_by_default_for_agent(&custom, "agentic"));
-        assert!(is_enabled_by_default_for_agent(&custom, "Plan"));
+        assert!(is_enabled_by_default_for_agent(&custom, "Runno"));
+        assert!(is_enabled_by_default_for_agent(&custom, "custom-agent"));
     }
 
     #[test]
@@ -258,7 +261,7 @@ mod tests {
 
         assert!(!is_skill_enabled_for_agent(
             &pdf,
-            "agentic",
+            "Runno",
             &overrides,
             &disabled_project,
             &disabled_project_suites,
@@ -267,7 +270,7 @@ mod tests {
         overrides.enabled_skills.push(pdf.key.clone());
         assert!(is_skill_enabled_for_agent(
             &pdf,
-            "agentic",
+            "Runno",
             &overrides,
             &disabled_project,
             &disabled_project_suites,

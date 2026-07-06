@@ -294,7 +294,7 @@ ${JSON.stringify(simpleTodos, null, 2)}
 </attached_file>`;
 
       const displayMessage = `Build Plan: ${latestPlanData.name}`;
-      await flowChatManager.sendMessage(message, undefined, displayMessage, 'agentic', 'agentic');
+      await flowChatManager.sendMessage(message, undefined, displayMessage, 'bitfun-coder', 'bitfun-coder');
     } catch (error) {
       log.error('Build failed', { cacheKey: effectiveCacheKey, planFilePath, error });
       planBuildStateService.cancelBuild(planFilePath);

@@ -21,16 +21,16 @@ use crate::agentic::tools::{
     get_all_registered_tools, SubagentParentInfo, ToolRuntimeRestrictions,
 };
 use crate::agentic::WorkspaceBinding;
+use crate::error::{CoreError, CoreResult};
 use crate::infrastructure::ai::get_global_ai_client_factory;
 use crate::service::config::get_global_config_service;
 use crate::service::config::types::{ModelCapability, ModelCategory};
 use crate::service::context_stats::ContextStatsEstimator;
-use crate::error::{CoreError, CoreResult};
 use crate::util::token_counter::TokenCounter;
 use crate::util::types::Message as AIMessage;
 use crate::util::types::ToolDefinition;
-use sparo_events::agentic::SessionSurfaceMode;
 use log::{debug, error, info, trace, warn};
+use sparo_events::agentic::SessionSurfaceMode;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::Arc;
@@ -79,8 +79,8 @@ impl ExecutionEngine {
             .unwrap_or(0)
     }
 
-    async fn refresh_app_studio_context_from_session(context: &mut ExecutionContext) {
-        if context.agent_type != "AppStudio" {
+    async fn refresh_app_builder_context_from_session(context: &mut ExecutionContext) {
+        if context.agent_type != "AppBuilder" {
             return;
         }
 
@@ -88,9 +88,9 @@ impl ExecutionEngine {
             return;
         };
 
-        let Some(app_studio) = agentic
+        let Some(app_builder) = agentic
             .coordinator
-            .load_app_studio_execution_context(
+            .load_app_builder_execution_context(
                 &context.session_id,
                 context.workspace.as_ref(),
                 None,
@@ -101,11 +101,11 @@ impl ExecutionEngine {
         };
 
         debug!(
-            "Loaded AppStudio execution context from session metadata: session_id={}, package_root={}",
+            "Loaded AppBuilder execution context from session metadata: session_id={}, package_root={}",
             context.session_id,
-            app_studio.package_root.display()
+            app_builder.package_root.display()
         );
-        context.app_studio = Some(app_studio);
+        context.app_builder = Some(app_builder);
     }
 
     fn render_active_turn_guidance(guidance: &DialogTurnGuidance) -> String {
@@ -1091,9 +1091,9 @@ impl ExecutionEngine {
             model_id
         );
 
-        let ai_client_factory = get_global_ai_client_factory().await.map_err(|e| {
-            CoreError::AiClient(format!("Failed to get AI client factory: {}", e))
-        })?;
+        let ai_client_factory = get_global_ai_client_factory()
+            .await
+            .map_err(|e| CoreError::AiClient(format!("Failed to get AI client factory: {}", e)))?;
 
         // Get AI client by model ID
         let ai_client = ai_client_factory
@@ -1328,7 +1328,7 @@ impl ExecutionEngine {
                 hit_max_rounds = true;
                 break;
             }
-            Self::refresh_app_studio_context_from_session(&mut context).await;
+            Self::refresh_app_builder_context_from_session(&mut context).await;
             let round_tool_definitions = tool_definitions.clone();
             let round_available_tools = available_tools.clone();
 
@@ -1491,7 +1491,7 @@ impl ExecutionEngine {
                 agent_type: agent_type.clone(),
                 context_vars: round_context_vars,
                 runtime_tool_restrictions: runtime_tool_restrictions.clone(),
-                app_studio: context.app_studio.clone(),
+                app_builder: context.app_builder.clone(),
                 cancellation_token: CancellationToken::new(),
                 workspace_services: context.workspace_services.clone(),
                 workspace_mount: context.workspace_mount.clone(),
@@ -1911,7 +1911,7 @@ impl ExecutionEngine {
             dialog_turn_id: None,
             workspace: workspace.cloned(),
             custom_data: tool_opts_custom,
-            app_studio: None,
+            app_builder: None,
             computer_use_host: None,
             cancellation_token: None,
             runtime_tool_restrictions: ToolRuntimeRestrictions::default(),

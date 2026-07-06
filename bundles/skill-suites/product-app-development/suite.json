@@ -55,7 +55,8 @@
     }
   ],
   "defaultProfiles": {
-    "AppStudio": "enabled",
-    "agentic": "available"
+    "AppBuilder": "enabled",
+    "Runno": "available",
+    "bitfun-coder": "available"
   }
 }

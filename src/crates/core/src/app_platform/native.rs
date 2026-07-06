@@ -1,22 +1,18 @@
+use std::collections::BTreeMap;
+
 use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use super::permissions::AppPermissionSummary;
 use super::{
-    AppIconSpec, AppInteractionModel, AppSurfaceMode, AppTruthSource, AppWorkMultiplicity,
-    NativeAppManagementAction, NativeAppManagementPolicy, ProductAppLaunch, ProductAppLaunchKind,
-    ProductAppLaunchScopeRequirement, WorkObjectKind,
+    AppAuthor, AppI18n, AppIconSpec, AppInteractionModel, AppLocalizedMetadata, AppSurfaceMode,
+    AppTruthSource, AppWorkMultiplicity, NativeAppManagementAction, NativeAppManagementPolicy,
+    ProductAppLaunch, ProductAppLaunchKind, ProductAppLaunchScopeRequirement, WorkObjectKind,
 };
 
-pub const NATIVE_SYSTEM_APP_IDS: &[&str] = &["prime-builder", "cowork", "design", "app-studio"];
-pub const RETIRED_NATIVE_PRODUCT_APP_IDS: &[&str] = &[
-    "builtin-coding",
-    "builtin-cowork",
-    "builtin-design",
-    "builtin-app-studio",
-    "builtin-component-studio",
-];
+pub const NATIVE_SYSTEM_APP_IDS: &[&str] = &["runno", "app-builder"];
+const HIDDEN_NATIVE_SYSTEM_LIFECYCLE_IDS: &[&str] = &["os-agent"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -36,7 +32,10 @@ pub struct NativeAppCatalogEntry {
     pub id: String,
     pub name: String,
     pub description: String,
-    pub goal: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub authors: Vec<AppAuthor>,
+    #[serde(default, skip_serializing_if = "AppI18n::is_empty")]
+    pub i18n: AppI18n,
     pub interaction_model: AppInteractionModel,
     #[serde(default)]
     pub work_multiplicity: AppWorkMultiplicity,
@@ -60,12 +59,8 @@ pub fn is_native_system_app_id(app_id: &str) -> bool {
     NATIVE_SYSTEM_APP_IDS.contains(&app_id)
 }
 
-pub fn is_retired_native_product_app_id(app_id: &str) -> bool {
-    RETIRED_NATIVE_PRODUCT_APP_IDS.contains(&app_id)
-}
-
 pub fn is_native_system_lifecycle_id(app_id: &str) -> bool {
-    is_native_system_app_id(app_id) || is_retired_native_product_app_id(app_id)
+    is_native_system_app_id(app_id) || HIDDEN_NATIVE_SYSTEM_LIFECYCLE_IDS.contains(&app_id)
 }
 
 pub fn native_app_catalog() -> Vec<NativeAppCatalogEntry> {
@@ -79,46 +74,49 @@ pub fn native_app_shell_catalog() -> Vec<NativeAppCatalogEntry> {
 fn native_app_catalog_with_icon_payload(include_icon_payload: bool) -> Vec<NativeAppCatalogEntry> {
     vec![
         native_agent_app(
-            "prime-builder",
-            "BitFun Coder",
-            "Native default execution workspace for flexible implementation, debugging, automation, and verification.",
-            "Take a goal, choose the next action, execute, verify, and hand off the result.",
-            native_app_icon("prime-builder", include_icon_payload),
-            "developer",
-            "agentic",
-            "agentic",
-            vec!["native", "coding", "development"],
-        ),
-        native_agent_app(
-            "cowork",
-            "Cowork",
-            "Native collaboration workspace for documents, drafting, and structured multi-step work.",
-            "Clarify, plan, draft, revise, and package collaborative work with practical artifacts.",
-            native_app_icon("cowork", include_icon_payload),
-            "productivity",
-            "Cowork",
-            "Cowork",
-            vec!["native", "documents", "collaboration"],
-        ),
-        native_agent_app(
-            "design",
-            "Design",
-            "Native design workspace for artifacts, prototypes, and visual systems.",
-            "Create and refine design artifacts, prototypes, and visual systems from a user brief.",
-            native_app_icon("design", include_icon_payload),
-            "creative",
-            "Design",
-            "Design",
-            vec!["native", "design", "prototype"],
+            "runno",
+            "Runno",
+            "Sparo OS's general execution unit: flexible, efficient, and strongly goal-oriented for handling all kinds of tasks.",
+            app_i18n(&[
+                (
+                    "en-US",
+                    "Runno",
+                    "Sparo OS's general execution unit: flexible, efficient, and strongly goal-oriented for handling all kinds of tasks.",
+                    &["os", "execution", "general"],
+                ),
+                (
+                    "zh-CN",
+                    "Runno",
+                    "Sparo OS 的通用执行单元，灵活、高效、目标感强，适合处理各种类型任务。",
+                    &["系统", "执行", "通用"],
+                ),
+            ]),
+            native_app_icon("runno", include_icon_payload),
+            "system",
+            "Runno",
+            "Runno",
+            vec!["os", "execution", "general"],
         ),
         NativeAppCatalogEntry {
-            id: "app-studio".to_string(),
-            name: "App Studio".to_string(),
-            description:
-                "Native Product App creation and maintenance studio for package-first app design."
-                    .to_string(),
-            goal: "Create, inspect, and evolve Product App packages and their component graph."
+            id: "app-builder".to_string(),
+            name: "App Builder".to_string(),
+            description: "Build a personal intelligent app around your way of working by understanding your needs or existing apps, then recomposing features, workflows, and methods."
                 .to_string(),
+            authors: vec![sparo_os_author()],
+            i18n: app_i18n(&[
+                (
+                    "en-US",
+                    "App Builder",
+                    "Build a personal intelligent app around your way of working by understanding your needs or existing apps, then recomposing features, workflows, and methods.",
+                    &["app-builder", "intelligent-app", "reuse"],
+                ),
+                (
+                    "zh-CN",
+                    "App Builder",
+                    "为你打造专属智能应用，理解需求或解析既有应用，重组功能、流程与方法，让应用更贴合你的工作方式。",
+                    &["应用构建", "智能应用", "复用"],
+                ),
+            ]),
             interaction_model: AppInteractionModel::Conversation,
             work_multiplicity: AppWorkMultiplicity::Multiple,
             work_object_kinds: Vec::new(),
@@ -130,18 +128,18 @@ fn native_app_catalog_with_icon_payload(include_icon_payload: bool) -> Vec<Nativ
                 ai: true,
                 ..AppPermissionSummary::default()
             },
-            icon: native_app_icon("app-studio", include_icon_payload),
+            icon: native_app_icon("app-builder", include_icon_payload),
             category: "developer".to_string(),
             tags: vec![
-                "native".to_string(),
-                "studio".to_string(),
-                "product-app".to_string(),
+                "app-builder".to_string(),
+                "intelligent-app".to_string(),
+                "reuse".to_string(),
             ],
             launch: ProductAppLaunch {
-                kind: ProductAppLaunchKind::AppStudio,
-                target_id: "AppStudio".to_string(),
+                kind: ProductAppLaunchKind::AppBuilder,
+                target_id: "AppBuilder".to_string(),
                 scope_requirement: ProductAppLaunchScopeRequirement::SystemAllowed,
-                agent_type: Some("AppStudio".to_string()),
+                agent_type: Some("AppBuilder".to_string()),
                 surface_id: None,
             },
             origin: NativeAppOrigin::NativeSystem,
@@ -155,7 +153,7 @@ fn native_agent_app(
     id: &str,
     name: &str,
     description: &str,
-    goal: &str,
+    i18n: AppI18n,
     icon: AppIconSpec,
     category: &str,
     target_id: &str,
@@ -166,7 +164,8 @@ fn native_agent_app(
         id: id.to_string(),
         name: name.to_string(),
         description: description.to_string(),
-        goal: goal.to_string(),
+        authors: vec![sparo_os_author()],
+        i18n,
         interaction_model: AppInteractionModel::Conversation,
         work_multiplicity: AppWorkMultiplicity::Multiple,
         work_object_kinds: Vec::new(),
@@ -194,6 +193,30 @@ fn native_agent_app(
     }
 }
 
+fn sparo_os_author() -> AppAuthor {
+    AppAuthor {
+        name: "Sparo OS".to_string(),
+        url: Some("https://gcwing.github.io/Sparo-Agentic-OS/".to_string()),
+    }
+}
+
+fn app_i18n(entries: &[(&str, &str, &str, &[&str])]) -> AppI18n {
+    let locales = entries
+        .iter()
+        .map(|(locale, name, description, tags)| {
+            (
+                (*locale).to_string(),
+                AppLocalizedMetadata {
+                    name: Some((*name).to_string()),
+                    description: Some((*description).to_string()),
+                    tags: tags.iter().map(|tag| (*tag).to_string()).collect(),
+                },
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+    AppI18n { locales }
+}
+
 fn native_system_management_policy() -> NativeAppManagementPolicy {
     NativeAppManagementPolicy {
         actions: vec![
@@ -219,11 +242,9 @@ fn native_app_icon(asset_id: &str, include_payload: bool) -> AppIconSpec {
     }
 
     let bytes = match asset_id {
-        "prime-builder" => PRIME_BUILDER_ICON,
-        "cowork" => COWORK_ICON,
-        "design" => DESIGN_ICON,
-        "app-studio" => APP_STUDIO_ICON,
-        _ => PRIME_BUILDER_ICON,
+        "runno" => RUNNO_ICON,
+        "app-builder" => APP_BUILDER_ICON,
+        _ => RUNNO_ICON,
     };
     let mut hasher = Sha256::new();
     hasher.update(bytes);
@@ -239,10 +260,8 @@ fn native_app_icon(asset_id: &str, include_payload: bool) -> AppIconSpec {
     }
 }
 
-const PRIME_BUILDER_ICON: &[u8] = include_bytes!("assets/native-app-icons/prime-builder-icon.png");
-const COWORK_ICON: &[u8] = include_bytes!("assets/native-app-icons/cowork-icon.png");
-const DESIGN_ICON: &[u8] = include_bytes!("assets/native-app-icons/design-icon.png");
-const APP_STUDIO_ICON: &[u8] = include_bytes!("assets/native-app-icons/app-studio-icon.png");
+const RUNNO_ICON: &[u8] = include_bytes!("assets/native-app-icons/runno-icon.png");
+const APP_BUILDER_ICON: &[u8] = include_bytes!("assets/native-app-icons/app-builder-icon.png");
 
 #[cfg(test)]
 mod tests {
@@ -263,12 +282,13 @@ mod tests {
     }
 
     #[test]
-    fn retired_native_product_app_ids_are_native_lifecycle_ids() {
-        for app_id in RETIRED_NATIVE_PRODUCT_APP_IDS {
-            assert!(is_native_system_lifecycle_id(app_id));
-        }
+    fn native_system_app_ids_are_native_lifecycle_ids() {
         for app_id in NATIVE_SYSTEM_APP_IDS {
             assert!(is_native_system_lifecycle_id(app_id));
         }
+        for app_id in HIDDEN_NATIVE_SYSTEM_LIFECYCLE_IDS {
+            assert!(is_native_system_lifecycle_id(app_id));
+        }
+        assert!(!native_app_catalog().iter().any(|app| app.id == "os-agent"));
     }
 }

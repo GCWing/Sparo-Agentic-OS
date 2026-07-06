@@ -113,7 +113,7 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
       textLength: trimmedMessage.length,
       contextCount: contexts.length,
       hasSession: !!sessionId,
-      composerAgentType: currentAgentType || 'agentic',
+      composerAgentType: currentAgentType || 'Runno',
     });
 
     try {
@@ -126,7 +126,7 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
           configManager.getConfig<AIModelConfig[]>('ai.models') || [],
           configManager.getConfig<DefaultModelsConfig>('ai.default_models') || {},
         ]);
-        const agentType = currentAgentType || 'agentic';
+        const agentType = currentAgentType || 'Runno';
         const modelId = normalizeModelSelection(agentModels[agentType], allModels, defaultModels);
 
         sessionId = await flowChatManager.createChatSession({
@@ -277,14 +277,14 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
       onSuccess?.(trimmedMessage);
       log.info('Message sent successfully', {
         sessionId,
-        composerAgentType: currentAgentType || 'agentic',
+        composerAgentType: currentAgentType || 'Runno',
         contextCount: contexts.length,
         imageCount: imageContexts.length,
       });
     } catch (error) {
       log.error('Failed to send message', {
         sessionId,
-        composerAgentType: currentAgentType || 'agentic',
+        composerAgentType: currentAgentType || 'Runno',
         contextCount: contexts.length,
         error: (error as Error)?.message ?? 'unknown',
       });

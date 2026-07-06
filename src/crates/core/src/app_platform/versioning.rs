@@ -1,4 +1,4 @@
-//! Product App package versioning artifacts.
+﻿//! Product App package versioning artifacts.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Component, Path, PathBuf};
@@ -72,7 +72,6 @@ pub struct CreateProductAppFromReleaseTemplateRequest {
     pub new_name: String,
     pub new_version: String,
     pub new_description: Option<String>,
-    pub new_goal: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -521,7 +520,6 @@ pub async fn create_product_app_from_release_template(
         &request.new_name,
         &request.new_version,
         request.new_description.as_deref(),
-        request.new_goal.as_deref(),
     )
     .await?;
 
@@ -880,7 +878,6 @@ async fn rebase_template_package_identity(
     new_name: &str,
     new_version: &str,
     new_description: Option<&str>,
-    new_goal: Option<&str>,
 ) -> CoreResult<()> {
     let app_path = package_dir.join("app.json");
     let mut app: AppDefinition = read_json(&app_path).await?;
@@ -892,9 +889,6 @@ async fn rebase_template_package_identity(
     app.name = new_name.to_string();
     if let Some(description) = new_description.filter(|value| !value.trim().is_empty()) {
         app.description = description.to_string();
-    }
-    if let Some(goal) = new_goal.filter(|value| !value.trim().is_empty()) {
-        app.goal = goal.to_string();
     }
     if let Some(primary_surface) = app.primary_surface.as_mut() {
         if let Some(next_id) = component_id_map.get(&primary_surface.component_id) {
@@ -1631,9 +1625,10 @@ mod tests {
                 app_id: "checkpoint-app".to_string(),
                 name: "Checkpoint App".to_string(),
                 description: "Checkpoint test app".to_string(),
-                goal: "Exercise checkpoint creation.".to_string(),
+                authors: Vec::new(),
+                i18n: Default::default(),
                 version: "1.0.0".to_string(),
-                agent_type: "agentic".to_string(),
+                agent_type: "Runno".to_string(),
                 category: "utility".to_string(),
                 tags: Vec::new(),
                 primary_surface_mode: AppSurfaceMode::ImmersivePrimary,
@@ -1721,9 +1716,10 @@ mod tests {
                 app_id: "stale-checkpoint-app".to_string(),
                 name: "Stale Checkpoint App".to_string(),
                 description: "Checkpoint stale lock test app".to_string(),
-                goal: "Exercise checkpoint lock validation.".to_string(),
+                authors: Vec::new(),
+                i18n: Default::default(),
                 version: "1.0.0".to_string(),
-                agent_type: "agentic".to_string(),
+                agent_type: "Runno".to_string(),
                 category: "utility".to_string(),
                 tags: Vec::new(),
                 primary_surface_mode: AppSurfaceMode::ImmersivePrimary,
@@ -1766,9 +1762,10 @@ mod tests {
                 app_id: "restore-checkpoint-app".to_string(),
                 name: "Restore Checkpoint App".to_string(),
                 description: "Original description".to_string(),
-                goal: "Exercise checkpoint restore.".to_string(),
+                authors: Vec::new(),
+                i18n: Default::default(),
                 version: "1.0.0".to_string(),
-                agent_type: "agentic".to_string(),
+                agent_type: "Runno".to_string(),
                 category: "utility".to_string(),
                 tags: Vec::new(),
                 primary_surface_mode: AppSurfaceMode::ImmersivePrimary,
@@ -1831,9 +1828,10 @@ mod tests {
                 app_id: "compare-checkpoint-app".to_string(),
                 name: "Compare Checkpoint App".to_string(),
                 description: "Original description".to_string(),
-                goal: "Exercise revision compare.".to_string(),
+                authors: Vec::new(),
+                i18n: Default::default(),
                 version: "1.0.0".to_string(),
-                agent_type: "agentic".to_string(),
+                agent_type: "Runno".to_string(),
                 category: "utility".to_string(),
                 tags: Vec::new(),
                 primary_surface_mode: AppSurfaceMode::ImmersivePrimary,
@@ -1887,9 +1885,10 @@ mod tests {
                 app_id: "compare-release-app".to_string(),
                 name: "Compare Release App".to_string(),
                 description: "Original release description".to_string(),
-                goal: "Exercise release revision compare.".to_string(),
+                authors: Vec::new(),
+                i18n: Default::default(),
                 version: "1.0.0".to_string(),
-                agent_type: "agentic".to_string(),
+                agent_type: "Runno".to_string(),
                 category: "utility".to_string(),
                 tags: Vec::new(),
                 primary_surface_mode: AppSurfaceMode::ImmersivePrimary,
@@ -1952,9 +1951,10 @@ mod tests {
                 app_id: "source-template-app".to_string(),
                 name: "Source Template App".to_string(),
                 description: "Source template description".to_string(),
-                goal: "Exercise release template source.".to_string(),
+                authors: Vec::new(),
+                i18n: Default::default(),
                 version: "1.0.0".to_string(),
-                agent_type: "agentic".to_string(),
+                agent_type: "Runno".to_string(),
                 category: "utility".to_string(),
                 tags: Vec::new(),
                 primary_surface_mode: AppSurfaceMode::ImmersivePrimary,
@@ -1992,7 +1992,6 @@ mod tests {
                 new_name: "Derived Template App".to_string(),
                 new_version: "1.0.0".to_string(),
                 new_description: Some("Derived description".to_string()),
-                new_goal: Some("Exercise release template output.".to_string()),
             })
             .await
             .expect("create release template");
@@ -2014,7 +2013,6 @@ mod tests {
         assert_eq!(package.app.id, "derived-template-app");
         assert_eq!(package.app.name, "Derived Template App");
         assert_eq!(package.app.description, "Derived description");
-        assert_eq!(package.app.goal, "Exercise release template output.");
         assert_eq!(
             package
                 .app
@@ -2063,9 +2061,10 @@ mod tests {
                 app_id: "release-app".to_string(),
                 name: "Release App".to_string(),
                 description: "Release test app".to_string(),
-                goal: "Exercise release artifact creation.".to_string(),
+                authors: Vec::new(),
+                i18n: Default::default(),
                 version: "1.0.0".to_string(),
-                agent_type: "agentic".to_string(),
+                agent_type: "Runno".to_string(),
                 category: "utility".to_string(),
                 tags: Vec::new(),
                 primary_surface_mode: AppSurfaceMode::ImmersivePrimary,
@@ -2118,9 +2117,10 @@ mod tests {
                 app_id: "restore-release-app".to_string(),
                 name: "Restore Release App".to_string(),
                 description: "Original release description".to_string(),
-                goal: "Exercise release rollback.".to_string(),
+                authors: Vec::new(),
+                i18n: Default::default(),
                 version: "1.0.0".to_string(),
-                agent_type: "agentic".to_string(),
+                agent_type: "Runno".to_string(),
                 category: "utility".to_string(),
                 tags: Vec::new(),
                 primary_surface_mode: AppSurfaceMode::ImmersivePrimary,
@@ -2188,9 +2188,10 @@ mod tests {
                 app_id: "blocked-release-app".to_string(),
                 name: "Blocked Release App".to_string(),
                 description: "Release gate test app".to_string(),
-                goal: "Exercise release readiness validation.".to_string(),
+                authors: Vec::new(),
+                i18n: Default::default(),
                 version: "1.0.0".to_string(),
-                agent_type: "agentic".to_string(),
+                agent_type: "Runno".to_string(),
                 category: "utility".to_string(),
                 tags: Vec::new(),
                 primary_surface_mode: AppSurfaceMode::ImmersivePrimary,

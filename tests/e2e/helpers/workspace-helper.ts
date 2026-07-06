@@ -78,28 +78,27 @@ export async function openWorkspace(
   }
 }
 
-interface CodeSessionFocusState {
+interface BitFunCoderSessionFocusState {
   ok: boolean;
   sessionId: string | null;
   targetSessionId: string | null;
   createdDescriptor?: unknown;
   targetDescriptor?: unknown;
   surfaces?: unknown;
-  codingSessions: Array<{
+  bitfunCoderSessions: Array<{
     sessionId: string;
     workspacePath?: string;
     policy: unknown;
   }>;
 }
 
-async function focusCodeSessionThroughFrontend(workspacePath: string): Promise<CodeSessionFocusState> {
+async function focusBitFunCoderSessionThroughFrontend(workspacePath: string): Promise<BitFunCoderSessionFocusState> {
   return browser.execute(async (targetWorkspacePath: string) => {
     const { workspaceManager } = await import('/src/infrastructure/services/business/workspaceManager.ts');
     const { flowChatManager } = await import('/src/flow_chat/services/FlowChatManager.ts');
     const { flowChatStore } = await import('/src/flow_chat/store/FlowChatStore.ts');
     const {
-      getDefaultSessionDescriptor,
-      normalizeSessionDescriptor,
+      descriptorFromAgentType,
     } = await import('/src/flow_chat/domain/sessionDescriptor.ts');
     const { useWorkspaceSurfaceStore } = await import('/src/app/navigation/workspaceSurfaceStore.ts');
     const managerStore = ((flowChatManager as any).context?.flowChatStore ?? flowChatStore) as typeof flowChatStore;
@@ -108,31 +107,37 @@ async function focusCodeSessionThroughFrontend(workspacePath: string): Promise<C
     const targetPath = workspace?.rootPath?.trim() || targetWorkspacePath;
     const normalizePath = (value?: string | null) => (value ?? '').trim().replace(/\\/g, '/').toLowerCase();
     const workspaceKey = normalizePath(targetPath);
-    const codingSessions = Array.from(managerStore.getState().sessions.values())
+    const bitfunCoderSessions = Array.from(managerStore.getState().sessions.values())
       .filter(session => (
-        session.descriptor.profileId === 'coding' &&
+        session.descriptor.profileId === 'bitfun-coder' &&
         normalizePath(session.workspacePath) === workspaceKey
       ))
       .sort((left, right) => (
         (right.lastActiveAt ?? right.createdAt ?? 0) - (left.lastActiveAt ?? left.createdAt ?? 0)
       ));
 
-    const sessionId = codingSessions[0]?.sessionId ?? await flowChatManager.createChatSession({
+    const descriptor = descriptorFromAgentType('bitfun-coder');
+    const reusableSession = bitfunCoderSessions.find(session =>
+      session.descriptor.agentPolicy.activeAgentId === 'bitfun-coder' &&
+      session.config.agentType === 'bitfun-coder'
+    );
+    const sessionId = reusableSession?.sessionId ?? await flowChatManager.createChatSession({
       workspaceId: workspace?.id,
       workspacePath: targetPath,
-    }, getDefaultSessionDescriptor());
+    }, descriptor);
 
     const session = managerStore.getState().sessions.get(sessionId);
     if (session) {
       managerStore.reconcileSessionDescriptor(
         sessionId,
-        normalizeSessionDescriptor(session.descriptor),
+        descriptor,
         session.workspacePath || targetPath,
         session.storageScope,
       );
     }
 
     await flowChatManager.switchChatSession(sessionId);
+    managerStore.reconcileSessionDescriptor(sessionId, descriptor, targetPath, 'workspace');
     useWorkspaceSurfaceStore.getState().openSurface({ kind: 'session', sessionId });
 
     const surfaceState = useWorkspaceSurfaceStore.getState();
@@ -140,8 +145,10 @@ async function focusCodeSessionThroughFrontend(workspacePath: string): Promise<C
     const targetSession = targetSessionId ? managerStore.getState().sessions.get(targetSessionId) : null;
     const ok = Boolean(
       targetSessionId === sessionId &&
-      targetSession?.descriptor.profileId === 'coding' &&
-      targetSession.descriptor.agentPolicy.switchableAgentIds.includes('Plan')
+      targetSession?.descriptor.profileId === 'bitfun-coder' &&
+      targetSession.descriptor.agentPolicy.activeAgentId === 'bitfun-coder' &&
+      targetSession.config.agentType === 'bitfun-coder' &&
+      targetSession.descriptor.agentPolicy.switchableAgentIds.includes('bitfun-plan')
     );
     return {
       ok,
@@ -154,8 +161,8 @@ async function focusCodeSessionThroughFrontend(workspacePath: string): Promise<C
         focusedSessionId: surfaceState.focusedSessionId,
         composerTargetSessionId: surfaceState.composerTargetSessionId,
       },
-      codingSessions: Array.from(managerStore.getState().sessions.values())
-        .filter(session => session.descriptor.profileId === 'coding')
+      bitfunCoderSessions: Array.from(managerStore.getState().sessions.values())
+        .filter(session => session.descriptor.profileId === 'bitfun-coder')
         .slice(-5)
         .map(session => ({
           sessionId: session.sessionId,
@@ -167,25 +174,25 @@ async function focusCodeSessionThroughFrontend(workspacePath: string): Promise<C
 }
 
 /**
- * Ensure a Code session is open for the active workspace.
+ * Ensure a BitFun Coder session is open for the active workspace.
  */
-export async function ensureCodeSessionOpen(
+export async function ensureBitFunCoderSessionOpen(
   workspacePath: string = process.env.E2E_TEST_WORKSPACE || process.cwd(),
 ): Promise<void> {
   await openWorkspaceThroughFrontend(workspacePath);
   await waitForWorkspaceReady(workspacePath);
 
   await browser.waitUntil(async () => {
-    const focusState = await focusCodeSessionThroughFrontend(workspacePath);
+    const focusState = await focusBitFunCoderSessionThroughFrontend(workspacePath);
     if (!focusState.ok) {
-      console.log('[WorkspaceHelper] Code session focus state:', JSON.stringify(focusState));
+      console.log('[WorkspaceHelper] BitFun Coder session focus state:', JSON.stringify(focusState));
     }
     const input = await $('[data-testid="chat-input-container"]');
     return (await input.isExisting()) && focusState.ok;
   }, {
     timeout: 15000,
     interval: 500,
-    timeoutMsg: 'Code session did not open',
+    timeoutMsg: 'BitFun Coder session did not open',
   });
 }
 
@@ -207,6 +214,6 @@ export default {
   getWorkspaceState,
   waitForWorkspaceReady,
   openWorkspace,
-  ensureCodeSessionOpen,
+  ensureBitFunCoderSessionOpen,
   isWorkspaceOpen,
 };

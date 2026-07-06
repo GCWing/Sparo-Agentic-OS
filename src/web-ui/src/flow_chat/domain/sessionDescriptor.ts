@@ -4,20 +4,22 @@ export type SessionHostKind = 'system-agentic-os' | 'agent-component' | 'evoluti
 
 export type SessionProfileId =
   | 'agentic-os'
-  | 'coding'
+  | 'runno'
+  | 'bitfun-coder'
   | 'cowork'
   | 'design'
   | 'deep-research'
-  | 'app-studio'
+  | 'app-builder'
   | 'product-app-runtime';
 
 export type SessionIdentityId =
   | 'agentic-os'
-  | 'code'
+  | 'runno'
+  | 'bitfun-coder'
   | 'cowork'
   | 'design'
   | 'deep-research'
-  | 'app-studio'
+  | 'app-builder'
   | 'product-app-runtime';
 
 export interface SessionAgentPolicy {
@@ -35,7 +37,7 @@ export interface SessionDescriptor {
   storageScope: SessionStorageScope;
 }
 
-const CODE_AGENT_IDS = ['agentic', 'Plan', 'debug', 'Team'] as const;
+const BITFUN_CODER_AGENT_IDS = ['bitfun-coder', 'bitfun-plan', 'bitfun-debug', 'bitfun-team'] as const;
 
 const createPolicy = (
   defaultAgentId: string,
@@ -56,12 +58,20 @@ export const SESSION_DESCRIPTORS = {
     agentPolicy: createPolicy('OSAgent'),
     storageScope: 'agentic_os',
   },
-  coding: {
+  runno: {
     hostKind: 'agent-component',
-    profileId: 'coding',
-    identityId: 'code',
-    labelKey: 'apps.coding.name',
-    agentPolicy: createPolicy('agentic', CODE_AGENT_IDS),
+    profileId: 'runno',
+    identityId: 'runno',
+    labelKey: 'apps.runno.name',
+    agentPolicy: createPolicy('Runno'),
+    storageScope: 'workspace',
+  },
+  bitfunCoder: {
+    hostKind: 'agent-component',
+    profileId: 'bitfun-coder',
+    identityId: 'bitfun-coder',
+    labelKey: 'apps.bitfunCoder.name',
+    agentPolicy: createPolicy('bitfun-coder', BITFUN_CODER_AGENT_IDS),
     storageScope: 'workspace',
   },
   cowork: {
@@ -88,12 +98,12 @@ export const SESSION_DESCRIPTORS = {
     agentPolicy: createPolicy('DeepResearch'),
     storageScope: 'workspace',
   },
-  appStudio: {
+  appBuilder: {
     hostKind: 'evolution-lab',
-    profileId: 'app-studio',
-    identityId: 'app-studio',
-    labelKey: 'apps.appStudio.name',
-    agentPolicy: createPolicy('AppStudio'),
+    profileId: 'app-builder',
+    identityId: 'app-builder',
+    labelKey: 'apps.appBuilder.name',
+    agentPolicy: createPolicy('AppBuilder'),
     storageScope: 'agentic_os',
   },
   productAppRuntime: {
@@ -101,7 +111,7 @@ export const SESSION_DESCRIPTORS = {
     profileId: 'product-app-runtime',
     identityId: 'product-app-runtime',
     labelKey: 'apps.productAppRuntime.name',
-    agentPolicy: createPolicy('agentic'),
+    agentPolicy: createPolicy('Runno'),
     storageScope: 'agentic_os',
   },
 } satisfies Record<string, SessionDescriptor>;
@@ -110,8 +120,8 @@ function arraysEqual(left: readonly string[], right: readonly string[]): boolean
   return left.length === right.length && left.every((item, index) => item === right[index]);
 }
 
-function isCodingAgentId(agentId: string): boolean {
-  return CODE_AGENT_IDS.includes(agentId as (typeof CODE_AGENT_IDS)[number]);
+function isBitfunCoderAgentId(agentId: string): boolean {
+  return BITFUN_CODER_AGENT_IDS.includes(agentId as (typeof BITFUN_CODER_AGENT_IDS)[number]);
 }
 
 const cloneDescriptor = (
@@ -127,20 +137,20 @@ const cloneDescriptor = (
 });
 
 export function getDefaultSessionDescriptor(): SessionDescriptor {
-  return cloneDescriptor(SESSION_DESCRIPTORS.coding);
+  return cloneDescriptor(SESSION_DESCRIPTORS.runno);
 }
 
 export function normalizeSessionDescriptor(descriptor: SessionDescriptor): SessionDescriptor {
   if (
-    descriptor.profileId === 'coding' &&
-    descriptor.identityId === 'code' &&
-    descriptor.agentPolicy.defaultAgentId === SESSION_DESCRIPTORS.coding.agentPolicy.defaultAgentId &&
-    isCodingAgentId(descriptor.agentPolicy.activeAgentId) &&
-    descriptor.agentPolicy.switchableAgentIds.every(isCodingAgentId) &&
-    !arraysEqual(descriptor.agentPolicy.switchableAgentIds, CODE_AGENT_IDS)
+    descriptor.profileId === 'bitfun-coder' &&
+    descriptor.identityId === 'bitfun-coder' &&
+    descriptor.agentPolicy.defaultAgentId === SESSION_DESCRIPTORS.bitfunCoder.agentPolicy.defaultAgentId &&
+    isBitfunCoderAgentId(descriptor.agentPolicy.activeAgentId) &&
+    descriptor.agentPolicy.switchableAgentIds.every(isBitfunCoderAgentId) &&
+    !arraysEqual(descriptor.agentPolicy.switchableAgentIds, BITFUN_CODER_AGENT_IDS)
   ) {
     return {
-      ...cloneDescriptor(SESSION_DESCRIPTORS.coding, descriptor.agentPolicy.activeAgentId),
+      ...cloneDescriptor(SESSION_DESCRIPTORS.bitfunCoder, descriptor.agentPolicy.activeAgentId),
       storageScope: descriptor.storageScope,
     };
   }
@@ -177,29 +187,30 @@ export function descriptorFromAgentType(agentType?: string | null): SessionDescr
   if (normalized === 'cowork') return cloneDescriptor(SESSION_DESCRIPTORS.cowork);
   if (normalized === 'design') return cloneDescriptor(SESSION_DESCRIPTORS.design);
   if (normalized === 'deepresearch') return cloneDescriptor(SESSION_DESCRIPTORS.deepResearch);
-  if (normalized === 'appstudio' || normalized === 'app-studio') {
-    return cloneDescriptor(SESSION_DESCRIPTORS.appStudio);
+  if (normalized === 'runno') return cloneDescriptor(SESSION_DESCRIPTORS.runno);
+  if (normalized === 'appbuilder' || normalized === 'app-builder' || normalized === 'app_builder') {
+    return cloneDescriptor(SESSION_DESCRIPTORS.appBuilder);
   }
   if (normalized === 'productappruntime' || normalized === 'product-app-runtime') {
     return cloneDescriptor(SESSION_DESCRIPTORS.productAppRuntime);
   }
-  if (normalized === 'agentic' || normalized === 'code' || normalized === 'coding') {
-    return getDefaultSessionDescriptor();
+  if (normalized === 'bitfun-coder') {
+    return cloneDescriptor(SESSION_DESCRIPTORS.bitfunCoder);
   }
-  if (normalized === 'plan') return cloneDescriptor(SESSION_DESCRIPTORS.coding, 'Plan');
-  if (normalized === 'debug') return cloneDescriptor(SESSION_DESCRIPTORS.coding, 'debug');
-  if (normalized === 'team') return cloneDescriptor(SESSION_DESCRIPTORS.coding, 'Team');
-  if (rawAgentType) {
-    return {
-      ...cloneDescriptor(SESSION_DESCRIPTORS.coding, rawAgentType),
-      agentPolicy: createPolicy(rawAgentType),
-    };
+  if (normalized === 'bitfun-plan') {
+    return cloneDescriptor(SESSION_DESCRIPTORS.bitfunCoder, 'bitfun-plan');
+  }
+  if (normalized === 'bitfun-debug') {
+    return cloneDescriptor(SESSION_DESCRIPTORS.bitfunCoder, 'bitfun-debug');
+  }
+  if (normalized === 'bitfun-team') {
+    return cloneDescriptor(SESSION_DESCRIPTORS.bitfunCoder, 'bitfun-team');
   }
   return getDefaultSessionDescriptor();
 }
 
 export function getBackendAgentType(descriptor?: SessionDescriptor | null): string {
-  return descriptor?.agentPolicy.activeAgentId || descriptor?.agentPolicy.defaultAgentId || 'agentic';
+  return descriptor?.agentPolicy.activeAgentId || descriptor?.agentPolicy.defaultAgentId || 'Runno';
 }
 
 export function withActiveAgentId(

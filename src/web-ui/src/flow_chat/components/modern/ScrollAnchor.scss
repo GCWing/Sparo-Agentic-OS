@@ -1,26 +1,32 @@
 /**
- * Scroll anchor styles aligned with the scrollbar.
+ * Right-side turn anchor cluster.
  */
 
 .scroll-anchor {
   position: absolute;
-  right: 0;
-  top: 44px;
-  bottom: 64px;
-  width: 22px;
+  right: 2px;
+  top: 52px;
+  bottom: 72px;
+  width: 84px;
   pointer-events: none;
   z-index: var(--ds-z-popover);
-  opacity: 0;
-  transition: opacity 0.2s ease;
+  opacity: 1;
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
 
-  // Hover detection area without intercepting wheel events.
   &::before {
     content: '';
     position: absolute;
     right: 0;
     top: 0;
     bottom: 0;
-    width: 30px;
+    width: 18px;
+    background: linear-gradient(
+      to left,
+      color-mix(in srgb, var(--ds-chat-surface) 46%, transparent),
+      transparent
+    );
     pointer-events: none;
   }
 
@@ -35,159 +41,163 @@
     right: 0;
     top: 0;
     bottom: 0;
-    width: 10px;
+    width: 84px;
+    overflow: visible;
     pointer-events: none;
   }
 
   &__point {
     position: absolute;
     right: 0;
-    width: 10px;
-    height: 22px;
+    width: 72px;
+    height: 18px;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    appearance: none;
+    color: inherit;
+    background: transparent;
     cursor: pointer;
     transform: translateY(-50%);
     pointer-events: auto;
     z-index: var(--ds-z-raised);
     display: flex;
     align-items: center;
-    justify-content: center;
-    transition: all 0.15s ease;
+    justify-content: flex-end;
+    transition:
+      opacity 140ms ease,
+      transform 140ms ease;
 
     animation: anchorFade 0.3s ease backwards;
     animation-delay: var(--delay, 0s);
 
-    &::before {
-      content: '';
-      position: absolute;
-      right: 0;
-      width: 13px;
-      height: 7px;
-      border-radius: 3px;
-      background: var(--ds-chat-accent);
-      transition: all 0.15s ease;
-      box-shadow: 0 0 4px var(--ds-chat-accent);
+    &:focus {
+      outline: none;
     }
 
-    &:hover,
-    &.active {
-      z-index: var(--ds-z-sticky);
-      
-      &::before {
-        width: 19px;
-        right: -5px;
-        height: 8px;
-        background: var(--ds-chat-accent);
-        box-shadow: 
-          0 0 12px var(--ds-chat-focus-ring),
-          0 0 6px var(--ds-chat-focus-ring);
-      }
+    &:focus-visible {
+      outline: none;
     }
 
-    &:active::before {
-      transform: scaleX(0.9);
+    &:active .scroll-anchor__tick {
+      transform: scaleX(0.92);
     }
   }
 
-  // Preview card
-  &__preview {
-    position: fixed;
-    width: 280px;
-    background: var(--ds-chat-surface-elevated);
-    backdrop-filter: blur(16px);
-    border: 1px solid var(--ds-chat-border-strong);
-    border-radius: 8px;
-    box-shadow: 0 4px 20px color-mix(in srgb, var(--ds-color-bg-app) 25%, transparent);
-    pointer-events: none;
-    z-index: var(--ds-z-fullscreen);
-    transform: translateX(-100%) translateY(-50%);
-    overflow: hidden;
-    margin-left: -16px;
-
-    &::after {
-      content: '';
-      position: absolute;
-      right: -4px;
-      top: 50%;
-      transform: translateY(-50%) rotate(45deg);
-      width: 8px;
-      height: 8px;
-      background: var(--ds-chat-surface-elevated);
-      border-right: 1px solid var(--ds-chat-border-strong);
-      border-top: 1px solid var(--ds-chat-border-strong);
-    }
+  &__tick {
+    position: absolute;
+    right: 8px;
+    width: 12px;
+    height: 3px;
+    border-radius: var(--ds-radius-full, 999px);
+    background: color-mix(in srgb, var(--ds-chat-text-primary) 34%, transparent);
+    transform-origin: right center;
+    transition:
+      width 170ms cubic-bezier(0.22, 1, 0.36, 1),
+      background 170ms ease,
+      box-shadow 170ms ease,
+      transform 120ms ease;
   }
 
-  &__preview-indicator {
+  &__point--current:not(&__point--active):not(&__point--wave) &__tick {
+    background: var(--ds-chat-danger);
+  }
+
+  &__point--wave &__tick {
+    width: var(--scroll-anchor-wave-width, 18px);
+    transition-delay: var(--scroll-anchor-wave-delay, 0ms);
+  }
+
+  &__point--current &__tick,
+  &__point:hover &__tick,
+  &__point--active &__tick,
+  &__point:focus-visible &__tick {
+    background: var(--ds-chat-danger);
+  }
+
+  &__point:hover,
+  &__point--active,
+  &__point:focus-visible {
+    z-index: var(--ds-z-sticky);
+  }
+
+  &__point:hover &__tick,
+  &__point--active &__tick,
+  &__point:focus-visible &__tick {
+    width: 34px;
+    box-shadow: none;
+    transition-delay: 0ms;
+  }
+
+  &__bubble {
+    position: absolute;
+    right: 68px;
+    top: 50%;
+    box-sizing: border-box;
+    width: min(220px, calc(100vw - 128px));
+    height: auto;
+    max-height: min(42vh, 148px);
+    display: block;
     padding: 8px 12px;
-    background: var(--ds-chat-accent-soft);
-    border-bottom: 1px solid var(--ds-chat-border-strong);
-    text-align: center;
-  }
-
-  &__preview-turn {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--ds-chat-accent);
-    font-variant-numeric: tabular-nums;
-    
-    &::before {
-      content: 'Turn ';
-      font-weight: 400;
-      color: var(--ds-chat-text-muted);
-    }
-  }
-
-  &__preview-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 12px 4px;
-  }
-
-  &__preview-label {
-    font-size: 10px;
-    font-weight: 500;
-    color: var(--ds-chat-accent);
-    letter-spacing: 0.3px;
-    text-transform: uppercase;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-
-    &::before {
-      content: '';
-      width: 4px;
-      height: 4px;
-      border-radius: 50%;
-      background: var(--ds-chat-accent);
-    }
-  }
-
-  &__preview-time {
-    font-size: 10px;
-    color: var(--ds-chat-text-muted);
-  }
-
-  &__preview-content {
-    padding: 4px 12px 10px;
-    font-size: 12px;
-    line-height: 1.5;
+    border: 1px solid var(--ds-chat-border-strong);
+    border-radius: var(--ds-radius-lg, 12px);
+    background: var(--ds-chat-surface-elevated);
+    box-shadow: var(--ds-shadow-floating);
     color: var(--ds-chat-text-primary);
-    max-height: 60px;
     overflow: hidden;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
+    pointer-events: none;
+    opacity: 0;
+    transform: translate(8px, -50%) scale(0.98);
+    transition:
+      opacity 150ms ease,
+      transform 170ms cubic-bezier(0.22, 1, 0.36, 1);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+
+  &__bubble-lines {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  &__bubble-line {
+    min-width: 0;
+    color: var(--ds-chat-text-primary);
+    display: block;
+    font-size: var(--flowchat-font-size-sm);
+    font-weight: 500;
+    line-height: 1.35;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__bubble-line--highlight {
+    font-weight: 700;
+  }
+
+  &__point--active &__bubble,
+  &__point:focus-visible &__bubble {
+    opacity: 1;
+    transform: translate(0, -50%) scale(1);
+  }
+
+  &__point:focus-visible &__bubble {
+    box-shadow: var(--ds-shadow-floating);
   }
 }
 
 @keyframes anchorFade {
   from {
     opacity: 0;
-    transform: translateY(-50%) scale(0.8);
+    transform: translateY(-50%) scaleX(0.82);
   }
+
   to {
     opacity: 1;
-    transform: translateY(-50%) scale(1);
+    transform: translateY(-50%) scaleX(1);
   }
 }

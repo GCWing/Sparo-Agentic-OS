@@ -54,8 +54,5 @@ pub struct GuiBridgeResponse {
 }
 
 pub trait GuiBridgeAdapter: Send + Sync {
-    fn handle(
-        &self,
-        request: GuiBridgeRequest,
-    ) -> crate::error::CoreResult<GuiBridgeResponse>;
+    fn handle(&self, request: GuiBridgeRequest) -> crate::error::CoreResult<GuiBridgeResponse>;
 }

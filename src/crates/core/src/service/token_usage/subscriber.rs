@@ -1,8 +1,8 @@
 //! Token usage event subscriber
 
 use crate::agentic::events::{AgenticEvent, EventSubscriber};
-use crate::service::token_usage::TokenUsageService;
 use crate::error::CoreResult;
+use crate::service::token_usage::TokenUsageService;
 use log::{debug, error};
 use std::sync::Arc;
 

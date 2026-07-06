@@ -1,7 +1,7 @@
 //! DTO Module
 
-use sparo_core::service::workspace::manager::WorkspaceKind;
 use serde::{Deserialize, Serialize};
+use sparo_core::service::workspace::manager::WorkspaceKind;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]

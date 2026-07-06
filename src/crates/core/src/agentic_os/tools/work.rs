@@ -83,7 +83,7 @@ async fn start_work(service: &WorkService, input: WorkInput) -> CoreResult<Value
                 .ok_or_else(|| CoreError::validation("scope is required for action=start"))?,
             visibility: WorkVisibility::Primary,
             primary_surface_policy: PrimarySurfacePolicy::WorkSession,
-            assignment: Some(assignment.unwrap_or_else(|| WorkAssignmentRef::agent("agentic"))),
+            assignment: Some(assignment.unwrap_or_else(|| WorkAssignmentRef::agent("Runno"))),
             idempotency_key: None,
             owner: input.owner,
         })
@@ -204,7 +204,6 @@ fn required_string(value: Option<String>, field: &str) -> CoreResult<String> {
 }
 
 fn required_work_id(work_id: Option<WorkId>, action: &str) -> CoreResult<WorkId> {
-    work_id.ok_or_else(|| {
-        CoreError::validation(format!("work_id is required for action={}", action))
-    })
+    work_id
+        .ok_or_else(|| CoreError::validation(format!("work_id is required for action={}", action)))
 }

@@ -4,8 +4,23 @@ import { contextMenuRegistry } from '@/shared/context-menu-system';
 import type { MenuContext, MenuItem } from '@/shared/context-menu-system/types';
 import { i18nService } from '@/infrastructure/i18n';
 import { createLogger } from '@/shared/utils/logger';
+import { copyTextToClipboard } from '@/shared/utils/textSelection';
 
 const log = createLogger('NotificationContextMenuProvider');
+
+function copyNotificationText(text: string, source: 'title' | 'message' | 'all'): void {
+  const normalizedText = text.trim();
+  if (!normalizedText) {
+    log.warn('Skipped notification copy because text was empty', { source });
+    return;
+  }
+
+  void copyTextToClipboard(normalizedText).then((copied) => {
+    if (!copied) {
+      log.error('Failed to copy notification text', { source });
+    }
+  });
+}
 
  
 export function registerNotificationContextMenu(): void {
@@ -35,7 +50,7 @@ export function registerNotificationContextMenu(): void {
           label: i18nService.t('common:contextMenu.notificationMenu.items.copyTitle'),
           icon: 'Copy',
           onClick: () => {
-            navigator.clipboard.writeText(title);
+            copyNotificationText(title, 'title');
           }
         },
         {
@@ -43,7 +58,7 @@ export function registerNotificationContextMenu(): void {
           label: i18nService.t('common:contextMenu.notificationMenu.items.copyMessage'),
           icon: 'Copy',
           onClick: () => {
-            navigator.clipboard.writeText(message);
+            copyNotificationText(message, 'message');
           }
         },
         {
@@ -57,7 +72,7 @@ export function registerNotificationContextMenu(): void {
           icon: 'Copy',
           onClick: () => {
             const text = `${title}\n${message}`;
-            navigator.clipboard.writeText(text);
+            copyNotificationText(text, 'all');
           }
         }
       ];

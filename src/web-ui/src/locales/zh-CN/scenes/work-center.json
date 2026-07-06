@@ -112,6 +112,7 @@
       "host_scan": "主机扫描",
       "workspace_overview_refresh": "工作区概览刷新",
       "global_daily_report": "全局日报",
+      "daily_letter": "今日来信",
       "global_milestone": "全局里程碑"
     },
     "categories": {
@@ -151,7 +152,8 @@
       "refreshing_workspace_overview": "刷新工作区概览",
       "consolidating_memory": "合并记忆",
       "extracting_memory": "提取记忆",
-      "generating_report": "生成报告"
+      "generating_report": "生成报告",
+      "writing_daily_letter": "写今日来信"
     },
     "scopeLabel": {
       "system": "系统"

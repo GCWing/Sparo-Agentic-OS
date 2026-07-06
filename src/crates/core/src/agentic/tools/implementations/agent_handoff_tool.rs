@@ -8,9 +8,9 @@ use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
 };
 use crate::agentic::SessionSummary;
+use crate::error::{CoreError, CoreResult};
 use crate::infrastructure::try_get_path_manager_arc;
 use crate::service::workspace::get_global_workspace_service;
-use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -80,7 +80,7 @@ Parameters for "handoff":
 - workspace: Absolute path to the project directory, or "global" for non-project tasks.
 - message: Full instructions sent to the target agent. Include all required context because the target session does not see the OSAgent conversation.
 - session_id: Optional existing session ID to reuse.
-- agent_type: Required only when creating a new session. One of "agentic" (BitFun Coder: default execution for coding, debugging, automation, and verified workspace results), "Plan" (planning), "Cowork" (collaboration), "Design" (design work), or "debug" (debugging).
+- agent_type: Required only when creating a new session. One of "Runno" (native general execution), "bitfun-coder" (BitFun Coder), "bitfun-plan", "bitfun-debug", "bitfun-team", "Cowork", "Design", or "DeepResearch".
 - session_name: Optional display name when creating a new session.
 
 Parameters for "list":
@@ -110,7 +110,7 @@ Parameters for "status":
                 },
                 "agent_type": {
                     "type": "string",
-                    "enum": ["agentic", "Plan", "Cowork", "Design", "debug"],
+                    "enum": ["Runno", "bitfun-coder", "bitfun-plan", "bitfun-debug", "bitfun-team", "Cowork", "Design", "DeepResearch"],
                     "description": "Type of agent to create. Required only when session_id is omitted."
                 },
                 "session_name": {
@@ -297,15 +297,15 @@ Parameters for "status":
                     })
                 } else {
                     AgentSessionHandoffTarget::New {
-                        agent_type: params.agent_type.unwrap_or_else(|| "agentic".to_string()),
+                        agent_type: params.agent_type.unwrap_or_else(|| "Runno".to_string()),
                         session_name: params.session_name,
                         created_by: Some(handoff_creator_marker(context, "AgentHandoff")?),
                     }
                 };
 
-                let agentic = context.agentic().ok_or_else(|| {
-                    CoreError::tool("agentic stack not initialized".to_string())
-                })?;
+                let agentic = context
+                    .agentic()
+                    .ok_or_else(|| CoreError::tool("agentic stack not initialized".to_string()))?;
                 let outcome = handoff_to_agent_session(
                     agentic,
                     AgentSessionHandoffRequest {
@@ -608,7 +608,7 @@ mod tests {
                     "action": "handoff",
                     "workspace": "/tmp/project",
                     "session_id": "session_123",
-                    "agent_type": "agentic",
+                    "agent_type": "Runno",
                     "message": "Continue the task"
                 }),
                 None,

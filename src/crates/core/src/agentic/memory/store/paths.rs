@@ -4,8 +4,8 @@ use super::{
     MEMORY_MILESTONES_TEMPLATE, MEMORY_SOUL_FILE, MEMORY_SOUL_TEMPLATE, MEMORY_USER_FILE,
     MEMORY_USER_TEMPLATE,
 };
-use crate::infrastructure::get_path_manager_arc;
 use crate::error::*;
+use crate::infrastructure::get_path_manager_arc;
 use chrono::{Datelike, NaiveDate};
 use log::debug;
 use std::path::PathBuf;

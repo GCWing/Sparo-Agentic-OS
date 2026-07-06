@@ -22,7 +22,7 @@
     "title": "应用",
     "subtitle": "继续产品工作、启动已安装的产品应用，并检查每个运行时背后的组件图。",
     "searchLabel": "搜索产品应用",
-    "searchPlaceholder": "搜索应用、工作目标、组件或标签...",
+    "searchPlaceholder": "搜索应用、进行中的工作、组件或标签...",
     "loading": "正在加载产品应用...",
     "meta": {
       "apps": "{{count}} 个应用",
@@ -42,7 +42,7 @@
     },
     "manage": {
       "searchLabel": "搜索被管理的应用",
-      "searchPlaceholder": "按应用、分类、目标、标签或组件摘要搜索...",
+      "searchPlaceholder": "按应用、分类、描述、标签或组件摘要搜索...",
       "emptyTitle": "没有匹配的应用",
       "emptyDescription": "调整搜索或筛选条件，查看其他应用组。",
       "listLabel": "已管理应用列表",
@@ -443,7 +443,7 @@
     "launchKind": {
       "agentSession": "启动由智能体支持的工作会话。",
       "applicationSurface": "打开交互式应用界面。",
-      "appStudio": "打开应用工作室。",
+      "appBuilder": "打开应用构建器。",
       "none": "无启动目标"
     },
     "launchScope": {
@@ -455,6 +455,8 @@
       "id": "ID",
       "kind": "类型",
       "version": "版本",
+      "author": "作者",
+      "authors": "作者",
       "target": "目标",
       "surface": "界面",
       "agent": "智能体",
@@ -508,29 +510,37 @@
       "standaloneAgentComponent": "单智能体",
       "evolutionLab": "Evolution Lab"
     },
-    "coding": {
+    "agenticOs": {
+      "name": "Sparo OS",
+      "description": "用于编排和生命周期协调的系统中枢，不作为应用入口展示。"
+    },
+    "runno": {
+      "name": "Runno",
+      "description": "Sparo OS 的通用执行单元，灵活、高效、目标感强，适合处理各种类型任务。"
+    },
+    "bitfunCoder": {
       "name": "BitFun Coder",
-      "description": "默认执行 Agent，负责接住目标、选择下一步动作，并交付经过验证的工作结果。"
+      "description": "来自开源社区的高效、高完成率 Code Agent，全面处理实现、调试、重构、排障等软件开发任务。"
     },
     "cowork": {
       "name": "办公助理",
-      "description": "面向办公协作、内容起草与日常推进的独立智能应用。"
+      "description": "面向办公交付的 Agent，擅长文档、表格、PPT 和资料整理，把日常工作推进成清晰成稿。"
     },
     "design": {
       "name": "设计师",
-      "description": "面向 HTML 原型、视觉产物和设计探索的独立智能应用。"
+      "description": "面向产品与界面设计的 Agent，把想法、需求和参考图转成原型、界面和视觉方案。"
     },
     "deepResearch": {
       "name": "深度研究",
-      "description": "面向开放式研究的独立智能应用，可并行派发子智能体并整合带引用的完整报告。"
+      "description": "面向深度研究的 Agent，适合查资料、比观点、梳理依据，把复杂问题沉淀为清晰结论。"
     },
     "productAppRuntime": {
       "name": "产品应用运行台",
       "description": "承载 Product App 的运行时界面：左侧 FlowChat，右侧应用自有工具和运行状态。"
     },
-    "appStudio": {
-      "name": "应用工作室",
-      "description": "创建包含目标、工作对象、主界面、组件、权限和包元数据的产品应用。"
+    "appBuilder": {
+      "name": "应用构建器",
+      "description": "为你打造专属智能应用，理解需求或解析既有应用，重组功能、流程与方法，让应用更贴合你的工作方式。"
     }
   },
   "productAppRuntime": {

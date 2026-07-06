@@ -43,11 +43,7 @@ impl MCPTransport {
     }
 
     /// Sends a notification.
-    pub async fn send_notification(
-        &self,
-        method: String,
-        params: Option<Value>,
-    ) -> CoreResult<()> {
+    pub async fn send_notification(&self, method: String, params: Option<Value>) -> CoreResult<()> {
         let notification = MCPNotification::new(method, params);
         self.send_message(MCPMessage::Notification(notification))
             .await

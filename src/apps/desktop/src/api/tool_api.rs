@@ -109,7 +109,7 @@ fn build_tool_context(
             .into_iter()
             .map(|(key, value)| (key, serde_json::Value::String(value)))
             .collect(),
-        app_studio: None,
+        app_builder: None,
         computer_use_host: None,
         cancellation_token: None,
         runtime_tool_restrictions: Default::default(),

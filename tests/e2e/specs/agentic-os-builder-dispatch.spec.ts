@@ -1,6 +1,6 @@
 /**
  * Agentic OS Builder dispatch spec: verifies the real Dispatcher model can
- * recognize a natural-language request and create a Prime Builder WorkSession.
+ * recognize a natural-language request and create a BitFun Coder WorkSession.
  */
 
 import { browser, expect } from '@wdio/globals';
@@ -69,12 +69,12 @@ describe('Agentic OS Builder dispatch', () => {
     );
   });
 
-  it('lets the real Dispatcher create a Prime Builder Work from intent', async function () {
+  it('lets the real Dispatcher create a BitFun Coder Work from intent', async function () {
     this.timeout(240000);
     await browser.setTimeout({ script: 240000 });
 
     const workspacePath = process.env.E2E_TEST_WORKSPACE || process.cwd();
-    const title = `E2E Prime Builder Intent ${Date.now()}`;
+    const title = `E2E BitFun Coder Intent ${Date.now()}`;
 
     const result = await browser.executeAsync<DispatcherIntentResult>(
       (workspacePath, title, done) => {
@@ -146,7 +146,7 @@ describe('Agentic OS Builder dispatch', () => {
             const userInput = [
               `请使用 Agentic OS 调度创建一个构造师任务，标题必须精确为 "${title}"。`,
               `这个任务属于工作区：${workspacePath}。`,
-              '构造师指 Code Work / Prime Builder，也就是后端 agent_type=agentic。',
+              '构造师指 BitFun Coder 的 Code Work，也就是后端 agent_type=bitfun-coder。',
               '只能使用单一 Work 工具，并调用 action=start；不要使用 WorkMutation、WorkAdvance、WorkDispatch、AgentDispatch 或 Session 工具。',
               '初始 instructions 只要求确认任务已创建，不要修改文件。',
               '测试会验证该 Work 产生带 turn_id 的 agent_session_run 执行绑定。',
@@ -171,7 +171,7 @@ describe('Agentic OS Builder dispatch', () => {
               });
               matchedWork = (worksResponse.works as RawWorkRecord[]).find(work => work.title === title);
               const hasRunnableBuilderWork =
-                matchedWork?.assignment?.agent_type === 'agentic' &&
+                matchedWork?.assignment?.agent_type === 'bitfun-coder' &&
                 matchedWork.surfaces.some(surface => surface.kind === 'work_session') &&
                 matchedWork.execution_bindings.some(
                   binding => binding.source.source === 'agent_session_run' && Boolean(binding.source.turn_id),
@@ -280,7 +280,7 @@ describe('Agentic OS Builder dispatch', () => {
     expect(result.matchedWork?.kind).toBe('multi_step');
     expect(result.matchedWork?.title).toBe(title);
     expect(result.matchedWork?.assignmentKind).toBe('agent');
-    expect(result.matchedWork?.agentType).toBe('agentic');
+    expect(result.matchedWork?.agentType).toBe('bitfun-coder');
     expect(result.matchedWork?.hasWorkSessionSurface).toBe(true);
     expect(result.matchedWork?.sessionRefCount).toBeGreaterThan(0);
     expect(result.matchedWork?.executionBindingCount).toBeGreaterThan(0);

@@ -627,7 +627,7 @@ mod tests {
     #[test]
     fn agents_registry_message_uses_live_agent_rows() {
         let agent = sparo_core::agentic::agents::AgentInfo {
-            id: "debug".to_string(),
+            id: "bitfun-debug".to_string(),
             name: "Debug".to_string(),
             description: "Diagnose failures".to_string(),
             is_readonly: false,
@@ -646,7 +646,7 @@ mod tests {
         let message = agents_registry_message(&[agent]);
 
         assert!(message.contains("Available Agents (live registry, 1 total)"));
-        assert!(message.contains("Debug (debug)"));
+        assert!(message.contains("Debug (bitfun-debug)"));
         assert!(message.contains("Diagnose failures"));
         assert!(message.contains("sparo agents list"));
     }

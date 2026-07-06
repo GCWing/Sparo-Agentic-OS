@@ -15,6 +15,7 @@ use crate::agentic::memory::{
 use crate::agentic::persistence::PersistenceManager;
 use crate::agentic::session::SessionContextStore;
 use crate::agentic::tools::restrictions::is_local_path_within_root;
+use crate::error::{CoreError, CoreResult};
 use crate::infrastructure::ai::get_global_ai_client_factory;
 use crate::service::config::{
     get_app_language_code, get_global_config_service, short_model_user_language_instruction,
@@ -24,7 +25,6 @@ use crate::service::session::{
     DialogTurnData, DialogTurnKind, ModelRoundData, SessionMetadata, TextItemData, ToolResultData,
     TurnStatus, UserMessageData,
 };
-use crate::error::{CoreError, CoreResult};
 use crate::util::sanitize_plain_model_output;
 use dashmap::DashMap;
 use log::{debug, error, info, warn};
@@ -959,10 +959,7 @@ impl SessionManager {
             .effective_session_workspace_path(session_id)
             .await
             .ok_or_else(|| {
-                CoreError::Validation(format!(
-                    "Session workspace_path is missing: {}",
-                    session_id
-                ))
+                CoreError::Validation(format!("Session workspace_path is missing: {}", session_id))
             })?;
 
         let turns = self
@@ -981,10 +978,7 @@ impl SessionManager {
             .effective_session_workspace_path(session_id)
             .await
             .ok_or_else(|| {
-                CoreError::Validation(format!(
-                    "Session workspace_path is missing: {}",
-                    session_id
-                ))
+                CoreError::Validation(format!("Session workspace_path is missing: {}", session_id))
             })?;
 
         Ok(self
@@ -1001,10 +995,7 @@ impl SessionManager {
             .effective_session_workspace_path(session_id)
             .await
             .ok_or_else(|| {
-                CoreError::Validation(format!(
-                    "Session workspace_path is missing: {}",
-                    session_id
-                ))
+                CoreError::Validation(format!("Session workspace_path is missing: {}", session_id))
             })?;
 
         Ok(self
@@ -1036,10 +1027,7 @@ impl SessionManager {
             .as_deref()
             .map(PathBuf::from)
             .ok_or_else(|| {
-                CoreError::Validation(format!(
-                    "Session workspace_path is missing: {}",
-                    session_id
-                ))
+                CoreError::Validation(format!("Session workspace_path is missing: {}", session_id))
             })?;
         let turn_index = session
             .dialog_turn_ids
@@ -1050,10 +1038,7 @@ impl SessionManager {
             .effective_session_workspace_path(session_id)
             .await
             .ok_or_else(|| {
-                CoreError::Validation(format!(
-                    "Session workspace_path is missing: {}",
-                    session_id
-                ))
+                CoreError::Validation(format!("Session workspace_path is missing: {}", session_id))
             })?;
         let turn = self
             .persistence_manager
@@ -1515,11 +1500,7 @@ impl SessionManager {
     }
 
     /// Delete session (cascade delete all resources)
-    pub async fn delete_session(
-        &self,
-        workspace_path: &Path,
-        session_id: &str,
-    ) -> CoreResult<()> {
+    pub async fn delete_session(&self, workspace_path: &Path, session_id: &str) -> CoreResult<()> {
         // 1. Clean up snapshot system resources (including physical snapshot files)
         let snapshot_manager_opt = self
             .upgrade_workspace_registry()
@@ -1917,10 +1898,7 @@ impl SessionManager {
         let workspace_path = Self::effective_workspace_path_from_config(&session.config)
             .await
             .ok_or_else(|| {
-                CoreError::Validation(format!(
-                    "Session workspace_path is missing: {}",
-                    session_id
-                ))
+                CoreError::Validation(format!("Session workspace_path is missing: {}", session_id))
             })?;
 
         let turn_index = session.dialog_turn_ids.len();
@@ -2065,10 +2043,7 @@ impl SessionManager {
             .effective_session_workspace_path(session_id)
             .await
             .ok_or_else(|| {
-                CoreError::Validation(format!(
-                    "Session workspace_path is missing: {}",
-                    session_id
-                ))
+                CoreError::Validation(format!("Session workspace_path is missing: {}", session_id))
             })?;
         let turn_index = self
             .sessions
@@ -2161,10 +2136,7 @@ impl SessionManager {
             .effective_session_workspace_path(session_id)
             .await
             .ok_or_else(|| {
-                CoreError::Validation(format!(
-                    "Session workspace_path is missing: {}",
-                    session_id
-                ))
+                CoreError::Validation(format!("Session workspace_path is missing: {}", session_id))
             })?;
         let turn_index = self
             .sessions
@@ -2219,10 +2191,7 @@ impl SessionManager {
             .effective_session_workspace_path(session_id)
             .await
             .ok_or_else(|| {
-                CoreError::Validation(format!(
-                    "Session workspace_path is missing: {}",
-                    session_id
-                ))
+                CoreError::Validation(format!("Session workspace_path is missing: {}", session_id))
             })?;
         let turn_index = self
             .sessions
@@ -2285,10 +2254,7 @@ impl SessionManager {
             .effective_session_workspace_path(session_id)
             .await
             .ok_or_else(|| {
-                CoreError::Validation(format!(
-                    "Session workspace_path is missing: {}",
-                    session_id
-                ))
+                CoreError::Validation(format!("Session workspace_path is missing: {}", session_id))
             })?;
         let turn_index = self
             .sessions
@@ -2349,10 +2315,7 @@ impl SessionManager {
             .effective_session_workspace_path(session_id)
             .await
             .ok_or_else(|| {
-                CoreError::Validation(format!(
-                    "Session workspace_path is missing: {}",
-                    session_id
-                ))
+                CoreError::Validation(format!("Session workspace_path is missing: {}", session_id))
             })?;
         let turn_index = self
             .sessions
@@ -2672,9 +2635,9 @@ impl SessionManager {
         ];
 
         // Dynamically get Agent client to generate title
-        let ai_client_factory = get_global_ai_client_factory().await.map_err(|e| {
-            CoreError::AiClient(format!("Failed to get AI client factory: {}", e))
-        })?;
+        let ai_client_factory = get_global_ai_client_factory()
+            .await
+            .map_err(|e| CoreError::AiClient(format!("Failed to get AI client factory: {}", e)))?;
 
         let ai_client = ai_client_factory
             .get_client_by_func_agent("session-title-func-agent")
@@ -2870,8 +2833,8 @@ mod tests {
 
     impl TestWorkspace {
         fn new() -> Self {
-            let root = std::env::temp_dir()
-                .join(format!("sparo-session-manager-test-{}", Uuid::new_v4()));
+            let root =
+                std::env::temp_dir().join(format!("sparo-session-manager-test-{}", Uuid::new_v4()));
             let path = root.join("workspace");
             std::fs::create_dir_all(&path).expect("test workspace should be created");
             Self { root, path }
@@ -2952,7 +2915,7 @@ mod tests {
                     "id": "old-app"
                 },
                 "surface": {
-                    "contentType": "app-studio"
+                    "contentType": "app-builder"
                 }
             },
             "userPinned": true
@@ -2967,7 +2930,7 @@ mod tests {
                         "version": "1.0.0"
                     }
                 },
-                "appStudioFacts": {
+                "appBuilderFacts": {
                     "subject": {
                         "appId": "new-app"
                     }
@@ -2997,7 +2960,7 @@ mod tests {
             target
                 .pointer("/agentSessionBinding/surface/contentType")
                 .and_then(serde_json::Value::as_str),
-            Some("app-studio")
+            Some("app-builder")
         );
         assert_eq!(
             target
@@ -3007,7 +2970,7 @@ mod tests {
         );
         assert_eq!(
             target
-                .pointer("/appStudioFacts/subject/appId")
+                .pointer("/appBuilderFacts/subject/appId")
                 .and_then(serde_json::Value::as_str),
             Some("new-app")
         );
@@ -3021,7 +2984,7 @@ mod tests {
             .create_session_with_id_and_details(
                 None,
                 "Test Session".to_string(),
-                "agentic".to_string(),
+                "Runno".to_string(),
                 SessionConfig {
                     workspace_path: Some(workspace.to_string_lossy().to_string()),
                     ..SessionConfig::default()
