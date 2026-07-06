@@ -1,8 +1,8 @@
 //! Announcement system Tauri commands.
 
 use crate::api::app_state::AppState;
-use sparo_core::service::announcement::{AnnouncementCard, CardType};
 use serde::Deserialize;
+use sparo_core::service::announcement::{AnnouncementCard, CardType};
 use tauri::State;
 
 #[derive(Debug, Deserialize)]

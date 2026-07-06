@@ -513,9 +513,9 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     displayMode: 'standard',
     primaryColor: 'var(--ds-tool-family-browser-fg)'
   },
-  'ResolveStudioPreviewTarget': {
-    toolName: 'ResolveStudioPreviewTarget',
-    displayName: 'Resolve Studio Preview Target',
+  'ResolveBuilderPreviewTarget': {
+    toolName: 'ResolveBuilderPreviewTarget',
+    displayName: 'Resolve Builder Preview Target',
     icon: 'APP',
     requiresConfirmation: false,
     resultDisplayType: 'detailed',
@@ -603,13 +603,13 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     displayMode: 'standard',
     primaryColor: 'var(--ds-status-surface-success-fg)'
   },
-  'RunStudioPreview': {
-    toolName: 'RunStudioPreview',
-    displayName: 'Run Studio Preview',
+  'RunBuilderPreview': {
+    toolName: 'RunBuilderPreview',
+    displayName: 'Run Builder Preview',
     icon: 'APP',
     requiresConfirmation: false,
     resultDisplayType: 'detailed',
-    description: 'Run the App Studio Preview Harness and record preview evidence',
+    description: 'Run the App Builder Preview Harness and record preview evidence',
     displayMode: 'standard',
     primaryColor: 'var(--ds-tool-family-browser-fg)'
   },
@@ -792,7 +792,7 @@ const EXACT_TOOL_UI_REGISTRY: Record<string, ToolUiRegistryEntry> = {
   GetProductAppPackage: { component: DefaultToolCard, template: 'detail', family: 'product-app' },
   UpdateProductAppPackage: { component: DefaultToolCard, template: 'detail', family: 'product-app' },
   RefreshProductAppLock: { component: DefaultToolCard, template: 'detail', family: 'product-app' },
-  ResolveStudioPreviewTarget: { component: DefaultToolCard, template: 'detail', family: 'product-app' },
+  ResolveBuilderPreviewTarget: { component: DefaultToolCard, template: 'detail', family: 'product-app' },
   CreateProductAppCheckpoint: { component: DefaultToolCard, template: 'detail', family: 'product-app' },
   CompareProductAppRevisions: { component: DefaultToolCard, template: 'detail', family: 'product-app' },
   CreateProductAppFromReleaseTemplate: { component: DefaultToolCard, template: 'detail', family: 'product-app' },
@@ -801,7 +801,7 @@ const EXACT_TOOL_UI_REGISTRY: Record<string, ToolUiRegistryEntry> = {
   CreateProductAppRelease: { component: DefaultToolCard, template: 'detail', family: 'product-app' },
   PublishProductAppRelease: { component: DefaultToolCard, template: 'detail', family: 'product-app' },
   ValidateProductAppPackage: { component: ProductAppValidationToolDisplay, template: 'detail', family: 'product-app' },
-  RunStudioPreview: { component: ProductAppPreviewToolDisplay, template: 'detail', family: 'product-app' },
+  RunBuilderPreview: { component: ProductAppPreviewToolDisplay, template: 'detail', family: 'product-app' },
   ValidateComponentPackage: { component: ProductAppValidationToolDisplay, template: 'detail', family: 'component' },
   CreateComponentPackage: { component: ComponentAuthoringToolDisplay, template: 'detail', family: 'component' },
   ListAgentComponents: { component: ComponentAuthoringToolDisplay, template: 'compact', family: 'component' },

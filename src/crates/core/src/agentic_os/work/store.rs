@@ -6,8 +6,8 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::RwLock;
 
-use crate::infrastructure::try_get_path_manager_arc;
 use crate::error::CoreResult;
+use crate::infrastructure::try_get_path_manager_arc;
 
 use super::ids::WorkId;
 use super::record::WorkRecord;

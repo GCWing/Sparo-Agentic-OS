@@ -15,7 +15,7 @@ import { browser, expect, $ } from '@wdio/globals';
 import { Header } from '../page-objects/components/Header';
 import { StartupPage } from '../page-objects/StartupPage';
 import { ensureWorkspaceOpen } from '../helpers/workspace-utils';
-import { ensureCodeSessionOpen } from '../helpers/workspace-helper';
+import { ensureBitFunCoderSessionOpen } from '../helpers/workspace-helper';
 
 interface ScrollMetrics {
   scrollTop: number;
@@ -40,7 +40,7 @@ async function injectSubagentFixture(): Promise<string> {
 
     const now = Date.now();
     const sessionId = 'e2e-subdetail-scroll-' + now;
-    const descriptor = descriptorFromAgentType('agentic');
+    const descriptor = descriptorFromAgentType('Runno');
     const taskToolId = 'e2e-subdetail-task-tool';
 
     const projItems: any[] = [];
@@ -201,7 +201,7 @@ async function injectLiveSubagentFixture(): Promise<{ sessionId: string; taskToo
 
     const now = Date.now();
     const sessionId = 'e2e-subdetail-live-scroll-' + now;
-    const descriptor = descriptorFromAgentType('agentic');
+    const descriptor = descriptorFromAgentType('Runno');
     const taskToolId = 'e2e-subdetail-live-task-tool';
     const childSessionId = 'child-' + taskToolId;
     const parentTurnId = 'e2e-subdetail-live-turn';
@@ -491,7 +491,7 @@ describe('L1 Subagent detail panel scroll', () => {
     await header.waitForLoad();
     hasWorkspace = await ensureWorkspaceOpen(startupPage);
     if (hasWorkspace) {
-      await ensureCodeSessionOpen();
+      await ensureBitFunCoderSessionOpen();
     }
   });
 

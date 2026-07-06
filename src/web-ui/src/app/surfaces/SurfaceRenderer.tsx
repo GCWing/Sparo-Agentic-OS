@@ -31,6 +31,7 @@ const ShellScene = lazy(() => import('../scenes/shell/ShellScene'));
 const ProductAppHostSurfaceScene = lazy(() => import('../scenes/apps/ProductAppHostSurfaceScene'));
 const PanelViewScene = lazy(() => import('../scenes/panel-view/PanelViewScene'));
 const WorkCenterScene = lazy(() => import('../scenes/work-center/WorkCenterScene'));
+const DailyLetterScene = lazy(() => import('../scenes/daily-letter/DailyLetterScene'));
 
 interface SurfaceRendererProps {
   surface: WorkspaceSurface;
@@ -156,6 +157,8 @@ function renderSceneSurface(
       return <PanelViewScene workspacePath={workspacePath} />;
     case 'work-center':
       return <WorkCenterScene />;
+    case 'daily-letter':
+      return <DailyLetterScene workspacePath={workspacePath} />;
     default:
       if (typeof id === 'string' && id.startsWith('app-surface:')) {
         return (

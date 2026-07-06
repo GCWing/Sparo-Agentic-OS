@@ -110,7 +110,7 @@ export const BUILTIN_TOOLS: BuiltinToolMeta[] = [
   { name: 'GetProductAppPackage', category: 'delegate', permission: 'read', Icon: Boxes },
   { name: 'UpdateProductAppPackage', category: 'delegate', permission: 'write', Icon: Boxes },
   { name: 'RefreshProductAppLock', category: 'delegate', permission: 'write', Icon: Boxes },
-  { name: 'ResolveStudioPreviewTarget', category: 'delegate', permission: 'read', Icon: Boxes },
+  { name: 'ResolveBuilderPreviewTarget', category: 'delegate', permission: 'read', Icon: Boxes },
 
   // MCP meta tools (built-in helpers that inspect MCP capabilities)
   { name: 'ListMCPResources', category: 'mcpMeta', permission: 'read', Icon: Plug },

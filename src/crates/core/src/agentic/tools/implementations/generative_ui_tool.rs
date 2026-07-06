@@ -1,8 +1,8 @@
 //! GenerativeUI tool — renders LLM-generated HTML/SVG widgets.
 
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext, ValidationResult};
-use crate::service::config::get_global_config_service;
 use crate::error::CoreResult;
+use crate::service::config::get_global_config_service;
 use async_trait::async_trait;
 use serde_json::{json, Value};
 

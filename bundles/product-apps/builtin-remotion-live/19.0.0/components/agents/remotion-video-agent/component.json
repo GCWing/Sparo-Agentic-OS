@@ -82,5 +82,17 @@
       ]
     }
   ],
-  "implementationRef": "app://builtin-remotion-live@19.0.0/agents/remotion-video-agent"
+  "implementationRef": "app://builtin-remotion-live@19.0.0/agents/remotion-video-agent",
+  "usesCapabilities": [
+    "filesystem.read",
+    "filesystem.write",
+    "terminal.run",
+    "process.spawn",
+    "workspace.inspect",
+    "workspace.modify",
+    "session.read",
+    "model.invoke",
+    "tool.invoke",
+    "component.run"
+  ]
 }

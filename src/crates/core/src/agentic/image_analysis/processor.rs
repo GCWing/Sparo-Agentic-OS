@@ -7,9 +7,9 @@ use super::image_processing::{
     optimize_image_with_size_limit, resolve_image_path,
 };
 use super::types::{AnalyzeImagesRequest, ImageAnalysisResult, ImageContextData};
+use crate::error::*;
 use crate::infrastructure::ai::AIClient;
 use crate::service::config::types::AIModelConfig;
-use crate::error::*;
 use log::{debug, error, info, warn};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -163,9 +163,7 @@ impl ImageAnalyzer {
             return Ok((data, detected_mime.or_else(|| Some(ctx.mime_type.clone()))));
         }
 
-        Err(CoreError::validation(
-            "Image context missing path or data",
-        ))
+        Err(CoreError::validation("Image context missing path or data"))
     }
 
     fn build_image_analysis_prompt(user_context: Option<&str>) -> String {

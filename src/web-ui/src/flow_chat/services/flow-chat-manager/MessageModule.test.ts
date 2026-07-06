@@ -7,6 +7,7 @@ import { sendMessage } from './MessageModule';
 import {
   getAgenticOsSessionDescriptor,
   getDefaultSessionDescriptor,
+  SESSION_DESCRIPTORS,
 } from '../../domain/sessionDescriptor';
 
 const agentApiMock = vi.hoisted(() => ({
@@ -142,7 +143,7 @@ describe('sendMessage scheduler projection', () => {
     expect(context.processingManager.registerStatus).toHaveBeenCalledOnce();
   });
 
-  it('ignores a stale agentic override for an OSAgent session', async () => {
+  it('ignores a stale BitFun Coder override for an OSAgent session', async () => {
     const store = FlowChatStore.getInstance();
     const sessionId = `osagent-submit-${Date.now()}`;
     sessionIds.push(sessionId);
@@ -165,7 +166,7 @@ describe('sendMessage scheduler projection', () => {
     }));
 
     const context = createTestContext(store);
-    await sendMessage(context, 'analyze architecture', sessionId, undefined, 'agentic');
+    await sendMessage(context, 'analyze architecture', sessionId, undefined, 'bitfun-coder');
 
     expect(agentApiMock.startDialogTurn).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -175,7 +176,7 @@ describe('sendMessage scheduler projection', () => {
     );
   });
 
-  it('keeps allowed coding-session agent overrides', async () => {
+  it('keeps allowed BitFun Coder session agent overrides', async () => {
     const store = FlowChatStore.getInstance();
     const sessionId = `plan-submit-${Date.now()}`;
     sessionIds.push(sessionId);
@@ -186,7 +187,7 @@ describe('sendMessage scheduler projection', () => {
       undefined,
       'Plan task',
       undefined,
-      getDefaultSessionDescriptor(),
+      SESSION_DESCRIPTORS.bitfunCoder,
       'D:/workspace/test',
       'workspace',
     );
@@ -198,12 +199,12 @@ describe('sendMessage scheduler projection', () => {
     }));
 
     const context = createTestContext(store);
-    await sendMessage(context, 'make a plan', sessionId, undefined, 'Plan');
+    await sendMessage(context, 'make a plan', sessionId, undefined, 'bitfun-plan');
 
     expect(agentApiMock.startDialogTurn).toHaveBeenCalledWith(
       expect.objectContaining({
         sessionId,
-        agentType: 'Plan',
+        agentType: 'bitfun-plan',
       }),
     );
   });

@@ -1,8 +1,8 @@
 /// Unified event bus - Manages event distribution for all platforms
 use crate::traits::TransportAdapter;
-use sparo_events::AgenticEvent;
 use dashmap::DashMap;
 use log::{error, warn};
+use sparo_events::AgenticEvent;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 

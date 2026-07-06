@@ -10,8 +10,8 @@ use crate::agentic::tools::computer_use_host::{
     InteractiveViewOpts, VisualClickParams, VisualMarkViewOpts,
 };
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
-use crate::util::elapsed_ms_u64;
 use crate::error::{CoreError, CoreResult};
+use crate::util::elapsed_ms_u64;
 use serde_json::{json, Value};
 
 use super::control_hub::{err_response, ControlHubError, ErrorCode};
@@ -360,9 +360,7 @@ impl ComputerUseActions {
             let target = match v {
                 Value::Null => None,
                 v => Some(v.as_u64().ok_or_else(|| {
-                    CoreError::tool(
-                        "display_id must be a non-negative integer or null".to_string(),
-                    )
+                    CoreError::tool("display_id must be a non-negative integer or null".to_string())
                 })? as u32),
             };
             if host.focused_display_id() != target {
@@ -502,14 +500,10 @@ impl ComputerUseActions {
             }
             if v.get("x").is_some() || v.get("y").is_some() {
                 let x = v.get("x").and_then(|x| x.as_f64()).ok_or_else(|| {
-                    CoreError::tool(
-                        "[INVALID_PARAMS] screen target requires numeric x".to_string(),
-                    )
+                    CoreError::tool("[INVALID_PARAMS] screen target requires numeric x".to_string())
                 })?;
                 let y = v.get("y").and_then(|y| y.as_f64()).ok_or_else(|| {
-                    CoreError::tool(
-                        "[INVALID_PARAMS] screen target requires numeric y".to_string(),
-                    )
+                    CoreError::tool("[INVALID_PARAMS] screen target requires numeric y".to_string())
                 })?;
                 return Ok(ClickTarget::ScreenXy { x, y });
             }

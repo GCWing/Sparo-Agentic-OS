@@ -9,6 +9,9 @@ use crate::api::product_app_runtime_api::ProductAppRuntimeContext;
 use crate::api::session_storage_path::{
     desktop_effective_session_storage_path, SessionStorageScopeDto,
 };
+use futures::StreamExt;
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Map, Value};
 use sparo_core::agent_component::AgentComponentManager;
 use sparo_core::agentic::agents::build_ppt_live_private_prompt;
 use sparo_core::agentic::coordination::{
@@ -43,9 +46,6 @@ use sparo_core::product_app_runtime_host::{
 };
 use sparo_core::service::config::types::GlobalConfig;
 use sparo_core::util::types::Message;
-use futures::StreamExt;
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Map, Value};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -2330,7 +2330,7 @@ async fn submit_ppt_live_private_backend(
         .create_session_with_workspace_and_creator(
             None,
             "PPT Live Run".to_string(),
-            "agentic".to_string(),
+            "Runno".to_string(),
             config,
             workspace_path.clone(),
             Some(owner),
@@ -2344,7 +2344,7 @@ async fn submit_ppt_live_private_backend(
             prompt,
             Some("PPT Live generation".to_string()),
             Some(action_run_id.clone()),
-            "agentic".to_string(),
+            "Runno".to_string(),
             None,
             session.config.workspace_path.clone(),
             DialogSubmissionPolicy::for_source(DialogTriggerSource::DesktopApi)
@@ -2368,9 +2368,9 @@ async fn submit_ppt_live_private_backend(
         status,
         backend_id: backend_id.to_string(),
         action: action_name.to_string(),
-        agent_type: "agentic".to_string(),
+        agent_type: "Runno".to_string(),
         backend_kind: "agentComponent".to_string(),
-        backend_component_id: "agentic".to_string(),
+        backend_component_id: backend_id.to_string(),
         bridge_result: None,
     })
 }

@@ -1,6 +1,5 @@
 /// Agentic OS Agentic OS home for the CLI.
 use anyhow::Result;
-use sparo_core::command::agentic_os::{AgenticOsSnapshot, AgenticOsSnapshotRequest};
 use crossterm::event::{
     self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent,
     MouseEventKind,
@@ -13,6 +12,7 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, List, ListItem, Paragraph},
     Frame, Terminal,
 };
+use sparo_core::command::agentic_os::{AgenticOsSnapshot, AgenticOsSnapshotRequest};
 use std::time::{Duration, Instant};
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
@@ -1991,11 +1991,11 @@ fn format_clock(timestamp_ms: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ratatui::{backend::TestBackend, Terminal};
     use sparo_core::command::agentic_os::{
         AgenticOsAppRow, AgenticOsMemoryRow, AgenticOsSessionRow, AgenticOsSnapshot,
         AgenticOsTaskRow, AgenticOsWorkspaceRow,
     };
-    use ratatui::{backend::TestBackend, Terminal};
     use unicode_width::UnicodeWidthStr;
 
     fn terminal_text(terminal: &Terminal<TestBackend>) -> String {
@@ -2053,7 +2053,7 @@ mod tests {
         let mut snapshot = sample_snapshot();
         snapshot.tasks = vec![AgenticOsTaskRow {
             title: "Review TUI task flow".to_string(),
-            agent: "debug".to_string(),
+            agent: "bitfun-debug".to_string(),
             status: "active".to_string(),
             detail: "Needs product review".to_string(),
             session_id: session_id.map(str::to_string),
@@ -3045,7 +3045,7 @@ mod tests {
     #[test]
     fn startup_enter_with_typed_input_launches_initial_message() {
         let mut page = StartupPage::new(sample_snapshot());
-        page.set_default_agent("debug".to_string());
+        page.set_default_agent("bitfun-debug".to_string());
         page.input = "Summarize this workspace".to_string();
 
         let outcome = page.handle_enter().unwrap();
@@ -3056,7 +3056,7 @@ mod tests {
                     launch.initial_message.as_deref(),
                     Some("Summarize this workspace")
                 );
-                assert_eq!(launch.agent, "debug");
+                assert_eq!(launch.agent, "bitfun-debug");
             }
             StartupOutcome::Exit => panic!("expected launch"),
         }
@@ -3080,7 +3080,7 @@ mod tests {
     #[test]
     fn startup_default_agent_preference_drives_home_commands() {
         let mut page = StartupPage::new(sample_snapshot());
-        page.set_default_agent("agentic".to_string());
+        page.set_default_agent("Runno".to_string());
 
         for ch in "/new".chars() {
             page.handle_key(KeyEvent::from(KeyCode::Char(ch)));
@@ -3089,14 +3089,14 @@ mod tests {
 
         match outcome.expect("new command should launch") {
             StartupOutcome::Launch(launch) => {
-                assert_eq!(launch.agent, "agentic");
+                assert_eq!(launch.agent, "Runno");
                 assert!(launch.initial_message.is_none());
             }
             StartupOutcome::Exit => panic!("expected launch"),
         }
 
         let mut page = StartupPage::new(sample_snapshot());
-        page.set_default_agent("debug".to_string());
+        page.set_default_agent("bitfun-debug".to_string());
         for ch in "/dispatch review CLI".chars() {
             page.handle_key(KeyEvent::from(KeyCode::Char(ch)));
         }
@@ -3104,7 +3104,7 @@ mod tests {
 
         match outcome.expect("dispatch command should launch") {
             StartupOutcome::Launch(launch) => {
-                assert_eq!(launch.agent, "debug");
+                assert_eq!(launch.agent, "bitfun-debug");
                 assert!(launch
                     .initial_message
                     .as_deref()
@@ -3564,7 +3564,7 @@ mod tests {
         match outcome {
             StartupOutcome::Launch(launch) => {
                 assert_eq!(launch.session_id.as_deref(), Some("task-session"));
-                assert_eq!(launch.agent, "debug");
+                assert_eq!(launch.agent, "bitfun-debug");
                 assert_eq!(launch.workspace.as_deref(), Some("D:\\workspace\\project"));
                 assert!(launch.initial_message.is_none());
                 let context = launch.context_messages.join("\n\n");
@@ -3586,7 +3586,7 @@ mod tests {
         match outcome {
             StartupOutcome::Launch(launch) => {
                 assert_eq!(launch.session_id, None);
-                assert_eq!(launch.agent, "debug");
+                assert_eq!(launch.agent, "bitfun-debug");
                 let context = launch.context_messages.join("\n\n");
                 assert!(context.contains("Task detail"));
                 assert!(context.contains("Review TUI task flow"));

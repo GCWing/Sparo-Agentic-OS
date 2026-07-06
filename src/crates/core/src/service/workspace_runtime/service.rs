@@ -3,8 +3,8 @@ use super::types::{
     WorkspaceRuntimeTarget, WORKSPACE_RUNTIME_LAYOUT_VERSION,
 };
 use crate::agentic::WorkspaceBinding;
-use crate::infrastructure::{get_path_manager_arc, PathManager};
 use crate::error::{CoreError, CoreResult};
+use crate::infrastructure::{get_path_manager_arc, PathManager};
 use log::debug;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
@@ -183,9 +183,8 @@ impl WorkspaceRuntimeService {
                 .collect(),
         };
 
-        let bytes = serde_json::to_vec_pretty(&state).map_err(|e| {
-            CoreError::service(format!("Failed to serialize runtime state: {}", e))
-        })?;
+        let bytes = serde_json::to_vec_pretty(&state)
+            .map_err(|e| CoreError::service(format!("Failed to serialize runtime state: {}", e)))?;
         tokio::fs::write(&context.layout_state_file, bytes)
             .await
             .map_err(|e| {
@@ -237,8 +236,7 @@ mod tests {
 
     #[tokio::test]
     async fn ensure_local_workspace_runtime_creates_complete_layout_without_project_dot_dir() {
-        let test_root =
-            std::env::temp_dir().join(format!("sparo-runtime-test-{}", Uuid::new_v4()));
+        let test_root = std::env::temp_dir().join(format!("sparo-runtime-test-{}", Uuid::new_v4()));
         let workspace_root = test_root.join("workspace");
         fs::create_dir_all(&workspace_root).expect("workspace should exist");
 
@@ -271,8 +269,7 @@ mod tests {
 
     #[tokio::test]
     async fn ensure_local_workspace_runtime_uses_verified_cache_on_repeat_calls() {
-        let test_root =
-            std::env::temp_dir().join(format!("sparo-runtime-test-{}", Uuid::new_v4()));
+        let test_root = std::env::temp_dir().join(format!("sparo-runtime-test-{}", Uuid::new_v4()));
         let workspace_root = test_root.join("workspace");
         fs::create_dir_all(&workspace_root).expect("workspace should exist");
 

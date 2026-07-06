@@ -1,9 +1,10 @@
 use super::{
-    Agent, AgenticAgent, AppStudioAgent, CodeReviewAgent, ComputerUseAgent, CoworkAgent,
-    DebugAgent, DeepResearchAgent, DesignAgent, DesignReviewAgent, ExploreAgent, FileFinderAgent,
-    FilerAgent, GenerateDocAgent, GlobalDailyReportAgent, GlobalMemoryConsolidatorAgent,
-    GlobalMilestoneAgent, HostScanAgent, InitAgent, OsAgent, OutcomeReviewAgent, PlanAgent,
-    TeamAgent, WorkspaceMemoryConsolidatorAgent, WorkspaceOverviewRefresherAgent,
+    Agent, AppBuilderAgent, BitFunCoderAgent, BitFunDebugAgent, BitFunPlanAgent, BitFunTeamAgent,
+    CodeReviewAgent, ComputerUseAgent, CoworkAgent, DailyLetterWriterAgent, DeepResearchAgent,
+    DesignAgent, DesignReviewAgent, ExploreAgent, FileFinderAgent, FilerAgent, GenerateDocAgent,
+    GlobalDailyReportAgent, GlobalMemoryConsolidatorAgent, GlobalMilestoneAgent, HostScanAgent,
+    InitAgent, OsAgent, OutcomeReviewAgent, RunnoAgent, WorkspaceMemoryConsolidatorAgent,
+    WorkspaceOverviewRefresherAgent,
 };
 use crate::agent_component::AgentComponentAgent;
 use crate::agentic::agents::custom_subagents::{
@@ -12,13 +13,13 @@ use crate::agentic::agents::custom_subagents::{
 use crate::agentic::tools::get_all_registered_tool_names;
 use crate::agentic::tools::implementations::skills::{get_skill_registry, SkillInfo};
 use crate::bridge_component::BridgeComponentAgent;
+use crate::error::{CoreError, CoreResult};
 use crate::service::config::agent_capability_config_canonicalizer::{
     resolve_effective_subagents, resolve_effective_tools,
 };
 use crate::service::config::global::GlobalConfigManager;
 use crate::service::config::types::{AgentCapabilityConfig, SubAgentConfig};
 use crate::service::config::GlobalConfig;
-use crate::error::{CoreError, CoreResult};
 use log::{debug, error, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -74,7 +75,7 @@ pub struct AgentInfo {
     pub is_readonly: bool,
     pub tool_count: usize,
     pub default_tools: Vec<String>,
-    /// whether enabled (agentic always true, other from configuration)
+    /// whether enabled (Runno always true, other from configuration)
     pub enabled: bool,
     /// subagent source, only subagent has value, used for frontend display
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -369,16 +370,16 @@ impl AgentRegistry {
 
         // Register built-in launchable agents
         let launchable_agents: Vec<Arc<dyn Agent>> = vec![
-            Arc::new(AgenticAgent::new()),
+            Arc::new(RunnoAgent::new()),
+            Arc::new(AppBuilderAgent::new()),
+            Arc::new(BitFunCoderAgent::new()),
             Arc::new(CoworkAgent::new()),
             Arc::new(DesignAgent::new()),
-            Arc::new(DebugAgent::new()),
-            Arc::new(PlanAgent::new()),
+            Arc::new(BitFunDebugAgent::new()),
+            Arc::new(BitFunPlanAgent::new()),
             Arc::new(OsAgent::new()),
             Arc::new(DeepResearchAgent::new()),
-            Arc::new(TeamAgent::new()),
-            Arc::new(AppStudioAgent::new()),
-            Arc::new(FilerAgent::new()),
+            Arc::new(BitFunTeamAgent::new()),
         ];
         for agent in launchable_agents {
             register(&mut agents, agent, AgentCategory::Agent, None);
@@ -404,6 +405,7 @@ impl AgentRegistry {
         // Register hidden agents
         let hidden_subagents: Vec<Arc<dyn Agent>> = vec![
             Arc::new(CodeReviewAgent::new()),
+            Arc::new(DailyLetterWriterAgent::new()),
             Arc::new(GenerateDocAgent::new()),
             Arc::new(GlobalDailyReportAgent::new()),
             Arc::new(GlobalMilestoneAgent::new()),
@@ -412,6 +414,7 @@ impl AgentRegistry {
             Arc::new(WorkspaceMemoryConsolidatorAgent::new()),
             Arc::new(GlobalMemoryConsolidatorAgent::new()),
             Arc::new(WorkspaceOverviewRefresherAgent::new()),
+            Arc::new(FilerAgent::new()),
         ];
         for hidden_agent in hidden_subagents {
             register(&mut agents, hidden_agent, AgentCategory::Hidden, None);
@@ -613,7 +616,7 @@ impl AgentRegistry {
     ) -> bool {
         match entry.category {
             AgentCategory::Agent => {
-                agent_type == "agentic"
+                agent_type == "Runno"
                     || agent_capability_config
                         .map(|config| config.enabled)
                         .unwrap_or(true)
@@ -768,7 +771,7 @@ impl AgentRegistry {
             .map(|e| {
                 let mut agent_info = AgentInfo::from_agent_entry(e);
                 let agent_type = &agent_info.id;
-                agent_info.enabled = if agent_type == "agentic" {
+                agent_info.enabled = if agent_type == "Runno" {
                     true
                 } else {
                     agent_capability_configs
@@ -783,12 +786,15 @@ impl AgentRegistry {
         result.sort_by(|a, b| {
             let order = |id: &str| -> u8 {
                 match id {
-                    "agentic" => 0,
-                    "Cowork" => 1,
-                    "Design" => 2,
-                    "AppStudio" => 3,
-                    "Plan" => 4,
-                    "debug" => 5,
+                    "Runno" => 0,
+                    "AppBuilder" => 1,
+                    "bitfun-coder" => 2,
+                    "bitfun-plan" => 3,
+                    "bitfun-debug" => 4,
+                    "bitfun-team" => 5,
+                    "Cowork" => 6,
+                    "Design" => 7,
+                    "DeepResearch" => 8,
                     _ => 99,
                 }
             };
@@ -1461,7 +1467,7 @@ impl AgentRegistry {
 
     /// Get the default agent type
     pub fn default_agent_type(&self) -> &str {
-        "agentic"
+        "Runno"
     }
 }
 
@@ -1485,13 +1491,15 @@ mod tests {
     #[test]
     fn builtin_agents_default_to_primary_model_selector() {
         for agent_type in [
-            "agentic",
+            "Runno",
+            "bitfun-coder",
+            "bitfun-plan",
+            "bitfun-debug",
+            "bitfun-team",
             "Cowork",
             "Design",
-            "Plan",
-            "debug",
             "OSAgent",
-            "AppStudio",
+            "AppBuilder",
         ] {
             assert_eq!(default_model_id_for_builtin_agent(agent_type), "primary");
         }

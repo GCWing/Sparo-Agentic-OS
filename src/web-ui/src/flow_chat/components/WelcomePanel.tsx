@@ -16,7 +16,7 @@ import {
   Gauge,
   type LucideIcon,
 } from 'lucide-react';
-import { AppStudioGlyph } from '@/app/scenes/apps/app-studio/AppStudioGlyph';
+import { AppBuilderGlyph } from '@/app/scenes/apps/app-builder/AppBuilderGlyph';
 import { createLogger } from '@/shared/utils/logger';
 import {
   getWorkspaceDisplayName,
@@ -35,14 +35,14 @@ import './WelcomePanel.css';
 
 const log = createLogger('WelcomePanel');
 
-type AppStudioPromptId = 'starter' | 'dashboard' | 'polish' | 'debug';
+type AppBuilderPromptId = 'starter' | 'dashboard' | 'polish' | 'debug';
 
-interface AppStudioPrompt {
-  id: AppStudioPromptId;
+interface AppBuilderPrompt {
+  id: AppBuilderPromptId;
   icon: LucideIcon;
 }
 
-const APP_STUDIO_PROMPTS: AppStudioPrompt[] = [
+const APP_BUILDER_PROMPTS: AppBuilderPrompt[] = [
   { id: 'starter', icon: AppWindow },
   { id: 'dashboard', icon: Gauge },
   { id: 'polish', icon: Palette },
@@ -188,10 +188,10 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
                   </span>
                   {greeting.title}
                 </>
-              ) : welcome.headingIcon === 'app-studio' ? (
+              ) : welcome.headingIcon === 'app-builder' ? (
                 <>
-                  <span className="welcome-panel__heading-icon welcome-panel__heading-icon--studio" aria-hidden>
-                    <AppStudioGlyph size={28} strokeWidth={1.5} />
+                  <span className="welcome-panel__heading-icon welcome-panel__heading-icon--builder" aria-hidden>
+                    <AppBuilderGlyph size={28} strokeWidth={1.5} />
                   </span>
                   {greeting.title}，{t(aiPartnerKey)}
                 </>
@@ -303,11 +303,11 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
           </div>
         )}
 
-        {welcome.promptPanel === 'app-studio' && (
-          <div className="welcome-panel__studio-prompts">
-            <div className="welcome-panel__studio-prompt-title">{t('welcome.appStudioPrompts.title')}</div>
-            <div className="welcome-panel__studio-prompt-grid">
-              {APP_STUDIO_PROMPTS.map((prompt) => {
+        {welcome.promptPanel === 'app-builder' && (
+          <div className="welcome-panel__builder-prompts">
+            <div className="welcome-panel__builder-prompt-title">{t('welcome.appBuilderPrompts.title')}</div>
+            <div className="welcome-panel__builder-prompt-grid">
+              {APP_BUILDER_PROMPTS.map((prompt) => {
                 const Icon = prompt.icon;
                 return (
                   <Button
@@ -315,18 +315,18 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
                     type="button"
                     variant="ghost"
                     size="small"
-                    className="welcome-panel__studio-prompt-card"
-                    onClick={() => handleQuickActionClick(t(`welcome.appStudioPrompts.items.${prompt.id}.prompt`))}
+                    className="welcome-panel__builder-prompt-card"
+                    onClick={() => handleQuickActionClick(t(`welcome.appBuilderPrompts.items.${prompt.id}.prompt`))}
                   >
-                    <span className="welcome-panel__studio-prompt-card-icon" aria-hidden>
+                    <span className="welcome-panel__builder-prompt-card-icon" aria-hidden>
                       <Icon size={17} />
                     </span>
-                    <span className="welcome-panel__studio-prompt-card-copy">
-                      <span className="welcome-panel__studio-prompt-card-title">
-                        {t(`welcome.appStudioPrompts.items.${prompt.id}.title`)}
+                    <span className="welcome-panel__builder-prompt-card-copy">
+                      <span className="welcome-panel__builder-prompt-card-title">
+                        {t(`welcome.appBuilderPrompts.items.${prompt.id}.title`)}
                       </span>
-                      <span className="welcome-panel__studio-prompt-card-desc">
-                        {t(`welcome.appStudioPrompts.items.${prompt.id}.description`)}
+                      <span className="welcome-panel__builder-prompt-card-desc">
+                        {t(`welcome.appBuilderPrompts.items.${prompt.id}.description`)}
                       </span>
                     </span>
                   </Button>

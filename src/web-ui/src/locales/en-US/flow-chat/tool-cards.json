@@ -342,9 +342,9 @@
     "labelPath": "path",
     "nameLabel": "App: {{name}}"
   },
-  "appStudio": {
+  "appBuilder": {
     "title": "Product App Surface",
-    "studioTitle": "App Studio",
+    "builderTitle": "App Builder",
     "recompile": "Recompile",
     "probe": "Probe",
     "matrix": "Matrix",
@@ -353,7 +353,7 @@
     "probeSummary": "{{fatal}} fatal · {{warning}} warning · {{noise}} noise",
     "matrixRequested": "Matrix requested",
     "matrixStates": "{{count}} states",
-    "openStudio": "Open App Studio"
+    "openBuilder": "Open App Builder"
   },
   "productAppValidation": {
     "title": "Validate",
@@ -381,7 +381,7 @@
     "failed": "failed",
     "warnings": "warnings",
     "check": "check",
-    "failedMessage": "Studio preview failed"
+    "failedMessage": "Builder preview failed"
   },
   "componentAuthoring": {
     "title": "Component Package",
@@ -425,8 +425,8 @@
     "fieldToolName": "tool name",
     "fieldSummary": "summary",
     "openAppsPanel": "Open Component Center",
-    "openStudioPanel": "Open in App Studio",
-    "previewPanelTitle": "App Studio"
+    "openBuilderPanel": "Open in App Builder",
+    "previewPanelTitle": "App Builder"
   },
   "bridgeCall": {
     "title": "Bridge",
@@ -896,7 +896,7 @@
     "startNewChat": "Start new chat...",
     "openSessionMenu": "Sessions & new",
     "moreMenu": "More",
-    "newCodeSessionItem": "BitFun Coder session",
+    "newBitfunCoderSessionItem": "BitFun Coder session",
     "newCoworkSessionItem": "Cowork Assistant session",
     "newDesignSessionItem": "Designer session"
   },

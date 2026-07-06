@@ -64,5 +64,9 @@
       ]
     }
   ],
-  "implementationRef": "app://builtin-ppt-live@150.0.0/surfaces/builtin-ppt-live-surface"
+  "implementationRef": "app://builtin-ppt-live@150.0.0/surfaces/builtin-ppt-live-surface",
+  "usesCapabilities": [
+    "session.read",
+    "component.run"
+  ]
 }

@@ -18,7 +18,7 @@ export type ComponentKind = 'surface' | 'agent' | 'bridge' | 'runtime' | 'tool' 
 export type ComponentSource = 'private' | 'shared';
 export type ComponentPackageSource = 'appPrivate' | 'shared';
 export type ComponentVisibility = 'appDependency' | 'developer' | 'hidden';
-export type ProductAppLaunchKind = 'agentSession' | 'applicationSurface' | 'appStudio';
+export type ProductAppLaunchKind = 'agentSession' | 'applicationSurface' | 'appBuilder';
 export type ProductAppLaunchScopeRequirement = 'systemAllowed' | 'workspaceOptional' | 'workspaceRequired';
 export type ProductAppRehearsalScenarioKind = 'user-path' | 'agent-chat' | 'capability' | 'release-gate';
 export type ProductAppRehearsalAction = 'open' | 'focus' | 'click' | 'type' | 'submit' | 'observe';
@@ -79,6 +79,7 @@ export interface AppComponentRef {
   role: string;
   version?: string | null;
   capabilities?: string[];
+  usesCapabilities?: string[];
 }
 
 export interface CapabilityRef {
@@ -109,6 +110,7 @@ export interface ComponentDefinition {
   ownerApp?: ComponentOwnerApp | null;
   capabilities?: CapabilityRef[];
   permissions?: PermissionSpec[];
+  usesCapabilities?: string[];
   usedByApps?: string[];
   visibility: ComponentVisibility;
   dependencies?: AppComponentRef[];
@@ -140,6 +142,21 @@ export interface ProductAppLaunch {
   scopeRequirement?: ProductAppLaunchScopeRequirement;
   agentType?: string | null;
   surfaceId?: string | null;
+}
+
+export interface AppLocalizedMetadata {
+  name?: string | null;
+  description?: string | null;
+  tags?: string[];
+}
+
+export interface AppI18n {
+  locales?: Record<string, AppLocalizedMetadata>;
+}
+
+export interface AppAuthor {
+  name: string;
+  url?: string | null;
 }
 
 export interface ProductAppRehearsalStep {
@@ -209,7 +226,8 @@ export interface AppDefinition {
   version: string;
   name: string;
   description: string;
-  goal: string;
+  authors?: AppAuthor[];
+  i18n?: AppI18n;
   interactionModel: AppInteractionModel;
   workMultiplicity?: AppWorkMultiplicity;
   workObjectKinds?: WorkObjectKind[];
@@ -220,6 +238,7 @@ export interface AppDefinition {
   components?: AppComponentRef[];
   componentLockId: string;
   permissions: AppPermissionSummary;
+  osCapabilities?: string[];
   installScope: AppInstallScope;
   catalogVisibility: AppCatalogVisibility;
   enabled: boolean;
@@ -309,7 +328,8 @@ export interface NativeAppCatalogEntry {
   id: string;
   name: string;
   description: string;
-  goal: string;
+  authors?: AppAuthor[];
+  i18n?: AppI18n;
   interactionModel: AppInteractionModel;
   workMultiplicity?: AppWorkMultiplicity;
   workObjectKinds?: WorkObjectKind[];
@@ -404,6 +424,83 @@ export interface ComponentRuntimeUsage {
 
 export function productAppCatalogLabel(app: ProductAppCatalogEntry): string {
   return app.name || app.id;
+}
+
+export interface ResolvedCatalogAppMeta {
+  name: string;
+  description: string;
+  tags: string[];
+}
+
+type CatalogAppMetadataSource = {
+  name: string;
+  description: string;
+  tags?: string[];
+  i18n?: AppI18n | null;
+};
+
+function localeCandidates(locale?: string): string[] {
+  const currentLocale = locale || (
+    typeof i18nService.getCurrentLocale === 'function'
+      ? i18nService.getCurrentLocale()
+      : 'en-US'
+  );
+  const normalized = currentLocale.replace('_', '-');
+  const language = normalized.split('-')[0];
+  const languageFallback = language === 'zh'
+    ? 'zh-CN'
+    : language === 'en'
+      ? 'en-US'
+      : undefined;
+  return Array.from(new Set([
+    currentLocale,
+    normalized,
+    languageFallback,
+    language,
+    'en-US',
+    'zh-CN',
+  ].filter((value): value is string => Boolean(value))));
+}
+
+function trimmed(value: string | null | undefined): string | undefined {
+  const next = value?.trim();
+  return next || undefined;
+}
+
+export function resolveCatalogAppMeta(
+  app: CatalogAppMetadataSource,
+  locale?: string,
+): ResolvedCatalogAppMeta {
+  const locales = app.i18n?.locales ?? {};
+  const localized = localeCandidates(locale)
+    .map((candidate) => locales[candidate])
+    .find(Boolean);
+
+  return {
+    name: trimmed(localized?.name) || app.name,
+    description: trimmed(localized?.description) || app.description,
+    tags: localized?.tags?.length ? localized.tags : app.tags ?? [],
+  };
+}
+
+export function localizeCatalogApp<T extends CatalogAppMetadataSource>(
+  app: T,
+  locale?: string,
+): T {
+  const meta = resolveCatalogAppMeta(app, locale);
+  return {
+    ...app,
+    name: meta.name,
+    description: meta.description,
+    tags: meta.tags,
+  };
+}
+
+export function localizeCatalogApps<T extends CatalogAppMetadataSource>(
+  apps: T[],
+  locale?: string,
+): T[] {
+  return apps.map((app) => localizeCatalogApp(app, locale));
 }
 
 const APP_CATALOG_CACHE_TTL_MS = 30_000;
@@ -614,7 +711,7 @@ export class AppCatalogAPI {
     if (!app) {
       throw new Error(`Installed Product App not found: ${appId}`);
     }
-    return app;
+    return localizeCatalogApp(app);
   }
 
   async setProductAppEnabled(app: ProductAppCatalogEntry, enabled: boolean): Promise<void> {

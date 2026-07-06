@@ -6,15 +6,15 @@
 //! - Supports streaming output and cancellation by request id
 
 use crate::api::app_state::AppState;
+use futures::StreamExt;
+use log::{debug, info, warn};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use sparo_core::agentic::markdown_coauthor::{
     build_proposal_prompt, normalize_proposal, proposal_system_prompt,
     MarkdownCoauthorPromptRequest, MarkdownDocumentProfile,
 };
 use sparo_core::util::types::message::Message as AIMessage;
-use futures::StreamExt;
-use log::{debug, info, warn};
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use tauri::{AppHandle, Emitter, State};
 
 #[derive(Debug, Clone, Serialize)]

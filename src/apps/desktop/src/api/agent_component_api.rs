@@ -1,6 +1,8 @@
 //! Agent Component API - implementation package management for Product App agent backends.
 
 use crate::api::app_state::AppState;
+use serde::Deserialize;
+use serde_json::{json, Value};
 use sparo_core::agent_component::{
     AgentComponentBridgeCapabilityRef, AgentComponentExample, AgentComponentInfo,
     AgentComponentJsToolManifest, AgentComponentLevel, AgentComponentManager,
@@ -9,8 +11,6 @@ use sparo_core::agent_component::{
 use sparo_core::agentic::tools::get_all_registered_tool_names;
 use sparo_core::agentic::tools::implementations::bridge_component_runtime_tool_name;
 use sparo_core::bridge_component::{BridgeComponentManager, BridgeComponentPackage};
-use serde::Deserialize;
-use serde_json::{json, Value};
 use std::path::PathBuf;
 use tauri::State;
 

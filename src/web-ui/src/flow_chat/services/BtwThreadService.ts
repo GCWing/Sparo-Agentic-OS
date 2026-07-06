@@ -109,7 +109,7 @@ export async function createBtwChildSession(params: {
     throw new Error(`Workspace path is required for BTW child session: ${parentSessionId}`);
   }
 
-  const agentType = params.agentType || (parentSession ? getBackendAgentType(parentSession.descriptor) : 'agentic');
+  const agentType = params.agentType || (parentSession ? getBackendAgentType(parentSession.descriptor) : 'Runno');
   const modelName = params.modelName || parentSession?.config?.modelName || 'default';
   const childSessionName = params.childSessionName.trim() || 'Side thread';
 

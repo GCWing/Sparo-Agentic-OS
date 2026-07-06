@@ -107,17 +107,17 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
     }
   }, [state?.layout, toggleRightPanel]);
 
-  // Read the current product app id for App Studio.
-  const storeStudioAppId = useProductAppRuntimeStore((s) =>
+  // Read the current product app id for App Builder.
+  const storeBuilderAppId = useProductAppRuntimeStore((s) =>
     activeSession?.sessionId ? s.sessionAppIds[activeSession.sessionId] : undefined
   );
   const agentSessionBinding = activeSession?.customMetadata?.agentSessionBinding;
   const activeSessionAppScope =
     agentSessionBinding?.scope ??
     workSessionScopeToAppScope(activeSession?.sessionId, works);
-  const studioAppId = agentSessionBinding?.subject.kind === 'product-app'
+  const builderAppId = agentSessionBinding?.subject.kind === 'product-app'
     ? agentSessionBinding.subject.id
-    : storeStudioAppId;
+    : storeBuilderAppId;
 
   /**
    * Expand right panel (set width first, then expand to avoid flicker).
@@ -198,8 +198,8 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
 
     // Map profile id -> tab title. Keeps the profile free of i18n imports.
     const extra: Record<string, unknown> = {
-      appId: studioAppId,
-      tabTitle: 'App Studio',
+      appId: builderAppId,
+      tabTitle: 'App Builder',
       agentSessionBinding,
       scope: activeSessionAppScope,
       productAppRuntime: activeSession.customMetadata?.productAppRuntime,
@@ -269,7 +269,7 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
     activeSessionAppScope,
     agentSessionBinding,
     secondaryGroup.tabs,
-    studioAppId,
+    builderAppId,
     switchToTab,
     tertiaryGroup.tabs,
     updateTabContent,
@@ -331,18 +331,18 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
   }, [activeSession?.sessionId, profile]);
 
   /**
-   * Non-AppStudio sessions: close any app-studio tabs that don't belong
+   * Non-AppBuilder sessions: close any app-builder tabs that don't belong
    * to the active session. This is the generalised replacement for the old
-   * closeForeignAppStudioTabs call.
+   * closeForeignAppBuilderTabs call.
    */
   useEffect(() => {
     if (!isInitializedRef.current) return;
     if (!activeSession?.sessionId) return;
 
-    // If the current profile owns app-studio tabs, don't clean them up.
-    if (profile.auxTabs.exclusiveTabTypes?.includes('app-studio')) return;
+    // If the current profile owns app-builder tabs, don't clean them up.
+    if (profile.auxTabs.exclusiveTabTypes?.includes('app-builder')) return;
 
-    // Otherwise, close any stray app-studio tabs from other sessions.
+    // Otherwise, close any stray app-builder tabs from other sessions.
     const maxPasses = 48;
     const groupIds: EditorGroupId[] = ['primary', 'secondary', 'tertiary'];
     for (let pass = 0; pass < maxPasses; pass++) {
@@ -356,8 +356,8 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
               ? store.secondaryGroup
               : store.tertiaryGroup;
         const tab = group?.tabs?.find((t: any) => {
-          if (t.content.type !== 'app-studio') return false;
-          const bound = t.content.metadata?.appStudioSessionId;
+          if (t.content.type !== 'app-builder') return false;
+          const bound = t.content.metadata?.appBuilderSessionId;
           return typeof bound === 'string' && bound !== activeSession.sessionId;
         });
         if (tab) {

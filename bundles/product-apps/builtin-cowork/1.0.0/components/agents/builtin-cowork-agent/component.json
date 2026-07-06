@@ -1,0 +1,57 @@
+{
+  "id": "builtin-cowork-agent",
+  "kind": "agent",
+  "name": "Cowork Agent",
+  "description": "Cowork backend agent for documents, spreadsheets, presentations, drafting, and structured office work.",
+  "packageSource": "appPrivate",
+  "ownerApp": {
+    "appId": "builtin-cowork",
+    "appVersion": "1.0.0"
+  },
+  "capabilities": [
+    {
+      "id": "office-work",
+      "title": "Office Work",
+      "description": "Clarify and structure office material into useful business artifacts.",
+      "actions": [
+        "clarify",
+        "plan"
+      ]
+    },
+    {
+      "id": "draft",
+      "title": "Draft",
+      "description": "Draft and revise documents and work artifacts.",
+      "actions": [
+        "draft",
+        "revise"
+      ]
+    }
+  ],
+  "permissions": [
+    {
+      "kind": "ai",
+      "summary": "Uses the Cowork agent.",
+      "scopes": [
+        "Cowork"
+      ]
+    }
+  ],
+  "usedByApps": [
+    "builtin-cowork"
+  ],
+  "visibility": "appDependency",
+  "dependencies": [],
+  "implementationRef": "agent://Cowork",
+  "usesCapabilities": [
+    "filesystem.read",
+    "filesystem.write",
+    "workspace.inspect",
+    "workspace.modify",
+    "session.read",
+    "session.write",
+    "memory.read",
+    "model.invoke",
+    "tool.invoke"
+  ]
+}

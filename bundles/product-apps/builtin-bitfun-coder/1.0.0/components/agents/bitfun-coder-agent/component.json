@@ -1,0 +1,98 @@
+{
+  "id": "bitfun-coder-agent",
+  "kind": "agent",
+  "name": "BitFun Coder Agent",
+  "description": "BitFun Coder backend agent family for coding, planning, debugging, and team delivery modes.",
+  "packageSource": "appPrivate",
+  "ownerApp": {
+    "appId": "builtin-bitfun-coder",
+    "appVersion": "1.0.0"
+  },
+  "capabilities": [
+    {
+      "id": "bitfun-code",
+      "title": "Code",
+      "description": "Implement, edit, automate, and verify workspace changes.",
+      "actions": [
+        "implement",
+        "verify",
+        "handoff"
+      ]
+    },
+    {
+      "id": "bitfun-plan",
+      "title": "Plan",
+      "description": "Clarify scope and create implementation plans.",
+      "actions": [
+        "plan",
+        "clarify"
+      ]
+    },
+    {
+      "id": "bitfun-debug",
+      "title": "Debug",
+      "description": "Diagnose and repair defects with evidence.",
+      "actions": [
+        "diagnose",
+        "fix",
+        "verify"
+      ]
+    },
+    {
+      "id": "bitfun-team",
+      "title": "Team",
+      "description": "Coordinate role-based software delivery.",
+      "actions": [
+        "coordinate",
+        "review",
+        "ship"
+      ]
+    }
+  ],
+  "permissions": [
+    {
+      "kind": "ai",
+      "summary": "Uses the BitFun Coder agent family.",
+      "scopes": [
+        "bitfun-coder",
+        "bitfun-plan",
+        "bitfun-debug",
+        "bitfun-team"
+      ]
+    },
+    {
+      "kind": "fs",
+      "summary": "Reads and edits workspace files through declared tools.",
+      "scopes": [
+        "{workspace}"
+      ]
+    },
+    {
+      "kind": "shell",
+      "summary": "Runs workspace commands for build, test, automation, and verification.",
+      "scopes": [
+        "workspace"
+      ]
+    }
+  ],
+  "usedByApps": [
+    "builtin-bitfun-coder"
+  ],
+  "visibility": "appDependency",
+  "dependencies": [],
+  "implementationRef": "agent://bitfun-coder",
+  "usesCapabilities": [
+    "filesystem.read",
+    "filesystem.write",
+    "terminal.run",
+    "process.spawn",
+    "git.read",
+    "git.write",
+    "workspace.inspect",
+    "workspace.modify",
+    "session.read",
+    "session.write",
+    "model.invoke",
+    "tool.invoke"
+  ]
+}

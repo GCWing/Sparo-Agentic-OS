@@ -3,9 +3,9 @@
 //! Intelligently matches and injects MCP resources into the agent context.
 
 use super::resource::ResourceAdapter;
+use crate::error::{CoreError, CoreResult};
 use crate::service::mcp::protocol::{MCPResource, MCPResourceContent};
 use crate::service::mcp::server::MCPServerManager;
-use crate::error::{CoreError, CoreResult};
 use log::{debug, info, warn};
 use serde_json::{json, Value};
 use std::cmp::Ordering;

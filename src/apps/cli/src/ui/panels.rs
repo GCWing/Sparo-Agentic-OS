@@ -1,4 +1,3 @@
-use sparo_core::command::agentic_os::AgenticOsSnapshot;
 use ratatui::{
     layout::{Alignment, Margin, Rect},
     style::Style,
@@ -6,6 +5,7 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Clear, List, ListItem, ListState, Paragraph},
     Frame,
 };
+use sparo_core::command::agentic_os::AgenticOsSnapshot;
 
 use super::commands::{filtered_commands, CommandScope, CommandSpec, PanelKind};
 use super::string_utils::{shell_arg, truncate_str};
@@ -1936,11 +1936,11 @@ fn snapshot_panel_count(kind: PanelKind, snapshot: Option<&AgenticOsSnapshot>) -
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ratatui::{backend::TestBackend, buffer::Buffer, style::Color, Terminal};
     use sparo_core::command::agentic_os::{
         AgenticOsAppRow, AgenticOsMemoryRow, AgenticOsSessionRow, AgenticOsSnapshot,
         AgenticOsTaskRow, AgenticOsWorkspaceRow,
     };
-    use ratatui::{backend::TestBackend, buffer::Buffer, style::Color, Terminal};
 
     fn sample_snapshot() -> AgenticOsSnapshot {
         AgenticOsSnapshot {
@@ -1960,7 +1960,7 @@ mod tests {
             }],
             tasks: vec![AgenticOsTaskRow {
                 title: "Fix bug".to_string(),
-                agent: "debug".to_string(),
+                agent: "bitfun-debug".to_string(),
                 status: "active".to_string(),
                 detail: "2 turns".to_string(),
                 session_id: Some("task-session".to_string()),
@@ -2328,7 +2328,7 @@ mod tests {
             Some("git feature/some-very-long-branch-name-that-keeps-going".to_string());
         snapshot.sessions[0].agent = "OSAgentWithAVeryLongAgentName".to_string();
         snapshot.tasks[0].status = "waiting-for-user-review".to_string();
-        snapshot.tasks[0].agent = "DebugAgentWithAVeryLongName".to_string();
+        snapshot.tasks[0].agent = "VeryLongBitFunDebugModeName".to_string();
         snapshot.tasks[0].session_id =
             Some("task-session-with-a-very-long-id-that-keeps-going".to_string());
         snapshot.apps[0].kind = "AGENT APP WITH LONG KIND".to_string();
@@ -2362,7 +2362,7 @@ mod tests {
         assert!(rendered.contains("..."));
         assert!(!rendered.contains("OSAgentWithAVeryLongAgentName"));
         assert!(!rendered.contains("waiting-for-user-review"));
-        assert!(!rendered.contains("DebugAgentWithAVeryLongName"));
+        assert!(!rendered.contains("VeryLongBitFunDebugModeName"));
         assert!(!rendered.contains("very-long-id-that-keeps-going"));
         assert!(!rendered.contains("AGENT APP WITH LONG KIND"));
         assert!(!rendered.contains("that-should-not-dominate-settings"));
@@ -2610,7 +2610,7 @@ mod tests {
         let mut overlay = OverlayState::panel(PanelKind::Tasks, sample_snapshot());
         let rendered = render_overlay_text(&mut overlay, CommandScope::Chat, 96, 18);
 
-        assert!(rendered.contains("active - debug - task-session"));
+        assert!(rendered.contains("active - bitfun-debug - task-session"));
         assert!(rendered.contains("Enter open task"));
 
         let mut overlay = OverlayState::panel(PanelKind::Workspaces, sample_snapshot());
@@ -2881,7 +2881,7 @@ mod tests {
         snapshot.sessions.push(AgenticOsSessionRow {
             id: "session-review".to_string(),
             title: "Review TUI panels".to_string(),
-            agent: "debug".to_string(),
+            agent: "bitfun-debug".to_string(),
             workspace: Some("D:\\workspace\\project".to_string()),
             parent_session_id: None,
             is_dispatch_task: true,
@@ -2890,7 +2890,7 @@ mod tests {
             last_active_at: 1_700_000_100_000,
         });
         let mut overlay = OverlayState::panel(PanelKind::Sessions, snapshot);
-        overlay.filter = "review debug".to_string();
+        overlay.filter = "review bitfun-debug".to_string();
 
         assert_eq!(panel_count(&overlay), 1);
         assert_eq!(selected_panel_data_index(&overlay), Some(1));

@@ -3,8 +3,8 @@
 /// Uses tokio::mpsc channel to send events to CLI TUI renderer
 use crate::traits::{TextChunk, ToolEventPayload, TransportAdapter};
 use async_trait::async_trait;
-use sparo_events::AgenticEvent;
 use serde::{Deserialize, Serialize};
+use sparo_events::AgenticEvent;
 use std::fmt;
 use tokio::sync::mpsc;
 

@@ -99,7 +99,7 @@ impl ToolRegistry {
         // AgentSession-level handoff remains available outside OSAgent Work management.
         self.register_tool(Arc::new(AgentHandoffTool::new()));
 
-        // Component authoring tools used by App Studio.
+        // Component authoring tools used by App Builder.
         self.register_tool(Arc::new(ListAgentComponentsTool));
         self.register_tool(Arc::new(GetAgentComponentTool));
         self.register_tool(Arc::new(CreateAgentComponentTool));
@@ -186,7 +186,7 @@ impl ToolRegistry {
         self.register_tool(Arc::new(GetProductAppPackageTool::new()));
         self.register_tool(Arc::new(UpdateProductAppPackageTool::new()));
         self.register_tool(Arc::new(RefreshProductAppLockTool::new()));
-        self.register_tool(Arc::new(ResolveStudioPreviewTargetTool::new()));
+        self.register_tool(Arc::new(ResolveBuilderPreviewTargetTool::new()));
         self.register_tool(Arc::new(CreateProductAppCheckpointTool::new()));
         self.register_tool(Arc::new(CompareProductAppRevisionsTool::new()));
         self.register_tool(Arc::new(CreateProductAppFromReleaseTemplateTool::new()));
@@ -195,7 +195,7 @@ impl ToolRegistry {
         self.register_tool(Arc::new(CreateProductAppReleaseTool::new()));
         self.register_tool(Arc::new(PublishProductAppReleaseTool::new()));
         self.register_tool(Arc::new(ValidateProductAppPackageTool::new()));
-        self.register_tool(Arc::new(RunStudioPreviewTool::new()));
+        self.register_tool(Arc::new(RunBuilderPreviewTool::new()));
 
         // ControlHub — unified browser/terminal/meta control entry point.
         // Local desktop and OS/system Computer Use is exposed as a dedicated tool.

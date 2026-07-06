@@ -1,7 +1,7 @@
 use super::manager::PersistenceManager;
 use crate::agentic::core::{Session, SessionKind};
-use crate::service::session::{DialogTurnData, SessionStatus};
 use crate::error::{CoreError, CoreResult};
+use crate::service::session::{DialogTurnData, SessionStatus};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map as JsonMap, Value as JsonValue};
 use std::path::Path;
@@ -289,7 +289,7 @@ mod tests {
 
         let mut source_session = Session::new(
             "Source Title".to_string(),
-            "agentic".to_string(),
+            "Runno".to_string(),
             Default::default(),
         );
         source_session.kind = SessionKind::Standard;
@@ -357,7 +357,7 @@ mod tests {
 
         assert_ne!(result.session_id, source_session.session_id);
         assert_eq!(result.session_name, "Source Title");
-        assert_eq!(result.agent_type, "agentic");
+        assert_eq!(result.agent_type, "Runno");
 
         let branched_turns = manager
             .load_session_turns(workspace.path(), &result.session_id)

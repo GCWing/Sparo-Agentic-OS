@@ -1,6 +1,7 @@
 import type {
   ProductAppHostSurface,
   ProductAppHostSurfaceInteraction,
+  ProductAppHostSurfaceInteractionChat,
   ProductAppHostSurfaceInteractionTab,
   ProductAppHostSurfaceInteractionText,
   ProductAppHostSurfaceMeta,
@@ -81,6 +82,28 @@ function fallbackTitleForTab(_type: ProductAppRuntimePanelType, appName: string,
   return routeLabel(route) || appName;
 }
 
+function resolveRuntimeChatMetadata(
+  app: ProductAppHostSurface | ProductAppHostSurfaceMeta
+): ProductAppHostSurfaceInteractionChat | undefined {
+  const chat = app.interaction?.chat;
+  if (!chat) return undefined;
+
+  const backendId = chat.backendId?.trim();
+  const declaredAgentComponentId = chat.agentComponentId?.trim();
+  const backend = backendId
+    ? app.backends?.find((candidate) => candidate.id === backendId)
+    : undefined;
+  const derivedAgentComponentId = backend?.kind === 'agentComponent'
+    ? backend.componentId.trim()
+    : undefined;
+
+  return {
+    ...chat,
+    backendId: backendId || chat.backendId,
+    agentComponentId: declaredAgentComponentId || derivedAgentComponentId || chat.agentComponentId,
+  };
+}
+
 function normalizeInteractionTab(
   tab: ProductAppHostSurfaceInteractionTab,
   appName: string,
@@ -154,7 +177,7 @@ export function buildProductAppRuntimeMetadata(
     scope,
     workspacePath: workspacePathFromAppScope(scope) ?? null,
     runtimeContext: options.runtimeContext ?? null,
-    chat: app.interaction?.chat as Record<string, unknown> | undefined,
+    chat: resolveRuntimeChatMetadata(app) as Record<string, unknown> | undefined,
     tabs,
   };
 }

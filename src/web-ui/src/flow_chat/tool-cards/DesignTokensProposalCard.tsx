@@ -289,7 +289,7 @@ export const DesignTokensProposalCard: React.FC<ToolCardProps> = ({ toolItem }) 
     return () => window.clearInterval(handle);
   }, [awaitingSelection]);
 
-  const openStudio = useCallback(() => {
+  const openBuilder = useCallback(() => {
     ideControl.panel.open('design-tokens-studio', {
       position: 'right',
       config: {
@@ -392,7 +392,7 @@ export const DesignTokensProposalCard: React.FC<ToolCardProps> = ({ toolItem }) 
                 type="button"
                 variant="ghost"
                 size="xs"
-                onClick={(e) => { e.stopPropagation(); openStudio(); }}
+                onClick={(e) => { e.stopPropagation(); openBuilder(); }}
                 aria-label={t('toolCards.designTokens.openTokensStudio')}
               >
                 <ExternalLink size={12} />
@@ -562,7 +562,7 @@ export const DesignTokensProposalCard: React.FC<ToolCardProps> = ({ toolItem }) 
               </Button>
             )
           ) : null}
-          <Button size="small" variant="ghost" type="button" onClick={openStudio}>
+          <Button size="small" variant="ghost" type="button" onClick={openBuilder}>
             <ExternalLink size={12} />
             {t('toolCards.designTokens.openInStudio')}
           </Button>

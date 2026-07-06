@@ -99,7 +99,7 @@ export const StandardFlowChatContainer: React.FC<StandardFlowChatContainerProps>
     () => {
       void (async () => {
         try {
-          useSessionModeStore.getState().setMode('code');
+          useSessionModeStore.getState().setMode('runno');
           await FlowChatManager.getInstance().createChatSession(
             { workspacePath: effectiveWorkspacePath || undefined },
             getDefaultSessionDescriptor()

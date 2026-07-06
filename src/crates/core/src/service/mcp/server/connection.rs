@@ -2,6 +2,7 @@
 //!
 //! Handles communication connections to MCP servers and request/response management.
 
+use crate::error::{CoreError, CoreResult};
 use crate::service::mcp::protocol::{
     create_initialize_request, create_ping_request, create_prompts_get_request,
     create_prompts_list_request, create_resources_list_request, create_resources_read_request,
@@ -10,7 +11,6 @@ use crate::service::mcp::protocol::{
     PromptsListResult, RemoteMCPTransport, ResourcesListResult, ResourcesReadResult,
     ToolsListResult,
 };
-use crate::error::{CoreError, CoreResult};
 use log::{debug, warn};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -208,10 +208,7 @@ impl MCPConnection {
     }
 
     /// Lists resources.
-    pub async fn list_resources(
-        &self,
-        cursor: Option<String>,
-    ) -> CoreResult<ResourcesListResult> {
+    pub async fn list_resources(&self, cursor: Option<String>) -> CoreResult<ResourcesListResult> {
         match &self.transport {
             TransportType::Local(_) => {
                 let request = create_resources_list_request(0, cursor);

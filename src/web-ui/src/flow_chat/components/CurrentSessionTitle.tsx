@@ -38,7 +38,7 @@ const CurrentSessionTitle: React.FC<CurrentSessionTitleProps> = ({ onCreateSessi
     }
   };
 
-  const newSessionLabel = t('session.newCode');
+  const newSessionLabel = t('session.newRunno');
 
   return (
     <div className="sparo-current-session-title">

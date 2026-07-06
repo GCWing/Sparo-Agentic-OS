@@ -1,13 +1,13 @@
 //! Bridge Component API - implementation adapter management for Product App bridge backends.
 
 use crate::api::app_state::AppState;
+use serde::Deserialize;
+use serde_json::{json, Value};
 use sparo_core::agentic::tools::registry::get_global_tool_registry;
 use sparo_core::bridge_component::{
     BridgeComponentConsumer, BridgeComponentConsumerKind, BridgeComponentManager,
     BridgeComponentManifest, BridgeComponentPackage, BridgeComponentRun, BridgeComponentRunResult,
 };
-use serde::Deserialize;
-use serde_json::{json, Value};
 use tauri::State;
 use uuid::Uuid;
 

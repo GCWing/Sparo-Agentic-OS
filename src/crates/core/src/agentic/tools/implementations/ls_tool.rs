@@ -6,8 +6,8 @@ use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
 };
 use crate::agentic::tools::workspace_paths::is_sparo_runtime_uri;
-use crate::service::filesystem::{format_directory_listing, list_directory_entries};
 use crate::error::{CoreError, CoreResult};
+use crate::service::filesystem::{format_directory_listing, list_directory_entries};
 use async_trait::async_trait;
 use chrono::{DateTime, Local};
 use serde_json::{json, Value};
@@ -249,10 +249,10 @@ Usage:
                 limit + 1
             );
 
-            let (stdout, _stderr, _exit_code) =
-                ws_shell.exec(&ls_cmd, Some(15_000)).await.map_err(|e| {
-                    CoreError::tool(format!("Failed to list remote directory: {}", e))
-                })?;
+            let (stdout, _stderr, _exit_code) = ws_shell
+                .exec(&ls_cmd, Some(15_000))
+                .await
+                .map_err(|e| CoreError::tool(format!("Failed to list remote directory: {}", e)))?;
 
             let mut file_lines = Vec::new();
             let mut dir_lines = Vec::new();
@@ -276,9 +276,10 @@ Usage:
                 shell_escape(&resolved.resolved_path),
                 shell_escape(&resolved.resolved_path)
             );
-            let (ls_output, _, _) = ws_shell.exec(&stat_cmd, Some(15_000)).await.map_err(|e| {
-                CoreError::tool(format!("Failed to list remote directory: {}", e))
-            })?;
+            let (ls_output, _, _) = ws_shell
+                .exec(&stat_cmd, Some(15_000))
+                .await
+                .map_err(|e| CoreError::tool(format!("Failed to list remote directory: {}", e)))?;
 
             let result_text = format!(
                 "Directory listing: {}\n\n{}",

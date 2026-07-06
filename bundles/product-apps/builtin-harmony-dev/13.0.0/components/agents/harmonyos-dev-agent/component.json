@@ -94,5 +94,17 @@
       ]
     }
   ],
-  "implementationRef": "app://builtin-harmony-dev@13.0.0/agents/harmonyos-dev-agent"
+  "implementationRef": "app://builtin-harmony-dev@13.0.0/agents/harmonyos-dev-agent",
+  "usesCapabilities": [
+    "filesystem.read",
+    "filesystem.write",
+    "terminal.run",
+    "process.spawn",
+    "workspace.inspect",
+    "workspace.modify",
+    "session.read",
+    "model.invoke",
+    "tool.invoke",
+    "component.run"
+  ]
 }

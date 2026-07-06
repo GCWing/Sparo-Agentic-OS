@@ -8,8 +8,8 @@ use tracing::info;
 
 mod config;
 
-use sparo_relay_server::{build_relay_router, DiskAssetStore, RoomManager, WebAssetStore};
 use config::RelayConfig;
+use sparo_relay_server::{build_relay_router, DiskAssetStore, RoomManager, WebAssetStore};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

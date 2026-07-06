@@ -8,7 +8,6 @@ function app(overrides: Partial<ProductAppCatalogEntry>): ProductAppCatalogEntry
     version: '19.0.0',
     name: 'Remotion Live',
     description: 'Preview and render Remotion compositions.',
-    goal: 'Work with Remotion projects.',
     interactionModel: 'interactiveWorkspace',
     workMultiplicity: 'singleton',
     workObjectKinds: [],

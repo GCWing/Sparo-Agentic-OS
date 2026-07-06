@@ -8,8 +8,8 @@ use crate::agentic::agents::{
     Agent, CustomSubagentConfig, PromptBuilder, PromptBuilderContext, RequestContextPolicy,
 };
 use crate::agentic::tools::implementations::bridge_component_runtime_tool_name;
-use crate::infrastructure::get_path_manager_arc;
 use crate::error::{CoreError, CoreResult};
+use crate::infrastructure::get_path_manager_arc;
 use async_trait::async_trait;
 use chrono::Utc;
 use log::warn;
@@ -857,9 +857,9 @@ impl BridgeComponentManager {
         command.stdout(Stdio::piped());
         command.stderr(Stdio::piped());
 
-        let mut child = command.spawn().map_err(|e| {
-            CoreError::Process(format!("Failed to start Bridge Component: {e}"))
-        })?;
+        let mut child = command
+            .spawn()
+            .map_err(|e| CoreError::Process(format!("Failed to start Bridge Component: {e}")))?;
         if let Some(mut stdin) = child.stdin.take() {
             stdin.write_all(&request_json).await?;
             stdin.write_all(b"\n").await?;
@@ -916,9 +916,7 @@ impl BridgeComponentManager {
 
             let exit_status = child.wait().await?;
             let stderr = stderr_task.await.map_err(|e| {
-                CoreError::Process(format!(
-                    "Failed to join Bridge Component stderr task: {e}"
-                ))
+                CoreError::Process(format!("Failed to join Bridge Component stderr task: {e}"))
             })??;
             Ok::<_, CoreError>((exit_status, events, final_output, event_failed, stderr))
         };
@@ -1129,9 +1127,7 @@ impl BridgeComponentManager {
 
 pub fn validate_bridge_component_id(id: &str) -> CoreResult<()> {
     if id.is_empty() {
-        return Err(CoreError::validation(
-            "Bridge Component id cannot be empty",
-        ));
+        return Err(CoreError::validation("Bridge Component id cannot be empty"));
     }
     let mut chars = id.chars();
     if !chars.next().is_some_and(|c| c.is_ascii_alphabetic()) {

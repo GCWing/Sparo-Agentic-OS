@@ -3,8 +3,8 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::infrastructure::PathManager;
 use crate::error::{CoreError, CoreResult};
+use crate::infrastructure::PathManager;
 
 use super::native::is_native_system_lifecycle_id;
 use super::{
@@ -58,6 +58,28 @@ pub async fn install_product_app_with_source(
     entry.uninstalled = false;
     entry.enabled = Some(true);
     entry.installed_from = installed_from;
+    save_catalog_state(path_manager, &state).await
+}
+
+pub(crate) async fn ensure_product_app_seed_installed(
+    path_manager: &PathManager,
+    app_id: &str,
+    app_version: &str,
+    installed_from: ProductAppCatalogSourceKind,
+) -> CoreResult<()> {
+    reject_native_system_lifecycle_target(app_id)?;
+    ensure_product_app_package_exists(path_manager, app_id, app_version).await?;
+    let mut state = load_catalog_state(path_manager).await?;
+    let entry = state
+        .apps
+        .entry(state_key(app_id, app_version))
+        .or_default();
+    entry.installed = Some(true);
+    entry.uninstalled = false;
+    if entry.enabled.is_none() {
+        entry.enabled = Some(true);
+    }
+    entry.installed_from = Some(installed_from);
     save_catalog_state(path_manager, &state).await
 }
 
@@ -418,10 +440,7 @@ fn reject_native_system_lifecycle_target(app_id: &str) -> CoreResult<()> {
 
 fn validate_catalog_identity(label: &str, value: &str) -> CoreResult<()> {
     if value.trim().is_empty() {
-        return Err(CoreError::validation(format!(
-            "{} cannot be empty",
-            label
-        )));
+        return Err(CoreError::validation(format!("{} cannot be empty", label)));
     }
     if !value
         .chars()

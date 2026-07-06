@@ -22,6 +22,7 @@ import {
   type StatusTone,
 } from '@/design-system';
 import type {
+  AppAuthor,
   AppComponentRef,
   AppManagementAction,
   ComponentDefinition,
@@ -161,6 +162,25 @@ function permissionEntries(
     key,
     enabled: Boolean(app.permissions?.[key]),
   }));
+}
+
+function visibleAuthors(authors?: AppAuthor[] | null): AppAuthor[] {
+  return (authors ?? []).filter((author) => author.name.trim().length > 0);
+}
+
+function renderAuthorList(authors: AppAuthor[]): React.ReactNode {
+  return authors.map((author, index) => (
+    <React.Fragment key={`${author.name}-${author.url ?? index}`}>
+      {index > 0 ? ', ' : null}
+      {author.url ? (
+        <a href={author.url} target="_blank" rel="noreferrer">
+          {author.name}
+        </a>
+      ) : (
+        author.name
+      )}
+    </React.Fragment>
+  ));
 }
 
 function hasManagementAction(app: ProductAppCatalogEntry, action: AppManagementAction): boolean {
@@ -571,6 +591,7 @@ export const AppDetailScene: React.FC<AppDetailSceneProps> = ({
   const { t } = useTranslation('scenes/apps');
   const isNative = appKind === 'native';
   const productApp = isNative ? null : app as ProductAppCatalogEntry;
+  const authors = useMemo(() => visibleAuthors(app.authors), [app.authors]);
   const launchBehavior = getCatalogAppLaunchBehavior(app);
   const appWorks = useMemo(() => works
     .filter((work) => workReferencesApp(work, app, appKind))
@@ -743,6 +764,16 @@ export const AppDetailScene: React.FC<AppDetailSceneProps> = ({
           <span>{t('productSystem.detail.summary.status')}</span>
           <strong>{headerStatusLabel}</strong>
         </div>
+        {authors.length ? (
+          <div className="app-detail-scene__summary-item">
+            <span>
+              {authors.length > 1
+                ? t('productSystem.fields.authors')
+                : t('productSystem.fields.author')}
+            </span>
+            <strong className="app-detail-scene__author-list">{renderAuthorList(authors)}</strong>
+          </div>
+        ) : null}
         <div className="app-detail-scene__summary-item">
           <span>{t('productSystem.fields.kind')}</span>
           <strong>{t(`productSystem.interaction.${app.interactionModel}`)}</strong>

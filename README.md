@@ -92,16 +92,18 @@ Sparo OS's Product Apps are first-class citizens, accessible and manageable from
 
 | App        | Positioning                  | Description                                                                                                                   |
 | ---------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **Code**   | For software development     | Built around Agentic, Plan, Debug, and Review workflows, covering implementation, planning, troubleshooting, and code review. |
-| **Cowork** | For office collaboration     | Suitable for organizing requirements, drafting content, and advancing day-to-day tasks and knowledge work.                    |
-| **Design** | For design exploration       | Used for HTML prototypes, visual artifacts, and design collaboration scenarios.                                               |
+| **Runno**  | OS execution unit            | Sparo OS's general execution unit: flexible, efficient, and strongly goal-oriented for handling all kinds of tasks.            |
+| **App Builder** | Intelligent app workshop | Build a personal intelligent app around your way of working by understanding your needs or existing apps, then recomposing features, workflows, and methods. |
+| **Code**   | High-completion Code Agent   | Delivered as BitFun Coder from the open-source community for implementation, debugging, refactoring, and software development work. |
+| **Cowork** | Office delivery              | An office delivery Agent for documents, spreadsheets, slides, and material organization, turning everyday work into polished output. |
+| **Design** | Product and UI design        | Turns ideas, requirements, and references into prototypes, interfaces, and visual directions.                                 |
 
 **Product Apps (interactive generated)**
 
 | App           | Positioning            | Description                                                                                                                  |
 | ------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| **PPT Live**  | AI deck creation        | Create an outline, generate designed slides, refine page content, preview, and export editable PPTX or shareable HTML.       |
-| **Spark Board** | AI collaborative ideation | A collaborative AI canvas for sparking ideas, clustering rough notes, and turning selected notes into send-ready drafts.   |
+| **PPT Live**  | Presentation studio     | Turns a topic into structure, slides, and speaking flow, producing an editable deck.                                          |
+| **Spark Board** | Thinking canvas       | Captures inspiration, organizes threads, and turns scattered ideas into drafts and next steps.                                |
 
 **Bridge Components (existing software bridge)**
 

@@ -383,7 +383,7 @@ impl Tool for TaskTool {
                 },
                 Some(effective_workspace_path),
                 None,
-                context.app_studio.clone(),
+                context.app_builder.clone(),
                 context.cancellation_token.as_ref(),
             )
             .await?;

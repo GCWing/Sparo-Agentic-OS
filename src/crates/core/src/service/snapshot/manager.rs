@@ -442,9 +442,7 @@ impl WrappedTool {
         context: &ToolUseContext,
     ) -> crate::error::CoreResult<Vec<ToolResult>> {
         let session_id = context.session_id.clone().ok_or_else(|| {
-            crate::error::CoreError::Tool(
-                "session_id is required in ToolUseContext".to_string(),
-            )
+            crate::error::CoreError::Tool("session_id is required in ToolUseContext".to_string())
         })?;
 
         let raw_path = match self.extract_file_path_simple(input) {

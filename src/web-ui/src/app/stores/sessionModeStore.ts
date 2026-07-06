@@ -2,15 +2,27 @@
  * sessionModeStore — tracks the active session creation mode.
  *
  * Session launch modes:
- *   - 'code'   → standard AI coding session (default)
- *   - 'cowork' → collaborative Cowork session
- *   - 'design' → dedicated Design session
- *   - 'appstudio' → App Studio session
+ *   - 'runno'              → Runno task session
+ *   - 'bitfun-coder'      → BitFun Coder task session
+ *   - 'cowork'            → collaborative Cowork session
+ *   - 'design'            → dedicated Design session
+ *   - 'deep-research'     → DeepResearch session
+ *   - 'agentic-os'        → OSAgent session
+ *   - 'app-builder'       → App Builder session
+ *   - 'productAppRuntime' → Product App runtime session
  */
 
 import { create } from 'zustand';
 
-export type SessionMode = 'code' | 'cowork' | 'design' | 'appstudio';
+export type SessionMode =
+  | 'runno'
+  | 'bitfun-coder'
+  | 'cowork'
+  | 'design'
+  | 'deep-research'
+  | 'agentic-os'
+  | 'app-builder'
+  | 'productAppRuntime';
 
 interface SessionModeState {
   mode: SessionMode;
@@ -18,6 +30,6 @@ interface SessionModeState {
 }
 
 export const useSessionModeStore = create<SessionModeState>((set) => ({
-  mode: 'code',
+  mode: 'runno',
   setMode: (mode) => set({ mode }),
 }));

@@ -9,14 +9,14 @@ use serde_json::{json, Value};
 
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
 use crate::agentic::tools::implementations::util::{
-    bound_app_studio_product_app_root, enforce_app_studio_package_write,
-    has_app_studio_session_context,
+    bound_app_builder_product_app_root, enforce_app_builder_package_write,
+    has_app_builder_session_context,
 };
 use crate::agentic::tools::implementations::work_tool_support::work_service_from_tool_context;
 use crate::agentic_os::work::{ArtifactRef, WorkId};
 use crate::agentic_os::work::{
-    WorkAppKind, WorkRecord, WorkService, WorkStudioFactCheck, WorkStudioFactStatus,
-    WorkStudioPreviewKind, WorkStudioPreviewResult, WorkStudioPreviewSource,
+    WorkAppKind, WorkBuilderFactCheck, WorkBuilderFactStatus, WorkBuilderPreviewKind,
+    WorkBuilderPreviewResult, WorkBuilderPreviewSource, WorkRecord, WorkService,
 };
 use crate::app_platform::{
     compare_product_app_revisions, create_product_app_checkpoint,
@@ -31,8 +31,8 @@ use crate::app_platform::{
     RestoreProductAppReleaseRequest, WrittenProductAppCheckpoint,
     WrittenProductAppFromReleaseTemplate, WrittenProductAppRelease,
 };
-use crate::infrastructure::{try_get_path_manager_arc, PathManager};
 use crate::error::{CoreError, CoreResult};
+use crate::infrastructure::{try_get_path_manager_arc, PathManager};
 
 pub struct CreateProductAppCheckpointTool;
 pub struct RestoreProductAppCheckpointTool;
@@ -135,7 +135,7 @@ impl Tool for CreateProductAppCheckpointTool {
     async fn description(&self) -> CoreResult<String> {
         Ok(r#"Create a stable Product App checkpoint artifact for the current package. The checkpoint verifies app.json, app.lock.json, and resolver lock consistency, records deterministic source file hashes, and writes checkpoints/<checkpoint_id>/checkpoint.json.
 
-Input: path, or app_id plus optional version for standalone checkpoints. In a bound AppStudio Product App session, leave package identity empty; the current package is always used. Optional work_id binds the checkpoint as a Work artifact. This is a draft checkpoint, not a release artifact, install, rollback, or share payload."#
+Input: path, or app_id plus optional version for standalone checkpoints. In a bound AppBuilder Product App session, leave package identity empty; the current package is always used. Optional work_id binds the checkpoint as a Work artifact. This is a draft checkpoint, not a release artifact, install, rollback, or share payload."#
             .to_string())
     }
 
@@ -169,7 +169,7 @@ Input: path, or app_id plus optional version for standalone checkpoints. In a bo
                     "description": "Optional Work id. When supplied, the checkpoint is bound as a Work artifact."
                 }
             },
-            "description": "Use path/app_id only for standalone checkpoints. Leave package identity empty in a bound AppStudio Product App session; the current package is used."
+            "description": "Use path/app_id only for standalone checkpoints. Leave package identity empty in a bound AppBuilder Product App session; the current package is used."
         })
     }
 
@@ -206,9 +206,7 @@ Input: path, or app_id plus optional version for standalone checkpoints. In a bo
             created_at_ms: now_ms(),
         })
         .await
-        .map_err(|e| {
-            CoreError::tool(format!("Failed to create Product App checkpoint: {}", e))
-        })?;
+        .map_err(|e| CoreError::tool(format!("Failed to create Product App checkpoint: {}", e)))?;
 
         let bound_work_id =
             bind_checkpoint_artifact(context, optional_string(input, "work_id"), &checkpoint)
@@ -219,7 +217,7 @@ Input: path, or app_id plus optional version for standalone checkpoints. In a bo
                 .await
         {
             warn!(
-                "Failed to bind Product App checkpoint to AppStudio session: session_id={:?}, checkpoint_id={}, error={}",
+                "Failed to bind Product App checkpoint to AppBuilder session: session_id={:?}, checkpoint_id={}, error={}",
                 context.session_id,
                 checkpoint.checkpoint_id,
                 error
@@ -266,7 +264,7 @@ impl Tool for RestoreProductAppCheckpointTool {
     async fn description(&self) -> CoreResult<String> {
         Ok(r#"Restore a Product App package from a checkpoint created by CreateProductAppCheckpoint. This overwrites package files and removes package files that are not present in the checkpoint snapshot; checkpoints, releases, node_modules, .git, and .sparo_os are excluded.
 
-Input: checkpoint_id and confirm=true. In a bound AppStudio Product App session, leave package identity empty; the current package is always used. This is destructive package editing and is not a release or rollback of installed user data."#
+Input: checkpoint_id and confirm=true. In a bound AppBuilder Product App session, leave package identity empty; the current package is always used. This is destructive package editing and is not a release or rollback of installed user data."#
             .to_string())
     }
 
@@ -334,9 +332,7 @@ Input: checkpoint_id and confirm=true. In a bound AppStudio Product App session,
             confirm,
         })
         .await
-        .map_err(|e| {
-            CoreError::tool(format!("Failed to restore Product App checkpoint: {}", e))
-        })?;
+        .map_err(|e| CoreError::tool(format!("Failed to restore Product App checkpoint: {}", e)))?;
 
         let result_text = format!(
             "Product App checkpoint restored for {}@{}. checkpoint_id: {}. restored_files={}, removed_files={}.",
@@ -375,7 +371,7 @@ impl Tool for RestoreProductAppReleaseTool {
     async fn description(&self) -> CoreResult<String> {
         Ok(r#"Restore a Product App package from an immutable release artifact created by CreateProductAppRelease. This overwrites package files and removes package files that are not present in the release source snapshot; checkpoints, releases, node_modules, .git, .sparo_os, and release catalog provenance are excluded.
 
-Input: release_id and confirm=true. In a bound AppStudio Product App session, leave package identity empty; the current package is always used. This is package rollback to a released source snapshot; it does not roll back installed user data, Work history, runtime storage, or private memory."#
+Input: release_id and confirm=true. In a bound AppBuilder Product App session, leave package identity empty; the current package is always used. This is package rollback to a released source snapshot; it does not roll back installed user data, Work history, runtime storage, or private memory."#
             .to_string())
     }
 
@@ -551,9 +547,7 @@ Input: base_kind plus base_id unless base_kind is current. Optional target_kind 
             target,
         })
         .await
-        .map_err(|e| {
-            CoreError::tool(format!("Failed to compare Product App revisions: {}", e))
-        })?;
+        .map_err(|e| CoreError::tool(format!("Failed to compare Product App revisions: {}", e)))?;
         let result_text = format!(
             "Product App revision comparison complete. changed={}, unchanged={}.",
             comparison.changed_count, comparison.unchanged_count
@@ -584,7 +578,7 @@ impl Tool for CreateProductAppFromReleaseTemplateTool {
     async fn description(&self) -> CoreResult<String> {
         Ok(r#"Create a new Product App package from an immutable release source snapshot. This copies only release package source files, rebases app id/name/version and app-private component ownership, writes a fresh component lock, and excludes Work history, runtime storage, user private data, checkpoints, releases, and catalog provenance.
 
-Input: release_id, new_app_id, name. Optional description, goal, version, path/app_id/version for standalone source release package resolution. In a bound AppStudio Product App session, leave source package identity empty; the current package is always used."#
+Input: release_id, new_app_id, name. Optional description, version, path/app_id/version for standalone source release package resolution. In a bound AppBuilder Product App session, leave source package identity empty; the current package is always used."#
             .to_string())
     }
 
@@ -621,10 +615,6 @@ Input: release_id, new_app_id, name. Optional description, goal, version, path/a
                 "description": {
                     "type": "string",
                     "description": "Optional new Product App description. Defaults to the release app description."
-                },
-                "goal": {
-                    "type": "string",
-                    "description": "Optional new Product App goal. Defaults to the release app goal."
                 },
                 "new_version": {
                     "type": "string",
@@ -673,7 +663,6 @@ Input: release_id, new_app_id, name. Optional description, goal, version, path/a
                 new_name: name,
                 new_version,
                 new_description: optional_string(input, "description"),
-                new_goal: optional_string(input, "goal"),
             })
             .await
             .map_err(|e| {
@@ -685,7 +674,7 @@ Input: release_id, new_app_id, name. Optional description, goal, version, path/a
 
         if let Err(error) = bind_template_session(context, &written).await {
             warn!(
-                "Failed to bind release template Product App to AppStudio session: session_id={:?}, app_id={}, error={}",
+                "Failed to bind release template Product App to AppBuilder session: session_id={:?}, app_id={}, error={}",
                 context.session_id,
                 written.app_id,
                 error
@@ -729,7 +718,7 @@ impl Tool for CreateProductAppReleaseTool {
     async fn description(&self) -> CoreResult<String> {
         Ok(r#"Create an immutable Product App release artifact from the current package. This tool requires a Work id whose derived release-rehearsal readiness is passed; it verifies the Work subject app id/version/component lock matches the current package before writing releases/<release_id>/release.json plus a package source snapshot.
 
-Input: work_id. Optional path/app_id/version for standalone release creation, plus label and notes. In a bound AppStudio Product App session, leave package identity empty; the current package is always used. This creates a release artifact only; it does not include Work history, runtime storage, user private data, or sensitive memory."#
+Input: work_id. Optional path/app_id/version for standalone release creation, plus label and notes. In a bound AppBuilder Product App session, leave package identity empty; the current package is always used. This creates a release artifact only; it does not include Work history, runtime storage, user private data, or sensitive memory."#
             .to_string())
     }
 
@@ -813,7 +802,7 @@ Input: work_id. Optional path/app_id/version for standalone release creation, pl
             bind_release_session(context, &release, label.as_deref(), notes.as_deref()).await
         {
             warn!(
-                "Failed to bind Product App release to AppStudio session: session_id={:?}, release_id={}, error={}",
+                "Failed to bind Product App release to AppBuilder session: session_id={:?}, release_id={}, error={}",
                 context.session_id,
                 release.release_id,
                 error
@@ -859,7 +848,7 @@ impl Tool for PublishProductAppReleaseTool {
     async fn description(&self) -> CoreResult<String> {
         Ok(r#"Publish an existing Product App release artifact into the local Product App catalog source. The release must already have passed CreateProductAppRelease readiness; this tool preserves the release source snapshot and component lock, writes release-source.json provenance, and makes the app discoverable/installable without including Work history, runtime storage, user private data, or sensitive memory.
 
-Input: release_id. Optional path/app_id/version for standalone publishing, plus work_id. In a bound AppStudio Product App session, leave package identity empty; the current package is always used."#
+Input: release_id. Optional path/app_id/version for standalone publishing, plus work_id. In a bound AppBuilder Product App session, leave package identity empty; the current package is always used."#
             .to_string())
     }
 
@@ -942,7 +931,7 @@ Input: release_id. Optional path/app_id/version for standalone publishing, plus 
         }
         if let Err(error) = bind_publish_session(context, &published).await {
             warn!(
-                "Failed to bind Product App catalog publish to AppStudio session: session_id={:?}, release_id={}, error={}",
+                "Failed to bind Product App catalog publish to AppBuilder session: session_id={:?}, release_id={}, error={}",
                 context.session_id,
                 published.release_id,
                 error
@@ -983,7 +972,7 @@ fn package_dir_from_input(
     path_manager: &PathManager,
     context: &ToolUseContext,
 ) -> CoreResult<PathBuf> {
-    if let Some(package_root) = bound_app_studio_product_app_root(context, operation_name)? {
+    if let Some(package_root) = bound_app_builder_product_app_root(context, operation_name)? {
         return Ok(package_root);
     }
 
@@ -1002,7 +991,7 @@ async fn package_dir_for_write_from_input(
     context: &ToolUseContext,
 ) -> CoreResult<PathBuf> {
     let package_dir = package_dir_from_input(input, operation_name, path_manager, context)?;
-    enforce_app_studio_package_write(context, package_dir.to_string_lossy().as_ref()).await?;
+    enforce_app_builder_package_write(context, package_dir.to_string_lossy().as_ref()).await?;
     Ok(package_dir)
 }
 
@@ -1012,10 +1001,7 @@ fn required_work_id(input: &Value) -> CoreResult<WorkId> {
         .map_err(|error| CoreError::validation(format!("Invalid work_id: {error}")))
 }
 
-async fn verify_work_matches_package(
-    record: &WorkRecord,
-    package_dir: &PathBuf,
-) -> CoreResult<()> {
+async fn verify_work_matches_package(record: &WorkRecord, package_dir: &PathBuf) -> CoreResult<()> {
     let Some(app_ref) = record.subject.app_ref() else {
         return Err(CoreError::validation(
             "CreateProductAppRelease requires a Product App Work subject".to_string(),
@@ -1056,7 +1042,7 @@ fn release_readiness_from_work(
         )
     })?;
 
-    if preview.status != WorkStudioFactStatus::Passed {
+    if preview.status != WorkBuilderFactStatus::Passed {
         return Err(CoreError::validation(format!(
             "CreateProductAppRelease requires release readiness passed, got {}",
             work_fact_status_string(preview.status)
@@ -1072,7 +1058,7 @@ fn release_readiness_from_work(
                     .to_string(),
             )
         })?;
-    if release_gate.status != WorkStudioFactStatus::Passed {
+    if release_gate.status != WorkBuilderFactStatus::Passed {
         return Err(CoreError::validation(format!(
             "CreateProductAppRelease requires releaseGate passed, got {}",
             work_fact_status_string(release_gate.status)
@@ -1081,7 +1067,7 @@ fn release_readiness_from_work(
     if let Some(check) = preview
         .checks
         .iter()
-        .find(|check| check.status != WorkStudioFactStatus::Passed)
+        .find(|check| check.status != WorkBuilderFactStatus::Passed)
     {
         return Err(CoreError::validation(format!(
             "CreateProductAppRelease requires every readiness check to pass. {}={}",
@@ -1105,18 +1091,18 @@ fn release_readiness_from_work(
     Ok(readiness)
 }
 
-fn latest_derived_release_rehearsal(record: &WorkRecord) -> Option<&WorkStudioPreviewResult> {
+fn latest_derived_release_rehearsal(record: &WorkRecord) -> Option<&WorkBuilderPreviewResult> {
     record
-        .studio_preview_results
+        .builder_preview_results
         .iter()
         .filter(|preview| {
-            preview.kind == WorkStudioPreviewKind::ReleaseRehearsal
-                && preview.source == WorkStudioPreviewSource::ReleaseRehearsal
+            preview.kind == WorkBuilderPreviewKind::ReleaseRehearsal
+                && preview.source == WorkBuilderPreviewSource::ReleaseRehearsal
         })
         .max_by_key(|preview| preview.observed_at)
 }
 
-fn release_check_from_work_check(check: &WorkStudioFactCheck) -> ProductAppReleaseCheck {
+fn release_check_from_work_check(check: &WorkBuilderFactCheck) -> ProductAppReleaseCheck {
     ProductAppReleaseCheck {
         id: check.id.clone(),
         status: work_fact_status_string(check.status).to_string(),
@@ -1124,17 +1110,17 @@ fn release_check_from_work_check(check: &WorkStudioFactCheck) -> ProductAppRelea
     }
 }
 
-fn work_fact_status_string(status: WorkStudioFactStatus) -> &'static str {
+fn work_fact_status_string(status: WorkBuilderFactStatus) -> &'static str {
     match status {
-        WorkStudioFactStatus::Passed => "passed",
-        WorkStudioFactStatus::Warning => "warning",
-        WorkStudioFactStatus::Failed => "failed",
-        WorkStudioFactStatus::NotRun => "notRun",
-        WorkStudioFactStatus::NotVerified => "notVerified",
-        WorkStudioFactStatus::Blocked => "blocked",
-        WorkStudioFactStatus::Running => "running",
-        WorkStudioFactStatus::Ready => "ready",
-        WorkStudioFactStatus::Waiting => "waiting",
+        WorkBuilderFactStatus::Passed => "passed",
+        WorkBuilderFactStatus::Warning => "warning",
+        WorkBuilderFactStatus::Failed => "failed",
+        WorkBuilderFactStatus::NotRun => "notRun",
+        WorkBuilderFactStatus::NotVerified => "notVerified",
+        WorkBuilderFactStatus::Blocked => "blocked",
+        WorkBuilderFactStatus::Running => "running",
+        WorkBuilderFactStatus::Ready => "ready",
+        WorkBuilderFactStatus::Waiting => "waiting",
     }
 }
 
@@ -1266,7 +1252,7 @@ async fn bind_checkpoint_session(
     label: Option<&str>,
     summary: Option<&str>,
 ) -> CoreResult<()> {
-    if !has_app_studio_session_context(context) {
+    if !has_app_builder_session_context(context) {
         return Ok(());
     }
     let Some(session_id) = context.session_id.as_deref() else {
@@ -1277,7 +1263,7 @@ async fn bind_checkpoint_session(
     };
 
     let patch = json!({
-        "appStudioFacts": {
+        "appBuilderFacts": {
             "versionSummary": {
                 "currentVersion": checkpoint.version,
                 "componentLockDigest": checkpoint.component_lock_digest,
@@ -1310,7 +1296,7 @@ async fn bind_release_session(
     label: Option<&str>,
     notes: Option<&str>,
 ) -> CoreResult<()> {
-    if !has_app_studio_session_context(context) {
+    if !has_app_builder_session_context(context) {
         return Ok(());
     }
     let Some(session_id) = context.session_id.as_deref() else {
@@ -1321,7 +1307,7 @@ async fn bind_release_session(
     };
 
     let patch = json!({
-        "appStudioFacts": {
+        "appBuilderFacts": {
             "versionSummary": {
                 "currentVersion": release.version,
                 "componentLockDigest": release.component_lock_digest,
@@ -1358,7 +1344,7 @@ async fn bind_publish_session(
     context: &ToolUseContext,
     published: &PublishedProductAppReleaseCatalogSource,
 ) -> CoreResult<()> {
-    if !has_app_studio_session_context(context) {
+    if !has_app_builder_session_context(context) {
         return Ok(());
     }
     let Some(session_id) = context.session_id.as_deref() else {
@@ -1369,7 +1355,7 @@ async fn bind_publish_session(
     };
 
     let patch = json!({
-        "appStudioFacts": {
+        "appBuilderFacts": {
             "versionSummary": {
                 "currentVersion": published.version,
                 "componentLockDigest": published.component_lock_digest,
@@ -1403,7 +1389,7 @@ async fn bind_template_session(
     context: &ToolUseContext,
     written: &WrittenProductAppFromReleaseTemplate,
 ) -> CoreResult<()> {
-    if !has_app_studio_session_context(context) {
+    if !has_app_builder_session_context(context) {
         return Ok(());
     }
     let Some(session_id) = context.session_id.as_deref() else {
@@ -1419,7 +1405,7 @@ async fn bind_template_session(
         "agentSessionBinding": {
             "schemaVersion": 1,
             "intent": {
-                "agentType": "AppStudio",
+                "agentType": "AppBuilder",
                 "mode": "edit"
             },
             "subject": {
@@ -1437,7 +1423,7 @@ async fn bind_template_session(
                 }
             },
             "surface": {
-                "contentType": "app-studio",
+                "contentType": "app-builder",
                 "title": format!("Edit {}", written.name),
                 "data": {
                     "appId": written.app_id,
@@ -1450,7 +1436,7 @@ async fn bind_template_session(
             "openedFrom": "CreateProductAppFromReleaseTemplate",
             "updatedAt": updated_at
         },
-        "appStudioFacts": {
+        "appBuilderFacts": {
             "subject": {
                 "kind": "product-app",
                 "appId": written.app_id,
@@ -1543,8 +1529,8 @@ fn now_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agentic::app_studio_context::{
-        AppStudioExecutionContext, AppStudioSubject, AppStudioSubjectScope,
+    use crate::agentic::app_builder_context::{
+        AppBuilderExecutionContext, AppBuilderSubject, AppBuilderSubjectScope,
     };
     use crate::agentic::tools::ToolRuntimeRestrictions;
     use crate::agentic_os::work::{
@@ -1552,15 +1538,15 @@ mod tests {
     };
     use std::collections::HashMap;
 
-    fn bound_context(package_root: PathBuf, subject: AppStudioSubject) -> ToolUseContext {
+    fn bound_context(package_root: PathBuf, subject: AppBuilderSubject) -> ToolUseContext {
         ToolUseContext {
             tool_call_id: None,
-            agent_type: Some("AppStudio".to_string()),
+            agent_type: Some("AppBuilder".to_string()),
             session_id: Some("session-1".to_string()),
             dialog_turn_id: None,
             workspace: None,
             custom_data: HashMap::new(),
-            app_studio: Some(AppStudioExecutionContext {
+            app_builder: Some(AppBuilderExecutionContext {
                 subject,
                 package_root: package_root.clone(),
                 allowed_write_roots: vec![package_root],
@@ -1585,11 +1571,11 @@ mod tests {
         let path_manager = PathManager::with_user_root_for_tests(base.clone());
         let context = bound_context(
             package_root.clone(),
-            AppStudioSubject::ProductApp {
+            AppBuilderSubject::ProductApp {
                 app_id: "current-app".to_string(),
                 version: "1.0.0".to_string(),
                 title: Some("Current App".to_string()),
-                scope: AppStudioSubjectScope::System,
+                scope: AppBuilderSubjectScope::System,
             },
         );
 
@@ -1617,12 +1603,12 @@ mod tests {
         let path_manager = PathManager::with_user_root_for_tests(base.clone());
         let context = bound_context(
             package_root,
-            AppStudioSubject::Component {
+            AppBuilderSubject::Component {
                 component_id: "shared".to_string(),
                 component_kind: "surfaces".to_string(),
                 version: "1.0.0".to_string(),
                 title: Some("Shared".to_string()),
-                scope: AppStudioSubjectScope::System,
+                scope: AppBuilderSubjectScope::System,
             },
         );
 
@@ -1647,11 +1633,11 @@ mod tests {
         let path_manager = PathManager::with_user_root_for_tests(base.clone());
         let context = bound_context(
             package_root,
-            AppStudioSubject::ProductApp {
+            AppBuilderSubject::ProductApp {
                 app_id: "current-app".to_string(),
                 version: "1.0.0".to_string(),
                 title: Some("Current App".to_string()),
-                scope: AppStudioSubjectScope::System,
+                scope: AppBuilderSubjectScope::System,
             },
         );
 
@@ -1670,8 +1656,8 @@ mod tests {
     fn release_readiness_from_work_accepts_passed_derived_release_rehearsal() {
         let mut record = release_work_record();
         record
-            .studio_preview_results
-            .push(release_rehearsal_preview(WorkStudioFactStatus::Passed));
+            .builder_preview_results
+            .push(release_rehearsal_preview(WorkBuilderFactStatus::Passed));
 
         let readiness = release_readiness_from_work(&record).expect("release readiness");
 
@@ -1686,9 +1672,9 @@ mod tests {
     #[test]
     fn release_readiness_from_work_rejects_missing_required_readiness_check() {
         let mut record = release_work_record();
-        let mut preview = release_rehearsal_preview(WorkStudioFactStatus::Passed);
+        let mut preview = release_rehearsal_preview(WorkBuilderFactStatus::Passed);
         preview.checks.retain(|check| check.id != "runtimeStorage");
-        record.studio_preview_results.push(preview);
+        record.builder_preview_results.push(preview);
 
         let error = release_readiness_from_work(&record)
             .expect_err("missing runtime evidence should fail")
@@ -1701,8 +1687,10 @@ mod tests {
     fn release_readiness_from_work_rejects_unpassed_release_gate() {
         let mut record = release_work_record();
         record
-            .studio_preview_results
-            .push(release_rehearsal_preview(WorkStudioFactStatus::NotVerified));
+            .builder_preview_results
+            .push(release_rehearsal_preview(
+                WorkBuilderFactStatus::NotVerified,
+            ));
 
         let error = release_readiness_from_work(&record)
             .expect_err("unpassed release gate should fail")
@@ -1755,36 +1743,36 @@ mod tests {
     }
 
     fn release_rehearsal_preview(
-        release_gate_status: WorkStudioFactStatus,
-    ) -> WorkStudioPreviewResult {
+        release_gate_status: WorkBuilderFactStatus,
+    ) -> WorkBuilderPreviewResult {
         let checks = [
-            ("validation", WorkStudioFactStatus::Passed),
-            ("preview", WorkStudioFactStatus::Passed),
-            ("issues", WorkStudioFactStatus::Passed),
-            ("criticalPath", WorkStudioFactStatus::Passed),
-            ("permissions", WorkStudioFactStatus::Passed),
-            ("data", WorkStudioFactStatus::Passed),
-            ("dataLifecycle", WorkStudioFactStatus::Passed),
-            ("dataSummary", WorkStudioFactStatus::Passed),
-            ("runtimeStorage", WorkStudioFactStatus::Passed),
-            ("runtimeDependencies", WorkStudioFactStatus::Passed),
-            ("agentEval", WorkStudioFactStatus::Passed),
-            ("userPath", WorkStudioFactStatus::Passed),
+            ("validation", WorkBuilderFactStatus::Passed),
+            ("preview", WorkBuilderFactStatus::Passed),
+            ("issues", WorkBuilderFactStatus::Passed),
+            ("criticalPath", WorkBuilderFactStatus::Passed),
+            ("permissions", WorkBuilderFactStatus::Passed),
+            ("data", WorkBuilderFactStatus::Passed),
+            ("dataLifecycle", WorkBuilderFactStatus::Passed),
+            ("dataSummary", WorkBuilderFactStatus::Passed),
+            ("runtimeStorage", WorkBuilderFactStatus::Passed),
+            ("runtimeDependencies", WorkBuilderFactStatus::Passed),
+            ("agentEval", WorkBuilderFactStatus::Passed),
+            ("userPath", WorkBuilderFactStatus::Passed),
             ("releaseGate", release_gate_status),
         ]
         .into_iter()
-        .map(|(id, status)| WorkStudioFactCheck {
+        .map(|(id, status)| WorkBuilderFactCheck {
             id: id.to_string(),
             status,
             detail: Some(format!("{id} evidence.")),
         })
         .collect::<Vec<_>>();
 
-        WorkStudioPreviewResult {
+        WorkBuilderPreviewResult {
             id: "preview:release-rehearsal:work_release_test".to_string(),
-            kind: WorkStudioPreviewKind::ReleaseRehearsal,
+            kind: WorkBuilderPreviewKind::ReleaseRehearsal,
             status: release_gate_status,
-            source: WorkStudioPreviewSource::ReleaseRehearsal,
+            source: WorkBuilderPreviewSource::ReleaseRehearsal,
             harness_mode: Some("release-rehearsal".to_string()),
             trigger_turn_id: None,
             detail: Some("Derived release rehearsal.".to_string()),

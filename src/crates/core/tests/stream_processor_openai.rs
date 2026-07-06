@@ -1,12 +1,12 @@
 mod common;
 
-use sparo_core::agentic::events::{AgenticEvent, ToolEventData};
 use common::sse_fixture_server::FixtureSseServerOptions;
 use common::stream_test_harness::{
     run_stream_fixture, run_stream_fixture_with_options, StreamFixtureProvider,
     StreamFixtureRunOptions,
 };
 use serde_json::json;
+use sparo_core::agentic::events::{AgenticEvent, ToolEventData};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn openai_fixture_keeps_collecting_tool_args_across_usage_chunks() {

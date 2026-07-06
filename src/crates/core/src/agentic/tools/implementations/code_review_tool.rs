@@ -3,8 +3,8 @@
 //! Used to get structured code review results.
 
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
-use crate::service::config::get_app_language_code;
 use crate::error::CoreResult;
+use crate::service::config::get_app_language_code;
 use async_trait::async_trait;
 use log::warn;
 use serde_json::{json, Value};

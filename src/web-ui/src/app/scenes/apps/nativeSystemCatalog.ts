@@ -1,6 +1,12 @@
 import type { AppIconSpec, NativeAppCatalogEntry } from '@/infrastructure/api/service-api/AppCatalogAPI';
 
 const NATIVE_ICON_BASE_PATH = '/native-app-icons';
+const SPARO_OS_AUTHORS = [
+  {
+    name: 'Sparo OS',
+    url: 'https://gcwing.github.io/Sparo-Agentic-OS/',
+  },
+];
 
 function nativeSystemIcon(assetId: string, fileName: string): AppIconSpec {
   return {
@@ -13,10 +19,24 @@ function nativeSystemIcon(assetId: string, fileName: string): AppIconSpec {
 
 export const NATIVE_SYSTEM_APP_CATALOG: NativeAppCatalogEntry[] = [
   {
-    id: 'prime-builder',
-    name: 'BitFun Coder',
-    description: 'Native default execution workspace for flexible implementation, debugging, automation, and verification.',
-    goal: 'Take a goal, choose the next action, execute, verify, and hand off the result.',
+    id: 'runno',
+    name: 'Runno',
+    description: "Sparo OS's general execution unit: flexible, efficient, and strongly goal-oriented for handling all kinds of tasks.",
+    authors: SPARO_OS_AUTHORS,
+    i18n: {
+      locales: {
+        'en-US': {
+          name: 'Runno',
+          description: "Sparo OS's general execution unit: flexible, efficient, and strongly goal-oriented for handling all kinds of tasks.",
+          tags: ['os', 'execution', 'general'],
+        },
+        'zh-CN': {
+          name: 'Runno',
+          description: 'Sparo OS 的通用执行单元，灵活、高效、目标感强，适合处理各种类型任务。',
+          tags: ['系统', '执行', '通用'],
+        },
+      },
+    },
     interactionModel: 'conversation',
     workMultiplicity: 'multiple',
     workObjectKinds: [],
@@ -27,110 +47,60 @@ export const NATIVE_SYSTEM_APP_CATALOG: NativeAppCatalogEntry[] = [
       shell: true,
       ai: true,
     },
-    icon: nativeSystemIcon('prime-builder', 'prime-builder-icon.png'),
+    icon: nativeSystemIcon('runno', 'runno-icon.png'),
+    category: 'system',
+    tags: ['os', 'execution', 'general'],
+    launch: {
+      kind: 'agentSession',
+      targetId: 'Runno',
+      scopeRequirement: 'workspaceOptional',
+      agentType: 'Runno',
+      surfaceId: null,
+    },
+    origin: 'nativeSystem',
+    availability: 'alwaysAvailable',
+    management: {
+      origin: 'nativeSystem',
+      actions: ['configure', 'resetState', 'hideFromHome'],
+    },
+  },
+  {
+    id: 'app-builder',
+    name: 'App Builder',
+    description: "Build a personal intelligent app around your way of working by understanding your needs or existing apps, then recomposing features, workflows, and methods.",
+    authors: SPARO_OS_AUTHORS,
+    i18n: {
+      locales: {
+        'en-US': {
+          name: 'App Builder',
+          description: "Build a personal intelligent app around your way of working by understanding your needs or existing apps, then recomposing features, workflows, and methods.",
+          tags: ['app-builder', 'intelligent-app', 'reuse'],
+        },
+        'zh-CN': {
+          name: 'App Builder',
+          description: '为你打造专属智能应用，理解需求或解析既有应用，重组功能、流程与方法，让应用更贴合你的工作方式。',
+          tags: ['应用构建', '智能应用', '复用'],
+        },
+      },
+    },
+    interactionModel: 'conversation',
+    workMultiplicity: 'multiple',
+    workObjectKinds: [],
+    truthSource: null,
+    primarySurfaceMode: 'chatPrimary',
+    permissions: {
+      fs: true,
+      shell: true,
+      ai: true,
+    },
+    icon: nativeSystemIcon('app-builder', 'app-builder-icon.png'),
     category: 'developer',
-    tags: ['native', 'coding', 'development'],
+    tags: ['app-builder', 'intelligent-app', 'reuse'],
     launch: {
-      kind: 'agentSession',
-      targetId: 'agentic',
-      scopeRequirement: 'workspaceOptional',
-      agentType: 'agentic',
-      surfaceId: null,
-    },
-    origin: 'nativeSystem',
-    availability: 'alwaysAvailable',
-    management: {
-      origin: 'nativeSystem',
-      actions: ['configure', 'resetState', 'hideFromHome'],
-    },
-  },
-  {
-    id: 'cowork',
-    name: 'Cowork',
-    description: 'Native collaboration workspace for documents, drafting, and structured multi-step work.',
-    goal: 'Clarify, plan, draft, revise, and package collaborative work with practical artifacts.',
-    interactionModel: 'conversation',
-    workMultiplicity: 'multiple',
-    workObjectKinds: [],
-    truthSource: null,
-    primarySurfaceMode: 'chatPrimary',
-    permissions: {
-      fs: true,
-      shell: true,
-      ai: true,
-    },
-    icon: nativeSystemIcon('cowork', 'cowork-icon.png'),
-    category: 'productivity',
-    tags: ['native', 'documents', 'collaboration'],
-    launch: {
-      kind: 'agentSession',
-      targetId: 'Cowork',
-      scopeRequirement: 'workspaceOptional',
-      agentType: 'Cowork',
-      surfaceId: null,
-    },
-    origin: 'nativeSystem',
-    availability: 'alwaysAvailable',
-    management: {
-      origin: 'nativeSystem',
-      actions: ['configure', 'resetState', 'hideFromHome'],
-    },
-  },
-  {
-    id: 'design',
-    name: 'Design',
-    description: 'Native design workspace for artifacts, prototypes, and visual systems.',
-    goal: 'Create and refine design artifacts, prototypes, and visual systems from a user brief.',
-    interactionModel: 'conversation',
-    workMultiplicity: 'multiple',
-    workObjectKinds: [],
-    truthSource: null,
-    primarySurfaceMode: 'chatPrimary',
-    permissions: {
-      fs: true,
-      shell: true,
-      ai: true,
-    },
-    icon: nativeSystemIcon('design', 'design-icon.png'),
-    category: 'creative',
-    tags: ['native', 'design', 'prototype'],
-    launch: {
-      kind: 'agentSession',
-      targetId: 'Design',
-      scopeRequirement: 'workspaceOptional',
-      agentType: 'Design',
-      surfaceId: null,
-    },
-    origin: 'nativeSystem',
-    availability: 'alwaysAvailable',
-    management: {
-      origin: 'nativeSystem',
-      actions: ['configure', 'resetState', 'hideFromHome'],
-    },
-  },
-  {
-    id: 'app-studio',
-    name: 'App Studio',
-    description: 'Native Product App creation and maintenance studio for package-first app design.',
-    goal: 'Create, inspect, and evolve Product App packages and their component graph.',
-    interactionModel: 'conversation',
-    workMultiplicity: 'multiple',
-    workObjectKinds: [],
-    truthSource: null,
-    primarySurfaceMode: 'chatPrimary',
-    permissions: {
-      fs: true,
-      shell: true,
-      ai: true,
-    },
-    icon: nativeSystemIcon('app-studio', 'app-studio-icon.png'),
-    category: 'developer',
-    tags: ['native', 'studio', 'product-app'],
-    launch: {
-      kind: 'appStudio',
-      targetId: 'AppStudio',
+      kind: 'appBuilder',
+      targetId: 'AppBuilder',
       scopeRequirement: 'systemAllowed',
-      agentType: 'AppStudio',
+      agentType: 'AppBuilder',
       surfaceId: null,
     },
     origin: 'nativeSystem',

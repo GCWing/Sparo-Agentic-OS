@@ -4,6 +4,7 @@ export type BackgroundProcessKind =
   | 'host_scan'
   | 'workspace_overview_refresh'
   | 'global_daily_report'
+  | 'daily_letter'
   | 'global_milestone';
 
 export type BackgroundProcessCategory = 'memory' | 'workspace' | 'report' | 'system';
@@ -39,7 +40,8 @@ export type BackgroundProcessPhase =
   | 'refreshing_workspace_overview'
   | 'consolidating_memory'
   | 'extracting_memory'
-  | 'generating_report';
+  | 'generating_report'
+  | 'writing_daily_letter';
 
 export type BackgroundProcessAction = 'run_now' | 'retry' | 'open_output' | 'open_settings';
 

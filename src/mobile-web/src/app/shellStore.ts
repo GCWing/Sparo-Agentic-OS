@@ -14,7 +14,7 @@ export type SceneId =
 
 export interface SessionContext {
   mode: string;
-  /** Raw agent_type string from backend, e.g. 'agentic', 'Design', 'Cowork', 'OSAgent' */
+  /** Raw agent_type string from backend, e.g. 'bitfun-coder', 'Design', 'Cowork', 'OSAgent' */
   agentType?: string;
   workspacePath?: string;
   workspaceDisplayName?: string;

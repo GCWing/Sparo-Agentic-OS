@@ -5,8 +5,8 @@ use std::time::Duration;
 
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use base64::Engine as _;
-use sparo_webdriver::platform::{print_page, PrintOptions};
 use serde::{Deserialize, Serialize};
+use sparo_webdriver::platform::{print_page, PrintOptions};
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 use uuid::Uuid;
 

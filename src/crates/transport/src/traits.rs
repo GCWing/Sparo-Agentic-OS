@@ -4,8 +4,8 @@
 /// - CLI (tokio::mpsc channels)
 /// - Tauri (app.emit events)
 use async_trait::async_trait;
-use sparo_events::AgenticEvent;
 use serde::{Deserialize, Serialize};
+use sparo_events::AgenticEvent;
 use std::fmt::Debug;
 
 /// Transport adapter trait - app surfaces implement this interface

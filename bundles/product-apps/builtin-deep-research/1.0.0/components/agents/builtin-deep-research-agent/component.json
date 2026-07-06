@@ -49,5 +49,15 @@
   ],
   "visibility": "appDependency",
   "dependencies": [],
-  "implementationRef": "agent://DeepResearch"
+  "implementationRef": "agent://DeepResearch",
+  "usesCapabilities": [
+    "browser.navigate",
+    "browser.inspect",
+    "session.read",
+    "session.write",
+    "memory.read",
+    "memory.write",
+    "model.invoke",
+    "tool.invoke"
+  ]
 }

@@ -21,6 +21,7 @@ import {
   type DropdownMenuEntry,
 } from '@/design-system';
 import type {
+  AppAuthor,
   AppManagementAction,
   ProductAppCatalogEntry,
 } from '@/infrastructure/api/service-api/AppCatalogAPI';
@@ -82,6 +83,53 @@ function appHasCatalogIssues(app: ProductAppCatalogEntry): boolean {
 
 function managementAppKey(app: Pick<ProductAppCatalogEntry, 'id' | 'version'>): string {
   return `${app.id}@${app.version}`;
+}
+
+function visibleAuthors(authors?: AppAuthor[] | null): AppAuthor[] {
+  return (authors ?? []).filter((author) => author.name.trim().length > 0);
+}
+
+function ManagementAuthorInline({
+  authors,
+  className = 'management-list__author',
+  t,
+}: {
+  authors?: AppAuthor[] | null;
+  className?: string;
+  t: ManagementListProps['t'];
+}) {
+  const visible = visibleAuthors(authors);
+  if (!visible.length) return null;
+
+  const label = visible.length > 1
+    ? t('productSystem.fields.authors')
+    : t('productSystem.fields.author');
+
+  return (
+    <span className={className} title={`${label}: ${visible.map((author) => author.name).join(', ')}`}>
+      <span>{label}</span>
+      <span className="management-list__author-separator" aria-hidden>·</span>
+      <span className="management-list__author-names">
+        {visible.map((author, index) => (
+          <React.Fragment key={`${author.name}-${author.url ?? index}`}>
+            {index > 0 ? ', ' : null}
+            {author.url ? (
+              <a
+                href={author.url}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(event) => event.stopPropagation()}
+              >
+                {author.name}
+              </a>
+            ) : (
+              <span>{author.name}</span>
+            )}
+          </React.Fragment>
+        ))}
+      </span>
+    </span>
+  );
 }
 
 export type ManageViewMode = 'list' | 'cards';
@@ -246,9 +294,10 @@ function ManagementRow({
             />
           </div>
           <span className="management-list__description">
-            {app.goal || app.description}
+            {app.description}
           </span>
           <div className="management-list__meta">
+            <ManagementAuthorInline authors={app.authors} t={t} />
             <Tag size="small" color="gray">
               {t(`productSystem.installScope.${app.installScope}`)}
             </Tag>
@@ -420,6 +469,11 @@ function ManagementCard({
             pulse={running && !disabled && !hasIssue}
           />
         </div>
+        <ManagementAuthorInline
+          authors={app.authors}
+          className="management-list__card-author"
+          t={t}
+        />
         <span className="management-list__card-meta">{buildCardMeta(app, t)}</span>
         {hasUpdate ? (
           <Tag size="small" color="blue" className="management-list__card-tag">

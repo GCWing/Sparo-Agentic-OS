@@ -3,13 +3,13 @@
 use std::path::PathBuf;
 
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
-use crate::agentic::tools::implementations::util::bound_app_studio_product_app_root;
+use crate::agentic::tools::implementations::util::bound_app_builder_product_app_root;
 use crate::app_platform::{
     list_installed_shared_components, AppSurfaceMode, AppWorkMultiplicity, ComponentKind,
     ProductAppLaunchKind, ProductAppResolver,
 };
-use crate::infrastructure::try_get_path_manager_arc;
 use crate::error::{CoreError, CoreResult};
+use crate::infrastructure::try_get_path_manager_arc;
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
@@ -36,7 +36,7 @@ impl Tool for ValidateProductAppPackageTool {
     async fn description(&self) -> CoreResult<String> {
         Ok(r#"Validate a Product App package without modifying it. Checks app.json, private components, primary surface, launch policy, component lock digest, permission boundary, data boundary, data lifecycle policy, user-path rehearsal contract, and package resolver consistency.
 
-Input: path, or app_id plus optional version for standalone validation. In a bound AppStudio session, leave input empty; the current bound Product App package is always used. Use this after meaningful Product App package edits and before final handoff. This is a package validation gate; preview/runtime/user-path/eval evidence still requires the platform preview and eval facts."#
+Input: path, or app_id plus optional version for standalone validation. In a bound AppBuilder session, leave input empty; the current bound Product App package is always used. Use this after meaningful Product App package edits and before final handoff. This is a package validation gate; preview/runtime/user-path/eval evidence still requires the platform preview and eval facts."#
             .to_string())
     }
 
@@ -58,7 +58,7 @@ Input: path, or app_id plus optional version for standalone validation. In a bou
                     "description": "Product App version. Defaults to 1.0.0 when app_id is used."
                 }
             },
-            "description": "Use path/app_id only for standalone validation. Leave empty in a bound AppStudio session; the current Product App package is used."
+            "description": "Use path/app_id only for standalone validation. Leave empty in a bound AppBuilder session; the current Product App package is used."
         })
     }
 
@@ -433,7 +433,7 @@ fn package_dir_from_input(
     context: &ToolUseContext,
 ) -> CoreResult<PathBuf> {
     if let Some(package_root) =
-        bound_app_studio_product_app_root(context, "ValidateProductAppPackage")?
+        bound_app_builder_product_app_root(context, "ValidateProductAppPackage")?
     {
         return Ok(package_root);
     }
@@ -473,8 +473,8 @@ fn optional_string(input: &Value, field: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agentic::app_studio_context::{
-        AppStudioExecutionContext, AppStudioSubject, AppStudioSubjectScope,
+    use crate::agentic::app_builder_context::{
+        AppBuilderExecutionContext, AppBuilderSubject, AppBuilderSubjectScope,
     };
     use crate::agentic::tools::ToolRuntimeRestrictions;
     use crate::infrastructure::PathManager;
@@ -483,17 +483,17 @@ mod tests {
     fn bound_context(package_root: PathBuf, app_id: &str, version: &str) -> ToolUseContext {
         ToolUseContext {
             tool_call_id: None,
-            agent_type: Some("AppStudio".to_string()),
+            agent_type: Some("AppBuilder".to_string()),
             session_id: Some("session-1".to_string()),
             dialog_turn_id: None,
             workspace: None,
             custom_data: HashMap::new(),
-            app_studio: Some(AppStudioExecutionContext {
-                subject: AppStudioSubject::ProductApp {
+            app_builder: Some(AppBuilderExecutionContext {
+                subject: AppBuilderSubject::ProductApp {
                     app_id: app_id.to_string(),
                     version: version.to_string(),
                     title: Some("Current App".to_string()),
-                    scope: AppStudioSubjectScope::System,
+                    scope: AppBuilderSubjectScope::System,
                 },
                 package_root: package_root.clone(),
                 allowed_write_roots: vec![package_root],
@@ -594,12 +594,12 @@ mod tests {
         let path_manager = PathManager::with_user_root_for_tests(base.clone());
         let context = ToolUseContext {
             tool_call_id: None,
-            agent_type: Some("agentic".to_string()),
+            agent_type: Some("Runno".to_string()),
             session_id: None,
             dialog_turn_id: None,
             workspace: None,
             custom_data: HashMap::new(),
-            app_studio: None,
+            app_builder: None,
             computer_use_host: None,
             cancellation_token: None,
             runtime_tool_restrictions: ToolRuntimeRestrictions::default(),

@@ -1,0 +1,98 @@
+{
+  "title": "Daily Letter",
+  "rail": {
+    "label": "Daily letter navigation",
+    "eyebrow": "Letters",
+    "today": "Today",
+    "todayEmpty": "No letter yet",
+    "empty": "No letters yet",
+    "allLetters": "All letters",
+    "filteredEmpty": "No letters match these filters.",
+    "total": "{{count}} letter(s)"
+  },
+  "states": {
+    "loading": "Loading letters",
+    "generating": "Writing...",
+    "noDate": "No date selected"
+  },
+  "messages": {
+    "loadFailed": "Failed to load daily letters.",
+    "generateFailed": "Failed to write today's letter.",
+    "generateNoSources": "There is not enough authorized context yet to write today's letter.",
+    "generateNoResult": "No new letter was written this time. Please try again later.",
+    "receiptFailed": "Failed to submit receipt.",
+    "sealFailed": "Failed to seal today's letter.",
+    "continuationFailed": "Failed to update the tomorrow cue."
+  },
+  "writing": {
+    "chip": "Writing",
+    "title": "Gathering today",
+    "body": "Quietly collecting what today really left behind, and writing it into a letter you can carry into tomorrow.",
+    "hint": "The letter will unfold here once it is ready. Feel free to keep working.",
+    "elapsed": "Writing for {{seconds}}s",
+    "elapsedMinutes": "Writing for {{minutes}}m {{seconds}}s"
+  },
+  "paper": {
+    "label": "Full letter",
+    "eyebrow": "Daily Letter",
+    "writtenAt": "Written at {{time}}",
+    "pending": "{{count}} memory suggestion(s) await your receipt",
+    "signature": "Your letter"
+  },
+  "actions": {
+    "generate": "Summon the letter",
+    "full": "Unfold the letter",
+    "receipt": "Give receipt",
+    "continueTomorrow": "Continue tomorrow",
+    "seal": "Seal today",
+    "close": "Close"
+  },
+  "date": {
+    "label": "Dates",
+    "from": "From",
+    "to": "To",
+    "clear": "Clear dates"
+  },
+  "scope": {
+    "agenticOs": "Global",
+    "workspace": "Workspace"
+  },
+  "empty": {
+    "title": "No letter has arrived yet",
+    "body": "When today has enough authorized context, Sparo can write a warm letter here.",
+    "loadingBody": "Looking for today's letters."
+  },
+  "status": {
+    "ready": "Ready",
+    "insufficient_context": "Quiet day",
+    "needs_receipt": "Receipt",
+    "sealed": "Sealed"
+  },
+  "receipt": {
+    "label": "Receipt suggestions",
+    "title": "For your receipt",
+    "empty": "Nothing needs your receipt in this letter.",
+    "accept": "Keep",
+    "edit": "Edit",
+    "dismiss": "Skip",
+    "editPrompt": "Adjust this memory before keeping it",
+    "editTitle": "Edit before keeping",
+    "status": {
+      "pending": "Waiting",
+      "accepted": "Kept",
+      "edited": "Edited",
+      "dismissed": "Skipped"
+    }
+  },
+  "next": {
+    "label": "Tomorrow cues",
+    "title": "Worth picking up tomorrow",
+    "empty": "No obvious follow-up was found.",
+    "remind": "Remind tomorrow",
+    "reminding": "Will remind"
+  },
+  "app": {
+    "label": "App idea",
+    "title": "P.S."
+  }
+}

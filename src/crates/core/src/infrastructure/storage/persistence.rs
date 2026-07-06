@@ -2,8 +2,8 @@
 //!
 //! Provides data persistence with JSON support
 
-use crate::infrastructure::{try_get_path_manager_arc, PathManager};
 use crate::error::*;
+use crate::infrastructure::{try_get_path_manager_arc, PathManager};
 use log::warn;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

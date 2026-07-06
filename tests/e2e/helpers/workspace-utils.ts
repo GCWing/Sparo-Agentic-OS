@@ -3,7 +3,7 @@
  */
 
 import { StartupPage } from '../page-objects/StartupPage';
-import { ensureCodeSessionOpen, openWorkspace } from './workspace-helper';
+import { ensureBitFunCoderSessionOpen, openWorkspace } from './workspace-helper';
 
 /**
  * Ensure a workspace is open for testing.
@@ -28,7 +28,7 @@ export async function ensureWorkspaceOpen(startupPage: StartupPage): Promise<boo
     if (!opened) {
       return false;
     }
-    await ensureCodeSessionOpen();
+    await ensureBitFunCoderSessionOpen();
     console.log('[WorkspaceUtils] Test workspace opened successfully');
     return true;
   } catch (error) {

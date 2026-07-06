@@ -1,8 +1,8 @@
 //! Shared validation, filter matching, and global→native pixel mapping for UI locate tools.
 
+use screenshots::display_info::DisplayInfo;
 use sparo_core::agentic::tools::computer_use_host::{UiElementLocateQuery, UiElementLocateResult};
 use sparo_core::error::{CoreError, CoreResult};
-use screenshots::display_info::DisplayInfo;
 
 pub fn validate_query(q: &UiElementLocateQuery) -> CoreResult<()> {
     // node_idx alone is enough: it short-circuits BFS via the per-pid AX cache.

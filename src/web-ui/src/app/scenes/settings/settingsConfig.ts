@@ -12,7 +12,7 @@ export type ConfigTab =
   | 'aiUsage'
   | 'dataStorage'
   | 'personalization'
-  | 'primeBuilder'
+  | 'bitfunCoder'
   | 'permissions'
   | 'memory'
   // | 'lsp' // temporarily hidden from config center
@@ -166,18 +166,16 @@ export const SETTINGS_CATEGORIES: ConfigCategoryDef[] = [
     ],
   },
   {
-    id: 'smartApps',
-    nameKey: 'categories.smartApps',
+    id: 'productApps',
+    nameKey: 'categories.productApps',
     tabs: [
       {
-        id: 'primeBuilder',
-        labelKey: 'tabs.primeBuilder',
-        descriptionKey: 'tabDescriptions.primeBuilder',
+        id: 'bitfunCoder',
+        labelKey: 'tabs.bitfunCoder',
+        descriptionKey: 'tabDescriptions.bitfunCoder',
         keywords: [
-          'prime builder',
-          'builder',
-          'constructor',
-          'coding app',
+          'bitfun coder',
+          'product app',
           'coding',
           'debug',
           'debug mode',
@@ -267,7 +265,7 @@ export function normalizeSettingsTab(section: string): ConfigTab {
   if (section === 'ai-usage' || section === 'usage' || section === 'token-usage') return 'aiUsage';
   if (section === 'data-storage' || section === 'storage' || section === 'reset' || section === 'cleanup') return 'dataStorage';
   if (section === 'session-config' || section === 'personal' || section === 'companion') return 'personalization';
-  if (section === 'prime-builder' || section === 'builder' || section === 'constructor' || section === 'coding-app' || section === 'debug-mode') return 'primeBuilder';
+  if (section === 'bitfun-coder' || section === 'debug-mode') return 'bitfunCoder';
   if (section === 'permission' || section === 'permissions' || section === 'computer-use' || section === 'tool-execution') return 'permissions';
   if (section === 'memory' || section === 'auto-memory' || section === 'auto_memory' || section === 'extract-memory') return 'memory';
   if (section === 'ai-context') return DEFAULT_SETTINGS_TAB;

@@ -4,9 +4,9 @@
 
 use super::connection::MCPConnection;
 use super::MCPServerConfig;
+use crate::error::{CoreError, CoreResult};
 use crate::service::mcp::protocol::{InitializeResult, MCPMessage, MCPServerInfo, MCPTransport};
 use crate::service::mcp::server::MCPServerTransport;
-use crate::error::{CoreError, CoreResult};
 use log::{debug, error, info, warn};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -486,8 +486,7 @@ mod tests {
 
     #[test]
     fn detect_auth_error_patterns() {
-        let unauthorized =
-            CoreError::Mcp("Handshake failed: Unauthorized (401)".to_string());
+        let unauthorized = CoreError::Mcp("Handshake failed: Unauthorized (401)".to_string());
         assert!(MCPServerProcess::is_auth_error(&unauthorized));
 
         let oauth_refresh = CoreError::Mcp(

@@ -5,7 +5,7 @@ description: Product App Tool Component development guidance. Use when creating,
 
 # Product App Tool Component Skill
 
-Use this skill when the Product App needs a structured callable capability that can be invoked by the app or its app-private Agent. A Tool Component is an app-private tool contract for one Product App unless the user explicitly asks for a reusable shared capability outside App Studio's default delivery boundary.
+Use this skill when the Product App needs a structured callable capability that can be invoked by the app or its app-private Agent. A Tool Component is an app-private tool contract for one Product App unless the user explicitly asks for a reusable shared capability outside App Builder's default delivery boundary.
 
 ## Development Boundary
 

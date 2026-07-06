@@ -58,8 +58,8 @@ const BtwSessionPanel = React.lazy(() =>
   }))
 );
 
-const AppStudioWorkbench = React.lazy(() =>
-  import('@/app/scenes/apps/app-studio/AppStudioWorkbench')
+const AppBuilderWorkbench = React.lazy(() =>
+  import('@/app/scenes/apps/app-builder/AppBuilderWorkbench')
 );
 
 const ProductAppRuntimePanel = React.lazy(() =>
@@ -563,32 +563,32 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
           </React.Suspense>
         );
 
-      case 'app-studio': {
-        const studioData = content.data || {};
-        const studioMetadata = content.metadata || {};
+      case 'app-builder': {
+        const builderData = content.data || {};
+        const builderMetadata = content.metadata || {};
         return (
-          <React.Suspense fallback={<PanelLoadingFallback>Loading App Studio...</PanelLoadingFallback>}>
-            <AppStudioWorkbench
-              sessionId={studioData.sessionId ?? null}
-              appId={studioData.appId}
-              componentId={studioData.componentId || studioMetadata.appStudioComponentId}
-              componentKind={studioData.componentKind || studioMetadata.appStudioComponentKind}
-              componentVersion={studioData.componentVersion || studioMetadata.componentVersion}
+          <React.Suspense fallback={<PanelLoadingFallback>Loading App Builder...</PanelLoadingFallback>}>
+            <AppBuilderWorkbench
+              sessionId={builderData.sessionId ?? null}
+              appId={builderData.appId}
+              componentId={builderData.componentId || builderMetadata.appBuilderComponentId}
+              componentKind={builderData.componentKind || builderMetadata.appBuilderComponentKind}
+              componentVersion={builderData.componentVersion || builderMetadata.componentVersion}
               componentPackageRoot={
-                studioData.componentPackageRoot ||
-                studioMetadata.componentPackageRoot ||
-                studioData.packageRoot ||
-                studioMetadata.packageRoot
+                builderData.componentPackageRoot ||
+                builderMetadata.componentPackageRoot ||
+                builderData.packageRoot ||
+                builderMetadata.packageRoot
               }
-              componentName={studioData.componentName || studioMetadata.componentName}
-              componentDescription={studioData.componentDescription || studioMetadata.componentDescription}
-              productAppFacts={studioData.productAppFacts || studioMetadata.productAppFacts}
+              componentName={builderData.componentName || builderMetadata.componentName}
+              componentDescription={builderData.componentDescription || builderMetadata.componentDescription}
+              productAppFacts={builderData.productAppFacts || builderMetadata.productAppFacts}
               scope={
-                studioData.scope ||
-                studioMetadata.appScope ||
-                studioData.agentSessionBinding?.scope ||
-                studioMetadata.agentSessionBinding?.scope ||
-                appScopeFromWorkspacePath(studioData.workspacePath)
+                builderData.scope ||
+                builderMetadata.appScope ||
+                builderData.agentSessionBinding?.scope ||
+                builderMetadata.agentSessionBinding?.scope ||
+                appScopeFromWorkspacePath(builderData.workspacePath)
               }
             />
           </React.Suspense>

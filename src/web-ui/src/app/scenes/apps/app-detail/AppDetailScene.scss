@@ -473,6 +473,30 @@
   }
 }
 
+.app-detail-scene__summary-item strong.app-detail-scene__author-list {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  flex-wrap: wrap;
+  overflow: visible;
+  white-space: normal;
+  font-weight: var(--ds-font-weight-normal, 400);
+
+  a {
+    color: var(--ds-color-accent);
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ds-focus-outline);
+      outline-offset: 2px;
+    }
+  }
+}
+
 .app-detail-scene__start-panel {
   display: flex;
   align-items: center;

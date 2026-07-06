@@ -22,9 +22,9 @@
 //! Permission enforcement here mirrors `worker_host.js` exactly so the security
 //! contract is identical regardless of the routing path.
 
+use crate::error::{CoreError, CoreResult};
 use crate::product_app_runtime_host_engine::permission_policy::resolve_policy;
 use crate::product_app_runtime_host_engine::types::ProductAppRuntimeHostPermissions;
-use crate::error::{CoreError, CoreResult};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};

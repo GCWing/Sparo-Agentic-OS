@@ -1,12 +1,12 @@
 //! File Workbench tools for agentic access to the Files scene context.
 
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext, ValidationResult};
+use crate::error::{CoreError, CoreResult};
 use crate::service::{
     get_files_context, plan_file_operations, FileOperationIntent, FileOperationPlan,
     FileOperationType, FilesContext, FilesContextScope, FilesContextSelectionKind,
     WorkbenchFileEntry, WorkbenchFileEntryKind, WorkbenchFileScope,
 };
-use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -52,9 +52,7 @@ fn session_id_from_input_or_context(
     input_session_id
         .or_else(|| context.session_id.clone())
         .filter(|value| !value.trim().is_empty())
-        .ok_or_else(|| {
-            CoreError::tool("A sessionId is required to read Files context".to_string())
-        })
+        .ok_or_else(|| CoreError::tool("A sessionId is required to read Files context".to_string()))
 }
 
 fn file_scope_from_context(context: &FilesContext) -> WorkbenchFileScope {
@@ -334,7 +332,7 @@ mod tests {
             dialog_turn_id: None,
             workspace: None,
             custom_data: std::collections::HashMap::new(),
-            app_studio: None,
+            app_builder: None,
             computer_use_host: None,
             cancellation_token: None,
             runtime_tool_restrictions: Default::default(),

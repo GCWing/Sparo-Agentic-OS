@@ -1,9 +1,9 @@
 mod common;
 
-use sparo_core::agentic::events::AgenticEvent;
 use common::stream_test_harness::{
     run_stream_fixture_with_options, StreamFixtureProvider, StreamFixtureRunOptions,
 };
+use sparo_core::agentic::events::AgenticEvent;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn anthropic_fixture_parses_inline_think_tags_inside_text_delta() {

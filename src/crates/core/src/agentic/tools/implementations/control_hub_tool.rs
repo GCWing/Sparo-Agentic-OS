@@ -733,9 +733,10 @@ Branch on `ok` and `error.code`, not on English messages.
                     .and_then(|v| v.as_bool())
                     .unwrap_or(true);
                 let page = CdpClient::create_page(port, url).await?;
-                let ws_url = page.web_socket_debugger_url.as_ref().ok_or_else(|| {
-                    CoreError::tool("New page has no WebSocket URL".to_string())
-                })?;
+                let ws_url = page
+                    .web_socket_debugger_url
+                    .as_ref()
+                    .ok_or_else(|| CoreError::tool("New page has no WebSocket URL".to_string()))?;
                 let client = CdpClient::connect(ws_url).await?;
                 let session = BrowserSession {
                     session_id: page.id.clone(),
@@ -766,9 +767,7 @@ Branch on `ok` and `error.code`, not on English messages.
                 let page_id = params
                     .get("page_id")
                     .and_then(|v| v.as_str())
-                    .ok_or_else(|| {
-                        CoreError::tool("switch_page requires 'page_id'".to_string())
-                    })?;
+                    .ok_or_else(|| CoreError::tool("switch_page requires 'page_id'".to_string()))?;
                 // Phase 2: by default ALSO surface the chosen tab in the
                 // user's actual browser window via `Page.bringToFront`. The
                 // legacy behavior only swapped the CDP session under the
@@ -782,30 +781,31 @@ Branch on `ok` and `error.code`, not on English messages.
 
                 let registry = browser_sessions();
                 let mut reused = false;
-                let session = if registry.set_default(page_id).await.is_ok() {
-                    reused = true;
-                    registry.get(Some(page_id)).await?
-                } else {
-                    let pages = CdpClient::list_pages(port).await?;
-                    let page = pages.iter().find(|p| p.id == page_id).ok_or_else(|| {
-                        CoreError::tool(format!("Page '{}' not found", page_id))
-                    })?;
-                    let ws_url = page.web_socket_debugger_url.as_ref().ok_or_else(|| {
-                        CoreError::tool("Page has no WebSocket URL".to_string())
-                    })?;
-                    let client = CdpClient::connect(ws_url).await?;
-                    let session = BrowserSession {
-                        session_id: page.id.clone(),
-                        port,
-                        client: Arc::new(client),
-                        state: Arc::new(BrowserSessionState::new()),
+                let session =
+                    if registry.set_default(page_id).await.is_ok() {
+                        reused = true;
+                        registry.get(Some(page_id)).await?
+                    } else {
+                        let pages = CdpClient::list_pages(port).await?;
+                        let page = pages.iter().find(|p| p.id == page_id).ok_or_else(|| {
+                            CoreError::tool(format!("Page '{}' not found", page_id))
+                        })?;
+                        let ws_url = page.web_socket_debugger_url.as_ref().ok_or_else(|| {
+                            CoreError::tool("Page has no WebSocket URL".to_string())
+                        })?;
+                        let client = CdpClient::connect(ws_url).await?;
+                        let session = BrowserSession {
+                            session_id: page.id.clone(),
+                            port,
+                            client: Arc::new(client),
+                            state: Arc::new(BrowserSessionState::new()),
+                        };
+                        let _ = BrowserActions::new(session.client.as_ref())
+                            .enable_observers()
+                            .await;
+                        registry.register(session.clone()).await;
+                        session
                     };
-                    let _ = BrowserActions::new(session.client.as_ref())
-                        .enable_observers()
-                        .await;
-                    registry.register(session.clone()).await;
-                    session
-                };
 
                 let mut activated = false;
                 let mut activate_warning: Option<String> = None;
@@ -1892,7 +1892,7 @@ mod control_hub_tests {
             dialog_turn_id: None,
             workspace: None,
             custom_data: std::collections::HashMap::new(),
-            app_studio: None,
+            app_builder: None,
             computer_use_host: None,
             cancellation_token: None,
             runtime_tool_restrictions: ToolRuntimeRestrictions::default(),

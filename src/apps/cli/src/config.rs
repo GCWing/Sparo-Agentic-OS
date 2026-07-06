@@ -3,12 +3,12 @@
 /// CLI uses core's GlobalConfig system directly (same as tauri version)
 /// Only CLI-specific configuration is kept here (UI, shortcuts, etc.)
 use anyhow::{Context, Result};
-use sparo_core::infrastructure::APP_CONFIG_DIR_NAME;
 use serde::{Deserialize, Serialize};
+use sparo_core::infrastructure::APP_CONFIG_DIR_NAME;
 use std::fs;
 use std::path::PathBuf;
 
-pub(crate) const DEFAULT_CLI_AGENT: &str = "agentic";
+pub(crate) const DEFAULT_CLI_AGENT: &str = "Runno";
 
 /// CLI configuration (contains only CLI-specific config)
 /// AI model configuration uses core's GlobalConfig

@@ -29,13 +29,13 @@
   "subtitleEveningAgenticOs": "白天的想法，今晚来实现。",
   "subtitleNightAgenticOs": "深夜出没的，都是认真的人。",
   "narrativeAgenticOs": "说出你想要的，我来让它发生。",
-  "aiPartnerAppStudio": "应用工作室",
-  "subtitleMorningAppStudio": "把一个目标做成带工作对象、界面和组件的 Product App",
-  "subtitleAfternoonAppStudio": "现在很适合梳理工作流、数据和交互模型",
-  "subtitleEveningAppStudio": "把白天的产品想法收束成一个可再次打开的应用包",
-  "subtitleNightAppStudio": "灵感正在线，给它一个能长期演进的产品边界",
-  "narrativeAppStudio": "描述你想创建的 Product App：谁会打开它、它管理什么工作对象、需要哪种交互模型，以及 AI 应如何协作。我会把应用身份和内部组件分清楚。",
-  "appStudioPrompts": {
+  "aiPartnerAppBuilder": "应用构建器",
+  "subtitleMorningAppBuilder": "把一个目标做成带工作对象、界面和组件的 Product App",
+  "subtitleAfternoonAppBuilder": "现在很适合梳理工作流、数据和交互模型",
+  "subtitleEveningAppBuilder": "把白天的产品想法收束成一个可再次打开的应用包",
+  "subtitleNightAppBuilder": "灵感正在线，给它一个能长期演进的产品边界",
+  "narrativeAppBuilder": "描述你想创建的 Product App：谁会打开它、它管理什么工作对象、需要哪种交互模型，以及 AI 应如何协作。我会把应用身份和内部组件分清楚。",
+  "appBuilderPrompts": {
     "title": "想创建什么样的 Product App？",
     "items": {
       "starter": {

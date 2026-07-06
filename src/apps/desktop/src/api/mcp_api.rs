@@ -1,16 +1,14 @@
 //! MCP API
 
 use crate::api::app_state::AppState;
-use sparo_core::service::mcp::auth::{
-    has_stored_oauth_credentials, MCPRemoteOAuthSessionSnapshot,
-};
+use serde::{Deserialize, Serialize};
+use sparo_core::service::mcp::auth::{has_stored_oauth_credentials, MCPRemoteOAuthSessionSnapshot};
 use sparo_core::service::mcp::config::MCPConfigService;
 use sparo_core::service::mcp::protocol::{
     MCPPrompt, MCPResource, PromptsGetResult, ResourcesReadResult,
 };
 use sparo_core::service::mcp::MCPServerType;
 use sparo_core::service::runtime::{RuntimeManager, RuntimeSource};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tauri::State;
 

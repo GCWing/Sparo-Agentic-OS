@@ -48,9 +48,7 @@ fn localized_control_type_string(elem: &IUIAutomationElement) -> String {
 }
 
 /// Foreground window root, then UIA RawViewWalker BFS.
-pub fn locate_ui_element_center(
-    query: &UiElementLocateQuery,
-) -> CoreResult<UiElementLocateResult> {
+pub fn locate_ui_element_center(query: &UiElementLocateQuery) -> CoreResult<UiElementLocateResult> {
     ui_locate_common::validate_query(query)?;
 
     if query.node_idx.is_some() {

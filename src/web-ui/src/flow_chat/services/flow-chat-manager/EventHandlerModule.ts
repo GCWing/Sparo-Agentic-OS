@@ -498,7 +498,7 @@ function handleSessionCreated(context: FlowChatContext, event: any): void {
   const { sessionId, sessionName, agentType } = event;
 
   const store = FlowChatStore.getInstance();
-  const descriptor = descriptorFromAgentType(agentType || 'agentic');
+  const descriptor = descriptorFromAgentType(agentType || 'Runno');
   const workspacePath = resolveExternalSessionWorkspacePath(context, event);
   const existing = store.getState().sessions.get(sessionId);
   if (existing) {
@@ -797,7 +797,7 @@ function handleImageAnalysisStarted(context: FlowChatContext, event: ImageAnalys
     store.addExternalSession(
       sessionId,
       'External Session',
-      descriptorFromAgentType('agentic'),
+      descriptorFromAgentType('Runno'),
       resolveExternalSessionWorkspacePath(context, event as any),
     );
     session = store.getState().sessions.get(sessionId);
@@ -963,7 +963,7 @@ function handleDialogTurnStarted(context: FlowChatContext, event: any): void {
     store.addExternalSession(
       sessionId,
       'External Session',
-      descriptorFromAgentType('agentic'),
+      descriptorFromAgentType('Runno'),
       resolveExternalSessionWorkspacePath(context, event),
     );
   }

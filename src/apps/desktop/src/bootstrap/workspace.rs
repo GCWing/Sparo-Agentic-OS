@@ -59,11 +59,10 @@ pub async fn initialize_agentic(
     let event_router = runtime.event_router.clone();
     let path_manager = runtime.persistence_manager.path_manager().clone();
 
-    let token_usage_subscriber = Arc::new(
-        sparo_core::service::token_usage::TokenUsageSubscriber::new(
+    let token_usage_subscriber =
+        Arc::new(sparo_core::service::token_usage::TokenUsageSubscriber::new(
             globals.token_usage_service.clone(),
-        ),
-    );
+        ));
     event_router.subscribe_internal(
         SUBSCRIBER_KEY_TOKEN_USAGE.to_string(),
         token_usage_subscriber,
@@ -111,10 +110,9 @@ pub async fn initialize_agentic(
     event_router.subscribe_internal(SUBSCRIBER_KEY_CRON_JOBS.to_string(), cron_subscriber);
     cron_service.start();
 
-    let host_auto_scan_service =
-        sparo_core::service::HostAutoScanService::new(coordinator.clone())
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to initialize host auto scan service: {}", e))?;
+    let host_auto_scan_service = sparo_core::service::HostAutoScanService::new(coordinator.clone())
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to initialize host auto scan service: {}", e))?;
     let _ =
         sparo_core::service::install_global_host_auto_scan_service(host_auto_scan_service.clone());
     let host_auto_scan_subscriber = Arc::new(
@@ -179,6 +177,12 @@ pub async fn initialize_agentic(
     );
     global_daily_report_service.start();
 
+    let daily_letter_service = sparo_core::service::DailyLetterService::new()
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to initialize daily letter service: {}", e))?;
+    let _ = sparo_core::service::install_global_daily_letter_service(daily_letter_service.clone());
+    daily_letter_service.start();
+
     let global_milestone_service =
         sparo_core::service::GlobalMilestoneService::new(coordinator.clone())
             .await
@@ -218,6 +222,7 @@ pub async fn initialize_agentic(
     log::info!("Workspace overview auto refresh service initialized and started");
     log::info!("Memory consolidation service initialized and started");
     log::info!("Global daily report service initialized and started");
+    log::info!("Daily letter service initialized and started");
     log::info!("Global milestone service initialized and started");
     log::info!("Stage-D agentic services ready");
 

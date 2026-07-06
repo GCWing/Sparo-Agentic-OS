@@ -7,6 +7,7 @@ use crate::agentic::core::{
     SessionState, SessionSummary,
 };
 use crate::agentic::memory::AutoMemoryState;
+use crate::error::{CoreError, CoreResult};
 use crate::infrastructure::PathManager;
 use crate::service::session::{
     DialogTurnData, SessionMetadata, SessionStatus, SessionTranscriptExport,
@@ -15,7 +16,6 @@ use crate::service::session::{
 };
 use crate::service::workspace_runtime::WorkspaceRuntimeService;
 use crate::service::workspace_session::{workspace_session_identity, LOCAL_WORKSPACE_SCOPE_HOST};
-use crate::error::{CoreError, CoreResult};
 use log::{info, warn};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -346,10 +346,7 @@ impl PersistenceManager {
         Ok(dir)
     }
 
-    async fn read_json_optional<T: DeserializeOwned>(
-        &self,
-        path: &Path,
-    ) -> CoreResult<Option<T>> {
+    async fn read_json_optional<T: DeserializeOwned>(&self, path: &Path) -> CoreResult<Option<T>> {
         if !path.exists() {
             return Ok(None);
         }
@@ -1068,9 +1065,7 @@ impl PersistenceManager {
             .collect()
     }
 
-    fn parse_transcript_turn_selector(
-        selector: &str,
-    ) -> CoreResult<ParsedTranscriptTurnSelector> {
+    fn parse_transcript_turn_selector(selector: &str) -> CoreResult<ParsedTranscriptTurnSelector> {
         let normalized = selector.trim();
         if normalized.is_empty() {
             return Err(CoreError::Validation(
@@ -1208,9 +1203,11 @@ impl PersistenceManager {
             .await
             .map_err(|e| CoreError::io(format!("Failed to read sessions root: {}", e)))?;
 
-        while let Some(entry) = entries.next_entry().await.map_err(|e| {
-            CoreError::io(format!("Failed to read session directory entry: {}", e))
-        })? {
+        while let Some(entry) = entries
+            .next_entry()
+            .await
+            .map_err(|e| CoreError::io(format!("Failed to read session directory entry: {}", e)))?
+        {
             let file_type = entry
                 .file_type()
                 .await
@@ -1324,11 +1321,7 @@ impl PersistenceManager {
             .await
     }
 
-    async fn remove_index_entry(
-        &self,
-        workspace_path: &Path,
-        session_id: &str,
-    ) -> CoreResult<()> {
+    async fn remove_index_entry(&self, workspace_path: &Path, session_id: &str) -> CoreResult<()> {
         let lock = self.get_session_index_lock(workspace_path).await;
         let _guard = lock.lock().await;
         self.remove_index_entry_locked(workspace_path, session_id)
@@ -1704,16 +1697,12 @@ impl PersistenceManager {
     }
 
     /// Delete session
-    pub async fn delete_session(
-        &self,
-        workspace_path: &Path,
-        session_id: &str,
-    ) -> CoreResult<()> {
+    pub async fn delete_session(&self, workspace_path: &Path, session_id: &str) -> CoreResult<()> {
         let dir = self.session_dir(workspace_path, session_id);
         if dir.exists() {
-            fs::remove_dir_all(&dir).await.map_err(|e| {
-                CoreError::io(format!("Failed to delete session directory: {}", e))
-            })?;
+            fs::remove_dir_all(&dir)
+                .await
+                .map_err(|e| CoreError::io(format!("Failed to delete session directory: {}", e)))?;
         }
 
         self.remove_index_entry(workspace_path, session_id).await?;

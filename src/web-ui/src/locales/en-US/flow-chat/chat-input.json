@@ -74,26 +74,28 @@
   "sendingToMain": "Main session: {{title}}",
   "sendingToBtw": "Side session: {{title}}",
   "agentDescriptions": {
-    "agentic": "BitFun Coder: takes goals, chooses the next action, and delivers verified workspace results",
-    "Plan": "Plan first, execute later — clarify requirements and create an implementation plan before coding",
-    "debug": "Evidence-driven systematic debugging: form hypotheses, gather runtime evidence, and fix with confidence",
+    "Runno": "Runno: native general execution for planning, automation, implementation, and verification",
+    "bitfun-coder": "BitFun Coder: builds, debugs, automates, and verifies software changes",
+    "bitfun-plan": "Plan: clarify requirements and create an implementation plan before coding",
+    "bitfun-debug": "Debug: diagnose code issues with evidence and focused repair steps",
+    "bitfun-team": "Team: coordinate software delivery through a team-style workflow",
     "Cowork": "Cowork Assistant: clarify first, track progress lightly, verify outcomes anytime",
     "Design": "Designer: create HTML prototypes, visual artifacts, and polished design deliverables",
     "ComputerUse": "Dedicated desktop automation agent for perceiving and operating apps, browsers, and OS UI",
     "DeepResearch": "Deep research with parallel sub-agents: dispatches multiple agents to investigate concurrently, producing comprehensive sourced reports",
-    "AppStudio": "App Studio: designs Product Apps with work objects, surfaces, components, and runtime feedback",
-    "Team": "Virtual engineering team: CEO, Eng Manager, Designer, QA Lead, Security Officer, Release Engineer — orchestrated through a full sprint workflow"
+    "AppBuilder": "App Builder: designs Product Apps with work objects, surfaces, components, and runtime feedback"
   },
   "agentNames": {
-    "agentic": "BitFun Coder",
-    "Plan": "Plan",
-    "debug": "Debug",
+    "Runno": "Runno",
+    "bitfun-coder": "BitFun Coder",
+    "bitfun-plan": "Plan",
+    "bitfun-debug": "Debug",
+    "bitfun-team": "Team",
     "Cowork": "Cowork Assistant",
     "Design": "Designer",
     "ComputerUse": "Computer Use",
     "DeepResearch": "Deep Research",
-    "AppStudio": "App Studio",
-    "Team": "Team"
+    "AppBuilder": "App Builder"
   },
   "openFolder": "Open folder…",
   "selectWorkspaceTitle": "Select workspace directory",

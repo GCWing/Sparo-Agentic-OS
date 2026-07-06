@@ -37,16 +37,19 @@ export function enrichAgentCapabilities(agent: AgentWithCapabilities): AgentWith
   const id = agent.id.toLowerCase();
   const name = agent.name.toLowerCase();
 
-  if (id === 'agentic') {
+  if (id === 'runno') {
+    return { ...agent, iconKey: 'rocket', capabilities: [{ category: 'Execution', level: 5 }, { category: 'Analysis', level: 4 }] };
+  }
+  if (id === 'bitfun-coder') {
     return { ...agent, iconKey: 'code2', capabilities: [{ category: 'Coding', level: 5 }, { category: 'Analysis', level: 4 }] };
   }
-  if (id === 'plan') {
+  if (id === 'bitfun-plan') {
     return { ...agent, iconKey: 'layers', capabilities: [{ category: 'Analysis', level: 5 }, { category: 'Documents', level: 3 }] };
   }
-  if (id === 'debug') {
+  if (id === 'bitfun-debug') {
     return { ...agent, iconKey: 'bug', capabilities: [{ category: 'Coding', level: 5 }, { category: 'Analysis', level: 3 }] };
   }
-  if (id === 'team') {
+  if (id === 'bitfun-team') {
     return { ...agent, iconKey: 'cpu', capabilities: [{ category: 'Analysis', level: 5 }, { category: 'Testing', level: 4 }] };
   }
   if (id === 'cowork') {
@@ -58,7 +61,7 @@ export function enrichAgentCapabilities(agent: AgentWithCapabilities): AgentWith
   if (id === 'deepresearch') {
     return { ...agent, capabilities: [{ category: 'Analysis', level: 5 }, { category: 'Documents', level: 4 }] };
   }
-  if (id === 'appstudio') {
+  if (id === 'appbuilder' || id === 'app-builder' || id === 'app_builder') {
     return { ...agent, capabilities: [{ category: 'Coding', level: 5 }, { category: 'Creative', level: 4 }] };
   }
 

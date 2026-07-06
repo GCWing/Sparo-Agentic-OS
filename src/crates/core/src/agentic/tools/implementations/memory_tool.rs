@@ -53,7 +53,7 @@ impl MemoryTool {
             .agent_type
             .as_deref()
             .filter(|value| !value.trim().is_empty())
-            .unwrap_or("agentic");
+            .unwrap_or("Runno");
 
         let workspace_root = context.workspace_root().ok_or_else(|| {
             CoreError::tool("Memory tool requires an active workspace".to_string())
@@ -73,9 +73,7 @@ impl MemoryTool {
         match scope {
             MemoryScope::WorkspaceProject => Ok(MemoryStoreTarget::WorkspaceProject(
                 context.workspace_root().ok_or_else(|| {
-                    CoreError::tool(
-                        "Workspace-scoped memory requires a workspace root".to_string(),
-                    )
+                    CoreError::tool("Workspace-scoped memory requires a workspace root".to_string())
                 })?,
             )),
             MemoryScope::GlobalAgenticOs => Ok(MemoryStoreTarget::GlobalAgenticOs),

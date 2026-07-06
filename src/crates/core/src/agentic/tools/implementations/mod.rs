@@ -7,6 +7,7 @@ pub mod ask_user_question_tool;
 pub mod bash_tool;
 pub mod bridge_call_tool;
 pub mod bridge_component_tools;
+pub mod builder_preview_tool;
 pub mod code_review_tool;
 pub mod component_package_tool;
 pub mod component_package_validation_tool;
@@ -50,7 +51,6 @@ pub mod session_history_tool;
 pub mod session_message_tool;
 pub mod skill_tool;
 pub mod skills;
-pub mod studio_preview_tool;
 pub mod task_tool;
 pub mod terminal_control_tool;
 pub mod todo_write_tool;
@@ -73,6 +73,7 @@ pub use bridge_component_tools::{
     CreateBridgeComponentTemplateTool, CreateBridgeComponentTool, GetBridgeComponentTool,
     ListBridgeComponentsTool, UpdateBridgeComponentTool, ValidateBridgeComponentPackageTool,
 };
+pub use builder_preview_tool::RunBuilderPreviewTool;
 pub use code_review_tool::CodeReviewTool;
 pub use component_package_tool::CreateComponentPackageTool;
 pub use component_package_validation_tool::ValidateComponentPackageTool;
@@ -106,7 +107,7 @@ pub use outcome_review_tool::OutcomeReviewTool;
 pub use playbook_tool::PlaybookTool;
 pub use product_app_authoring_tool::{
     CreateProductAppComponentTool, CreateProductAppTool, GetProductAppPackageTool,
-    RefreshProductAppLockTool, ResolveStudioPreviewTargetTool, UpdateProductAppPackageTool,
+    RefreshProductAppLockTool, ResolveBuilderPreviewTargetTool, UpdateProductAppPackageTool,
 };
 pub use product_app_checkpoint_tool::{
     CompareProductAppRevisionsTool, CreateProductAppCheckpointTool,
@@ -119,7 +120,6 @@ pub use session_control_tool::SessionControlTool;
 pub use session_history_tool::SessionHistoryTool;
 pub use session_message_tool::SessionMessageTool;
 pub use skill_tool::SkillTool;
-pub use studio_preview_tool::RunStudioPreviewTool;
 pub use task_tool::TaskTool;
 pub use terminal_control_tool::TerminalControlTool;
 pub use todo_write_tool::TodoWriteTool;

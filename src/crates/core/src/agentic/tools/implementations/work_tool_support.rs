@@ -4,8 +4,8 @@ use crate::agentic::tools::framework::ToolUseContext;
 use crate::agentic_os::work::{
     default_work_store, AgenticWorkRuntimeBridge, WorkOwnerRef, WorkRuntimeBridge, WorkService,
 };
-use crate::infrastructure::try_get_path_manager_arc;
 use crate::error::CoreResult;
+use crate::infrastructure::try_get_path_manager_arc;
 
 pub fn work_service_from_tool_context(context: &ToolUseContext) -> CoreResult<WorkService> {
     let store = default_work_store()?;

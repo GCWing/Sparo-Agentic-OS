@@ -6,9 +6,9 @@
 #[cfg(feature = "tauri-adapter")]
 use crate::traits::{TextChunk, ToolEventPayload, TransportAdapter};
 use async_trait::async_trait;
-use sparo_events::{agentic::SessionSurfaceMode, AgenticEvent};
 use log::warn;
 use serde_json::json;
+use sparo_events::{agentic::SessionSurfaceMode, AgenticEvent};
 use std::fmt;
 
 #[cfg(feature = "tauri-adapter")]

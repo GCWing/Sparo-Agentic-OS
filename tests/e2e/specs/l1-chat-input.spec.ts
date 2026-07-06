@@ -8,7 +8,7 @@ import { ChatPage } from '../page-objects/ChatPage';
 import { ChatInput } from '../page-objects/components/ChatInput';
 import { Header } from '../page-objects/components/Header';
 import { StartupPage } from '../page-objects/StartupPage';
-import { ensureCodeSessionOpen, openWorkspace } from '../helpers/workspace-helper';
+import { ensureBitFunCoderSessionOpen, openWorkspace } from '../helpers/workspace-helper';
 import { saveScreenshot, saveFailureScreenshot, saveStepScreenshot } from '../helpers/screenshot-utils';
 
 interface ComposerAgentSnapshot {
@@ -64,9 +64,9 @@ describe('L1 Chat Input Validation', () => {
 
     if (hasWorkspace) {
       try {
-        await ensureCodeSessionOpen();
+        await ensureBitFunCoderSessionOpen();
       } catch (error) {
-        console.error('[L1] Failed to ensure Code session is open:', error);
+        console.error('[L1] Failed to ensure BitFun Coder session is open:', error);
         hasWorkspace = false;
       }
     }
@@ -114,7 +114,7 @@ describe('L1 Chat Input Validation', () => {
       console.log('[L1] Placeholder text:', placeholder);
     });
 
-    it('composer action menu should expose and apply coding agent switches', async function () {
+    it('composer action menu should expose and apply BitFun Coder agent switches', async function () {
       if (!hasWorkspace) {
         this.skip();
         return;
@@ -133,7 +133,7 @@ describe('L1 Chat Input Validation', () => {
         timeoutMsg: 'Composer action menu did not open',
       });
 
-      for (const agentId of ['Plan', 'debug', 'Team']) {
+      for (const agentId of ['bitfun-plan', 'bitfun-debug', 'bitfun-team']) {
         const action = await $(`[data-testid="composer-action-agent:${agentId}"]`);
         await action.waitForExist({
           timeout: 5000,
@@ -141,7 +141,7 @@ describe('L1 Chat Input Validation', () => {
         });
       }
 
-      const planAction = await $('[data-testid="composer-action-agent:Plan"]');
+      const planAction = await $('[data-testid="composer-action-agent:bitfun-plan"]');
       await planAction.waitForClickable({
         timeout: 5000,
         timeoutMsg: 'Plan agent switch action was not clickable',
@@ -150,15 +150,15 @@ describe('L1 Chat Input Validation', () => {
 
       await browser.waitUntil(async () => {
         const snapshot = await getComposerAgentSnapshot();
-        return snapshot.activeAgentId === 'Plan' && snapshot.configAgentType === 'Plan';
+        return snapshot.activeAgentId === 'bitfun-plan' && snapshot.configAgentType === 'bitfun-plan';
       }, {
         timeout: 5000,
         timeoutMsg: 'Composer Plan switch did not update the active session agent',
       });
 
       const planSnapshot = await getComposerAgentSnapshot();
-      expect(planSnapshot.activeAgentId).toBe('Plan');
-      expect(planSnapshot.configAgentType).toBe('Plan');
+      expect(planSnapshot.activeAgentId).toBe('bitfun-plan');
+      expect(planSnapshot.configAgentType).toBe('bitfun-plan');
 
       const resetAgent = await $('[data-testid="composer-agent-reset"]');
       await resetAgent.waitForClickable({
@@ -169,13 +169,13 @@ describe('L1 Chat Input Validation', () => {
 
       await browser.waitUntil(async () => {
         const snapshot = await getComposerAgentSnapshot();
-        return snapshot.activeAgentId === 'agentic' && snapshot.configAgentType === 'agentic';
+        return snapshot.activeAgentId === 'bitfun-coder' && snapshot.configAgentType === 'bitfun-coder';
       }, {
         timeout: 5000,
         timeoutMsg: 'Composer agent reset did not restore the default agent',
       });
 
-      console.log('[L1] Composer action menu applies coding agent switches');
+      console.log('[L1] Composer action menu applies BitFun Coder agent switches');
     });
   });
 

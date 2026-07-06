@@ -1,12 +1,12 @@
 //! CreateComponentPackage tool - create shared Component packages.
 
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
-use crate::agentic::tools::implementations::util::has_app_studio_session_context;
+use crate::agentic::tools::implementations::util::has_app_builder_session_context;
 use crate::app_platform::{
     create_component_package, ComponentKind, CreateComponentPackageDraft, WrittenComponentPackage,
 };
-use crate::infrastructure::try_get_path_manager_arc;
 use crate::error::{CoreError, CoreResult};
+use crate::infrastructure::try_get_path_manager_arc;
 use async_trait::async_trait;
 use log::warn;
 use serde_json::{json, Value};
@@ -33,7 +33,7 @@ impl Tool for CreateComponentPackageTool {
     }
 
     async fn description(&self) -> CoreResult<String> {
-        Ok(r#"Create a shared Component Package through App Studio component authoring.
+        Ok(r#"Create a shared Component Package through App Builder component authoring.
 
 Supports the final component kinds: surface, agent, bridge, runtime, tool, and skill. The result is a reusable component package under the system component package root. Components are not Product Apps and do not enter the App Catalog until referenced by a Product App lock."#
             .to_string())
@@ -68,7 +68,7 @@ Supports the final component kinds: surface, agent, bridge, runtime, tool, and s
                 },
                 "implementation_ref": {
                     "type": "string",
-                    "description": "Optional runtime implementation reference for shared components, for example skill://foo, agent://agentic, or bundle://bridge-components/foo. Product App private surfaces use app://... refs inside Product App packages."
+                    "description": "Optional runtime implementation reference for shared components, for example skill://foo, agent://Runno, or bundle://bridge-components/foo. Product App private surfaces use app://... refs inside Product App packages."
                 }
             }
         })
@@ -135,7 +135,7 @@ Supports the final component kinds: surface, agent, bridge, runtime, tool, and s
         .await
         {
             warn!(
-                "Failed to bind created Component package to AppStudio session: session_id={:?}, component_id={}, error={}",
+                "Failed to bind created Component package to AppBuilder session: session_id={:?}, component_id={}, error={}",
                 context.session_id,
                 written.component_id,
                 error
@@ -177,7 +177,7 @@ async fn bind_created_component_session(
     written: &WrittenComponentPackage,
     binding: CreatedComponentSessionBinding<'_>,
 ) -> CoreResult<()> {
-    if !has_app_studio_session_context(context) {
+    if !has_app_builder_session_context(context) {
         return Ok(());
     }
     let Some(session_id) = context.session_id.as_deref() else {
@@ -204,7 +204,7 @@ fn created_component_session_metadata_patch(
         "agentSessionBinding": {
             "schemaVersion": 1,
             "intent": {
-                "agentType": "AppStudio",
+                "agentType": "AppBuilder",
                 "mode": "edit"
             },
             "subject": {
@@ -220,7 +220,7 @@ fn created_component_session_metadata_patch(
                 }
             },
             "surface": {
-                "contentType": "app-studio",
+                "contentType": "app-builder",
                 "title": format!("Edit {}", binding.component_name),
                 "data": {
                     "componentId": written.component_id,
@@ -238,7 +238,7 @@ fn created_component_session_metadata_patch(
             "openedFrom": "CreateComponentPackage",
             "updatedAt": updated_at
         },
-        "appStudioFacts": {
+        "appBuilderFacts": {
             "subject": {
                 "kind": "component",
                 "componentId": written.component_id,
@@ -452,25 +452,25 @@ mod tests {
         );
         assert_eq!(
             patch
-                .pointer("/appStudioFacts/subject/componentKind")
+                .pointer("/appBuilderFacts/subject/componentKind")
                 .and_then(Value::as_str),
             Some("agents")
         );
         assert_eq!(
             patch
-                .pointer("/appStudioFacts/subject/version")
+                .pointer("/appBuilderFacts/subject/version")
                 .and_then(Value::as_str),
             Some("1.0.0")
         );
         assert_eq!(
             patch
-                .pointer("/appStudioFacts/subject/packageRoot")
+                .pointer("/appBuilderFacts/subject/packageRoot")
                 .and_then(Value::as_str),
             Some(package_dir_string.as_str())
         );
         assert_eq!(
             patch
-                .pointer("/appStudioFacts/validationSummary/checks/0/id")
+                .pointer("/appBuilderFacts/validationSummary/checks/0/id")
                 .and_then(Value::as_str),
             Some("componentContract")
         );

@@ -1,6 +1,7 @@
 //! Product App Runtime Host manager: CRUD, version management, compile on save, and Worker policy.
 
 use crate::app_platform::AppIconSpec;
+use crate::error::{CoreError, CoreResult};
 use crate::infrastructure::events::{emit_global_event, BackendEvent};
 use crate::product_app_runtime_host_engine::compiler::compile;
 use crate::product_app_runtime_host_engine::permission_policy::resolve_policy;
@@ -13,7 +14,6 @@ use crate::product_app_runtime_host_engine::types::{
     ProductAppRuntimeHostRuntimeState, ProductAppRuntimeHostSource, ProductAppRuntimeHostSurface,
     ProductAppRuntimeHostSurfaceMeta,
 };
-use crate::error::{CoreError, CoreResult};
 use chrono::Utc;
 use serde_json::json;
 use std::collections::{HashMap, VecDeque};

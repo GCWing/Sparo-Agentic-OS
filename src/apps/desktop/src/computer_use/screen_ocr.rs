@@ -1,10 +1,10 @@
+use image::codecs::jpeg::JpegEncoder;
+use log::{info, warn};
 use sparo_core::agentic::tools::computer_use_host::{
     ComputerScreenshot, ComputerUseImageContentRect, OcrRegionNative,
 };
-use sparo_core::infrastructure::{try_get_path_manager_arc, APP_HIDDEN_DIR_NAME};
 use sparo_core::error::{CoreError, CoreResult};
-use image::codecs::jpeg::JpegEncoder;
-use log::{info, warn};
+use sparo_core::infrastructure::{try_get_path_manager_arc, APP_HIDDEN_DIR_NAME};
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
@@ -472,8 +472,6 @@ mod macos {
         filter_and_rank, fuzzy_text_matches_query, image_box_to_global_match,
         image_content_rect_or_full, levenshtein_chars, normalize_for_match, OcrTextMatch,
     };
-    use sparo_core::agentic::tools::computer_use_host::ComputerScreenshot;
-    use sparo_core::error::{CoreError, CoreResult};
     use objc2::msg_send;
     use objc2::rc::Retained;
     use objc2::AnyThread;
@@ -483,6 +481,8 @@ mod macos {
         VNRecognizeTextRequestRevision3, VNRecognizedTextObservation, VNRequest,
         VNRequestTextRecognitionLevel,
     };
+    use sparo_core::agentic::tools::computer_use_host::ComputerScreenshot;
+    use sparo_core::error::{CoreError, CoreResult};
 
     /// Top-N candidates per observation; Chinese matches often appear below rank 1.
     const TOP_CANDIDATES_MAX: usize = 10;
@@ -823,10 +823,10 @@ mod linux_backend {
         filter_and_rank, fuzzy_text_matches_query, image_box_to_global_match,
         image_content_rect_or_full, normalize_for_match, OcrTextMatch,
     };
-    use sparo_core::agentic::tools::computer_use_host::ComputerScreenshot;
-    use sparo_core::error::{CoreError, CoreResult};
     use leptess::capi::TessPageIteratorLevel_RIL_WORD;
     use leptess::{leptonica, tesseract::TessApi};
+    use sparo_core::agentic::tools::computer_use_host::ComputerScreenshot;
+    use sparo_core::error::{CoreError, CoreResult};
 
     pub fn find_text_matches(
         shot: &ComputerScreenshot,

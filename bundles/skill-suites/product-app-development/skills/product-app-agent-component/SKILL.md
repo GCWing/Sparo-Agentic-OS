@@ -13,7 +13,7 @@ Use this skill when the Product App needs app-private intelligence. An Agent Com
 - Edit `source/prompt.md` for the agent's role, domain behavior, tool policy, response shape, and safety boundaries.
 - Edit `source/fixtures.json` for app-specific eval fixtures that prove the behavior expected by the Product App.
 - Keep durable app state in the Product App Work/runtime boundary. Do not use the raw Agentic authoring session as internal Product App state.
-- Keep the Agent Component app-private unless the user is explicitly asking for a reusable cross-app capability, which App Studio does not author by default.
+- Keep the Agent Component app-private unless the user is explicitly asking for a reusable cross-app capability, which App Builder does not author by default.
 
 ## Key Decisions
 

@@ -149,7 +149,7 @@ for (const toolName of ['CreateProductApp']) {
 
 registerCompletedToolEffect('ValidateProductAppPackage', ({ result, toolName }) => {
   const appId = pickProductAppRuntimeId(result);
-  window.dispatchEvent(new CustomEvent('app-studio-validation-result', {
+  window.dispatchEvent(new CustomEvent('app-builder-validation-result', {
     detail: { appId, result, toolName },
   }));
   requestWorkRefresh('product-app-validation-completed');
@@ -157,17 +157,17 @@ registerCompletedToolEffect('ValidateProductAppPackage', ({ result, toolName }) 
 
 registerCompletedToolEffect('ValidateComponentPackage', ({ result, toolName }) => {
   const componentId = pickComponentPackageId(result);
-  window.dispatchEvent(new CustomEvent('app-studio-validation-result', {
+  window.dispatchEvent(new CustomEvent('app-builder-validation-result', {
     detail: { componentId, result, toolName },
   }));
   requestWorkRefresh('component-package-validation-completed');
 });
 
-registerCompletedToolEffect('RunStudioPreview', ({ result, toolName, turnId }) => {
-  window.dispatchEvent(new CustomEvent('app-studio-preview-result', {
+registerCompletedToolEffect('RunBuilderPreview', ({ result, toolName, turnId }) => {
+  window.dispatchEvent(new CustomEvent('app-builder-preview-result', {
     detail: { result, toolName, turnId },
   }));
-  requestWorkRefresh('studio-preview-completed');
+  requestWorkRefresh('builder-preview-completed');
 });
 
 export function runCompletedToolEffects(context: CompletedToolEffectContext): void {

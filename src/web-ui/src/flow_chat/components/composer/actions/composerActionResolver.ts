@@ -123,7 +123,7 @@ export function resolveComposerActionModel(input: ResolveComposerActionModelInpu
     menuSections: buildMenuSections(actions),
     canSwitchAgents,
     switchableAgents: resolveSwitchableAgents(normalizedInput, actions),
-    defaultAgentId: descriptor?.agentPolicy.defaultAgentId ?? 'agentic',
+    defaultAgentId: descriptor?.agentPolicy.defaultAgentId ?? 'Runno',
     actionButtonVisible: isActionButtonVisible(normalizedInput),
   };
 }

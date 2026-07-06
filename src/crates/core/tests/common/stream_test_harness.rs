@@ -1,15 +1,13 @@
 use super::fixture_loader::load_fixture_bytes;
 use super::sse_fixture_server::{FixtureSseServer, FixtureSseServerOptions};
+use futures::StreamExt;
 use sparo_ai_adapters::stream::{
     handle_anthropic_stream, handle_gemini_stream, handle_openai_stream, handle_responses_stream,
     UnifiedResponse,
 };
-use sparo_core::agentic::events::{
-    AgenticEvent, EventQueue, EventQueueConfig, SessionSurfaceMode,
-};
+use sparo_core::agentic::events::{AgenticEvent, EventQueue, EventQueueConfig, SessionSurfaceMode};
 use sparo_core::agentic::execution::{StreamProcessError, StreamResult};
 use sparo_core::StreamProcessor;
-use futures::StreamExt;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;

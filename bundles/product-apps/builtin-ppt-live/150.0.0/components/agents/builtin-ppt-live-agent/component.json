@@ -34,7 +34,7 @@
       "kind": "ai",
       "summary": "Uses the configured AI agent for deck generation and revision.",
       "scopes": [
-        "agentic"
+        "Runno"
       ]
     }
   ],
@@ -43,5 +43,10 @@
   ],
   "visibility": "appDependency",
   "dependencies": [],
-  "implementationRef": "agent://agentic"
+  "implementationRef": "agent://Runno",
+  "usesCapabilities": [
+    "session.read",
+    "model.invoke",
+    "tool.invoke"
+  ]
 }

@@ -11,8 +11,8 @@ use uuid::Uuid;
 
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
 use crate::agentic::tools::user_input_manager::get_user_input_manager;
-use crate::infrastructure::events::event_system::{get_global_event_system, BackendEvent};
 use crate::error::CoreResult;
+use crate::infrastructure::events::event_system::{get_global_event_system, BackendEvent};
 
 /// Question option
 #[derive(Debug, Clone, Serialize, Deserialize)]

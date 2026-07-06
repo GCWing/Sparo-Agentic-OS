@@ -17,8 +17,8 @@ use super::types::{
     SkillSuiteManifest, SkillSuiteMemberOverridePolicy, SkillSuiteMemberRef,
 };
 use crate::agentic::workspace::WorkspaceFileSystem;
-use crate::infrastructure::{get_path_manager_arc, APP_HIDDEN_DIR_NAME};
 use crate::error::{CoreError, CoreResult};
+use crate::infrastructure::{get_path_manager_arc, APP_HIDDEN_DIR_NAME};
 use log::{debug, error};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};

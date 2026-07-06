@@ -2,9 +2,9 @@ use log::{info, warn};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
+use crate::error::{CoreError, CoreResult};
 use crate::service::config::ConfigService;
 use crate::service::mcp::server::MCPServerConfig;
-use crate::error::{CoreError, CoreResult};
 
 use super::ConfigLocation;
 
@@ -285,10 +285,7 @@ impl MCPConfigService {
     }
 
     /// Gets a single server configuration.
-    pub async fn get_server_config(
-        &self,
-        server_id: &str,
-    ) -> CoreResult<Option<MCPServerConfig>> {
+    pub async fn get_server_config(&self, server_id: &str) -> CoreResult<Option<MCPServerConfig>> {
         let all_configs = self.load_all_configs().await?;
         Ok(all_configs.into_iter().find(|c| c.id == server_id))
     }
@@ -335,10 +332,7 @@ impl MCPConfigService {
         Ok(config)
     }
 
-    pub async fn clear_remote_authorization(
-        &self,
-        server_id: &str,
-    ) -> CoreResult<MCPServerConfig> {
+    pub async fn clear_remote_authorization(&self, server_id: &str) -> CoreResult<MCPServerConfig> {
         let mut config = self.get_server_config(server_id).await?.ok_or_else(|| {
             CoreError::NotFound(format!("MCP server config not found: {}", server_id))
         })?;

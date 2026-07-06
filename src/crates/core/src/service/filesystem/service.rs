@@ -1,9 +1,9 @@
+use crate::error::*;
 use crate::infrastructure::{
     FileContentSearchOptions, FileInfo, FileNameSearchOptions, FileOperationOptions,
     FileOperationService, FileReadResult, FileSearchOutcome, FileSearchProgressSink,
     FileSearchResult, FileTreeNode, FileTreeService, FileWriteResult,
 };
-use crate::error::*;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
@@ -244,11 +244,7 @@ impl FileSystemService {
     }
 
     /// Writes a file.
-    pub async fn write_file(
-        &self,
-        file_path: &str,
-        content: &str,
-    ) -> CoreResult<FileWriteResult> {
+    pub async fn write_file(&self, file_path: &str, content: &str) -> CoreResult<FileWriteResult> {
         let options = FileOperationOptions::default();
         self.file_operation_service
             .write_file(file_path, content, options)

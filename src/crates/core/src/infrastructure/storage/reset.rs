@@ -3,8 +3,8 @@
 //! This is intentionally broader than routine cleanup: it removes durable
 //! Sparo OS application data and asks the desktop shell to restart afterwards.
 
-use crate::infrastructure::{PathManager, APP_HIDDEN_DIR_NAME};
 use crate::error::{CoreError, CoreResult};
+use crate::infrastructure::{PathManager, APP_HIDDEN_DIR_NAME};
 use chrono::Utc;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};

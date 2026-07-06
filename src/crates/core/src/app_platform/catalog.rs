@@ -381,6 +381,32 @@ pub struct AppComponentRef {
     pub version: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub capabilities: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub uses_capabilities: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppLocalizedMetadata {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppI18n {
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub locales: BTreeMap<String, AppLocalizedMetadata>,
+}
+
+impl AppI18n {
+    pub fn is_empty(&self) -> bool {
+        self.locales.is_empty()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -427,6 +453,8 @@ pub struct ComponentDefinition {
     pub capabilities: Vec<CapabilityRef>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub permissions: Vec<PermissionSpec>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub uses_capabilities: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub used_by_apps: Vec<String>,
     pub visibility: ComponentVisibility,
@@ -494,7 +522,7 @@ impl ComponentLock {
 pub enum ProductAppLaunchKind {
     AgentSession,
     ApplicationSurface,
-    AppStudio,
+    AppBuilder,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -524,6 +552,14 @@ pub struct ProductAppLaunch {
     pub surface_id: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppAuthor {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppDefinition {
@@ -531,7 +567,10 @@ pub struct AppDefinition {
     pub version: String,
     pub name: String,
     pub description: String,
-    pub goal: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub authors: Vec<AppAuthor>,
+    #[serde(default, skip_serializing_if = "AppI18n::is_empty")]
+    pub i18n: AppI18n,
     pub interaction_model: AppInteractionModel,
     #[serde(default)]
     pub work_multiplicity: AppWorkMultiplicity,
@@ -549,6 +588,8 @@ pub struct AppDefinition {
     pub components: Vec<AppComponentRef>,
     pub component_lock_id: String,
     pub permissions: AppPermissionSummary,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub os_capabilities: Vec<String>,
     pub install_scope: AppInstallScope,
     pub catalog_visibility: AppCatalogVisibility,
     #[serde(default = "default_enabled")]
@@ -652,10 +693,43 @@ pub fn build_component_lock_with_implementation_digests(
         app_id: app.id.clone(),
         version: app.version.clone(),
         lock_version: 1,
-        permission_digest: stable_digest(&app.permissions),
+        permission_digest: permission_contract_digest(app, components),
         component_graph_digest: stable_digest(&resolved_components),
         resolved_components,
     }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProductAppPermissionContract<'a> {
+    permissions: &'a AppPermissionSummary,
+    os_capabilities: &'a [String],
+    component_uses_capabilities: BTreeMap<String, &'a [String]>,
+}
+
+fn permission_contract_digest(app: &AppDefinition, components: &[ComponentDefinition]) -> String {
+    let mut component_uses_capabilities = BTreeMap::new();
+    for component_ref in &app.components {
+        component_uses_capabilities.insert(
+            format!(
+                "ref:{}/{}",
+                component_ref.kind.path_segment(),
+                component_ref.component_id
+            ),
+            component_ref.uses_capabilities.as_slice(),
+        );
+    }
+    for component in components {
+        component_uses_capabilities.insert(
+            format!("component:{}", component.fqid()),
+            component.uses_capabilities.as_slice(),
+        );
+    }
+    stable_digest(&ProductAppPermissionContract {
+        permissions: &app.permissions,
+        os_capabilities: &app.os_capabilities,
+        component_uses_capabilities,
+    })
 }
 
 fn component_lock_entry_digest(

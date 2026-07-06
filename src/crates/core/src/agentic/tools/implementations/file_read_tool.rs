@@ -55,9 +55,9 @@ impl FileReadTool {
             .checked_add(limit.saturating_sub(1))
             .ok_or_else(|| CoreError::tool("Requested line range is too large".to_string()))?;
 
-        let ws_shell = context.ws_shell().ok_or_else(|| {
-            CoreError::tool("Remote workspace shell is unavailable".to_string())
-        })?;
+        let ws_shell = context
+            .ws_shell()
+            .ok_or_else(|| CoreError::tool("Remote workspace shell is unavailable".to_string()))?;
 
         let escaped_path = shell_escape(resolved_path);
         let command = format!(

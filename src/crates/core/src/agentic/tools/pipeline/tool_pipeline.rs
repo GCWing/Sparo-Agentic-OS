@@ -809,37 +809,37 @@ impl ToolPipeline {
         }
     }
 
-    async fn app_studio_context_for_task(
+    async fn app_builder_context_for_task(
         &self,
         task: &ToolTask,
-    ) -> Option<crate::agentic::app_studio_context::AppStudioExecutionContext> {
-        if task.context.agent_type != "AppStudio" {
-            return task.context.app_studio.clone();
+    ) -> Option<crate::agentic::app_builder_context::AppBuilderExecutionContext> {
+        if task.context.agent_type != "AppBuilder" {
+            return task.context.app_builder.clone();
         }
 
         let Some(agentic) = task.context.agentic.as_ref() else {
-            return task.context.app_studio.clone();
+            return task.context.app_builder.clone();
         };
 
-        let app_studio = agentic
+        let app_builder = agentic
             .coordinator
-            .load_app_studio_execution_context(
+            .load_app_builder_execution_context(
                 &task.context.session_id,
                 task.context.workspace.as_ref(),
                 None,
             )
             .await;
 
-        if let Some(app_studio) = app_studio.as_ref() {
+        if let Some(app_builder) = app_builder.as_ref() {
             debug!(
-                "Loaded AppStudio execution context for tool call: session_id={}, tool_name={}, package_root={}",
+                "Loaded AppBuilder execution context for tool call: session_id={}, tool_name={}, package_root={}",
                 task.context.session_id,
                 task.tool_call.tool_name,
-                app_studio.package_root.display()
+                app_builder.package_root.display()
             );
         }
 
-        app_studio.or_else(|| task.context.app_studio.clone())
+        app_builder.or_else(|| task.context.app_builder.clone())
     }
 
     /// Actual execution of tool
@@ -856,7 +856,7 @@ impl ToolPipeline {
             ));
         }
 
-        let app_studio = self.app_studio_context_for_task(task).await;
+        let app_builder = self.app_builder_context_for_task(task).await;
 
         // Build tool context (pass all resource IDs)
         let tool_context = ToolUseContext {
@@ -897,7 +897,7 @@ impl ToolPipeline {
 
                 map
             },
-            app_studio,
+            app_builder,
             computer_use_host: self.computer_use_host.clone(),
             cancellation_token: Some(cancellation_token),
             runtime_tool_restrictions: task.context.runtime_tool_restrictions.clone(),

@@ -125,6 +125,7 @@ function processIcon(kind: BackgroundProcessKind): React.ReactNode {
     case 'workspace_overview_refresh':
       return <TableProperties size={16} />;
     case 'global_daily_report':
+    case 'daily_letter':
     case 'global_milestone':
       return <CalendarClock size={16} />;
   }

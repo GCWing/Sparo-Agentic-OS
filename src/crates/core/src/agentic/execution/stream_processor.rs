@@ -8,11 +8,11 @@ use crate::agentic::events::{
     SubagentParentInfo as EventSubagentParentInfo, ToolEventData,
 };
 use crate::agentic::tools::SubagentParentInfo;
+use crate::error::CoreError;
 use crate::infrastructure::ai::ai_stream_handlers::UnifiedResponse;
 use crate::infrastructure::ai::tool_call_accumulator::{
     FinalizedToolCall, PendingToolCalls, ToolCallBoundary, ToolCallStreamKey,
 };
-use crate::error::CoreError;
 use crate::util::types::ai::GeminiUsage;
 use futures::{Stream, StreamExt};
 use log::{debug, error, trace};

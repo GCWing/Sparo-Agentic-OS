@@ -2,18 +2,19 @@
  * Session Profile Registry.
  *
  * All registered profiles are tested in order; the first matching one wins.
- * If no profile matches, codingProfile is returned as the safe default.
+ * If no profile matches, runnoProfile is returned as the safe default.
  *
  * To add a new Agent: create a profile file under ./profiles/ and add it to PROFILES.
  */
 
 import type { SessionProfile } from './types';
 import { agenticOsProfile } from './profiles/agenticOsProfile';
-import { codingProfile } from './profiles/codingProfile';
+import { runnoProfile } from './profiles/runnoProfile';
+import { bitfunCoderProfile } from './profiles/bitfunCoderProfile';
 import { coworkProfile } from './profiles/coworkProfile';
 import { designProfile } from './profiles/designProfile';
 import { deepResearchProfile } from './profiles/deepResearchProfile';
-import { appStudioProfile } from './profiles/appStudioProfile';
+import { appBuilderProfile } from './profiles/appBuilderProfile';
 import { productAppRuntimeProfile } from './profiles/productAppRuntimeProfile';
 import {
   SESSION_DESCRIPTORS,
@@ -23,16 +24,17 @@ import {
 
 /**
  * Ordered list of all registered profiles.
- * More-specific matchers should come before broader ones (e.g. Agentic OS before coding).
+ * More-specific matchers should come before broader ones (e.g. Agentic OS before BitFun Coder).
  */
 const PROFILES: readonly SessionProfile[] = [
   agenticOsProfile,
+  runnoProfile,
   productAppRuntimeProfile,
-  appStudioProfile,
+  appBuilderProfile,
   coworkProfile,
   designProfile,
   deepResearchProfile,
-  codingProfile, // broadest matcher; also serves as the fallback
+  bitfunCoderProfile,
 ];
 
 const PROFILES_BY_ID = new Map<SessionProfileId | string, SessionProfile>(
@@ -40,11 +42,13 @@ const PROFILES_BY_ID = new Map<SessionProfileId | string, SessionProfile>(
 );
 
 export type SessionDisplayMode =
-  | 'code'
+  | 'bitfun-coder'
+  | 'runno'
   | 'cowork'
   | 'design'
+  | 'deep-research'
   | 'agentic-os'
-  | 'appstudio'
+  | 'app-builder'
   | 'productAppRuntime';
 
 export type SessionDefaultSurface = 'session' | 'agentic-os-home' | 'background';
@@ -62,9 +66,9 @@ export interface SessionTypeDefinition {
     readonly keySuffix: string;
     readonly aiPartnerKey: string;
     readonly narrativeKey?: string;
-    readonly headingIcon?: 'agentic-os' | 'app-studio';
+    readonly headingIcon?: 'agentic-os' | 'app-builder';
     readonly workspaceCopy: 'default' | 'cowork' | 'design';
-    readonly promptPanel?: 'cowork' | 'app-studio';
+    readonly promptPanel?: 'cowork' | 'app-builder';
   };
 }
 
@@ -87,6 +91,21 @@ const SESSION_TYPE_DEFINITIONS: readonly SessionTypeDefinition[] = [
     },
   },
   {
+    typeId: 'runno',
+    descriptorDefaults: SESSION_DESCRIPTORS.runno,
+    profile: runnoProfile,
+    lifecycle: {
+      displayMode: 'runno',
+      titleKey: 'flow-chat:session.newRunnoWithIndex',
+      defaultSurface: 'session',
+    },
+    welcome: {
+      keySuffix: '',
+      aiPartnerKey: 'welcome.aiPartner',
+      workspaceCopy: 'default',
+    },
+  },
+  {
     typeId: 'product-app-runtime',
     descriptorDefaults: SESSION_DESCRIPTORS.productAppRuntime,
     profile: productAppRuntimeProfile,
@@ -102,21 +121,21 @@ const SESSION_TYPE_DEFINITIONS: readonly SessionTypeDefinition[] = [
     },
   },
   {
-    typeId: 'app-studio',
-    descriptorDefaults: SESSION_DESCRIPTORS.appStudio,
-    profile: appStudioProfile,
+    typeId: 'app-builder',
+    descriptorDefaults: SESSION_DESCRIPTORS.appBuilder,
+    profile: appBuilderProfile,
     lifecycle: {
-      displayMode: 'appstudio',
-      titleKey: 'flow-chat:session.newAppStudioWithIndex',
+      displayMode: 'app-builder',
+      titleKey: 'flow-chat:session.newAppBuilderWithIndex',
       defaultSurface: 'session',
     },
     welcome: {
-      keySuffix: 'AppStudio',
-      aiPartnerKey: 'welcome.aiPartnerAppStudio',
-      narrativeKey: 'welcome.narrativeAppStudio',
-      headingIcon: 'app-studio',
+      keySuffix: 'AppBuilder',
+      aiPartnerKey: 'welcome.aiPartnerAppBuilder',
+      narrativeKey: 'welcome.narrativeAppBuilder',
+      headingIcon: 'app-builder',
       workspaceCopy: 'default',
-      promptPanel: 'app-studio',
+      promptPanel: 'app-builder',
     },
   },
   {
@@ -155,8 +174,8 @@ const SESSION_TYPE_DEFINITIONS: readonly SessionTypeDefinition[] = [
     descriptorDefaults: SESSION_DESCRIPTORS.deepResearch,
     profile: deepResearchProfile,
     lifecycle: {
-      displayMode: 'code',
-      titleKey: 'flow-chat:session.newCodeWithIndex',
+      displayMode: 'deep-research',
+      titleKey: 'flow-chat:session.newDeepResearchWithIndex',
       defaultSurface: 'session',
     },
     welcome: {
@@ -166,12 +185,12 @@ const SESSION_TYPE_DEFINITIONS: readonly SessionTypeDefinition[] = [
     },
   },
   {
-    typeId: 'coding',
-    descriptorDefaults: SESSION_DESCRIPTORS.coding,
-    profile: codingProfile,
+    typeId: 'bitfun-coder',
+    descriptorDefaults: SESSION_DESCRIPTORS.bitfunCoder,
+    profile: bitfunCoderProfile,
     lifecycle: {
-      displayMode: 'code',
-      titleKey: 'flow-chat:session.newCodeWithIndex',
+      displayMode: 'bitfun-coder',
+      titleKey: 'flow-chat:session.newBitfunCoderWithIndex',
       defaultSurface: 'session',
     },
     welcome: {
@@ -187,13 +206,13 @@ const SESSION_TYPES_BY_ID = new Map<SessionProfileId | string, SessionTypeDefini
 );
 
 export function resolveProfile(profileId?: SessionProfileId | string | null): SessionProfile {
-  return (profileId && PROFILES_BY_ID.get(profileId)) || codingProfile;
+  return (profileId && PROFILES_BY_ID.get(profileId)) || runnoProfile;
 }
 
 export function resolveSessionTypeDefinition(
   profileId?: SessionProfileId | string | null
 ): SessionTypeDefinition {
-  return (profileId && SESSION_TYPES_BY_ID.get(profileId)) || SESSION_TYPES_BY_ID.get('coding')!;
+  return (profileId && SESSION_TYPES_BY_ID.get(profileId)) || SESSION_TYPES_BY_ID.get('runno')!;
 }
 
 export function resolveSessionTypeDefinitionForDescriptor(

@@ -1,0 +1,133 @@
+{
+  "id": "builtin-bitfun-coder",
+  "version": "1.0.0",
+  "name": "BitFun Coder",
+  "description": "An efficient, high-completion Code Agent from the open-source community for implementation, debugging, refactoring, troubleshooting, and other software development work.",
+  "authors": [
+    {
+      "name": "BitFun Team",
+      "url": "https://github.com/GCWing/BitFun"
+    }
+  ],
+  "i18n": {
+    "locales": {
+      "en-US": {
+        "name": "BitFun Coder",
+        "description": "An efficient, high-completion Code Agent from the open-source community for implementation, debugging, refactoring, troubleshooting, and other software development work.",
+        "tags": ["built-in", "open-source", "coding", "agent"]
+      },
+      "zh-CN": {
+        "name": "BitFun Coder",
+        "description": "来自开源社区的高效、高完成率 Code Agent，全面处理实现、调试、重构、排障等软件开发任务。",
+        "tags": ["内置", "开源", "编码", "Agent"]
+      }
+    }
+  },
+  "interactionModel": "conversation",
+  "workMultiplicity": "multiple",
+  "workObjectKinds": [
+    {
+      "id": "code-task",
+      "label": "Code Task",
+      "scope": "workspace",
+      "identitySchema": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          }
+        }
+      },
+      "contextSchema": {
+        "type": "object",
+        "properties": {
+          "workspacePath": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ],
+  "primarySurfaceMode": "chatPrimary",
+  "components": [
+    {
+      "componentId": "bitfun-coder-agent",
+      "kind": "agent",
+      "source": "private",
+      "role": "assistant",
+      "capabilities": [
+        "bitfun-code",
+        "bitfun-plan",
+        "bitfun-debug",
+        "bitfun-team"
+      ],
+      "usesCapabilities": [
+        "filesystem.read",
+        "filesystem.write",
+        "terminal.run",
+        "process.spawn",
+        "git.read",
+        "git.write",
+        "workspace.inspect",
+        "workspace.modify",
+        "session.read",
+        "session.write",
+        "model.invoke",
+        "tool.invoke"
+      ]
+    }
+  ],
+  "componentLockId": "",
+  "permissions": {
+    "fs": true,
+    "net": true,
+    "shell": true,
+    "gui": false,
+    "secrets": false,
+    "ai": true
+  },
+  "installScope": "system",
+  "catalogVisibility": "discoverable",
+  "enabled": true,
+  "icon": {
+    "kind": "packageAsset",
+    "path": "assets/icon.png",
+    "mimeType": "image/png"
+  },
+  "category": "developer",
+  "tags": [
+    "built-in",
+    "open-source",
+    "coding",
+    "agent"
+  ],
+  "launch": {
+    "kind": "agentSession",
+    "targetId": "bitfun-coder",
+    "scopeRequirement": "workspaceOptional",
+    "agentType": "bitfun-coder"
+  },
+  "osCapabilities": [
+    "filesystem.read",
+    "filesystem.write",
+    "terminal.run",
+    "process.spawn",
+    "git.read",
+    "git.write",
+    "workspace.inspect",
+    "workspace.modify",
+    "session.read",
+    "session.write",
+    "model.invoke",
+    "tool.invoke"
+  ]
+}

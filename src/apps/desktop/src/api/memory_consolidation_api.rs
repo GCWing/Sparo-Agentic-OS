@@ -1,9 +1,9 @@
+use log::{debug, error};
+use serde::Deserialize;
 use sparo_core::agentic::memory::{
     get_global_memory_consolidation_service, ManualMemoryConsolidationRequest,
     MemoryConsolidationSummary,
 };
-use log::{debug, error};
-use serde::Deserialize;
 
 #[derive(Debug, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]

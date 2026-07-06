@@ -26,5 +26,5 @@ Use this skill when the Product App work changes what the user sees or operates.
 
 - Refresh the Product App lock after package or component graph changes.
 - Run Product App package validation.
-- Run or observe a Studio preview/runtime path for the surface. Completion requires evidence that the surface rendered and the main user path was exercised or that missing evidence is reported clearly.
+- Run or observe a Builder preview/runtime path for the surface. Completion requires evidence that the surface rendered and the main user path was exercised or that missing evidence is reported clearly.
 - For UI changes, check light/dark theme, empty/loading/error states, responsive behavior, and locale-sensitive text when relevant.

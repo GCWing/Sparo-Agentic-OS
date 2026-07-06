@@ -4,7 +4,7 @@
 //! model-visible message context, but still runs as an isolated session with
 //! its own rounds, tools, cancellation, and cleanup lifecycle.
 
-use crate::agentic::app_studio_context::AppStudioExecutionContext;
+use crate::agentic::app_builder_context::AppBuilderExecutionContext;
 use crate::agentic::core::{Message, Session, SessionConfig};
 use crate::agentic::tools::ToolRuntimeRestrictions;
 use crate::error::{CoreError, CoreResult};
@@ -80,7 +80,7 @@ pub struct ForkAgentExecutionRequest {
     pub prompt_messages: Vec<Message>,
     pub context: HashMap<String, String>,
     pub runtime_tool_restrictions: ToolRuntimeRestrictions,
-    pub app_studio: Option<AppStudioExecutionContext>,
+    pub app_builder: Option<AppBuilderExecutionContext>,
     pub enable_tools_override: Option<bool>,
     pub max_turns: Option<usize>,
 }
@@ -118,7 +118,7 @@ mod tests {
             max_turns: 42,
             ..SessionConfig::default()
         };
-        Session::new("Parent".to_string(), "agentic".to_string(), config)
+        Session::new("Parent".to_string(), "Runno".to_string(), config)
     }
 
     #[test]
@@ -167,12 +167,12 @@ mod tests {
             ForkAgentContextSnapshot::from_parent_session(&parent, Vec::new()).expect("snapshot");
         let request = ForkAgentExecutionRequest {
             snapshot,
-            agent_type: "agentic".to_string(),
+            agent_type: "Runno".to_string(),
             description: "No tools fork".to_string(),
             prompt_messages: vec![Message::user("classify".to_string())],
             context: HashMap::new(),
             runtime_tool_restrictions: ToolRuntimeRestrictions::default(),
-            app_studio: None,
+            app_builder: None,
             enable_tools_override: Some(false),
             max_turns: Some(1),
         };

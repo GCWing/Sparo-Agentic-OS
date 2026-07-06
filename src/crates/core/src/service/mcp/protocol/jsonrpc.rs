@@ -150,9 +150,6 @@ where
     })?;
 
     serde_json::from_value(result.clone()).map_err(|e| {
-        crate::error::CoreError::Deserialization(format!(
-            "Failed to parse MCP response: {}",
-            e
-        ))
+        crate::error::CoreError::Deserialization(format!("Failed to parse MCP response: {}", e))
     })
 }

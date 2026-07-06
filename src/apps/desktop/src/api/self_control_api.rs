@@ -1,9 +1,9 @@
 //! SelfControl API — frontend submits responses to self-control requests.
 
+use serde::{Deserialize, Serialize};
 use sparo_core::agentic::tools::implementations::self_control_tool::{
     submit_self_control_response as submit_self_control_response_impl, SelfControlResponse,
 };
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

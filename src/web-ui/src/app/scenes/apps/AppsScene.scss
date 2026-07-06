@@ -784,6 +784,62 @@
   font-weight: var(--ds-font-weight-semibold);
 }
 
+.apps-scene__app-card-title {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  line-height: var(--ds-line-height-base);
+}
+
+.apps-scene__app-card-title > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ds-color-text-primary);
+  font-size: var(--ds-font-size-sm);
+  font-weight: var(--ds-font-weight-semibold);
+  line-height: 1.3;
+}
+
+.apps-scene__app-card-authors {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  min-width: 0;
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-size-xs);
+  font-weight: var(--ds-font-weight-normal, 400);
+  line-height: var(--ds-line-height-base);
+  padding-block: 1px;
+}
+
+.apps-scene__app-card-authors-label,
+.apps-scene__app-card-authors-separator {
+  flex: 0 0 auto;
+}
+
+.apps-scene__app-card-authors-list {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.apps-scene__app-card-authors a {
+  color: inherit;
+  text-decoration: none;
+
+  &:hover {
+    color: var(--ds-color-accent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ds-focus-outline);
+    outline-offset: 2px;
+  }
+}
+
 .apps-scene__app-card-description,
 .apps-scene__component-card-description,
 .apps-scene__component-chip span {

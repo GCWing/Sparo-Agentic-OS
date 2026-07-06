@@ -14,6 +14,7 @@ mod tools;
 
 use super::connection::{MCPConnection, MCPConnectionEvent, MCPConnectionPool};
 use super::{MCPServerConfig, MCPServerRegistry, MCPServerStatus};
+use crate::error::{CoreError, CoreResult};
 use crate::infrastructure::events::event_system::{get_global_event_system, BackendEvent};
 use crate::service::mcp::adapter::MCPToolAdapter;
 use crate::service::mcp::auth::MCPRemoteOAuthSessionSnapshot;
@@ -21,7 +22,6 @@ use crate::service::mcp::config::MCPConfigService;
 use crate::service::mcp::protocol::{MCPError, MCPPrompt, MCPResource};
 use crate::service::runtime::{RuntimeManager, RuntimeSource};
 use crate::service::workspace::get_global_workspace_service;
-use crate::error::{CoreError, CoreResult};
 use log::{debug, error, info, warn};
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};

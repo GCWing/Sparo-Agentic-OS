@@ -9,8 +9,8 @@ use super::types::{
     MCPToolResult, MCPToolResultContent, PromptsGetResult, PromptsListResult, ResourcesListResult,
     ResourcesReadResult, ToolsListResult,
 };
-use crate::service::mcp::auth::build_authorization_manager;
 use crate::error::{CoreError, CoreResult};
+use crate::service::mcp::auth::build_authorization_manager;
 use futures::StreamExt;
 use log::{debug, error, info, warn};
 use reqwest::header::{
@@ -451,9 +451,7 @@ impl RemoteMCPTransport {
             .map(|token| format!("Bearer {}", token))
     }
 
-    async fn service(
-        &self,
-    ) -> CoreResult<Arc<RunningService<RoleClient, SparoRmcpClientHandler>>> {
+    async fn service(&self) -> CoreResult<Arc<RunningService<RoleClient, SparoRmcpClientHandler>>> {
         let guard = self.state.lock().await;
         match &*guard {
             ClientState::Ready { service } => Ok(Arc::clone(service)),
@@ -556,10 +554,7 @@ impl RemoteMCPTransport {
         }
     }
 
-    pub async fn list_resources(
-        &self,
-        cursor: Option<String>,
-    ) -> CoreResult<ResourcesListResult> {
+    pub async fn list_resources(&self, cursor: Option<String>) -> CoreResult<ResourcesListResult> {
         let service = self.service().await?;
         let fut = service
             .peer()

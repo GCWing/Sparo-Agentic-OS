@@ -1,11 +1,11 @@
 //! Workspace manager.
 
+use crate::error::{CoreError, CoreResult};
 use crate::service::workspace_session::{
     canonicalize_local_workspace_root, local_workspace_roots_equal,
     local_workspace_stable_storage_id, normalize_local_workspace_root_for_stable_id,
     LOCAL_WORKSPACE_SCOPE_HOST,
 };
-use crate::error::{CoreError, CoreResult};
 use crate::util::FrontMatterMarkdown;
 use log::warn;
 

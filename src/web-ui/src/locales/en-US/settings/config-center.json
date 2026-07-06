@@ -10,7 +10,7 @@
     "basics": "Logging, terminal shell, launch at login, and notifications.",
     "models": "AI models, API keys, providers, and proxy.",
     "personalization": "Title generation, Agent companion, and thinking process.",
-    "primeBuilder": "BitFun Coder debug logging, ingest port, and language templates.",
+    "bitfunCoder": "BitFun Coder debug logging, ingest port, and language templates.",
     "permissions": "Tool confirmation, timeouts, and desktop automation access.",
     "memory": "Automatic memory extraction cadence and enablement.",
     "editor": "Code editor font, display, and formatting.",
@@ -23,14 +23,14 @@
     "general": "Basics",
     "data": "Data",
     "smartCapabilities": "Smart Configuration",
-    "smartApps": "Smart Apps"
+    "productApps": "Product Apps"
   },
   "tabs": {
     "appearance": "Appearance",
     "basics": "General",
     "models": "Models",
     "personalization": "Personalization",
-    "primeBuilder": "BitFun Coder",
+    "bitfunCoder": "BitFun Coder",
     "permissions": "Permissions",
     "memory": "Memory",
     "skills": "Skills",

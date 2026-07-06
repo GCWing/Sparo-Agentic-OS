@@ -13,9 +13,9 @@ use std::path::PathBuf;
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 
+use crate::error::{CoreError, CoreResult};
 use crate::infrastructure::try_get_path_manager_arc;
 use crate::service::mcp::server::{MCPServerConfig, MCPServerOAuthConfig};
-use crate::error::{CoreError, CoreResult};
 
 const NONCE_LEN: usize = 12;
 

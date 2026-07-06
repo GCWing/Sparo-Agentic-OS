@@ -28,7 +28,7 @@ function createSession(dialogTurns: DialogTurn[]): Session {
   return {
     sessionId: 'session-1',
     dialogTurns,
-    mode: 'agentic',
+    mode: 'runno',
     workspacePath: 'D:/workspace/example',
     createdAt: 1,
     updatedAt: 1,

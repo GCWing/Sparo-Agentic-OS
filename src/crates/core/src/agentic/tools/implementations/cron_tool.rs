@@ -3,11 +3,11 @@ use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
 };
 use crate::agentic::tools::workspace_paths::posix_style_path_is_absolute;
+use crate::error::{CoreError, CoreResult};
 use crate::service::cron::{
     CreateCronJobRequest, CronJob, CronJobPayload, CronJobRunStatus, CronSchedule,
     UpdateCronJobRequest,
 };
-use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use chrono::{DateTime, Local, SecondsFormat, TimeZone};
 use serde::{Deserialize, Serialize};
@@ -1048,9 +1048,9 @@ Patch schema for "update":
                     .agentic()
                     .map(|h| h.cron_service.clone())
                     .ok_or_else(|| CoreError::tool("cron service not initialized".to_string()))?;
-                let job_id = params.job_id.ok_or_else(|| {
-                    CoreError::tool("job_id is required for update".to_string())
-                })?;
+                let job_id = params
+                    .job_id
+                    .ok_or_else(|| CoreError::tool("job_id is required for update".to_string()))?;
                 Self::validate_job_id(&job_id).map_err(CoreError::tool)?;
                 let patch = params
                     .patch
@@ -1101,9 +1101,9 @@ Patch schema for "update":
                     .agentic()
                     .map(|h| h.cron_service.clone())
                     .ok_or_else(|| CoreError::tool("cron service not initialized".to_string()))?;
-                let job_id = params.job_id.ok_or_else(|| {
-                    CoreError::tool("job_id is required for remove".to_string())
-                })?;
+                let job_id = params
+                    .job_id
+                    .ok_or_else(|| CoreError::tool("job_id is required for remove".to_string()))?;
                 Self::validate_job_id(&job_id).map_err(CoreError::tool)?;
 
                 let deleted = cron_service.delete_job(&job_id).await?;

@@ -1,7 +1,7 @@
 use crate::service::config::types::AIModelConfig;
+use log::warn;
 pub use sparo_ai_adapters::types::resolve_request_url;
 pub use sparo_ai_adapters::types::AIConfig;
-use log::warn;
 
 impl TryFrom<AIModelConfig> for AIConfig {
     type Error = String;

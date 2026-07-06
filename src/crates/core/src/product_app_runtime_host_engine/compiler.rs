@@ -1,5 +1,6 @@
 //! Product App Runtime Host compiler: assemble source (html/css/ui_js) + Import Map + Runtime Adapter + CSP into compiled_html.
 
+use crate::error::{CoreError, CoreResult};
 use crate::product_app_runtime_host_engine::bridge_builder::{
     build_bridge_script, build_csp_content, build_import_map,
     build_product_app_runtime_host_default_theme_css, preview_element_inspector_script,
@@ -13,7 +14,6 @@ use crate::product_app_runtime_host_engine::types::{
     ProductAppRuntimeHostRuntimeState, ProductAppRuntimeHostSource,
     ProductAppRuntimeHostSourceFileKind,
 };
-use crate::error::{CoreError, CoreResult};
 use base64::{engine::general_purpose, Engine as _};
 use std::collections::BTreeMap;
 
@@ -207,10 +207,7 @@ fn build_style_content(source: &ProductAppRuntimeHostSource) -> String {
     chunks.join("\n\n")
 }
 
-fn resolve_ui_entry_code(
-    source: &ProductAppRuntimeHostSource,
-    entry: &str,
-) -> CoreResult<String> {
+fn resolve_ui_entry_code(source: &ProductAppRuntimeHostSource, entry: &str) -> CoreResult<String> {
     if entry.is_empty() || entry == "ui.js" {
         return Ok(source.ui_js.clone());
     }
@@ -263,8 +260,8 @@ fn build_embedded_esm_entry(
     let import_map_json = serde_json::to_string(&serde_json::json!({ "imports": imports }))
         .map_err(CoreError::from)?
         .replace("</script", "<\\/script");
-    let entry_specifier = serde_json::to_string(&embedded_module_specifier(&entry_path))
-        .map_err(CoreError::from)?;
+    let entry_specifier =
+        serde_json::to_string(&embedded_module_specifier(&entry_path)).map_err(CoreError::from)?;
 
     Ok(format!(
         "<script type=\"importmap\">{}</script>\n<script type=\"module\">\nimport {};\n</script>",

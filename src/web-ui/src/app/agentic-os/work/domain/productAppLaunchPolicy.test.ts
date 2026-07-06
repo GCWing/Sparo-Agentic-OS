@@ -54,11 +54,11 @@ describe('Product App launch behavior', () => {
     expect(behavior.workResolutionMode).toBe('createNewWork');
   });
 
-  it('uses work multiplicity for native App Studio instead of launch kind', () => {
+  it('uses work multiplicity for native App Builder instead of launch kind', () => {
     const behavior = getCatalogAppLaunchBehavior({
       launch: {
-        kind: 'appStudio',
-        targetId: 'AppStudio',
+        kind: 'appBuilder',
+        targetId: 'AppBuilder',
       },
       primarySurfaceMode: 'chatPrimary',
       workMultiplicity: 'multiple',

@@ -5,11 +5,11 @@ use crate::agentic::coordination::{
 };
 use crate::agentic::core::PromptEnvelope;
 use crate::agentic::events::{AgenticEvent, EventSubscriber, ToolEventData};
-use crate::infrastructure::try_get_path_manager_arc;
 use crate::error::CoreResult;
+use crate::infrastructure::try_get_path_manager_arc;
 
 use super::{
-    default_work_store, WorkExecutionAppStudioContext, WorkExecutionBindingStatus,
+    default_work_store, WorkExecutionAppBuilderContext, WorkExecutionBindingStatus,
     WorkExecutionSource, WorkRecord, WorkService,
 };
 
@@ -54,10 +54,10 @@ impl EventSubscriber for WorkEventSubscriber {
                 ..
             } => {
                 service
-                    .mark_agent_session_turn_started_with_app_studio_context(
+                    .mark_agent_session_turn_started_with_app_builder_context(
                         session_id,
                         turn_id,
-                        WorkExecutionAppStudioContext::from_turn_metadata(
+                        WorkExecutionAppBuilderContext::from_turn_metadata(
                             user_message_metadata.as_ref(),
                         ),
                     )

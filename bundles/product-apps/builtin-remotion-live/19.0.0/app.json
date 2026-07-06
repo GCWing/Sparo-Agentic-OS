@@ -2,8 +2,27 @@
   "id": "builtin-remotion-live",
   "version": "19.0.0",
   "name": "Remotion Live",
-  "description": "A native Sparo video preview workbench for Remotion projects with app-owned playback, timeline, and export controls.",
-  "goal": "Collaborate on a Remotion video project from project detection through preview, revision, still rendering, and export.",
+  "description": "A Remotion video workbench for previewing, adjusting, fixing, and exporting motion projects.",
+  "authors": [
+    {
+      "name": "GCWing",
+      "url": "https://github.com/GCWing"
+    }
+  ],
+  "i18n": {
+    "locales": {
+      "en-US": {
+        "name": "Remotion Live",
+        "description": "A Remotion video workbench for previewing, adjusting, fixing, and exporting motion projects.",
+        "tags": ["built-in", "remotion", "video", "render"]
+      },
+      "zh-CN": {
+        "name": "Remotion Live",
+        "description": "面向 Remotion 视频项目的创作工作台，用来预览、调整、修复和导出动态作品。",
+        "tags": ["内置", "remotion", "视频", "渲染"]
+      }
+    }
+  },
   "interactionModel": "interactiveWorkspace",
   "workMultiplicity": "multiple",
   "workObjectKinds": [
@@ -88,6 +107,10 @@
       "role": "primarySurface",
       "capabilities": [
         "interactiveSurface"
+      ],
+      "usesCapabilities": [
+        "session.read",
+        "component.run"
       ]
     },
     {
@@ -99,6 +122,18 @@
         "understandVideoProject",
         "reviseVideoComposition",
         "renderReviewArtifact"
+      ],
+      "usesCapabilities": [
+        "filesystem.read",
+        "filesystem.write",
+        "terminal.run",
+        "process.spawn",
+        "workspace.inspect",
+        "workspace.modify",
+        "session.read",
+        "model.invoke",
+        "tool.invoke",
+        "component.run"
       ]
     },
     {
@@ -108,6 +143,14 @@
       "role": "runtime",
       "capabilities": [
         "sparo.videoEngine"
+      ],
+      "usesCapabilities": [
+        "filesystem.read",
+        "filesystem.write",
+        "terminal.run",
+        "process.spawn",
+        "workspace.inspect",
+        "component.run"
       ]
     },
     {
@@ -118,6 +161,9 @@
       "version": "^1.0.0",
       "capabilities": [
         "uiWorker"
+      ],
+      "usesCapabilities": [
+        "component.run"
       ]
     }
   ],
@@ -142,12 +188,24 @@
     "built-in",
     "remotion",
     "video",
-    "preview"
+    "render"
   ],
   "launch": {
     "kind": "applicationSurface",
     "targetId": "builtin-remotion-live",
     "scopeRequirement": "workspaceRequired",
     "surfaceId": "primary"
-  }
+  },
+  "osCapabilities": [
+    "session.read",
+    "component.run",
+    "filesystem.read",
+    "filesystem.write",
+    "terminal.run",
+    "process.spawn",
+    "workspace.inspect",
+    "workspace.modify",
+    "model.invoke",
+    "tool.invoke"
+  ]
 }

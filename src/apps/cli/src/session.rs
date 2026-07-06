@@ -1,11 +1,11 @@
-use sparo_core::service::session::{
-    DialogTurnData as CoreDialogTurnData, SessionMetadata as CoreSessionMetadata,
-};
 /// Session management module
 ///
 /// Provides in-memory chat transcript state for the CLI TUI.
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use sparo_core::service::session::{
+    DialogTurnData as CoreDialogTurnData, SessionMetadata as CoreSessionMetadata,
+};
 
 /// Session information
 #[derive(Debug, Clone, Serialize, Deserialize)]

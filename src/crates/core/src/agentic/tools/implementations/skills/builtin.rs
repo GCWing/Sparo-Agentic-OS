@@ -4,8 +4,8 @@
 //! directory on demand and kept in sync with bundled versions.
 
 use crate::agentic::tools::implementations::skills::types::SkillSuiteManifest;
-use crate::infrastructure::get_path_manager_arc;
 use crate::error::CoreResult;
+use crate::infrastructure::get_path_manager_arc;
 use include_dir::{include_dir, Dir};
 use log::{debug, error};
 use std::collections::{HashMap, HashSet};

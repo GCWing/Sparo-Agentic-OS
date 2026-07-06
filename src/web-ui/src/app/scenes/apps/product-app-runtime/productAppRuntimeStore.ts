@@ -21,7 +21,7 @@ interface ProductAppRuntimeState {
   runningAppIds: string[];
   /** Product App host surface IDs whose JS workers are currently running. */
   runningWorkerIds: string[];
-  /** App Studio sessions currently associated with a generated Product App. */
+  /** App Builder sessions currently associated with a generated Product App. */
   sessionAppIds: Record<string, string>;
 
   setApps: (apps: ProductAppHostSurfaceMeta[]) => void;

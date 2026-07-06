@@ -20,20 +20,18 @@ const ALL = '__all__';
 
 // Map Rust agent_type strings to display labels
 const AGENT_TYPE_LABELS: Record<string, string> = {
-  agentic: 'Code',
-  Agentic: 'Code',
-  code: 'Code',
+  Runno: 'Runno',
+  'bitfun-coder': 'BitFun Coder',
+  'bitfun-plan': 'Plan',
+  'bitfun-debug': 'Debug',
+  'bitfun-team': 'Team',
   cowork: 'Cowork',
   Cowork: 'Cowork',
   design: 'Design',
   Design: 'Design',
   deepresearch: 'Deep Research',
   DeepResearch: 'Deep Research',
-  appstudio: 'App Studio',
-  AppStudio: 'App Studio',
-  plan: 'Plan',
-  Plan: 'Plan',
-  debug: 'Debug',
+  AppBuilder: 'App Builder',
   OSAgent: 'Sparo OS',
 };
 
@@ -50,11 +48,11 @@ interface AgentTypeOption {
 }
 
 const NEW_SESSION_AGENT_TYPES: AgentTypeOption[] = [
-  { type: 'agentic',       labelKey: 'sessions.agentCode',          descKey: 'sessions.agentCodeDesc',          badge: 'AI',   badgeColor: '#1E40AF', needsWorkspace: true  },
+  { type: 'bitfun-coder',  labelKey: 'sessions.agentBitFunCoder',   descKey: 'sessions.agentBitFunCoderDesc',   badge: 'BF',   badgeColor: '#1E40AF', needsWorkspace: true  },
   { type: 'Cowork',        labelKey: 'sessions.agentCowork',        descKey: 'sessions.agentCoworkDesc',        badge: 'CW',   badgeColor: '#065F46', needsWorkspace: true  },
   { type: 'Design',        labelKey: 'sessions.agentDesign',        descKey: 'sessions.agentDesignDesc',        badge: 'DS',   badgeColor: '#6D28D9', needsWorkspace: true  },
   { type: 'DeepResearch',  labelKey: 'sessions.agentDeepResearch',  descKey: 'sessions.agentDeepResearchDesc',  badge: 'DR',   badgeColor: '#92400E', needsWorkspace: true  },
-  { type: 'AppStudio', labelKey: 'sessions.appStudio', descKey: 'sessions.appStudioDesc', badge: 'AS',   badgeColor: '#BE123C', needsWorkspace: false },
+  { type: 'AppBuilder',    labelKey: 'sessions.appBuilder',         descKey: 'sessions.appBuilderDesc',         badge: 'AB',   badgeColor: '#BE123C', needsWorkspace: false },
 ];
 
 function agentLabel(agentType: string): string {
@@ -186,7 +184,7 @@ const TasksScene: React.FC<TasksSceneProps> = ({ sessionMgr, onSelectSession }) 
   // Step 1: user picked an agent type from the FAB sheet
   const handlePickAgentType = useCallback(async (option: AgentTypeOption) => {
     if (!option.needsWorkspace) {
-      // AppStudio: no workspace needed, create directly
+      // App Builder: no workspace needed, create directly
       setFabOpen(false);
       setCreating(true);
       try {

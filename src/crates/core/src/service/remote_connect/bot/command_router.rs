@@ -262,7 +262,7 @@ pub enum BotCommand {
     SetVerbose(bool),
     /// Generic "switch" entry — picks a workspace.
     SwitchContext,
-    /// Generic "new session" entry — currently creates a standard coding session.
+    /// Generic "new session" entry creates a BitFun Coder session for workspace code work.
     NewSession,
     /// Specific session creators (kept as hidden aliases).
     NewCodeSession,
@@ -505,7 +505,7 @@ pub async fn bootstrap_im_chat_after_pairing(state: &mut BotChatState) -> String
         return s.no_workspace.to_string();
     }
 
-    let create_res = create_session(state, "agentic").await;
+    let create_res = create_session(state, "bitfun-coder").await;
     if state.current_session_id.is_none() {
         let detail = create_res.reply.lines().next().unwrap_or("").to_string();
         return format!("{}{detail}", s.bootstrap_session_failed_prefix);
@@ -617,7 +617,7 @@ async fn dispatch(
         BotCommand::SetVerbose(on) => set_verbose(state, on, s).await,
         BotCommand::SwitchContext => start_switch(state, s).await,
         BotCommand::NewSession => new_session_for_mode(state, s).await,
-        BotCommand::NewCodeSession => guarded_new(state, "agentic", s).await,
+        BotCommand::NewCodeSession => guarded_new(state, "bitfun-coder", s).await,
         BotCommand::NewCoworkSession => guarded_new(state, "Cowork", s).await,
         BotCommand::ResumeSession => start_resume(state, 0, s).await,
         BotCommand::ChatMessage(msg) => handle_chat(state, &msg, image_contexts, s).await,
@@ -1037,7 +1037,7 @@ fn truncate_text(text: &str, max_chars: usize) -> String {
 }
 
 async fn new_session_for_mode(state: &mut BotChatState, s: &'static BotStrings) -> HandleResult {
-    let agent_type = "agentic";
+    let agent_type = "bitfun-coder";
     guarded_new(state, agent_type, s).await
 }
 
@@ -1046,7 +1046,7 @@ async fn guarded_new(
     agent_type: &str,
     s: &'static BotStrings,
 ) -> HandleResult {
-    let needs_workspace = matches!(agent_type, "agentic" | "Cowork");
+    let needs_workspace = matches!(agent_type, "bitfun-coder" | "Cowork");
 
     if needs_workspace && state.workspace_context_path.is_none() {
         return result_from_menu(
@@ -1550,10 +1550,10 @@ async fn submit_question_answers(
 // ── Free-form chat handling ───────────────────────────────────────
 
 /// Look up the agent type a session was created with (e.g. "Cowork",
-/// "agentic"). Returns `None` if the coordinator is unavailable or the
+/// "bitfun-coder"). Returns `None` if the coordinator is unavailable or the
 /// session is not currently hot in memory; in that case `send_message` will
 /// lazily restore the session from disk and `resolve_agent_type` falls back
-/// to the safe default ("agentic"), so chat keeps working.
+/// to the safe default ("Runno"), so chat keeps working.
 async fn resolve_session_agent_type(session_id: &str) -> Option<String> {
     use crate::agentic::coordination::get_global_coordinator;
 
@@ -1592,14 +1592,13 @@ async fn handle_chat(
     let session_id = state.current_session_id.clone().unwrap();
     let turn_id = format!("turn_{}", uuid::Uuid::new_v4());
 
-    // Pick the agent type from the actual session — NOT a hardcoded
-    // "agentic" — otherwise every chat message would be forced through the
+    // Pick the agent type from the actual session, otherwise every chat message would be forced through the
     // Code agent regardless of how the session was created. We mirror the
-    // stored agent type and fall back to "agentic" only if the session is
+    // stored agent type and fall back to Runno only if the session is
     // missing in memory (e.g. needs lazy restore).
     let agent_type = resolve_session_agent_type(&session_id)
         .await
-        .unwrap_or_else(|| "agentic".to_string());
+        .unwrap_or_else(|| "Runno".to_string());
 
     // Intentionally do NOT send a "Processing..." / "Queued" interstitial
     // message with a Cancel-task menu. The session manager queues new user

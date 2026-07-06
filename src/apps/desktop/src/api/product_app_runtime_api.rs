@@ -23,23 +23,21 @@ use crate::api::product_app_runtime_host_adapter::{
     HostAdapterRuntimeLogRequest, HostAdapterRuntimeState, HostAdapterRuntimeStatus,
     HostAdapterWorkerCallRequest,
 };
-use sparo_core::agent_component::AgentComponentManager;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use sparo_core::agentic::coordination::{ConversationCoordinator, DialogScheduler};
 use sparo_core::agentic_os::work::{
     default_work_store, RuntimeInstanceRef, WorkAppRef, WorkId, WorkRecord, WorkStore,
     WorkSurfaceRef,
 };
 use sparo_core::app_platform::{
-    get_installed_product_app_by_lock, seed_builtin_product_app_packages, AppComponentRef,
-    AppDefinition, AppIconSpec, AppSurfaceMode, AppTruthSource, ComponentDefinition, ComponentKind,
-    ProductAppRuntimeIssueSeverity, ProductAppRuntimeLogLevel, ProductAppRuntimeState,
-    ResolvedProductApp,
+    get_installed_product_app_by_lock, private_component_source_dir,
+    register_private_product_app_runtime_components, seed_builtin_product_app_packages,
+    AppComponentRef, AppDefinition, AppIconSpec, AppSurfaceMode, AppTruthSource,
+    ComponentDefinition, ComponentKind, ProductAppRuntimeIssueSeverity, ProductAppRuntimeLogLevel,
+    ProductAppRuntimeState, ResolvedProductApp,
 };
-use sparo_core::bridge_component::{BridgeComponentManager, BridgeComponentRunResult};
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use std::collections::HashMap;
-use std::path::PathBuf;
+use sparo_core::bridge_component::BridgeComponentRunResult;
 use std::sync::Arc;
 use tauri::{AppHandle, State};
 
@@ -1446,7 +1444,9 @@ async fn resolve_product_app_host_surface_id(
                     app.app.id, app.app.version, product_app_surface.id
                 )
             })?;
-        register_private_product_app_runtime_components(app).await?;
+        register_private_product_app_runtime_components(app)
+            .await
+            .map_err(|error| error.to_string())?;
         let host_id = runtime_instance.id.clone();
         let backends = build_private_surface_backends(app, product_app_surface, &app.components)?;
         host_adapter_manager
@@ -1512,107 +1512,6 @@ fn validate_private_surface_ref(
     Ok(())
 }
 
-fn private_component_source_dir(
-    app: &ResolvedProductApp,
-    component: &ComponentDefinition,
-) -> Result<Option<PathBuf>, String> {
-    if component.owner_app.is_none() {
-        return Ok(None);
-    }
-    let package_dir = app.package_dir.as_ref().ok_or_else(|| {
-        format!(
-            "Product App {}@{} has no package directory for private component {}",
-            app.app.id, app.app.version, component.id
-        )
-    })?;
-    let source_dir = package_dir
-        .join("components")
-        .join(component.kind.path_segment())
-        .join(&component.id)
-        .join("source");
-    if !source_dir.is_dir() {
-        return Err(format!(
-            "Product App {}@{} private component {} must include source/ at {}",
-            app.app.id,
-            app.app.version,
-            component.id,
-            source_dir.display()
-        ));
-    }
-    Ok(Some(source_dir))
-}
-
-fn collect_private_bridge_package_dirs(
-    app: &ResolvedProductApp,
-) -> Result<HashMap<String, PathBuf>, String> {
-    let mut dirs = HashMap::new();
-    for component in &app.components {
-        if component.kind != ComponentKind::Bridge || component.owner_app.is_none() {
-            continue;
-        }
-        if let Some(source_dir) = private_component_source_dir(app, component)? {
-            dirs.insert(component.id.clone(), source_dir);
-        }
-    }
-    Ok(dirs)
-}
-
-async fn register_private_product_app_runtime_components(
-    app: &ResolvedProductApp,
-) -> Result<(), String> {
-    let private_bridge_dirs = collect_private_bridge_package_dirs(app)?;
-    for (component_id, package_dir) in &private_bridge_dirs {
-        BridgeComponentManager::register_private_package_dir(component_id, package_dir.clone())
-            .map_err(|error| {
-                format!(
-                    "Failed to register private Bridge Component {} for Product App {}@{}: {}",
-                    component_id, app.app.id, app.app.version, error
-                )
-            })?;
-    }
-
-    for component in &app.components {
-        if component.kind != ComponentKind::Agent || component.owner_app.is_none() {
-            continue;
-        }
-        let Some(source_dir) = private_component_source_dir(app, component)? else {
-            continue;
-        };
-        let package =
-            AgentComponentManager::load_package_from_dir(&source_dir).map_err(|error| {
-                format!(
-                    "Failed to load private Agent Component {} for Product App {}@{}: {}",
-                    component.id, app.app.id, app.app.version, error
-                )
-            })?;
-        if package.manifest.id != component.id {
-            return Err(format!(
-                "Private Agent Component package id '{}' does not match component '{}'",
-                package.manifest.id, component.id
-            ));
-        }
-        AgentComponentManager::register_package(&package).map_err(|error| {
-            format!(
-                "Failed to register private Agent Component {} for Product App {}@{}: {}",
-                component.id, app.app.id, app.app.version, error
-            )
-        })?;
-        AgentComponentManager::register_runtime_tools_for_package(
-            &package,
-            private_bridge_dirs.clone(),
-        )
-        .await
-        .map_err(|error| {
-            format!(
-                "Failed to register private Agent Component tools {} for Product App {}@{}: {}",
-                component.id, app.app.id, app.app.version, error
-            )
-        })?;
-    }
-
-    Ok(())
-}
-
 fn build_private_surface_backends(
     app: &ResolvedProductApp,
     product_app_surface: &ComponentDefinition,
@@ -1636,6 +1535,7 @@ fn build_private_surface_backends(
             let component_package_dir = resolved_component
                 .map(|component| {
                     private_component_source_dir(app, component)
+                        .map_err(|error| error.to_string())
                         .map(|path| path.map(|path| path.to_string_lossy().to_string()))
                 })
                 .transpose()?
@@ -1916,7 +1816,8 @@ mod tests {
             version: "1.0.0".to_string(),
             name: "Sample App".to_string(),
             description: "A sample app".to_string(),
-            goal: "Run the sample surface".to_string(),
+            authors: Vec::new(),
+            i18n: Default::default(),
             interaction_model: AppInteractionModel::InteractiveWorkspace,
             work_multiplicity: AppWorkMultiplicity::Multiple,
             work_object_kinds: Vec::new(),
@@ -1930,6 +1831,7 @@ mod tests {
             components: Vec::new(),
             component_lock_id: "sha256:lock".to_string(),
             permissions: AppPermissionSummary::default(),
+            os_capabilities: Vec::new(),
             install_scope: AppInstallScope::System,
             catalog_visibility: AppCatalogVisibility::Discoverable,
             enabled: true,
@@ -1955,6 +1857,7 @@ mod tests {
             owner_app: None,
             capabilities: Vec::new(),
             permissions: Vec::new(),
+            uses_capabilities: Vec::new(),
             used_by_apps: vec!["sample-app".to_string()],
             visibility: ComponentVisibility::AppDependency,
             dependencies: vec![sparo_core::app_platform::AppComponentRef {
@@ -1964,6 +1867,7 @@ mod tests {
                 role: "assistant".to_string(),
                 version: None,
                 capabilities: vec!["agent.run".to_string()],
+                uses_capabilities: Vec::new(),
             }],
             implementation_ref: Some("app://sample-app@1.0.0/surfaces/sample-surface".to_string()),
         }
@@ -1985,10 +1889,11 @@ mod tests {
                 actions: vec!["sendMessage".to_string(), "summarize".to_string()],
             }],
             permissions: Vec::new(),
+            uses_capabilities: Vec::new(),
             used_by_apps: vec!["sample-app".to_string()],
             visibility: ComponentVisibility::AppDependency,
             dependencies: Vec::new(),
-            implementation_ref: Some("agent://agentic".to_string()),
+            implementation_ref: Some("agent://Runno".to_string()),
         }
     }
 
@@ -2139,6 +2044,13 @@ mod tests {
                 .as_ref()
                 .and_then(|chat| chat.backend_id.as_deref()),
             Some("assistant")
+        );
+        assert_eq!(
+            interaction
+                .chat
+                .as_ref()
+                .and_then(|chat| chat.agent_component_id.as_deref()),
+            Some("sample-agent")
         );
         assert_eq!(interaction.tabs.len(), 1);
         assert_eq!(interaction.tabs[0].route.as_deref(), Some("/preview"));

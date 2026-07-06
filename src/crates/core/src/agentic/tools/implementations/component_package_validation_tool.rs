@@ -2,14 +2,14 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::agentic::app_studio_context::AppStudioSubject;
+use crate::agentic::app_builder_context::AppBuilderSubject;
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
 use crate::agentic::tools::restrictions::is_local_path_within_root;
 use crate::app_platform::{
     ComponentKind, ComponentPackageSource, ComponentSource, ProductAppResolver,
 };
-use crate::infrastructure::try_get_path_manager_arc;
 use crate::error::{CoreError, CoreResult};
+use crate::infrastructure::try_get_path_manager_arc;
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use tokio::fs;
@@ -37,7 +37,7 @@ impl Tool for ValidateComponentPackageTool {
     async fn description(&self) -> CoreResult<String> {
         Ok(r#"Validate a shared Component package without modifying it. Checks component.json, shared component identity, contract file presence, capabilities, permissions, dependency boundary, implementation reference, consumer compatibility evidence, and release gate placeholders.
 
-Input: path, or component_id plus kind and optional version. In a bound AppStudio component session, input may be empty and defaults to the current bound Component package. Use this after meaningful Component package edits and before a Product App consumes or releases the component. This is a package contract gate; Product App consumer compatibility and eval evidence remain separate gates."#
+Input: path, or component_id plus kind and optional version. In a bound AppBuilder component session, input may be empty and defaults to the current bound Component package. Use this after meaningful Component package edits and before a Product App consumes or releases the component. This is a package contract gate; Product App consumer compatibility and eval evidence remain separate gates."#
             .to_string())
     }
 
@@ -64,7 +64,7 @@ Input: path, or component_id plus kind and optional version. In a bound AppStudi
                     "description": "Component package version. Defaults to 1.0.0 when component_id is used outside a bound session."
                 }
             },
-            "description": "Provide path or component_id/kind for standalone validation. Leave empty in a bound AppStudio component session to validate the current Component package."
+            "description": "Provide path or component_id/kind for standalone validation. Leave empty in a bound AppBuilder component session to validate the current Component package."
         })
     }
 
@@ -99,9 +99,7 @@ struct ComponentPackageValidation {
     result_for_assistant: String,
 }
 
-async fn validate_component_package(
-    package_dir: &Path,
-) -> CoreResult<ComponentPackageValidation> {
+async fn validate_component_package(package_dir: &Path) -> CoreResult<ComponentPackageValidation> {
     let package = ProductAppResolver::read_component_package(package_dir)
         .await
         .map_err(|e| CoreError::tool(format!("Failed to read Component package: {}", e)))?;
@@ -309,13 +307,13 @@ fn package_dir_from_input(
     path_manager: &crate::infrastructure::PathManager,
     context: &ToolUseContext,
 ) -> CoreResult<PathBuf> {
-    if let Some(app_studio) = context.app_studio.as_ref() {
-        let AppStudioSubject::Component {
+    if let Some(app_builder) = context.app_builder.as_ref() {
+        let AppBuilderSubject::Component {
             component_id: bound_component_id,
             component_kind: bound_component_kind,
             version: bound_version,
             ..
-        } = &app_studio.subject
+        } = &app_builder.subject
         else {
             return Err(CoreError::validation(
                 "ValidateComponentPackage requires a bound Component subject".to_string(),
@@ -325,10 +323,10 @@ fn package_dir_from_input(
         if let Some(path) = optional_string(input, "path").filter(|value| !value.trim().is_empty())
         {
             let package_dir = PathBuf::from(path);
-            if !is_local_path_within_root(&package_dir, &app_studio.package_root)? {
+            if !is_local_path_within_root(&package_dir, &app_builder.package_root)? {
                 return Err(CoreError::validation(format!(
                     "ValidateComponentPackage is bound to package root '{}' and cannot validate '{}'",
-                    app_studio.package_root.display(),
+                    app_builder.package_root.display(),
                     package_dir.display()
                 )));
             }
@@ -358,7 +356,7 @@ fn package_dir_from_input(
             }
         }
 
-        return Ok(app_studio.package_root.clone());
+        return Ok(app_builder.package_root.clone());
     }
 
     if let Some(path) = optional_string(input, "path").filter(|value| !value.trim().is_empty()) {
@@ -449,7 +447,7 @@ fn optional_string(input: &Value, field: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agentic::app_studio_context::{AppStudioExecutionContext, AppStudioSubjectScope};
+    use crate::agentic::app_builder_context::{AppBuilderExecutionContext, AppBuilderSubjectScope};
     use crate::agentic::tools::ToolRuntimeRestrictions;
     use crate::app_platform::{
         create_component_package, ComponentKind, CreateComponentPackageDraft,
@@ -465,18 +463,18 @@ mod tests {
     ) -> ToolUseContext {
         ToolUseContext {
             tool_call_id: None,
-            agent_type: Some("AppStudio".to_string()),
+            agent_type: Some("AppBuilder".to_string()),
             session_id: Some("session-1".to_string()),
             dialog_turn_id: None,
             workspace: None,
             custom_data: HashMap::new(),
-            app_studio: Some(AppStudioExecutionContext {
-                subject: AppStudioSubject::Component {
+            app_builder: Some(AppBuilderExecutionContext {
+                subject: AppBuilderSubject::Component {
                     component_id: component_id.to_string(),
                     component_kind: component_kind.to_string(),
                     version: version.to_string(),
                     title: Some("Shared Agent".to_string()),
-                    scope: AppStudioSubjectScope::System,
+                    scope: AppBuilderSubjectScope::System,
                 },
                 package_root: package_root.clone(),
                 allowed_write_roots: vec![package_root],
@@ -496,12 +494,12 @@ mod tests {
     fn unbound_context() -> ToolUseContext {
         ToolUseContext {
             tool_call_id: None,
-            agent_type: Some("AppStudio".to_string()),
+            agent_type: Some("AppBuilder".to_string()),
             session_id: Some("session-1".to_string()),
             dialog_turn_id: None,
             workspace: None,
             custom_data: HashMap::new(),
-            app_studio: None,
+            app_builder: None,
             computer_use_host: None,
             cancellation_token: None,
             runtime_tool_restrictions: ToolRuntimeRestrictions::default(),
@@ -539,11 +537,11 @@ mod tests {
         let path_manager = PathManager::with_user_root_for_tests(base.clone());
         let mut context =
             bound_component_context(package_root.clone(), "shared-agent", "agents", "1.0.0");
-        context.app_studio.as_mut().expect("context").subject = AppStudioSubject::ProductApp {
+        context.app_builder.as_mut().expect("context").subject = AppBuilderSubject::ProductApp {
             app_id: "current-app".to_string(),
             version: "1.0.0".to_string(),
             title: Some("Current App".to_string()),
-            scope: AppStudioSubjectScope::System,
+            scope: AppBuilderSubjectScope::System,
         };
 
         let denied = package_dir_from_input(&json!({}), &path_manager, &context);

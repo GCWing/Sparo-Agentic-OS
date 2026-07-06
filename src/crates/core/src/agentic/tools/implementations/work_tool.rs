@@ -72,12 +72,12 @@ impl Tool for WorkTool {
                 },
                 "executor": {
                     "type": "object",
-                    "description": "start only. Omit to default to agentic (BitFun Coder).",
+                    "description": "start only. Omit to default to Runno.",
                     "properties": {
                         "kind": { "type": "string", "enum": ["agent"] },
                         "agent_type": {
                             "type": "string",
-                            "description": "agentic for code work; Cowork for office deliverables; Design for UI/UX; DeepResearch for research; AppStudio for Product Apps and reusable component authoring; OutcomeReview for final-effect review before user handoff."
+                            "description": "Runno for general execution; bitfun-coder for code work; Cowork for office deliverables; Design for UI/UX; DeepResearch for research; AppBuilder for Product Apps and reusable component authoring; OutcomeReview for final-effect review before user handoff."
                         }
                     },
                     "additionalProperties": false

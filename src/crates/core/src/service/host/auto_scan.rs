@@ -4,11 +4,11 @@ use super::state::{
     HostScanTrigger,
 };
 use crate::agentic::coordination::ConversationCoordinator;
+use crate::error::CoreResult;
 use crate::service::config::types::AppHostScanConfig;
 use crate::service::config::{
     get_global_config_service, subscribe_config_updates, ConfigUpdateEvent,
 };
-use crate::error::CoreResult;
 use chrono::{Local, TimeZone};
 use log::{debug, error, info, warn};
 use serde::Serialize;

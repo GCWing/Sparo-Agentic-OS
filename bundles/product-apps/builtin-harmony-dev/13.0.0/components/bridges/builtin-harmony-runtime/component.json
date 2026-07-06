@@ -68,5 +68,13 @@
   ],
   "visibility": "appDependency",
   "dependencies": [],
-  "implementationRef": "app://builtin-harmony-dev@13.0.0/bridges/builtin-harmony-runtime"
+  "implementationRef": "app://builtin-harmony-dev@13.0.0/bridges/builtin-harmony-runtime",
+  "usesCapabilities": [
+    "filesystem.read",
+    "filesystem.write",
+    "terminal.run",
+    "process.spawn",
+    "workspace.inspect",
+    "component.run"
+  ]
 }

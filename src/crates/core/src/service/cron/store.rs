@@ -1,9 +1,9 @@
 //! jobs.json persistence wrapper.
 
 use super::types::{CronJob, CronJobsFile, CRON_JOBS_VERSION};
+use crate::error::{CoreError, CoreResult};
 use crate::infrastructure::storage::{PersistenceService, StorageOptions};
 use crate::infrastructure::PathManager;
-use crate::error::{CoreError, CoreResult};
 use std::sync::Arc;
 
 pub struct CronJobStore {

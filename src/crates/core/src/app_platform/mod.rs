@@ -2,12 +2,15 @@
 
 pub mod authoring;
 pub mod builtin;
+pub mod capability_binding;
 pub mod catalog;
 pub mod catalog_state;
 pub mod eval;
+pub mod launch_binding;
 pub mod manifest;
 pub mod native;
 pub mod permissions;
+pub mod private_components;
 pub mod rehearsal;
 pub mod resolver;
 pub mod runtime_storage;
@@ -30,19 +33,20 @@ pub use builtin::{
     select_installed_product_app_by_lock, uninstall_product_app, ProductAppCatalogEntries,
     PublishProductAppReleaseToCatalogRequest, PublishedProductAppReleaseCatalogSource,
 };
+pub use capability_binding::{known_os_atomic_capabilities, validate_app_capability_bindings};
 pub use catalog::{
-    build_component_lock, stable_digest, AppCatalogEntry, AppCatalogVisibility, AppComponentRef,
-    AppDataDeletionPolicy, AppDataLifecyclePolicy, AppDataMigrationPolicy, AppDataRetentionPolicy,
-    AppDataSharePolicy, AppDefinition, AppIconSpec, AppInstallScope, AppInteractionModel,
-    AppManagementAction, AppSurfaceMode, AppTruthSource, AppWorkMultiplicity, CapabilityRef,
-    ComponentDefinition, ComponentKind, ComponentLock, ComponentLockEntry, ComponentOwnerApp,
-    ComponentPackageSource, ComponentSource, ComponentVisibility, NativeAppManagementAction,
-    NativeAppManagementOrigin, NativeAppManagementPolicy, PermissionSpec, ProductAppCatalogEntry,
-    ProductAppCatalogIssue, ProductAppCatalogIssueSource, ProductAppCatalogSourceKind,
-    ProductAppCatalogSourceRef, ProductAppLaunch, ProductAppLaunchKind,
-    ProductAppLaunchScopeRequirement, ProductAppLibrarySource, ProductAppManagementOrigin,
-    ProductAppManagementPolicy, ProductAppUninstallPolicy, SurfaceRef, WorkObjectKind,
-    WorkObjectScope,
+    build_component_lock, stable_digest, AppAuthor, AppCatalogEntry, AppCatalogVisibility,
+    AppComponentRef, AppDataDeletionPolicy, AppDataLifecyclePolicy, AppDataMigrationPolicy,
+    AppDataRetentionPolicy, AppDataSharePolicy, AppDefinition, AppI18n, AppIconSpec,
+    AppInstallScope, AppInteractionModel, AppLocalizedMetadata, AppManagementAction,
+    AppSurfaceMode, AppTruthSource, AppWorkMultiplicity, CapabilityRef, ComponentDefinition,
+    ComponentKind, ComponentLock, ComponentLockEntry, ComponentOwnerApp, ComponentPackageSource,
+    ComponentSource, ComponentVisibility, NativeAppManagementAction, NativeAppManagementOrigin,
+    NativeAppManagementPolicy, PermissionSpec, ProductAppCatalogEntry, ProductAppCatalogIssue,
+    ProductAppCatalogIssueSource, ProductAppCatalogSourceKind, ProductAppCatalogSourceRef,
+    ProductAppLaunch, ProductAppLaunchKind, ProductAppLaunchScopeRequirement,
+    ProductAppLibrarySource, ProductAppManagementOrigin, ProductAppManagementPolicy,
+    ProductAppUninstallPolicy, SurfaceRef, WorkObjectKind, WorkObjectScope,
 };
 pub use catalog_state::{
     apply_product_app_catalog_source_state, apply_product_app_catalog_state,
@@ -52,12 +56,20 @@ pub use eval::{
     ProductAppEvalCase, ProductAppEvalEvidenceKind, ProductAppEvalExpectation,
     ProductAppEvalExpectationKind, ProductAppEvalPlan,
 };
+pub use launch_binding::{
+    is_os_native_agent_id, is_system_builtin_product_app_agent_id,
+    validate_product_app_launch_binding,
+};
 pub use manifest::AppManifestIdentity;
 pub use native::{
     native_app_catalog, native_app_shell_catalog, NativeAppAvailability, NativeAppCatalogEntry,
     NativeAppOrigin,
 };
 pub use permissions::AppPermissionSummary;
+pub use private_components::{
+    collect_private_bridge_package_dirs, private_component_source_dir,
+    register_private_product_app_runtime_components, ProductAppPrivateComponentRegistration,
+};
 pub use rehearsal::{
     ProductAppRehearsalAction, ProductAppRehearsalPlan, ProductAppRehearsalScenario,
     ProductAppRehearsalScenarioKind, ProductAppRehearsalStep,

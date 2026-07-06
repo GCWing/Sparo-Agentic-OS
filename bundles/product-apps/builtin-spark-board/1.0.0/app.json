@@ -2,8 +2,27 @@
   "id": "builtin-spark-board",
   "version": "1.0.0",
   "name": "Spark Board",
-  "description": "Collaborative AI canvas for creative thinking, clustering ideas, and turning selected notes into ready drafts.",
-  "goal": "Capture rough ideas, organize them on a canvas, and transform selected notes into useful drafts.",
+  "description": "A lightweight thinking canvas for capturing inspiration, organizing threads, and turning scattered ideas into drafts and next steps.",
+  "authors": [
+    {
+      "name": "GCWing",
+      "url": "https://github.com/GCWing"
+    }
+  ],
+  "i18n": {
+    "locales": {
+      "en-US": {
+        "name": "Spark Board",
+        "description": "A lightweight thinking canvas for capturing inspiration, organizing threads, and turning scattered ideas into drafts and next steps.",
+        "tags": ["built-in", "canvas", "ideation", "drafting"]
+      },
+      "zh-CN": {
+        "name": "Spark Board",
+        "description": "轻量思考画布，用来捕捉灵感、梳理脉络，把零散想法沉淀成草稿和下一步。",
+        "tags": ["内置", "画布", "灵感", "草稿"]
+      }
+    }
+  },
   "interactionModel": "interactiveWorkspace",
   "workMultiplicity": "singleton",
   "workObjectKinds": [
@@ -112,6 +131,10 @@
       "role": "primarySurface",
       "capabilities": [
         "interactiveSurface"
+      ],
+      "usesCapabilities": [
+        "session.read",
+        "component.run"
       ]
     },
     {
@@ -122,6 +145,11 @@
       "capabilities": [
         "expandIdeas",
         "draftFromSelection"
+      ],
+      "usesCapabilities": [
+        "session.read",
+        "model.invoke",
+        "tool.invoke"
       ]
     },
     {
@@ -132,6 +160,9 @@
       "version": "^1.0.0",
       "capabilities": [
         "uiWorker"
+      ],
+      "usesCapabilities": [
+        "component.run"
       ]
     }
   ],
@@ -155,13 +186,19 @@
   "tags": [
     "built-in",
     "canvas",
-    "creative",
-    "ai"
+    "ideation",
+    "drafting"
   ],
   "launch": {
     "kind": "applicationSurface",
     "targetId": "builtin-spark-board",
     "scopeRequirement": "workspaceOptional",
     "surfaceId": "primary"
-  }
+  },
+  "osCapabilities": [
+    "session.read",
+    "component.run",
+    "model.invoke",
+    "tool.invoke"
+  ]
 }

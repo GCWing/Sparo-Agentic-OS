@@ -4,8 +4,8 @@ use std::sync::Arc;
 use serde_json::{json, Value};
 
 use crate::agentic_os::work::WorkId;
-use crate::infrastructure::PathManager;
 use crate::error::{CoreError, CoreResult};
+use crate::infrastructure::PathManager;
 
 const STORAGE_JSON: &str = "storage.json";
 const READINESS_PROBE_KEY: &str = "__sparo_readiness_probe__";
@@ -20,11 +20,7 @@ impl ProductAppRuntimeStorage {
         Self { path_manager }
     }
 
-    pub fn runtime_dir(
-        &self,
-        work_id: &WorkId,
-        runtime_instance_id: &str,
-    ) -> CoreResult<PathBuf> {
+    pub fn runtime_dir(&self, work_id: &WorkId, runtime_instance_id: &str) -> CoreResult<PathBuf> {
         validate_runtime_instance_id(runtime_instance_id)?;
         Ok(self
             .path_manager
@@ -145,11 +141,7 @@ impl ProductAppRuntimeStorage {
         }))
     }
 
-    async fn load_storage(
-        &self,
-        work_id: &WorkId,
-        runtime_instance_id: &str,
-    ) -> CoreResult<Value> {
+    async fn load_storage(&self, work_id: &WorkId, runtime_instance_id: &str) -> CoreResult<Value> {
         let dir = self.runtime_dir(work_id, runtime_instance_id)?;
         self.load_storage_from_dir(&dir).await
     }

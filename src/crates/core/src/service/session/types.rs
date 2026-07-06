@@ -798,7 +798,7 @@ mod tests {
             "sessionId": "session-1",
             "sessionName": "session.osAgent",
             "defaultAgentRef": {
-                "agentId": "agentic"
+                "agentId": "Runno"
             },
             "sessionKind": "standard",
             "modelName": "primary",
@@ -817,14 +817,14 @@ mod tests {
         let metadata: SessionMetadata =
             serde_json::from_value(payload).expect("metadata should deserialize");
 
-        assert_eq!(metadata.agent_type, "agentic");
+        assert_eq!(metadata.agent_type, "Runno");
 
         let serialized = serde_json::to_value(&metadata).expect("metadata should serialize");
         assert_eq!(
             serialized
                 .get("agentType")
                 .and_then(serde_json::Value::as_str),
-            Some("agentic")
+            Some("Runno")
         );
         assert!(serialized.get("defaultAgentRef").is_none());
     }
@@ -863,7 +863,7 @@ mod tests {
         let metadata = SessionMetadata::new(
             "session-1".to_string(),
             "Normal Session".to_string(),
-            "agentic".to_string(),
+            "Runno".to_string(),
             "model".to_string(),
         );
 

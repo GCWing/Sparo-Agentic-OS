@@ -1,6 +1,6 @@
 //! Tool pipeline type definitions
 
-use crate::agentic::app_studio_context::AppStudioExecutionContext;
+use crate::agentic::app_builder_context::AppBuilderExecutionContext;
 use crate::agentic::core::{ToolCall, ToolExecutionState};
 use crate::agentic::events::{SessionSurfaceMode, SubagentParentInfo as EventSubagentParentInfo};
 use crate::agentic::tools::ToolRuntimeRestrictions;
@@ -66,7 +66,7 @@ pub struct ToolExecutionContext {
     /// If not empty, only allow tools in the list to be executed
     pub allowed_tools: Vec<String>,
     pub runtime_tool_restrictions: ToolRuntimeRestrictions,
-    pub app_studio: Option<AppStudioExecutionContext>,
+    pub app_builder: Option<AppBuilderExecutionContext>,
     pub workspace_services: Option<WorkspaceServices>,
     /// Per-workspace mount bundle (snapshot + agent registry overlay).
     /// Injected by the execution layer when the task runs against a mounted

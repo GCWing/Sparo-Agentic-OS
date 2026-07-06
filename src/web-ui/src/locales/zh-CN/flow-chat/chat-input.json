@@ -74,26 +74,28 @@
   "sendingToMain": "主会话：{{title}}",
   "sendingToBtw": "侧问会话：{{title}}",
   "agentDescriptions": {
-    "agentic": "BitFun Coder：接住目标、选择下一步动作，并交付经过验证的工作结果",
-    "Plan": "先规划后执行，先明确需求并制定实施计划，再进行编码",
-    "debug": "证据驱动的系统化调试：提出假设、收集运行时证据、精准定位并修复问题",
+    "Runno": "Runno：系统原生通用执行，覆盖规划、自动化、实现与验证",
+    "bitfun-coder": "BitFun Coder：构建、调试、自动化并验证软件改动",
+    "bitfun-plan": "Plan：先明确需求并制定实施计划，再进行编码",
+    "bitfun-debug": "Debug：基于证据诊断代码问题，并聚焦修复路径",
+    "bitfun-team": "Team：以团队式工作流协同推进软件交付",
     "Cowork": "办公助理：先澄清再推进，轻量跟踪进度，随时验证结果",
     "Design": "设计师：创建 HTML 原型、视觉稿和更完整的设计交付物",
     "ComputerUse": "独立电脑操作智能体：感知本机环境，操作应用、浏览器与系统界面",
     "DeepResearch": "深度研究：并行派发多个子 Agent 同时调研不同章节，快速生成高质量研究报告",
-    "AppStudio": "应用工作室：围绕工作对象、主界面、组件和运行反馈设计 Product App",
-    "Team": "虚拟工程团队：CEO、工程经理、设计师、QA 负责人、安全官、发布工程师 — 按完整冲刺流程协同工作"
+    "AppBuilder": "应用构建器：围绕工作对象、主界面、组件和运行反馈设计 Product App"
   },
   "agentNames": {
-    "agentic": "BitFun Coder",
-    "Plan": "Plan",
-    "debug": "Debug",
+    "Runno": "Runno",
+    "bitfun-coder": "BitFun Coder",
+    "bitfun-plan": "Plan",
+    "bitfun-debug": "Debug",
+    "bitfun-team": "Team",
     "Cowork": "办公助理",
     "Design": "设计师",
     "ComputerUse": "Computer Use",
     "DeepResearch": "深度研究",
-    "AppStudio": "应用工作室",
-    "Team": "Team"
+    "AppBuilder": "应用构建器"
   },
   "openFolder": "打开文件夹…",
   "selectWorkspaceTitle": "选择工作区目录",

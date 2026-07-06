@@ -11,7 +11,7 @@ import { browser, expect, $ } from '@wdio/globals';
 import { Header } from '../page-objects/components/Header';
 import { StartupPage } from '../page-objects/StartupPage';
 import { ensureWorkspaceOpen } from '../helpers/workspace-utils';
-import { ensureCodeSessionOpen } from '../helpers/workspace-helper';
+import { ensureBitFunCoderSessionOpen } from '../helpers/workspace-helper';
 
 interface ScrollMetrics {
   scrollTop: number;
@@ -31,7 +31,7 @@ async function injectStreamingScrollFixture(): Promise<string> {
 
     const now = Date.now();
     const sessionId = `e2e-flow-scroll-${now}`;
-    const descriptor = descriptorFromAgentType('agentic');
+    const descriptor = descriptorFromAgentType('Runno');
     const makeText = (label: string, repeat = 18) =>
       Array.from({ length: repeat }, (_, index) =>
         `${label} paragraph ${index + 1}: FlowChat scroll stability content for virtualized history reading.`
@@ -239,7 +239,7 @@ describe('L1 FlowChat scroll interactions', () => {
     await header.waitForLoad();
     hasWorkspace = await ensureWorkspaceOpen(startupPage);
     if (hasWorkspace) {
-      await ensureCodeSessionOpen();
+      await ensureBitFunCoderSessionOpen();
     }
   });
 

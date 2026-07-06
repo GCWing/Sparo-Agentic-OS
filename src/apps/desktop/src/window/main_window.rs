@@ -17,8 +17,8 @@
 //!   4. Expose the `show_main_window` command used by the frontend boot loader
 //!      to reveal the window once React has painted.
 
-use sparo_core::infrastructure::constants::WINDOW_MAIN;
 use log::{error, warn};
+use sparo_core::infrastructure::constants::WINDOW_MAIN;
 use tauri::{AppHandle, Manager};
 
 use crate::theme::ThemeConfig;

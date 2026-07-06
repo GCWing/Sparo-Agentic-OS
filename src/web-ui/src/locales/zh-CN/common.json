@@ -6,14 +6,22 @@
     "welcome": "欢迎使用 Sparo OS"
   },
   "agents": {
-    "general": {
-      "name": "通用助手",
-      "description": "通用 AI 助手，可以回答各种问题"
-    },
-    "coder": {
-      "name": "BitFun Coder",
-      "description": "默认执行 Agent，负责把目标推进到经过验证的工作结果"
-    },
+      "general": {
+        "name": "通用助手",
+        "description": "通用 AI 助手，可以回答各种问题"
+      },
+      "runno": {
+        "name": "Runno",
+        "description": "系统原生通用执行 Agent，覆盖规划、自动化、实现与验证"
+      },
+      "coder": {
+        "name": "BitFun Coder",
+        "description": "面向实现、调试、自动化、验证和交付的软件工程 Product App"
+      },
+      "bitfunCoder": {
+        "name": "BitFun Coder",
+        "description": "面向实现、调试、自动化、验证和交付的软件工程 Product App"
+      },
     "projectQa": {
       "name": "项目问答助手",
       "description": "专注于项目问答与代码库探索的助手"
@@ -403,7 +411,8 @@
     "mermaidEditor": "Mermaid 图表",
     "shell": "终端",
     "panelView": "面板视图",
-    "workCenter": "工作中心"
+    "workCenter": "工作中心",
+    "dailyLetter": "今日来信"
   },
   "overlay": {
     "returnToAgenticOS": "返回 Agentic OS"

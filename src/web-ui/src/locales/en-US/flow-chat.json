@@ -40,7 +40,8 @@
     "toBottom": "Back to bottom",
     "toBottomWithCount": "Back to bottom ({{count}} new messages)",
     "toLatest": "Jump to latest message",
-    "clickToLatest": "Click to jump to latest"
+    "clickToLatest": "Click to jump to latest",
+    "anchorJumpToTurn": "Jump to {{turn}}: {{title}}"
   },
   "message": {
     "user": "User",
@@ -335,7 +336,7 @@
       "more": "More panels",
       "designs": "Designs",
       "designTokens": "Design Tokens",
-      "appStudio": "App Studio"
+      "appBuilder": "App Builder"
     },
     "goalPanel": {
       "open": "Goal details",

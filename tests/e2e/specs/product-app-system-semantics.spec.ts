@@ -398,10 +398,9 @@ describe('Product App system semantics', () => {
     const nativeCards = homeCards.filter((card) => card.appKind === 'native_app');
     const productCards = homeCards.filter((card) => card.appKind === 'product_app');
     expect(nativeCards.map((card) => card.appId)).toEqual(expect.arrayContaining([
-      'prime-builder',
-      'cowork',
-      'design',
-      'app-studio',
+      'os-agent',
+      'runno',
+      'app-builder',
     ]));
     expect(productCards.every((card) => card.appId !== null && library.installedIds.includes(card.appId))).toBe(true);
     expect(productCards.every((card) => Number(card.componentCount ?? '0') >= 0)).toBe(true);
@@ -418,15 +417,9 @@ describe('Product App system semantics', () => {
     expect(installedRows.every((row) => row.appId !== null && library.installedIds.includes(row.appId))).toBe(true);
     expect(installedRows.every((row) => row.catalogSourceKind === 'installedPackage')).toBe(true);
     const nativeLifecycleIds = [
-      'prime-builder',
-      'cowork',
-      'design',
-      'app-studio',
-      'builtin-coding',
-      'builtin-cowork',
-      'builtin-design',
-      'builtin-app-studio',
-      'builtin-component-studio',
+      'os-agent',
+      'runno',
+      'app-builder',
     ];
     expect(installedRows.every((row) => !nativeLifecycleIds.includes(row.appId ?? ''))).toBe(true);
     const installedBuiltinRows = installedRows.filter((row) => row.appId?.startsWith('builtin-'));

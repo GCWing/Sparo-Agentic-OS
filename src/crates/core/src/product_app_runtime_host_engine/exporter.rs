@@ -80,11 +80,7 @@ impl ProductAppRuntimeHostExporter {
     }
 
     /// Export the Product App runtime host to a standalone application.
-    pub async fn export(
-        &self,
-        _app_id: &str,
-        _options: ExportOptions,
-    ) -> CoreResult<ExportResult> {
+    pub async fn export(&self, _app_id: &str, _options: ExportOptions) -> CoreResult<ExportResult> {
         Err(CoreError::validation(
             "Export not yet implemented (skeleton)".to_string(),
         ))

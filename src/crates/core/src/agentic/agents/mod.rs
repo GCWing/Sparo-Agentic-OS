@@ -3,63 +3,28 @@
 //! Provides flexible agent selection with different system prompts and tool sets
 
 mod custom_subagents;
+mod delegates;
+mod internal;
+mod os_native;
+mod product_app_backends;
 mod prompt_builder;
 mod registry;
-// Launchable agents
-mod agentic_agent;
-mod app_studio_agent;
-mod computer_use_agent;
-mod cowork_agent;
-mod debug_agent;
-mod design_agent;
-mod design_review_agent;
-mod os_agent;
-mod outcome_review_agent;
-mod plan_agent;
-mod ppt_live_prompt;
-mod team_agent;
-// Built-in subagents
-mod deep_research_agent;
-mod explore_agent;
-mod file_finder_agent;
-mod filer_agent;
-// Hidden agents
-mod code_review_agent;
-mod generate_doc_agent;
-mod global_daily_report_agent;
-mod global_memory_consolidator_agent;
-mod global_milestone_agent;
-mod host_scan_agent;
-mod init_agent;
-mod workspace_memory_consolidator_agent;
-mod workspace_overview_refresher_agent;
+mod system_builtin;
 
 use crate::agentic::memory::store::MemoryScope;
 use crate::error::{CoreError, CoreResult};
-pub use agentic_agent::AgenticAgent;
-pub use app_studio_agent::AppStudioAgent;
 use async_trait::async_trait;
-pub use code_review_agent::CodeReviewAgent;
-pub use computer_use_agent::ComputerUseAgent;
-pub use cowork_agent::CoworkAgent;
 pub use custom_subagents::{CustomSubagent, CustomSubagentKind};
-pub use debug_agent::DebugAgent;
-pub use deep_research_agent::DeepResearchAgent;
-pub use design_agent::DesignAgent;
-pub use design_review_agent::DesignReviewAgent;
-pub use explore_agent::ExploreAgent;
-pub use file_finder_agent::FileFinderAgent;
-pub use filer_agent::FilerAgent;
-pub use generate_doc_agent::GenerateDocAgent;
-pub use global_daily_report_agent::GlobalDailyReportAgent;
-pub use global_memory_consolidator_agent::GlobalMemoryConsolidatorAgent;
-pub use global_milestone_agent::GlobalMilestoneAgent;
-pub use host_scan_agent::HostScanAgent;
-pub use init_agent::InitAgent;
-pub use os_agent::OsAgent;
-pub use outcome_review_agent::OutcomeReviewAgent;
-pub use plan_agent::PlanAgent;
-pub use ppt_live_prompt::build_ppt_live_private_prompt;
+pub use delegates::{
+    ComputerUseAgent, DesignReviewAgent, ExploreAgent, FileFinderAgent, OutcomeReviewAgent,
+};
+pub use internal::{
+    CodeReviewAgent, DailyLetterWriterAgent, FilerAgent, GenerateDocAgent, GlobalDailyReportAgent,
+    GlobalMemoryConsolidatorAgent, GlobalMilestoneAgent, HostScanAgent, InitAgent,
+    WorkspaceMemoryConsolidatorAgent, WorkspaceOverviewRefresherAgent,
+};
+pub use os_native::{AppBuilderAgent, OsAgent, RunnoAgent};
+pub use product_app_backends::build_ppt_live_private_prompt;
 pub use prompt_builder::{
     PromptBuilder, PromptBuilderContext, RemoteExecutionHints, RequestContextPolicy,
     RequestContextSection,
@@ -69,9 +34,10 @@ pub use registry::{
     CustomSubagentDetail, SubAgentSource,
 };
 use std::any::Any;
-pub use team_agent::TeamAgent;
-pub use workspace_memory_consolidator_agent::WorkspaceMemoryConsolidatorAgent;
-pub use workspace_overview_refresher_agent::WorkspaceOverviewRefresherAgent;
+pub use system_builtin::{
+    BitFunCoderAgent, BitFunDebugAgent, BitFunPlanAgent, BitFunTeamAgent, CoworkAgent,
+    DeepResearchAgent, DesignAgent,
+};
 
 // Include embedded prompts generated at compile time
 include!(concat!(env!("OUT_DIR"), "/embedded_agents_prompt.rs"));

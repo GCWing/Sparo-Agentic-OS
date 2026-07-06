@@ -1,5 +1,5 @@
-use sparo_core::service::{get_global_global_milestone_service, GlobalMilestoneRunSummary};
 use log::{debug, error};
+use sparo_core::service::{get_global_global_milestone_service, GlobalMilestoneRunSummary};
 
 fn global_milestone_service(
 ) -> Result<std::sync::Arc<sparo_core::service::GlobalMilestoneService>, String> {

@@ -24,13 +24,13 @@ pub mod event_subscriber;
 pub mod icon;
 pub mod status;
 
+use icon::{load_icon, IconState};
+use log::{error, warn};
 use sparo_core::agentic::coordination::ConversationCoordinator;
 use sparo_core::infrastructure::constants::{
     EVENT_TRAY_NEW_SESSION, EVENT_TRAY_RESTORE_SESSION, WINDOW_MAIN,
 };
 use sparo_core::service::config::{get_global_config_service, GlobalConfig};
-use icon::{load_icon, IconState};
-use log::{error, warn};
 use std::sync::Arc;
 use tauri::{
     menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu},

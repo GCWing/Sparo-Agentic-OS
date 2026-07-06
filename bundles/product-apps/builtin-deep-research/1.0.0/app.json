@@ -2,8 +2,21 @@
   "id": "builtin-deep-research",
   "version": "1.0.0",
   "name": "Deep Research",
-  "description": "Research app for parallel investigation, synthesis, and comprehensive report creation.",
-  "goal": "Investigate a topic deeply, compare evidence, and synthesize a useful report.",
+  "description": "A deep research Agent for finding sources, comparing viewpoints, organizing evidence, and turning complex questions into clear conclusions.",
+  "i18n": {
+    "locales": {
+      "en-US": {
+        "name": "Deep Research",
+        "description": "A deep research Agent for finding sources, comparing viewpoints, organizing evidence, and turning complex questions into clear conclusions.",
+        "tags": ["built-in", "research", "evidence", "report"]
+      },
+      "zh-CN": {
+        "name": "Deep Research",
+        "description": "面向深度研究的 Agent，适合查资料、比观点、梳理依据，把复杂问题沉淀为清晰结论。",
+        "tags": ["内置", "研究", "证据", "报告"]
+      }
+    }
+  },
   "interactionModel": "conversation",
   "workMultiplicity": "multiple",
   "workObjectKinds": [
@@ -111,6 +124,10 @@
       "role": "primarySurface",
       "capabilities": [
         "chatPrimary"
+      ],
+      "usesCapabilities": [
+        "session.read",
+        "component.run"
       ]
     },
     {
@@ -121,6 +138,16 @@
       "capabilities": [
         "parallelResearch",
         "synthesizeReport"
+      ],
+      "usesCapabilities": [
+        "browser.navigate",
+        "browser.inspect",
+        "session.read",
+        "session.write",
+        "memory.read",
+        "memory.write",
+        "model.invoke",
+        "tool.invoke"
       ]
     }
   ],
@@ -144,6 +171,7 @@
   "tags": [
     "built-in",
     "research",
+    "evidence",
     "report"
   ],
   "launch": {
@@ -152,5 +180,16 @@
     "scopeRequirement": "workspaceOptional",
     "agentType": "DeepResearch",
     "surfaceId": "primary"
-  }
+  },
+  "osCapabilities": [
+    "session.read",
+    "component.run",
+    "browser.navigate",
+    "browser.inspect",
+    "session.write",
+    "memory.read",
+    "memory.write",
+    "model.invoke",
+    "tool.invoke"
+  ]
 }

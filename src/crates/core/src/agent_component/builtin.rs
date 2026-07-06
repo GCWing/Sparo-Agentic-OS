@@ -1,7 +1,7 @@
 use super::manager::{AgentComponentManager, AGENT_COMPONENT_MANIFEST};
 use crate::agent_component::{AgentComponentLevel, AgentComponentManifest};
-use crate::infrastructure::get_path_manager_arc;
 use crate::error::{CoreError, CoreResult};
+use crate::infrastructure::get_path_manager_arc;
 use include_dir::{include_dir, Dir, File};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};

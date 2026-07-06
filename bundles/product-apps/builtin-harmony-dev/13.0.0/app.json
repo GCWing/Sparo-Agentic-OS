@@ -2,8 +2,27 @@
   "id": "builtin-harmony-dev",
   "version": "13.0.0",
   "name": "HarmonyOS Dev",
-  "description": "A device-fact-centered collaborative workbench for HarmonyOS app development.",
-  "goal": "Collaboratively develop, build, install, run, and diagnose a HarmonyOS application.",
+  "description": "An integrated HarmonyOS app development environment that brings ArkTS, ArkUI, building, packaging, debugging, and device runtime into one workspace.",
+  "authors": [
+    {
+      "name": "Sparo OS",
+      "url": "https://gcwing.github.io/Sparo-Agentic-OS/"
+    }
+  ],
+  "i18n": {
+    "locales": {
+      "en-US": {
+        "name": "HarmonyOS Dev",
+        "description": "An integrated HarmonyOS app development environment that brings ArkTS, ArkUI, building, packaging, debugging, and device runtime into one workspace.",
+        "tags": ["built-in", "harmonyos", "arkui", "device", "build"]
+      },
+      "zh-CN": {
+        "name": "HarmonyOS Dev",
+        "description": "一体化鸿蒙应用开发环境，把 ArkTS、ArkUI、构建、打包、调试和设备运行集中到一个工作空间。",
+        "tags": ["内置", "harmonyos", "arkui", "设备", "构建"]
+      }
+    }
+  },
   "interactionModel": "interactiveWorkspace",
   "workMultiplicity": "multiple",
   "workObjectKinds": [
@@ -173,6 +192,10 @@
       "role": "primarySurface",
       "capabilities": [
         "interactiveSurface"
+      ],
+      "usesCapabilities": [
+        "session.read",
+        "component.run"
       ]
     },
     {
@@ -185,6 +208,18 @@
         "reviseHarmonyUi",
         "buildInstallVerify",
         "diagnoseHarmonyFailure"
+      ],
+      "usesCapabilities": [
+        "filesystem.read",
+        "filesystem.write",
+        "terminal.run",
+        "process.spawn",
+        "workspace.inspect",
+        "workspace.modify",
+        "session.read",
+        "model.invoke",
+        "tool.invoke",
+        "component.run"
       ]
     },
     {
@@ -194,6 +229,14 @@
       "role": "runtime",
       "capabilities": [
         "sparo.harmonyDev"
+      ],
+      "usesCapabilities": [
+        "filesystem.read",
+        "filesystem.write",
+        "terminal.run",
+        "process.spawn",
+        "workspace.inspect",
+        "component.run"
       ]
     },
     {
@@ -204,6 +247,9 @@
       "version": "^1.0.0",
       "capabilities": [
         "uiWorker"
+      ],
+      "usesCapabilities": [
+        "component.run"
       ]
     }
   ],
@@ -228,14 +274,25 @@
     "built-in",
     "harmonyos",
     "arkui",
-    "arkts",
     "device",
-    "preview"
+    "build"
   ],
   "launch": {
     "kind": "applicationSurface",
     "targetId": "builtin-harmony-dev",
     "scopeRequirement": "workspaceRequired",
     "surfaceId": "primary"
-  }
+  },
+  "osCapabilities": [
+    "session.read",
+    "component.run",
+    "filesystem.read",
+    "filesystem.write",
+    "terminal.run",
+    "process.spawn",
+    "workspace.inspect",
+    "workspace.modify",
+    "model.invoke",
+    "tool.invoke"
+  ]
 }
