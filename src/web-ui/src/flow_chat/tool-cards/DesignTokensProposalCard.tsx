@@ -16,6 +16,8 @@ import { ToolHeaderLayout } from './ToolHeaderLayout';
 import { deriveToolRuntimeState } from '../runtime/statusModel';
 import { getToolViewState } from '../runtime/toolViewState';
 import { getToolCardStatusFromViewState } from './toolStatus';
+import { DefaultToolCardTemplate } from './templates';
+import { useToolDisclosureController } from './ToolDisclosureController';
 import './DesignTokensProposalCard.scss';
 
 const log = createLogger('DesignTokensProposalCard');
@@ -45,6 +47,7 @@ interface PreviewProps {
 }
 
 const STREAMING_SWATCH_LIMIT = 5;
+const SELECTION_ACTIONS = new Set(['propose', 'await_selection']);
 
 /**
  * Estimate the relative luminance of a CSS color string (hex / rgb only).
@@ -239,23 +242,38 @@ export const DesignTokensProposalCard: React.FC<ToolCardProps> = ({ toolItem }) 
   const resultPayload = result?.data;
   const resultTokens = resultPayload?.tokens;
   const resultPath = resultPayload?.path;
+  const resultItems: Array<{ path?: string; tokens?: any }> = Array.isArray(resultPayload?.items)
+    ? resultPayload.items
+    : [];
   const selectionStatus: string | undefined = resultPayload?.selection_status;
 
   const inputParams = (runtimeState.partialInput || runtimeState.input || toolCall?.input) as Record<string, any> | undefined;
   const inputProposals: any[] = Array.isArray(inputParams?.proposals) ? inputParams!.proposals : [];
+  const action = typeof inputParams?.action === 'string' ? inputParams.action : '';
+  const isSelectionAction = SELECTION_ACTIONS.has(action);
+  const shouldRenderProposalPicker = isSelectionAction || (!action && inputProposals.length > 0);
+  const isListAction = action === 'list';
 
   const isCompleted = viewState.phase === 'result';
   const isFailed = viewState.phase === 'error' || toolResult?.success === false;
   const failure = toolResult?.error || result?.error || t('toolCards.designTokens.generationFailed');
+  const toolCardStatus = getToolCardStatusFromViewState(viewState);
 
   // Prefer the authoritative result when the tool has completed; otherwise fall back to the streaming input.
   const proposals: any[] = resultTokens?.proposals?.length ? resultTokens.proposals : inputProposals;
   const committedId: string | undefined = resultTokens?.committed_id || undefined;
+  const committedProposal = committedId
+    ? proposals.find((proposal) => proposal?.id === committedId)
+    : undefined;
+  const compactColorEntries = useMemo(
+    () => Object.entries(committedProposal?.colors || {}).slice(0, 5) as Array<[string, string]>,
+    [committedProposal]
+  );
 
   /** Same as AskUserQuestionCard: no selection until streaming tool args finish (avoids partial proposals). */
   const paramsReady = runtimeState.inputPhase !== 'streaming';
   const awaitingSelection =
-    !isCompleted && !isFailed && proposals.length > 0 && paramsReady;
+    shouldRenderProposalPicker && !isCompleted && !isFailed && proposals.length > 0 && paramsReady;
   const awaitingPayload = !isCompleted && !isFailed && proposals.length === 0;
 
   // User-side local state: which proposal is currently highlighted, and submission progress.
@@ -268,10 +286,18 @@ export const DesignTokensProposalCard: React.FC<ToolCardProps> = ({ toolItem }) 
   const [remainingMs, setRemainingMs] = useState<number | null>(null);
 
   const artifactIdFromInput = toolItem.toolCall?.input?.artifact_id as string | undefined;
+  const toolId = toolItem.id ?? toolItem.toolCall?.id;
   const scopeKey = useMemo(
     () => canonicalScopeKey({ explicitPath: resultPath, workspacePath, artifactId: artifactIdFromInput }),
     [resultPath, workspacePath, artifactIdFromInput]
   );
+  const { cardRootRef, isExpanded, toggleExpanded } = useToolDisclosureController({
+    toolId,
+    toolName: toolItem.toolName,
+    status: toolCardStatus,
+    initialExpanded: true,
+    autoExpandStatuses: ['preparing', 'receiving', 'running', 'pending_confirmation'],
+  });
 
   // Timeout countdown: start when the card enters the "awaiting selection"
   // state, clear as soon as the tool completes or errors.
@@ -304,9 +330,44 @@ export const DesignTokensProposalCard: React.FC<ToolCardProps> = ({ toolItem }) 
     });
   }, [scopeKey, artifactIdFromInput, workspacePath, t]);
 
+  const compactSummary = useMemo(() => {
+    if (isListAction) {
+      return (
+        <>
+          {t('toolCards.designTokens.documentsSummary')}{' '}
+          <span className="read-file-name">
+            {t('toolCards.designTokens.documentCountValue', { count: resultItems.length })}
+          </span>
+        </>
+      );
+    }
+
+    if (!committedProposal) {
+      return (
+        <>
+          {t('toolCards.designTokens.currentSystemSummary')}{' '}
+          <span className="read-file-name">{t('toolCards.designTokens.noCommittedSystem')}</span>
+        </>
+      );
+    }
+
+    return (
+      <>
+        {t('toolCards.designTokens.currentSystemSummary')}{' '}
+        <span className="read-file-name">{committedProposal.name || committedProposal.id}</span>
+        {compactColorEntries.length > 0 && (
+          <span className="design-tokens-proposal-card__compact-swatches" aria-hidden="true">
+            {compactColorEntries.map(([name, value]) => (
+              <span key={name} style={{ background: String(value) }} title={`${name} · ${value}`} />
+            ))}
+          </span>
+        )}
+      </>
+    );
+  }, [committedProposal, compactColorEntries, isListAction, resultItems.length, t]);
+
   const submitChoice = useCallback(async (proposalId: string) => {
     if (isSubmitting || runtimeState.inputPhase === 'streaming') return;
-    const toolId = toolItem.id ?? toolItem.toolCall?.id;
     if (!toolId) {
       log.warn('Cannot submit choice without tool id');
       return;
@@ -319,7 +380,7 @@ export const DesignTokensProposalCard: React.FC<ToolCardProps> = ({ toolItem }) 
       log.error('Failed to submit token selection', { toolId, error });
       setIsSubmitting(false);
     }
-  }, [isSubmitting, runtimeState.inputPhase, toolItem.id, toolItem.toolCall?.id]);
+  }, [isSubmitting, runtimeState.inputPhase, toolId]);
 
   const recommit = useCallback(async (proposalId: string) => {
     await designTokensAPI.commit(proposalId, artifactIdFromInput, workspacePath);
@@ -339,6 +400,23 @@ export const DesignTokensProposalCard: React.FC<ToolCardProps> = ({ toolItem }) 
   }, [artifactIdFromInput, workspacePath]);
 
   const toggleExpand = (id: string) => setExpandedIds((prev) => ({ ...prev, [id]: !prev[id] }));
+
+  if (!shouldRenderProposalPicker) {
+    return (
+      <DefaultToolCardTemplate
+        toolId={toolId}
+        toolName={toolItem.toolName}
+        status={toolCardStatus}
+        className="design-tokens-proposal-card--compact"
+        summary={compactSummary}
+        primaryAction={!isListAction ? {
+          icon: <ExternalLink size={12} />,
+          label: t('toolCards.designTokens.openTokensStudio'),
+          onClick: () => openBuilder(),
+        } : undefined}
+      />
+    );
+  }
 
   const header = (
     <ToolHeaderLayout
@@ -571,46 +649,60 @@ export const DesignTokensProposalCard: React.FC<ToolCardProps> = ({ toolItem }) 
     );
   };
 
+  const handleCardClick = (event: React.MouseEvent) => {
+    const target = event.target as HTMLElement;
+    if (target.closest('button, a, input, textarea, select, label')) {
+      return;
+    }
+    toggleExpanded('manual');
+  };
+
   return (
-    <BaseToolCard
-      status={getToolCardStatusFromViewState(viewState)}
-      isExpanded
-      className="design-tokens-proposal-card"
-      header={header}
-      expandedContent={
-        <ToolArtifactFrame
-          loading={awaitingPayload}
-          error={isFailed ? <ToolErrorBlock title={t('toolCards.designTokens.errorTitle')} message={failure} /> : undefined}
-          loadingLabel={
-            runtimeState.inputPhase === 'streaming'
-              ? t('toolCards.designTokens.receivingDirections')
-              : t('toolCards.designTokens.preparingDirections')
-          }
-          className="design-tokens-proposal-card__artifact-frame"
-        >
-          <>
-            {proposals.length > 0 && runtimeState.inputPhase === 'streaming' && (
-              <div className="design-tokens-proposal-card__list-streaming-hint" role="status">
-                <DotMatrixLoader size="tiny" />
-                <span>{t('toolCards.designTokens.streamingSelectHint')}</span>
-              </div>
-            )}
-            <div className="design-tokens-proposal-card__list">
-              {proposals.map((proposal: any) => renderProposal(proposal))}
-            </div>
-            {isCompleted && !committedId && (selectionStatus === 'timeout' || selectionStatus === 'cancelled') && (
-              <div className="design-tokens-proposal-card__retry">
-                <Button size="small" variant="ghost" type="button" onClick={retryAwaitSelection}>
-                  <RotateCcw size={12} />
-                  {t('toolCards.designTokens.reopenSelection')}
-                </Button>
-              </div>
-            )}
-          </>
-        </ToolArtifactFrame>
-      }
-      isFailed={isFailed}
-    />
+    <div ref={cardRootRef} data-tool-card-id={toolId ?? ''}>
+      <BaseToolCard
+        status={toolCardStatus}
+        isExpanded={isExpanded}
+        onClick={handleCardClick}
+        headerExpandAffordance
+        className="design-tokens-proposal-card"
+        header={header}
+        expandedContent={
+          isExpanded ? (
+            <ToolArtifactFrame
+              loading={awaitingPayload}
+              error={isFailed ? <ToolErrorBlock title={t('toolCards.designTokens.errorTitle')} message={failure} /> : undefined}
+              loadingLabel={
+                runtimeState.inputPhase === 'streaming'
+                  ? t('toolCards.designTokens.receivingDirections')
+                  : t('toolCards.designTokens.preparingDirections')
+              }
+              className="design-tokens-proposal-card__artifact-frame"
+            >
+              <>
+                {proposals.length > 0 && runtimeState.inputPhase === 'streaming' && (
+                  <div className="design-tokens-proposal-card__list-streaming-hint" role="status">
+                    <DotMatrixLoader size="tiny" />
+                    <span>{t('toolCards.designTokens.streamingSelectHint')}</span>
+                  </div>
+                )}
+                <div className="design-tokens-proposal-card__list">
+                  {proposals.map((proposal: any) => renderProposal(proposal))}
+                </div>
+                {isCompleted && !committedId && (selectionStatus === 'timeout' || selectionStatus === 'cancelled') && (
+                  <div className="design-tokens-proposal-card__retry">
+                    <Button size="small" variant="ghost" type="button" onClick={retryAwaitSelection}>
+                      <RotateCcw size={12} />
+                      {t('toolCards.designTokens.reopenSelection')}
+                    </Button>
+                  </div>
+                )}
+              </>
+            </ToolArtifactFrame>
+          ) : undefined
+        }
+        isFailed={isFailed}
+      />
+    </div>
   );
 };
 
