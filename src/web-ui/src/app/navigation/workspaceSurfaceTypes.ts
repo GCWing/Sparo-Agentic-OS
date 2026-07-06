@@ -1,14 +1,14 @@
 import type { WorkspaceSceneId } from './workspaceSceneTypes';
 import { appScopeIdentity } from '@/shared/types/app-scope';
 import type { AppScope } from '@/shared/types/app-scope';
-import { runtimeScopeIdentity, type RuntimeScope } from '@/shared/types/runtime-scope';
+import { runtimeScopeIdentity, systemRuntimeScope, type RuntimeScope } from '@/shared/types/runtime-scope';
 import type { ProductAppRuntimeContext } from '@/shared/types/product-app-runtime';
 
 export type WorkspaceSurfaceContext =
   | { kind: 'work'; workId: string };
 
 export type WorkspaceSurface =
-  | { kind: 'agentic-os-home'; agenticOsSessionId: string | null; scope: RuntimeScope }
+  | { kind: 'agentic-os-home'; scope: RuntimeScope }
   | {
       kind: 'scene';
       sceneId: WorkspaceSceneId;
@@ -27,8 +27,6 @@ export function isSameWorkspaceSurface(a: WorkspaceSurface, b: WorkspaceSurface)
   switch (a.kind) {
     case 'agentic-os-home':
       return (
-        a.agenticOsSessionId ===
-          (b as Extract<WorkspaceSurface, { kind: 'agentic-os-home' }>).agenticOsSessionId &&
         runtimeScopeIdentity(a.scope) ===
           runtimeScopeIdentity((b as Extract<WorkspaceSurface, { kind: 'agentic-os-home' }>).scope)
       );
@@ -45,4 +43,8 @@ export function isSameWorkspaceSurface(a: WorkspaceSurface, b: WorkspaceSurface)
     case 'session':
       return a.sessionId === (b as Extract<WorkspaceSurface, { kind: 'session' }>).sessionId;
   }
+}
+
+export function createAgenticOsHomeSurface(): Extract<WorkspaceSurface, { kind: 'agentic-os-home' }> {
+  return { kind: 'agentic-os-home', scope: systemRuntimeScope() };
 }

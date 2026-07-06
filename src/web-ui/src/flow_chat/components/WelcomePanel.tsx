@@ -7,6 +7,7 @@ import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next';
 import {
   FolderOpen,
+  FolderPlus,
   ChevronDown,
   Check,
   Orbit,
@@ -18,14 +19,16 @@ import {
 } from 'lucide-react';
 import { AppBuilderGlyph } from '@/app/scenes/apps/app-builder/AppBuilderGlyph';
 import { createLogger } from '@/shared/utils/logger';
+import { FlowChatManager } from '@/flow_chat/services/FlowChatManager';
 import {
   getWorkspaceDisplayName,
   useWorkspaceContext,
 } from '@/infrastructure/contexts/WorkspaceContext';
 import type { WorkspaceInfo } from '@/shared/types';
+import type { SessionDescriptor } from '@/flow_chat/domain/sessionDescriptor';
 import { isSamePath } from '@/shared/utils/pathUtils';
 import { resolveSessionTypeDefinition, useSessionProfile } from '@/app/session-profiles';
-import { Button } from '@/design-system';
+import { Button, IconButton, Search } from '@/design-system';
 import {
   fallbackWorkspaceFolderLabel,
   resolveWorkspaceForSession,
@@ -52,7 +55,9 @@ const APP_BUILDER_PROMPTS: AppBuilderPrompt[] = [
 interface WelcomePanelProps {
   onQuickAction?: (command: string) => void;
   className?: string;
+  sessionId?: string;
   workspacePath?: string;
+  preferredDescriptor?: SessionDescriptor;
 }
 
 interface WelcomeWorkspaceTarget {
@@ -64,11 +69,14 @@ interface WelcomeWorkspaceTarget {
 export const WelcomePanel: React.FC<WelcomePanelProps> = ({
   onQuickAction,
   className = '',
+  sessionId,
   workspacePath,
+  preferredDescriptor,
 }) => {
   const { t } = useTranslation('flow-chat');
   const [workspaceDropdownOpen, setWorkspaceDropdownOpen] = useState(false);
   const [isSelectingWorkspace, setIsSelectingWorkspace] = useState(false);
+  const [workspaceSearchQuery, setWorkspaceSearchQuery] = useState('');
   const workspaceDropdownRef = useRef<HTMLDivElement>(null);
   const { profile } = useSessionProfile();
 
@@ -81,6 +89,10 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
 
   const sessionType = useMemo(() => resolveSessionTypeDefinition(profile.id), [profile.id]);
   const welcome = sessionType.welcome;
+  const workspaceSwitchDescriptor = useMemo(
+    () => preferredDescriptor ?? sessionType.descriptorDefaults,
+    [preferredDescriptor, sessionType.descriptorDefaults],
+  );
 
   const sessionWorkspaceTarget = useMemo<WelcomeWorkspaceTarget | null>(() => {
     const scopedPath = workspacePath?.trim();
@@ -105,13 +117,15 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
 
   const welcomeWorkspace = useMemo<WelcomeWorkspaceTarget | null>(() => {
     if (sessionWorkspaceTarget) return sessionWorkspaceTarget;
-    if (!lastUsedWorkspace) return null;
-    const displayName = getWorkspaceDisplayName(lastUsedWorkspace).trim();
-    return {
-      id: lastUsedWorkspace.id,
-      name: displayName || fallbackWorkspaceFolderLabel(lastUsedWorkspace.rootPath) || lastUsedWorkspace.rootPath,
-      rootPath: lastUsedWorkspace.rootPath,
-    };
+    if (lastUsedWorkspace) {
+      const displayName = getWorkspaceDisplayName(lastUsedWorkspace).trim();
+      return {
+        id: lastUsedWorkspace.id,
+        name: displayName || fallbackWorkspaceFolderLabel(lastUsedWorkspace.rootPath) || lastUsedWorkspace.rootPath,
+        rootPath: lastUsedWorkspace.rootPath,
+      };
+    }
+    return null;
   }, [lastUsedWorkspace, sessionWorkspaceTarget]);
 
   const hasWelcomeWorkspace = Boolean(welcomeWorkspace);
@@ -128,15 +142,28 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
   const tagline = greeting.subtitle;
   const aiPartnerKey = welcome.aiPartnerKey;
 
-  const otherWorkspaces = useMemo(
-    () => openedWorkspacesList.filter((ws) => {
-      if (!welcomeWorkspace) return true;
-      if (welcomeWorkspace.id && ws.id === welcomeWorkspace.id) return false;
-      if (welcomeWorkspace.rootPath && isSamePath(ws.rootPath, welcomeWorkspace.rootPath)) return false;
+  const selectedWorkspaceTarget = useMemo<WelcomeWorkspaceTarget | null>(() => {
+    return welcomeWorkspace;
+  }, [welcomeWorkspace]);
+
+  const filteredWorkspaces = useMemo(() => {
+    const query = workspaceSearchQuery.trim().toLocaleLowerCase();
+    if (!query) return openedWorkspacesList;
+    return openedWorkspacesList.filter((ws) => {
+      const name = getWorkspaceDisplayName(ws).toLocaleLowerCase();
+      const rootPath = ws.rootPath.toLocaleLowerCase();
+      return name.includes(query) || rootPath.includes(query);
+    });
+  }, [openedWorkspacesList, workspaceSearchQuery]);
+
+  const isSelectedWorkspace = useCallback((ws: WorkspaceInfo) => {
+    if (!selectedWorkspaceTarget) return false;
+    if (selectedWorkspaceTarget.id && ws.id === selectedWorkspaceTarget.id) return true;
+    if (selectedWorkspaceTarget.rootPath && isSamePath(ws.rootPath, selectedWorkspaceTarget.rootPath)) {
       return true;
-    }),
-    [openedWorkspacesList, welcomeWorkspace],
-  );
+    }
+    return false;
+  }, [selectedWorkspaceTarget]);
 
   useEffect(() => {
     if (!workspaceDropdownOpen) return;
@@ -149,10 +176,24 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
     return () => document.removeEventListener('mousedown', handler);
   }, [workspaceDropdownOpen]);
 
+  useEffect(() => {
+    if (!workspaceDropdownOpen) {
+      setWorkspaceSearchQuery('');
+    }
+  }, [workspaceDropdownOpen]);
+
   const handleSwitchWorkspace = useCallback(async (ws: WorkspaceInfo) => {
-    try { setWorkspaceDropdownOpen(false); await switchWorkspace(ws); }
-    catch (err) { log.warn('Failed to switch workspace', err); }
-  }, [switchWorkspace]);
+    try {
+      setWorkspaceDropdownOpen(false);
+      const workspace = await switchWorkspace(ws);
+      if (sessionId) {
+        await FlowChatManager.getInstance().retargetEmptySessionWorkspace(sessionId, workspace, {
+          preferredDescriptor: workspaceSwitchDescriptor,
+        });
+      }
+    }
+    catch (err) { log.warn('Failed to switch workspace', { error: err }); }
+  }, [sessionId, switchWorkspace, workspaceSwitchDescriptor]);
 
   const handleOpenOtherFolder = useCallback(async () => {
     try {
@@ -160,13 +201,20 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
       setIsSelectingWorkspace(true);
       const { open } = await import('@tauri-apps/plugin-dialog');
       const selected = await open({ directory: true, multiple: false });
-      if (selected && typeof selected === 'string') await openWorkspace(selected);
+      if (selected && typeof selected === 'string') {
+        const workspace = await openWorkspace(selected);
+        if (sessionId) {
+          await FlowChatManager.getInstance().retargetEmptySessionWorkspace(sessionId, workspace, {
+            preferredDescriptor: workspaceSwitchDescriptor,
+          });
+        }
+      }
     } catch (err) {
-      log.warn('Failed to open workspace folder', err);
+      log.warn('Failed to open workspace folder', { error: err });
     } finally {
       setIsSelectingWorkspace(false);
     }
-  }, [openWorkspace]);
+  }, [openWorkspace, sessionId, workspaceSwitchDescriptor]);
 
   const handleQuickActionClick = useCallback((cmd: string) => {
     onQuickAction?.(cmd);
@@ -255,32 +303,63 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
                       </Button>
                       {workspaceDropdownOpen && (
                         <div className="welcome-panel__dropdown">
-                          {welcomeWorkspace && (
-                            <div className="welcome-panel__dropdown-current">
-                              <Check size={11} />
-                              <FolderOpen size={12} />
-                              <span className="welcome-panel__dropdown-name">{welcomeWorkspace.name}</span>
-                            </div>
-                          )}
-                          {otherWorkspaces.length > 0 && (
-                            <>
-                              {hasWelcomeWorkspace && <div className="welcome-panel__dropdown-sep" />}
-                              {otherWorkspaces.map(ws => (
-                                <Button
-                                  key={ws.id}
-                                  type="button"
-                                  variant="ghost"
-                                  size="small"
-                                  className="welcome-panel__dropdown-option"
-                                  onClick={() => { void handleSwitchWorkspace(ws); }}
-                                  title={ws.rootPath}
-                                >
-                                  <FolderOpen size={12} />
-                                  <span className="welcome-panel__dropdown-name">{ws.name}</span>
-                                </Button>
-                              ))}
-                            </>
-                          )}
+                          <div className="welcome-panel__dropdown-header">
+                            <Search
+                              value={workspaceSearchQuery}
+                              onChange={setWorkspaceSearchQuery}
+                              size="small"
+                              shape="pill"
+                              enterToSearch={false}
+                              className="welcome-panel__dropdown-search"
+                              placeholder={t('welcome.workspaceSearchPlaceholder')}
+                              inputAriaLabel={t('welcome.workspaceSearchPlaceholder')}
+                              clearAriaLabel={t('welcome.clearWorkspaceSearch')}
+                            />
+                            <IconButton
+                              type="button"
+                              variant="ghost"
+                              size="xs"
+                              shape="circle"
+                              className="welcome-panel__dropdown-open-workspace"
+                              aria-label={t('welcome.openOtherProject')}
+                              tooltip={t('welcome.openOtherProject')}
+                              tooltipPlacement="right"
+                              disabled={isSelectingWorkspace}
+                              onClick={() => { void handleOpenOtherFolder(); }}
+                            >
+                              <FolderPlus size={13} />
+                            </IconButton>
+                          </div>
+                          <div className="welcome-panel__dropdown-sep" />
+                          <div className="welcome-panel__dropdown-scroll">
+                            {filteredWorkspaces.length > 0 ? (
+                              filteredWorkspaces.map(ws => {
+                                const selected = isSelectedWorkspace(ws);
+                                const displayName = getWorkspaceDisplayName(ws);
+                                return (
+                                  <Button
+                                    key={ws.id}
+                                    type="button"
+                                    variant="ghost"
+                                    size="small"
+                                    className={`welcome-panel__dropdown-option${selected ? ' welcome-panel__dropdown-option--selected' : ''}`}
+                                    onClick={() => { void handleSwitchWorkspace(ws); }}
+                                    title={ws.rootPath}
+                                  >
+                                    <span className="welcome-panel__dropdown-check" aria-hidden>
+                                      {selected ? <Check size={11} /> : null}
+                                    </span>
+                                    <FolderOpen size={12} />
+                                    <span className="welcome-panel__dropdown-name">{displayName}</span>
+                                  </Button>
+                                );
+                              })
+                            ) : (
+                              <div className="welcome-panel__dropdown-empty">
+                                {t('welcome.workspaceSearchEmpty')}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                     </span>

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
-import type { WorkspaceSurface } from '@/app/navigation/workspaceSurfaceTypes';
+import { createAgenticOsHomeSurface } from '@/app/navigation/workspaceSurfaceTypes';
 import {
   externalRuntimeScope,
   projectRuntimeScopeFromWorkspacePath,
@@ -14,21 +14,16 @@ vi.mock('@/app/navigation/workspaceNavigation', () => ({
   openWorkspaceScene: openWorkspaceSceneMock,
 }));
 
-const homeSurface: WorkspaceSurface = {
-  kind: 'agentic-os-home',
-  agenticOsSessionId: null,
-  scope: systemRuntimeScope(),
-};
+const homeSurface = createAgenticOsHomeSurface();
 
 function resetStore() {
   openWorkspaceSceneMock.mockReset();
   useWorkspaceSurfaceStore.setState({
     activeSurface: homeSurface,
     previousSurface: null,
+    currentOsSessionId: null,
     sceneHistory: [],
     surfaceContext: null,
-    focusedSessionId: null,
-    composerTargetSessionId: null,
   });
 }
 

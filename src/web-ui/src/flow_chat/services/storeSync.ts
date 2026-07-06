@@ -7,7 +7,7 @@
 import { flowChatStore } from '../store/FlowChatStore';
 import { useModernFlowChatStore } from '../store/modernFlowChatStore';
 import { createLogger } from '@/shared/utils/logger';
-import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
+import { useWorkspaceSurfaceStore, selectFocusedSessionId } from '@/app/navigation/workspaceSurfaceStore';
 import type { Session } from '../types/flow-chat';
 
 const log = createLogger('StoreSync');
@@ -70,7 +70,7 @@ export function startAutoSync(): () => void {
   };
 
   const getFocusedSnapshot = () => {
-    const sessionId = useWorkspaceSurfaceStore.getState().focusedSessionId;
+    const sessionId = selectFocusedSessionId(useWorkspaceSurfaceStore.getState());
     const session = sessionId
       ? flowChatStore.getState().sessions.get(sessionId) ?? null
       : null;

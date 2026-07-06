@@ -8,7 +8,7 @@ import {
 import { resolveSessionRelationship } from '../../../utils/sessionMetadata';
 import type { ChatInputTarget } from '../model/composerState';
 import { useFlowChatStoreSelector } from '../../../hooks/useFlowChatStoreSelector';
-import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
+import { useWorkspaceSurfaceStore, selectFocusedSessionId } from '@/app/navigation/workspaceSurfaceStore';
 
 interface UseComposerSessionTargetParams {
   explicitSessionId?: string | null;
@@ -24,8 +24,7 @@ export function useComposerSessionTarget({
   t,
 }: UseComposerSessionTargetParams) {
   const activeSessionState = useActiveSessionState();
-  const composerTargetSessionId = useWorkspaceSurfaceStore(state => state.composerTargetSessionId);
-  const focusedSessionId = useWorkspaceSurfaceStore(state => state.focusedSessionId);
+  const focusedSessionId = useWorkspaceSurfaceStore(selectFocusedSessionId);
   const activeBtwSessionTab = useAgentCanvasStore(
     state => selectActiveSideThreadSessionTab(state)
   );
@@ -33,7 +32,6 @@ export function useComposerSessionTarget({
   const explicitTargetSessionId = explicitSessionId?.trim() || null;
   const currentSessionId =
     explicitTargetSessionId ??
-    composerTargetSessionId ??
     focusedSessionId ??
     activeSessionState.sessionId;
   const activeBtwSessionData = activeBtwSessionTab?.content.data as

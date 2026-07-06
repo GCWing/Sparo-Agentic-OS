@@ -11,10 +11,10 @@ import { i18nService } from '@/infrastructure/i18n';
 import { workspaceManager } from '@/infrastructure/services/business/workspaceManager';
 import type { WorkspaceInfo } from '@/shared/types';
 import type { FlowChatContext, SessionConfig } from './types';
-import { touchSessionActivity, cleanupSaveState } from './PersistenceModule';
+import { touchSessionActivity, cleanupSaveState, updateSessionMetadata } from './PersistenceModule';
 import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
-import { systemRuntimeScope } from '@/shared/types/runtime-scope';
 import { resolveSessionTypeDefinitionForDescriptor } from '@/app/session-profiles';
+import { sessionMatchesWorkspace } from '../../utils/workspaceScope';
 import {
   getBackendAgentType,
   getDefaultSessionDescriptor,
@@ -242,18 +242,10 @@ export async function createChatSession(
         storageScope
       );
 
-      const surfacePolicy = sessionType.lifecycle.defaultSurface;
-      if (surfacePolicy === 'agentic-os-home') {
-        useWorkspaceSurfaceStore.getState().openSurface({
-          kind: 'agentic-os-home',
-          agenticOsSessionId: response.sessionId,
-          scope: systemRuntimeScope(),
-        });
-      } else if (surfacePolicy === 'session') {
-        useWorkspaceSurfaceStore.getState().openSurface({
-          kind: 'session',
-          sessionId: response.sessionId,
-        });
+      const shouldNavigate = config.navigate !== false;
+      if (shouldNavigate) {
+        const { openSession: openSessionNav } = await import('@/app/navigation/navigationController');
+        await openSessionNav(response.sessionId);
       }
 
       return response.sessionId;
@@ -278,18 +270,15 @@ export async function createChatSession(
 }
 
 /**
- * Switch to specified session
+ * Background session activation: touch activity and hydrate history.
+ * Does not change navigation surface — use navigationController.openSession for that.
  */
-export async function switchChatSession(
+export async function activateSessionData(
   context: FlowChatContext,
   sessionId: string
 ): Promise<void> {
   try {
     const session = context.flowChatStore.getState().sessions.get(sessionId);
-
-    // Switch UI immediately so the user sees the new session without waiting for history load.
-    context.flowChatStore.switchSession(sessionId);
-    useWorkspaceSurfaceStore.getState().focusSession(sessionId);
 
     touchSessionActivity(
       sessionId,
@@ -300,16 +289,24 @@ export async function switchChatSession(
     });
 
     if (canHydrateSession(session)) {
-      // Load history in the background — do not block the UI.
       void hydrateHistoricalSession(context, sessionId, true);
     }
   } catch (error) {
-    log.error('Failed to switch chat session', { sessionId, error });
-    notificationService.error('Failed to switch session', {
-      duration: 3000
-    });
+    log.error('Failed to activate session data', { sessionId, error });
     throw error;
   }
+}
+
+/**
+ * @deprecated Use navigationController.openSession for UI switching.
+ * Kept for internal callers that only need data activation after navigation committed.
+ */
+export async function switchChatSession(
+  context: FlowChatContext,
+  sessionId: string
+): Promise<void> {
+  context.flowChatStore.switchSession(sessionId);
+  await activateSessionData(context, sessionId);
 }
 
 /**
@@ -334,6 +331,92 @@ export async function deleteChatSession(
     });
     throw error;
   }
+}
+
+export async function retargetEmptyChatSessionWorkspace(
+  context: FlowChatContext,
+  sessionId: string,
+  workspace: Pick<WorkspaceInfo, 'id' | 'rootPath'>,
+  preferredDescriptor?: SessionDescriptor
+): Promise<string> {
+  const workspacePath = workspace.rootPath.trim();
+  if (!workspacePath) {
+    throw new Error('Workspace path is required to retarget a chat session');
+  }
+
+  const session = context.flowChatStore.getState().sessions.get(sessionId);
+  if (!session) {
+    throw new Error(`Session does not exist: ${sessionId}`);
+  }
+  if (session.isTransient) {
+    throw new Error('Transient sessions cannot be retargeted');
+  }
+  if (session.dialogTurns.length > 0) {
+    throw new Error('Only empty sessions can be retargeted to another workspace');
+  }
+  if (
+    canHydrateSession(session) ||
+    session.loadPhase === 'hydrating' ||
+    context.pendingHistoryLoads.has(sessionId)
+  ) {
+    throw new Error('Session history is still restoring, please retry once loading finishes');
+  }
+  if (context.processingManager.getSessionStatuses(sessionId).length > 0) {
+    throw new Error('Session is busy and cannot be retargeted');
+  }
+
+  const descriptor =
+    preferredDescriptor?.storageScope === 'workspace'
+      ? preferredDescriptor
+      : session.descriptor.storageScope === 'workspace'
+        ? session.descriptor
+        : getDefaultSessionDescriptor();
+
+  if (session.storageScope === 'agentic_os' || descriptor.storageScope !== 'workspace') {
+    throw new Error('Only workspace-scoped sessions can be retargeted');
+  }
+
+  const previousWorkspacePath = session.workspacePath;
+  const previousStorageScope = session.storageScope;
+  const workspaceChanged = !sessionMatchesWorkspace(session, workspace);
+
+  if (workspaceChanged) {
+    try {
+      await agentAPI.updateSessionWorkspace({ sessionId, workspacePath });
+    } catch (error: any) {
+      const message = typeof error?.message === 'string' ? error.message : String(error);
+      if (!message.includes('Session not found') && !message.includes('Not found')) {
+        throw error;
+      }
+    }
+  }
+
+  context.flowChatStore.retargetEmptySessionWorkspace(
+    sessionId,
+    workspace,
+    descriptor,
+    'workspace'
+  );
+
+  if (workspaceChanged && previousWorkspacePath) {
+    try {
+      await sessionAPI.deleteSession(sessionId, previousWorkspacePath, previousStorageScope);
+    } catch (error) {
+      log.debug('Failed to delete empty session metadata from previous workspace', {
+        sessionId,
+        workspacePath: previousWorkspacePath,
+        error,
+      });
+    }
+  }
+
+  await ensureBackendSession(context, sessionId);
+  await updateSessionMetadata(context, sessionId);
+
+  const { openSession: openSessionNav } = await import('@/app/navigation/navigationController');
+  await openSessionNav(sessionId);
+
+  return sessionId;
 }
 
 export async function renameChatSessionTitle(

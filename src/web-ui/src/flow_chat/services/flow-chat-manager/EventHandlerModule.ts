@@ -4,7 +4,7 @@
  */
 
 import { FlowChatStore } from '../../store/FlowChatStore';
-import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
+import { useWorkspaceSurfaceStore, selectFocusedSessionId } from '@/app/navigation/workspaceSurfaceStore';
 import { stateMachineManager } from '../../state-machine';
 import { SessionExecutionEvent, SessionExecutionState } from '../../state-machine/types';
 import { useSessionTurnQueueStore } from '../../store/sessionTurnQueueStore';
@@ -90,7 +90,7 @@ export function isAppWindowFocused(): boolean {
 }
 
 function shouldMarkUnreadCompletion(sessionId: string): boolean {
-  const focusedSessionId = useWorkspaceSurfaceStore.getState().focusedSessionId;
+  const focusedSessionId = selectFocusedSessionId(useWorkspaceSurfaceStore.getState());
   return sessionId !== focusedSessionId || !isAppWindowFocused();
 }
 

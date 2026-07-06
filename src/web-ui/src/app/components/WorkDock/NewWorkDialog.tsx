@@ -633,6 +633,9 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
     try {
       if (startMode === 'agentic-os') {
         const agenticOsSessionId = await openAgenticOsSession();
+        if (!agenticOsSessionId) {
+          throw new Error('Failed to open Agentic OS session');
+        }
         await flowChatManager.sendMessage(
           trimmedObjective,
           agenticOsSessionId,

@@ -1,5 +1,4 @@
 export { ChatInput } from './ChatInput';
-export { ScrollToBottomButton } from './ScrollToBottomButton';
 export { ScrollToLatestBar } from './ScrollToLatestBar';
 export { CodePreview } from './CodePreview';
 export { InlineDiffPreview } from './InlineDiffPreview';

@@ -30,7 +30,8 @@ import { useI18n } from '@/infrastructure/i18n';
 import { consumeDeferredNewSessionWorkspace } from '../utils/deferredWorkspaceSession';
 import { appRuntime, runtimePolicy } from '@/infrastructure/app-runtime';
 import { descriptorFromAgentType, getDefaultSessionDescriptor } from '@/flow_chat/domain/sessionDescriptor';
-import { useWorkspaceSurfaceStore } from '../navigation/workspaceSurfaceStore';
+import { useWorkspaceSurfaceStore, selectFocusedSessionId } from '../navigation/workspaceSurfaceStore';
+import { commitStartupHome } from '../navigation/navigationController';
 import './AppLayout.scss';
 
 const log = createLogger('AppLayout');
@@ -177,20 +178,21 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
         const initializationPreferredDescriptor = explicitPreferredMode
           ? descriptorFromAgentType(explicitPreferredMode)
           : undefined;
-        const suppressAutoSessionSelection = consumeDeferredNewSessionWorkspace(
-          lastUsedWorkspace.rootPath
-        );
+        consumeDeferredNewSessionWorkspace(lastUsedWorkspace.rootPath);
+
+        commitStartupHome();
 
         const flowChatManager = FlowChatManager.getInstance();
         const initialization = await flowChatManager.initializeWorkspaceSessionState(
           lastUsedWorkspace.rootPath,
           {
             preferredDescriptor: initializationPreferredDescriptor,
-            skipAutoSelectSession: suppressAutoSessionSelection,
+            skipAutoSelectSession: true,
             createDefaultSession: true,
             defaultSessionConfig: {
               workspaceId: lastUsedWorkspace.id,
               workspacePath: lastUsedWorkspace.rootPath,
+              navigate: false,
             },
             defaultSessionDescriptor: initializationPreferredDescriptor ?? getDefaultSessionDescriptor(),
           }
@@ -199,8 +201,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
         const surfaceState = useWorkspaceSurfaceStore.getState();
         const workspaceScopedActiveId =
           initialization.createdSessionId ||
-          surfaceState.composerTargetSessionId ||
-          surfaceState.focusedSessionId ||
+          selectFocusedSessionId(surfaceState) ||
           initialization.focusedSessionId;
 
         const pendingDescription = sessionStorage.getItem('pendingProjectDescription');
@@ -213,8 +214,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
               const latestSurfaceState = useWorkspaceSurfaceStore.getState();
               const targetSessionId =
                 pendingTargetSessionId ||
-                latestSurfaceState.composerTargetSessionId ||
-                latestSurfaceState.focusedSessionId;
+                selectFocusedSessionId(latestSurfaceState);
 
               if (!targetSessionId) {
                 log.error('Cannot find active session ID');
