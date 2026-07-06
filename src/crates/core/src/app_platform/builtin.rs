@@ -1230,6 +1230,7 @@ async fn ensure_installed_builtin_marketplace_metadata_current_unlocked(
 async fn sync_installed_builtin_marketplace_metadata(path_manager: &PathManager) -> CoreResult<()> {
     let installed_root = path_manager.system_product_apps_dir();
     let source_root = product_app_sources_dir(path_manager);
+    let shared_components = read_installed_shared_components(path_manager).await?;
     for app_dir in collect_installed_product_app_dirs(&installed_root)? {
         let app = match read_product_app_definition_for_catalog_issue(&app_dir).await {
             Ok(app) => app,
@@ -1278,11 +1279,17 @@ async fn sync_installed_builtin_marketplace_metadata(path_manager: &PathManager)
             continue;
         }
 
-        match sync_installed_app_metadata_from_source(&app_dir, &source_dir, &app.id, &app.version)
-            .await
+        match sync_installed_app_metadata_from_source(
+            &app_dir,
+            &source_dir,
+            &app.id,
+            &app.version,
+            &shared_components,
+        )
+        .await
         {
             Ok(true) => log::info!(
-                "refreshed installed built-in Product App metadata from source: app_id={}, app_version={}, package_dir={}, source_dir={}",
+                "refreshed installed built-in Product App package from source: app_id={}, app_version={}, package_dir={}, source_dir={}",
                 app.id,
                 app.version,
                 app_dir.display(),
@@ -1290,7 +1297,7 @@ async fn sync_installed_builtin_marketplace_metadata(path_manager: &PathManager)
             ),
             Ok(false) => {}
             Err(error) => log::warn!(
-                "failed to refresh installed built-in Product App metadata from source: app_id={}, app_version={}, package_dir={}, source_dir={}, error={}",
+                "failed to refresh installed built-in Product App package from source: app_id={}, app_version={}, package_dir={}, source_dir={}, error={}",
                 app.id,
                 app.version,
                 app_dir.display(),
@@ -1307,6 +1314,7 @@ async fn sync_installed_app_metadata_from_source(
     source_dir: &Path,
     app_id: &str,
     app_version: &str,
+    shared_components: &[ComponentDefinition],
 ) -> CoreResult<bool> {
     let installed_app_path = app_dir.join(APP_JSON);
     let source_app_path = source_dir.join(APP_JSON);
@@ -1357,10 +1365,6 @@ async fn sync_installed_app_metadata_from_source(
     installed_object.remove("goal");
     let package_files_changed = sync_installed_app_package_files_from_source(app_dir, source_dir)?;
 
-    if installed == before && !package_files_changed {
-        return Ok(false);
-    }
-
     if installed != before {
         let bytes = serde_json::to_vec_pretty(&installed).map_err(CoreError::from)?;
         tokio::fs::write(&installed_app_path, bytes)
@@ -1373,6 +1377,35 @@ async fn sync_installed_app_metadata_from_source(
                 ))
             })?;
     }
+    let lock_changed = refresh_installed_app_lock_if_needed(app_dir, shared_components).await?;
+    Ok(installed != before || package_files_changed || lock_changed)
+}
+
+async fn refresh_installed_app_lock_if_needed(
+    app_dir: &Path,
+    shared_components: &[ComponentDefinition],
+) -> CoreResult<bool> {
+    let package = ProductAppResolver::read_product_app_package(app_dir).await?;
+    let resolved =
+        ProductAppResolver::resolve_package_install(package, shared_components.to_vec())?;
+    let resolved_lock_digest = resolved.lock.digest();
+    let current_lock_digest = ProductAppResolver::read_lock(app_dir)
+        .await
+        .ok()
+        .map(|lock| lock.digest());
+    let current_component_lock_id = read_product_app_definition_for_catalog_issue(app_dir)
+        .await
+        .map(|app| app.component_lock_id)
+        .ok();
+
+    if current_lock_digest.as_deref() == Some(resolved_lock_digest.as_str())
+        && current_component_lock_id.as_deref() == Some(resolved_lock_digest.as_str())
+    {
+        return Ok(false);
+    }
+
+    write_app_component_lock_id(app_dir, &resolved.app.component_lock_id).await?;
+    ProductAppResolver::write_lock(app_dir, &resolved.lock).await?;
     Ok(true)
 }
 
@@ -2794,6 +2827,67 @@ mod tests {
             .expect("read installed lock after metadata sync")
             .digest();
         assert_eq!(lock_after, lock_before);
+    }
+
+    #[tokio::test]
+    async fn installed_builtin_marketplace_sync_refreshes_remotion_private_component_lock() {
+        let path_manager = path_manager("builtin-marketplace-remotion-lock-sync");
+        let app_id = "builtin-remotion-live";
+        let version = "19.0.0";
+        install_product_app(&path_manager, app_id, version)
+            .await
+            .expect("install builtin Remotion Product App");
+        let app_dir = path_manager.system_product_app_version_dir(app_id, version);
+
+        let mut stale_lock = ProductAppResolver::read_lock(&app_dir)
+            .await
+            .expect("read installed Remotion lock");
+        for entry in &mut stale_lock.resolved_components {
+            if entry.component_id == "remotion-video-agent"
+                || entry.component_id == "builtin-remotion-runtime"
+            {
+                entry.fqid = format!(
+                    "component://{}/{}@1.0.0",
+                    entry.kind.path_segment(),
+                    entry.component_id
+                );
+                entry.source = ComponentSource::Shared;
+                entry.version = Some("1.0.0".to_string());
+                entry.scope = Some("system".to_string());
+                entry.implementation_digest = None;
+            }
+        }
+        ProductAppResolver::write_lock(&app_dir, &stale_lock)
+            .await
+            .expect("write stale Remotion lock");
+        write_app_component_lock_id(&app_dir, &stale_lock.digest())
+            .await
+            .expect("write stale Remotion component lock id");
+
+        ensure_installed_builtin_marketplace_metadata_current_unlocked(&path_manager)
+            .await
+            .expect("sync installed builtin marketplace package");
+
+        let refreshed_lock = ProductAppResolver::read_lock(&app_dir)
+            .await
+            .expect("read refreshed Remotion lock");
+        assert!(refreshed_lock.resolved_components.iter().any(|entry| {
+            entry.component_id == "remotion-video-agent"
+                && entry.source == ComponentSource::Private
+                && entry.version.is_none()
+                && entry.fqid == "app://builtin-remotion-live@19.0.0/agents/remotion-video-agent"
+        }));
+        assert!(refreshed_lock.resolved_components.iter().any(|entry| {
+            entry.component_id == "builtin-remotion-runtime"
+                && entry.source == ComponentSource::Private
+                && entry.version.is_none()
+                && entry.fqid
+                    == "app://builtin-remotion-live@19.0.0/bridges/builtin-remotion-runtime"
+        }));
+        let refreshed_app = read_product_app_definition_for_catalog_issue(&app_dir)
+            .await
+            .expect("read refreshed Remotion app");
+        assert_eq!(refreshed_app.component_lock_id, refreshed_lock.digest());
     }
 
     #[tokio::test]
