@@ -407,6 +407,8 @@ export interface SessionConfig {
   creationDeduplicationKey?: string;
   /** Metadata persisted with the session, used by profile-owned app panels. */
   customMetadata?: SessionCustomMetadata;
+  /** When false, createChatSession skips surface navigation (caller opens the session). */
+  navigate?: boolean;
 }
 
 export interface QueuedMessage {

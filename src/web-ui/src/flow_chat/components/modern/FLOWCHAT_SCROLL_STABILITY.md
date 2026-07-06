@@ -1,271 +1,156 @@
 # FlowChat Scroll Stability
 
-This document explains the scroll-stability mechanism used by `VirtualMessageList.tsx`.
+How `VirtualMessageList` keeps the viewport stable while content heights
+change. Read this before touching anything under
+`src/web-ui/src/flow_chat/scroll/viewport/` or the footer rendering in
+`VirtualMessageList.tsx`.
 
-Read this before changing any of the following:
+## Architecture In One Paragraph
 
-- footer height / footer rendering in `VirtualMessageList.tsx`
-- scroll compensation state or refs
-- anchor-lock timing
-- `ResizeObserver` / `MutationObserver` / transition listeners
-- `flowchat:layout-collapse-intent`
-- `flowchat:layout-mutation`
-- `overflow-anchor` styles in `VirtualMessageList.scss`
+A pure mode machine (`FlowViewportMachine`) decides what the viewport is doing
+(`reading`, `pinned-latest`, `following`, `finalizing`, `navigating`). A
+single rAF pipeline (`FlowViewportScheduler`) is the only writer of
+`scrollTop`: each frame it reconciles the synthetic bottom reservation model
+(`FlowViewportGeometry`), computes the mode's target position, and performs at
+most one write. Input events dispatch machine events; observers only wake the
+pipeline. There are no timing windows and no scroll-delta intent inference.
 
-## Problem
+## The Reservation Model
 
-FlowChat uses `react-virtuoso` for virtualization. When the user is already at or near the bottom, collapsing content near the end of the list can shrink total content height.
+The Virtuoso footer renders `inputStackFooterPx + collapsePx + pinPx` of
+synthetic space:
 
-Without compensation, the browser clamps `scrollTop` downward immediately because the previous bottom position no longer exists. That causes the visible header/content above to drop.
+- `collapsePx` — consumable shrink protection while reading.
+- `pinPx` / `pinFloorPx` — the synthetic tail that makes "pin the latest user
+  message to the 61px reading offset" reachable. Only space above the floor is
+  consumable; the floor itself is exchanged against content growth.
 
-If we compensate too late, the user sees a flash:
-
-1. browser clamps `scrollTop`
-2. code restores `scrollTop`
-3. header appears to drop and jump back
-
-If we restore without enough compensation, the final position is still wrong.
-
-The goal of this mechanism is:
-
-- keep the visible header/content vertically stable
-- allow temporary invisible blank space at the bottom
-- avoid the collapse flash
-
-## High-Level Strategy
-
-The fix is a two-stage approach:
-
-1. Pre-compensate before a known collapse starts.
-2. Reconcile with the real measured height delta after layout updates.
-
-This prevents the "drop first, restore later" behavior while still using the actual measured shrink amount to settle on the correct final compensation.
-
-## Core Building Blocks
-
-## 1. Bottom Reservations
-
-The footer uses a unified bottom-reservation model. Each reservation contributes
-temporary tail space, but keeps its own semantics:
-
-- `collapse`: shrink protection for height loss near the bottom
-- `pin`: viewport positioning space for "pin turn to top" navigation
-
-The rendered footer height is the sum of all active reservations.
-
-Important details:
-
-- the real footer height is `MESSAGE_LIST_FOOTER_HEIGHT + totalBottomReservationPx`
-- reservation space is not real content height
-- reservations may define a `floorPx`
-- only reservation space above the floor is consumable
-- all measurements that compare old vs new content height must use:
+Every growth/shrink comparison must use the effective height:
 
 ```ts
-effectiveScrollHeight = scroller.scrollHeight - getTotalBottomCompensationPx()
+effectiveHeight = scrollHeight - (collapsePx + pinPx) - inputStackFooterPx
 ```
 
-If you forget to subtract reservation space, future shrink/growth calculations become wrong.
+The unified bottom semantics is `getContentDistanceFromBottom` (excludes all
+synthetic space). Virtuoso's `atBottomStateChange` is not used.
 
-`pin` reservations use this extra metadata:
+## The Equal-Exchange Invariant (pinned-latest)
 
-- `targetTurnId`: which user turn the viewport should align to
-- `mode: 'transient' | 'sticky-latest'`
-- `floorPx`: the minimum tail space needed to keep the pinned target stable
+While the latest turn is pinned, everything that changes height inside the
+current turn happens **below** the pinned message. The pipeline re-measures
+the pin floor from the live DOM every frame:
 
-`sticky-latest` is used for the "latest turn should stay pinned to top" behavior.
-Its floor can be reconciled from live DOM measurements as content grows or shrinks.
+```
+floor = max(0, desiredScrollTop - (scrollHeight - pinPx - clientHeight))
+```
 
-## 2. Synchronous Footer DOM Apply
+Content grows by Δ → floor shrinks by Δ → `scrollHeight` is constant →
+`scrollTop` never moves. The user's message stays put while the answer fills
+the blank. When the floor reaches zero mid-stream, the machine flips to
+`following` — the two positions coincide exactly, so the handoff is seamless.
 
-React state alone is not enough here.
+The floor **survives stream end**: short answers stay pinned with their blank.
+It is released only by a new turn, an explicit navigation away, or a session
+change. Pin mode is derived from the target (latest turn ⇒ `sticky-latest`,
+older turn ⇒ `transient`), so anchor-dot jumps back to the latest turn rebuild
+the blank instead of destroying it.
 
-`applyFooterCompensationNow()` writes footer height directly to the DOM and forces layout reads:
+### Sticky floor ownership (layout contract)
 
-- `footer.style.height`
-- `footer.style.minHeight`
-- `footer.offsetHeight`
-- `scroller.scrollHeight`
+The sticky floor is **not** a mode-scoped temporary buffer. It is a layout
+contract owned by the latest turn's reading position:
 
-This is intentional. It ensures the browser uses the new footer height in the same turn, before we restore the anchor.
+- **Survives detours**: jumping to history or scrolling up only changes the
+  viewport *mode* (`reading`); the floor stays in geometry untouched.
+- **Frozen during detours**: downward-scroll consumption and height-delta
+  reconciliation do not touch the floor while the user is away. Virtualization
+  remeasurement while scrolling history is ignored.
+- **Incremental missing-tail semantics**: `resolvePinMetrics` reports
+  *additional* tail needed beyond the current `pinPx`. At equilibrium
+  (message aligned, reservation correct) it is zero — meaning "keep the
+  current floor", never "floor should be zero".
+- **Restore trigger**: returning to the **content bottom** (not the physical
+  bottom that includes the synthetic tail) re-enters `pinned-latest` when a
+  live floor exists. `stepPinned` then re-aligns from measurement.
+- **Equal exchange**: while `pinned-latest`, content growth shrinks the floor
+  1:1 via `absorbPinnedContentGrowth`; measurement preserves equilibrium
+  when `missingTailSpacePx` is zero.
 
-If you move compensation back to "React render only", the flash can return because the DOM may still be one frame behind when `scrollTop` is restored.
+## Height-Change Handling Matrix
 
-## 3. Anchor Lock
+| Mode | Growth (incl. animated expand) | Shrink (incl. animated collapse) |
+|---|---|---|
+| `pinned-latest` | floor absorbs it 1:1; zero movement | collapse intent bumps the floor synchronously (estimate), per-frame reconcile converges to measured; `scrollHeight` never dips, no clamp |
+| `following` / `finalizing` | chase the tail every frame | no compensation; the viewport rides the tail upward |
+| `reading` (near bottom) | consume consumable reservations | synchronous pre-compensation + anchor lock; no early consumption during CSS transitions |
+| `reading` (change far above bottom) | nothing (scrollbar only) | nothing (fallback compensation is zero) |
+| `navigating` | animator re-resolves its destination every frame | same |
 
-`anchorLockRef` temporarily remembers the desired `scrollTop`.
+`finalizing` is entered when the stream ends while following: the pipeline
+keeps chasing the tail until layout is quiet (8 stable frames or 800ms), so
+terminal auto-collapses and markdown upgrades are absorbed without a stall.
+Consumable leftovers are cleared on settle; the sticky floor is not.
 
-It exists for two reasons:
+## Synchronous Writes (the only two exceptions)
 
-- immediate restore right after compensation is applied
-- follow-up enforcement during scroll events while the layout is still settling
+`scrollTop` is written only inside the pipeline. Footer height has two
+synchronous write paths that must land before the browser clamps or paints:
 
-The immediate restore handles the critical path. The scroll listener is the safety net.
+1. **Collapse-intent pre-compensation** (`flowchat:layout-collapse-intent`):
+   in `reading`, add collapse compensation and arm the anchor lock; in
+   `pinned-latest`, bump the pin floor. Both before the component shrinks.
+2. **Downward-scroll consumption**: user scrolling down eats consumable
+   reservation space inside the scroll event so the viewport can never enter
+   visible synthetic blank.
 
-## 4. Collapse Intent
+`applyFooterNow` writes the style and forces layout reads
+(`footer.offsetHeight`, `scroller.scrollHeight`) so the new height
+participates in the same task. Do not move this to React state rendering.
 
-Some collapses are predictable before layout actually shrinks.
+## Why These Stay
 
-`flowchat:layout-collapse-intent` is emitted before a known collapsible UI
-shrinks. `VirtualMessageList` uses that event to:
-
-- capture the pre-collapse anchor `scrollTop`
-- capture the bottom distance before collapse
-- estimate required compensation from current card height
-- apply provisional compensation immediately
-
-This pre-compensation is what avoids the flash.
-
-If the list waits until `ResizeObserver` sees the shrink, the browser may already have clamped `scrollTop`.
-
-## Runtime Flow
-
-## A. Known Tool Card Collapse
-
-When a helper-backed card or region is about to collapse:
-
-1. it dispatches `flowchat:layout-collapse-intent` before the collapse state is applied
-2. `VirtualMessageList` estimates the upcoming shrink using `cardHeight`
-3. `VirtualMessageList` adds provisional footer compensation immediately
-4. `VirtualMessageList` activates anchor lock using the current `scrollTop`
-5. actual layout shrink happens
-6. `ResizeObserver` / `MutationObserver` / transition listeners trigger `measureHeightChange()`
-7. measured shrink reconciles the compensation to the real final value
-8. anchor lock restores / enforces the final `scrollTop`
-
-Common examples:
-
-- `FileOperationToolCard`
-- `ModelThinkingDisplay`
-- `TerminalToolCard`
-- `ExploreGroupRenderer`
-
-## B. Unknown or Unsignaled Shrink
-
-If a shrink happens without a collapse intent:
-
-1. `measureHeightChange()` detects the negative height delta
-2. compensation falls back to `shrinkAmount - distanceFromBottom`
-3. anchor lock uses the previously known scroll position
-
-This path is safer than doing nothing, but it is more likely to show visible movement than the pre-compensation path.
-
-## Why Transition Tracking Exists
-
-Some collapsible UI uses animated layout properties such as:
-
-- `grid-template-rows`
-- `height`
-- `max-height`
-
-During those transitions, the DOM may report intermediate sizes for multiple frames.
-
-`layoutTransitionCountRef` prevents us from consuming compensation too early while the layout is still animating. If you remove this guard, compensation can disappear mid-transition and reintroduce vertical drift.
-
-## C. Follow-Output Mode (continuous tail)
-
-When the viewport is in follow-output mode and the latest turn is still
-streaming, the user's intent is "keep the tail visible", which is the
-opposite of "preserve the upper anchor". To avoid the visible
-"stutter then jump" behavior caused by collapse pre-compensation
-freezing the viewport mid-animation, follow mode short-circuits the
-protection path:
-
-1. `handleToolCardCollapseIntent` returns early without writing
-   `pendingCollapseIntent`, without adding `collapse` reservation, and
-   without activating anchor lock.
-2. The shrink branch of `measureHeightChange` returns early without
-   adding fallback footer compensation.
-3. A continuous RAF loop in `useVirtuosoFlowFollowOutput` runs every frame
-   while `isFollowing && isStreaming`, calling `performAutoFollowScroll`
-   to chase the bottom and `reconcileStickyPinReservation` to keep the
-   sticky-latest pin floor aligned with the live DOM.
-4. The loop is cancelled as soon as follow exits (user upward scroll,
-   session change, streaming ends, or an explicit navigation).
-
-This branch coexists with the legacy collapse compensation path. Outside
-follow mode (user reading older content), all original protections still
-apply unchanged.
-
-## Why `overflow-anchor: none` Must Stay
-
-`VirtualMessageList.scss` disables native browser scroll anchoring on:
-
-- `[data-virtuoso-scroller]`
-- `.message-list-footer`
-
-This is required because the browser's built-in anchoring fights the manual compensation logic.
-
-If you remove `overflow-anchor: none`, the browser may apply its own anchor correction on top of our compensation and produce unstable or inconsistent results.
-
-## Required Event Contract
-
-`flowchat:layout-mutation`
-
-- dispatch after a generic expand/collapse action that changes height
-- purpose: schedule a follow-up measurement
-
-`flowchat:layout-collapse-intent`
-
-- dispatch before a collapse that can reduce list height near the bottom
-- include `cardHeight` when possible
-- purpose: pre-compensate before the browser clamps scroll position
-
-Current producer:
-
-- `useFlowLayoutMutationContract.ts`
-- `ModelThinkingDisplay.tsx`
-- `ExploreGroupRenderer.tsx`
-
-Most tool cards now emit these events through `useFlowLayoutMutationContract`.
-Components that need more accurate collapse estimation can pass a custom
-`getCardHeight` function to the helper.
-
-If a future collapsible component shows the same "header drops" or "flash on collapse" symptom, it should likely emit `flowchat:layout-collapse-intent` before collapsing.
-
-## Invariants To Preserve
-
-- Footer compensation must remain additive temporary space, not real content.
-- Effective height comparisons must subtract current compensation.
-- Footer DOM compensation must be applied synchronously before anchor restore.
-- Anchor restore must clamp against current `maxScrollTop`.
-- Pre-collapse intent must capture the anchor before the component shrinks.
-- Compensation must not be consumed too early during active layout transitions.
-- Session changes and empty-list resets must clear compensation and anchor state.
+- `overflow-anchor: none` on the scroller and footer
+  (`VirtualMessageList.scss`): native browser anchoring fights the
+  reservation model.
+- Transition tracking (`grid-template-rows` / `height` / `max-height`):
+  gates early consumption in `reading` and the settle detection in
+  `finalizing`. Pinned/following do not depend on it — they measure the live
+  DOM every frame and are immune to intermediate sizes.
+- Measured-first reconciliation: concurrent expand + collapse in the same
+  frame (new tool card appears while the explore group collapses) composes
+  automatically because the floor is recomputed from rects, not from
+  per-event bookkeeping.
 
 ## Common Ways To Break This
 
-- Replacing `applyFooterCompensationNow()` with state-only rendering.
-- Measuring raw `scrollHeight` deltas without subtracting existing compensation.
-- Removing `flowchat:layout-collapse-intent` from a helper-backed collapsible component.
-- Dispatching collapse intent after `setState` instead of before it.
-- Removing `overflow-anchor: none`.
-- Removing transition-aware delayed measurement.
-- Simplifying anchor restore to a one-shot restore without the scroll listener fallback.
-- Removing the follow-mode short-circuit in `handleToolCardCollapseIntent` /
-  `measureHeightChange`. Without it, follow-output streaming will visibly stall
-  during collapse animations and then snap to the latest token.
-- Removing the continuous RAF follow loop. Event-driven follow alone cannot
-  keep up with collapse animations + dense token streams without visible jitter.
+- Writing `scrollTop` anywhere outside the scheduler pipeline.
+- Comparing raw `scrollHeight` deltas without subtracting reservations.
+- Dispatching a collapse intent after `setState` instead of before it.
+- Removing the pinned-mode synchronous floor bump (a 1-frame clamp flash
+  returns: pinned scrollTop equals maxScrollTop, so any un-prefunded shrink
+  clamps immediately).
+- Clearing the pin floor on stream end (short answers will drop).
+- Reintroducing time-window intent guards; upward input events must win
+  unconditionally.
+- Making the footer height React-state-driven per frame (one frame late =
+  visible clamp).
 
-## If You Need To Change This Logic
+## Verification Checklist
 
-Use this checklist:
+1. Send a message → the user message pins at the reading offset; no
+   scroll-to-latest bar flash; the answer fills the blank without movement.
+2. Dense token stream → wheel up once → the viewport is immediately yours; no
+   pull-back.
+3. Mid-turn explore-group auto-collapse while pinned → zero movement.
+4. Simultaneous new-card expand + old-card collapse → no jitter.
+5. Stream end with terminal auto-collapses → smooth settle, no leftover blank
+   that needs a user scroll, no bar flash.
+6. Short answer → stays pinned with blank after the turn ends; wheel-down
+   cannot scroll into the blank.
+7. Reading history near the bottom during a collapse → no drop-and-snap-back.
+8. Anchor-dot jump to the latest turn → re-pins with blank intact; jump to an
+   older turn → blank released, no clamp jump.
+9. Session switch in both directions → no residual reservations.
 
-1. Verify bottom collapse at the end of a conversation.
-2. Verify manual collapse of a completed `Write` / `Edit` tool card.
-3. Verify auto-collapse of file tool cards after streaming finishes.
-4. Verify repeated expand/collapse near the bottom.
-5. Verify thinking / explore / other collapsible sections still schedule measurements correctly.
-6. Verify there is no visible "drop then snap back" flash.
-7. Verify the final header position remains stable after collapse.
-
-## Related Files
-
-- `src/web-ui/src/flow_chat/components/modern/VirtualMessageList.tsx`
-- `src/web-ui/src/flow_chat/components/modern/VirtualMessageList.scss`
-- `src/web-ui/src/flow_chat/scroll/useFlowLayoutMutationContract.ts`
-- `src/web-ui/src/flow_chat/tool-cards/FileOperationToolCard.tsx`
-- `src/web-ui/src/flow_chat/tool-cards/ModelThinkingDisplay.tsx`
-- `src/web-ui/src/flow_chat/tool-cards/TerminalToolCard.tsx`
-- `src/web-ui/src/flow_chat/components/modern/ExploreGroupRenderer.tsx`
+Unit tests: `scroll/viewport/FlowViewportMachine.test.ts`,
+`scroll/viewport/FlowViewportGeometry.test.ts`.

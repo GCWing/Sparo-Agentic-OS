@@ -3,6 +3,7 @@ import { getSceneNav } from '../scenes/nav-registry';
 import { useNavSceneStore } from '../stores/navSceneStore';
 import type { WorkspaceSceneId } from './workspaceSceneTypes';
 import {
+  createAgenticOsHomeSurface,
   isSameWorkspaceSurface,
   type WorkspaceSurfaceContext,
   type WorkspaceSurface,
@@ -21,27 +22,26 @@ export interface WorkspaceSceneHistoryEntry {
 
 export type WorkspaceSurfaceHistoryMode = 'push' | 'restore';
 
-interface OpenSurfaceOptions {
+export interface OpenSurfaceOptions {
   context?: WorkspaceSurfaceContext | null;
   historyMode?: WorkspaceSurfaceHistoryMode;
+  /** When opening agentic-os-home, sets which OS session is shown on the home surface. */
+  currentOsSessionId?: string | null;
 }
 
 interface WorkspaceSurfaceState {
   activeSurface: WorkspaceSurface;
   previousSurface: WorkspaceSurface | null;
+  currentOsSessionId: string | null;
   sceneHistory: WorkspaceSceneHistoryEntry[];
   surfaceContext: WorkspaceSurfaceContext | null;
-  focusedSessionId: string | null;
-  composerTargetSessionId: string | null;
   openSurface: (surface: WorkspaceSurface, options?: OpenSurfaceOptions) => void;
   goBackScene: () => boolean;
   openSceneHistoryEntry: (index: number) => boolean;
   clearSceneHistory: () => void;
-  focusSession: (sessionId: string | null) => void;
-  setComposerTargetSession: (sessionId: string | null) => void;
   clearSurfaceContext: () => void;
   forgetSessions: (sessionIds: readonly string[]) => void;
-  returnHome: (agenticOsSessionId?: string | null) => void;
+  returnHome: (currentOsSessionId?: string | null) => void;
 }
 
 function resolveNavSceneId(id: WorkspaceSceneId): WorkspaceSceneId | null {
@@ -98,33 +98,41 @@ function pushSceneHistory(
   ].slice(0, WORKSPACE_SCENE_HISTORY_LIMIT);
 }
 
-function getFocusedSessionId(surface: WorkspaceSurface): string | null {
-  return surface.kind === 'session'
-    ? surface.sessionId
-    : surface.kind === 'agentic-os-home'
-      ? surface.agenticOsSessionId
-      : null;
+export function selectFocusedSessionId(state: WorkspaceSurfaceState): string | null {
+  if (state.activeSurface.kind === 'session') {
+    return state.activeSurface.sessionId;
+  }
+  if (state.activeSurface.kind === 'agentic-os-home') {
+    return state.currentOsSessionId;
+  }
+  return null;
 }
 
+export const selectComposerTargetSessionId = selectFocusedSessionId;
+
 export const useWorkspaceSurfaceStore = create<WorkspaceSurfaceState>((set, get) => ({
-  activeSurface: { kind: 'agentic-os-home', agenticOsSessionId: null, scope: systemRuntimeScope() },
+  activeSurface: createAgenticOsHomeSurface(),
   previousSurface: null,
+  currentOsSessionId: null,
   sceneHistory: [],
   surfaceContext: null,
-  focusedSessionId: null,
-  composerTargetSessionId: null,
 
   openSurface: (surface, options = {}) => {
     const state = get();
     const current = state.activeSurface;
     const nextSurfaceContext = options.context ?? null;
-    const nextFocusedSessionId = getFocusedSessionId(surface);
+    const nextCurrentOsSessionId =
+      surface.kind === 'agentic-os-home'
+        ? (options.currentOsSessionId !== undefined
+          ? options.currentOsSessionId
+          : state.currentOsSessionId)
+        : state.currentOsSessionId;
+
     if (isSameWorkspaceSurface(current, surface)) {
       set({
         sceneHistory: surface.kind === 'agentic-os-home' ? [] : state.sceneHistory,
         surfaceContext: nextSurfaceContext,
-        focusedSessionId: nextFocusedSessionId,
-        composerTargetSessionId: nextFocusedSessionId,
+        currentOsSessionId: nextCurrentOsSessionId,
       });
       syncSceneNav(surface);
       return;
@@ -142,8 +150,7 @@ export const useWorkspaceSurfaceStore = create<WorkspaceSurfaceState>((set, get)
       previousSurface: current,
       sceneHistory: nextSceneHistory,
       surfaceContext: nextSurfaceContext,
-      focusedSessionId: nextFocusedSessionId,
-      composerTargetSessionId: nextFocusedSessionId,
+      currentOsSessionId: nextCurrentOsSessionId,
     });
     syncSceneNav(surface);
   },
@@ -163,14 +170,12 @@ export const useWorkspaceSurfaceStore = create<WorkspaceSurfaceState>((set, get)
     if (!entry) return false;
 
     const nextHistory = state.sceneHistory.filter((_, i) => i !== index);
-    const nextFocusedSessionId = getFocusedSessionId(entry.surface);
     set({
       activeSurface: entry.surface,
       previousSurface: state.activeSurface,
       sceneHistory: nextHistory,
       surfaceContext: entry.context,
-      focusedSessionId: nextFocusedSessionId,
-      composerTargetSessionId: nextFocusedSessionId,
+      currentOsSessionId: state.currentOsSessionId,
     });
     syncSceneNav(entry.surface);
     return true;
@@ -178,17 +183,6 @@ export const useWorkspaceSurfaceStore = create<WorkspaceSurfaceState>((set, get)
 
   clearSceneHistory: () => {
     set({ sceneHistory: [] });
-  },
-
-  focusSession: (sessionId) => {
-    set({
-      focusedSessionId: sessionId,
-      composerTargetSessionId: sessionId,
-    });
-  },
-
-  setComposerTargetSession: (sessionId) => {
-    set({ composerTargetSessionId: sessionId });
   },
 
   clearSurfaceContext: () => {
@@ -202,12 +196,13 @@ export const useWorkspaceSurfaceStore = create<WorkspaceSurfaceState>((set, get)
     set((state) => {
       const activeSurface =
         state.activeSurface.kind === 'session' && removedSessionIds.has(state.activeSurface.sessionId)
-          ? { kind: 'agentic-os-home', agenticOsSessionId: null, scope: systemRuntimeScope() } as WorkspaceSurface
-          : state.activeSurface.kind === 'agentic-os-home' &&
-              state.activeSurface.agenticOsSessionId &&
-              removedSessionIds.has(state.activeSurface.agenticOsSessionId)
-            ? { kind: 'agentic-os-home', agenticOsSessionId: null, scope: systemRuntimeScope() } as WorkspaceSurface
-            : state.activeSurface;
+          ? createAgenticOsHomeSurface()
+          : state.activeSurface;
+
+      const nextCurrentOsSessionId =
+        state.currentOsSessionId && removedSessionIds.has(state.currentOsSessionId)
+          ? null
+          : state.currentOsSessionId;
 
       const nextSceneHistory = state.sceneHistory.filter((entry) => (
         entry.surface.kind !== 'session' || !removedSessionIds.has(entry.surface.sessionId)
@@ -217,21 +212,16 @@ export const useWorkspaceSurfaceStore = create<WorkspaceSurfaceState>((set, get)
         activeSurface,
         surfaceContext: activeSurface === state.activeSurface ? state.surfaceContext : null,
         sceneHistory: activeSurface.kind === 'agentic-os-home' ? [] : nextSceneHistory,
-        focusedSessionId:
-          state.focusedSessionId && removedSessionIds.has(state.focusedSessionId)
-            ? null
-            : state.focusedSessionId,
-        composerTargetSessionId:
-          state.composerTargetSessionId && removedSessionIds.has(state.composerTargetSessionId)
-            ? null
-            : state.composerTargetSessionId,
+        currentOsSessionId: nextCurrentOsSessionId,
       };
     });
     syncSceneNav(get().activeSurface);
   },
 
-  returnHome: (agenticOsSessionId = null) => {
-    get().openSurface({ kind: 'agentic-os-home', agenticOsSessionId, scope: systemRuntimeScope() });
+  returnHome: (currentOsSessionId) => {
+    get().openSurface(createAgenticOsHomeSurface(), {
+      currentOsSessionId: currentOsSessionId !== undefined ? currentOsSessionId : get().currentOsSessionId,
+    });
   },
 }));
 
@@ -246,3 +236,14 @@ export function selectIsHomeSurface(state: WorkspaceSurfaceState): boolean {
 export function selectCanGoBackScene(state: WorkspaceSurfaceState): boolean {
   return state.activeSurface.kind !== 'agentic-os-home' && state.sceneHistory.length > 0;
 }
+
+/** @deprecated Use selectFocusedSessionId instead */
+export function getFocusedSessionIdFromSurface(state: WorkspaceSurfaceState): string | null {
+  return selectFocusedSessionId(state);
+}
+
+export function homeSurfaceWithScope(): WorkspaceSurface {
+  return createAgenticOsHomeSurface();
+}
+
+export { systemRuntimeScope };

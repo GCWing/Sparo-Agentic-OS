@@ -2,44 +2,37 @@
  * Virtualized message list.
  * Renders a flattened DialogTurn stream (user messages + model rounds).
  *
- * Scroll policy (simplified):
- * - The list preserves the current viewport by default.
- * - A new turn first pins the latest user message near the top for reading.
- * - Follow mode starts explicitly via "jump to latest", or automatically once
- *   the latest turn's streaming output grows enough to consume the sticky tail space.
- * - User upward scroll intent exits follow and cancels any pending auto-follow arm.
- * - "Scroll to latest" bar appears whenever the list is not at bottom.
+ * Scroll policy:
+ * - A new turn pins the latest user message near the top for reading; the
+ *   synthetic tail below it is exchanged 1:1 against streaming growth.
+ * - Once the tail floor is consumed, the viewport follows the output.
+ * - Explicit upward user intent (wheel/touch/keys/scrollbar) always hands the
+ *   viewport back to the user immediately.
+ * - When the stream ends, a short finalizing window absorbs terminal
+ *   auto-collapses before settling into reading mode.
+ *
+ * All of this is owned by `useFlowViewportController`; this component only
+ * wires the controller to Virtuoso and renders overlays.
+ * See `src/web-ui/src/flow_chat/scroll/README.md`.
  */
 
-import React, { useRef, useState, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { useRef, useState, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { useActiveSessionState } from '../../hooks/useActiveSessionState';
 import { VirtualItemRenderer } from './VirtualItemRenderer';
 import { ScrollToLatestBar } from '../ScrollToLatestBar';
 import { ProcessingIndicator } from './ProcessingIndicator';
 import { ScrollAnchor } from './ScrollAnchor';
-import {
-  useVirtuosoFlowFollowOutput,
-  type FollowOutputEnterReason,
-  type FollowOutputExitReason,
-} from '../../scroll/adapters/useVirtuosoFlowFollowOutput';
-import { useVirtuosoFlowLayoutMutationBridge } from '../../scroll/adapters/useVirtuosoFlowLayoutMutationBridge';
-import { useVirtuosoFlowLayoutObservers } from '../../scroll/adapters/useVirtuosoFlowLayoutObservers';
-import { useVirtuosoFlowUserIntentBridge } from '../../scroll/adapters/useVirtuosoFlowUserIntentBridge';
+import { useFlowViewportController } from '../../scroll/viewport/useFlowViewportController';
+import type { ViewportPinMode } from '../../scroll/viewport/FlowViewportGeometry';
 import { useVirtuosoVisibleTurnTracker } from '../../scroll/adapters/useVirtuosoVisibleTurnTracker';
-import { useVirtuosoFlowGeometryController } from '../../scroll/adapters/useVirtuosoFlowGeometryController';
-import { useVirtuosoFlowNavigationController } from '../../scroll/adapters/useVirtuosoFlowNavigationController';
-import type { FlowChatPinTurnToTopMode } from '../../events/flowchatNavigation';
 import { useVirtualItems, useActiveSession } from '../../store/modernFlowChatStore';
 import { useChatInputState } from '../../store/chatInputStateStore';
 import { computeFlowChatInputStackFooterPx } from '../../utils/flowChatScrollLayout';
 import { projectStreamingOutput } from '../../projections/streamingOutputProjection';
 import { projectProcessingAffordance } from '../../projections/processingAffordanceProjection';
 import { useStableProcessingAffordance } from './useStableProcessingAffordance';
-import { COMPENSATION_EPSILON_PX } from '../../scroll/FlowScrollGeometry';
 import './VirtualMessageList.scss';
-
-// Read `FLOWCHAT_SCROLL_STABILITY.md` before changing collapse compensation logic.
 
 /**
  * Methods exposed by VirtualMessageList.
@@ -47,12 +40,12 @@ import './VirtualMessageList.scss';
 export interface VirtualMessageListRef {
   scrollToTurn: (turnIndex: number) => void;
   scrollToIndex: (index: number) => void;
-  // Clears pin reservation first, then scrolls to the physical bottom.
+  // Clears the pin reservation first, then scrolls to the end of content.
   scrollToPhysicalBottomAndClearPin: () => void;
-  // Preserves any existing pin reservation and behaves like an End-key scroll.
+  // Jump to the latest output and follow it while streaming.
   scrollToLatestEndPosition: () => void;
-  // Aligns the target turn's user message to the viewport top.
-  pinTurnToTop: (turnId: string, options?: { behavior?: ScrollBehavior; pinMode?: FlowChatPinTurnToTopMode }) => boolean;
+  // Aligns the target turn's user message to the viewport reading offset.
+  pinTurnToTop: (turnId: string, options?: { behavior?: ScrollBehavior; pinMode?: ViewportPinMode }) => boolean;
 }
 
 export interface VirtualMessageListProps {
@@ -69,71 +62,19 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
   const virtualItems = useVirtualItems();
   const activeSession = useActiveSession();
 
-  const [isAtBottom, setIsAtBottom] = useState(true);
   const [scrollerElement, setScrollerElement] = useState<HTMLElement | null>(null);
-
   const scrollerElementRef = useRef<HTMLElement | null>(null);
-  const footerElementRef = useRef<HTMLDivElement | null>(null);
-  const layoutTransitionCountRef = useRef(0);
-  const followOutputControllerRef = useRef<{
-    handleUserScrollIntent: () => void;
-    handleScroll: () => void;
-    scheduleFollowToLatest: (reason: string) => void;
-  }>({
-    handleUserScrollIntent: () => {},
-    handleScroll: () => {},
-    scheduleFollowToLatest: () => {},
-  });
-  const deferredFollowReasonRef = useRef<string | null>(null);
-  const enterFollowOutputRef = useRef<(reason: FollowOutputEnterReason) => void>(() => {});
-  const exitFollowOutputRef = useRef<(reason: FollowOutputExitReason) => void>(() => {});
-  // Mirror of `isFollowingOutput` for use inside listeners that are registered
-  // once per mount. When follow mode is active we deliberately bypass collapse
-  // pre-compensation and anchor lock so the continuous follow loop can keep
-  // tracking the bottom without fighting the layout-stability machinery.
-  const isFollowingOutputRef = useRef(false);
-  const isStreamingOutputRef = useRef(false);
 
   const isInputActive = useChatInputState(state => state.isActive);
   const isInputExpanded = useChatInputState(state => state.isExpanded);
   const inputHeight = useChatInputState(state => state.inputHeight);
-
-  const inputStackFooterPxRef = useRef(0);
   const inputStackFooterPx = computeFlowChatInputStackFooterPx(inputHeight, isInputActive);
-  inputStackFooterPxRef.current = inputStackFooterPx;
 
   const activeSessionState = useActiveSessionState();
   const isProcessing = activeSessionState.isProcessing;
   const processingPhase = activeSessionState.processingPhase;
 
-  const {
-    bottomReservationState,
-    bottomReservationStateRef,
-    previousMeasuredHeightRef,
-    previousScrollTopRef,
-    anchorLockRef,
-    pendingCollapseIntentRef,
-    getFooterHeightPx,
-    getTotalBottomCompensationPx,
-    snapshotMeasuredContentHeight,
-    updateBottomReservationState,
-    resetBottomReservations,
-    resetTransientGeometryState,
-    consumeBottomCompensation,
-    applyFooterCompensationNow,
-    releaseAnchorLock,
-    activateAnchorLock,
-    scheduleHeightMeasure,
-  } = useVirtuosoFlowGeometryController({
-    footerElementRef,
-    scrollerElementRef,
-    inputStackFooterPxRef,
-    layoutTransitionCountRef,
-    isFollowingOutputRef,
-    isStreamingOutputRef,
-  });
-
-  const userMessageItems = React.useMemo(() => {
+  const userMessageItems = useMemo(() => {
     return virtualItems
       .map((item, index) => ({ item, index }))
       .filter(({ item }) => item.type === 'user-message');
@@ -141,16 +82,12 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
 
   const latestTurnId = userMessageItems[userMessageItems.length - 1]?.item.turnId ?? null;
   const latestUserMessageIndex = userMessageItems[userMessageItems.length - 1]?.index ?? 0;
-  const latestTurnAutoFollowStateRef = useRef<{
-    turnId: string | null;
-    sawPositiveFloor: boolean;
-  }>({
-    turnId: latestTurnId,
-    sawPositiveFloor: false,
-  });
-  const hasPrimedMountedStreamingTurnFollowRef = useRef(false);
-  const previousLatestTurnIdForFollowRef = useRef<string | null>(latestTurnId);
-  const previousSessionIdForFollowRef = useRef<string | undefined>(activeSession?.sessionId);
+
+  const streamingOutputProjection = useMemo(
+    () => projectStreamingOutput(activeSession),
+    [activeSession],
+  );
+  const isStreamingOutput = isProcessing || streamingOutputProjection.isStreamingOutput;
 
   const { scheduleVisibleTurnMeasure } = useVirtuosoVisibleTurnTracker({
     activeSessionId: activeSession?.sessionId,
@@ -160,309 +97,40 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
     virtualItemCount: virtualItems.length,
   });
 
-  const handleScrollerRef = useCallback((el: HTMLElement | Window | null) => {
-    if (el && el instanceof HTMLElement) {
-      scrollerElementRef.current = el;
-      setScrollerElement(el);
-      return;
-    }
-
-    scrollerElementRef.current = null;
-    setScrollerElement(null);
-  }, []);
-
-  const shouldSuspendAutoFollow = useCallback(() => {
-    const collapseIntent = pendingCollapseIntentRef.current;
-    return (
-      layoutTransitionCountRef.current > 0 ||
-      (collapseIntent.active && collapseIntent.expiresAtMs >= performance.now())
-    );
-  }, [pendingCollapseIntentRef]);
-
-  const scheduleFollowToLatestWithViewportState = useCallback((reason: string) => {
-    const collapseIntentActive = shouldSuspendAutoFollow();
-    if (collapseIntentActive) {
-      deferredFollowReasonRef.current = reason;
-      return;
-    }
-    deferredFollowReasonRef.current = null;
-    followOutputControllerRef.current.scheduleFollowToLatest(reason);
-  }, [shouldSuspendAutoFollow]);
-
-  const scheduleDeferredFollowToLatest = useCallback((reason: string) => {
-    followOutputControllerRef.current.scheduleFollowToLatest(reason);
-  }, []);
+  const handleVisibleTurnMeasure = useCallback(() => {
+    scheduleVisibleTurnMeasure();
+  }, [scheduleVisibleTurnMeasure]);
 
   const {
-    pendingTurnPin,
-    performAutoFollowSync,
-    requestTurnPinToTop,
-    reconcileStickyPinReservation,
-    schedulePinReservationReconcile,
-    scrollToLatestEndPositionInternal,
-    scrollToTurn,
-    scrollToIndex,
-    pinTurnToTop,
-    scrollToPhysicalBottomAndClearPin,
-    scrollToLatestEndPosition,
-  } = useVirtuosoFlowNavigationController({
+    snapshot,
+    handleScrollerRef,
+    handleFooterRef,
+    handleRangeChanged,
+    getFooterHeightPx,
+    commands,
+  } = useFlowViewportController({
     activeSessionId: activeSession?.sessionId,
-    virtuosoRef,
-    scrollerElement,
-    scrollerElementRef,
+    latestTurnId,
     virtualItemCount: virtualItems.length,
     userMessageItems,
-    latestTurnId,
-    bottomReservationStateRef,
-    previousMeasuredHeightRef,
-    previousScrollTopRef,
-    pendingCollapseIntentRef,
-    layoutTransitionCountRef,
-    getTotalBottomCompensationPx,
-    snapshotMeasuredContentHeight,
-    updateBottomReservationState,
-    resetBottomReservations,
-    resetTransientGeometryState,
-    applyFooterCompensationNow,
-    releaseAnchorLock,
-    scheduleVisibleTurnMeasure,
-    enterFollowOutputRef,
-    exitFollowOutputRef,
-  });
-
-  useVirtuosoFlowLayoutMutationBridge({
-    scrollerElement,
-    isFollowingOutputRef,
-    isStreamingOutputRef,
-    bottomReservationStateRef,
-    pendingCollapseIntentRef,
-    scheduleHeightMeasure,
-    scheduleVisibleTurnMeasure,
-    schedulePinReservationReconcile,
-    getTotalBottomCompensationPx,
-    updateBottomReservationState,
-    applyFooterCompensationNow,
-    activateAnchorLock,
-  });
-
-  useVirtuosoFlowLayoutObservers({
-    scrollerElement,
-    isProcessing,
-    layoutTransitionCountRef,
-    pendingCollapseIntentRef,
-    deferredFollowReasonRef,
-    previousMeasuredHeightRef,
-    previousScrollTopRef,
-    snapshotMeasuredContentHeight,
-    scheduleHeightMeasure,
-    scheduleVisibleTurnMeasure,
-    schedulePinReservationReconcile,
-    scheduleFollowToLatestWithViewportState,
-    shouldSuspendAutoFollow,
-    scheduleFollowToLatest: scheduleDeferredFollowToLatest,
-  });
-
-  useVirtuosoFlowUserIntentBridge({
-    scrollerElement,
-    anchorLockRef,
-    layoutTransitionCountRef,
-    previousScrollTopRef,
-    previousMeasuredHeightRef,
-    followOutputControllerRef,
-    releaseAnchorLock,
-    getTotalBottomCompensationPx,
-    consumeBottomCompensation,
-    applyFooterCompensationNow,
-    snapshotMeasuredContentHeight,
-    scheduleVisibleTurnMeasure,
-  });
-
-  // `rangeChanged` is affected by overscan/increaseViewportBy, so treat it as a
-  // "rendered DOM changed" signal and derive the pinned turn from real DOM visibility.
-  const handleRangeChanged = useCallback(() => {
-    scheduleVisibleTurnMeasure(2);
-    schedulePinReservationReconcile(2);
-    scheduleFollowToLatestWithViewportState('range-changed');
-  }, [scheduleFollowToLatestWithViewportState, schedulePinReservationReconcile, scheduleVisibleTurnMeasure]);
-
-  const streamingOutputProjection = React.useMemo(
-    () => projectStreamingOutput(activeSession),
-    [activeSession],
-  );
-  const isStreamingOutput = isProcessing || streamingOutputProjection.isStreamingOutput;
-
-  const {
-    isFollowingOutput,
-    enterFollowOutput,
-    exitFollowOutput,
-    armFollowOutputForNewTurn,
-    activateArmedFollowOutput,
-    cancelPendingAutoFollowArm,
-    scheduleFollowToLatest,
-    handleUserScrollIntent,
-    handleScroll: handleFollowOutputScroll,
-  } = useVirtuosoFlowFollowOutput({
-    activeSessionId: activeSession?.sessionId,
-    latestTurnId,
-    virtualItemCount: virtualItems.length,
     isStreaming: isStreamingOutput,
-    scrollerRef: scrollerElementRef,
-    performUserFollowScroll: () => {
-      scrollToLatestEndPositionInternal('smooth');
-    },
-    performAutoFollowScroll: performAutoFollowSync,
-    performLatestTurnStickyPin: () => {
-      if (latestTurnId) {
-        requestTurnPinToTop(latestTurnId, {
-          behavior: 'auto',
-          pinMode: 'sticky-latest',
-        });
-      }
-    },
-    shouldSuspendAutoFollow,
-    getAutoFollowDistanceFromBottom: (scroller) => (
-      Math.max(0, scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop - getTotalBottomCompensationPx())
-    ),
-    onContinuousFollowFrame: () => {
-      // Keep sticky-latest pin floor aligned with the live DOM as collapses
-      // shrink the layout. Without this the pin reservation would lag for one
-      // RAF tick and the viewport would briefly land below the latest user
-      // message.
-      reconcileStickyPinReservation();
-    },
+    inputStackFooterPx,
+    virtuosoRef,
+    scrollerElementRef,
+    scrollerElement,
+    onScrollerElementChange: setScrollerElement,
+    onVisibleTurnMeasure: handleVisibleTurnMeasure,
   });
-
-  useEffect(() => {
-    if (hasPrimedMountedStreamingTurnFollowRef.current) {
-      return;
-    }
-
-    hasPrimedMountedStreamingTurnFollowRef.current = true;
-    if (!latestTurnId || !isStreamingOutput) {
-      return;
-    }
-
-    latestTurnAutoFollowStateRef.current = {
-      turnId: latestTurnId,
-      sawPositiveFloor: false,
-    };
-    armFollowOutputForNewTurn();
-  }, [
-    activeSession?.sessionId,
-    armFollowOutputForNewTurn,
-    isStreamingOutput,
-    latestTurnId,
-    virtualItems.length,
-  ]);
-
-  useEffect(() => {
-    const previousSessionId = previousSessionIdForFollowRef.current;
-    if (previousSessionId !== activeSession?.sessionId) {
-      previousSessionIdForFollowRef.current = activeSession?.sessionId;
-      previousLatestTurnIdForFollowRef.current = latestTurnId;
-      latestTurnAutoFollowStateRef.current = {
-        turnId: latestTurnId,
-        sawPositiveFloor: false,
-      };
-      return;
-    }
-
-    const previousLatestTurnId = previousLatestTurnIdForFollowRef.current;
-    if (previousLatestTurnId === latestTurnId) {
-      return;
-    }
-
-    previousLatestTurnIdForFollowRef.current = latestTurnId;
-    latestTurnAutoFollowStateRef.current = {
-      turnId: latestTurnId,
-      sawPositiveFloor: false,
-    };
-
-    if (!latestTurnId) {
-      cancelPendingAutoFollowArm();
-      return;
-    }
-
-    armFollowOutputForNewTurn();
-  }, [
-    activeSession?.sessionId,
-    armFollowOutputForNewTurn,
-    cancelPendingAutoFollowArm,
-    latestTurnId,
-  ]);
-
-  useEffect(() => {
-    const trackingState = latestTurnAutoFollowStateRef.current;
-    if (
-      !latestTurnId ||
-      trackingState.turnId !== latestTurnId ||
-      isFollowingOutput ||
-      !isStreamingOutput
-    ) {
-      return;
-    }
-
-    const hasPendingLatestStickyPin = (
-      pendingTurnPin?.turnId === latestTurnId &&
-      pendingTurnPin.pinMode === 'sticky-latest'
-    );
-    if (hasPendingLatestStickyPin) {
-      return;
-    }
-
-    if (
-      bottomReservationState.pin.mode !== 'sticky-latest' ||
-      bottomReservationState.pin.targetTurnId !== latestTurnId
-    ) {
-      return;
-    }
-
-    if (bottomReservationState.pin.floorPx > COMPENSATION_EPSILON_PX) {
-      trackingState.sawPositiveFloor = true;
-      return;
-    }
-
-    if (activateArmedFollowOutput()) {
-      latestTurnAutoFollowStateRef.current = {
-        turnId: null,
-        sawPositiveFloor: false,
-      };
-    }
-  }, [
-    activateArmedFollowOutput,
-    bottomReservationState.pin.floorPx,
-    bottomReservationState.pin.mode,
-    bottomReservationState.pin.targetTurnId,
-    isFollowingOutput,
-    isStreamingOutput,
-    latestTurnId,
-    pendingTurnPin?.pinMode,
-    pendingTurnPin?.turnId,
-  ]);
-
-  followOutputControllerRef.current = {
-    handleUserScrollIntent,
-    handleScroll: handleFollowOutputScroll,
-    scheduleFollowToLatest,
-  };
-  enterFollowOutputRef.current = enterFollowOutput;
-  exitFollowOutputRef.current = exitFollowOutput;
-  isFollowingOutputRef.current = isFollowingOutput;
-  isStreamingOutputRef.current = isStreamingOutput;
 
   useImperativeHandle(ref, () => ({
-    scrollToTurn,
-    scrollToIndex,
-    scrollToPhysicalBottomAndClearPin,
-    scrollToLatestEndPosition,
-    pinTurnToTop,
-  }), [pinTurnToTop, scrollToTurn, scrollToIndex, scrollToPhysicalBottomAndClearPin, scrollToLatestEndPosition]);
+    scrollToTurn: commands.scrollToTurn,
+    scrollToIndex: commands.scrollToIndex,
+    scrollToPhysicalBottomAndClearPin: commands.scrollToPhysicalBottomAndClearPin,
+    scrollToLatestEndPosition: commands.scrollToLatestEndPosition,
+    pinTurnToTop: commands.pinTurnToTop,
+  }), [commands]);
 
-  const handleAtBottomStateChange = useCallback((atBottom: boolean) => {
-    setIsAtBottom(atBottom);
-  }, []);
-
-  const processingAffordanceProjection = React.useMemo(
+  const processingAffordanceProjection = useMemo(
     () => projectProcessingAffordance({
       session: activeSession,
       isProcessing: isStreamingOutput,
@@ -472,7 +140,34 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
   );
   const processingAffordance = useStableProcessingAffordance(processingAffordanceProjection);
 
-  const footerHeightPx = getFooterHeightPx(getTotalBottomCompensationPx(bottomReservationState));
+  // The footer height is owned by the scheduler (direct DOM writes); render
+  // only seeds the current value so a remount starts consistent.
+  const components = useMemo(() => ({
+    Header: () => <div className="message-list-header" />,
+    Footer: () => (
+      <>
+        <ProcessingIndicator
+          visible={processingAffordance.visible}
+          reserveSpace={processingAffordance.reserveSpace}
+          resetKey={processingAffordance.resetKey}
+        />
+        <div
+          ref={handleFooterRef}
+          className="message-list-footer"
+          style={{
+            height: `${getFooterHeightPx()}px`,
+            minHeight: `${getFooterHeightPx()}px`,
+          }}
+        />
+      </>
+    ),
+  }), [
+    getFooterHeightPx,
+    handleFooterRef,
+    processingAffordance.reserveSpace,
+    processingAffordance.resetKey,
+    processingAffordance.visible,
+  ]);
 
   // Render.
   if (virtualItems.length === 0) {
@@ -503,13 +198,10 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
 
         alignToBottom={false}
         // New mounts start near the latest user turn to avoid flashing older
-        // content before sticky pin logic can finish.
+        // content before the sticky pin can establish.
         initialTopMostItemIndex={latestUserMessageIndex}
 
         overscan={{ main: 360, reverse: 240 }}
-
-        atBottomThreshold={50}
-        atBottomStateChange={handleAtBottomStateChange}
 
         rangeChanged={handleRangeChanged}
 
@@ -519,40 +211,21 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
 
         scrollerRef={handleScrollerRef}
 
-        components={{
-          Header: () => <div className="message-list-header" />,
-          Footer: () => (
-            <>
-              <ProcessingIndicator
-                visible={processingAffordance.visible}
-                reserveSpace={processingAffordance.reserveSpace}
-                resetKey={processingAffordance.resetKey}
-              />
-              <div
-                ref={footerElementRef}
-                className="message-list-footer"
-                style={{
-                  height: `${footerHeightPx}px`,
-                  minHeight: `${footerHeightPx}px`,
-                }}
-              />
-            </>
-          ),
-        }}
+        components={components}
       />
 
       {!hideScrollAnchor && (
         <ScrollAnchor
           onAnchorNavigate={(turnId) => {
-            pinTurnToTop(turnId, { behavior: 'smooth' });
+            commands.pinTurnToTop(turnId, { behavior: 'smooth' });
           }}
           scrollerRef={scrollerElementRef}
         />
       )}
 
       <ScrollToLatestBar
-        visible={!isAtBottom && virtualItems.length > 0}
-        onClick={scrollToLatestEndPosition}
+        visible={snapshot.showScrollToLatest && virtualItems.length > 0}
+        onClick={commands.scrollToLatestEndPosition}
         isInputActive={isInputActive}
         isInputExpanded={isInputExpanded}
         inputHeight={inputHeight}

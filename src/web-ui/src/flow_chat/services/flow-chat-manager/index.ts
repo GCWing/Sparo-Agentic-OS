@@ -39,7 +39,9 @@ export {
   getModelMaxTokens,
   createChatSession,
   switchChatSession,
+  activateSessionData,
   deleteChatSession,
+  retargetEmptyChatSessionWorkspace,
   renameChatSessionTitle,
   forkChatSession,
 } from './SessionModule';

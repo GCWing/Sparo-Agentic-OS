@@ -6,7 +6,6 @@
 
 import { useMemo, useCallback, useRef, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useHeaderStore } from '@/app/stores/headerStore';
 import { useExploreGroupState } from './useExploreGroupState';
 import { useFlowChatFileActions } from './useFlowChatFileActions';
 import { useFlowChatNavigation } from './useFlowChatNavigation';
@@ -24,14 +23,6 @@ import {
 } from '../../store/modernFlowChatStore';
 import type { FlowChatConfig } from '../../types/flow-chat';
 import type { LineRange } from '@/shared/markdown';
-import {
-  getWorkspaceDisplayName,
-  useWorkspaceContext,
-} from '@/infrastructure/contexts/WorkspaceContext';
-import {
-  fallbackWorkspaceFolderLabel,
-  resolveWorkspaceForSession,
-} from '../../utils/sessionOrdering';
 import type { FlowChatHeaderTurnSummary } from './FlowChatHeader';
 import type { VirtualMessageListRef } from './VirtualMessageList';
 import type {
@@ -77,9 +68,6 @@ export function useFlowChatCore(options: UseFlowChatCoreOptions = {}) {
   const visibleTurnInfo = activeSession.sessionId === modernActiveSession.sessionId
     ? rawVisibleTurnInfo
     : null;
-  const {
-    openedWorkspacesList,
-  } = useWorkspaceContext();
   const effectiveWorkspacePath =
     activeSession.workspacePath ?? scopedWorkspacePath ?? undefined;
 
@@ -202,38 +190,6 @@ export function useFlowChatCore(options: UseFlowChatCoreOptions = {}) {
     return () => cancelAnimationFrame(frameId);
   }, [searchCurrentMatchVirtualIndex]);
 
-  // ── Header store sync ─────────────────────────────────────────────────────
-  const { setSessionContext, clearSessionContext } = useHeaderStore.getState();
-
-  const workspaceDisplayName = useMemo(() => {
-    if (!activeSession?.workspacePath?.trim()) return '';
-    const ws = resolveWorkspaceForSession(activeSession, openedWorkspacesList);
-    if (ws) {
-      const label = getWorkspaceDisplayName(ws).trim();
-      if (label) return label;
-    }
-    return fallbackWorkspaceFolderLabel(activeSession.workspacePath);
-  }, [activeSession, openedWorkspacesList]);
-
-  useEffect(() => {
-    if (!activeSession.sessionId || !activeSession.descriptor) {
-      clearSessionContext();
-      return;
-    }
-    setSessionContext({
-      descriptor: activeSession.descriptor,
-      workspacePath: activeSession.workspacePath,
-      workspaceDisplayName,
-    });
-  }, [
-    activeSession.descriptor,
-    activeSession.sessionId,
-    activeSession.workspacePath,
-    workspaceDisplayName,
-    setSessionContext,
-    clearSessionContext,
-  ]);
-
   // ── Context value builders ────────────────────────────────────────────────
   const staticContextValue = useMemo<FlowChatStaticContextValue>(
     () => ({
@@ -344,7 +300,6 @@ export function useFlowChatCore(options: UseFlowChatCoreOptions = {}) {
 
     // Workspace
     workspacePath: effectiveWorkspacePath,
-    workspaceDisplayName,
 
     // Pre-built context values
     staticContextValue,

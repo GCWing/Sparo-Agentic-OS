@@ -172,7 +172,9 @@ export const StandardFlowChatContainer: React.FC<StandardFlowChatContainerProps>
                   {virtualItems.length === 0 ? (
                     <WelcomePanel
                       key={activeSession?.sessionId ?? 'welcome'}
+                      sessionId={activeSession?.sessionId}
                       workspacePath={activeSession?.workspacePath}
+                      preferredDescriptor={activeSession?.descriptor}
                       onQuickAction={command => {
                         window.dispatchEvent(
                           new CustomEvent('fill-chat-input', { detail: { message: command } }),

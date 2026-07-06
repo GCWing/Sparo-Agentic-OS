@@ -219,24 +219,38 @@
   animation: wp-dropdownIn 0.15s ease-out;
 }
 
-.welcome-panel__dropdown-current {
+.welcome-panel__dropdown-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 14px;
+  min-width: 0;
+  padding: 8px;
   font-size: 13px;
   font-weight: 600;
   color: var(--ds-chat-text-primary);
 }
 
-.welcome-panel__dropdown-current svg:first-child {
-  color: var(--ds-chat-accent);
+.welcome-panel__dropdown-search {
+  flex: 1;
+  min-width: 0;
+}
+
+.welcome-panel__dropdown-open-workspace {
+  color: var(--ds-chat-text-secondary);
 }
 
 .welcome-panel__dropdown-sep {
   height: 1px;
   margin: 2px 0;
   background: var(--ds-chat-border);
+}
+
+.welcome-panel__dropdown-scroll {
+  max-height: min(280px, calc(100vh - 148px));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .welcome-panel__dropdown-option {
@@ -262,6 +276,11 @@
   transition: background 0.12s, color 0.12s;
 }
 
+.welcome-panel__dropdown-option--selected {
+  background: var(--ds-color-element-soft);
+  color: var(--ds-chat-text-primary);
+}
+
 .welcome-panel__dropdown-option:hover {
   background: var(--ds-color-element-soft);
   color: var(--ds-chat-text-primary);
@@ -281,12 +300,28 @@
   color: var(--ds-color-accent-600);
 }
 
+.welcome-panel__dropdown-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 12px;
+  color: var(--ds-chat-accent);
+}
+
 .welcome-panel__dropdown-name {
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.welcome-panel__dropdown-empty {
+  padding: 12px 14px;
+  color: var(--ds-chat-text-muted);
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 /* ── Cowork ── */

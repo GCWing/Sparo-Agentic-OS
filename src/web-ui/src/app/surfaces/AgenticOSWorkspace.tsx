@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { appRuntime } from '@/infrastructure/app-runtime';
 import { useDialogCompletionNotify } from '../hooks/useDialogCompletionNotify';
 import { useSessionProfile } from '../session-profiles';
-import { useWorkspaceSurfaceStore } from '../navigation/workspaceSurfaceStore';
+import { useWorkspaceSurfaceStore, selectFocusedSessionId } from '../navigation/workspaceSurfaceStore';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import {
   projectWorkspacePathFromRuntimeScope,
@@ -23,7 +23,8 @@ const AgenticOSWorkspace: React.FC<AgenticOSWorkspaceProps> = ({
   isEntering = false,
 }) => {
   const activeSurface = useWorkspaceSurfaceStore((s) => s.activeSurface);
-  const focusedSessionId = useWorkspaceSurfaceStore((s) => s.focusedSessionId);
+  const currentOsSessionId = useWorkspaceSurfaceStore((s) => s.currentOsSessionId);
+  const focusedSessionId = useWorkspaceSurfaceStore(selectFocusedSessionId);
   const { profile } = useSessionProfile();
 
   useDialogCompletionNotify();
@@ -34,7 +35,7 @@ const AgenticOSWorkspace: React.FC<AgenticOSWorkspaceProps> = ({
         activeSurface.kind === 'session'
           ? activeSurface.sessionId
           : activeSurface.kind === 'agentic-os-home'
-            ? activeSurface.agenticOsSessionId ?? focusedSessionId ?? undefined
+            ? currentOsSessionId ?? focusedSessionId ?? undefined
             : focusedSessionId ?? undefined;
       const sessionScope = activeSessionId
         ? runtimeScopeFromSession(flowChatStore.getState().sessions.get(activeSessionId))
@@ -50,7 +51,7 @@ const AgenticOSWorkspace: React.FC<AgenticOSWorkspaceProps> = ({
         activeSessionId: activeSessionId ?? undefined,
       };
     });
-  }, [activeSurface, focusedSessionId]);
+  }, [activeSurface, currentOsSessionId, focusedSessionId]);
 
   const workspaceClassName = [
     'agentic-os-workspace',

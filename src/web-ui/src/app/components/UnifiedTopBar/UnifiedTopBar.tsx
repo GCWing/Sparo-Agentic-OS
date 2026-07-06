@@ -44,6 +44,7 @@ import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import { useSessionProfile } from '../../session-profiles';
 import { getWorkspaceSceneDef } from '../../navigation/workspaceSceneRegistry';
 import { resolveWorkContextForSurface } from '../../navigation/workspaceTopBarContext';
+import { useSessionHeaderContext } from '../../hooks/useSessionHeaderContext';
 import {
   useWorkspaceSurfaceStore,
   type WorkspaceSceneHistoryEntry,
@@ -106,7 +107,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
   const { themes, themeId, setTheme, loading: themeLoading } = useTheme();
   const { hasWorkspace } = useLastUsedWorkspace();
   const { warning } = useNotification();
-  const sessionContext = useHeaderStore((s) => s.sessionContext);
+  const sessionContext = useSessionHeaderContext();
   const contextNavOverrides = useHeaderStore((s) => s.contextNavOverrides);
   const requestOpenWorkDock = useWorkDockStore((s) => s.requestOpenWorkDock);
   const works = useWorkStore((s) => s.works);

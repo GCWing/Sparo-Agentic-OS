@@ -9,8 +9,8 @@
 import React, { useMemo, useCallback, useRef, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShortcut } from '@/infrastructure/hooks/useShortcut';
-import { FlowChatManager } from '@/flow_chat/services/FlowChatManager';
-import { flowChatManager } from '../../services/FlowChatManager';
+import { openSession } from '@/app/navigation/navigationController';
+import { FlowChatManager, flowChatManager } from '../../services/FlowChatManager';
 import { VirtualMessageList } from './VirtualMessageList';
 import { FlowChatHeader } from './FlowChatHeader';
 import { AgenticOsTimelineSidebar } from './AgenticOsTimelineSidebar';
@@ -246,7 +246,7 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
         autoPinnedSessionIdRef.current = null;
         if (bannerInfo) setAgenticOsSwitchBanner({ key: Date.now(), ...bannerInfo });
         setAgenticOsFadeKey(prev => prev + 1);
-        await flowChatManager.switchChatSession(sessionId);
+        await openSession(sessionId);
         window.setTimeout(() => {
           if (
             pendingCrossSessionTargetRef.current?.sessionId === sessionId &&
@@ -272,7 +272,7 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
         autoPinnedSessionIdRef.current = null;
         if (bannerInfo) setAgenticOsSwitchBanner({ key: Date.now(), ...bannerInfo });
         setAgenticOsFadeKey(prev => prev + 1);
-        await flowChatManager.switchChatSession(sessionId);
+        await openSession(sessionId);
       } catch (error) {
         log.warn('Agentic OS timeline session select failed', { sessionId, error });
       }
@@ -467,7 +467,9 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
                   {virtualItems.length === 0 ? (
                     <WelcomePanel
                       key={activeSession?.sessionId ?? 'welcome'}
+                      sessionId={activeSession?.sessionId}
                       workspacePath={activeSession?.workspacePath}
+                      preferredDescriptor={activeSession?.descriptor}
                       onQuickAction={command => {
                         window.dispatchEvent(
                           new CustomEvent('fill-chat-input', { detail: { message: command } }),

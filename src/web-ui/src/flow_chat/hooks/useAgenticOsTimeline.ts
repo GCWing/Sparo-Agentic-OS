@@ -18,7 +18,7 @@ import {
 } from '../projections/flowChatProjectionScheduler';
 import { flowChatStore } from '../store/FlowChatStore';
 import { useFlowChatStoreSelector } from './useFlowChatStoreSelector';
-import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
+import { useWorkspaceSurfaceStore, selectFocusedSessionId } from '@/app/navigation/workspaceSurfaceStore';
 
 export type {
   AgenticOsTimelineBucket,
@@ -29,7 +29,7 @@ export type {
 };
 
 export function useAgenticOsTimeline(): AgenticOsTimelineData {
-  const focusedSessionId = useWorkspaceSurfaceStore(state => state.focusedSessionId);
+  const focusedSessionId = useWorkspaceSurfaceStore(selectFocusedSessionId);
   const timelineSignature = useFlowChatStoreSelector(state =>
     getAgenticOsTimelineSignature(state, focusedSessionId)
   );

@@ -17,6 +17,7 @@ import {
   type RuntimeScope,
 } from '@/shared/types/runtime-scope';
 import { useFlowChatStoreSelector } from '@/flow_chat/hooks/useFlowChatStoreSelector';
+import { useWorkspaceSurfaceStore } from '../navigation/workspaceSurfaceStore';
 import SessionScene from '../scenes/session/SessionScene';
 import SettingsScene from '../scenes/settings/SettingsScene';
 import AppsScene from '../scenes/apps/AppsScene';
@@ -43,6 +44,7 @@ const SurfaceRenderer: React.FC<SurfaceRendererProps> = ({
   isEntering = false,
 }) => {
   const { t } = useI18n('common');
+  const currentOsSessionId = useWorkspaceSurfaceStore(state => state.currentOsSessionId);
   const sessionScope = useFlowChatStoreSelector(
     (state) => {
       if (surface.kind === 'agentic-os-home') {
@@ -71,7 +73,7 @@ const SurfaceRenderer: React.FC<SurfaceRendererProps> = ({
             </div>
           }
         >
-          {renderSurface(surface, sessionScope, isEntering)}
+          {renderSurface(surface, sessionScope, isEntering, currentOsSessionId)}
         </Suspense>
       </div>
     </div>
@@ -81,14 +83,15 @@ const SurfaceRenderer: React.FC<SurfaceRendererProps> = ({
 function renderSurface(
   surface: WorkspaceSurface,
   sessionScope: RuntimeScope | null,
-  isEntering: boolean
+  isEntering: boolean,
+  currentOsSessionId: string | null,
 ): React.ReactNode {
   switch (surface.kind) {
     case 'agentic-os-home':
       return (
         <SessionScene
           workspacePath={undefined}
-          surfaceSessionId={surface.agenticOsSessionId}
+          surfaceSessionId={currentOsSessionId}
           isEntering={isEntering}
           isActive
         />

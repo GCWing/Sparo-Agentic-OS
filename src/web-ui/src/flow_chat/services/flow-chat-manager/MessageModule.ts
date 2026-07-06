@@ -29,7 +29,7 @@ import { getBackendAgentType } from '../../domain/sessionDescriptor';
 import { canHydrateSession, isSessionHydrating } from '../../domain/sessionLoadPhase';
 import { useSessionTurnQueueStore } from '../../store/sessionTurnQueueStore';
 import type { Session } from '../../types/flow-chat';
-import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
+import { useWorkspaceSurfaceStore, selectFocusedSessionId } from '@/app/navigation/workspaceSurfaceStore';
 
 const log = createLogger('MessageModule');
 
@@ -476,8 +476,7 @@ export async function cancelTaskForSession(
 }
 
 export async function cancelCurrentTask(context: FlowChatContext): Promise<boolean> {
-  const sessionId = useWorkspaceSurfaceStore.getState().composerTargetSessionId ||
-    useWorkspaceSurfaceStore.getState().focusedSessionId;
+  const sessionId = selectFocusedSessionId(useWorkspaceSurfaceStore.getState());
   if (!sessionId) {
     log.debug('No focused session to cancel');
     return false;

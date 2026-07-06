@@ -14,7 +14,8 @@ import { stateMachineManager } from '../state-machine';
 import { EventBatcher } from './EventBatcher';
 import { createLogger } from '@/shared/utils/logger';
 import type { WorkspaceInfo } from '@/shared/types';
-import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
+import { useWorkspaceSurfaceStore, selectFocusedSessionId } from '@/app/navigation/workspaceSurfaceStore';
+import { openSession } from '@/app/navigation/navigationController';
 import {
   compareSessionsForDisplay,
   sessionBelongsToWorkspaceNavRow,
@@ -26,8 +27,9 @@ import {
   saveAllInProgressTurns,
   immediateSaveDialogTurn,
   createChatSession as createChatSessionModule,
-  switchChatSession as switchChatSessionModule,
+  activateSessionData as activateSessionDataModule,
   deleteChatSession as deleteChatSessionModule,
+  retargetEmptyChatSessionWorkspace as retargetEmptyChatSessionWorkspaceModule,
   renameChatSessionTitle as renameChatSessionTitleModule,
   forkChatSession as forkChatSessionModule,
   cleanupSaveState,
@@ -140,7 +142,7 @@ export class FlowChatManager {
         this.sessionMatchesWorkspaceRow(session, workspacePath)
       );
       const hasWorkspaceSessions = workspaceSessions.length > 0;
-      const focusedSessionId = useWorkspaceSurfaceStore.getState().focusedSessionId;
+      const focusedSessionId = selectFocusedSessionId(useWorkspaceSurfaceStore.getState());
       const focusedSession = focusedSessionId
         ? state.sessions.get(focusedSessionId) ?? null
         : null;
@@ -177,7 +179,7 @@ export class FlowChatManager {
         }
 
         this.context.flowChatStore.switchSession(latestSession.sessionId);
-        useWorkspaceSurfaceStore.getState().focusSession(latestSession.sessionId);
+        await openSession(latestSession.sessionId);
       }
 
       this.context.workspaceContextPath = workspacePath;
@@ -202,11 +204,15 @@ export class FlowChatManager {
 
     if (
       options?.createDefaultSession &&
-      !options.skipAutoSelectSession &&
       (!result.hasWorkspaceSessions || !result.hasFocusedWorkspaceSession)
     ) {
       const createdSessionId = await this.createChatSession(
-        options.defaultSessionConfig ?? {},
+        {
+          ...(options.defaultSessionConfig ?? {}),
+          navigate: options.skipAutoSelectSession
+            ? false
+            : options.defaultSessionConfig?.navigate,
+        },
         options.defaultSessionDescriptor ?? options.preferredDescriptor
       );
       return {
@@ -234,7 +240,7 @@ export class FlowChatManager {
     hasWorkspaceSessions: boolean
   ): FlowChatInitializationResult {
     const state = this.context.flowChatStore.getState();
-    const focusedSessionId = useWorkspaceSurfaceStore.getState().focusedSessionId;
+    const focusedSessionId = selectFocusedSessionId(useWorkspaceSurfaceStore.getState());
     const focusedSession = focusedSessionId
       ? state.sessions.get(focusedSessionId) ?? null
       : null;
@@ -444,7 +450,12 @@ export class FlowChatManager {
   }
 
   async switchChatSession(sessionId: string): Promise<void> {
-    return switchChatSessionModule(this.context, sessionId);
+    const { openSession: openSessionNav } = await import('@/app/navigation/navigationController');
+    await openSessionNav(sessionId);
+  }
+
+  async activateSessionData(sessionId: string): Promise<void> {
+    return activateSessionDataModule(this.context, sessionId);
   }
 
   async persistSessionMetadata(sessionId: string): Promise<void> {
@@ -496,6 +507,21 @@ export class FlowChatManager {
     });
   }
 
+  async retargetEmptySessionWorkspace(
+    sessionId: string,
+    workspace: Pick<WorkspaceInfo, 'id' | 'rootPath'>,
+    options?: {
+      preferredDescriptor?: SessionDescriptor;
+    }
+  ): Promise<string> {
+    return retargetEmptyChatSessionWorkspaceModule(
+      this.context,
+      sessionId,
+      workspace,
+      options?.preferredDescriptor
+    );
+  }
+
   async sendMessage(
     message: string,
     sessionId?: string,
@@ -515,8 +541,7 @@ export class FlowChatManager {
     const surfaceState = useWorkspaceSurfaceStore.getState();
     const targetSessionId =
       sessionId ||
-      surfaceState.composerTargetSessionId ||
-      surfaceState.focusedSessionId;
+      selectFocusedSessionId(surfaceState);
     
     if (!targetSessionId) {
       throw new Error('No active session');
@@ -629,7 +654,7 @@ export class FlowChatManager {
   }
 
   getCurrentSession() {
-    const sessionId = useWorkspaceSurfaceStore.getState().focusedSessionId;
+    const sessionId = selectFocusedSessionId(useWorkspaceSurfaceStore.getState());
     return sessionId
       ? this.context.flowChatStore.getState().sessions.get(sessionId) ?? null
       : null;

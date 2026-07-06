@@ -33,9 +33,9 @@ vi.mock('@/app/navigation/workspaceSurfaceStore', () => ({
     getState: () => ({
       activeSurface: {
         kind: 'agentic-os-home',
-        agenticOsSessionId: null,
         scope: { kind: 'system', storageScope: 'agentic_os', label: 'Agentic OS' },
       },
+      currentOsSessionId: null,
     }),
   },
 }));

@@ -1,16 +1,12 @@
 import { i18nService } from '@/infrastructure/i18n';
 import { appManager } from '@/app/services/AppManager';
-import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
+import { openSession } from '@/app/navigation/navigationController';
 import type { WorkspaceSurfaceContext } from '@/app/navigation/workspaceSurfaceTypes';
 import { createTab } from '@/shared/utils/tabUtils';
 import type { PanelContent } from '@/app/components/panels/base/types';
 import { useAgentCanvasStore } from '@/app/components/panels/content-canvas/stores';
 import type { CanvasTab } from '@/app/components/panels/content-canvas/types';
 import { flowChatStore } from '../store/FlowChatStore';
-import { flowChatManager } from './FlowChatManager';
-import { syncSessionToModernStore } from './storeSync';
-import { isSystemAgenticOsSession } from '../domain/sessionDescriptor';
-import { systemRuntimeScope } from '@/shared/types/runtime-scope';
 
 export const SIDE_THREAD_SESSION_PANEL_TYPE = 'btw-session' as const;
 export type ChildSessionPanelType = typeof SIDE_THREAD_SESSION_PANEL_TYPE;
@@ -136,20 +132,7 @@ export async function openMainSession(
     await options.activateWorkspace(options.workspaceId);
   }
 
-  if (useWorkspaceSurfaceStore.getState().focusedSessionId === sessionId) {
-    syncSessionToModernStore(sessionId);
-  } else {
-    await flowChatManager.switchChatSession(sessionId);
-    syncSessionToModernStore(sessionId);
-  }
-
-  const session = flowChatStore.getState().sessions.get(sessionId);
-  useWorkspaceSurfaceStore.getState().openSurface(
-    session && isSystemAgenticOsSession(session.descriptor)
-      ? { kind: 'agentic-os-home', agenticOsSessionId: sessionId, scope: systemRuntimeScope() }
-      : { kind: 'session', sessionId },
-    { context: options?.context }
-  );
+  await openSession(sessionId, { context: options?.context });
 }
 
 export function openBtwSessionInAuxPane(params: {

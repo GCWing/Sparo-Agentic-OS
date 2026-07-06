@@ -9,7 +9,7 @@
  * and when nested UI should consume Esc first.
  */
 
-import { useWorkspaceSurfaceStore } from './navigation/workspaceSurfaceStore';
+import { useWorkspaceSurfaceStore, selectFocusedSessionId } from './navigation/workspaceSurfaceStore';
 import { shortcutManager } from '@/infrastructure/services/ShortcutManager';
 import { ALL_SHORTCUTS } from '@/shared/constants/shortcuts';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
@@ -52,7 +52,7 @@ function isTargetInsideChatShortcutScope(target: EventTarget | null): boolean {
 }
 
 function isActiveSessionProcessing(): boolean {
-  const sid = useWorkspaceSurfaceStore.getState().focusedSessionId;
+  const sid = selectFocusedSessionId(useWorkspaceSurfaceStore.getState());
   if (!sid) return false;
   return stateMachineManager.getCurrentState(sid) === SessionExecutionState.PROCESSING;
 }
@@ -76,7 +76,8 @@ export function installGlobalSurfaceEscapeToHome(): void {
       if (!eventMatchesEscapeToAgenticBinding(event)) return;
       if (shouldDeferForNestedEscapeUi(event)) return;
 
-      const { activeSurface, focusedSessionId } = useWorkspaceSurfaceStore.getState();
+      const { activeSurface } = useWorkspaceSurfaceStore.getState();
+      const focusedSessionId = selectFocusedSessionId(useWorkspaceSurfaceStore.getState());
       if (activeSurface.kind !== 'agentic-os-home') {
         event.preventDefault();
         event.stopImmediatePropagation();

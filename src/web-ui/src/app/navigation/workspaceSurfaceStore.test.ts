@@ -1,19 +1,21 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   selectCanGoBackScene,
+  selectComposerTargetSessionId,
+  selectFocusedSessionId,
   useWorkspaceSurfaceStore,
   WORKSPACE_SCENE_HISTORY_LIMIT,
 } from './workspaceSurfaceStore';
 import type { WorkspaceSceneId } from './workspaceSceneTypes';
-import { isSameWorkspaceSurface, type WorkspaceSurface } from './workspaceSurfaceTypes';
+import {
+  createAgenticOsHomeSurface,
+  isSameWorkspaceSurface,
+  type WorkspaceSurface,
+} from './workspaceSurfaceTypes';
 import { systemRuntimeScope } from '@/shared/types/runtime-scope';
 import type { ProductAppRuntimeContext } from '@/shared/types/product-app-runtime';
 
-const homeSurface: WorkspaceSurface = {
-  kind: 'agentic-os-home',
-  agenticOsSessionId: null,
-  scope: systemRuntimeScope(),
-};
+const homeSurface = createAgenticOsHomeSurface();
 
 function sceneSurface(sceneId: WorkspaceSceneId): Extract<WorkspaceSurface, { kind: 'scene' }> {
   return {
@@ -48,10 +50,9 @@ function resetStore() {
   useWorkspaceSurfaceStore.setState({
     activeSurface: homeSurface,
     previousSurface: null,
+    currentOsSessionId: null,
     sceneHistory: [],
     surfaceContext: null,
-    focusedSessionId: null,
-    composerTargetSessionId: null,
   });
 }
 
@@ -67,17 +68,19 @@ describe('workspaceSurfaceStore scene history', () => {
     store.openSurface(sceneSurface('settings'));
     expect(historyKeys()).toEqual(['apps']);
 
-    store.openSurface({ kind: 'agentic-os-home', agenticOsSessionId: 'agentic-home-1', scope: systemRuntimeScope() });
+    store.openSurface(homeSurface, { currentOsSessionId: 'agentic-home-1' });
     expect(useWorkspaceSurfaceStore.getState().sceneHistory).toEqual([]);
     expect(useWorkspaceSurfaceStore.getState().goBackScene()).toBe(false);
     expect(selectCanGoBackScene(useWorkspaceSurfaceStore.getState())).toBe(false);
+    expect(useWorkspaceSurfaceStore.getState().currentOsSessionId).toBe('agentic-home-1');
   });
 
   it('keeps Agentic OS home out of scene history', () => {
     const store = useWorkspaceSurfaceStore.getState();
 
     useWorkspaceSurfaceStore.setState({
-      activeSurface: { kind: 'agentic-os-home', agenticOsSessionId: 'agentic-home-1', scope: systemRuntimeScope() },
+      activeSurface: homeSurface,
+      currentOsSessionId: 'agentic-home-1',
       sceneHistory: [{
         surface: sceneSurface('apps') as Exclude<WorkspaceSurface, { kind: 'agentic-os-home' }>,
         context: null,
@@ -85,7 +88,7 @@ describe('workspaceSurfaceStore scene history', () => {
       }],
     });
     expect(useWorkspaceSurfaceStore.getState().goBackScene()).toBe(false);
-    store.openSurface({ kind: 'agentic-os-home', agenticOsSessionId: 'agentic-home-1', scope: systemRuntimeScope() });
+    store.openSurface(homeSurface, { currentOsSessionId: 'agentic-home-1' });
     expect(useWorkspaceSurfaceStore.getState().sceneHistory).toEqual([]);
     expect(selectCanGoBackScene(useWorkspaceSurfaceStore.getState())).toBe(false);
   });
@@ -104,8 +107,8 @@ describe('workspaceSurfaceStore scene history', () => {
       kind: 'session',
       sessionId: 'session-1',
     });
-    expect(useWorkspaceSurfaceStore.getState().focusedSessionId).toBe('session-1');
-    expect(useWorkspaceSurfaceStore.getState().composerTargetSessionId).toBe('session-1');
+    expect(selectFocusedSessionId(useWorkspaceSurfaceStore.getState())).toBe('session-1');
+    expect(selectComposerTargetSessionId(useWorkspaceSurfaceStore.getState())).toBe('session-1');
     expect(historyKeys()).toEqual([]);
   });
 
@@ -174,5 +177,15 @@ describe('workspaceSurfaceStore scene history', () => {
     };
 
     expect(isSameWorkspaceSurface(first, second)).toBe(false);
+  });
+
+  it('treats agentic-os-home as the same surface regardless of current OS session', () => {
+    const first = createAgenticOsHomeSurface();
+    const second = createAgenticOsHomeSurface();
+    expect(isSameWorkspaceSurface(first, second)).toBe(true);
+
+    useWorkspaceSurfaceStore.getState().openSurface(first, { currentOsSessionId: 'session-a' });
+    useWorkspaceSurfaceStore.getState().openSurface(second, { currentOsSessionId: 'session-b' });
+    expect(useWorkspaceSurfaceStore.getState().currentOsSessionId).toBe('session-b');
   });
 });

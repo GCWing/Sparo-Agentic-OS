@@ -7,7 +7,6 @@ export { ModernFlowChatContainer as FlowChatContainer } from './components/moder
 // Other components
 export { ChatInput } from './components/ChatInput';
 export { CurrentSessionTitle } from './components/CurrentSessionTitle';
-export { ScrollToBottomButton } from './components/ScrollToBottomButton';
 export { ScrollToLatestBar } from './components/ScrollToLatestBar';
 
 // Services and Stores

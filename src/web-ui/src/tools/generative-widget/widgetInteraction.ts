@@ -5,7 +5,7 @@ import { createLogger } from '@/shared/utils/logger';
 import path from 'path-browserify';
 import { fileTabManager } from '@/shared/services/FileTabManager';
 import { notificationService } from '@/shared/notification-system';
-import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
+import { useWorkspaceSurfaceStore, selectFocusedSessionId } from '@/app/navigation/workspaceSurfaceStore';
 
 const log = createLogger('widgetInteraction');
 
@@ -41,7 +41,7 @@ export interface WidgetInteractionDetail {
 
 function getActiveSessionId(): string | null {
   const surfaceState = useWorkspaceSurfaceStore.getState();
-  return surfaceState.composerTargetSessionId ?? surfaceState.focusedSessionId;
+  return selectFocusedSessionId(surfaceState);
 }
 
 function getActiveWorkspacePath(): string | undefined {

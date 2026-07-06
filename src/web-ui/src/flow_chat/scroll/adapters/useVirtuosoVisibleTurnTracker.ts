@@ -3,7 +3,7 @@ import {
   useModernFlowChatStore,
   type VisibleTurnInfo,
 } from '../../store/modernFlowChatStore';
-import { PINNED_TURN_VIEWPORT_OFFSET_PX } from '../FlowScrollGeometry';
+import { PINNED_TURN_VIEWPORT_OFFSET_PX } from '../viewport/FlowViewportGeometry';
 
 interface UserMessageRenderItem {
   item: {

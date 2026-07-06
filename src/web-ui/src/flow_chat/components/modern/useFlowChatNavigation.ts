@@ -10,7 +10,7 @@ import { globalEventBus } from '@/infrastructure/event-bus';
 import { createLogger } from '@/shared/utils/logger';
 import { flowChatStore } from '../../store/FlowChatStore';
 import { useModernFlowChatStore, type VirtualItem } from '../../store/modernFlowChatStore';
-import { flowChatManager } from '../../services/FlowChatManager';
+import { openSession } from '@/app/navigation/navigationController';
 import {
   FLOWCHAT_FOCUS_ITEM_EVENT,
   FLOWCHAT_PIN_TURN_TO_TOP_EVENT,
@@ -168,7 +168,7 @@ export function useFlowChatNavigation({
 
       if (activeSessionId !== sessionId) {
         try {
-          await flowChatManager.switchChatSession(sessionId);
+          await openSession(sessionId);
         } catch (error) {
           log.warn('Failed to switch session for focus request', { sessionId, error });
           return;

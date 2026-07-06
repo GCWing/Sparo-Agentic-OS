@@ -648,6 +648,66 @@ export class FlowChatStore {
     });
   }
 
+  public retargetEmptySessionWorkspace(
+    sessionId: string,
+    workspace: Pick<WorkspaceInfo, 'id' | 'rootPath'>,
+    descriptor: SessionDescriptor,
+    storageScope: SessionStorageScope = 'workspace'
+  ): boolean {
+    const workspacePath = workspace.rootPath.trim();
+    if (!workspacePath) return false;
+
+    const normalizedDescriptor = normalizeSessionDescriptor(descriptor);
+    const backendAgentType = getBackendAgentType(normalizedDescriptor);
+    let didUpdate = false;
+
+    this.setState(prev => {
+      const session = prev.sessions.get(sessionId);
+      if (!session || session.dialogTurns.length > 0 || session.isTransient) return prev;
+
+      if (
+        sameSessionDescriptor(session.descriptor, normalizedDescriptor) &&
+        session.config.agentType === backendAgentType &&
+        session.workspacePath === workspacePath &&
+        session.workspaceId === workspace.id &&
+        session.storageScope === storageScope &&
+        session.config.workspacePath === workspacePath &&
+        session.config.workspaceId === workspace.id &&
+        session.config.storageScope === storageScope
+      ) {
+        return prev;
+      }
+
+      const updatedSession: Session = {
+        ...session,
+        descriptor: normalizedDescriptor,
+        config: {
+          ...session.config,
+          agentType: backendAgentType,
+          workspacePath,
+          workspaceId: workspace.id,
+          storageScope,
+        },
+        workspacePath,
+        workspaceId: workspace.id,
+        storageScope,
+        loadPhase: 'live',
+        lastActiveAt: Date.now(),
+      };
+
+      const newSessions = new Map(prev.sessions);
+      newSessions.set(sessionId, updatedSession);
+      didUpdate = true;
+
+      return {
+        ...prev,
+        sessions: newSessions,
+      };
+    });
+
+    return didUpdate;
+  }
+
   /**
    * Update the active inner agent for sessions that support agent switching.
    * @param sessionId Session ID

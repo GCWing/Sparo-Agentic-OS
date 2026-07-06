@@ -1,33 +1,23 @@
 /**
  * Session profile provider — wires React Context for the active session's profile.
  *
- * SessionProfileProvider reads the active session descriptor from the FlowChat
- * store, resolves the matching SessionProfile, and makes it available to the
- * entire component tree via useSessionProfile().
- *
- * The resolved profile object is a module-level constant, so the Context value
- * reference only changes when the session type actually switches — no spurious
- * re-renders for consumers.
+ * Profile resolution follows navigation focus from workspaceSurfaceStore only.
  */
 
 import React, { useMemo } from 'react';
 import { resolveProfile } from './SessionProfileRegistry';
 import { SessionProfileContext, type SessionProfileContextValue } from './SessionProfileReactContext';
 import { useFlowChatStoreSelector } from '@/flow_chat/hooks/useFlowChatStoreSelector';
-import { useWorkspaceSurfaceStore } from '../navigation/workspaceSurfaceStore';
+import {
+  selectFocusedSessionId,
+  useWorkspaceSurfaceStore,
+} from '../navigation/workspaceSurfaceStore';
 
 export const SessionProfileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const activeSurface = useWorkspaceSurfaceStore((state) => state.activeSurface);
-  const focusedSessionId = useWorkspaceSurfaceStore((state) => state.focusedSessionId);
-  const profileId = useFlowChatStoreSelector((state) => {
-    const sessionId =
-      activeSurface.kind === 'agentic-os-home'
-        ? activeSurface.agenticOsSessionId ?? focusedSessionId
-        : activeSurface.kind === 'session'
-          ? activeSurface.sessionId
-          : focusedSessionId;
-    return sessionId ? state.sessions.get(sessionId)?.descriptor?.profileId : undefined;
-  });
+  const focusedSessionId = useWorkspaceSurfaceStore(selectFocusedSessionId);
+  const profileId = useFlowChatStoreSelector((state) => (
+    focusedSessionId ? state.sessions.get(focusedSessionId)?.descriptor?.profileId : undefined
+  ));
 
   const value = useMemo<SessionProfileContextValue>(
     () => ({ profile: resolveProfile(profileId) }),
