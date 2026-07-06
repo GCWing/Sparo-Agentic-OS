@@ -638,7 +638,7 @@ const DailyLetterScene: React.FC<DailyLetterSceneProps> = ({ workspacePath }) =>
 type TFn = (key: string, options?: Record<string, unknown>) => string;
 type FormatDateFn = (date: Date | number, options?: Intl.DateTimeFormatOptions) => string;
 
-const WritingDesk: React.FC<{ startedAtMs: number | null; t: TFn }> = ({ startedAtMs, t }) => {
+function WritingDesk({ startedAtMs, t }: { startedAtMs: number | null; t: TFn }) {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -679,7 +679,7 @@ const WritingDesk: React.FC<{ startedAtMs: number | null; t: TFn }> = ({ started
       </div>
     </section>
   );
-};
+}
 
 interface PaperScrollState {
   collapsed: boolean;
@@ -687,7 +687,17 @@ interface PaperScrollState {
   atEnd: boolean;
 }
 
-const LetterPaper: React.FC<{
+function LetterPaper({
+  letter,
+  open,
+  onOpenChange,
+  pendingCount,
+  canSeal,
+  onSeal,
+  onContinuation,
+  formatDate,
+  t,
+}: {
   letter: DailyLetterRecord | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -697,7 +707,7 @@ const LetterPaper: React.FC<{
   onContinuation: (card: DailyLetterContinuationCard, remindTomorrow: boolean) => void;
   formatDate: FormatDateFn;
   t: TFn;
-}> = ({ letter, open, onOpenChange, pendingCount, canSeal, onSeal, onContinuation, formatDate, t }) => {
+}) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const [scroll, setScroll] = useState<PaperScrollState>({ collapsed: false, progress: 0, atEnd: false });
 
@@ -834,85 +844,98 @@ const LetterPaper: React.FC<{
       </div>
     </Dialog>
   );
-};
+}
 
-const LetterContent: React.FC<{
+function LetterContent({
+  letter,
+  onAccept,
+  onDismiss,
+  onEdit,
+  onContinuation,
+  t,
+}: {
   letter: DailyLetterRecord;
   onAccept: (candidate: DailyLetterReceiptCandidate) => void;
   onDismiss: (candidate: DailyLetterReceiptCandidate) => void;
   onEdit: (candidate: DailyLetterReceiptCandidate) => void;
   onContinuation: (card: DailyLetterContinuationCard, remindTomorrow: boolean) => void;
   t: TFn;
-}> = ({ letter, onAccept, onDismiss, onEdit, onContinuation, t }) => (
-  <div className="dl-letter-content">
-    <article className="dl-letter">
-      <div className="dl-letter__body">
-        <Markdown content={letter.bodyMarkdown} />
-      </div>
-    </article>
-
-    <section className="dl-section" aria-label={t('receipt.label')}>
-      <SectionHeading icon={<Check size={15} />} title={t('receipt.title')} count={letter.receiptCandidates.length} />
-      {letter.receiptCandidates.length ? (
-        <div className="dl-card-list">
-          {letter.receiptCandidates.map((candidate) => (
-            <ReceiptCard
-              key={candidate.id}
-              candidate={candidate}
-              onAccept={() => onAccept(candidate)}
-              onDismiss={() => onDismiss(candidate)}
-              onEdit={() => onEdit(candidate)}
-              t={t}
-            />
-          ))}
+}) {
+  return (
+    <div className="dl-letter-content">
+      <article className="dl-letter">
+        <div className="dl-letter__body">
+          <Markdown content={letter.bodyMarkdown} />
         </div>
-      ) : (
-        <p className="dl-section__empty">{t('receipt.empty')}</p>
-      )}
-    </section>
+      </article>
 
-    <section className="dl-section" aria-label={t('next.label')}>
-      <SectionHeading icon={<CalendarDays size={15} />} title={t('next.title')} count={letter.continuationCards.length} />
-      {letter.continuationCards.length ? (
-        <div className="dl-card-list">
-          {letter.continuationCards.map((card) => (
-            <div key={card.id} className="dl-note-card">
-              <p>{card.text}</p>
-              {card.reason && <small>{card.reason}</small>}
-              <Button
-                className="dl-note-card__action"
-                variant={card.remindTomorrow ? 'secondary' : 'ghost'}
-                size="small"
-                onClick={() => onContinuation(card, !card.remindTomorrow)}
-              >
-                <Bell size={13} aria-hidden="true" />
-                {card.remindTomorrow ? t('next.reminding') : t('next.remind')}
-              </Button>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="dl-section__empty">{t('next.empty')}</p>
-      )}
-    </section>
-
-    {letter.appOpportunity && (
-      <section className="dl-section" aria-label={t('app.label')}>
-        <SectionHeading icon={<Sparkles size={15} />} title={t('app.title')} count={1} />
-        <div className="dl-note-card dl-note-card--idea">
-          <strong>{letter.appOpportunity.title}</strong>
-          <p>{letter.appOpportunity.summary}</p>
-        </div>
+      <section className="dl-section" aria-label={t('receipt.label')}>
+        <SectionHeading icon={<Check size={15} />} title={t('receipt.title')} count={letter.receiptCandidates.length} />
+        {letter.receiptCandidates.length ? (
+          <div className="dl-card-list">
+            {letter.receiptCandidates.map((candidate) => (
+              <ReceiptCard
+                key={candidate.id}
+                candidate={candidate}
+                onAccept={() => onAccept(candidate)}
+                onDismiss={() => onDismiss(candidate)}
+                onEdit={() => onEdit(candidate)}
+                t={t}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="dl-section__empty">{t('receipt.empty')}</p>
+        )}
       </section>
-    )}
-  </div>
-);
 
-const EmptyLetter: React.FC<{
+      <section className="dl-section" aria-label={t('next.label')}>
+        <SectionHeading icon={<CalendarDays size={15} />} title={t('next.title')} count={letter.continuationCards.length} />
+        {letter.continuationCards.length ? (
+          <div className="dl-card-list">
+            {letter.continuationCards.map((card) => (
+              <div key={card.id} className="dl-note-card">
+                <p>{card.text}</p>
+                {card.reason && <small>{card.reason}</small>}
+                <Button
+                  className="dl-note-card__action"
+                  variant={card.remindTomorrow ? 'secondary' : 'ghost'}
+                  size="small"
+                  onClick={() => onContinuation(card, !card.remindTomorrow)}
+                >
+                  <Bell size={13} aria-hidden="true" />
+                  {card.remindTomorrow ? t('next.reminding') : t('next.remind')}
+                </Button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="dl-section__empty">{t('next.empty')}</p>
+        )}
+      </section>
+
+      {letter.appOpportunity && (
+        <section className="dl-section" aria-label={t('app.label')}>
+          <SectionHeading icon={<Sparkles size={15} />} title={t('app.title')} count={1} />
+          <div className="dl-note-card dl-note-card--idea">
+            <strong>{letter.appOpportunity.title}</strong>
+            <p>{letter.appOpportunity.summary}</p>
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
+function EmptyLetter({
+  loading,
+  generating,
+  onGenerate,
+}: {
   loading: boolean;
   generating: boolean;
   onGenerate: () => void;
-}> = ({ loading, generating, onGenerate }) => {
+}) {
   const { t } = useI18n('scenes/daily-letter');
   return (
     <div className="dl-empty">
@@ -927,27 +950,35 @@ const EmptyLetter: React.FC<{
       )}
     </div>
   );
-};
+}
 
-const SectionHeading: React.FC<{ icon: React.ReactNode; title: string; count: number }> = ({
+function SectionHeading({
   icon,
   title,
   count,
-}) => (
-  <div className="dl-section__heading">
-    <span aria-hidden="true">{icon}</span>
-    <h3>{title}</h3>
-    <small>{count}</small>
-  </div>
-);
+}: { icon: React.ReactNode; title: string; count: number }) {
+  return (
+    <div className="dl-section__heading">
+      <span aria-hidden="true">{icon}</span>
+      <h3>{title}</h3>
+      <small>{count}</small>
+    </div>
+  );
+}
 
-const ReceiptCard: React.FC<{
+function ReceiptCard({
+  candidate,
+  onAccept,
+  onDismiss,
+  onEdit,
+  t,
+}: {
   candidate: DailyLetterReceiptCandidate;
   onAccept: () => void;
   onDismiss: () => void;
   onEdit: () => void;
   t: TFn;
-}> = ({ candidate, onAccept, onDismiss, onEdit, t }) => {
+}) {
   const pending = candidate.status === 'pending';
   return (
     <div className={`dl-receipt ${pending ? '' : 'is-settled'}`}>
@@ -974,6 +1005,6 @@ const ReceiptCard: React.FC<{
       </div>
     </div>
   );
-};
+}
 
 export default DailyLetterScene;
