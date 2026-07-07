@@ -107,6 +107,7 @@ export const primitivePreviewCategories: PreviewCategory[] = [
             <div className="recipe-preview-inline">
               <IconButton aria-label="Copy result" tooltip="Copy result" size="small"><Copy size={14} /></IconButton>
               <IconButton aria-label="Refresh" tooltip="Refresh" size="small"><RefreshCw size={14} /></IconButton>
+              <IconButton aria-label="Open full reading" tooltip="Open full reading" size="small" shape="circle" variant="primary"><Sparkles size={14} /></IconButton>
               <IconButton aria-label="Advance intent" tooltip="Advance intent" size="small" shape="circle" variant="brand"><Sparkles size={14} /></IconButton>
               <IconButton aria-label="Create task" tooltip="Create task" size="small" shape="circle" variant="accent"><Plus size={14} /></IconButton>
               <IconButton aria-label="Delete" tooltip="Delete" size="small" variant="danger"><Trash2 size={14} /></IconButton>

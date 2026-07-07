@@ -293,14 +293,6 @@ fn render_daily_letter_markdown(record: &DailyLetterRecord) -> String {
         out.push('\n');
     }
 
-    if !record.continuation_cards.is_empty() {
-        out.push_str("## 明日可拾\n\n");
-        for item in &record.continuation_cards {
-            out.push_str(&format!("- {}\n", item.text));
-        }
-        out.push('\n');
-    }
-
     if let Some(app) = record.app_opportunity.as_ref() {
         out.push_str("## P.S.\n\n");
         out.push_str(&format!(

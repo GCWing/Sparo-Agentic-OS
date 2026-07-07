@@ -2,7 +2,7 @@ import React, { useId, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge, Select, SelectableRow, StatusDot } from '@/design-system';
 import type { AIModelConfig } from '../types';
-import { getModelDisplayName } from '../services/modelConfigs';
+import { getCompactModelDisplayName, getProviderDisplayName } from '../services/modelConfigs';
 import './ModelSelectionRadio.scss';
 
 export interface ModelSelectionRadioProps {
@@ -16,6 +16,33 @@ export interface ModelSelectionRadioProps {
 
 const isSpecialModel = (value: string): value is 'primary' | 'fast' => {
   return value === 'primary' || value === 'fast';
+};
+
+const getModelSelectionLabel = (model: AIModelConfig): string => {
+  return getCompactModelDisplayName(model) || model.id?.trim() || '';
+};
+
+const getModelSelectionDescription = (model: AIModelConfig): string | undefined => {
+  const providerName = getProviderDisplayName(model).trim();
+  const fullModelName = model.model_name?.trim() || model.name?.trim() || '';
+  const compactModelName = getModelSelectionLabel(model);
+  const parts: string[] = [];
+
+  if (fullModelName && fullModelName !== compactModelName) {
+    parts.push(fullModelName);
+  }
+
+  const fullNameIncludesProvider = providerName && fullModelName.startsWith(`${providerName}/`);
+  if (
+    providerName &&
+    providerName !== compactModelName &&
+    providerName !== fullModelName &&
+    !fullNameIncludesProvider
+  ) {
+    parts.push(providerName);
+  }
+
+  return parts.length > 0 ? parts.join(' · ') : undefined;
 };
 
 type SelectionType = 'primary' | 'fast' | 'custom';
@@ -56,7 +83,7 @@ export const ModelSelectionRadio: React.FC<ModelSelectionRadioProps> = ({
   const customModelLabel = useMemo(() => {
     if (!customModelId) return undefined;
     const model = enabledModels.find(item => item.id === customModelId);
-    return model ? getModelDisplayName(model) : customModelId;
+    return model ? getModelSelectionLabel(model) : customModelId;
   }, [customModelId, enabledModels]);
 
   const handleSelectionChange = (selection: SelectionType) => {
@@ -83,8 +110,9 @@ export const ModelSelectionRadio: React.FC<ModelSelectionRadioProps> = ({
       disabled={disabled}
       placeholder={t('selection.selectModel')}
       options={enabledModels.map(model => ({
-        label: getModelDisplayName(model),
+        label: getModelSelectionLabel(model),
         value: model.id!,
+        description: getModelSelectionDescription(model),
       }))}
       size="small"
     />

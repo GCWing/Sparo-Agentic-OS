@@ -101,6 +101,7 @@
       "scope": "Scope",
       "trigger": "Trigger",
       "phase": "Phase",
+      "lastRun": "Last run",
       "runtime": "Runtime",
       "nextRun": "Next run",
       "result": "Last result",
@@ -166,21 +167,9 @@
       "refresh": "Refresh",
       "clearSearch": "Clear search"
     },
-    "detail": {
-      "label": "Process detail",
-      "status": "Status",
-      "category": "Category",
-      "scope": "Scope",
-      "started": "Started",
-      "finished": "Finished",
-      "activeSession": "Active session",
-      "outputs": "Outputs"
-    },
     "empty": {
       "noProcesses": "No background processes",
-      "noMatches": "No matching processes",
-      "noOutputs": "No outputs recorded",
-      "selectProcess": "Select a process"
+      "noMatches": "No matching processes"
     },
     "messages": {
       "runStarted": "Process started",

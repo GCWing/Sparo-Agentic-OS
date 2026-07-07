@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Archive,
-  Bell,
   CalendarDays,
   CalendarRange,
   Check,
@@ -25,7 +24,6 @@ import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import { createLogger } from '@/shared/utils/logger';
 import { dailyLetterApi } from './dailyLetterApi';
 import type {
-  DailyLetterContinuationCard,
   DailyLetterReceiptCandidate,
   DailyLetterRecord,
   DailyLetterScope,
@@ -66,6 +64,7 @@ function pendingReceiptCount(letter: DailyLetterRecord): number {
 function generationReasonMessage(reason: string | null | undefined, t: (key: string) => string): string | null {
   if (!reason) return null;
   if (reason.includes('already active')) return null;
+  if (reason.includes('disabled in settings')) return t('messages.generateDisabled');
   if (reason.includes('No authorized daily context')) return t('messages.generateNoSources');
   if (reason.includes('already exists')) return null;
   return t('messages.generateNoResult');
@@ -94,6 +93,7 @@ const DailyLetterScene: React.FC<DailyLetterSceneProps> = ({ workspacePath }) =>
   const [loading, setLoading] = useState(true);
   const [writing, setWriting] = useState(false);
   const [writingStartedAtMs, setWritingStartedAtMs] = useState<number | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [error, setError] = useState<string | null>(null);
   const [paperOpen, setPaperOpen] = useState(false);
   const [dateFilterOpen, setDateFilterOpen] = useState(false);
@@ -143,9 +143,11 @@ const DailyLetterScene: React.FC<DailyLetterSceneProps> = ({ workspacePath }) =>
         const state = await dailyLetterApi.state();
         if (cancelled) return;
         if (state.lastAttemptStatus === 'running') {
-          watchSinceMsRef.current = state.lastAttemptStartedAtMs ?? Date.now();
+          const startedAtMs = state.lastAttemptStartedAtMs ?? Date.now();
+          watchSinceMsRef.current = startedAtMs;
           setWriting(true);
-          setWritingStartedAtMs(state.lastAttemptStartedAtMs ?? Date.now());
+          setWritingStartedAtMs(startedAtMs);
+          setNowMs(Date.now());
         }
       } catch (stateError) {
         log.warn('Failed to read daily letter state', { error: stateError });
@@ -155,6 +157,13 @@ const DailyLetterScene: React.FC<DailyLetterSceneProps> = ({ workspacePath }) =>
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!writing) return undefined;
+    setNowMs(Date.now());
+    const id = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [writing]);
 
   const updateLetter = useCallback((updated: DailyLetterRecord) => {
     setLetters((current) => {
@@ -274,16 +283,19 @@ const DailyLetterScene: React.FC<DailyLetterSceneProps> = ({ workspacePath }) =>
   const generateToday = useCallback(async () => {
     const targetScope: DailyLetterScope = workspacePath ? 'workspace' : 'agentic_os';
     const date = todayKey();
+    const startedAtMs = Date.now();
     writingTargetRef.current = { date, scope: targetScope, trigger: 'manual' };
-    watchSinceMsRef.current = Date.now();
+    watchSinceMsRef.current = startedAtMs;
     setWriting(true);
-    setWritingStartedAtMs(Date.now());
+    setWritingStartedAtMs(startedAtMs);
+    setNowMs(startedAtMs);
     setError(null);
     try {
       const summary = await dailyLetterApi.generate({
         date,
         scope: targetScope,
         workspacePath: targetScope === 'workspace' ? workspacePath : null,
+        force: true,
       });
       if (summary.record) {
         setWriting(false);
@@ -368,25 +380,6 @@ const DailyLetterScene: React.FC<DailyLetterSceneProps> = ({ workspacePath }) =>
     }
   }, [selectedLetter, t, updateLetter]);
 
-  const updateContinuation = useCallback(async (
-    card: DailyLetterContinuationCard,
-    remindTomorrow: boolean
-  ) => {
-    if (!selectedLetter) return;
-    try {
-      const updated = await dailyLetterApi.updateContinuation({
-        recordId: selectedLetter.id,
-        workspacePath: selectedLetter.workspace?.path ?? null,
-        continuationId: card.id,
-        remindTomorrow,
-      });
-      updateLetter(updated);
-    } catch (continuationError) {
-      log.error('Failed to update daily letter continuation', { error: continuationError });
-      setError(t('messages.continuationFailed'));
-    }
-  }, [selectedLetter, t, updateLetter]);
-
   const weekdayLabel = useCallback((date: string) => {
     try {
       return formatDate(parseDateKey(date), { weekday: 'short' });
@@ -394,6 +387,17 @@ const DailyLetterScene: React.FC<DailyLetterSceneProps> = ({ workspacePath }) =>
       return '';
     }
   }, [formatDate]);
+
+  const writingElapsedLabel = useMemo(() => {
+    if (!writing || !writingStartedAtMs) return null;
+    const elapsedSeconds = Math.max(0, Math.floor((nowMs - writingStartedAtMs) / 1000));
+    return elapsedSeconds < 60
+      ? t('writing.elapsed', { seconds: elapsedSeconds })
+      : t('writing.elapsedMinutes', {
+        minutes: Math.floor(elapsedSeconds / 60),
+        seconds: elapsedSeconds % 60,
+      });
+  }, [nowMs, t, writing, writingStartedAtMs]);
 
   return (
     <div className="dl" data-testid="daily-letter-scene">
@@ -419,7 +423,12 @@ const DailyLetterScene: React.FC<DailyLetterSceneProps> = ({ workspacePath }) =>
               <CalendarDays size={15} aria-hidden="true" />
               <span>{t('rail.today')}</span>
               {writing ? (
-                <small className="dl-rail__today-writing">{t('writing.chip')}</small>
+                <small className="dl-rail__today-writing">
+                  <span className="dl-rail__today-writing-label">{t('writing.chip')}</span>
+                  {writingElapsedLabel ? (
+                    <span className="dl-rail__today-elapsed">{writingElapsedLabel}</span>
+                  ) : null}
+                </small>
               ) : (
                 <small>{todayLetter ? todayLetter.preview.oneLine : t('rail.todayEmpty')}</small>
               )}
@@ -536,23 +545,21 @@ const DailyLetterScene: React.FC<DailyLetterSceneProps> = ({ workspacePath }) =>
             </div>
           </div>
           <div className="dl-header__actions">
-            <IconButton
-              className="dl-header__icon-action"
+            <Button
               variant="ghost"
               size="small"
-              shape="square"
-              aria-label={t('actions.generate')}
-              tooltip={t('actions.generate')}
               isLoading={writing}
+              loadingLabel={t('states.generating')}
               onClick={() => void generateToday()}
             >
               <Feather size={16} aria-hidden="true" />
-            </IconButton>
+              {t('actions.generate')}
+            </Button>
             <IconButton
               className="dl-header__icon-action"
               variant="primary"
               size="small"
-              shape="square"
+              shape="circle"
               aria-label={t('actions.full')}
               tooltip={t('actions.full')}
               disabled={!selectedLetter}
@@ -566,10 +573,6 @@ const DailyLetterScene: React.FC<DailyLetterSceneProps> = ({ workspacePath }) =>
         <main className="dl-board">
           {error && <div className="dl-error" role="status">{error}</div>}
 
-          {writing && (
-            <WritingDesk startedAtMs={writingStartedAtMs} t={t} />
-          )}
-
           {!selectedLetter ? (
             !writing && (
               <EmptyLetter loading={loading} onGenerate={() => void generateToday()} generating={writing} />
@@ -581,7 +584,6 @@ const DailyLetterScene: React.FC<DailyLetterSceneProps> = ({ workspacePath }) =>
                 onAccept={(candidate) => void applyReceipt(candidate, 'accept')}
                 onDismiss={(candidate) => void applyReceipt(candidate, 'dismiss')}
                 onEdit={openEditReceipt}
-                onContinuation={(card, remind) => void updateContinuation(card, remind)}
                 t={t}
               />
             </div>
@@ -596,7 +598,6 @@ const DailyLetterScene: React.FC<DailyLetterSceneProps> = ({ workspacePath }) =>
         pendingCount={pendingCount}
         canSeal={canSeal}
         onSeal={() => void sealLetter()}
-        onContinuation={(card, remind) => void updateContinuation(card, remind)}
         formatDate={formatDate}
         t={t}
       />
@@ -638,49 +639,6 @@ const DailyLetterScene: React.FC<DailyLetterSceneProps> = ({ workspacePath }) =>
 type TFn = (key: string, options?: Record<string, unknown>) => string;
 type FormatDateFn = (date: Date | number, options?: Intl.DateTimeFormatOptions) => string;
 
-function WritingDesk({ startedAtMs, t }: { startedAtMs: number | null; t: TFn }) {
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(id);
-  }, []);
-
-  const elapsedSeconds = startedAtMs ? Math.max(0, Math.floor((now - startedAtMs) / 1000)) : null;
-  const elapsedLabel = elapsedSeconds === null
-    ? null
-    : elapsedSeconds < 60
-      ? t('writing.elapsed', { seconds: elapsedSeconds })
-      : t('writing.elapsedMinutes', {
-        minutes: Math.floor(elapsedSeconds / 60),
-        seconds: elapsedSeconds % 60,
-      });
-
-  return (
-    <section className="dl-writing" role="status" aria-live="polite" data-testid="daily-letter-writing">
-      <div className="dl-writing__head">
-        <span className="dl-writing__nib" aria-hidden="true">
-          <Feather size={15} />
-        </span>
-        <div>
-          <h3>{t('writing.title')}</h3>
-          <p>{t('writing.body')}</p>
-        </div>
-      </div>
-      <div className="dl-writing__lines" aria-hidden="true">
-        <span className="dl-writing__line" />
-        <span className="dl-writing__line" />
-        <span className="dl-writing__line" />
-        <span className="dl-writing__line dl-writing__line--short" />
-      </div>
-      <div className="dl-writing__foot">
-        <small>{t('writing.hint')}</small>
-        {elapsedLabel && <small className="dl-writing__elapsed">{elapsedLabel}</small>}
-      </div>
-    </section>
-  );
-}
-
 interface PaperScrollState {
   collapsed: boolean;
   progress: number;
@@ -694,7 +652,6 @@ function LetterPaper({
   pendingCount,
   canSeal,
   onSeal,
-  onContinuation,
   formatDate,
   t,
 }: {
@@ -704,7 +661,6 @@ function LetterPaper({
   pendingCount: number;
   canSeal: boolean;
   onSeal: () => void;
-  onContinuation: (card: DailyLetterContinuationCard, remindTomorrow: boolean) => void;
   formatDate: FormatDateFn;
   t: TFn;
 }) {
@@ -746,7 +702,6 @@ function LetterPaper({
     // keep the raw date key
   }
   const writtenAt = formatDate(new Date(letter.createdAtMs), { timeStyle: 'short' });
-  const firstContinuation = letter.continuationCards[0] ?? null;
 
   return (
     <Dialog
@@ -818,17 +773,6 @@ function LetterPaper({
                   {t('actions.receipt')}
                 </Button>
                 <Button
-                  variant="secondary"
-                  size="small"
-                  disabled={!firstContinuation}
-                  onClick={() => {
-                    if (firstContinuation) onContinuation(firstContinuation, !firstContinuation.remindTomorrow);
-                  }}
-                >
-                  <Bell size={14} aria-hidden="true" />
-                  {t('actions.continueTomorrow')}
-                </Button>
-                <Button
                   variant="primary"
                   size="small"
                   disabled={!canSeal}
@@ -851,14 +795,12 @@ function LetterContent({
   onAccept,
   onDismiss,
   onEdit,
-  onContinuation,
   t,
 }: {
   letter: DailyLetterRecord;
   onAccept: (candidate: DailyLetterReceiptCandidate) => void;
   onDismiss: (candidate: DailyLetterReceiptCandidate) => void;
   onEdit: (candidate: DailyLetterReceiptCandidate) => void;
-  onContinuation: (card: DailyLetterContinuationCard, remindTomorrow: boolean) => void;
   t: TFn;
 }) {
   return (
@@ -886,31 +828,6 @@ function LetterContent({
           </div>
         ) : (
           <p className="dl-section__empty">{t('receipt.empty')}</p>
-        )}
-      </section>
-
-      <section className="dl-section" aria-label={t('next.label')}>
-        <SectionHeading icon={<CalendarDays size={15} />} title={t('next.title')} count={letter.continuationCards.length} />
-        {letter.continuationCards.length ? (
-          <div className="dl-card-list">
-            {letter.continuationCards.map((card) => (
-              <div key={card.id} className="dl-note-card">
-                <p>{card.text}</p>
-                {card.reason && <small>{card.reason}</small>}
-                <Button
-                  className="dl-note-card__action"
-                  variant={card.remindTomorrow ? 'secondary' : 'ghost'}
-                  size="small"
-                  onClick={() => onContinuation(card, !card.remindTomorrow)}
-                >
-                  <Bell size={13} aria-hidden="true" />
-                  {card.remindTomorrow ? t('next.reminding') : t('next.remind')}
-                </Button>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="dl-section__empty">{t('next.empty')}</p>
         )}
       </section>
 

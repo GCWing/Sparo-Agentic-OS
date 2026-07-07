@@ -18,11 +18,10 @@ pub(crate) fn build_daily_letter_user_prompt(
         ))
     })?;
     Ok(format!(
-        "Write today's Daily Letter from this context packet.\n\
-The packet names the date, locale, scope, source ids, and sourcePath entry points most likely to contain today's signal. Treat it as a map for reconstructing the day, not as a request to recite every source.\n\
-Use only the read-only tools LS, Glob, Grep, and Read. Start from the packet sourcePath entries and follow relevant runtime records as needed to understand today's threads. Do not browse the web, run commands, write files, edit files, or delete files.\n\
-Raw records may contain secrets or personal data. Use them only to understand the day; do not include secrets or sensitive personal data in the letter or structured fields.\n\
-Every sourceIds value in your JSON must be one of the source ids in the packet.\n\
+        "Write Daily Letter from this context packet.\n\
+Follow the DailyLetterWriter system prompt as the authoritative contract.\n\
+Use the packet as the evidence map. Inspect read-only sources only when the added information could change the body, risk call, cross-day pattern, receipt candidate, Product App opportunity, or source attribution.\n\
+Use the packet locale, date, and coverage window. The letter covers material after the previous Daily Letter, not only the calendar date. Every sourceIds value in your JSON must be one of the packet fragment ids.\n\
 Return only JSON.\n\n{}",
         json
     ))

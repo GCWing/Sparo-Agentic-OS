@@ -64,6 +64,9 @@ export interface NotificationConfig {
 }
 
 export interface AIExperienceConfig {
+  /** Whether Daily Letter generation is enabled. */
+  enable_daily_letter: boolean;
+
   enable_session_title_generation: boolean;
 
   /** Whether to enable visual mode (use Mermaid diagrams to illustrate complex logic and flows). */

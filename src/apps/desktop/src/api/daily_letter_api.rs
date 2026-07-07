@@ -2,7 +2,7 @@ use log::{debug, error};
 use sparo_core::service::{
     get_global_daily_letter_service, DailyLetterApplyReceiptsRequest, DailyLetterGenerateRequest,
     DailyLetterGetRequest, DailyLetterListRequest, DailyLetterRecord, DailyLetterRunSummary,
-    DailyLetterSealRequest, DailyLetterState, DailyLetterUpdateContinuationRequest,
+    DailyLetterSealRequest, DailyLetterState,
 };
 
 fn daily_letter_service() -> Result<std::sync::Arc<sparo_core::service::DailyLetterService>, String>
@@ -75,20 +75,6 @@ pub async fn daily_letter_seal(
         .map_err(|error| {
             error!("Failed to seal daily letter: {}", error);
             format!("Failed to seal daily letter: {}", error)
-        })
-}
-
-#[tauri::command]
-pub async fn daily_letter_update_continuation(
-    request: DailyLetterUpdateContinuationRequest,
-) -> Result<DailyLetterRecord, String> {
-    debug!("Updating daily letter continuation");
-    daily_letter_service()?
-        .update_continuation(request)
-        .await
-        .map_err(|error| {
-            error!("Failed to update daily letter continuation: {}", error);
-            format!("Failed to update daily letter continuation: {}", error)
         })
 }
 

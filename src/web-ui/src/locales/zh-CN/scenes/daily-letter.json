@@ -18,16 +18,16 @@
   "messages": {
     "loadFailed": "加载今日来信失败。",
     "generateFailed": "生成今日来信失败。",
+    "generateDisabled": "每日来信已在设置中关闭。",
     "generateNoSources": "今天还没有足够的授权上下文，暂时写不出来。",
     "generateNoResult": "这次没有写出新的来信，请稍后再试。",
     "receiptFailed": "提交回执失败。",
-    "sealFailed": "封存今日来信失败。",
-    "continuationFailed": "更新明日线索失败。"
+    "sealFailed": "封存今日来信失败。"
   },
   "writing": {
     "chip": "写信中",
     "title": "我在整理今天",
-    "body": "正在把今天真正留下来的东西轻轻收好，写成一封可以带到明天的信。",
+    "body": "正在把今天真正留下来的东西轻轻收好，写成一封可以慢慢读的信。",
     "hint": "写好后这封信会自动展开，你可以先去做别的事。",
     "elapsed": "已写 {{seconds}} 秒",
     "elapsedMinutes": "已写 {{minutes}} 分 {{seconds}} 秒"
@@ -43,7 +43,6 @@
     "generate": "轻催来信",
     "full": "展信阅读",
     "receipt": "给回执",
-    "continueTomorrow": "明天接着这里",
     "seal": "封存今天",
     "close": "关闭"
   },
@@ -83,13 +82,6 @@
       "edited": "已修订",
       "dismissed": "已略过"
     }
-  },
-  "next": {
-    "label": "明日线索",
-    "title": "明天可以顺手拾起",
-    "empty": "没有明显需要接着做的线索。",
-    "remind": "明天提醒",
-    "reminding": "明天会提醒"
   },
   "app": {
     "label": "App 想法",

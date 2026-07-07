@@ -45,7 +45,7 @@ pub use daily_letter::{
     DailyLetterApplyReceiptsRequest, DailyLetterAttemptStatus, DailyLetterGenerateRequest,
     DailyLetterGetRequest, DailyLetterListRequest, DailyLetterRecord, DailyLetterRunSummary,
     DailyLetterScope, DailyLetterSealRequest, DailyLetterService, DailyLetterState,
-    DailyLetterTrigger, DailyLetterUpdateContinuationRequest,
+    DailyLetterTrigger,
 };
 pub use file_watch::{
     get_global_file_watch_service, get_watched_paths, initialize_file_watch_service,

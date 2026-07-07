@@ -18,16 +18,16 @@
   "messages": {
     "loadFailed": "Failed to load daily letters.",
     "generateFailed": "Failed to write today's letter.",
+    "generateDisabled": "Daily Letter is turned off in settings.",
     "generateNoSources": "There is not enough authorized context yet to write today's letter.",
     "generateNoResult": "No new letter was written this time. Please try again later.",
     "receiptFailed": "Failed to submit receipt.",
-    "sealFailed": "Failed to seal today's letter.",
-    "continuationFailed": "Failed to update the tomorrow cue."
+    "sealFailed": "Failed to seal today's letter."
   },
   "writing": {
     "chip": "Writing",
     "title": "Gathering today",
-    "body": "Quietly collecting what today really left behind, and writing it into a letter you can carry into tomorrow.",
+    "body": "Quietly collecting what today really left behind, and writing it into a letter you can read slowly.",
     "hint": "The letter will unfold here once it is ready. Feel free to keep working.",
     "elapsed": "Writing for {{seconds}}s",
     "elapsedMinutes": "Writing for {{minutes}}m {{seconds}}s"
@@ -43,7 +43,6 @@
     "generate": "Summon the letter",
     "full": "Unfold the letter",
     "receipt": "Give receipt",
-    "continueTomorrow": "Continue tomorrow",
     "seal": "Seal today",
     "close": "Close"
   },
@@ -83,13 +82,6 @@
       "edited": "Edited",
       "dismissed": "Skipped"
     }
-  },
-  "next": {
-    "label": "Tomorrow cues",
-    "title": "Worth picking up tomorrow",
-    "empty": "No obvious follow-up was found.",
-    "remind": "Remind tomorrow",
-    "reminding": "Will remind"
   },
   "app": {
     "label": "App idea",

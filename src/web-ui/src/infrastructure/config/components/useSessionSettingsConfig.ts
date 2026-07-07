@@ -3,6 +3,7 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { useTranslation } from 'react-i18next';
 import { aiExperienceConfigService, type AIExperienceSettings } from '../services/AIExperienceConfigService';
 import { configManager } from '../services/ConfigManager';
+import { getCompactModelDisplayName } from '../services/modelConfigs';
 import { systemAPI } from '@/infrastructure/api/service-api/SystemAPI';
 import { notificationService } from '@/shared/notification-system';
 import type { AIModelConfig, DebugModeConfig, LanguageDebugTemplate } from '../types';
@@ -17,6 +18,7 @@ const log = createLogger('SessionSettingsConfig');
 
 export const IS_TAURI_DESKTOP = typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || '__TAURI__' in window);
 export const AGENT_SESSION_TITLE = 'session-title-func-agent';
+export const AGENT_DAILY_LETTER = 'DailyLetterWriter';
 const BITFUN_CODER_DEBUG_CONFIG_PATH = 'product_apps.apps.builtin-bitfun-coder.debug';
 const DEFAULT_GOAL_MAX_CONTINUATION_TURNS = 100;
 const MIN_GOAL_MAX_CONTINUATION_TURNS = 1;
@@ -57,6 +59,7 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
   const [isLoading, setIsLoading] = useState(true);
   const [settings, setSettings] = useState<AIExperienceSettings | null>(null);
   const [models, setModels] = useState<AIModelConfig[]>([]);
+  const [agentModels, setAgentModels] = useState<Record<string, string>>({});
   const [funcAgentModels, setFuncAgentModels] = useState<Record<string, string>>({});
   const [skipToolConfirmation, setSkipToolConfirmation] = useState(false);
   const [executionTimeout, setExecutionTimeout] = useState('');
@@ -133,6 +136,7 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
       const [
         loadedSettings,
         allModels,
+        agentModelsData,
         funcAgentModelsData,
         skipConfirm,
         execTimeout,
@@ -143,6 +147,7 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
       ] = await Promise.all([
         aiExperienceConfigService.getSettingsAsync(),
         configManager.getConfig<AIModelConfig[]>('ai.models') || [],
+        configManager.getConfig<Record<string, string>>('ai.agent_models') || {},
         configManager.getConfig<Record<string, string>>('ai.func_agent_models') || {},
         configManager.getConfig<boolean>('ai.skip_tool_confirmation'),
         configManager.getConfig<number | null>('ai.tool_execution_timeout_secs'),
@@ -155,6 +160,7 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
       if (!isMountedRef.current) return;
       setSettings(loadedSettings);
       setModels(allModels as AIModelConfig[]);
+      setAgentModels(agentModelsData as Record<string, string>);
       setFuncAgentModels(funcAgentModelsData as Record<string, string>);
       setSkipToolConfirmation(skipConfirm || false);
       setExecutionTimeout(execTimeout != null ? String(execTimeout) : '');
@@ -211,7 +217,8 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
 
   const getModelName = useCallback((modelId: string | null | undefined): string | undefined => {
     if (!modelId) return undefined;
-    return models.find(m => m.id === modelId)?.name;
+    const model = models.find(m => m.id === modelId);
+    return model ? getCompactModelDisplayName(model) || model.id : undefined;
   }, [models]);
 
   const handleAgentModelChange = async (agentKey: string, featureTitleKey: string, modelId: string) => {
@@ -236,6 +243,32 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
       );
     } catch (error) {
       log.error('Failed to update agent model', { agentKey, modelId, error });
+      notificationService.error(t('messages.updateFailed'), { duration: 3000 });
+    }
+  };
+
+  const handleBuiltinAgentModelChange = async (agentKey: string, featureTitleKey: string, modelId: string) => {
+    try {
+      const current = await configManager.getConfig<Record<string, string>>('ai.agent_models') || {};
+      const updated = { ...current, [agentKey]: modelId };
+      await configManager.setConfig('ai.agent_models', updated);
+      setAgentModels(updated);
+
+      let modelDesc = '';
+      if (modelId === 'primary') {
+        modelDesc = t('model.primary');
+      } else if (modelId === 'fast') {
+        modelDesc = t('model.fast');
+      } else {
+        modelDesc = getModelName(modelId) || modelId || '';
+      }
+
+      notificationService.success(
+        t('models.updateSuccess', { agentName: t(featureTitleKey), modelName: modelDesc }),
+        { duration: 2000 }
+      );
+    } catch (error) {
+      log.error('Failed to update built-in agent model', { agentKey, modelId, error });
       notificationService.error(t('messages.updateFailed'), { duration: 3000 });
     }
   };
@@ -521,6 +554,7 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
     settings,
     enabledModels: models.filter((m: AIModelConfig) => m.enabled),
     sessionTitleModelId: funcAgentModels[AGENT_SESSION_TITLE] || 'fast',
+    dailyLetterModelId: agentModels[AGENT_DAILY_LETTER] || 'primary',
     skipToolConfirmation,
     executionTimeout,
     confirmationTimeout,
@@ -545,6 +579,7 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
     templateEntries: getTemplateEntries(),
     updateSetting,
     handleAgentModelChange,
+    handleBuiltinAgentModelChange,
     handleSkipToolConfirmationChange,
     handleComputerUseEnabledChange,
     handleComputerUseOpenSettings,
