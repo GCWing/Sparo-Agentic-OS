@@ -205,6 +205,19 @@ function formatDuration(process: BackgroundProcess, t: Translator): string {
   return t('background.duration.hours', { count: Math.floor(minutes / 60) });
 }
 
+function formatRunWindow(process: BackgroundProcess, t: Translator): string {
+  if (!process.startedAt && !process.finishedAt) return t('background.emptyValue');
+
+  const start = formatTime(process.startedAt, t);
+  const finish = process.finishedAt
+    ? formatTime(process.finishedAt, t)
+    : RUNNING_STATUSES.has(process.status)
+      ? t('background.status.running')
+      : t('background.emptyValue');
+
+  return `${start} - ${finish}`;
+}
+
 function resultLabel(process: BackgroundProcess, t: Translator): string {
   if (process.lastError) return process.lastError;
   if (process.lastResult) {
@@ -255,7 +268,6 @@ const BackgroundProcessBoard: React.FC<BackgroundProcessBoardProps> = ({ showRai
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const setSettingsTab = useSettingsStore((state) => state.setActiveTab);
 
   useEffect(() => {
@@ -299,18 +311,6 @@ const BackgroundProcessBoard: React.FC<BackgroundProcessBoardProps> = ({ showRai
       return processSearchText(process, t).toLowerCase().includes(query);
     });
   }, [categoryFilter, processes, search, statusFilter, t]);
-
-  useEffect(() => {
-    if (selectedId && filteredProcesses.some((process) => process.id === selectedId)) {
-      return;
-    }
-    setSelectedId(filteredProcesses[0]?.id ?? null);
-  }, [filteredProcesses, selectedId]);
-
-  const selectedProcess = useMemo(
-    () => filteredProcesses.find((process) => process.id === selectedId) ?? null,
-    [filteredProcesses, selectedId]
-  );
 
   const railItems = useMemo<RailItem[]>(() => [
     {
@@ -572,6 +572,7 @@ const BackgroundProcessBoard: React.FC<BackgroundProcessBoardProps> = ({ showRai
                     <th>{t('background.columns.scope')}</th>
                     <th>{t('background.columns.trigger')}</th>
                     <th>{t('background.columns.phase')}</th>
+                    <th>{t('background.columns.lastRun')}</th>
                     <th>{t('background.columns.runtime')}</th>
                     <th>{t('background.columns.nextRun')}</th>
                     <th>{t('background.columns.result')}</th>
@@ -579,122 +580,56 @@ const BackgroundProcessBoard: React.FC<BackgroundProcessBoardProps> = ({ showRai
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredProcesses.map((process) => {
-                    const selected = process.id === selectedId;
-                    return (
-                      <tr
-                        key={process.id}
-                        className={[
-                          'bp-table__row',
-                          selected && 'bp-table__row--selected',
-                          ACTIVE_STATUSES.has(process.status) && 'bp-table__row--active',
-                        ].filter(Boolean).join(' ')}
-                        onClick={() => setSelectedId(process.id)}
-                      >
-                        <td className="bp-process-cell">
-                          <span className="bp-process-cell__icon">{processIcon(process.kind)}</span>
-                          <span className="bp-process-cell__text">
-                            <span className="bp-process-cell__title">{t(`background.kinds.${process.kind}`)}</span>
-                            <span className="bp-process-cell__meta">{compactId(process.id)}</span>
-                          </span>
-                        </td>
-                        <td>
-                          <Badge
-                            variant={statusBadgeVariant(process.status)}
-                            className={`bp-status-badge bp-status-badge--${process.status}`}
-                          >
-                            <span className="bp-status-badge__icon">{statusIcon(process.status)}</span>
-                            {t(`background.status.${process.status}`)}
-                          </Badge>
-                        </td>
-                        <td title={scopeTitle(process, t)}>{scopeLabel(process, t)}</td>
-                        <td>
-                          {process.trigger
-                            ? t(`background.trigger.${process.trigger}`)
-                            : t('background.emptyValue')}
-                        </td>
-                        <td>
-                          {process.phase
-                            ? t(`background.phase.${process.phase}`)
-                            : t('background.emptyValue')}
-                        </td>
-                        <td>{formatDuration(process, t)}</td>
-                        <td>{formatTime(process.nextRunAt, t)}</td>
-                        <td className="bp-table__result" title={resultLabel(process, t)}>
-                          {resultLabel(process, t)}
-                        </td>
-                        <td>{renderActions(process)}</td>
-                      </tr>
-                    );
-                  })}
+                  {filteredProcesses.map((process) => (
+                    <tr
+                      key={process.id}
+                      className={[
+                        'bp-table__row',
+                        ACTIVE_STATUSES.has(process.status) && 'bp-table__row--active',
+                      ].filter(Boolean).join(' ')}
+                    >
+                      <td className="bp-process-cell">
+                        <span className="bp-process-cell__icon">{processIcon(process.kind)}</span>
+                        <span className="bp-process-cell__text">
+                          <span className="bp-process-cell__title">{t(`background.kinds.${process.kind}`)}</span>
+                          <span className="bp-process-cell__meta">{compactId(process.id)}</span>
+                        </span>
+                      </td>
+                      <td>
+                        <Badge
+                          variant={statusBadgeVariant(process.status)}
+                          className={`bp-status-badge bp-status-badge--${process.status}`}
+                        >
+                          <span className="bp-status-badge__icon">{statusIcon(process.status)}</span>
+                          {t(`background.status.${process.status}`)}
+                        </Badge>
+                      </td>
+                      <td title={scopeTitle(process, t)}>{scopeLabel(process, t)}</td>
+                      <td>
+                        {process.trigger
+                          ? t(`background.trigger.${process.trigger}`)
+                          : t('background.emptyValue')}
+                      </td>
+                      <td>
+                        {process.phase
+                          ? t(`background.phase.${process.phase}`)
+                          : t('background.emptyValue')}
+                      </td>
+                      <td className="bp-table__run-window" title={formatRunWindow(process, t)}>
+                        {formatRunWindow(process, t)}
+                      </td>
+                      <td>{formatDuration(process, t)}</td>
+                      <td>{formatTime(process.nextRunAt, t)}</td>
+                      <td className="bp-table__result" title={resultLabel(process, t)}>
+                        {resultLabel(process, t)}
+                      </td>
+                      <td>{renderActions(process)}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             )}
           </div>
-
-          <aside className="bp-detail" aria-label={t('background.detail.label')}>
-            {selectedProcess ? (
-              <>
-                <div className="bp-detail__head">
-                  <span className="bp-detail__icon">{processIcon(selectedProcess.kind)}</span>
-                  <div>
-                    <h3>{t(`background.kinds.${selectedProcess.kind}`)}</h3>
-                    <p>{selectedProcess.id}</p>
-                  </div>
-                </div>
-                <dl className="bp-detail__facts">
-                  <div>
-                    <dt>{t('background.detail.status')}</dt>
-                    <dd>{t(`background.status.${selectedProcess.status}`)}</dd>
-                  </div>
-                  <div>
-                    <dt>{t('background.detail.category')}</dt>
-                    <dd>{t(`background.categories.${selectedProcess.category}`)}</dd>
-                  </div>
-                  <div>
-                    <dt>{t('background.detail.scope')}</dt>
-                    <dd title={scopeTitle(selectedProcess, t)}>{scopeTitle(selectedProcess, t)}</dd>
-                  </div>
-                  <div>
-                    <dt>{t('background.detail.started')}</dt>
-                    <dd>{formatTime(selectedProcess.startedAt, t)}</dd>
-                  </div>
-                  <div>
-                    <dt>{t('background.detail.finished')}</dt>
-                    <dd>{formatTime(selectedProcess.finishedAt, t)}</dd>
-                  </div>
-                  <div>
-                    <dt>{t('background.detail.activeSession')}</dt>
-                    <dd>{selectedProcess.activeSessionId ?? t('background.emptyValue')}</dd>
-                  </div>
-                </dl>
-                <div className="bp-detail__section">
-                  <h4>{t('background.detail.outputs')}</h4>
-                  {selectedProcess.outputRefs.length === 0 ? (
-                    <p>{t('background.empty.noOutputs')}</p>
-                  ) : (
-                    <ul className="bp-detail__outputs">
-                      {selectedProcess.outputRefs.map((ref) => (
-                        <li key={`${ref.label}:${ref.path ?? ref.uri ?? ''}`}>
-                          <span>{ref.label}</span>
-                          <code>{ref.path ?? ref.uri ?? t('background.emptyValue')}</code>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-                {selectedProcess.lastError && (
-                  <div className="bp-detail__error">
-                    <AlertTriangle size={14} />
-                    <span>{selectedProcess.lastError}</span>
-                  </div>
-                )}
-                <div className="bp-detail__actions">{renderActions(selectedProcess)}</div>
-              </>
-            ) : (
-              <div className="bp-detail__empty">{t('background.empty.selectProcess')}</div>
-            )}
-          </aside>
         </div>
 
         <footer className="bp-footer">

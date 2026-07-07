@@ -7,13 +7,11 @@ use super::store::{
 use super::types::{
     DailyLetterAgentOutput, DailyLetterAgentResult, DailyLetterAppOpportunity,
     DailyLetterApplyReceiptsRequest, DailyLetterAttemptStatus, DailyLetterContextPacket,
-    DailyLetterContinuationCard, DailyLetterGenerateRequest,
-    DailyLetterGetRequest, DailyLetterListRequest, DailyLetterPreview, DailyLetterReceiptAction,
-    DailyLetterReceiptCandidate, DailyLetterReceiptStatus, DailyLetterRecord,
-    DailyLetterRecordStatus, DailyLetterRunSummary, DailyLetterScope, DailyLetterSealRequest,
-    DailyLetterSourceFragment, DailyLetterSourceFragmentType, DailyLetterSourceStats,
-    DailyLetterState, DailyLetterTrigger, DailyLetterUpdateContinuationRequest,
-    DailyLetterWorkspaceRef,
+    DailyLetterGenerateRequest, DailyLetterGetRequest, DailyLetterListRequest, DailyLetterPreview,
+    DailyLetterReceiptAction, DailyLetterReceiptCandidate, DailyLetterReceiptStatus,
+    DailyLetterRecord, DailyLetterRecordStatus, DailyLetterRunSummary, DailyLetterScope,
+    DailyLetterSealRequest, DailyLetterSourceFragment, DailyLetterSourceFragmentType,
+    DailyLetterSourceStats, DailyLetterState, DailyLetterTrigger, DailyLetterWorkspaceRef,
 };
 use crate::agentic::coordination::get_global_coordinator;
 use crate::agentic::memory::store::{
@@ -22,7 +20,7 @@ use crate::agentic::memory::store::{
 use crate::agentic_os::work::{default_work_store, WorkScope};
 use crate::error::{CoreError, CoreResult};
 use crate::infrastructure::get_path_manager_arc;
-use crate::service::config::get_app_language_code;
+use crate::service::config::{get_app_language_code, get_global_config_service, GlobalConfig};
 use crate::util::extract_json_from_ai_response;
 use chrono::{Datelike, Duration as ChronoDuration, Local, LocalResult, NaiveDate, TimeZone};
 use log::{info, warn};
@@ -40,14 +38,16 @@ use tokio::time::Duration;
 const AUTO_WAKE_HOUR_LOCAL: u32 = 21;
 const AUTO_WAKE_MINUTE_LOCAL: u32 = 30;
 const STARTUP_CATCH_UP_DELAY_SECS: u64 = 30;
+const MAX_DAILY_REPORTS: usize = 10;
 const MAX_SESSION_SUMMARIES: usize = 12;
 const MAX_WORK_FRAGMENTS: usize = 8;
 const MAX_MEMORY_FRAGMENTS: usize = 4;
 const MAX_FRAGMENT_CHARS: usize = 2200;
 const MAX_RECEIPT_CANDIDATES: usize = 5;
-const MAX_CONTINUATION_CARDS: usize = 5;
 const IDLE_OPPORTUNITY_DELAY_SECS: u64 = 75;
 const STALE_RUNNING_ATTEMPT_AFTER_MS: i64 = 20 * 60 * 1000;
+const MAX_DAILY_LETTER_AI_ATTEMPTS: usize = 3;
+const DAILY_LETTER_AI_RETRY_BASE_DELAY_MS: u64 = 800;
 
 static GLOBAL_DAILY_LETTER_SERVICE: OnceLock<Arc<DailyLetterService>> = OnceLock::new();
 
@@ -65,6 +65,16 @@ struct MemoryJournalRecord {
     memory_type: String,
     content: String,
     session_id: String,
+}
+
+#[derive(Debug, Clone)]
+struct DailyLetterCoverageWindow {
+    start_date: String,
+    start_at_ms: Option<i64>,
+    end_date: String,
+    end_at_ms: i64,
+    previous_letter_id: Option<String>,
+    previous_letter_date: Option<String>,
 }
 
 impl DailyLetterService {
@@ -237,38 +247,6 @@ impl DailyLetterService {
         Ok(record)
     }
 
-    pub async fn update_continuation(
-        &self,
-        request: DailyLetterUpdateContinuationRequest,
-    ) -> CoreResult<DailyLetterRecord> {
-        let scope =
-            resolve_record_request_scope(&request.record_id, request.workspace_path.as_deref());
-        let mut record = get_daily_letter(DailyLetterGetRequest {
-            id: Some(request.record_id.clone()),
-            date: None,
-            scope: Some(scope),
-            workspace_path: request.workspace_path.clone(),
-        })
-        .await?
-        .ok_or_else(|| CoreError::validation("Daily letter record was not found"))?;
-
-        let Some(card) = record
-            .continuation_cards
-            .iter_mut()
-            .find(|item| item.id == request.continuation_id)
-        else {
-            return Err(CoreError::validation(format!(
-                "Continuation card was not found: {}",
-                request.continuation_id
-            )));
-        };
-
-        card.remind_tomorrow = request.remind_tomorrow;
-        record.updated_at_ms = now_ms();
-        save_daily_letter_record(&record).await?;
-        Ok(record)
-    }
-
     pub async fn state_snapshot(&self) -> DailyLetterState {
         self.state.lock().await.clone()
     }
@@ -348,6 +326,16 @@ impl DailyLetterService {
         let workspace_path = request.workspace_path.as_deref().map(Path::new);
         let date = request.date.unwrap_or_else(today_local_date_key);
         validate_date_key(&date)?;
+
+        if !is_daily_letter_enabled().await {
+            return Ok(DailyLetterRunSummary {
+                started: false,
+                trigger,
+                date: Some(date),
+                record: None,
+                reason: Some("Daily Letter is disabled in settings".to_string()),
+            });
+        }
 
         if !request.force {
             if let Some(record) = load_daily_letter_record(&date, scope, workspace_path).await? {
@@ -467,6 +455,18 @@ impl DailyLetterService {
     }
 }
 
+async fn is_daily_letter_enabled() -> bool {
+    match get_global_config_service().await {
+        Ok(config_service) => {
+            let config: CoreResult<GlobalConfig> = config_service.get_config(None).await;
+            config
+                .map(|config| config.app.ai_experience.enable_daily_letter)
+                .unwrap_or(true)
+        }
+        Err(_) => true,
+    }
+}
+
 pub fn install_global_daily_letter_service(service: Arc<DailyLetterService>) -> Result<(), ()> {
     GLOBAL_DAILY_LETTER_SERVICE.set(service).map_err(|_| ())
 }
@@ -495,12 +495,14 @@ async fn build_context_packet(
 ) -> CoreResult<DailyLetterContextPacket> {
     let locale = get_app_language_code().await;
     let workspace = workspace_path.map(workspace_ref_for_path);
+    let coverage = resolve_coverage_window(date, scope, workspace_path).await?;
 
     let mut fragments = Vec::new();
-    fragments.extend(collect_exploration_target_fragments(date, scope, workspace_path).await?);
-    fragments.extend(collect_session_summary_fragments(date, scope, workspace_path).await?);
-    fragments.extend(collect_work_fragments(date, scope, workspace_path).await?);
-    fragments.extend(collect_git_fragments(date, workspace_path).await?);
+    fragments.extend(collect_daily_report_fragments(&coverage, scope).await?);
+    fragments.extend(collect_exploration_target_fragments(&coverage, scope, workspace_path).await?);
+    fragments.extend(collect_session_summary_fragments(&coverage, scope, workspace_path).await?);
+    fragments.extend(collect_work_fragments(&coverage, scope, workspace_path).await?);
+    fragments.extend(collect_git_fragments(&coverage, workspace_path).await?);
 
     let memory_context = collect_memory_context_fragments(scope, workspace_path).await?;
     let user_preferences = memory_context
@@ -516,6 +518,10 @@ async fn build_context_packet(
         .collect::<Vec<_>>();
 
     let source_stats = DailyLetterSourceStats {
+        daily_report_count: fragments
+            .iter()
+            .filter(|item| item.fragment_type == DailyLetterSourceFragmentType::DailyReport)
+            .count(),
         session_summary_count: fragments
             .iter()
             .filter(|item| item.fragment_type == DailyLetterSourceFragmentType::SessionSummary)
@@ -546,6 +552,11 @@ async fn build_context_packet(
 
     Ok(DailyLetterContextPacket {
         date: date.to_string(),
+        coverage_start_date: Some(coverage.start_date),
+        coverage_start_at_ms: coverage.start_at_ms,
+        coverage_end_at_ms: Some(coverage.end_at_ms),
+        previous_letter_id: coverage.previous_letter_id,
+        previous_letter_date: coverage.previous_letter_date,
         locale,
         scope,
         workspace,
@@ -554,6 +565,56 @@ async fn build_context_packet(
         memory_context,
         user_preferences,
     })
+}
+
+async fn resolve_coverage_window(
+    date: &str,
+    scope: DailyLetterScope,
+    workspace_path: Option<&Path>,
+) -> CoreResult<DailyLetterCoverageWindow> {
+    let previous = previous_daily_letter_record(date, scope, workspace_path).await?;
+    Ok(DailyLetterCoverageWindow {
+        start_date: previous
+            .as_ref()
+            .map(|record| record.date.clone())
+            .unwrap_or_else(|| date.to_string()),
+        start_at_ms: previous.as_ref().map(|record| record.created_at_ms),
+        end_date: date.to_string(),
+        end_at_ms: now_ms(),
+        previous_letter_id: previous.as_ref().map(|record| record.id.clone()),
+        previous_letter_date: previous.as_ref().map(|record| record.date.clone()),
+    })
+}
+
+async fn previous_daily_letter_record(
+    date: &str,
+    scope: DailyLetterScope,
+    workspace_path: Option<&Path>,
+) -> CoreResult<Option<DailyLetterRecord>> {
+    let target_date = parse_date_key(date)?;
+    let records = list_daily_letters(DailyLetterListRequest {
+        scope: Some(scope),
+        workspace_path: workspace_path.map(|path| path.to_string_lossy().to_string()),
+        limit: None,
+    })
+    .await?;
+
+    let mut previous = records
+        .into_iter()
+        .filter(|record| {
+            parse_date_key(&record.date)
+                .map(|record_date| record_date < target_date)
+                .unwrap_or(false)
+        })
+        .collect::<Vec<_>>();
+
+    previous.sort_by(|left, right| {
+        right
+            .date
+            .cmp(&left.date)
+            .then_with(|| right.created_at_ms.cmp(&left.created_at_ms))
+    });
+    Ok(previous.into_iter().next())
 }
 
 fn workspace_ref_for_path(path: &Path) -> DailyLetterWorkspaceRef {
@@ -571,8 +632,46 @@ fn workspace_ref_for_path(path: &Path) -> DailyLetterWorkspaceRef {
     }
 }
 
+async fn collect_daily_report_fragments(
+    coverage: &DailyLetterCoverageWindow,
+    scope: DailyLetterScope,
+) -> CoreResult<Vec<DailyLetterSourceFragment>> {
+    if scope != DailyLetterScope::AgenticOs {
+        return Ok(Vec::new());
+    }
+    let mut fragments = Vec::new();
+    for date_key in coverage_date_keys(coverage)?
+        .into_iter()
+        .take(MAX_DAILY_REPORTS)
+    {
+        let year = date_key.split('-').next().unwrap_or("unknown");
+        let path = get_path_manager_arc()
+            .agentic_os_daily_reports_dir()
+            .join(year)
+            .join(format!("{date_key}.md"));
+        if !path.exists() {
+            continue;
+        }
+        fragments.push(DailyLetterSourceFragment {
+            id: format!("daily-report-{}", fragments.len() + 1),
+            fragment_type: DailyLetterSourceFragmentType::DailyReport,
+            title: format!("Global daily report {}", date_key),
+            summary: format!(
+                "High-level daily report for {} within the coverage window {}..{}. Read this before raw session files; if the report includes material from before the previous letter, use lower-level sources to keep only what matters after the last letter.",
+                date_key,
+                coverage.start_date,
+                coverage.end_date
+            ),
+            evidence_label: Some(path_string(&path)),
+            source_path: Some(path_string(path)),
+            confidence: 0.88,
+        });
+    }
+    Ok(fragments)
+}
+
 async fn collect_exploration_target_fragments(
-    date: &str,
+    coverage: &DailyLetterCoverageWindow,
     scope: DailyLetterScope,
     workspace_path: Option<&Path>,
 ) -> CoreResult<Vec<DailyLetterSourceFragment>> {
@@ -587,8 +686,9 @@ async fn collect_exploration_target_fragments(
             DailyLetterSourceFragmentType::Event,
             format!("Session event stream {}", index + 1),
             format!(
-                "Explore session turns, metadata, and model/tool event files under this runtime root for {}. Prefer daily_summaries first, then turns/*.json only when needed.",
-                date
+                "Fallback source root for the coverage window {}..{}. Prefer injected daily reports and daily_summaries first; use index/metadata to find relevant sessions since the previous letter, and read turns/*.json only sparingly when summaries are missing or a specific detail would change the letter.",
+                coverage.start_date,
+                coverage.end_date
             ),
             root,
             0.72,
@@ -603,8 +703,9 @@ async fn collect_exploration_target_fragments(
             DailyLetterSourceFragmentType::Command,
             format!("Command and tool summaries {}", index + 1),
             format!(
-                "Use Grep/Glob under this runtime root to find command, tool, terminal, and execution result summaries for {}. Keep only concise evidence.",
-                date
+                "Use Grep/Glob under this runtime root to find command, tool, terminal, and execution result summaries for the coverage window {}..{}. Keep only concise evidence after the previous letter.",
+                coverage.start_date,
+                coverage.end_date
             ),
             root,
             0.7,
@@ -632,8 +733,8 @@ async fn collect_exploration_target_fragments(
         DailyLetterSourceFragmentType::Explicit,
         "Explicitly added daily letter snippets".to_string(),
         format!(
-            "Read snippets the user explicitly placed in today's Daily Letter inbox for {}.",
-            date
+            "Read snippets the user explicitly placed in the Daily Letter inbox for the coverage window ending {}.",
+            coverage.end_date
         ),
         explicit_root,
         0.9,
@@ -700,24 +801,28 @@ fn push_path_fragment(
 }
 
 async fn collect_session_summary_fragments(
-    date: &str,
+    coverage: &DailyLetterCoverageWindow,
     scope: DailyLetterScope,
     workspace_path: Option<&Path>,
 ) -> CoreResult<Vec<DailyLetterSourceFragment>> {
-    let source_paths = collect_session_daily_summary_sources(date, scope, workspace_path).await?;
+    let source_paths =
+        collect_session_daily_summary_sources(coverage, scope, workspace_path).await?;
     let mut fragments = Vec::new();
     for (index, path) in source_paths
         .into_iter()
         .take(MAX_SESSION_SUMMARIES)
         .enumerate()
     {
+        let source_date = source_date_from_path(&path);
         fragments.push(DailyLetterSourceFragment {
             id: format!("session-summary-{}", index + 1),
             fragment_type: DailyLetterSourceFragmentType::SessionSummary,
-            title: format!("Session summary {}", index + 1),
+            title: format!("Session summary {} {}", source_date, index + 1),
             summary: format!(
-                "Daily summary file for {}. Read this sourcePath before citing it in the letter.",
-                date
+                "Daily summary file for {} within the coverage window {}..{}. Read this sourcePath before citing it in the letter, and keep the letter focused on material after the previous letter.",
+                source_date,
+                coverage.start_date,
+                coverage.end_date
             ),
             evidence_label: Some(path_string(&path)),
             source_path: Some(path_string(path)),
@@ -728,7 +833,7 @@ async fn collect_session_summary_fragments(
 }
 
 async fn collect_work_fragments(
-    date: &str,
+    coverage: &DailyLetterCoverageWindow,
     scope: DailyLetterScope,
     workspace_path: Option<&Path>,
 ) -> CoreResult<Vec<DailyLetterSourceFragment>> {
@@ -740,7 +845,6 @@ async fn collect_work_fragments(
         }
     };
     let records = store.list().await?;
-    let target_date = parse_date_key(date)?;
     let mut fragments = Vec::new();
     for work in records {
         if fragments.len() >= MAX_WORK_FRAGMENTS {
@@ -749,7 +853,7 @@ async fn collect_work_fragments(
         if !work_matches_scope(&work.scope, scope, workspace_path) {
             continue;
         }
-        if local_date_from_ms(work.updated_at) != Some(target_date) {
+        if !timestamp_in_coverage(coverage, work.updated_at)? {
             continue;
         }
         let mut summary = format!(
@@ -803,7 +907,7 @@ fn work_matches_scope(
 }
 
 async fn collect_git_fragments(
-    date: &str,
+    coverage: &DailyLetterCoverageWindow,
     workspace_path: Option<&Path>,
 ) -> CoreResult<Vec<DailyLetterSourceFragment>> {
     let Some(workspace_path) = workspace_path else {
@@ -814,14 +918,20 @@ async fn collect_git_fragments(
     }
 
     let mut fragments = Vec::new();
+    let since = coverage
+        .start_at_ms
+        .and_then(local_datetime_string_from_ms)
+        .unwrap_or_else(|| coverage.start_date.clone());
+    let until = local_datetime_string_from_ms(coverage.end_at_ms)
+        .unwrap_or_else(|| coverage.end_date.clone());
     if let Some(log) = run_git(
         workspace_path,
         &[
             "log",
             "--since",
-            date,
+            &since,
             "--until",
-            &next_date_key(date)?,
+            &until,
             "--oneline",
             "--decorate",
             "-8",
@@ -902,7 +1012,7 @@ async fn collect_memory_context_fragments(
 async fn generate_letter_with_ai(
     packet: &DailyLetterContextPacket,
 ) -> CoreResult<DailyLetterAgentOutput> {
-    let user_prompt = build_daily_letter_user_prompt(packet)?;
+    let base_user_prompt = build_daily_letter_user_prompt(packet)?;
     let workspace_path = packet
         .workspace
         .as_ref()
@@ -915,16 +1025,77 @@ async fn generate_letter_with_ai(
         });
     let coordinator = get_global_coordinator()
         .ok_or_else(|| CoreError::service("Conversation coordinator is not initialized"))?;
-    let response_text = coordinator
-        .execute_hidden_daily_letter_writer(
-            &packet_record_key(packet),
-            format!("Daily Letter {}", packet.date),
-            workspace_path,
-            user_prompt,
-            None,
-        )
-        .await?;
-    let json = extract_json_from_ai_response(&response_text).ok_or_else(|| {
+    let record_key = packet_record_key(packet);
+    let mut last_error: Option<CoreError> = None;
+
+    for attempt in 1..=MAX_DAILY_LETTER_AI_ATTEMPTS {
+        let previous_error = last_error.as_ref().map(ToString::to_string);
+        let user_prompt = build_daily_letter_attempt_prompt(
+            &base_user_prompt,
+            attempt,
+            MAX_DAILY_LETTER_AI_ATTEMPTS,
+            previous_error.as_deref(),
+        );
+        let request_id = format!("{}-attempt-{}", record_key, attempt);
+        let session_name = if MAX_DAILY_LETTER_AI_ATTEMPTS == 1 {
+            format!("Daily Letter {}", packet.date)
+        } else {
+            format!(
+                "Daily Letter {} attempt {}/{}",
+                packet.date, attempt, MAX_DAILY_LETTER_AI_ATTEMPTS
+            )
+        };
+
+        let attempt_result = match coordinator
+            .execute_hidden_daily_letter_writer(
+                &request_id,
+                session_name,
+                workspace_path.clone(),
+                user_prompt,
+                None,
+            )
+            .await
+        {
+            Ok(response_text) => parse_daily_letter_agent_output(&response_text),
+            Err(error) => Err(error),
+        };
+
+        match attempt_result {
+            Ok(output) => {
+                if attempt > 1 {
+                    info!(
+                        "Daily letter AI generation succeeded after retry: attempt={}, max_attempts={}, date={}, scope={:?}",
+                        attempt, MAX_DAILY_LETTER_AI_ATTEMPTS, packet.date, packet.scope
+                    );
+                }
+                return Ok(output);
+            }
+            Err(error) if attempt < MAX_DAILY_LETTER_AI_ATTEMPTS => {
+                let delay_ms = daily_letter_ai_retry_delay_ms(attempt);
+                warn!(
+                    "Daily letter AI generation attempt failed; retrying: attempt={}, max_attempts={}, delay_ms={}, date={}, scope={:?}, error={}",
+                    attempt, MAX_DAILY_LETTER_AI_ATTEMPTS, delay_ms, packet.date, packet.scope, error
+                );
+                last_error = Some(error);
+                tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+            }
+            Err(error) => {
+                warn!(
+                    "Daily letter AI generation exhausted retries: attempts={}, date={}, scope={:?}, error={}",
+                    MAX_DAILY_LETTER_AI_ATTEMPTS, packet.date, packet.scope, error
+                );
+                return Err(error);
+            }
+        }
+    }
+
+    Err(CoreError::service(
+        "Daily letter AI generation ended without an attempt result",
+    ))
+}
+
+fn parse_daily_letter_agent_output(response_text: &str) -> CoreResult<DailyLetterAgentOutput> {
+    let json = extract_json_from_ai_response(response_text).ok_or_else(|| {
         CoreError::parse("Daily letter writer response did not contain valid JSON")
     })?;
     serde_json::from_str::<DailyLetterAgentOutput>(&json).map_err(|error| {
@@ -933,6 +1104,30 @@ async fn generate_letter_with_ai(
             error
         ))
     })
+}
+
+fn build_daily_letter_attempt_prompt(
+    base_user_prompt: &str,
+    attempt: usize,
+    max_attempts: usize,
+    previous_error: Option<&str>,
+) -> String {
+    if attempt <= 1 {
+        return base_user_prompt.to_string();
+    }
+
+    let previous_error = previous_error.unwrap_or("the previous attempt failed");
+    format!(
+        "{}\n\nRetry instruction:\n\
+The previous attempt failed: {}.\n\
+This is attempt {}/{}.\n\
+Return exactly one JSON object that matches the Output Contract. Do not include analysis, preface text, markdown fences, or any text outside the JSON object.",
+        base_user_prompt, previous_error, attempt, max_attempts
+    )
+}
+
+fn daily_letter_ai_retry_delay_ms(failed_attempt: usize) -> u64 {
+    DAILY_LETTER_AI_RETRY_BASE_DELAY_MS * failed_attempt as u64
 }
 
 fn packet_record_key(packet: &DailyLetterContextPacket) -> String {
@@ -974,20 +1169,6 @@ fn build_record_from_agent_output(
         .filter(|item| !item.text.is_empty() && !item.source_ids.is_empty())
         .take(MAX_RECEIPT_CANDIDATES)
         .collect::<Vec<_>>();
-    let continuation_cards = output
-        .continuation_cards
-        .into_iter()
-        .enumerate()
-        .map(|(index, item)| DailyLetterContinuationCard {
-            id: format!("next-{}", index + 1),
-            text: item.text.trim().to_string(),
-            reason: item.reason.map(|value| value.trim().to_string()),
-            source_ids: filter_source_ids(item.source_ids, &valid_source_ids),
-            remind_tomorrow: false,
-        })
-        .filter(|item| !item.text.is_empty() && !item.source_ids.is_empty())
-        .take(MAX_CONTINUATION_CARDS)
-        .collect::<Vec<_>>();
     let app_opportunity = output
         .app_opportunity
         .map(|item| DailyLetterAppOpportunity {
@@ -1022,7 +1203,6 @@ fn build_record_from_agent_output(
             ),
             one_line: non_empty_or(output.preview.one_line.trim(), "今天的线索已经为你收好。"),
             receipt_count: receipt_candidates.len(),
-            continuation_count: continuation_cards.len(),
             app_idea_count: usize::from(app_opportunity.is_some()),
         },
         body_markdown: non_empty_or(
@@ -1030,7 +1210,6 @@ fn build_record_from_agent_output(
             "今天的上下文比较轻，我先把能确认的部分留在这里。",
         ),
         receipt_candidates,
-        continuation_cards,
         app_opportunity,
         created_at_ms: now,
         updated_at_ms: now,
@@ -1081,13 +1260,6 @@ fn validate_daily_letter_record(
             ));
         }
     }
-    for card in &record.continuation_cards {
-        if card.source_ids.is_empty() {
-            return Err(CoreError::validation(
-                "Daily letter continuation cards must include source ids",
-            ));
-        }
-    }
     if let Some(app) = record.app_opportunity.as_ref() {
         if app.source_ids.is_empty() {
             return Err(CoreError::validation(
@@ -1123,7 +1295,6 @@ fn build_insufficient_context_record(packet: &DailyLetterContextPacket) -> Daily
                 "今天能看见的上下文还不多，我先把这封空白处留给你。".to_string()
             },
             receipt_count: 0,
-            continuation_count: 0,
             app_idea_count: 0,
         },
         body_markdown: if is_en {
@@ -1132,7 +1303,6 @@ fn build_insufficient_context_record(packet: &DailyLetterContextPacket) -> Daily
             "今天我能看见的上下文还不够多，所以不硬写成一份总结。\n\n等有新的会话摘要、工作状态、命令结果、Git 活动，或你主动加入今日来信的片段，我会把它们整理成一封更像信的回望。".to_string()
         },
         receipt_candidates: Vec::new(),
-        continuation_cards: Vec::new(),
         app_opportunity: None,
         created_at_ms: now,
         updated_at_ms: now,
@@ -1197,11 +1367,14 @@ async fn append_receipt_memory(
 }
 
 async fn collect_session_daily_summary_sources(
-    date: &str,
+    coverage: &DailyLetterCoverageWindow,
     scope: DailyLetterScope,
     workspace_path: Option<&Path>,
 ) -> CoreResult<Vec<PathBuf>> {
-    let target_file_name = format!("{date}.md");
+    let target_file_names = coverage_date_keys(coverage)?
+        .into_iter()
+        .map(|date_key| format!("{date_key}.md"))
+        .collect::<HashSet<_>>();
     let path_manager = get_path_manager_arc();
     let roots = match scope {
         DailyLetterScope::AgenticOs => {
@@ -1225,16 +1398,21 @@ async fn collect_session_daily_summary_sources(
 
     let mut result = Vec::new();
     for root in roots {
-        collect_daily_summary_files_under(&root, &target_file_name, &mut result).await?;
+        collect_daily_summary_files_under(&root, &target_file_names, &mut result).await?;
     }
-    result.sort();
+    result.sort_by(|left, right| {
+        right
+            .file_name()
+            .cmp(&left.file_name())
+            .then_with(|| left.cmp(right))
+    });
     result.dedup();
     Ok(result)
 }
 
 async fn collect_daily_summary_files_under(
     sessions_dir: &Path,
-    target_file_name: &str,
+    target_file_names: &HashSet<String>,
     result: &mut Vec<PathBuf>,
 ) -> CoreResult<()> {
     if !sessions_dir.exists() {
@@ -1246,12 +1424,67 @@ async fn collect_daily_summary_files_under(
         if !daily_summaries_dir.exists() {
             continue;
         }
-        let path = daily_summaries_dir.join(target_file_name);
-        if path.exists() {
-            result.push(path);
+        for target_file_name in target_file_names {
+            let path = daily_summaries_dir.join(target_file_name);
+            if path.exists() {
+                result.push(path);
+            }
         }
     }
     Ok(())
+}
+
+fn coverage_date_keys(coverage: &DailyLetterCoverageWindow) -> CoreResult<Vec<String>> {
+    let mut current = parse_date_key(&coverage.start_date)?;
+    let end = parse_date_key(&coverage.end_date)?;
+    if current > end {
+        current = end;
+    }
+
+    let mut dates = Vec::new();
+    while current <= end {
+        dates.push(current.format("%Y-%m-%d").to_string());
+        current += ChronoDuration::days(1);
+    }
+    Ok(dates)
+}
+
+fn timestamp_in_coverage(
+    coverage: &DailyLetterCoverageWindow,
+    timestamp_ms: i64,
+) -> CoreResult<bool> {
+    if let Some(start_at_ms) = coverage.start_at_ms {
+        if timestamp_ms <= start_at_ms {
+            return Ok(false);
+        }
+    }
+    if timestamp_ms > coverage.end_at_ms {
+        return Ok(false);
+    }
+
+    let Some(date) = local_date_from_ms(timestamp_ms) else {
+        return Ok(false);
+    };
+    Ok(
+        date >= parse_date_key(&coverage.start_date)?
+            && date <= parse_date_key(&coverage.end_date)?,
+    )
+}
+
+fn source_date_from_path(path: &Path) -> String {
+    path.file_stem()
+        .and_then(|value| value.to_str())
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or("unknown-date")
+        .to_string()
+}
+
+fn local_datetime_string_from_ms(timestamp_ms: i64) -> Option<String> {
+    match Local.timestamp_millis_opt(timestamp_ms) {
+        LocalResult::Single(value) => Some(value.to_rfc3339()),
+        LocalResult::Ambiguous(value, _) => Some(value.to_rfc3339()),
+        LocalResult::None => None,
+    }
 }
 
 async fn run_git(workspace_path: &Path, args: &[&str]) -> Option<String> {
@@ -1319,12 +1552,6 @@ fn parse_date_key(date: &str) -> CoreResult<NaiveDate> {
     NaiveDate::parse_from_str(date, "%Y-%m-%d").map_err(|error| {
         CoreError::validation(format!("Invalid daily letter date {}: {}", date, error))
     })
-}
-
-fn next_date_key(date: &str) -> CoreResult<String> {
-    Ok((parse_date_key(date)? + ChronoDuration::days(1))
-        .format("%Y-%m-%d")
-        .to_string())
 }
 
 fn local_date_from_ms(timestamp_ms: i64) -> Option<NaiveDate> {

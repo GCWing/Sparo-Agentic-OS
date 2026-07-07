@@ -23,6 +23,7 @@ use uuid::Uuid;
 const DAILY_WAKE_HOUR_LOCAL: u32 = 0;
 const DAILY_WAKE_MINUTE_LOCAL: u32 = 5;
 const STARTUP_CATCH_UP_DELAY_SECS: u64 = 15;
+const STALE_RUNNING_ATTEMPT_AFTER_MS: i64 = 2 * 60 * 60 * 1000;
 
 static GLOBAL_GLOBAL_DAILY_REPORT_SERVICE: OnceLock<Arc<GlobalDailyReportService>> =
     OnceLock::new();
@@ -36,7 +37,21 @@ pub struct GlobalDailyReportService {
 
 impl GlobalDailyReportService {
     pub async fn new(coordinator: Arc<ConversationCoordinator>) -> CoreResult<Arc<Self>> {
-        let state = load_global_daily_report_state().await?;
+        let mut state = load_global_daily_report_state().await?;
+        if matches!(
+            state.last_attempt_status,
+            Some(GlobalDailyReportAttemptStatus::Running)
+        ) {
+            warn!(
+                "Recovering interrupted global daily report run on startup: active_report_date={:?}, active_turn_id={:?}",
+                state.active_report_date, state.active_turn_id
+            );
+            mark_global_daily_report_run_interrupted(
+                &mut state,
+                "Previous global daily report run was interrupted before completion",
+            );
+            save_global_daily_report_state(&state).await?;
+        }
         Ok(Arc::new(Self {
             coordinator,
             state: Mutex::new(state),
@@ -137,9 +152,28 @@ impl GlobalDailyReportService {
     }
 
     async fn run_catch_up(&self) -> CoreResult<()> {
-        if self.state.lock().await.active_turn_id.is_some() {
-            info!("Global daily report catch-up skipped because a report turn is already active");
-            return Ok(());
+        {
+            let mut state = self.state.lock().await;
+            if matches!(
+                state.last_attempt_status,
+                Some(GlobalDailyReportAttemptStatus::Running)
+            ) || state.active_turn_id.is_some()
+            {
+                if is_stale_global_daily_report_run(&state) {
+                    warn!(
+                        "Clearing stale global daily report run before catch-up: active_report_date={:?}, active_turn_id={:?}",
+                        state.active_report_date, state.active_turn_id
+                    );
+                    mark_global_daily_report_run_interrupted(
+                        &mut state,
+                        "Previous global daily report run expired before completion",
+                    );
+                    save_global_daily_report_state(&state).await?;
+                } else {
+                    info!("Global daily report catch-up skipped because a report turn is already active");
+                    return Ok(());
+                }
+            }
         }
 
         while let Some(target_date) = self.next_due_report_date().await? {
@@ -196,6 +230,7 @@ impl GlobalDailyReportService {
 
             let mut state = self.state.lock().await;
             state.last_attempt_started_at_ms = Some(now_ms());
+            state.last_attempt_finished_at_ms = None;
             state.last_attempt_status = Some(GlobalDailyReportAttemptStatus::Running);
             state.last_error = None;
             state.active_turn_id = Some(turn_id);
@@ -319,6 +354,24 @@ fn global_daily_report_output_path(date_key: &str) -> PathBuf {
         .agentic_os_daily_reports_dir()
         .join(year)
         .join(format!("{date_key}.md"))
+}
+
+fn is_stale_global_daily_report_run(state: &GlobalDailyReportState) -> bool {
+    state
+        .last_attempt_started_at_ms
+        .map(|started_at_ms| {
+            now_ms().saturating_sub(started_at_ms) > STALE_RUNNING_ATTEMPT_AFTER_MS
+        })
+        .unwrap_or(true)
+}
+
+fn mark_global_daily_report_run_interrupted(state: &mut GlobalDailyReportState, reason: &str) {
+    state.last_attempt_finished_at_ms = Some(now_ms());
+    state.last_attempt_status = Some(GlobalDailyReportAttemptStatus::Cancelled);
+    state.last_error = Some(reason.to_string());
+    state.last_attempted_date = state.active_report_date.clone();
+    state.active_turn_id = None;
+    state.active_report_date = None;
 }
 
 async fn earliest_available_report_date() -> CoreResult<Option<String>> {

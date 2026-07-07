@@ -10,11 +10,9 @@ pub use service::{
 pub use types::{
     DailyLetterAgentOutput, DailyLetterAgentResult, DailyLetterAppOpportunity,
     DailyLetterApplyReceiptsRequest, DailyLetterAttemptStatus, DailyLetterContextPacket,
-    DailyLetterContinuationCard, DailyLetterGenerateRequest,
-    DailyLetterGetRequest, DailyLetterListRequest, DailyLetterPreview, DailyLetterReceiptAction,
-    DailyLetterReceiptCandidate, DailyLetterReceiptStatus, DailyLetterRecord,
-    DailyLetterRecordStatus, DailyLetterRunSummary, DailyLetterScope, DailyLetterSealRequest,
-    DailyLetterSourceFragment, DailyLetterSourceFragmentType, DailyLetterSourceStats,
-    DailyLetterState, DailyLetterTrigger, DailyLetterUpdateContinuationRequest,
-    DailyLetterWorkspaceRef,
+    DailyLetterGenerateRequest, DailyLetterGetRequest, DailyLetterListRequest, DailyLetterPreview,
+    DailyLetterReceiptAction, DailyLetterReceiptCandidate, DailyLetterReceiptStatus,
+    DailyLetterRecord, DailyLetterRecordStatus, DailyLetterRunSummary, DailyLetterScope,
+    DailyLetterSealRequest, DailyLetterSourceFragment, DailyLetterSourceFragmentType,
+    DailyLetterSourceStats, DailyLetterState, DailyLetterTrigger, DailyLetterWorkspaceRef,
 };

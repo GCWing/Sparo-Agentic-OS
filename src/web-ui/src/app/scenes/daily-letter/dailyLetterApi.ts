@@ -9,7 +9,6 @@ import type {
   DailyLetterRunSummary,
   DailyLetterSealRequest,
   DailyLetterState,
-  DailyLetterUpdateContinuationRequest,
 } from './dailyLetterTypes';
 
 export class DailyLetterApi {
@@ -50,14 +49,6 @@ export class DailyLetterApi {
       return await api.invoke<DailyLetterRecord>('daily_letter_seal', { request });
     } catch (error) {
       throw createTauriCommandError('daily_letter_seal', error, request);
-    }
-  }
-
-  async updateContinuation(request: DailyLetterUpdateContinuationRequest): Promise<DailyLetterRecord> {
-    try {
-      return await api.invoke<DailyLetterRecord>('daily_letter_update_continuation', { request });
-    } catch (error) {
-      throw createTauriCommandError('daily_letter_update_continuation', error, request);
     }
   }
 

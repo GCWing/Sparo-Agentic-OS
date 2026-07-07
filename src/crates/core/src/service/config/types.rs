@@ -185,6 +185,9 @@ pub struct AppHostScanConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AIExperienceConfig {
+    /// Whether Daily Letter generation is enabled.
+    #[serde(default = "default_true")]
+    pub enable_daily_letter: bool,
     /// Whether to enable automatic AI-generated summaries for session titles.
     pub enable_session_title_generation: bool,
     /// Whether to enable visual mode.
@@ -1434,6 +1437,7 @@ impl Default for AppHostScanConfig {
 impl Default for AIExperienceConfig {
     fn default() -> Self {
         Self {
+            enable_daily_letter: true,
             enable_session_title_generation: true,
             enable_visual_mode: false,
             enable_agent_companion: true,

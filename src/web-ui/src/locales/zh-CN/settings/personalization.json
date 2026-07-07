@@ -6,6 +6,11 @@
       "title": "自动会话标题",
       "warning": "会话标题将使用用户消息的前 20 个字符"
     },
+    "dailyLetter": {
+      "title": "每日来信",
+      "enable": "开启每日来信",
+      "subtitle": "选择写每日来信的模型。未单独指定时使用主模型。"
+    },
     "agentCompanion": {
       "title": "智能体伙伴",
       "enable": "显示智能体伙伴",

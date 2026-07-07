@@ -23,7 +23,7 @@ import {
 } from '../services/AgentCompanionPetService';
 import { ConfigPageContent, ConfigPageHeader, ConfigPageLayout, ConfigPageLoading, ConfigPageRow, ConfigPageSection } from './common';
 import { ModelSelectionRadio } from './ModelSelectionRadio';
-import { AGENT_SESSION_TITLE, useSessionSettingsConfig } from './useSessionSettingsConfig';
+import { AGENT_DAILY_LETTER, AGENT_SESSION_TITLE, useSessionSettingsConfig } from './useSessionSettingsConfig';
 import './AIFeaturesConfig.scss';
 
 const PersonalizationConfig: React.FC = () => {
@@ -38,8 +38,10 @@ const PersonalizationConfig: React.FC = () => {
     settings,
     enabledModels,
     sessionTitleModelId,
+    dailyLetterModelId,
     updateSetting,
     handleAgentModelChange,
+    handleBuiltinAgentModelChange,
   } = useSessionSettingsConfig({ loadDesktopStatus: false });
 
   const refreshCompanionPets = React.useCallback(async () => {
@@ -174,6 +176,39 @@ const PersonalizationConfig: React.FC = () => {
                   handleAgentModelChange(AGENT_SESSION_TITLE, 'features.sessionTitle.title', modelId)
                 }
                 disabled={!settings.enable_session_title_generation}
+                layout="horizontal"
+                size="small"
+              />
+            </div>
+          </ConfigPageRow>
+        </ConfigPageSection>
+
+        <ConfigPageSection
+          title={t('features.dailyLetter.title')}
+        >
+          <ConfigPageRow label={t('features.dailyLetter.enable')} align="center">
+            <div className="sparo-func-agent-config__row-control">
+              <Switch
+                checked={settings.enable_daily_letter}
+                onChange={(e) => updateSetting('enable_daily_letter', e.target.checked)}
+                size="small"
+              />
+            </div>
+          </ConfigPageRow>
+          <ConfigPageRow
+            className="sparo-func-agent-config__model-row"
+            label={t('model.label')}
+            description={enabledModels.length === 0 ? t('models.empty') : t('features.dailyLetter.subtitle')}
+            align="center"
+          >
+            <div className="sparo-func-agent-config__row-control sparo-func-agent-config__row-control--model">
+              <ModelSelectionRadio
+                value={dailyLetterModelId}
+                models={enabledModels}
+                onChange={(modelId) =>
+                  handleBuiltinAgentModelChange(AGENT_DAILY_LETTER, 'features.dailyLetter.title', modelId)
+                }
+                disabled={!settings.enable_daily_letter}
                 layout="horizontal"
                 size="small"
               />

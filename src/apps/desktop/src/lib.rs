@@ -276,7 +276,6 @@ pub fn run() {
             daily_letter_generate,
             daily_letter_apply_receipts,
             daily_letter_seal,
-            daily_letter_update_continuation,
             daily_letter_state,
             api::token_usage_api::get_token_usage,
             api::token_usage_api::clear_token_usage,

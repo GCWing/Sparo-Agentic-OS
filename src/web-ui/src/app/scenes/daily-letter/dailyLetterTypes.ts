@@ -18,7 +18,6 @@ export interface DailyLetterPreview {
   title: string;
   oneLine: string;
   receiptCount: number;
-  continuationCount: number;
   appIdeaCount: number;
 }
 
@@ -31,14 +30,6 @@ export interface DailyLetterReceiptCandidate {
   finalText?: string | null;
   memoryJournalPath?: string | null;
   decidedAtMs?: number | null;
-}
-
-export interface DailyLetterContinuationCard {
-  id: string;
-  text: string;
-  reason?: string | null;
-  sourceIds: string[];
-  remindTomorrow: boolean;
 }
 
 export interface DailyLetterAppOpportunity {
@@ -57,7 +48,6 @@ export interface DailyLetterRecord {
   preview: DailyLetterPreview;
   bodyMarkdown: string;
   receiptCandidates: DailyLetterReceiptCandidate[];
-  continuationCards: DailyLetterContinuationCard[];
   appOpportunity?: DailyLetterAppOpportunity | null;
   createdAtMs: number;
   updatedAtMs: number;
@@ -100,13 +90,6 @@ export interface DailyLetterApplyReceiptsRequest {
 export interface DailyLetterSealRequest {
   recordId: string;
   workspacePath?: string | null;
-}
-
-export interface DailyLetterUpdateContinuationRequest {
-  recordId: string;
-  workspacePath?: string | null;
-  continuationId: string;
-  remindTomorrow: boolean;
 }
 
 export interface DailyLetterRunSummary {

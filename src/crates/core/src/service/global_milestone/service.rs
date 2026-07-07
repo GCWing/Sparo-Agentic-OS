@@ -26,6 +26,7 @@ const AUTO_RUN_INTERVAL_DAYS: i64 = 7;
 const AUTO_WAKE_HOUR_LOCAL: u32 = 0;
 const AUTO_WAKE_MINUTE_LOCAL: u32 = 10;
 const STARTUP_CATCH_UP_DELAY_SECS: u64 = 20;
+const STALE_RUNNING_ATTEMPT_AFTER_MS: i64 = 2 * 60 * 60 * 1000;
 
 static GLOBAL_GLOBAL_MILESTONE_SERVICE: OnceLock<Arc<GlobalMilestoneService>> = OnceLock::new();
 
@@ -55,7 +56,21 @@ pub struct GlobalMilestoneService {
 
 impl GlobalMilestoneService {
     pub async fn new(coordinator: Arc<ConversationCoordinator>) -> CoreResult<Arc<Self>> {
-        let state = load_global_milestone_state().await?;
+        let mut state = load_global_milestone_state().await?;
+        if matches!(
+            state.last_attempt_status,
+            Some(GlobalMilestoneAttemptStatus::Running)
+        ) {
+            warn!(
+                "Recovering interrupted global milestone run on startup: active_source_start_date={:?}, active_source_end_date={:?}, active_turn_id={:?}",
+                state.active_source_start_date, state.active_source_end_date, state.active_turn_id
+            );
+            mark_global_milestone_run_interrupted(
+                &mut state,
+                "Previous global milestone run was interrupted before completion",
+            );
+            save_global_milestone_state(&state).await?;
+        }
         Ok(Arc::new(Self {
             coordinator,
             state: Mutex::new(state),
@@ -165,12 +180,28 @@ impl GlobalMilestoneService {
 
     async fn run_auto_if_due(&self) -> CoreResult<()> {
         let should_run = {
-            let state = self.state.lock().await;
-            if state.active_turn_id.is_some() {
-                info!(
-                    "Global milestone auto run skipped because a milestone turn is already active"
-                );
-                return Ok(());
+            let mut state = self.state.lock().await;
+            if matches!(
+                state.last_attempt_status,
+                Some(GlobalMilestoneAttemptStatus::Running)
+            ) || state.active_turn_id.is_some()
+            {
+                if is_stale_global_milestone_run(&state) {
+                    warn!(
+                        "Clearing stale global milestone run before auto generation: active_source_start_date={:?}, active_source_end_date={:?}, active_turn_id={:?}",
+                        state.active_source_start_date, state.active_source_end_date, state.active_turn_id
+                    );
+                    mark_global_milestone_run_interrupted(
+                        &mut state,
+                        "Previous global milestone run expired before completion",
+                    );
+                    save_global_milestone_state(&state).await?;
+                } else {
+                    info!(
+                        "Global milestone auto run skipped because a milestone turn is already active"
+                    );
+                    return Ok(());
+                }
             }
 
             state
@@ -191,15 +222,34 @@ impl GlobalMilestoneService {
         trigger: GlobalMilestoneTrigger,
         ignore_schedule: bool,
     ) -> CoreResult<GlobalMilestoneRunSummary> {
-        if self.state.lock().await.active_turn_id.is_some() {
-            return Ok(GlobalMilestoneRunSummary {
-                started: false,
-                trigger: trigger_label(&trigger).to_string(),
-                source_start_date: None,
-                source_end_date: None,
-                turn_id: None,
-                reason: Some("A milestone run is already active".to_string()),
-            });
+        {
+            let mut state = self.state.lock().await;
+            if matches!(
+                state.last_attempt_status,
+                Some(GlobalMilestoneAttemptStatus::Running)
+            ) || state.active_turn_id.is_some()
+            {
+                if is_stale_global_milestone_run(&state) {
+                    warn!(
+                        "Clearing stale global milestone run before manual generation: active_source_start_date={:?}, active_source_end_date={:?}, active_turn_id={:?}",
+                        state.active_source_start_date, state.active_source_end_date, state.active_turn_id
+                    );
+                    mark_global_milestone_run_interrupted(
+                        &mut state,
+                        "Previous global milestone run expired before completion",
+                    );
+                    save_global_milestone_state(&state).await?;
+                } else {
+                    return Ok(GlobalMilestoneRunSummary {
+                        started: false,
+                        trigger: trigger_label(&trigger).to_string(),
+                        source_start_date: None,
+                        source_end_date: None,
+                        turn_id: None,
+                        reason: Some("A milestone run is already active".to_string()),
+                    });
+                }
+            }
         }
 
         if matches!(trigger, GlobalMilestoneTrigger::Auto) && !ignore_schedule {
@@ -433,6 +483,24 @@ fn next_date_key(date_key: &str) -> String {
         .unwrap_or_else(|_| date_key.to_string())
 }
 
+fn is_stale_global_milestone_run(state: &GlobalMilestoneState) -> bool {
+    state
+        .last_attempt_started_at_ms
+        .map(|started_at_ms| {
+            now_ms().saturating_sub(started_at_ms) > STALE_RUNNING_ATTEMPT_AFTER_MS
+        })
+        .unwrap_or(true)
+}
+
+fn mark_global_milestone_run_interrupted(state: &mut GlobalMilestoneState, reason: &str) {
+    state.last_attempt_finished_at_ms = Some(now_ms());
+    state.last_attempt_status = Some(GlobalMilestoneAttemptStatus::Cancelled);
+    state.last_error = Some(reason.to_string());
+    state.active_turn_id = None;
+    state.active_source_start_date = None;
+    state.active_source_end_date = None;
+}
+
 async fn earliest_available_daily_report_date() -> CoreResult<Option<String>> {
     let mut dates = collect_all_global_daily_report_dates().await?;
     dates.sort();
@@ -541,8 +609,9 @@ async fn collect_daily_report_files_under(root: &Path) -> CoreResult<Vec<PathBuf
 fn daily_report_date_from_path(path: &Path) -> Option<String> {
     path.file_stem()
         .and_then(|value| value.to_str())
-        .map(str::to_string)
-        .filter(|value| chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d").is_ok())
+        .and_then(|value| chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d").ok())
+        .filter(|date| *date <= Local::now().date_naive())
+        .map(|date| date.format("%Y-%m-%d").to_string())
 }
 
 #[cfg(test)]
@@ -562,5 +631,11 @@ mod tests {
             daily_report_date_from_path(path),
             Some("2026-05-17".to_string())
         );
+    }
+
+    #[test]
+    fn ignores_future_daily_report_path() {
+        let path = Path::new("C:/tmp/daily_reports/9999/9999-01-01.md");
+        assert_eq!(daily_report_date_from_path(path), None);
     }
 }

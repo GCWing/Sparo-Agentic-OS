@@ -34,6 +34,7 @@ pub enum DailyLetterReceiptStatus {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DailyLetterSourceFragmentType {
+    DailyReport,
     SessionSummary,
     Event,
     Work,
@@ -70,6 +71,8 @@ pub struct DailyLetterSourceFragment {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DailyLetterSourceStats {
+    #[serde(default)]
+    pub daily_report_count: usize,
     pub session_summary_count: usize,
     #[serde(default)]
     pub event_count: usize,
@@ -87,6 +90,16 @@ pub struct DailyLetterSourceStats {
 #[serde(rename_all = "camelCase")]
 pub struct DailyLetterContextPacket {
     pub date: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub coverage_start_date: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub coverage_start_at_ms: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub coverage_end_at_ms: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub previous_letter_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub previous_letter_date: Option<String>,
     pub locale: String,
     pub scope: DailyLetterScope,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -125,16 +138,6 @@ pub struct DailyLetterAgentReceiptCandidate {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DailyLetterAgentContinuationCard {
-    pub text: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
-    #[serde(default)]
-    pub source_ids: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct DailyLetterAgentAppOpportunity {
     pub title: String,
     pub summary: String,
@@ -150,8 +153,6 @@ pub struct DailyLetterAgentOutput {
     pub body_markdown: String,
     #[serde(default)]
     pub receipt_candidates: Vec<DailyLetterAgentReceiptCandidate>,
-    #[serde(default)]
-    pub continuation_cards: Vec<DailyLetterAgentContinuationCard>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub app_opportunity: Option<DailyLetterAgentAppOpportunity>,
 }
@@ -162,7 +163,6 @@ pub struct DailyLetterPreview {
     pub title: String,
     pub one_line: String,
     pub receipt_count: usize,
-    pub continuation_count: usize,
     pub app_idea_count: usize,
 }
 
@@ -182,19 +182,6 @@ pub struct DailyLetterReceiptCandidate {
     pub memory_journal_path: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub decided_at_ms: Option<i64>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DailyLetterContinuationCard {
-    pub id: String,
-    pub text: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
-    #[serde(default)]
-    pub source_ids: Vec<String>,
-    #[serde(default)]
-    pub remind_tomorrow: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -220,8 +207,6 @@ pub struct DailyLetterRecord {
     pub body_markdown: String,
     #[serde(default)]
     pub receipt_candidates: Vec<DailyLetterReceiptCandidate>,
-    #[serde(default)]
-    pub continuation_cards: Vec<DailyLetterContinuationCard>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub app_opportunity: Option<DailyLetterAppOpportunity>,
     pub created_at_ms: i64,
@@ -298,16 +283,6 @@ pub struct DailyLetterSealRequest {
     pub record_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workspace_path: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DailyLetterUpdateContinuationRequest {
-    pub record_id: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub workspace_path: Option<String>,
-    pub continuation_id: String,
-    pub remind_tomorrow: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

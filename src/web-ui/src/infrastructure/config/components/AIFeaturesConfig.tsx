@@ -6,6 +6,7 @@ import { Switch } from '@/design-system';
 import { ConfigPageHeader, ConfigPageLayout, ConfigPageContent, ConfigPageSection, ConfigPageRow, ConfigPageLoading } from './common';
 import { aiExperienceConfigService, type AIExperienceSettings } from '../services/AIExperienceConfigService';
 import { configManager } from '../services/ConfigManager';
+import { getCompactModelDisplayName } from '../services/modelConfigs';
 import { useNotification, notificationService } from '@/shared/notification-system';
 import type { AIModelConfig } from '../types';
 import { ModelSelectionRadio } from './ModelSelectionRadio';
@@ -75,7 +76,8 @@ const AIFeaturesConfig: React.FC = () => {
   
   const getModelName = useCallback((modelId: string | null | undefined): string | undefined => {
     if (!modelId) return undefined;
-    return models.find(m => m.id === modelId)?.name;
+    const model = models.find(m => m.id === modelId);
+    return model ? getCompactModelDisplayName(model) || model.id : undefined;
   }, [models]);
 
   const updateSetting = async <K extends keyof AIExperienceSettings>(

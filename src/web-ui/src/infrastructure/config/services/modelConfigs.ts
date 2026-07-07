@@ -47,6 +47,21 @@ export function getProviderDisplayName(config: ProviderConfigLike): string {
   return rawName || extractProviderSegmentFromBaseUrl(config.base_url) || t('settings/ai-model:providerSelection.customTitle');
 }
 
+export function getCompactModelDisplayName(config: ProviderConfigLike): string {
+  const modelName = config.model_name?.trim() || '';
+  const fallbackName = config.name?.trim() || '';
+  const displayName = modelName || fallbackName;
+
+  if (!displayName) return '';
+
+  const slashIndex = displayName.lastIndexOf('/');
+  if (slashIndex >= 0 && slashIndex < displayName.length - 1) {
+    return displayName.slice(slashIndex + 1).trim() || displayName;
+  }
+
+  return displayName;
+}
+
 export function getModelDisplayName(config: ProviderConfigLike): string {
   const providerName = getProviderDisplayName(config);
   const modelName = config.model_name?.trim() || '';

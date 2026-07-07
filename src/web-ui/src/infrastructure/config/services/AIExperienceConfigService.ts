@@ -6,6 +6,8 @@ import { createLogger } from '@/shared/utils/logger';
 const log = createLogger('AIExperienceConfig');
 
 export interface AIExperienceSettings {
+  /** Whether Daily Letter generation is enabled. */
+  enable_daily_letter: boolean;
   enable_session_title_generation: boolean;
   enable_visual_mode: boolean;
   /** Desktop Agent companion. */
@@ -45,6 +47,7 @@ export const DEFAULT_AGENT_COMPANION_PET: AgentCompanionPetSelection = {
 const CONFIG_PATH = 'app.ai_experience';
 
 const defaultSettings: AIExperienceSettings = {
+  enable_daily_letter: true,
   enable_session_title_generation: true,
   enable_visual_mode: false,
   enable_agent_companion: true,

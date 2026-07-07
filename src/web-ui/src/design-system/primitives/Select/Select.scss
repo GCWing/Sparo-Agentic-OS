@@ -357,7 +357,7 @@
     border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
     background: transparent;
     transition: all var(--motion-fast, 0.15s) var(--easing-standard, cubic-bezier(0.4, 0, 0.2, 1));
-    border-radius: var(--ds-list-row-radius, var(--ds-radius-full, 999px));
+    border-radius: var(--ds-radius-sm, var(--size-radius-sm, 6px));
     margin-bottom: 0;
     padding-bottom: 8px;
 
@@ -381,7 +381,7 @@
     transition: all var(--motion-fast, 0.15s) var(--easing-standard, cubic-bezier(0.4, 0, 0.2, 1));
     font-size: var(--font-size-sm, 14px);
     color: var(--color-text-secondary, #e5e5e5);
-    border-radius: var(--ds-list-row-radius, var(--ds-radius-full, 999px));
+    border-radius: var(--ds-radius-sm, var(--size-radius-sm, 6px));
     margin-bottom: 1px;
     position: relative;
     background: transparent;
@@ -509,7 +509,7 @@
     transition: all var(--motion-fast, 0.15s) var(--easing-standard, cubic-bezier(0.4, 0, 0.2, 1));
     font-size: var(--font-size-sm, 14px);
     color: var(--color-accent-500, #60a5fa);
-    border-radius: var(--ds-list-row-radius, var(--ds-radius-full, 999px));
+    border-radius: var(--ds-radius-sm, var(--size-radius-sm, 6px));
     margin: 4px;
     background: var(--color-accent-100, rgba(96, 165, 250, 0.08));
     border: 1px dashed var(--border-accent-soft, rgba(59, 130, 246, 0.3));

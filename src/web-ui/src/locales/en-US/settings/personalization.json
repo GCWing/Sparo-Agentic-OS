@@ -6,6 +6,11 @@
       "title": "Auto Session Title",
       "warning": "Session title will use first 20 characters of user message"
     },
+    "dailyLetter": {
+      "title": "Daily Letter",
+      "enable": "Enable Daily Letter",
+      "subtitle": "Choose the model used to write Daily Letters. When unset, it uses the primary model."
+    },
     "agentCompanion": {
       "title": "Agent companion",
       "enable": "Show Agent companion",
