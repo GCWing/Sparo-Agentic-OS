@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -57,6 +58,20 @@ pub trait WorkRuntimeBridge: Send + Sync {
 
     async fn cancel_work_session_run(&self, _session_id: &str) -> CoreResult<()> {
         Ok(())
+    }
+
+    async fn clear_work_session_queue(&self, _session_id: &str) -> CoreResult<()> {
+        Ok(())
+    }
+
+    async fn delete_work_session(
+        &self,
+        _workspace_path: &str,
+        _session_id: &str,
+    ) -> CoreResult<()> {
+        Err(CoreError::service(
+            "Work runtime bridge is required to delete Work-owned sessions",
+        ))
     }
 }
 
@@ -178,6 +193,27 @@ impl WorkRuntimeBridge for AgenticWorkRuntimeBridge {
                 SessionControlActor::Tool,
                 Duration::from_millis(500),
             )
+            .await?;
+        Ok(())
+    }
+
+    async fn clear_work_session_queue(&self, session_id: &str) -> CoreResult<()> {
+        self.scheduler.clear_session_queue(session_id);
+        Ok(())
+    }
+
+    async fn delete_work_session(&self, workspace_path: &str, session_id: &str) -> CoreResult<()> {
+        self.clear_work_session_queue(session_id).await?;
+        self.scheduler
+            .cancel_active_turn_for_session(
+                session_id,
+                TurnCancellationReason::SessionDeleted,
+                SessionControlActor::Tool,
+                Duration::from_millis(500),
+            )
+            .await?;
+        self.coordinator
+            .delete_session(Path::new(workspace_path), session_id)
             .await?;
         Ok(())
     }

@@ -3,7 +3,7 @@
  * Layout mirrors WelcomeScene: centered container, left-aligned content.
  */
 
-import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo, useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   FolderOpen,
@@ -77,7 +77,10 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
   const [workspaceDropdownOpen, setWorkspaceDropdownOpen] = useState(false);
   const [isSelectingWorkspace, setIsSelectingWorkspace] = useState(false);
   const [workspaceSearchQuery, setWorkspaceSearchQuery] = useState('');
+  const [highlightedWorkspaceId, setHighlightedWorkspaceId] = useState<string | null>(null);
   const workspaceDropdownRef = useRef<HTMLDivElement>(null);
+  const workspaceSearchRef = useRef<HTMLInputElement>(null);
+  const workspaceListboxId = useId();
   const { profile } = useSessionProfile();
 
   const {
@@ -167,20 +170,49 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
 
   useEffect(() => {
     if (!workspaceDropdownOpen) return;
-    const handler = (e: MouseEvent) => {
+    const handleMouseDown = (e: MouseEvent) => {
       if (workspaceDropdownRef.current && !workspaceDropdownRef.current.contains(e.target as Node)) {
         setWorkspaceDropdownOpen(false);
       }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setWorkspaceDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleMouseDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, [workspaceDropdownOpen]);
 
   useEffect(() => {
     if (!workspaceDropdownOpen) {
       setWorkspaceSearchQuery('');
+      setHighlightedWorkspaceId(null);
     }
   }, [workspaceDropdownOpen]);
+
+  useEffect(() => {
+    if (!workspaceDropdownOpen) return;
+    const frame = window.requestAnimationFrame(() => {
+      workspaceSearchRef.current?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [workspaceDropdownOpen]);
+
+  useEffect(() => {
+    if (!workspaceDropdownOpen) return;
+    setHighlightedWorkspaceId((current) => {
+      if (current && filteredWorkspaces.some((ws) => ws.id === current)) {
+        return current;
+      }
+      const selectedWorkspace = filteredWorkspaces.find(isSelectedWorkspace);
+      return selectedWorkspace?.id ?? filteredWorkspaces[0]?.id ?? null;
+    });
+  }, [filteredWorkspaces, isSelectedWorkspace, workspaceDropdownOpen]);
 
   const handleSwitchWorkspace = useCallback(async (ws: WorkspaceInfo) => {
     try {
@@ -215,6 +247,46 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
       setIsSelectingWorkspace(false);
     }
   }, [openWorkspace, sessionId, workspaceSwitchDescriptor]);
+
+  const moveHighlightedWorkspace = useCallback((direction: 1 | -1) => {
+    setHighlightedWorkspaceId((current) => {
+      if (filteredWorkspaces.length === 0) return null;
+      const currentIndex = current
+        ? filteredWorkspaces.findIndex((ws) => ws.id === current)
+        : -1;
+      const fallbackIndex = direction === 1 ? 0 : filteredWorkspaces.length - 1;
+      const nextIndex = currentIndex === -1
+        ? fallbackIndex
+        : (currentIndex + direction + filteredWorkspaces.length) % filteredWorkspaces.length;
+      return filteredWorkspaces[nextIndex]?.id ?? null;
+    });
+  }, [filteredWorkspaces]);
+
+  const handleWorkspaceSearchKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      setWorkspaceDropdownOpen(false);
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      moveHighlightedWorkspace(1);
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      moveHighlightedWorkspace(-1);
+      return;
+    }
+    if (e.key === 'Enter') {
+      const targetWorkspace = filteredWorkspaces.find((ws) => ws.id === highlightedWorkspaceId)
+        ?? filteredWorkspaces[0];
+      if (targetWorkspace) {
+        e.preventDefault();
+        void handleSwitchWorkspace(targetWorkspace);
+      }
+    }
+  }, [filteredWorkspaces, handleSwitchWorkspace, highlightedWorkspaceId, moveHighlightedWorkspace]);
 
   const handleQuickActionClick = useCallback((cmd: string) => {
     onQuickAction?.(cmd);
@@ -293,6 +365,9 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
                         onClick={() => setWorkspaceDropdownOpen(v => !v)}
                         disabled={isSelectingWorkspace}
                         title={welcomeWorkspace?.rootPath ?? undefined}
+                        aria-expanded={workspaceDropdownOpen}
+                        aria-haspopup="listbox"
+                        aria-controls={workspaceDropdownOpen ? workspaceListboxId : undefined}
                       >
                         <FolderOpen size={13} className="welcome-panel__inline-icon" />
                         {welcomeWorkspace?.name || t('welcome.workspace')}
@@ -305,8 +380,10 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
                         <div className="welcome-panel__dropdown">
                           <div className="welcome-panel__dropdown-header">
                             <Search
+                              ref={workspaceSearchRef}
                               value={workspaceSearchQuery}
                               onChange={setWorkspaceSearchQuery}
+                              onKeyDown={handleWorkspaceSearchKeyDown}
                               size="small"
                               shape="pill"
                               enterToSearch={false}
@@ -314,6 +391,8 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
                               placeholder={t('welcome.workspaceSearchPlaceholder')}
                               inputAriaLabel={t('welcome.workspaceSearchPlaceholder')}
                               clearAriaLabel={t('welcome.clearWorkspaceSearch')}
+                              ariaControls={workspaceListboxId}
+                              ariaExpanded={workspaceDropdownOpen}
                             />
                             <IconButton
                               type="button"
@@ -331,18 +410,32 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
                             </IconButton>
                           </div>
                           <div className="welcome-panel__dropdown-sep" />
-                          <div className="welcome-panel__dropdown-scroll">
+                          <div
+                            id={workspaceListboxId}
+                            className="welcome-panel__dropdown-scroll"
+                            role="listbox"
+                            aria-label={t('welcome.workspace')}
+                          >
                             {filteredWorkspaces.length > 0 ? (
                               filteredWorkspaces.map(ws => {
                                 const selected = isSelectedWorkspace(ws);
+                                const highlighted = highlightedWorkspaceId === ws.id;
                                 const displayName = getWorkspaceDisplayName(ws);
+                                const optionClassName = [
+                                  'welcome-panel__dropdown-option',
+                                  selected && 'welcome-panel__dropdown-option--selected',
+                                  highlighted && 'welcome-panel__dropdown-option--highlighted',
+                                ].filter(Boolean).join(' ');
                                 return (
                                   <Button
                                     key={ws.id}
                                     type="button"
                                     variant="ghost"
                                     size="small"
-                                    className={`welcome-panel__dropdown-option${selected ? ' welcome-panel__dropdown-option--selected' : ''}`}
+                                    role="option"
+                                    aria-selected={selected}
+                                    className={optionClassName}
+                                    onMouseEnter={() => setHighlightedWorkspaceId(ws.id)}
                                     onClick={() => { void handleSwitchWorkspace(ws); }}
                                     title={ws.rootPath}
                                   >

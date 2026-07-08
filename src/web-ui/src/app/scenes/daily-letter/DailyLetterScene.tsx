@@ -14,10 +14,12 @@ import {
 import {
   Badge,
   Button,
+  DateRangeDialog,
   Dialog,
   DialogBody,
   DialogFooter,
   IconButton,
+  type DateRangeValue,
 } from '@/design-system';
 import { Markdown } from '@/shared/markdown';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
@@ -57,6 +59,25 @@ function parseDateKey(date: string): Date {
   return new Date(`${date}T00:00:00`);
 }
 
+function formatDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function startOfLocalToday(): Date {
+  const today = new Date();
+  return new Date(today.getFullYear(), today.getMonth(), today.getDate());
+}
+
+function defaultDateFilterRange(): DateRangeValue {
+  const endDate = startOfLocalToday();
+  const startDate = new Date(endDate);
+  startDate.setDate(startDate.getDate() - 30);
+  return { startDate, endDate };
+}
+
 function pendingReceiptCount(letter: DailyLetterRecord): number {
   return letter.receiptCandidates.filter((candidate) => candidate.status === 'pending').length;
 }
@@ -85,7 +106,7 @@ function letterBodyForPaper(markdown: string): string {
 }
 
 const DailyLetterScene: React.FC<DailyLetterSceneProps> = ({ workspacePath }) => {
-  const { t, formatDate } = useI18n('scenes/daily-letter');
+  const { t, formatDate, currentLanguage } = useI18n('scenes/daily-letter');
   const [letters, setLetters] = useState<DailyLetterRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dateFrom, setDateFrom] = useState('');
@@ -271,10 +292,29 @@ const DailyLetterScene: React.FC<DailyLetterSceneProps> = ({ workspacePath }) =>
   }, []);
 
   const dateRangeLabel = useMemo(() => {
-    if (dateFrom && dateTo) return `${dateFrom} – ${dateTo}`;
-    if (dateFrom) return `${dateFrom} –`;
-    return `– ${dateTo}`;
+    if (dateFrom && dateTo) return `${dateFrom} - ${dateTo}`;
+    if (dateFrom) return `${dateFrom} -`;
+    return `- ${dateTo}`;
   }, [dateFrom, dateTo]);
+
+  const dateFilterInitialRange = useMemo<DateRangeValue | null>(() => {
+    if (!dateFrom && !dateTo) return null;
+    const fallbackEnd = startOfLocalToday();
+    const startDate = dateFrom ? parseDateKey(dateFrom) : dateTo ? parseDateKey(dateTo) : fallbackEnd;
+    const endDate = dateTo ? parseDateKey(dateTo) : fallbackEnd;
+    return startDate.getTime() <= endDate.getTime()
+      ? { startDate, endDate }
+      : { startDate: endDate, endDate: startDate };
+  }, [dateFrom, dateTo]);
+
+  const dateFilterDefaultRange = useMemo(() => defaultDateFilterRange(), []);
+  const dateFilterMaxDate = useMemo(() => startOfLocalToday(), []);
+
+  const applyDateRange = useCallback((range: DateRangeValue) => {
+    setDateFrom(formatDateKey(range.startDate));
+    setDateTo(formatDateKey(range.endDate));
+    setDateFilterOpen(false);
+  }, []);
 
   const scopeLabel = useCallback((letter: DailyLetterRecord) => (
     letter.workspace?.name ?? t(`scope.${letter.scope === 'agentic_os' ? 'agenticOs' : 'workspace'}`)
@@ -440,67 +480,41 @@ const DailyLetterScene: React.FC<DailyLetterSceneProps> = ({ workspacePath }) =>
                 <span className="dl-rail__section-count">
                   {t('rail.total', { count: filteredLetters.length })}
                 </span>
-                <button
-                  type="button"
+                <IconButton
                   className={`dl-rail__filter-toggle${hasDateFilter ? ' is-filtered' : ''}${dateFilterOpen ? ' is-open' : ''}`}
+                  variant="ghost"
+                  size="xs"
                   aria-label={t('date.label')}
                   aria-expanded={dateFilterOpen}
-                  onClick={() => setDateFilterOpen((open) => !open)}
+                  tooltip={t('date.label')}
+                  onClick={() => setDateFilterOpen(true)}
                 >
                   <CalendarRange size={13} aria-hidden="true" />
-                </button>
+                </IconButton>
               </div>
-              {dateFilterOpen ? (
-                <div className="dl-rail__date-range" aria-label={t('date.label')}>
-                  <input
-                    type="date"
-                    className={dateFrom ? 'is-set' : ''}
-                    value={dateFrom}
-                    max={dateTo || undefined}
-                    aria-label={t('date.from')}
-                    onChange={(event) => setDateFrom(event.target.value)}
-                  />
-                  <span className="dl-rail__date-range-sep" aria-hidden="true">→</span>
-                  <input
-                    type="date"
-                    className={dateTo ? 'is-set' : ''}
-                    value={dateTo}
-                    min={dateFrom || undefined}
-                    aria-label={t('date.to')}
-                    onChange={(event) => setDateTo(event.target.value)}
-                  />
-                  <button
-                    type="button"
-                    className="dl-rail__date-range-clear"
-                    aria-label={t('date.clear')}
-                    disabled={!hasDateFilter}
-                    onClick={() => {
-                      clearDateFilter();
-                      setDateFilterOpen(false);
-                    }}
-                  >
-                    <X size={12} aria-hidden="true" />
-                  </button>
-                </div>
-              ) : hasDateFilter && (
+              {hasDateFilter && (
                 <div className="dl-rail__date-chip">
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="small"
                     className="dl-rail__date-chip-range"
                     aria-label={t('date.label')}
                     onClick={() => setDateFilterOpen(true)}
                   >
                     <CalendarRange size={11} aria-hidden="true" />
                     <span>{dateRangeLabel}</span>
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <IconButton
                     className="dl-rail__date-chip-clear"
                     aria-label={t('date.clear')}
+                    tooltip={t('date.clear')}
+                    variant="ghost"
+                    size="xs"
                     onClick={clearDateFilter}
                   >
                     <X size={11} aria-hidden="true" />
-                  </button>
+                  </IconButton>
                 </div>
               )}
               <div className="dl-rail__list">
@@ -600,6 +614,28 @@ const DailyLetterScene: React.FC<DailyLetterSceneProps> = ({ workspacePath }) =>
         onSeal={() => void sealLetter()}
         formatDate={formatDate}
         t={t}
+      />
+
+      <DateRangeDialog
+        open={dateFilterOpen}
+        onOpenChange={setDateFilterOpen}
+        onApply={applyDateRange}
+        title={t('date.title')}
+        initialRange={dateFilterInitialRange}
+        defaultRange={dateFilterDefaultRange}
+        maxDate={dateFilterMaxDate}
+        locale={currentLanguage}
+        labels={{
+          hint: t('date.hint'),
+          summary: (start, end) => t('date.summary', { start, end }),
+          pickEndHint: (start) => t('date.pickEndHint', { start }),
+          pickEndError: t('date.pickEndError'),
+          previousMonth: t('date.previousMonth'),
+          nextMonth: t('date.nextMonth'),
+          cancel: t('date.cancel'),
+          apply: t('date.apply'),
+        }}
+        closeLabel={t('actions.close')}
       />
 
       <Dialog

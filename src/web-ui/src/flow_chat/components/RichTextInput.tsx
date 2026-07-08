@@ -52,6 +52,7 @@ export interface RichTextInputHandle {
   contains: (node: Node | null) => boolean;
   insertTag: (context: ContextItem) => void;
   insertTagReplacingMention: (context: ContextItem) => void;
+  insertText: (text: string) => void;
   openMention: () => void;
   closeMention: () => void;
   getPlainText: () => string;
@@ -233,10 +234,14 @@ export const RichTextInput = React.forwardRef<RichTextInputHandle, RichTextInput
     },
     insertTag: insertTagAtCursor,
     insertTagReplacingMention,
+    insertText: (text: string) => {
+      insertPlainText(text);
+      handleInput();
+    },
     openMention,
     closeMention,
     getPlainText: extractTextContent,
-  }), [closeMention, extractTextContent, insertTagAtCursor, insertTagReplacingMention, internalRef, openMention]);
+  }), [closeMention, extractTextContent, handleInput, insertPlainText, insertTagAtCursor, insertTagReplacingMention, internalRef, openMention]);
 
   // Initialize and sync value changes from external sources.
   // This editor is effectively controlled by comparing the parent's value

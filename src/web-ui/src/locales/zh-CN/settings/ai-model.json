@@ -135,18 +135,27 @@
     "general_chat": "文本生成",
     "multimodal": "多模态",
     "image_generation": "图像生成",
+    "embedding": "向量嵌入",
+    "search_enhanced": "搜索",
+    "code_specialized": "代码",
     "speech_recognition": "语音识别"
   },
   "categoryIcons": {
     "general_chat": "文本",
     "multimodal": "多模态",
     "image_generation": "绘图",
+    "embedding": "向量",
+    "search_enhanced": "搜索",
+    "code_specialized": "代码",
     "speech_recognition": "语音"
   },
   "categoryHints": {
     "general_chat": "文本生成：生成文本回复、代码等，适用于大多数对话场景",
     "multimodal": "多模态：理解图片内容并进行图文混合对话",
     "image_generation": "图像生成：根据文字描述生成图片",
+    "embedding": "向量嵌入：将文本转换为向量，用于检索与相似度匹配",
+    "search_enhanced": "搜索：提供搜索增强回答或检索支持",
+    "code_specialized": "代码：面向代码生成、修改与审查优化",
     "speech_recognition": "语音识别：将语音转换为文字（如智谱 GLM-ASR）"
   },
   "form": {
@@ -225,6 +234,9 @@
     "text_chat": "对话",
     "image_understanding": "多模态",
     "image_generation": "绘图",
+    "embedding": "向量",
+    "search": "搜索",
+    "code_specialized": "代码",
     "function_calling": "工具",
     "speech_recognition": "语音"
   },

@@ -123,7 +123,20 @@
     "openWorkspaceFolder": "Open workspace folder",
     "openWorkspaceFolderFailed": "Failed to open workspace folder: {{error}}",
     "globalWorkspace": "Global",
-    "spaceToActivate": "How can I help? Press <space>Space</space> to start typing"
+    "spaceToActivate": "How can I help? Press <space>Space</space> to start typing",
+    "voiceInput": {
+      "start": "Start voice input",
+      "stop": "Stop and transcribe",
+      "preparing": "Preparing voice input",
+      "recording": "Recording",
+      "transcribing": "Transcribing",
+      "disabled": "Voice input is disabled",
+      "modelMissing": "Download the local speech model in Settings",
+      "unsupported": "Microphone capture is not available in this environment",
+      "permissionDenied": "Microphone permission was denied",
+      "failed": "Voice input failed",
+      "empty": "No speech text was detected"
+    }
   },
   "inputQueue": {
     "title": "{{count}} queued",
@@ -391,6 +404,21 @@
     "turnCount_other": "{{count}} turns",
     "newSession": "Start a new chapter",
     "newSessionLabel": "New chapter",
+    "selectSessions": "Select sessions",
+    "selectionModeActive": "Selecting sessions",
+    "selectSession": "Select {{title}}",
+    "deselectSession": "Deselect {{title}}",
+    "bulkLabel": "Session selection actions",
+    "selectAllVisible": "Select all visible sessions",
+    "selectedCount": "{{count}} / {{total}} selected",
+    "deleteSelected": "Delete selected sessions",
+    "clearSelection": "Clear selection",
+    "deleteDialogTitle": "Delete selected sessions?",
+    "deleteDialogMessage": "This will permanently delete {{count}} selected session(s). This cannot be undone.",
+    "deleteConfirm": "Delete sessions",
+    "deletePreviewMore": "...and {{count}} more",
+    "deleteSuccess": "Deleted {{count}} session(s)",
+    "deleteFailed": "Failed to delete {{count}} selected session(s)",
     "bucket": {
       "today": "Today",
       "yesterday": "Yesterday",

@@ -1,6 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppWindow, Boxes, FileText, FolderOpen, Layers3, ListChecks, MessageSquare } from 'lucide-react';
-import { Dialog, Search, SelectableRow } from '@/design-system';
+import {
+  AppWindow,
+  Boxes,
+  FileText,
+  FolderOpen,
+  Layers3,
+  LayoutDashboard,
+  ListChecks,
+  MessageSquare,
+  Plus,
+} from 'lucide-react';
+import { Dialog, IconButton, Search, SelectableRow } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
@@ -25,7 +35,7 @@ import {
 import { productAppRequiresWorkspace } from '@/app/agentic-os/work/domain/productAppLaunchPolicy';
 import { useWorks } from '@/app/agentic-os/work/hooks/useWorks';
 import { filterWorkProjections } from '@/app/agentic-os/work/data/workSelectors';
-import { openArtifactInCenter, openWorkInCenter } from '@/app/agentic-os/work/navigation/openWork';
+import { openArtifactInCenter, openWorkCenterHome, openWorkInCenter } from '@/app/agentic-os/work/navigation/openWork';
 import type { WorkProjection } from '@/app/agentic-os/work/projections/workProjection';
 import { isSystemAgenticOsSession } from '@/flow_chat/domain/sessionDescriptor';
 import { notificationService } from '@/shared/notification-system';
@@ -33,6 +43,14 @@ import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
 import { useAppsStore } from '@/app/scenes/apps/appsStore';
 import { openAppBuilderSession } from '@/app/scenes/apps/app-builder/openAppBuilderSession';
 import type { ArtifactRef, WorkRecord } from '@/app/agentic-os/work/domain/workTypes';
+import {
+  getWorkModeIcon,
+  getWorkToneValue,
+  isInstrumentedStatus,
+  selectWorksForDockList,
+  statusKey,
+  WORK_DOCK_LIST_LIMIT,
+} from '@/app/components/WorkList/workListSelection';
 import './GlobalSearchDialog.scss';
 
 interface GlobalSearchDialogProps {
@@ -49,6 +67,7 @@ interface SearchResultItem {
   sublabel?: string;
   workspaceId?: string;
   workId?: string;
+  work?: WorkProjection;
   appId?: string;
   productApp?: ProductAppCatalogEntry;
   workObject?: WorkObjectKind;
@@ -57,7 +76,6 @@ interface SearchResultItem {
 }
 
 const MAX_PER_GROUP = 20;
-const RECENT_TASKS_DEFAULT = 5;
 
 const getSessionTitle = (session: Session): string =>
   session.title?.trim() || `Task ${session.sessionId.slice(0, 6)}`;
@@ -141,6 +159,7 @@ function buildWorkResult(
   return {
     kind: 'work',
     id: work.id,
+    work,
     label: work.title,
     sublabel: workspaceLabel
       ? t('nav.search.workWorkspaceHint', { status, workspace: workspaceLabel })
@@ -239,6 +258,7 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
   const [activeIndex, setActiveIndex] = useState(0);
   const [productApps, setProductApps] = useState<ProductAppCatalogEntry[]>([]);
   const [workspaceLaunchApp, setWorkspaceLaunchApp] = useState<ProductAppCatalogEntry | null>(null);
+  const [newWorkDialogOpen, setNewWorkDialogOpen] = useState(false);
   const [components, setComponents] = useState<ComponentDefinition[]>([]);
   const [flowChatState, setFlowChatState] = useState<FlowChatState>(() => flowChatStore.getState());
   const [persistedOpenWorkspaceSessions, setPersistedOpenWorkspaceSessions] = useState<
@@ -362,7 +382,10 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
     const visibleWorks = projections.filter(work => work.status !== 'archived');
     const matchedWorks = trimmedQuery
       ? filterWorkProjections(visibleWorks, trimmedQuery).slice(0, MAX_PER_GROUP)
-      : visibleWorks.slice(0, RECENT_TASKS_DEFAULT);
+      : selectWorksForDockList(projections, {
+          maxWorks: WORK_DOCK_LIST_LIMIT,
+          includeCompleted: false,
+        });
     const matchedWorkSessionIds = new Set(
       matchedWorks
         .map(work => work.sessionId)
@@ -374,40 +397,6 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
     }
 
     if (!trimmedQuery) {
-      const mergedEntries = buildMergedSessionEntries(
-        topLevelSessions,
-        persistedOpenWorkspaceSessions,
-        openedWorkspaceIdSet,
-        '',
-        { excludeAgenticOs: true }
-      );
-      for (const entry of mergedEntries
-        .filter(entry => {
-          const sessionId = 'session' in entry ? entry.session.sessionId : entry.disk.sessionId;
-          return !matchedWorkSessionIds.has(sessionId);
-        })
-        .slice(0, RECENT_TASKS_DEFAULT)
-      ) {
-        if ('session' in entry) {
-          const { session, workspace } = entry;
-          items.push({
-            kind: 'session',
-            id: session.sessionId,
-            label: getSessionTitle(session),
-            sublabel: t('nav.search.sessionWorkspaceHint', { workspace: workspace.name }),
-            workspaceId: workspace.id,
-          });
-        } else {
-          const { disk, workspace } = entry;
-          items.push({
-            kind: 'session',
-            id: disk.sessionId,
-            label: disk.sessionName?.trim() || `Task ${disk.sessionId.slice(0, 6)}`,
-            sublabel: t('nav.search.sessionWorkspaceHint', { workspace: workspace.name }),
-            workspaceId: workspace.id,
-          });
-        }
-      }
       return items;
     }
 
@@ -606,6 +595,16 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
     tApps,
   ]);
 
+  const handleOpenWorkCenter = useCallback(() => {
+    onClose();
+    openWorkCenterHome();
+  }, [onClose]);
+
+  const handleCreateWork = useCallback(() => {
+    setNewWorkDialogOpen(true);
+    onClose();
+  }, [onClose]);
+
   const handleInputKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Escape') {
       event.preventDefault();
@@ -649,8 +648,21 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
       initialScopeRequirement={workspaceLaunchApp?.launch?.scopeRequirement}
     />
   );
+  const newWorkDialog = (
+    <NewWorkDialog
+      open={newWorkDialogOpen}
+      onClose={() => setNewWorkDialogOpen(false)}
+    />
+  );
 
-  if (!open) return workspaceLaunchApp ? workspaceLaunchDialog : null;
+  if (!open) {
+    return (
+      <>
+        {workspaceLaunchApp ? workspaceLaunchDialog : null}
+        {newWorkDialogOpen ? newWorkDialog : null}
+      </>
+    );
+  }
 
   const workspaceItems = results.filter(result => result.kind === 'workspace');
   const workItems = results.filter(result => result.kind === 'work');
@@ -661,18 +673,47 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
   const sessionItems = results.filter(result => result.kind === 'session');
   const queryTrimmed = query.trim();
 
+  const renderWorkIcon = (item: SearchResultItem) => {
+    if (!item.work) return <ListChecks size={14} />;
+    const ModeIcon = getWorkModeIcon(item.work);
+    const instrumented = isInstrumentedStatus(item.work.status);
+    return (
+      <span
+        className={[
+          'sparo-search-dialog__work-mode-icon',
+          `sparo-search-dialog__work-mode-icon--${statusKey(item.work.status)}`,
+          instrumented && 'has-state-instrument',
+        ].filter(Boolean).join(' ')}
+        style={{ '--sparo-search-dialog-work-tone': getWorkToneValue(item.work.status) } as React.CSSProperties}
+      >
+        <span className="sparo-search-dialog__work-mode-glyph">
+          <ModeIcon size={14} aria-hidden />
+        </span>
+        {instrumented ? <span className="sparo-search-dialog__work-state-mark" /> : null}
+      </span>
+    );
+  };
+
   let globalIndex = 0;
   const renderGroup = (
     groupLabel: string,
     items: SearchResultItem[],
-    renderIcon: (item: SearchResultItem) => React.ReactNode
+    renderIcon: (item: SearchResultItem) => React.ReactNode,
+    headerActions?: React.ReactNode
   ) => {
     if (items.length === 0) return null;
     const startIndex = globalIndex;
     globalIndex += items.length;
     return (
       <div className="sparo-search-dialog__group" key={groupLabel}>
-        <div className="sparo-search-dialog__group-label">{groupLabel}</div>
+        <div className="sparo-search-dialog__group-header">
+          <div className="sparo-search-dialog__group-label">{groupLabel}</div>
+          {headerActions ? (
+            <div className="sparo-search-dialog__group-actions">
+              {headerActions}
+            </div>
+          ) : null}
+        </div>
         {items.map((item, itemIndex) => {
           const itemGlobalIndex = startIndex + itemIndex;
           return (
@@ -737,23 +778,52 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
               {renderGroup(
                 queryTrimmed ? t('nav.search.groupWorks') : t('nav.search.groupRecentWork'),
                 workItems,
-                () => <ListChecks size={14} />
+                renderWorkIcon,
+                !queryTrimmed ? (
+                  <>
+                    <IconButton
+                      size="xs"
+                      variant="ghost"
+                      className="sparo-search-dialog__group-action"
+                      aria-label={t('nav.workDock.openWorkCenter')}
+                      tooltip={t('nav.workDock.openWorkCenter')}
+                      tooltipPlacement="top"
+                      onClick={handleOpenWorkCenter}
+                      data-testid="global-search-open-work-center"
+                    >
+                      <LayoutDashboard size={13} strokeWidth={2.25} />
+                    </IconButton>
+                    <IconButton
+                      size="xs"
+                      variant="ghost"
+                      className="sparo-search-dialog__group-action"
+                      aria-label={t('nav.workDock.newWorkButton')}
+                      tooltip={t('nav.workDock.newWorkButton')}
+                      tooltipPlacement="top"
+                      onClick={handleCreateWork}
+                      data-testid="global-search-new-work"
+                    >
+                      <Plus size={13} strokeWidth={2.25} />
+                    </IconButton>
+                  </>
+                ) : undefined
               )}
               {renderGroup(t('nav.search.groupWorkspaces'), workspaceItems, () => <FolderOpen size={14} />)}
               {renderGroup(t('nav.search.groupApps'), appItems, () => <AppWindow size={14} />)}
               {renderGroup(t('nav.search.groupWorkObjects'), workObjectItems, () => <Layers3 size={14} />)}
               {renderGroup(t('nav.search.groupComponents'), componentItems, () => <Boxes size={14} />)}
               {renderGroup(t('nav.search.groupArtifacts'), artifactItems, () => <FileText size={14} />)}
-              {renderGroup(
-                queryTrimmed ? t('nav.search.groupSessions') : t('nav.search.groupRecentTasks'),
+              {queryTrimmed ? renderGroup(
+                t('nav.search.groupSessions'),
                 sessionItems,
                 () => <MessageSquare size={14} />
-              )}
+              ) : null}
             </>
           )}
         </div>
       </Dialog>
       {workspaceLaunchDialog}
+      {newWorkDialog}
     </>
   );
 };

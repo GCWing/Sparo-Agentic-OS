@@ -75,8 +75,12 @@
   },
   "selection": {
     "primary": "Primary",
+    "primaryShort": "Flagship",
     "fast": "Fast",
+    "fastShort": "Fast",
     "custom": "Custom",
+    "customShort": "Other",
+    "modelChoice": "Model choice",
     "selectModel": "Select model",
     "notConfigured": "Not configured, will use primary model"
   },

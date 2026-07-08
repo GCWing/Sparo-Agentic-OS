@@ -366,6 +366,11 @@ const AIModelConfig: React.FC = () => {
     () => [
       { label: t('category.general_chat'), value: 'general_chat' },
       { label: t('category.multimodal'), value: 'multimodal' },
+      { label: t('category.image_generation'), value: 'image_generation' },
+      { label: t('category.embedding'), value: 'embedding' },
+      { label: t('category.search_enhanced'), value: 'search_enhanced' },
+      { label: t('category.code_specialized'), value: 'code_specialized' },
+      { label: t('category.speech_recognition'), value: 'speech_recognition' },
     ],
     [t]
   );
@@ -374,6 +379,11 @@ const AIModelConfig: React.FC = () => {
     () => ({
       general_chat: t('categoryIcons.general_chat'),
       multimodal: t('categoryIcons.multimodal'),
+      image_generation: t('categoryIcons.image_generation'),
+      embedding: t('categoryIcons.embedding'),
+      search_enhanced: t('categoryIcons.search_enhanced'),
+      code_specialized: t('categoryIcons.code_specialized'),
+      speech_recognition: t('categoryIcons.speech_recognition'),
     }),
     [t]
   );

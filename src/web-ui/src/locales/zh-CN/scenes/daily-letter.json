@@ -48,9 +48,18 @@
   },
   "date": {
     "label": "日期",
+    "title": "选择日期范围",
     "from": "从",
     "to": "到",
-    "clear": "清除日期"
+    "clear": "清除日期",
+    "hint": "先点选开始日期，再点选结束日期。",
+    "summary": "{{start}} - {{end}}",
+    "pickEndHint": "请选择结束日期（已开始：{{start}}）。",
+    "pickEndError": "请点选结束日期以完成范围。",
+    "previousMonth": "上一月",
+    "nextMonth": "下一月",
+    "cancel": "取消",
+    "apply": "应用"
   },
   "scope": {
     "agenticOs": "全局",

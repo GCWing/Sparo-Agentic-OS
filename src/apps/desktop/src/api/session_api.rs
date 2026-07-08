@@ -20,7 +20,8 @@ use sparo_core::service::session::{
 use sparo_core::util::types::ToolDefinition;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, Instant};
 use tauri::State;
 use tokio::fs;
 
@@ -109,6 +110,78 @@ pub struct GetContextBudgetRequest {
     pub model_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub storage_scope: Option<SessionStorageScopeDto>,
+}
+
+#[derive(Clone)]
+struct CachedContextBudget {
+    snapshot: ContextBudgetSnapshot,
+    stored_at: Instant,
+}
+
+const CONTEXT_BUDGET_CACHE_TTL: Duration = Duration::from_secs(30);
+static CONTEXT_BUDGET_CACHE: OnceLock<Mutex<HashMap<String, CachedContextBudget>>> =
+    OnceLock::new();
+
+fn context_budget_cache() -> &'static Mutex<HashMap<String, CachedContextBudget>> {
+    CONTEXT_BUDGET_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn normalized_context_budget_workspace_key(workspace_path: Option<&Path>) -> String {
+    let Some(path) = workspace_path else {
+        return "none".to_string();
+    };
+    let normalized = path.to_string_lossy().replace('\\', "/");
+    if cfg!(windows) {
+        normalized.to_ascii_lowercase()
+    } else {
+        normalized
+    }
+}
+
+fn context_budget_cache_key(
+    session_id: &str,
+    agent_type: &str,
+    model_name: &str,
+    provider: &str,
+    context_window: usize,
+    storage_scope: Option<SessionStorageScopeDto>,
+    workspace_path: Option<&Path>,
+) -> String {
+    [
+        session_id.to_string(),
+        agent_type.to_string(),
+        model_name.to_string(),
+        provider.to_string(),
+        context_window.to_string(),
+        format!("{:?}", storage_scope),
+        normalized_context_budget_workspace_key(workspace_path),
+    ]
+    .join("\u{1f}")
+}
+
+fn cached_context_budget_snapshot(cache_key: &str) -> Option<ContextBudgetSnapshot> {
+    let mut cache = context_budget_cache().lock().ok()?;
+    let entry = cache.get(cache_key)?;
+    if entry.stored_at.elapsed() > CONTEXT_BUDGET_CACHE_TTL {
+        cache.remove(cache_key);
+        return None;
+    }
+    let mut snapshot = entry.snapshot.clone();
+    snapshot.id = uuid::Uuid::new_v4().to_string();
+    snapshot.created_at = chrono::Utc::now().timestamp_millis() as u64;
+    Some(snapshot)
+}
+
+fn store_context_budget_snapshot(cache_key: String, snapshot: &ContextBudgetSnapshot) {
+    if let Ok(mut cache) = context_budget_cache().lock() {
+        cache.insert(
+            cache_key,
+            CachedContextBudget {
+                snapshot: snapshot.clone(),
+                stored_at: Instant::now(),
+            },
+        );
+    }
 }
 
 fn legacy_os_agent_workspace_roots(path_manager: &PathManager) -> Vec<PathBuf> {
@@ -475,6 +548,18 @@ pub async fn get_context_budget(
             }
         });
     let workspace = workspace_path.map(|path| WorkspaceBinding::new(None, path));
+    let cache_key = context_budget_cache_key(
+        &request.session_id,
+        &agent_type,
+        &model_name,
+        &provider,
+        context_window,
+        request.storage_scope,
+        workspace.as_ref().map(|binding| binding.root_path()),
+    );
+    if let Some(snapshot) = cached_context_budget_snapshot(&cache_key) {
+        return Ok(snapshot);
+    }
 
     let current_agent = app_state
         .agent_registry
@@ -525,7 +610,7 @@ pub async fn get_context_budget(
     )
     .await;
 
-    Ok(ContextStatsEstimator::static_snapshot(
+    let snapshot = ContextStatsEstimator::static_snapshot(
         request.session_id,
         agent_type,
         model_name,
@@ -534,7 +619,9 @@ pub async fn get_context_budget(
         &system_prompt,
         request_context_reminder.as_deref(),
         Some(&tool_definitions),
-    ))
+    );
+    store_context_budget_snapshot(cache_key, &snapshot);
+    Ok(snapshot)
 }
 
 #[tauri::command]

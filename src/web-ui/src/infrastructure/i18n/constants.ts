@@ -43,6 +43,7 @@ export const I18N_NAMESPACES = [
   'settings/memory',
   'settings/permissions',
   'settings/personalization',
+  'settings/voice-input',
   'shell/header',
   'shell/navigation',
   'shell/remote-connect',

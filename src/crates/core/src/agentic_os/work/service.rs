@@ -21,6 +21,9 @@ use super::execution_graph::{
     WorkRuntimeIssueSeverity, WorkRuntimeLog, WorkRuntimeLogLevel, WorkRuntimeRun,
     WorkRuntimeRunStatus,
 };
+use super::hooks::{
+    WorkCleanupReport, WorkDeleteOptions, WorkLifecycleHookBus, WorkLifecycleHookContext,
+};
 use super::ids::WorkId;
 use super::lifecycle::WorkSummary;
 use super::record::{
@@ -250,6 +253,8 @@ pub struct ControlWorkResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeleteWorkResponse {
     pub deleted: bool,
+    #[serde(default)]
+    pub cleanup_report: WorkCleanupReport,
 }
 
 const MAX_WORK_RUNTIME_ISSUES: usize = 200;
@@ -259,6 +264,7 @@ const MAX_WORK_RUNTIME_LOGS: usize = 500;
 pub struct WorkService {
     store: Arc<dyn WorkStore>,
     runtime_bridge: Arc<dyn WorkRuntimeBridge>,
+    hook_bus: WorkLifecycleHookBus,
 }
 
 impl WorkService {
@@ -266,6 +272,7 @@ impl WorkService {
         Self {
             store,
             runtime_bridge: Arc::new(NoopWorkRuntimeBridge),
+            hook_bus: WorkLifecycleHookBus::default_handlers(),
         }
     }
 
@@ -276,6 +283,19 @@ impl WorkService {
         Self {
             store,
             runtime_bridge,
+            hook_bus: WorkLifecycleHookBus::default_handlers(),
+        }
+    }
+
+    pub fn with_lifecycle_hooks(
+        store: Arc<dyn WorkStore>,
+        runtime_bridge: Arc<dyn WorkRuntimeBridge>,
+        hook_bus: WorkLifecycleHookBus,
+    ) -> Self {
+        Self {
+            store,
+            runtime_bridge,
+            hook_bus,
         }
     }
 
@@ -321,8 +341,39 @@ impl WorkService {
     }
 
     pub async fn delete(&self, id: &WorkId) -> CoreResult<DeleteWorkResponse> {
+        self.delete_with_options(id, WorkDeleteOptions::default())
+            .await
+    }
+
+    pub async fn delete_with_options(
+        &self,
+        id: &WorkId,
+        options: WorkDeleteOptions,
+    ) -> CoreResult<DeleteWorkResponse> {
+        let Some(record) = self.store.get(id).await? else {
+            return Ok(DeleteWorkResponse {
+                deleted: false,
+                cleanup_report: WorkCleanupReport {
+                    work_id: id.as_str().to_string(),
+                    items: Vec::new(),
+                },
+            });
+        };
+
+        let context =
+            WorkLifecycleHookContext::new(record.clone(), Arc::clone(&self.runtime_bridge));
+        let plan = self.hook_bus.plan_delete(&context, options).await?;
+        let cleanup_report = self.hook_bus.execute_delete(&context, plan).await;
+        if cleanup_report.has_required_failures() {
+            return Err(CoreError::service(format!(
+                "Failed to cleanup required Work resources before deleting work_id={}",
+                id
+            )));
+        }
+
         Ok(DeleteWorkResponse {
             deleted: self.store.delete(id).await?,
+            cleanup_report,
         })
     }
 
@@ -3685,7 +3736,7 @@ fn runtime_log_level_str(level: WorkRuntimeLogLevel) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use std::sync::{Arc, Mutex};
 
     use async_trait::async_trait;
 
@@ -3693,6 +3744,7 @@ mod tests {
         WorkBuilderFactStatus, WorkBuilderIssueStatus, WorkRuntimeInstanceStatus,
         WorkRuntimeIssueSeverity, WorkRuntimeLogLevel,
     };
+    use super::super::hooks::{WorkCleanupAction, WorkCleanupItemStatus, WorkResourceOwnership};
     use super::super::record::ArtifactRuntimeProvenance;
     use super::*;
     use crate::agentic_os::work::store::MemoryWorkStore;
@@ -3724,6 +3776,48 @@ mod tests {
                 turn_id: format!("turn_{}", request.work_id.as_str()),
                 started: true,
             })
+        }
+    }
+
+    #[derive(Debug, Default)]
+    struct RecordingRuntimeBridge {
+        deleted_sessions: Mutex<Vec<(String, String)>>,
+    }
+
+    #[async_trait]
+    impl WorkRuntimeBridge for RecordingRuntimeBridge {
+        async fn create_work_session(
+            &self,
+            request: CreateWorkSessionRequest,
+        ) -> CoreResult<super::super::runtime_bridge::CreateWorkSessionOutcome> {
+            Ok(super::super::runtime_bridge::CreateWorkSessionOutcome {
+                session_id: format!("session_{}", request.work_id.as_str()),
+                session_name: request.title,
+                agent_type: request.agent_type,
+            })
+        }
+
+        async fn advance_work_session(
+            &self,
+            request: WorkSessionAdvanceRequest,
+        ) -> CoreResult<super::super::runtime_bridge::WorkSessionAdvanceOutcome> {
+            Ok(super::super::runtime_bridge::WorkSessionAdvanceOutcome {
+                session_id: request.session_id,
+                turn_id: format!("turn_{}", request.work_id.as_str()),
+                started: true,
+            })
+        }
+
+        async fn delete_work_session(
+            &self,
+            workspace_path: &str,
+            session_id: &str,
+        ) -> CoreResult<()> {
+            self.deleted_sessions
+                .lock()
+                .expect("deleted sessions lock")
+                .push((workspace_path.to_string(), session_id.to_string()));
+            Ok(())
         }
     }
 
@@ -6640,6 +6734,107 @@ mod tests {
             updated.primary_surface,
             WorkSurfaceRef::AgentSession { ref session_id } if session_id == "session-1"
         ));
+    }
+
+    #[tokio::test]
+    async fn delete_work_cleans_owned_work_session_before_record_delete() {
+        let bridge = Arc::new(RecordingRuntimeBridge::default());
+        let runtime_bridge: Arc<dyn WorkRuntimeBridge> = bridge.clone();
+        let service =
+            WorkService::with_runtime_bridge(Arc::new(MemoryWorkStore::new()), runtime_bridge);
+        let record = service
+            .create(CreateWorkRequest {
+                kind: WorkKind::MultiStep,
+                title: "Implement feature".to_string(),
+                objective: "Ship the feature".to_string(),
+                subject: WorkSubject::Goal,
+                app_refs: Vec::new(),
+                scope: WorkScope::Workspace {
+                    workspace_path: "D:/workspace/project".to_string(),
+                },
+                visibility: WorkVisibility::Primary,
+                primary_surface_policy: PrimarySurfacePolicy::WorkSession,
+                primary_surface: None,
+                assignment: Some(WorkAssignmentRef::agent("Runno")),
+                title_state: None,
+                delegation: None,
+            })
+            .await
+            .expect("create work");
+        let session_id = record
+            .work_session_id()
+            .expect("work session id")
+            .to_string();
+
+        let response = service.delete(&record.id).await.expect("delete work");
+
+        assert!(response.deleted);
+        assert!(service
+            .store
+            .get(&record.id)
+            .await
+            .expect("get deleted work")
+            .is_none());
+        assert_eq!(
+            bridge
+                .deleted_sessions
+                .lock()
+                .expect("deleted sessions lock")
+                .as_slice(),
+            &[("D:/workspace/project".to_string(), session_id.clone())]
+        );
+        assert!(response.cleanup_report.items.iter().any(|report| {
+            report.item.resource.id == session_id
+                && report.item.resource.ownership == WorkResourceOwnership::Owned
+                && report.item.action == WorkCleanupAction::Delete
+                && report.status == WorkCleanupItemStatus::Succeeded
+        }));
+    }
+
+    #[tokio::test]
+    async fn delete_work_retains_linked_sessions_by_default() {
+        let service = service();
+        let record = service
+            .create(CreateWorkRequest {
+                kind: WorkKind::MultiStep,
+                title: "Investigate".to_string(),
+                objective: "Keep session linked to work".to_string(),
+                subject: WorkSubject::Goal,
+                app_refs: Vec::new(),
+                scope: WorkScope::Workspace {
+                    workspace_path: "D:/workspace/project".to_string(),
+                },
+                visibility: WorkVisibility::Primary,
+                primary_surface_policy: PrimarySurfacePolicy::WorkCenter,
+                primary_surface: None,
+                assignment: None,
+                title_state: None,
+                delegation: None,
+            })
+            .await
+            .expect("create work");
+        let linked = service
+            .link_session_to_work(LinkSessionToWorkRequest {
+                work_id: record.id.clone(),
+                session_id: "session-linked".to_string(),
+                workspace_path: Some("D:/workspace/project".to_string()),
+                surface: Some(WorkSurfaceRef::AgentSession {
+                    session_id: "session-linked".to_string(),
+                }),
+                set_primary: true,
+            })
+            .await
+            .expect("link session");
+
+        let response = service.delete(&linked.id).await.expect("delete work");
+
+        assert!(response.deleted);
+        assert!(response.cleanup_report.items.iter().any(|report| {
+            report.item.resource.id == "session-linked"
+                && report.item.resource.ownership == WorkResourceOwnership::Linked
+                && report.item.action == WorkCleanupAction::Retain
+                && report.status == WorkCleanupItemStatus::Retained
+        }));
     }
 
     #[tokio::test]

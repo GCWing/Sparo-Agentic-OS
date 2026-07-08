@@ -6,6 +6,7 @@ export { default as BasicsConfig } from './BasicsConfig';
 
 
 export { default as DefaultModelConfig } from './DefaultModelConfig';
+export { default as VoiceInputConfig } from './VoiceInputConfig';
 export { default as ModelSelectionRadio } from './ModelSelectionRadio';
 export type { ModelSelectionRadioProps } from './ModelSelectionRadio';
 

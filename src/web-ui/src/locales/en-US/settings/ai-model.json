@@ -135,18 +135,27 @@
     "general_chat": "Text Generation",
     "multimodal": "Image Understanding",
     "image_generation": "Image Generation",
+    "embedding": "Embedding",
+    "search_enhanced": "Search",
+    "code_specialized": "Code",
     "speech_recognition": "Speech Recognition"
   },
   "categoryIcons": {
     "general_chat": "Text",
     "multimodal": "Vision",
     "image_generation": "Image",
+    "embedding": "Embed",
+    "search_enhanced": "Search",
+    "code_specialized": "Code",
     "speech_recognition": "Speech"
   },
   "categoryHints": {
     "general_chat": "Text Generation: Generate text responses, code, etc. for most conversation scenarios",
     "multimodal": "Image Understanding: Understand image content and have mixed text-image conversations",
     "image_generation": "Image Generation: Generate images from text descriptions",
+    "embedding": "Embedding: Convert text into vectors for retrieval and similarity search",
+    "search_enhanced": "Search: Provide search-enhanced answers or retrieval support",
+    "code_specialized": "Code: Optimized for code generation, edits, and review",
     "speech_recognition": "Speech Recognition: Convert speech to text (e.g., GLM-ASR)"
   },
   "form": {
@@ -225,6 +234,9 @@
     "text_chat": "Chat",
     "image_understanding": "Vision",
     "image_generation": "Image",
+    "embedding": "Embedding",
+    "search": "Search",
+    "code_specialized": "Code",
     "function_calling": "Tools",
     "speech_recognition": "Speech"
   },

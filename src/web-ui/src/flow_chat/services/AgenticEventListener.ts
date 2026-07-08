@@ -268,7 +268,16 @@ export class AgenticEventListener {
 
       if (callbacks.onContextBudgetUpdated) {
         const unlisten = api.listen<AgenticEvent>('agentic://context-budget-updated', (event) => {
-          logger.debug('Context budget updated:', event);
+          const snapshot = (event as any)?.snapshot;
+          logger.debug('Context budget updated', {
+            sessionId: (event as any)?.sessionId,
+            snapshotId: snapshot?.id,
+            kind: snapshot?.kind,
+            modelId: snapshot?.modelId,
+            inputTokens: snapshot?.totals?.inputTokens,
+            contextWindow: snapshot?.contextWindow,
+            segmentCount: Array.isArray(snapshot?.segments) ? snapshot.segments.length : undefined,
+          });
           callbacks.onContextBudgetUpdated?.(event);
         });
         this.unlistenFunctions.push(unlisten);

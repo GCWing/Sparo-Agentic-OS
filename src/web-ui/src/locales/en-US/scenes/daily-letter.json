@@ -48,9 +48,18 @@
   },
   "date": {
     "label": "Dates",
+    "title": "Choose dates",
     "from": "From",
     "to": "To",
-    "clear": "Clear dates"
+    "clear": "Clear dates",
+    "hint": "Click a start date, then an end date.",
+    "summary": "{{start}} - {{end}}",
+    "pickEndHint": "Now choose an end date (start: {{start}}).",
+    "pickEndError": "Select an end date to complete the range.",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "cancel": "Cancel",
+    "apply": "Apply"
   },
   "scope": {
     "agenticOs": "Global",

@@ -20,9 +20,17 @@ export interface AIExperienceSettings {
   show_thinking_process: boolean;
   /** Whether completed thinking blocks remain as expandable collapsed items. */
   show_completed_thinking_item: boolean;
+  /** Local voice input settings for the composer. */
+  voice_input: VoiceInputSettings;
 }
 
 export type AgentCompanionDisplayMode = 'desktop';
+
+export interface VoiceInputSettings {
+  enabled: boolean;
+  default_language: string;
+  max_recording_seconds: number;
+}
 
 export interface AgentCompanionPetSelection {
   id: string;
@@ -44,6 +52,12 @@ export const DEFAULT_AGENT_COMPANION_PET: AgentCompanionPetSelection = {
   spritesheetMimeType: 'image/webp',
 };
 
+export const DEFAULT_VOICE_INPUT_SETTINGS: VoiceInputSettings = {
+  enabled: true,
+  default_language: 'auto',
+  max_recording_seconds: 60,
+};
+
 const CONFIG_PATH = 'app.ai_experience';
 
 const defaultSettings: AIExperienceSettings = {
@@ -55,6 +69,7 @@ const defaultSettings: AIExperienceSettings = {
   agent_companion_pet: DEFAULT_AGENT_COMPANION_PET,
   show_thinking_process: true,
   show_completed_thinking_item: true,
+  voice_input: DEFAULT_VOICE_INPUT_SETTINGS,
 };
 
 function normalizeSettings(settings: Partial<AIExperienceSettings> | null | undefined): AIExperienceSettings {
@@ -63,6 +78,10 @@ function normalizeSettings(settings: Partial<AIExperienceSettings> | null | unde
   if (!merged.agent_companion_pet) {
     merged.agent_companion_pet = DEFAULT_AGENT_COMPANION_PET;
   }
+  merged.voice_input = {
+    ...DEFAULT_VOICE_INPUT_SETTINGS,
+    ...(settings?.voice_input ?? {}),
+  };
   return merged;
 }
 

@@ -14,9 +14,9 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CalendarClock, ChevronDown, ChevronUp, Plus, Search } from 'lucide-react';
+import { CalendarClock, ChevronDown, ChevronUp, ListChecks, Plus, Search, Trash2, X } from 'lucide-react';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
-import { Button, IconButton, Input, Tooltip, DropdownMenu } from '@/design-system';
+import { Button, Checkbox, IconButton, Input, Tooltip, DropdownMenu, confirmDanger } from '@/design-system';
 import type { DropdownMenuEntry } from '@/design-system';
 import {
   timestampMatchesTimePreset,
@@ -26,6 +26,7 @@ import {
 import { TurnListCustomRangeDialog } from './TurnListCustomRangeDialog';
 import { createLogger } from '@/shared/utils/logger';
 import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
+import { notificationService } from '@/shared/notification-system';
 import type {
   AgenticOsTimelineBucket,
   AgenticOsTimelineData,
@@ -78,6 +79,8 @@ export interface AgenticOsTimelineSidebarProps {
   onSelectSession: (sessionId: string) => void;
   /** Click "+" footer - start a new Agentic OS session. */
   onCreateSession: () => void;
+  /** Delete selected Agentic OS sessions. Returns ids that were deleted. */
+  onDeleteSessions?: (sessionIds: string[]) => Promise<string[]>;
 
   // Search (turn-title and session-title fuzzy match across all Agentic OS sessions).
   searchQuery?: string;
@@ -184,7 +187,12 @@ interface SessionRowProps {
   isSearchHighlighted: boolean;
   timeLabel: string;
   turnCountLabel: string;
+  selectionMode: boolean;
+  selected: boolean;
+  disabled?: boolean;
+  selectLabel: string;
   onSelect: () => void;
+  onToggleSelected: () => void;
 }
 
 const SessionRow: React.FC<SessionRowProps> = ({
@@ -193,32 +201,59 @@ const SessionRow: React.FC<SessionRowProps> = ({
   isSearchHighlighted,
   timeLabel,
   turnCountLabel,
+  selectionMode,
+  selected,
+  disabled = false,
+  selectLabel,
   onSelect,
+  onToggleSelected,
 }) => (
-  <button
-    type="button"
+  <div
     className={[
-      'agentic-os-timeline__session',
-      isActive ? 'is-active' : '',
-      session.loadPhase === 'metadata-only' ? 'is-metadata-only' : '',
-      session.loadPhase === 'hydrating' ? 'is-hydrating' : '',
-      session.loadPhase === 'hydrate-failed' ? 'is-hydrate-failed' : '',
-      isSearchHighlighted ? 'is-search-match' : '',
+      'agentic-os-timeline__session-row',
+      selectionMode ? 'is-selection-mode' : '',
+      selected ? 'is-selected' : '',
     ]
       .filter(Boolean)
       .join(' ')}
-    onClick={onSelect}
-    title={session.title}
   >
-    <span className="agentic-os-timeline__session-node" aria-hidden>
-      <span className="agentic-os-timeline__session-dot" />
-    </span>
-    <span className="agentic-os-timeline__session-body">
-      <span className="agentic-os-timeline__session-time">{timeLabel}</span>
-      <span className="agentic-os-timeline__session-title">{session.title}</span>
-      <span className="agentic-os-timeline__session-meta">{turnCountLabel}</span>
-    </span>
-  </button>
+    {selectionMode ? (
+      <Checkbox
+        className="agentic-os-timeline__session-check"
+        size="small"
+        checked={selected}
+        disabled={disabled}
+        onChange={onToggleSelected}
+        aria-label={selectLabel}
+      />
+    ) : null}
+    <button
+      type="button"
+      className={[
+        'agentic-os-timeline__session',
+        isActive ? 'is-active' : '',
+        session.loadPhase === 'metadata-only' ? 'is-metadata-only' : '',
+        session.loadPhase === 'hydrating' ? 'is-hydrating' : '',
+        session.loadPhase === 'hydrate-failed' ? 'is-hydrate-failed' : '',
+        isSearchHighlighted ? 'is-search-match' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      onClick={selectionMode ? onToggleSelected : onSelect}
+      disabled={disabled}
+      aria-pressed={selectionMode ? selected : undefined}
+      title={session.title}
+    >
+      <span className="agentic-os-timeline__session-node" aria-hidden>
+        <span className="agentic-os-timeline__session-dot" />
+      </span>
+      <span className="agentic-os-timeline__session-body">
+        <span className="agentic-os-timeline__session-time">{timeLabel}</span>
+        <span className="agentic-os-timeline__session-title">{session.title}</span>
+        <span className="agentic-os-timeline__session-meta">{turnCountLabel}</span>
+      </span>
+    </button>
+  </div>
 );
 
 interface TurnRowProps {
@@ -256,6 +291,7 @@ export const AgenticOsTimelineSidebar = React.forwardRef<HTMLElement, AgenticOsT
       onSelectTurn,
       onSelectSession,
       onCreateSession,
+      onDeleteSessions,
       searchQuery = '',
       onSearchChange,
       searchMatchCount = 0,
@@ -280,6 +316,9 @@ export const AgenticOsTimelineSidebar = React.forwardRef<HTMLElement, AgenticOsT
     const [timePreset, setTimePreset] = useState<TurnListTimePreset>('all');
     const [customTimeRange, setCustomTimeRange] = useState<TurnListCustomTimeRange | null>(null);
     const [customRangeDialogOpen, setCustomRangeDialogOpen] = useState(false);
+    const [selectionMode, setSelectionMode] = useState(false);
+    const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(() => new Set());
+    const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
     const [collapsedBuckets, setCollapsedBuckets] = useState<Set<string>>(() =>
       readJsonStringSet(COLLAPSED_BUCKETS_STORAGE_KEY)
@@ -341,6 +380,37 @@ export const AgenticOsTimelineSidebar = React.forwardRef<HTMLElement, AgenticOsT
         .filter(b => b.sessions.length > 0);
     }, [data.buckets, timePreset, customTimeRange]);
 
+    const selectableSessionIds = useMemo(() => {
+      const ids: string[] = [];
+      for (const bucket of filteredBuckets) {
+        if (collapsedBuckets.has(bucket.id)) {
+          continue;
+        }
+        for (const session of bucket.sessions) {
+          ids.push(session.sessionId);
+        }
+      }
+      return ids;
+    }, [collapsedBuckets, filteredBuckets]);
+
+    const sessionTitleById = useMemo(() => {
+      const titles = new Map<string, string>();
+      for (const bucket of data.buckets) {
+        for (const session of bucket.sessions) {
+          titles.set(session.sessionId, session.title);
+        }
+      }
+      return titles;
+    }, [data.buckets]);
+
+    useEffect(() => {
+      const visible = new Set(selectableSessionIds);
+      setSelectedSessionIds(prev => {
+        const next = new Set(Array.from(prev).filter(sessionId => visible.has(sessionId)));
+        return next.size === prev.size ? prev : next;
+      });
+    }, [selectableSessionIds]);
+
     const handleSearchKeyDown = useCallback(
       (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Escape') {
@@ -355,6 +425,143 @@ export const AgenticOsTimelineSidebar = React.forwardRef<HTMLElement, AgenticOsT
     );
 
     const hasNoResults = searchQuery.trim().length > 0 && searchMatchCount === 0;
+    const selectedSessionCount = selectedSessionIds.size;
+    const allVisibleSessionsSelected =
+      selectableSessionIds.length > 0 && selectedSessionCount === selectableSessionIds.length;
+    const someVisibleSessionsSelected =
+      selectedSessionCount > 0 && selectedSessionCount < selectableSessionIds.length;
+
+    const handleEnterSelectionMode = useCallback(() => {
+      setSelectionMode(true);
+    }, []);
+
+    const handleClearSelection = useCallback(() => {
+      setSelectionMode(false);
+      setSelectedSessionIds(new Set());
+    }, []);
+
+    const handleToggleSessionSelected = useCallback((sessionId: string) => {
+      setSelectionMode(true);
+      setSelectedSessionIds(prev => {
+        const next = new Set(prev);
+        if (next.has(sessionId)) {
+          next.delete(sessionId);
+        } else {
+          next.add(sessionId);
+        }
+        return next;
+      });
+    }, []);
+
+    const handleToggleAllVisibleSessions = useCallback((checked: boolean) => {
+      setSelectionMode(true);
+      setSelectedSessionIds(checked ? new Set(selectableSessionIds) : new Set());
+    }, [selectableSessionIds]);
+
+    const handleDeleteSelectedSessions = useCallback(async () => {
+      if (!onDeleteSessions || selectedSessionCount === 0 || deleteSubmitting) {
+        return;
+      }
+
+      const targetSessionIds = selectableSessionIds.filter(sessionId => selectedSessionIds.has(sessionId));
+      if (targetSessionIds.length === 0) {
+        return;
+      }
+
+      const previewLines = targetSessionIds
+        .slice(0, 8)
+        .map(sessionId => sessionTitleById.get(sessionId) ?? sessionId);
+      const hiddenCount = targetSessionIds.length - previewLines.length;
+      const preview = [
+        ...previewLines,
+        ...(hiddenCount > 0
+          ? [
+              t('agenticOsTimeline.deletePreviewMore', {
+                count: hiddenCount,
+                defaultValue: `...and ${hiddenCount} more`,
+              }),
+            ]
+          : []),
+      ].join('\n');
+
+      const confirmed = await confirmDanger(
+        t('agenticOsTimeline.deleteDialogTitle', {
+          count: targetSessionIds.length,
+          defaultValue: 'Delete selected sessions?',
+        }),
+        t('agenticOsTimeline.deleteDialogMessage', {
+          count: targetSessionIds.length,
+          defaultValue: `This will permanently delete ${targetSessionIds.length} selected session(s). This cannot be undone.`,
+        }),
+        {
+          confirmText: t('agenticOsTimeline.deleteConfirm', {
+            defaultValue: 'Delete sessions',
+          }),
+          preview,
+        }
+      );
+
+      if (!confirmed) {
+        return;
+      }
+
+      setDeleteSubmitting(true);
+      try {
+        const deletedSessionIds = await onDeleteSessions(targetSessionIds);
+        const deletedSessionIdSet = new Set(deletedSessionIds);
+        const failedCount = targetSessionIds.length - deletedSessionIdSet.size;
+
+        setSelectedSessionIds(prev => {
+          const next = new Set(prev);
+          deletedSessionIdSet.forEach(sessionId => next.delete(sessionId));
+          return next;
+        });
+
+        if (deletedSessionIdSet.size > 0) {
+          notificationService.success(
+            t('agenticOsTimeline.deleteSuccess', {
+              count: deletedSessionIdSet.size,
+              defaultValue: `Deleted ${deletedSessionIdSet.size} session(s)`,
+            }),
+            { duration: 2500 }
+          );
+        }
+
+        if (failedCount > 0) {
+          notificationService.error(
+            t('agenticOsTimeline.deleteFailed', {
+              count: failedCount,
+              defaultValue: `Failed to delete ${failedCount} selected session(s)`,
+            }),
+            { duration: 3000 }
+          );
+        } else {
+          setSelectionMode(false);
+        }
+      } catch (error) {
+        log.error('Failed to delete selected Agentic OS sessions', {
+          sessionCount: targetSessionIds.length,
+          error,
+        });
+        notificationService.error(
+          t('agenticOsTimeline.deleteFailed', {
+            count: targetSessionIds.length,
+            defaultValue: `Failed to delete ${targetSessionIds.length} selected session(s)`,
+          }),
+          { duration: 3000 }
+        );
+      } finally {
+        setDeleteSubmitting(false);
+      }
+    }, [
+      deleteSubmitting,
+      onDeleteSessions,
+      selectableSessionIds,
+      selectedSessionCount,
+      selectedSessionIds,
+      sessionTitleById,
+      t,
+    ]);
 
     const bucketLabel = useCallback(
       (bucket: AgenticOsTimelineBucket): string => {
@@ -452,6 +659,13 @@ export const AgenticOsTimelineSidebar = React.forwardRef<HTMLElement, AgenticOsT
     const newSessionTooltip = t('agenticOsTimeline.newSession', {
       defaultValue: 'Start a new chapter',
     });
+    const selectionModeTooltip = selectionMode
+      ? t('agenticOsTimeline.selectionModeActive', {
+          defaultValue: 'Selecting sessions',
+        })
+      : t('agenticOsTimeline.selectSessions', {
+          defaultValue: 'Select sessions',
+        });
 
     const timelineRows = useMemo<AgenticOsTimelineRow[]>(() => {
       const rows: AgenticOsTimelineRow[] = [];
@@ -561,12 +775,27 @@ export const AgenticOsTimelineSidebar = React.forwardRef<HTMLElement, AgenticOsT
                 isSearchHighlighted={row.isSearchHighlighted}
                 timeLabel={row.timeLabel}
                 turnCountLabel={turnCountLabel(row.session.turns.length)}
+                selectionMode={selectionMode}
+                selected={selectedSessionIds.has(row.session.sessionId)}
+                disabled={deleteSubmitting}
+                selectLabel={t(
+                  selectedSessionIds.has(row.session.sessionId)
+                    ? 'agenticOsTimeline.deselectSession'
+                    : 'agenticOsTimeline.selectSession',
+                  {
+                    title: row.session.title,
+                    defaultValue: selectedSessionIds.has(row.session.sessionId)
+                      ? `Deselect ${row.session.title}`
+                      : `Select ${row.session.title}`,
+                  }
+                )}
                 onSelect={() => {
                   log.debug('Select session from timeline', {
                     sessionId: row.session.sessionId,
                   });
                   onSelectSession(row.session.sessionId);
                 }}
+                onToggleSelected={() => handleToggleSessionSelected(row.session.sessionId)}
               />
             </div>
           );
@@ -606,7 +835,18 @@ export const AgenticOsTimelineSidebar = React.forwardRef<HTMLElement, AgenticOsT
           </div>
         );
       },
-      [activeTurnId, onSelectSession, onSelectTurn, t, toggleBucket, turnCountLabel]
+      [
+        activeTurnId,
+        deleteSubmitting,
+        handleToggleSessionSelected,
+        onSelectSession,
+        onSelectTurn,
+        selectionMode,
+        selectedSessionIds,
+        t,
+        toggleBucket,
+        turnCountLabel,
+      ]
     );
 
     const isEmpty = data.buckets.length === 0;
@@ -635,68 +875,68 @@ export const AgenticOsTimelineSidebar = React.forwardRef<HTMLElement, AgenticOsT
         <div className="agentic-os-timeline__inner">
           <div className="agentic-os-timeline__header">
             <div className="agentic-os-timeline__heading">
-                <div className="agentic-os-timeline__search" role="search">
-                  <Input
-                    ref={searchInputRef}
-                    className="agentic-os-timeline__search-field"
-                    variant="filled"
-                    inputSize="small"
-                    prefix={
-                      <Search
-                        size={12}
-                        className="agentic-os-timeline__search-prefix-icon"
-                        aria-hidden="true"
-                      />
-                    }
-                    suffix={
-                      <span className="agentic-os-timeline__search-inline-controls">
-                        <span className="agentic-os-timeline__search-count" aria-live="polite">
-                          {searchQuery.trim()
-                            ? hasNoResults
-                              ? t('flowChatHeader.searchNoResults', { defaultValue: 'No results' })
-                              : t('flowChatHeader.searchResult', {
-                                  current: searchCurrentMatch,
-                                  total: searchMatchCount,
-                                  defaultValue: `${searchCurrentMatch} / ${searchMatchCount}`,
-                                })
-                            : null}
-                        </span>
-                        <span className="agentic-os-timeline__search-nav">
-                          <IconButton
-                            className="agentic-os-timeline__search-nav-control"
-                            onClick={onSearchPrev}
-                            disabled={searchMatchCount === 0}
-                            aria-label={t('flowChatHeader.searchPrevious', { defaultValue: 'Previous match' })}
-                            size="xs"
-                            variant="ghost"
-                          >
-                            <ChevronUp size={10} />
-                          </IconButton>
-                          <IconButton
-                            className="agentic-os-timeline__search-nav-control"
-                            onClick={onSearchNext}
-                            disabled={searchMatchCount === 0}
-                            aria-label={t('flowChatHeader.searchNext', { defaultValue: 'Next match' })}
-                            size="xs"
-                            variant="ghost"
-                          >
-                            <ChevronDown size={10} />
-                          </IconButton>
-                        </span>
+              <div className="agentic-os-timeline__search" role="search">
+                <Input
+                  ref={searchInputRef}
+                  className="agentic-os-timeline__search-field"
+                  variant="filled"
+                  inputSize="small"
+                  prefix={
+                    <Search
+                      size={12}
+                      className="agentic-os-timeline__search-prefix-icon"
+                      aria-hidden="true"
+                    />
+                  }
+                  suffix={
+                    <span className="agentic-os-timeline__search-inline-controls">
+                      <span className="agentic-os-timeline__search-count" aria-live="polite">
+                        {searchQuery.trim()
+                          ? hasNoResults
+                            ? t('flowChatHeader.searchNoResults', { defaultValue: 'No results' })
+                            : t('flowChatHeader.searchResult', {
+                                current: searchCurrentMatch,
+                                total: searchMatchCount,
+                                defaultValue: `${searchCurrentMatch} / ${searchMatchCount}`,
+                              })
+                          : null}
                       </span>
-                    }
-                    type="text"
-                    value={searchQuery}
-                    onChange={e => onSearchChange?.(e.target.value)}
-                    onKeyDown={handleSearchKeyDown}
-                    placeholder={t('agenticOsTimeline.searchPlaceholder', {
-                      defaultValue: 'Search across sessions',
-                    })}
-                    aria-label={t('agenticOsTimeline.searchPlaceholder', {
-                      defaultValue: 'Search across sessions',
-                    })}
-                    error={hasNoResults}
-                  />
+                      <span className="agentic-os-timeline__search-nav">
+                        <IconButton
+                          className="agentic-os-timeline__search-nav-control"
+                          onClick={onSearchPrev}
+                          disabled={searchMatchCount === 0}
+                          aria-label={t('flowChatHeader.searchPrevious', { defaultValue: 'Previous match' })}
+                          size="xs"
+                          variant="ghost"
+                        >
+                          <ChevronUp size={10} />
+                        </IconButton>
+                        <IconButton
+                          className="agentic-os-timeline__search-nav-control"
+                          onClick={onSearchNext}
+                          disabled={searchMatchCount === 0}
+                          aria-label={t('flowChatHeader.searchNext', { defaultValue: 'Next match' })}
+                          size="xs"
+                          variant="ghost"
+                        >
+                          <ChevronDown size={10} />
+                        </IconButton>
+                      </span>
+                    </span>
+                  }
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => onSearchChange?.(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
+                  placeholder={t('agenticOsTimeline.searchPlaceholder', {
+                    defaultValue: 'Search across sessions',
+                  })}
+                  aria-label={t('agenticOsTimeline.searchPlaceholder', {
+                    defaultValue: 'Search across sessions',
+                  })}
+                  error={hasNoResults}
+                />
                 <IconButton
                   ref={timeFilterAnchorRef}
                   variant="ghost"
@@ -718,8 +958,82 @@ export const AgenticOsTimelineSidebar = React.forwardRef<HTMLElement, AgenticOsT
                   align="right"
                   minWidth={200}
                 />
+                {onDeleteSessions ? (
+                  <IconButton
+                    variant={selectionMode ? 'accent' : 'ghost'}
+                    size="xs"
+                    onClick={selectionMode ? handleClearSelection : handleEnterSelectionMode}
+                    tooltip={selectionModeTooltip}
+                    aria-label={selectionModeTooltip}
+                    aria-pressed={selectionMode}
+                    disabled={deleteSubmitting || selectableSessionIds.length === 0}
+                  >
+                    <ListChecks size={14} />
+                  </IconButton>
+                ) : null}
               </div>
             </div>
+            {selectionMode ? (
+              <div
+                className={`agentic-os-timeline__bulk${selectedSessionCount > 0 ? ' has-selection' : ''}`}
+                role="toolbar"
+                aria-label={t('agenticOsTimeline.bulkLabel', {
+                  defaultValue: 'Session selection actions',
+                })}
+              >
+                <Checkbox
+                  className="agentic-os-timeline__bulk-check"
+                  size="small"
+                  checked={allVisibleSessionsSelected}
+                  indeterminate={someVisibleSessionsSelected}
+                  disabled={deleteSubmitting || selectableSessionIds.length === 0}
+                  onChange={event => handleToggleAllVisibleSessions(event.currentTarget.checked)}
+                  aria-label={t('agenticOsTimeline.selectAllVisible', {
+                    defaultValue: 'Select all visible sessions',
+                  })}
+                />
+                <span className="agentic-os-timeline__bulk-count">
+                  {t('agenticOsTimeline.selectedCount', {
+                    count: selectedSessionCount,
+                    total: selectableSessionIds.length,
+                    defaultValue: `${selectedSessionCount} / ${selectableSessionIds.length} selected`,
+                  })}
+                </span>
+                <span className="agentic-os-timeline__bulk-divider" aria-hidden />
+                <IconButton
+                  className="agentic-os-timeline__bulk-action"
+                  size="xs"
+                  variant="danger"
+                  aria-label={t('agenticOsTimeline.deleteSelected', {
+                    count: selectedSessionCount,
+                    defaultValue: 'Delete selected sessions',
+                  })}
+                  tooltip={t('agenticOsTimeline.deleteSelected', {
+                    count: selectedSessionCount,
+                    defaultValue: 'Delete selected sessions',
+                  })}
+                  disabled={deleteSubmitting || selectedSessionCount === 0}
+                  onClick={() => void handleDeleteSelectedSessions()}
+                >
+                  <Trash2 size={13} />
+                </IconButton>
+                <IconButton
+                  className="agentic-os-timeline__bulk-action"
+                  size="xs"
+                  variant="ghost"
+                  aria-label={t('agenticOsTimeline.clearSelection', {
+                    defaultValue: 'Clear selection',
+                  })}
+                  tooltip={t('agenticOsTimeline.clearSelection', {
+                    defaultValue: 'Clear selection',
+                  })}
+                  disabled={deleteSubmitting}
+                  onClick={handleClearSelection}
+                >
+                  <X size={13} />
+                </IconButton>
+              </div>
+            ) : null}
           </div>
 
           <div

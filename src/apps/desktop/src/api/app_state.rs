@@ -9,7 +9,7 @@ use sparo_core::product_app_runtime_host::{
     initialize_global_product_app_runtime_host_manager, ProductAppRuntimeHostManager,
     ProductAppRuntimeHostWorkerPool,
 };
-use sparo_core::service::{announcement, config, filesystem, mcp, token_usage, workspace};
+use sparo_core::service::{announcement, config, filesystem, mcp, speech, token_usage, workspace};
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -45,6 +45,7 @@ pub struct AppState {
     pub filesystem_service: Arc<filesystem::FileSystemService>,
     pub agent_registry: Arc<agents::AgentRegistry>,
     pub mcp_service: Option<Arc<mcp::MCPService>>,
+    pub speech_service: Arc<speech::SpeechService>,
     pub token_usage_service: Arc<token_usage::TokenUsageService>,
     pub product_app_runtime_host_manager: Arc<ProductAppRuntimeHostManager>,
     pub js_worker_pool: Option<Arc<ProductAppRuntimeHostWorkerPool>>,
@@ -96,6 +97,7 @@ impl AppState {
             }
         };
         let path_manager = workspace_service.path_manager().clone();
+        let speech_service = Arc::new(speech::SpeechService::new(path_manager.as_ref().clone()));
 
         let announcement_scheduler = Arc::new(
             announcement::AnnouncementScheduler::new(&path_manager)
@@ -178,6 +180,7 @@ impl AppState {
             filesystem_service,
             agent_registry,
             mcp_service,
+            speech_service,
             token_usage_service,
             product_app_runtime_host_manager,
             js_worker_pool,

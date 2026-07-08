@@ -53,6 +53,7 @@ import {
 } from '../domain/sessionDescriptor';
 
 const log = createLogger('FlowChatStore');
+const DEFAULT_CONTEXT_WINDOW = 128128;
 
 type ToolItemLocation = {
   sessionId: string;
@@ -88,6 +89,68 @@ function sameSessionDescriptor(left: SessionDescriptor, right: SessionDescriptor
       agentId === right.agentPolicy.switchableAgentIds[index]
     ))
   );
+}
+
+type ModelContextWindowConfig = {
+  id?: string;
+  name?: string;
+  context_window?: number;
+  contextWindow?: number;
+};
+
+function readModelContextWindow(model: ModelContextWindowConfig | undefined): number | undefined {
+  const value = model?.context_window ?? model?.contextWindow;
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? value
+    : undefined;
+}
+
+async function createMetadataContextWindowResolver(
+  metadataList: SessionMetadata[],
+  existingSessions: Map<string, Session>,
+): Promise<(metadata: SessionMetadata) => number> {
+  const hasNewPersistedSession = metadataList.some(metadata => (
+    !existingSessions.has(metadata.sessionId) && !isLegacyPersistedBtwSession(metadata)
+  ));
+
+  if (!hasNewPersistedSession) {
+    return () => DEFAULT_CONTEXT_WINDOW;
+  }
+
+  try {
+    const { configManager } = await import('@/infrastructure/config/services/ConfigManager');
+    const models = await configManager.getConfig<ModelContextWindowConfig[]>('ai.models') || [];
+    const defaultModels = await configManager.getConfig<Record<string, string>>('ai.default_models') || {};
+    const contextWindowsByModel = new Map<string, number>();
+
+    for (const model of models) {
+      const contextWindow = readModelContextWindow(model);
+      if (!contextWindow) {
+        continue;
+      }
+      if (model.id) {
+        contextWindowsByModel.set(model.id, contextWindow);
+      }
+      if (model.name) {
+        contextWindowsByModel.set(model.name, contextWindow);
+      }
+    }
+
+    const defaultContextWindow = defaultModels.primary
+      ? contextWindowsByModel.get(defaultModels.primary) ?? DEFAULT_CONTEXT_WINDOW
+      : DEFAULT_CONTEXT_WINDOW;
+
+    return (metadata: SessionMetadata) => (
+      (metadata.modelName ? contextWindowsByModel.get(metadata.modelName) : undefined)
+      ?? defaultContextWindow
+    );
+  } catch (error) {
+    log.warn('Failed to get model context window sizes, using default', {
+      metadataCount: metadataList.length,
+      error,
+    });
+    return () => DEFAULT_CONTEXT_WINDOW;
+  }
 }
 
 export interface FlowChatSessionHeader {
@@ -2072,14 +2135,23 @@ export class FlowChatStore {
     workspacePath: string,
     storageScope?: import('@/shared/types/session-history').SessionStorageScope
   ): Promise<number> {
-    const { stateMachineManager } = await import('../state-machine');
-    metadataList.forEach(metadata => {
-      stateMachineManager.getOrCreate(metadata.sessionId);
-    });
+    if (metadataList.length === 0) {
+      this.markWorkspaceMetadataPreloaded(workspacePath);
+      return 0;
+    }
 
+    const initialSessions = this.state.sessions;
+    const resolveMaxContextTokens = await createMetadataContextWindowResolver(
+      metadataList,
+      initialSessions
+    );
+    const baseState = this.state;
+    const nextSessions = new Map(baseState.sessions);
     let insertedCount = 0;
-    const processSession = async (metadata: SessionMetadata) => {
-      const existingSession = this.state.sessions.get(metadata.sessionId);
+    let changed = false;
+
+    for (const metadata of metadataList) {
+      const existingSession = nextSessions.get(metadata.sessionId);
       const relationship = deriveSessionRelationshipFromMetadata(metadata);
       const lastFinishedAt = deriveLastFinishedAtFromMetadata(metadata);
 
@@ -2087,136 +2159,93 @@ export class FlowChatStore {
         const incomingUpdatedAt = metadata.lastActiveAt ?? metadata.createdAt ?? 0;
         const existingUpdatedAt =
           existingSession.updatedAt ??
-          existingSession.lastActiveAt ??
-          existingSession.lastFinishedAt ??
-          existingSession.createdAt;
+            existingSession.lastActiveAt ??
+            existingSession.lastFinishedAt ??
+            existingSession.createdAt;
         if (incomingUpdatedAt <= existingUpdatedAt) {
-          return;
+          continue;
         }
 
-        this.setState(prev => {
-          const currentSession = prev.sessions.get(metadata.sessionId);
-          if (!currentSession) return prev;
-          const descriptor = descriptorFromSessionMetadata(
-            metadata,
-            getBackendAgentType(currentSession.descriptor),
-          );
+        const descriptor = descriptorFromSessionMetadata(
+          metadata,
+          getBackendAgentType(existingSession.descriptor),
+        );
 
-          const nextSessions = new Map(prev.sessions);
-          nextSessions.set(metadata.sessionId, {
-            ...currentSession,
-            descriptor,
-            config: {
-              ...currentSession.config,
-              agentType: getBackendAgentType(descriptor),
-            },
-            title: metadata.sessionName,
-            lastActiveAt: metadata.lastActiveAt,
-            lastFinishedAt,
-            updatedAt: incomingUpdatedAt,
-            todos: metadata.todos || currentSession.todos || [],
-            workspacePath: metadata.workspacePath || currentSession.workspacePath || workspacePath,
-            storageScope: metadata.storageScope || currentSession.storageScope || storageScope || descriptor.storageScope,
-            customMetadata: metadata.customMetadata || currentSession.customMetadata,
-            parentSessionId: relationship.parentSessionId,
-            sessionKind: relationship.sessionKind,
-            btwOrigin: relationship.btwOrigin,
-            hasUnreadCompletion: metadata.unreadCompletion,
-            needsUserAttention: metadata.needsUserAttention,
-            isTransient: false,
-            loadPhase: currentSession.loadPhase,
-          });
-          return {
-            ...prev,
-            sessions: nextSessions,
-          };
-        });
-        return;
-      }
-      if (isLegacyPersistedBtwSession(metadata)) {
-        return;
-      }
-
-      let maxContextTokens = 128128;
-      try {
-        const { configManager } = await import('@/infrastructure/config/services/ConfigManager');
-        const models = await configManager.getConfig<any[]>('ai.models') || [];
-
-        if (metadata.modelName) {
-          const model = models.find((m: any) => m.name === metadata.modelName || m.id === metadata.modelName);
-          if (model?.context_window) {
-            maxContextTokens = model.context_window;
-          }
-        }
-
-        if (maxContextTokens === 128128) {
-          const defaultModels = await configManager.getConfig<Record<string, string>>('ai.default_models');
-          const primaryModelId = defaultModels?.primary;
-
-          if (primaryModelId) {
-            const primaryModel = models.find((m: any) => m.id === primaryModelId);
-            if (primaryModel?.context_window) {
-              maxContextTokens = primaryModel.context_window;
-            }
-          }
-        }
-      } catch (error) {
-        log.warn('Failed to get model context window size, using default', { sessionId: metadata.sessionId, error });
-      }
-
-      this.setState(prev => {
-        if (prev.sessions.has(metadata.sessionId)) {
-          return prev;
-        }
-
-        const rawAgentType = metadata.agentType || 'Runno';
-        const descriptor = descriptorFromSessionMetadata(metadata, rawAgentType);
-        const backendAgentType = getBackendAgentType(descriptor);
-
-        const session: Session = {
-          sessionId: metadata.sessionId,
-          title: metadata.sessionName,
-          titleStatus: 'generated',
-          dialogTurns: [],
-          status: 'idle',
+        nextSessions.set(metadata.sessionId, {
+          ...existingSession,
+          descriptor,
           config: {
-            agentType: backendAgentType,
-            modelName: metadata.modelName,
+            ...existingSession.config,
+            agentType: getBackendAgentType(descriptor),
           },
-          createdAt: metadata.createdAt,
+          title: metadata.sessionName,
           lastActiveAt: metadata.lastActiveAt,
           lastFinishedAt,
-          updatedAt: metadata.lastActiveAt ?? metadata.createdAt,
-          error: null,
-          loadPhase: 'metadata-only',
-          todos: metadata.todos || [],
-          maxContextTokens,
-          descriptor,
-          workspacePath: metadata.workspacePath || workspacePath,
-          storageScope: metadata.storageScope || storageScope || descriptor.storageScope,
-          customMetadata: metadata.customMetadata,
+          updatedAt: incomingUpdatedAt,
+          todos: metadata.todos || existingSession.todos || [],
+          workspacePath: metadata.workspacePath || existingSession.workspacePath || workspacePath,
+          storageScope: metadata.storageScope || existingSession.storageScope || storageScope || descriptor.storageScope,
+          customMetadata: metadata.customMetadata || existingSession.customMetadata,
           parentSessionId: relationship.parentSessionId,
           sessionKind: relationship.sessionKind,
-          btwThreads: [],
           btwOrigin: relationship.btwOrigin,
           hasUnreadCompletion: metadata.unreadCompletion,
           needsUserAttention: metadata.needsUserAttention,
           isTransient: false,
-        };
+          loadPhase: existingSession.loadPhase,
+        });
+        changed = true;
+        continue;
+      }
 
-        const newSessions = new Map(prev.sessions);
-        newSessions.set(metadata.sessionId, session);
+      if (isLegacyPersistedBtwSession(metadata)) {
+        continue;
+      }
 
-        insertedCount += 1;
+      const rawAgentType = metadata.agentType || 'Runno';
+      const descriptor = descriptorFromSessionMetadata(metadata, rawAgentType);
+      const backendAgentType = getBackendAgentType(descriptor);
 
-        return {
-          ...prev,
-          sessions: newSessions,
-        };
-      });
-    };
+      const session: Session = {
+        sessionId: metadata.sessionId,
+        title: metadata.sessionName,
+        titleStatus: 'generated',
+        dialogTurns: [],
+        status: 'idle',
+        config: {
+          agentType: backendAgentType,
+          modelName: metadata.modelName,
+        },
+        createdAt: metadata.createdAt,
+        lastActiveAt: metadata.lastActiveAt,
+        lastFinishedAt,
+        updatedAt: metadata.lastActiveAt ?? metadata.createdAt,
+        error: null,
+        loadPhase: 'metadata-only',
+        todos: metadata.todos || [],
+        maxContextTokens: resolveMaxContextTokens(metadata),
+        descriptor,
+        workspacePath: metadata.workspacePath || workspacePath,
+        storageScope: metadata.storageScope || storageScope || descriptor.storageScope,
+        customMetadata: metadata.customMetadata,
+        parentSessionId: relationship.parentSessionId,
+        sessionKind: relationship.sessionKind,
+        btwThreads: [],
+        btwOrigin: relationship.btwOrigin,
+        hasUnreadCompletion: metadata.unreadCompletion,
+        needsUserAttention: metadata.needsUserAttention,
+        isTransient: false,
+      };
 
-    await Promise.all(metadataList.map(processSession));
+      nextSessions.set(metadata.sessionId, session);
+      insertedCount += 1;
+      changed = true;
+    }
+
+    if (changed) {
+      this.setState(prev => ({ ...prev, sessions: nextSessions }));
+    }
+
     this.markWorkspaceMetadataPreloaded(workspacePath);
     return insertedCount;
   }

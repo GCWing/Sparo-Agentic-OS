@@ -86,6 +86,15 @@ export interface AIExperienceConfig {
 
   /** Whether completed thinking blocks remain as expandable collapsed items. */
   show_completed_thinking_item: boolean;
+
+  /** Local voice input settings for the composer. */
+  voice_input?: VoiceInputSettings;
+}
+
+export interface VoiceInputSettings {
+  enabled: boolean;
+  default_language: string;
+  max_recording_seconds: number;
 }
 
 export interface AgentCompanionPetSelection {
@@ -100,11 +109,22 @@ export interface AgentCompanionPetSelection {
 
 export type ModelCapability =
   | 'text_chat'
-  | 'function_calling';
+  | 'function_calling'
+  | 'image_understanding'
+  | 'image_generation'
+  | 'embedding'
+  | 'search'
+  | 'code_specialized'
+  | 'speech_recognition';
 
 export type ModelCategory =
   | 'general_chat'
-  | 'multimodal';
+  | 'multimodal'
+  | 'image_generation'
+  | 'embedding'
+  | 'search_enhanced'
+  | 'code_specialized'
+  | 'speech_recognition';
 
 export type ReasoningMode =
   | 'default'
@@ -121,12 +141,22 @@ export interface ModelMetadata {
 
 export const CATEGORY_LABELS: Record<ModelCategory, string> = {
   general_chat: t('settings/ai-model:category.general_chat'),
-  multimodal: t('settings/ai-model:category.multimodal')
+  multimodal: t('settings/ai-model:category.multimodal'),
+  image_generation: t('settings/ai-model:category.image_generation'),
+  embedding: t('settings/ai-model:category.embedding'),
+  search_enhanced: t('settings/ai-model:category.search_enhanced'),
+  code_specialized: t('settings/ai-model:category.code_specialized'),
+  speech_recognition: t('settings/ai-model:category.speech_recognition')
 };
 
 export const CATEGORY_ICONS: Record<ModelCategory, string> = {
   general_chat: t('settings/ai-model:categoryIcons.general_chat'),
-  multimodal: t('settings/ai-model:categoryIcons.multimodal')
+  multimodal: t('settings/ai-model:categoryIcons.multimodal'),
+  image_generation: t('settings/ai-model:categoryIcons.image_generation'),
+  embedding: t('settings/ai-model:categoryIcons.embedding'),
+  search_enhanced: t('settings/ai-model:categoryIcons.search_enhanced'),
+  code_specialized: t('settings/ai-model:categoryIcons.code_specialized'),
+  speech_recognition: t('settings/ai-model:categoryIcons.speech_recognition')
 };
 
 export type CustomHeadersMode = 'replace' | 'merge';
@@ -184,6 +214,10 @@ export interface ProxyConfig {
 export interface DefaultModelsConfig {
   primary?: string | null;
   fast?: string | null;
+  search?: string | null;
+  image_understanding?: string | null;
+  image_generation?: string | null;
+  speech_recognition?: string | null;
 }
 
 export interface AIConfig {
@@ -668,6 +702,10 @@ export interface RuntimeLoggingInfo {
 export interface DefaultModels {
   primary: string | null;
   fast: string | null;
+  search?: string | null;
+  image_understanding?: string | null;
+  image_generation?: string | null;
+  speech_recognition?: string | null;
 }
 
 export type OptionalCapabilityModels = Record<string, never>;

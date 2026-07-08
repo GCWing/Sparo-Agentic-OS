@@ -54,20 +54,23 @@ pnpm run cli:check         # Rust check for the CLI crate
 pnpm run e2e:test          # WebDriverIO E2E suite in debug app mode
 ```
 
-For Rust-only changes, run the narrowest useful `cargo check` or `cargo test` command for the crate touched.
+Use the verification strategy below to choose checks for Rust, Web UI, design-system, locale, and E2E work.
 
-## Fast Verification Loop
+## Verification Strategy
 
-Use E2E as a focused end-to-end feedback loop for large or complex work: new product flows, multi-surface UI features, desktop/Web UI integration, or bugs that have already resisted one or two simpler fixes. In those cases, write or update one small spec that exercises the exact workflow being implemented or repaired, then iterate against that spec until the behavior is correct:
+Verification is risk-based. Prefer the cheapest check that gives real confidence for the changed boundary; do not run heavy checks by default.
 
-```bash
-pnpm run e2e:test:spec -- tests/e2e/specs/<feature>.spec.ts
-pnpm run e2e:test:spec:dev -- tests/e2e/specs/<feature>.spec.ts # when Tauri dev/watch should rebuild Rust
-```
-
-Keep the E2E proportional: small copy/style/type-only edits usually need only the cheapest relevant check, such as `pnpm run check:web:fast`, `pnpm run type-check:web`, or the narrowest `cargo check`/`cargo test`. For E2E-critical UI controls, add stable `data-testid` hooks. If the focused spec exposes stale helper infrastructure, repair the helper/spec so the e2e validation remains trustworthy.
-
-Use broader suites such as `pnpm run e2e:test:l0`, `pnpm run e2e:test:l0:all`, `pnpm run e2e:test:l1`, or `pnpm run e2e:test` when the change spans their surface area or before a release-style handoff.
+- Skip automated checks for low-risk docs, comments, prompts, copy, logs, and obvious mechanical edits. Briefly explain when checks are skipped.
+- Run formatting only when formatting may be affected, and only after edits have settled.
+- Run narrow static checks only when compiler/type feedback materially reduces risk:
+  - Rust: use the narrowest useful `cargo check` for the affected crate or product surface.
+  - Web UI: use `pnpm run type-check:web` for meaningful TS/React logic changes.
+  - Locales: use `pnpm run check:i18n` when locale files or keys change.
+  - Design system: use `pnpm run check:design-system` when reusable design-system contracts change.
+- If a higher-level check already compiles the touched lower-level crate, do not also run the lower-level check.
+- Run tests only for changed behavior, using exact test names or the narrowest useful filter.
+- Use focused E2E only for high-risk product flows, cross-surface integration, repeated regressions, or when requested.
+- Avoid full builds, broad test suites, desktop builds, web builds, and full E2E unless requested, release-critical, or cheaper checks are insufficient.
 
 ## Critical Rules
 
@@ -166,11 +169,11 @@ When adding or changing reusable UI:
 - Follow `src/web-ui/src/design-system/AGENTS.md`.
 - Start from the closest recipe in `src/web-ui/src/design-system/recipes/`.
 - Register deterministic preview coverage in `src/web-ui/src/design-system/preview/registries`.
-- Run `pnpm run check:design-system`; use `pnpm run preview:design-system` or `pnpm run build:design-system` when visual coverage changes.
+- Use `pnpm run check:design-system` when reusable design-system contracts change; use `pnpm run preview:design-system` or `pnpm run build:design-system` only when visual coverage changes and cheaper checks are insufficient.
 
 Keep UI text translated when the surrounding feature is localized. Add or update both `en-US` and `zh-CN` locale entries when introducing user-visible strings.
 For locale file organization and maintenance rules, follow `src/web-ui/src/locales/AGENTS.md`.
-Run `pnpm run check:i18n` after locale changes. `pnpm run type-check:web` and `pnpm run build:web` now include this check through the root script chain.
+Use `pnpm run check:i18n` when locale files or keys change. `pnpm run type-check:web` and `pnpm run build:web` also include this check through the root script chain.
 
 Locale files are organized by product surface. Use `scenes/*` for scene-level UI, `panels/*` for docked or embedded panels, `settings/*` for durable settings subpages, `shell/*` for global chrome and navigation, and `flow-chat/*` for larger chat subdomains. Keep `common.json` for text reused across multiple product areas.
 
@@ -197,8 +200,7 @@ Agents:
 - Keep edits scoped to the requested task.
 - Prefer existing project patterns over new abstractions.
 - Avoid generated files unless the task requires regeneration.
-- For frontend or UI work, run at least `pnpm run type-check:web` or explain why it was not run.
-- For backend work, run the narrowest useful Rust check/test or explain why it was not run.
+- Choose verification using the risk-based strategy above, and briefly explain skipped checks when relevant.
 
 ## Quick Debugging Reference
 

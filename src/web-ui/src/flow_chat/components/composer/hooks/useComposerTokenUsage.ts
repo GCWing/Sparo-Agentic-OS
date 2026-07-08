@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { createLogger } from '@/shared/utils/logger';
-import { api } from '@/infrastructure/api/service-api/ApiClient';
 import { FlowChatStore } from '../../../store/FlowChatStore';
 import type { ContextBudgetSnapshot, Session } from '../../../types/flow-chat';
 import { useFlowChatStoreSelector } from '../../../hooks/useFlowChatStoreSelector';
 import { getBackendAgentType } from '../../../domain/sessionDescriptor';
+import { contextBudgetService } from '../../../services/ContextBudgetService';
 
 const log = createLogger('useComposerTokenUsage');
+const STATIC_BUDGET_REQUEST_DELAY_MS = 300;
 
 function resolveBudgetAgentType(session: Session): string {
   const configuredAgent = session.config.agentType?.trim();
@@ -15,7 +16,7 @@ function resolveBudgetAgentType(session: Session): string {
 }
 
 export function useComposerTokenUsage(effectiveTargetSessionId?: string | null) {
-  const requestedStaticBudgets = useRef(new Set<string>());
+  const requestTimerRef = useRef<number | null>(null);
   const [tokenUsage, setTokenUsage] = useState({
     current: 0,
     max: 128128,
@@ -52,24 +53,26 @@ export function useComposerTokenUsage(effectiveTargetSessionId?: string | null) 
       const modelName = session.config.modelName || 'primary';
       const workspacePath = session.workspacePath || session.config.workspacePath;
       const storageScope = session.storageScope || session.config.storageScope;
-      const requestKey = [
-        session.sessionId,
-        agentType,
-        modelName,
-        workspacePath || '',
-        storageScope || '',
-      ].join(':');
-      if (!requestedStaticBudgets.current.has(requestKey)) {
-        requestedStaticBudgets.current.add(requestKey);
-        api.invoke<ContextBudgetSnapshot>('get_context_budget', {
-          request: {
-            session_id: session.sessionId,
-            agent_type: agentType,
-            workspace_path: workspacePath,
-            model_id: modelName,
-            storage_scope: storageScope,
-          },
-        })
+
+      if (storageScope !== 'agentic_os' && !workspacePath?.trim()) {
+        return () => {
+          cancelled = true;
+        };
+      }
+
+      if (requestTimerRef.current !== null) {
+        window.clearTimeout(requestTimerRef.current);
+      }
+
+      requestTimerRef.current = window.setTimeout(() => {
+        contextBudgetService
+          .loadStaticBudget({
+            sessionId: session.sessionId,
+            agentType,
+            workspacePath,
+            modelId: modelName,
+            storageScope,
+          })
           .then(snapshot => {
             log.debug('Loaded static context budget', {
               sessionId: session.sessionId,
@@ -81,7 +84,6 @@ export function useComposerTokenUsage(effectiveTargetSessionId?: string | null) 
             if (!cancelled) {
               store.updateContextBudget(session.sessionId, snapshot);
             }
-            requestedStaticBudgets.current.delete(requestKey);
           })
           .catch(error => {
             log.warn('Failed to load static context budget', {
@@ -92,13 +94,16 @@ export function useComposerTokenUsage(effectiveTargetSessionId?: string | null) 
               storageScope,
               error,
             });
-            requestedStaticBudgets.current.delete(requestKey);
           });
-      }
+      }, STATIC_BUDGET_REQUEST_DELAY_MS);
     }
 
     return () => {
       cancelled = true;
+      if (requestTimerRef.current !== null) {
+        window.clearTimeout(requestTimerRef.current);
+        requestTimerRef.current = null;
+      }
     };
   }, [targetSession]);
 

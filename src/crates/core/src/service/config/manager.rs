@@ -679,9 +679,24 @@ pub(crate) fn migrate_0_0_0_to_1_0_0(mut config: Value) -> CoreResult<Value> {
                         "spritesheetMimeType": "image/webp"
                     },
                     "show_thinking_process": true,
-                    "show_completed_thinking_item": true
+                    "show_completed_thinking_item": true,
+                    "voice_input": {
+                        "enabled": true,
+                        "default_language": "auto",
+                        "max_recording_seconds": 60
+                    }
                 }),
             );
+        } else if let Some(ai_experience) =
+            app.get_mut("ai_experience").and_then(|v| v.as_object_mut())
+        {
+            ai_experience.entry("voice_input").or_insert_with(|| {
+                serde_json::json!({
+                    "enabled": true,
+                    "default_language": "auto",
+                    "max_recording_seconds": 60
+                })
+            });
         }
     }
 

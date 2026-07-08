@@ -6,7 +6,7 @@ import { configManager } from '../services/ConfigManager';
 import { getCompactModelDisplayName } from '../services/modelConfigs';
 import { systemAPI } from '@/infrastructure/api/service-api/SystemAPI';
 import { notificationService } from '@/shared/notification-system';
-import type { AIModelConfig, DebugModeConfig, LanguageDebugTemplate } from '../types';
+import type { AIModelConfig, DebugModeConfig, DefaultModels, LanguageDebugTemplate } from '../types';
 import {
   DEFAULT_DEBUG_MODE_CONFIG,
   ALL_LANGUAGES,
@@ -59,6 +59,7 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
   const [isLoading, setIsLoading] = useState(true);
   const [settings, setSettings] = useState<AIExperienceSettings | null>(null);
   const [models, setModels] = useState<AIModelConfig[]>([]);
+  const [defaultModels, setDefaultModels] = useState<DefaultModels>({ primary: null, fast: null });
   const [agentModels, setAgentModels] = useState<Record<string, string>>({});
   const [funcAgentModels, setFuncAgentModels] = useState<Record<string, string>>({});
   const [skipToolConfirmation, setSkipToolConfirmation] = useState(false);
@@ -136,6 +137,7 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
       const [
         loadedSettings,
         allModels,
+        defaultModelsData,
         agentModelsData,
         funcAgentModelsData,
         skipConfirm,
@@ -147,6 +149,7 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
       ] = await Promise.all([
         aiExperienceConfigService.getSettingsAsync(),
         configManager.getConfig<AIModelConfig[]>('ai.models') || [],
+        configManager.getConfig<Partial<DefaultModels>>('ai.default_models') || {},
         configManager.getConfig<Record<string, string>>('ai.agent_models') || {},
         configManager.getConfig<Record<string, string>>('ai.func_agent_models') || {},
         configManager.getConfig<boolean>('ai.skip_tool_confirmation'),
@@ -160,6 +163,10 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
       if (!isMountedRef.current) return;
       setSettings(loadedSettings);
       setModels(allModels as AIModelConfig[]);
+      setDefaultModels({
+        primary: defaultModelsData?.primary || null,
+        fast: defaultModelsData?.fast || null,
+      });
       setAgentModels(agentModelsData as Record<string, string>);
       setFuncAgentModels(funcAgentModelsData as Record<string, string>);
       setSkipToolConfirmation(skipConfirm || false);
@@ -553,6 +560,8 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
     isLoading,
     settings,
     enabledModels: models.filter((m: AIModelConfig) => m.enabled),
+    primaryModelName: getModelName(defaultModels.primary) || t('model.notConfigured'),
+    fastModelName: getModelName(defaultModels.fast) || t('model.fastUsesPrimary'),
     sessionTitleModelId: funcAgentModels[AGENT_SESSION_TITLE] || 'fast',
     dailyLetterModelId: agentModels[AGENT_DAILY_LETTER] || 'primary',
     skipToolConfirmation,

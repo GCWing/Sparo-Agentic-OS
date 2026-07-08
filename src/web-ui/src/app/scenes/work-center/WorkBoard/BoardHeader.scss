@@ -115,6 +115,23 @@ $wc-ease: cubic-bezier(0.22, 1, 0.36, 1);
   min-width: 0;
 }
 
+.bh-header__right-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: $size-gap-3;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.bh-header__right-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
 // ── The instrument: search ⋮ workspace fused into one capsule ─────────────
 
 .bh-instrument {

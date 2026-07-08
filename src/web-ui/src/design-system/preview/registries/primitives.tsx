@@ -5,6 +5,7 @@ import {
   Badge,
   Button,
   Checkbox,
+  DateRangeDialog,
   Dialog,
   DialogBody,
   DialogFooter,
@@ -17,6 +18,7 @@ import {
   SegmentedControl,
   Select,
   Skeleton,
+  SqueezeSegmentedControl,
   Switch,
   TabPane,
   Tabs,
@@ -27,8 +29,9 @@ import {
   ModeSwitch,
   StatusDot,
   StatusPill,
+  type DateRangeValue,
 } from '@/design-system';
-import { Copy, Grid3X3, List, Plus, RefreshCw, Search, Settings2, Sparkles, Trash2 } from 'lucide-react';
+import { ChevronDown, Copy, Grid3X3, List, Plus, RefreshCw, Search, Settings2, Sparkles, Trash2 } from 'lucide-react';
 
 const agentOptions = [
   { label: 'Codex', value: 'codex', description: 'Default coding agent' },
@@ -54,6 +57,42 @@ function DialogPreview() {
   );
 }
 
+function DateRangeDialogPreview() {
+  const [open, setOpen] = useState(false);
+  const [range, setRange] = useState<DateRangeValue>({
+    startDate: new Date(2026, 6, 1),
+    endDate: new Date(2026, 6, 8),
+  });
+
+  const rangeLabel = `${range.startDate.toLocaleDateString('en-US')} - ${range.endDate.toLocaleDateString('en-US')}`;
+
+  return (
+    <div className="recipe-preview-stack">
+      <Button size="small" variant="secondary" onClick={() => setOpen(true)}>Open date range</Button>
+      <small>{rangeLabel}</small>
+      <DateRangeDialog
+        open={open}
+        onOpenChange={setOpen}
+        onApply={setRange}
+        title="Review date range"
+        initialRange={range}
+        maxDate={new Date(2026, 6, 8)}
+        locale="en-US"
+        labels={{
+          hint: 'Click a start date, then an end date.',
+          summary: (start, end) => `${start} - ${end}`,
+          pickEndHint: (start) => `Now choose an end date (start: ${start}).`,
+          pickEndError: 'Select an end date to complete the range.',
+          previousMonth: 'Previous month',
+          nextMonth: 'Next month',
+          cancel: 'Cancel',
+          apply: 'Apply',
+        }}
+      />
+    </div>
+  );
+}
+
 function StatefulNumberField() {
   const [value, setValue] = useState(42);
   return (
@@ -66,6 +105,22 @@ function StatefulNumberField() {
       unit="%"
       hint="Arrow keys adjust the value."
       onChange={setValue}
+    />
+  );
+}
+
+function StatefulSqueezeSegmentedControl() {
+  const [value, setValue] = useState('custom');
+  return (
+    <SqueezeSegmentedControl
+      ariaLabel="Model assignment"
+      value={value}
+      onChange={setValue}
+      options={[
+        { value: 'flagship', label: '旗舰', detail: 'gpt-5-codex' },
+        { value: 'fast', label: '快速', detail: 'gpt-5-mini' },
+        { value: 'custom', label: '其他', detail: 'deepseek-v4-flash', trailing: <ChevronDown size={12} /> },
+      ]}
     />
   );
 }
@@ -212,6 +267,7 @@ export const primitivePreviewCategories: PreviewCategory[] = [
               <TabPane tabKey="details" label="Details">Arrow keys move between tabs.</TabPane>
             </Tabs>
             <DialogPreview />
+            <DateRangeDialogPreview />
           </div>
         ),
         ai: {
@@ -295,6 +351,7 @@ export const primitivePreviewCategories: PreviewCategory[] = [
                 { value: 'manage', label: 'Manage' },
               ]}
             />
+            <StatefulSqueezeSegmentedControl />
             <Pagination page={4} pageCount={12} />
             <div style={{ maxWidth: 190 }}>
               <Pagination page={2} pageCount={8} compact label="Compact pagination" />

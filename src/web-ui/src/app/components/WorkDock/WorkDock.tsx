@@ -13,11 +13,11 @@ import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
 import WorkList from '../WorkList/WorkList';
+import { WORK_DOCK_LIST_LIMIT } from '../WorkList/workListSelection';
 import { NewWorkDialog } from './NewWorkDialog';
 import './WorkDock.scss';
 
 const log = createLogger('WorkDock');
-const DOCK_WORK_LIMIT = 9;
 const RUNNING_WORK_COLLAPSED_LIMIT = 5;
 const STORAGE_KEY = 'sparo.workDock.expanded';
 const STORAGE_PINNED = 'sparo.workDock.pinned';
@@ -329,7 +329,7 @@ const WorkDock: React.FC = () => {
           <div className="work-dock__list">
             <WorkList
               query={listFilterQuery}
-              maxWorks={DOCK_WORK_LIMIT}
+              maxWorks={WORK_DOCK_LIST_LIMIT}
               includeCompleted={isSearchingWorks}
               selectedResultIndex={isSearchingWorks ? selectedListResultIndex : -1}
               onResultCountChange={setListResultCount}

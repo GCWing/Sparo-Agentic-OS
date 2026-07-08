@@ -16,6 +16,7 @@ tokio-stream = { workspace = true }
 tokio-util = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
+futures-util = { workspace = true }
 
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -55,6 +56,8 @@ dunce = { workspace = true }
 filetime = { workspace = true }
 zip = { workspace = true }
 flate2 = { workspace = true }
+bzip2 = { workspace = true }
+tar = { workspace = true }
 include_dir = { workspace = true }
 
 # Command detection (cross-platform)
@@ -108,6 +111,7 @@ qrcode = { workspace = true }
 
 # Remote Connect relay WebSocket client
 tokio-tungstenite = { workspace = true }
+sherpa-onnx = { workspace = true }
 
 # Relay server shared library (embedded relay reuses standalone relay logic)
 sparo-relay-server = { path = "../../apps/relay-server" }
