@@ -45,7 +45,7 @@ import {
   updateImageAnalysisItem as updateImageAnalysisItemModule,
   updateSessionMetadata,
 } from './flow-chat-manager';
-import { syncToolCardRegistryFromBackendManifest } from '../tool-cards/ToolManifestSync';
+import { scheduleToolCardRegistrySyncFromBackendManifest } from '../tool-cards/ToolManifestSync';
 import {
   isSystemAgenticOsSession,
   type SessionDescriptor,
@@ -55,8 +55,8 @@ import { resolveProfile, resolveSessionTypeDefinitionForDescriptor } from '@/app
 
 const log = createLogger('FlowChatManager');
 const RECENT_WORKSPACE_PRELOAD_LIMIT = 7;
-const WARM_HISTORY_SESSION_LIMIT = 5;
-const WARM_AGENTIC_OS_SESSION_LIMIT = 3;
+const WARM_HISTORY_SESSION_LIMIT = 0;
+const WARM_AGENTIC_OS_SESSION_LIMIT = 0;
 const PRELOAD_WORKSPACE_CONCURRENCY = 2;
 
 type PreloadWorkspaceScope = Pick<WorkspaceInfo, 'id' | 'name' | 'rootPath'>;
@@ -124,7 +124,7 @@ export class FlowChatManager {
     }
   ): Promise<FlowChatInitializationResult> {
     try {
-      void syncToolCardRegistryFromBackendManifest();
+      scheduleToolCardRegistrySyncFromBackendManifest();
       await this.initializeEventListeners();
 
       this.context.flowChatStore.registerPersistUnreadCompletionCallback(
@@ -320,71 +320,76 @@ export class FlowChatManager {
       await Promise.all(batch.map(runPreload));
     }
 
-    const warmedSessionCandidates = Array.from(this.context.flowChatStore.getState().sessions.values())
-      .filter(session => {
-        if (!canHydrateSession(session)) return false;
-        if (isSystemAgenticOsSession(session.descriptor)) return false;
-        if (this.context.flowChatStore.hasSessionHistoryWarmed(session.sessionId)) return false;
-        return scopedWorkspaces.some(workspace => sessionMatchesWorkspace(session, workspace));
-      })
-      .sort(compareSessionsForDisplay)
-      .slice(0, warmHistoryCount);
-
-    const warmedAgenticOsCandidates = Array.from(this.context.flowChatStore.getState().sessions.values())
-      .filter(session => {
-        if (!canHydrateSession(session)) return false;
-        if (!isSystemAgenticOsSession(session.descriptor)) return false;
-        if (this.context.flowChatStore.hasSessionHistoryWarmed(session.sessionId)) return false;
-        return true;
-      })
-      .sort(compareSessionsForDisplay)
-      .slice(0, warmAgenticOsCount);
-
     let warmedSessionCount = 0;
     let warmedAgenticOsCount = 0;
-    await Promise.allSettled(
-      warmedSessionCandidates.map(async session => {
-        const workspacePath = session.workspacePath;
-        if (!workspacePath) return;
-        try {
-          await this.context.flowChatStore.loadSessionHistory(
-            session.sessionId,
-            workspacePath,
-            undefined,
-            session.storageScope
-          );
-          warmedSessionCount += 1;
-        } catch (error) {
-          log.warn('Failed to warm historical session', {
-            sessionId: session.sessionId,
-            workspacePath,
-            error,
-          });
-        }
-      })
-    );
 
-    await Promise.allSettled(
-      warmedAgenticOsCandidates.map(async session => {
-        const workspacePath = session.workspacePath;
-        if (!workspacePath) return;
-        try {
-          await this.context.flowChatStore.loadSessionHistory(
-            session.sessionId,
-            workspacePath,
-            undefined,
-            session.storageScope
-          );
-          warmedAgenticOsCount += 1;
-        } catch (error) {
-          log.warn('Failed to warm Agentic OS session', {
-            sessionId: session.sessionId,
-            workspacePath,
-            error,
-          });
-        }
-      })
-    );
+    if (warmHistoryCount > 0) {
+      const warmedSessionCandidates = Array.from(this.context.flowChatStore.getState().sessions.values())
+        .filter(session => {
+          if (!canHydrateSession(session)) return false;
+          if (isSystemAgenticOsSession(session.descriptor)) return false;
+          if (this.context.flowChatStore.hasSessionHistoryWarmed(session.sessionId)) return false;
+          return scopedWorkspaces.some(workspace => sessionMatchesWorkspace(session, workspace));
+        })
+        .sort(compareSessionsForDisplay)
+        .slice(0, warmHistoryCount);
+
+      await Promise.allSettled(
+        warmedSessionCandidates.map(async session => {
+          const workspacePath = session.workspacePath;
+          if (!workspacePath) return;
+          try {
+            await this.context.flowChatStore.loadSessionHistory(
+              session.sessionId,
+              workspacePath,
+              undefined,
+              session.storageScope
+            );
+            warmedSessionCount += 1;
+          } catch (error) {
+            log.warn('Failed to warm historical session', {
+              sessionId: session.sessionId,
+              workspacePath,
+              error,
+            });
+          }
+        })
+      );
+    }
+
+    if (warmAgenticOsCount > 0) {
+      const warmedAgenticOsCandidates = Array.from(this.context.flowChatStore.getState().sessions.values())
+        .filter(session => {
+          if (!canHydrateSession(session)) return false;
+          if (!isSystemAgenticOsSession(session.descriptor)) return false;
+          if (this.context.flowChatStore.hasSessionHistoryWarmed(session.sessionId)) return false;
+          return true;
+        })
+        .sort(compareSessionsForDisplay)
+        .slice(0, warmAgenticOsCount);
+
+      await Promise.allSettled(
+        warmedAgenticOsCandidates.map(async session => {
+          const workspacePath = session.workspacePath;
+          if (!workspacePath) return;
+          try {
+            await this.context.flowChatStore.loadSessionHistory(
+              session.sessionId,
+              workspacePath,
+              undefined,
+              session.storageScope
+            );
+            warmedAgenticOsCount += 1;
+          } catch (error) {
+            log.warn('Failed to warm Agentic OS session', {
+              sessionId: session.sessionId,
+              workspacePath,
+              error,
+            });
+          }
+        })
+      );
+    }
 
     return {
       attemptedWorkspaceCount: scopedWorkspaces.length,
@@ -406,6 +411,9 @@ export class FlowChatManager {
       '',
       'agentic_os'
     );
+    if (warmAgenticOsCount <= 0) {
+      return { metadataLoadedCount, warmedAgenticOsCount: 0 };
+    }
     const candidates = Array.from(this.context.flowChatStore.getState().sessions.values())
       .filter(session =>
         isSystemAgenticOsSession(session.descriptor) &&

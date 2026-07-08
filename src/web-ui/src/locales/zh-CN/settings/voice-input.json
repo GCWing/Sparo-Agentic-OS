@@ -1,0 +1,66 @@
+{
+  "title": "语音输入",
+  "subtitle": "管理本地语音输入与 SenseVoice Small INT8 模型。",
+  "loading": "正在加载语音输入设置...",
+  "sections": {
+    "composer": "Composer",
+    "model": "本地模型"
+  },
+  "composer": {
+    "enabled": {
+      "label": "显示语音输入",
+      "description": "在 composer 中显示麦克风操作。"
+    },
+    "language": {
+      "label": "识别语言",
+      "description": "本地转写默认使用的语言。"
+    },
+    "maxRecording": {
+      "label": "录音上限",
+      "description": "单次语音输入允许的最长秒数。"
+    }
+  },
+  "states": {
+    "not_installed": "未安装",
+    "downloading": "下载中",
+    "installed": "已安装",
+    "verifying": "校验中",
+    "corrupt": "需要修复",
+    "deleting": "删除中",
+    "error": "错误"
+  },
+  "model": {
+    "refresh": "刷新",
+    "version": "版本 {{version}}",
+    "size": "{{size}}",
+    "progress": "{{percent}}% · {{downloaded}} / {{total}}",
+    "download": "下载",
+    "downloading": "下载中",
+    "downloaded": "已下载",
+    "cancel": "取消",
+    "cancelling": "取消中",
+    "openFolder": "打开位置",
+    "verify": "校验",
+    "verifying": "校验中",
+    "delete": "删除",
+    "deleting": "删除中",
+    "keep": "保留",
+    "deleteConfirmTitle": "删除本地语音模型？",
+    "deleteConfirmMessage": "{{name}} 将从本地存储中移除。",
+    "empty": "没有可用的语音模型。"
+  },
+  "messages": {
+    "loadFailed": "加载语音输入设置失败",
+    "saveSuccess": "语音输入设置已保存",
+    "saveFailed": "保存语音输入设置失败",
+    "downloadSuccess": "语音模型已下载",
+    "downloadFailed": "下载语音模型失败",
+    "downloadCancelled": "语音模型下载已取消",
+    "cancelFailed": "取消下载失败",
+    "openFolderFailed": "打开语音模型位置失败",
+    "verifySuccess": "语音模型校验通过",
+    "verifyFailed": "校验语音模型失败",
+    "deleteSuccess": "语音模型已删除",
+    "deleteFailed": "删除语音模型失败"
+  }
+}

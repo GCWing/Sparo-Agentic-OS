@@ -1,0 +1,142 @@
+.ds-squeeze-segmented-control {
+  align-items: stretch;
+  background: var(--ds-color-element-subtle, var(--element-bg-subtle));
+  border: 1px solid var(--ds-color-border-subtle, var(--border-subtle));
+  border-radius: var(--ds-radius-full, 999px);
+  display: flex;
+  gap: 2px;
+  min-width: 0;
+  padding: 2px;
+  width: 100%;
+
+  &--disabled {
+    opacity: 0.62;
+  }
+}
+
+.ds-squeeze-segmented-control__option {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--ds-radius-full, 999px);
+  box-sizing: border-box;
+  color: var(--ds-color-text-secondary, var(--color-text-secondary));
+  cursor: pointer;
+  display: flex;
+  flex: 0.34 1 0;
+  font: inherit;
+  font-size: var(--ds-font-size-xs, 12px);
+  font-weight: var(--ds-font-weight-medium, 500);
+  gap: 0;
+  height: 32px;
+  justify-content: center;
+  line-height: 1.2;
+  min-width: 46px;
+  padding: 0 var(--ds-space-2);
+  transition:
+    flex 260ms var(--ds-easing-standard),
+    background var(--ds-motion-fast, 0.15s) var(--ds-easing-standard, ease),
+    border-color var(--ds-motion-fast, 0.15s) var(--ds-easing-standard, ease),
+    box-shadow var(--ds-motion-fast, 0.15s) var(--ds-easing-standard, ease),
+    color var(--ds-motion-fast, 0.15s) var(--ds-easing-standard, ease),
+    transform var(--ds-motion-fast, 0.15s) var(--ds-easing-standard, ease);
+  white-space: nowrap;
+
+  &:hover:not(:disabled) {
+    background: var(--ds-color-element-soft, var(--element-bg-soft));
+    color: var(--ds-color-text-primary, var(--color-text-primary));
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ds-focus-ring, var(--color-accent-400));
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.56;
+  }
+
+  &--selected {
+    --ds-squeeze-selected-accent: var(--ds-switch-on-bg, var(--btn-primary-bg, var(--ds-color-accent-500, var(--color-accent-500))));
+
+    background: transparent;
+    border-color: var(--ds-squeeze-selected-accent);
+    box-shadow: none;
+    color: var(--ds-color-text-primary, var(--color-text-primary));
+    flex: 2.45 1 0;
+    justify-content: flex-start;
+
+    &:hover:not(:disabled) {
+      background: transparent;
+      border-color: var(--ds-switch-on-hover-bg, var(--btn-primary-hover-bg, var(--ds-squeeze-selected-accent)));
+      color: var(--ds-color-text-primary, var(--color-text-primary));
+    }
+  }
+
+  &--with-trailing {
+    flex: 2.75 1 0;
+    padding-right: var(--ds-space-2);
+  }
+}
+
+.ds-squeeze-segmented-control__content {
+  align-items: center;
+  display: inline-flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ds-squeeze-segmented-control__label {
+  flex: 0 0 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ds-squeeze-segmented-control__detail {
+  border-left: 1px solid color-mix(in srgb, var(--ds-squeeze-selected-accent, var(--ds-color-accent-500, var(--color-accent-500))) 28%, transparent);
+  color: var(--ds-color-text-secondary, var(--color-text-secondary));
+  flex: 1 1 auto;
+  font-weight: var(--ds-font-weight-normal, 400);
+  margin-left: var(--ds-space-1);
+  min-width: 0;
+  overflow: hidden;
+  padding-left: var(--ds-space-2);
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ds-squeeze-segmented-control__trailing {
+  align-items: center;
+  color: color-mix(in srgb, var(--ds-squeeze-selected-accent, var(--ds-color-accent-500, var(--color-accent-500))) 80%, var(--ds-color-text-secondary, var(--color-text-secondary)));
+  display: inline-flex;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.ds-squeeze-segmented-control--medium .ds-squeeze-segmented-control__option {
+  font-size: var(--ds-font-size-sm, 13px);
+  height: 36px;
+  min-width: 54px;
+}
+
+@container config-panel (max-width: 520px) {
+  .ds-squeeze-segmented-control__option {
+    flex: 0.42 1 0;
+
+    &--selected {
+      flex: 2.1 1 0;
+    }
+
+    &--with-trailing {
+      flex: 2.35 1 0;
+    }
+  }
+}

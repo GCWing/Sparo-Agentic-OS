@@ -10,6 +10,17 @@
 
 $wc-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
+@keyframes ab-bulk-expand {
+  from {
+    opacity: 0;
+    transform: scaleX(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
 // ── Board container ───────────────────────────────────────────────────────
 
 .ab-board {
@@ -62,25 +73,33 @@ $wc-ease: cubic-bezier(0.22, 1, 0.36, 1);
 // ── Group: eyebrow kicker + numeral ──────────────────────────────────────
 
 .ab-board__bulk {
-  position: sticky;
-  top: 0;
-  z-index: var(--ds-z-sticky);
   display: flex;
   align-items: center;
-  gap: $size-gap-2;
-  min-height: 38px;
-  margin: calc(#{$size-gap-2} * -1) 0 $size-gap-4;
-  padding: $size-gap-2 $size-gap-3;
+  gap: $size-gap-1;
+  min-width: 0;
+  max-width: min(42vw, 520px);
+  height: 32px;
+  padding: 0 $size-gap-1 0 $size-gap-2;
   border: 1px solid var(--ds-color-border-subtle);
-  border-radius: var(--ds-radius-md);
+  border-radius: var(--ds-radius-full);
   background: color-mix(in srgb, var(--ds-color-bg-elevated) 86%, var(--ds-color-bg-scene));
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--ds-color-bg-elevated) 78%, transparent),
-    0 8px 24px color-mix(in srgb, var(--ds-shadow-color-subtle) 72%, transparent);
-  backdrop-filter: blur(12px);
+    0 1px 2px var(--ds-shadow-color-subtle);
+  flex: 0 1 auto;
+  transform-origin: right center;
+  animation: ab-bulk-expand $motion-base $wc-ease both;
+  transition:
+    border-color $motion-base $wc-ease,
+    background $motion-base $wc-ease,
+    box-shadow $motion-base $wc-ease;
 
   &.has-selection {
     border-color: color-mix(in srgb, var(--ds-color-accent-500) 34%, var(--ds-color-border-subtle));
+    background: color-mix(in srgb, var(--ds-color-accent-500) 6%, var(--ds-color-bg-elevated));
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--ds-color-bg-elevated) 76%, transparent),
+      0 8px 20px color-mix(in srgb, var(--ds-shadow-color-subtle) 52%, transparent);
   }
 }
 
@@ -94,7 +113,8 @@ $wc-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
 .ab-board__bulk-copy {
   min-width: 0;
-  flex: 1;
+  max-width: 168px;
+  flex: 0 1 auto;
   overflow: hidden;
   color: var(--ds-color-text-secondary);
   font-size: var(--ds-font-size-xs);
@@ -105,16 +125,44 @@ $wc-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
 .ab-board__bulk-divider {
   flex: 0 0 1px;
-  align-self: stretch;
+  align-self: center;
+  height: 16px;
   background: var(--ds-color-border-subtle);
 }
 
 .ab-board__bulk-actions {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: $size-gap-1;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+.ab-board__bulk-action.icon-btn {
+  width: 26px;
+  height: 26px;
+}
+
+.ab-board__bulk-close.icon-btn {
+  margin-left: 1px;
+}
+
+.ab-board__bulk-toggle-check.ds-checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 32px;
+  gap: 0;
+
+  .ds-checkbox__wrapper {
+    margin-top: 0;
+  }
+
+  &:hover:not(.ds-checkbox--disabled) .ds-checkbox__box {
+    border-color: var(--border-subtle);
+    background: transparent;
+  }
 }
 
 .ab-board__groups {
@@ -1381,13 +1429,11 @@ $wc-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
 @media (max-width: 1040px) {
   .ab-board__bulk {
-    flex-wrap: wrap;
-    align-items: flex-start;
+    max-width: 320px;
   }
 
   .ab-board__bulk-actions {
-    width: 100%;
-    justify-content: flex-start;
+    justify-content: flex-end;
   }
 
   .ab-board__content--with-detail {

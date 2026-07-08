@@ -82,8 +82,8 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
   &__header {
     flex: 0 0 auto;
     display: flex;
-    flex-direction: row;
-    align-items: center;
+    flex-direction: column;
+    align-items: stretch;
     min-height: 40px;
     padding: 0 $size-gap-3;
     border-bottom: 1px solid var(--ds-chat-border-strong);
@@ -97,6 +97,7 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
     flex: 1;
     min-width: 0;
     width: 100%;
+    min-height: 40px;
   }
 
   &__search {
@@ -179,6 +180,51 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
 
   &__time-filter--active {
     color: var(--agentic-os-timeline-ink);
+  }
+
+  &__bulk {
+    display: flex;
+    align-items: center;
+    gap: $size-gap-1;
+    min-width: 0;
+    min-height: 32px;
+    padding: 0 0 $size-gap-2;
+    color: var(--ds-chat-text-secondary);
+
+    &.has-selection {
+      color: var(--ds-chat-text-primary);
+    }
+  }
+
+  &__bulk-check,
+  &__session-check {
+    flex: 0 0 auto;
+
+    .ds-checkbox__wrapper {
+      margin-top: 0;
+    }
+  }
+
+  &__bulk-count {
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    font-size: var(--flowchat-font-size-xs);
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__bulk-divider {
+    flex: 0 0 1px;
+    align-self: center;
+    height: 16px;
+    background: var(--ds-chat-border);
+  }
+
+  &__bulk-action.icon-btn {
+    width: 24px;
+    height: 24px;
   }
 
   // ---------- Body ----------
@@ -323,6 +369,22 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
     flex-direction: column;
   }
 
+  &__session-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: center;
+    gap: $size-gap-1;
+    min-width: 0;
+
+    &.is-selection-mode {
+      grid-template-columns: 18px minmax(0, 1fr);
+    }
+
+    &.is-selected .agentic-os-timeline__session:not(.is-active) {
+      background: color-mix(in srgb, var(--ds-chat-accent) 9%, transparent);
+    }
+  }
+
   &__session {
     position: relative;
     box-sizing: border-box;
@@ -343,6 +405,11 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
     transition: background $motion-base $easing-standard;
 
     &:hover { background: color-mix(in srgb, var(--ds-chat-surface-muted) 60%, transparent); }
+
+    &:disabled {
+      cursor: default;
+      opacity: 0.62;
+    }
 
     .agentic-os-timeline__body--motion &:hover:not(.is-active):not(.is-search-match) {
       background: transparent;

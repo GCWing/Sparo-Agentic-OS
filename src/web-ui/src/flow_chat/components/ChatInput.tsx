@@ -54,6 +54,8 @@ import { useComposerRecommendations } from './composer/hooks/useComposerRecommen
 import { useComposerSessionTarget } from './composer/hooks/useComposerSessionTarget';
 import { useComposerSubmission } from './composer/hooks/useComposerSubmission';
 import { useComposerTokenUsage } from './composer/hooks/useComposerTokenUsage';
+import { ComposerVoiceInputButton } from './composer/voice/ComposerVoiceInputButton';
+import { useComposerVoiceInput } from './composer/voice/useComposerVoiceInput';
 import { ComposerHandoffStatus } from './composer/ComposerHandoffStatus';
 import { ComposerQueueTray } from './composer/ComposerQueueTray';
 import {
@@ -440,6 +442,30 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     setHistoryIndex,
     setSavedDraft,
     t,
+  });
+
+  const insertVoiceInputText = useCallback((text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    const editor = richTextInputRef.current;
+    const currentValue = editor?.getPlainText() ?? inputValueRef.current;
+    const prefix = currentValue.trim().length > 0 && !/\s$/.test(currentValue) ? ' ' : '';
+    activateComposerInput();
+
+    if (editor) {
+      editor.insertText(`${prefix}${trimmed}`);
+    } else {
+      setComposerInputValue(`${currentValue}${prefix}${trimmed}`);
+    }
+
+    focusRichTextInputSoon();
+  }, [activateComposerInput, focusRichTextInputSoon, setComposerInputValue]);
+
+  const voiceInputController = useComposerVoiceInput({
+    activateInput: activateComposerInput,
+    focusInputSoon: focusRichTextInputSoon,
+    insertText: insertVoiceInputText,
   });
 
   useComposerAgentSync({
@@ -897,6 +923,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             currentAgent={modeState.current}
             sessionId={effectiveTargetSessionId || undefined}
           />
+
+          <ComposerVoiceInputButton controller={voiceInputController} />
 
           <ComposerSendAction
             derivedState={derivedState ?? null}

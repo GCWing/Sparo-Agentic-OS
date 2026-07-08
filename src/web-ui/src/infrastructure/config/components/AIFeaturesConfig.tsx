@@ -8,7 +8,7 @@ import { aiExperienceConfigService, type AIExperienceSettings } from '../service
 import { configManager } from '../services/ConfigManager';
 import { getCompactModelDisplayName } from '../services/modelConfigs';
 import { useNotification, notificationService } from '@/shared/notification-system';
-import type { AIModelConfig } from '../types';
+import type { AIModelConfig, DefaultModels } from '../types';
 import { ModelSelectionRadio } from './ModelSelectionRadio';
 import { createLogger } from '@/shared/utils/logger';
 import './AIFeaturesConfig.scss';
@@ -42,6 +42,7 @@ const AIFeaturesConfig: React.FC = () => {
   
   
   const [models, setModels] = useState<AIModelConfig[]>([]);
+  const [defaultModels, setDefaultModels] = useState<DefaultModels>({ primary: null, fast: null });
   const [funcAgentModels, setFuncAgentModels] = useState<Record<string, string>>({});
 
   const loadAllData = useCallback(async () => {
@@ -51,15 +52,21 @@ const AIFeaturesConfig: React.FC = () => {
       const [
         loadedSettings,
         allModels,
+        defaultModelsData,
         funcAgentModelsData
       ] = await Promise.all([
         aiExperienceConfigService.getSettingsAsync(),
         configManager.getConfig<AIModelConfig[]>('ai.models') || [],
+        configManager.getConfig<Partial<DefaultModels>>('ai.default_models') || {},
         configManager.getConfig<Record<string, string>>('ai.func_agent_models') || {}
       ]);
 
       setSettings(loadedSettings);
       setModels(allModels);
+      setDefaultModels({
+        primary: defaultModelsData?.primary || null,
+        fast: defaultModelsData?.fast || null,
+      });
       setFuncAgentModels(funcAgentModelsData);
     } catch (error) {
       log.error('Failed to load data', error);
@@ -144,6 +151,8 @@ const AIFeaturesConfig: React.FC = () => {
   
   
   const enabledModels = models.filter(m => m.enabled);
+  const primaryModelName = getModelName(defaultModels.primary) || t('model.notConfigured');
+  const fastModelName = getModelName(defaultModels.fast) || t('model.fastUsesPrimary');
 
   if (isLoading) {
     return (
@@ -207,6 +216,9 @@ const AIFeaturesConfig: React.FC = () => {
                       onChange={(modelId) => handleAgentSelectionChange(feature.agentName!, modelId)}
                       layout="horizontal"
                       size="small"
+                      interactionMode="focus-custom"
+                      primaryModelName={primaryModelName}
+                      fastModelName={fastModelName}
                     />
                   </div>
                 </ConfigPageRow>

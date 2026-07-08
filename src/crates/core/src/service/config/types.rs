@@ -203,6 +203,20 @@ pub struct AIExperienceConfig {
     pub show_thinking_process: bool,
     /// Whether completed thinking blocks remain as expandable collapsed items.
     pub show_completed_thinking_item: bool,
+    /// Local voice input settings for the composer.
+    pub voice_input: VoiceInputConfig,
+}
+
+/// Local voice input configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct VoiceInputConfig {
+    /// Whether the composer should show the microphone action.
+    pub enabled: bool,
+    /// Default language passed to local speech recognition.
+    pub default_language: String,
+    /// Maximum recording length for one voice input.
+    pub max_recording_seconds: u32,
 }
 
 /// User-selected Agent companion package.
@@ -1456,6 +1470,17 @@ impl Default for AIExperienceConfig {
             }),
             show_thinking_process: true,
             show_completed_thinking_item: true,
+            voice_input: VoiceInputConfig::default(),
+        }
+    }
+}
+
+impl Default for VoiceInputConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            default_language: "auto".to_string(),
+            max_recording_seconds: 60,
         }
     }
 }

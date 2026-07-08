@@ -54,6 +54,7 @@ use api::runtime_api::*;
 use api::session_api::*;
 use api::skill_api::*;
 use api::snapshot_service::*;
+use api::speech_api::*;
 use api::storage_commands::*;
 use api::subagent_api::*;
 use api::system_api::*;
@@ -434,6 +435,15 @@ pub fn run() {
             sync_config_to_global,
             get_global_config_health,
             get_runtime_logging_info,
+            speech_list_models,
+            speech_download_model,
+            speech_cancel_model_download,
+            speech_delete_model,
+            speech_verify_model,
+            speech_start_input_session,
+            speech_append_audio_chunk,
+            speech_finish_input_session,
+            speech_cancel_input_session,
             get_agent_capability_profile,
             update_agent_capability_profile,
             get_runtime_capabilities,

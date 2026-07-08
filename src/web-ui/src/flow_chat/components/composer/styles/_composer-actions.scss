@@ -7,8 +7,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    // Must fit IconButton small (28px); fixed 20px caused vertical overflow into the input above
-    min-height: 28px;
+    // Must fit the expanded voice-input pill without overlapping the input above.
+    min-height: 34px;
     margin-top: 4px;
     padding: 0 0 $size-gap-2;
   }
@@ -33,6 +33,103 @@
     align-items: center;
     gap: 6px;
     flex-shrink: 0;
+  }
+
+  &__voice-cluster {
+    display: inline-flex;
+    align-items: center;
+    gap: $size-gap-1;
+    flex-shrink: 0;
+    min-width: 24px;
+
+    &--recording {
+      min-width: 0;
+    }
+  }
+
+  &__voice-control.icon-btn {
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    min-height: 24px;
+    color: var(--ds-color-text-secondary);
+    flex-shrink: 0;
+
+    &:not(:disabled):hover {
+      color: var(--ds-color-text-primary);
+    }
+  }
+
+  &__voice-spinner {
+    animation: sparo-voice-input-spin 0.9s linear infinite;
+  }
+
+  &__voice-pill {
+    display: inline-flex;
+    align-items: center;
+    width: clamp(156px, 22vw, 224px);
+    height: 34px;
+    min-width: 0;
+    padding: 0 4px 0 14px;
+    gap: 8px;
+    border: 1px solid color-mix(in srgb, var(--ds-chat-danger) 72%, transparent);
+    border-radius: var(--ds-radius-full);
+    background: color-mix(in srgb, var(--ds-color-bg-panel) 94%, var(--ds-chat-surface-elevated));
+    box-shadow: 0 1px 3px color-mix(in srgb, var(--ds-chat-danger) 13%, transparent);
+  }
+
+  &__voice-pill-timeline {
+    display: grid;
+    grid-template-columns: repeat(22, minmax(1px, 1fr));
+    align-items: center;
+    flex: 1 1 auto;
+    min-width: 72px;
+    height: 20px;
+    gap: 2px;
+    overflow: hidden;
+    color: color-mix(in srgb, var(--ds-chat-danger) 58%, var(--ds-chat-text-muted));
+    pointer-events: none;
+  }
+
+  &__voice-pill-timeline-bar {
+    justify-self: center;
+    width: min(2px, 100%);
+    height: 18px;
+    border-radius: var(--ds-radius-full);
+    background: currentColor;
+    opacity: 0.78;
+    transform: scaleY(0.04);
+    transform-origin: center;
+    transition:
+      transform 72ms linear,
+      opacity 72ms linear;
+  }
+
+  &__voice-pill-action.icon-btn {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    min-height: 28px;
+    border: 1px solid var(--ds-color-border-subtle);
+    background: color-mix(in srgb, var(--ds-color-bg-panel) 90%, var(--ds-chat-surface-elevated));
+    color: var(--ds-chat-text-muted);
+    box-shadow: none;
+    flex-shrink: 0;
+
+    &:not(:disabled):hover {
+      border-color: color-mix(in srgb, var(--ds-chat-danger) 34%, var(--ds-color-border-subtle));
+      background: color-mix(in srgb, var(--ds-chat-danger) 8%, var(--ds-color-bg-panel));
+      color: var(--ds-color-text-primary);
+      transform: none;
+    }
+
+    &:active:not(:disabled) {
+      transform: scale(0.96);
+    }
+
+    &.sparo-chat-input__voice-pill-action--confirm {
+      color: color-mix(in srgb, var(--ds-chat-danger) 76%, var(--ds-chat-text-secondary));
+    }
   }
   
   &__send-action.icon-btn {
@@ -124,5 +221,11 @@
         background: color-mix(in srgb, var(--ds-chat-danger) 76%, black);
       }
     }
+  }
+}
+
+@keyframes sparo-voice-input-spin {
+  to {
+    transform: rotate(360deg);
   }
 }

@@ -4,7 +4,8 @@ use crate::agentic_os::work::{
     default_work_store, AdvanceWorkRequest, ControlWorkRequest, CreateWorkRequest,
     DispatchWorkRequest, LinkSessionToWorkRequest, ResolveAppWorkRequest,
     ResolveComponentWorkRequest, StartWorkRequest, UpdateWorkRequest, WorkAppRef,
-    WorkBuilderPreviewResult, WorkBuilderValidationResult, WorkId, WorkRecord, WorkService,
+    WorkBuilderPreviewResult, WorkBuilderValidationResult, WorkCleanupReport, WorkDeleteOptions,
+    WorkId, WorkRecord, WorkService,
 };
 
 use super::super::{CommandError, CommandResult};
@@ -34,11 +35,14 @@ pub struct AgenticOsGetWorkResponse {
 #[derive(Debug, Clone, Deserialize)]
 pub struct AgenticOsDeleteWorkRequest {
     pub work_id: WorkId,
+    #[serde(default)]
+    pub options: WorkDeleteOptions,
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct AgenticOsDeleteWorkResponse {
     pub deleted: bool,
+    pub cleanup_report: WorkCleanupReport,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -221,11 +225,12 @@ pub async fn delete_work_with_service(
     request: AgenticOsDeleteWorkRequest,
 ) -> CommandResult<AgenticOsDeleteWorkResponse> {
     let response = service
-        .delete(&request.work_id)
+        .delete_with_options(&request.work_id, request.options)
         .await
         .map_err(CommandError::session)?;
     Ok(AgenticOsDeleteWorkResponse {
         deleted: response.deleted,
+        cleanup_report: response.cleanup_report,
     })
 }
 

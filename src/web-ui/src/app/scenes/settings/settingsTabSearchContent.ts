@@ -81,6 +81,18 @@ export const SETTINGS_TAB_SEARCH_CONTENT: Record<ConfigTab, readonly SettingsTab
     { ns: 'settings/personalization', key: 'features.agentCompanion.title' },
     { ns: 'settings/personalization', key: 'features.agentCompanion.subtitle' },
   ],
+  voiceInput: [
+    { ns: 'settings/voice-input', key: 'title' },
+    { ns: 'settings/voice-input', key: 'subtitle' },
+    { ns: 'settings/voice-input', key: 'sections.composer' },
+    { ns: 'settings/voice-input', key: 'sections.model' },
+    { ns: 'settings/voice-input', key: 'composer.enabled.label' },
+    { ns: 'settings/voice-input', key: 'composer.language.label' },
+    { ns: 'settings/voice-input', key: 'composer.maxRecording.label' },
+    { ns: 'settings/voice-input', key: 'model.download' },
+    { ns: 'settings/voice-input', key: 'model.delete' },
+    { ns: 'settings/voice-input', key: 'model.verify' },
+  ],
   bitfunCoder: [
     { ns: 'scenes/apps', key: 'apps.bitfunCoder.name' },
     { ns: 'scenes/apps', key: 'apps.bitfunCoder.description' },

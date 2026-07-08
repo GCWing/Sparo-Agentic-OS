@@ -75,8 +75,12 @@
   },
   "selection": {
     "primary": "主力模型",
+    "primaryShort": "旗舰",
     "fast": "快速模型",
+    "fastShort": "快速",
     "custom": "其他",
+    "customShort": "其他",
+    "modelChoice": "模型选择",
     "selectModel": "选择模型",
     "notConfigured": "未配置，将使用主力模型"
   },

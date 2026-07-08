@@ -31,6 +31,7 @@ interface BoardHeaderProps {
   onAppFilterChange: (filter: WorkCenterAppFilter) => void;
   onClearFilters?: () => void;
   onGroupingChange: (value: WorkCenterGrouping) => void;
+  rightControls?: React.ReactNode;
 }
 
 const BoardHeader: React.FC<BoardHeaderProps> = ({
@@ -52,6 +53,7 @@ const BoardHeader: React.FC<BoardHeaderProps> = ({
   onAppFilterChange,
   onClearFilters,
   onGroupingChange,
+  rightControls,
 }) => {
   const { t } = useI18n('scenes/work-center');
   const scopeLabel = (() => {
@@ -188,20 +190,29 @@ const BoardHeader: React.FC<BoardHeaderProps> = ({
           ) : null}
         </div>
         <span className="bh-header__spacer" aria-hidden="true" />
-        {showWorkControls ? (
-          <div className="bh-views" role="group" aria-label={t('grouping.label')}>
-            {groupingOptions.map((option) => (
-              <button
-                key={option}
-                type="button"
-                className={['bh-view', grouping === option && 'is-active'].filter(Boolean).join(' ')}
-                aria-pressed={grouping === option}
-                onClick={() => onGroupingChange(option)}
-              >
-                <span className="bh-view__dot" aria-hidden="true" />
-                {t(`grouping.${option}`)}
-              </button>
-            ))}
+        {rightControls || showWorkControls ? (
+          <div className="bh-header__right-tools">
+            {rightControls ? (
+              <div className="bh-header__right-controls">
+                {rightControls}
+              </div>
+            ) : null}
+            {showWorkControls ? (
+              <div className="bh-views" role="group" aria-label={t('grouping.label')}>
+                {groupingOptions.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    className={['bh-view', grouping === option && 'is-active'].filter(Boolean).join(' ')}
+                    aria-pressed={grouping === option}
+                    onClick={() => onGroupingChange(option)}
+                  >
+                    <span className="bh-view__dot" aria-hidden="true" />
+                    {t(`grouping.${option}`)}
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>

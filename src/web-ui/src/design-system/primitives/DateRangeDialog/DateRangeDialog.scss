@@ -1,0 +1,189 @@
+@use '../../foundation/tokens/tokens.scss' as ds;
+
+$cell-radius: 8px;
+$_range-accent: var(--ds-color-accent, var(--ds-color-accent-500, var(--color-accent-500)));
+$range-mid: color-mix(in srgb, var(--ds-color-bg-elevated, var(--ds-color-bg-surface)) 55%, $_range-accent 45%);
+$range-edge: color-mix(in srgb, var(--ds-color-bg-elevated, var(--ds-color-bg-surface)) 38%, $_range-accent 62%);
+$range-single: color-mix(in srgb, var(--ds-color-bg-elevated, var(--ds-color-bg-surface)) 30%, $_range-accent 70%);
+$range-mid-hover: color-mix(in srgb, var(--ds-color-bg-elevated, var(--ds-color-bg-surface)) 48%, $_range-accent 52%);
+$range-edge-hover: color-mix(in srgb, var(--ds-color-bg-elevated, var(--ds-color-bg-surface)) 28%, $_range-accent 72%);
+
+.ds-date-range-dialog__content {
+  min-width: min(100%, 300px);
+  padding-block: var(--ds-space-6, 24px);
+}
+
+.ds-date-range-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-3, 12px);
+
+  &__summary {
+    margin: 0;
+    padding: var(--ds-space-2, 8px) var(--ds-space-3, 12px);
+    color: var(--ds-color-text-primary, var(--color-text-primary));
+    font-size: var(--ds-font-size-sm, 13px);
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    background: color-mix(in srgb, var(--ds-color-bg-subtle, var(--ds-color-element-subtle)) 75%, transparent);
+    border: 1px solid color-mix(in srgb, var(--ds-color-border-strong, var(--ds-color-border-subtle)) 88%, transparent);
+    border-radius: var(--ds-radius-md, 8px);
+  }
+
+  &__calendar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ds-space-2, 8px);
+    user-select: none;
+  }
+
+  &__calendar-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--ds-space-2, 8px);
+  }
+
+  &__calendar-title {
+    flex: 1;
+    color: var(--ds-color-text-primary, var(--color-text-primary));
+    font-size: var(--ds-font-size-sm, 13px);
+    font-weight: 600;
+    text-align: center;
+  }
+
+  &__dow-row {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    text-align: center;
+  }
+
+  &__dow {
+    color: var(--ds-color-text-secondary, var(--color-text-secondary));
+    font-size: var(--ds-font-size-2xs, 10px);
+    font-weight: 500;
+    line-height: 1.2;
+    opacity: 0.85;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    column-gap: 0;
+    row-gap: 6px;
+  }
+
+  &__cell {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 100%;
+    height: auto;
+    max-height: 38px;
+    aspect-ratio: 1;
+    padding: 0;
+    color: var(--ds-color-text-primary, var(--color-text-primary));
+    font-size: var(--ds-font-size-xs, 12px);
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    border-radius: $cell-radius;
+    transition:
+      background var(--ds-motion-base, 180ms) var(--ds-easing-standard, ease),
+      color var(--ds-motion-base, 180ms) var(--ds-easing-standard, ease),
+      border-radius var(--ds-motion-base, 180ms) var(--ds-easing-standard, ease);
+
+    &:hover:not(:disabled):not(.ds-date-range-dialog__cell--empty):not(
+        .ds-date-range-dialog__cell--in-range
+      ):not(.ds-date-range-dialog__cell--edge-start):not(.ds-date-range-dialog__cell--edge-end):not(
+        .ds-date-range-dialog__cell--single
+      ) {
+      background: color-mix(in srgb, var(--ds-color-bg-subtle, var(--ds-color-element-subtle)) 92%, transparent);
+    }
+
+    &:focus-visible {
+      z-index: var(--ds-z-local, 1);
+      outline: 2px solid color-mix(in srgb, $_range-accent 55%, transparent);
+      outline-offset: 2px;
+    }
+
+    &--empty {
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    &--disabled {
+      cursor: not-allowed;
+      opacity: 0.28;
+    }
+
+    &--today:not(.ds-date-range-dialog__cell--in-range):not(.ds-date-range-dialog__cell--edge-start):not(.ds-date-range-dialog__cell--edge-end):not(.ds-date-range-dialog__cell--single) {
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, $_range-accent 45%, var(--ds-color-border-strong, var(--ds-color-border-subtle)));
+    }
+
+    &--in-range {
+      color: var(--ds-color-text-primary, var(--color-text-primary));
+      font-weight: 600;
+      background: $range-mid;
+      background-color: $range-mid;
+      border-radius: $cell-radius;
+    }
+
+    &--edge-start,
+    &--edge-end {
+      color: var(--ds-color-text-primary, var(--color-text-primary));
+      font-weight: 700;
+      background: $range-edge;
+      background-color: $range-edge;
+      border-radius: $cell-radius;
+    }
+
+    &--single {
+      color: var(--ds-color-text-primary, var(--color-text-primary));
+      font-weight: 700;
+      background: $range-single;
+      background-color: $range-single;
+      border-radius: $cell-radius;
+    }
+
+    &--bridge-left:not(.ds-date-range-dialog__cell--single) {
+      border-top-left-radius: 0;
+      border-bottom-left-radius: 0;
+    }
+
+    &--bridge-right:not(.ds-date-range-dialog__cell--single) {
+      border-top-right-radius: 0;
+      border-bottom-right-radius: 0;
+    }
+
+    &--in-range:hover:not(:disabled) {
+      background: $range-mid-hover;
+      background-color: $range-mid-hover;
+    }
+
+    &--edge-start:hover:not(:disabled),
+    &--edge-end:hover:not(:disabled),
+    &--single:hover:not(:disabled) {
+      background: $range-edge-hover;
+      background-color: $range-edge-hover;
+    }
+  }
+
+  &__error {
+    margin: 0;
+    color: var(--ds-color-danger, var(--color-error));
+    font-size: var(--ds-font-size-xs, 12px);
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--ds-space-2, 8px);
+    padding-top: var(--ds-space-1, 4px);
+    border-top: 1px solid color-mix(in srgb, var(--ds-color-border-strong, var(--ds-color-border-subtle)) 70%, transparent);
+  }
+}

@@ -41,6 +41,7 @@ pub mod session_api;
 pub mod session_storage_path;
 pub mod skill_api;
 pub mod snapshot_service;
+pub mod speech_api;
 pub mod storage_commands;
 pub mod subagent_api;
 pub mod system_api;

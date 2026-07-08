@@ -22,6 +22,7 @@ pub mod remote_connect; // Remote Connect (phone → desktop)
 pub mod runtime; // Managed runtime and capability management
 pub mod session; // Session persistence
 pub mod snapshot; // Snapshot-based change tracking
+pub mod speech; // Local speech input and model resource management
 pub mod system; // System command detection and execution
 pub mod system_fs;
 pub mod token_usage; // Token usage tracking
@@ -84,6 +85,14 @@ pub use mcp::MCPService;
 pub use project_detection::{ProjectDetector, ProjectInfo};
 pub use runtime::{ResolvedCommand, RuntimeCommandCapability, RuntimeManager, RuntimeSource};
 pub use snapshot::SnapshotService;
+pub use speech::{
+    SpeechAppendAudioChunkRequest, SpeechAppendAudioChunkResponse, SpeechCancelInputSessionRequest,
+    SpeechCancelModelDownloadRequest, SpeechDeleteModelRequest, SpeechDownloadModelRequest,
+    SpeechFinishInputSessionRequest, SpeechInputSession, SpeechListModelsResponse,
+    SpeechModelProgressEvent, SpeechModelStatus, SpeechService, SpeechStartInputSessionRequest,
+    SpeechTranscriptionResult, SpeechVerifyModelRequest, LOCAL_SENSEVOICE_SMALL_INT8_MODEL_ID,
+    LOCAL_SENSEVOICE_SMALL_INT8_MODEL_REF,
+};
 pub use system::{
     check_command, check_commands, run_command, run_command_simple, CheckCommandResult,
     CommandOutput, SystemError,

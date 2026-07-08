@@ -44,6 +44,10 @@
     flex: 0 1 auto;
     gap: var(--ds-space-2);
     min-width: 0;
+    transition:
+      flex-basis 220ms var(--ds-easing-standard),
+      opacity 180ms var(--ds-easing-standard),
+      transform 220ms var(--ds-easing-standard);
   }
 
   &__item--with-details {
@@ -68,6 +72,15 @@
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  &--focus-custom {
+    gap: var(--ds-space-2);
+    width: 100%;
+  }
+
+  &__custom-select {
+    width: 100%;
   }
 }
 

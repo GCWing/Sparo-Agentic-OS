@@ -1542,6 +1542,19 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
   const renderBatchToolbar = () => {
     if (showWorkspaceOverview || selectableWorkCount === 0) return null;
 
+    if (selectedWorkCount === 0) {
+      return (
+        <Checkbox
+          className="ab-board__bulk-toggle-check"
+          size="small"
+          checked={false}
+          disabled={batchSubmitting}
+          onChange={() => handleToggleAllVisibleWork(true)}
+          aria-label={t('bulk.selectAllVisible')}
+        />
+      );
+    }
+
     return (
       <div
         className={['ab-board__bulk', selectedWorkCount > 0 && 'has-selection'].filter(Boolean).join(' ')}
@@ -1566,55 +1579,64 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
           <>
             <span className="ab-board__bulk-divider" aria-hidden="true" />
             <div className="ab-board__bulk-actions">
-              <Button
-                size="small"
+              <IconButton
+                className="ab-board__bulk-action"
+                size="xs"
                 variant="ghost"
+                aria-label={t('bulk.archive', { count: batchArchiveTargets.length })}
+                tooltip={t('bulk.archive', { count: batchArchiveTargets.length })}
                 disabled={batchSubmitting || batchArchiveTargets.length === 0}
                 onClick={() => void handleBatchControl('archive')}
               >
                 <Archive size={13} />
-                {t('bulk.archive', { count: batchArchiveTargets.length })}
-              </Button>
-              <Button
-                size="small"
+              </IconButton>
+              <IconButton
+                className="ab-board__bulk-action"
+                size="xs"
                 variant="ghost"
+                aria-label={t('bulk.reopen', { count: batchReopenTargets.length })}
+                tooltip={t('bulk.reopen', { count: batchReopenTargets.length })}
                 disabled={batchSubmitting || batchReopenTargets.length === 0}
                 onClick={() => void handleBatchControl('reopen')}
               >
                 <ArchiveRestore size={13} />
-                {t('bulk.reopen', { count: batchReopenTargets.length })}
-              </Button>
-              <Button
-                size="small"
+              </IconButton>
+              <IconButton
+                className="ab-board__bulk-action"
+                size="xs"
                 variant="ghost"
+                aria-label={t('bulk.cancel', { count: batchCancelTargets.length })}
+                tooltip={t('bulk.cancel', { count: batchCancelTargets.length })}
                 disabled={batchSubmitting || batchCancelTargets.length === 0}
                 onClick={() => void handleBatchControl('cancel_current_execution')}
               >
                 <XCircle size={13} />
-                {t('bulk.cancel', { count: batchCancelTargets.length })}
-              </Button>
-              <Button
-                size="small"
+              </IconButton>
+              <IconButton
+                className="ab-board__bulk-action"
+                size="xs"
                 variant="danger"
+                aria-label={t('bulk.delete')}
+                tooltip={t('bulk.delete')}
                 disabled={batchSubmitting}
                 onClick={handleOpenDeleteDialog}
               >
                 <Trash2 size={13} />
-                {t('bulk.delete')}
-              </Button>
-              <IconButton
-                size="xs"
-                variant="ghost"
-                aria-label={t('bulk.clearSelection')}
-                tooltip={t('bulk.clearSelection')}
-                disabled={batchSubmitting}
-                onClick={handleClearWorkSelection}
-              >
-                <X size={13} />
               </IconButton>
             </div>
           </>
         ) : null}
+        <IconButton
+          className="ab-board__bulk-action ab-board__bulk-close"
+          size="xs"
+          variant="ghost"
+          aria-label={t('bulk.clearSelection')}
+          tooltip={t('bulk.clearSelection')}
+          disabled={batchSubmitting}
+          onClick={handleClearWorkSelection}
+        >
+          <X size={13} />
+        </IconButton>
       </div>
     );
   };
@@ -1752,6 +1774,7 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
         onAppFilterChange={onAppFilterChange}
         onClearFilters={handleClearBoardFilters}
         onGroupingChange={onGroupingChange}
+        rightControls={renderBatchToolbar()}
       />
       {showWorkspaceOverview ? (
         <div className={[
@@ -1823,7 +1846,6 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
       ) : (
       <div className={['ab-board__content', selectedWork && 'ab-board__content--with-detail'].filter(Boolean).join(' ')}>
       <div className={['ab-board__scroll', result.all.length === 0 && 'ab-board__scroll--empty'].filter(Boolean).join(' ')}>
-        {renderBatchToolbar()}
         {result.all.length === 0 ? (
           <div className="ab-board__empty">
             <ListChecks size={28} />

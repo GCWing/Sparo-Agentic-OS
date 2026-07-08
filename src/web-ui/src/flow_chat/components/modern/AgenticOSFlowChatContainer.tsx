@@ -291,6 +291,40 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
     }
   }, []);
 
+  const handleAgenticOsDeleteSessions = useCallback(
+    async (sessionIds: string[]): Promise<string[]> => {
+      const succeededSessionIds: string[] = [];
+
+      for (const targetSessionId of sessionIds) {
+        try {
+          await flowChatManager.deleteChatSession(targetSessionId);
+          succeededSessionIds.push(targetSessionId);
+        } catch (error) {
+          log.warn('Failed to delete Agentic OS session from timeline', {
+            sessionId: targetSessionId,
+            error,
+          });
+        }
+      }
+
+      const succeededSessionIdSet = new Set(succeededSessionIds);
+      const nextSession = agenticOsTimeline.buckets
+        .flatMap(bucket => bucket.sessions)
+        .find(session => !succeededSessionIdSet.has(session.sessionId));
+
+      if (
+        activeSession?.sessionId &&
+        succeededSessionIdSet.has(activeSession.sessionId) &&
+        nextSession
+      ) {
+        await openSession(nextSession.sessionId);
+      }
+
+      return succeededSessionIds;
+    },
+    [activeSession?.sessionId, agenticOsTimeline.buckets],
+  );
+
   // ── Timeline search ───────────────────────────────────────────────────────
   const agenticOsSearch = useMemo(() => {
     const query = agenticOsTimelineQuery.trim().toLowerCase();
@@ -495,6 +529,7 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
                 onSelectTurn={handleAgenticOsTimelineTurnSelect}
                 onSelectSession={handleAgenticOsTimelineSessionSelect}
                 onCreateSession={handleAgenticOsCreateSession}
+                onDeleteSessions={handleAgenticOsDeleteSessions}
                 searchQuery={agenticOsTimelineQuery}
                 onSearchChange={setAgenticOsTimelineQuery}
                 searchMatchCount={agenticOsSearch.orderedMatches.length}

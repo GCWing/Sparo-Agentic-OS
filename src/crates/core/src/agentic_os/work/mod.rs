@@ -1,6 +1,7 @@
 pub mod assignment;
 pub mod execution_binding;
 pub mod execution_graph;
+pub mod hooks;
 pub mod ids;
 pub mod lifecycle;
 pub mod projection;
@@ -27,6 +28,12 @@ pub use execution_graph::{
     WorkRuntimeInstanceGraph, WorkRuntimeInstanceStatus, WorkRuntimeIssue,
     WorkRuntimeIssueSeverity, WorkRuntimeLog, WorkRuntimeLogLevel, WorkRuntimeRun,
     WorkRuntimeRunStatus,
+};
+pub use hooks::{
+    WorkCleanupAction, WorkCleanupItem, WorkCleanupItemReport, WorkCleanupItemStatus,
+    WorkCleanupPlan, WorkCleanupReport, WorkDeleteOptions, WorkLifecycleHookBus,
+    WorkLifecycleHookContext, WorkLifecycleHookHandler, WorkLifecycleHookKind,
+    WorkLifecycleHookOutcome, WorkLifecycleHookPhase, WorkResourceOwnership, WorkResourceRef,
 };
 pub use ids::WorkId;
 pub use lifecycle::{WorkLifecycle, WorkLifecycleEvent, WorkSummary};

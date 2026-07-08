@@ -1,23 +1,157 @@
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
+use crate::api::app_state::AppState;
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use sparo_core::agentic::coordination::{ConversationCoordinator, DialogScheduler};
 use sparo_core::agentic_os::work::{
-    default_work_store, AgenticWorkRuntimeBridge, WorkExecutionGraph, WorkId, WorkService,
+    default_work_store, AgenticWorkRuntimeBridge, WorkCleanupAction, WorkCleanupItem,
+    WorkCleanupItemReport, WorkCleanupItemStatus, WorkExecutionGraph, WorkId, WorkLifecycleHookBus,
+    WorkLifecycleHookContext, WorkLifecycleHookHandler, WorkLifecycleHookKind,
+    WorkLifecycleHookOutcome, WorkLifecycleHookPhase, WorkResourceOwnership, WorkResourceRef,
+    WorkService,
 };
 use sparo_core::command::agentic_os as agentic_os_command;
+use sparo_core::error::CoreResult;
+use sparo_core::product_app_runtime_host::ProductAppRuntimeHostWorkerPool;
 use tauri::State;
 
 fn work_service(
     coordinator: &Arc<ConversationCoordinator>,
     scheduler: &Arc<DialogScheduler>,
 ) -> Result<WorkService, String> {
+    work_service_with_hook_bus(
+        coordinator,
+        scheduler,
+        WorkLifecycleHookBus::default_handlers(),
+    )
+}
+
+fn work_service_with_desktop_hooks(
+    coordinator: &Arc<ConversationCoordinator>,
+    scheduler: &Arc<DialogScheduler>,
+    state: &AppState,
+) -> Result<WorkService, String> {
+    work_service_with_hook_bus(
+        coordinator,
+        scheduler,
+        WorkLifecycleHookBus::default_handlers_with(vec![Arc::new(
+            ProductRuntimeWorkerLifecycleHook::new(state.js_worker_pool.clone()),
+        )]),
+    )
+}
+
+fn work_service_with_hook_bus(
+    coordinator: &Arc<ConversationCoordinator>,
+    scheduler: &Arc<DialogScheduler>,
+    hook_bus: WorkLifecycleHookBus,
+) -> Result<WorkService, String> {
     let store = default_work_store().map_err(|error| error.to_string())?;
     let runtime = Arc::new(AgenticWorkRuntimeBridge::new(
         coordinator.clone(),
         scheduler.clone(),
     ));
-    Ok(WorkService::with_runtime_bridge(store, runtime))
+    Ok(WorkService::with_lifecycle_hooks(store, runtime, hook_bus))
+}
+
+struct ProductRuntimeWorkerLifecycleHook {
+    worker_pool: Option<Arc<ProductAppRuntimeHostWorkerPool>>,
+}
+
+impl ProductRuntimeWorkerLifecycleHook {
+    fn new(worker_pool: Option<Arc<ProductAppRuntimeHostWorkerPool>>) -> Self {
+        Self { worker_pool }
+    }
+
+    fn worker_id(work_id: &str, runtime_instance_id: &str) -> String {
+        format!("product-app-runtime:{}:{}", work_id, runtime_instance_id)
+    }
+}
+
+const PRODUCT_RUNTIME_WORKER_HOOK_PHASES: &[WorkLifecycleHookPhase] = &[
+    WorkLifecycleHookPhase::Plan,
+    WorkLifecycleHookPhase::Prepare,
+];
+
+#[async_trait]
+impl WorkLifecycleHookHandler for ProductRuntimeWorkerLifecycleHook {
+    fn id(&self) -> &'static str {
+        "product_runtime_worker"
+    }
+
+    fn phases(&self) -> &'static [WorkLifecycleHookPhase] {
+        PRODUCT_RUNTIME_WORKER_HOOK_PHASES
+    }
+
+    async fn handle(
+        &self,
+        context: &WorkLifecycleHookContext,
+        hook: &WorkLifecycleHookKind,
+    ) -> CoreResult<WorkLifecycleHookOutcome> {
+        match hook {
+            WorkLifecycleHookKind::DeleteRequested { .. } => {
+                let items = context
+                    .work
+                    .runtime_instances
+                    .iter()
+                    .map(|instance| {
+                        let worker_id =
+                            Self::worker_id(context.work.id.as_str(), instance.id.as_str());
+                        let mut metadata = BTreeMap::new();
+                        metadata.insert("runtime_instance_id".to_string(), instance.id.clone());
+                        metadata.insert(
+                            "product_app_id".to_string(),
+                            instance.product_app_id.clone(),
+                        );
+                        metadata.insert(
+                            "product_app_surface_id".to_string(),
+                            instance.product_app_surface_id.clone(),
+                        );
+                        WorkCleanupItem {
+                            id: format!("product-runtime-worker:{}", worker_id),
+                            handler_id: self.id().to_string(),
+                            resource: WorkResourceRef {
+                                kind: "product_runtime_worker".to_string(),
+                                id: worker_id,
+                                ownership: WorkResourceOwnership::Owned,
+                                metadata,
+                            },
+                            action: WorkCleanupAction::Stop,
+                            required: false,
+                        }
+                    })
+                    .collect();
+                Ok(WorkLifecycleHookOutcome::CleanupPlan(items))
+            }
+            WorkLifecycleHookKind::Deleting { plan } => {
+                let mut reports = Vec::new();
+                let Some(worker_pool) = &self.worker_pool else {
+                    for item in &plan.items {
+                        reports.push(WorkCleanupItemReport {
+                            item: item.clone(),
+                            status: WorkCleanupItemStatus::Skipped,
+                            message: Some(
+                                "Product runtime worker pool is not initialized".to_string(),
+                            ),
+                        });
+                    }
+                    return Ok(WorkLifecycleHookOutcome::CleanupReport(reports));
+                };
+
+                for item in &plan.items {
+                    worker_pool.stop(&item.resource.id).await;
+                    reports.push(WorkCleanupItemReport {
+                        item: item.clone(),
+                        status: WorkCleanupItemStatus::Succeeded,
+                        message: None,
+                    });
+                }
+                Ok(WorkLifecycleHookOutcome::CleanupReport(reports))
+            }
+            WorkLifecycleHookKind::Deleted { .. } => Ok(WorkLifecycleHookOutcome::Continue),
+        }
+    }
 }
 
 #[tauri::command]
@@ -40,9 +174,13 @@ pub async fn agentic_os_get_work(
 
 #[tauri::command]
 pub async fn agentic_os_delete_work(
+    state: State<'_, AppState>,
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
+    scheduler: State<'_, Arc<DialogScheduler>>,
     request: agentic_os_command::AgenticOsDeleteWorkRequest,
 ) -> Result<agentic_os_command::AgenticOsDeleteWorkResponse, String> {
-    agentic_os_command::delete_work(request)
+    let service = work_service_with_desktop_hooks(&coordinator, &scheduler, &state)?;
+    agentic_os_command::delete_work_with_service(&service, request)
         .await
         .map_err(|error| error.to_string())
 }

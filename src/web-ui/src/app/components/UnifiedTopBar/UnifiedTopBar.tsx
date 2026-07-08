@@ -20,7 +20,6 @@ import {
   ArrowLeft,
   FolderOpen,
   House,
-  ListChecks,
   Search,
 } from 'lucide-react';
 import { Button, Dialog, IconButton, Tooltip, WindowControls, DropdownMenu } from '@/design-system';
@@ -38,7 +37,6 @@ import {
   setRemoteConnectDisclaimerAgreed,
 } from '../RemoteConnectDialog/remoteConnectDisclaimerStorage';
 import { useHeaderStore } from '../../stores/headerStore';
-import { useWorkDockStore } from '../../stores/workDockStore';
 import { useWorkStore } from '@/app/agentic-os/work/data/workStore';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import { useSessionProfile } from '../../session-profiles';
@@ -109,7 +107,6 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
   const { warning } = useNotification();
   const sessionContext = useSessionHeaderContext();
   const contextNavOverrides = useHeaderStore((s) => s.contextNavOverrides);
-  const requestOpenWorkDock = useWorkDockStore((s) => s.requestOpenWorkDock);
   const works = useWorkStore((s) => s.works);
   const surfaceContext = useWorkspaceSurfaceStore((s) => s.surfaceContext);
   const sceneHistory = useWorkspaceSurfaceStore((s) => s.sceneHistory);
@@ -122,7 +119,6 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
     [surfaceContext, works]
   );
   const hasSurfaceContext = activeSurface.kind !== 'agentic-os-home' || !!workContext;
-  const showWorkListControl = activeSurface.kind === 'scene';
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [logoMenuOpen, setLogoMenuOpen] = useState(false);
@@ -588,22 +584,6 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
               data-testid="unified-top-bar-home"
             >
               <House size={14} strokeWidth={2.25} aria-hidden="true" />
-            </IconButton>
-          )}
-
-          {showWorkListControl && (
-            <IconButton
-              size="small"
-              variant="ghost"
-              className="unified-top-bar__work-list-control"
-              onClick={requestOpenWorkDock}
-              aria-label={tNav('workDock.openWorkList')}
-              tooltip={tNav('workDock.openWorkList')}
-              tooltipPlacement="bottom"
-              data-testid="unified-top-bar-work-list"
-              data-sparo-ignore-work-dock-outside
-            >
-              <ListChecks size={14} strokeWidth={2.25} aria-hidden="true" />
             </IconButton>
           )}
 

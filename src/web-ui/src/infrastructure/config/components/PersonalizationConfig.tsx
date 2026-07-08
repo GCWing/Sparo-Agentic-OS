@@ -37,6 +37,8 @@ const PersonalizationConfig: React.FC = () => {
     isLoading,
     settings,
     enabledModels,
+    primaryModelName,
+    fastModelName,
     sessionTitleModelId,
     dailyLetterModelId,
     updateSetting,
@@ -178,6 +180,9 @@ const PersonalizationConfig: React.FC = () => {
                 disabled={!settings.enable_session_title_generation}
                 layout="horizontal"
                 size="small"
+                interactionMode="focus-custom"
+                primaryModelName={primaryModelName}
+                fastModelName={fastModelName}
               />
             </div>
           </ConfigPageRow>
@@ -211,6 +216,9 @@ const PersonalizationConfig: React.FC = () => {
                 disabled={!settings.enable_daily_letter}
                 layout="horizontal"
                 size="small"
+                interactionMode="focus-custom"
+                primaryModelName={primaryModelName}
+                fastModelName={fastModelName}
               />
             </div>
           </ConfigPageRow>

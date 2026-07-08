@@ -1,0 +1,66 @@
+{
+  "title": "Voice Input",
+  "subtitle": "Manage local speech input and the SenseVoice Small INT8 model.",
+  "loading": "Loading voice input settings...",
+  "sections": {
+    "composer": "Composer",
+    "model": "Local model"
+  },
+  "composer": {
+    "enabled": {
+      "label": "Show voice input",
+      "description": "Display the microphone action in the composer."
+    },
+    "language": {
+      "label": "Recognition language",
+      "description": "Default language used for local transcription."
+    },
+    "maxRecording": {
+      "label": "Recording limit",
+      "description": "Maximum seconds per voice input."
+    }
+  },
+  "states": {
+    "not_installed": "Not installed",
+    "downloading": "Downloading",
+    "installed": "Installed",
+    "verifying": "Verifying",
+    "corrupt": "Needs repair",
+    "deleting": "Deleting",
+    "error": "Error"
+  },
+  "model": {
+    "refresh": "Refresh",
+    "version": "Version {{version}}",
+    "size": "{{size}}",
+    "progress": "{{percent}}% · {{downloaded}} / {{total}}",
+    "download": "Download",
+    "downloading": "Downloading",
+    "downloaded": "Downloaded",
+    "cancel": "Cancel",
+    "cancelling": "Cancelling",
+    "openFolder": "Open location",
+    "verify": "Verify",
+    "verifying": "Verifying",
+    "delete": "Delete",
+    "deleting": "Deleting",
+    "keep": "Keep",
+    "deleteConfirmTitle": "Delete local speech model?",
+    "deleteConfirmMessage": "{{name}} will be removed from local storage.",
+    "empty": "No speech model is available."
+  },
+  "messages": {
+    "loadFailed": "Failed to load voice input settings",
+    "saveSuccess": "Voice input settings saved",
+    "saveFailed": "Failed to save voice input settings",
+    "downloadSuccess": "Speech model downloaded",
+    "downloadFailed": "Failed to download speech model",
+    "downloadCancelled": "Speech model download cancelled",
+    "cancelFailed": "Failed to cancel download",
+    "openFolderFailed": "Failed to open speech model location",
+    "verifySuccess": "Speech model verified",
+    "verifyFailed": "Failed to verify speech model",
+    "deleteSuccess": "Speech model deleted",
+    "deleteFailed": "Failed to delete speech model"
+  }
+}

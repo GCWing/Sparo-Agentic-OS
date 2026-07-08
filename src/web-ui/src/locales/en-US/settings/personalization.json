@@ -44,7 +44,9 @@
   "model": {
     "label": "Model",
     "primary": "Primary Model",
-    "fast": "Fast Model"
+    "fast": "Fast Model",
+    "notConfigured": "Not configured",
+    "fastUsesPrimary": "Uses flagship"
   },
   "common": {
     "enable": "Enable"

@@ -1,16 +1,22 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
-import { AppWindow, Brush, Clock3, Code2, Info, ListChecks, ListTodo, MessageSquare, Sparkles, Trash2, XCircle } from 'lucide-react';
+import { Info, Trash2, XCircle } from 'lucide-react';
 import { EmptyState, IconButton } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { useWorks } from '@/app/agentic-os/work/hooks/useWorks';
 import { useWorkStore } from '@/app/agentic-os/work/data/workStore';
 import { openWork, openWorkInCenter } from '@/app/agentic-os/work/navigation/openWork';
-import type { WorkKind, WorkStatus } from '@/app/agentic-os/work/domain/workTypes';
+import type { WorkStatus } from '@/app/agentic-os/work/domain/workTypes';
 import type { WorkProjection } from '@/app/agentic-os/work/projections/workProjection';
-import { filterWorkProjections } from '@/app/agentic-os/work/data/workSelectors';
-import { isWorkAttentionStatus, isWorkRunningStatus } from '@/app/agentic-os/work/domain/workClassification';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
+import {
+  getWorkModeIcon,
+  getWorkToneValue,
+  isFocusStatus,
+  isInstrumentedStatus,
+  selectWorksForDockList,
+  statusKey,
+} from './workListSelection';
 import './WorkList.scss';
 
 const log = createLogger('WorkList');
@@ -30,10 +36,6 @@ export interface WorkListProps {
   selectedResultIndex?: number;
   showGroupLabels?: boolean;
   onResultCountChange?: (count: number) => void;
-}
-
-function isFocusStatus(status: WorkStatus): boolean {
-  return isWorkRunningStatus(status) || isWorkAttentionStatus(status);
 }
 
 function isCancellableStatus(status: WorkStatus): boolean {
@@ -56,106 +58,6 @@ function groupKey(work: WorkProjection): 'running' | 'active' | 'done' {
   return 'active';
 }
 
-function statusKey(status: WorkStatus): string {
-  return status.replace(/_/g, '-');
-}
-
-function hasSessionLikeSurface(work: WorkProjection): boolean {
-  return work.primarySurface.kind === 'work_session'
-    || work.primarySurface.kind === 'agent_session'
-    || work.surfaces?.some((surface) => (
-      surface.kind === 'work_session' || surface.kind === 'agent_session'
-    )) === true;
-}
-
-function getWorkModeIcon(work: WorkProjection) {
-  if (work.kind === 'app_workflow') {
-    if (hasSessionLikeSurface(work)) return MessageSquare;
-    if (work.primarySurface.kind === 'application_surface') return AppWindow;
-    return Sparkles;
-  }
-  const { kind } = work;
-  if (kind === 'tracking' || kind === 'recurring') return ListTodo;
-  if (kind === 'topic') return Brush;
-  if (kind === 'long_running_session') return Clock3;
-  if (kind === 'one_shot' || kind === 'multi_step' || kind === 'delegated_work') return ListChecks;
-  return Code2;
-}
-
-function getWorkToneValue(status: WorkStatus): string {
-  if (status === 'waiting_user' || status === 'blocked') return 'var(--ds-color-warning)';
-  if (status === 'failed') return 'var(--ds-color-danger)';
-  if (status === 'completed') return 'var(--ds-color-success)';
-  if (status === 'running') return 'var(--ds-color-accent-500)';
-  return 'var(--ds-color-text-muted)';
-}
-
-function isInstrumentedStatus(status: WorkStatus): boolean {
-  return status === 'running'
-    || status === 'waiting_user'
-    || status === 'blocked'
-    || status === 'failed'
-    || status === 'paused'
-    || status === 'completed'
-    || status === 'cancelled'
-    || status === 'interrupted';
-}
-
-function statusPriority(status: WorkStatus): number {
-  switch (status) {
-    case 'waiting_user':
-      return 0;
-    case 'blocked':
-      return 1;
-    case 'failed':
-      return 2;
-    case 'running':
-      return 3;
-    case 'active':
-      return 4;
-    case 'paused':
-      return 5;
-    case 'draft':
-      return 6;
-    case 'completed':
-      return 7;
-    case 'cancelled':
-      return 8;
-    case 'interrupted':
-      return 9;
-    case 'archived':
-      return 10;
-  }
-}
-
-function kindContinuityPriority(kind: WorkKind): number {
-  switch (kind) {
-    case 'recurring':
-      return 0;
-    case 'long_running_session':
-    case 'tracking':
-    case 'topic':
-      return 1;
-    case 'app_workflow':
-      return 2;
-    case 'multi_step':
-    case 'delegated_work':
-      return 3;
-    case 'one_shot':
-      return 4;
-  }
-}
-
-function compareWorksForDock(left: WorkProjection, right: WorkProjection): number {
-  const byStatus = statusPriority(left.status) - statusPriority(right.status);
-  if (byStatus !== 0) return byStatus;
-  const byKind = kindContinuityPriority(left.kind) - kindContinuityPriority(right.kind);
-  if (byKind !== 0) return byKind;
-  const byTime = right.updatedAt - left.updatedAt;
-  if (byTime !== 0) return byTime;
-  return left.id.localeCompare(right.id);
-}
-
 const WorkList: React.FC<WorkListProps> = ({
   className,
   query = '',
@@ -175,23 +77,13 @@ const WorkList: React.FC<WorkListProps> = ({
   const workById = useMemo(() => new Map(works.map((work) => [work.id, work])), [works]);
 
   const visibleWorks = useMemo(() => {
-    const filtered = filterWorkProjections(projections, query)
-      .filter((work) => {
-        const running = isFocusStatus(work.status);
-        if (runningFilter === 'running') return running;
-        if (runningFilter === 'not-running') return !running;
-        return true;
-      })
-      .filter((work) => (includeArchived ? true : work.status !== 'archived'))
-      .filter((work) => (
-        includeCompleted
-          ? true
-          : work.status !== 'completed'
-            && work.status !== 'cancelled'
-            && work.status !== 'interrupted'
-      ))
-      .sort(compareWorksForDock);
-    return typeof maxWorks === 'number' ? filtered.slice(0, maxWorks) : filtered;
+    return selectWorksForDockList(projections, {
+      query,
+      maxWorks,
+      runningFilter,
+      includeArchived,
+      includeCompleted,
+    });
   }, [includeArchived, includeCompleted, maxWorks, projections, query, runningFilter]);
 
   const indexedVisibleWorks = useMemo<IndexedWorkProjection[]>(

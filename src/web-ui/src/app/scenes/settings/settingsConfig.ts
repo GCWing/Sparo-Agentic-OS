@@ -12,6 +12,7 @@ export type ConfigTab =
   | 'aiUsage'
   | 'dataStorage'
   | 'personalization'
+  | 'voiceInput'
   | 'bitfunCoder'
   | 'permissions'
   | 'memory'
@@ -126,6 +127,22 @@ export const SETTINGS_CATEGORIES: ConfigCategoryDef[] = [
           '个性化',
           '标题',
           '伙伴',
+        ],
+      },
+      {
+        id: 'voiceInput',
+        labelKey: 'tabs.voiceInput',
+        descriptionKey: 'tabDescriptions.voiceInput',
+        keywords: [
+          'voice',
+          'speech',
+          'speech input',
+          'voice input',
+          'microphone',
+          'dictation',
+          'sensevoice',
+          'local speech',
+          'asr',
         ],
       },
       {
@@ -265,6 +282,7 @@ export function normalizeSettingsTab(section: string): ConfigTab {
   if (section === 'ai-usage' || section === 'usage' || section === 'token-usage') return 'aiUsage';
   if (section === 'data-storage' || section === 'storage' || section === 'reset' || section === 'cleanup') return 'dataStorage';
   if (section === 'session-config' || section === 'personal' || section === 'companion') return 'personalization';
+  if (section === 'voice-input' || section === 'voice' || section === 'speech' || section === 'speech-input' || section === 'microphone') return 'voiceInput';
   if (section === 'bitfun-coder' || section === 'debug-mode') return 'bitfunCoder';
   if (section === 'permission' || section === 'permissions' || section === 'computer-use' || section === 'tool-execution') return 'permissions';
   if (section === 'memory' || section === 'auto-memory' || section === 'auto_memory' || section === 'extract-memory') return 'memory';

@@ -44,7 +44,9 @@
   "model": {
     "label": "模型",
     "primary": "主模型",
-    "fast": "快速模型"
+    "fast": "快速模型",
+    "notConfigured": "未配置",
+    "fastUsesPrimary": "使用旗舰"
   },
   "common": {
     "enable": "启用"

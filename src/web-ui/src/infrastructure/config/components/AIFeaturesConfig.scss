@@ -72,7 +72,11 @@
       justify-content: flex-end;
     }
 
-    .model-selection-radio--horizontal .model-selection-radio__option--custom {
+    .model-selection-radio--focus-custom {
+      width: 100%;
+    }
+
+    .model-selection-radio--horizontal .model-selection-radio__item--custom {
       flex-grow: 0;
     }
   }

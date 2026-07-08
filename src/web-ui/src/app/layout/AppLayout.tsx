@@ -37,8 +37,8 @@ import './AppLayout.scss';
 const log = createLogger('AppLayout');
 
 const RECENT_WORKSPACE_PRELOAD_LIMIT = 7;
-const RECENT_SESSION_WARMUP_LIMIT = 5;
-const RECENT_DISPATCHER_WARMUP_LIMIT = 3;
+const STARTUP_SESSION_HISTORY_WARMUP_LIMIT = 0;
+const STARTUP_AGENTIC_OS_HISTORY_WARMUP_LIMIT = 0;
 
 interface AppLayoutProps {
   className?: string;
@@ -299,7 +299,8 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
           preloadTargets,
           {
             metadataLimit: RECENT_WORKSPACE_PRELOAD_LIMIT,
-            warmHistoryCount: RECENT_SESSION_WARMUP_LIMIT,
+            warmHistoryCount: STARTUP_SESSION_HISTORY_WARMUP_LIMIT,
+            warmAgenticOsCount: STARTUP_AGENTIC_OS_HISTORY_WARMUP_LIMIT,
           }
         );
         if (!cancelled) {
@@ -326,7 +327,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
     const handle = appRuntime.scheduleTask('session-preload:agentic-os', async () => {
       try {
         const result = await FlowChatManager.getInstance().preloadAgenticOsSessions({
-          warmAgenticOsCount: RECENT_DISPATCHER_WARMUP_LIMIT,
+          warmAgenticOsCount: STARTUP_AGENTIC_OS_HISTORY_WARMUP_LIMIT,
         });
         if (!cancelled) {
           log.info('Agentic OS session preload completed', result);

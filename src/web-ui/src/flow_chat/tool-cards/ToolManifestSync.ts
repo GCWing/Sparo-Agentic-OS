@@ -25,6 +25,7 @@ interface BackendToolInfo {
 }
 
 let syncPromise: Promise<void> | null = null;
+let scheduledSyncTimer: ReturnType<typeof setTimeout> | null = null;
 const unregisterBackendConfigs = new Map<string, () => void>();
 const unregisterBackendRenderers = new Map<string, () => void>();
 
@@ -115,4 +116,15 @@ export async function syncToolCardRegistryFromBackendManifest(options?: { force?
   })();
 
   return syncPromise;
+}
+
+export function scheduleToolCardRegistrySyncFromBackendManifest(delayMs = 2_500): void {
+  if (syncPromise || scheduledSyncTimer) {
+    return;
+  }
+
+  scheduledSyncTimer = setTimeout(() => {
+    scheduledSyncTimer = null;
+    void syncToolCardRegistryFromBackendManifest();
+  }, delayMs);
 }

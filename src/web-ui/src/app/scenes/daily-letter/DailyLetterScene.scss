@@ -271,105 +271,6 @@ $dl-serif: georgia, 'Iowan Old Style', 'Times New Roman', 'Songti SC', simsun, '
   }
 }
 
-// Inline range editor: a single hairline row that appears under the
-// section title only while the filter is being edited.
-.dl-rail__date-range {
-  display: flex;
-  align-items: center;
-  gap: $size-gap-1;
-  margin: 0 $size-gap-1 $size-gap-2 $size-gap-3;
-  padding: 2px $size-gap-1 2px $size-gap-2;
-  border: 1px solid var(--ds-color-border-subtle);
-  border-radius: $size-radius-base;
-  background: var(--ds-color-element-subtle);
-  animation: dl-filter-drop 160ms $easing-ease-out;
-  transition:
-    border-color $motion-fast $easing-standard,
-    box-shadow $motion-fast $easing-standard;
-
-  &:focus-within {
-    border-color: color-mix(in srgb, var(--ds-color-accent) 36%, var(--ds-color-border-subtle));
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--ds-color-accent) 12%, transparent);
-  }
-
-  input[type='date'] {
-    flex: 1 1 0%;
-    min-width: 0;
-    min-height: 22px;
-    padding: 0;
-    border: 0;
-    color: var(--ds-color-text-muted);
-    background: transparent;
-    font: inherit;
-    font-size: $font-size-xs;
-    font-variant-numeric: tabular-nums;
-    cursor: pointer;
-    appearance: none;
-
-    &.is-set {
-      color: var(--ds-color-text-primary);
-      font-weight: $font-weight-medium;
-    }
-
-    &::-webkit-calendar-picker-indicator {
-      margin-left: 0;
-      opacity: 0.4;
-      cursor: pointer;
-      transition: opacity $motion-fast $easing-standard;
-    }
-
-    &:hover::-webkit-calendar-picker-indicator {
-      opacity: 0.75;
-    }
-
-    &:focus,
-    &:focus-visible {
-      outline: none;
-    }
-  }
-}
-
-.dl-rail__date-range-sep {
-  flex: 0 0 auto;
-  color: var(--ds-color-text-muted);
-  font-size: $font-size-xs;
-  line-height: 1;
-  user-select: none;
-}
-
-.dl-rail__date-range-clear {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  flex: 0 0 auto;
-  padding: 0;
-  border: 0;
-  border-radius: $size-radius-base;
-  color: var(--ds-color-text-tertiary);
-  background: transparent;
-  cursor: pointer;
-  transition:
-    background $motion-fast $easing-standard,
-    color $motion-fast $easing-standard;
-
-  &:hover:not(:disabled) {
-    color: var(--ds-color-text-primary);
-    background: var(--ds-color-element-medium);
-  }
-
-  &:disabled {
-    cursor: default;
-    opacity: 0.4;
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--ds-focus-outline, var(--ds-focus-ring));
-    outline-offset: 1px;
-  }
-}
-
 // Applied-range chip: the collapsed reminder that a date filter is active.
 .dl-rail__date-chip {
   display: inline-flex;
@@ -379,37 +280,23 @@ $dl-serif: georgia, 'Iowan Old Style', 'Times New Roman', 'Songti SC', simsun, '
   border-radius: 999px;
   background: color-mix(in srgb, var(--ds-color-accent) 6%, transparent);
   animation: dl-filter-drop 160ms $easing-ease-out;
-
-  button {
-    display: inline-flex;
-    align-items: center;
-    padding: 0;
-    border: 0;
-    color: color-mix(in srgb, var(--ds-color-accent) 85%, var(--ds-color-text-secondary));
-    background: transparent;
-    font: inherit;
-    cursor: pointer;
-    transition: color $motion-fast $easing-standard;
-
-    &:hover {
-      color: var(--ds-color-accent);
-    }
-
-    &:focus-visible {
-      outline: 2px solid var(--ds-focus-outline, var(--ds-focus-ring));
-      outline-offset: 1px;
-      border-radius: 999px;
-    }
-  }
 }
 
 .dl-rail__date-chip-range {
   gap: $size-gap-1;
+  min-width: 0;
   height: 20px;
   padding: 0 $size-gap-1 0 $size-gap-2;
+  border-radius: 999px 0 0 999px;
+  color: color-mix(in srgb, var(--ds-color-accent) 85%, var(--ds-color-text-secondary));
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+
+  &:hover:not(:disabled) {
+    color: var(--ds-color-accent);
+    background: transparent;
+  }
 
   svg {
     flex: 0 0 auto;
@@ -421,6 +308,12 @@ $dl-serif: georgia, 'Iowan Old Style', 'Times New Roman', 'Songti SC', simsun, '
   width: 20px;
   height: 20px;
   border-radius: 50%;
+  color: color-mix(in srgb, var(--ds-color-accent) 85%, var(--ds-color-text-secondary));
+
+  &:hover:not(:disabled) {
+    color: var(--ds-color-accent);
+    background: transparent;
+  }
 }
 
 .dl-rail__list {
@@ -1434,7 +1327,6 @@ $dl-serif: georgia, 'Iowan Old Style', 'Times New Roman', 'Songti SC', simsun, '
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .dl-rail__date-range,
   .dl-rail__date-chip,
   .dl-rail__today-writing,
   .dl-chip__pulse,

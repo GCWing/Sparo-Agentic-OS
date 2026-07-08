@@ -1,6 +1,15 @@
-import React, { useId, useMemo } from 'react';
+import React, { useId, useMemo, useRef, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Badge, Select, SelectableRow, StatusDot } from '@/design-system';
+import {
+  Badge,
+  DropdownMenu,
+  Select,
+  SelectableRow,
+  SqueezeSegmentedControl,
+  StatusDot,
+  type DropdownMenuEntry,
+} from '@/design-system';
 import type { AIModelConfig } from '../types';
 import { getCompactModelDisplayName, getProviderDisplayName } from '../services/modelConfigs';
 import './ModelSelectionRadio.scss';
@@ -12,6 +21,9 @@ export interface ModelSelectionRadioProps {
   disabled?: boolean;
   layout?: 'horizontal' | 'vertical';
   size?: 'small' | 'medium';
+  interactionMode?: 'standard' | 'focus-custom';
+  primaryModelName?: string;
+  fastModelName?: string;
 }
 
 const isSpecialModel = (value: string): value is 'primary' | 'fast' => {
@@ -63,10 +75,15 @@ export const ModelSelectionRadio: React.FC<ModelSelectionRadioProps> = ({
   disabled = false,
   layout = 'horizontal',
   size = 'medium',
+  interactionMode = 'standard',
+  primaryModelName,
+  fastModelName,
 }) => {
   const { t } = useTranslation('settings/default-model');
   const uniqueId = useId();
   const radioName = `model-selection-${uniqueId}`;
+  const customMenuAnchorRef = useRef<HTMLButtonElement | null>(null);
+  const [customMenuOpen, setCustomMenuOpen] = useState(false);
 
   const selectionType = useMemo<SelectionType>(() => {
     if (value === 'primary') return 'primary';
@@ -87,11 +104,17 @@ export const ModelSelectionRadio: React.FC<ModelSelectionRadioProps> = ({
   }, [customModelId, enabledModels]);
 
   const handleSelectionChange = (selection: SelectionType) => {
+    if (selection === selectionType) return;
+
     if (selection === 'custom') {
-      const newModelId = customModelId || models[0]?.id || 'primary';
-      onChange(newModelId);
+      const newModelId = customModelId || enabledModels[0]?.id || 'primary';
+      if (newModelId !== value) {
+        onChange(newModelId);
+      }
     } else {
-      onChange(selection);
+      if (selection !== value) {
+        onChange(selection);
+      }
     }
   };
 
@@ -115,8 +138,15 @@ export const ModelSelectionRadio: React.FC<ModelSelectionRadioProps> = ({
         description: getModelSelectionDescription(model),
       }))}
       size="small"
+      className="model-selection-radio__custom-select"
     />
   );
+
+  const focusPrimaryTitle = t('selection.primaryShort');
+  const focusFastTitle = t('selection.fastShort');
+  const customTitle = interactionMode === 'focus-custom'
+    ? t('selection.customShort')
+    : t('selection.custom');
 
   const selectionOptions: SelectionRowOption[] = [
     {
@@ -133,7 +163,7 @@ export const ModelSelectionRadio: React.FC<ModelSelectionRadioProps> = ({
     },
     {
       id: 'custom',
-      title: t('selection.custom'),
+      title: customTitle,
       selected: selectionType === 'custom',
       disabled,
       meta: customModelLabel ? (
@@ -145,11 +175,56 @@ export const ModelSelectionRadio: React.FC<ModelSelectionRadioProps> = ({
     },
   ];
 
+  const focusOptions = useMemo(() => [
+    { value: 'primary', label: focusPrimaryTitle, detail: primaryModelName, title: primaryModelName },
+    { value: 'fast', label: focusFastTitle, detail: fastModelName, title: fastModelName },
+    {
+      value: 'custom',
+      label: customTitle,
+      detail: customModelLabel || t('selection.selectModel'),
+      title: customModelLabel,
+      trailing: <ChevronDown size={12} />,
+      buttonRef: customMenuAnchorRef,
+      ariaHasPopup: 'menu' as const,
+      ariaExpanded: customMenuOpen,
+    },
+  ], [
+    customMenuOpen,
+    customModelLabel,
+    customTitle,
+    fastModelName,
+    focusFastTitle,
+    focusPrimaryTitle,
+    primaryModelName,
+    t,
+  ]);
+
+  const customModelMenuItems = useMemo<DropdownMenuEntry[]>(() => {
+    if (enabledModels.length === 0) {
+      return [{
+        type: 'item',
+        id: 'empty',
+        label: t('empty.noModels'),
+        disabled: true,
+      }];
+    }
+
+    return enabledModels.map(model => ({
+      type: 'item',
+      id: model.id!,
+      label: getModelSelectionLabel(model),
+      checked: model.id === customModelId,
+      onClick: model.id === customModelId ? undefined : () => onChange(model.id!),
+    }));
+  }, [customModelId, enabledModels, onChange, t]);
+
   const renderSelectionOption = (option: SelectionRowOption) => (
     <div
       key={option.id}
       className={[
         'model-selection-radio__item',
+        `model-selection-radio__item--${option.id}`,
+        option.selected && 'model-selection-radio__item--selected',
         option.details && 'model-selection-radio__item--with-details',
       ].filter(Boolean).join(' ')}
     >
@@ -183,10 +258,53 @@ export const ModelSelectionRadio: React.FC<ModelSelectionRadioProps> = ({
     </div>
   );
 
+  if (interactionMode === 'focus-custom') {
+    return (
+      <div
+        className={[
+          'model-selection-radio',
+          'model-selection-radio--focus-custom',
+          `model-selection-radio--${size}`,
+        ].join(' ')}
+        role="radiogroup"
+        aria-label={t('selection.modelChoice')}
+        aria-disabled={disabled || undefined}
+      >
+        <SqueezeSegmentedControl
+          value={selectionType}
+          options={focusOptions}
+          disabled={disabled}
+          ariaLabel={t('selection.modelChoice')}
+          onChange={(nextValue) => handleSelectionChange(nextValue as SelectionType)}
+          onOptionClick={(nextValue) => {
+            if (nextValue === 'custom') {
+              setCustomMenuOpen(true);
+              return;
+            }
+            setCustomMenuOpen(false);
+          }}
+        />
+        <DropdownMenu
+          open={customMenuOpen && selectionType === 'custom'}
+          anchorRef={customMenuAnchorRef}
+          items={customModelMenuItems}
+          onClose={() => setCustomMenuOpen(false)}
+          align="right"
+          minWidth={180}
+        />
+      </div>
+    );
+  }
+
   return (
     <div
-      className={`model-selection-radio model-selection-radio--${layout} model-selection-radio--${size}`}
+      className={[
+        'model-selection-radio',
+        `model-selection-radio--${layout}`,
+        `model-selection-radio--${size}`,
+      ].filter(Boolean).join(' ')}
       role="radiogroup"
+      aria-disabled={disabled || undefined}
     >
       {selectionOptions.map(renderSelectionOption)}
     </div>
