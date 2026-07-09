@@ -95,5 +95,11 @@
   "app": {
     "label": "App 想法",
     "title": "P.S."
+  },
+  "arrival": {
+    "label": "今日来信到达提示",
+    "title": "信到了",
+    "later": "先放一放",
+    "chipLabel": "今天的信还在这儿"
   }
 }

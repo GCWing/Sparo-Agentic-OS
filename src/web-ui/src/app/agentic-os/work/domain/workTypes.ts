@@ -402,8 +402,51 @@ export interface WorkRecord {
   runtimeInstances: RuntimeInstanceRef[];
   artifactRefs: ArtifactRef[];
   memoryRefs: MemoryRef[];
+  systemManaged: boolean;
+  systemProcessKind?: string | null;
+  topicWorkId?: WorkId | null;
   createdAt: number;
   updatedAt: number;
+}
+
+export interface WorkDeleteOptions {
+  cascadeChildWorks?: boolean;
+  deleteLinkedSessions?: boolean;
+}
+
+export type WorkResourceOwnership = 'owned' | 'linked' | 'derived' | 'external';
+export type WorkCleanupAction = 'delete' | 'detach' | 'retain' | 'archive' | 'stop';
+export type WorkCleanupItemStatus = 'planned' | 'succeeded' | 'failed' | 'retained' | 'skipped';
+
+export interface WorkCleanupResourceRef {
+  kind: string;
+  id: string;
+  ownership: WorkResourceOwnership;
+  metadata?: Record<string, string>;
+}
+
+export interface WorkCleanupItem {
+  id: string;
+  handlerId: string;
+  resource: WorkCleanupResourceRef;
+  action: WorkCleanupAction;
+  required: boolean;
+}
+
+export interface WorkCleanupItemReport {
+  item: WorkCleanupItem;
+  status: WorkCleanupItemStatus;
+  message?: string | null;
+}
+
+export interface WorkCleanupReport {
+  workId: string;
+  items: WorkCleanupItemReport[];
+}
+
+export interface WorkDeleteResult {
+  deleted: boolean;
+  cleanupReport: WorkCleanupReport;
 }
 
 export type PrimarySurfacePolicy = 'work_center' | 'work_session' | 'application_surface';
@@ -420,6 +463,7 @@ export interface CreateWorkRequest {
   primarySurface?: WorkSurfaceRef | null;
   assignment?: WorkAssignmentRef | null;
   titleState?: WorkTitleState | null;
+  topicWorkId?: WorkId | null;
 }
 
 export interface StartWorkRequest {
@@ -444,6 +488,10 @@ export interface UpdateWorkRequest {
   status?: WorkStatus;
   primarySurface?: WorkSurfaceRef;
   titleState?: WorkTitleState | null;
+  kind?: WorkKind;
+  topicWorkId?: WorkId | null;
+  clearTopicWorkId?: boolean;
+  visibility?: WorkVisibility;
 }
 
 export interface ResolveAppWorkRequest {

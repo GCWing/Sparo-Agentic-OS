@@ -10,6 +10,8 @@ export type WorkCenterScope =
   | { kind: 'completed' }
   | { kind: 'archived' }
   | { kind: 'category'; category: WorkCategory }
+  | { kind: 'topic' }
+  | { kind: 'system' }
   | { kind: 'workspaces' };
 
 export type WorkCenterWorkspaceFilter =
@@ -21,7 +23,6 @@ export type WorkCenterAppFilter =
   | { kind: 'app'; app: WorkAppRef };
 
 export type WorkCenterGrouping = 'priority' | 'kind' | 'status' | 'time';
-export type WorkCenterView = 'work' | 'background';
 
 interface WorkDockStore {
   workDockOpenNonce: number;
@@ -34,9 +35,6 @@ interface WorkDockStore {
 
   workCenterScope: WorkCenterScope;
   setWorkCenterScope: (scope: WorkCenterScope) => void;
-
-  workCenterView: WorkCenterView;
-  setWorkCenterView: (view: WorkCenterView) => void;
 
   workCenterWorkspaceFilter: WorkCenterWorkspaceFilter;
   setWorkCenterWorkspaceFilter: (filter: WorkCenterWorkspaceFilter) => void;
@@ -72,9 +70,6 @@ export const useWorkDockStore = create<WorkDockStore>((set) => ({
 
   workCenterScope: { kind: 'open' },
   setWorkCenterScope: (scope) => set({ workCenterScope: scope }),
-
-  workCenterView: 'work',
-  setWorkCenterView: (view) => set({ workCenterView: view }),
 
   workCenterWorkspaceFilter: { kind: 'all' },
   setWorkCenterWorkspaceFilter: (filter) => set({ workCenterWorkspaceFilter: filter }),

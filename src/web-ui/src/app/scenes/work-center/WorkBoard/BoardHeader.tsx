@@ -58,18 +58,20 @@ const BoardHeader: React.FC<BoardHeaderProps> = ({
   const { t } = useI18n('scenes/work-center');
   const scopeLabel = (() => {
     if (scope.kind === 'category') {
-      return t(`category.${scope.category}`);
+      return t(`rail.${scope.category}`);
     }
     if (scope.kind === 'open') return t('scope.openWork');
     if (scope.kind === 'attention') return t('scope.attention');
     if (scope.kind === 'running') return t('scope.runningWorks');
+    if (scope.kind === 'topic') return t('rail.topic');
+    if (scope.kind === 'system') return t('rail.system');
     if (scope.kind === 'all') return t('scope.unarchivedWork');
     if (scope.kind === 'completed') return t('scope.completedWork');
     if (scope.kind === 'archived') return t('scope.archivedWork');
     if (scope.kind === 'workspaces') return t('scope.workspaces');
     return t('scope.openWork');
   })();
-
+  const showScopeFilters = showWorkspaceFilter && scope.kind !== 'running';
   const groupingOptions: WorkCenterGrouping[] = ['priority', 'status', 'kind', 'time'];
   const workspaceOptions = useMemo<SelectOption[]>(() => [
     { label: t('workspaceFilter.all'), value: 'all' },
@@ -129,7 +131,7 @@ const BoardHeader: React.FC<BoardHeaderProps> = ({
             size="small"
             clearable
           />
-          {showWorkspaceFilter && workspaces.length > 0 ? (
+          {showScopeFilters && workspaces.length > 0 ? (
             <>
               <span className="bh-instrument__rule" aria-hidden="true" />
               <Select
@@ -153,7 +155,7 @@ const BoardHeader: React.FC<BoardHeaderProps> = ({
               />
             </>
           ) : null}
-          {appOptions.length > 0 ? (
+          {showScopeFilters && appOptions.length > 0 ? (
             <>
               <span className="bh-instrument__rule" aria-hidden="true" />
               <Select

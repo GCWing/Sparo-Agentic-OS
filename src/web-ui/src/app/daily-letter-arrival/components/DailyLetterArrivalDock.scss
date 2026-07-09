@@ -1,0 +1,251 @@
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
+
+$dla-serif: georgia, 'Iowan Old Style', 'Times New Roman', 'Songti SC', simsun, 'Noto Serif CJK SC', serif;
+$dla-width: 296px;
+
+// Reserve the corner for the letter first. AnnouncementToast reads this
+// variable to make room above the dock instead of overlapping it — see
+// the `bottom: calc(64px + var(--sparo-letter-dock-offset, 0px))` rule
+// in AnnouncementToast.scss.
+:root {
+  --sparo-letter-dock-offset: 0px;
+}
+
+:root[data-daily-letter-dock='is-card'] {
+  --sparo-letter-dock-offset: 200px;
+}
+
+:root[data-daily-letter-dock='is-chip'] {
+  --sparo-letter-dock-offset: 64px;
+}
+
+.dla-dock {
+  position: fixed;
+  bottom: 64px;
+  left: 20px;
+  z-index: var(--ds-z-notification);
+  pointer-events: none;
+
+  > * {
+    pointer-events: auto;
+  }
+}
+
+// ─── Envelope card (arrival / writing) ───────────────────────────────────────
+.dla-envelope {
+  position: relative;
+  width: $dla-width;
+  padding: $size-gap-4 $size-gap-4 $size-gap-4;
+  border: 1px solid color-mix(in srgb, var(--ds-color-border-strong) 55%, var(--ds-color-border-subtle));
+  border-radius: $size-radius-lg;
+  // Same "lifted paper" longhand as the full letter sheet, so the corner
+  // card and the letter it opens into feel like the same material.
+  background-color: var(--ds-color-bg-scene);
+  background-image:
+    linear-gradient(178deg, color-mix(in srgb, var(--ds-color-accent) 6%, transparent) 0%, transparent 45%),
+    linear-gradient(var(--ds-color-bg-elevated), var(--ds-color-bg-elevated));
+  box-shadow: 0 8px 24px var(--ds-shadow-color-card), 0 2px 6px var(--ds-shadow-color-soft);
+  animation: dla-drop-in 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  transition: transform 0.18s $easing-ease-out, opacity 0.18s $easing-ease-out;
+
+  &.is-opening {
+    animation: dla-envelope-open 260ms $easing-ease-out both;
+  }
+}
+
+// Postage stamp: hangs slightly off the top edge, dashed like a real
+// perforation, and never intercepts clicks.
+.dla-envelope__stamp {
+  position: absolute;
+  top: -9px;
+  right: 22px;
+  width: 26px;
+  height: 32px;
+  border: 1.5px dashed color-mix(in srgb, var(--ds-color-accent) 55%, transparent);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--ds-color-accent) 12%, var(--ds-color-bg-elevated));
+  transform: rotate(-5deg);
+  pointer-events: none;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    border: 1px solid color-mix(in srgb, var(--ds-color-accent) 35%, transparent);
+    border-radius: 2px;
+  }
+}
+
+.dla-envelope__close {
+  position: absolute;
+  top: $size-gap-2;
+  right: $size-gap-2;
+
+  svg {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+.dla-envelope__body {
+  display: flex;
+  flex-direction: column;
+  gap: $size-gap-2;
+  padding-right: 22px;
+}
+
+.dla-envelope__title-row {
+  display: flex;
+  align-items: center;
+  gap: $size-gap-2;
+}
+
+.dla-envelope__icon-badge {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: color-mix(in srgb, var(--ds-color-accent) 85%, var(--ds-color-text-secondary));
+  background: color-mix(in srgb, var(--ds-color-accent) 12%, transparent);
+  animation: dla-seal-breathe 3.2s ease-in-out infinite;
+}
+
+.dla-envelope__title {
+  min-width: 0;
+  color: var(--ds-color-text-primary);
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  letter-spacing: -0.01em;
+}
+
+.dla-envelope__desc {
+  margin: 0;
+  padding-left: 30px;
+  color: var(--ds-color-text-secondary);
+  font-family: $dla-serif;
+  font-size: 13px;
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.dla-envelope__note {
+  padding-left: 30px;
+  color: var(--ds-color-text-warning);
+  font-size: $font-size-xs;
+}
+
+.dla-envelope__action {
+  align-self: flex-end;
+  margin-top: $size-gap-1;
+}
+
+// ─── Wax-seal chip (collapsed state) ─────────────────────────────────────────
+.dla-chip-wrap {
+  position: relative;
+  width: fit-content;
+
+  // The close affordance only appears on hover/focus — the chip itself
+  // stays quiet and uncluttered the rest of the time.
+  .dla-chip-wrap__close {
+    opacity: 0;
+    transform: scale(0.7);
+    transition: opacity 0.15s $easing-ease-out, transform 0.15s $easing-ease-out;
+  }
+
+  &:hover .dla-chip-wrap__close,
+  &:focus-within .dla-chip-wrap__close {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.dla-chip {
+  color: color-mix(in srgb, var(--ds-color-accent) 85%, var(--ds-color-text-secondary));
+  background: color-mix(in srgb, var(--ds-color-accent) 14%, var(--ds-color-bg-elevated));
+  border: 1.5px solid color-mix(in srgb, var(--ds-color-accent) 45%, transparent);
+  box-shadow: 0 6px 18px var(--ds-shadow-color-card);
+  animation: dla-drop-in 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both, dla-seal-breathe 3.6s ease-in-out infinite;
+}
+
+.dla-chip-wrap__close {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: var(--ds-color-bg-elevated);
+  box-shadow: 0 2px 6px var(--ds-shadow-color-soft);
+
+  svg {
+    width: 11px;
+    height: 11px;
+  }
+}
+
+@keyframes dla-drop-in {
+  from {
+    opacity: 0;
+    transform: translate(46px, 34px) rotate(9deg) scale(0.9);
+  }
+
+  60% {
+    opacity: 1;
+    transform: translate(-4px, -3px) rotate(-1.5deg) scale(1.02);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+}
+
+@keyframes dla-envelope-open {
+  from {
+    opacity: 1;
+    transform: perspective(600px) rotateX(0deg) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: perspective(600px) rotateX(-45deg) scale(0.94);
+  }
+}
+
+@keyframes dla-seal-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--ds-color-accent) 0%, transparent);
+  }
+
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--ds-color-accent) 14%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dla-envelope,
+  .dla-chip,
+  .dla-envelope__icon-badge {
+    animation: none;
+  }
+
+  .dla-envelope.is-opening {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .dla-dock {
+    left: $size-gap-3;
+    right: $size-gap-3;
+  }
+
+  .dla-envelope {
+    width: auto;
+  }
+}

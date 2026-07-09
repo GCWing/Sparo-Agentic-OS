@@ -31,7 +31,7 @@ import type {
 } from './FlowChatContext';
 
 export interface UseFlowChatCoreOptions {
-  initialTurnListOpen?: boolean;
+  initialTimelineOpen?: boolean;
   sessionId?: string | null;
   workspacePath?: string | null;
   config?: Partial<FlowChatConfig>;
@@ -43,7 +43,7 @@ export interface UseFlowChatCoreOptions {
 
 export function useFlowChatCore(options: UseFlowChatCoreOptions = {}) {
   const {
-    initialTurnListOpen = false,
+    initialTimelineOpen = false,
     sessionId,
     workspacePath: scopedWorkspacePath,
     config,
@@ -74,13 +74,13 @@ export function useFlowChatCore(options: UseFlowChatCoreOptions = {}) {
   // ── UI state ──────────────────────────────────────────────────────────────
   const [pendingHeaderTurnId, setPendingHeaderTurnId] = useState<string | null>(null);
   const [searchOpenRequest, setSearchOpenRequest] = useState(0);
-  const [turnListSearchFocusRequest, setTurnListSearchFocusRequest] = useState(0);
-  const [turnListOpen, setTurnListOpen] = useState(initialTurnListOpen);
+  const [timelineSearchFocusRequest, setTimelineSearchFocusRequest] = useState(0);
+  const [timelineOpen, setTimelineOpen] = useState(initialTimelineOpen);
 
   // ── Refs ──────────────────────────────────────────────────────────────────
   const virtualListRef = useRef<VirtualMessageListRef>(null);
   const chatScopeRef = useRef<HTMLDivElement>(null);
-  const turnListSidebarRef = useRef<HTMLElement | null>(null);
+  const timelineSidebarRef = useRef<HTMLElement | null>(null);
 
   // ── Sub-hooks ─────────────────────────────────────────────────────────────
   const {
@@ -260,7 +260,7 @@ export function useFlowChatCore(options: UseFlowChatCoreOptions = {}) {
     // Refs
     virtualListRef,
     chatScopeRef,
-    turnListSidebarRef,
+    timelineSidebarRef,
 
     // Turn data
     turnSummaries,
@@ -291,12 +291,12 @@ export function useFlowChatCore(options: UseFlowChatCoreOptions = {}) {
     // UI state
     pendingHeaderTurnId,
     setPendingHeaderTurnId,
-    turnListOpen,
-    setTurnListOpen,
+    timelineOpen,
+    setTimelineOpen,
     searchOpenRequest,
     setSearchOpenRequest,
-    turnListSearchFocusRequest,
-    setTurnListSearchFocusRequest,
+    timelineSearchFocusRequest,
+    setTimelineSearchFocusRequest,
 
     // Workspace
     workspacePath: effectiveWorkspacePath,

@@ -45,9 +45,16 @@ import type {
   WorkBuilderPreviewResult,
   WorkBuilderPreviewSource,
   WorkBuilderValidationResult,
+  WorkCleanupAction,
+  WorkCleanupItemReport,
+  WorkCleanupItemStatus,
+  WorkCleanupReport,
+  WorkDeleteOptions,
+  WorkDeleteResult,
   WorkSubject,
   WorkSurfaceRef,
   WorkTitleState,
+  WorkResourceOwnership,
 } from '../domain/workTypes';
 
 type RawWorkScope =
@@ -189,8 +196,42 @@ type RawWorkRecord = {
   runtime_instances?: RawRuntimeInstanceRef[];
   artifact_refs: RawArtifactRef[];
   memory_refs: RawMemoryRef[];
+  system_managed?: boolean;
+  system_process_kind?: string | null;
+  topic_work_id?: string | null;
   created_at: number;
   updated_at: number;
+};
+
+type RawWorkDeleteOptions = {
+  cascade_child_works: boolean;
+  delete_linked_sessions: boolean;
+};
+
+type RawWorkCleanupResourceRef = {
+  kind: string;
+  id: string;
+  ownership: WorkResourceOwnership;
+  metadata?: Record<string, string> | null;
+};
+
+type RawWorkCleanupItem = {
+  id: string;
+  handler_id: string;
+  resource: RawWorkCleanupResourceRef;
+  action: WorkCleanupAction;
+  required?: boolean;
+};
+
+type RawWorkCleanupItemReport = {
+  item: RawWorkCleanupItem;
+  status: WorkCleanupItemStatus;
+  message?: string | null;
+};
+
+type RawWorkCleanupReport = {
+  work_id: string;
+  items?: RawWorkCleanupItemReport[];
 };
 
 type RawWorkRuntimeRun = {
@@ -620,8 +661,43 @@ export function fromRawWorkRecord(record: RawWorkRecord): WorkRecord {
     runtimeInstances: (record.runtime_instances ?? []).map(fromRawRuntimeInstanceRef),
     artifactRefs: record.artifact_refs.map(fromRawArtifactRef),
     memoryRefs: record.memory_refs.map(fromRawMemoryRef),
+    systemManaged: Boolean(record.system_managed),
+    systemProcessKind: record.system_process_kind ?? null,
+    topicWorkId: record.topic_work_id ?? null,
     createdAt: record.created_at,
     updatedAt: record.updated_at,
+  };
+}
+
+function toRawWorkDeleteOptions(options?: WorkDeleteOptions): RawWorkDeleteOptions {
+  return {
+    cascade_child_works: Boolean(options?.cascadeChildWorks),
+    delete_linked_sessions: Boolean(options?.deleteLinkedSessions),
+  };
+}
+
+function fromRawWorkCleanupReport(
+  report: RawWorkCleanupReport | undefined,
+  workId: string
+): WorkCleanupReport {
+  return {
+    workId: report?.work_id ?? workId,
+    items: (report?.items ?? []).map((itemReport): WorkCleanupItemReport => ({
+      item: {
+        id: itemReport.item.id,
+        handlerId: itemReport.item.handler_id,
+        resource: {
+          kind: itemReport.item.resource.kind,
+          id: itemReport.item.resource.id,
+          ownership: itemReport.item.resource.ownership,
+          metadata: itemReport.item.resource.metadata ?? undefined,
+        },
+        action: itemReport.item.action,
+        required: itemReport.item.required ?? false,
+      },
+      status: itemReport.status,
+      message: itemReport.message,
+    })),
   };
 }
 
@@ -638,6 +714,7 @@ function toRawCreateWorkRequest(request: CreateWorkRequest): Record<string, unkn
     primary_surface: request.primarySurface ? toRawSurface(request.primarySurface) : undefined,
     assignment: toRawAssignment(request.assignment),
     title_state: toRawTitleState(request.titleState),
+    topic_work_id: request.topicWorkId ?? undefined,
   };
 }
 
@@ -852,6 +929,10 @@ function toRawUpdateWorkRequest(request: UpdateWorkRequest): Record<string, unkn
     status: request.status,
     primary_surface: request.primarySurface ? toRawSurface(request.primarySurface) : undefined,
     title_state: toRawTitleState(request.titleState),
+    kind: request.kind,
+    topic_work_id: request.clearTopicWorkId ? undefined : (request.topicWorkId ?? undefined),
+    clear_topic_work_id: request.clearTopicWorkId ?? false,
+    visibility: request.visibility,
   };
 }
 
@@ -904,14 +985,20 @@ export class AgenticOsWorkApi {
     }
   }
 
-  async deleteWork(workId: string): Promise<boolean> {
+  async deleteWork(workId: string, options?: WorkDeleteOptions): Promise<WorkDeleteResult> {
     try {
-      const response = await api.invoke<{ deleted: boolean }>('agentic_os_delete_work', {
-        request: { work_id: workId },
-      });
-      return response.deleted;
+      const response = await api.invoke<{ deleted: boolean; cleanup_report?: RawWorkCleanupReport }>(
+        'agentic_os_delete_work',
+        {
+          request: { work_id: workId, options: toRawWorkDeleteOptions(options) },
+        }
+      );
+      return {
+        deleted: response.deleted,
+        cleanupReport: fromRawWorkCleanupReport(response.cleanup_report, workId),
+      };
     } catch (error) {
-      throw createTauriCommandError('agentic_os_delete_work', error, { workId });
+      throw createTauriCommandError('agentic_os_delete_work', error, { workId, options });
     }
   }
 

@@ -2,14 +2,19 @@ $toast-width: 320px;
 
 // ─── Container (fixed bottom-left) ───────────────────────────────────────────
 // Left offset accounts for the fan-out spread (ghost cards translate ±38px).
+// The bottom offset yields to the Daily Letter arrival dock when it is
+// present — that corner is reserved for the letter first, and this stack
+// floats above it via `--sparo-letter-dock-offset` (see
+// DailyLetterArrivalDock.scss) instead of overlapping it.
 .announcement-toast-stack {
   position: fixed;
-  bottom: 64px;
+  bottom: calc(64px + var(--sparo-letter-dock-offset, 0px));
   left: 58px; // 20px margin + ~38px fan-out buffer
   z-index: var(--ds-z-notification);
   pointer-events: none;
   // Clip nothing — overflow visible so rotated ghosts are always fully shown
   overflow: visible;
+  transition: bottom 0.24s ease-out;
 
   > * {
     pointer-events: auto;

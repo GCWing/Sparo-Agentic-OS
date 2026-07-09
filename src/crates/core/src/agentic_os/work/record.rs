@@ -152,6 +152,12 @@ pub struct WorkRecord {
     pub builder_issues: Vec<WorkBuilderIssue>,
     pub artifact_refs: Vec<ArtifactRef>,
     pub memory_refs: Vec<MemoryRef>,
+    #[serde(default)]
+    pub system_managed: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub system_process_kind: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub topic_work_id: Option<WorkId>,
     pub created_at: i64,
     pub updated_at: i64,
 }
@@ -199,6 +205,9 @@ impl WorkRecord {
             builder_issues: Vec::new(),
             artifact_refs: Vec::new(),
             memory_refs: Vec::new(),
+            system_managed: false,
+            system_process_kind: None,
+            topic_work_id: None,
             created_at: now,
             updated_at: now,
         }

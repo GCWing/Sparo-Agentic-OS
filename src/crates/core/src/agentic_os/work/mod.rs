@@ -50,9 +50,9 @@ pub use service::{
     AdvanceWorkRequest, AdvanceWorkResponse, ControlWorkAction, ControlWorkRequest,
     ControlWorkResponse, CreateWorkRequest, DeleteWorkResponse, DispatchNewWorkRequest,
     DispatchWorkRequest, DispatchWorkResponse, LinkSessionToWorkRequest, PrimarySurfacePolicy,
-    ResolveAppWorkRequest, ResolveAppWorkResponse, ResolveComponentWorkRequest,
-    ResolveComponentWorkResponse, StartWorkRequest, StartWorkResponse, UpdateWorkRequest,
-    WorkService,
+    ReclassifyWorkRequest, ResolveAppWorkRequest, ResolveAppWorkResponse,
+    ResolveComponentWorkRequest, ResolveComponentWorkResponse, StartWorkRequest, StartWorkResponse,
+    UpdateWorkRequest, WorkService,
 };
 pub use store::{default_work_store, FileWorkStore, MemoryWorkStore, WorkStore};
 pub use subject::{

@@ -16,7 +16,6 @@ vi.mock('@/app/scenes/apps/product-app-runtime/productAppRuntimeService', () => 
 function resetWorkDockStore() {
   useWorkDockStore.setState({
     workCenterScope: { kind: 'open' },
-    workCenterView: 'work',
     workCenterWorkspaceFilter: { kind: 'all' },
     workCenterAppFilter: { kind: 'all' },
     workCenterGrouping: 'priority',

@@ -20,6 +20,8 @@ import { agenticOsWorkApi } from '@/app/agentic-os/work/data/workApi';
 import { useWorkStore } from '@/app/agentic-os/work/data/workStore';
 import { openWork, openWorkSurface } from '@/app/agentic-os/work/navigation/openWork';
 import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
+import { useBackgroundProcesses } from '@/app/agentic-os/background-process/hooks/useBackgroundProcesses';
+import type { BackgroundProcessKind } from '@/app/agentic-os/background-process/domain/backgroundProcessTypes';
 import type {
   ArtifactRef,
   ControlWorkAction,
@@ -30,6 +32,7 @@ import type {
   WorkLifecycleEvent,
   WorkRecord,
   RuntimeInstanceRef,
+  WorkDeleteResult,
   WorkRuntimeIssueSeverity,
   WorkRuntimeLogLevel,
   WorkRuntimeRunStatus,
@@ -58,7 +61,16 @@ import { externalRuntimeScope } from '@/shared/types/runtime-scope';
 import { workspaceAPI } from '@/infrastructure/api/service-api/WorkspaceAPI';
 import { openFileInBestTarget } from '@/shared/utils/tabUtils';
 import BoardHeader from './BoardHeader';
+import RunningWorkProcessTable from './RunningWorkProcessTable';
 import './WorkBoard.scss';
+
+const RECLASSIFY_OPTIONS: Array<{ kind: WorkKind; labelKey: string }> = [
+  { kind: 'topic', labelKey: 'detail.classify.asTopic' },
+  { kind: 'tracking', labelKey: 'detail.classify.asTracking' },
+  { kind: 'long_running_session', labelKey: 'detail.classify.asLongRunning' },
+  { kind: 'recurring', labelKey: 'detail.classify.asRecurring' },
+  { kind: 'multi_step', labelKey: 'detail.classify.asImmediate' },
+];
 
 const log = createLogger('WorkBoard');
 
@@ -396,6 +408,13 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
   const advanceWork = useWorkStore((state) => state.advanceWork);
   const controlWork = useWorkStore((state) => state.controlWork);
   const deleteWork = useWorkStore((state) => state.deleteWork);
+  const refreshWorks = useWorkStore((state) => state.refreshWorks);
+  const {
+    processes: backgroundProcesses,
+    runningKind: backgroundRunningKind,
+    runProcess: runBackgroundProcess,
+    refreshProcesses: refreshBackgroundProcesses,
+  } = useBackgroundProcesses();
   const {
     openWorkspace,
     switchWorkspace,
@@ -410,12 +429,15 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
   const [advanceDraft, setAdvanceDraft] = useState('');
   const [advanceDialogWorkId, setAdvanceDialogWorkId] = useState<string | null>(null);
   const [advanceSubmitting, setAdvanceSubmitting] = useState(false);
+  const [reclassifySubmittingId, setReclassifySubmittingId] = useState<string | null>(null);
+  const [systemRunSubmittingKind, setSystemRunSubmittingKind] = useState<string | null>(null);
   const [copiedSurfaceKey, setCopiedSurfaceKey] = useState<string | null>(null);
   const [executionGraph, setExecutionGraph] = useState<WorkExecutionGraph | null>(null);
   const [executionGraphLoading, setExecutionGraphLoading] = useState(false);
   const [selectedWorkIds, setSelectedWorkIds] = useState<string[]>([]);
   const [batchSubmitting, setBatchSubmitting] = useState(false);
   const [deleteDialogWorkIds, setDeleteDialogWorkIds] = useState<string[] | null>(null);
+  const [deleteLinkedSessions, setDeleteLinkedSessions] = useState(true);
   const objectiveTextareaRef = useRef<HTMLTextAreaElement>(null);
   const advanceTextareaRef = useRef<HTMLTextAreaElement>(null);
   const copyResetTimerRef = useRef<number | null>(null);
@@ -436,17 +458,22 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
   );
 
   const batchArchiveTargets = useMemo(
-    () => selectedWorks.filter((work) => work.status !== 'archived'),
+    () => selectedWorks.filter((work) => !work.systemManaged && work.status !== 'archived'),
     [selectedWorks]
   );
 
   const batchReopenTargets = useMemo(
-    () => selectedWorks.filter((work) => work.status === 'archived'),
+    () => selectedWorks.filter((work) => !work.systemManaged && work.status === 'archived'),
     [selectedWorks]
   );
 
   const batchCancelTargets = useMemo(
-    () => selectedWorks.filter((work) => isCancellableStatus(work.status)),
+    () => selectedWorks.filter((work) => !work.systemManaged && isCancellableStatus(work.status)),
+    [selectedWorks]
+  );
+
+  const batchDeleteTargets = useMemo(
+    () => selectedWorks.filter((work) => !work.systemManaged),
     [selectedWorks]
   );
 
@@ -722,6 +749,7 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
   }, [t]);
 
   const handleCancelWork = useCallback(async (work: WorkProjection) => {
+    if (work.systemManaged) return;
     try {
       await controlWork({ workId: work.id, action: 'cancel_current_execution' });
     } catch (error) {
@@ -731,6 +759,7 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
   }, [controlWork, t]);
 
   const handleRemoveWork = useCallback(async (work: WorkProjection) => {
+    if (work.systemManaged) return;
     try {
       await controlWork({ workId: work.id, action: 'archive' });
     } catch (error) {
@@ -738,6 +767,47 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
       notificationService.error(t('errors.removeFailed'));
     }
   }, [controlWork, t]);
+
+  const handleReclassifyWork = useCallback(async (work: WorkRecord, kind: WorkKind) => {
+    if (work.systemManaged || work.kind === kind || reclassifySubmittingId) return;
+    try {
+      setReclassifySubmittingId(work.id);
+      await updateWork({ workId: work.id, kind });
+      notificationService.success(t('detail.classify.updated'), { duration: 2500 });
+    } catch (error) {
+      log.error('Failed to reclassify work from Work Center', { workId: work.id, kind, error });
+      notificationService.error(t('errors.reclassifyFailed'));
+    } finally {
+      setReclassifySubmittingId(null);
+    }
+  }, [reclassifySubmittingId, t, updateWork]);
+
+  const handleRunSystemProcess = useCallback(async (kind: BackgroundProcessKind) => {
+    if (systemRunSubmittingKind) return;
+    try {
+      setSystemRunSubmittingKind(kind);
+      const response = await runBackgroundProcess(kind);
+      if (response.started) {
+        notificationService.success(t('background.messages.runStarted'), { duration: 2500 });
+      } else {
+        notificationService.warning(
+          response.reason?.trim()
+            ? t('background.messages.runSkipped', { reason: response.reason })
+            : t('background.messages.runSkippedDefault'),
+          { duration: 3000 }
+        );
+      }
+      await Promise.all([
+        refreshWorks(),
+        refreshBackgroundProcesses(),
+      ]);
+    } catch (error) {
+      log.error('Failed to run system process from Work Center', { kind, error });
+      notificationService.error(t('background.messages.runFailed'));
+    } finally {
+      setSystemRunSubmittingKind(null);
+    }
+  }, [refreshBackgroundProcesses, refreshWorks, runBackgroundProcess, systemRunSubmittingKind, t]);
 
   const handleToggleWorkSelection = useCallback((workId: string, checked: boolean) => {
     setSelectedWorkIds((current) => {
@@ -806,12 +876,14 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
   ]);
 
   const handleOpenDeleteDialog = useCallback(() => {
-    if (selectedWorks.length === 0 || batchSubmitting) return;
-    setDeleteDialogWorkIds(selectedWorks.map((work) => work.id));
-  }, [batchSubmitting, selectedWorks]);
+    if (batchDeleteTargets.length === 0 || batchSubmitting) return;
+    setDeleteLinkedSessions(true);
+    setDeleteDialogWorkIds(batchDeleteTargets.map((work) => work.id));
+  }, [batchDeleteTargets, batchSubmitting]);
 
   const handleDeleteDialogOpenChange = useCallback((open: boolean) => {
     if (!open && !batchSubmitting) {
+      setDeleteLinkedSessions(true);
       setDeleteDialogWorkIds(null);
     }
   }, [batchSubmitting]);
@@ -821,8 +893,26 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
     if (workIds.length === 0 || batchSubmitting) return;
 
     setBatchSubmitting(true);
-    const results = await Promise.allSettled(workIds.map((workId) => deleteWork(workId)));
+    const results = await Promise.allSettled(
+      workIds.map((workId) => deleteWork(workId, { deleteLinkedSessions }))
+    );
     const settledIds = workIds.filter((_, index) => results[index]?.status === 'fulfilled');
+    const fulfilledResults = results.flatMap((result): WorkDeleteResult[] => (
+      result.status === 'fulfilled' ? [result.value] : []
+    ));
+    const linkedSessionReports = fulfilledResults
+      .flatMap((result) => result.cleanupReport.items)
+      .filter((report) => (
+        report.item.resource.kind === 'agent_session'
+        && report.item.resource.ownership === 'linked'
+        && report.item.action === 'delete'
+      ));
+    const linkedSessionDeletedCount = linkedSessionReports.filter(
+      (report) => report.status === 'succeeded'
+    ).length;
+    const linkedSessionFailedCount = linkedSessionReports.filter((report) => (
+      report.status === 'failed' || report.status === 'skipped'
+    )).length;
     const failedCount = results.filter((result) => result.status === 'rejected').length;
 
     if (settledIds.length > 0) {
@@ -841,7 +931,26 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
       });
       notificationService.error(t('errors.bulkDeleteFailed', { count: failedCount }));
     } else {
-      notificationService.success(t('messages.bulkDeleted', { count: settledIds.length }), { duration: 2500 });
+      if (linkedSessionFailedCount > 0) {
+        notificationService.warning(
+          t('messages.bulkDeletedWithCleanupWarnings', {
+            count: settledIds.length,
+            failed: linkedSessionFailedCount,
+          }),
+          { duration: 3500 }
+        );
+      } else if (deleteLinkedSessions && linkedSessionDeletedCount > 0) {
+        notificationService.success(
+          t('messages.bulkDeletedWithSessions', {
+            count: settledIds.length,
+            sessions: linkedSessionDeletedCount,
+          }),
+          { duration: 2500 }
+        );
+      } else {
+        notificationService.success(t('messages.bulkDeleted', { count: settledIds.length }), { duration: 2500 });
+      }
+      setDeleteLinkedSessions(true);
       setDeleteDialogWorkIds(null);
     }
 
@@ -849,6 +958,7 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
   }, [
     batchSubmitting,
     deleteDialogWorkIds,
+    deleteLinkedSessions,
     deleteWork,
     onSelectedWorkChange,
     selectedWorkId,
@@ -959,9 +1069,10 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
     const status = resolveEffectiveWorkStatus(work);
     const statusModifier = status.replace(/_/g, '-');
     const category = getWorkCategory(work.kind);
-    const canCancel = isCancellableStatus(status);
-    const canArchive = status !== 'archived';
-    const canAdvance = status !== 'archived';
+    const canCancel = !work.systemManaged && isCancellableStatus(status);
+    const canArchive = !work.systemManaged && status !== 'archived';
+    const canAdvance = !work.systemManaged && status !== 'archived';
+    const canReclassify = !work.systemManaged;
     const rawSurfaces = work.surfaces.length > 0 ? work.surfaces : [work.primarySurface];
     const seenSurfaceKeys = new Set<string>();
     const surfaces = rawSurfaces.filter((surface) => {
@@ -974,6 +1085,21 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
     const objectiveDialogOpen = objectiveDialogWorkId === work.id;
     const workspaceLabel = getWorkWorkspaceLabel(work, workspaces, t);
     const assignmentLabel = getAssignmentLabel(work, t);
+    const scopeLabel = work.scope.kind === 'system'
+      ? t('detail.globalWorkspace')
+      : workspaceLabel;
+    const topicWork = work.topicWorkId
+      ? works.find((item) => item.id === work.topicWorkId) ?? null
+      : null;
+    const systemProcess = work.systemManaged && work.systemProcessKind
+      ? backgroundProcesses.find((process) => process.kind === work.systemProcessKind) ?? null
+      : null;
+    const systemProcessBusy = systemProcess
+      ? backgroundRunningKind === systemProcess.kind || systemRunSubmittingKind === systemProcess.kind
+      : false;
+    const canRunSystemProcess = Boolean(
+      systemProcess?.actions.includes('run_now')
+    );
     const graph = selectedExecutionGraph?.workId === work.id ? selectedExecutionGraph : null;
     const graphRuntimeRuns = graph
       ? graph.runtimeInstances.flatMap((runtime) => runtime.runs)
@@ -1035,6 +1161,11 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
               <span className="ab-detail__status-dot" aria-hidden="true" />
               {t(`status.${status}`)}
             </span>
+            {work.systemManaged ? (
+              <Badge className="ab-detail__system-badge" variant="neutral">
+                {t('rail.system')}
+              </Badge>
+            ) : null}
             <IconButton
               size="xs"
               variant="ghost"
@@ -1050,6 +1181,8 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
             <span className="ab-detail__meta-item">{workspaceLabel}</span>
             <span className="ab-detail__meta-rule" aria-hidden="true" />
             <span className="ab-detail__meta-item">{t(`category.${category}`)}</span>
+            <span className="ab-detail__meta-rule" aria-hidden="true" />
+            <span className="ab-detail__meta-item">{t(`kind.${kindKey(work.kind)}`)}</span>
             <span className="ab-detail__meta-rule" aria-hidden="true" />
             <span className="ab-detail__meta-item">{t('detail.updatedAt', { time: formatTime(work.updatedAt) })}</span>
           </div>
@@ -1095,6 +1228,10 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
                   appRefs: work.appRefs,
                   workspacePath: work.scope.kind === 'workspace' ? work.scope.workspacePath : undefined,
                   primarySurface: work.primarySurface,
+                  systemManaged: work.systemManaged,
+                  systemProcessKind: work.systemProcessKind,
+                  topicWorkId: work.topicWorkId,
+                  visibility: work.visibility,
                   updatedAt: work.updatedAt,
                 })}
               >
@@ -1118,6 +1255,10 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
                   appRefs: work.appRefs,
                   workspacePath: work.scope.kind === 'workspace' ? work.scope.workspacePath : undefined,
                   primarySurface: work.primarySurface,
+                  systemManaged: work.systemManaged,
+                  systemProcessKind: work.systemProcessKind,
+                  topicWorkId: work.topicWorkId,
+                  visibility: work.visibility,
                   updatedAt: work.updatedAt,
                 })}
               >
@@ -1133,15 +1274,17 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
             <h3 className="ab-detail__section-title">
               {t('detail.brief')}
             </h3>
-            <IconButton
-              size="xs"
-              variant="ghost"
-              aria-label={t('detail.editObjective')}
-              tooltip={t('detail.editObjective')}
-              onClick={() => handleOpenObjectiveDialog(work)}
-            >
-              <Pencil size={12} />
-            </IconButton>
+            {!work.systemManaged ? (
+              <IconButton
+                size="xs"
+                variant="ghost"
+                aria-label={t('detail.editObjective')}
+                tooltip={t('detail.editObjective')}
+                onClick={() => handleOpenObjectiveDialog(work)}
+              >
+                <Pencil size={12} />
+              </IconButton>
+            ) : null}
           </div>
           <div className="ab-detail__brief">
             <div className="ab-detail__brief-block">
@@ -1171,6 +1314,119 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
             </div>
           </div>
         </div>
+
+        {canReclassify ? (
+          <div className="ab-detail__section ab-detail__section--classify">
+            <div className="ab-detail__section-head">
+              <h3 className="ab-detail__section-title">
+                {t('detail.classify.title')}
+              </h3>
+            </div>
+            <div className="ab-detail__classify-actions">
+              {RECLASSIFY_OPTIONS.map((option) => {
+                const active = work.kind === option.kind;
+                const busy = reclassifySubmittingId === work.id;
+                return (
+                  <Button
+                    key={option.kind}
+                    size="small"
+                    variant={active ? 'secondary' : 'ghost'}
+                    disabled={busy || active}
+                    onClick={() => void handleReclassifyWork(work, option.kind)}
+                  >
+                    {t(option.labelKey)}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+
+        <div className="ab-detail__section ab-detail__section--attachments">
+          <div className="ab-detail__section-head">
+            <h3 className="ab-detail__section-title">
+              {t('detail.attachments.title')}
+            </h3>
+          </div>
+          <div className="ab-detail__facts">
+            <div className="ab-detail__fact">
+              <span>{t('scope.workspace')}</span>
+              <strong>{scopeLabel}</strong>
+            </div>
+            {work.topicWorkId ? (
+              <div className="ab-detail__fact">
+                <span>{t('detail.attachments.topic')}</span>
+                <strong>{topicWork?.title ?? work.topicWorkId}</strong>
+              </div>
+            ) : (
+              <div className="ab-detail__fact">
+                <span>{t('detail.attachments.topic')}</span>
+                <strong>{t('detail.attachments.none')}</strong>
+              </div>
+            )}
+            {work.systemManaged && work.systemProcessKind ? (
+              <div className="ab-detail__fact">
+                <span>{t('detail.attachments.systemProcess')}</span>
+                <strong>
+                  {t(`background.kinds.${work.systemProcessKind}`)}
+                </strong>
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        {work.systemManaged && work.systemProcessKind ? (
+          <div className="ab-detail__section ab-detail__section--system-runtime">
+            <div className="ab-detail__section-head">
+              <h3 className="ab-detail__section-title">
+                {t('detail.systemRuntime.title')}
+              </h3>
+            </div>
+            {systemProcess ? (
+              <div className="ab-detail__system-runtime">
+                <div className="ab-detail__facts">
+                  <div className="ab-detail__fact">
+                    <span>{t('background.columns.status')}</span>
+                    <strong>{t(`background.status.${systemProcess.status}`)}</strong>
+                  </div>
+                  <div className="ab-detail__fact">
+                    <span>{t('background.columns.phase')}</span>
+                    <strong>
+                      {systemProcess.phase
+                        ? t(`background.phase.${systemProcess.phase}`)
+                        : t('background.emptyValue')}
+                    </strong>
+                  </div>
+                  <div className="ab-detail__fact">
+                    <span>{t('detail.systemRuntime.nextRun')}</span>
+                    <strong>
+                      {systemProcess.nextRunAt
+                        ? formatTime(systemProcess.nextRunAt)
+                        : t('background.emptyValue')}
+                    </strong>
+                  </div>
+                </div>
+                {canRunSystemProcess ? (
+                  <div className="ab-detail__system-runtime-actions">
+                    <Button
+                      size="small"
+                      variant="secondary"
+                      disabled={systemProcessBusy}
+                      isLoading={systemProcessBusy}
+                      onClick={() => void handleRunSystemProcess(systemProcess.kind)}
+                    >
+                      {t('detail.systemRuntime.runNow')}
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <p className="ab-detail__body-text ab-detail__body-text--muted">
+                {t('detail.systemRuntime.unavailable')}
+              </p>
+            )}
+          </div>
+        ) : null}
 
         {(surfaces.length > 0 || referenceCounts.length > 0) ? (
           <div className="ab-detail__section ab-detail__section--links">
@@ -1618,7 +1874,7 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
                 variant="danger"
                 aria-label={t('bulk.delete')}
                 tooltip={t('bulk.delete')}
-                disabled={batchSubmitting}
+                disabled={batchSubmitting || batchDeleteTargets.length === 0}
                 onClick={handleOpenDeleteDialog}
               >
                 <Trash2 size={13} />
@@ -1765,8 +2021,8 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
         runningCount={headerRunningCount}
         search={search}
         grouping={grouping}
-        showWorkControls={!showWorkspaceOverview}
-        showWorkspaceFilter={!showWorkspaceOverview}
+        showWorkControls={!showWorkspaceOverview && scope.kind !== 'running'}
+        showWorkspaceFilter={!showWorkspaceOverview && scope.kind !== 'running'}
         searchPlaceholder={showWorkspaceOverview ? t('workspaceOverview.searchPlaceholder') : undefined}
         canClearFilters={hasBoardFilters}
         onSearchChange={onSearchChange}
@@ -1844,12 +2100,47 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
           </div>
         </div>
       ) : (
-      <div className={['ab-board__content', selectedWork && 'ab-board__content--with-detail'].filter(Boolean).join(' ')}>
+      <div className={[
+        'ab-board__content',
+        selectedWork && 'ab-board__content--with-detail',
+        scope.kind === 'running' && 'ab-board__content--process-table',
+      ].filter(Boolean).join(' ')}>
+      {scope.kind === 'running' ? (
+        result.all.length === 0 ? (
+          <div className={['ab-board__scroll', 'ab-board__scroll--empty'].filter(Boolean).join(' ')}>
+            <div className="ab-board__empty">
+              <ListChecks size={28} />
+              <p>{hasSearch ? t('emptyState.noMatches') : t('emptyState.noRunning')}</p>
+              <div className="ab-board__empty-actions">
+                {hasSearch ? (
+                  <Button size="small" variant="ghost" onClick={() => onSearchChange('')}>
+                    <X size={13} />
+                    {t('emptyState.clearSearch')}
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <RunningWorkProcessTable
+            works={result.all}
+            workspaces={workspaces}
+            backgroundProcesses={backgroundProcesses}
+            selectedWorkId={selectedWorkId}
+            onSelectWork={handleSelectWork}
+            onCancelWork={(work) => void handleCancelWork(work)}
+            onRunSystemProcess={(kind) => void handleRunSystemProcess(kind)}
+            systemRunSubmittingKind={systemRunSubmittingKind}
+          />
+        )
+      ) : (
       <div className={['ab-board__scroll', result.all.length === 0 && 'ab-board__scroll--empty'].filter(Boolean).join(' ')}>
         {result.all.length === 0 ? (
           <div className="ab-board__empty">
             <ListChecks size={28} />
-            {hasSearch ? <p>{t('emptyState.noMatches')}</p> : null}
+            {hasSearch ? (
+              <p>{t('emptyState.noMatches')}</p>
+            ) : null}
             <div className="ab-board__empty-actions">
               {hasSearch ? (
                 <Button size="small" variant="ghost" onClick={() => onSearchChange('')}>
@@ -1899,11 +2190,12 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
                   {!collapsed ? (
                     <div className="wc-group__grid">
                       {group.items.map((work, workIndex) => {
-                        const showCancelAction = isCancellableStatus(work.status);
-                        const showRemoveAction = !showCancelAction && work.status !== 'archived';
+                        const showCancelAction = !work.systemManaged && isCancellableStatus(work.status);
+                        const showRemoveAction = !work.systemManaged && !showCancelAction && work.status !== 'archived';
                         const category = getWorkCategory(work.kind);
                         const statusModifier = work.status.replace('_', '-');
                         const bulkSelected = selectedWorkIdSet.has(work.id);
+                        const showBackgroundRuntime = work.systemManaged && work.status === 'running';
                         return (
                           <article
                             key={work.id}
@@ -1946,8 +2238,15 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
                                 </span>
                                 <span className={`wc-card__status wc-card__status--${statusModifier}`}>
                                   <span className="wc-card__status-dot" aria-hidden="true" />
-                                  {t(`status.${work.status}`)}
+                                  {showBackgroundRuntime
+                                    ? t('runtime.background')
+                                    : t(`status.${work.status}`)}
                                 </span>
+                                {work.systemManaged ? (
+                                  <span className="wc-card__system-marker" title={t('rail.system')}>
+                                    {t('rail.system')}
+                                  </span>
+                                ) : null}
                               </span>
                               {showCancelAction || showRemoveAction ? (
                                 <span className="wc-card__top-actions">
@@ -2003,6 +2302,7 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
           </div>
         )}
       </div>
+      )}
       {selectedWork ? renderWorkDetail(selectedWork) : null}
       </div>
       )}
@@ -2017,13 +2317,25 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
           <p className="ab-bulk-delete-dialog__copy">
             {t('bulk.deleteDialog.description', { count: deleteDialogWorkIds?.length ?? 0 })}
           </p>
+          <Checkbox
+            className="ab-bulk-delete-dialog__option"
+            size="small"
+            checked={deleteLinkedSessions}
+            disabled={batchSubmitting}
+            onChange={(event) => setDeleteLinkedSessions(event.currentTarget.checked)}
+            label={t('bulk.deleteDialog.deleteLinkedSessionsLabel')}
+            description={t('bulk.deleteDialog.deleteLinkedSessionsDescription')}
+          />
         </DialogBody>
         <DialogFooter>
           <Button
             size="small"
             variant="ghost"
             disabled={batchSubmitting}
-            onClick={() => setDeleteDialogWorkIds(null)}
+            onClick={() => {
+              setDeleteLinkedSessions(true);
+              setDeleteDialogWorkIds(null);
+            }}
           >
             {t('bulk.deleteDialog.cancel')}
           </Button>

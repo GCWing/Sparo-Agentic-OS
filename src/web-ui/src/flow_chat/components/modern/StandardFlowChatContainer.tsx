@@ -11,7 +11,6 @@ import { FlowChatManager } from '@/flow_chat/services/FlowChatManager';
 import { useSessionModeStore } from '@/app/stores/sessionModeStore';
 import { VirtualMessageList } from './VirtualMessageList';
 import { FlowChatHeader } from './FlowChatHeader';
-import { FlowChatTurnListSidebar } from './FlowChatTurnListSidebar';
 import { FlowChatSelectionAddButton } from './FlowChatSelectionAddButton';
 import { WelcomePanel } from '../WelcomePanel';
 import {
@@ -40,7 +39,7 @@ export const StandardFlowChatContainer: React.FC<StandardFlowChatContainerProps>
   onSwitchToChatPanel,
 }) => {
   const core = useFlowChatCore({
-    initialTurnListOpen: false,
+    initialTimelineOpen: false,
     sessionId,
     workspacePath,
     config,
@@ -53,25 +52,15 @@ export const StandardFlowChatContainer: React.FC<StandardFlowChatContainerProps>
   const {
     virtualItems,
     activeSession,
-    effectiveVisibleTurnInfo,
     virtualListRef,
     chatScopeRef,
-    turnListSidebarRef,
-    turnSummaries,
-    displayTurns,
-    handleJumpToTurn,
     searchMatches,
-    searchMatchedTurnIds,
     searchCurrentMatchIndex,
     handleSearchNext,
     handleSearchPrev,
     clearSearch,
-    turnListOpen,
-    setTurnListOpen,
     searchOpenRequest,
     setSearchOpenRequest,
-    turnListSearchFocusRequest,
-    setTurnListSearchFocusRequest,
     staticContextValue,
     viewContextValue,
     searchQuery,
@@ -125,11 +114,7 @@ export const StandardFlowChatContainer: React.FC<StandardFlowChatContainerProps>
     'chat.search',
     { key: 'F', ctrl: true, scope: 'chat', allowInInput: false },
     () => {
-      if (turnListOpen && turnSummaries.length > 0) {
-        setTurnListSearchFocusRequest(prev => prev + 1);
-      } else {
-        setSearchOpenRequest(prev => prev + 1);
-      }
+      setSearchOpenRequest(prev => prev + 1);
     },
     { priority: 15, description: 'keyboard.shortcuts.chat.search' },
   );
@@ -151,8 +136,6 @@ export const StandardFlowChatContainer: React.FC<StandardFlowChatContainerProps>
               visible={!!activeSession}
               sessionId={activeSession?.sessionId}
               workspacePath={activeSession?.workspacePath ?? effectiveWorkspacePath ?? undefined}
-              turns={turnSummaries}
-              onJumpToTurn={handleJumpToTurn}
               searchQuery={searchQuery}
               onSearchChange={onSearchChange}
               searchMatchCount={searchMatches.length}
@@ -161,8 +144,7 @@ export const StandardFlowChatContainer: React.FC<StandardFlowChatContainerProps>
               onSearchPrev={handleSearchPrev}
               onSearchClose={clearSearch}
               searchOpenRequest={searchOpenRequest}
-              turnListOpen={turnListOpen}
-              onTurnListOpenChange={setTurnListOpen}
+              showTimelineControl={false}
               sidecarActions={sidecarActions}
             />
 
@@ -185,32 +167,10 @@ export const StandardFlowChatContainer: React.FC<StandardFlowChatContainerProps>
                     <VirtualMessageList
                       key={activeSession?.sessionId ?? 'virtual-message-list'}
                       ref={virtualListRef}
-                      hideScrollAnchor={turnListOpen}
                     />
                   )}
                 </div>
               </div>
-
-              <FlowChatTurnListSidebar
-                ref={turnListSidebarRef}
-                open={turnListOpen && turnSummaries.length > 0}
-                turns={displayTurns}
-                currentTurn={effectiveVisibleTurnInfo?.turnIndex ?? 0}
-                onSelectTurn={handleJumpToTurn}
-                searchMatchedTurnIds={
-                  searchQuery.trim().length > 0 ? searchMatchedTurnIds : undefined
-                }
-                searchQuery={searchQuery}
-                onSearchChange={onSearchChange}
-                searchMatchCount={searchMatches.length}
-                searchCurrentMatch={
-                  searchMatches.length > 0 ? searchCurrentMatchIndex + 1 : 0
-                }
-                onSearchNext={handleSearchNext}
-                onSearchPrev={handleSearchPrev}
-                onSearchClose={clearSearch}
-                searchFocusRequest={turnListSearchFocusRequest}
-              />
             </div>
           </div>
         </FlowChatViewContext.Provider>

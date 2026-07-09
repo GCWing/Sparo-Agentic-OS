@@ -38,6 +38,7 @@ function workWithBindings(
     runtimeInstances: [],
     artifactRefs: [],
     memoryRefs: [],
+    systemManaged: false,
     createdAt: 1,
     updatedAt: 1,
   };
@@ -79,6 +80,20 @@ describe('resolveEffectiveWorkStatus', () => {
     ]);
 
     expect(workHasRunningExecution(work)).toBe(true);
+    expect(resolveEffectiveWorkStatus(work)).toBe('running');
+  });
+
+  it('keeps system-managed running status without execution bindings', () => {
+    const work = {
+      ...workWithBindings('running', []),
+      kind: 'recurring' as const,
+      systemManaged: true,
+      systemProcessKind: 'daily_letter',
+      subject: { kind: 'goal' as const },
+      primarySurface: { kind: 'work_center' as const, workId: 'sysbp_daily_letter' },
+    };
+
+    expect(workHasRunningExecution(work)).toBe(false);
     expect(resolveEffectiveWorkStatus(work)).toBe('running');
   });
 });

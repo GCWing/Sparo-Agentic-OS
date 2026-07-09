@@ -295,6 +295,46 @@
   line-height: 1.4;
 }
 
+.new-work-dialog__classify {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-2);
+}
+
+.new-work-dialog__classify-option {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 var(--ds-space-3);
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: var(--ds-radius-sm);
+  background: transparent;
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-xs);
+  line-height: 1.2;
+  cursor: pointer;
+  transition:
+    border-color var(--ds-motion-duration-fast) var(--ds-easing-standard),
+    background-color var(--ds-motion-duration-fast) var(--ds-easing-standard),
+    color var(--ds-motion-duration-fast) var(--ds-easing-standard);
+
+  &:hover {
+    border-color: var(--ds-color-border-medium);
+    color: var(--ds-color-text-primary);
+  }
+
+  &.is-selected {
+    border-color: color-mix(in srgb, var(--ds-color-accent-500) 45%, var(--ds-color-border-subtle));
+    background: color-mix(in srgb, var(--ds-color-accent-500) 10%, transparent);
+    color: var(--ds-color-text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ds-focus-ring-subtle);
+    outline-offset: 2px;
+  }
+}
+
 .new-work-dialog__divider {
   flex-shrink: 0;
   height: 1px;

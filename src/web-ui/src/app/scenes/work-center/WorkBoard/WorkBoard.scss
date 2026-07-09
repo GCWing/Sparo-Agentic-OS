@@ -68,6 +68,12 @@ $wc-ease: cubic-bezier(0.22, 1, 0.36, 1);
   &--with-detail {
     grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
   }
+
+  &--process-table {
+    .rw-table-wrap {
+      min-height: 0;
+    }
+  }
 }
 
 // ── Group: eyebrow kicker + numeral ──────────────────────────────────────
@@ -357,6 +363,20 @@ $wc-ease: cubic-bezier(0.22, 1, 0.36, 1);
     align-items: center;
     gap: $size-gap-2;
     min-width: 0;
+  }
+
+  &__system-marker {
+    flex-shrink: 0;
+    max-width: 7rem;
+    overflow: hidden;
+    color: var(--ds-color-text-muted);
+    font-size: 9px;
+    font-weight: $font-weight-medium;
+    letter-spacing: 0.02em;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
   }
 
   &__select {
@@ -776,11 +796,36 @@ $wc-ease: cubic-bezier(0.22, 1, 0.36, 1);
 .ab-detail__status-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: $size-gap-2;
   min-height: 20px;
   // Optically align the ghost close button with the right text edge.
   margin-right: -6px;
+
+  > :last-child {
+    margin-left: auto;
+  }
+}
+
+.ab-detail__system-badge.badge {
+  flex-shrink: 0;
+}
+
+.ab-detail__classify-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $size-gap-2;
+}
+
+.ab-detail__system-runtime {
+  display: flex;
+  flex-direction: column;
+  gap: $size-gap-3;
+}
+
+.ab-detail__system-runtime-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $size-gap-2;
 }
 
 // Mirrors .wc-card__status so the card and its detail read as one object.
@@ -1425,6 +1470,15 @@ $wc-ease: cubic-bezier(0.22, 1, 0.36, 1);
   color: var(--ds-color-text-secondary);
   font-size: var(--ds-font-size-sm);
   line-height: 1.55;
+}
+
+.ab-bulk-delete-dialog__option {
+  width: 100%;
+  margin-top: $size-gap-3;
+  padding: $size-gap-3;
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: var(--ds-radius-md, 8px);
+  background: var(--ds-color-bg-subtle, var(--element-bg-subtle));
 }
 
 @media (max-width: 1040px) {

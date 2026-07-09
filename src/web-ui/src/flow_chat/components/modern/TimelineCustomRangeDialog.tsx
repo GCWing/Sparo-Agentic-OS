@@ -5,17 +5,17 @@ import {
   defaultCustomTimeRange,
   localCalendarDaysToCustomRange,
   msToLocalCalendarDay,
-  type TurnListCustomTimeRange,
-} from './turnListTimeFilter';
+  type TimelineCustomTimeRange,
+} from './timelineTimeFilter';
 
-export interface TurnListCustomRangeDialogProps {
+export interface TimelineCustomRangeDialogProps {
   open: boolean;
   onClose: () => void;
-  onApply: (range: TurnListCustomTimeRange) => void;
-  initialRange?: TurnListCustomTimeRange | null;
+  onApply: (range: TimelineCustomTimeRange) => void;
+  initialRange?: TimelineCustomTimeRange | null;
 }
 
-function turnListRangeToDateRange(range: TurnListCustomTimeRange): DateRangeValue {
+function timelineRangeToDateRange(range: TimelineCustomTimeRange): DateRangeValue {
   return {
     startDate: msToLocalCalendarDay(range.startMs),
     endDate: msToLocalCalendarDay(range.endMs),
@@ -27,7 +27,7 @@ function startOfLocalToday(): Date {
   return new Date(today.getFullYear(), today.getMonth(), today.getDate());
 }
 
-export const TurnListCustomRangeDialog: React.FC<TurnListCustomRangeDialogProps> = ({
+export const TimelineCustomRangeDialog: React.FC<TimelineCustomRangeDialogProps> = ({
   open,
   onClose,
   onApply,
@@ -37,13 +37,13 @@ export const TurnListCustomRangeDialog: React.FC<TurnListCustomRangeDialogProps>
 
   const resolvedInitialRange = useMemo(
     () => (initialRange && initialRange.startMs <= initialRange.endMs
-      ? turnListRangeToDateRange(initialRange)
+      ? timelineRangeToDateRange(initialRange)
       : null),
     [initialRange]
   );
 
   const defaultRange = useMemo(
-    () => turnListRangeToDateRange(defaultCustomTimeRange()),
+    () => timelineRangeToDateRange(defaultCustomTimeRange()),
     []
   );
 
@@ -60,7 +60,7 @@ export const TurnListCustomRangeDialog: React.FC<TurnListCustomRangeDialogProps>
       onApply={(range) => {
         onApply(localCalendarDaysToCustomRange(range.startDate, range.endDate));
       }}
-      title={t('turnList.timeFilterCustomTitle', {
+      title={t('timelineTimeFilter.timeFilterCustomTitle', {
         defaultValue: 'Custom date range',
       })}
       initialRange={resolvedInitialRange}
@@ -68,35 +68,35 @@ export const TurnListCustomRangeDialog: React.FC<TurnListCustomRangeDialogProps>
       maxDate={maxDate}
       locale={i18n.language || 'en-US'}
       labels={{
-        hint: t('turnList.timeFilterCustomHint', {
+        hint: t('timelineTimeFilter.timeFilterCustomHint', {
           defaultValue: 'Click a start date, then an end date.',
         }),
         summary: (start, end) =>
-          t('turnList.timeFilterCustomSummary', {
+          t('timelineTimeFilter.timeFilterCustomSummary', {
             start,
             end,
             defaultValue: '{{start}} - {{end}}',
           }),
         pickEndHint: (start) =>
-          t('turnList.timeFilterCustomPickEndHint', {
+          t('timelineTimeFilter.timeFilterCustomPickEndHint', {
             start,
             defaultValue: 'Now choose an end date (start: {{start}}).',
           }),
-        pickEndError: t('turnList.timeFilterCustomPickEnd', {
+        pickEndError: t('timelineTimeFilter.timeFilterCustomPickEnd', {
           defaultValue: 'Select an end date to complete the range.',
         }),
-        previousMonth: t('turnList.timeFilterCustomPrevMonth', {
+        previousMonth: t('timelineTimeFilter.timeFilterCustomPrevMonth', {
           defaultValue: 'Previous month',
         }),
-        nextMonth: t('turnList.timeFilterCustomNextMonth', {
+        nextMonth: t('timelineTimeFilter.timeFilterCustomNextMonth', {
           defaultValue: 'Next month',
         }),
-        cancel: t('turnList.timeFilterCustomCancel', { defaultValue: 'Cancel' }),
-        apply: t('turnList.timeFilterCustomApply', { defaultValue: 'Apply' }),
+        cancel: t('timelineTimeFilter.timeFilterCustomCancel', { defaultValue: 'Cancel' }),
+        apply: t('timelineTimeFilter.timeFilterCustomApply', { defaultValue: 'Apply' }),
       }}
-      closeLabel={t('turnList.timeFilterCustomCancel', { defaultValue: 'Cancel' })}
+      closeLabel={t('timelineTimeFilter.timeFilterCustomCancel', { defaultValue: 'Cancel' })}
     />
   );
 };
 
-TurnListCustomRangeDialog.displayName = 'TurnListCustomRangeDialog';
+TimelineCustomRangeDialog.displayName = 'TimelineCustomRangeDialog';

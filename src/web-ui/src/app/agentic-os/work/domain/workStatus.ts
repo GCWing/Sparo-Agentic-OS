@@ -15,7 +15,14 @@ export function workHasRunningExecution(work: WorkRecord): boolean {
 }
 
 export function resolveEffectiveWorkStatus(work: WorkRecord): WorkStatus {
+  // System matters sync status from BackgroundProcess and have no agent
+  // execution bindings. Trust the persisted status so running system jobs
+  // (daily letter, memory consolidation, etc.) stay visible in Running Work.
+  if (work.systemManaged) {
+    return work.status;
+  }
   if (workHasRunningExecution(work)) return 'running';
+  // Stale running without a live binding: treat as idle/active for user work.
   if (work.status === 'running') return 'active';
   return work.status;
 }

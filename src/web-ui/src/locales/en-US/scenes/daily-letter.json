@@ -95,5 +95,11 @@
   "app": {
     "label": "App idea",
     "title": "P.S."
+  },
+  "arrival": {
+    "label": "Daily letter arrival",
+    "title": "A letter has arrived",
+    "later": "Later",
+    "chipLabel": "Today's letter is waiting"
   }
 }

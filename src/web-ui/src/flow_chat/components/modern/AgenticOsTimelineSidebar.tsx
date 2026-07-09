@@ -1,7 +1,7 @@
 /**
  * AgenticOsTimelineSidebar - vertical timeline + anchored main area.
  *
- * Replaces FlowChatTurnListSidebar in the Agentic OS scene.
+ * Renders the Agentic OS scene timeline.
  * Renders all Agentic OS sessions as a single continuous timeline grouped
  * by date buckets ("today", "yesterday", "this week", "this month",
  * earlier months). Sessions are nodes on a vertical rail; each session's
@@ -20,10 +20,10 @@ import { Button, Checkbox, IconButton, Input, Tooltip, DropdownMenu, confirmDang
 import type { DropdownMenuEntry } from '@/design-system';
 import {
   timestampMatchesTimePreset,
-  type TurnListTimePreset,
-  type TurnListCustomTimeRange,
-} from './turnListTimeFilter';
-import { TurnListCustomRangeDialog } from './TurnListCustomRangeDialog';
+  type TimelineTimePreset,
+  type TimelineCustomTimeRange,
+} from './timelineTimeFilter';
+import { TimelineCustomRangeDialog } from './TimelineCustomRangeDialog';
 import { createLogger } from '@/shared/utils/logger';
 import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
 import { notificationService } from '@/shared/notification-system';
@@ -313,8 +313,8 @@ export const AgenticOsTimelineSidebar = React.forwardRef<HTMLElement, AgenticOsT
     const virtuosoRef = useRef<VirtuosoHandle | null>(null);
     const rowHover = useMovingHoverHighlight<HTMLDivElement>();
     const [timeMenuOpen, setTimeMenuOpen] = useState(false);
-    const [timePreset, setTimePreset] = useState<TurnListTimePreset>('all');
-    const [customTimeRange, setCustomTimeRange] = useState<TurnListCustomTimeRange | null>(null);
+    const [timePreset, setTimePreset] = useState<TimelineTimePreset>('all');
+    const [customTimeRange, setCustomTimeRange] = useState<TimelineCustomTimeRange | null>(null);
     const [customRangeDialogOpen, setCustomRangeDialogOpen] = useState(false);
     const [selectionMode, setSelectionMode] = useState(false);
     const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(() => new Set());
@@ -591,7 +591,7 @@ export const AgenticOsTimelineSidebar = React.forwardRef<HTMLElement, AgenticOsT
       [t]
     );
 
-    const timeFilterTooltip = t('turnList.timeFilterTooltip', {
+    const timeFilterTooltip = t('timelineTimeFilter.timeFilterTooltip', {
       defaultValue: 'Filter by time',
     });
 
@@ -600,7 +600,7 @@ export const AgenticOsTimelineSidebar = React.forwardRef<HTMLElement, AgenticOsT
         {
           type: 'item',
           id: 'all',
-          label: t('turnList.timeFilterAll', { defaultValue: 'All time' }),
+          label: t('timelineTimeFilter.timeFilterAll', { defaultValue: 'All time' }),
           checked: timePreset === 'all',
           onClick: () => {
             setTimePreset('all');
@@ -611,7 +611,7 @@ export const AgenticOsTimelineSidebar = React.forwardRef<HTMLElement, AgenticOsT
         {
           type: 'item',
           id: 'today',
-          label: t('turnList.timeFilterToday', { defaultValue: 'Today' }),
+          label: t('timelineTimeFilter.timeFilterToday', { defaultValue: 'Today' }),
           checked: timePreset === 'today',
           onClick: () => {
             setTimePreset('today');
@@ -622,7 +622,7 @@ export const AgenticOsTimelineSidebar = React.forwardRef<HTMLElement, AgenticOsT
         {
           type: 'item',
           id: 'last7',
-          label: t('turnList.timeFilterLast7', { defaultValue: 'Last 7 days' }),
+          label: t('timelineTimeFilter.timeFilterLast7', { defaultValue: 'Last 7 days' }),
           checked: timePreset === 'last7',
           onClick: () => {
             setTimePreset('last7');
@@ -633,7 +633,7 @@ export const AgenticOsTimelineSidebar = React.forwardRef<HTMLElement, AgenticOsT
         {
           type: 'item',
           id: 'this_month',
-          label: t('turnList.timeFilterThisMonth', { defaultValue: 'This month' }),
+          label: t('timelineTimeFilter.timeFilterThisMonth', { defaultValue: 'This month' }),
           checked: timePreset === 'this_month',
           onClick: () => {
             setTimePreset('this_month');
@@ -645,7 +645,7 @@ export const AgenticOsTimelineSidebar = React.forwardRef<HTMLElement, AgenticOsT
         {
           type: 'item',
           id: 'custom',
-          label: t('turnList.timeFilterCustomRange', {
+          label: t('timelineTimeFilter.timeFilterCustomRange', {
             defaultValue: 'Custom range',
           }),
           checked: timePreset === 'custom',
@@ -855,7 +855,7 @@ export const AgenticOsTimelineSidebar = React.forwardRef<HTMLElement, AgenticOsT
     if (!open) {
       return (
         <aside
-          id="flowchat-turn-list-sidebar"
+          id="agentic-os-timeline-sidebar"
           ref={ref}
           className="agentic-os-timeline"
           aria-hidden="true"
@@ -866,7 +866,7 @@ export const AgenticOsTimelineSidebar = React.forwardRef<HTMLElement, AgenticOsT
 
     return (
       <aside
-        id="flowchat-turn-list-sidebar"
+        id="agentic-os-timeline-sidebar"
         ref={ref}
         className="agentic-os-timeline agentic-os-timeline--open"
         aria-hidden={false}
@@ -1104,7 +1104,7 @@ export const AgenticOsTimelineSidebar = React.forwardRef<HTMLElement, AgenticOsT
             </Tooltip>
           </div>
         </div>
-        <TurnListCustomRangeDialog
+        <TimelineCustomRangeDialog
           open={customRangeDialogOpen}
           onClose={() => setCustomRangeDialogOpen(false)}
           initialRange={timePreset === 'custom' ? customTimeRange : null}

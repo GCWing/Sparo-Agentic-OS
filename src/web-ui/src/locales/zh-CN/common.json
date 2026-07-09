@@ -68,13 +68,23 @@
   },
   "about": {
     "productTitle": "Sparo OS",
+    "tagline": "面向智能应用的 Agentic OS",
     "close": "关闭",
     "copy": "复制",
-    "version": "版本 {{version}}",
-    "buildDate": "构建日期",
+    "copyDiagnostics": "复制构建信息",
+    "copied": "已复制",
+    "version": "v{{version}}",
+    "specSheetTitle": "构建信息",
+    "buildDate": "构建",
     "commit": "提交",
     "branch": "分支",
-    "copyright": "© 2026 Spora OS 开发团队。保留所有权利。"
+    "links": {
+      "repository": "查看源码",
+      "documentation": "文档",
+      "issues": "反馈问题"
+    },
+    "licenseLabel": "{{type}} 许可证",
+    "copyright": "© 2026 Sparo OS 开发团队。保留所有权利。"
   },
   "actions": {
     "confirm": "确认",
@@ -482,5 +492,14 @@
   },
   "notify": {
     "dialogCompleted": "AI 助手已完成任务。"
+  },
+  "newWork": {
+    "classify": {
+      "label": "分类",
+      "immediate": "即时事项",
+      "topic": "Topic",
+      "tracking": "长期跟踪",
+      "recurring": "周期事项"
+    }
   }
 }

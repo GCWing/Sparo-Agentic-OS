@@ -285,6 +285,9 @@ function normalizeWorkRecord(rawValue: unknown, fallbackWorkId?: string): WorkRe
     runtimeInstances: raw.runtimeInstances ?? raw.runtime_instances ?? [],
     artifactRefs: raw.artifactRefs ?? raw.artifact_refs ?? [],
     memoryRefs: raw.memoryRefs ?? raw.memory_refs ?? [],
+    systemManaged: Boolean(raw.systemManaged ?? raw.system_managed),
+    systemProcessKind: (stringValue(raw, 'systemProcessKind', 'system_process_kind') ?? null),
+    topicWorkId: (stringValue(raw, 'topicWorkId', 'topic_work_id') ?? null),
     createdAt: numberValue(raw, 'createdAt', 'created_at') ?? Date.now(),
     updatedAt: numberValue(raw, 'updatedAt', 'updated_at') ?? Date.now(),
   };

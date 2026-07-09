@@ -12,6 +12,7 @@ export function useFlowChatStoreSelector<T>(
   const equalityRef = useRef(equality);
   const snapshotRef = useRef<{
     state: FlowChatState;
+    selector: (state: FlowChatState) => T;
     selected: T;
   } | null>(null);
 
@@ -20,18 +21,24 @@ export function useFlowChatStoreSelector<T>(
 
   const getSnapshot = useCallback(() => {
     const state = flowChatStore.getState();
+    const selector = selectorRef.current;
     const previous = snapshotRef.current;
-    if (previous?.state === state) {
+
+    // The selector is part of the snapshot identity. Several call sites compose
+    // FlowChatStore with another external store by closing over values such as
+    // focusedSessionId; when that value changes, React re-renders even if the
+    // FlowChatStore state object is unchanged.
+    if (previous?.state === state && previous.selector === selector) {
       return previous.selected;
     }
 
-    const nextSelected = selectorRef.current(state);
+    const nextSelected = selector(state);
     if (previous && equalityRef.current(previous.selected, nextSelected)) {
-      snapshotRef.current = { state, selected: previous.selected };
+      snapshotRef.current = { state, selector, selected: previous.selected };
       return previous.selected;
     }
 
-    snapshotRef.current = { state, selected: nextSelected };
+    snapshotRef.current = { state, selector, selected: nextSelected };
     return nextSelected;
   }, []);
 

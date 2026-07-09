@@ -30,6 +30,7 @@ import {
   projectRuntimeScopeFromWorkspace,
   systemRuntimeScope,
 } from '@/shared/types/runtime-scope';
+import { useDailyLetterArrivalStore } from '@/app/daily-letter-arrival/store/dailyLetterArrivalStore';
 import './WorkspaceFooterActions.scss';
 
 const log = createLogger('WorkspaceFooterActions');
@@ -95,6 +96,8 @@ const WorkspaceFooterActions: React.FC = () => {
           : GREETING_KEYS[3];
     return t(`welcome.${key}`);
   }, [t]);
+
+  const hasUnreadDailyLetter = useDailyLetterArrivalStore((s) => s.hasUnread);
 
   const isMemoryActive = activeSceneId === 'memory';
   const isWorkCenterActive = activeSceneId === 'work-center';
@@ -333,7 +336,14 @@ const WorkspaceFooterActions: React.FC = () => {
 
                     <FooterAction
                       active={isDailyLetterActive}
-                      icon={<MailOpen size={14} />}
+                      icon={(
+                        <span className="sparo-workspace-footer__icon-with-dot">
+                          <MailOpen size={14} />
+                          {hasUnreadDailyLetter && (
+                            <span className="sparo-workspace-footer__unread-dot" aria-hidden="true" />
+                          )}
+                        </span>
+                      )}
                       movingHoverHandlers={menuHover.getItemHandlers()}
                       testId="workspace-footer-daily-letter-button"
                       onClick={handleOpenDailyLetter}

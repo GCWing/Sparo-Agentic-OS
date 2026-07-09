@@ -6,6 +6,7 @@ import { useCurrentModelConfig } from '../hooks/useModelConfigs';
 import { ContextMenuRenderer } from '../shared/context-menu-system/components/ContextMenuRenderer';
 import { NotificationContainer } from '../shared/notification-system';
 import { AnnouncementProvider } from '../shared/announcement-system';
+import DailyLetterArrivalDock from './daily-letter-arrival/components/DailyLetterArrivalDock';
 import { ConfirmDialogRenderer } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
 import { aiExperienceConfigService } from '@/infrastructure/config/services/AIExperienceConfigService';
@@ -319,6 +320,9 @@ function App() {
 
             {/* Announcement / feature-demo / tips system */}
             <AnnouncementProvider />
+
+            {/* Daily Letter arrival: bottom-left envelope card / seal chip */}
+            <DailyLetterArrivalDock />
 
             {/* Recovery panel for boot failures. */}
             {isDegraded(bootStage) && (

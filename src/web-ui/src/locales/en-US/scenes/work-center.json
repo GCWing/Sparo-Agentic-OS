@@ -37,7 +37,32 @@
     "historyWorkspaces": "{{count}} history",
     "total": "{{count}} total",
     "workspace": "Workspace",
-    "backgroundProcesses": "Background processes"
+    "backgroundProcesses": "System matters"
+  },
+  "rail": {
+    "immediate": "Immediate",
+    "long_term": "Long-term",
+    "topic": "Topic",
+    "recurring": "Recurring",
+    "system": "System matters"
+  },
+  "runtime": {
+    "foreground": "Foreground",
+    "background": "Background run"
+  },
+  "runningTable": {
+    "emptyValue": "--",
+    "columns": {
+      "name": "Name",
+      "type": "Type",
+      "status": "Status",
+      "scope": "Scope",
+      "kind": "Kind",
+      "phase": "Phase",
+      "runtime": "Elapsed",
+      "updated": "Updated",
+      "actions": "Actions"
+    }
   },
   "actions": {
     "newWork": "New work",
@@ -61,7 +86,9 @@
     "clearSelection": "Clear selection",
     "deleteDialog": {
       "title": "Delete {{count}} work item",
-      "description": "This removes the selected work from Work Center. Linked sessions and artifacts are not deleted.",
+      "description": "This removes the selected work from Work Center. Artifacts and memories are retained.",
+      "deleteLinkedSessionsLabel": "Also delete linked sessions",
+      "deleteLinkedSessionsDescription": "Uses Work lifecycle cleanup hooks to delete linked agent sessions with the work.",
       "cancel": "Cancel",
       "confirm": "Delete work",
       "deleting": "Deleting..."
@@ -188,7 +215,8 @@
   "emptyState": {
     "noMatches": "No matching work",
     "clearSearch": "Clear search",
-    "showAllWork": "Show unarchived Work"
+    "showAllWork": "Show unarchived Work",
+    "noRunning": "Nothing is running right now"
   },
   "detail": {
     "label": "Work detail",
@@ -321,6 +349,27 @@
       "agentSessionFailedWithReason": "Agent session failed: {{reason}}",
       "agentSessionWaitingUser": "Waiting for you",
       "agentSessionResumed": "Agent session resumed"
+    },
+    "classify": {
+      "title": "Classification",
+      "asTopic": "Mark as Topic",
+      "asTracking": "Mark as tracking",
+      "asLongRunning": "Mark as long-running",
+      "asRecurring": "Mark as recurring",
+      "asImmediate": "Mark as immediate",
+      "updated": "Classification updated"
+    },
+    "attachments": {
+      "title": "Attachments",
+      "topic": "Topic",
+      "systemProcess": "System process",
+      "none": "No topic attachment"
+    },
+    "systemRuntime": {
+      "title": "Run & schedule",
+      "nextRun": "Next run",
+      "runNow": "Run now",
+      "unavailable": "Process runtime unavailable"
     }
   },
   "workspaceFilter": {
@@ -370,7 +419,7 @@
     "time": "Time"
   },
   "category": {
-    "immediate": "Immediate Work",
+    "immediate": "Immediate",
     "long_term": "Long-term",
     "recurring": "Recurring"
   },
@@ -379,7 +428,7 @@
     "running": "Running now",
     "recurring": "Recurring",
     "long_term": "Long-term",
-    "immediate": "Immediate Work",
+    "immediate": "Immediate",
     "done": "Done"
   },
   "status": {
@@ -428,7 +477,8 @@
     "closeWorkspaceFailed": "Failed to close workspace",
     "removeWorkspaceFailed": "Failed to remove workspace history",
     "bulkActionFailed": "Failed to update {{count}} selected work",
-    "bulkDeleteFailed": "Failed to delete {{count}} selected work"
+    "bulkDeleteFailed": "Failed to delete {{count}} selected work",
+    "reclassifyFailed": "Failed to update classification"
   },
   "messages": {
     "objectiveSaved": "Objective updated",
@@ -439,6 +489,8 @@
     "bulkArchived": "Archived {{count}} work item",
     "bulkReopened": "Reopened {{count}} work item",
     "bulkCancelled": "Cancelled {{count}} work run",
-    "bulkDeleted": "Deleted {{count}} work item"
+    "bulkDeleted": "Deleted {{count}} work item",
+    "bulkDeletedWithSessions": "Deleted {{count}} work item and {{sessions}} linked session",
+    "bulkDeletedWithCleanupWarnings": "Deleted {{count}} work item, but {{failed}} linked session cleanup item failed"
   }
 }

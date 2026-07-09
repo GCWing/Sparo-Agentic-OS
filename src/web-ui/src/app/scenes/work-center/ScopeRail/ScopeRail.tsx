@@ -2,12 +2,11 @@ import React from 'react';
 import { Plus } from 'lucide-react';
 import { IconButton } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
-import type { WorkCenterScope, WorkCenterView } from '@/app/stores/workDockStore';
-import type { WorkCategory } from '@/app/agentic-os/work/domain/workClassification';
+import type { WorkCenterScope } from '@/app/stores/workDockStore';
+import type { WorkRailSection } from '@/app/agentic-os/work/domain/workClassification';
 import './ScopeRail.scss';
 
 interface ScopeRailProps {
-  view: WorkCenterView;
   scope: WorkCenterScope;
   openTotal: number;
   attentionTotal: number;
@@ -18,12 +17,8 @@ interface ScopeRailProps {
   activeWorkspaceCount: number;
   workspaceHistoryCount: number;
   activeWorkspaceRunningTotal: number;
-  backgroundTotal: number;
-  backgroundAttentionTotal: number;
-  backgroundRunningTotal: number;
-  categoryCounts: Map<WorkCategory, { total: number; running: number }>;
+  railCounts: Map<WorkRailSection, { total: number; running: number }>;
   onScopeChange: (scope: WorkCenterScope) => void;
-  onViewChange: (view: WorkCenterView) => void;
   onQuickCreateWork: () => void;
 }
 
@@ -39,10 +34,6 @@ interface ScopeItemProps {
   onClick: () => void;
 }
 
-/**
- * One navigation entry — goal-list style: signal dot, title, bare mono numeral.
- * Hierarchy comes from ink opacity, the seed dot, and a soft fill when selected.
- */
 const ScopeItem: React.FC<ScopeItemProps> = ({
   title,
   count,
@@ -71,8 +62,13 @@ const ScopeItem: React.FC<ScopeItemProps> = ({
   </button>
 );
 
+function isRailSelected(scope: WorkCenterScope, section: WorkRailSection): boolean {
+  if (section === 'topic') return scope.kind === 'topic';
+  if (section === 'system') return scope.kind === 'system';
+  return scope.kind === 'category' && scope.category === section;
+}
+
 const ScopeRail: React.FC<ScopeRailProps> = ({
-  view,
   scope,
   openTotal,
   attentionTotal,
@@ -83,21 +79,12 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
   activeWorkspaceCount,
   workspaceHistoryCount,
   activeWorkspaceRunningTotal,
-  backgroundTotal,
-  backgroundAttentionTotal,
-  backgroundRunningTotal,
-  categoryCounts,
+  railCounts,
   onScopeChange,
-  onViewChange,
   onQuickCreateWork,
 }) => {
   const { t } = useI18n('scenes/work-center');
-  const categoryItems: WorkCategory[] = ['long_term', 'recurring'];
-  const backgroundCountLabel = [
-    t('scope.total', { count: backgroundTotal }),
-    backgroundRunningTotal > 0 ? t('scope.running', { count: backgroundRunningTotal }) : null,
-    backgroundAttentionTotal > 0 ? t('scope.needsAttention', { count: backgroundAttentionTotal }) : null,
-  ].filter(Boolean).join(' / ');
+  const continuityItems: WorkRailSection[] = ['long_term', 'topic', 'recurring', 'system'];
 
   const workspaceCountLabel = [
     t('scope.openWorkspaces', { count: activeWorkspaceCount }),
@@ -108,7 +95,6 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
   return (
     <aside className="sr-rail" aria-label={t('scope.label')}>
       <header className="sr-header">
-        {/* Eyebrow: brand seed + mono kicker + a rule that prints itself in. */}
         <div className="sr-header__eyebrow">
           <span className="sr-header__seed" aria-hidden="true" />
           <span className="sr-header__eyebrow-text">{t('header.eyebrow')}</span>
@@ -127,7 +113,6 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
             <Plus size={14} />
           </IconButton>
         </div>
-        {/* Vitals: the center's global heartbeat in mono figures. */}
         <p className="sr-header__vitals">
           {runningTotal > 0 ? (
             <>
@@ -159,7 +144,7 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
             title={t('scope.openWork')}
             count={openTotal}
             countLabel={t('scope.openWorkCount', { count: openTotal })}
-            selected={view === 'work' && scope.kind === 'open'}
+            selected={scope.kind === 'open'}
             onClick={() => onScopeChange({ kind: 'open' })}
           />
           <ScopeItem
@@ -168,7 +153,7 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
             countLabel={t('scope.needsAttention', { count: attentionTotal })}
             tone="attention"
             live={attentionTotal > 0}
-            selected={view === 'work' && scope.kind === 'attention'}
+            selected={scope.kind === 'attention'}
             onClick={() => onScopeChange({ kind: 'attention' })}
           />
           <ScopeItem
@@ -177,21 +162,21 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
             countLabel={t('scope.running', { count: runningTotal })}
             tone="running"
             live={runningTotal > 0}
-            selected={view === 'work' && scope.kind === 'running'}
+            selected={scope.kind === 'running'}
             onClick={() => onScopeChange({ kind: 'running' })}
           />
         </section>
 
         <section className="sr-section">
           <div className="sr-section__head">
-            <span className="sr-section__label">{t('scope.continuitySection')}</span>
+            <span className="sr-section__label">{t('scope.typeSection')}</span>
           </div>
-          {categoryItems.map((category) => {
-            const count = categoryCounts.get(category) ?? { total: 0, running: 0 };
+          {(['immediate'] as const).map((section) => {
+            const count = railCounts.get(section) ?? { total: 0, running: 0 };
             return (
               <ScopeItem
-                key={category}
-                title={t(`category.${category}`)}
+                key={section}
+                title={t(`rail.${section}`)}
                 count={count.total}
                 countLabel={[
                   t('scope.total', { count: count.total }),
@@ -199,8 +184,42 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
                 ].filter(Boolean).join(' · ')}
                 tone={count.running > 0 ? 'running' : undefined}
                 live={count.running > 0}
-                selected={view === 'work' && scope.kind === 'category' && scope.category === category}
-                onClick={() => onScopeChange({ kind: 'category', category })}
+                selected={isRailSelected(scope, section)}
+                onClick={() => onScopeChange({ kind: 'category', category: section })}
+              />
+            );
+          })}
+        </section>
+
+        <section className="sr-section">
+          <div className="sr-section__head">
+            <span className="sr-section__label">{t('scope.continuitySection')}</span>
+          </div>
+          {continuityItems.map((section) => {
+            const count = railCounts.get(section) ?? { total: 0, running: 0 };
+            return (
+              <ScopeItem
+                key={section}
+                title={t(`rail.${section}`)}
+                count={count.total}
+                countLabel={[
+                  t('scope.total', { count: count.total }),
+                  count.running > 0 ? t('scope.running', { count: count.running }) : null,
+                ].filter(Boolean).join(' · ')}
+                tone={count.running > 0 ? 'running' : undefined}
+                live={count.running > 0}
+                selected={isRailSelected(scope, section)}
+                onClick={() => {
+                  if (section === 'topic') {
+                    onScopeChange({ kind: 'topic' });
+                    return;
+                  }
+                  if (section === 'system') {
+                    onScopeChange({ kind: 'system' });
+                    return;
+                  }
+                  onScopeChange({ kind: 'category', category: section });
+                }}
               />
             );
           })}
@@ -216,7 +235,7 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
             countLabel={workspaceCountLabel}
             tone={activeWorkspaceRunningTotal > 0 ? 'running' : undefined}
             live={activeWorkspaceRunningTotal > 0}
-            selected={view === 'work' && scope.kind === 'workspaces'}
+            selected={scope.kind === 'workspaces'}
             onClick={() => onScopeChange({ kind: 'workspaces' })}
           />
         </section>
@@ -229,37 +248,22 @@ const ScopeRail: React.FC<ScopeRailProps> = ({
             title={t('scope.unarchivedWork')}
             count={unarchivedTotal}
             countLabel={t('scope.unarchivedWorkCount', { count: unarchivedTotal })}
-            selected={view === 'work' && scope.kind === 'all'}
+            selected={scope.kind === 'all'}
             onClick={() => onScopeChange({ kind: 'all' })}
           />
           <ScopeItem
             title={t('scope.completedWork')}
             count={completedTotal}
             countLabel={t('scope.completedWorkCount', { count: completedTotal })}
-            selected={view === 'work' && scope.kind === 'completed'}
+            selected={scope.kind === 'completed'}
             onClick={() => onScopeChange({ kind: 'completed' })}
           />
           <ScopeItem
             title={t('scope.archivedWork')}
             count={archivedTotal}
             countLabel={t('scope.archivedWorkCount', { count: archivedTotal })}
-            selected={view === 'work' && scope.kind === 'archived'}
+            selected={scope.kind === 'archived'}
             onClick={() => onScopeChange({ kind: 'archived' })}
-          />
-        </section>
-
-        <section className="sr-section">
-          <div className="sr-section__head">
-            <span className="sr-section__label">{t('scope.systemSection')}</span>
-          </div>
-          <ScopeItem
-            title={t('scope.backgroundProcesses')}
-            count={backgroundTotal}
-            countLabel={backgroundCountLabel}
-            tone={backgroundAttentionTotal > 0 ? 'attention' : backgroundRunningTotal > 0 ? 'running' : undefined}
-            live={backgroundAttentionTotal > 0 || backgroundRunningTotal > 0}
-            selected={view === 'background'}
-            onClick={() => onViewChange('background')}
           />
         </section>
       </div>

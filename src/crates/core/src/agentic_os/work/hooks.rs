@@ -289,6 +289,30 @@ impl WorkLifecycleHookBus {
             items: reports,
         }
     }
+
+    pub async fn notify_deleted(
+        &self,
+        context: &WorkLifecycleHookContext,
+        report: WorkCleanupReport,
+    ) {
+        let hook = WorkLifecycleHookKind::Deleted { report };
+        for handler in self.handlers.iter() {
+            if !handler
+                .phases()
+                .contains(&WorkLifecycleHookPhase::AfterCommit)
+            {
+                continue;
+            }
+            if let Err(error) = handler.handle(context, &hook).await {
+                log::warn!(
+                    "Work delete lifecycle hook failed after commit: handler_id={} work_id={} error={}",
+                    handler.id(),
+                    context.work.id,
+                    error
+                );
+            }
+        }
+    }
 }
 
 struct WorkSessionLifecycleHook;

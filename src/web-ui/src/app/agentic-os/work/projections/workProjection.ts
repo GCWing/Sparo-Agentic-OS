@@ -23,6 +23,10 @@ export interface WorkProjection {
   primarySurface: WorkSurfaceRef;
   surfaces?: WorkSurfaceRef[];
   sessionId?: string;
+  systemManaged: boolean;
+  systemProcessKind?: string | null;
+  topicWorkId?: string | null;
+  visibility: WorkRecord['visibility'];
   updatedAt: number;
 }
 
@@ -48,6 +52,10 @@ export function projectWork(work: WorkRecord): WorkProjection {
       primarySurface.kind === 'work_session' || primarySurface.kind === 'agent_session'
         ? primarySurface.sessionId
         : undefined,
+    systemManaged: Boolean(work.systemManaged),
+    systemProcessKind: work.systemProcessKind,
+    topicWorkId: work.topicWorkId,
+    visibility: work.visibility,
     updatedAt: work.updatedAt,
   };
 }

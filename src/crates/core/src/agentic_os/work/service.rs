@@ -76,6 +76,8 @@ pub struct CreateWorkRequest {
     pub title_state: Option<WorkTitleState>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub delegation: Option<WorkDelegationContext>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub topic_work_id: Option<WorkId>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -114,6 +116,24 @@ pub struct UpdateWorkRequest {
     pub primary_surface: Option<WorkSurfaceRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title_state: Option<WorkTitleState>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<WorkKind>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub topic_work_id: Option<WorkId>,
+    #[serde(default)]
+    pub clear_topic_work_id: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visibility: Option<WorkVisibility>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReclassifyWorkRequest {
+    pub work_id: WorkId,
+    pub kind: WorkKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub topic_work_id: Option<WorkId>,
+    #[serde(default)]
+    pub clear_topic_work_id: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -360,6 +380,12 @@ impl WorkService {
             });
         };
 
+        if record.system_managed {
+            return Err(CoreError::validation(
+                "system_managed work cannot be deleted",
+            ));
+        }
+
         let context =
             WorkLifecycleHookContext::new(record.clone(), Arc::clone(&self.runtime_bridge));
         let plan = self.hook_bus.plan_delete(&context, options).await?;
@@ -371,8 +397,15 @@ impl WorkService {
             )));
         }
 
+        let deleted = self.store.delete(id).await?;
+        if deleted {
+            self.hook_bus
+                .notify_deleted(&context, cleanup_report.clone())
+                .await;
+        }
+
         Ok(DeleteWorkResponse {
-            deleted: self.store.delete(id).await?,
+            deleted,
             cleanup_report,
         })
     }
@@ -411,7 +444,19 @@ impl WorkService {
                 .then_with(|| right.updated_at.cmp(&left.updated_at))
                 .then_with(|| left.id.cmp(&right.id))
         });
+        let requested_title_state = default_title_state_for_policy(
+            request.primary_surface_policy,
+            request.primary_surface.as_ref(),
+            &subject,
+        );
         if let Some(work) = candidates.into_iter().next() {
+            let work = self
+                .normalize_resolved_app_work_title_state(
+                    work,
+                    request.title.as_str(),
+                    &requested_title_state,
+                )
+                .await?;
             return Ok(ResolveAppWorkResponse {
                 work,
                 created: false,
@@ -430,9 +475,10 @@ impl WorkService {
                 primary_surface_policy: request.primary_surface_policy,
                 primary_surface: request.primary_surface,
                 assignment: request.assignment,
-                title_state: None,
+                title_state: Some(requested_title_state),
                 delegation: None,
-            })
+                        topic_work_id: None,
+        })
             .await?;
         Ok(ResolveAppWorkResponse {
             work,
@@ -499,7 +545,8 @@ impl WorkService {
                 assignment: request.assignment,
                 title_state: None,
                 delegation: None,
-            })
+                        topic_work_id: None,
+        })
             .await?;
         Ok(ResolveComponentWorkResponse {
             work,
@@ -531,11 +578,11 @@ impl WorkService {
         };
 
         let title_state = request.title_state.clone().unwrap_or_else(|| {
-            if let WorkSurfaceRef::ApplicationSurface { product_app_id, .. } = &primary_surface {
-                WorkTitleState::application_surface(product_app_id)
-            } else {
-                WorkTitleState::default()
-            }
+            default_title_state_for_policy(
+                request.primary_surface_policy,
+                Some(&primary_surface),
+                &request.subject,
+            )
         });
 
         let mut record = WorkRecord::new(
@@ -553,6 +600,11 @@ impl WorkService {
         record.assignment = request.assignment;
         record.title_state = title_state;
         record.delegation = request.delegation;
+        if let Some(topic_work_id) = request.topic_work_id {
+            self.validate_topic_attachment(&topic_work_id, Some(&work_id))
+                .await?;
+            record.topic_work_id = Some(topic_work_id);
+        }
 
         match request.primary_surface_policy {
             PrimarySurfacePolicy::WorkSession => {
@@ -618,6 +670,19 @@ impl WorkService {
         let now = now_millis();
         let mut record = self.get(id).await?;
 
+        if record.system_managed
+            && (request.kind.is_some()
+                || request.topic_work_id.is_some()
+                || request.clear_topic_work_id
+                || request.visibility.is_some()
+                || request.title.is_some()
+                || request.objective.is_some())
+        {
+            return Err(CoreError::validation(
+                "system_managed work cannot change kind, topic, visibility, title, or objective",
+            ));
+        }
+
         if let Some(title) = request.title {
             validate_required("title", &title)?;
             record.title = title;
@@ -643,14 +708,194 @@ impl WorkService {
             record.touch(now);
         }
         if let Some(status) = request.status {
+            if record.system_managed {
+                return Err(CoreError::validation(
+                    "system_managed work status is owned by the system process",
+                ));
+            }
             record.set_status(status, "status updated", now);
         }
         if let Some(surface) = request.primary_surface {
             record.bind_surface(surface, true, now);
         }
+        if let Some(visibility) = request.visibility {
+            record.visibility = visibility;
+            record.touch(now);
+        }
+        if let Some(kind) = request.kind {
+            validate_kind_transition(&record, kind)?;
+            record.kind = kind;
+            if kind == WorkKind::Topic {
+                record.topic_work_id = None;
+            }
+            record.touch(now);
+        }
+        if request.clear_topic_work_id {
+            record.topic_work_id = None;
+            record.touch(now);
+        } else if let Some(topic_work_id) = request.topic_work_id {
+            if record.kind == WorkKind::Topic {
+                return Err(CoreError::validation(
+                    "topic work cannot attach to another topic",
+                ));
+            }
+            self.validate_topic_attachment(&topic_work_id, Some(id))
+                .await?;
+            record.topic_work_id = Some(topic_work_id);
+            record.touch(now);
+        }
 
         self.store.put(&record).await?;
         Ok(record)
+    }
+
+    pub async fn reclassify(
+        &self,
+        request: ReclassifyWorkRequest,
+    ) -> CoreResult<WorkRecord> {
+        self.update(
+            &request.work_id,
+            UpdateWorkRequest {
+                kind: Some(request.kind),
+                topic_work_id: request.topic_work_id,
+                clear_topic_work_id: request.clear_topic_work_id,
+                ..UpdateWorkRequest::default()
+            },
+        )
+        .await
+    }
+
+    pub async fn ensure_system_works_from_processes(
+        &self,
+        processes: &[crate::agentic_os::background_process::BackgroundProcess],
+    ) -> CoreResult<Vec<WorkRecord>> {
+        let now = now_millis();
+        let mut ensured = Vec::with_capacity(processes.len());
+        for process in processes {
+            let work_id = system_work_id_for_process(process)?;
+            let scope = work_scope_from_process_scope(&process.scope);
+            let status = work_status_from_process_status(process.status);
+            let summary_text = process_summary_text(process);
+
+            if let Some(mut record) = self.store.get(&work_id).await? {
+                if !record.system_managed {
+                    return Err(CoreError::validation(format!(
+                        "work id {} exists but is not system_managed",
+                        work_id
+                    )));
+                }
+                let mut dirty = false;
+                if record.title != process.title {
+                    record.title = process.title.clone();
+                    dirty = true;
+                }
+                if record.objective != system_work_objective(process) {
+                    record.objective = system_work_objective(process);
+                    dirty = true;
+                }
+                if record.scope != scope {
+                    record.scope = scope;
+                    dirty = true;
+                }
+                if record.kind != WorkKind::Recurring {
+                    record.kind = WorkKind::Recurring;
+                    dirty = true;
+                }
+                if record.visibility != WorkVisibility::Secondary {
+                    record.visibility = WorkVisibility::Secondary;
+                    dirty = true;
+                }
+                if record.system_process_kind.as_deref()
+                    != Some(system_process_kind_key(process.kind).as_str())
+                {
+                    record.system_process_kind = Some(system_process_kind_key(process.kind));
+                    dirty = true;
+                }
+                if record.status != status {
+                    record.set_status(status, "system process sync", now);
+                    dirty = true;
+                }
+                let next_summary = WorkSummary {
+                    text: summary_text,
+                    updated_at: now,
+                };
+                if record.summary.as_ref().map(|item| item.text.as_str())
+                    != Some(next_summary.text.as_str())
+                {
+                    record.summary = Some(next_summary);
+                    dirty = true;
+                }
+                if dirty {
+                    record.touch(now);
+                    self.store.put(&record).await?;
+                }
+                ensured.push(record);
+                continue;
+            }
+
+            let primary_surface = WorkSurfaceRef::WorkCenter {
+                work_id: work_id.clone(),
+            };
+            let mut record = WorkRecord::new(
+                work_id,
+                WorkKind::Recurring,
+                process.title.clone(),
+                system_work_objective(process),
+                WorkVisibility::Secondary,
+                WorkSubject::Goal,
+                Vec::new(),
+                scope,
+                primary_surface,
+                now,
+            );
+            record.system_managed = true;
+            record.system_process_kind = Some(system_process_kind_key(process.kind));
+            record.assignment = Some(WorkAssignmentRef {
+                kind: WorkAssignmentKind::Application,
+                agent_type: None,
+                assistant_id: None,
+                application_id: Some("sparo_os".to_string()),
+                human_label: None,
+                external_label: None,
+            });
+            record.title_state = WorkTitleState {
+                source: WorkTitleSource::Template,
+                locked: true,
+                subject_ref: Some(system_process_kind_key(process.kind)),
+            };
+            record.set_status(status, "system process ensure", now);
+            record.summary = Some(WorkSummary {
+                text: summary_text,
+                updated_at: now,
+            });
+            self.store.put(&record).await?;
+            ensured.push(record);
+        }
+        Ok(ensured)
+    }
+
+    async fn validate_topic_attachment(
+        &self,
+        topic_work_id: &WorkId,
+        child_work_id: Option<&WorkId>,
+    ) -> CoreResult<()> {
+        if child_work_id.is_some_and(|id| id == topic_work_id) {
+            return Err(CoreError::validation(
+                "work cannot attach to itself as topic",
+            ));
+        }
+        let topic = self.get(topic_work_id).await?;
+        if topic.system_managed {
+            return Err(CoreError::validation(
+                "system_managed work cannot be used as topic",
+            ));
+        }
+        if topic.kind != WorkKind::Topic {
+            return Err(CoreError::validation(
+                "topic_work_id must reference kind=topic",
+            ));
+        }
+        Ok(())
     }
 
     pub async fn sync_title_from_agent_session(
@@ -668,7 +913,9 @@ impl WorkService {
         let now = now_millis();
         let mut updated = Vec::new();
         for mut record in self.store.list().await? {
-            if !work_title_can_follow_agent_session(&record, session_id) {
+            if !work_title_can_follow_agent_session(&record, session_id)
+                && !work_title_can_adopt_agent_session_title(&record, session_id)
+            {
                 continue;
             }
 
@@ -1138,7 +1385,8 @@ impl WorkService {
                 assignment: Some(assignment),
                 title_state: Some(WorkTitleState::agent()),
                 delegation: Some(delegation),
-            })
+                        topic_work_id: None,
+        })
             .await?;
 
         let advanced = self
@@ -1176,7 +1424,8 @@ impl WorkService {
                 assignment: Some(request.assignment),
                 title_state: Some(WorkTitleState::agent()),
                 delegation: parent.delegation.clone(),
-            })
+                        topic_work_id: None,
+        })
             .await?;
 
         let mut parent = parent;
@@ -1275,6 +1524,11 @@ impl WorkService {
     pub async fn control(&self, request: ControlWorkRequest) -> CoreResult<ControlWorkResponse> {
         let now = now_millis();
         let mut record = self.get(&request.work_id).await?;
+        if record.system_managed {
+            return Err(CoreError::validation(
+                "system_managed work lifecycle is owned by the system process",
+            ));
+        }
         match request.action {
             ControlWorkAction::Pause => record.set_status(WorkStatus::Paused, "paused", now),
             ControlWorkAction::Resume => record.set_status(WorkStatus::Active, "resumed", now),
@@ -1637,6 +1891,26 @@ impl WorkService {
         );
         Ok(())
     }
+
+    async fn normalize_resolved_app_work_title_state(
+        &self,
+        mut record: WorkRecord,
+        requested_title: &str,
+        requested_title_state: &WorkTitleState,
+    ) -> CoreResult<WorkRecord> {
+        if !should_adopt_resolved_default_title_state(
+            &record,
+            requested_title,
+            requested_title_state,
+        ) {
+            return Ok(record);
+        }
+
+        record.title_state = requested_title_state.clone();
+        record.touch(now_millis());
+        self.store.put(&record).await?;
+        Ok(record)
+    }
 }
 
 async fn application_surface_for_product_app_subject(
@@ -1763,6 +2037,129 @@ fn resolve_runtime_workspace_path(scope: &WorkScope) -> CoreResult<String> {
     }
 }
 
+fn validate_kind_transition(record: &WorkRecord, next: WorkKind) -> CoreResult<()> {
+    if record.system_managed {
+        return Err(CoreError::validation(
+            "system_managed work kind is immutable",
+        ));
+    }
+    if record.kind == next {
+        return Ok(());
+    }
+    if next == WorkKind::DelegatedWork {
+        return Err(CoreError::validation(
+            "cannot reclassify into delegated_work",
+        ));
+    }
+    if next == WorkKind::AppWorkflow && record.subject.app_ref().is_none() {
+        return Err(CoreError::validation(
+            "app_workflow requires an app subject attachment",
+        ));
+    }
+    Ok(())
+}
+
+fn system_process_kind_key(
+    kind: crate::agentic_os::background_process::BackgroundProcessKind,
+) -> String {
+    match kind {
+        crate::agentic_os::background_process::BackgroundProcessKind::AutoMemoryExtraction => {
+            "auto_memory_extraction".to_string()
+        }
+        crate::agentic_os::background_process::BackgroundProcessKind::MemoryConsolidation => {
+            "memory_consolidation".to_string()
+        }
+        crate::agentic_os::background_process::BackgroundProcessKind::HostScan => {
+            "host_scan".to_string()
+        }
+        crate::agentic_os::background_process::BackgroundProcessKind::WorkspaceOverviewRefresh => {
+            "workspace_overview_refresh".to_string()
+        }
+        crate::agentic_os::background_process::BackgroundProcessKind::GlobalDailyReport => {
+            "global_daily_report".to_string()
+        }
+        crate::agentic_os::background_process::BackgroundProcessKind::DailyLetter => {
+            "daily_letter".to_string()
+        }
+        crate::agentic_os::background_process::BackgroundProcessKind::GlobalMilestone => {
+            "global_milestone".to_string()
+        }
+    }
+}
+
+fn system_work_id_for_process(
+    process: &crate::agentic_os::background_process::BackgroundProcess,
+) -> CoreResult<WorkId> {
+    let id = format!("sysbp_{}", process.id.replace(':', "_"));
+    WorkId::parse(id).map_err(CoreError::validation)
+}
+
+fn work_scope_from_process_scope(
+    scope: &crate::agentic_os::background_process::BackgroundProcessScope,
+) -> WorkScope {
+    match scope {
+        crate::agentic_os::background_process::BackgroundProcessScope::System => WorkScope::System,
+        crate::agentic_os::background_process::BackgroundProcessScope::Workspace {
+            workspace_path,
+        } => WorkScope::Workspace {
+            workspace_path: workspace_path.clone(),
+        },
+        crate::agentic_os::background_process::BackgroundProcessScope::Session { .. }
+        | crate::agentic_os::background_process::BackgroundProcessScope::Path { .. } => {
+            WorkScope::System
+        }
+    }
+}
+
+fn work_status_from_process_status(
+    status: crate::agentic_os::background_process::BackgroundProcessStatus,
+) -> WorkStatus {
+    use crate::agentic_os::background_process::BackgroundProcessStatus;
+    match status {
+        BackgroundProcessStatus::Running | BackgroundProcessStatus::Queued => WorkStatus::Running,
+        BackgroundProcessStatus::Failed => WorkStatus::Failed,
+        BackgroundProcessStatus::Cancelled => WorkStatus::Cancelled,
+        BackgroundProcessStatus::Disabled => WorkStatus::Paused,
+        BackgroundProcessStatus::Succeeded
+        | BackgroundProcessStatus::Skipped
+        | BackgroundProcessStatus::Idle
+        | BackgroundProcessStatus::Scheduled
+        | BackgroundProcessStatus::CoolingDown => WorkStatus::Active,
+    }
+}
+
+fn system_work_objective(
+    process: &crate::agentic_os::background_process::BackgroundProcess,
+) -> String {
+    format!(
+        "System-managed {} process. Runtime details stay on the system process surface.",
+        system_process_kind_key(process.kind)
+    )
+}
+
+fn process_summary_text(
+    process: &crate::agentic_os::background_process::BackgroundProcess,
+) -> String {
+    let mut parts = vec![format!("status={}", format!("{:?}", process.status).to_ascii_lowercase())];
+    if let Some(phase) = process.phase {
+        parts.push(format!("phase={}", format!("{:?}", phase).to_ascii_lowercase()));
+    }
+    if let Some(next_run_at) = process.next_run_at {
+        parts.push(format!("next_run_at={next_run_at}"));
+    }
+    if let Some(error) = process.last_error.as_deref().filter(|value| !value.is_empty()) {
+        parts.push(format!("error={error}"));
+    } else if let Some(message) = process
+        .last_result
+        .as_ref()
+        .and_then(|result| result.message.as_deref())
+        .filter(|value| !value.is_empty())
+    {
+        parts.push(format!("result={message}"));
+    }
+    parts.join(" · ")
+}
+
 fn now_millis() -> i64 {
     chrono::Utc::now().timestamp_millis()
 }
@@ -1800,6 +2197,48 @@ fn app_work_status_rank(status: WorkStatus) -> u8 {
     }
 }
 
+fn default_title_state_for_policy(
+    primary_surface_policy: PrimarySurfacePolicy,
+    primary_surface: Option<&WorkSurfaceRef>,
+    subject: &WorkSubject,
+) -> WorkTitleState {
+    if let Some(WorkSurfaceRef::ApplicationSurface { product_app_id, .. }) = primary_surface {
+        return WorkTitleState::application_surface(product_app_id);
+    }
+
+    match primary_surface_policy {
+        PrimarySurfacePolicy::ApplicationSurface => subject
+            .app_ref()
+            .map(|app| WorkTitleState::application_surface(app.app_id.clone()))
+            .unwrap_or_else(WorkTitleState::default),
+        PrimarySurfacePolicy::WorkSession => WorkTitleState::template(),
+        PrimarySurfacePolicy::WorkCenter => WorkTitleState::default(),
+    }
+}
+
+fn should_adopt_resolved_default_title_state(
+    record: &WorkRecord,
+    requested_title: &str,
+    requested_title_state: &WorkTitleState,
+) -> bool {
+    if requested_title_state.locked || requested_title_state.source == WorkTitleSource::User {
+        return false;
+    }
+    if !is_implicit_default_title_state(&record.title_state) {
+        return false;
+    }
+
+    let record_title = normalize_default_title_label(&record.title);
+    let requested_title = normalize_default_title_label(requested_title);
+    !record_title.is_empty() && record_title == requested_title
+}
+
+fn is_implicit_default_title_state(title_state: &WorkTitleState) -> bool {
+    title_state.source == WorkTitleSource::User
+        && title_state.locked
+        && title_state.subject_ref.is_none()
+}
+
 fn work_references_agent_session(record: &WorkRecord, session_id: &str) -> bool {
     record
         .session_refs
@@ -1819,6 +2258,105 @@ fn work_references_agent_session(record: &WorkRecord, session_id: &str) -> bool 
 fn work_title_can_follow_agent_session(record: &WorkRecord, session_id: &str) -> bool {
     record.title_state.can_follow_session(session_id)
         && work_references_agent_session(record, session_id)
+}
+
+fn work_title_can_adopt_agent_session_title(record: &WorkRecord, session_id: &str) -> bool {
+    work_references_agent_session(record, session_id)
+        && is_implicit_default_title_state(&record.title_state)
+        && work_title_looks_like_default_agent_session_title(record)
+}
+
+fn work_title_looks_like_default_agent_session_title(record: &WorkRecord) -> bool {
+    let title = normalize_default_title_label(&record.title);
+    if title.is_empty() {
+        return false;
+    }
+
+    if record
+        .subject
+        .app_ref()
+        .is_some_and(|app| title_matches_identifier_default(&title, &app.app_id))
+    {
+        return true;
+    }
+
+    if record
+        .app_refs
+        .iter()
+        .any(|relation| title_matches_identifier_default(&title, &relation.app.app_id))
+    {
+        return true;
+    }
+
+    record
+        .assignment
+        .as_ref()
+        .and_then(|assignment| assignment.agent_type.as_deref())
+        .is_some_and(|agent_type| title_matches_identifier_default(&title, agent_type))
+}
+
+fn title_matches_identifier_default(title: &str, identifier: &str) -> bool {
+    let compact_title = compact_default_title_label(title);
+    default_title_identifier_candidates(identifier)
+        .into_iter()
+        .any(|candidate| {
+            let candidate_work = format!("{} work", candidate.trim_end_matches(" work"));
+            title == candidate
+                || title == candidate_work
+                || compact_title == compact_default_title_label(&candidate)
+                || compact_title == compact_default_title_label(&candidate_work)
+        })
+}
+
+fn default_title_identifier_candidates(identifier: &str) -> Vec<String> {
+    let trimmed = identifier.trim();
+    let without_builtin = trimmed.strip_prefix("builtin-").unwrap_or(trimmed);
+    let normalized_identifier = normalize_default_title_label(without_builtin);
+    let mut candidates = vec![normalized_identifier.clone()];
+
+    match normalize_default_title_label(trimmed).as_str() {
+        "os agent" | "osagent" => {
+            candidates.push("os work".to_string());
+            candidates.push("os agent".to_string());
+        }
+        "app builder" | "appbuilder" => {
+            candidates.push("app builder".to_string());
+            candidates.push("app builder work".to_string());
+        }
+        "runno" => {
+            candidates.push("runno".to_string());
+            candidates.push("runno work".to_string());
+        }
+        _ => {}
+    }
+
+    candidates.sort();
+    candidates.dedup();
+    candidates
+}
+
+fn normalize_default_title_label(value: &str) -> String {
+    let mut spaced = String::new();
+    let mut previous_was_lower_or_digit = false;
+    for character in value.trim().chars() {
+        if character.is_ascii_alphanumeric() {
+            if character.is_ascii_uppercase() && previous_was_lower_or_digit {
+                spaced.push(' ');
+            }
+            spaced.push(character.to_ascii_lowercase());
+            previous_was_lower_or_digit =
+                character.is_ascii_lowercase() || character.is_ascii_digit();
+        } else {
+            spaced.push(' ');
+            previous_was_lower_or_digit = false;
+        }
+    }
+
+    spaced.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn compact_default_title_label(value: &str) -> String {
+    value.split_whitespace().collect::<Vec<_>>().join("")
 }
 
 fn work_references_application_surface(record: &WorkRecord, application_id: &str) -> bool {
@@ -3744,7 +4282,10 @@ mod tests {
         WorkBuilderFactStatus, WorkBuilderIssueStatus, WorkRuntimeInstanceStatus,
         WorkRuntimeIssueSeverity, WorkRuntimeLogLevel,
     };
-    use super::super::hooks::{WorkCleanupAction, WorkCleanupItemStatus, WorkResourceOwnership};
+    use super::super::hooks::{
+        WorkCleanupAction, WorkCleanupItemStatus, WorkLifecycleHookHandler, WorkLifecycleHookKind,
+        WorkLifecycleHookOutcome, WorkLifecycleHookPhase, WorkResourceOwnership,
+    };
     use super::super::record::ArtifactRuntimeProvenance;
     use super::*;
     use crate::agentic_os::work::store::MemoryWorkStore;
@@ -3782,6 +4323,39 @@ mod tests {
     #[derive(Debug, Default)]
     struct RecordingRuntimeBridge {
         deleted_sessions: Mutex<Vec<(String, String)>>,
+    }
+
+    #[derive(Debug, Default)]
+    struct DeletedRecordingHook {
+        deleted_work_ids: Mutex<Vec<String>>,
+    }
+
+    const AFTER_COMMIT_PHASES: &[WorkLifecycleHookPhase] = &[WorkLifecycleHookPhase::AfterCommit];
+
+    #[async_trait]
+    impl WorkLifecycleHookHandler for DeletedRecordingHook {
+        fn id(&self) -> &'static str {
+            "deleted_recorder"
+        }
+
+        fn phases(&self) -> &'static [WorkLifecycleHookPhase] {
+            AFTER_COMMIT_PHASES
+        }
+
+        async fn handle(
+            &self,
+            context: &WorkLifecycleHookContext,
+            hook: &WorkLifecycleHookKind,
+        ) -> CoreResult<WorkLifecycleHookOutcome> {
+            if let WorkLifecycleHookKind::Deleted { report } = hook {
+                assert_eq!(report.work_id, context.work.id.as_str());
+                self.deleted_work_ids
+                    .lock()
+                    .expect("deleted work ids lock")
+                    .push(report.work_id.clone());
+            }
+            Ok(WorkLifecycleHookOutcome::Continue)
+        }
     }
 
     #[async_trait]
@@ -3872,7 +4446,8 @@ mod tests {
                 assignment: None,
                 title_state: None,
                 delegation: None,
-            })
+                        topic_work_id: None,
+        })
             .await
             .expect("create work");
 
@@ -3901,7 +4476,8 @@ mod tests {
                 assignment: Some(WorkAssignmentRef::agent("Runno")),
                 title_state: None,
                 delegation: None,
-            })
+                        topic_work_id: None,
+        })
             .await
             .expect("create work session");
 
@@ -3910,7 +4486,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn template_work_title_follows_generated_session_title() {
+    async fn default_work_session_title_follows_generated_session_title() {
         let service = service();
         let record = service
             .create(CreateWorkRequest {
@@ -3926,9 +4502,10 @@ mod tests {
                 primary_surface_policy: PrimarySurfacePolicy::WorkSession,
                 primary_surface: None,
                 assignment: Some(WorkAssignmentRef::agent("Runno")),
-                title_state: Some(WorkTitleState::template()),
+                title_state: None,
                 delegation: None,
-            })
+                        topic_work_id: None,
+        })
             .await
             .expect("create work session");
         let session_id = record.work_session_id().expect("work session").to_string();
@@ -3967,7 +4544,8 @@ mod tests {
                 assignment: Some(WorkAssignmentRef::agent("Runno")),
                 title_state: Some(WorkTitleState::template()),
                 delegation: None,
-            })
+                        topic_work_id: None,
+        })
             .await
             .expect("create work session");
         let session_id = record.work_session_id().expect("work session").to_string();
@@ -4004,9 +4582,10 @@ mod tests {
                 primary_surface_policy: PrimarySurfacePolicy::WorkSession,
                 primary_surface: None,
                 assignment: Some(WorkAssignmentRef::agent("Runno")),
-                title_state: None,
+                title_state: Some(WorkTitleState::user_locked()),
                 delegation: None,
-            })
+                        topic_work_id: None,
+        })
             .await
             .expect("create work session");
         let session_id = record.work_session_id().expect("work session").to_string();
@@ -4021,6 +4600,54 @@ mod tests {
         assert_eq!(stored.title, "My named work");
         assert!(stored.title_state.locked);
         assert_eq!(stored.title_state.source, WorkTitleSource::User);
+    }
+
+    #[tokio::test]
+    async fn legacy_default_agent_session_work_title_can_adopt_generated_session_title() {
+        let service = service();
+        let app = WorkAppRef::product_app("builtin-bitfun-coder", "1.0.0", "sha256:test-lock");
+        let record = service
+            .create(CreateWorkRequest {
+                kind: WorkKind::AppWorkflow,
+                title: "BitFun Coder".to_string(),
+                objective: "Use BitFun Coder".to_string(),
+                subject: WorkSubject::App {
+                    app: app.clone(),
+                    intent: WorkAppIntent::Run,
+                },
+                app_refs: vec![WorkAppRelation {
+                    app,
+                    role: WorkAppRelationRole::Executor,
+                    surface_id: None,
+                }],
+                scope: WorkScope::Workspace {
+                    workspace_path: "D:/workspace/project".to_string(),
+                },
+                visibility: WorkVisibility::Primary,
+                primary_surface_policy: PrimarySurfacePolicy::WorkSession,
+                primary_surface: None,
+                assignment: Some(WorkAssignmentRef::agent("bitfun-coder")),
+                title_state: Some(WorkTitleState::user_locked()),
+                delegation: None,
+                        topic_work_id: None,
+        })
+            .await
+            .expect("create legacy app work session");
+        let session_id = record.work_session_id().expect("work session").to_string();
+
+        let updated = service
+            .sync_title_from_agent_session(&session_id, "Implement search filters", false)
+            .await
+            .expect("sync generated title");
+
+        assert_eq!(updated.len(), 1);
+        assert_eq!(updated[0].title, "Implement search filters");
+        assert_eq!(updated[0].title_state.source, WorkTitleSource::Session);
+        assert_eq!(
+            updated[0].title_state.subject_ref.as_deref(),
+            Some(session_id.as_str())
+        );
+        assert!(!updated[0].title_state.locked);
     }
 
     #[tokio::test]
@@ -4042,7 +4669,8 @@ mod tests {
                 assignment: Some(WorkAssignmentRef::agent("Runno")),
                 title_state: Some(WorkTitleState::template()),
                 delegation: None,
-            })
+                        topic_work_id: None,
+        })
             .await
             .expect("create work session");
         let session_id = record.work_session_id().expect("work session").to_string();
@@ -4071,6 +4699,62 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn resolve_app_work_unlocks_legacy_default_work_session_title() {
+        let service = service();
+        let app = WorkAppRef::product_app("builtin-bitfun-coder", "1.0.0", "sha256:test-lock");
+        let existing = service
+            .create(CreateWorkRequest {
+                kind: WorkKind::AppWorkflow,
+                title: "BitFun Coder".to_string(),
+                objective: "Use BitFun Coder".to_string(),
+                subject: WorkSubject::App {
+                    app: app.clone(),
+                    intent: WorkAppIntent::Run,
+                },
+                app_refs: vec![WorkAppRelation {
+                    app: app.clone(),
+                    role: WorkAppRelationRole::Executor,
+                    surface_id: None,
+                }],
+                scope: WorkScope::Workspace {
+                    workspace_path: "D:/workspace/project".to_string(),
+                },
+                visibility: WorkVisibility::Primary,
+                primary_surface_policy: PrimarySurfacePolicy::WorkSession,
+                primary_surface: None,
+                assignment: Some(WorkAssignmentRef::agent("bitfun-coder")),
+                title_state: Some(WorkTitleState::user_locked()),
+                delegation: None,
+                        topic_work_id: None,
+        })
+            .await
+            .expect("create legacy app work session");
+
+        let resolved = service
+            .resolve_app_work(ResolveAppWorkRequest {
+                app,
+                intent: WorkAppIntent::Run,
+                title: "BitFun Coder".to_string(),
+                objective: "Use BitFun Coder".to_string(),
+                scope: WorkScope::Workspace {
+                    workspace_path: "D:/workspace/project".to_string(),
+                },
+                visibility: WorkVisibility::Primary,
+                primary_surface_policy: PrimarySurfacePolicy::WorkSession,
+                primary_surface: None,
+                assignment: Some(WorkAssignmentRef::agent("bitfun-coder")),
+                app_refs: Vec::new(),
+            })
+            .await
+            .expect("resolve legacy app work");
+
+        assert!(!resolved.created);
+        assert_eq!(resolved.work.id, existing.id);
+        assert_eq!(resolved.work.title_state.source, WorkTitleSource::Template);
+        assert!(!resolved.work.title_state.locked);
+    }
+
+    #[tokio::test]
     async fn application_surface_work_title_can_follow_application_name() {
         let service = service();
         let record = service
@@ -4094,7 +4778,8 @@ mod tests {
                 assignment: None,
                 title_state: None,
                 delegation: None,
-            })
+                        topic_work_id: None,
+        })
             .await
             .expect("create application surface work");
 
@@ -4479,7 +5164,8 @@ mod tests {
                 assignment: None,
                 title_state: None,
                 delegation: None,
-            })
+                        topic_work_id: None,
+        })
             .await
             .expect("create work");
         let work_id = work.id.clone();
@@ -6707,7 +7393,8 @@ mod tests {
                 assignment: None,
                 title_state: None,
                 delegation: None,
-            })
+                        topic_work_id: None,
+        })
             .await
             .expect("create work");
 
@@ -6758,7 +7445,8 @@ mod tests {
                 assignment: Some(WorkAssignmentRef::agent("Runno")),
                 title_state: None,
                 delegation: None,
-            })
+                        topic_work_id: None,
+        })
             .await
             .expect("create work");
         let session_id = record
@@ -6810,7 +7498,8 @@ mod tests {
                 assignment: None,
                 title_state: None,
                 delegation: None,
-            })
+                        topic_work_id: None,
+        })
             .await
             .expect("create work");
         let linked = service
@@ -6838,6 +7527,123 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn delete_work_deletes_linked_sessions_when_requested() {
+        let bridge = Arc::new(RecordingRuntimeBridge::default());
+        let runtime_bridge: Arc<dyn WorkRuntimeBridge> = bridge.clone();
+        let service =
+            WorkService::with_runtime_bridge(Arc::new(MemoryWorkStore::new()), runtime_bridge);
+        let record = service
+            .create(CreateWorkRequest {
+                kind: WorkKind::MultiStep,
+                title: "Investigate".to_string(),
+                objective: "Delete linked session with work".to_string(),
+                subject: WorkSubject::Goal,
+                app_refs: Vec::new(),
+                scope: WorkScope::Workspace {
+                    workspace_path: "D:/workspace/project".to_string(),
+                },
+                visibility: WorkVisibility::Primary,
+                primary_surface_policy: PrimarySurfacePolicy::WorkCenter,
+                primary_surface: None,
+                assignment: None,
+                title_state: None,
+                delegation: None,
+                        topic_work_id: None,
+        })
+            .await
+            .expect("create work");
+        let linked = service
+            .link_session_to_work(LinkSessionToWorkRequest {
+                work_id: record.id.clone(),
+                session_id: "session-linked".to_string(),
+                workspace_path: Some("D:/workspace/project".to_string()),
+                surface: Some(WorkSurfaceRef::AgentSession {
+                    session_id: "session-linked".to_string(),
+                }),
+                set_primary: true,
+            })
+            .await
+            .expect("link session");
+
+        let response = service
+            .delete_with_options(
+                &linked.id,
+                WorkDeleteOptions {
+                    delete_linked_sessions: true,
+                    ..Default::default()
+                },
+            )
+            .await
+            .expect("delete work");
+
+        assert!(response.deleted);
+        assert_eq!(
+            bridge
+                .deleted_sessions
+                .lock()
+                .expect("deleted sessions lock")
+                .as_slice(),
+            &[(
+                "D:/workspace/project".to_string(),
+                "session-linked".to_string()
+            )]
+        );
+        assert!(response.cleanup_report.items.iter().any(|report| {
+            report.item.resource.id == "session-linked"
+                && report.item.resource.ownership == WorkResourceOwnership::Linked
+                && report.item.action == WorkCleanupAction::Delete
+                && report.status == WorkCleanupItemStatus::Succeeded
+        }));
+        assert!(!response.cleanup_report.items.iter().any(|report| {
+            report.item.resource.id == "session-linked"
+                && report.item.resource.ownership == WorkResourceOwnership::Linked
+                && report.item.action == WorkCleanupAction::Retain
+        }));
+    }
+
+    #[tokio::test]
+    async fn delete_work_notifies_after_commit_lifecycle_hooks() {
+        let hook = Arc::new(DeletedRecordingHook::default());
+        let hook_handler: Arc<dyn WorkLifecycleHookHandler> = hook.clone();
+        let service = WorkService::with_lifecycle_hooks(
+            Arc::new(MemoryWorkStore::new()),
+            Arc::new(TestRuntimeBridge),
+            WorkLifecycleHookBus::default_handlers_with(vec![hook_handler]),
+        );
+        let record = service
+            .create(CreateWorkRequest {
+                kind: WorkKind::MultiStep,
+                title: "Notify delete".to_string(),
+                objective: "Notify after deletion".to_string(),
+                subject: WorkSubject::Goal,
+                app_refs: Vec::new(),
+                scope: WorkScope::Workspace {
+                    workspace_path: "D:/workspace/project".to_string(),
+                },
+                visibility: WorkVisibility::Primary,
+                primary_surface_policy: PrimarySurfacePolicy::WorkCenter,
+                primary_surface: None,
+                assignment: None,
+                title_state: None,
+                delegation: None,
+                        topic_work_id: None,
+        })
+            .await
+            .expect("create work");
+
+        let response = service.delete(&record.id).await.expect("delete work");
+
+        assert!(response.deleted);
+        assert_eq!(
+            hook.deleted_work_ids
+                .lock()
+                .expect("deleted work ids lock")
+                .as_slice(),
+            &[record.id.as_str().to_string()]
+        );
+    }
+
+    #[tokio::test]
     async fn dispatch_new_creates_delegated_work() {
         let service = service();
         let parent = service
@@ -6856,7 +7662,8 @@ mod tests {
                 assignment: None,
                 title_state: None,
                 delegation: None,
-            })
+                        topic_work_id: None,
+        })
             .await
             .expect("parent");
 
@@ -7648,7 +8455,8 @@ mod tests {
                 assignment: Some(WorkAssignmentRef::agent("Runno")),
                 title_state: Some(WorkTitleState::template()),
                 delegation: None,
-            })
+                        topic_work_id: None,
+        })
             .await
             .expect("create work session");
 

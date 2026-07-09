@@ -18,6 +18,12 @@ pub struct WorkProjection {
     pub scope: WorkScope,
     pub primary_surface: WorkSurfaceRef,
     pub running: bool,
+    #[serde(default)]
+    pub system_managed: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub system_process_kind: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub topic_work_id: Option<WorkId>,
     pub updated_at: i64,
 }
 
@@ -37,6 +43,9 @@ impl From<&WorkRecord> for WorkProjection {
                 .execution_bindings
                 .iter()
                 .any(|binding| binding.is_running()),
+            system_managed: record.system_managed,
+            system_process_kind: record.system_process_kind.clone(),
+            topic_work_id: record.topic_work_id.clone(),
             updated_at: record.updated_at,
         }
     }

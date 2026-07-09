@@ -1,13 +1,13 @@
 /**
- * About dialog component.
- * Shows app version and license info.
- * Uses the design-system Dialog primitive.
+ * About dialog — "ignition plaque" for Sparo OS.
+ * Three zones: brand stage (story), spec sheet (facts), link rail (index).
  */
 
-import React, { useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { useI18n } from '@/infrastructure/i18n';
+import { systemAPI } from '@/infrastructure/api';
 import { Badge, Dialog, IconButton, Panel, PanelBody } from '@/design-system';
-import { Copy, Check } from 'lucide-react';
+import { Bug, BookOpen, Calendar, Check, Copy, Github, GitBranch, GitCommit } from 'lucide-react';
 import {
   getAboutInfo,
   formatVersion,
@@ -25,25 +25,66 @@ interface AboutDialogProps {
   onClose: () => void;
 }
 
+/** Reset delay for the click-to-pulse mark interaction. */
+const MARK_PULSE_RESET_MS = 500;
+
 export const AboutDialog: React.FC<AboutDialogProps> = ({
   isOpen,
   onClose
 }) => {
   const { t } = useI18n('common');
-  const [copiedItem, setCopiedItem] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [pulsing, setPulsing] = useState(false);
+  const pulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const aboutInfo = getAboutInfo();
-  const { version, license } = aboutInfo;
+  const { version, license, links } = aboutInfo;
+  const versionLabel = formatVersion(version.version, version.isDev);
+  const buildDateLabel = formatBuildDate(version.buildDate);
 
-  const copyToClipboard = async (text: string, itemId: string) => {
+  const diagnosticParts = [
+    `Sparo OS ${versionLabel}`,
+    buildDateLabel,
+    version.gitCommit,
+    version.gitBranch
+  ].filter(Boolean);
+  const diagnosticText = diagnosticParts.join(' · ');
+
+  const copyDiagnostics = async () => {
     try {
-      await navigator.clipboard.writeText(text);
-      setCopiedItem(itemId);
-      setTimeout(() => setCopiedItem(null), 2000);
+      await navigator.clipboard.writeText(diagnosticText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      log.error('Failed to copy to clipboard', err);
+      log.error('Failed to copy diagnostics', err);
     }
   };
+
+  const handleMarkClick = useCallback(() => {
+    // Restart the animation even if it is already playing.
+    setPulsing(false);
+    requestAnimationFrame(() => setPulsing(true));
+
+    if (pulseTimeoutRef.current) {
+      clearTimeout(pulseTimeoutRef.current);
+    }
+    pulseTimeoutRef.current = setTimeout(() => setPulsing(false), MARK_PULSE_RESET_MS);
+  }, []);
+
+  const openLink = (href?: string) => {
+    if (!href) {
+      return;
+    }
+    systemAPI.openExternal(href).catch((error) => {
+      log.error('Failed to open external link', { href, error });
+    });
+  };
+
+  const linkItems = [
+    { key: 'repository', href: links.repository, icon: Github, label: t('about.links.repository') },
+    { key: 'documentation', href: links.documentation, icon: BookOpen, label: t('about.links.documentation') },
+    { key: 'issues', href: links.issues, icon: Bug, label: t('about.links.issues') }
+  ].filter((item): item is { key: string; href: string; icon: typeof Github; label: string } => Boolean(item.href));
 
   return (
     <Dialog
@@ -55,68 +96,117 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({
       }}
       showCloseButton={true}
       size="medium"
+      ariaLabel={t('about.productTitle')}
+      closeLabel={t('about.close')}
       overlayClassName="sparo-about-dialog-overlay"
+      contentClassName="sparo-about-dialog__dialog-body"
     >
-      <div className="sparo-about-dialog__content">
-        {/* Hero section - product info */}
-        <div className="sparo-about-dialog__hero">
+      <div className="sparo-about-dialog">
+        {/* Zone A — brand stage */}
+        <div className="sparo-about-dialog__stage">
+          <button
+            type="button"
+            className={[
+              'sparo-about-dialog__mark',
+              pulsing && 'sparo-about-dialog__mark--active'
+            ].filter(Boolean).join(' ')}
+            onClick={handleMarkClick}
+            aria-label={t('about.productTitle')}
+          >
+            <img
+              className="sparo-about-dialog__logo"
+              src="/sparo-logo-mark.png"
+              alt=""
+              draggable={false}
+            />
+            <span className="sparo-about-dialog__mark-ring" aria-hidden="true" />
+          </button>
+
           <h1 className="sparo-about-dialog__title">{t('about.productTitle')}</h1>
-          <Badge variant="neutral" className="sparo-about-dialog__version-badge">
-            {t('about.version', { version: formatVersion(version.version, version.isDev) })}
+          <p className="sparo-about-dialog__tagline">{t('about.tagline')}</p>
+          <Badge variant="accent" className="sparo-about-dialog__version-badge">
+            {t('about.version', { version: versionLabel })}
           </Badge>
-          <div className="sparo-about-dialog__divider" />
         </div>
 
-        {/* Scrollable area */}
-        <div className="sparo-about-dialog__scrollable">
-          <div className="sparo-about-dialog__info-section">
-            <Panel variant="subtle" className="sparo-about-dialog__info-card">
-              <PanelBody className="sparo-about-dialog__info-card-body">
-                <div className="sparo-about-dialog__info-row">
-                  <span className="sparo-about-dialog__info-label">{t('about.buildDate')}</span>
-                  <span className="sparo-about-dialog__info-value">
-                    {formatBuildDate(version.buildDate)}
-                  </span>
+        {/* Zone B — spec sheet */}
+        <Panel variant="subtle" className="sparo-about-dialog__specsheet">
+          <PanelBody className="sparo-about-dialog__specsheet-body">
+            <div className="sparo-about-dialog__specsheet-header">
+              <span className="sparo-about-dialog__specsheet-title">{t('about.specSheetTitle')}</span>
+              <IconButton
+                aria-label={t('about.copyDiagnostics')}
+                tooltip={copied ? t('about.copied') : t('about.copyDiagnostics')}
+                size="xs"
+                variant="ghost"
+                className="sparo-about-dialog__specsheet-copy"
+                onClick={copyDiagnostics}
+              >
+                {copied ? <Check size={12} /> : <Copy size={12} />}
+              </IconButton>
+            </div>
+
+            <dl className="sparo-about-dialog__specsheet-list">
+              <div className="sparo-about-dialog__specsheet-row">
+                <dt>
+                  <Calendar size={13} aria-hidden="true" />
+                  <span>{t('about.buildDate')}</span>
+                </dt>
+                <dd className="sparo-about-dialog__specsheet-value--mono">{buildDateLabel}</dd>
+              </div>
+              {version.gitCommit && (
+                <div className="sparo-about-dialog__specsheet-row">
+                  <dt>
+                    <GitCommit size={13} aria-hidden="true" />
+                    <span>{t('about.commit')}</span>
+                  </dt>
+                  <dd className="sparo-about-dialog__specsheet-value--mono">
+                    {version.gitCommit.slice(0, 7)}
+                  </dd>
                 </div>
+              )}
+              {version.gitBranch && (
+                <div className="sparo-about-dialog__specsheet-row">
+                  <dt>
+                    <GitBranch size={13} aria-hidden="true" />
+                    <span>{t('about.branch')}</span>
+                  </dt>
+                  <dd>{version.gitBranch}</dd>
+                </div>
+              )}
+            </dl>
+          </PanelBody>
+        </Panel>
 
-                {version.gitCommit && (
-                  <div className="sparo-about-dialog__info-row">
-                    <span className="sparo-about-dialog__info-label">{t('about.commit')}</span>
-                    <div className="sparo-about-dialog__info-value-group">
-                      <span className="sparo-about-dialog__info-value sparo-about-dialog__info-value--mono">
-                        {version.gitCommit}
-                      </span>
-                      <IconButton
-                        aria-label={t('about.copy')}
-                        tooltip={t('about.copy')}
-                        size="xs"
-                        variant="ghost"
-                        onClick={() => copyToClipboard(version.gitCommit || '', 'commit')}
-                      >
-                        {copiedItem === 'commit' ? <Check size={12} /> : <Copy size={12} />}
-                      </IconButton>
-                    </div>
-                  </div>
-                )}
-
-                {version.gitBranch && (
-                  <div className="sparo-about-dialog__info-row">
-                    <span className="sparo-about-dialog__info-label">{t('about.branch')}</span>
-                    <span className="sparo-about-dialog__info-value">{version.gitBranch}</span>
-                  </div>
-                )}
-              </PanelBody>
-            </Panel>
+        {/* Zone C — link rail + footer */}
+        {linkItems.length > 0 && (
+          <div className="sparo-about-dialog__links">
+            {linkItems.map(({ key, href, icon: Icon, label }) => (
+              <IconButton
+                key={key}
+                aria-label={label}
+                tooltip={label}
+                size="small"
+                variant="ghost"
+                className="sparo-about-dialog__link-btn"
+                onClick={() => openLink(href)}
+              >
+                <Icon size={15} aria-hidden="true" />
+              </IconButton>
+            ))}
           </div>
-        </div>
+        )}
 
-        {/* Footer */}
-        <div className="sparo-about-dialog__footer">
-          <p className="sparo-about-dialog__license">{license.text}</p>
-          <p className="sparo-about-dialog__copyright">
-            {t('about.copyright')}
-          </p>
-        </div>
+        <footer className="sparo-about-dialog__footer">
+          <button
+            type="button"
+            className="sparo-about-dialog__license"
+            onClick={() => openLink(license.url)}
+          >
+            {t('about.licenseLabel', { type: license.type })}
+          </button>
+          <p className="sparo-about-dialog__copyright">{t('about.copyright')}</p>
+        </footer>
       </div>
     </Dialog>
   );

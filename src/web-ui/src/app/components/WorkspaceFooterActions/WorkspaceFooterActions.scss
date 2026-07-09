@@ -272,6 +272,23 @@
   }
 }
 
+.sparo-workspace-footer__icon-with-dot {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.sparo-workspace-footer__unread-dot {
+  position: absolute;
+  top: -2px;
+  right: -3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ds-color-accent);
+  box-shadow: 0 0 0 1.5px var(--ds-color-bg-elevated);
+}
+
 .sparo-workspace-footer__action-label {
   min-width: 0;
   overflow: hidden;

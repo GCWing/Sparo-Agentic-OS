@@ -1,10 +1,10 @@
 /**
- * Shared time-range presets for turn list and Agentic OS timeline panels.
+ * Shared time-range presets for timeline panels.
  */
 
-export type TurnListTimePreset = 'all' | 'today' | 'last7' | 'this_month' | 'custom';
+export type TimelineTimePreset = 'all' | 'today' | 'last7' | 'this_month' | 'custom';
 
-export interface TurnListCustomTimeRange {
+export interface TimelineCustomTimeRange {
   startMs: number;
   endMs: number;
 }
@@ -27,14 +27,14 @@ export function msToLocalCalendarDay(ms: number): Date {
 }
 
 /** Full-day range from inclusive local calendar start/end days. */
-export function localCalendarDaysToCustomRange(startDay: Date, endDay: Date): TurnListCustomTimeRange {
+export function localCalendarDaysToCustomRange(startDay: Date, endDay: Date): TimelineCustomTimeRange {
   const s = new Date(startDay.getFullYear(), startDay.getMonth(), startDay.getDate(), 0, 0, 0, 0);
   const e = new Date(endDay.getFullYear(), endDay.getMonth(), endDay.getDate(), 23, 59, 59, 999);
   return { startMs: s.getTime(), endMs: e.getTime() };
 }
 
 /** Default range when opening the custom picker: last 7 local days through end of today. */
-export function defaultCustomTimeRange(): TurnListCustomTimeRange {
+export function defaultCustomTimeRange(): TimelineCustomTimeRange {
   const now = new Date();
   const endDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
@@ -44,8 +44,8 @@ export function defaultCustomTimeRange(): TurnListCustomTimeRange {
 
 export function timestampMatchesTimePreset(
   timestamp: number,
-  preset: TurnListTimePreset,
-  customRange?: TurnListCustomTimeRange | null,
+  preset: TimelineTimePreset,
+  customRange?: TimelineCustomTimeRange | null,
 ): boolean {
   if (preset === 'all') return true;
   const ts = timestamp ?? 0;

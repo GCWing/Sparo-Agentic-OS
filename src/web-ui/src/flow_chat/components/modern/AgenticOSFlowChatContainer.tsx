@@ -48,7 +48,7 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
   const { t } = useTranslation('flow-chat');
 
   const core = useFlowChatCore({
-    initialTurnListOpen: false,
+    initialTimelineOpen: false,
     sessionId,
     workspacePath,
     config,
@@ -64,13 +64,13 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
     effectiveVisibleTurnInfo,
     virtualListRef,
     chatScopeRef,
-    turnListSidebarRef,
+    timelineSidebarRef,
     turnSummaries,
     handleJumpToTurn,
-    turnListOpen,
-    setTurnListOpen,
-    turnListSearchFocusRequest,
-    setTurnListSearchFocusRequest,
+    timelineOpen,
+    setTimelineOpen,
+    timelineSearchFocusRequest,
+    setTimelineSearchFocusRequest,
     staticContextValue,
     viewContextValue,
     setPendingHeaderTurnId,
@@ -418,7 +418,7 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
     { key: 'F', ctrl: true, scope: 'chat', allowInInput: false },
     () => {
       // Ctrl+F in Agentic OS always focuses the timeline search.
-      setTurnListSearchFocusRequest(prev => prev + 1);
+      setTimelineSearchFocusRequest(prev => prev + 1);
     },
     { priority: 15, description: 'keyboard.shortcuts.chat.search' },
   );
@@ -467,10 +467,10 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
               onSearchPrev={() => {}}
               onSearchClose={() => {}}
               searchOpenRequest={0}
-              turnListOpen={turnListOpen}
-              onTurnListOpenChange={setTurnListOpen}
-              forceTurnListEnabled
-              turnListTooltipOverride={t('agenticOsTimeline.toggleTooltip', {
+              timelineOpen={timelineOpen}
+              onTimelineOpenChange={setTimelineOpen}
+              forceTimelineEnabled
+              timelineTooltipOverride={t('agenticOsTimeline.toggleTooltip', {
                 defaultValue: 'Timeline',
               })}
               sidecarActions={sidecarActions}
@@ -514,15 +514,15 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
                     <VirtualMessageList
                       key={activeSession?.sessionId ?? 'virtual-message-list'}
                       ref={virtualListRef}
-                      hideScrollAnchor={turnListOpen}
+                      hideScrollAnchor={timelineOpen}
                     />
                   )}
                 </div>
               </div>
 
               <AgenticOsTimelineSidebar
-                ref={turnListSidebarRef}
-                open={turnListOpen}
+                ref={timelineSidebarRef}
+                open={timelineOpen}
                 data={agenticOsTimeline}
                 activeSessionId={activeSession?.sessionId}
                 activeTurnId={effectiveVisibleTurnInfo?.turnId}
@@ -541,7 +541,7 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
                 onSearchNext={handleAgenticOsSearchNext}
                 onSearchPrev={handleAgenticOsSearchPrev}
                 onSearchClose={handleAgenticOsSearchClose}
-                searchFocusRequest={turnListSearchFocusRequest}
+                searchFocusRequest={timelineSearchFocusRequest}
                 searchMatchedTurnIds={
                   agenticOsTimelineQuery.trim().length > 0
                     ? agenticOsSearch.matchedTurnIds

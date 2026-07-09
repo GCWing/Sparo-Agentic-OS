@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
-import { useBackgroundProcesses } from '@/app/agentic-os/background-process/hooks/useBackgroundProcesses';
 import { useWorks } from '@/app/agentic-os/work/hooks/useWorks';
 import { useScopedWorks } from '@/app/agentic-os/work/hooks/useScopedWorks';
 import { useWorkDockStore } from '@/app/stores/workDockStore';
@@ -11,28 +10,25 @@ import type {
 } from '@/app/stores/workDockStore';
 import type { WorkAppRef } from '@/app/agentic-os/work/domain/workTypes';
 import {
-  getWorkCategory,
+  getWorkRailSection,
+  isQueueEligibleWork,
   isWorkAttentionStatus,
   isWorkArchivedStatus,
   isWorkCompletedStatus,
   isWorkOpenStatus,
   isWorkRunningStatus,
   isWorkUnarchivedStatus,
-  type WorkCategory,
+  type WorkRailSection,
 } from '@/app/agentic-os/work/domain/workClassification';
 import { NewWorkDialog } from '@/app/components/WorkDock/NewWorkDialog';
 import { filterUserWorkspaces } from './workCenter/workspaceFilters';
-import BackgroundProcessBoard from './BackgroundProcessBoard/BackgroundProcessBoard';
 import ScopeRail from './ScopeRail/ScopeRail';
 import WorkBoard from './WorkBoard/WorkBoard';
 import './WorkCenterScene.scss';
 
 const WorkCenterScene: React.FC = () => {
   const { openedWorkspacesList, recentWorkspaces } = useWorkspaceContext();
-  const { projections } = useWorks();
-  const { processes: backgroundProcesses } = useBackgroundProcesses();
-  const workCenterView = useWorkDockStore((state) => state.workCenterView);
-  const setWorkCenterView = useWorkDockStore((state) => state.setWorkCenterView);
+  const { projections, refreshWorks } = useWorks();
   const scope = useWorkDockStore((state) => state.workCenterScope);
   const setScope = useWorkDockStore((state) => state.setWorkCenterScope);
   const workspaceFilter = useWorkDockStore((state) => state.workCenterWorkspaceFilter);
@@ -72,6 +68,18 @@ const WorkCenterScene: React.FC = () => {
     setWorkspaceFilter({ kind: 'all' });
   }, [setWorkspaceFilter, workspaceFilter, workspaces]);
 
+  // System matter status is synced from BackgroundProcess only on list_works.
+  // Poll while viewing the global running list or system rail so live jobs
+  // (daily letter, etc.) appear without waiting for an agent turn event.
+  useEffect(() => {
+    if (scope.kind !== 'running' && scope.kind !== 'system') return;
+    void refreshWorks();
+    const timer = window.setInterval(() => {
+      void refreshWorks();
+    }, 4000);
+    return () => window.clearInterval(timer);
+  }, [refreshWorks, scope.kind]);
+
   const appOptions = useMemo(() => {
     const map = new Map<string, { app: WorkAppRef; count: number }>();
     for (const work of projections) {
@@ -99,22 +107,36 @@ const WorkCenterScene: React.FC = () => {
   const scopedWorks = useScopedWorks(scope, workspaceFilter, appFilter, workspaces, search);
 
   const handleScopeChange = (nextScope: WorkCenterScope) => {
-    setWorkCenterView('work');
     setScope(nextScope);
     if (workspaceFilter.kind !== 'all') {
       setWorkspaceFilter({ kind: 'all' });
     }
+    if (nextScope.kind === 'running') {
+      // Global live list: group by kind so user vs system runs stay scannable.
+      setGrouping('kind');
+      if (appFilter.kind !== 'all') {
+        setAppFilter({ kind: 'all' });
+      }
+      return;
+    }
     if (
       nextScope.kind === 'attention'
-      || nextScope.kind === 'running'
       || nextScope.kind === 'completed'
       || nextScope.kind === 'archived'
     ) {
       setGrouping('status');
       return;
     }
-    if (nextScope.kind === 'open' || nextScope.kind === 'all' || nextScope.kind === 'category') {
-      setGrouping('priority');
+    if (nextScope.kind === 'system' || nextScope.kind === 'topic') {
+      setGrouping('kind');
+      return;
+    }
+    if (
+      nextScope.kind === 'open'
+      || nextScope.kind === 'all'
+      || nextScope.kind === 'category'
+    ) {
+      setGrouping(nextScope.kind === 'category' && nextScope.category === 'immediate' ? 'priority' : 'kind');
     }
   };
 
@@ -150,10 +172,12 @@ const WorkCenterScene: React.FC = () => {
     let completedTotal = 0;
     let archivedTotal = 0;
     let activeWorkspaceRunningTotal = 0;
-    const categoryCounts = new Map<WorkCategory, { total: number; running: number }>([
+    const railCounts = new Map<WorkRailSection, { total: number; running: number }>([
       ['immediate', { total: 0, running: 0 }],
       ['long_term', { total: 0, running: 0 }],
+      ['topic', { total: 0, running: 0 }],
       ['recurring', { total: 0, running: 0 }],
+      ['system', { total: 0, running: 0 }],
     ]);
     for (const work of projections) {
       const running = isWorkRunningStatus(work.status);
@@ -162,17 +186,18 @@ const WorkCenterScene: React.FC = () => {
       const unarchived = isWorkUnarchivedStatus(work.status);
       const completed = isWorkCompletedStatus(work.status);
       const archived = isWorkArchivedStatus(work.status);
-      if (open) openTotal += 1;
-      if (unarchived) unarchivedTotal += 1;
-      if (completed) completedTotal += 1;
-      if (archived) archivedTotal += 1;
-      const category = getWorkCategory(work.kind);
-      const categoryCount = categoryCounts.get(category);
-      if (open && categoryCount) {
-        categoryCount.total += 1;
-        if (running) categoryCount.running += 1;
+      const queueEligible = isQueueEligibleWork(work);
+      if (open && queueEligible) openTotal += 1;
+      if (unarchived && !work.systemManaged) unarchivedTotal += 1;
+      if (completed && !work.systemManaged) completedTotal += 1;
+      if (archived && !work.systemManaged) archivedTotal += 1;
+      const rail = getWorkRailSection(work);
+      const railCount = railCounts.get(rail);
+      if (railCount && (rail === 'system' || open)) {
+        railCount.total += 1;
+        if (running) railCount.running += 1;
       }
-      if (attention) attentionTotal += 1;
+      if (attention && queueEligible) attentionTotal += 1;
       if (running) runningTotal += 1;
       if (!work.workspacePath) {
         continue;
@@ -181,7 +206,7 @@ const WorkCenterScene: React.FC = () => {
       if (!workspace) continue;
       const count = workspaceCounts.get(workspace.id);
       if (!count) continue;
-      if (archived) continue;
+      if (archived || work.systemManaged) continue;
       count.total += 1;
       if (running) count.running += 1;
       if (attention) count.attention += 1;
@@ -198,29 +223,9 @@ const WorkCenterScene: React.FC = () => {
       completedTotal,
       archivedTotal,
       activeWorkspaceRunningTotal,
-      categoryCounts,
+      railCounts,
     };
   }, [activeWorkspaces, projections, workspaces]);
-
-  const backgroundCounts = useMemo(() => {
-    let running = 0;
-    let attention = 0;
-    for (const process of backgroundProcesses) {
-      if (process.status === 'running') running += 1;
-      if (
-        process.status === 'failed'
-        || process.status === 'cancelled'
-        || process.status === 'cooling_down'
-      ) {
-        attention += 1;
-      }
-    }
-    return {
-      running,
-      attention,
-      total: backgroundProcesses.length,
-    };
-  }, [backgroundProcesses]);
 
   return (
     <div
@@ -231,7 +236,6 @@ const WorkCenterScene: React.FC = () => {
     >
       <div className="tds-layout tds-layout--v2">
         <ScopeRail
-          view={workCenterView}
           scope={scope}
           openTotal={counts.openTotal}
           attentionTotal={counts.attentionTotal}
@@ -242,43 +246,33 @@ const WorkCenterScene: React.FC = () => {
           activeWorkspaceCount={activeWorkspaces.length}
           workspaceHistoryCount={Math.max(0, workspaces.length - activeWorkspaces.length)}
           activeWorkspaceRunningTotal={counts.activeWorkspaceRunningTotal}
-          backgroundTotal={backgroundCounts.total}
-          backgroundAttentionTotal={backgroundCounts.attention}
-          backgroundRunningTotal={backgroundCounts.running}
-          categoryCounts={counts.categoryCounts}
+          railCounts={counts.railCounts}
           onScopeChange={handleScopeChange}
-          onViewChange={setWorkCenterView}
           onQuickCreateWork={() => setNewWorkDialogOpen(true)}
         />
-        {workCenterView === 'work' ? (
-          <WorkBoard
-            scope={scope}
-            workspaces={workspaces}
-            activeWorkspaces={activeWorkspaces}
-            workspaceCounts={counts.workspaceCounts}
-            workspaceFilter={workspaceFilter}
-            appFilter={appFilter}
-            appOptions={appOptions}
-            result={scopedWorks}
-            search={search}
-            grouping={grouping}
-            collapsedGroups={collapsedGroups}
-            selectedWorkId={selectedWorkId}
-            selectedArtifactId={selectedArtifactId}
-            onSearchChange={setSearch}
-            onScopeChange={handleScopeChange}
-            onWorkspaceFilterChange={handleWorkspaceFilterChange}
-            onAppFilterChange={handleAppFilterChange}
-            onGroupingChange={setGrouping}
-            onToggleGroup={toggleGroup}
-            onSelectedWorkChange={handleSelectedWorkChange}
-            onCreateWork={() => setNewWorkDialogOpen(true)}
-          />
-        ) : (
-          <div className="tds-background-panel">
-            <BackgroundProcessBoard showRail={false} />
-          </div>
-        )}
+        <WorkBoard
+          scope={scope}
+          workspaces={workspaces}
+          activeWorkspaces={activeWorkspaces}
+          workspaceCounts={counts.workspaceCounts}
+          workspaceFilter={workspaceFilter}
+          appFilter={appFilter}
+          appOptions={appOptions}
+          result={scopedWorks}
+          search={search}
+          grouping={grouping}
+          collapsedGroups={collapsedGroups}
+          selectedWorkId={selectedWorkId}
+          selectedArtifactId={selectedArtifactId}
+          onSearchChange={setSearch}
+          onScopeChange={handleScopeChange}
+          onWorkspaceFilterChange={handleWorkspaceFilterChange}
+          onAppFilterChange={handleAppFilterChange}
+          onGroupingChange={setGrouping}
+          onToggleGroup={toggleGroup}
+          onSelectedWorkChange={handleSelectedWorkChange}
+          onCreateWork={() => setNewWorkDialogOpen(true)}
+        />
       </div>
       <NewWorkDialog open={newWorkDialogOpen} onClose={() => setNewWorkDialogOpen(false)} />
     </div>
