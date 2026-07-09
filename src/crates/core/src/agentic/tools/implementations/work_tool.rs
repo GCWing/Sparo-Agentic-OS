@@ -24,7 +24,7 @@ impl Tool for WorkTool {
     }
 
     async fn description(&self) -> CoreResult<String> {
-        Ok("Run and manage specialist Work through one control-plane tool. action=start atomically creates and launches an Agent WorkSession and returns its work_id; action=continue sends more instructions to existing Work; action=status reads progress and results; action=control changes lifecycle state. Always target Work by the work_id from start, never by a session id.".to_string())
+        Ok("Run and manage specialist Work through one control-plane tool. action=start atomically creates and launches an Agent WorkSession and returns its work_id; action=continue sends more instructions to existing Work; action=status reads progress and results; action=control changes lifecycle state; action=reclassify changes kind or topic attachment. Always target Work by the work_id from start, never by a session id. System-managed works are immutable.".to_string())
     }
 
     fn input_schema(&self) -> Value {
@@ -33,17 +33,25 @@ impl Tool for WorkTool {
             "properties": {
                 "action": {
                     "type": "string",
-                    "enum": ["start", "continue", "status", "control"],
-                    "description": "start: create and launch new Work. continue: add instructions to existing Work. status: read progress and results. control: change lifecycle state."
+                    "enum": ["start", "continue", "status", "control", "reclassify"],
+                    "description": "start: create and launch new Work. continue: add instructions to existing Work. status: read progress and results. control: change lifecycle state. reclassify: change kind or topic attachment."
                 },
                 "work_id": {
                     "type": "string",
-                    "description": "The Work to target. Required for continue and control, and for status of one specific Work. This is the work_id returned by start, not a session id."
+                    "description": "The Work to target. Required for continue, control, reclassify, and for status of one specific Work. This is the work_id returned by start, not a session id."
                 },
                 "kind": {
                     "type": "string",
-                    "enum": ["one_shot", "multi_step", "long_running_session"],
-                    "description": "start only. multi_step (default) for normal multi-step execution; one_shot for a single self-contained task; long_running_session for ongoing work."
+                    "enum": ["one_shot", "multi_step", "long_running_session", "tracking", "topic", "recurring", "app_workflow"],
+                    "description": "start or reclassify. multi_step (default) for normal multi-step execution; one_shot for a single self-contained task; long_running_session/tracking for ongoing user work; topic for a theme container; recurring for user cadence work; app_workflow when an app subject is attached."
+                },
+                "topic_work_id": {
+                    "type": "string",
+                    "description": "Optional Topic work_id to attach this Work under. Topic target must have kind=topic."
+                },
+                "clear_topic_work_id": {
+                    "type": "boolean",
+                    "description": "reclassify/start only. Clear topic attachment when true."
                 },
                 "title": {
                     "type": "string",
@@ -293,8 +301,8 @@ mod tests {
         let actions = schema["properties"]["action"]["enum"]
             .as_array()
             .expect("action enum");
-        assert_eq!(actions.len(), 4);
-        for action in ["start", "continue", "status", "control"] {
+        assert_eq!(actions.len(), 5);
+        for action in ["start", "continue", "status", "control", "reclassify"] {
             assert!(
                 actions.iter().any(|value| value.as_str() == Some(action)),
                 "missing action {action}"

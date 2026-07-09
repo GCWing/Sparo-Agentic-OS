@@ -322,6 +322,7 @@
   },
   "flowChatHeader": {
     "turnList": "Turn list",
+    "timeline": "Timeline",
     "untitledTurn": "Untitled turn",
     "previousTurn": "Previous turn",
     "nextTurn": "Next turn",
@@ -373,7 +374,7 @@
       "cancelExecution": "Cancel goal execution"
     }
   },
-  "turnList": {
+  "timelineTimeFilter": {
     "timeFilterTooltip": "Filter by time",
     "timeFilterAll": "All time",
     "timeFilterToday": "Today",

@@ -6,7 +6,8 @@ import { useWorks } from './useWorks';
 import { filterWorkProjections } from '../data/workSelectors';
 import type { WorkProjection } from '../projections/workProjection';
 import {
-  getWorkCategory,
+  getWorkRailSection,
+  isQueueEligibleWork,
   isWorkAttentionStatus,
   isWorkArchivedStatus,
   isWorkCompletedStatus,
@@ -32,22 +33,48 @@ export function useScopedWorks(
   const { projections } = useWorks();
 
   return useMemo(() => {
+    // Running is the global live list: every running Work, including system matters.
+    const isGlobalRunningScope = scope.kind === 'running';
+
     const scoped = projections.filter((work) => {
-      if (scope.kind === 'open') return isWorkOpenStatus(work.status);
-      if (scope.kind === 'attention') return isWorkAttentionStatus(work.status);
-      if (scope.kind === 'running') return isWorkRunningStatus(work.status);
-      if (scope.kind === 'all' || scope.kind === 'workspaces') return isWorkUnarchivedStatus(work.status);
-      if (scope.kind === 'completed') return isWorkCompletedStatus(work.status);
-      if (scope.kind === 'archived') return isWorkArchivedStatus(work.status);
+      if (scope.kind === 'open') {
+        return isWorkOpenStatus(work.status)
+          && isQueueEligibleWork(work);
+      }
+      if (scope.kind === 'attention') {
+        return isWorkAttentionStatus(work.status) && isQueueEligibleWork(work);
+      }
+      if (scope.kind === 'running') {
+        return isWorkRunningStatus(work.status);
+      }
+      if (scope.kind === 'all' || scope.kind === 'workspaces') {
+        return isWorkUnarchivedStatus(work.status) && !work.systemManaged;
+      }
+      if (scope.kind === 'completed') {
+        return isWorkCompletedStatus(work.status) && !work.systemManaged;
+      }
+      if (scope.kind === 'archived') {
+        return isWorkArchivedStatus(work.status) && !work.systemManaged;
+      }
+      if (scope.kind === 'topic') {
+        return isWorkOpenStatus(work.status) && getWorkRailSection(work) === 'topic';
+      }
+      if (scope.kind === 'system') {
+        return getWorkRailSection(work) === 'system';
+      }
       if (scope.kind === 'category') {
-        return isWorkOpenStatus(work.status) && getWorkCategory(work.kind) === scope.category;
+        return isWorkOpenStatus(work.status)
+          && !work.systemManaged
+          && getWorkRailSection(work) === scope.category;
       }
       return true;
     }).filter((work) => {
+      if (isGlobalRunningScope) return true;
       if (workspaceFilter.kind === 'all') return true;
       const workspace = workspaces.find((item) => item.id === workspaceFilter.id);
       return Boolean(workspace && work.workspacePath === workspace.rootPath);
     }).filter((work) => {
+      if (isGlobalRunningScope) return true;
       if (appFilter.kind === 'all') return true;
       return work.appRefs.some((relation) => (
         sameAppRef(relation.app, appFilter.app)

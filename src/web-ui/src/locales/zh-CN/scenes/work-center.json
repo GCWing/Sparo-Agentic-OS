@@ -37,7 +37,32 @@
     "historyWorkspaces": "{{count}} 个历史",
     "total": "共 {{count}} 个",
     "workspace": "工作区",
-    "backgroundProcesses": "后台进程"
+    "backgroundProcesses": "系统事项"
+  },
+  "rail": {
+    "immediate": "即时事项",
+    "long_term": "长期事项",
+    "topic": "Topic",
+    "recurring": "周期事项",
+    "system": "系统事项"
+  },
+  "runtime": {
+    "foreground": "前台运行",
+    "background": "后台运行"
+  },
+  "runningTable": {
+    "emptyValue": "--",
+    "columns": {
+      "name": "名称",
+      "type": "类型",
+      "status": "状态",
+      "scope": "范围",
+      "kind": "工作类型",
+      "phase": "阶段",
+      "runtime": "运行时长",
+      "updated": "更新",
+      "actions": "操作"
+    }
   },
   "actions": {
     "newWork": "新建工作",
@@ -61,7 +86,9 @@
     "clearSelection": "清除选择",
     "deleteDialog": {
       "title": "删除 {{count}} 个工作项",
-      "description": "这会从工作中心移除所选工作。关联会话和产物不会被删除。",
+      "description": "这会从工作中心移除所选工作。产物和记忆会保留。",
+      "deleteLinkedSessionsLabel": "同时删除关联会话",
+      "deleteLinkedSessionsDescription": "通过 Work 生命周期清理 Hook 随工作删除关联的代理会话。",
       "cancel": "取消",
       "confirm": "删除工作",
       "deleting": "正在删除..."
@@ -188,7 +215,8 @@
   "emptyState": {
     "noMatches": "没有匹配的工作",
     "clearSearch": "清除搜索",
-    "showAllWork": "查看未归档工作"
+    "showAllWork": "查看未归档工作",
+    "noRunning": "当前没有运行中的工作"
   },
   "detail": {
     "label": "工作详情",
@@ -321,6 +349,27 @@
       "agentSessionFailedWithReason": "智能体会话失败：{{reason}}",
       "agentSessionWaitingUser": "等待你处理",
       "agentSessionResumed": "智能体会话已恢复"
+    },
+    "classify": {
+      "title": "分类",
+      "asTopic": "标记为 Topic",
+      "asTracking": "标记为长期跟踪",
+      "asLongRunning": "标记为长期运行",
+      "asRecurring": "标记为周期事项",
+      "asImmediate": "标记为即时事项",
+      "updated": "分类已更新"
+    },
+    "attachments": {
+      "title": "挂靠",
+      "topic": "Topic",
+      "systemProcess": "系统进程",
+      "none": "未挂靠 Topic"
+    },
+    "systemRuntime": {
+      "title": "运行与调度",
+      "nextRun": "下次运行",
+      "runNow": "立即运行",
+      "unavailable": "进程运行态不可用"
     }
   },
   "workspaceFilter": {
@@ -370,7 +419,7 @@
     "time": "时间"
   },
   "category": {
-    "immediate": "即时工作",
+    "immediate": "即时事项",
     "long_term": "长期事项",
     "recurring": "周期事项"
   },
@@ -379,7 +428,7 @@
     "running": "正在运行",
     "recurring": "周期事项",
     "long_term": "长期事项",
-    "immediate": "即时工作",
+    "immediate": "即时事项",
     "done": "已完成"
   },
   "status": {
@@ -428,7 +477,8 @@
     "closeWorkspaceFailed": "关闭工作区失败",
     "removeWorkspaceFailed": "移除工作区历史失败",
     "bulkActionFailed": "{{count}} 个所选工作更新失败",
-    "bulkDeleteFailed": "{{count}} 个所选工作删除失败"
+    "bulkDeleteFailed": "{{count}} 个所选工作删除失败",
+    "reclassifyFailed": "更新分类失败"
   },
   "messages": {
     "objectiveSaved": "目标已更新",
@@ -439,6 +489,8 @@
     "bulkArchived": "已归档 {{count}} 个工作项",
     "bulkReopened": "已重开 {{count}} 个工作项",
     "bulkCancelled": "已取消 {{count}} 个工作运行",
-    "bulkDeleted": "已删除 {{count}} 个工作项"
+    "bulkDeleted": "已删除 {{count}} 个工作项",
+    "bulkDeletedWithSessions": "已删除 {{count}} 个工作项和 {{sessions}} 个关联会话",
+    "bulkDeletedWithCleanupWarnings": "已删除 {{count}} 个工作项，但 {{failed}} 个关联会话清理项失败"
   }
 }

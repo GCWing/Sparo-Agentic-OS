@@ -68,13 +68,23 @@
   },
   "about": {
     "productTitle": "Sparo OS",
+    "tagline": "An Agentic OS for building intelligent apps",
     "close": "Close",
     "copy": "Copy",
-    "version": "Version {{version}}",
-    "buildDate": "Build Date",
+    "copyDiagnostics": "Copy build info",
+    "copied": "Copied",
+    "version": "v{{version}}",
+    "specSheetTitle": "Build info",
+    "buildDate": "Built",
     "commit": "Commit",
     "branch": "Branch",
-    "copyright": "© 2026 Spora OS Development Team. All rights reserved."
+    "links": {
+      "repository": "View source",
+      "documentation": "Documentation",
+      "issues": "Report an issue"
+    },
+    "licenseLabel": "{{type}} License",
+    "copyright": "© 2026 Sparo OS Development Team. All rights reserved."
   },
   "actions": {
     "confirm": "Confirm",
@@ -482,5 +492,14 @@
   },
   "notify": {
     "dialogCompleted": "AI agent has finished the task."
+  },
+  "newWork": {
+    "classify": {
+      "label": "Classification",
+      "immediate": "Immediate",
+      "topic": "Topic",
+      "tracking": "Tracking",
+      "recurring": "Recurring"
+    }
   }
 }

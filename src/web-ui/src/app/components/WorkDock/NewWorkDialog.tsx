@@ -29,7 +29,7 @@ import { useSessionModeStore } from '@/app/stores/sessionModeStore';
 import type { SessionMode } from '@/app/stores/sessionModeStore';
 import { useWorkStore } from '@/app/agentic-os/work/data/workStore';
 import { openWork } from '@/app/agentic-os/work/navigation/openWork';
-import type { WorkAppRef, WorkRecord } from '@/app/agentic-os/work/domain/workTypes';
+import type { WorkAppRef, WorkKind, WorkRecord, WorkTitleState } from '@/app/agentic-os/work/domain/workTypes';
 import { nativeAppWorkRef, productAppWorkRef } from '@/app/agentic-os/work/domain/productAppRefs';
 import type { WorkspaceInfo } from '@/shared/types';
 import { notificationService } from '@/shared/notification-system';
@@ -50,6 +50,11 @@ const NATIVE_AGENT_APP_IDS: Record<string, string> = {
 };
 
 type NewWorkStartMode = 'manual' | 'agentic-os';
+
+export type NewWorkClassifyKind = Extract<
+  WorkKind,
+  'multi_step' | 'topic' | 'tracking' | 'recurring'
+>;
 
 export type NewWorkAgentChoice =
   | 'OSAgent'
@@ -161,10 +166,22 @@ export async function launchWorkForChoice(params: {
   rememberWorkspace: (workspaceId: string) => Promise<WorkspaceInfo>;
   title?: string;
   objective?: string;
+  titleState?: WorkTitleState | null;
   appRef?: WorkAppRef;
   workResolutionMode?: ProductAppWorkResolutionMode;
+  classifyKind?: NewWorkClassifyKind;
 }): Promise<WorkRecord> {
-  const { agentChoice, workspace, rememberWorkspace, title, objective, appRef, workResolutionMode } = params;
+  const {
+    agentChoice,
+    workspace,
+    rememberWorkspace,
+    title,
+    objective,
+    titleState,
+    appRef,
+    workResolutionMode,
+    classifyKind = 'multi_step',
+  } = params;
   const productAppId = parseProductAppWorkChoice(agentChoice);
   let resolvedAgentChoice = agentChoice;
   let resolvedAppRef = appRef;
@@ -219,9 +236,7 @@ export async function launchWorkForChoice(params: {
             scope: resolvedWorkScope,
             visibility: 'primary',
             primarySurfacePolicy: 'application_surface',
-            titleState: title?.trim()
-              ? { source: 'user', locked: true }
-              : { source: 'application_surface', locked: false, subjectRef: targetProductAppId },
+            titleState: titleState ?? { source: 'application_surface', locked: false, subjectRef: targetProductAppId },
             assignment,
           })
         : (await workStore.resolveAppWork({
@@ -283,7 +298,7 @@ export async function launchWorkForChoice(params: {
   }
 
   const work = await useWorkStore.getState().createWork({
-    kind: resolvedAppRef ? 'app_workflow' : 'multi_step',
+    kind: productAppId ? 'app_workflow' : classifyKind,
     title: workTitle,
     objective: workObjective,
     subject: resolvedAppRef
@@ -293,9 +308,7 @@ export async function launchWorkForChoice(params: {
     scope: resolvedWorkScope,
     visibility: 'primary',
     primarySurfacePolicy: 'work_session',
-    titleState: title?.trim()
-      ? { source: 'user', locked: true }
-      : { source: 'template', locked: false },
+    titleState: titleState ?? { source: 'template', locked: false },
     assignment: {
       kind: 'agent',
       agentType: backendAgentType,
@@ -326,6 +339,7 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
 
   const [agentChoice, setAgentChoice] = useState<NewWorkAgentChoice>('Runno');
   const [startMode, setStartMode] = useState<NewWorkStartMode>('manual');
+  const [classifyKind, setClassifyKind] = useState<NewWorkClassifyKind>('multi_step');
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [browsedWorkspacePath, setBrowsedWorkspacePath] = useState<string | null>(null);
   const [objective, setObjective] = useState('');
@@ -380,6 +394,7 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
 
     setAgentChoice(normalizedInitialChoice ?? storedAgent ?? 'Runno');
     setStartMode('manual');
+    setClassifyKind('multi_step');
     setBrowsedWorkspacePath(null);
     setObjective('');
     setWorkspaceId(
@@ -529,6 +544,16 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
       title: t('nav.workDock.modeAgenticOs'),
     },
   ], [t]);
+  const classifyOptions = useMemo<Array<{
+    value: NewWorkClassifyKind;
+    label: string;
+  }>>(() => [
+    { value: 'multi_step', label: t('newWork.classify.immediate') },
+    { value: 'topic', label: t('newWork.classify.topic') },
+    { value: 'tracking', label: t('newWork.classify.tracking') },
+    { value: 'recurring', label: t('newWork.classify.recurring') },
+  ], [t]);
+  const showClassifyControls = startMode === 'manual' && !selectedProductAppId;
   const modeLede = startMode === 'manual'
     ? t('nav.workDock.modeManualLede')
     : t('nav.workDock.modeAgenticOsLede');
@@ -673,6 +698,7 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
         agentChoice,
         workspace,
         rememberWorkspace,
+        classifyKind: selectedProductAppId ? undefined : classifyKind,
       });
 
       try {
@@ -703,11 +729,13 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
   }, [
     agentChoice,
     browsedWorkspacePath,
+    classifyKind,
     objective,
     onClose,
     openWorkspace,
     openedWorkspacesList,
     rememberWorkspace,
+    selectedProductAppId,
     startMode,
     t,
     workspaceId,
@@ -872,6 +900,44 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
                       })}
                 </p>
               </section>
+
+              {showClassifyControls ? (
+                <>
+                  <div className="new-work-dialog__divider" role="presentation" />
+
+                  <section className="new-work-dialog__section" aria-labelledby="new-work-classify-heading">
+                    <div className="new-work-dialog__section-head">
+                      <span className="new-work-dialog__index" aria-hidden>
+                        03
+                      </span>
+                      <h2 className="new-work-dialog__section-title" id="new-work-classify-heading">
+                        {t('newWork.classify.label')}
+                      </h2>
+                    </div>
+                    <div
+                      className="new-work-dialog__classify"
+                      role="radiogroup"
+                      aria-label={t('newWork.classify.label')}
+                    >
+                      {classifyOptions.map((option) => {
+                        const selected = classifyKind === option.value;
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            className={`new-work-dialog__classify-option${selected ? ' is-selected' : ''}`}
+                            role="radio"
+                            aria-checked={selected}
+                            onClick={() => setClassifyKind(option.value)}
+                          >
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                </>
+              ) : null}
             </>
           )}
         </div>

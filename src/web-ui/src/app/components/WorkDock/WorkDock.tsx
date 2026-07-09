@@ -7,7 +7,11 @@ import { useWorkStore } from '@/app/agentic-os/work/data/workStore';
 import { openWork, openWorkCenterHome, openWorkInCenter } from '@/app/agentic-os/work/navigation/openWork';
 import type { WorkStatus } from '@/app/agentic-os/work/domain/workTypes';
 import type { WorkProjection } from '@/app/agentic-os/work/projections/workProjection';
-import { isWorkAttentionStatus, isWorkRunningStatus } from '@/app/agentic-os/work/domain/workClassification';
+import {
+  isDockEligibleWork,
+  isWorkAttentionStatus,
+  isWorkRunningStatus,
+} from '@/app/agentic-os/work/domain/workClassification';
 import { useWorkDockStore } from '@/app/stores/workDockStore';
 import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
 import { notificationService } from '@/shared/notification-system';
@@ -116,11 +120,13 @@ const WorkDock: React.FC = () => {
   const workById = useMemo(() => new Map(works.map((work) => [work.id, work])), [works]);
 
   const runningWorks = useMemo(
-    () => projections.filter((work) => isDockVisibleStatus(work.status)).slice(0, RUNNING_WORK_COLLAPSED_LIMIT),
+    () => projections
+      .filter((work) => isDockEligibleWork(work) && isDockVisibleStatus(work.status))
+      .slice(0, RUNNING_WORK_COLLAPSED_LIMIT),
     [projections]
   );
   const runningCount = useMemo(
-    () => projections.filter((work) => isDockVisibleStatus(work.status)).length,
+    () => projections.filter((work) => isDockEligibleWork(work) && isDockVisibleStatus(work.status)).length,
     [projections]
   );
 

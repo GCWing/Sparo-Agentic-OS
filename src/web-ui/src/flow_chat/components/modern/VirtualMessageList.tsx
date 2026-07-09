@@ -51,7 +51,7 @@ export interface VirtualMessageListRef {
 export interface VirtualMessageListProps {
   /**
    * When true, hide the right-edge scroll milestone dots. Used while the
-   * turn-list / timeline sidebar is open so anchors do not overlap the panel.
+   * timeline sidebar is open so anchors do not overlap the panel.
    */
   hideScrollAnchor?: boolean;
 }

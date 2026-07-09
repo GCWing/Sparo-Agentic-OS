@@ -35,14 +35,14 @@
     }
   }
 
-  &__turn-nav {
+  &__timeline-nav {
     position: relative;
     display: flex;
     align-items: center;
     gap: 0;
   }
 
-  &__turn-nav-button {
+  &__timeline-nav-button {
     flex: 0 0 auto;
 
     &:not(:disabled):hover,

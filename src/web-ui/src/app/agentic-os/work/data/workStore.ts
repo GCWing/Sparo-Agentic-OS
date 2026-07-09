@@ -9,6 +9,8 @@ import type {
   ResolveAppWorkRequest,
   ResolveComponentWorkRequest,
   UpdateWorkRequest,
+  WorkDeleteOptions,
+  WorkDeleteResult,
   WorkRecord,
 } from '../domain/workTypes';
 
@@ -31,7 +33,7 @@ interface WorkStoreState {
   updateWork: (request: UpdateWorkRequest) => Promise<WorkRecord>;
   advanceWork: (request: AdvanceWorkRequest) => Promise<WorkRecord>;
   controlWork: (request: ControlWorkRequest) => Promise<WorkRecord>;
-  deleteWork: (workId: string) => Promise<boolean>;
+  deleteWork: (workId: string, options?: WorkDeleteOptions) => Promise<WorkDeleteResult>;
 }
 
 function upsertWork(works: WorkRecord[], next: WorkRecord): WorkRecord[] {
@@ -111,9 +113,9 @@ export const useWorkStore = create<WorkStoreState>((set, get) => ({
     return work;
   },
 
-  deleteWork: async (workId) => {
-    const deleted = await agenticOsWorkApi.deleteWork(workId);
-    if (deleted) {
+  deleteWork: async (workId, options) => {
+    const result = await agenticOsWorkApi.deleteWork(workId, options);
+    if (result.deleted) {
       set({
         works: get().works.filter((work) => work.id !== workId),
         loaded: true,
@@ -121,7 +123,7 @@ export const useWorkStore = create<WorkStoreState>((set, get) => ({
         error: null,
       });
     }
-    return deleted;
+    return result;
   },
 }));
 

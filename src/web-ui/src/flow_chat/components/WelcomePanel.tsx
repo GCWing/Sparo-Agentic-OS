@@ -292,6 +292,31 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
     onQuickAction?.(cmd);
   }, [onQuickAction]);
 
+  const showHeadingPartner = welcome.headingMode !== 'greeting-only';
+  const noWorkspaceHintKey = welcome.workspaceCopy === 'runno'
+    ? 'welcome.noWorkspaceHintRunno'
+    : 'welcome.noWorkspaceHint';
+  const openOneKey = welcome.workspaceCopy === 'runno'
+    ? 'welcome.openOneRunno'
+    : 'welcome.openOne';
+  const toStartKey = welcome.workspaceCopy === 'runno'
+    ? 'welcome.toStartRunno'
+    : 'welcome.toStart';
+  const workspaceLeadKey = welcome.workspaceCopy === 'design'
+    ? 'welcome.workingInDesign'
+    : welcome.workspaceCopy === 'cowork'
+      ? 'welcome.workingInCowork'
+      : welcome.workspaceCopy === 'runno'
+        ? 'welcome.workingInRunno'
+        : 'welcome.workingIn';
+  const workspaceTrailKey = welcome.workspaceCopy === 'design'
+    ? 'welcome.projectDesign'
+    : welcome.workspaceCopy === 'cowork'
+      ? 'welcome.projectCowork'
+      : welcome.workspaceCopy === 'runno'
+        ? 'welcome.projectRunno'
+        : 'welcome.project';
+
   return (
     <div className={`welcome-panel ${className}`}>
       <div className="welcome-panel__content">
@@ -313,11 +338,19 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
                   <span className="welcome-panel__heading-icon welcome-panel__heading-icon--builder" aria-hidden>
                     <AppBuilderGlyph size={28} strokeWidth={1.5} />
                   </span>
-                  {greeting.title}，{t(aiPartnerKey)}
+                  {showHeadingPartner ? (
+                    <>{greeting.title}，{t(aiPartnerKey)}</>
+                  ) : (
+                    greeting.title
+                  )}
                 </>
               ) : (
                 <>
-                  {greeting.title}，{t(aiPartnerKey)}
+                  {showHeadingPartner ? (
+                    <>{greeting.title}，{t(aiPartnerKey)}</>
+                  ) : (
+                    greeting.title
+                  )}
                 </>
               )}
             </h1>
@@ -334,7 +367,7 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
               t(welcome.narrativeKey)
             ) : !hasWelcomeWorkspace ? (
               <>
-                {t('welcome.noWorkspaceHint')}
+                {t(noWorkspaceHintKey)}
                 <Button
                   type="button"
                   variant="ghost"
@@ -343,17 +376,15 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
                   onClick={() => { void handleOpenOtherFolder(); }}
                   disabled={isSelectingWorkspace}
                 >
-                  {t('welcome.openOne')}
+                  {t(openOneKey)}
                 </Button>
-                {' '}{t('welcome.toStart')}
+                {' '}{t(toStartKey)}
               </>
             ) : (
               <>
                 <span className="welcome-panel__narrative-sentence">
                   <span className="welcome-panel__narrative-sentence__text">
-                    {welcome.workspaceCopy === 'cowork' || welcome.workspaceCopy === 'design'
-                      ? t(welcome.workspaceCopy === 'design' ? 'welcome.workingInDesign' : 'welcome.workingInCowork')
-                      : t('welcome.workingIn')}
+                    {t(workspaceLeadKey)}
                   </span>
                   <span className="welcome-panel__context-row">
                     <span className="welcome-panel__workspace-anchor" ref={workspaceDropdownRef}>
@@ -458,9 +489,7 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
                     </span>
                   </span>
                   <span className="welcome-panel__narrative-sentence__text">
-                    {welcome.workspaceCopy === 'cowork' || welcome.workspaceCopy === 'design'
-                      ? t(welcome.workspaceCopy === 'design' ? 'welcome.projectDesign' : 'welcome.projectCowork')
-                      : t('welcome.project')}
+                    {t(workspaceTrailKey)}
                   </span>
                 </span>
               </>

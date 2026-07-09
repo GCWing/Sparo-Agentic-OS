@@ -322,6 +322,7 @@
   },
   "flowChatHeader": {
     "turnList": "轮次列表",
+    "timeline": "时间线",
     "untitledTurn": "未命名轮次",
     "previousTurn": "上一轮对话",
     "nextTurn": "下一轮对话",
@@ -373,7 +374,7 @@
       "cancelExecution": "取消目标执行"
     }
   },
-  "turnList": {
+  "timelineTimeFilter": {
     "timeFilterTooltip": "按时间筛选",
     "timeFilterAll": "全部时间",
     "timeFilterToday": "今天",

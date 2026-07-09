@@ -61,17 +61,23 @@ export interface FlowChatHeaderProps {
   /** Increments each time the parent requests to open the search bar (e.g. Ctrl+F). */
   searchOpenRequest?: number;
 
-  /** Turn list sidebar open state (controlled by parent). */
-  turnListOpen?: boolean;
-  /** Toggle or close the turn list sidebar. */
-  onTurnListOpenChange?: (open: boolean) => void;
+  /** Timeline sidebar open state (controlled by parent). */
+  timelineOpen?: boolean;
+  /** Toggle or close the timeline sidebar. */
+  onTimelineOpenChange?: (open: boolean) => void;
   /**
-   * Force-enable the turn list toggle even when the current session has no
+   * Force-enable the timeline toggle even when the current session has no
    * turns. Used by the Agentic OS timeline, which aggregates many sessions.
    */
-  forceTurnListEnabled?: boolean;
+  forceTimelineEnabled?: boolean;
   /** Override the toggle button tooltip (e.g. "Timeline" in Agentic OS mode). */
-  turnListTooltipOverride?: string;
+  timelineTooltipOverride?: string;
+  /** Whether to render the timeline toggle control. */
+  showTimelineControl?: boolean;
+  /** DOM id controlled by the timeline toggle. */
+  timelinePanelId?: string;
+  /** Test id for the timeline toggle. */
+  timelineControlTestId?: string;
 
   /**
    * Agentic OS: start a new backend session; shown to the user as
@@ -96,10 +102,13 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
   onSearchPrev,
   onSearchClose,
   searchOpenRequest = 0,
-  turnListOpen = false,
-  onTurnListOpenChange,
-  forceTurnListEnabled = false,
-  turnListTooltipOverride,
+  timelineOpen = false,
+  onTimelineOpenChange,
+  forceTimelineEnabled = false,
+  timelineTooltipOverride,
+  showTimelineControl = true,
+  timelinePanelId = 'agentic-os-timeline-sidebar',
+  timelineControlTestId = 'flowchat-header-timeline',
   onResetHistory,
   sidecarActions = [],
 }) => {
@@ -112,16 +121,17 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
   const sessionMoreMenuAnchorRef = useRef<HTMLDivElement | null>(null);
   const [sessionMoreMenuOpen, setSessionMoreMenuOpen] = useState(false);
 
-  const turnListTooltip =
-    turnListTooltipOverride ??
-    t('flowChatHeader.turnList', {
-      defaultValue: 'Turn list',
+  const timelineTooltip =
+    timelineTooltipOverride ??
+    t('flowChatHeader.timeline', {
+      defaultValue: 'Timeline',
     });
   const keepThinkingItemEnabled = aiExperienceSettings.show_completed_thinking_item;
   const thinkingItemToggleTooltip = keepThinkingItemEnabled
     ? t('flowChatHeader.hideCompletedThinkingItems', { defaultValue: 'Hide completed thinking items' })
     : t('flowChatHeader.showCompletedThinkingItems', { defaultValue: 'Show completed thinking items' });
-  const hasTurnNavigation = forceTurnListEnabled || (turns.length > 0 && !!onJumpToTurn);
+  const hasTimelineNavigation =
+    showTimelineControl && (forceTimelineEnabled || (turns.length > 0 && !!onJumpToTurn));
   const moreMenuLabel = t('flowChatHeader.moreMenu', { defaultValue: 'More' });
 
   useEffect(() => {
@@ -141,34 +151,34 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
   }, []);
 
   // When collapsing the turn list with an active query, reopen the header search bar.
-  const prevTurnListOpenRef = useRef(turnListOpen);
+  const prevTimelineOpenRef = useRef(timelineOpen);
   useEffect(() => {
-    if (prevTurnListOpenRef.current && !turnListOpen && searchQuery.trim().length > 0) {
+    if (prevTimelineOpenRef.current && !timelineOpen && searchQuery.trim().length > 0) {
       setIsSearchOpen(true);
     }
-    prevTurnListOpenRef.current = turnListOpen;
-  }, [turnListOpen, searchQuery]);
+    prevTimelineOpenRef.current = timelineOpen;
+  }, [timelineOpen, searchQuery]);
 
   // Sync open state from parent (e.g. Ctrl+F shortcut).
   // Using a counter so every new request opens the bar, even after a prior close.
   const prevSearchOpenRequestRef = useRef(0);
   useEffect(() => {
-    if (turnListOpen) return;
+    if (timelineOpen) return;
     if (searchOpenRequest > 0 && searchOpenRequest !== prevSearchOpenRequestRef.current) {
       prevSearchOpenRequestRef.current = searchOpenRequest;
       setIsSearchOpen(true);
     }
-  }, [searchOpenRequest, turnListOpen]);
+  }, [searchOpenRequest, timelineOpen]);
 
-  // Focus the search input whenever it opens (header search is hidden while turn list is open).
+  // Focus the search input whenever it opens (header search is hidden while timeline is open).
   useEffect(() => {
-    if (turnListOpen || !isSearchOpen) return undefined;
+    if (timelineOpen || !isSearchOpen) return undefined;
     const frameId = requestAnimationFrame(() => {
       searchInputRef.current?.focus();
       searchInputRef.current?.select();
     });
     return () => cancelAnimationFrame(frameId);
-  }, [isSearchOpen, turnListOpen]);
+  }, [isSearchOpen, timelineOpen]);
 
   const handleOpenSearch = useCallback(() => {
     setIsSearchOpen(true);
@@ -197,9 +207,9 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
 
   const hasNoResults = searchQuery.trim().length > 0 && searchMatchCount === 0;
 
-  const handleToggleTurnList = () => {
-    if (!hasTurnNavigation) return;
-    onTurnListOpenChange?.(!turnListOpen);
+  const handleToggleTimeline = () => {
+    if (!hasTimelineNavigation) return;
+    onTimelineOpenChange?.(!timelineOpen);
   };
 
   const handleToggleCompletedThinkingItems = useCallback(async () => {
@@ -261,12 +271,12 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
         <SessionFilesBadge sessionId={sessionId} />
       </div>
 
-      {!turnListOpen && !isSearchOpen && !onResetHistory ? (
+      {!timelineOpen && !isSearchOpen && !onResetHistory ? (
         <GoalHeaderControl sessionId={sessionId} workspacePath={workspacePath} />
       ) : null}
 
       <div className="flowchat-header__actions">
-        {!turnListOpen && isSearchOpen ? (
+        {!timelineOpen && isSearchOpen ? (
           <div className="flowchat-header__search" role="search" data-testid="flowchat-header-search-bar">
             <Input
               ref={searchInputRef}
@@ -332,7 +342,7 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
             </IconButton>
           </div>
         ) : null}
-        {!turnListOpen && !isSearchOpen && !onResetHistory ? (
+        {!timelineOpen && !isSearchOpen && !onResetHistory ? (
           <IconButton
             className="flowchat-header__thinking-toggle"
             variant="ghost"
@@ -348,10 +358,10 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
             {keepThinkingItemEnabled ? <Eye size={14} /> : <EyeOff size={14} />}
           </IconButton>
         ) : null}
-        {!turnListOpen && !isSearchOpen && sidecarActions.length > 0 ? (
+        {!timelineOpen && !isSearchOpen && sidecarActions.length > 0 ? (
           <FlowChatSidecarActions actions={sidecarActions} />
         ) : null}
-        {!turnListOpen && !isSearchOpen && (
+        {!timelineOpen && !isSearchOpen && (
           <IconButton
             className="flowchat-header__search-action"
             variant="ghost"
@@ -364,22 +374,24 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
             <Search size={14} />
           </IconButton>
         )}
-        <div className="flowchat-header__turn-nav">
-          <IconButton
-            className={`flowchat-header__turn-nav-button${turnListOpen ? ' flowchat-header__turn-nav-button--active' : ''}`}
-            variant="ghost"
-            size="xs"
-            onClick={handleToggleTurnList}
-            tooltip={turnListTooltip}
-            disabled={!hasTurnNavigation}
-            aria-label={turnListTooltip}
-            aria-expanded={turnListOpen}
-            aria-controls="flowchat-turn-list-sidebar"
-            data-testid="flowchat-header-turn-list"
-          >
-            <List size={14} />
-          </IconButton>
-        </div>
+        {showTimelineControl ? (
+          <div className="flowchat-header__timeline-nav">
+            <IconButton
+              className={`flowchat-header__timeline-nav-button${timelineOpen ? ' flowchat-header__timeline-nav-button--active' : ''}`}
+              variant="ghost"
+              size="xs"
+              onClick={handleToggleTimeline}
+              tooltip={timelineTooltip}
+              disabled={!hasTimelineNavigation}
+              aria-label={timelineTooltip}
+              aria-expanded={timelineOpen}
+              aria-controls={timelinePanelId}
+              data-testid={timelineControlTestId}
+            >
+              <List size={14} />
+            </IconButton>
+          </div>
+        ) : null}
         {onResetHistory ? (
           <div className="flowchat-header__more-wrap" ref={sessionMoreMenuAnchorRef}>
             <IconButton

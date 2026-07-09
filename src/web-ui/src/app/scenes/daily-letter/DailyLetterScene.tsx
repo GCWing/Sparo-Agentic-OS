@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Archive,
   CalendarDays,
   CalendarRange,
   Check,
@@ -25,6 +24,18 @@ import { Markdown } from '@/shared/markdown';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import { createLogger } from '@/shared/utils/logger';
 import { dailyLetterApi } from './dailyLetterApi';
+import {
+  defaultDateFilterRange,
+  formatDateKey,
+  parseDateKey,
+  startOfLocalToday,
+  todayKey,
+} from './dailyLetterDateUtils';
+import { LetterPaper } from './LetterPaper';
+import {
+  announceDailyLetterArrival,
+  markDailyLetterAcknowledged,
+} from '@/app/daily-letter-arrival/store/dailyLetterArrivalStore';
 import type {
   DailyLetterReceiptCandidate,
   DailyLetterRecord,
@@ -47,36 +58,7 @@ interface DailyLetterSceneProps {
 
 const WRITING_POLL_INTERVAL_MS = 2500;
 
-function todayKey(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-function parseDateKey(date: string): Date {
-  return new Date(`${date}T00:00:00`);
-}
-
-function formatDateKey(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-function startOfLocalToday(): Date {
-  const today = new Date();
-  return new Date(today.getFullYear(), today.getMonth(), today.getDate());
-}
-
-function defaultDateFilterRange(): DateRangeValue {
-  const endDate = startOfLocalToday();
-  const startDate = new Date(endDate);
-  startDate.setDate(startDate.getDate() - 30);
-  return { startDate, endDate };
-}
+type TFn = (key: string, options?: Record<string, unknown>) => string;
 
 function pendingReceiptCount(letter: DailyLetterRecord): number {
   return letter.receiptCandidates.filter((candidate) => candidate.status === 'pending').length;
@@ -89,20 +71,6 @@ function generationReasonMessage(reason: string | null | undefined, t: (key: str
   if (reason.includes('No authorized daily context')) return t('messages.generateNoSources');
   if (reason.includes('already exists')) return null;
   return t('messages.generateNoResult');
-}
-
-/**
- * The paper overlay renders its own masthead, so a duplicated leading
- * markdown H1 ("# 今日来信 · date") is dropped from the body.
- */
-function letterBodyForPaper(markdown: string): string {
-  const lines = markdown.split('\n');
-  let index = 0;
-  while (index < lines.length && !lines[index].trim()) index += 1;
-  if (index < lines.length && /^#\s/.test(lines[index].trim())) {
-    return lines.slice(index + 1).join('\n').replace(/^\s+/, '');
-  }
-  return markdown;
 }
 
 const DailyLetterScene: React.FC<DailyLetterSceneProps> = ({ workspacePath }) => {
@@ -198,7 +166,13 @@ const DailyLetterScene: React.FC<DailyLetterSceneProps> = ({ workspacePath }) =>
   const revealLetter = useCallback((record: DailyLetterRecord) => {
     updateLetter(record);
     setSelectedId(record.id);
-    setPaperOpen(true);
+    // Select it into the reading pane, but don't force the full-text dialog
+    // open — the corner arrival card/chip is the one consistent "letter
+    // arrived" ceremony now, for every trigger and regardless of whether
+    // this scene happens to be focused. Announcing it directly (rather than
+    // waiting for the poller's next ~20s tick) makes the card appear right
+    // away instead of after a noticeable delay.
+    announceDailyLetterArrival(record);
   }, [updateLetter]);
 
   // While a letter is being written, poll the runtime state so both manual
@@ -223,6 +197,10 @@ const DailyLetterScene: React.FC<DailyLetterSceneProps> = ({ workspacePath }) =>
           return;
         }
         setWriting(false);
+        // Claim the target before doing anything async below — if
+        // `generateToday`'s own direct `await` also resolves around the
+        // same time, whichever of the two paths reads this ref first wins,
+        // and the other will see it already cleared and skip revealing.
         const target = writingTargetRef.current;
         writingTargetRef.current = null;
         if (state.lastAttemptStatus === 'error') {
@@ -324,7 +302,14 @@ const DailyLetterScene: React.FC<DailyLetterSceneProps> = ({ workspacePath }) =>
     const targetScope: DailyLetterScope = workspacePath ? 'workspace' : 'agentic_os';
     const date = todayKey();
     const startedAtMs = Date.now();
-    writingTargetRef.current = { date, scope: targetScope, trigger: 'manual' };
+    // A distinct object identity per call, not just a value — the writing-poll
+    // effect below independently watches the same run via its own state()
+    // polling and can race this direct `await` to detect completion first.
+    // Comparing identity (not just nullness) lets whichever path notices
+    // completion first "claim" the reveal, so the other reliably no-ops
+    // instead of double-revealing/double-announcing the same letter.
+    const myTarget: WritingTarget = { date, scope: targetScope, trigger: 'manual' };
+    writingTargetRef.current = myTarget;
     watchSinceMsRef.current = startedAtMs;
     setWriting(true);
     setWritingStartedAtMs(startedAtMs);
@@ -339,8 +324,10 @@ const DailyLetterScene: React.FC<DailyLetterSceneProps> = ({ workspacePath }) =>
       });
       if (summary.record) {
         setWriting(false);
-        writingTargetRef.current = null;
-        revealLetter(summary.record);
+        if (writingTargetRef.current === myTarget) {
+          writingTargetRef.current = null;
+          revealLetter(summary.record);
+        }
         return;
       }
       if (summary.reason?.includes('already active')) {
@@ -348,7 +335,9 @@ const DailyLetterScene: React.FC<DailyLetterSceneProps> = ({ workspacePath }) =>
         return;
       }
       setWriting(false);
-      writingTargetRef.current = null;
+      if (writingTargetRef.current === myTarget) {
+        writingTargetRef.current = null;
+      }
       const reasonMessage = generationReasonMessage(summary.reason, t);
       if (reasonMessage) {
         setError(reasonMessage);
@@ -357,7 +346,9 @@ const DailyLetterScene: React.FC<DailyLetterSceneProps> = ({ workspacePath }) =>
     } catch (generateError) {
       log.error('Failed to generate daily letter', { error: generateError });
       setWriting(false);
-      writingTargetRef.current = null;
+      if (writingTargetRef.current === myTarget) {
+        writingTargetRef.current = null;
+      }
       setError(t('messages.generateFailed'));
     }
   }, [loadLetters, revealLetter, t, workspacePath]);
@@ -614,6 +605,7 @@ const DailyLetterScene: React.FC<DailyLetterSceneProps> = ({ workspacePath }) =>
         onSeal={() => void sealLetter()}
         formatDate={formatDate}
         t={t}
+        onFirstOpen={markDailyLetterAcknowledged}
       />
 
       <DateRangeDialog
@@ -671,160 +663,6 @@ const DailyLetterScene: React.FC<DailyLetterSceneProps> = ({ workspacePath }) =>
     </div>
   );
 };
-
-type TFn = (key: string, options?: Record<string, unknown>) => string;
-type FormatDateFn = (date: Date | number, options?: Intl.DateTimeFormatOptions) => string;
-
-interface PaperScrollState {
-  collapsed: boolean;
-  progress: number;
-  atEnd: boolean;
-}
-
-function LetterPaper({
-  letter,
-  open,
-  onOpenChange,
-  pendingCount,
-  canSeal,
-  onSeal,
-  formatDate,
-  t,
-}: {
-  letter: DailyLetterRecord | null;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  pendingCount: number;
-  canSeal: boolean;
-  onSeal: () => void;
-  formatDate: FormatDateFn;
-  t: TFn;
-}) {
-  const viewportRef = useRef<HTMLDivElement | null>(null);
-  const [scroll, setScroll] = useState<PaperScrollState>({ collapsed: false, progress: 0, atEnd: false });
-
-  const readScroll = useCallback(() => {
-    const el = viewportRef.current;
-    if (!el) return;
-    const max = el.scrollHeight - el.clientHeight;
-    const top = el.scrollTop;
-    setScroll({
-      // Collapse the masthead into the compact letterhead bar once the
-      // large title has mostly left the viewport.
-      collapsed: top > 132,
-      progress: max > 0 ? Math.min(1, top / max) : 1,
-      atEnd: max - top < 24,
-    });
-  }, []);
-
-  // Start every letter from the top and refresh the tray/topbar state
-  // once the content has been laid out.
-  useEffect(() => {
-    if (!open) return;
-    const el = viewportRef.current;
-    if (el) el.scrollTop = 0;
-    const frame = window.requestAnimationFrame(readScroll);
-    return () => window.cancelAnimationFrame(frame);
-  }, [letter?.id, open, readScroll]);
-
-  if (!letter) return null;
-
-  const scopeLabel = letter.scope === 'agentic_os' ? t('scope.agenticOs') : t('scope.workspace');
-  const postmarkDate = `${letter.date.slice(5, 7)} · ${letter.date.slice(8, 10)}`;
-  let dateLine = letter.date;
-  try {
-    dateLine = formatDate(parseDateKey(letter.date), { dateStyle: 'full' });
-  } catch {
-    // keep the raw date key
-  }
-  const writtenAt = formatDate(new Date(letter.createdAtMs), { timeStyle: 'short' });
-
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={onOpenChange}
-      size="xlarge"
-      ariaLabel={t('paper.label')}
-      closeLabel={t('actions.close')}
-      overlayClassName="dl-paper-overlay"
-      className="dl-paper-dialog"
-      contentClassName="dl-paper-scroll"
-    >
-      <div
-        className={`dl-paper-shell${scroll.collapsed ? ' is-collapsed' : ''}${scroll.atEnd ? ' is-at-end' : ''}`}
-      >
-        <header className="dl-paper-topbar" aria-hidden={!scroll.collapsed}>
-          <span className="dl-paper-topbar__seed" aria-hidden="true" />
-          <span className="dl-paper-topbar__eyebrow">{t('paper.eyebrow')}</span>
-          <span className="dl-paper-topbar__date">{dateLine}</span>
-          <span
-            className="dl-paper-topbar__progress"
-            style={{ transform: `scaleX(${scroll.progress})` }}
-            aria-hidden="true"
-          />
-        </header>
-        <div className="dl-paper-viewport" ref={viewportRef} onScroll={readScroll}>
-          <article className="dl-paper" data-status={letter.status} data-testid="daily-letter-paper">
-            <div className="dl-paper__postmark" aria-hidden="true">
-              <span>{scopeLabel}</span>
-              <strong>{postmarkDate}</strong>
-            </div>
-
-            <header className="dl-paper__masthead">
-              <p className="dl-paper__eyebrow">{t('paper.eyebrow')}</p>
-              <h2>{dateLine}</h2>
-              <p className="dl-paper__meta">
-                {letter.workspace ? `${letter.workspace.name} · ` : ''}
-                {t('paper.writtenAt', { time: writtenAt })}
-              </p>
-              <span className="dl-paper__rule" aria-hidden="true" />
-            </header>
-
-            <div className="dl-paper__content">
-              <Markdown content={letterBodyForPaper(letter.bodyMarkdown)} />
-            </div>
-
-            <footer className="dl-paper__sign">
-              {letter.status === 'sealed' && (
-                <span className="dl-paper__seal" aria-hidden="true">{t('status.sealed')}</span>
-              )}
-              <span className="dl-paper__sign-name">{t('paper.signature')}</span>
-              <span className="dl-paper__sign-date">{letter.date}</span>
-            </footer>
-
-            <div className="dl-paper__actions">
-              <div className="dl-paper__actions-note">
-                {pendingCount > 0 && (
-                  <span className="dl-paper__pending">{t('paper.pending', { count: pendingCount })}</span>
-                )}
-              </div>
-              <div className="dl-paper__actions-buttons">
-                <Button
-                  variant="ghost"
-                  size="small"
-                  disabled={!pendingCount}
-                  onClick={() => onOpenChange(false)}
-                >
-                  <Check size={14} aria-hidden="true" />
-                  {t('actions.receipt')}
-                </Button>
-                <Button
-                  variant="primary"
-                  size="small"
-                  disabled={!canSeal}
-                  onClick={onSeal}
-                >
-                  <Archive size={14} aria-hidden="true" />
-                  {t('actions.seal')}
-                </Button>
-              </div>
-            </div>
-          </article>
-        </div>
-      </div>
-    </Dialog>
-  );
-}
 
 function LetterContent({
   letter,

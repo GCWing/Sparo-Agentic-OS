@@ -3,8 +3,9 @@ use serde_json::{json, Value};
 
 use crate::agentic_os::work::{
     AdvanceWorkRequest, ControlWorkAction, ControlWorkRequest, PrimarySurfacePolicy,
-    StartWorkRequest, WorkAssignmentKind, WorkAssignmentRef, WorkId, WorkKind, WorkOwnerRef,
-    WorkProjection, WorkRecord, WorkScope, WorkService, WorkStatus, WorkSubject, WorkVisibility,
+    ReclassifyWorkRequest, StartWorkRequest, UpdateWorkRequest, WorkAssignmentKind,
+    WorkAssignmentRef, WorkId, WorkKind, WorkOwnerRef, WorkProjection, WorkRecord, WorkScope,
+    WorkService, WorkStatus, WorkSubject, WorkVisibility,
 };
 use crate::error::{CoreError, CoreResult};
 
@@ -15,6 +16,7 @@ pub enum WorkAction {
     Continue,
     Status,
     Control,
+    Reclassify,
 }
 
 #[derive(Debug, Deserialize)]
@@ -52,6 +54,10 @@ pub struct WorkInput {
     pub control_action: Option<ControlWorkAction>,
     #[serde(default)]
     pub include_archived: Option<bool>,
+    #[serde(default)]
+    pub topic_work_id: Option<WorkId>,
+    #[serde(default)]
+    pub clear_topic_work_id: Option<bool>,
     #[serde(skip)]
     pub owner: Option<WorkOwnerRef>,
 }
@@ -62,6 +68,7 @@ pub async fn handle(service: &WorkService, input: WorkInput) -> CoreResult<Value
         WorkAction::Continue => continue_work(service, input).await,
         WorkAction::Status => status_work(service, input).await,
         WorkAction::Control => control_work(service, input).await,
+        WorkAction::Reclassify => reclassify_work(service, input).await,
     }
 }
 
@@ -89,18 +96,32 @@ async fn start_work(service: &WorkService, input: WorkInput) -> CoreResult<Value
         })
         .await?;
 
+    let mut work = response.work;
+    if input.topic_work_id.is_some() || input.clear_topic_work_id.unwrap_or(false) {
+        work = service
+            .update(
+                &work.id,
+                UpdateWorkRequest {
+                    topic_work_id: input.topic_work_id,
+                    clear_topic_work_id: input.clear_topic_work_id.unwrap_or(false),
+                    ..UpdateWorkRequest::default()
+                },
+            )
+            .await?;
+    }
+
     Ok(json!({
         "action": "start",
-        "work_id": response.work.id,
-        "status": response.work.status,
-        "surface": response.work.primary_surface,
+        "work_id": work.id,
+        "status": work.status,
+        "surface": work.primary_surface,
         "execution": {
             "kind": "agent_session_run",
             "execution_binding_id": response.execution_binding_id,
             "turn_id": response.turn_id,
             "started": response.started,
         },
-        "work": response.work,
+        "work": work,
     }))
 }
 
@@ -170,6 +191,28 @@ async fn control_work(service: &WorkService, input: WorkInput) -> CoreResult<Val
         "work_id": response.work.id,
         "status": response.work.status,
         "work": response.work,
+    }))
+}
+
+async fn reclassify_work(service: &WorkService, input: WorkInput) -> CoreResult<Value> {
+    let work = service
+        .reclassify(ReclassifyWorkRequest {
+            work_id: required_work_id(input.work_id, "reclassify")?,
+            kind: input
+                .kind
+                .ok_or_else(|| CoreError::validation("kind is required for action=reclassify"))?,
+            topic_work_id: input.topic_work_id,
+            clear_topic_work_id: input.clear_topic_work_id.unwrap_or(false),
+        })
+        .await?;
+
+    Ok(json!({
+        "action": "reclassify",
+        "work_id": work.id,
+        "kind": work.kind,
+        "topic_work_id": work.topic_work_id,
+        "status": work.status,
+        "work": work,
     }))
 }
 

@@ -6,8 +6,7 @@
  * session row is a node on a 1px vertical rail; turns hang as smaller dots
  * underneath.
  *
- * Color/spacing tokens follow the same system as FlowChatTurnListSidebar
- * so the Agentic OS and standard panels feel consistent.
+ * Color/spacing tokens follow the shared FlowChat surface system.
  */
 
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
@@ -77,7 +76,7 @@ $timeline-dot-halo: var(--ds-chat-surface, var(--ds-chat-surface-elevated));
   }
 
   // ---------- Header (single row: search + time filter) ----------
-  // min-height matches the floating FlowChatHeader (40px) so the turn-list
+  // min-height matches the floating FlowChatHeader (40px) so the timeline
   // toggle button aligns vertically with the search box inside here.
   &__header {
     flex: 0 0 auto;

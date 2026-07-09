@@ -9,6 +9,7 @@ import { createAgenticOsHomeSurface } from './workspaceSurfaceTypes';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import { syncSessionToModernStore } from '@/flow_chat/services/storeSync';
 import {
+  descriptorFromAgentType,
   getAgenticOsSessionDescriptor,
   isSystemAgenticOsSession,
 } from '@/flow_chat/domain/sessionDescriptor';
@@ -24,7 +25,7 @@ import {
 } from '@/shared/types/runtime-scope';
 import type { AppScope } from '@/shared/types/app-scope';
 import type { ProductAppRuntimeContext } from '@/shared/types/product-app-runtime';
-import type { SessionStorageScope } from '@/shared/types/session-history';
+import type { SessionMetadata, SessionStorageScope } from '@/shared/types/session-history';
 import { createLogger } from '@/shared/utils/logger';
 
 const log = createLogger('NavigationController');
@@ -61,13 +62,73 @@ function resolveSceneScope(options: OpenWorkspaceSceneOptions): RuntimeScope {
   return projectRuntimeScopeFromWorkspacePath(options.workspacePath) ?? systemRuntimeScope();
 }
 
-function findLatestAgenticOsSessionId(): string | null {
-  return Array.from(flowChatStore.getState().sessions.values())
-    .filter((session) => isSystemAgenticOsSession(session.descriptor))
+function isTopLevelAgenticOsSession(session: Session): boolean {
+  return (
+    isSystemAgenticOsSession(session.descriptor) &&
+    !session.parentSessionId &&
+    session.sessionKind === 'normal'
+  );
+}
+
+function isKnownEmptyAgenticOsSession(session: Session): boolean {
+  if (!isTopLevelAgenticOsSession(session) || session.dialogTurns.length > 0) {
+    return false;
+  }
+  return session.loadPhase === 'live' || session.loadPhase === 'hydrated';
+}
+
+function isTopLevelAgenticOsMetadata(metadata: SessionMetadata): boolean {
+  return (
+    isSystemAgenticOsSession(descriptorFromAgentType(metadata.agentType)) &&
+    metadata.sessionKind !== 'subagent' &&
+    !metadata.customMetadata?.parentSessionId
+  );
+}
+
+function isEmptyAgenticOsMetadata(metadata: SessionMetadata): boolean {
+  return (
+    metadata.turnCount === 0 &&
+    metadata.messageCount === 0 &&
+    metadata.toolCallCount === 0
+  );
+}
+
+function findLatestKnownEmptyAgenticOsSessionId(): string | null {
+  const latestSession = Array.from(flowChatStore.getState().sessions.values())
+    .filter(isTopLevelAgenticOsSession)
     .sort(
       (a, b) =>
         (b.lastActiveAt ?? b.createdAt ?? 0) - (a.lastActiveAt ?? a.createdAt ?? 0)
-    )[0]?.sessionId ?? null;
+    )[0] ?? null;
+  return latestSession && isKnownEmptyAgenticOsSession(latestSession)
+    ? latestSession.sessionId
+    : null;
+}
+
+async function resolveReusableEmptyAgenticOsSessionId(): Promise<string | null> {
+  try {
+    const metadata = await sessionAPI.listSessions(undefined, 'agentic_os');
+    await flowChatStore.hydrateWorkspaceSessionsMetadata(metadata, '', 'agentic_os');
+
+    const latestMetadata = metadata
+      .filter(isTopLevelAgenticOsMetadata)
+      .sort(
+        (a, b) =>
+          (b.lastActiveAt ?? b.createdAt ?? 0) - (a.lastActiveAt ?? a.createdAt ?? 0)
+      )[0] ?? null;
+
+    if (!latestMetadata) {
+      return findLatestKnownEmptyAgenticOsSessionId();
+    }
+
+    return isEmptyAgenticOsMetadata(latestMetadata)
+      ? latestMetadata.sessionId
+      : null;
+  } catch (error) {
+    log.warn('Failed to load Agentic OS sessions before opening home', error);
+  }
+
+  return findLatestKnownEmptyAgenticOsSessionId();
 }
 
 async function loadSessionMetadataAttempt(
@@ -236,7 +297,7 @@ export async function openHome(options?: {
   const resolvedOsSessionId =
     options?.currentOsSessionId ??
     state.currentOsSessionId ??
-    findLatestAgenticOsSessionId();
+    await resolveReusableEmptyAgenticOsSessionId();
 
   if (resolvedOsSessionId) {
     if (epoch !== navEpoch) {

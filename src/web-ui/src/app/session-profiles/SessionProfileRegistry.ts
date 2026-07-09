@@ -65,9 +65,10 @@ export interface SessionTypeDefinition {
   readonly welcome: {
     readonly keySuffix: string;
     readonly aiPartnerKey: string;
+    readonly headingMode?: 'default' | 'greeting-only';
     readonly narrativeKey?: string;
     readonly headingIcon?: 'agentic-os' | 'app-builder';
-    readonly workspaceCopy: 'default' | 'cowork' | 'design';
+    readonly workspaceCopy: 'default' | 'cowork' | 'design' | 'runno';
     readonly promptPanel?: 'cowork' | 'app-builder';
   };
 }
@@ -100,9 +101,10 @@ const SESSION_TYPE_DEFINITIONS: readonly SessionTypeDefinition[] = [
       defaultSurface: 'session',
     },
     welcome: {
-      keySuffix: '',
-      aiPartnerKey: 'welcome.aiPartner',
-      workspaceCopy: 'default',
+      keySuffix: 'Runno',
+      aiPartnerKey: 'welcome.aiPartnerRunno',
+      headingMode: 'greeting-only',
+      workspaceCopy: 'runno',
     },
   },
   {

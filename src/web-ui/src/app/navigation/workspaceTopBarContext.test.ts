@@ -21,6 +21,7 @@ function createWork(): WorkRecord {
     runtimeInstances: [],
     artifactRefs: [],
     memoryRefs: [],
+    systemManaged: false,
     createdAt: 1,
     updatedAt: 2,
   };

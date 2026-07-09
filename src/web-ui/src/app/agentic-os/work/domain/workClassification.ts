@@ -1,6 +1,14 @@
 import type { WorkKind, WorkStatus } from './workTypes';
 
 export type WorkCategory = 'immediate' | 'long_term' | 'recurring';
+
+export type WorkRailSection =
+  | 'immediate'
+  | 'long_term'
+  | 'topic'
+  | 'recurring'
+  | 'system';
+
 export type WorkPriorityGroup =
   | 'needs_attention'
   | 'running'
@@ -9,16 +17,27 @@ export type WorkPriorityGroup =
   | 'immediate'
   | 'done';
 
+/** Explicit continuity kinds only. App attachment (`app_workflow`) is immediate by default. */
 const LONG_TERM_WORK_KINDS = new Set<WorkKind>([
   'long_running_session',
   'tracking',
-  'topic',
-  'app_workflow',
 ]);
 
 export function getWorkCategory(kind: WorkKind): WorkCategory {
   if (kind === 'recurring') return 'recurring';
-  if (LONG_TERM_WORK_KINDS.has(kind)) return 'long_term';
+  if (kind === 'topic' || LONG_TERM_WORK_KINDS.has(kind)) return 'long_term';
+  // one_shot | multi_step | delegated_work | app_workflow → immediate
+  return 'immediate';
+}
+
+export function getWorkRailSection(input: {
+  kind: WorkKind;
+  systemManaged?: boolean;
+}): WorkRailSection {
+  if (input.systemManaged) return 'system';
+  if (input.kind === 'topic') return 'topic';
+  if (input.kind === 'recurring') return 'recurring';
+  if (LONG_TERM_WORK_KINDS.has(input.kind)) return 'long_term';
   return 'immediate';
 }
 
@@ -56,6 +75,24 @@ export function isWorkTerminalStatus(status: WorkStatus): boolean {
     || status === 'archived';
 }
 
+export function isQueueEligibleWork(input: {
+  systemManaged?: boolean;
+  visibility?: string | null;
+}): boolean {
+  return !input.systemManaged && input.visibility !== 'hidden';
+}
+
+/** Work Dock shows actionable user work only — not system matters or recurring cadence items. */
+export function isDockEligibleWork(input: {
+  kind: WorkKind;
+  systemManaged?: boolean;
+  visibility?: string | null;
+}): boolean {
+  if (!isQueueEligibleWork(input)) return false;
+  if (input.kind === 'recurring') return false;
+  return true;
+}
+
 export function getWorkPriorityGroup(kind: WorkKind, status: WorkStatus): WorkPriorityGroup {
   if (isWorkAttentionStatus(status)) return 'needs_attention';
   if (isWorkRunningStatus(status)) return 'running';
@@ -66,3 +103,13 @@ export function getWorkPriorityGroup(kind: WorkKind, status: WorkStatus): WorkPr
   if (category === 'long_term') return 'long_term';
   return 'immediate';
 }
+
+export const RECLASSIFY_KIND_OPTIONS: WorkKind[] = [
+  'multi_step',
+  'tracking',
+  'long_running_session',
+  'topic',
+  'recurring',
+  'app_workflow',
+  'one_shot',
+];

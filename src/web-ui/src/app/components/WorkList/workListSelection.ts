@@ -1,6 +1,10 @@
 import { AppWindow, Brush, Clock3, Code2, ListChecks, ListTodo, MessageSquare, Sparkles } from 'lucide-react';
 import { filterWorkProjections } from '@/app/agentic-os/work/data/workSelectors';
-import { isWorkAttentionStatus, isWorkRunningStatus } from '@/app/agentic-os/work/domain/workClassification';
+import {
+  isDockEligibleWork,
+  isWorkAttentionStatus,
+  isWorkRunningStatus,
+} from '@/app/agentic-os/work/domain/workClassification';
 import type { WorkKind, WorkStatus } from '@/app/agentic-os/work/domain/workTypes';
 import type { WorkProjection } from '@/app/agentic-os/work/projections/workProjection';
 
@@ -98,13 +102,12 @@ function kindContinuityPriority(kind: WorkKind): number {
     case 'tracking':
     case 'topic':
       return 1;
-    case 'app_workflow':
-      return 2;
     case 'multi_step':
     case 'delegated_work':
-      return 3;
+    case 'app_workflow':
+      return 2;
     case 'one_shot':
-      return 4;
+      return 3;
   }
 }
 
@@ -129,6 +132,7 @@ export function selectWorksForDockList(
   }: WorkListSelectionOptions = {}
 ): WorkProjection[] {
   const filtered = filterWorkProjections(projections, query)
+    .filter((work) => isDockEligibleWork(work))
     .filter((work) => {
       const running = isFocusStatus(work.status);
       if (runningFilter === 'running') return running;

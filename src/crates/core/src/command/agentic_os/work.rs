@@ -189,6 +189,14 @@ pub async fn list_works_with_service(
     service: &WorkService,
     request: AgenticOsListWorksRequest,
 ) -> CommandResult<AgenticOsListWorksResponse> {
+    let processes = crate::agentic_os::background_process::list_background_processes()
+        .await
+        .map_err(CommandError::session)?;
+    service
+        .ensure_system_works_from_processes(&processes.processes)
+        .await
+        .map_err(CommandError::session)?;
+
     let mut works = service.list().await.map_err(CommandError::session)?;
     if let Some(workspace_path) = request
         .workspace_path

@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import {
   ChevronRight,
   Download,
+  History,
   Play,
   Plus,
   Square,
@@ -655,7 +656,7 @@ export const AppDetailScene: React.FC<AppDetailSceneProps> = ({
   const PrimaryActionIcon = (() => {
     if (!isNative && !isInstalled) return Download;
     if (useStopAction) return Square;
-    if (canContinueLatestWork) return Play;
+    if (canContinueLatestWork) return History;
     return launchBehavior.supportsMultipleWorks ? Plus : Play;
   })();
 
