@@ -1,17 +1,17 @@
 use super::prompt::build_daily_letter_user_prompt;
 use super::store::{
-    daily_letter_markdown_path, daily_letter_record_id, get_daily_letter, list_daily_letters,
-    load_daily_letter_record, load_daily_letter_state, path_string, resolve_request_scope,
-    save_daily_letter_record, save_daily_letter_state,
+    daily_letter_markdown_path, daily_letter_record_id, daily_letter_root, get_daily_letter,
+    list_daily_letters, load_daily_letter_record, load_daily_letter_state, path_string,
+    resolve_request_scope, save_daily_letter_record, save_daily_letter_state,
 };
 use super::types::{
-    DailyLetterAgentOutput, DailyLetterAgentResult, DailyLetterAppOpportunity,
-    DailyLetterApplyReceiptsRequest, DailyLetterAttemptStatus, DailyLetterContextPacket,
-    DailyLetterGenerateRequest, DailyLetterGetRequest, DailyLetterListRequest, DailyLetterPreview,
-    DailyLetterReceiptAction, DailyLetterReceiptCandidate, DailyLetterReceiptStatus,
-    DailyLetterRecord, DailyLetterRecordStatus, DailyLetterRunSummary, DailyLetterScope,
-    DailyLetterSealRequest, DailyLetterSourceFragment, DailyLetterSourceFragmentType,
-    DailyLetterSourceStats, DailyLetterState, DailyLetterTrigger, DailyLetterWorkspaceRef,
+    DailyLetterAgentOutput, DailyLetterAppOpportunity, DailyLetterApplyReceiptsRequest,
+    DailyLetterAttemptStatus, DailyLetterContextPacket, DailyLetterGenerateRequest,
+    DailyLetterGetRequest, DailyLetterListRequest, DailyLetterPreview, DailyLetterReceiptAction,
+    DailyLetterReceiptCandidate, DailyLetterReceiptStatus, DailyLetterRecord,
+    DailyLetterRecordStatus, DailyLetterRunSummary, DailyLetterScope, DailyLetterSealRequest,
+    DailyLetterSourceFragment, DailyLetterSourceFragmentType, DailyLetterSourceStats,
+    DailyLetterState, DailyLetterTrigger, DailyLetterWorkspaceRef,
 };
 use crate::agentic::coordination::get_global_coordinator;
 use crate::agentic::memory::store::{
@@ -19,6 +19,7 @@ use crate::agentic::memory::store::{
 };
 use crate::agentic_os::work::{default_work_store, WorkScope};
 use crate::error::{CoreError, CoreResult};
+use crate::infrastructure::events::{emit_global_event, BackendEvent};
 use crate::infrastructure::get_path_manager_arc;
 use crate::service::config::{get_app_language_code, get_global_config_service, GlobalConfig};
 use crate::util::extract_json_from_ai_response;
@@ -385,25 +386,17 @@ impl DailyLetterService {
             save_daily_letter_state(scope, workspace_path, &state).await?;
         }
 
-        let result: CoreResult<Option<DailyLetterRecord>> = async {
+        let result: CoreResult<DailyLetterRecord> = async {
             let packet = build_context_packet(&date, scope, workspace_path).await?;
-            if !has_high_signal_fragment(&packet) && matches!(trigger, DailyLetterTrigger::Auto) {
-                return Ok(None);
-            }
-
-            let record = if !has_high_signal_fragment(&packet) {
-                build_insufficient_context_record(&packet)
-            } else {
-                let output = generate_letter_with_ai(&packet).await?;
-                build_record_from_agent_output(&packet, output)?
-            };
+            let output = generate_letter_with_ai(&packet).await?;
+            let record = build_record_from_agent_output(&packet, output)?;
             save_daily_letter_record(&record).await?;
-            Ok(Some(record))
+            Ok(record)
         }
         .await;
 
         match result {
-            Ok(Some(record)) => {
+            Ok(record) => {
                 let mut state = self.state.lock().await;
                 state.last_attempt_finished_at_ms = Some(now_ms());
                 state.last_attempt_status = Some(DailyLetterAttemptStatus::Ok);
@@ -414,30 +407,20 @@ impl DailyLetterService {
                 state.next_auto_run_not_before_ms = Some(next_auto_wake_timestamp_ms());
                 save_daily_letter_state(scope, workspace_path, &state).await?;
                 self.wake_notify.notify_one();
+                if let Err(error) = emit_global_event(BackendEvent::Custom {
+                    event_name: "daily-letter://arrived".to_string(),
+                    payload: serde_json::to_value(&record).unwrap_or(serde_json::Value::Null),
+                })
+                .await
+                {
+                    warn!("Failed to emit daily letter arrival: {}", error);
+                }
                 Ok(DailyLetterRunSummary {
                     started: true,
                     trigger,
                     date: Some(date),
                     record: Some(record),
                     reason: None,
-                })
-            }
-            Ok(None) => {
-                let mut state = self.state.lock().await;
-                state.last_attempt_finished_at_ms = Some(now_ms());
-                state.last_attempt_status = Some(DailyLetterAttemptStatus::SkippedNoSources);
-                state.last_error = None;
-                state.active_date = None;
-                state.active_record_id = None;
-                state.next_auto_run_not_before_ms = Some(next_auto_wake_timestamp_ms());
-                save_daily_letter_state(scope, workspace_path, &state).await?;
-                self.wake_notify.notify_one();
-                Ok(DailyLetterRunSummary {
-                    started: false,
-                    trigger,
-                    date: Some(date),
-                    record: None,
-                    reason: Some("No authorized daily context was available".to_string()),
                 })
             }
             Err(error) => {
@@ -709,6 +692,21 @@ async fn collect_exploration_target_fragments(
             ),
             root,
             0.7,
+        );
+    }
+
+    if let Ok(letters_root) = daily_letter_root(scope, workspace_path) {
+        push_path_fragment(
+            &mut fragments,
+            "letters-archive".to_string(),
+            DailyLetterSourceFragmentType::Memory,
+            "Earlier daily letters".to_string(),
+            format!(
+                "Archive of previously sent daily letters as <year>/<date>.md. Skim the most recent few before writing so this letter continues one correspondence: pick up threads left open before {}, and avoid repeating a recent topic, angle, or gift shape.",
+                coverage.start_date
+            ),
+            letters_root,
+            0.8,
         );
     }
 
@@ -1190,12 +1188,7 @@ fn build_record_from_agent_output(
         date: packet.date.clone(),
         scope: packet.scope,
         workspace: packet.workspace.clone(),
-        status: match output.result {
-            DailyLetterAgentResult::Letter => DailyLetterRecordStatus::Ready,
-            DailyLetterAgentResult::InsufficientContext => {
-                DailyLetterRecordStatus::InsufficientContext
-            }
-        },
+        status: DailyLetterRecordStatus::Ready,
         preview: DailyLetterPreview {
             title: non_empty_or(
                 output.preview.title.trim(),
@@ -1215,34 +1208,11 @@ fn build_record_from_agent_output(
         updated_at_ms: now,
     };
     record.status = next_record_status(&record);
-    validate_daily_letter_record(&packet, &record)?;
+    validate_daily_letter_record(&record)?;
     Ok(record)
 }
 
-fn has_high_signal_fragment(packet: &DailyLetterContextPacket) -> bool {
-    packet
-        .fragments
-        .iter()
-        .chain(packet.memory_context.iter())
-        .any(|fragment| {
-            fragment.confidence >= 0.7
-                && (!fragment.summary.trim().is_empty() || fragment.source_path.is_some())
-        })
-}
-
-fn validate_daily_letter_record(
-    packet: &DailyLetterContextPacket,
-    record: &DailyLetterRecord,
-) -> CoreResult<()> {
-    if matches!(record.status, DailyLetterRecordStatus::InsufficientContext) {
-        return Ok(());
-    }
-
-    if !has_high_signal_fragment(packet) {
-        return Err(CoreError::validation(
-            "Daily letter requires at least one high-signal source fragment",
-        ));
-    }
+fn validate_daily_letter_record(record: &DailyLetterRecord) -> CoreResult<()> {
     if record.preview.title.trim().is_empty() || record.preview.one_line.trim().is_empty() {
         return Err(CoreError::validation(
             "Daily letter preview title and oneLine are required",
@@ -1270,46 +1240,8 @@ fn validate_daily_letter_record(
     Ok(())
 }
 
-fn build_insufficient_context_record(packet: &DailyLetterContextPacket) -> DailyLetterRecord {
-    let now = now_ms();
-    let is_en = packet.locale == "en-US";
-    DailyLetterRecord {
-        id: daily_letter_record_id(
-            &packet.date,
-            packet.scope,
-            packet.workspace.as_ref().map(|w| Path::new(&w.path)),
-        ),
-        date: packet.date.clone(),
-        scope: packet.scope,
-        workspace: packet.workspace.clone(),
-        status: DailyLetterRecordStatus::InsufficientContext,
-        preview: DailyLetterPreview {
-            title: if is_en {
-                format!("Daily Letter · {}", packet.date)
-            } else {
-                format!("今日来信 · {}", packet.date)
-            },
-            one_line: if is_en {
-                "I do not have enough authorized context for today yet.".to_string()
-            } else {
-                "今天能看见的上下文还不多，我先把这封空白处留给你。".to_string()
-            },
-            receipt_count: 0,
-            app_idea_count: 0,
-        },
-        body_markdown: if is_en {
-            "Today I do not have enough authorized context to write a useful letter. When more work, commands, memories, or explicit notes are available, I will turn them into a warmer summary here.".to_string()
-        } else {
-            "今天我能看见的上下文还不够多，所以不硬写成一份总结。\n\n等有新的会话摘要、工作状态、命令结果、Git 活动，或你主动加入今日来信的片段，我会把它们整理成一封更像信的回望。".to_string()
-        },
-        receipt_candidates: Vec::new(),
-        app_opportunity: None,
-        created_at_ms: now,
-        updated_at_ms: now,
-    }
-}
-
 fn next_record_status(record: &DailyLetterRecord) -> DailyLetterRecordStatus {
+    // Legacy records generated before every-day letters keep their status.
     if matches!(record.status, DailyLetterRecordStatus::InsufficientContext) {
         return DailyLetterRecordStatus::InsufficientContext;
     }

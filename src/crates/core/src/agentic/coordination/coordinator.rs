@@ -2726,7 +2726,7 @@ impl ConversationCoordinator {
 
         if let Some(app_builder_context) = app_builder.as_ref() {
             let patch = app_builder_context
-                .to_session_metadata_patch("InheritedAppBuilderExecutionContext", Self::now_ms());
+                .to_session_metadata_patch("InheritedAppBuilderExecutionContext", Self::now_ms())?;
             let merged = self
                 .session_manager
                 .merge_session_custom_metadata(&session.session_id, patch)

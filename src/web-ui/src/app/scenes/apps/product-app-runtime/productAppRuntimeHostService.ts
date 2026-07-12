@@ -34,6 +34,17 @@ import type {
 
 const log = createLogger('ProductAppRuntimeHostService');
 
+function createOptimisticSessionId(): string {
+  if (typeof globalThis.crypto?.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID();
+  }
+  return `product-app-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function navigationIsCurrent(options: OpenProductAppRuntimeOptions): boolean {
+  return options.isNavigationCurrent?.() !== false;
+}
+
 function agentComponentIdFromRuntimeMetadata(metadata: ProductAppRuntimeSessionMetadata): string | null {
   const value = metadata.chat?.agentComponentId;
   return typeof value === 'string' && value.trim() ? value.trim() : null;
@@ -173,12 +184,10 @@ async function syncRuntimeSessionWorkspace(
   if (!workspacePath) return;
 
   try {
-    await agentAPI.ensureCoordinatorSession({
+    await flowChatManager.ensureBackendSession(
       sessionId,
-      workspacePath,
-      storageScope: 'agentic_os',
-    });
-    await agentAPI.updateSessionWorkspace({ sessionId, workspacePath });
+      () => agentAPI.updateSessionWorkspace({ sessionId, workspacePath }),
+    );
   } catch (error) {
     log.error('Failed to sync Product App runtime session workspace', {
       sessionId,
@@ -221,14 +230,15 @@ function validateCompositeInteraction(app: ProductAppHostSurface | ProductAppHos
 export async function ensureProductAppRuntimeSession(
   target: ProductAppRuntimeHostTarget,
   options: OpenProductAppRuntimeOptions = {}
-): Promise<string> {
+): Promise<string | null> {
+  if (!navigationIsCurrent(options)) return null;
   const app = target.hostSurface;
   validateCompositeInteraction(app);
   const scope = normalizeAppScope(options.scope ?? target.scope);
   const workspacePath = workspacePathFromAppScope(scope);
 
   const metadata = buildProductAppRuntimeMetadata(app, {
-    productApp: target.productApp,
+    intelligentApp: target.intelligentApp,
     entityId: options.entityId,
     locale: options.locale,
     scope,
@@ -236,16 +246,26 @@ export async function ensureProductAppRuntimeSession(
   });
   const descriptor = productAppRuntimeDescriptor(metadata);
   const existingSessionId = await findExistingRuntimeSessionId(metadata);
+  if (!navigationIsCurrent(options)) return null;
   if (existingSessionId) {
     updateSessionRuntimeMetadata(existingSessionId, metadata);
+    // Commit the inexpensive conversation shell first. Backend coordinator
+    // restore, workspace retargeting, and persistence are readiness work and
+    // must not keep the previous screen visible.
+    const navigationResult = await openWorkspaceSession(existingSessionId, {
+      context: options.context,
+      navigationEpoch: options.navigationEpoch,
+    });
+    if (navigationResult === 'missing') return null;
     await syncRuntimeSessionWorkspace(existingSessionId, metadata);
     await flowChatManager.persistSessionMetadata(existingSessionId);
-    await openWorkspaceSession(existingSessionId, { context: options.context });
     return existingSessionId;
   }
 
+  if (!navigationIsCurrent(options)) return null;
   const title = metadata.interactionTitle || metadata.appName;
-  const sessionId = await flowChatManager.createChatSession(
+  const sessionId = createOptimisticSessionId();
+  const sessionCreation = flowChatManager.createChatSession(
     {
       storageScope: 'agentic_os',
       workspacePath,
@@ -254,21 +274,47 @@ export async function ensureProductAppRuntimeSession(
       customMetadata: {
         productAppRuntime: metadata,
       },
+      navigate: false,
     },
     descriptor,
+    { sessionId, notifyOnError: false },
   );
-
-  updateSessionRuntimeMetadata(sessionId, metadata);
-  await syncRuntimeSessionWorkspace(sessionId, metadata);
-  await flowChatManager.persistSessionMetadata(sessionId);
-  await openWorkspaceSession(sessionId, { context: options.context });
-  return sessionId;
+  let resolvedSessionId = sessionId;
+  let sessionCreationError: unknown = null;
+  const navigationResult = await openWorkspaceSession(sessionId, {
+    context: options.context,
+    commitPendingSurface: true,
+    navigationEpoch: options.navigationEpoch,
+    resolveSession: async () => {
+      try {
+        resolvedSessionId = await sessionCreation;
+      } catch (error) {
+        sessionCreationError = error;
+        throw error;
+      }
+      updateSessionRuntimeMetadata(resolvedSessionId, metadata);
+      return flowChatStore.getState().sessions.get(resolvedSessionId) ?? null;
+    },
+  });
+  if (
+    navigationResult === 'missing'
+    || !flowChatStore.getState().sessions.has(resolvedSessionId)
+  ) {
+    if (navigationResult !== 'superseded' && sessionCreationError) {
+      throw sessionCreationError;
+    }
+    return null;
+  }
+  await syncRuntimeSessionWorkspace(resolvedSessionId, metadata);
+  await flowChatManager.persistSessionMetadata(resolvedSessionId);
+  return resolvedSessionId;
 }
 
 export async function openProductAppRuntimeHost(
   target: ProductAppRuntimeHostTarget,
   options: OpenProductAppRuntimeOptions = {}
 ): Promise<void> {
+  if (!navigationIsCurrent(options)) return;
   const scope = normalizeAppScope(options.scope ?? target.scope);
   const workspacePath = workspacePathFromAppScope(scope);
   const app = target.hostSurface;
@@ -279,6 +325,7 @@ export async function openProductAppRuntimeHost(
     { kind: 'work' as const, workId: runtimeContext.workId };
 
   if (!isCompositeProductAppRuntimeHost(app)) {
+    if (!navigationIsCurrent(options)) return;
     openWorkspaceScene(`app-surface:${app.id}` as WorkspaceSceneId, {
       workspacePath: workspacePath ?? null,
       appScope: scope,
@@ -295,6 +342,7 @@ export async function openProductAppRuntimeHost(
       context,
       runtimeContext,
     });
+    if (!sessionId) return;
     await useWorkStore.getState().linkSessionToWork({
       workId: runtimeContext.workId,
       sessionId,
@@ -304,7 +352,7 @@ export async function openProductAppRuntimeHost(
     });
   } catch (error) {
     log.error('Failed to open Product App runtime', {
-      appId: target.productApp.id,
+      appId: target.intelligentApp.appId,
       hostSurfaceId: app.id,
       error,
     });

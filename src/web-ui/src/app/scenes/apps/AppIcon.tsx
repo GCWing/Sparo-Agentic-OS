@@ -1,7 +1,7 @@
 import React from 'react';
 import { AppWindow, type LucideIcon } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
-import type { AppIconSpec } from '@/infrastructure/api/service-api/AppCatalogAPI';
+import type { AppIconSpec } from '@/shared/types/app-manifest';
 import './AppIcon.scss';
 
 export interface AppIconSource {
@@ -18,6 +18,11 @@ interface AppIconProps {
 }
 
 const lucideIconRegistry = LucideIcons as unknown as Record<string, LucideIcon | undefined>;
+
+const NATIVE_APP_ICON_URI: Record<string, string> = {
+  runno: '/native-app-icons/runno-icon.png',
+  'app-builder': '/native-app-icons/app-builder-icon.png',
+};
 
 function cx(...parts: Array<string | undefined | false>): string {
   return parts.filter(Boolean).join(' ');
@@ -51,15 +56,20 @@ export function AppIcon({
     height: size,
     ...backgroundFor(icon),
   } as React.CSSProperties;
+  const assetUri = icon.kind === 'nativeAsset'
+    ? icon.uri ?? NATIVE_APP_ICON_URI[icon.assetId]
+    : icon.kind === 'packageAsset'
+      ? icon.uri
+      : undefined;
 
-  if ((icon.kind === 'packageAsset' || icon.kind === 'nativeAsset') && icon.uri) {
+  if ((icon.kind === 'packageAsset' || icon.kind === 'nativeAsset') && assetUri) {
     return (
       <span
         className={cx('app-icon', 'app-icon--asset', className)}
         style={style}
         {...labelProps}
       >
-        <img className="app-icon__image" src={icon.uri} alt="" draggable={false} />
+        <img className="app-icon__image" src={assetUri} alt="" draggable={false} />
       </span>
     );
   }

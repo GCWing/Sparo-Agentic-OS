@@ -1,7 +1,4 @@
-/**
- * About dialog — "ignition plaque" surface.
- * Zone A brand stage (story) -> Zone B spec sheet (facts) -> Zone C link rail (index).
- */
+/** About dialog — compact system identity card. */
 
 .ds-dialog-overlay.sparo-about-dialog-overlay {
   padding: var(--ds-space-6) var(--ds-space-8);
@@ -12,7 +9,7 @@
     overflow: hidden;
     background: var(--ds-color-bg-elevated);
     box-shadow: var(--ds-shadow-modal);
-    max-width: 440px;
+    max-width: 480px;
   }
 
   .ds-dialog__header {
@@ -48,361 +45,266 @@
   }
 }
 
-// ==================== Shell ====================
-
 .sparo-about-dialog {
   position: relative;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  padding: 30px;
 }
 
-// ==================== Zone A — brand stage ====================
-
-.sparo-about-dialog__stage {
-  position: relative;
+.sparo-about-dialog__identity {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  padding: 40px 32px 32px;
-  text-align: center;
-  background: var(--ds-color-bg-scene);
+  gap: 16px;
+  padding-inline-end: 28px;
 }
-
-// ---- Ignition mark ----
 
 .sparo-about-dialog__mark {
-  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 72px;
-  height: 72px;
-  margin-bottom: 18px;
-  padding: 0;
-  border: none;
-  background: none;
-  cursor: pointer;
-  animation: sparo-about-pop 260ms var(--ds-easing-standard, ease) both;
-
-  &:focus-visible {
-    outline: 2px solid var(--ds-focus-ring);
-    outline-offset: 4px;
-    border-radius: var(--ds-radius-full, 50%);
-  }
+  flex: 0 0 auto;
+  width: 58px;
+  height: 58px;
 }
 
 .sparo-about-dialog__logo {
-  width: 56px;
-  height: 56px;
+  width: 42px;
+  height: 42px;
   object-fit: contain;
   user-select: none;
   -webkit-user-drag: none;
 }
 
-.sparo-about-dialog__mark-ring {
-  position: absolute;
-  inset: -4px;
-  border-radius: 50%;
-  border: 1.5px solid var(--ds-color-border-medium);
-  opacity: 0;
+.sparo-about-dialog__identity-copy {
+  min-width: 0;
 }
 
-.sparo-about-dialog__mark--active .sparo-about-dialog__mark-ring {
-  animation: sparo-mark-ring 480ms ease-out;
+.sparo-about-dialog__title-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
 }
-
-// ---- Identity copy ----
 
 .sparo-about-dialog__title {
-  position: relative;
-  z-index: var(--ds-z-local);
   margin: 0;
   font-family: var(--ds-font-family-sans);
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 1.15;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
   color: var(--ds-color-text-primary);
-  animation: sparo-about-rise 200ms var(--ds-easing-standard, ease) 40ms both;
 }
 
 .sparo-about-dialog__tagline {
-  position: relative;
-  z-index: var(--ds-z-local);
-  margin: 8px 0 0;
-  max-width: 280px;
+  margin: 5px 0 0;
   font-size: 13px;
-  font-weight: 400;
-  line-height: 1.45;
-  letter-spacing: 0.01em;
+  line-height: 1.5;
   color: var(--ds-color-text-secondary);
-  animation: sparo-about-rise 220ms var(--ds-easing-standard, ease) 70ms both;
 }
 
 .sparo-about-dialog__version-badge {
-  position: relative;
-  z-index: var(--ds-z-local);
-  margin-top: 16px;
   font-family: var(--ds-font-family-mono);
-  font-size: 11px;
-  letter-spacing: 0.03em;
-  animation: sparo-about-rise 240ms var(--ds-easing-standard, ease) 90ms both;
+  font-size: 10px;
+  letter-spacing: 0.02em;
 }
 
-// ==================== Zone B — spec sheet ====================
-
-.sparo-about-dialog__specsheet {
-  position: relative;
-  z-index: var(--ds-z-local);
-  margin: -18px 24px 0;
-  border-radius: var(--ds-radius-lg);
-  box-shadow: var(--ds-shadow-card);
-  animation: sparo-about-rise 260ms var(--ds-easing-standard, ease) 120ms both;
+.sparo-about-dialog__build {
+  margin-top: 26px;
+  padding: 16px 0;
+  border-block: 1px solid var(--ds-color-border-subtle);
 }
 
-.sparo-about-dialog__specsheet-body {
-  padding: 12px 16px;
-}
-
-.sparo-about-dialog__specsheet-header {
+.sparo-about-dialog__build-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 6px;
+  margin-bottom: 12px;
 }
 
-.sparo-about-dialog__specsheet-title {
+.sparo-about-dialog__build-title {
   font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--ds-color-text-muted);
 }
 
-.sparo-about-dialog__specsheet-copy {
+.sparo-about-dialog__build-copy {
   color: var(--ds-color-text-muted);
 }
 
-.sparo-about-dialog__specsheet-list {
+.sparo-about-dialog__build-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
   margin: 0;
 }
 
-.sparo-about-dialog__specsheet-row {
+.sparo-about-dialog__build-item {
+  min-width: 0;
+
+  dt,
+  dd {
+    margin: 0;
+  }
+
+  dt {
+    margin-bottom: 5px;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--ds-color-text-muted);
+  }
+
+  dd {
+    font-family: var(--ds-font-family-mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    color: var(--ds-color-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.sparo-about-dialog__links {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  margin-top: 18px;
+  padding-block: 4px;
+  border-block: 1px solid var(--ds-color-border-subtle);
+}
+
+.sparo-about-dialog__link-cell {
+  display: flex;
+  min-width: 0;
+
+  & + & {
+    border-inline-start: 1px solid var(--ds-color-border-subtle);
+  }
+}
+
+.sparo-about-dialog__link {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  justify-content: flex-start;
+  gap: 8px;
+  padding-inline: 10px;
+  color: var(--ds-color-text-secondary);
+
+  &:hover .sparo-about-dialog__link-icon {
+    color: var(--ds-color-accent-500);
+  }
+
+  &:hover .sparo-about-dialog__link-arrow {
+    color: var(--ds-color-text-secondary);
+    transform: translate(1px, -1px);
+  }
+}
+
+.sparo-about-dialog__link-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-bg-hover);
+  color: var(--ds-color-text-muted);
+  transition: color var(--ds-motion-fast) var(--ds-easing-standard);
+}
+
+.sparo-about-dialog__link-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.sparo-about-dialog__link-arrow {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+  color: var(--ds-color-text-muted);
+  transition:
+    color var(--ds-motion-fast) var(--ds-easing-standard),
+    transform var(--ds-motion-fast) var(--ds-easing-standard);
+}
+
+.sparo-about-dialog__footer {
+  margin-top: 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 7px 0;
-  border-top: 1px solid var(--ds-color-border-subtle);
-
-  &:first-child {
-    border-top: none;
-  }
-
-  dt {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    margin: 0;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--ds-color-text-secondary);
-    flex-shrink: 0;
-
-    svg {
-      color: var(--ds-color-text-muted);
-    }
-  }
-
-  dd {
-    margin: 0;
-    font-size: 12px;
-    font-weight: 400;
-    color: var(--ds-color-text-primary);
-    text-align: right;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    min-width: 0;
-  }
-}
-
-.sparo-about-dialog__specsheet-value--mono {
-  font-family: var(--ds-font-family-mono);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-}
-
-// ==================== Zone C — link rail + footer ====================
-
-.sparo-about-dialog__links {
-  position: relative;
-  z-index: var(--ds-z-local);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  margin: 18px 0 0;
-  animation: sparo-about-rise 280ms var(--ds-easing-standard, ease) 140ms both;
-}
-
-.sparo-about-dialog__link-btn {
-  color: var(--ds-color-text-muted);
-  transition: color var(--ds-motion-fast, 0.15s) var(--ds-easing-standard, ease);
-
-  &:hover {
-    color: var(--ds-color-accent-500);
-  }
-}
-
-.sparo-about-dialog__footer {
-  position: relative;
-  z-index: var(--ds-z-local);
-  margin-top: 18px;
-  padding: 0 28px 28px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  animation: sparo-about-rise 300ms var(--ds-easing-standard, ease) 150ms both;
 }
 
 .sparo-about-dialog__license {
+  flex: 0 0 auto;
+  min-height: 0;
   padding: 0;
-  border: none;
-  background: none;
-  font-family: inherit;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--ds-color-text-secondary);
-  text-decoration: none;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  transition: color var(--ds-motion-fast, 0.15s) var(--ds-easing-standard, ease);
-
-  &:hover {
-    color: var(--ds-color-text-primary);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--ds-focus-ring);
-    outline-offset: 2px;
-    border-radius: var(--ds-radius-xs);
-  }
+  font-size: 10px;
+  color: var(--ds-color-text-muted);
 }
 
 .sparo-about-dialog__copyright {
   margin: 0;
   font-size: 10px;
-  letter-spacing: 0.02em;
+  line-height: 1.4;
+  text-align: right;
   color: var(--ds-color-text-muted);
-  opacity: 0.75;
 }
 
-// ==================== Motion ====================
-
-@keyframes sparo-about-rise {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
+@media (max-width: 480px) {
+  .sparo-about-dialog {
+    padding: 24px;
   }
 
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes sparo-about-pop {
-  from {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes sparo-mark-ring {
-  0% {
-    opacity: 0.6;
-    transform: scale(0.85);
-  }
-
-  100% {
-    opacity: 0;
-    transform: scale(1.15);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .sparo-about-dialog__mark,
-  .sparo-about-dialog__title,
-  .sparo-about-dialog__tagline,
-  .sparo-about-dialog__version-badge,
-  .sparo-about-dialog__specsheet,
-  .sparo-about-dialog__links,
-  .sparo-about-dialog__footer,
-  .sparo-about-dialog__mark-ring {
-    animation: none !important;
-  }
-}
-
-// ==================== Responsive ====================
-
-@media (max-width: 580px) {
-  .sparo-about-dialog__stage {
-    padding: 32px 24px 28px;
-  }
-
-  .sparo-about-dialog__title {
-    font-size: 22px;
-  }
-
-  .sparo-about-dialog__tagline {
-    max-width: 240px;
-    font-size: 12px;
-  }
-
-  .sparo-about-dialog__specsheet {
-    margin: -14px 16px 0;
-  }
-
-  .sparo-about-dialog__footer {
-    padding: 0 20px 22px;
-  }
-}
-
-@media (max-height: 560px) {
-  .sparo-about-dialog__stage {
-    padding: 28px 24px 24px;
+  .sparo-about-dialog__identity {
+    align-items: flex-start;
+    gap: 14px;
+    padding-inline-end: 24px;
   }
 
   .sparo-about-dialog__mark {
-    width: 60px;
-    height: 60px;
-    margin-bottom: 12px;
+    width: 52px;
+    height: 52px;
   }
 
   .sparo-about-dialog__logo {
-    width: 48px;
-    height: 48px;
+    width: 38px;
+    height: 38px;
   }
 
-  .sparo-about-dialog__title {
-    font-size: 20px;
+  .sparo-about-dialog__build-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
 
   .sparo-about-dialog__links {
-    margin-top: 12px;
+    grid-template-columns: 1fr;
+  }
+
+  .sparo-about-dialog__link-cell + .sparo-about-dialog__link-cell {
+    border-block-start: 1px solid var(--ds-color-border-subtle);
+    border-inline-start: none;
   }
 
   .sparo-about-dialog__footer {
-    margin-top: 12px;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .sparo-about-dialog__copyright {
+    text-align: left;
   }
 }

@@ -6,9 +6,11 @@ import { useCallback } from 'react';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
 import { flowChatStore } from '../../store/FlowChatStore';
+import { flowChatManager } from '../../services/FlowChatManager';
 import type { DialogTurn, FlowItem, FlowToolItem, ModelRound } from '../../types/flow-chat';
 
 const log = createLogger('useFlowChatToolActions');
+const pendingToolActions = new Map<string, Promise<void>>();
 
 interface ResolvedToolContext {
   ownerSessionId: string | null;
@@ -53,34 +55,77 @@ function resolveToolContext(toolId: string): ResolvedToolContext {
   };
 }
 
+function runToolActionSingleFlight(toolId: string, action: () => Promise<void>): Promise<void> {
+  const existing = pendingToolActions.get(toolId);
+  if (existing) return existing;
+
+  let pending: Promise<void>;
+  pending = action().finally(() => {
+    if (pendingToolActions.get(toolId) === pending) {
+      pendingToolActions.delete(toolId);
+    }
+  });
+  pendingToolActions.set(toolId, pending);
+  return pending;
+}
+
 export function useFlowChatToolActions() {
   const handleToolConfirm = useCallback(async (toolId: string, updatedInput?: any) => {
     try {
-      const { ownerSessionId, toolItem, turnId } = resolveToolContext(toolId);
+      await runToolActionSingleFlight(toolId, async () => {
+        const initial = resolveToolContext(toolId);
+        if (!initial.ownerSessionId || !initial.toolItem || !initial.turnId) {
+          throw new Error(`tool item ${toolId} not found in current session`);
+        }
 
-      if (!ownerSessionId || !toolItem || !turnId) {
-        notificationService.error(`Tool confirmation failed: tool item ${toolId} not found in current session`);
-        return;
-      }
+        await flowChatManager.ensureBackendSession(initial.ownerSessionId);
+        const current = resolveToolContext(toolId);
+        if (
+          current.ownerSessionId !== initial.ownerSessionId
+          || !current.toolItem
+          || !current.turnId
+          || current.toolItem.status !== 'pending_confirmation'
+        ) {
+          log.debug('Ignoring stale tool confirmation action', { toolId });
+          return;
+        }
 
-      const finalInput = updatedInput || toolItem.toolCall?.input;
+        const finalInput = updatedInput ?? current.toolItem.toolCall?.input;
+        const previousState = {
+          userConfirmed: current.toolItem.userConfirmed,
+          status: current.toolItem.status,
+          toolCall: current.toolItem.toolCall,
+        };
+        flowChatStore.updateModelRoundItem(current.ownerSessionId, current.turnId, toolId, {
+          userConfirmed: true,
+          status: 'confirmed',
+          toolCall: {
+            ...current.toolItem.toolCall,
+            input: finalInput,
+          },
+        } as any);
+        const optimisticItem = resolveToolContext(toolId).toolItem;
 
-      flowChatStore.updateModelRoundItem(ownerSessionId, turnId, toolId, {
-        userConfirmed: true,
-        status: 'confirmed',
-        toolCall: {
-          ...toolItem.toolCall,
-          input: finalInput,
-        },
-      } as any);
-
-      const { agentService } = await import('../../../shared/services/agent-service');
-      await agentService.confirmToolExecution(
-        ownerSessionId,
-        toolId,
-        'confirm',
-        finalInput,
-      );
+        try {
+          const { agentService } = await import('../../../shared/services/agent-service');
+          await agentService.confirmToolExecution(
+            current.ownerSessionId,
+            toolId,
+            'confirm',
+            finalInput,
+          );
+        } catch (error) {
+          if (resolveToolContext(toolId).toolItem === optimisticItem) {
+            flowChatStore.updateModelRoundItem(
+              current.ownerSessionId,
+              current.turnId,
+              toolId,
+              previousState as any,
+            );
+          }
+          throw error;
+        }
+      });
     } catch (error) {
       log.error('Tool confirmation failed', error);
       notificationService.error(`Tool confirmation failed: ${error}`);
@@ -89,24 +134,53 @@ export function useFlowChatToolActions() {
 
   const handleToolReject = useCallback(async (toolId: string) => {
     try {
-      const { ownerSessionId, toolItem, turnId } = resolveToolContext(toolId);
+      await runToolActionSingleFlight(toolId, async () => {
+        const initial = resolveToolContext(toolId);
+        if (!initial.ownerSessionId || !initial.toolItem || !initial.turnId) {
+          throw new Error(`tool item ${toolId} not found in current session`);
+        }
 
-      if (!ownerSessionId || !toolItem || !turnId) {
-        log.warn('Tool rejection failed: tool item not found', { toolId });
-        return;
-      }
+        await flowChatManager.ensureBackendSession(initial.ownerSessionId);
+        const current = resolveToolContext(toolId);
+        if (
+          current.ownerSessionId !== initial.ownerSessionId
+          || !current.toolItem
+          || !current.turnId
+          || current.toolItem.status !== 'pending_confirmation'
+        ) {
+          log.debug('Ignoring stale tool rejection action', { toolId });
+          return;
+        }
 
-      flowChatStore.updateModelRoundItem(ownerSessionId, turnId, toolId, {
-        userConfirmed: false,
-        status: 'cancelled',
-      } as any);
+        const previousState = {
+          userConfirmed: current.toolItem.userConfirmed,
+          status: current.toolItem.status,
+        };
+        flowChatStore.updateModelRoundItem(current.ownerSessionId, current.turnId, toolId, {
+          userConfirmed: false,
+          status: 'cancelled',
+        } as any);
+        const optimisticItem = resolveToolContext(toolId).toolItem;
 
-      const { agentService } = await import('../../../shared/services/agent-service');
-      await agentService.confirmToolExecution(
-        ownerSessionId,
-        toolId,
-        'reject',
-      );
+        try {
+          const { agentService } = await import('../../../shared/services/agent-service');
+          await agentService.confirmToolExecution(
+            current.ownerSessionId,
+            toolId,
+            'reject',
+          );
+        } catch (error) {
+          if (resolveToolContext(toolId).toolItem === optimisticItem) {
+            flowChatStore.updateModelRoundItem(
+              current.ownerSessionId,
+              current.turnId,
+              toolId,
+              previousState as any,
+            );
+          }
+          throw error;
+        }
+      });
     } catch (error) {
       log.error('Tool rejection failed', error);
       notificationService.error(`Tool rejection failed: ${error}`);

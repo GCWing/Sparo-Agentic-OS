@@ -64,6 +64,19 @@
     "goalPending": "目标处理中",
     "promptTemplate": "Prompt"
   },
+  "spreadsheetFocus": {
+    "included": "已附带表格焦点",
+    "excluded": "未附带表格焦点",
+    "includeAction": "随下一条消息发送",
+    "excludeAction": "不随下一条消息发送",
+    "partialCache": "选区预览不完整，Agent 将重新读取范围",
+    "staleFormulas": "所选公式结果已过期，重算前不可作为可信数值",
+    "modes": {
+      "inspect": "查看",
+      "edit": "编辑",
+      "author": "创作"
+    }
+  },
   "professionalMode": "专业模式",
   "designMode": "设计师模式",
   "wip": "开发中",

@@ -1,0 +1,19 @@
+{
+  "name": "get_export_status",
+  "description": "Read one Remotion export job by its run id.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["runId"],
+    "properties": {
+      "workspacePath": { "type": "string" },
+      "runId": { "type": "string", "minLength": 1 }
+    }
+  },
+  "runtime": "javascript",
+  "entry": "tools/get_export_status.js",
+  "readonly": true,
+  "permissions": {},
+  "timeoutMs": 60000,
+  "maxOutputBytes": 60000
+}

@@ -7,6 +7,8 @@ import './Input.scss';
 
 export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size' | 'prefix'> {
   variant?: 'default' | 'filled' | 'outlined';
+  shape?: 'default' | 'pill';
+  focusTone?: 'default' | 'danger';
   inputSize?: 'small' | 'medium' | 'large';
   size?: 'small' | 'medium' | 'large';
   error?: boolean;
@@ -20,6 +22,8 @@ export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElem
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(({
   variant = 'default',
+  shape = 'default',
+  focusTone = 'default',
   inputSize = 'medium',
   size,
   error = false,
@@ -46,6 +50,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
   const classNames = [
     'ds-input-wrapper',
     `ds-input-wrapper--${variant}`,
+    shape === 'pill' && 'ds-input-wrapper--pill',
+    focusTone === 'danger' && 'ds-input-wrapper--focus-danger',
     `ds-input-wrapper--${resolvedInputSize}`,
     error && 'ds-input-wrapper--error',
     disabled && 'ds-input-wrapper--disabled',

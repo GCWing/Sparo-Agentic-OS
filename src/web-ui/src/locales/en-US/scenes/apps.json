@@ -30,17 +30,73 @@
     },
     "navigation": {
       "label": "App Center view",
-      "home": "Launch",
+      "home": "App Center",
       "manage": "Manage",
       "components": "Components"
     },
     "launch": {
-      "title": "Launch Apps",
-      "subtitle": "Continue active work or start the right Product App directly.",
-      "searchPlaceholder": "Search apps or active work...",
-      "continueDescription": "Pick up work already in motion."
+      "title": "Intelligent Apps",
+      "subtitle": "Your dual-domain app desk, connecting knowledge with action.",
+      "searchPlaceholder": "Search apps, capabilities, or active work...",
+      "continueDescription": "Pick up work already in motion.",
+      "emptyTitle": "No apps or work match your search",
+      "emptyDescription": "Try another app name, capability, tag, or work title."
+    },
+    "homeRail": {
+      "label": "App runtime status",
+      "running": "Running",
+      "idle": "No running apps",
+      "workStates": "App task status",
+      "pinned": "Pinned apps",
+      "multiRunningTitle": "Multiple apps in progress",
+      "multiRunningDescription": "{{count}} apps are running in parallel",
+      "multiRunningStatus": "{{count}} active",
+      "states": {
+        "waiting": "Needs attention",
+        "running": "In progress",
+        "paused": "Paused"
+      }
+    },
+    "homeViews": {
+      "label": "App Center content",
+      "installed": "My apps",
+      "discover": "Discover"
     },
     "manage": {
+      "title": "App management",
+      "subtitle": "Maintain installed apps, creations, and components",
+      "railTitle": "Management",
+      "railSubtitle": "Apps and components",
+      "sections": {
+        "apps": "All apps",
+        "updates": "Updates",
+        "disabled": "Disabled",
+        "creations": "My intelligent apps",
+        "drafts": "Drafts",
+        "components": "Components"
+      },
+      "sectionTitles": {
+        "apps": "All apps",
+        "updates": "Available updates",
+        "disabled": "Disabled apps",
+        "creations": "My intelligent apps",
+        "drafts": "Drafts",
+        "components": "Components"
+      },
+      "sectionDescriptions": {
+        "apps": "Review and maintain every installed app.",
+        "updates": "Install available updates and review release notes.",
+        "disabled": "Re-enable or remove disabled apps.",
+        "creations": "Manage intelligent apps you built or generated with AI.",
+        "drafts": "Continue creations that have not been published.",
+        "components": "Inspect shared and app-private building blocks."
+      },
+      "drafts": {
+        "updated": "Updated {{time}}",
+        "missingApp": "The app for this draft could not be found.",
+        "emptyTitle": "No drafts",
+        "emptyDescription": "Drafts appear here after you create or edit an intelligent app."
+      },
       "searchLabel": "Search managed apps",
       "searchPlaceholder": "Search by app, category, description, tag, or component summary...",
       "emptyTitle": "No apps match this view",
@@ -80,8 +136,7 @@
       "sortOptions": {
         "attention": "Needs attention",
         "name": "Name",
-        "status": "Status",
-        "scope": "Scope"
+        "status": "Status"
       },
       "categoriesLabel": "Filter apps",
       "viewModeLabel": "View mode",
@@ -91,6 +146,8 @@
       }
     },
     "actions": {
+      "pin": "Pin {{name}}",
+      "unpin": "Unpin {{name}}",
       "components": "Components",
       "createComponent": "Create Component",
       "createApp": "Create App",
@@ -106,9 +163,20 @@
       "back": "Back",
       "close": "Close",
       "cancel": "Cancel",
-      "inspect": "Inspect"
+      "inspect": "Inspect",
+      "customize": "Customize a copy",
+      "edit": "Edit Draft",
+      "rollback": "Roll back activation",
+      "syncUpstream": "Review upstream update"
+    },
+    "capabilities": {
+      "title": "Review app capabilities",
+      "description": "{{name}} requests the capabilities below. Review them before activating this Release.",
+      "scopeNote": "Approval is bound to this App and capability fingerprint. A capability change requires a new review.",
+      "approveAndActivate": "Approve and activate"
     },
     "messages": {
+      "rolledBack": "{{name}} now uses the previous Release.",
       "installBeforeLaunch": "Install {{name}} before launching it.",
       "noLaunch": "{{name}} has no launch target.",
       "launchFailed": "Failed to launch {{name}}: {{error}}",
@@ -131,7 +199,7 @@
     "continue": {
       "title": "Continue Work",
       "count": "{{count}} active",
-      "description": "Jump back into live work before starting something new.",
+      "description": "Return to what is already in motion.",
       "viewAll": "All",
       "closeWork": "Close work \"{{title}}\"",
       "expandRelated": "Choose related work",
@@ -142,7 +210,7 @@
     "myApps": {
       "title": "My Apps",
       "count": "{{count}} installed",
-      "description": "Choose the right Product App, then launch it or inspect its runtime boundary.",
+      "description": "Open a familiar app or choose one to start new work.",
       "syncing": "Syncing",
       "syncingRemaining": "Syncing {{count}}",
       "loadingProductApps": "Loading installed Product Apps",
@@ -152,7 +220,10 @@
       "emptyDescription": "Install or create a Product App to make it available here."
     },
     "discover": {
+      "emptyTitle": "No new apps",
+      "emptyDescription": "New installable apps will appear here when available.",
       "title": "Discover",
+      "description": "Add a new capability when your current apps are not enough.",
       "count": "{{count}} available",
       "loadingBadge": "Loading",
       "syncingRemaining": "Syncing {{count}}",
@@ -255,6 +326,11 @@
       "conversation": "Conversation",
       "interactiveWorkspace": "Interactive workspace"
     },
+    "owner": {
+      "system": "System app",
+      "user": "My app",
+      "organization": "Organization app"
+    },
     "componentSource": {
       "appPrivate": "App private",
       "shared": "Shared"
@@ -296,6 +372,48 @@
         "workMode": "Work mode"
       },
       "sectionsLabel": "Details",
+      "journeys": {
+        "overview": {
+          "label": "Overview",
+          "description": "Understand its value and the best next step."
+        },
+        "work": {
+          "label": "Work",
+          "description": "Continue existing Work or start something new."
+        },
+        "customize": {
+          "label": "Customize & evolve",
+          "description": "Edit, fork, and review upstream changes."
+        },
+        "control": {
+          "label": "Manage & trust",
+          "description": "Versions, permissions, data, and technical composition."
+        }
+      },
+      "overview": {
+        "recentWork": "Recent work",
+        "recentWorkDescription": "Pick up where you left off without starting over.",
+        "viewAllWork": "View all {{count}}"
+      },
+      "customize": {
+        "systemTitle": "Make it yours without changing the system app",
+        "systemDescription": "Create a personal fork from this Release. System updates remain separate until you choose to review them.",
+        "userTitle": "Continue evolving your app",
+        "userDescription": "Open an editable Draft based on the active Release. Existing Work keeps using its original Release.",
+        "upstreamBadge": "Upstream update",
+        "upstreamTitle": "The source app has moved forward",
+        "upstreamDescription": "Review the upstream Release in a rebase Draft, resolve differences, then publish only when you are satisfied.",
+        "versionTitle": "Release and recovery",
+        "versionDescription": "Publishing creates an immutable Release. Activation changes only new Work.",
+        "activeRelease": "Active Release",
+        "availableRelease": "Available Release",
+        "owner": "Ownership"
+      },
+      "control": {
+        "componentsTitle": "Components and capabilities",
+        "technicalTitle": "Technical and package details",
+        "technicalHint": "Advanced"
+      },
       "tabs": {
         "summary": "Summary",
         "work": "Work",
@@ -482,11 +600,6 @@
       "gui": "GUI",
       "secrets": "Secrets",
       "ai": "Model access"
-    },
-    "installScope": {
-      "system": "System",
-      "workspace": "Workspace",
-      "project": "Project"
     },
     "catalogVisibility": {
       "discoverable": "Discoverable",

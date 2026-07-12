@@ -21,6 +21,10 @@ export interface ToolCardIconSlotProps {
   isExpanded?: boolean;
   /** Click handler for the left icon rail affordance */
   onAffordanceClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  /** Accessible label for the affordance button. */
+  affordanceLabel?: string;
+  /** Id of the disclosure region controlled by the affordance. */
+  affordanceControlsId?: string;
   /** Show right border divider (default true) */
   showDivider?: boolean;
   /** Additional class name for the root element */
@@ -34,6 +38,8 @@ export const ToolCardIconSlot: React.FC<ToolCardIconSlotProps> = ({
   affordanceKind = 'expand',
   isExpanded = false,
   onAffordanceClick,
+  affordanceLabel,
+  affordanceControlsId,
   showDivider = true,
   className,
 }) => {
@@ -67,7 +73,9 @@ export const ToolCardIconSlot: React.FC<ToolCardIconSlotProps> = ({
             e.stopPropagation();
             onAffordanceClick(e);
           }}
-          aria-label={isPanelAffordance ? 'Open details' : 'Expand details'}
+          aria-label={affordanceLabel ?? (isPanelAffordance ? 'Open details' : 'Expand details')}
+          aria-expanded={isPanelAffordance ? undefined : isExpanded}
+          aria-controls={isPanelAffordance ? undefined : affordanceControlsId}
         />
       )}
     </div>

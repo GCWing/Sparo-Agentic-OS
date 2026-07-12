@@ -1,4 +1,3 @@
-use crate::agentic::app_builder_context::AppBuilderSubject;
 use crate::agentic::tools::framework::ToolUseContext;
 use crate::agentic::tools::restrictions::is_local_path_within_root;
 use crate::error::{CoreError, CoreResult};
@@ -12,20 +11,20 @@ pub fn has_app_builder_session_context(context: &ToolUseContext) -> bool {
     context.app_builder.is_some()
 }
 
-pub fn bound_app_builder_product_app_root(
+pub fn bound_app_builder_draft_root(
     context: &ToolUseContext,
-    tool_name: &str,
+    _tool_name: &str,
 ) -> CoreResult<Option<PathBuf>> {
     let Some(app_builder) = context.app_builder.as_ref() else {
         return Ok(None);
     };
 
-    match &app_builder.subject {
-        AppBuilderSubject::ProductApp { .. } => Ok(Some(app_builder.package_root.clone())),
-        _ => Err(CoreError::validation(format!(
-            "{} requires a bound Product App subject",
-            tool_name
-        ))),
+    if app_builder.package_root.is_dir() {
+        Ok(Some(app_builder.package_root.clone()))
+    } else {
+        Err(CoreError::validation(
+            "This App Draft has already been published or removed; create a new Draft before editing",
+        ))
     }
 }
 
@@ -35,6 +34,18 @@ pub async fn enforce_app_builder_package_write(
 ) -> CoreResult<()> {
     let target = Path::new(resolved_path);
     if let Some(app_builder) = context.app_builder.as_ref() {
+        if !app_builder.package_root.is_dir() {
+            return Err(CoreError::validation(
+                "This App Draft has already been published or removed; create a new Draft before editing",
+            ));
+        }
+        let control_root = app_builder.package_root.join(".sparo_os");
+        if is_local_path_within_root(target, &control_root)? {
+            return Err(CoreError::validation(format!(
+                "AppBuilder cannot write platform-controlled Draft metadata '{}'",
+                target.display()
+            )));
+        }
         for root in &app_builder.allowed_write_roots {
             if is_local_path_within_root(target, root)? {
                 return Ok(());
@@ -76,9 +87,8 @@ mod tests {
             workspace: None,
             custom_data: HashMap::new(),
             app_builder: Some(AppBuilderExecutionContext {
-                subject: AppBuilderSubject::ProductApp {
-                    app_id: "current-app".to_string(),
-                    version: "1.0.0".to_string(),
+                subject: AppBuilderSubject::BuilderDraft {
+                    draft_id: "draft_0123456789abcdef0123456789abcdef".to_string(),
                     title: None,
                     scope: AppBuilderSubjectScope::System,
                 },
@@ -185,5 +195,24 @@ mod tests {
         let denied = enforce_app_builder_package_write(&context, &path.to_string_lossy()).await;
 
         assert!(denied.is_err());
+    }
+
+    #[tokio::test]
+    async fn package_write_guard_rejects_platform_control_metadata() {
+        let root = std::env::temp_dir().join(format!(
+            "sparo-app-builder-control-metadata-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let control_file = root.join(".sparo_os").join("rebase-manifest.json");
+        std::fs::create_dir_all(control_file.parent().expect("control parent"))
+            .expect("create control root");
+        let context = bound_app_builder_context(root.clone(), "AppBuilder");
+
+        assert!(
+            enforce_app_builder_package_write(&context, &control_file.to_string_lossy(),)
+                .await
+                .is_err()
+        );
+        let _ = std::fs::remove_dir_all(root);
     }
 }

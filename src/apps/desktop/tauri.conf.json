@@ -4,7 +4,7 @@
   "identifier": "com.sparo-os.desktop",
   "build": {
     "beforeDevCommand": "pnpm run dev:web",
-    "devUrl": "http://localhost:5722",
+    "devUrl": "http://127.0.0.1:5722",
     "beforeBuildCommand": "pnpm run build:web && pnpm run prepare:mobile-web",
     "frontendDist": "../../../dist"
   },
@@ -75,7 +75,7 @@
         "style-src": "'self' 'unsafe-inline'",
         "font-src": ["'self'", "data:"],
         "img-src": ["'self'", "data:", "blob:", "asset:", "http://asset.localhost", "https://asset.localhost", "tauri:"],
-        "connect-src": ["'self'", "ipc:", "http://ipc.localhost", "https://ipc.localhost", "ws://localhost:5721", "http://localhost:5722", "http://127.0.0.1:*", "https:"],
+        "connect-src": ["'self'", "ipc:", "http://ipc.localhost", "https://ipc.localhost", "ws://127.0.0.1:5721", "http://127.0.0.1:*", "https:"],
         "worker-src": ["'self'", "blob:"],
         "frame-src": "'none'",
         "object-src": "'none'",

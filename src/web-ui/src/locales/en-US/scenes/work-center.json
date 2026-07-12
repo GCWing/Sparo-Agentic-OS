@@ -227,6 +227,87 @@
     "copyReference": "Copy reference",
     "copied": "Copied",
     "openDetailsFor": "Show details for {{title}}",
+    "loading": "Loading Work details",
+    "navigation": {
+      "position": "Work {{current}} of {{total}}",
+      "positionCompact": "{{current}} / {{total}}",
+      "previous": "Previous Work",
+      "next": "Next Work"
+    },
+    "tabs": {
+      "overview": "Overview",
+      "outputs": "Outputs & links",
+      "runtime": "Run history"
+    },
+    "currentState": {
+      "title": "Right now",
+      "fallback": "Open this Work to review the latest context.",
+      "systemManaged": "Sparo OS maintains this automatically. No action is needed.",
+      "memorySourcesTracked": "Sparo OS organized memory from {{count}} sources.",
+      "systemHealthy": "The latest run completed. Sparo OS will continue maintaining it automatically.",
+      "systemRunning": "This is running in the background and will update when complete.",
+      "systemScheduled": "The next run is scheduled. No action is needed.",
+      "systemAttention": "The latest run did not complete. Review Run history for details.",
+      "systemDisabled": "This system task is currently disabled."
+    },
+    "systemStatus": {
+      "healthy": "Running normally",
+      "running": "Running",
+      "scheduled": "Scheduled",
+      "attention": "Needs attention",
+      "disabled": "Disabled"
+    },
+    "systemOverview": {
+      "title": "Automatic run",
+      "automatic": "Automatic maintenance",
+      "trigger": "Run method",
+      "lastFinished": "Last completed"
+    },
+    "systemActivity": {
+      "running": "Running now",
+      "lastRun": "Latest run: {{status}}"
+    },
+    "primaryAction": {
+      "handle": "Take action",
+      "inspectProgress": "Enter workspace",
+      "viewResult": "View result",
+      "enter": "Enter workspace",
+      "resume": "Resume Work",
+      "reopen": "Reopen Work",
+      "openAndHandle": "Open and resolve"
+    },
+    "appendInstruction": {
+      "label": "Add instruction",
+      "placeholder": "Tell this Work what to do next...",
+      "send": "Send instruction",
+      "cancel": "Cancel"
+    },
+    "more": {
+      "label": "More actions",
+      "collapse": "Hide actions",
+      "changeType": "Change type",
+      "reopen": "Reopen Work"
+    },
+    "context": {
+      "title": "Work context"
+    },
+    "outputs": {
+      "artifacts": "Outputs",
+      "destinations": "Places to continue",
+      "primary": "Primary"
+    },
+    "runtimeEvents": "Run events",
+    "technical": {
+      "show": "Show technical details",
+      "hide": "Hide technical details",
+      "workId": "Work ID",
+      "runtimeInstanceId": "Runtime instance ID"
+    },
+    "empty": {
+      "outputs": "No outputs or links yet",
+      "activity": "No recent activity",
+      "runtime": "No run history yet"
+    },
     "command": {
       "open": "Open",
       "advance": "Continue",
@@ -272,6 +353,7 @@
     "runtimeRunMeta": "{{component}} · {{action}}",
     "runtimeLogMeta": "{{category}} · {{component}}",
     "runtimeVersion": "v{{version}} · {{lock}}",
+    "runtimeRelease": "Release {{release}} · config {{config}}",
     "runtimeSurface": "{{surface}} · {{component}}",
     "runtimeLogLevel": {
       "debug": "Debug",
@@ -486,6 +568,7 @@
     "paused": "Work paused",
     "resumed": "Work resumed",
     "reopened": "Work reopened",
+    "archived": "Work archived",
     "bulkArchived": "Archived {{count}} work item",
     "bulkReopened": "Reopened {{count}} work item",
     "bulkCancelled": "Cancelled {{count}} work run",

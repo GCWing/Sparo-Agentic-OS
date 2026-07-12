@@ -13,9 +13,8 @@ import {
   EmptyState,
   IconButton,
   ItemCard,
-  Scene,
-  SceneBody,
   SearchToolbar,
+  SegmentedControl,
   StatusDot,
   TabPane,
   Tabs,
@@ -35,8 +34,6 @@ import { openWorkInCenter } from '@/app/agentic-os/work/navigation/openWork';
 import type { ComponentCenterFilter } from '../appsStore';
 import { componentIconFor } from '../iconUtils';
 import { ManageViewToggle, type ManageViewMode } from './ManagementList';
-import { AppCenterModeNav } from './AppCenterModeNav';
-import type { AppCenterMode } from './types';
 import './ComponentCenter.scss';
 
 const COMPONENT_FILTERS: Array<'all' | ComponentKind> = ['all', 'surface', 'agent', 'bridge', 'runtime', 'tool', 'skill'];
@@ -67,8 +64,6 @@ interface ComponentCenterProps {
   workspacePath?: string | null;
   loading: boolean;
   query: string;
-  currentMode: AppCenterMode;
-  onModeChange: (mode: AppCenterMode) => void;
   onSearch: (value: string) => void;
   onRefresh: () => void;
   onFilter: (filter: ComponentCenterFilter) => void;
@@ -86,8 +81,6 @@ export const ComponentCenter: React.FC<ComponentCenterProps> = ({
   workspacePath,
   loading,
   query,
-  currentMode,
-  onModeChange,
   onSearch,
   onRefresh,
   onFilter,
@@ -142,60 +135,43 @@ export const ComponentCenter: React.FC<ComponentCenterProps> = ({
   }, [selectedComponent, t, workspacePath]);
 
   return (
-    <Scene className="apps-scene apps-scene--component-center" data-testid="component-center-scene">
-      <AppCenterModeNav
-        currentMode={currentMode}
-        onChange={onModeChange}
-        t={t}
-        actions={(
-          <div className="apps-scene__header-actions">
-            <IconButton
-              aria-label={t('productSystem.actions.refresh')}
-              tooltip={t('productSystem.actions.refresh')}
-              variant="ghost"
-              size="small"
-              onClick={onRefresh}
-              disabled={loading}
-            >
-              <RefreshCw size={14} aria-hidden />
-            </IconButton>
-            <Button variant="primary" size="small" onClick={onCreateComponent}>
-              <Wrench size={14} aria-hidden />
-              <span>{t('productSystem.actions.createComponent')}</span>
-            </Button>
-          </div>
-        )}
-      />
+    <div className="component-center component-center--embedded" data-testid="component-center-scene">
+      <div className="component-center__toolbar">
+        <SegmentedControl
+          className="component-center__kind-switch"
+          value={activeFilter}
+          size="small"
+          ariaLabel={t('productSystem.components.categoriesLabel')}
+          onChange={(value) => {
+            onFilter(value as ComponentCenterFilter);
+            onClearSelection();
+          }}
+          options={COMPONENT_FILTERS.map((filter) => ({
+            value: filter,
+            label: `${filter === 'all'
+              ? t('productSystem.components.allKinds')
+              : t(`productSystem.componentKinds.${filter}`)} ${countForFilter(allComponents, filter)}`,
+          }))}
+        />
+        <div className="apps-scene__header-actions">
+          <IconButton
+            aria-label={t('productSystem.actions.refresh')}
+            tooltip={t('productSystem.actions.refresh')}
+            variant="ghost"
+            size="small"
+            onClick={onRefresh}
+            disabled={loading}
+          >
+            <RefreshCw size={14} aria-hidden />
+          </IconButton>
+          <Button variant="secondary" size="small" onClick={onCreateComponent}>
+            <Wrench size={14} aria-hidden />
+            <span>{t('productSystem.actions.createComponent')}</span>
+          </Button>
+        </div>
+      </div>
 
-      <SceneBody className="component-center__layout">
-        <aside className="component-center__categories" aria-label={t('productSystem.components.categoriesLabel')}>
-          <h2 className="component-center__categories-title">{t('productSystem.components.categoriesLabel')}</h2>
-          <nav className="component-center__category-nav" role="navigation">
-            {COMPONENT_FILTERS.map((filter) => (
-              <button
-                key={filter}
-                type="button"
-                className={`component-center__category${activeFilter === filter ? ' is-active' : ''}`}
-                aria-current={activeFilter === filter ? 'page' : undefined}
-                onClick={() => {
-                  onFilter(filter);
-                  onClearSelection();
-                }}
-              >
-                <span className="component-center__category-label">
-                  {filter === 'all'
-                    ? t('productSystem.components.allKinds')
-                    : t(`productSystem.componentKinds.${filter}`)}
-                </span>
-                <span className="component-center__category-count">
-                  {countForFilter(allComponents, filter)}
-                </span>
-              </button>
-            ))}
-          </nav>
-        </aside>
-
-        <div className="component-center__content">
+      <div className="component-center__content">
           {selectedComponent ? (
             <div className="component-center__inspector-view">
               <div className="component-center__inspector-toolbar">
@@ -275,9 +251,8 @@ export const ComponentCenter: React.FC<ComponentCenterProps> = ({
               )}
             </>
           )}
-        </div>
-      </SceneBody>
-    </Scene>
+      </div>
+    </div>
   );
 };
 

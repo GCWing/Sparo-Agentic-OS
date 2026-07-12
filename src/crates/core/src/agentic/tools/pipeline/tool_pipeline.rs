@@ -839,7 +839,9 @@ impl ToolPipeline {
             );
         }
 
-        app_builder.or_else(|| task.context.app_builder.clone())
+        // AppBuilder authority is refreshed from the bound Draft on every tool call. Do not fall
+        // back to a stale context after the Draft is published, removed, or rebound.
+        app_builder
     }
 
     /// Actual execution of tool

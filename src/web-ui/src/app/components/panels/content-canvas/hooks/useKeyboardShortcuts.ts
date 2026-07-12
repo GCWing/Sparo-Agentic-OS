@@ -30,7 +30,6 @@ export const useKeyboardShortcuts = (options: UseKeyboardShortcutsOptions = {}) 
     setSplitMode,
     setAnchorPosition,
     toggleMaximize,
-    toggleMissionControl,
   } = useCanvasStore();
 
   const getActiveGroup = useCallback(() => {
@@ -40,14 +39,6 @@ export const useKeyboardShortcuts = (options: UseKeyboardShortcutsOptions = {}) 
   const getVisibleTabs = useCallback(() => {
     return getActiveGroup().tabs.filter((t) => !t.isHidden);
   }, [getActiveGroup]);
-
-  // Mission control
-  useShortcut(
-    'canvas.missionControl',
-    { key: 'Tab', ctrl: true, scope: 'canvas', allowInInput: true },
-    () => toggleMissionControl(),
-    { enabled, priority: 10, description: 'keyboard.shortcuts.canvas.missionControl' }
-  );
 
   // Horizontal split: mod+\
   useShortcut(

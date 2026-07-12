@@ -193,8 +193,11 @@ describe('Daily Letter generation', function () {
     console.log('[DailyLetter] Generated 2026-07-07 preview:', noUserMaterialPreview);
     console.log('[DailyLetter] Generated 2026-07-07 body:', noUserMaterialBody);
 
-    expect(noUserMaterialRecord.status).toBe('insufficient_context');
-    expect(noUserMaterialBody.length).toBeGreaterThan(0);
+    // A letter is written every day now: a no-user-material day must still
+    // produce a full letter (a "gift letter"), never a skip or a hollow
+    // insufficient-context record - and it must not talk about the emptiness.
+    expect(['ready', 'needs_receipt']).toContain(noUserMaterialRecord.status);
+    expect(noUserMaterialBody.length).toBeGreaterThan(40);
     for (const pattern of NO_USER_MATERIAL_LETTER_REGRESSIONS) {
       expect(noUserMaterialBody).not.toMatch(pattern);
       expect(noUserMaterialPreview).not.toMatch(pattern);
@@ -208,7 +211,7 @@ describe('Daily Letter generation', function () {
     console.log('[DailyLetter] Generated 2026-07-05 body:', orientationBody);
 
     expect(orientationRecord.date).toBe('2026-07-05');
-    expect(orientationRecord.status).not.toBe('insufficient_context');
+    expect(['ready', 'needs_receipt']).toContain(orientationRecord.status);
     expect(orientationBody.length).toBeGreaterThan(40);
     expect(orientationBody).toMatch(/Runno|BitFun Coder|智能体|agent|能力|边界|角色/);
     for (const pattern of ORIENTATION_DAY_AUDIT_REGRESSIONS) {

@@ -1,32 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Remotion Live Preview Context",
-  "type": "object",
-  "additionalProperties": true,
-  "properties": {
-    "workspacePath": { "type": "string" },
-    "compositionId": { "type": "string" },
-    "frame": { "type": "integer", "minimum": 0 },
-    "fps": { "type": "number" },
-    "durationInFrames": { "type": "integer" },
-    "selectedElement": {
-      "type": "object",
-      "additionalProperties": true,
-      "properties": {
-        "id": { "type": "string" },
-        "type": { "type": "string" },
-        "label": { "type": "string" },
-        "bbox": {
-          "type": "object",
-          "properties": {
-            "x": { "type": "number" },
-            "y": { "type": "number" },
-            "width": { "type": "number" },
-            "height": { "type": "number" }
-          }
-        },
-        "sourceHint": { "type": "string" }
-      }
-    }
-  }
+  "allOf": [
+    { "$ref": "./selected-video-context.schema.json" }
+  ]
 }

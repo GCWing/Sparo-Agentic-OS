@@ -17,7 +17,9 @@
         "open",
         "refreshPreview",
         "selectFrame",
-        "startExport"
+        "startExport",
+        "getExportStatus",
+        "cancelExport"
       ]
     }
   ],
@@ -36,6 +38,14 @@
       "scopes": [
         "http://127.0.0.1:*",
         "http://localhost:*"
+      ]
+    },
+    {
+      "kind": "iframe",
+      "summary": "Allows the embedded Remotion Player to start playback and enter fullscreen.",
+      "scopes": [
+        "autoplay",
+        "fullscreen"
       ]
     }
   ],

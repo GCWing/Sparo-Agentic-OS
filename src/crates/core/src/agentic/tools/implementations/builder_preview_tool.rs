@@ -1,4 +1,4 @@
-﻿//! RunBuilderPreview tool - structured App Builder Preview Harness entrypoint.
+//! RunBuilderPreview tool - structured App Builder Preview Harness entrypoint.
 
 use crate::agent_component::{AgentComponentLevel, AgentComponentManager};
 use crate::agentic::agents::get_agent_registry;
@@ -8,8 +8,7 @@ use crate::agentic::tools::implementations::skills::get_skill_registry;
 use crate::agentic::tools::implementations::work_tool_support::work_service_from_tool_context;
 use crate::agentic::tools::pipeline::SubagentParentInfo;
 use crate::agentic_os::work::{
-    WorkBuilderFactCheck, WorkBuilderFactStatus, WorkBuilderPreviewKind, WorkBuilderPreviewSource,
-    WorkId, WorkRecord,
+    WorkBuilderFactStatus, WorkBuilderPreviewKind, WorkBuilderPreviewSource, WorkId,
 };
 use crate::app_platform::{
     AppSurfaceMode, ComponentDefinition, ComponentKind, ComponentSource, ProductAppEvalCase,
@@ -47,7 +46,7 @@ impl Tool for RunBuilderPreviewTool {
     }
 
     async fn description(&self) -> CoreResult<String> {
-        Ok(r#"Run the App Builder Preview Harness for the current bound Product App or Component subject and return a structured PreviewResult fact. This is the platform preview gate for product-app-preview, agent-chat, sidecar, full-app, embedded, capability, agent-eval, runtime-boundary, runtime-dependencies, permission-review, user-path-rehearsal, and release-rehearsal modes.
+        Ok(r#"Run the App Builder Preview Harness for the Product App package in the current bound Builder Draft and return a structured PreviewResult fact. This is the platform preview gate for product-app-preview, agent-chat, sidecar, full-app, embedded, capability, agent-eval, runtime-boundary, runtime-dependencies, permission-review, user-path-rehearsal, and release-rehearsal modes.
 
 Input may be empty in a bound AppBuilder session. Optional mode can force one harness: auto, product-app-preview, agent-chat, sidecar-ui, full-ui, embedded-object, capability, agent-eval, runtime-boundary, runtime-dependencies, permission-review, user-path-rehearsal, or release-rehearsal. The tool never edits files. Release rehearsal summarizes readiness gaps and never substitutes for independent runtime, user-path, permission-review, dependency-health, or Agent Eval evidence. When a concrete runner or evidence source is not available, it returns notVerified checks instead of pretending the preview passed."#
             .to_string())
@@ -279,7 +278,7 @@ Input may be empty in a bound AppBuilder session. Optional mode can force one ha
                 }
             }
             "release-rehearsal" => {
-                checks.extend(release_rehearsal_preview_checks(app_builder, context).await);
+                checks.extend(release_rehearsal_preview_checks(app_builder).await);
             }
             _ => {
                 checks.push(check(
@@ -296,9 +295,8 @@ Input may be empty in a bound AppBuilder session. Optional mode can force one ha
         let result_text = format!(
             "Builder preview harness {status} for {target} using mode {mode}. failed={failed}, warnings={warnings}."
         );
-        let (app_id, component_id, component_kind, version) = subject_identity(app_builder);
+        let (app_id, version) = draft_app_identity(app_builder).await;
         let preview_result_id = preview_result_id(&mode, &target);
-        let package_root = app_builder.package_root.to_string_lossy().to_string();
         let work_id = app_builder.work_id.clone();
 
         Ok(vec![ToolResult::Result {
@@ -313,13 +311,7 @@ Input may be empty in a bound AppBuilder session. Optional mode can force one ha
                 "target": target,
                 "app_id": app_id.clone(),
                 "appId": app_id,
-                "component_id": component_id.clone(),
-                "componentId": component_id,
-                "component_kind": component_kind.clone(),
-                "componentKind": component_kind,
                 "version": version,
-                "package_root": package_root.clone(),
-                "packageRoot": package_root,
                 "work_id": work_id.clone(),
                 "workId": work_id,
                 "runtime_instance_id": runtime_instance_id.clone(),
@@ -344,14 +336,6 @@ async fn agent_chat_preview_checks(
     input: &Value,
     execute: bool,
 ) -> Vec<Value> {
-    let AppBuilderSubject::ProductApp { .. } = &app_builder.subject else {
-        return vec![check(
-            "agentChat",
-            "failed",
-            "Agent Chat Preview requires a bound Product App subject.".to_string(),
-        )];
-    };
-
     let package =
         match ProductAppResolver::read_product_app_package(&app_builder.package_root).await {
             Ok(package) => package,
@@ -638,30 +622,63 @@ async fn capability_preview_checks(
     fixture_provided: bool,
     execute: bool,
 ) -> Vec<Value> {
-    let AppBuilderSubject::Component { .. } = &app_builder.subject else {
-        return vec![check(
-            "capabilityTarget",
-            "failed",
-            "Capability Preview requires a bound Component subject.".to_string(),
-        )];
-    };
+    let package =
+        match ProductAppResolver::read_product_app_package(&app_builder.package_root).await {
+            Ok(package) => package,
+            Err(error) => {
+                return vec![check(
+                    "package",
+                    "failed",
+                    format!(
+                        "Failed to read Product App package from Builder Draft at {}: {error}",
+                        app_builder.package_root.display()
+                    ),
+                )];
+            }
+        };
 
-    let package = match ProductAppResolver::read_component_package(&app_builder.package_root).await
-    {
-        Ok(package) => package,
-        Err(error) => {
-            return vec![check(
+    let requested_component_id =
+        fixture_string(input, "componentId").or_else(|| fixture_string(input, "component_id"));
+    let selected_component = if let Some(component_id) = requested_component_id.as_deref() {
+        package
+            .private_components
+            .iter()
+            .find(|component| component.id == component_id)
+    } else {
+        package
+            .private_components
+            .iter()
+            .find(|component| {
+                component
+                    .capabilities
+                    .iter()
+                    .any(|capability| !capability.actions.is_empty())
+            })
+            .or_else(|| package.private_components.first())
+    };
+    let Some(component) = selected_component.cloned() else {
+        return vec![
+            check(
                 "package",
-                "failed",
+                "passed",
                 format!(
-                    "Failed to read bound Component package at {}: {error}",
-                    app_builder.package_root.display()
+                    "Read Product App package {}@{} from the Builder Draft.",
+                    package.app.id, package.app.version
                 ),
-            )];
-        }
+            ),
+            check(
+                "capabilityTarget",
+                "notVerified",
+                if let Some(component_id) = requested_component_id {
+                    format!(
+                        "App-private Component {component_id} does not exist in the current Builder Draft."
+                    )
+                } else {
+                    "The current Builder Draft has no app-private Component to preview.".to_string()
+                },
+            ),
+        ];
     };
-
-    let component = package.component;
     let version = component
         .version
         .clone()
@@ -700,7 +717,13 @@ async fn capability_preview_checks(
             )
         })
         .collect::<Vec<_>>();
-    let contract_path = app_builder.package_root.join("tests").join("contract.md");
+    let contract_path = app_builder
+        .package_root
+        .join("components")
+        .join(component.kind.path_segment())
+        .join(&component.id)
+        .join("tests")
+        .join("contract.md");
     let contract_text = fs::read_to_string(&contract_path).await.unwrap_or_default();
     let implementation_ref = component.implementation_ref.clone();
     let has_runnable_action = action_count > 0;
@@ -1007,7 +1030,9 @@ async fn capability_preview_checks(
             "package",
             "passed",
             format!(
-                "Read Component package {}/{}@{}.",
+                "Read Product App package {}@{} and selected app-private Component {}/{}@{}.",
+                package.app.id,
+                package.app.version,
                 component.kind.path_segment(),
                 component.id,
                 version
@@ -1390,26 +1415,7 @@ async fn agent_eval_preview_checks(
     input: &Value,
     execute: bool,
 ) -> Vec<Value> {
-    match &app_builder.subject {
-        AppBuilderSubject::ProductApp { .. } => {
-            agent_eval_product_app_checks(app_builder, context, input, execute).await
-        }
-        AppBuilderSubject::Component { .. } => {
-            agent_eval_component_checks(app_builder, context, input, execute).await
-        }
-        AppBuilderSubject::BuilderDraft { .. } => vec![
-            check(
-                "agentEval",
-                "notVerified",
-                "Builder draft does not have a Product App or Component package with representative agent behavior to evaluate.".to_string(),
-            ),
-            check(
-                "evalLogs",
-                "notVerified",
-                "Create or bind a package before running Agent Eval.".to_string(),
-            ),
-        ],
-    }
+    agent_eval_product_app_checks(app_builder, context, input, execute).await
 }
 
 async fn agent_eval_product_app_checks(
@@ -2254,84 +2260,6 @@ fn json_contains(actual: &Value, expected: &Value) -> bool {
     }
 }
 
-async fn agent_eval_component_checks(
-    app_builder: &AppBuilderExecutionContext,
-    context: &ToolUseContext,
-    input: &Value,
-    execute: bool,
-) -> Vec<Value> {
-    let package = match ProductAppResolver::read_component_package(&app_builder.package_root).await
-    {
-        Ok(package) => package,
-        Err(error) => {
-            return vec![
-                check(
-                    "agentEval",
-                    "failed",
-                    format!(
-                        "Failed to read bound Component package at {} before Agent Eval: {error}",
-                        app_builder.package_root.display()
-                    ),
-                ),
-                check(
-                    "evalLogs",
-                    "failed",
-                    "No Agent Eval logs were produced because the Component package could not be read."
-                        .to_string(),
-                ),
-                check(
-                    "evalTrace",
-                    "failed",
-                    "Component package read failed before Agent Eval trace selection.".to_string(),
-                ),
-            ];
-        }
-    };
-
-    let component = package.component;
-    let action_count = component
-        .capabilities
-        .iter()
-        .map(|capability| capability.actions.len())
-        .sum::<usize>();
-    let requires_eval = component.kind == ComponentKind::Agent || action_count > 0;
-    let implementation_ref = fixture_implementation_ref(input).or(component.implementation_ref);
-    let selected_action = fixture_string(input, "action").or_else(|| {
-        component
-            .capabilities
-            .first()
-            .and_then(|capability| capability.actions.first().cloned())
-    });
-    let version = component
-        .version
-        .clone()
-        .unwrap_or_else(|| "0.0.0".to_string());
-
-    agent_eval_checks_for_ref(
-        requires_eval,
-        implementation_ref.as_deref(),
-        selected_action.as_deref(),
-        input,
-        context,
-        execute,
-        format!(
-            "Component package {}/{}@{} has no Agent behavior or runnable action requiring Agent Eval.",
-            component.kind.path_segment(),
-            component.id,
-            version
-        ),
-        format!(
-            "Component package {}/{}@{} declares kind={} and {} runnable action(s); representative eval/action evidence is required.",
-            component.kind.path_segment(),
-            component.id,
-            version,
-            component.kind.path_segment(),
-            action_count
-        ),
-    )
-    .await
-}
-
 async fn agent_eval_checks_for_ref(
     requires_eval: bool,
     implementation_ref: Option<&str>,
@@ -3046,26 +2974,7 @@ fn truncate_detail(value: &str, max_chars: usize) -> String {
 }
 
 async fn runtime_boundary_preview_checks(app_builder: &AppBuilderExecutionContext) -> Vec<Value> {
-    match &app_builder.subject {
-        AppBuilderSubject::ProductApp { .. } => {
-            runtime_boundary_product_app_checks(app_builder).await
-        }
-        AppBuilderSubject::Component { .. } => runtime_boundary_component_checks(app_builder).await,
-        AppBuilderSubject::BuilderDraft { .. } => vec![
-            check(
-                "runtimeStorage",
-                "notVerified",
-                "Builder draft does not have an installed Product App runtime storage boundary to probe."
-                    .to_string(),
-            ),
-            check(
-                "dataSummary",
-                "notVerified",
-                "Create or bind a Product App package before recording runtime boundary evidence."
-                    .to_string(),
-            ),
-        ],
-    }
+    runtime_boundary_product_app_checks(app_builder).await
 }
 
 async fn runtime_boundary_product_app_checks(
@@ -3174,85 +3083,8 @@ async fn runtime_boundary_product_app_checks(
     ]
 }
 
-async fn runtime_boundary_component_checks(app_builder: &AppBuilderExecutionContext) -> Vec<Value> {
-    let package = match ProductAppResolver::read_component_package(&app_builder.package_root).await
-    {
-        Ok(package) => package,
-        Err(error) => {
-            return vec![check(
-                "package",
-                "failed",
-                format!(
-                    "Failed to read bound Component package at {}: {error}",
-                    app_builder.package_root.display()
-                ),
-            )];
-        }
-    };
-    let component = package.component;
-    let permission_names = component
-        .permissions
-        .iter()
-        .map(|permission| permission.kind.clone())
-        .collect::<Vec<_>>();
-
-    vec![
-        check(
-            "package",
-            "passed",
-            format!(
-                "Read Component package {}/{}@{}.",
-                component.kind.path_segment(),
-                component.id,
-                component.version.unwrap_or_else(|| "0.0.0".to_string())
-            ),
-        ),
-        check(
-            "permissions",
-            if permission_names.is_empty() {
-                "passed"
-            } else {
-                "warning"
-            },
-            if permission_names.is_empty() {
-                "No Component package permissions are declared.".to_string()
-            } else {
-                format!(
-                    "Declared Component permissions: {}.",
-                    permission_names.join(", ")
-                )
-            },
-        ),
-        check(
-            "data",
-            "notVerified",
-            "Component data boundary depends on the consuming Product App runtime context."
-                .to_string(),
-        ),
-        check(
-            "dataSummary",
-            "notVerified",
-            "Component runtime data summary must be recorded through a consuming Product App host."
-                .to_string(),
-        ),
-    ]
-}
-
 async fn runtime_dependency_preview_checks(app_builder: &AppBuilderExecutionContext) -> Vec<Value> {
-    match &app_builder.subject {
-        AppBuilderSubject::ProductApp { .. } => {
-            runtime_dependency_product_app_checks(app_builder).await
-        }
-        AppBuilderSubject::Component { .. } => {
-            runtime_dependency_component_checks(app_builder).await
-        }
-        AppBuilderSubject::BuilderDraft { .. } => vec![check(
-            "runtimeDependencies",
-            "notVerified",
-            "Builder draft does not have an installed package dependency graph to probe."
-                .to_string(),
-        )],
-    }
+    runtime_dependency_product_app_checks(app_builder).await
 }
 
 async fn runtime_dependency_product_app_checks(
@@ -3329,72 +3161,8 @@ async fn runtime_dependency_product_app_checks(
     ]
 }
 
-async fn runtime_dependency_component_checks(
-    app_builder: &AppBuilderExecutionContext,
-) -> Vec<Value> {
-    let package = match ProductAppResolver::read_component_package(&app_builder.package_root).await
-    {
-        Ok(package) => package,
-        Err(error) => {
-            return vec![check(
-                "runtimeDependencies",
-                "failed",
-                format!(
-                    "Failed to read bound Component package at {}: {error}",
-                    app_builder.package_root.display()
-                ),
-            )];
-        }
-    };
-    let component = package.component;
-    let invalid_dependencies = component
-        .dependencies
-        .iter()
-        .filter(|dependency| dependency.source != ComponentSource::Shared)
-        .map(|dependency| {
-            format!(
-                "{}:{}",
-                dependency.kind.path_segment(),
-                dependency.component_id
-            )
-        })
-        .collect::<Vec<_>>();
-
-    vec![check(
-        "runtimeDependencies",
-        if invalid_dependencies.is_empty() {
-            "notVerified"
-        } else {
-            "failed"
-        },
-        if invalid_dependencies.is_empty() {
-            format!(
-                "{} shared Component dependency reference(s) are declared; runtime dependency health still requires consuming Product App runtime evidence.",
-                component.dependencies.len()
-            )
-        } else {
-            format!(
-                "Component package depends on app-private components: {}.",
-                invalid_dependencies.join(", ")
-            )
-        },
-    )]
-}
-
 async fn permission_review_preview_checks(app_builder: &AppBuilderExecutionContext) -> Vec<Value> {
-    match &app_builder.subject {
-        AppBuilderSubject::ProductApp { .. } => {
-            permission_review_product_app_checks(app_builder).await
-        }
-        AppBuilderSubject::Component { .. } => {
-            permission_review_component_checks(app_builder).await
-        }
-        AppBuilderSubject::BuilderDraft { .. } => vec![check(
-            "permissionReview",
-            "notVerified",
-            "Builder draft does not have a package permission manifest to review.".to_string(),
-        )],
-    }
+    permission_review_product_app_checks(app_builder).await
 }
 
 async fn permission_review_product_app_checks(
@@ -3447,94 +3215,10 @@ async fn permission_review_product_app_checks(
     ]
 }
 
-async fn permission_review_component_checks(
-    app_builder: &AppBuilderExecutionContext,
-) -> Vec<Value> {
-    let package = match ProductAppResolver::read_component_package(&app_builder.package_root).await
-    {
-        Ok(package) => package,
-        Err(error) => {
-            return vec![check(
-                "permissionReview",
-                "failed",
-                format!(
-                    "Failed to read bound Component package at {}: {error}",
-                    app_builder.package_root.display()
-                ),
-            )];
-        }
-    };
-    let permission_names = package
-        .component
-        .permissions
-        .iter()
-        .map(|permission| permission.kind.clone())
-        .collect::<Vec<_>>();
-
-    vec![
-        check(
-            "permissions",
-            if permission_names.is_empty() {
-                "passed"
-            } else {
-                "warning"
-            },
-            if permission_names.is_empty() {
-                "No Component package permissions are declared.".to_string()
-            } else {
-                format!(
-                    "Declared Component permissions: {}.",
-                    permission_names.join(", ")
-                )
-            },
-        ),
-        check(
-            "permissionReview",
-            "notVerified",
-            if permission_names.is_empty() {
-                "No Component permissions are declared, but explicit consumer permission review evidence has not been recorded.".to_string()
-            } else {
-                "Component permissions require explicit review evidence through a consuming Product App."
-                    .to_string()
-            },
-        ),
-    ]
-}
-
 async fn user_path_rehearsal_preview_checks(
     app_builder: &AppBuilderExecutionContext,
 ) -> Vec<Value> {
-    match &app_builder.subject {
-        AppBuilderSubject::ProductApp { .. } => user_path_product_app_checks(app_builder).await,
-        AppBuilderSubject::Component { .. } => vec![
-            check(
-                "criticalPath",
-                "notVerified",
-                "Component subject does not define a Product App new-user critical path."
-                    .to_string(),
-            ),
-            check(
-                "userPath",
-                "notVerified",
-                "Run capability or Agent Eval harnesses for Component subjects; user-path rehearsal is Product App host evidence."
-                    .to_string(),
-            ),
-        ],
-        AppBuilderSubject::BuilderDraft { .. } => vec![
-            check(
-                "criticalPath",
-                "notVerified",
-                "Builder draft does not have an installed Product App critical path to rehearse."
-                    .to_string(),
-            ),
-            check(
-                "userPath",
-                "notVerified",
-                "Create or bind a Product App package before recording user-path rehearsal evidence."
-                    .to_string(),
-            ),
-        ],
-    }
+    user_path_product_app_checks(app_builder).await
 }
 
 async fn user_path_product_app_checks(app_builder: &AppBuilderExecutionContext) -> Vec<Value> {
@@ -3591,31 +3275,8 @@ async fn user_path_product_app_checks(app_builder: &AppBuilderExecutionContext) 
     ]
 }
 
-async fn release_rehearsal_preview_checks(
-    app_builder: &AppBuilderExecutionContext,
-    context: &ToolUseContext,
-) -> Vec<Value> {
-    match &app_builder.subject {
-        AppBuilderSubject::ProductApp { .. } => {
-            release_rehearsal_product_app_checks(app_builder).await
-        }
-        AppBuilderSubject::Component { .. } => {
-            release_rehearsal_component_checks(app_builder, context).await
-        }
-        AppBuilderSubject::BuilderDraft { .. } => vec![
-            check(
-                "criticalPath",
-                "notVerified",
-                "Builder draft does not have an installed Product App or Component package to rehearse."
-                    .to_string(),
-            ),
-            check(
-                "releaseGate",
-                "notVerified",
-                "Create or bind a package before running release rehearsal.".to_string(),
-            ),
-        ],
-    }
+async fn release_rehearsal_preview_checks(app_builder: &AppBuilderExecutionContext) -> Vec<Value> {
+    release_rehearsal_product_app_checks(app_builder).await
 }
 
 async fn release_rehearsal_product_app_checks(
@@ -3843,403 +3504,6 @@ async fn release_rehearsal_product_app_checks(
     ]
 }
 
-async fn release_rehearsal_component_checks(
-    app_builder: &AppBuilderExecutionContext,
-    context: &ToolUseContext,
-) -> Vec<Value> {
-    let package = match ProductAppResolver::read_component_package(&app_builder.package_root).await
-    {
-        Ok(package) => package,
-        Err(error) => {
-            return vec![
-                check(
-                    "package",
-                    "failed",
-                    format!(
-                        "Failed to read bound Component package at {}: {error}",
-                        app_builder.package_root.display()
-                    ),
-                ),
-                check(
-                    "releaseGate",
-                    "blocked",
-                    "Release rehearsal cannot continue without a readable Component package."
-                        .to_string(),
-                ),
-            ];
-        }
-    };
-
-    let component = package.component;
-    let contract_path = app_builder.package_root.join("tests").join("contract.md");
-    let contract_text = fs::read_to_string(&contract_path).await.unwrap_or_default();
-    let permission_names = component
-        .permissions
-        .iter()
-        .map(|permission| permission.kind.clone())
-        .collect::<Vec<_>>();
-    let capability_action_count = component
-        .capabilities
-        .iter()
-        .map(|capability| capability.actions.len())
-        .sum::<usize>();
-    let invalid_dependencies = component
-        .dependencies
-        .iter()
-        .filter(|dependency| dependency.source != ComponentSource::Shared)
-        .map(|dependency| {
-            format!(
-                "{}:{}",
-                dependency.kind.path_segment(),
-                dependency.component_id
-            )
-        })
-        .collect::<Vec<_>>();
-
-    let mut checks = vec![
-        check(
-            "package",
-            "passed",
-            format!(
-                "Read Component package {}/{}@{}.",
-                component.kind.path_segment(),
-                component.id,
-                component.version.unwrap_or_else(|| "0.0.0".to_string())
-            ),
-        ),
-        check(
-            "componentContract",
-            if contract_text.trim().is_empty() {
-                "failed"
-            } else {
-                "passed"
-            },
-            if contract_text.trim().is_empty() {
-                format!("Contract file is missing or empty: {}", contract_path.display())
-            } else {
-                format!("Contract file is present: {}", contract_path.display())
-            },
-        ),
-        check(
-            "capabilities",
-            if component.capabilities.is_empty() {
-                "warning"
-            } else {
-                "passed"
-            },
-            if component.capabilities.is_empty() {
-                "No capabilities are declared in component.json.".to_string()
-            } else {
-                format!("{} capabilities declared.", component.capabilities.len())
-            },
-        ),
-        check(
-            "dependencies",
-            if invalid_dependencies.is_empty() {
-                "passed"
-            } else {
-                "failed"
-            },
-            if invalid_dependencies.is_empty() {
-                format!(
-                    "{} shared dependencies are declared.",
-                    component.dependencies.len()
-                )
-            } else {
-                format!(
-                    "Component package depends on app-private components: {}.",
-                    invalid_dependencies.join(", ")
-                )
-            },
-        ),
-        check(
-            "implementation",
-            if component.implementation_ref.is_some() {
-                "passed"
-            } else {
-                "blocked"
-            },
-            component.implementation_ref.clone().unwrap_or_else(|| {
-                "No implementationRef is declared for this Component package.".to_string()
-            }),
-        ),
-        check(
-            "consumerCompatibility",
-            "notVerified",
-            if component.used_by_apps.is_empty() {
-                "No Product App consumer lock has validated this component yet.".to_string()
-            } else {
-                format!(
-                    "Component manifest lists Product App consumer(s): {}; consumer compatibility still requires a consuming Product App runtime evidence run.",
-                    component.used_by_apps.join(", ")
-                )
-            },
-        ),
-        check(
-            "permissions",
-            if permission_names.is_empty() {
-                "passed"
-            } else {
-                "warning"
-            },
-            if permission_names.is_empty() {
-                "No Component package permissions are declared.".to_string()
-            } else {
-                format!("Declared Component permissions: {}.", permission_names.join(", "))
-            },
-        ),
-        check(
-            "permissionReview",
-            "notVerified",
-            if permission_names.is_empty() {
-                "No Component package permissions are declared, but explicit consumer permission review evidence has not been recorded.".to_string()
-            } else {
-                "Declared Component permissions require explicit review through a consuming Product App before release."
-                    .to_string()
-            },
-        ),
-        check(
-            "data",
-            "notVerified",
-            "Component package permissions and consumer contracts declare intent only; data boundary readiness requires consuming Product App runtime evidence."
-                .to_string(),
-        ),
-        check(
-            "dataLifecycle",
-            "notVerified",
-            "Component data lifecycle readiness requires consuming Product App runtime write/read/delete and share-impact evidence."
-                .to_string(),
-        ),
-        check(
-            "dataSummary",
-            "notVerified",
-            "Component package data summary requires a consumer Product App runtime and share boundary evidence."
-                .to_string(),
-        ),
-        check(
-            "runtimeStorage",
-            "notVerified",
-            "Component runtime storage readiness requires a consuming Product App runtime storage scope probe."
-                .to_string(),
-        ),
-        check(
-            "runtimeDependencies",
-            "notVerified",
-            "Component runtime dependency health requires a consumer Product App runtime evidence run."
-                .to_string(),
-        ),
-        check(
-            "agentEval",
-            "notVerified",
-            if component.kind == ComponentKind::Agent || capability_action_count > 0 {
-                format!(
-                    "{} declared capability action(s) require representative eval or action evidence.",
-                    capability_action_count
-                )
-            } else {
-                "Release rehearsal found no executable capability action that requires eval, but Agent Eval readiness must be recorded by the independent agent-eval harness.".to_string()
-            },
-        ),
-        check(
-            "releaseGate",
-            "notVerified",
-            "Component release still requires consumer compatibility, preview/runtime, permission/data, and eval evidence."
-                .to_string(),
-        ),
-    ];
-    overlay_component_work_graph_release_evidence(&mut checks, app_builder, context).await;
-    checks
-}
-
-async fn overlay_component_work_graph_release_evidence(
-    checks: &mut Vec<Value>,
-    app_builder: &AppBuilderExecutionContext,
-    context: &ToolUseContext,
-) {
-    let AppBuilderSubject::Component { component_id, .. } = &app_builder.subject else {
-        return;
-    };
-    let Some(record) = load_bound_work_record(app_builder, context).await else {
-        return;
-    };
-
-    for id in [
-        "componentContract",
-        "capabilities",
-        "dependencies",
-        "implementation",
-        "consumerCompatibility",
-        "permissions",
-        "permissionReview",
-        "data",
-        "dataLifecycle",
-        "dataSummary",
-        "runtimeStorage",
-        "runtimeDependencies",
-        "agentEval",
-    ] {
-        if let Some(check) = latest_component_release_evidence_check(&record, id, component_id) {
-            replace_check(checks, work_builder_fact_check_to_json(&check));
-        }
-    }
-}
-
-async fn load_bound_work_record(
-    app_builder: &AppBuilderExecutionContext,
-    context: &ToolUseContext,
-) -> Option<WorkRecord> {
-    let work_id = WorkId::parse(app_builder.work_id.as_deref()?.to_string()).ok()?;
-    let service = work_service_from_tool_context(context).ok()?;
-    service.get(&work_id).await.ok()
-}
-
-fn latest_component_release_evidence_check(
-    record: &WorkRecord,
-    id: &str,
-    component_id: &str,
-) -> Option<WorkBuilderFactCheck> {
-    let preview_check = latest_component_preview_evidence_check(record, id, component_id);
-    let validation_check = latest_component_validation_evidence_check(record, id, component_id);
-
-    if component_runtime_evidence_check(id) {
-        return preview_check.or_else(|| {
-            validation_check
-                .filter(|check| validation_runtime_check_is_strong_evidence(check.status))
-        });
-    }
-
-    validation_check.or(preview_check)
-}
-
-fn latest_component_preview_evidence_check(
-    record: &WorkRecord,
-    id: &str,
-    component_id: &str,
-) -> Option<WorkBuilderFactCheck> {
-    record
-        .builder_preview_results
-        .iter()
-        .filter(|preview| preview.kind != WorkBuilderPreviewKind::ReleaseRehearsal)
-        .filter(|preview| component_preview_source_is_strong_evidence(id, preview.source))
-        .filter(|preview| preview_relevant_to_component(preview, component_id))
-        .filter_map(|preview| {
-            preview
-                .checks
-                .iter()
-                .find(|check| check.id == id)
-                .map(|check| (preview.observed_at, check.clone()))
-        })
-        .max_by_key(|(observed_at, _)| *observed_at)
-        .map(|(_, check)| check)
-}
-
-fn latest_component_validation_evidence_check(
-    record: &WorkRecord,
-    id: &str,
-    component_id: &str,
-) -> Option<WorkBuilderFactCheck> {
-    record
-        .builder_validation_results
-        .iter()
-        .filter(|validation| {
-            validation
-                .component_id
-                .as_deref()
-                .map_or(true, |validation_component_id| {
-                    validation_component_id == component_id
-                })
-        })
-        .filter_map(|validation| {
-            validation
-                .checks
-                .iter()
-                .find(|check| check.id == id)
-                .map(|check| (validation.observed_at, check.clone()))
-        })
-        .max_by_key(|(observed_at, _)| *observed_at)
-        .map(|(_, check)| check)
-}
-
-fn component_runtime_evidence_check(id: &str) -> bool {
-    matches!(
-        id,
-        "consumerCompatibility"
-            | "permissionReview"
-            | "data"
-            | "dataLifecycle"
-            | "dataSummary"
-            | "runtimeStorage"
-            | "runtimeDependencies"
-            | "agentEval"
-    )
-}
-
-fn component_preview_source_is_strong_evidence(id: &str, source: WorkBuilderPreviewSource) -> bool {
-    if !component_runtime_evidence_check(id) {
-        return true;
-    }
-
-    if id == "agentEval" {
-        return matches!(
-            source,
-            WorkBuilderPreviewSource::PreviewHarness
-                | WorkBuilderPreviewSource::RuntimeObservation
-                | WorkBuilderPreviewSource::FixRerun
-        );
-    }
-
-    source == WorkBuilderPreviewSource::RuntimeObservation
-}
-
-fn validation_runtime_check_is_strong_evidence(status: WorkBuilderFactStatus) -> bool {
-    matches!(
-        status,
-        WorkBuilderFactStatus::Failed | WorkBuilderFactStatus::Blocked
-    )
-}
-
-fn preview_relevant_to_component(
-    preview: &crate::agentic_os::work::WorkBuilderPreviewResult,
-    component_id: &str,
-) -> bool {
-    if preview.component_id.as_deref() == Some(component_id) {
-        return true;
-    }
-    if preview.component_id.is_some() {
-        return false;
-    }
-
-    let has_component_identity =
-        preview.product_app_surface_id.is_some() || preview.surface_id.is_some();
-    let component_identity_matches = preview.product_app_surface_id.as_deref()
-        == Some(component_id)
-        || preview.surface_id.as_deref() == Some(component_id);
-
-    !has_component_identity || component_identity_matches
-}
-
-fn work_builder_fact_check_to_json(check: &WorkBuilderFactCheck) -> Value {
-    json!({
-        "id": check.id.clone(),
-        "status": preview_status_string(check.status),
-        "detail": check.detail.clone(),
-    })
-}
-
-fn replace_check(checks: &mut Vec<Value>, replacement: Value) {
-    let Some(id) = replacement.get("id").and_then(Value::as_str) else {
-        return;
-    };
-    if let Some(existing) = checks
-        .iter_mut()
-        .find(|check| check.get("id").and_then(Value::as_str) == Some(id))
-    {
-        *existing = replacement;
-    } else {
-        checks.push(replacement);
-    }
-}
-
 fn app_permission_names(
     permissions: &crate::app_platform::AppPermissionSummary,
 ) -> Vec<&'static str> {
@@ -4265,42 +3529,30 @@ async fn resolve_harness_mode(
         return normalize_requested_mode(requested_mode).to_string();
     }
 
-    match &app_builder.subject {
-        AppBuilderSubject::ProductApp { .. } => {
-            match ProductAppResolver::read_product_app_package(&app_builder.package_root).await {
-                Ok(package) => {
-                    if package
-                        .app
-                        .launch
-                        .as_ref()
-                        .is_some_and(|launch| launch.kind == ProductAppLaunchKind::AgentSession)
-                    {
-                        "agent-chat".to_string()
-                    } else {
-                        match package
-                            .app
-                            .primary_surface_mode
-                            .unwrap_or(AppSurfaceMode::ImmersivePrimary)
-                        {
-                            AppSurfaceMode::ChatPrimary => "agent-chat",
-                            AppSurfaceMode::SidecarLinked => "sidecar",
-                            AppSurfaceMode::ImmersivePrimary => "full-app",
-                            AppSurfaceMode::EmbeddedObject => "embedded",
-                        }
-                        .to_string()
-                    }
-                }
-                Err(_) => "product-app-preview".to_string(),
-            }
-        }
-        AppBuilderSubject::Component { component_kind, .. } => {
-            if component_kind == "agent" {
+    match ProductAppResolver::read_product_app_package(&app_builder.package_root).await {
+        Ok(package) => {
+            if package
+                .app
+                .launch
+                .as_ref()
+                .is_some_and(|launch| launch.kind == ProductAppLaunchKind::AgentSession)
+            {
                 "agent-chat".to_string()
             } else {
-                "capability".to_string()
+                match package
+                    .app
+                    .primary_surface_mode
+                    .unwrap_or(AppSurfaceMode::ImmersivePrimary)
+                {
+                    AppSurfaceMode::ChatPrimary => "agent-chat",
+                    AppSurfaceMode::SidecarLinked => "sidecar",
+                    AppSurfaceMode::ImmersivePrimary => "full-app",
+                    AppSurfaceMode::EmbeddedObject => "embedded",
+                }
+                .to_string()
             }
         }
-        AppBuilderSubject::BuilderDraft { .. } => "product-app-preview".to_string(),
+        Err(_) => "product-app-preview".to_string(),
     }
 }
 
@@ -4452,17 +3704,14 @@ async fn work_preview_observation_checks(
         }
     };
     let expected_kind = mode_to_work_preview_kind(mode);
-    let expected_product_app_id = match &app_builder.subject {
-        AppBuilderSubject::ProductApp { app_id, .. } => Some(app_id.as_str()),
-        _ => None,
-    };
+    let expected_product_app_id = draft_app_identity(app_builder).await.0;
     let latest = record
         .builder_preview_results
         .iter()
         .filter(|preview| preview.kind == expected_kind)
         .filter(|preview| is_external_preview_observation(preview.source))
         .filter(|preview| {
-            expected_product_app_id.map_or(true, |app_id| {
+            expected_product_app_id.as_deref().map_or(true, |app_id| {
                 preview
                     .product_app_id
                     .as_deref()
@@ -4634,45 +3883,17 @@ fn aggregate_status(checks: &[Value]) -> &'static str {
 }
 
 fn target_summary(app_builder: &AppBuilderExecutionContext) -> String {
-    match &app_builder.subject {
-        AppBuilderSubject::ProductApp {
-            app_id, version, ..
-        } => format!("product-app:{app_id}@{version}"),
-        AppBuilderSubject::Component {
-            component_id,
-            component_kind,
-            version,
-            ..
-        } => format!("component:{component_kind}/{component_id}@{version}"),
-        AppBuilderSubject::BuilderDraft { draft_id, .. } => format!("builder-draft:{draft_id}"),
-    }
+    let AppBuilderSubject::BuilderDraft { draft_id, .. } = &app_builder.subject;
+    format!("builder-draft:{draft_id}")
 }
 
-fn subject_identity(
+async fn draft_app_identity(
     app_builder: &AppBuilderExecutionContext,
-) -> (
-    Option<String>,
-    Option<String>,
-    Option<String>,
-    Option<String>,
-) {
-    match &app_builder.subject {
-        AppBuilderSubject::ProductApp {
-            app_id, version, ..
-        } => (Some(app_id.clone()), None, None, Some(version.clone())),
-        AppBuilderSubject::Component {
-            component_id,
-            component_kind,
-            version,
-            ..
-        } => (
-            None,
-            Some(component_id.clone()),
-            Some(component_kind.clone()),
-            Some(version.clone()),
-        ),
-        AppBuilderSubject::BuilderDraft { .. } => (None, None, None, None),
-    }
+) -> (Option<String>, Option<String>) {
+    ProductAppResolver::read_product_app_package(&app_builder.package_root)
+        .await
+        .map(|package| (Some(package.app.id), Some(package.app.version)))
+        .unwrap_or((None, None))
 }
 
 fn preview_result_id(mode: &str, target: &str) -> String {
@@ -4747,85 +3968,6 @@ mod tests {
         LOCK.get_or_init(|| tokio::sync::Mutex::new(()))
     }
 
-    #[test]
-    fn validation_runtime_checks_do_not_supply_passed_runtime_evidence() {
-        assert!(!validation_runtime_check_is_strong_evidence(
-            WorkBuilderFactStatus::Passed
-        ));
-        assert!(!validation_runtime_check_is_strong_evidence(
-            WorkBuilderFactStatus::Warning
-        ));
-        assert!(validation_runtime_check_is_strong_evidence(
-            WorkBuilderFactStatus::Failed
-        ));
-        assert!(validation_runtime_check_is_strong_evidence(
-            WorkBuilderFactStatus::Blocked
-        ));
-    }
-
-    #[test]
-    fn component_runtime_preview_evidence_requires_strong_sources() {
-        assert!(component_preview_source_is_strong_evidence(
-            "runtimeDependencies",
-            WorkBuilderPreviewSource::RuntimeObservation
-        ));
-        assert!(!component_preview_source_is_strong_evidence(
-            "runtimeDependencies",
-            WorkBuilderPreviewSource::PreviewHarness
-        ));
-        assert!(!component_preview_source_is_strong_evidence(
-            "runtimeDependencies",
-            WorkBuilderPreviewSource::RuntimeFact
-        ));
-        assert!(component_preview_source_is_strong_evidence(
-            "agentEval",
-            WorkBuilderPreviewSource::PreviewHarness
-        ));
-        assert!(component_preview_source_is_strong_evidence(
-            "componentContract",
-            WorkBuilderPreviewSource::PreviewHarness
-        ));
-    }
-
-    fn component_context_with_root(package_root: PathBuf, component_kind: &str) -> ToolUseContext {
-        component_context_with_workspace(package_root, component_kind, None)
-    }
-
-    fn component_context_with_workspace(
-        package_root: PathBuf,
-        component_kind: &str,
-        workspace_root: Option<PathBuf>,
-    ) -> ToolUseContext {
-        ToolUseContext {
-            tool_call_id: None,
-            agent_type: Some("AppBuilder".to_string()),
-            session_id: Some("session-1".to_string()),
-            dialog_turn_id: Some("turn-1".to_string()),
-            workspace: workspace_root.map(|root| WorkspaceBinding::new(None, root)),
-            custom_data: HashMap::new(),
-            app_builder: Some(AppBuilderExecutionContext {
-                subject: AppBuilderSubject::Component {
-                    component_id: "current".to_string(),
-                    component_kind: component_kind.to_string(),
-                    version: "1.0.0".to_string(),
-                    title: Some("Current Component".to_string()),
-                    scope: AppBuilderSubjectScope::System,
-                },
-                package_root: package_root.clone(),
-                allowed_write_roots: vec![package_root],
-                work_id: None,
-                runtime_instance_id: None,
-                preview_issue_id: None,
-            }),
-            computer_use_host: None,
-            cancellation_token: None,
-            runtime_tool_restrictions: ToolRuntimeRestrictions::default(),
-            workspace_services: None,
-            workspace_mount: None,
-            agentic: None,
-        }
-    }
-
     fn write_project_agent_component_js_tool(workspace_root: &std::path::Path) -> String {
         let component_id = format!("agent-runner-{}", uuid::Uuid::new_v4());
         AgentComponentManager::create_or_update(
@@ -4890,33 +4032,12 @@ module.exports = { run };
         component_id
     }
 
-    fn write_project_skill(workspace_root: &std::path::Path, dir_name: &str, name: &str) {
-        let skill_root = workspace_root
-            .join(crate::infrastructure::APP_HIDDEN_DIR_NAME)
-            .join("skills")
-            .join(dir_name);
-        std_fs::create_dir_all(&skill_root).expect("create project skill");
-        std_fs::write(
-            skill_root.join("SKILL.md"),
-            format!(
-                "---\nname: {name}\ndescription: Test App Builder capability skill.\n---\n\n# {name}\n\nUse this skill for preview harness fixtures.\n"
-            ),
-        )
-        .expect("write project skill");
+    fn draft_context_with_root(package_root: PathBuf) -> ToolUseContext {
+        draft_context_with_workspace(package_root, None)
     }
 
-    fn product_context_with_root(
+    fn draft_context_with_workspace(
         package_root: PathBuf,
-        app_id: &str,
-        version: &str,
-    ) -> ToolUseContext {
-        product_context_with_workspace(package_root, app_id, version, None)
-    }
-
-    fn product_context_with_workspace(
-        package_root: PathBuf,
-        app_id: &str,
-        version: &str,
         workspace_root: Option<PathBuf>,
     ) -> ToolUseContext {
         ToolUseContext {
@@ -4927,9 +4048,8 @@ module.exports = { run };
             workspace: workspace_root.map(|root| WorkspaceBinding::new(None, root)),
             custom_data: HashMap::new(),
             app_builder: Some(AppBuilderExecutionContext {
-                subject: AppBuilderSubject::ProductApp {
-                    app_id: app_id.to_string(),
-                    version: version.to_string(),
+                subject: AppBuilderSubject::BuilderDraft {
+                    draft_id: "draft_0123456789abcdef0123456789abcdef".to_string(),
                     title: Some("Current App".to_string()),
                     scope: AppBuilderSubjectScope::System,
                 },
@@ -4946,55 +4066,6 @@ module.exports = { run };
             workspace_mount: None,
             agentic: None,
         }
-    }
-
-    fn write_component_package(component_kind: &str) -> (PathBuf, PathBuf) {
-        write_component_package_with_implementation(
-            component_kind,
-            Some("bundle://bridge-components/current"),
-        )
-    }
-
-    fn write_component_package_with_implementation(
-        component_kind: &str,
-        implementation_ref: Option<&str>,
-    ) -> (PathBuf, PathBuf) {
-        let base = std::env::temp_dir().join(format!(
-            "sparo-run-builder-preview-{component_kind}-{}",
-            uuid::Uuid::new_v4()
-        ));
-        let package_root = base.join(component_kind).join("current").join("1.0.0");
-        std_fs::create_dir_all(package_root.join("tests")).expect("create component package");
-        std_fs::write(
-            package_root.join("component.json"),
-            serde_json::to_vec_pretty(&json!({
-                "id": "current",
-                "version": "1.0.0",
-                "kind": component_kind,
-                "name": "Current Component",
-                "description": "A test component package.",
-                "packageSource": "shared",
-                "capabilities": [{
-                    "id": "lookup",
-                    "title": "Lookup",
-                    "description": "Lookup a value.",
-                    "actions": ["run"]
-                }],
-                "permissions": [],
-                "usedByApps": [],
-                "visibility": "developer",
-                "dependencies": [],
-                "implementationRef": implementation_ref
-            }))
-            .expect("serialize component"),
-        )
-        .expect("write component");
-        std_fs::write(
-            package_root.join("tests").join("contract.md"),
-            "# Contract\n\n- Given a lookup fixture, returns a structured result.\n",
-        )
-        .expect("write contract");
-        (base, package_root)
     }
 
     fn unbound_context() -> ToolUseContext {
@@ -5035,375 +4106,59 @@ module.exports = { run };
     }
 
     #[tokio::test]
-    async fn component_preview_defaults_to_capability_harness_fact() {
+    async fn capability_preview_uses_an_app_private_component_from_the_builder_draft() {
         let tool = RunBuilderPreviewTool::new();
-        let (base, package_root) = write_component_package("bridge");
+        let base = std::env::temp_dir().join(format!(
+            "sparo-run-builder-preview-draft-capability-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let path_manager = PathManager::with_user_root_for_tests(base.clone());
+        let written = create_product_app_package_with_options(
+            &path_manager,
+            CreateProductAppPackageDraft {
+                app_id: "current-app".to_string(),
+                name: "Current App".to_string(),
+                description: "A test Product App.".to_string(),
+                authors: Vec::new(),
+                i18n: Default::default(),
+                version: "1.0.0".to_string(),
+                agent_type: "Runno".to_string(),
+                category: "test".to_string(),
+                tags: Vec::new(),
+                primary_surface_mode: AppSurfaceMode::ImmersivePrimary,
+                work_multiplicity: Default::default(),
+                truth_source: None,
+            },
+            CreateProductAppPackageOptions {
+                include_agent: Some(true),
+                include_surface: Some(true),
+            },
+        )
+        .await
+        .expect("create product app package");
 
         let output = tool
             .call_impl(
-                &json!({
-                    "fixture": {
-                        "action": "run",
-                        "input": { "query": "hello" }
-                    }
-                }),
-                &component_context_with_root(package_root, "bridge"),
+                &json!({ "mode": "capability" }),
+                &draft_context_with_root(written.package_dir),
             )
             .await
             .expect("preview result");
         let data = output[0].content();
-
-        assert_eq!(data["kind"], "capability");
-        assert_eq!(data["harnessMode"], "capability");
-        assert_eq!(data["status"], "notVerified");
-        assert_eq!(data["source"], "preview-harness");
-        assert_eq!(data["componentId"], "current");
-        assert_eq!(data["summary"]["fixtureProvided"], true);
-        let check_ids = data["checks"]
+        let package_check = data["checks"]
             .as_array()
             .expect("checks")
             .iter()
-            .map(|check| check["id"].as_str().unwrap().to_string())
-            .collect::<Vec<_>>();
-        assert_eq!(
-            check_ids,
-            vec![
-                "target",
-                "fixture",
-                "package",
-                "componentContract",
-                "capabilitySchema",
-                "implementation",
-                "permissions",
-                "dependencies",
-                "capabilityCall",
-                "capabilityLogs",
-                "capabilityTrace"
-            ]
-        );
-        let checks = data["checks"].as_array().expect("checks");
-        assert_eq!(checks[2]["status"], "passed");
-        assert_eq!(checks[3]["status"], "passed");
-        assert_eq!(checks[4]["status"], "passed");
-        assert_eq!(checks[8]["status"], "notVerified");
+            .find(|check| check["id"] == "package")
+            .expect("package check");
+
+        assert_eq!(data["appId"], "current-app");
+        assert_eq!(package_check["status"], "passed", "{data}");
+        assert!(package_check["detail"]
+            .as_str()
+            .expect("package detail")
+            .contains("app-private Component"));
         let _ = std_fs::remove_dir_all(base);
-    }
-
-    #[tokio::test]
-    async fn execute_capability_blocks_unsupported_implementation_ref() {
-        let tool = RunBuilderPreviewTool::new();
-        let (base, package_root) = write_component_package_with_implementation(
-            "runtime",
-            Some("custom://interactive-surface"),
-        );
-
-        let output = tool
-            .call_impl(
-                &json!({
-                    "mode": "capability",
-                    "execute": true,
-                    "fixture": {
-                        "action": "run",
-                        "input": {}
-                    }
-                }),
-                &component_context_with_root(package_root, "runtime"),
-            )
-            .await
-            .expect("preview result");
-        let data = output[0].content();
-        let capability_call = data["checks"]
-            .as_array()
-            .expect("checks")
-            .iter()
-            .find(|check| check["id"] == "capabilityCall")
-            .expect("capabilityCall check");
-
-        assert_eq!(capability_call["status"], "blocked");
-        assert!(capability_call["detail"]
-            .as_str()
-            .expect("detail")
-            .contains("bundle://bridge-components"));
-        assert!(capability_call["detail"]
-            .as_str()
-            .expect("detail")
-            .contains("bundle://agent-components"));
-        assert!(capability_call["detail"]
-            .as_str()
-            .expect("detail")
-            .contains("runtime://interactive-surface"));
-        assert!(capability_call["detail"]
-            .as_str()
-            .expect("detail")
-            .contains("agent://"));
-        assert!(capability_call["detail"]
-            .as_str()
-            .expect("detail")
-            .contains("skill://"));
-        let _ = std_fs::remove_dir_all(base);
-    }
-
-    #[tokio::test]
-    async fn execute_capability_resolves_interactive_surface_runtime_binding() {
-        let tool = RunBuilderPreviewTool::new();
-        let (base, package_root) = write_component_package_with_implementation(
-            "runtime",
-            Some("runtime://interactive-surface"),
-        );
-
-        let output = tool
-            .call_impl(
-                &json!({
-                    "mode": "capability",
-                    "execute": true,
-                    "fixture": {
-                        "action": "surface.preview.open",
-                        "input": { "route": "/preview" }
-                    }
-                }),
-                &component_context_with_root(package_root, "runtime"),
-            )
-            .await
-            .expect("preview result");
-        let data = output[0].content();
-        let checks = data["checks"].as_array().expect("checks");
-        let capability_call = checks
-            .iter()
-            .find(|check| check["id"] == "capabilityCall")
-            .expect("capabilityCall check");
-        let capability_logs = checks
-            .iter()
-            .find(|check| check["id"] == "capabilityLogs")
-            .expect("capabilityLogs check");
-
-        assert_eq!(data["status"], "passed");
-        assert_eq!(capability_call["status"], "passed");
-        assert!(capability_call["detail"]
-            .as_str()
-            .expect("detail")
-            .contains("Interactive surface runtime runtime://interactive-surface resolved"));
-        assert!(capability_call["detail"]
-            .as_str()
-            .expect("detail")
-            .contains("No iframe DOM observation was produced"));
-        assert_eq!(capability_logs["status"], "passed");
-        assert!(capability_logs["detail"]
-            .as_str()
-            .expect("detail")
-            .contains("Interactive surface runtime contract resolved"));
-        let _ = std_fs::remove_dir_all(base);
-    }
-
-    #[tokio::test]
-    async fn execute_capability_resolves_skill_binding() {
-        let tool = RunBuilderPreviewTool::new();
-        let base = std::env::temp_dir().join(format!(
-            "sparo-run-builder-preview-skill-binding-{}",
-            uuid::Uuid::new_v4()
-        ));
-        let workspace_root = base.join("workspace");
-        std_fs::create_dir_all(&workspace_root).expect("create workspace");
-        write_project_skill(&workspace_root, "sample-skill", "sample-skill");
-        let (component_base, package_root) =
-            write_component_package_with_implementation("skill", Some("skill://sample-skill"));
-
-        let output = tool
-            .call_impl(
-                &json!({
-                    "mode": "capability",
-                    "execute": true,
-                    "fixture": {
-                        "action": "run",
-                        "input": { "topic": "preview" }
-                    }
-                }),
-                &component_context_with_workspace(package_root, "skill", Some(workspace_root)),
-            )
-            .await
-            .expect("preview result");
-        let data = output[0].content();
-        let checks = data["checks"].as_array().expect("checks");
-        let capability_call = checks
-            .iter()
-            .find(|check| check["id"] == "capabilityCall")
-            .expect("capabilityCall check");
-        let capability_logs = checks
-            .iter()
-            .find(|check| check["id"] == "capabilityLogs")
-            .expect("capabilityLogs check");
-
-        assert_eq!(data["status"], "passed");
-        assert_eq!(capability_call["status"], "passed");
-        assert!(capability_call["detail"]
-            .as_str()
-            .expect("detail")
-            .contains("Skill binding skill://sample-skill resolved"));
-        assert_eq!(capability_logs["status"], "passed");
-        assert!(capability_logs["detail"]
-            .as_str()
-            .expect("detail")
-            .contains("Skill profile resolved for sample-skill"));
-        let _ = std_fs::remove_dir_all(base);
-        let _ = std_fs::remove_dir_all(component_base);
-    }
-
-    #[tokio::test]
-    async fn execute_capability_resolves_agent_runtime_binding() {
-        let tool = RunBuilderPreviewTool::new();
-        let (base, package_root) =
-            write_component_package_with_implementation("agent", Some("agent://Runno"));
-
-        let output = tool
-            .call_impl(
-                &json!({
-                    "mode": "capability",
-                    "execute": true,
-                    "fixture": {
-                        "action": "agent.session.start",
-                        "input": { "prompt": "hello" }
-                    }
-                }),
-                &component_context_with_root(package_root, "agent"),
-            )
-            .await
-            .expect("preview result");
-        let data = output[0].content();
-        let checks = data["checks"].as_array().expect("checks");
-        let capability_call = checks
-            .iter()
-            .find(|check| check["id"] == "capabilityCall")
-            .expect("capabilityCall check");
-        let capability_logs = checks
-            .iter()
-            .find(|check| check["id"] == "capabilityLogs")
-            .expect("capabilityLogs check");
-
-        assert_eq!(data["status"], "passed");
-        assert_eq!(capability_call["status"], "passed");
-        assert!(capability_call["detail"]
-            .as_str()
-            .expect("detail")
-            .contains("Agent runtime binding agent://Runno resolved"));
-        assert_eq!(capability_logs["status"], "passed");
-        assert!(capability_logs["detail"]
-            .as_str()
-            .expect("detail")
-            .contains("Agent runtime profile resolved for Runno"));
-        let _ = std_fs::remove_dir_all(base);
-    }
-
-    #[tokio::test]
-    async fn execute_capability_runs_agent_component_js_tool() {
-        let _js_runtime_guard = js_runtime_test_lock().lock().await;
-        let tool = RunBuilderPreviewTool::new();
-        let base = std::env::temp_dir().join(format!(
-            "sparo-run-builder-preview-agent-component-{}",
-            uuid::Uuid::new_v4()
-        ));
-        let workspace_root = base.join("workspace");
-        std_fs::create_dir_all(&workspace_root).expect("create workspace");
-        let agent_component_id = write_project_agent_component_js_tool(&workspace_root);
-        let implementation_ref = format!("bundle://agent-components/{agent_component_id}");
-        let (component_base, package_root) =
-            write_component_package_with_implementation("agent", Some(&implementation_ref));
-
-        let output = tool
-            .call_impl(
-                &json!({
-                    "mode": "capability",
-                    "execute": true,
-                    "fixture": {
-                        "action": "run",
-                        "input": { "query": "hello" }
-                    }
-                }),
-                &component_context_with_workspace(package_root, "agent", Some(workspace_root)),
-            )
-            .await
-            .expect("preview result");
-        let data = output[0].content();
-        let checks = data["checks"].as_array().expect("checks");
-        let capability_call = checks
-            .iter()
-            .find(|check| check["id"] == "capabilityCall")
-            .expect("capabilityCall check");
-        let capability_logs = checks
-            .iter()
-            .find(|check| check["id"] == "capabilityLogs")
-            .expect("capabilityLogs check");
-
-        assert_eq!(data["status"], "passed");
-        assert_eq!(capability_call["status"], "passed");
-        assert!(capability_call["detail"]
-            .as_str()
-            .expect("detail")
-            .contains("Agent Component JS runtime tool run completed"));
-        assert_eq!(capability_logs["status"], "passed");
-        assert!(capability_logs["detail"]
-            .as_str()
-            .expect("detail")
-            .contains("Agent Component fixture executed"));
-        let _ = crate::agentic::agents::get_agent_registry()
-            .remove_agent_component(&agent_component_id);
-        crate::agent_component::js_runtime::shutdown_for_tests().await;
-        let _ = std_fs::remove_dir_all(base);
-        let _ = std_fs::remove_dir_all(component_base);
-    }
-
-    #[tokio::test]
-    async fn agent_eval_component_runs_agent_component_js_tool() {
-        let _js_runtime_guard = js_runtime_test_lock().lock().await;
-        let tool = RunBuilderPreviewTool::new();
-        let base = std::env::temp_dir().join(format!(
-            "sparo-run-builder-preview-agent-eval-component-{}",
-            uuid::Uuid::new_v4()
-        ));
-        let workspace_root = base.join("workspace");
-        std_fs::create_dir_all(&workspace_root).expect("create workspace");
-        let agent_component_id = write_project_agent_component_js_tool(&workspace_root);
-        let implementation_ref = format!("bundle://agent-components/{agent_component_id}");
-        let (component_base, package_root) =
-            write_component_package_with_implementation("agent", Some(&implementation_ref));
-
-        let output = tool
-            .call_impl(
-                &json!({
-                    "mode": "agent-eval",
-                    "execute": true,
-                    "fixture": {
-                        "action": "run",
-                        "input": { "query": "agent eval" }
-                    }
-                }),
-                &component_context_with_workspace(package_root, "agent", Some(workspace_root)),
-            )
-            .await
-            .expect("preview result");
-        let data = output[0].content();
-        let checks = data["checks"].as_array().expect("checks");
-        let agent_eval = checks
-            .iter()
-            .find(|check| check["id"] == "agentEval")
-            .expect("agentEval check");
-        let eval_logs = checks
-            .iter()
-            .find(|check| check["id"] == "evalLogs")
-            .expect("evalLogs check");
-
-        assert_eq!(data["kind"], "agent-eval");
-        assert_eq!(data["harnessMode"], "agent-eval");
-        assert_eq!(data["status"], "passed", "{data}");
-        assert_eq!(agent_eval["status"], "passed", "{data}");
-        assert!(agent_eval["detail"]
-            .as_str()
-            .expect("agentEval detail")
-            .contains("Agent Eval executed Agent Component JS runtime tool run"));
-        assert_eq!(eval_logs["status"], "passed");
-        let _ = crate::agentic::agents::get_agent_registry()
-            .remove_agent_component(&agent_component_id);
-        crate::agent_component::js_runtime::shutdown_for_tests().await;
-        let _ = std_fs::remove_dir_all(base);
-        let _ = std_fs::remove_dir_all(component_base);
     }
 
     #[tokio::test]
@@ -5444,7 +4199,7 @@ module.exports = { run };
                     "mode": "agent-eval",
                     "intent": "representative behavior eval"
                 }),
-                &product_context_with_root(written.package_dir, "current-app", "1.0.0"),
+                &draft_context_with_root(written.package_dir),
             )
             .await
             .expect("preview result");
@@ -5504,7 +4259,7 @@ module.exports = { run };
                     "mode": "agent-eval",
                     "execute": true
                 }),
-                &product_context_with_root(written.package_dir, "current-app", "1.0.0"),
+                &draft_context_with_root(written.package_dir),
             )
             .await
             .expect("preview result");
@@ -5623,12 +4378,7 @@ module.exports = { run };
                     "mode": "agent-eval",
                     "execute": true
                 }),
-                &product_context_with_workspace(
-                    written.package_dir,
-                    "current-app",
-                    "1.0.0",
-                    Some(workspace_root),
-                ),
+                &draft_context_with_workspace(written.package_dir, Some(workspace_root)),
             )
             .await
             .expect("preview result");
@@ -5709,7 +4459,7 @@ module.exports = { run };
             let output = tool
                 .call_impl(
                     &json!({ "mode": mode }),
-                    &product_context_with_root(written.package_dir.clone(), "current-app", "1.0.0"),
+                    &draft_context_with_root(written.package_dir.clone()),
                 )
                 .await
                 .expect("preview result");
@@ -5773,7 +4523,7 @@ module.exports = { run };
         let output = tool
             .call_impl(
                 &json!({ "mode": "runtime-dependencies" }),
-                &product_context_with_root(written.package_dir, "current-app", "1.0.0"),
+                &draft_context_with_root(written.package_dir),
             )
             .await
             .expect("preview result");
@@ -5791,62 +4541,6 @@ module.exports = { run };
             .expect("runtime dependency detail")
             .contains("import-map/CDN resolution"));
 
-        let _ = std_fs::remove_dir_all(base);
-    }
-
-    #[tokio::test]
-    async fn release_rehearsal_preview_reports_missing_evidence_checks() {
-        let tool = RunBuilderPreviewTool::new();
-        let (base, package_root) = write_component_package("agent");
-
-        let output = tool
-            .call_impl(
-                &json!({
-                    "mode": "release-rehearsal",
-                    "intent": "pre-release gate"
-                }),
-                &component_context_with_root(package_root, "agent"),
-            )
-            .await
-            .expect("preview result");
-        let data = output[0].content();
-
-        assert_eq!(data["kind"], "release-rehearsal");
-        assert_eq!(data["status"], "notVerified");
-        let check_ids = data["checks"]
-            .as_array()
-            .expect("checks")
-            .iter()
-            .map(|check| check["id"].as_str().unwrap().to_string())
-            .collect::<Vec<_>>();
-        let check = |id: &str| {
-            data["checks"]
-                .as_array()
-                .expect("checks")
-                .iter()
-                .find(|check| check["id"] == id)
-                .expect("check exists")
-        };
-        assert!(check_ids.contains(&"componentContract".to_string()));
-        assert!(check_ids.contains(&"capabilities".to_string()));
-        assert!(check_ids.contains(&"dependencies".to_string()));
-        assert!(check_ids.contains(&"implementation".to_string()));
-        assert!(check_ids.contains(&"consumerCompatibility".to_string()));
-        assert!(check_ids.contains(&"permissions".to_string()));
-        assert!(check_ids.contains(&"permissionReview".to_string()));
-        assert!(check_ids.contains(&"data".to_string()));
-        assert!(check_ids.contains(&"dataLifecycle".to_string()));
-        assert!(check_ids.contains(&"dataSummary".to_string()));
-        assert!(check_ids.contains(&"runtimeStorage".to_string()));
-        assert!(check_ids.contains(&"runtimeDependencies".to_string()));
-        assert!(check_ids.contains(&"agentEval".to_string()));
-        assert_eq!(check("data")["status"], "notVerified");
-        assert_eq!(check("dataLifecycle")["status"], "notVerified");
-        assert_eq!(check("runtimeStorage")["status"], "notVerified");
-        assert!(check("data")["detail"]
-            .as_str()
-            .expect("data detail")
-            .contains("runtime evidence"));
         let _ = std_fs::remove_dir_all(base);
     }
 
@@ -5888,7 +4582,7 @@ module.exports = { run };
                     "mode": "release-rehearsal",
                     "intent": "pre-release gate"
                 }),
-                &product_context_with_root(written.package_dir, "current-app", "1.0.0"),
+                &draft_context_with_root(written.package_dir),
             )
             .await
             .expect("preview result");
@@ -5954,7 +4648,7 @@ module.exports = { run };
                     "mode": "release-rehearsal",
                     "intent": "pre-release gate"
                 }),
-                &product_context_with_root(written.package_dir, "surface-only-app", "1.0.0"),
+                &draft_context_with_root(written.package_dir),
             )
             .await
             .expect("preview result");

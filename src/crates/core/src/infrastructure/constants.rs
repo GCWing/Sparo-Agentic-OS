@@ -31,5 +31,7 @@ pub const SUBSCRIBER_KEY_WORKSPACE_OVERVIEW_AUTO_REFRESH: &str = "workspace_over
 pub const SUBSCRIBER_KEY_AGENTIC_OS_WORK: &str = "agentic_os_work";
 
 pub const fn dev_vite_url() -> &'static str {
-    "http://localhost:5722"
+    // Must exactly match `build.devUrl` in `src/apps/desktop/tauri.conf.json`.
+    // Tauri binds dev-window capabilities to that origin, including the host.
+    "http://127.0.0.1:5722"
 }

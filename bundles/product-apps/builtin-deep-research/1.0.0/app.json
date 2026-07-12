@@ -8,12 +8,22 @@
       "en-US": {
         "name": "Deep Research",
         "description": "A deep research Agent for finding sources, comparing viewpoints, organizing evidence, and turning complex questions into clear conclusions.",
-        "tags": ["built-in", "research", "evidence", "report"]
+        "tags": [
+          "built-in",
+          "research",
+          "evidence",
+          "report"
+        ]
       },
       "zh-CN": {
         "name": "Deep Research",
         "description": "面向深度研究的 Agent，适合查资料、比观点、梳理依据，把复杂问题沉淀为清晰结论。",
-        "tags": ["内置", "研究", "证据", "报告"]
+        "tags": [
+          "内置",
+          "研究",
+          "证据",
+          "报告"
+        ]
       }
     }
   },
@@ -191,5 +201,11 @@
     "memory.write",
     "model.invoke",
     "tool.invoke"
-  ]
+  ],
+  "dataLifecycle": {
+    "retention": "workRuntimeScoped",
+    "deletion": "deleteWithWork",
+    "migration": "exportImport",
+    "share": "declaredWorkObjectsOnly"
+  }
 }

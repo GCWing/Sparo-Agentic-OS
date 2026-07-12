@@ -37,7 +37,6 @@ export interface CanvasState {
   tertiaryGroup: EditorGroupState;
   activeGroupId: EditorGroupId;
   layout: LayoutState;
-  isMissionControlOpen: boolean;
 }
 
 export interface CanvasPersistState {
@@ -95,7 +94,6 @@ export const createCanvasState = (): CanvasState => ({
   tertiaryGroup: createEditorGroupState(),
   activeGroupId: 'primary',
   layout: createLayoutState(),
-  isMissionControlOpen: false,
 });
 
 /**

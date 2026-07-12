@@ -1,21 +1,25 @@
 {
   "name": "start_export",
-  "description": "Start an MP4 export for a Remotion composition through the workspace Remotion toolchain.",
+  "description": "Start an asynchronous Remotion export job through the workspace renderer.",
   "inputSchema": {
     "type": "object",
     "additionalProperties": false,
+    "required": ["compositionId", "expectedProjectRevision", "expectedDescriptorRevision"],
     "properties": {
       "workspacePath": { "type": "string" },
       "entryPoint": { "type": "string" },
       "compositionId": { "type": "string" },
-      "composition": { "type": "string" },
+      "expectedProjectRevision": { "type": "string", "minLength": 1 },
+      "expectedDescriptorRevision": { "type": "string", "minLength": 1 },
       "frameRange": {
         "type": "array",
-        "items": { "type": "integer" }
+        "items": { "type": "integer", "minimum": 0 },
+        "minItems": 2,
+        "maxItems": 2
       },
-      "scale": { "type": "number" },
-      "outputPath": { "type": "string" },
-      "timeoutMs": { "type": "integer" },
+      "scale": { "type": "number", "exclusiveMinimum": 0, "maximum": 4 },
+      "codec": { "type": "string", "enum": ["h264", "h265", "vp8", "vp9", "prores", "gif"] },
+      "outputName": { "type": "string" },
       "inputProps": { "type": "object" }
     }
   },
@@ -23,6 +27,6 @@
   "entry": "tools/start_export.js",
   "readonly": false,
   "permissions": {},
-  "timeoutMs": 700000,
+  "timeoutMs": 90000,
   "maxOutputBytes": 60000
 }

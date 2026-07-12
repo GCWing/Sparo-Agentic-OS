@@ -14,6 +14,12 @@ import { FlowChatHeader } from './FlowChatHeader';
 import { FlowChatSelectionAddButton } from './FlowChatSelectionAddButton';
 import { WelcomePanel } from '../WelcomePanel';
 import {
+  SessionTranscriptError,
+  SessionTranscriptLoading,
+  shouldShowSessionTranscriptError,
+  shouldShowSessionTranscriptLoading,
+} from './SessionTranscriptLoading';
+import {
   FlowChatContext,
   FlowChatStaticContext,
   FlowChatViewContext,
@@ -73,6 +79,8 @@ export const StandardFlowChatContainer: React.FC<StandardFlowChatContainerProps>
     [staticContextValue, viewContextValue],
   );
   const sidecarActions = useSessionSidecarActions();
+  const transcriptLoading = shouldShowSessionTranscriptLoading(sessionId, activeSession);
+  const transcriptError = shouldShowSessionTranscriptError(sessionId, activeSession);
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
   useShortcut(
@@ -151,7 +159,13 @@ export const StandardFlowChatContainer: React.FC<StandardFlowChatContainerProps>
             <div className="modern-flowchat-container__body">
               <div className="modern-flowchat-container__messages">
                 <div className="modern-flowchat-container__messages-inner">
-                  {virtualItems.length === 0 ? (
+                  {transcriptLoading ? (
+                    <SessionTranscriptLoading />
+                  ) : transcriptError && activeSession?.sessionId ? (
+                    <SessionTranscriptError
+                      sessionId={activeSession.sessionId}
+                    />
+                  ) : virtualItems.length === 0 ? (
                     <WelcomePanel
                       key={activeSession?.sessionId ?? 'welcome'}
                       sessionId={activeSession?.sessionId}

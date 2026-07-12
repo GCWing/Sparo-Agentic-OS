@@ -1,7 +1,10 @@
+use super::runtime::daemon_pool::{
+    fingerprint_runtime_environment, shared_daemon_pool, DEFAULT_DAEMON_CALL_TIMEOUT_MS,
+};
 use super::runtime::worker_protocol::{BridgeWorkerEnvelope, BridgeWorkerStartRequest};
 use super::{
     BridgeComponentCapability, BridgeComponentConsumer, BridgeComponentConsumerKind,
-    BridgeComponentEvent, BridgeComponentManifest, BridgeComponentPackage,
+    BridgeComponentEvent, BridgeComponentKind, BridgeComponentManifest, BridgeComponentPackage,
     BridgeComponentRunStatus, BridgeComponentRuntimeLanguage,
 };
 use crate::agentic::agents::{
@@ -24,12 +27,15 @@ use std::sync::{Arc, LazyLock, RwLock as StdRwLock};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::RwLock;
+use tokio_util::sync::CancellationToken;
 
 pub const BRIDGE_COMPONENT_SCHEMA_VERSION: u32 = 1;
 pub const BRIDGE_COMPONENT_MANIFEST: &str = "manifest.json";
 const DEFAULT_BRIDGE_RUN_TIMEOUT_MS: u64 = 600_000;
 
 static BRIDGE_RUN_REGISTRY: LazyLock<RwLock<HashMap<String, BridgeComponentRun>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
+static BRIDGE_RUN_CANCELLATIONS: LazyLock<RwLock<HashMap<String, CancellationToken>>> =
     LazyLock::new(|| RwLock::new(HashMap::new()));
 static PRIVATE_BRIDGE_COMPONENT_DIRS: LazyLock<StdRwLock<HashMap<String, PathBuf>>> =
     LazyLock::new(|| StdRwLock::new(HashMap::new()));
@@ -472,6 +478,44 @@ fn collect_declared_secret_env(manifest: &BridgeComponentManifest) -> Vec<(Strin
         .collect()
 }
 
+fn daemon_runtime_environment_fingerprint(declared_values: &[(String, OsString)]) -> String {
+    let mut values = declared_values.to_vec();
+    // These inherited values affect interpreter/package resolution or runtime
+    // behavior. Prefix their names so they cannot collide with a declared
+    // secret. Only the final hash enters the daemon key.
+    for name in [
+        "PATH",
+        "PATHEXT",
+        "NODE_OPTIONS",
+        "NODE_PATH",
+        "PYTHONPATH",
+        "VIRTUAL_ENV",
+        "CONDA_PREFIX",
+        "PNPM_HOME",
+    ] {
+        if let Some(value) = std::env::var_os(name) {
+            values.push((format!("inherited:{name}"), value));
+        }
+    }
+    fingerprint_runtime_environment(&values)
+}
+
+async fn register_run_cancellation(run_id: &str) -> CancellationToken {
+    let cancellation = CancellationToken::new();
+    BRIDGE_RUN_CANCELLATIONS
+        .write()
+        .await
+        .insert(run_id.to_string(), cancellation.clone());
+    if run_is_cancelled(run_id).await {
+        cancellation.cancel();
+    }
+    cancellation
+}
+
+async fn remove_run_cancellation(run_id: &str) {
+    BRIDGE_RUN_CANCELLATIONS.write().await.remove(run_id);
+}
+
 async fn upsert_run(run: BridgeComponentRun) {
     BRIDGE_RUN_REGISTRY
         .write()
@@ -484,6 +528,18 @@ async fn update_run_from_result(result: &BridgeComponentRunResult) {
     let Some(run) = runs.get_mut(&result.run_id) else {
         return;
     };
+    // Cancellation wins over a late worker terminal frame. In particular, a
+    // daemon may finish the in-flight operation after the caller has already
+    // cancelled the host run; do not rewrite that run as completed.
+    if run.status == BridgeComponentRunStatus::Cancelled {
+        let result_contains_cancellation = result
+            .events
+            .iter()
+            .any(|event| matches!(event, BridgeComponentEvent::RunCancelled { .. }));
+        if result.status != BridgeComponentRunStatus::Cancelled || !result_contains_cancellation {
+            return;
+        }
+    }
     run.status = result.status;
     run.updated_at = Utc::now().timestamp_millis();
     run.events = result.events.clone();
@@ -504,6 +560,11 @@ async fn append_run_event(run_id: &str, event: BridgeComponentEvent) {
     let Some(run) = runs.get_mut(run_id) else {
         return;
     };
+    if run.status == BridgeComponentRunStatus::Cancelled
+        && !matches!(&event, BridgeComponentEvent::RunCancelled { .. })
+    {
+        return;
+    }
     run.updated_at = Utc::now().timestamp_millis();
     match &event {
         BridgeComponentEvent::RunStatus { status, .. } => {
@@ -533,8 +594,38 @@ async fn update_run_output(run_id: &str, output: Value) {
     let Some(run) = runs.get_mut(run_id) else {
         return;
     };
+    if run.status == BridgeComponentRunStatus::Cancelled {
+        return;
+    }
     run.updated_at = Utc::now().timestamp_millis();
     run.output = output;
+}
+
+async fn mark_run_failed(run_id: &str, error: &CoreError) {
+    let mut runs = BRIDGE_RUN_REGISTRY.write().await;
+    let Some(run) = runs.get_mut(run_id) else {
+        return;
+    };
+    if run.status == BridgeComponentRunStatus::Cancelled {
+        return;
+    }
+    let failure = serde_json::json!({
+        "code": error.code(),
+        "message": error.to_string(),
+    });
+    run.status = BridgeComponentRunStatus::Failed;
+    run.updated_at = Utc::now().timestamp_millis();
+    run.output = failure.clone();
+    run.events
+        .push(BridgeComponentEvent::RunFailed { error: failure });
+}
+
+async fn run_is_cancelled(run_id: &str) -> bool {
+    BRIDGE_RUN_REGISTRY
+        .read()
+        .await
+        .get(run_id)
+        .is_some_and(|run| run.status == BridgeComponentRunStatus::Cancelled)
 }
 
 pub struct BridgeComponentManager;
@@ -843,6 +934,25 @@ impl BridgeComponentManager {
             workspace_path,
             consumer: normalized_consumer,
         };
+
+        // Daemon bridges keep a warm process and speak NDJSON over stdin/stdout.
+        // One-shot bridges still spawn a fresh process per call.
+        if package.manifest.kind == BridgeComponentKind::Daemon {
+            let cancellation = register_run_cancellation(&run_id).await;
+            return Self::run_daemon_action(
+                app_id,
+                &package,
+                capability_id,
+                action,
+                &run_id,
+                &entry,
+                &app_dir,
+                request,
+                cancellation,
+            )
+            .await;
+        }
+
         let request_json = serde_json::to_vec(&request)?;
         let mut command = runtime_command(
             package.manifest.runtime.language,
@@ -883,6 +993,7 @@ impl BridgeComponentManager {
             let mut events = Vec::new();
             let mut final_output = None;
             let mut event_failed = false;
+            let mut event_cancelled = false;
 
             while let Some(line) = reader.next_line().await? {
                 let line = line.trim();
@@ -891,7 +1002,12 @@ impl BridgeComponentManager {
                 }
 
                 if let Ok(event) = serde_json::from_str::<BridgeComponentEvent>(line) {
-                    capture_bridge_event_result(&event, &mut final_output, &mut event_failed);
+                    capture_bridge_event_result(
+                        &event,
+                        &mut final_output,
+                        &mut event_failed,
+                        &mut event_cancelled,
+                    );
                     append_run_event(&run_id, event.clone()).await;
                     events.push(event);
                     continue;
@@ -902,6 +1018,7 @@ impl BridgeComponentManager {
                         &envelope.event,
                         &mut final_output,
                         &mut event_failed,
+                        &mut event_cancelled,
                     );
                     append_run_event(&run_id, envelope.event.clone()).await;
                     events.push(envelope.event);
@@ -918,18 +1035,28 @@ impl BridgeComponentManager {
             let stderr = stderr_task.await.map_err(|e| {
                 CoreError::Process(format!("Failed to join Bridge Component stderr task: {e}"))
             })??;
-            Ok::<_, CoreError>((exit_status, events, final_output, event_failed, stderr))
+            Ok::<_, CoreError>((
+                exit_status,
+                events,
+                final_output,
+                event_failed,
+                event_cancelled,
+                stderr,
+            ))
         };
 
-        let (exit_status, events, final_output, event_failed, stderr) = tokio::time::timeout(
-            std::time::Duration::from_millis(DEFAULT_BRIDGE_RUN_TIMEOUT_MS),
-            execution,
-        )
-        .await
-        .map_err(|_| CoreError::Timeout("Bridge Component run timed out".to_string()))??;
+        let (exit_status, events, final_output, event_failed, event_cancelled, stderr) =
+            tokio::time::timeout(
+                std::time::Duration::from_millis(DEFAULT_BRIDGE_RUN_TIMEOUT_MS),
+                execution,
+            )
+            .await
+            .map_err(|_| CoreError::Timeout("Bridge Component run timed out".to_string()))??;
 
         let status = if !exit_status.success() || event_failed {
             BridgeComponentRunStatus::Failed
+        } else if event_cancelled || run_is_cancelled(&run_id).await {
+            BridgeComponentRunStatus::Cancelled
         } else {
             BridgeComponentRunStatus::Completed
         };
@@ -964,6 +1091,110 @@ impl BridgeComponentManager {
             );
         }
         update_run_from_result(&result).await;
+        Ok(result)
+    }
+
+    async fn run_daemon_action(
+        app_id: &str,
+        package: &BridgeComponentPackage,
+        capability_id: Option<&str>,
+        action: &str,
+        run_id: &str,
+        entry: &Path,
+        app_dir: &Path,
+        request: BridgeWorkerStartRequest,
+        cancellation: CancellationToken,
+    ) -> CoreResult<BridgeComponentRunResult> {
+        let mut command = runtime_command(
+            package.manifest.runtime.language,
+            package.manifest.runtime.package_manager.as_deref(),
+            entry,
+        );
+        let declared_secret_env = collect_declared_secret_env(&package.manifest);
+        let runtime_context_fingerprint =
+            daemon_runtime_environment_fingerprint(&declared_secret_env);
+        for (name, value) in &declared_secret_env {
+            command.env(name, value);
+        }
+
+        let pool = shared_daemon_pool();
+        let pool_result = pool
+            .call(
+                app_id,
+                app_dir,
+                entry,
+                &runtime_context_fingerprint,
+                command,
+                &request,
+                package.manifest.runtime.idle_timeout_ms,
+                DEFAULT_DAEMON_CALL_TIMEOUT_MS,
+                &cancellation,
+            )
+            .await;
+        remove_run_cancellation(run_id).await;
+        let daemon_result = match pool_result {
+            Ok(result) => result,
+            Err(CoreError::Cancelled(_)) if run_is_cancelled(run_id).await => {
+                let run = BRIDGE_RUN_REGISTRY.read().await.get(run_id).cloned();
+                return Ok(BridgeComponentRunResult {
+                    component_id: app_id.to_string(),
+                    capability_id: capability_id.map(ToString::to_string),
+                    action: action.to_string(),
+                    run_id: run_id.to_string(),
+                    status: BridgeComponentRunStatus::Cancelled,
+                    events: run
+                        .as_ref()
+                        .map(|run| run.events.clone())
+                        .unwrap_or_default(),
+                    output: run.map(|run| run.output).unwrap_or(Value::Null),
+                    stderr: None,
+                });
+            }
+            Err(error) => {
+                // The run is registered before process acquisition. Ensure
+                // spawn, protocol, timeout, stderr-limit, and EOF failures do
+                // not leave a permanently "running" registry entry.
+                mark_run_failed(run_id, &error).await;
+                return Err(error);
+            }
+        };
+
+        for event in &daemon_result.events {
+            append_run_event(run_id, event.clone()).await;
+        }
+        if let Some(output) = daemon_result.output.clone() {
+            update_run_output(run_id, output).await;
+        }
+
+        let status = if run_is_cancelled(run_id).await {
+            BridgeComponentRunStatus::Cancelled
+        } else {
+            daemon_result.status
+        };
+        let mut result = BridgeComponentRunResult {
+            component_id: app_id.to_string(),
+            capability_id: capability_id.map(ToString::to_string),
+            action: action.to_string(),
+            run_id: run_id.to_string(),
+            status,
+            events: daemon_result.events,
+            output: daemon_result.output.unwrap_or(Value::Null),
+            stderr: None,
+        };
+        if result.status == BridgeComponentRunStatus::Failed {
+            warn!(
+                "Bridge Component daemon run failed: component_id={}, capability_id={:?}, action={}, run_id={}, output={}",
+                result.component_id,
+                result.capability_id,
+                result.action,
+                result.run_id,
+                summarize_bridge_failure_output(&result.output)
+            );
+        }
+        update_run_from_result(&result).await;
+        if run_is_cancelled(run_id).await {
+            result.status = BridgeComponentRunStatus::Cancelled;
+        }
         Ok(result)
     }
 
@@ -1035,22 +1266,37 @@ impl BridgeComponentManager {
     }
 
     pub async fn cancel_run(run_id: &str) -> CoreResult<BridgeComponentRun> {
-        let mut runs = BRIDGE_RUN_REGISTRY.write().await;
-        let run = runs
-            .get_mut(run_id)
-            .ok_or_else(|| CoreError::NotFound(format!("Bridge run not found: {run_id}")))?;
-        if matches!(
-            run.status,
-            BridgeComponentRunStatus::Completed | BridgeComponentRunStatus::Failed
-        ) {
-            return Ok(run.clone());
+        let (run, newly_cancelled) = {
+            let mut runs = BRIDGE_RUN_REGISTRY.write().await;
+            let run = runs
+                .get_mut(run_id)
+                .ok_or_else(|| CoreError::NotFound(format!("Bridge run not found: {run_id}")))?;
+            if matches!(
+                run.status,
+                BridgeComponentRunStatus::Completed
+                    | BridgeComponentRunStatus::Failed
+                    | BridgeComponentRunStatus::Cancelled
+            ) {
+                (run.clone(), false)
+            } else {
+                run.status = BridgeComponentRunStatus::Cancelled;
+                run.updated_at = Utc::now().timestamp_millis();
+                run.events.push(BridgeComponentEvent::RunCancelled {
+                    reason: serde_json::json!({ "message": "Cancelled by caller" }),
+                });
+                (run.clone(), true)
+            }
+        };
+
+        // Do not await the cancellation registry while holding the run-registry
+        // write lock. Cancelling the token makes an in-flight daemon call retire
+        // and kill its process instead of continuing to mutate external state.
+        if newly_cancelled {
+            if let Some(cancellation) = BRIDGE_RUN_CANCELLATIONS.read().await.get(run_id).cloned() {
+                cancellation.cancel();
+            }
         }
-        run.status = BridgeComponentRunStatus::Cancelled;
-        run.updated_at = Utc::now().timestamp_millis();
-        run.events.push(BridgeComponentEvent::RunCancelled {
-            reason: serde_json::json!({ "message": "Cancelled by caller" }),
-        });
-        Ok(run.clone())
+        Ok(run)
     }
 
     pub async fn get_artifacts(run_id: &str) -> CoreResult<Vec<Value>> {
@@ -1200,13 +1446,21 @@ fn capture_bridge_event_result(
     event: &BridgeComponentEvent,
     output: &mut Option<Value>,
     failed: &mut bool,
+    cancelled: &mut bool,
 ) {
-    if let BridgeComponentEvent::RunCompleted { output: value } = event {
-        *output = Some(value.clone());
-    }
-    if let BridgeComponentEvent::RunFailed { error } = event {
-        *output = Some(error.clone());
-        *failed = true;
+    match event {
+        BridgeComponentEvent::RunCompleted { output: value } => {
+            *output = Some(value.clone());
+        }
+        BridgeComponentEvent::RunFailed { error } => {
+            *output = Some(error.clone());
+            *failed = true;
+        }
+        BridgeComponentEvent::RunCancelled { reason } => {
+            *output = Some(reason.clone());
+            *cancelled = true;
+        }
+        _ => {}
     }
 }
 
@@ -1232,6 +1486,7 @@ mod tests {
                 language: BridgeComponentRuntimeLanguage::JavaScript,
                 entry: "worker.js".to_string(),
                 package_manager: None,
+                idle_timeout_ms: None,
             },
             surfaces: BridgeComponentSurfaces::default(),
             capabilities: vec![BridgeComponentCapability {
@@ -1271,6 +1526,26 @@ mod tests {
         }
     }
 
+    fn running_test_run(run_id: &str) -> BridgeComponentRun {
+        BridgeComponentRun {
+            run_id: run_id.to_string(),
+            bridge_id: "test-bridge".to_string(),
+            capability_id: Some("test.capability".to_string()),
+            action: "start".to_string(),
+            consumer_kind: BridgeComponentConsumerKind::Management,
+            consumer_id: "test".to_string(),
+            workspace_path: None,
+            status: BridgeComponentRunStatus::Running,
+            started_at: 0,
+            updated_at: 0,
+            external_run_ref: None,
+            artifacts: Vec::new(),
+            events: Vec::new(),
+            output: Value::Null,
+            stderr: None,
+        }
+    }
+
     #[test]
     fn product_app_runtime_permission_requires_explicit_usable_by() {
         let legacy_manifest = manifest_with_usable_by(vec![
@@ -1297,5 +1572,56 @@ mod tests {
             &consumer,
         )
         .is_ok());
+    }
+
+    #[tokio::test]
+    async fn cancel_run_signals_daemon_token() {
+        let run_id = format!("cancel-token-{}", uuid::Uuid::new_v4());
+        upsert_run(running_test_run(&run_id)).await;
+        let cancellation = register_run_cancellation(&run_id).await;
+
+        let cancelled = BridgeComponentManager::cancel_run(&run_id).await.unwrap();
+
+        assert_eq!(cancelled.status, BridgeComponentRunStatus::Cancelled);
+        assert!(cancellation.is_cancelled());
+        assert!(cancelled
+            .events
+            .iter()
+            .any(|event| matches!(event, BridgeComponentEvent::RunCancelled { .. })));
+        BRIDGE_RUN_REGISTRY.write().await.remove(&run_id);
+        remove_run_cancellation(&run_id).await;
+    }
+
+    #[tokio::test]
+    async fn late_completion_does_not_replace_caller_cancellation() {
+        let run_id = format!("cancel-wins-{}", uuid::Uuid::new_v4());
+        upsert_run(running_test_run(&run_id)).await;
+        BridgeComponentManager::cancel_run(&run_id).await.unwrap();
+        let late_result = BridgeComponentRunResult {
+            component_id: "test-bridge".to_string(),
+            capability_id: Some("test.capability".to_string()),
+            action: "start".to_string(),
+            run_id: run_id.clone(),
+            status: BridgeComponentRunStatus::Cancelled,
+            events: vec![BridgeComponentEvent::RunCompleted {
+                output: json!({ "late": true }),
+            }],
+            output: json!({ "late": true }),
+            stderr: None,
+        };
+
+        update_run_from_result(&late_result).await;
+
+        let stored = BridgeComponentManager::get_run(&run_id).await.unwrap();
+        assert_eq!(stored.status, BridgeComponentRunStatus::Cancelled);
+        assert!(stored
+            .events
+            .iter()
+            .any(|event| matches!(event, BridgeComponentEvent::RunCancelled { .. })));
+        assert!(!stored
+            .events
+            .iter()
+            .any(|event| matches!(event, BridgeComponentEvent::RunCompleted { .. })));
+        BRIDGE_RUN_REGISTRY.write().await.remove(&run_id);
     }
 }

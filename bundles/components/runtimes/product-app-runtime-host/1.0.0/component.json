@@ -22,7 +22,8 @@
     "builtin-remotion-live",
     "builtin-harmony-dev",
     "builtin-ppt-live",
-    "builtin-spark-board"
+    "builtin-spark-board",
+    "builtin-excel-live"
   ],
   "visibility": "developer",
   "dependencies": [],

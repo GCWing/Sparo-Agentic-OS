@@ -43,6 +43,8 @@ export interface CompactToolCardProps {
   headerRail?: ToolRightRailProps;
   /** Expanded content (optional) */
   expandedContent?: ReactNode;
+  /** Stable id used by the header disclosure affordance. */
+  expandedContentId?: string;
 }
 
 export const CompactToolCard: React.FC<CompactToolCardProps> = ({
@@ -54,6 +56,7 @@ export const CompactToolCard: React.FC<CompactToolCardProps> = ({
   header,
   headerRail,
   expandedContent,
+  expandedContentId,
 }) => {
   const handleWrapperClick = (e: React.MouseEvent) => {
     if (onClick) {
@@ -84,7 +87,7 @@ export const CompactToolCard: React.FC<CompactToolCardProps> = ({
       </div>
 
       {isExpanded && expandedContent && (
-        <div className="compact-tool-card-expanded">
+        <div id={expandedContentId} className="compact-tool-card-expanded">
           {expandedContent}
         </div>
       )}
@@ -103,6 +106,10 @@ export interface CompactToolCardHeaderProps {
   isExpanded?: boolean;
   /** Click handler for the left icon rail affordance */
   onAffordanceClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  /** Accessible affordance label. */
+  affordanceLabel?: string;
+  /** Id of the disclosure region controlled by the affordance. */
+  affordanceControlsId?: string;
   /** Show right border divider on the icon slot (default true) */
   showDivider?: boolean;
   /** Action text or markup */
@@ -121,6 +128,8 @@ export const CompactToolCardHeader: React.FC<CompactToolCardHeaderProps> = ({
   expandable = false,
   isExpanded = false,
   onAffordanceClick,
+  affordanceLabel,
+  affordanceControlsId,
   showDivider = true,
   action,
   content,
@@ -135,6 +144,8 @@ export const CompactToolCardHeader: React.FC<CompactToolCardHeaderProps> = ({
           expandable={expandable}
           isExpanded={isExpanded}
           onAffordanceClick={onAffordanceClick}
+          affordanceLabel={affordanceLabel}
+          affordanceControlsId={affordanceControlsId}
           showDivider={showDivider}
         />
       ) : statusIcon ? (
@@ -152,7 +163,7 @@ export const CompactToolCardHeader: React.FC<CompactToolCardHeaderProps> = ({
       ) : null}
       {action && <span className="compact-card-action">{action}</span>}
       {content && <span className="compact-card-content">{content}</span>}
-      {extra && <span className="compact-card-extra">{extra}</span>}
+      {extra && <div className="compact-card-extra">{extra}</div>}
       {rightIcon && (
         <span className="compact-card-right-icon">
           {rightIcon}

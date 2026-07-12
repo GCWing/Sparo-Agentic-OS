@@ -17,7 +17,10 @@ import type {
   WorkBuilderPreviewResult,
   WorkBuilderValidationResult,
 } from '@/app/agentic-os/work/domain/workTypes';
-import type { ProductAppBuilderPreviewTarget } from '../product-app-runtime/productAppRuntimeService';
+interface ProductAppBuilderPreviewTarget {
+  kind: WorkBuilderPreviewResult['kind'];
+  work: { id: string };
+}
 
 export interface AppBuilderPermissionSummary {
   readsWorkspace: boolean;
@@ -645,38 +648,18 @@ export function buildAppBuilderFacts(input: BuildAppBuilderFactsInput): AppBuild
   const declaredEvalCaseCount = productApp?.evalPlan?.cases?.length ?? 0;
   const latestAgentEvalCheck = latestPreviewCheck(previewResults, 'agentEval', 'agent-eval');
   const persistedSubject = input.persistedFacts?.subject;
-  const persistedFactsMatchSubject = productApp
-    ? persistedSubject?.kind === 'product-app' &&
-      persistedSubject.appId === productApp.id &&
-      persistedSubject.version === productApp.version
-    : componentSubject
-      ? persistedSubject?.kind === 'component' &&
-        persistedSubject.componentId === componentSubject.componentId &&
-        persistedSubject.componentKind === componentSubject.componentKind &&
-        persistedSubject.version === componentSubject.version
-      : false;
+  const persistedFactsMatchSubject = persistedSubject?.kind === 'builder-draft';
   const persistedVersion = persistedFactsMatchSubject ? input.persistedFacts?.versionSummary : undefined;
   const persistedShare = persistedFactsMatchSubject ? input.persistedFacts?.shareSummary : undefined;
   const persistedPrivateDataExcluded =
     persistedShare?.privateDataExcluded ?? persistedVersion?.latestRelease?.privateDataExcluded;
 
   return {
-    subject: productApp
-      ? {
-          kind: 'product-app',
-          appId: productApp.id,
-          version: productApp.version,
-          packageRoot: input.packageRoot || productApp.catalogSource?.packageUri || `product-app://${productApp.id}@${productApp.version}`,
-        }
-      : componentSubject
-        ? {
-            kind: 'component',
-            componentId: componentSubject.componentId,
-            componentKind: componentSubject.componentKind,
-            version: componentSubject.version ?? undefined,
-            packageRoot: componentSubject.packageRoot || input.packageRoot || `component://${componentSubject.componentKind}/${componentSubject.componentId}@${componentSubject.version ?? '1.0.0'}`,
-          }
-      : null,
+    subject: persistedSubject?.kind === 'builder-draft'
+      ? persistedSubject
+      : productApp || componentSubject
+        ? { kind: 'builder-draft', draftId: productApp?.id ?? componentSubject!.componentId }
+        : null,
     blueprint: productApp
       ? {
           whatItDoes: productApp.description,

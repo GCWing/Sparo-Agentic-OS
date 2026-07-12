@@ -2,11 +2,20 @@ export interface VoiceInputRecorder {
   stop: () => Promise<void>;
 }
 
+export type VoiceInputRecorderStartupStage = 'media-stream' | 'audio-graph';
+
+export interface VoiceInputRecorderStartupTiming {
+  stage: VoiceInputRecorderStartupStage;
+  elapsedMs: number;
+  totalElapsedMs: number;
+}
+
 export interface VoiceInputRecorderOptions {
   targetSampleRate: number;
   chunkDurationMs: number;
   onChunk: (pcm16Base64: string) => void;
   onLevel?: (level: number) => void;
+  onStartupTiming?: (timing: VoiceInputRecorderStartupTiming) => void;
 }
 
 const PCM_BYTES_PER_SAMPLE = 2;
@@ -74,11 +83,13 @@ export async function createVoiceInputRecorder({
   chunkDurationMs,
   onChunk,
   onLevel,
+  onStartupTiming,
 }: VoiceInputRecorderOptions): Promise<VoiceInputRecorder> {
   if (!navigator.mediaDevices?.getUserMedia) {
     throw new Error('Microphone capture is unavailable');
   }
 
+  const startupStartedAt = performance.now();
   const mediaStream = await navigator.mediaDevices.getUserMedia({
     audio: {
       channelCount: 1,
@@ -87,6 +98,13 @@ export async function createVoiceInputRecorder({
       autoGainControl: true,
     },
   });
+  const mediaStreamReadyAt = performance.now();
+  onStartupTiming?.({
+    stage: 'media-stream',
+    elapsedMs: Math.round(mediaStreamReadyAt - startupStartedAt),
+    totalElapsedMs: Math.round(mediaStreamReadyAt - startupStartedAt),
+  });
+
   const AudioContextCtor = window.AudioContext ?? window.webkitAudioContext;
   if (!AudioContextCtor) {
     mediaStream.getTracks().forEach(track => track.stop());
@@ -115,6 +133,12 @@ export async function createVoiceInputRecorder({
 
   source.connect(processor);
   processor.connect(audioContext.destination);
+  const audioGraphReadyAt = performance.now();
+  onStartupTiming?.({
+    stage: 'audio-graph',
+    elapsedMs: Math.round(audioGraphReadyAt - mediaStreamReadyAt),
+    totalElapsedMs: Math.round(audioGraphReadyAt - startupStartedAt),
+  });
 
   return {
     stop: async () => {

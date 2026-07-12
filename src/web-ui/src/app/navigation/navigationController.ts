@@ -8,6 +8,7 @@ import type { WorkspaceSurfaceContext } from './workspaceSurfaceTypes';
 import { createAgenticOsHomeSurface } from './workspaceSurfaceTypes';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import { syncSessionToModernStore } from '@/flow_chat/services/storeSync';
+import { useModernFlowChatStore } from '@/flow_chat/store/modernFlowChatStore';
 import {
   descriptorFromAgentType,
   getAgenticOsSessionDescriptor,
@@ -32,8 +33,33 @@ const log = createLogger('NavigationController');
 
 let navEpoch = 0;
 
+interface PendingSessionShell {
+  epoch: number;
+  sessionId: string;
+  baseline: ReturnType<typeof useWorkspaceSurfaceStore.getState>;
+}
+
+let pendingSessionShell: PendingSessionShell | null = null;
+
 export function getNavigationEpoch(): number {
   return navEpoch;
+}
+
+function restorePendingSessionBaseline(): boolean {
+  const pending = pendingSessionShell;
+  if (!pending) return false;
+  pendingSessionShell = null;
+  if (selectFocusedSessionId(useWorkspaceSurfaceStore.getState()) !== pending.sessionId) {
+    return false;
+  }
+  restoreSurfaceAfterMissingSession(pending.baseline);
+  return true;
+}
+
+/** Reserve ownership before an async navigation preflight begins. */
+export function beginNavigationIntent(): number {
+  restorePendingSessionBaseline();
+  return ++navEpoch;
 }
 
 export interface OpenWorkspaceSceneOptions {
@@ -47,6 +73,39 @@ export interface OpenWorkspaceSceneOptions {
 
 export interface OpenWorkspaceSessionOptions {
   context?: WorkspaceSurfaceContext | null;
+  /** Commit a target session shell before metadata I/O so loading UI can paint. */
+  commitPendingSurface?: boolean;
+  /** Epoch reserved by a higher-level navigation intent such as Work opening. */
+  navigationEpoch?: number;
+  /** Optional owner-provided readiness for a session being created right now. */
+  resolveSession?: () => Promise<Session | null>;
+}
+
+export type OpenWorkspaceSessionResult = 'opened' | 'missing' | 'superseded';
+
+/** Paint a loading session shell while its owner prepares the real session. */
+export function commitPendingSessionNavigation(
+  sessionId: string,
+  options: OpenWorkspaceSessionOptions,
+): boolean {
+  const trimmedSessionId = sessionId.trim();
+  if (!trimmedSessionId) return false;
+  const epoch = options.navigationEpoch ?? ++navEpoch;
+  if (epoch !== navEpoch) return false;
+
+  const baseline = pendingSessionShell?.baseline ?? useWorkspaceSurfaceStore.getState();
+  commitPendingSessionSurface(trimmedSessionId, options, pendingSessionShell !== null);
+  pendingSessionShell = {
+    epoch,
+    sessionId: trimmedSessionId,
+    baseline,
+  };
+  return true;
+}
+
+export function cancelPendingSessionNavigation(epoch: number): boolean {
+  if (pendingSessionShell?.epoch !== epoch) return false;
+  return restorePendingSessionBaseline();
 }
 
 function resolveSceneScope(options: OpenWorkspaceSceneOptions): RuntimeScope {
@@ -182,7 +241,8 @@ async function ensureSessionInStore(sessionId: string): Promise<Session | null> 
 
 function commitSessionSurface(
   session: Session,
-  options: OpenWorkspaceSessionOptions = {}
+  options: OpenWorkspaceSessionOptions = {},
+  replacePendingSurface = false,
 ): void {
   const sessionType = resolveSessionTypeDefinitionForDescriptor(session.descriptor);
   const surfacePolicy = sessionType.lifecycle.defaultSurface;
@@ -191,6 +251,7 @@ function commitSessionSurface(
     useWorkspaceSurfaceStore.getState().openSurface(createAgenticOsHomeSurface(), {
       context: options.context,
       currentOsSessionId: session.sessionId,
+      historyMode: replacePendingSurface ? 'restore' : undefined,
     });
     return;
   }
@@ -198,7 +259,10 @@ function commitSessionSurface(
   if (surfacePolicy === 'session') {
     useWorkspaceSurfaceStore.getState().openSurface(
       { kind: 'session', sessionId: session.sessionId },
-      { context: options.context },
+      {
+        context: options.context,
+        historyMode: replacePendingSurface ? 'restore' : undefined,
+      },
     );
     return;
   }
@@ -207,6 +271,46 @@ function commitSessionSurface(
     sessionId: session.sessionId,
     surfacePolicy,
   });
+}
+
+function commitPendingSessionSurface(
+  sessionId: string,
+  options: OpenWorkspaceSessionOptions,
+  replacePendingSurface = false,
+): void {
+  useWorkspaceSurfaceStore.getState().openSurface(
+    { kind: 'session', sessionId },
+    {
+      context: options.context,
+      historyMode: replacePendingSurface ? 'restore' : undefined,
+    },
+  );
+  // Do not let the previous session's profile or application sidecar leak into
+  // the pending shell while metadata is being resolved.
+  useModernFlowChatStore.getState().setActiveSession(null);
+}
+
+function restoreSurfaceAfterMissingSession(
+  previous: ReturnType<typeof useWorkspaceSurfaceStore.getState>,
+): void {
+  useWorkspaceSurfaceStore.getState().openSurface(previous.activeSurface, {
+    context: previous.surfaceContext,
+    historyMode: 'restore',
+    currentOsSessionId: previous.currentOsSessionId,
+  });
+  useWorkspaceSurfaceStore.setState({
+    previousSurface: previous.previousSurface,
+    currentOsSessionId: previous.currentOsSessionId,
+    sceneHistory: previous.sceneHistory,
+    surfaceContext: previous.surfaceContext,
+  });
+
+  const previousSessionId = selectFocusedSessionId(previous);
+  if (previousSessionId) {
+    syncSessionToModernStore(previousSessionId);
+  } else {
+    useModernFlowChatStore.getState().setActiveSession(null);
+  }
 }
 
 async function settleSessionActivation(sessionId: string): Promise<void> {
@@ -220,6 +324,7 @@ export function openScene(
   sceneId: WorkspaceSceneId,
   options: OpenWorkspaceSceneOptions = {}
 ): void {
+  restorePendingSessionBaseline();
   ++navEpoch;
   useWorkspaceSurfaceStore.getState().openSurface({
     kind: 'scene',
@@ -234,11 +339,14 @@ export function openScene(
 }
 
 export function goBackScene(): boolean {
+  const restoredPendingBaseline = restorePendingSessionBaseline();
   ++navEpoch;
+  if (restoredPendingBaseline) return true;
   return useWorkspaceSurfaceStore.getState().goBackScene();
 }
 
 export function openSceneHistoryEntry(index: number): boolean {
+  restorePendingSessionBaseline();
   ++navEpoch;
   return useWorkspaceSurfaceStore.getState().openSceneHistoryEntry(index);
 }
@@ -246,44 +354,89 @@ export function openSceneHistoryEntry(index: number): boolean {
 export async function openSession(
   sessionId: string,
   options: OpenWorkspaceSessionOptions = {}
-): Promise<void> {
+): Promise<OpenWorkspaceSessionResult> {
   const trimmedSessionId = sessionId.trim();
   if (!trimmedSessionId) {
-    return;
+    return 'missing';
   }
 
-  const epoch = ++navEpoch;
-  const currentFocusedId = selectFocusedSessionId(useWorkspaceSurfaceStore.getState());
-
-  const session = await ensureSessionInStore(trimmedSessionId);
+  const epoch = options.navigationEpoch ?? ++navEpoch;
   if (epoch !== navEpoch) {
-    return;
+    return 'superseded';
+  }
+  const previousSurfaceState = useWorkspaceSurfaceStore.getState();
+  const inheritedPendingShell = pendingSessionShell;
+  const stableBaseline = inheritedPendingShell?.baseline ?? previousSurfaceState;
+  const currentFocusedId = selectFocusedSessionId(previousSurfaceState);
+  const sessionAlreadyKnown = flowChatStore.getState().sessions.has(trimmedSessionId);
+  const committedPendingSurface = options.commitPendingSurface === true && !sessionAlreadyKnown;
+
+  if (committedPendingSurface) {
+    commitPendingSessionSurface(trimmedSessionId, options, inheritedPendingShell !== null);
+    pendingSessionShell = {
+      epoch,
+      sessionId: trimmedSessionId,
+      baseline: stableBaseline,
+    };
+  } else if (inheritedPendingShell) {
+    pendingSessionShell = {
+      ...inheritedPendingShell,
+      epoch,
+    };
+  } else {
+    pendingSessionShell = null;
+  }
+
+  let session: Session | null = null;
+  try {
+    session = options.resolveSession
+      ? await options.resolveSession()
+      : await ensureSessionInStore(trimmedSessionId);
+  } catch (error) {
+    log.warn('Session readiness failed during navigation', {
+      sessionId: trimmedSessionId,
+      error,
+    });
+  }
+  if (epoch !== navEpoch) {
+    return 'superseded';
   }
   if (!session) {
-    return;
+    if (pendingSessionShell?.epoch === epoch) {
+      restoreSurfaceAfterMissingSession(pendingSessionShell.baseline);
+      pendingSessionShell = null;
+    }
+    return 'missing';
+  }
+  const resolvedSessionId = session.sessionId;
+
+  const replacingPendingSurface = pendingSessionShell?.epoch === epoch;
+  if (replacingPendingSurface) {
+    pendingSessionShell = null;
   }
 
-  if (currentFocusedId === trimmedSessionId) {
-    syncSessionToModernStore(trimmedSessionId);
+  if (currentFocusedId === resolvedSessionId) {
+    syncSessionToModernStore(resolvedSessionId);
     void import('@/flow_chat/services/FlowChatManager').then(({ flowChatManager }) =>
-      flowChatManager.activateSessionData(trimmedSessionId)
+      flowChatManager.activateSessionData(resolvedSessionId)
     );
-    return;
+    return 'opened';
   }
 
-  commitSessionSurface(session, options);
+  commitSessionSurface(session, options, replacingPendingSurface);
   if (epoch !== navEpoch) {
-    return;
+    return 'superseded';
   }
 
-  await settleSessionActivation(trimmedSessionId);
+  await settleSessionActivation(resolvedSessionId);
+  return 'opened';
 }
 
 export async function openHome(options?: {
   context?: WorkspaceSurfaceContext | null;
   currentOsSessionId?: string | null;
 }): Promise<string | null> {
-  const epoch = ++navEpoch;
+  const epoch = beginNavigationIntent();
   const state = useWorkspaceSurfaceStore.getState();
 
   if (state.activeSurface.kind === 'agentic-os-home') {
@@ -337,6 +490,7 @@ export function getActiveWorkspaceSurface() {
 
 /** Synchronous home commit for startup — shows home chrome before async session resolve. */
 export function commitStartupHome(): void {
+  pendingSessionShell = null;
   ++navEpoch;
   useWorkspaceSurfaceStore.getState().openSurface(createAgenticOsHomeSurface());
 }

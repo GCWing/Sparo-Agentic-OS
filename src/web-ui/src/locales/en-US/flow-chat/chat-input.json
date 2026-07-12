@@ -64,6 +64,19 @@
     "goalPending": "Goal pending",
     "promptTemplate": "Prompt"
   },
+  "spreadsheetFocus": {
+    "included": "Spreadsheet focus included",
+    "excluded": "Spreadsheet focus excluded",
+    "includeAction": "Include with next message",
+    "excludeAction": "Exclude from next message",
+    "partialCache": "Selection preview is incomplete; the agent will re-read the range",
+    "staleFormulas": "Selected formula results are stale; recalculate before trusting them",
+    "modes": {
+      "inspect": "Inspect",
+      "edit": "Edit",
+      "author": "Author"
+    }
+  },
   "professionalMode": "Expert Mode",
   "designMode": "Designer Mode",
   "wip": "WIP",

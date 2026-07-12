@@ -3,6 +3,75 @@
     "title": "App Builder",
     "description": "Build a Product App with a clear goal, work object, surface, and component graph."
   },
+  "draftWorkbench": {
+    "title": "App Draft",
+    "draftBadge": "Editable Draft",
+    "derivedFrom": "Based on Release {{releaseId}}. The source Release is never modified.",
+    "newDraft": "A new App Draft. Formal Work only uses a published Release.",
+    "tabsLabel": "App Draft workbench",
+    "tabs": {
+      "preview": "Preview",
+      "quality": "Validation",
+      "release": "Release"
+    },
+    "actions": {
+      "refreshPreview": "Refresh preview",
+      "validate": "Validate Draft",
+      "createRelease": "Create Release",
+      "activate": "Use this Release",
+      "continueEditing": "Continue from this Release",
+      "retry": "Retry",
+      "cancel": "Cancel"
+    },
+    "empty": {
+      "title": "No App Draft is bound",
+      "description": "Create or customize an app in Apps Center before opening Builder."
+    },
+    "preview": {
+      "loading": "Preparing isolated preview…",
+      "failed": "This Draft could not be previewed",
+      "timeout": "Draft preview timed out while starting.",
+      "ready": "Preview ready",
+      "starting": "Starting",
+      "isolated": "Preview uses an ephemeral artifact. It does not create formal Work or change the active app."
+    },
+    "quality": {
+      "validation": "Release gate",
+      "validationDescription": "Package contracts, capabilities, data migration, and runtime checks must pass.",
+      "evaluation": "Independent evaluation",
+      "evaluationDescription": "No reliable comparison with the current Release has been produced yet.",
+      "notRun": "Not verified",
+      "failed": "Failed",
+      "warnings": "Warnings",
+      "issues": "Issues",
+      "cases": "Evaluation cases"
+    },
+    "release": {
+      "immutable": "Immutable",
+      "ready": "Release {{version}} is ready",
+      "description": "This artifact will never change. Activation only affects new Work; existing Work stays on its original Release.",
+      "releaseId": "Release ID",
+      "artifact": "Artifact digest",
+      "emptyTitle": "No new Release yet",
+      "emptyDescription": "Validate the Draft, then create an immutable Release. Creating it does not change the active app."
+    },
+    "publish": {
+      "title": "Create immutable Release",
+      "description": "Enter the user-facing version. The system rejects publication when a Release gate has not passed.",
+      "invalidVersion": "Enter a valid semantic version such as 1.0.0."
+    },
+    "capabilities": {
+      "title": "Review app capabilities",
+      "description": "This Release requests the capabilities below. Review them before activation.",
+      "scopeNote": "Approval is bound to this app and capability fingerprint. Capability changes require a new review.",
+      "approveAndActivate": "Approve and activate"
+    },
+    "messages": {
+      "validationStarted": "Validation was sent to App Builder",
+      "releaseCreated": "Release {{version}} created",
+      "activated": "The new Release is now active"
+    }
+  },
   "panel": {
     "title": "App Builder",
     "reload": "Reload preview",

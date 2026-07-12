@@ -35,7 +35,6 @@ interface CanvasStoreState {
   tertiaryGroup: EditorGroupState;
   activeGroupId: EditorGroupId;
   layout: LayoutState;
-  isMissionControlOpen: boolean;
   draggingTabId: string | null;
   draggingFromGroupId: EditorGroupId | null;
   closedTabs: ClosedTabRecord[];
@@ -130,17 +129,6 @@ interface CanvasStoreActions {
   /** Set active editor group */
   setActiveGroup: (groupId: EditorGroupId) => void;
   
-  // ==================== Mission Control ====================
-  
-  /** Open mission control */
-  openMissionControl: () => void;
-  
-  /** Close mission control */
-  closeMissionControl: () => void;
-  
-  /** Toggle mission control */
-  toggleMissionControl: () => void;
-  
   // ==================== State Management ====================
   
   /** Reset state */
@@ -160,7 +148,6 @@ const initialState: CanvasStoreState = {
   tertiaryGroup: createEditorGroupState(),
   activeGroupId: 'primary',
   layout: createLayoutState(),
-  isMissionControlOpen: false,
   draggingTabId: null,
   draggingFromGroupId: null,
   closedTabs: [],
@@ -1033,26 +1020,6 @@ const createCanvasStoreHook = () => create<CanvasStore>()(
         });
       },
       
-      // ==================== Mission Control ====================
-      
-      openMissionControl: () => {
-        set((draft) => {
-          draft.isMissionControlOpen = true;
-        });
-      },
-      
-      closeMissionControl: () => {
-        set((draft) => {
-          draft.isMissionControlOpen = false;
-        });
-      },
-      
-      toggleMissionControl: () => {
-        set((draft) => {
-          draft.isMissionControlOpen = !draft.isMissionControlOpen;
-        });
-      },
-      
       // ==================== State Management ====================
       
       reset: () => {
@@ -1103,7 +1070,6 @@ function extractAgentPersistableState(state: CanvasStore): CanvasStoreState {
     tertiaryGroup: state.tertiaryGroup,
     activeGroupId: state.activeGroupId,
     layout: state.layout,
-    isMissionControlOpen: state.isMissionControlOpen,
     draggingTabId: state.draggingTabId,
     draggingFromGroupId: state.draggingFromGroupId,
     closedTabs: state.closedTabs,
@@ -1138,7 +1104,6 @@ function applyEmptyAgentCanvas(): void {
     tertiaryGroup: createEditorGroupState(),
     activeGroupId: 'primary',
     layout: createLayoutState(),
-    isMissionControlOpen: false,
     draggingTabId: null,
     draggingFromGroupId: null,
     closedTabs: [],
@@ -1185,7 +1150,6 @@ export function switchAgentCanvasWorkspace(
       tertiaryGroup: nextSnapshotClone.tertiaryGroup,
       activeGroupId: nextSnapshotClone.activeGroupId,
       layout: nextSnapshotClone.layout,
-      isMissionControlOpen: false,
       draggingTabId: null,
       draggingFromGroupId: null,
       closedTabs: nextSnapshotClone.closedTabs,

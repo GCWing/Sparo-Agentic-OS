@@ -37,9 +37,9 @@ import {
   VIEWPORT_ANIMATION_MS,
   VIEWPORT_EPSILON_PX,
   areGeometriesEqual,
-  absorbPinnedContentGrowth,
+  areLatestTurnLayoutOwnersEqual,
+  absorbLatestTurnContentGrowth,
   clearConsumableCompensation,
-  clearPinReservation,
   consumeCompensation,
   createInitialGeometry,
   easeOutCubic,
@@ -48,10 +48,15 @@ import {
   getFollowTargetScrollTop,
   getMaxScrollTop,
   getTotalCompensationPx,
-  hasActiveStickyFloor,
-  reconcileStickyPinReservation,
-  resolvePinMetrics,
+  increaseLatestTurnFloor,
+  reconcileLatestTurnFloor,
+  replaceLatestTurnLayout,
+  resolveTailAlignmentMetrics,
   sanitizeGeometry,
+  setLatestTurnActivationTail,
+  setLatestTurnLayoutPhase,
+  setTransientTail,
+  type LatestTurnLayoutOwner,
   type ScrollerMetrics,
   type ViewportGeometryState,
 } from './FlowViewportGeometry';
@@ -82,6 +87,13 @@ export interface FlowViewportHost {
 export interface ViewportSnapshot {
   modeKind: ViewportMode['kind'];
   showScrollToLatest: boolean;
+}
+
+export interface FlowViewportDiagnostics {
+  mode: ViewportMode;
+  latestTurnLayout: ViewportGeometryState['latestTurnLayout'];
+  transientTailPx: number;
+  totalCompensationPx: number;
 }
 
 interface AnchorLockState {
@@ -120,6 +132,8 @@ export class FlowViewportScheduler {
 
   private mode: ViewportMode = READING_MODE;
   private geometry: ViewportGeometryState = createInitialGeometry();
+  private activeSessionId: string | null = null;
+  private nextLayoutEpoch = 0;
 
   private anchorLock: AnchorLockState = { active: false, targetScrollTop: 0, untilMs: 0 };
   private collapseIntent: CollapseIntentState = createInactiveCollapseIntent();
@@ -155,13 +169,24 @@ export class FlowViewportScheduler {
     return this.mode;
   }
 
+  getDiagnostics(): FlowViewportDiagnostics {
+    const latestTurnLayout = this.geometry.latestTurnLayout;
+    return {
+      mode: this.mode,
+      latestTurnLayout: latestTurnLayout
+        ? { ...latestTurnLayout, owner: { ...latestTurnLayout.owner } }
+        : null,
+      transientTailPx: this.geometry.transientTailPx,
+      totalCompensationPx: getTotalCompensationPx(this.geometry),
+    };
+  }
+
   getFooterHeightPx(): number {
     return this.host.getInputFooterPx() + getTotalCompensationPx(this.geometry);
   }
 
-  /** Turn owning a live sticky pin floor, or null when no floor is active. */
-  private getStickyPinTurnId(): string | null {
-    return hasActiveStickyFloor(this.geometry) ? this.geometry.pinTargetTurnId : null;
+  private getLatestTurnLayoutOwner(): LatestTurnLayoutOwner | null {
+    return this.geometry.latestTurnLayout?.owner ?? null;
   }
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
@@ -172,8 +197,22 @@ export class FlowViewportScheduler {
     this.listeners.clear();
   }
 
-  resetForSession(latestTurnId: string | null, isStreaming: boolean): void {
-    this.geometry = createInitialGeometry();
+  enterSession(
+    sessionId: string,
+    latestTurnId: string | null,
+    initialTargetTurnId: string | null,
+  ): void {
+    this.activeSessionId = sessionId;
+    const owner = latestTurnId ? this.createLayoutOwner(sessionId, latestTurnId) : null;
+    this.geometry = owner
+      ? replaceLatestTurnLayout(
+          createInitialGeometry(),
+          owner,
+          initialTargetTurnId && initialTargetTurnId !== latestTurnId
+            ? 'dormant'
+            : 'activating',
+        )
+      : createInitialGeometry();
     this.anchorLock = { active: false, targetScrollTop: 0, untilMs: 0 };
     this.collapseIntent = createInactiveCollapseIntent();
     this.animation.active = false;
@@ -182,15 +221,109 @@ export class FlowViewportScheduler {
     this.idleFrames = 0;
     this.finalizeStableFrames = 0;
     this.applyFooterNow();
-    this.dispatch({ type: 'SESSION_CHANGED', latestTurnId, isStreaming });
+    this.dispatch({ type: 'SESSION_ENTERED', owner, initialTargetTurnId });
+  }
+
+  /** Synchronize a data-derived latest turn without claiming user intent. */
+  syncLatestTurn(sessionId: string, turnId: string): void {
+    if (this.activeSessionId !== sessionId) return;
+    const current = this.getLatestTurnLayoutOwner();
+    if (current?.sessionId === sessionId && current.turnId === turnId) {
+      return;
+    }
+
+    const owner = this.createLayoutOwner(sessionId, turnId);
+    this.geometry = replaceLatestTurnLayout(createInitialGeometry(), owner, 'dormant');
+    this.anchorLock.active = false;
+    this.collapseIntent = createInactiveCollapseIntent();
+    this.animation.active = false;
+    this.previousEffectiveHeight = null;
+    this.applyFooterNow();
+    this.dispatch({ type: 'LATEST_TURN_CHANGED' });
+    this.wake();
+  }
+
+  /** Explicit local submission: replace the owner if needed and activate it. */
+  submitLatestTurn(sessionId: string, turnId: string): boolean {
+    if (this.activeSessionId !== sessionId) return false;
+    const owner = this.ensureLatestTurnOwner(sessionId, turnId);
+    if (
+      (this.mode.kind === 'pinned-latest' &&
+        areLatestTurnLayoutOwnersEqual(this.mode.owner, owner)) ||
+      (this.mode.kind === 'navigating' &&
+        this.mode.target.type === 'latest-turn-top' &&
+        areLatestTurnLayoutOwnersEqual(this.mode.target.owner, owner))
+    ) {
+      this.wake();
+      return true;
+    }
+    this.geometry = setLatestTurnLayoutPhase(this.geometry, 'activating');
+    this.applyFooterNow();
+    this.snapshotEffectiveHeight();
+    this.dispatch({ type: 'TURN_SUBMITTED', owner });
+    return true;
+  }
+
+  navigateToTurn(turnId: string, behavior: ScrollBehavior): boolean {
+    let owner = this.getLatestTurnLayoutOwner();
+    if (
+      turnId === this.host.getLatestTurnId() &&
+      this.activeSessionId &&
+      owner?.turnId !== turnId
+    ) {
+      owner = this.ensureLatestTurnOwner(this.activeSessionId, turnId);
+    }
+    if (owner?.turnId === turnId) {
+      if (
+        (this.mode.kind === 'pinned-latest' &&
+          areLatestTurnLayoutOwnersEqual(this.mode.owner, owner)) ||
+        (this.mode.kind === 'navigating' &&
+          this.mode.target.type === 'latest-turn-top' &&
+          areLatestTurnLayoutOwnersEqual(this.mode.target.owner, owner))
+      ) {
+        this.wake();
+        return true;
+      }
+      this.geometry = setLatestTurnLayoutPhase(this.geometry, 'activating');
+      this.applyFooterNow();
+      this.snapshotEffectiveHeight();
+      this.dispatch({
+        type: 'NAVIGATE',
+        target: { type: 'latest-turn-top', owner, behavior },
+      });
+      return true;
+    }
+
+    this.geometry = setLatestTurnLayoutPhase(this.geometry, 'dormant');
+    this.applyFooterNow();
+    this.snapshotEffectiveHeight();
+    this.dispatch({ type: 'NAVIGATE', target: { type: 'turn-top', turnId, behavior } });
+    return true;
   }
 
   resetForEmptyList(): void {
     this.geometry = createInitialGeometry();
+    this.activeSessionId = null;
     this.previousEffectiveHeight = null;
     this.anchorLock.active = false;
     this.collapseIntent = createInactiveCollapseIntent();
     this.applyFooterNow();
+  }
+
+  private createLayoutOwner(sessionId: string, turnId: string): LatestTurnLayoutOwner {
+    this.nextLayoutEpoch += 1;
+    return { sessionId, turnId, epoch: this.nextLayoutEpoch };
+  }
+
+  private ensureLatestTurnOwner(sessionId: string, turnId: string): LatestTurnLayoutOwner {
+    const current = this.getLatestTurnLayoutOwner();
+    if (current?.sessionId === sessionId && current.turnId === turnId) {
+      return current;
+    }
+    const owner = this.createLayoutOwner(sessionId, turnId);
+    this.geometry = replaceLatestTurnLayout(createInitialGeometry(), owner, 'activating');
+    this.previousEffectiveHeight = null;
+    return owner;
   }
 
   attachScroller(): void {
@@ -219,7 +352,7 @@ export class FlowViewportScheduler {
     const context: ViewportContext = {
       isStreaming: this.host.isStreaming(),
       latestTurnId: this.host.getLatestTurnId(),
-      stickyPinTurnId: this.getStickyPinTurnId(),
+      latestTurnLayoutOwner: this.getLatestTurnLayoutOwner(),
     };
     const nextMode = reduceViewportMode(this.mode, event, context);
     if (areViewportModesEqual(this.mode, nextMode)) {
@@ -242,32 +375,41 @@ export class FlowViewportScheduler {
     if (next.kind === 'navigating') {
       this.navigation = createNavigationRuntime(now());
       this.anchorLock.active = false;
-      // Navigating into history is a detour, not a layout change: the sticky
-      // floor keeps belonging to the latest turn's reading layout and is only
-      // released by the explicit clear-pin bottom jump (or a new turn /
-      // session change).
-      if (next.target.type === 'latest-end' && next.target.clearPin) {
-        this.geometry = clearPinReservation(this.geometry);
-        this.applyFooterNow();
+      this.geometry = clearConsumableCompensation(this.geometry);
+      if (next.target.type === 'latest-turn-top') {
+        if (
+          areLatestTurnLayoutOwnersEqual(
+            next.target.owner,
+            this.getLatestTurnLayoutOwner(),
+          )
+        ) {
+          this.geometry = setLatestTurnLayoutPhase(this.geometry, 'activating');
+        }
+      } else {
+        this.geometry = setLatestTurnLayoutPhase(this.geometry, 'dormant');
       }
+      this.applyFooterNow();
+      this.snapshotEffectiveHeight();
     }
 
     if (next.kind === 'pinned-latest') {
+      this.geometry = setLatestTurnLayoutPhase(this.geometry, 'active');
+      this.applyFooterNow();
+      this.snapshotEffectiveHeight();
       this.pinnedFramesSinceEstablished = 0;
     }
 
-    if (next.kind === 'following' && previous.kind === 'pinned-latest') {
-      // The floor just reached zero; drop any leftover consumable pin space so
-      // the follow target and the pinned position coincide exactly.
-      this.geometry = sanitizeGeometry({
-        ...this.geometry,
-        pinPx: this.geometry.pinFloorPx,
-      });
+    if (next.kind === 'following' || next.kind === 'finalizing') {
+      this.geometry = setLatestTurnLayoutPhase(this.geometry, 'dormant');
       this.applyFooterNow();
+      this.snapshotEffectiveHeight();
     }
 
-    if (next.kind === 'reading' && previous.kind === 'finalizing') {
-      this.geometry = clearConsumableCompensation(this.geometry);
+    if (next.kind === 'reading') {
+      this.geometry = setLatestTurnLayoutPhase(this.geometry, 'dormant');
+      if (previous.kind === 'finalizing') {
+        this.geometry = clearConsumableCompensation(this.geometry);
+      }
       this.applyFooterNow();
       this.snapshotEffectiveHeight();
     }
@@ -280,6 +422,24 @@ export class FlowViewportScheduler {
     this.dispatch({ type: 'USER_SCROLL_UP' });
   }
 
+  /**
+   * Downward intent only releases a pinned page when real content exists
+   * below the viewport. Synthetic blank alone is not scrollable content.
+   */
+  handleUserScrollDownIntent(): void {
+    if (this.mode.kind === 'navigating') {
+      this.dispatch({ type: 'USER_SCROLL_DOWN_WITH_CONTENT' });
+      return;
+    }
+    if (this.mode.kind !== 'pinned-latest') return;
+
+    const scroller = this.host.getScroller();
+    if (!scroller) return;
+    if (getContentDistanceFromBottom(readMetrics(scroller), this.geometry) > VIEWPORT_EPSILON_PX) {
+      this.dispatch({ type: 'USER_SCROLL_DOWN_WITH_CONTENT' });
+    }
+  }
+
   handleScrollEvent(): void {
     const scroller = this.host.getScroller();
     if (!scroller) return;
@@ -287,15 +447,12 @@ export class FlowViewportScheduler {
     const metrics = readMetrics(scroller);
     const delta = metrics.scrollTop - this.previousScrollTop;
 
-    // Synchronous consumption: only when no sticky floor is active. The sticky
-    // floor is a layout contract for the latest turn — it must survive detours
-    // into history and only be released explicitly (new turn / session / clear).
-    const stickyFloorActive = this.getStickyPinTurnId() !== null;
+    // Synchronous consumption removes only temporary reservations. The latest
+    // floor is non-consumable and survives history detours.
     if (
       delta > VIEWPORT_EPSILON_PX &&
       !this.anchorLock.active &&
       this.transitionCount === 0 &&
-      !stickyFloorActive &&
       (this.mode.kind === 'reading' || this.mode.kind === 'pinned-latest')
     ) {
       const next = consumeCompensation(this.geometry, delta);
@@ -308,19 +465,21 @@ export class FlowViewportScheduler {
 
     if (delta > VIEWPORT_EPSILON_PX && this.mode.kind === 'reading') {
       const fresh = readMetrics(scroller);
-      const stickyPinTurnId = this.getStickyPinTurnId();
+      const latestOwner = this.getLatestTurnLayoutOwner();
       if (this.host.isStreaming()) {
         if (getContentDistanceFromBottom(fresh, this.geometry) <= REENTER_FOLLOW_THRESHOLD_PX) {
-          this.dispatch({ type: 'USER_REACHED_CONTENT_BOTTOM' });
+          this.dispatch({ type: 'USER_REACHED_OUTPUT_END' });
         }
       } else if (
-        stickyPinTurnId !== null &&
-        getContentDistanceFromBottom(fresh, this.geometry) <= REENTER_FOLLOW_THRESHOLD_PX
+        latestOwner !== null &&
+        latestOwner.turnId === this.host.getLatestTurnId() &&
+        (this.geometry.latestTurnLayout?.floorPx ?? 0) > VIEWPORT_EPSILON_PX &&
+        getMaxScrollTop(fresh) - fresh.scrollTop <= PIN_ALIGN_TOLERANCE_PX
       ) {
-        // Pinned layout lives at the content bottom, not the physical bottom
-        // (which includes the synthetic tail). Arriving at content bottom
-        // restores pinned-latest with the preserved floor.
-        this.dispatch({ type: 'USER_REACHED_CONTENT_BOTTOM' });
+        // While returning from history the floor is traversable layout range.
+        // Activation occurs only once native scrolling reaches the measured
+        // latest page, so no content-bottom snap is introduced.
+        this.dispatch({ type: 'USER_REACHED_LATEST_LAYOUT' });
       }
     }
 
@@ -391,11 +550,10 @@ export class FlowViewportScheduler {
         // Grow the floor before layout shrinks so scrollHeight never dips and
         // the pinned turn cannot be clamped downward. The per-frame pin
         // reconcile converges to the measured value afterwards.
-        this.geometry = sanitizeGeometry({
-          ...this.geometry,
-          pinFloorPx: this.geometry.pinFloorPx + estimate,
-          pinPx: Math.max(this.geometry.pinPx, this.geometry.pinFloorPx + estimate),
-        });
+        const owner = this.getLatestTurnLayoutOwner();
+        if (owner) {
+          this.geometry = increaseLatestTurnFloor(this.geometry, owner, estimate);
+        }
         this.applyFooterNow();
         this.snapshotEffectiveHeight();
         this.wake();
@@ -431,11 +589,6 @@ export class FlowViewportScheduler {
         return;
       }
     }
-  }
-
-  /** Latest turn changed within the same session (message sent / restored). */
-  notifyTurnSent(turnId: string): void {
-    this.dispatch({ type: 'TURN_SENT', turnId });
   }
 
   notifyStreamingChanged(isStreaming: boolean): void {
@@ -537,14 +690,8 @@ export class FlowViewportScheduler {
       if (getTotalCompensationPx(this.geometry) > VIEWPORT_EPSILON_PX && this.transitionCount > 0) {
         return;
       }
-      // Sticky floor is frozen while the user is away in reading/navigating.
-      // Only pinned-latest applies equal exchange; height deltas from
-      // virtualization while scrolling history are ignored.
-      if (this.getStickyPinTurnId() !== null && this.mode.kind !== 'pinned-latest') {
-        return;
-      }
       const next = this.mode.kind === 'pinned-latest'
-        ? absorbPinnedContentGrowth(this.geometry, delta)
+        ? absorbLatestTurnContentGrowth(this.geometry, this.mode.owner, delta)
         : consumeCompensation(this.geometry, delta);
       if (!areGeometriesEqual(next, this.geometry)) {
         this.geometry = next;
@@ -591,9 +738,10 @@ export class FlowViewportScheduler {
     }
 
     if (nextTotal > VIEWPORT_EPSILON_PX) {
+      const nonCollapsePx = getTotalCompensationPx(this.geometry) - this.geometry.collapsePx;
       this.geometry = sanitizeGeometry({
         ...this.geometry,
-        collapsePx: Math.max(0, nextTotal - this.geometry.pinPx),
+        collapsePx: Math.max(0, nextTotal - nonCollapsePx),
       });
       const anchorTarget = hasIntent ? intent.anchorScrollTop : this.previousScrollTop;
       this.activateAnchorLock(anchorTarget);
@@ -616,10 +764,15 @@ export class FlowViewportScheduler {
     const mode = this.mode;
     if (mode.kind !== 'pinned-latest') return false;
 
-    const element = this.host.getUserMessageElement(mode.turnId);
+    if (!areLatestTurnLayoutOwnersEqual(mode.owner, this.getLatestTurnLayoutOwner())) {
+      this.dispatch({ type: 'LATEST_TURN_CHANGED' });
+      return false;
+    }
+
+    const element = this.host.getUserMessageElement(mode.owner.turnId);
     if (!element) {
       // Virtualized out (large resize or fast history jump); bring it back.
-      const index = this.host.findUserMessageIndex(mode.turnId);
+      const index = this.host.findUserMessageIndex(mode.owner.turnId);
       if (index < 0) {
         this.dispatch({ type: 'USER_SCROLL_UP' });
         return false;
@@ -632,22 +785,22 @@ export class FlowViewportScheduler {
     const scrollerRect = scroller.getBoundingClientRect();
     const targetRect = element.getBoundingClientRect();
     const topDelta = targetRect.top - (scrollerRect.top + PINNED_TURN_VIEWPORT_OFFSET_PX);
-    const { desiredScrollTop, missingTailSpacePx } = resolvePinMetrics(
+    const { desiredScrollTop, requiredTailSpacePx } = resolveTailAlignmentMetrics(
       metrics,
       topDelta,
-      this.geometry.pinPx,
+      getTotalCompensationPx(this.geometry),
     );
 
-    // Equal exchange: floor tracks the live missing-tail measurement. At
-    // equilibrium missingTailSpacePx is zero (incremental need), which means
-    // the current reservation is correct — reconcileStickyPinReservation
-    // preserves it instead of zeroing the floor.
-    const holdReconcile = this.transitionCount > 0 && missingTailSpacePx < this.geometry.pinFloorPx;
-    const nextGeometry = reconcileStickyPinReservation(
+    // Absolute measurement converges the current epoch without inheriting
+    // pixels from a previous session or turn.
+    const currentFloorPx = this.geometry.latestTurnLayout?.floorPx ?? 0;
+    const holdReconcile =
+      this.transitionCount > 0 && requiredTailSpacePx < currentFloorPx;
+    const nextGeometry = reconcileLatestTurnFloor(
       this.geometry,
-      missingTailSpacePx,
+      mode.owner,
+      requiredTailSpacePx,
       holdReconcile,
-      mode.turnId,
     );
     if (!areGeometriesEqual(nextGeometry, this.geometry)) {
       this.geometry = nextGeometry;
@@ -664,7 +817,7 @@ export class FlowViewportScheduler {
     this.pinnedFramesSinceEstablished += 1;
     if (
       this.pinnedFramesSinceEstablished > 1 &&
-      this.geometry.pinFloorPx <= VIEWPORT_EPSILON_PX &&
+      (this.geometry.latestTurnLayout?.floorPx ?? 0) <= VIEWPORT_EPSILON_PX &&
       this.host.isStreaming() &&
       this.transitionCount === 0
     ) {
@@ -715,7 +868,60 @@ export class FlowViewportScheduler {
   }
 
   private stepReading(scroller: HTMLElement): boolean {
-    return this.enforceAnchorLock(scroller);
+    const anchorLocked = this.enforceAnchorLock(scroller);
+    const layoutChanged = this.materializeDormantLatestTurnLayout(scroller);
+    return anchorLocked || layoutChanged;
+  }
+
+  /**
+   * A history detour keeps the semantic latest owner but does not force a
+   * jump. Once virtualization renders that owner, establish its floor in
+   * place. Growing the footer does not move the current reading anchor; it
+   * simply makes the correct latest-turn page reachable on the way down.
+   */
+  private materializeDormantLatestTurnLayout(scroller: HTMLElement): boolean {
+    const layout = this.geometry.latestTurnLayout;
+    if (
+      !layout ||
+      layout.phase !== 'dormant' ||
+      layout.owner.turnId !== this.host.getLatestTurnId()
+    ) {
+      return false;
+    }
+
+    const element = this.host.getUserMessageElement(layout.owner.turnId);
+    if (!element) return false;
+
+    const metrics = readMetrics(scroller);
+    const scrollerRect = scroller.getBoundingClientRect();
+    const targetRect = element.getBoundingClientRect();
+    const topDelta = targetRect.top - (scrollerRect.top + PINNED_TURN_VIEWPORT_OFFSET_PX);
+    const { requiredTailSpacePx } = resolveTailAlignmentMetrics(
+      metrics,
+      topDelta,
+      getTotalCompensationPx(this.geometry),
+    );
+    const next = reconcileLatestTurnFloor(
+      this.geometry,
+      layout.owner,
+      requiredTailSpacePx,
+      this.transitionCount > 0 && requiredTailSpacePx < layout.floorPx,
+    );
+    if (areGeometriesEqual(next, this.geometry)) {
+      return false;
+    }
+    this.geometry = next;
+    this.applyFooterNow();
+    this.snapshotEffectiveHeight();
+    if (
+      !this.host.isStreaming() &&
+      requiredTailSpacePx > VIEWPORT_EPSILON_PX &&
+      getMaxScrollTop(readMetrics(scroller)) - scroller.scrollTop <=
+        PIN_ALIGN_TOLERANCE_PX
+    ) {
+      this.dispatch({ type: 'USER_REACHED_LATEST_LAYOUT' });
+    }
+    return true;
   }
 
   private stepNavigation(scroller: HTMLElement): boolean {
@@ -723,7 +929,10 @@ export class FlowViewportScheduler {
     if (mode.kind !== 'navigating') return false;
     const target = mode.target;
 
-    if (now() - this.navigation.startedAtMs > PIN_RETRY_TTL_MS && target.type === 'turn-pin-top') {
+    if (
+      now() - this.navigation.startedAtMs > PIN_RETRY_TTL_MS &&
+      (target.type === 'latest-turn-top' || target.type === 'turn-top')
+    ) {
       this.settleNavigation();
       return false;
     }
@@ -764,30 +973,30 @@ export class FlowViewportScheduler {
         return true;
       }
 
-      case 'turn-pin-top': {
-        const element = this.host.getUserMessageElement(target.turnId);
+      case 'latest-turn-top': {
+        if (!areLatestTurnLayoutOwnersEqual(target.owner, this.getLatestTurnLayoutOwner())) {
+          this.dispatch({ type: 'LATEST_TURN_CHANGED' });
+          return false;
+        }
+
+        const element = this.host.getUserMessageElement(target.owner.turnId);
         if (!element) {
-          const index = this.host.findUserMessageIndex(target.turnId);
+          const index = this.host.findUserMessageIndex(target.owner.turnId);
           if (index < 0) {
             this.settleNavigation();
             return false;
           }
-          if (target.pinMode === 'sticky-latest') {
-            // Provisional tail so the eventual alignment has enough scroll
-            // range even before the item renders. Preserve any live floor.
-            const metrics = readMetrics(scroller);
-            const provisional = Math.max(getMaxScrollTop(metrics), this.geometry.pinPx);
-            if (provisional > this.geometry.pinPx + VIEWPORT_EPSILON_PX) {
-              this.geometry = sanitizeGeometry({
-                ...this.geometry,
-                pinPx: provisional,
-                pinFloorPx: this.geometry.pinFloorPx,
-                pinMode: 'sticky-latest',
-                pinTargetTurnId: target.turnId,
-              });
-              this.applyFooterNow();
-              this.snapshotEffectiveHeight();
-            }
+          const metrics = readMetrics(scroller);
+          const provisionalPx = Math.max(metrics.clientHeight, getMaxScrollTop(metrics));
+          const next = setLatestTurnActivationTail(
+            this.geometry,
+            target.owner,
+            provisionalPx,
+          );
+          if (!areGeometriesEqual(next, this.geometry)) {
+            this.geometry = next;
+            this.applyFooterNow();
+            this.snapshotEffectiveHeight();
           }
           this.host.virtuosoScrollToIndex(index, 'start', 'auto');
           return true;
@@ -797,27 +1006,53 @@ export class FlowViewportScheduler {
         const scrollerRect = scroller.getBoundingClientRect();
         const targetRect = element.getBoundingClientRect();
         const topDelta = targetRect.top - (scrollerRect.top + PINNED_TURN_VIEWPORT_OFFSET_PX);
-        const { desiredScrollTop, missingTailSpacePx } = resolvePinMetrics(
+        const { desiredScrollTop, requiredTailSpacePx } = resolveTailAlignmentMetrics(
           metrics,
           topDelta,
-          this.geometry.pinPx,
+          getTotalCompensationPx(this.geometry),
         );
 
-        const isSticky = target.pinMode === 'sticky-latest';
-        if (isSticky) {
-          this.geometry = reconcileStickyPinReservation(
-            this.geometry,
-            missingTailSpacePx,
-            false,
-            target.turnId,
-          );
-        } else {
-          // Transient: borrow consumable space only; never touch the floor.
-          this.geometry = sanitizeGeometry({
-            ...this.geometry,
-            pinPx: Math.max(missingTailSpacePx, this.geometry.pinPx),
-          });
+        this.geometry = reconcileLatestTurnFloor(
+          this.geometry,
+          target.owner,
+          requiredTailSpacePx,
+          false,
+        );
+        this.applyFooterNow();
+        this.snapshotEffectiveHeight();
+
+        const destination = Math.min(desiredScrollTop, getMaxScrollTop(readMetrics(scroller)));
+        const arrived = this.driveScroll(scroller, destination, target.behavior);
+        if (arrived) {
+          this.settleNavigation();
+          return false;
         }
+        return true;
+      }
+
+      case 'turn-top': {
+        const element = this.host.getUserMessageElement(target.turnId);
+        if (!element) {
+          const index = this.host.findUserMessageIndex(target.turnId);
+          if (index < 0) {
+            this.settleNavigation();
+            return false;
+          }
+          this.host.virtuosoScrollToIndex(index, 'start', 'auto');
+          return true;
+        }
+
+        const metrics = readMetrics(scroller);
+        const scrollerRect = scroller.getBoundingClientRect();
+        const targetRect = element.getBoundingClientRect();
+        const topDelta = targetRect.top - (scrollerRect.top + PINNED_TURN_VIEWPORT_OFFSET_PX);
+        const { desiredScrollTop, requiredTailSpacePx } = resolveTailAlignmentMetrics(
+          metrics,
+          topDelta,
+          this.geometry.transientTailPx,
+        );
+
+        this.geometry = setTransientTail(this.geometry, requiredTailSpacePx);
         this.applyFooterNow();
         this.snapshotEffectiveHeight();
 
@@ -833,7 +1068,11 @@ export class FlowViewportScheduler {
   }
 
   private settleNavigation(): void {
-    this.dispatch({ type: 'NAVIGATION_SETTLED', nowMs: now() });
+    const ownerEpoch =
+      this.mode.kind === 'navigating' && this.mode.target.type === 'latest-turn-top'
+        ? this.mode.target.owner.epoch
+        : undefined;
+    this.dispatch({ type: 'NAVIGATION_SETTLED', nowMs: now(), ownerEpoch });
     this.host.onVisibleTurnMeasure();
   }
 
@@ -942,7 +1181,7 @@ export class FlowViewportScheduler {
   private updateShowScrollToLatest(metrics: ScrollerMetrics): void {
     const show =
       this.mode.kind === 'reading' &&
-      getContentDistanceFromBottom(metrics, this.geometry) > SCROLL_TO_LATEST_THRESHOLD_PX;
+      this.getDistanceToLatestTarget(metrics) > SCROLL_TO_LATEST_THRESHOLD_PX;
     if (show !== this.snapshot.showScrollToLatest) {
       this.publishSnapshot();
     }
@@ -952,7 +1191,7 @@ export class FlowViewportScheduler {
     const scroller = this.host.getScroller();
     const show = scroller
       ? this.mode.kind === 'reading' &&
-        getContentDistanceFromBottom(readMetrics(scroller), this.geometry) >
+        this.getDistanceToLatestTarget(readMetrics(scroller)) >
           SCROLL_TO_LATEST_THRESHOLD_PX
       : false;
     const next: ViewportSnapshot = { modeKind: this.mode.kind, showScrollToLatest: show };
@@ -966,6 +1205,17 @@ export class FlowViewportScheduler {
     for (const listener of this.listeners) {
       listener();
     }
+  }
+
+  private getDistanceToLatestTarget(metrics: ScrollerMetrics): number {
+    if (
+      !this.host.isStreaming() &&
+      this.geometry.latestTurnLayout?.phase === 'dormant' &&
+      this.geometry.latestTurnLayout.floorPx > VIEWPORT_EPSILON_PX
+    ) {
+      return Math.max(0, getMaxScrollTop(metrics) - metrics.scrollTop);
+    }
+    return getContentDistanceFromBottom(metrics, this.geometry);
   }
 }
 

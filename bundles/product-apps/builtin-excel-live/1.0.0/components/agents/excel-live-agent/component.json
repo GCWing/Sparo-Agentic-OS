@@ -1,0 +1,106 @@
+{
+  "id": "excel-live-agent",
+  "kind": "agent",
+  "name": "Excel Live Agent",
+  "description": "A professional spreadsheet authoring copilot that inspects real workbook state, designs clear tables, proposes formulas, styles, and layouts for grid review, and exports source-safe Excel copies.",
+  "packageSource": "appPrivate",
+  "ownerApp": {
+    "appId": "builtin-excel-live",
+    "appVersion": "1.0.0"
+  },
+  "capabilities": [
+    {
+      "id": "inspectWorkbook",
+      "title": "Inspect workbook",
+      "description": "Open or create workbooks, read metadata and focus, list sheets, and summarize or read ranges without mutating committed cells.",
+      "actions": [
+        "openWorkbook",
+        "createWorkbook",
+        "getWorkbookMeta",
+        "getFocus",
+        "listSheets",
+        "readRange",
+        "summarizeRange"
+      ]
+    },
+    {
+      "id": "transformRange",
+      "title": "Transform range",
+      "description": "Propose revision-bound values, formulas, semantic or custom styles, number formats, and layout against ambient focus, then verify them on the grid and recover committed edits through history.",
+      "actions": [
+        "proposePatch",
+        "getProposal",
+        "acceptProposal",
+        "rejectProposal",
+        "getHistory",
+        "undo",
+        "redo",
+        "switchSheet"
+      ]
+    },
+    {
+      "id": "authorWorkbook",
+      "title": "Author workbook",
+      "description": "Create workbook structure, author coherent content/formula/visual proposals, retain undo history, then export committed work as an explicit source-safe copy.",
+      "actions": [
+        "createWorkbook",
+        "addSheet",
+        "renameSheet",
+        "insertRows",
+        "insertColumns",
+        "deleteRows",
+        "deleteColumns",
+        "proposePatch",
+        "saveWorkbook",
+        "getHistory",
+        "undo",
+        "redo",
+        "listSheets",
+        "switchSheet"
+      ]
+    }
+  ],
+  "permissions": [
+    {
+      "kind": "ai",
+      "summary": "Uses configured AI providers through Sparo OS.",
+      "scopes": [
+        "system",
+        "workspace"
+      ]
+    },
+    {
+      "kind": "fs",
+      "summary": "Reads and writes workspace spreadsheet files and Excel Live workbook stores through declared tools.",
+      "scopes": [
+        "{workspace}"
+      ]
+    }
+  ],
+  "usedByApps": [
+    "builtin-excel-live"
+  ],
+  "visibility": "appDependency",
+  "dependencies": [
+    {
+      "componentId": "builtin-excel-runtime",
+      "kind": "bridge",
+      "source": "private",
+      "role": "excelEngine",
+      "capabilities": [
+        "sparo.excelEngine"
+      ]
+    }
+  ],
+  "implementationRef": "app://builtin-excel-live@1.0.0/agents/excel-live-agent",
+  "usesCapabilities": [
+    "filesystem.read",
+    "filesystem.write",
+    "workspace.inspect",
+    "workspace.modify",
+    "session.read",
+    "model.invoke",
+    "tool.invoke",
+    "component.run"
+  ]
+}

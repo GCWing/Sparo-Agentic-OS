@@ -19,7 +19,6 @@
     "loadFailed": "加载今日来信失败。",
     "generateFailed": "生成今日来信失败。",
     "generateDisabled": "每日来信已在设置中关闭。",
-    "generateNoSources": "今天还没有足够的授权上下文，暂时写不出来。",
     "generateNoResult": "这次没有写出新的来信，请稍后再试。",
     "receiptFailed": "提交回执失败。",
     "sealFailed": "封存今日来信失败。"
@@ -67,7 +66,7 @@
   },
   "empty": {
     "title": "今天还没有来信",
-    "body": "等今天有足够的授权上下文后，Sparo 会在这里写下一封有温度的信。",
+    "body": "Sparo 每天都会写一封信。今天这封还在路上。",
     "loadingBody": "正在寻找已经抵达的来信。"
   },
   "status": {

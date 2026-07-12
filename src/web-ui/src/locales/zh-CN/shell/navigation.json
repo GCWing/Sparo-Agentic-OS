@@ -15,6 +15,7 @@
     "agents": "AI 应用",
     "skills": "技能",
     "tools": "工具",
+    "capabilities": "能力",
     "terminal": "Shell",
     "git": "Git",
     "subAgent": "子代理"
@@ -323,7 +324,797 @@
     "agenticOSDesc": "统筹并推进 AI 工作",
     "sectionExtensions": "扩展",
     "sectionSystem": "系统",
-    "welcomeHint": "从左侧进入 Agentic OS，或浏览扩展与系统工具"
+    "welcomeHint": "从左侧进入 Agentic OS，或浏览扩展与系统工具",
+    "hub": {
+      "ariaLabel": "Sparo Hub",
+      "sections": {
+        "frequent": "常用",
+        "more": "更多",
+        "preview": "浏览预览",
+        "direct": "直接前往"
+      },
+      "aria": {
+        "frequent": "常用入口",
+        "more": "更多入口",
+        "preview": "可切换预览的入口",
+        "direct": "直接打开场景的入口"
+      },
+      "controls": {
+        "group": "环境与偏好",
+        "settings": "打开设置",
+        "about": "关于",
+        "settingsShort": "设置",
+        "theme": "主题",
+        "language": "语言",
+        "systemTheme": "跟随系统",
+        "systemThemeShort": "系统",
+        "lightTheme": "亮色",
+        "darkTheme": "暗色",
+        "currentTheme": "主题：{{value}}",
+        "currentLanguage": "语言：{{value}}",
+        "exitTheme": "退出主题选择",
+        "exitLanguage": "退出语言选择"
+      },
+      "trigger": {
+        "open": "打开 Sparo Hub",
+        "close": "关闭 Sparo Hub"
+      },
+      "capsule": {
+        "default": "Sparo Hub",
+        "running": "工作 · {{count}} 运行中",
+        "attention": "工作 · {{count}} 待处理",
+        "dailyLetter": "今日来信 · 未读"
+      },
+      "states": {
+        "current": "当前",
+        "ready": "可打开",
+        "unread": "未读",
+        "running": "{{count}} 运行中"
+      },
+      "actions": {
+        "openItem": "打开{{item}}",
+        "newAgenticOsSession": "新建会话"
+      },
+      "work": {
+        "summary": "{{running}} 运行中 · {{attention}} 待处理",
+        "empty": "目前没有需要关注的工作",
+        "open": "打开工作中心",
+        "new": "新建工作"
+      },
+      "stage": {
+        "agentic-os": {
+          "status": "随时可用",
+          "lede": "从一个目标开始，Sparo 会连接合适的能力并保持工作连续。",
+          "points": {
+            "first": {
+              "title": "开始对话",
+              "meta": "说出下一件事"
+            },
+            "second": {
+              "title": "继续协作",
+              "meta": "回到最近上下文"
+            },
+            "third": {
+              "title": "运行轨迹",
+              "meta": "查看执行脉络"
+            }
+          }
+        },
+        "apps": {
+          "status": "操作入口",
+          "lede": "应用既能独立使用，也能成为一项工作的专属执行界面。",
+          "points": {
+            "first": {
+              "title": "发现",
+              "meta": "找到合适能力"
+            },
+            "second": {
+              "title": "打开",
+              "meta": "进入应用空间"
+            },
+            "third": {
+              "title": "承接工作",
+              "meta": "连接当前任务"
+            }
+          }
+        },
+        "files": {
+          "status": "全局范围",
+          "lede": "从本机文件系统出发，在全局位置与项目工作区之间自然切换。",
+          "points": {
+            "first": {
+              "title": "本机",
+              "meta": "磁盘与固定目录"
+            },
+            "second": {
+              "title": "工作区",
+              "meta": "项目范围浏览"
+            },
+            "third": {
+              "title": "打开位置",
+              "meta": "继续处理文件"
+            }
+          }
+        },
+        "shell": {
+          "status": "环境就绪",
+          "lede": "在系统与项目范围间选择正确的执行环境，同时保留上下文。",
+          "points": {
+            "first": {
+              "title": "系统范围",
+              "meta": "全局命令环境"
+            },
+            "second": {
+              "title": "项目范围",
+              "meta": "跟随工作区"
+            },
+            "third": {
+              "title": "权限边界",
+              "meta": "明确执行范围"
+            }
+          }
+        },
+        "daily-letter": {
+          "status": "后台整理中",
+          "lede": "系统在后台收集进展、提炼重点，并在合适的时机交付给你。",
+          "points": {
+            "first": {
+              "title": "收集",
+              "meta": "汇总今日轨迹"
+            },
+            "second": {
+              "title": "整理",
+              "meta": "提炼重点与待办"
+            },
+            "third": {
+              "title": "交付",
+              "meta": "形成今日来信"
+            }
+          }
+        },
+        "memory": {
+          "status": "仅你可见",
+          "lede": "记忆不是档案柜，而是一条由长期协作逐渐形成的个人轨迹。",
+          "points": {
+            "first": {
+              "title": "偏好",
+              "meta": "理解你的选择"
+            },
+            "second": {
+              "title": "协作反馈",
+              "meta": "调整配合方式"
+            },
+            "third": {
+              "title": "项目背景",
+              "meta": "延续工作上下文"
+            }
+          }
+        },
+        "skills": {
+          "status": "自动匹配",
+          "lede": "把专项知识与工作方法连接起来，在合适的任务里自动生效。",
+          "points": {
+            "first": {
+              "title": "知识",
+              "meta": "沉淀专业经验"
+            },
+            "second": {
+              "title": "方法",
+              "meta": "组织可靠流程"
+            },
+            "third": {
+              "title": "调用",
+              "meta": "任务中自动匹配"
+            }
+          }
+        },
+        "tools": {
+          "status": "按需调用",
+          "lede": "内置工具和连接服务共同扩展 Agent 能够安全执行的边界。",
+          "points": {
+            "first": {
+              "title": "内置工具",
+              "meta": "系统执行能力"
+            },
+            "second": {
+              "title": "MCP 服务",
+              "meta": "连接外部系统"
+            },
+            "third": {
+              "title": "权限边界",
+              "meta": "保持调用可控"
+            }
+          }
+        },
+        "subagents": {
+          "status": "协同待命",
+          "lede": "主 Agent 负责方向，专门协作者并行承接边界清晰的任务。",
+          "points": {
+            "first": {
+              "title": "主 Agent",
+              "meta": "保持整体方向"
+            },
+            "second": {
+              "title": "专门协作者",
+              "meta": "匹配具体能力"
+            },
+            "third": {
+              "title": "并行执行",
+              "meta": "汇回统一结果"
+            }
+          }
+        },
+        "settings": {
+          "status": "全局生效",
+          "lede": "用少量关键设置，控制 Sparo OS 的能力、边界与表达方式。",
+          "points": {
+            "first": {
+              "title": "模型",
+              "meta": "默认智能能力"
+            },
+            "second": {
+              "title": "权限",
+              "meta": "系统执行边界"
+            },
+            "third": {
+              "title": "外观与行为",
+              "meta": "个性化使用体验"
+            }
+          }
+        }
+      },
+      "preview": {
+        "common": {
+          "loading": "正在加载",
+          "statusUnavailable": "状态暂不可用",
+          "partialData": "部分数据",
+          "enabled": "已开启",
+          "disabled": "已关闭",
+          "count": "{{count}} 项",
+          "retry": "重试"
+        },
+        "agenticOs": {
+          "category": "协作中枢",
+          "status": {
+            "processing": "正在处理",
+            "current": "当前会话",
+            "available": "随时可用"
+          },
+          "summary": "{{sessions}} 个会话 · {{turns}} 轮协作",
+          "sections": {
+            "continue": "继续协作",
+            "recent": "最近会话",
+            "sessionCount": "显示 {{count}} 个"
+          },
+          "session": {
+            "turns": "{{count}} 轮",
+            "loading": "加载中…"
+          },
+          "empty": {
+            "title": "开始一次新协作",
+            "description": "说出你想让什么发生。",
+            "noRecent": "暂无其他最近会话"
+          },
+          "actions": {
+            "newSession": "新建会话",
+            "openTimeline": "查看全部轨迹"
+          },
+          "aria": {
+            "openSession": "打开会话：{{title}}"
+          }
+        },
+        "workCenter": {
+          "category": "工作操作面",
+          "status": {
+            "loading": "加载中",
+            "unavailable": "暂不可用",
+            "attention": "{{count}} 个等待你",
+            "running": "{{count}} 个运行中",
+            "idle": "当前已就绪"
+          },
+          "metrics": {
+            "running": "运行中",
+            "attention": "等待你",
+            "recent": "最近"
+          },
+          "sections": {
+            "running": "正在工作",
+            "recent": "最近工作",
+            "workCount": "共 {{count}} 个"
+          },
+          "empty": {
+            "noWork": "暂无工作",
+            "noRunning": "当前没有正在执行的工作",
+            "noRecent": "暂无最近工作"
+          },
+          "error": {
+            "loadFailed": "加载工作失败"
+          },
+          "actions": {
+            "newWork": "新建工作",
+            "openAll": "全部工作",
+            "retry": "重试",
+            "handle": "处理",
+            "viewProgress": "查看进度",
+            "resume": "恢复",
+            "continue": "继续",
+            "viewResult": "查看结果",
+            "open": "打开"
+          },
+          "aria": {
+            "openWork": "打开工作：{{title}}"
+          },
+          "workStatus": {
+            "draft": "草稿",
+            "active": "可开始",
+            "running": "运行中",
+            "waiting_user": "等待你",
+            "blocked": "已阻塞",
+            "paused": "已暂停",
+            "completed": "已完成",
+            "failed": "失败",
+            "cancelled": "已取消",
+            "interrupted": "已中断",
+            "archived": "已归档"
+          }
+        },
+        "apps": {
+          "category": "智能应用",
+          "status": "{{count}} 项可继续",
+          "metrics": {
+            "active": "继续使用",
+            "installed": "已安装",
+            "discover": "可发现"
+          },
+          "sections": {
+            "apps": "应用",
+            "continue": "继续运行",
+            "running": "运行中",
+            "pinned": "固定",
+            "recommended": "推荐应用",
+            "recent": "最近打开",
+            "installed": "我的应用",
+            "discover": "发现应用"
+          },
+          "workStatus": {
+            "running": "运行中",
+            "attention": "等待处理",
+            "active": "可继续"
+          },
+          "appState": {
+            "running": "正在运行",
+            "installed": "已安装",
+            "discover": "查看"
+          },
+          "actions": {
+            "open": "打开应用中心",
+            "create": "创建应用",
+            "manage": "管理"
+          },
+          "empty": {
+            "appsTitle": "暂无应用",
+            "continueTitle": "暂无可继续应用",
+            "runningTitle": "暂无运行应用",
+            "catalogTitle": "暂无推荐应用"
+          },
+          "aria": {
+            "apps": "应用",
+            "runningApps": "运行中的应用",
+            "recommendedApps": "推荐应用",
+            "continueApp": "继续 {{name}}",
+            "openRunningApp": "打开运行中的应用 {{name}}",
+            "openApp": "打开应用 {{name}}"
+          },
+          "errors": {
+            "works": "暂时无法读取应用工作",
+            "catalog": "暂时无法读取应用目录"
+          }
+        },
+        "files": {
+          "category": "全局文件系统",
+          "search": {
+            "placeholder": "搜索位置或输入路径",
+            "ariaLabel": "搜索已知位置或输入完整路径",
+            "clear": "清除位置搜索"
+          },
+          "sections": {
+            "continue": "继续浏览",
+            "common": "常用位置",
+            "results": "位置结果"
+          },
+          "actions": {
+            "open": "打开文件管理器",
+            "search": "搜索位置"
+          },
+          "types": {
+            "folder": "文件夹",
+            "file": "文件"
+          },
+          "empty": {
+            "continueTitle": "暂无可继续位置",
+            "commonTitle": "暂无常用位置",
+            "searchTitle": "无匹配位置",
+            "contentsTitle": "此位置暂无内容"
+          },
+          "aria": {
+            "openLocation": "打开位置 {{name}}",
+            "openEntry": "打开 {{name}}"
+          },
+          "errors": {
+            "contents": "暂时无法读取此位置"
+          }
+        },
+        "shell": {
+          "category": "执行环境",
+          "status": "{{count}} 个运行中",
+          "metrics": {
+            "running": "运行中",
+            "manual": "手动终端",
+            "agent": "Agent 终端"
+          },
+          "sections": {
+            "running": "运行中",
+            "saved": "保存的终端"
+          },
+          "actions": {
+            "open": "打开 Shell",
+            "new": "新建终端"
+          },
+          "newSessionName": "终端 {{count}}",
+          "empty": {
+            "runningTitle": "暂无终端",
+            "savedTitle": "还没有保存的终端",
+            "savedDescription": "可在 Shell 中保存名称、目录和启动命令。",
+            "workspaceDescription": "打开一个工作区后即可使用保存的终端。"
+          },
+          "errors": {
+            "sessions": "暂时无法读取终端状态"
+          }
+        },
+        "dailyLetter": {
+          "category": "系统简报",
+          "status": {
+            "notGenerated": "今日尚未生成",
+            "writing": "正在书写今日来信",
+            "unread": "未读",
+            "ready": "已读"
+          },
+          "actions": {
+            "generate": "生成今日来信",
+            "generating": "生成中…",
+            "open": "打开今日来信",
+            "openUnread": "拆开来信",
+            "continue": "继续阅读",
+            "expandReading": "展开阅读",
+            "reviewReceipts": "处理 {{count}} 条回执"
+          },
+          "receiptPrompt": "{{count}} 条想请你确认",
+          "metrics": {
+            "pendingReceipts": "待处理回执",
+            "appIdeas": "应用灵感",
+            "history": "历史来信"
+          },
+          "sections": {
+            "today": "今天",
+            "recent": "最近来信"
+          },
+          "scope": {
+            "agentic_os": "全局",
+            "workspace": "工作区"
+          },
+          "empty": {
+            "todayTitle": "今日暂无来信",
+            "writingTitle": "正在生成来信",
+            "history": "暂无历史来信"
+          },
+          "errors": {
+            "load": "今日来信暂不可用",
+            "history": "暂时无法读取最近来信",
+            "generate": "暂时无法生成来信"
+          }
+        },
+        "memory": {
+          "category": "用户轨迹",
+          "status": {
+            "ready": "自动记忆已开启",
+            "partial": "部分范围已开启",
+            "paused": "自动记忆已暂停"
+          },
+          "actions": {
+            "open": "打开记忆"
+          },
+          "sections": {
+            "current": "当前记忆"
+          },
+          "items": {
+            "user": {
+              "title": "关于你",
+              "meta": "偏好与协作方式"
+            },
+            "longTerm": {
+              "title": "长期记忆",
+              "meta": "持续协作中形成"
+            },
+            "workspace": {
+              "title": "当前工作区",
+              "meta": "项目上下文"
+            }
+          },
+          "updated": {
+            "today": "今天",
+            "hoursAgo": "{{count}} 小时前",
+            "unavailable": "尚未形成",
+            "noWorkspace": "未打开"
+          },
+          "consolidation": {
+            "ariaLabel": "记忆整理状态",
+            "state": {
+              "ready": "已整理",
+              "running": "正在整理",
+              "failed": "需要处理",
+              "disabled": "暂不可用",
+              "notRun": "尚未整理"
+            },
+            "summary": "{{count}} 个来源 · {{time}}",
+            "lastRun": "上次整理 {{time}}",
+            "runningMeta": "正在沉淀最近的记忆记录",
+            "notRunMeta": "形成记录后即可整理",
+            "statusUnavailable": "状态暂不可用",
+            "actions": {
+              "run": "立即整理",
+              "running": "整理中"
+            },
+            "messages": {
+              "started": "已开始整理记忆",
+              "notNeeded": "当前记忆已是最新状态",
+              "failed": "记忆整理失败"
+            }
+          },
+          "errors": {
+            "load": "记忆暂不可用",
+            "records": "暂时无法读取记忆记录"
+          }
+        },
+        "skills": {
+          "category": "能力扩展",
+          "status": {
+            "available": "能力可用",
+            "empty": "尚未安装技能"
+          },
+          "metrics": {
+            "installed": "已安装",
+            "project": "项目技能",
+            "suites": "技能套件"
+          },
+          "sections": {
+            "available": "当前可用",
+            "popular": "热门发现"
+          },
+          "scope": {
+            "builtin": "内置",
+            "user": "用户",
+            "project": "项目"
+          },
+          "meta": {
+            "installed": "已安装 {{count}} 个",
+            "installs": "{{count}} 次安装"
+          },
+          "actions": {
+            "open": "打开技能"
+          },
+          "empty": {
+            "installedTitle": "暂无已安装技能",
+            "marketTitle": "暂无新技能"
+          },
+          "errors": {
+            "load": "技能暂不可用",
+            "installed": "暂时无法读取已安装技能",
+            "market": "暂时无法读取可发现技能"
+          }
+        },
+        "capabilities": {
+          "category": "执行与协作",
+          "status": {
+            "ready": "能力可用",
+            "attention": "连接需要处理",
+            "partial": "部分状态不可用",
+            "idle": "等待调用"
+          },
+          "metrics": {
+            "builtin": "内置",
+            "connected": "连接",
+            "specialists": "专家"
+          },
+          "sections": {
+            "execution": "执行能力",
+            "specialists": "协作专家"
+          },
+          "meta": {
+            "servers": "{{count}} 个服务",
+            "specialists": "{{count}} 个可调用",
+            "connectedOf": "{{connected}} / {{count}} 已连接",
+            "tools": "{{count}} 个工具"
+          },
+          "execution": {
+            "builtin": "内置工具",
+            "builtinDescription": "文件、Shell、Web 与工作流能力",
+            "mcpServices": "MCP 服务",
+            "mcpServicesDescription": "连接外部系统与数据源",
+            "mcpTools": "MCP 工具",
+            "mcpToolsDescription": "由已连接服务提供的扩展工具"
+          },
+          "actions": {
+            "tools": "打开工具中心",
+            "subagents": "管理子代理"
+          },
+          "empty": {
+            "noneTitle": "还没有子代理",
+            "noneDescription": "可创建一位专家承接明确的委派工作。",
+            "noneEnabledTitle": "没有已启用的专家",
+            "noneEnabledDescription": "前往子代理场景选择可调用的专家。"
+          },
+          "errors": {
+            "execution": "执行能力状态暂不可用",
+            "servers": "MCP 状态暂不可用",
+            "tools": "工具目录暂不可用",
+            "subagents": "子代理暂不可用"
+          }
+        },
+        "tools": {
+          "category": "连接能力",
+          "status": {
+            "ready": "连接状态良好",
+            "attention": "需要处理",
+            "noServers": "尚未配置 MCP",
+            "idle": "服务当前空闲"
+          },
+          "metrics": {
+            "builtin": "内置工具",
+            "mcpTools": "MCP 工具",
+            "connected": "已连接"
+          },
+          "sections": {
+            "servers": "MCP 连接",
+            "capabilities": "能力分布"
+          },
+          "meta": {
+            "servers": "{{count}} 个服务"
+          },
+          "serverStatus": {
+            "connected": "已连接",
+            "needsAuth": "需要授权",
+            "failed": "连接失败",
+            "starting": "启动中",
+            "reconnecting": "重连中",
+            "stopping": "停止中",
+            "stopped": "已停止",
+            "idle": "空闲"
+          },
+          "capabilities": {
+            "files": "文件与导航",
+            "filesDescription": "读取、编辑、搜索并定位文件",
+            "workflow": "规划与会话",
+            "workflowDescription": "规划工作、交互并管理会话",
+            "extensions": "扩展能力",
+            "extensionsDescription": "委派能力与 MCP 扩展"
+          },
+          "actions": {
+            "open": "打开工具"
+          },
+          "empty": {
+            "serversTitle": "还没有 MCP 服务",
+            "serversDescription": "前往工具中心添加连接能力。"
+          },
+          "errors": {
+            "load": "工具暂不可用",
+            "servers": "暂时无法读取 MCP 状态"
+          }
+        },
+        "subagents": {
+          "category": "协作专家",
+          "status": {
+            "ready": "可随时调用",
+            "empty": "尚无子代理",
+            "noneEnabled": "没有已启用的子代理"
+          },
+          "metrics": {
+            "ready": "可调用",
+            "all": "全部",
+            "project": "项目级"
+          },
+          "sections": {
+            "ready": "已就绪专家",
+            "sources": "来源分布"
+          },
+          "meta": {
+            "ready": "{{count}} 个可调用",
+            "tools": "{{count}} 个工具"
+          },
+          "sources": {
+            "project": "项目",
+            "projectDescription": "当前工作区可用",
+            "user": "用户",
+            "userDescription": "跨工作区可用",
+            "builtin": "内置",
+            "builtinDescription": "由 Sparo 提供"
+          },
+          "actions": {
+            "open": "打开子代理"
+          },
+          "empty": {
+            "noneTitle": "还没有子代理",
+            "noneDescription": "可创建一位专家处理专门的委派工作。",
+            "noneEnabledTitle": "没有已启用的专家",
+            "noneEnabledDescription": "前往子代理场景选择可调用的专家。"
+          },
+          "errors": {
+            "load": "子代理暂不可用"
+          }
+        }
+      },
+      "items": {
+        "agentic-os": {
+          "category": "协作中枢",
+          "description": "统筹任务、调用能力，并推进跨应用与跨项目的工作。",
+          "hint": "从这里继续全局协作，或新建一个独立会话。"
+        },
+        "workCenter": {
+          "category": "用户操作面",
+          "description": "查看正在运行、等待处理和已经安排的工作。",
+          "hint": "工作状态会直接反馈到左下角入口。"
+        },
+        "apps": {
+          "category": "用户操作面",
+          "description": "打开智能应用，或为当前工作选择合适的应用。",
+          "hint": "应用既可以独立打开，也可以成为某项工作的执行界面。"
+        },
+        "files": {
+          "category": "全局环境",
+          "description": "浏览本机文件、磁盘和固定目录，也可将目录作为工作区打开。",
+          "hint": "这是全局文件系统入口，不局限于当前项目。"
+        },
+        "shell": {
+          "category": "全局环境",
+          "description": "在系统或项目范围内打开 Shell。",
+          "hint": "进入后可在系统会话与项目会话之间切换。"
+        },
+        "daily-letter": {
+          "category": "系统后台",
+          "description": "查看系统在后台整理的今日进展与待确认事项。",
+          "hint": "新的来信会同步显示在图标与左下角入口。"
+        },
+        "memory": {
+          "category": "用户轨迹",
+          "description": "查看 Agentic OS 记住的偏好、协作反馈和项目背景。",
+          "hint": "记忆反映长期协作轨迹，而不是一次性的操作入口。"
+        },
+        "skills": {
+          "category": "扩展能力",
+          "description": "管理可复用的专项知识和工作方法。",
+          "hint": "技能会在合适的任务中被 Agent 自动调用。"
+        },
+        "capabilities": {
+          "category": "执行与协作",
+          "description": "统一查看可执行工具、连接服务与可委派专家。",
+          "hint": "工具负责执行，子代理负责并行承接明确任务。"
+        },
+        "tools": {
+          "category": "扩展能力",
+          "description": "查看内置工具与已经连接的 MCP 服务。",
+          "hint": "工具扩展执行边界，通常不需要频繁进入管理。"
+        },
+        "subagents": {
+          "category": "扩展能力",
+          "description": "管理可由主 Agent 调用的专门协作者。",
+          "hint": "子代理会在复杂工作中并行承接明确的子任务。"
+        },
+        "settings": {
+          "category": "系统设置",
+          "description": "管理模型、权限、外观与系统行为。",
+          "hint": "这里的变化会影响 Sparo OS 的全局运行方式。"
+        }
+      }
+    }
   },
   "workDock": {
     "label": "工作栏",
@@ -382,7 +1173,8 @@
     "resultCount": "{{count}} 个结果",
     "executor": {
       "systemGroup": "内置执行者",
-      "productAppGroup": "产品应用",
+      "intelligentAppGroup": "智能应用",
+      "releaseUnavailable": "此应用在所选范围内没有已激活且兼容的 Release。",
       "systemBadge": "内置",
       "bitfunCoder": "BitFun Coder",
       "bitfunCoderDescription": "编码、调试、验证与交付",

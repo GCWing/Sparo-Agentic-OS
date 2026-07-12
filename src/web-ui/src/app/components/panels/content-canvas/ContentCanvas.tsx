@@ -6,7 +6,6 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { EditorArea } from './editor-area';
 import { AnchorZone } from './anchor-zone';
-import { MissionControl } from './mission-control';
 import { EmptyState } from './empty-state';
 import { useCanvasStore } from './stores';
 import { useTabLifecycle, useKeyboardShortcuts, usePanelTabCoordinator } from './hooks';
@@ -39,11 +38,8 @@ export const ContentCanvas: React.FC<ContentCanvasProps> = ({
   const {
     primaryGroup,
     layout,
-    isMissionControlOpen,
     setAnchorPosition,
     setAnchorSize,
-    closeMissionControl,
-    openMissionControl,
   } = useCanvasStore();
   const activeChildSessionTab = useCanvasStore(state => selectActiveChildSessionTab(state as any));
   const activeChildSessionData = activeChildSessionTab?.content.data as
@@ -94,16 +90,6 @@ export const ContentCanvas: React.FC<ContentCanvasProps> = ({
     setAnchorSize(size);
   }, [setAnchorSize]);
 
-  // Handle mission control open
-  const handleOpenMissionControl = useCallback(() => {
-    openMissionControl();
-  }, [openMissionControl]);
-
-  // Handle mission control close
-  const handleCloseMissionControl = useCallback(() => {
-    closeMissionControl();
-  }, [closeMissionControl]);
-
   // Render content
   const renderContent = () => {
     // Show empty state when primary group has no visible tabs
@@ -118,7 +104,6 @@ export const ContentCanvas: React.FC<ContentCanvasProps> = ({
           <EditorArea
             workspacePath={workspacePath}
             isSceneActive={isSceneActive}
-            onOpenMissionControl={handleOpenMissionControl}
             onInteraction={onInteraction}
             onTabCloseWithDirtyCheck={handleCloseWithDirtyCheck}
             onTabCloseAllWithDirtyCheck={handleCloseAllWithDirtyCheck}
@@ -151,13 +136,6 @@ export const ContentCanvas: React.FC<ContentCanvasProps> = ({
     >
       {/* Main content */}
       {renderContent()}
-
-      {/* Mission control overlay */}
-      <MissionControl
-        isOpen={isMissionControlOpen}
-        onClose={handleCloseMissionControl}
-        handleCloseWithDirtyCheck={handleCloseWithDirtyCheck}
-      />
     </div>
   );
 };

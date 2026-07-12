@@ -1,0 +1,201 @@
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
+
+.sparo-workspace-hub-capabilities-preview {
+  .sparo-workspace-hub-preview__title {
+    font-size: var(--ds-font-size-xl);
+  }
+
+  .sparo-workspace-hub-preview__content {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 0;
+    margin-top: 18px;
+  }
+}
+
+.sparo-workspace-hub-capabilities-preview__header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+}
+
+.sparo-workspace-hub-capabilities-preview__body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sparo-workspace-hub-capabilities-preview__map {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr) 24px minmax(0, 1fr);
+  align-items: center;
+}
+
+.sparo-workspace-hub-capabilities-preview__node {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  min-height: 116px;
+  padding: var(--ds-space-2);
+  color: var(--ds-color-text-muted);
+  background: transparent;
+  border: 0;
+  transform: none;
+
+  &:hover:not(:disabled),
+  &:focus-visible {
+    color: var(--ds-color-text-primary);
+    background: var(--ds-color-surface-hover);
+    transform: none;
+  }
+
+  > strong {
+    color: var(--ds-color-text-primary);
+    font-size: var(--ds-font-size-xl);
+    font-weight: var(--ds-font-weight-semibold);
+    line-height: 1;
+  }
+
+  > span:not(.sparo-workspace-hub-capabilities-preview__node-icon),
+  > small {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  > span:not(.sparo-workspace-hub-capabilities-preview__node-icon) {
+    color: var(--ds-color-text-secondary);
+    font-size: var(--ds-font-size-2xs);
+  }
+
+  > small {
+    color: var(--ds-color-text-muted);
+    font-size: calc(var(--ds-font-size-2xs) - 1px);
+  }
+
+  &.is-positive .sparo-workspace-hub-capabilities-preview__node-icon {
+    color: var(--ds-color-success);
+    background: color-mix(in srgb, var(--ds-color-success) 8%, transparent);
+  }
+
+  &.is-danger .sparo-workspace-hub-capabilities-preview__node-icon {
+    color: var(--ds-color-danger);
+    background: color-mix(in srgb, var(--ds-color-danger) 8%, transparent);
+  }
+
+  &.is-accent .sparo-workspace-hub-capabilities-preview__node-icon {
+    color: var(--ds-color-accent-500);
+    background: color-mix(in srgb, var(--ds-color-accent-500) 8%, transparent);
+  }
+}
+
+.sparo-workspace-hub-capabilities-preview__node-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  margin-bottom: 2px;
+  color: var(--ds-color-text-secondary);
+  background: var(--ds-color-surface-hover);
+  border-radius: var(--ds-radius-full);
+}
+
+.sparo-workspace-hub-capabilities-preview__connector {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    var(--ds-color-border-subtle),
+    var(--ds-color-border-base),
+    var(--ds-color-border-subtle)
+  );
+}
+
+.sparo-workspace-hub-capabilities-preview__specialists {
+  padding-top: var(--ds-space-3);
+  border-top: 1px solid var(--ds-color-border-subtle);
+
+  > h3 {
+    margin: 0 0 var(--ds-space-2);
+    color: var(--ds-color-text-muted);
+    font-size: var(--ds-font-size-2xs);
+    font-weight: var(--ds-font-weight-medium);
+  }
+}
+
+.sparo-workspace-hub-capabilities-preview__specialist-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  overflow: hidden;
+
+  > button {
+    display: inline-flex;
+    min-width: 0;
+    gap: 5px;
+
+    > span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+}
+
+.sparo-workspace-hub-capabilities-preview__specialist-empty {
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-size-xs);
+}
+
+.sparo-workspace-hub-capabilities-preview__pulse {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-3);
+  margin-top: auto;
+  padding-top: var(--ds-space-3);
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-size-2xs);
+  border-top: 1px solid var(--ds-color-border-subtle);
+
+  > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+
+    > span {
+      width: 6px;
+      height: 6px;
+      background: var(--ds-color-text-muted);
+      border-radius: var(--ds-radius-full);
+    }
+
+    &.is-positive > span { background: var(--ds-color-success); }
+    &.is-warning > span { background: var(--ds-color-warning); }
+    &.is-danger > span { background: var(--ds-color-danger); }
+  }
+
+  > button {
+    display: inline-flex;
+    gap: 5px;
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 540px) {
+  .sparo-workspace-hub-capabilities-preview__map {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--ds-space-1);
+  }
+
+  .sparo-workspace-hub-capabilities-preview__connector,
+  .sparo-workspace-hub-capabilities-preview__pulse > span:nth-child(2) {
+    display: none;
+  }
+}

@@ -16,12 +16,12 @@
 import { openWorkspaceHome, openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
 import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
 import { useSettingsStore } from '@/app/scenes/settings/settingsStore';
-import { openProductAppRuntime } from '@/app/scenes/apps/product-app-runtime/productAppRuntimeService';
+import { launchActiveIntelligentApp } from '@/app/scenes/apps/intelligentAppLaunchService';
 import { appScopeFromWorkspacePath, systemAppScope } from '@/shared/types/app-scope';
 import { configManager } from '@/infrastructure/config';
 import { getModelDisplayName } from '@/infrastructure/config/services/modelConfigs';
 import { matchProviderCatalogItemByBaseUrl } from '@/infrastructure/config/services/providerCatalog';
-import { appCatalogAPI } from '@/infrastructure/api/service-api/AppCatalogAPI';
+import { intelligentAppAPI } from '@/infrastructure/api/service-api/IntelligentAppAPI';
 import { createLogger } from '@/shared/utils/logger';
 
 const logger = createLogger('SelfControlService');
@@ -829,26 +829,6 @@ export class SelfControlService {
     if (!id) {
       throw new SelfControlError('open_product_app requires productAppId', 'INVALID_PARAMS');
     }
-    let appName = id;
-    try {
-      const app = await appCatalogAPI.getProductApp(id);
-      appName = app.name;
-    } catch {
-      const library = await appCatalogAPI.listProductAppLibrary();
-      const available = library.installed
-        .map((app) => `"${app.name}" (id=${app.id})`)
-        .join(', ');
-      throw new SelfControlError(
-        `Product App id "${id}" is not installed.`,
-        'NOT_FOUND',
-        [
-          available
-            ? `Installed Product Apps: ${available}.`
-            : 'No Product Apps are installed yet.',
-          'Open the Apps scene to discover Product App ids.',
-        ],
-      );
-    }
     const activeSurface = useWorkspaceSurfaceStore.getState().activeSurface;
     const scope =
       activeSurface.kind === 'scene'
@@ -858,7 +838,29 @@ export class SelfControlService {
             : null) ||
           systemAppScope()
         : systemAppScope();
-    await openProductAppRuntime(id, { scope });
+    const catalog = await intelligentAppAPI.listCatalog();
+    const slot = catalog.slots.find((candidate) => (
+      candidate.slotId === id || candidate.variants.some(({ app }) => app.appId === id)
+    ));
+    const active = slot ? intelligentAppAPI.activeRef(slot) : null;
+    if (!slot || !active) {
+      const available = catalog.slots
+        .filter((candidate) => intelligentAppAPI.activeRef(candidate))
+        .map((candidate) => `"${candidate.displayName}" (slotId=${candidate.slotId})`)
+        .join(', ');
+      throw new SelfControlError(
+        `Intelligent App "${id}" has no active compatible Release.`,
+        'NOT_FOUND',
+        [available ? `Active apps: ${available}.` : 'No apps are active.'],
+      );
+    }
+    const activeVariant = slot.variants.find(({ app }) => app.appId === active.appId);
+    const appName = activeVariant?.app.displayName ?? slot.displayName;
+    await launchActiveIntelligentApp(active, {
+      scope,
+      title: appName,
+      objective: activeVariant?.app.description || appName,
+    });
     return `Opened Product App "${appName}" (id=${id})`;
   }
 

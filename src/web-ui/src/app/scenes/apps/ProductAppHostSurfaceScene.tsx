@@ -140,7 +140,7 @@ const ProductAppHostSurfaceScene: React.FC<ProductAppHostSurfaceSceneProps> = ({
   useEffect(() => {
     const surfaceId = `app-surface:${appId}`;
     setContextNavOverride(surfaceId, {
-      title: app ? resolveProductAppHostSurfaceMeta(app, currentLanguage).name : t('productSystem.surfaceFallback'),
+      title: app ? resolveProductAppHostSurfaceMeta(app, currentLanguage).name : t('intelligentApps.surfaceFallback'),
       actions: [
         {
           id: 'refresh',

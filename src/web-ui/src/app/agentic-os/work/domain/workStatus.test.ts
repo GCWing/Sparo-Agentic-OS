@@ -17,9 +17,11 @@ function workWithBindings(
       kind: 'app',
       app: {
         kind: 'product_app',
+        slotId: 'primary',
         appId: 'product-app-1',
-        appVersion: '1.0.0',
-        componentLockDigest: 'sha256:test',
+        releaseId: 'release-product-app-1',
+        configRevision: 'sha256:config',
+        dataSchemaVersion: '1',
       },
       intent: 'run',
     },

@@ -125,7 +125,7 @@ fn empty_panel_status(kind: PanelKind) -> &'static str {
             "No Tasks item selected; use `/dispatch <task>` or run `sparo tasks list`"
         }
         PanelKind::Apps => {
-            "No Apps item selected; run `sparo apps list` or inspect app creation tool schemas"
+            "No Apps item selected; run `sparo apps list` or use Sparo Desktop Apps Center / App Builder"
         }
         PanelKind::Memory => {
             "No Memory item selected; run `sparo memory list` or add notes under .sparo_os/memory"
@@ -1685,11 +1685,15 @@ mod tests {
             }],
             apps: vec![AgenticOsAppRow {
                 id: "files".to_string(),
+                slot_id: "files".to_string(),
                 name: "Files".to_string(),
-                kind: "AGENT APP".to_string(),
+                state: "active".to_string(),
+                owner: "system".to_string(),
                 description: "Browse files".to_string(),
-                capability: "read write".to_string(),
-                target: None,
+                active_release_id: Some("release-files-1".to_string()),
+                latest_release_id: Some("release-files-1".to_string()),
+                version: Some("1.0.0".to_string()),
+                capability_fingerprint: Some("sha256:files".to_string()),
             }],
             memories: vec![AgenticOsMemoryRow {
                 scope: "PROJECT".to_string(),

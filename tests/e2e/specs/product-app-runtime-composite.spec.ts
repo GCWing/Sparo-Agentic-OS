@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { browser, expect, $ } from '@wdio/globals';
 
 import { callProductAppRuntimeBackend } from '../helpers/product-app-runtime-helper';
@@ -34,6 +36,75 @@ describe('Product App runtime', () => {
     } catch {
       // Cleanup is best-effort because this path may run after a failed launch attempt.
     }
+  }
+
+  async function runRuntimeRehearsal(
+    productAppId: string,
+    steps: Array<Record<string, unknown>>,
+  ): Promise<any> {
+    const scenarioId = `e2e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const response = await browser.executeAsync((
+      runtimeProductAppId,
+      id,
+      rehearsalSteps,
+      done: (value: { ok: boolean; result?: unknown; error?: string }) => void,
+    ) => {
+      const frame = document.querySelector<HTMLIFrameElement>(
+        `iframe[data-product-app-id="${runtimeProductAppId}"]`,
+      );
+      if (!frame?.contentWindow) {
+        done({ ok: false, error: `Runtime iframe was not found: ${runtimeProductAppId}` });
+        return;
+      }
+      const runtimeSurfaceId = frame.dataset.appId;
+      if (!runtimeSurfaceId) {
+        done({ ok: false, error: `Runtime surface identity was not found: ${runtimeProductAppId}` });
+        return;
+      }
+      let timeout = 0;
+      const finish = (value: { ok: boolean; result?: unknown; error?: string }) => {
+        window.clearTimeout(timeout);
+        window.removeEventListener('message', onMessage);
+        done(value);
+      };
+      const onMessage = (event: MessageEvent) => {
+        const data = event.data;
+        if (data?.method !== 'sparo/user-path-rehearsal') return;
+        if (data.params?.appId !== runtimeSurfaceId || data.params?.requestId !== id) return;
+        // WebView2 can expose a different WindowProxy object for the same
+        // nested opaque frame. runtimeSurfaceId + requestId bind this response
+        // to the exact rehearsal request without relying on proxy identity.
+        finish({ ok: true, result: data.params.result });
+      };
+      window.addEventListener('message', onMessage);
+      timeout = window.setTimeout(() => {
+        finish({
+          ok: false,
+          error: `Runtime rehearsal timed out: ${id} (surface=${runtimeSurfaceId})`,
+        });
+      }, 15000);
+      frame.contentWindow.postMessage({
+        type: 'sparo:event',
+        event: 'runtimeUserPathRehearsal',
+        payload: {
+          requestId: id,
+          scenarios: [{ id, kind: 'user-path', steps: rehearsalSteps }],
+        },
+      }, '*');
+    }, productAppId, scenarioId, steps) as { ok: boolean; result?: unknown; error?: string };
+    if (!response.ok) throw new Error(response.error || 'Runtime rehearsal failed');
+    return response.result;
+  }
+
+  async function readRemotionRuntimeState(): Promise<Record<string, string>> {
+    const result = await runRuntimeRehearsal('builtin-remotion-live', [{
+      id: 'root-state',
+      action: 'observe',
+      target: 'css:#remotionLiveRoot',
+    }]);
+    const step = result?.scenarios?.[0]?.steps?.[0];
+    if (step?.status !== 'passed') throw new Error(step?.detail || 'Remotion root state was unavailable');
+    return step.attributes ?? {};
   }
 
   async function openWorkspaceHomeSurface(): Promise<void> {
@@ -210,32 +281,48 @@ describe('Product App runtime', () => {
     expect(workRecord?.componentLockDigest).toContain('sha256:');
   });
 
-  realRemotionIt('starts a real Remotion Player preview runtime for the fixture project', async () => {
+  realRemotionIt('controls the real Remotion Player through the Product App sandbox', async () => {
+    const screenshotDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sparo-remotion-player-'));
     await openProductAppById('builtin-remotion-live', remotionFixturePath);
 
     try {
       const previewPanel = await $('[data-testid="product-app-runtime-panel"][data-product-app-id="builtin-remotion-live"]');
       await previewPanel.waitForDisplayed({ timeout: 30000 });
 
-      await browser.waitUntil(
-        async () => {
-          const result = await callProductAppRuntimeBackend(
-            'builtin-remotion-live',
-            'remotionRuntime.getPlayerPreviewHostStatus',
-            { workspacePath: remotionFixturePath },
-            remotionFixturePath,
-          );
-          const output = (result as any).bridgeResult?.output ?? (result as any).bridgeResult ?? result;
-          return output?.ready && typeof output?.url === 'string' && output.url.startsWith('http://127.0.0.1:')
-            ? output
-            : null;
-        },
-        {
-          timeout: 90000,
-          interval: 1000,
-          timeoutMsg: 'Remotion Player preview host did not become ready',
-        },
-      );
+      const surfaceFrame = await $('iframe[data-product-app-id="builtin-remotion-live"]');
+      await surfaceFrame.waitForDisplayed({ timeout: 30000 });
+      const sandbox = await surfaceFrame.getAttribute('sandbox');
+      expect(sandbox ?? '').not.toContain('allow-same-origin');
+      const iframeAllow = await surfaceFrame.getAttribute('allow');
+      expect(iframeAllow ?? '').toContain('autoplay');
+      expect(iframeAllow ?? '').toContain('fullscreen');
+
+      let bootState: Record<string, string> = {};
+      try {
+        await browser.waitUntil(
+          async () => {
+            bootState = await readRemotionRuntimeState();
+            return Boolean(bootState['data-error']) || (
+              bootState['data-preview-phase'] === 'ready' &&
+              bootState['data-frame-state'] === 'committed'
+            );
+          },
+          {
+            timeout: 90000,
+            interval: 250,
+            timeoutMsg: 'Remotion Live did not finish booting the real Player',
+          },
+        );
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        throw new Error(`${reason}; last runtime state=${JSON.stringify(bootState)}`);
+      }
+      if (bootState['data-error']) {
+        throw new Error(
+          `Remotion Live surface failed during ${bootState['data-project-phase'] || 'unknown'} ` +
+          `(detection=${bootState['data-detection-status'] || 'unknown'}): ${bootState['data-error']}`,
+        );
+      }
 
       const previewStatusResult = await callProductAppRuntimeBackend(
         'builtin-remotion-live',
@@ -256,157 +343,105 @@ describe('Product App runtime', () => {
       const compositionOutput = (compositionResult as any).bridgeResult?.output ??
         (compositionResult as any).bridgeResult ??
         compositionResult;
-      const manifest = compositionOutput?.manifest ?? compositionOutput?.compositionManifest ?? compositionOutput;
+      const manifest = compositionOutput?.manifest ?? compositionOutput;
       const compositionOptions = Array.from(manifest?.compositions ?? [])
         .map((composition: any) => composition.id || '');
 
       const playerUrl = (previewStatus as any).url as string;
       const playerResponse = await fetch(playerUrl);
       const playerHtml = await playerResponse.text();
-      const compositionId = String((previewStatus as any).compositionId || compositionOptions[0] || 'SparoOSPromo-16x9');
-      const protocolResult = await browser.executeAsync((
-        baseUrl: string,
-        targetCompositionId: string,
-        done: (result: Record<string, unknown>) => void,
-      ) => {
-        const instanceId = `e2e-${Date.now()}`;
-        const url = new URL(baseUrl);
-        url.searchParams.set('compositionId', targetCompositionId);
-        url.searchParams.set('frame', '0');
-        url.searchParams.set('instanceId', instanceId);
-
-        const iframe = document.createElement('iframe');
-        iframe.src = url.toString();
-        iframe.style.position = 'fixed';
-        iframe.style.left = '-10000px';
-        iframe.style.top = '0';
-        iframe.style.width = '320px';
-        iframe.style.height = '180px';
-
-        let readyFrame = 0;
-        let maxFrame = 0;
-        let playAck = false;
-        let pauseAck = false;
-        let seekAck = false;
-        let pauseFrame = 0;
-        let seekTarget = 0;
-        const errors: string[] = [];
-        let timeout = 0;
-        let onMessage: (event: MessageEvent) => void;
-
-        const cleanup = (result: Record<string, unknown>) => {
-          window.removeEventListener('message', onMessage);
-          window.clearTimeout(timeout);
-          iframe.remove();
-          done(result);
-        };
-
-        const post = (type: string, payload: Record<string, unknown> = {}) => {
-          iframe.contentWindow?.postMessage({
-            source: 'sparo-remotion-live',
-            type,
-            compositionId: targetCompositionId,
-            instanceId,
-            ...payload,
-          }, '*');
-        };
-
-        onMessage = (event: MessageEvent) => {
-          const message = event.data || {};
-          if (message.source !== 'sparo-remotion-player-host') return;
-          if (message.instanceId !== instanceId) return;
-          if (message.compositionId !== targetCompositionId) return;
-
-          if (message.type === 'error') {
-            errors.push(String(message.message || 'Player error'));
-          }
-
-          if (message.type === 'ready') {
-            readyFrame = Number(message.frame || 0);
-            maxFrame = readyFrame;
-            post('play', { frame: readyFrame, commandId: 'e2e-play' });
-            window.setTimeout(() => post('snapshot', { requestId: 'after-play' }), 1200);
-            return;
-          }
-
-          if (message.type === 'frame') {
-            maxFrame = Math.max(maxFrame, Number(message.frame || 0));
-            return;
-          }
-
-          if (message.type === 'command') {
-            if (message.command === 'play' && message.commandId === 'e2e-play') playAck = true;
-            if (message.command === 'pause' && message.commandId === 'e2e-pause') pauseAck = true;
-            if (message.command === 'seek' && message.commandId === 'e2e-seek') seekAck = true;
-            return;
-          }
-
-          if (message.type === 'snapshot' && message.requestId === 'after-play') {
-            const frame = Number(message.frame || 0);
-            maxFrame = Math.max(maxFrame, frame);
-            pauseFrame = maxFrame;
-            post('pause', { frame: pauseFrame, commandId: 'e2e-pause' });
-            window.setTimeout(() => post('snapshot', { requestId: 'after-pause' }), 350);
-            return;
-          }
-
-          if (message.type === 'snapshot' && message.requestId === 'after-pause') {
-            pauseFrame = Number(message.frame || pauseFrame);
-            seekTarget = Math.min(pauseFrame + 12, 60);
-            post('seek', { frame: seekTarget, commandId: 'e2e-seek' });
-            window.setTimeout(() => post('snapshot', { requestId: 'after-seek' }), 350);
-            return;
-          }
-
-          if (message.type === 'snapshot' && message.requestId === 'after-seek') {
-            const seekFrame = Number(message.frame || 0);
-            cleanup({
-              ok: true,
-              readyFrame,
-              maxFrame,
-              playAck,
-              pauseAck,
-              seekAck,
-              pauseFrame,
-              seekTarget,
-              seekFrame,
-              playing: Boolean(message.playing),
-              errors,
-            });
-          }
-        };
-
-        timeout = window.setTimeout(() => {
-          cleanup({
-            ok: false,
-            readyFrame,
-            maxFrame,
-            playAck,
-            pauseAck,
-            seekAck,
-            pauseFrame,
-            seekTarget,
-            errors,
-          });
-        }, 10000);
-
-        window.addEventListener('message', onMessage);
-        document.body.appendChild(iframe);
-      }, playerUrl, compositionId) as any;
 
       expect(playerUrl).toContain('http://127.0.0.1:');
       expect(playerResponse.ok).toBe(true);
       expect(playerHtml.toLowerCase()).toContain('remotion');
       expect(compositionOptions.join('|')).toContain('SparoOSPromo-16x9');
-      expect(protocolResult.ok).toBe(true);
-      expect(protocolResult.errors).toEqual([]);
-      expect(protocolResult.playAck).toBe(true);
-      expect(protocolResult.pauseAck).toBe(true);
-      expect(protocolResult.seekAck).toBe(true);
-      expect(protocolResult.maxFrame).toBeGreaterThan(protocolResult.readyFrame + 1);
-      expect(Math.abs(protocolResult.seekFrame - protocolResult.seekTarget)).toBeLessThanOrEqual(1);
-      expect(protocolResult.playing).toBe(false);
+
+      const initialFrame = Number(bootState['data-actual-frame']);
+      const initialScreenshot = path.join(screenshotDir, 'initial.png');
+      await surfaceFrame.saveScreenshot(initialScreenshot);
+
+      const playResult = await runRuntimeRehearsal('builtin-remotion-live', [{
+        id: 'play', action: 'click', target: 'toggle-play',
+      }]);
+      expect(playResult?.scenarios?.[0]?.steps?.[0]?.status).toBe('passed');
+      await browser.waitUntil(
+        async () => {
+          const current = await readRemotionRuntimeState();
+          return current['data-actual-playing'] === 'true' &&
+            Number(current['data-actual-frame']) > initialFrame + 1;
+        },
+        { timeout: 10000, interval: 100, timeoutMsg: 'Play did not advance the actual Player frame' },
+      );
+
+      const pauseResult = await runRuntimeRehearsal('builtin-remotion-live', [{
+        id: 'pause', action: 'click', target: 'toggle-play',
+      }]);
+      expect(pauseResult?.scenarios?.[0]?.steps?.[0]?.status).toBe('passed');
+      let pausedState: Record<string, string> = {};
+      await browser.waitUntil(
+        async () => {
+          pausedState = await readRemotionRuntimeState();
+          return pausedState['data-actual-playing'] === 'false' &&
+            pausedState['data-preview-phase'] === 'ready' &&
+            pausedState['data-frame-state'] === 'committed';
+        },
+        { timeout: 5000, interval: 100, timeoutMsg: 'Pause did not settle the actual Player state' },
+      );
+      const pausedFrame = Number(pausedState['data-actual-frame']);
+      await browser.pause(500);
+      expect(Number((await readRemotionRuntimeState())['data-actual-frame'])).toBe(pausedFrame);
+
+      const selectedComposition = Array.from(manifest?.compositions ?? [])
+        .find((composition: any) => composition.id === 'SparoOSPromo-16x9') as any;
+      const maxFrame = Math.max(0, Number(selectedComposition?.durationInFrames || 1) - 1);
+      const seekTarget = Math.min(Math.max(pausedFrame + 45, 45), maxFrame);
+      const seekResult = await runRuntimeRehearsal('builtin-remotion-live', [{
+        id: 'seek',
+        action: 'type',
+        target: 'css:input[type="range"][data-action="frame-range"]',
+        value: String(seekTarget),
+      }]);
+      expect(seekResult?.scenarios?.[0]?.steps?.[0]?.status).toBe('passed');
+      await browser.waitUntil(
+        async () => {
+          const current = await readRemotionRuntimeState();
+          return Number(current['data-actual-frame']) === seekTarget &&
+            current['data-preview-phase'] === 'ready' &&
+            current['data-frame-state'] === 'committed';
+        },
+        { timeout: 10000, interval: 100, timeoutMsg: 'Seek did not commit the requested Player frame' },
+      );
+      const seekScreenshot = path.join(screenshotDir, 'seek.png');
+      await surfaceFrame.saveScreenshot(seekScreenshot);
+      expect(fs.readFileSync(seekScreenshot).equals(fs.readFileSync(initialScreenshot))).toBe(false);
+
+      const inspectOn = await runRuntimeRehearsal('builtin-remotion-live', [{
+        id: 'inspect-on', action: 'click', target: 'toggle-inspect',
+      }]);
+      expect(inspectOn?.scenarios?.[0]?.steps?.[0]?.status).toBe('passed');
+      await browser.waitUntil(
+        async () => (await readRemotionRuntimeState())['data-inspect-mode'] === 'true',
+        { timeout: 3000, interval: 50, timeoutMsg: 'Inspect mode did not activate' },
+      );
+      const captureOn = await runRuntimeRehearsal('builtin-remotion-live', [{
+        id: 'capture-on', action: 'observe', target: 'css:.rl-select-capture',
+      }]);
+      expect(captureOn?.scenarios?.[0]?.steps?.[0]?.status).toBe('passed');
+
+      const inspectOff = await runRuntimeRehearsal('builtin-remotion-live', [{
+        id: 'inspect-off', action: 'click', target: 'toggle-inspect',
+      }]);
+      expect(inspectOff?.scenarios?.[0]?.steps?.[0]?.status).toBe('passed');
+      await browser.waitUntil(
+        async () => (await readRemotionRuntimeState())['data-inspect-mode'] === 'false',
+        { timeout: 3000, interval: 50, timeoutMsg: 'Inspect mode did not deactivate' },
+      );
+      const captureOff = await runRuntimeRehearsal('builtin-remotion-live', [{
+        id: 'capture-off', action: 'observe', target: 'css:.rl-select-capture',
+      }]);
+      expect(captureOff?.scenarios?.[0]?.steps?.[0]?.status).toBe('failed');
     } finally {
+      fs.rmSync(screenshotDir, { recursive: true, force: true });
       await stopRemotionPreview(remotionFixturePath);
     }
   });

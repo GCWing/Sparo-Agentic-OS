@@ -135,10 +135,10 @@ function normalizeInteractionTab(
 export function buildProductAppRuntimeMetadata(
   app: ProductAppHostSurface | ProductAppHostSurfaceMeta,
   options: {
-    productApp: {
-      id: string;
-      name: string;
-      version?: string | number;
+    intelligentApp: {
+      appId: string;
+      displayName: string;
+      releaseId: string;
     };
     entityId?: string | null;
     locale?: string | null;
@@ -147,7 +147,7 @@ export function buildProductAppRuntimeMetadata(
   }
 ): ProductAppRuntimeSessionMetadata {
   const displayMeta = resolveProductAppHostSurfaceMeta(app, options.locale || undefined);
-  const productApp = options.productApp;
+  const intelligentApp = options.intelligentApp;
   const profile = normalizeProductAppRuntimeProfile(app.interaction);
   const scope = normalizeAppScope(options.scope);
   const declaredTabs = (app.interaction?.tabs || [])
@@ -165,13 +165,15 @@ export function buildProductAppRuntimeMetadata(
   }
 
   return {
-    appId: productApp.id,
-    appName: productApp.name || displayMeta.name,
+    appId: intelligentApp.appId,
+    appName: intelligentApp.displayName || displayMeta.name,
     hostSurfaceId: app.id,
     hostSurfaceName: displayMeta.name,
     entityId: options.entityId?.trim() || DEFAULT_ENTITY_ID,
     profile,
-    version: productApp.version,
+    slotId: options.runtimeContext?.slotId ?? null,
+    releaseId: intelligentApp.releaseId,
+    configRevision: options.runtimeContext?.configRevision ?? null,
     sourceRevision: app.runtime?.source_revision,
     interactionTitle: resolveInteractionText(app.interaction?.title, options.locale),
     scope,

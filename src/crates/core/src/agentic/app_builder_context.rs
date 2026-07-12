@@ -2,7 +2,12 @@ use crate::agentic::WorkspaceBinding;
 use crate::error::{CoreError, CoreResult};
 use crate::infrastructure::try_get_path_manager_arc;
 use serde_json::{json, Value};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+const INTELLIGENT_APPS_DIRECTORY: &str = "intelligent_apps";
+const DRAFTS_DIRECTORY: &str = "drafts";
+const DRAFT_ID_PREFIX: &str = "draft_";
+const DRAFT_ID_HEX_LENGTH: usize = 32;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AppBuilderSubjectScope {
@@ -12,19 +17,6 @@ pub enum AppBuilderSubjectScope {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AppBuilderSubject {
-    ProductApp {
-        app_id: String,
-        version: String,
-        title: Option<String>,
-        scope: AppBuilderSubjectScope,
-    },
-    Component {
-        component_id: String,
-        component_kind: String,
-        version: String,
-        title: Option<String>,
-        scope: AppBuilderSubjectScope,
-    },
     BuilderDraft {
         draft_id: String,
         title: Option<String>,
@@ -43,129 +35,61 @@ pub struct AppBuilderExecutionContext {
 }
 
 impl AppBuilderExecutionContext {
+    /// Restores an executable AppBuilder context from a bound Draft identity.
+    ///
+    /// Persisted metadata is intentionally not an authority for filesystem paths. The package
+    /// root is derived from `draft_id` below the app-owned Draft store and canonicalized before it
+    /// becomes an allowed write root.
     pub fn from_metadata(
         custom_metadata: Option<&Value>,
         turn_metadata: Option<&Value>,
         workspace: Option<&WorkspaceBinding>,
     ) -> CoreResult<Option<Self>> {
-        let binding = turn_metadata
-            .and_then(|value| value.get("agentSessionBinding"))
-            .or_else(|| custom_metadata.and_then(|value| value.get("agentSessionBinding")));
-        let facts = custom_metadata.and_then(|value| value.get("appBuilderFacts"));
-        let inherited_execution_context = binding.and_then(|value| value.get("executionContext"));
-        let issue_context = turn_metadata.and_then(|value| value.get("appBuilderIssueContext"));
+        Self::from_metadata_with_app_root(custom_metadata, turn_metadata, workspace, None)
+    }
 
-        let subject_value = binding
-            .and_then(|value| value.get("subject"))
-            .or_else(|| facts.and_then(|value| value.get("subject")));
-        let Some(subject_value) = subject_value else {
+    fn from_metadata_with_app_root(
+        custom_metadata: Option<&Value>,
+        turn_metadata: Option<&Value>,
+        workspace: Option<&WorkspaceBinding>,
+        app_root_override: Option<&Path>,
+    ) -> CoreResult<Option<Self>> {
+        // Draft identity is a session capability. Per-turn metadata can carry issue correlation,
+        // but it cannot rebind the session to another Draft.
+        let binding = custom_metadata.and_then(|value| value.get("agentSessionBinding"));
+        let Some(subject_value) = binding.and_then(|value| value.get("subject")) else {
             return Ok(None);
         };
 
-        let subject_kind = string_field(subject_value, "kind");
-        let scope = resolve_scope(binding, workspace);
-        let package_root_hint = inherited_execution_context
-            .and_then(|value| string_field(value, "packageRoot"))
-            .or_else(|| issue_context.and_then(|value| string_field(value, "packageRoot")))
-            .or_else(|| {
-                subject_value
-                    .get("data")
-                    .and_then(|value| string_field(value, "packageRoot"))
-            })
-            .or_else(|| {
-                binding
-                    .and_then(|value| value.get("surface"))
-                    .and_then(|value| value.get("data"))
-                    .and_then(|value| string_field(value, "packageRoot"))
-            })
-            .or_else(|| {
-                facts
-                    .and_then(|value| value.get("subject"))
-                    .and_then(|value| string_field(value, "packageRoot"))
-            });
+        // Releases and shared Components are immutable inputs, never AppBuilder subjects.
+        if string_field(subject_value, "kind").as_deref() != Some("builder-draft") {
+            return Ok(None);
+        }
 
-        let subject = match subject_kind.as_deref() {
-            Some("product-app") => {
-                let app_id = string_field(subject_value, "id")
-                    .or_else(|| string_field(subject_value, "appId"))
-                    .or_else(|| {
-                        facts
-                            .and_then(|value| value.get("subject"))
-                            .and_then(|value| string_field(value, "appId"))
-                    });
-                let version = string_field(subject_value, "version").or_else(|| {
-                    facts
-                        .and_then(|value| value.get("subject"))
-                        .and_then(|value| string_field(value, "version"))
-                });
-                let Some(app_id) = app_id else {
-                    return Ok(None);
-                };
-                let Some(version) = version else {
-                    return Ok(None);
-                };
-                AppBuilderSubject::ProductApp {
-                    app_id,
-                    version,
-                    title: string_field(subject_value, "title"),
-                    scope,
-                }
-            }
-            Some("component") => {
-                let component_id = string_field(subject_value, "id")
-                    .or_else(|| string_field(subject_value, "componentId"))
-                    .or_else(|| {
-                        facts
-                            .and_then(|value| value.get("subject"))
-                            .and_then(|value| string_field(value, "componentId"))
-                    });
-                let component_kind = string_field(subject_value, "componentKind")
-                    .or_else(|| {
-                        subject_value
-                            .get("data")
-                            .and_then(|value| string_field(value, "componentKind"))
-                    })
-                    .or_else(|| {
-                        facts
-                            .and_then(|value| value.get("subject"))
-                            .and_then(|value| string_field(value, "componentKind"))
-                    });
-                let version = string_field(subject_value, "version").or_else(|| {
-                    subject_value
-                        .get("data")
-                        .and_then(|value| string_field(value, "version"))
-                });
-                let (Some(component_id), Some(component_kind), Some(version)) =
-                    (component_id, component_kind, version)
-                else {
-                    return Ok(None);
-                };
-                AppBuilderSubject::Component {
-                    component_id,
-                    component_kind,
-                    version,
-                    title: string_field(subject_value, "title"),
-                    scope,
-                }
-            }
-            Some("builder-draft") => {
-                let draft_id = string_field(subject_value, "id")
-                    .or_else(|| string_field(subject_value, "draftId"));
-                let Some(draft_id) = draft_id else {
-                    return Ok(None);
-                };
-                AppBuilderSubject::BuilderDraft {
-                    draft_id,
-                    title: string_field(subject_value, "title"),
-                    scope,
-                }
-            }
-            _ => return Ok(None),
+        let Some(draft_id) = string_field(subject_value, "id") else {
+            return Err(CoreError::validation(
+                "AppBuilder Draft binding requires a draft id",
+            ));
         };
+        validate_draft_id(&draft_id)?;
 
-        let package_root = resolve_package_root(&subject, package_root_hint.as_deref())?;
+        let app_root = match app_root_override {
+            Some(path) => path.to_path_buf(),
+            None => try_get_path_manager_arc()
+                .map_err(|error| CoreError::tool(format!("PathManager not initialized: {error}")))?
+                .app_root(),
+        };
+        let package_root = resolve_builder_draft_package_root(&app_root, &draft_id)?;
+        let issue_context = turn_metadata.and_then(|value| value.get("appBuilderIssueContext"));
+        let inherited_execution_context = binding.and_then(|value| value.get("executionContext"));
+        let facts = custom_metadata.and_then(|value| value.get("appBuilderFacts"));
+
         Ok(Some(Self {
-            subject,
+            subject: AppBuilderSubject::BuilderDraft {
+                draft_id,
+                title: string_field(subject_value, "title"),
+                scope: resolve_scope(binding, workspace),
+            },
             allowed_write_roots: vec![package_root.clone()],
             package_root,
             work_id: issue_context
@@ -203,18 +127,24 @@ impl AppBuilderExecutionContext {
         }))
     }
 
-    pub fn to_session_metadata_patch(&self, opened_from: &str, updated_at: u64) -> Value {
-        let package_root = self.package_root.to_string_lossy().into_owned();
-        let scope = scope_to_metadata(&self.subject);
-        let workspace_path = match &self.subject {
-            AppBuilderSubject::ProductApp { scope, .. }
-            | AppBuilderSubject::Component { scope, .. }
-            | AppBuilderSubject::BuilderDraft { scope, .. } => scope_workspace_path(scope),
-        };
+    /// Produces inheritance metadata containing identity and runtime correlation only.
+    /// Filesystem paths are deliberately absent and will be re-derived by the receiving session.
+    pub fn to_session_metadata_patch(
+        &self,
+        opened_from: &str,
+        updated_at: u64,
+    ) -> CoreResult<Value> {
+        let AppBuilderSubject::BuilderDraft {
+            draft_id,
+            title,
+            scope,
+        } = &self.subject;
+        validate_draft_id(draft_id)?;
 
-        let mut execution_context = json!({
-            "packageRoot": package_root,
-        });
+        let display_title = title.as_deref().unwrap_or(draft_id);
+        let scope_value = scope_to_metadata(scope);
+        let workspace_path = scope_workspace_path(scope);
+        let mut execution_context = json!({});
         if let Some(work_id) = self.work_id.as_deref() {
             execution_context["workId"] = json!(work_id);
         }
@@ -225,168 +155,101 @@ impl AppBuilderExecutionContext {
             execution_context["previewIssueId"] = json!(preview_issue_id);
         }
 
-        match &self.subject {
-            AppBuilderSubject::ProductApp {
-                app_id,
-                version,
-                title,
-                ..
-            } => {
-                let display_title = title.as_deref().unwrap_or(app_id);
-                json!({
-                    "agentSessionBinding": {
-                        "schemaVersion": 1,
-                        "intent": {
-                            "agentType": "AppBuilder",
-                            "mode": "edit"
-                        },
-                        "subject": {
-                            "kind": "product-app",
-                            "id": app_id,
-                            "title": display_title,
-                            "version": version,
-                            "data": {
-                                "packageRoot": package_root
-                            }
-                        },
-                        "surface": {
-                            "contentType": "app-builder",
-                            "title": format!("Edit {}", display_title),
-                            "data": {
-                                "appId": app_id,
-                                "packageRoot": package_root,
-                                "scope": scope
-                            }
-                        },
-                        "executionContext": execution_context,
-                        "scope": scope,
-                        "workspacePath": workspace_path,
-                        "openedFrom": opened_from,
-                        "updatedAt": updated_at
-                    },
-                    "appBuilderFacts": {
-                        "subject": {
-                            "kind": "product-app",
-                            "appId": app_id,
-                            "version": version,
-                            "packageRoot": package_root
-                        }
+        Ok(json!({
+            "agentSessionBinding": {
+                "schemaVersion": 1,
+                "intent": {
+                    "agentType": "AppBuilder",
+                    "mode": "edit"
+                },
+                "subject": {
+                    "kind": "builder-draft",
+                    "id": draft_id,
+                    "title": display_title
+                },
+                "surface": {
+                    "contentType": "app-builder",
+                    "title": format!("Edit {display_title}"),
+                    "data": {
+                        "draftId": draft_id,
+                        "scope": scope_value
                     }
-                })
+                },
+                "executionContext": execution_context,
+                "scope": scope_value,
+                "workspacePath": workspace_path,
+                "openedFrom": opened_from,
+                "updatedAt": updated_at
+            },
+            "appBuilderFacts": {
+                "subject": {
+                    "kind": "builder-draft",
+                    "draftId": draft_id
+                }
             }
-            AppBuilderSubject::Component {
-                component_id,
-                component_kind,
-                version,
-                title,
-                ..
-            } => {
-                let display_title = title.as_deref().unwrap_or(component_id);
-                json!({
-                    "agentSessionBinding": {
-                        "schemaVersion": 1,
-                        "intent": {
-                            "agentType": "AppBuilder",
-                            "mode": "edit"
-                        },
-                        "subject": {
-                            "kind": "component",
-                            "id": component_id,
-                            "title": display_title,
-                            "version": version,
-                            "data": {
-                                "componentKind": component_kind,
-                                "packageRoot": package_root
-                            }
-                        },
-                        "surface": {
-                            "contentType": "app-builder",
-                            "title": format!("Edit {}", display_title),
-                            "data": {
-                                "componentId": component_id,
-                                "componentKind": component_kind,
-                                "componentVersion": version,
-                                "componentPackageRoot": package_root,
-                                "componentName": display_title,
-                                "packageRoot": package_root,
-                                "scope": scope
-                            }
-                        },
-                        "executionContext": execution_context,
-                        "scope": scope,
-                        "workspacePath": workspace_path,
-                        "openedFrom": opened_from,
-                        "updatedAt": updated_at
-                    },
-                    "appBuilderFacts": {
-                        "subject": {
-                            "kind": "component",
-                            "componentId": component_id,
-                            "componentKind": component_kind,
-                            "version": version,
-                            "packageRoot": package_root
-                        }
-                    }
-                })
-            }
-            AppBuilderSubject::BuilderDraft {
-                draft_id, title, ..
-            } => {
-                let display_title = title.as_deref().unwrap_or(draft_id);
-                json!({
-                    "agentSessionBinding": {
-                        "schemaVersion": 1,
-                        "intent": {
-                            "agentType": "AppBuilder",
-                            "mode": "edit"
-                        },
-                        "subject": {
-                            "kind": "builder-draft",
-                            "id": draft_id,
-                            "title": display_title,
-                            "data": {
-                                "packageRoot": package_root
-                            }
-                        },
-                        "surface": {
-                            "contentType": "app-builder",
-                            "title": format!("Edit {}", display_title),
-                            "data": {
-                                "draftId": draft_id,
-                                "packageRoot": package_root,
-                                "scope": scope
-                            }
-                        },
-                        "executionContext": execution_context,
-                        "scope": scope,
-                        "workspacePath": workspace_path,
-                        "openedFrom": opened_from,
-                        "updatedAt": updated_at
-                    },
-                    "appBuilderFacts": {
-                        "subject": {
-                            "kind": "builder-draft",
-                            "draftId": draft_id,
-                            "packageRoot": package_root
-                        }
-                    }
-                })
-            }
-        }
+        }))
     }
 }
 
-fn scope_to_metadata(subject: &AppBuilderSubject) -> Value {
-    match subject {
-        AppBuilderSubject::ProductApp { scope, .. }
-        | AppBuilderSubject::Component { scope, .. }
-        | AppBuilderSubject::BuilderDraft { scope, .. } => match scope {
-            AppBuilderSubjectScope::System => json!({ "kind": "system" }),
-            AppBuilderSubjectScope::Workspace { workspace_path } => json!({
-                "kind": "workspace",
-                "workspacePath": workspace_path.to_string_lossy()
-            }),
-        },
+fn validate_draft_id(draft_id: &str) -> CoreResult<()> {
+    let Some(suffix) = draft_id.strip_prefix(DRAFT_ID_PREFIX) else {
+        return Err(invalid_draft_id());
+    };
+    if suffix.len() != DRAFT_ID_HEX_LENGTH
+        || !suffix
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
+    {
+        return Err(invalid_draft_id());
+    }
+    Ok(())
+}
+
+fn invalid_draft_id() -> CoreError {
+    CoreError::validation("AppBuilder draft id must be draft_ followed by 32 lowercase hex digits")
+}
+
+fn resolve_builder_draft_package_root(app_root: &Path, draft_id: &str) -> CoreResult<PathBuf> {
+    validate_draft_id(draft_id)?;
+    let drafts_root = app_root
+        .join(INTELLIGENT_APPS_DIRECTORY)
+        .join(DRAFTS_DIRECTORY);
+    let canonical_drafts_root = dunce::canonicalize(&drafts_root).map_err(|error| {
+        CoreError::validation(format!(
+            "Intelligent App Draft store is unavailable at '{}': {error}",
+            drafts_root.display()
+        ))
+    })?;
+    let candidate = drafts_root.join(draft_id);
+    if !candidate.is_dir() {
+        return Err(CoreError::validation(format!(
+            "AppBuilder Draft directory does not exist: {draft_id}"
+        )));
+    }
+    let canonical_candidate = dunce::canonicalize(&candidate).map_err(|error| {
+        CoreError::validation(format!(
+            "Failed to canonicalize AppBuilder Draft directory '{}': {error}",
+            candidate.display()
+        ))
+    })?;
+    let expected_candidate = canonical_drafts_root.join(draft_id);
+    if canonical_candidate != expected_candidate
+        || !canonical_candidate.starts_with(&canonical_drafts_root)
+    {
+        return Err(CoreError::validation(format!(
+            "AppBuilder Draft directory escapes or aliases its canonical store location: {draft_id}"
+        )));
+    }
+    Ok(canonical_candidate)
+}
+
+fn scope_to_metadata(scope: &AppBuilderSubjectScope) -> Value {
+    match scope {
+        AppBuilderSubjectScope::System => json!({ "kind": "system" }),
+        AppBuilderSubjectScope::Workspace { workspace_path } => json!({
+            "kind": "workspace",
+            "workspacePath": workspace_path.to_string_lossy()
+        }),
     }
 }
 
@@ -463,324 +326,180 @@ fn resolve_scope(
         .unwrap_or(AppBuilderSubjectScope::System)
 }
 
-fn resolve_package_root(
-    subject: &AppBuilderSubject,
-    package_root_hint: Option<&str>,
-) -> CoreResult<PathBuf> {
-    if let Some(package_root_hint) = package_root_hint {
-        let package_root = PathBuf::from(package_root_hint);
-        if !package_root.is_absolute() {
-            return Err(CoreError::validation(
-                "AppBuilder package root must be absolute".to_string(),
-            ));
-        }
-        return Ok(package_root);
-    }
-
-    let path_manager = try_get_path_manager_arc()
-        .map_err(|e| CoreError::tool(format!("PathManager not initialized: {}", e)))?;
-
-    match subject {
-        AppBuilderSubject::ProductApp {
-            app_id,
-            version,
-            scope,
-            ..
-        } => Ok(match scope {
-            AppBuilderSubjectScope::System => {
-                path_manager.system_product_app_version_dir(app_id, version)
-            }
-            AppBuilderSubjectScope::Workspace { workspace_path } => {
-                path_manager.project_product_app_version_dir(workspace_path, app_id, version)
-            }
-        }),
-        AppBuilderSubject::Component {
-            component_id,
-            component_kind,
-            version,
-            scope,
-            ..
-        } => Ok(match scope {
-            AppBuilderSubjectScope::System => {
-                path_manager.system_component_version_dir(component_kind, component_id, version)
-            }
-            AppBuilderSubjectScope::Workspace { workspace_path } => path_manager
-                .project_component_version_dir(
-                    workspace_path,
-                    component_kind,
-                    component_id,
-                    version,
-                ),
-        }),
-        AppBuilderSubject::BuilderDraft { .. } => Err(CoreError::validation(
-            "AppBuilder draft subject requires an absolute package root".to_string(),
-        )),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::infrastructure::get_path_manager_arc;
     use serde_json::json;
 
+    const DRAFT_ID: &str = "draft_0123456789abcdef0123456789abcdef";
+
+    fn create_draft_store() -> (PathBuf, PathBuf) {
+        let app_root = std::env::temp_dir().join(format!(
+            "sparo-app-builder-context-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let draft_root = app_root
+            .join(INTELLIGENT_APPS_DIRECTORY)
+            .join(DRAFTS_DIRECTORY)
+            .join(DRAFT_ID);
+        std::fs::create_dir_all(&draft_root).expect("create draft root");
+        (
+            app_root,
+            dunce::canonicalize(draft_root).expect("canonical draft root"),
+        )
+    }
+
     #[test]
-    fn builds_product_app_context_from_bound_session_metadata() {
-        let custom_metadata = json!({
+    fn bound_draft_id_alone_resolves_the_canonical_package_root() {
+        let (app_root, draft_root) = create_draft_store();
+        let metadata = json!({
             "agentSessionBinding": {
                 "subject": {
-                    "kind": "product-app",
-                    "id": "focus-app",
-                    "title": "Focus App",
-                    "version": "1.2.3"
+                    "kind": "builder-draft",
+                    "id": DRAFT_ID,
+                    "title": "Focus Draft"
                 },
                 "scope": { "kind": "system" }
-            },
-            "appBuilderFacts": {
-                "previewResults": [
-                    { "workId": "work-1", "runtimeInstanceId": "runtime-1" }
-                ]
-            }
-        });
-        let turn_metadata = json!({
-            "appBuilderIssueContext": {
-                "workId": "work-issue",
-                "issueId": "issue-1",
-                "runtimeInstanceId": "runtime-issue"
             }
         });
 
-        let context = AppBuilderExecutionContext::from_metadata(
-            Some(&custom_metadata),
-            Some(&turn_metadata),
+        let context = AppBuilderExecutionContext::from_metadata_with_app_root(
+            Some(&metadata),
             None,
+            None,
+            Some(&app_root),
         )
         .expect("context result")
         .expect("context");
 
-        assert_eq!(
-            context.package_root,
-            get_path_manager_arc().system_product_app_version_dir("focus-app", "1.2.3")
-        );
-        assert_eq!(
-            context.runtime_instance_id.as_deref(),
-            Some("runtime-issue")
-        );
-        assert_eq!(context.work_id.as_deref(), Some("work-issue"));
-        assert_eq!(context.preview_issue_id.as_deref(), Some("issue-1"));
-        assert_eq!(
-            context.allowed_write_roots,
-            vec![context.package_root.clone()]
-        );
+        assert_eq!(context.package_root, draft_root);
+        assert_eq!(context.allowed_write_roots, vec![draft_root]);
+        assert!(matches!(
+            context.subject,
+            AppBuilderSubject::BuilderDraft { ref draft_id, .. } if draft_id == DRAFT_ID
+        ));
+        let _ = std::fs::remove_dir_all(app_root);
     }
 
     #[test]
-    fn explicit_execution_package_root_wins_over_workspace_scope_inference() {
-        let base = std::env::temp_dir().join(format!(
-            "sparo-explicit-app-builder-root-{}",
-            uuid::Uuid::new_v4()
-        ));
-        let package_root = base
-            .join("system")
-            .join("apps")
-            .join("focus-app")
-            .join("1.2.3");
-        let workspace_root = base.join("workspace");
-        let custom_metadata = json!({
+    fn persisted_package_roots_are_ignored() {
+        let (app_root, draft_root) = create_draft_store();
+        let attacker_root = app_root.join("outside");
+        std::fs::create_dir_all(&attacker_root).expect("create attacker root");
+        let metadata = json!({
             "agentSessionBinding": {
                 "subject": {
-                    "kind": "product-app",
-                    "id": "focus-app",
-                    "title": "Focus App",
-                    "version": "1.2.3"
+                    "kind": "builder-draft",
+                    "id": DRAFT_ID,
+                    "data": { "packageRoot": attacker_root }
                 },
-                "executionContext": {
-                    "packageRoot": package_root.to_string_lossy()
+                "surface": { "data": { "packageRoot": attacker_root } },
+                "executionContext": { "packageRoot": attacker_root }
+            },
+            "appBuilderFacts": {
+                "subject": { "kind": "builder-draft", "packageRoot": attacker_root }
+            }
+        });
+
+        let context = AppBuilderExecutionContext::from_metadata_with_app_root(
+            Some(&metadata),
+            None,
+            None,
+            Some(&app_root),
+        )
+        .expect("context result")
+        .expect("context");
+
+        assert_eq!(context.package_root, draft_root);
+        let _ = std::fs::remove_dir_all(app_root);
+    }
+
+    #[test]
+    fn turn_metadata_cannot_rebind_the_session_to_another_draft() {
+        let (app_root, _) = create_draft_store();
+        let turn_metadata = json!({
+            "agentSessionBinding": {
+                "subject": { "kind": "builder-draft", "id": DRAFT_ID }
+            }
+        });
+        let context = AppBuilderExecutionContext::from_metadata_with_app_root(
+            None,
+            Some(&turn_metadata),
+            None,
+            Some(&app_root),
+        )
+        .expect("context result");
+        assert!(context.is_none());
+        let _ = std::fs::remove_dir_all(app_root);
+    }
+
+    #[test]
+    fn invalid_or_missing_draft_directories_are_rejected() {
+        let (app_root, _) = create_draft_store();
+        let invalid_metadata = json!({
+            "agentSessionBinding": {
+                "subject": { "kind": "builder-draft", "id": "../outside" }
+            }
+        });
+        assert!(AppBuilderExecutionContext::from_metadata_with_app_root(
+            Some(&invalid_metadata),
+            None,
+            None,
+            Some(&app_root),
+        )
+        .is_err());
+
+        let missing_metadata = json!({
+            "agentSessionBinding": {
+                "subject": {
+                    "kind": "builder-draft",
+                    "id": "draft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                 }
             }
         });
-        let workspace = WorkspaceBinding::new(None, workspace_root);
-
-        let context = AppBuilderExecutionContext::from_metadata(
-            Some(&custom_metadata),
+        assert!(AppBuilderExecutionContext::from_metadata_with_app_root(
+            Some(&missing_metadata),
             None,
-            Some(&workspace),
+            None,
+            Some(&app_root),
         )
-        .expect("context result")
-        .expect("context");
-
-        assert_eq!(context.package_root, package_root);
-        assert_eq!(
-            context.allowed_write_roots,
-            vec![context.package_root.clone()]
-        );
-
-        let _ = std::fs::remove_dir_all(base);
+        .is_err());
+        let _ = std::fs::remove_dir_all(app_root);
     }
 
     #[test]
-    fn builds_product_app_context_from_latest_preview_fact_when_turn_context_is_absent() {
-        let custom_metadata = json!({
-            "agentSessionBinding": {
-                "subject": {
-                    "kind": "product-app",
-                    "id": "focus-app",
-                    "title": "Focus App",
-                    "version": "1.2.3"
-                },
-                "scope": { "kind": "system" }
-            },
-            "appBuilderFacts": {
-                "previewResults": [
-                    {
-                        "workId": "work-old",
-                        "runtimeInstanceId": "runtime-old",
-                        "observedAt": 1000
-                    },
-                    {
-                        "workId": "work-new",
-                        "runtimeInstanceId": "runtime-new",
-                        "observedAt": 2000
-                    }
-                ]
-            }
-        });
-
-        let context = AppBuilderExecutionContext::from_metadata(Some(&custom_metadata), None, None)
-            .expect("context result")
-            .expect("context");
-
-        assert_eq!(context.work_id.as_deref(), Some("work-new"));
-        assert_eq!(context.runtime_instance_id.as_deref(), Some("runtime-new"));
-    }
-
-    #[test]
-    fn builds_component_context_from_bound_session_metadata() {
-        let custom_metadata = json!({
-            "agentSessionBinding": {
-                "subject": {
-                    "kind": "component",
-                    "id": "shared-agent",
-                    "title": "Shared Agent",
-                    "version": "1.0.0",
-                    "data": {
-                        "componentKind": "agents"
-                    }
-                },
-                "scope": { "kind": "system" }
-            }
-        });
-
-        let context = AppBuilderExecutionContext::from_metadata(Some(&custom_metadata), None, None)
-            .expect("context result")
-            .expect("context");
-
-        assert_eq!(
-            context.package_root,
-            get_path_manager_arc().system_component_version_dir("agents", "shared-agent", "1.0.0")
-        );
-        assert_eq!(
-            context.allowed_write_roots,
-            vec![context.package_root.clone()]
-        );
-        assert!(matches!(
-            context.subject,
-            AppBuilderSubject::Component {
-                ref component_id,
-                ref component_kind,
-                ref version,
-                ..
-            } if component_id == "shared-agent"
-                && component_kind == "agents"
-                && version == "1.0.0"
-        ));
-    }
-
-    #[test]
-    fn inherited_metadata_patch_round_trips_product_app_execution_context() {
-        let package_root =
-            get_path_manager_arc().system_product_app_version_dir("focus-app", "1.2.3");
+    fn inherited_metadata_round_trips_without_filesystem_paths() {
+        let (app_root, draft_root) = create_draft_store();
         let original = AppBuilderExecutionContext {
-            subject: AppBuilderSubject::ProductApp {
-                app_id: "focus-app".to_string(),
-                version: "1.2.3".to_string(),
-                title: Some("Focus App".to_string()),
+            subject: AppBuilderSubject::BuilderDraft {
+                draft_id: DRAFT_ID.to_string(),
+                title: Some("Focus Draft".to_string()),
                 scope: AppBuilderSubjectScope::System,
             },
-            package_root,
-            allowed_write_roots: Vec::new(),
+            package_root: draft_root.clone(),
+            allowed_write_roots: vec![draft_root.clone()],
             work_id: Some("work-1".to_string()),
             runtime_instance_id: Some("runtime-1".to_string()),
             preview_issue_id: Some("issue-1".to_string()),
         };
 
-        let patch = original.to_session_metadata_patch("InheritedAppBuilderExecutionContext", 1234);
-        assert_eq!(
-            patch["agentSessionBinding"]["openedFrom"],
-            "InheritedAppBuilderExecutionContext"
-        );
-        assert_eq!(
-            patch["agentSessionBinding"]["executionContext"]["workId"],
-            "work-1"
-        );
-        assert_eq!(
-            patch["agentSessionBinding"]["executionContext"]["runtimeInstanceId"],
-            "runtime-1"
-        );
+        let patch = original
+            .to_session_metadata_patch("InheritedAppBuilderExecutionContext", 1234)
+            .expect("metadata patch");
+        assert!(!patch.to_string().contains("packageRoot"));
 
-        let restored = AppBuilderExecutionContext::from_metadata(Some(&patch), None, None)
-            .expect("context result")
-            .expect("context");
-
+        let restored = AppBuilderExecutionContext::from_metadata_with_app_root(
+            Some(&patch),
+            None,
+            None,
+            Some(&app_root),
+        )
+        .expect("context result")
+        .expect("context");
+        assert_eq!(restored.package_root, draft_root);
         assert_eq!(restored.work_id.as_deref(), Some("work-1"));
         assert_eq!(restored.runtime_instance_id.as_deref(), Some("runtime-1"));
         assert_eq!(restored.preview_issue_id.as_deref(), Some("issue-1"));
-        assert!(matches!(
-            restored.subject,
-            AppBuilderSubject::ProductApp {
-                ref app_id,
-                ref version,
-                ..
-            } if app_id == "focus-app" && version == "1.2.3"
-        ));
-        assert_eq!(
-            restored.allowed_write_roots,
-            vec![restored.package_root.clone()]
-        );
-    }
-
-    #[test]
-    fn inherited_context_does_not_depend_on_child_agent_type() {
-        let custom_metadata = json!({
-            "agentSessionBinding": {
-                "intent": {
-                    "agentType": "Runno",
-                    "mode": "edit"
-                },
-                "subject": {
-                    "kind": "product-app",
-                    "id": "focus-app",
-                    "title": "Focus App",
-                    "version": "1.2.3"
-                },
-                "scope": { "kind": "system" },
-                "openedFrom": "InheritedAppBuilderExecutionContext",
-                "executionContext": {
-                    "workId": "work-1",
-                    "runtimeInstanceId": "runtime-1"
-                }
-            }
-        });
-
-        let context = AppBuilderExecutionContext::from_metadata(Some(&custom_metadata), None, None)
-            .expect("context result")
-            .expect("context");
-
-        assert_eq!(
-            context.package_root,
-            get_path_manager_arc().system_product_app_version_dir("focus-app", "1.2.3")
-        );
-        assert_eq!(context.work_id.as_deref(), Some("work-1"));
-        assert_eq!(context.runtime_instance_id.as_deref(), Some("runtime-1"));
+        let _ = std::fs::remove_dir_all(app_root);
     }
 }

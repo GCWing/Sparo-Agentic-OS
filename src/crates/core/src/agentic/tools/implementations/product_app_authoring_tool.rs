@@ -1,25 +1,24 @@
 //! CreateProductApp tool - create a Product App package starter.
 
+use crate::agentic::app_builder_context::AppBuilderSubject;
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
 use crate::agentic::tools::implementations::util::{
-    bound_app_builder_product_app_root, enforce_app_builder_package_write,
+    bound_app_builder_draft_root, enforce_app_builder_package_write,
 };
 use crate::app_platform::{
-    create_product_app_component_scaffold, create_product_app_package_with_options,
-    default_product_app_work_multiplicity_for_surface_mode, list_installed_shared_components,
-    AppAuthor, AppI18n, AppIconSpec, AppInteractionModel, AppSurfaceMode, AppWorkMultiplicity,
-    ComponentKind, CreateProductAppComponentDraft, CreateProductAppPackageDraft,
-    CreateProductAppPackageOptions, ProductAppLaunch, ProductAppLaunchKind,
-    ProductAppLaunchScopeRequirement, ProductAppResolver, SurfaceRef, WrittenProductAppPackage,
+    create_product_app_component_scaffold, default_product_app_work_multiplicity_for_surface_mode,
+    list_system_shared_components, scaffold_product_app_draft, AppAuthor, AppI18n, AppIconSpec,
+    AppInteractionModel, AppSurfaceMode, AppWorkMultiplicity, ComponentKind,
+    CreateProductAppComponentDraft, CreateProductAppPackageDraft, CreateProductAppPackageOptions,
+    ProductAppLaunch, ProductAppLaunchKind, ProductAppLaunchScopeRequirement, ProductAppResolver,
+    SurfaceRef,
 };
 use crate::error::{CoreError, CoreResult};
-use crate::infrastructure::{try_get_path_manager_arc, PathManager};
+use crate::infrastructure::try_get_path_manager_arc;
 use async_trait::async_trait;
-use log::warn;
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::fs;
 
 pub struct CreateProductAppTool;
@@ -119,7 +118,7 @@ impl Tool for CreateProductAppTool {
 
 Input: name, description, category. Optional app_id can be supplied when the user names a durable package id.
 
-Returns Product App identity, optional primary surface, optional agent component, launch policy, interaction model, component lock digest, validation seed, and the Product App package directory. Edit files inside this package only. Do not write legacy standalone meta.json/source layouts."#
+The package is created only inside the already-bound Draft. Returns its identity, optional primary surface, optional agent component, launch policy, interaction model, component lock digest, validation seed, and editable Draft paths."#
             .to_string())
     }
 
@@ -131,7 +130,7 @@ Returns Product App identity, optional primary surface, optional agent component
             "properties": {
                 "app_id": {
                     "type": "string",
-                    "description": "Optional durable Product App id. ASCII letters, numbers, '-' or '_'."
+                    "description": "Optional assertion of the bound Draft App id; a mismatch is rejected."
                 },
                 "name": {
                     "type": "string",
@@ -173,7 +172,7 @@ Returns Product App identity, optional primary surface, optional agent component
                 },
                 "include_agent": {
                     "type": "boolean",
-                    "description": "Legacy convenience when entry_kind is omitted. true maps to surfaceAgent, false maps to surface."
+                    "description": "Convenience when entry_kind is omitted. true maps to surfaceAgent, false maps to surface."
                 },
                 "primary_surface_mode": {
                     "type": "string",
@@ -193,6 +192,10 @@ Returns Product App identity, optional primary surface, optional agent component
         false
     }
 
+    fn mutates_app_builder_draft(&self) -> bool {
+        true
+    }
+
     fn needs_permissions(&self, _input: Option<&Value>) -> bool {
         false
     }
@@ -203,12 +206,10 @@ Returns Product App identity, optional primary surface, optional agent component
         context: &ToolUseContext,
     ) -> CoreResult<Vec<ToolResult>> {
         let name = required_string(input, "name")?;
-        let app_name = name.clone();
         let description = required_string(input, "description")?;
         let app_description = description.clone();
-        let app_id = optional_string(input, "app_id")
-            .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| generated_app_id(&name));
+        let requested_app_id =
+            optional_string(input, "app_id").filter(|value| !value.trim().is_empty());
         let category = optional_string(input, "category").unwrap_or_else(|| "utility".to_string());
         let i18n = optional_i18n(input)?;
         let authors = optional_authors(input)?.unwrap_or_default();
@@ -236,8 +237,6 @@ Returns Product App identity, optional primary surface, optional agent component
                 AppWorkMultiplicity::Multiple
             }
         });
-        let primary_surface_id = include_surface.then(|| format!("{app_id}-surface"));
-        let agent_component_id = include_agent.then(|| format!("{app_id}-agent"));
         let launch_kind = if include_surface {
             "applicationSurface"
         } else {
@@ -254,10 +253,34 @@ Returns Product App identity, optional primary surface, optional agent component
             "workspaceOptional"
         };
 
-        let path_manager = try_get_path_manager_arc()
-            .map_err(|e| CoreError::tool(format!("PathManager not initialized: {}", e)))?;
-        let written = create_product_app_package_with_options(
-            &path_manager,
+        let draft_root =
+            bound_app_builder_draft_root(context, "CreateProductApp")?.ok_or_else(|| {
+                CoreError::validation(
+                    "CreateProductApp is only available inside an authorized Intelligent App Draft",
+                )
+            })?;
+        let draft_id = match context.app_builder.as_ref().map(|builder| &builder.subject) {
+            Some(AppBuilderSubject::BuilderDraft { draft_id, .. }) => draft_id,
+            _ => {
+                return Err(CoreError::validation(
+                    "CreateProductApp requires an authoritative Builder Draft identity",
+                ))
+            }
+        };
+        let app_id = authoritative_bound_draft_app_id(&draft_root, draft_id).await?;
+        if requested_app_id
+            .as_deref()
+            .is_some_and(|requested| requested != app_id)
+        {
+            return Err(CoreError::validation(format!(
+                "CreateProductApp app_id must match the bound Draft App {}",
+                app_id
+            )));
+        }
+        let primary_surface_id = include_surface.then(|| format!("{app_id}-surface"));
+        let agent_component_id = include_agent.then(|| format!("{app_id}-agent"));
+        let written = scaffold_product_app_draft(
+            &draft_root,
             CreateProductAppPackageDraft {
                 app_id,
                 name,
@@ -333,32 +356,6 @@ Returns Product App identity, optional primary surface, optional agent component
             written.app_id, package_dir
         );
         let skill_hints = default_product_app_skill_hints(include_surface, include_agent);
-
-        if let Err(error) = bind_created_product_app_session(
-            context,
-            &written,
-            CreatedProductAppSessionBinding {
-                app_name: &app_name,
-                description: &app_description,
-                primary_surface_id: primary_surface_id.as_deref(),
-                agent_component_id: agent_component_id.as_deref(),
-                include_agent,
-                primary_surface_mode: include_surface.then_some(primary_surface_mode),
-                launch_kind,
-                scope_requirement,
-                interaction_model,
-                package_dir: &package_dir,
-            },
-        )
-        .await
-        {
-            warn!(
-                "Failed to bind created Product App to AppBuilder session: session_id={:?}, app_id={}, error={}",
-                context.session_id,
-                written.app_id,
-                error
-            );
-        }
 
         Ok(vec![ToolResult::Result {
             data: json!({
@@ -443,18 +440,6 @@ Supports Product App private component kinds: surface, agent, bridge, runtime, t
             "additionalProperties": false,
             "required": ["component_id", "kind", "name", "description"],
             "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Standalone Product App package directory. Leave empty in a bound AppBuilder session; the current bound package is used."
-                },
-                "app_id": {
-                    "type": "string",
-                    "description": "Installed Product App id. Used with version when path is omitted."
-                },
-                "version": {
-                    "type": "string",
-                    "description": "Product App version. Defaults to 1.0.0 when app_id is used."
-                },
                 "component_id": {
                     "type": "string",
                     "description": "App-private component id. ASCII letters, numbers, '-' or '_'."
@@ -497,6 +482,10 @@ Supports Product App private component kinds: surface, agent, bridge, runtime, t
         false
     }
 
+    fn mutates_app_builder_draft(&self) -> bool {
+        true
+    }
+
     fn needs_permissions(&self, _input: Option<&Value>) -> bool {
         false
     }
@@ -508,12 +497,7 @@ Supports Product App private component kinds: surface, agent, bridge, runtime, t
     ) -> CoreResult<Vec<ToolResult>> {
         let path_manager = try_get_path_manager_arc()
             .map_err(|e| CoreError::tool(format!("PathManager not initialized: {}", e)))?;
-        let package_dir = product_app_package_dir_from_input(
-            input,
-            "CreateProductAppComponent",
-            &path_manager,
-            context,
-        )?;
+        let package_dir = bound_product_app_draft_root(context, "CreateProductAppComponent")?;
         enforce_app_builder_package_write(context, &package_dir.to_string_lossy()).await?;
         let component_id = required_string(input, "component_id")?;
         let kind = required_component_kind(input)?;
@@ -525,11 +509,12 @@ Supports Product App private component kinds: surface, agent, bridge, runtime, t
         let agent_type =
             optional_string(input, "agent_type").filter(|value| !value.trim().is_empty());
         let make_primary_surface = optional_bool(input, "make_primary_surface")?.unwrap_or(false);
-        let shared_components = list_installed_shared_components(&path_manager)
-            .await
-            .map_err(|e| {
-                CoreError::tool(format!("Failed to read installed shared components: {}", e))
-            })?;
+        let shared_components =
+            list_system_shared_components(&path_manager)
+                .await
+                .map_err(|e| {
+                    CoreError::tool(format!("Failed to read system shared components: {}", e))
+                })?;
 
         let written = create_product_app_component_scaffold(
             CreateProductAppComponentDraft {
@@ -604,9 +589,7 @@ impl Tool for GetProductAppPackageTool {
     }
 
     async fn description(&self) -> CoreResult<String> {
-        Ok(r#"Read the current Product App package and return its package, component graph, lock, rehearsal, and eval summary without modifying files.
-
-Input: path, or app_id plus optional version for standalone reads. In a bound AppBuilder session, leave input empty; the current bound Product App package is always used."#
+        Ok(r#"Read the current bound Intelligent App Draft package and return its package, component graph, lock, rehearsal, and eval summary without modifying files."#
             .to_string())
     }
 
@@ -614,21 +597,8 @@ Input: path, or app_id plus optional version for standalone reads. In a bound Ap
         json!({
             "type": "object",
             "additionalProperties": false,
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Product App package directory containing app.json and app.lock.json."
-                },
-                "app_id": {
-                    "type": "string",
-                    "description": "Installed Product App id. Used with version when path is omitted."
-                },
-                "version": {
-                    "type": "string",
-                    "description": "Product App version. Defaults to 1.0.0 when app_id is used."
-                }
-            },
-            "description": "Use path/app_id only for standalone reads. Leave empty in a bound AppBuilder session; the current Product App package is used."
+            "properties": {},
+            "description": "The package is derived exclusively from the bound Draft identity."
         })
     }
 
@@ -642,28 +612,24 @@ Input: path, or app_id plus optional version for standalone reads. In a bound Ap
 
     async fn call_impl(
         &self,
-        input: &Value,
+        _input: &Value,
         context: &ToolUseContext,
     ) -> CoreResult<Vec<ToolResult>> {
         let path_manager = try_get_path_manager_arc()
             .map_err(|e| CoreError::tool(format!("PathManager not initialized: {}", e)))?;
-        let package_dir = product_app_package_dir_from_input(
-            input,
-            "GetProductAppPackage",
-            &path_manager,
-            context,
-        )?;
+        let package_dir = bound_product_app_draft_root(context, "GetProductAppPackage")?;
         let package = ProductAppResolver::read_product_app_package(&package_dir)
             .await
             .map_err(|e| CoreError::tool(format!("Failed to read Product App package: {}", e)))?;
         let lock = ProductAppResolver::read_lock(&package_dir)
             .await
             .map_err(|e| CoreError::tool(format!("Failed to read app.lock.json: {}", e)))?;
-        let shared_components = list_installed_shared_components(&path_manager)
-            .await
-            .map_err(|e| {
-                CoreError::tool(format!("Failed to read installed shared components: {}", e))
-            })?;
+        let shared_components =
+            list_system_shared_components(&path_manager)
+                .await
+                .map_err(|e| {
+                    CoreError::tool(format!("Failed to read system shared components: {}", e))
+                })?;
         let resolved =
             ProductAppResolver::resolve_package_install(package.clone(), shared_components)
                 .map_err(|e| CoreError::tool(format!("Product App resolver failed: {}", e)))?;
@@ -752,9 +718,7 @@ impl Tool for UpdateProductAppPackageTool {
     }
 
     async fn description(&self) -> CoreResult<String> {
-        Ok(r#"Update structured Product App package metadata and launch fields, then refresh app.json component_lock_id and app.lock.json.
-
-Input: path, or app_id plus optional version for standalone updates. In a bound AppBuilder session, leave package identity empty; the current bound Product App package is always used. Supported updates: name, description, authors, i18n, category, structured icon, tags, work_multiplicity, interaction_model, primary_surface_id, primary_surface_mode, launch_kind, launch_target_id, launch_scope_requirement, launch_agent_type, launch_surface_id. Use component authoring or file tools for private component source edits."#
+        Ok(r#"Update structured metadata and launch fields in the current bound Intelligent App Draft, then refresh app.json component_lock_id and app.lock.json. Supported updates: name, description, authors, i18n, category, structured icon, tags, work_multiplicity, interaction_model, primary_surface_id, primary_surface_mode, launch_kind, launch_target_id, launch_scope_requirement, launch_agent_type, launch_surface_id. Use component authoring or file tools for private component source edits."#
             .to_string())
     }
 
@@ -763,9 +727,6 @@ Input: path, or app_id plus optional version for standalone updates. In a bound 
             "type": "object",
             "additionalProperties": false,
             "properties": {
-                "path": { "type": "string" },
-                "app_id": { "type": "string" },
-                "version": { "type": "string" },
                 "name": { "type": "string" },
                 "description": { "type": "string" },
                 "i18n": {
@@ -862,6 +823,10 @@ Input: path, or app_id plus optional version for standalone updates. In a bound 
         false
     }
 
+    fn mutates_app_builder_draft(&self) -> bool {
+        true
+    }
+
     fn needs_permissions(&self, _input: Option<&Value>) -> bool {
         false
     }
@@ -873,12 +838,7 @@ Input: path, or app_id plus optional version for standalone updates. In a bound 
     ) -> CoreResult<Vec<ToolResult>> {
         let path_manager = try_get_path_manager_arc()
             .map_err(|e| CoreError::tool(format!("PathManager not initialized: {}", e)))?;
-        let package_dir = product_app_package_dir_from_input(
-            input,
-            "UpdateProductAppPackage",
-            &path_manager,
-            context,
-        )?;
+        let package_dir = bound_product_app_draft_root(context, "UpdateProductAppPackage")?;
         let mut package = ProductAppResolver::read_product_app_package(&package_dir)
             .await
             .map_err(|e| CoreError::tool(format!("Failed to read Product App package: {}", e)))?;
@@ -1009,11 +969,12 @@ Input: path, or app_id plus optional version for standalone updates. In a bound 
             ));
         }
 
-        let shared_components = list_installed_shared_components(&path_manager)
-            .await
-            .map_err(|e| {
-                CoreError::tool(format!("Failed to read installed shared components: {}", e))
-            })?;
+        let shared_components =
+            list_system_shared_components(&path_manager)
+                .await
+                .map_err(|e| {
+                    CoreError::tool(format!("Failed to read system shared components: {}", e))
+                })?;
         let resolved = ProductAppResolver::resolve_package_install(package, shared_components)
             .map_err(|e| CoreError::tool(format!("Product App resolver failed: {}", e)))?;
         enforce_product_app_package_write(context, &package_dir).await?;
@@ -1062,9 +1023,7 @@ impl Tool for RefreshProductAppLockTool {
     }
 
     async fn description(&self) -> CoreResult<String> {
-        Ok(r#"Refresh the component lock for a Product App package after package/component edits. The tool resolves the package, writes the updated app.json component_lock_id, and rewrites app.lock.json.
-
-Input: path, or app_id plus optional version for standalone refreshes. In a bound AppBuilder session, leave input empty; the current bound Product App package is always used."#
+        Ok(r#"Refresh the component lock for the current bound Intelligent App Draft after package/component edits. The tool resolves the package, writes the updated app.json component_lock_id, and rewrites app.lock.json."#
             .to_string())
     }
 
@@ -1072,26 +1031,17 @@ Input: path, or app_id plus optional version for standalone refreshes. In a boun
         json!({
             "type": "object",
             "additionalProperties": false,
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Product App package directory containing app.json and app.lock.json."
-                },
-                "app_id": {
-                    "type": "string",
-                    "description": "Installed Product App id. Used with version when path is omitted."
-                },
-                "version": {
-                    "type": "string",
-                    "description": "Product App version. Defaults to 1.0.0 when app_id is used."
-                }
-            },
-            "description": "Use path/app_id only for standalone refreshes. Leave empty in a bound AppBuilder session; the current Product App package is used."
+            "properties": {},
+            "description": "The package is derived exclusively from the bound Draft identity."
         })
     }
 
     fn is_readonly(&self) -> bool {
         false
+    }
+
+    fn mutates_app_builder_draft(&self) -> bool {
+        true
     }
 
     fn needs_permissions(&self, _input: Option<&Value>) -> bool {
@@ -1100,17 +1050,12 @@ Input: path, or app_id plus optional version for standalone refreshes. In a boun
 
     async fn call_impl(
         &self,
-        input: &Value,
+        _input: &Value,
         context: &ToolUseContext,
     ) -> CoreResult<Vec<ToolResult>> {
         let path_manager = try_get_path_manager_arc()
             .map_err(|e| CoreError::tool(format!("PathManager not initialized: {}", e)))?;
-        let package_dir = product_app_package_dir_from_input(
-            input,
-            "RefreshProductAppLock",
-            &path_manager,
-            context,
-        )?;
+        let package_dir = bound_product_app_draft_root(context, "RefreshProductAppLock")?;
         let package = ProductAppResolver::read_product_app_package(&package_dir)
             .await
             .map_err(|e| CoreError::tool(format!("Failed to read Product App package: {}", e)))?;
@@ -1121,11 +1066,12 @@ Input: path, or app_id plus optional version for standalone refreshes. In a boun
             .await
             .ok()
             .map(|lock| lock.digest());
-        let shared_components = list_installed_shared_components(&path_manager)
-            .await
-            .map_err(|e| {
-                CoreError::tool(format!("Failed to read installed shared components: {}", e))
-            })?;
+        let shared_components =
+            list_system_shared_components(&path_manager)
+                .await
+                .map_err(|e| {
+                    CoreError::tool(format!("Failed to read system shared components: {}", e))
+                })?;
         let resolved = ProductAppResolver::resolve_package_install(package, shared_components)
             .map_err(|e| CoreError::tool(format!("Product App resolver failed: {}", e)))?;
         enforce_product_app_package_write(context, &package_dir).await?;
@@ -1168,9 +1114,7 @@ impl Tool for ResolveBuilderPreviewTargetTool {
     }
 
     async fn description(&self) -> CoreResult<String> {
-        Ok(r#"Resolve the current Product App package into a structured App Builder Preview Target without opening a runtime host or claiming execution evidence.
-
-Input: path, or app_id plus optional version for standalone resolution. In a bound AppBuilder session, leave package identity empty; the current bound Product App package is always used. Optional mode can force product-app-preview, agent-chat, sidecar-ui, full-ui, embedded-object, capability, agent-eval, runtime-boundary, runtime-dependencies, permission-review, user-path-rehearsal, or release-rehearsal."#
+        Ok(r#"Resolve the current bound Intelligent App Draft into a structured App Builder Preview Target without opening a runtime host or claiming execution evidence. Optional mode can force product-app-preview, agent-chat, sidecar-ui, full-ui, embedded-object, capability, agent-eval, runtime-boundary, runtime-dependencies, permission-review, user-path-rehearsal, or release-rehearsal."#
             .to_string())
     }
 
@@ -1179,9 +1123,6 @@ Input: path, or app_id plus optional version for standalone resolution. In a bou
             "type": "object",
             "additionalProperties": false,
             "properties": {
-                "path": { "type": "string" },
-                "app_id": { "type": "string" },
-                "version": { "type": "string" },
                 "mode": {
                     "type": "string",
                     "enum": [
@@ -1224,20 +1165,16 @@ Input: path, or app_id plus optional version for standalone resolution. In a bou
     ) -> CoreResult<Vec<ToolResult>> {
         let path_manager = try_get_path_manager_arc()
             .map_err(|e| CoreError::tool(format!("PathManager not initialized: {}", e)))?;
-        let package_dir = product_app_package_dir_from_input(
-            input,
-            "ResolveBuilderPreviewTarget",
-            &path_manager,
-            context,
-        )?;
+        let package_dir = bound_product_app_draft_root(context, "ResolveBuilderPreviewTarget")?;
         let package = ProductAppResolver::read_product_app_package(&package_dir)
             .await
             .map_err(|e| CoreError::tool(format!("Failed to read Product App package: {}", e)))?;
-        let shared_components = list_installed_shared_components(&path_manager)
-            .await
-            .map_err(|e| {
-                CoreError::tool(format!("Failed to read installed shared components: {}", e))
-            })?;
+        let shared_components =
+            list_system_shared_components(&path_manager)
+                .await
+                .map_err(|e| {
+                    CoreError::tool(format!("Failed to read system shared components: {}", e))
+                })?;
         let resolved =
             ProductAppResolver::resolve_package_install(package.clone(), shared_components)
                 .map_err(|e| CoreError::tool(format!("Product App resolver failed: {}", e)))?;
@@ -1303,206 +1240,47 @@ Input: path, or app_id plus optional version for standalone resolution. In a bou
     }
 }
 
-struct CreatedProductAppSessionBinding<'a> {
-    app_name: &'a str,
-    description: &'a str,
-    primary_surface_id: Option<&'a str>,
-    agent_component_id: Option<&'a str>,
-    include_agent: bool,
-    primary_surface_mode: Option<AppSurfaceMode>,
-    launch_kind: &'a str,
-    scope_requirement: &'a str,
-    interaction_model: &'a str,
-    package_dir: &'a str,
+async fn authoritative_bound_draft_app_id(
+    draft_root: &Path,
+    expected_draft_id: &str,
+) -> CoreResult<String> {
+    let control_path = draft_root.join(".sparo_os").join("draft.json");
+    let bytes = fs::read(&control_path).await.map_err(|error| {
+        CoreError::validation(format!(
+            "Failed to read authoritative Draft metadata {}: {error}",
+            control_path.display()
+        ))
+    })?;
+    let value: Value = serde_json::from_slice(&bytes).map_err(|error| {
+        CoreError::validation(format!(
+            "Failed to parse authoritative Draft metadata {}: {error}",
+            control_path.display()
+        ))
+    })?;
+    if value.get("schemaVersion").and_then(Value::as_u64) != Some(1)
+        || value.get("draftId").and_then(Value::as_str) != Some(expected_draft_id)
+    {
+        return Err(CoreError::validation(format!(
+            "Authoritative Draft metadata does not match bound Draft {expected_draft_id}"
+        )));
+    }
+    let app_id = value
+        .get("appId")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            CoreError::validation("Authoritative Draft metadata has no App identity".to_string())
+        })?;
+    Ok(app_id.to_string())
 }
 
-async fn bind_created_product_app_session(
-    context: &ToolUseContext,
-    written: &WrittenProductAppPackage,
-    binding: CreatedProductAppSessionBinding<'_>,
-) -> CoreResult<()> {
-    if context.agent_type.as_deref() != Some("AppBuilder") {
-        return Ok(());
-    }
-    let Some(session_id) = context.session_id.as_deref() else {
-        return Ok(());
-    };
-    let Some(agentic) = context.agentic() else {
-        return Ok(());
-    };
-
-    let patch = created_product_app_session_metadata_patch(written, binding, now_ms());
-    agentic
-        .coordinator
-        .merge_session_custom_metadata(session_id, patch)
-        .await?;
-    Ok(())
-}
-
-fn created_product_app_session_metadata_patch(
-    written: &WrittenProductAppPackage,
-    binding: CreatedProductAppSessionBinding<'_>,
-    updated_at: u64,
-) -> Value {
-    let mut component_facts = Vec::new();
-    if let Some(primary_surface_id) = binding.primary_surface_id {
-        component_facts.push(json!({
-            "componentId": primary_surface_id,
-            "kind": "surface",
-            "source": "private",
-            "role": "primary"
-        }));
-    }
-    if let Some(agent_component_id) = binding.agent_component_id {
-        component_facts.push(json!({
-            "componentId": agent_component_id,
-            "kind": "agent",
-            "source": "private",
-            "role": "backend"
-        }));
-    }
-    let agent_component_count = if binding.include_agent { 1 } else { 0 };
-    let backend_action_count = if binding.include_agent { 1 } else { 0 };
-    json!({
-        "agentSessionBinding": {
-            "schemaVersion": 1,
-            "intent": {
-                "agentType": "AppBuilder",
-                "mode": "edit"
-            },
-            "subject": {
-                "kind": "product-app",
-                "id": written.app_id,
-                "title": binding.app_name,
-                "version": written.version,
-                "data": {
-                    "packageRoot": binding.package_dir,
-                    "componentLockDigest": written.component_lock_digest,
-                    "primarySurfaceId": binding.primary_surface_id,
-                    "primarySurfaceMode": binding.primary_surface_mode,
-                    "agentComponentId": binding.agent_component_id,
-                    "includeAgent": binding.include_agent,
-                    "createdByTool": "CreateProductApp"
-                }
-            },
-            "surface": {
-                "contentType": "app-builder",
-                "title": format!("Edit {}", binding.app_name),
-                "data": {
-                    "appId": written.app_id,
-                    "packageRoot": binding.package_dir,
-                    "scope": { "kind": "system" }
-                }
-            },
-            "executionContext": {
-                "packageRoot": binding.package_dir
-            },
-            "scope": { "kind": "system" },
-            "workspacePath": null,
-            "openedFrom": "CreateProductApp",
-            "updatedAt": updated_at
-        },
-        "appBuilderFacts": {
-            "subject": {
-                "kind": "product-app",
-                "appId": written.app_id,
-                "version": written.version,
-                "packageRoot": binding.package_dir
-            },
-            "blueprint": {
-                "whatItDoes": binding.description,
-                "howReady": "Created package; validation, preview, runtime issues, permissions, data, and eval still gate readiness."
-            },
-            "technicalBlueprint": {
-                "appId": written.app_id,
-                "version": written.version,
-                "launchKind": binding.launch_kind,
-                "primarySurfaceMode": binding.primary_surface_mode
-            },
-            "previewResults": [],
-            "issues": [],
-            "logs": [],
-            "componentGraph": {
-                "primarySurfaceId": binding.primary_surface_id,
-                "primarySurfaceMode": binding.primary_surface_mode,
-                "componentCount": component_facts.len(),
-                "agentComponentCount": agent_component_count,
-                "components": component_facts
-            },
-            "agentSummary": {
-                "backendActionCount": backend_action_count,
-                "memoryScopes": [],
-                "sessionPolicies": []
-            },
-            "dataSummary": {
-                "readsWorkspace": false,
-                "writesWorkspace": false,
-                "usesRuntimeStorage": false,
-                "externalAccess": false,
-                "runtimeRunCount": 0,
-                "artifactCount": 0
-            },
-            "evalSummary": {
-                "status": if binding.include_agent { "notRun" } else { "notRequired" },
-                "caseCount": 0,
-                "detail": if binding.include_agent {
-                    "Agent Eval has not been run for this newly created Product App."
-                } else {
-                    "No Agent Component or AI permission is declared by this newly created Product App."
-                }
-            },
-            "validationSummary": {
-                "status": "notRun",
-                "failed": 0,
-                "warnings": 0,
-                "updatedAt": updated_at,
-                "source": "derived",
-                "checks": [
-                    {
-                        "id": "package",
-                        "status": "notRun",
-                        "detail": "Package created; run ValidateProductAppPackage before handoff."
-                    }
-                ]
-            },
-            "versionSummary": {
-                "currentVersion": written.version,
-                "componentLockDigest": written.component_lock_digest,
-                "checkpointCount": 0,
-                "releaseStatus": "notVerified"
-            },
-            "shareSummary": {
-                "visibility": "privateDraft",
-                "installLocation": "system",
-                "privateDataExcluded": true
-            },
-            "createResult": {
-                "packageRoot": binding.package_dir,
-                "launchKind": binding.launch_kind,
-                "scopeRequirement": binding.scope_requirement,
-                "interactionModel": binding.interaction_model,
-                "createdAt": updated_at
-            }
-        }
+fn bound_product_app_draft_root(context: &ToolUseContext, tool_name: &str) -> CoreResult<PathBuf> {
+    bound_app_builder_draft_root(context, tool_name)?.ok_or_else(|| {
+        CoreError::validation(format!(
+            "{tool_name} is only available inside an authorized Intelligent App Draft"
+        ))
     })
-}
-
-fn product_app_package_dir_from_input(
-    input: &Value,
-    tool_name: &str,
-    path_manager: &PathManager,
-    context: &ToolUseContext,
-) -> CoreResult<PathBuf> {
-    if let Some(package_root) = bound_app_builder_product_app_root(context, tool_name)? {
-        return Ok(package_root);
-    }
-
-    if let Some(path) = optional_string(input, "path").filter(|value| !value.trim().is_empty()) {
-        return Ok(PathBuf::from(path));
-    }
-    let app_id = required_string(input, "app_id")?;
-    let version = optional_string(input, "version").unwrap_or_else(|| "1.0.0".to_string());
-    Ok(path_manager.system_product_app_version_dir(&app_id, &version))
 }
 
 async fn write_json_file<T: Serialize>(path: &Path, value: &T) -> CoreResult<()> {
@@ -1519,13 +1297,6 @@ async fn enforce_product_app_package_write(
     package_dir: &Path,
 ) -> CoreResult<()> {
     enforce_app_builder_package_write(context, package_dir.to_string_lossy().as_ref()).await
-}
-
-fn now_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_millis().min(u64::MAX as u128) as u64)
-        .unwrap_or(0)
 }
 
 fn required_string(input: &Value, field: &str) -> CoreResult<String> {
@@ -1966,27 +1737,6 @@ fn preview_placement(mode: &str) -> Value {
     })
 }
 
-fn generated_app_id(name: &str) -> String {
-    let mut slug = String::new();
-    let mut previous_dash = false;
-    for ch in name.chars().flat_map(char::to_lowercase) {
-        if ch.is_ascii_alphanumeric() {
-            slug.push(ch);
-            previous_dash = false;
-        } else if !previous_dash && !slug.is_empty() {
-            slug.push('-');
-            previous_dash = true;
-        }
-    }
-    while slug.ends_with('-') {
-        slug.pop();
-    }
-    if slug.is_empty() {
-        slug.push_str("product-app");
-    }
-    format!("{}-{}", slug, chrono::Utc::now().timestamp_millis())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2029,81 +1779,6 @@ mod tests {
         assert_eq!(
             component_skill_hints(ComponentKind::Skill),
             vec!["product-app-skill-component"]
-        );
-    }
-
-    #[test]
-    fn created_product_app_session_metadata_patch_binds_created_package() {
-        let package_dir = std::env::temp_dir()
-            .join("sparo-created-product-app")
-            .join("demo-app")
-            .join("1.0.0");
-        let package_dir_string = package_dir.to_string_lossy().to_string();
-        let written = WrittenProductAppPackage {
-            app_id: "demo-app".to_string(),
-            version: "1.0.0".to_string(),
-            component_lock_digest: "lock-digest".to_string(),
-            package_dir,
-        };
-
-        let patch = created_product_app_session_metadata_patch(
-            &written,
-            CreatedProductAppSessionBinding {
-                app_name: "Demo App",
-                description: "Demo description",
-                primary_surface_id: Some("demo-app-surface"),
-                agent_component_id: Some("demo-app-agent"),
-                include_agent: true,
-                primary_surface_mode: Some(AppSurfaceMode::ImmersivePrimary),
-                launch_kind: "applicationSurface",
-                scope_requirement: "systemAllowed",
-                interaction_model: "interactiveWorkspace",
-                package_dir: &package_dir_string,
-            },
-            1234,
-        );
-
-        assert_eq!(
-            patch
-                .pointer("/agentSessionBinding/subject/kind")
-                .and_then(Value::as_str),
-            Some("product-app")
-        );
-        assert_eq!(
-            patch
-                .pointer("/agentSessionBinding/subject/id")
-                .and_then(Value::as_str),
-            Some("demo-app")
-        );
-        assert_eq!(
-            patch
-                .pointer("/agentSessionBinding/subject/data/packageRoot")
-                .and_then(Value::as_str),
-            Some(package_dir_string.as_str())
-        );
-        assert_eq!(
-            patch
-                .pointer("/agentSessionBinding/surface/data/packageRoot")
-                .and_then(Value::as_str),
-            Some(package_dir_string.as_str())
-        );
-        assert_eq!(
-            patch
-                .pointer("/appBuilderFacts/subject/packageRoot")
-                .and_then(Value::as_str),
-            Some(package_dir_string.as_str())
-        );
-        assert_eq!(
-            patch
-                .pointer("/appBuilderFacts/validationSummary/status")
-                .and_then(Value::as_str),
-            Some("notRun")
-        );
-        assert_eq!(
-            patch
-                .pointer("/appBuilderFacts/createResult/createdAt")
-                .and_then(Value::as_u64),
-            Some(1234)
         );
     }
 }

@@ -12,7 +12,6 @@ import './EditorArea.scss';
 export interface EditorAreaProps {
   workspacePath?: string;
   isSceneActive?: boolean;
-  onOpenMissionControl?: () => void;
   onInteraction?: (itemId: string, userInput: string) => Promise<void>;
   onTabCloseWithDirtyCheck?: (tabId: string, groupId: EditorGroupId) => Promise<boolean>;
   onTabCloseAllWithDirtyCheck?: (groupId: EditorGroupId) => Promise<boolean>;
@@ -22,7 +21,6 @@ export interface EditorAreaProps {
 export const EditorArea: React.FC<EditorAreaProps> = ({
   workspacePath,
   isSceneActive = true,
-  onOpenMissionControl,
   onInteraction,
   onTabCloseWithDirtyCheck,
   onTabCloseAllWithDirtyCheck,
@@ -144,7 +142,6 @@ export const EditorArea: React.FC<EditorAreaProps> = ({
       onContentChange={handleContentChange(groupId)}
       onDirtyStateChange={handleDirtyStateChange(groupId)}
       onTabFileDeletedFromDiskChange={handleTabFileDeletedFromDiskChange(groupId)}
-      onOpenMissionControl={groupId === 'primary' ? onOpenMissionControl : undefined}
       onCloseAllTabs={handleCloseAllTabs(groupId)}
       onInteraction={onInteraction}
       disablePopOut={disablePopOut}

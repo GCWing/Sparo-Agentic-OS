@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { openHome } from './navigationController';
+import {
+  beginNavigationIntent,
+  commitPendingSessionNavigation,
+  goBackScene,
+  openHome,
+  openScene,
+  openSession,
+} from './navigationController';
 import { useWorkspaceSurfaceStore } from './workspaceSurfaceStore';
 import { createAgenticOsHomeSurface } from './workspaceSurfaceTypes';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
@@ -165,5 +172,154 @@ describe('navigationController openHome', () => {
       }),
     );
     expect(useWorkspaceSurfaceStore.getState().currentOsSessionId).toBe('os-new-1');
+  });
+
+  it('commits a pending session shell before metadata I/O completes', async () => {
+    let resolveMetadata!: (metadata: SessionMetadata | null) => void;
+    sessionApiMock.loadSessionMetadata.mockImplementationOnce(() => (
+      new Promise((resolve) => { resolveMetadata = resolve; })
+    ));
+
+    const opening = openSession('runno-session', { commitPendingSurface: true });
+
+    expect(useWorkspaceSurfaceStore.getState().activeSurface).toEqual({
+      kind: 'session',
+      sessionId: 'runno-session',
+    });
+    resolveMetadata(agenticOsMetadata({
+      sessionId: 'runno-session',
+      sessionName: 'Runno',
+      agentType: 'Runno',
+    }));
+    await opening;
+
+    expect(useWorkspaceSurfaceStore.getState().activeSurface).toEqual({
+      kind: 'session',
+      sessionId: 'runno-session',
+    });
+    expect(activateSessionDataMock).toHaveBeenCalledWith('runno-session');
+  });
+
+  it('restores the previous surface when a pending session no longer exists', async () => {
+    sessionApiMock.loadSessionMetadata.mockResolvedValue(null);
+
+    await openSession('missing-session', { commitPendingSurface: true });
+
+    expect(useWorkspaceSurfaceStore.getState().activeSurface).toEqual(createAgenticOsHomeSurface());
+  });
+
+  it('uses one stable baseline for overlapping pending shells', async () => {
+    const releases = new Map<string, (metadata: SessionMetadata | null) => void>();
+    sessionApiMock.loadSessionMetadata.mockImplementation((sessionId: string) => (
+      new Promise((resolve) => { releases.set(sessionId, resolve); })
+    ));
+
+    const openingA = openSession('missing-a', { commitPendingSurface: true });
+    const openingB = openSession('missing-b', { commitPendingSurface: true });
+    expect(useWorkspaceSurfaceStore.getState().activeSurface).toEqual({
+      kind: 'session',
+      sessionId: 'missing-b',
+    });
+
+    releases.get('missing-b')?.(null);
+    await expect(openingB).resolves.toBe('missing');
+    releases.get('missing-a')?.(null);
+    await expect(openingA).resolves.toBe('superseded');
+
+    expect(useWorkspaceSurfaceStore.getState().activeSurface).toEqual(createAgenticOsHomeSurface());
+  });
+
+  it('prevents an older session lookup from committing after a newer intent is reserved', async () => {
+    let release!: (metadata: SessionMetadata | null) => void;
+    sessionApiMock.loadSessionMetadata.mockImplementationOnce(() => (
+      new Promise((resolve) => { release = resolve; })
+    ));
+    const epoch = beginNavigationIntent();
+    const opening = openSession('late-session', {
+      commitPendingSurface: true,
+      navigationEpoch: epoch,
+    });
+
+    beginNavigationIntent();
+    release(agenticOsMetadata({
+      sessionId: 'late-session',
+      sessionName: 'Late',
+      agentType: 'Runno',
+    }));
+
+    await expect(opening).resolves.toBe('superseded');
+    expect(useWorkspaceSurfaceStore.getState().activeSurface).toEqual(createAgenticOsHomeSurface());
+    expect(activateSessionDataMock).not.toHaveBeenCalledWith('late-session');
+  });
+
+  it('cancels a pending shell when Back has no history entry', async () => {
+    let release!: (metadata: SessionMetadata | null) => void;
+    sessionApiMock.loadSessionMetadata.mockImplementationOnce(() => (
+      new Promise((resolve) => { release = resolve; })
+    ));
+    const opening = openSession('pending-back', { commitPendingSurface: true });
+
+    expect(goBackScene()).toBe(true);
+    expect(useWorkspaceSurfaceStore.getState().activeSurface).toEqual(createAgenticOsHomeSurface());
+    release(null);
+    await expect(opening).resolves.toBe('superseded');
+  });
+
+  it('never records a pending shell in scene history', async () => {
+    useWorkspaceSurfaceStore.setState({
+      activeSurface: { kind: 'session', sessionId: 'stable-session' },
+      previousSurface: createAgenticOsHomeSurface(),
+      sceneHistory: [],
+    });
+    let release!: (metadata: SessionMetadata | null) => void;
+    sessionApiMock.loadSessionMetadata.mockImplementationOnce(() => (
+      new Promise((resolve) => { release = resolve; })
+    ));
+    const opening = openSession('pending-settings', { commitPendingSurface: true });
+
+    openScene('settings');
+    expect(useWorkspaceSurfaceStore.getState().sceneHistory[0]?.surface).toEqual({
+      kind: 'session',
+      sessionId: 'stable-session',
+    });
+    release(null);
+    await expect(opening).resolves.toBe('superseded');
+
+    expect(goBackScene()).toBe(true);
+    expect(useWorkspaceSurfaceStore.getState().activeSurface).toEqual({
+      kind: 'session',
+      sessionId: 'stable-session',
+    });
+  });
+
+  it('replaces a provisional Work shell without adding it to history', async () => {
+    const epoch = beginNavigationIntent();
+    expect(commitPendingSessionNavigation('pending-work:excel', {
+      context: { kind: 'work', workId: 'excel' },
+      navigationEpoch: epoch,
+    })).toBe(true);
+    await flowChatStore.hydrateWorkspaceSessionsMetadata([
+      agenticOsMetadata({
+        sessionId: 'excel-real-session',
+        sessionName: 'Excel',
+        agentType: 'Runno',
+      }),
+    ], '', 'agentic_os');
+
+    await expect(openSession('optimistic-reservation-b', {
+      context: { kind: 'work', workId: 'excel' },
+      commitPendingSurface: true,
+      navigationEpoch: epoch,
+      resolveSession: async () => (
+        flowChatStore.getState().sessions.get('excel-real-session') ?? null
+      ),
+    })).resolves.toBe('opened');
+
+    expect(useWorkspaceSurfaceStore.getState().sceneHistory).toEqual([]);
+    expect(goBackScene()).toBe(false);
+    expect(useWorkspaceSurfaceStore.getState().activeSurface).toEqual({
+      kind: 'session',
+      sessionId: 'excel-real-session',
+    });
   });
 });

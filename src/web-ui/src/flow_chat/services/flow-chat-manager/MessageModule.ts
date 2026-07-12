@@ -15,11 +15,10 @@ import type { FlowChatContext, DialogTurn } from './types';
 import { ensureBackendSession, retryCreateBackendSession } from './SessionModule';
 import { cleanupSessionBuffers } from './TextChunkModule';
 import type { ImageContextData as ImageInputContextData } from '@/infrastructure/api/service-api/ImageContextTypes';
-import { globalEventBus } from '@/infrastructure/event-bus';
 import {
-  FLOWCHAT_PIN_TURN_TO_TOP_EVENT,
-  type FlowChatPinTurnToTopRequest,
-} from '../../events/flowchatNavigation';
+  acknowledgeFlowViewportTurnNavigation,
+  requestFlowViewportTurnNavigation,
+} from '../../scroll/viewport/FlowViewportNavigationBroker';
 import {
   isTransientBtwSession,
   sendMessageToTransientBtwSession,
@@ -223,6 +222,7 @@ export async function sendMessage(
   }
 
   let createdLocalTurnId: string | null = null;
+  let createdNavigationRequestId: number | null = null;
 
   try {
     const refreshedSession = context.flowChatStore.getState().sessions.get(sessionId) ?? session;
@@ -298,14 +298,13 @@ export async function sendMessage(
 
     context.flowChatStore.addDialogTurn(sessionId, dialogTurn);
     createdLocalTurnId = dialogTurnId;
-    const pinRequest: FlowChatPinTurnToTopRequest = {
+    const navigationRequest = requestFlowViewportTurnNavigation({
       sessionId,
       turnId: dialogTurnId,
       behavior: 'auto',
       source: 'send-message',
-      pinMode: 'sticky-latest',
-    };
-    globalEventBus.emit(FLOWCHAT_PIN_TURN_TO_TOP_EVENT, pinRequest, 'MessageModule');
+    });
+    createdNavigationRequestId = navigationRequest.requestId;
 
     const isRestoringHistoricalSession =
       canHydrateSession(readySession) ||
@@ -314,6 +313,7 @@ export async function sendMessage(
     if (isRestoringHistoricalSession) {
       context.processingManager.clearSessionStatus(sessionId);
       context.flowChatStore.deleteDialogTurn(sessionId, dialogTurnId);
+      acknowledgeFlowViewportTurnNavigation(sessionId, navigationRequest.requestId);
       throw new Error('Session history is still restoring, please retry once loading finishes');
     }
 
@@ -404,6 +404,8 @@ export async function sendMessage(
       log.info('Dialog turn queued by scheduler', { sessionId, dialogTurnId });
       context.flowChatStore.deleteDialogTurn(sessionId, dialogTurnId);
       createdLocalTurnId = null;
+      acknowledgeFlowViewportTurnNavigation(sessionId, navigationRequest.requestId);
+      createdNavigationRequestId = null;
       void useSessionTurnQueueStore.getState().refreshQueue(sessionId);
     }
 
@@ -422,6 +424,9 @@ export async function sendMessage(
     const currentSession = state.sessions.get(sessionId);
     if (createdLocalTurnId && currentSession) {
       context.flowChatStore.deleteDialogTurn(sessionId, createdLocalTurnId);
+    }
+    if (createdNavigationRequestId !== null) {
+      acknowledgeFlowViewportTurnNavigation(sessionId, createdNavigationRequestId);
     }
     
     notificationService.error(errorMessage, {

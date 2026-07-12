@@ -51,6 +51,53 @@
   }
 }
 
+.session-transcript-loading {
+  width: min(100%, 620px);
+  margin: auto;
+  padding: var(--ds-space-6, 24px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-5, 20px);
+  color: var(--ds-chat-text-secondary);
+
+  &__label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--ds-space-2, 8px);
+    font-size: var(--flowchat-font-size-sm);
+  }
+
+  &__messages {
+    display: grid;
+    gap: var(--ds-space-4, 16px);
+    opacity: 0.72;
+
+    > :first-child {
+      width: 68%;
+      justify-self: end;
+    }
+
+    > :last-child {
+      width: 82%;
+    }
+  }
+}
+
+.session-transcript-error {
+  width: min(100%, 30rem);
+  min-height: 12rem;
+  margin: auto;
+  padding: var(--ds-space-6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ds-space-3);
+  color: var(--ds-color-text-muted);
+  text-align: center;
+}
+
 .modern-flowchat-container.flow-chat-typography .markdown-renderer .table-wrapper {
   box-shadow: none;
 }

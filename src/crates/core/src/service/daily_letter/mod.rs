@@ -8,11 +8,11 @@ pub use service::{
     global_daily_letters_output_dir, install_global_daily_letter_service, DailyLetterService,
 };
 pub use types::{
-    DailyLetterAgentOutput, DailyLetterAgentResult, DailyLetterAppOpportunity,
-    DailyLetterApplyReceiptsRequest, DailyLetterAttemptStatus, DailyLetterContextPacket,
-    DailyLetterGenerateRequest, DailyLetterGetRequest, DailyLetterListRequest, DailyLetterPreview,
-    DailyLetterReceiptAction, DailyLetterReceiptCandidate, DailyLetterReceiptStatus,
-    DailyLetterRecord, DailyLetterRecordStatus, DailyLetterRunSummary, DailyLetterScope,
-    DailyLetterSealRequest, DailyLetterSourceFragment, DailyLetterSourceFragmentType,
-    DailyLetterSourceStats, DailyLetterState, DailyLetterTrigger, DailyLetterWorkspaceRef,
+    DailyLetterAgentOutput, DailyLetterAppOpportunity, DailyLetterApplyReceiptsRequest,
+    DailyLetterAttemptStatus, DailyLetterContextPacket, DailyLetterGenerateRequest,
+    DailyLetterGetRequest, DailyLetterListRequest, DailyLetterPreview, DailyLetterReceiptAction,
+    DailyLetterReceiptCandidate, DailyLetterReceiptStatus, DailyLetterRecord,
+    DailyLetterRecordStatus, DailyLetterRunSummary, DailyLetterScope, DailyLetterSealRequest,
+    DailyLetterSourceFragment, DailyLetterSourceFragmentType, DailyLetterSourceStats,
+    DailyLetterState, DailyLetterTrigger, DailyLetterWorkspaceRef,
 };

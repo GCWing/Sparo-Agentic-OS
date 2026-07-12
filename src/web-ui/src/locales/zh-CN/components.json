@@ -356,7 +356,6 @@
     "unpin": "取消固定",
     "unsaved": "未保存",
     "fileDeleted": "已删除",
-    "missionControl": "全景模式",
     "hiddenTabsCount": "{{count}} 个隐藏标签",
     "confirmCloseWithDirty": "文件 \"{{title}}\" 有未保存的更改。\n\n是否放弃更改并关闭？",
     "confirmCloseAllWithDirty": "以下 {{count}} 个文件有未保存的更改：\n\n{{fileList}}\n\n是否放弃所有更改并关闭？"
@@ -597,6 +596,7 @@
       "planViewerMissingPath": "无法加载Plan查看器：缺少文件路径",
       "terminalMissingSessionId": "无法加载终端：缺少会话ID",
       "productAppRuntimeMissingHost": "无法加载 Product App 运行时：缺少承载界面",
+      "productAppRuntimeBootTimeout": "应用未能完成启动，请重试。",
       "gitPanelRemoved": "此版本已移除 Git 集成。"
     },
     "placeholder": {

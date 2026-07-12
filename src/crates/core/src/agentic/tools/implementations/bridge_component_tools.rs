@@ -8,10 +8,11 @@ use crate::agent_component::{
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
 use crate::bridge_component::manager::BRIDGE_COMPONENT_SCHEMA_VERSION;
 use crate::bridge_component::{
-    BridgeComponentAction, BridgeComponentCapability, BridgeComponentConsumerKind,
-    BridgeComponentKind, BridgeComponentLifecycle, BridgeComponentManager, BridgeComponentManifest,
-    BridgeComponentPermissions, BridgeComponentRunStatus, BridgeComponentRuntime,
-    BridgeComponentRuntimeLanguage, BridgeComponentSurfaces, BridgeComponentToolDefinition,
+    bridge_run_result_for_assistant, ensure_bridge_run_completed, BridgeComponentAction,
+    BridgeComponentCapability, BridgeComponentConsumerKind, BridgeComponentKind,
+    BridgeComponentLifecycle, BridgeComponentManager, BridgeComponentManifest,
+    BridgeComponentPermissions, BridgeComponentRuntime, BridgeComponentRuntimeLanguage,
+    BridgeComponentSurfaces, BridgeComponentToolDefinition,
 };
 use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
@@ -66,41 +67,6 @@ impl BridgeComponentRuntimeToolAdapter {
         }
         Ok((action, payload))
     }
-}
-
-fn bridge_run_failure_message(
-    tool_name: &str,
-    result: &crate::bridge_component::BridgeComponentRunResult,
-) -> String {
-    let mut parts = vec![format!(
-        "{} failed during Bridge Component action '{}' (run {}).",
-        tool_name, result.action, result.run_id
-    )];
-    if let Some(message) = result
-        .output
-        .get("error")
-        .and_then(|error| error.get("message"))
-        .and_then(Value::as_str)
-        .filter(|message| !message.trim().is_empty())
-    {
-        parts.push(message.trim().to_string());
-    } else if let Some(message) = result
-        .output
-        .get("message")
-        .and_then(Value::as_str)
-        .filter(|message| !message.trim().is_empty())
-    {
-        parts.push(message.trim().to_string());
-    }
-    if let Some(stderr) = result
-        .stderr
-        .as_deref()
-        .map(str::trim)
-        .filter(|stderr| !stderr.is_empty())
-    {
-        parts.push(format!("stderr: {stderr}"));
-    }
-    parts.join(" ")
 }
 
 #[async_trait]
@@ -160,13 +126,10 @@ impl Tool for BridgeComponentRuntimeToolAdapter {
             consumer,
         )
         .await?;
-
-        if result.status == BridgeComponentRunStatus::Failed {
-            return Err(CoreError::tool(bridge_run_failure_message(
-                &self.tool.name,
-                &result,
-            )));
-        }
+        let operation_label = format!("Bridge Component tool '{}'", self.tool.name);
+        ensure_bridge_run_completed(&operation_label, &result)?;
+        let summary = format!("{} completed.", self.tool.name);
+        let result_for_assistant = bridge_run_result_for_assistant(Some(&summary), &result);
 
         Ok(vec![ToolResult::ok(
             json!({
@@ -179,10 +142,7 @@ impl Tool for BridgeComponentRuntimeToolAdapter {
                 "events": result.events,
                 "stderr": result.stderr,
             }),
-            Some(format!(
-                "{} finished with status {:?}",
-                self.tool.name, result.status
-            )),
+            Some(result_for_assistant),
         )])
     }
 }
@@ -712,6 +672,7 @@ impl Tool for CreateBridgeComponentTemplateTool {
                 language: runtime_language_for_kind(kind),
                 entry: "worker.js".to_string(),
                 package_manager: Some("npm".to_string()),
+                idle_timeout_ms: None,
             },
             surfaces: BridgeComponentSurfaces {
                 launchable_app: false,

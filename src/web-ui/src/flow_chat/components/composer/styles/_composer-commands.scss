@@ -598,6 +598,41 @@
     }
   }
 
+  &__spreadsheet-focus-rail {
+    max-width: 100%;
+  }
+
+  &__spreadsheet-focus {
+    max-width: min(320px, calc(100% - 30px));
+  }
+
+  &__spreadsheet-focus--excluded {
+    opacity: 0.68;
+
+    .sparo-chat-input__spreadsheet-focus-selection {
+      text-decoration: line-through;
+    }
+  }
+
+  &__spreadsheet-focus-selection {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__spreadsheet-focus-meta {
+    flex: 0 0 auto;
+    padding-left: 5px;
+    border-left: 1px solid color-mix(in srgb, currentColor 24%, transparent);
+    opacity: 0.78;
+    white-space: nowrap;
+  }
+
+  &__spreadsheet-focus-warning {
+    color: var(--ds-status-surface-warning-fg);
+  }
+
   // Popovers: heavy blur + dark shadows read as gray/black on light theme
   :root[data-theme="light"] &,
   :root[data-theme-type="light"] &,

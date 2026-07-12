@@ -8,7 +8,7 @@ import {
   Wrench,
   type LucideIcon,
 } from 'lucide-react';
-import type { ComponentKind } from '@/infrastructure/api/service-api/AppCatalogAPI';
+import type { ComponentKind } from '@/shared/types/app-manifest';
 
 export function componentIconFor(kind: ComponentKind): LucideIcon {
   switch (kind) {

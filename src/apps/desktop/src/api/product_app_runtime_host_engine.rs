@@ -416,7 +416,7 @@ impl ValidatedProductAppRuntimeContext {
             Some(self.owner_id.clone()),
             Some(self.context.work_id.clone()),
             Some(self.context.runtime_instance_id.clone()),
-            Some(self.context.product_app_id.clone()),
+            Some(self.context.app_id.clone()),
         )
     }
 }
@@ -430,14 +430,13 @@ async fn validate_product_app_runtime_context(
         "runtimeContext.runtimeInstanceId",
         &context.runtime_instance_id,
     )?;
-    validate_runtime_context_field("runtimeContext.productAppId", &context.product_app_id)?;
+    validate_runtime_context_field("runtimeContext.slotId", &context.slot_id)?;
+    validate_runtime_context_field("runtimeContext.appId", &context.app_id)?;
+    validate_runtime_context_field("runtimeContext.releaseId", &context.release_id)?;
+    validate_runtime_context_field("runtimeContext.configRevision", &context.config_revision)?;
     validate_runtime_context_field(
-        "runtimeContext.productAppVersion",
-        &context.product_app_version,
-    )?;
-    validate_runtime_context_field(
-        "runtimeContext.componentLockDigest",
-        &context.component_lock_digest,
+        "runtimeContext.dataSchemaVersion",
+        &context.data_schema_version,
     )?;
     validate_runtime_context_field(
         "runtimeContext.productAppSurfaceId",
@@ -470,9 +469,11 @@ async fn validate_product_app_runtime_context(
             )
         })?;
 
-    if instance.product_app_id != context.product_app_id
-        || instance.app_version != context.product_app_version
-        || instance.component_lock_digest != context.component_lock_digest
+    if instance.slot_id != context.slot_id
+        || instance.app_id != context.app_id
+        || instance.release_id != context.release_id
+        || instance.config_revision != context.config_revision
+        || instance.data_schema_version != context.data_schema_version
         || instance.product_app_surface_id != context.product_app_surface_id
         || instance.surface_id != context.surface_id
     {
@@ -1228,7 +1229,7 @@ async fn record_product_app_runtime_issue_to_work(
     };
     let work_issue = WorkRuntimeIssue {
         runtime_instance_id: runtime_owner.runtime_instance_id().to_string(),
-        product_app_id: runtime_owner.context.product_app_id.clone(),
+        product_app_id: runtime_owner.context.app_id.clone(),
         component_id: runtime_owner.context.product_app_surface_id.clone(),
         severity: product_app_runtime_issue_severity_to_work(issue.severity),
         message: issue.message.clone(),
@@ -1267,7 +1268,7 @@ async fn record_product_app_runtime_log_to_work(
     };
     let work_log = WorkRuntimeLog {
         runtime_instance_id: runtime_owner.runtime_instance_id().to_string(),
-        product_app_id: runtime_owner.context.product_app_id.clone(),
+        product_app_id: runtime_owner.context.app_id.clone(),
         component_id: runtime_owner.context.product_app_surface_id.clone(),
         level: product_app_runtime_log_level_to_work(log_entry.level),
         category: log_entry.category.clone(),
@@ -1719,7 +1720,7 @@ pub async fn product_app_runtime_host_ai_chat(
     let runtime_owner_id = runtime_owner.owner_id().to_string();
     let work_id = runtime_owner.context.work_id.clone();
     let runtime_instance_id = runtime_owner.context.runtime_instance_id.clone();
-    let product_app_id = runtime_owner.context.product_app_id.clone();
+    let product_app_id = runtime_owner.context.app_id.clone();
     let app_handle = app.clone();
 
     tokio::spawn(async move {
@@ -1955,22 +1956,23 @@ mod tests {
         let runtime_owner = ValidatedProductAppRuntimeContext {
             context: ProductAppRuntimeContext {
                 work_id: "work_1".to_string(),
-                runtime_instance_id: "runtime_work_1_product_app_lock".to_string(),
-                product_app_id: "product-app".to_string(),
-                product_app_version: "1.0.0".to_string(),
-                component_lock_digest: "lock-digest".to_string(),
+                runtime_instance_id: "runtime_work_1_release".to_string(),
+                slot_id: "primary".to_string(),
+                app_id: "product-app".to_string(),
+                release_id: "release-product-app-20260711".to_string(),
+                config_revision: "config-7".to_string(),
                 product_app_surface_id: "product-app-private-surface".to_string(),
                 surface_id: "main".to_string(),
                 host_surface_id: "shared-surface-host".to_string(),
             },
-            owner_id: "product-app-runtime:work_1:runtime_work_1_product_app_lock".to_string(),
+            owner_id: "product-app-runtime:work_1:runtime_work_1_release".to_string(),
             work_id: WorkId::parse("work_1").unwrap(),
         };
 
         assert_eq!(runtime_owner.work_id().as_str(), "work_1");
         assert_eq!(
             runtime_owner.runtime_instance_id(),
-            "runtime_work_1_product_app_lock"
+            "runtime_work_1_release"
         );
         assert_ne!(
             runtime_owner.runtime_instance_id(),
@@ -2392,11 +2394,7 @@ pub async fn product_app_runtime_host_backend_call(
     let (backend_id_raw, action_name_raw) = parse_backend_target(&request.target)?;
     let backend_id = backend_id_raw.to_string();
     let action_name = action_name_raw.to_string();
-    if is_ppt_live_private_backend(
-        &runtime_owner.context.product_app_id,
-        &backend_id,
-        &action_name,
-    ) {
+    if is_ppt_live_private_backend(&runtime_owner.context.app_id, &backend_id, &action_name) {
         return submit_ppt_live_private_backend(
             coordinator,
             scheduler,
@@ -2431,6 +2429,20 @@ pub async fn product_app_runtime_host_backend_call(
         .filter(|value| !value.trim().is_empty())
         .unwrap_or_else(|| next_product_app_runtime_backend_run_id(&app.id));
 
+    // The Bridge worker treats the host envelope workspace as authoritative.
+    // System-scoped Product Apps have no project workspace, so bind them to
+    // the app-managed Agentic OS runtime root rather than an iframe input.
+    let trusted_bridge_workspace_path = request.workspace_path.clone().or_else(|| {
+        Some(
+            state
+                .workspace_service
+                .path_manager()
+                .agentic_os_runtime_root()
+                .to_string_lossy()
+                .into_owned(),
+        )
+    });
+
     if binding.kind == ProductAppRuntimeHostBackendKind::BridgeComponent {
         let consumer = BridgeComponentConsumer {
             kind: BridgeComponentConsumerKind::ProductAppRuntime,
@@ -2444,7 +2456,7 @@ pub async fn product_app_runtime_host_backend_call(
                 binding.capability_id.as_deref(),
                 &action_name,
                 request.input.clone(),
-                request.workspace_path.clone(),
+                trusted_bridge_workspace_path.clone(),
                 action_run_id.clone(),
                 consumer,
             )
@@ -2455,7 +2467,7 @@ pub async fn product_app_runtime_host_backend_call(
                 binding.capability_id.as_deref(),
                 &action_name,
                 request.input.clone(),
-                request.workspace_path.clone(),
+                trusted_bridge_workspace_path.clone(),
                 action_run_id.clone(),
                 consumer,
             )
@@ -2479,7 +2491,7 @@ pub async fn product_app_runtime_host_backend_call(
                     "runtimeOwnerId": runtime_owner.owner_id(),
                     "workId": runtime_owner.context.work_id.as_str(),
                     "runtimeInstanceId": runtime_owner.context.runtime_instance_id.as_str(),
-                    "productAppId": runtime_owner.context.product_app_id.as_str(),
+                    "productAppId": runtime_owner.context.app_id.as_str(),
                     "backendId": backend_id,
                     "action": action_name,
                     "actionRunId": action_run_id,
@@ -2552,7 +2564,7 @@ pub async fn product_app_runtime_host_backend_call(
                 Some(&bridge_call.capability_id),
                 bridge_action,
                 request.input.clone(),
-                request.workspace_path.clone(),
+                trusted_bridge_workspace_path.clone(),
                 action_run_id.clone(),
                 consumer,
             )
@@ -2563,7 +2575,7 @@ pub async fn product_app_runtime_host_backend_call(
                 Some(&bridge_call.capability_id),
                 bridge_action,
                 request.input.clone(),
-                request.workspace_path.clone(),
+                trusted_bridge_workspace_path.clone(),
                 action_run_id.clone(),
                 consumer,
             )
@@ -2587,7 +2599,7 @@ pub async fn product_app_runtime_host_backend_call(
                     "runtimeOwnerId": runtime_owner.owner_id(),
                     "workId": runtime_owner.context.work_id.as_str(),
                     "runtimeInstanceId": runtime_owner.context.runtime_instance_id.as_str(),
-                    "productAppId": runtime_owner.context.product_app_id.as_str(),
+                    "productAppId": runtime_owner.context.app_id.as_str(),
                     "backendId": backend_id,
                     "action": action_name,
                     "actionRunId": action_run_id,

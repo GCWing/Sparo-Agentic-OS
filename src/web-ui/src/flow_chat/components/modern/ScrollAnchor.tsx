@@ -11,6 +11,7 @@ import './ScrollAnchor.scss';
 interface ScrollAnchorProps {
   onAnchorNavigate: (turnId: string) => void;
   scrollerRef?: React.RefObject<HTMLElement | null>;
+  dockToTimelineSidebar?: boolean;
 }
 
 interface AnchorPoint {
@@ -61,6 +62,7 @@ const truncateBubbleLine = (line: string, forceEllipsis = false) => {
 export const ScrollAnchor: React.FC<ScrollAnchorProps> = ({
   onAnchorNavigate,
   scrollerRef,
+  dockToTimelineSidebar = false,
 }) => {
   const { t } = useTranslation('flow-chat');
   const virtualItems = useVirtualItems();
@@ -210,7 +212,14 @@ export const ScrollAnchor: React.FC<ScrollAnchorProps> = ({
 
   return (
     <div
-      className={`scroll-anchor ${isScrolling ? 'scrolling' : ''} ${isHovering ? 'hovering' : ''}`}
+      className={[
+        'scroll-anchor',
+        dockToTimelineSidebar && 'scroll-anchor--timeline-sidebar-open',
+        isScrolling && 'scrolling',
+        isHovering && 'hovering',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       onMouseEnter={handleContainerMouseEnter}
       onMouseLeave={handleContainerMouseLeave}
     >

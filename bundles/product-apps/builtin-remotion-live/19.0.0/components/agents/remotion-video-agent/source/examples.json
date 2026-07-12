@@ -9,6 +9,6 @@
   },
   {
     "title": "Prepare an export",
-    "prompt": "Review the current composition, render a still for the key frame, then start an MP4 export when the source looks ready."
+    "prompt": "Review the current composition, render a still for the key frame, then export the MP4 and monitor the job until it reaches a terminal state."
   }
 ]

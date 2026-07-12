@@ -110,9 +110,7 @@ pub use product_app_authoring_tool::{
     RefreshProductAppLockTool, ResolveBuilderPreviewTargetTool, UpdateProductAppPackageTool,
 };
 pub use product_app_checkpoint_tool::{
-    CompareProductAppRevisionsTool, CreateProductAppCheckpointTool,
-    CreateProductAppFromReleaseTemplateTool, CreateProductAppReleaseTool,
-    PublishProductAppReleaseTool, RestoreProductAppCheckpointTool, RestoreProductAppReleaseTool,
+    CompareProductAppRevisionsTool, CreateProductAppCheckpointTool, RestoreProductAppCheckpointTool,
 };
 pub use product_app_validation_tool::ValidateProductAppPackageTool;
 pub use self_control_tool::SelfControlTool;

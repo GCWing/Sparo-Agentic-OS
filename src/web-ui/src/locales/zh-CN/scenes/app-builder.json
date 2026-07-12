@@ -3,6 +3,75 @@
     "title": "应用构建器",
     "description": "创建带有明确目标、工作对象、主界面和组件图的 Product App。"
   },
+  "draftWorkbench": {
+    "title": "应用草稿",
+    "draftBadge": "可编辑草稿",
+    "derivedFrom": "基于 Release {{releaseId}}，不会修改原版本。",
+    "newDraft": "全新应用草稿；正式工作只会使用发布后的 Release。",
+    "tabsLabel": "应用草稿工作台",
+    "tabs": {
+      "preview": "预览",
+      "quality": "验证",
+      "release": "Release"
+    },
+    "actions": {
+      "refreshPreview": "刷新预览",
+      "validate": "验证草稿",
+      "createRelease": "生成 Release",
+      "activate": "设为当前使用版本",
+      "continueEditing": "基于此 Release 继续编辑",
+      "retry": "重试",
+      "cancel": "取消"
+    },
+    "empty": {
+      "title": "没有绑定应用草稿",
+      "description": "从应用中心创建或定制一个应用后，再进入构建器。"
+    },
+    "preview": {
+      "loading": "正在生成隔离预览…",
+      "failed": "无法预览这个草稿",
+      "timeout": "草稿预览启动超时。",
+      "ready": "预览已就绪",
+      "starting": "正在启动",
+      "isolated": "预览使用临时制品，不会创建正式 Work 或改变当前应用。"
+    },
+    "quality": {
+      "validation": "发布门槛",
+      "validationDescription": "包契约、权限、数据迁移与运行时检查必须通过。",
+      "evaluation": "独立评测",
+      "evaluationDescription": "尚未产生相对于当前 Release 的可靠性证据。",
+      "notRun": "未验证",
+      "failed": "失败",
+      "warnings": "警告",
+      "issues": "问题",
+      "cases": "评测用例"
+    },
+    "release": {
+      "immutable": "不可变",
+      "ready": "Release {{version}} 已生成",
+      "description": "该制品不会再被修改。激活只会切换新工作使用的版本，已有 Work 保持原版本。",
+      "releaseId": "Release ID",
+      "artifact": "制品摘要",
+      "emptyTitle": "还没有新的 Release",
+      "emptyDescription": "验证草稿后生成不可变 Release；生成本身不会改变当前应用。"
+    },
+    "publish": {
+      "title": "生成不可变 Release",
+      "description": "输入面向用户的版本号。发布门槛未通过时系统会拒绝生成。",
+      "invalidVersion": "请输入有效的语义版本号，例如 1.0.0。"
+    },
+    "capabilities": {
+      "title": "审查应用能力",
+      "description": "此 Release 请求以下系统能力，请在激活前逐项确认。",
+      "scopeNote": "授权仅绑定到当前应用和能力指纹；能力变化后必须重新审查。",
+      "approveAndActivate": "授权并激活"
+    },
+    "messages": {
+      "validationStarted": "验证已交给 App Builder",
+      "releaseCreated": "Release {{version}} 已生成",
+      "activated": "新 Release 已设为当前使用版本"
+    }
+  },
   "panel": {
     "title": "应用构建器",
     "reload": "刷新预览",

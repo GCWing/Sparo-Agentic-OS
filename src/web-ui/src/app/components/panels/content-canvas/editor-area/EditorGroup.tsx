@@ -42,7 +42,6 @@ export interface EditorGroupProps {
   onContentChange: (tabId: string, content: PanelContent) => void;
   onDirtyStateChange: (tabId: string, isDirty: boolean) => void;
   onTabFileDeletedFromDiskChange?: (tabId: string, missing: boolean) => void;
-  onOpenMissionControl?: () => void;
   onCloseAllTabs?: () => Promise<void> | void;
   onInteraction?: (itemId: string, userInput: string) => Promise<void>;
   disablePopOut?: boolean;
@@ -69,7 +68,6 @@ export const EditorGroup: React.FC<EditorGroupProps> = ({
   onContentChange,
   onDirtyStateChange,
   onTabFileDeletedFromDiskChange,
-  onOpenMissionControl,
   onCloseAllTabs,
   onInteraction,
   disablePopOut = false,
@@ -154,7 +152,6 @@ export const EditorGroup: React.FC<EditorGroupProps> = ({
         onDragEnd={onDragEnd}
         draggingTabId={draggingTabId}
         onReorderTab={onReorderTab}
-        onOpenMissionControl={onOpenMissionControl}
         onCloseAllTabs={onCloseAllTabs}
         onTabPopOut={disablePopOut ? undefined : handleTabPopOut}
       />

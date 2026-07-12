@@ -1,10 +1,18 @@
 import React, { useMemo, useState } from 'react';
 import {
+  BriefcaseBusiness,
   ChevronRight,
   Download,
+  GitFork,
   History,
+  LayoutDashboard,
+  PencilLine,
   Play,
   Plus,
+  RotateCcw,
+  RefreshCw,
+  ShieldCheck,
+  Sprout,
   Square,
   X,
 } from 'lucide-react';
@@ -17,8 +25,6 @@ import {
   EmptyState,
   IconButton,
   StatusDot,
-  TabPane,
-  Tabs,
   Tag,
   type StatusTone,
 } from '@/design-system';
@@ -42,7 +48,7 @@ type ProductAppComponent = {
   component: ComponentDefinition | null;
 };
 
-type AppDetailSection = 'summary' | 'work' | 'components' | 'permissions' | 'package';
+type AppDetailSection = 'overview' | 'work' | 'customize' | 'control';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
@@ -60,6 +66,9 @@ interface AppDetailSceneProps {
   onOpenComponent: (componentId: string) => void;
   managing: boolean;
   onInstall: () => void;
+  onCustomize: () => void;
+  onRollback: () => void;
+  onSyncUpstream: () => void;
 }
 
 interface DetailFact {
@@ -538,24 +547,11 @@ function buildComponentGraphLayout(graph: ComponentGraphModel): ComponentGraphLa
 }
 
 function sectionLabel(section: AppDetailSection, t: Translate): string {
-  switch (section) {
-    case 'summary':
-      return t('productSystem.detail.tabs.summary');
-    case 'work':
-      return t('productSystem.detail.tabs.work');
-    case 'components':
-      return t('productSystem.detail.tabs.components');
-    case 'permissions':
-      return t('productSystem.detail.tabs.permissions');
-    case 'package':
-      return t('productSystem.detail.tabs.package');
-    default:
-      return section;
-  }
+  return t(`productSystem.detail.journeys.${section}.label`);
 }
 
 function sectionDescription(section: AppDetailSection, t: Translate): string {
-  return t(`productSystem.detail.sectionDescription.${section}`);
+  return t(`productSystem.detail.journeys.${section}.description`);
 }
 
 function DetailFacts({ items }: { items: DetailFact[] }) {
@@ -588,6 +584,9 @@ export const AppDetailScene: React.FC<AppDetailSceneProps> = ({
   onOpenComponent,
   managing,
   onInstall,
+  onCustomize,
+  onRollback,
+  onSyncUpstream,
 }) => {
   const { t } = useTranslation('scenes/apps');
   const isNative = appKind === 'native';
@@ -612,14 +611,13 @@ export const AppDetailScene: React.FC<AppDetailSceneProps> = ({
   );
 
   const sections = useMemo<AppDetailSection[]>(() => {
-    const next: AppDetailSection[] = ['summary', 'work'];
-    if (!isNative) next.push('components');
-    next.push('permissions');
-    if (!isNative) next.push('package');
+    const next: AppDetailSection[] = ['overview', 'work'];
+    if (!isNative) next.push('customize');
+    next.push('control');
     return next;
   }, [isNative]);
 
-  const [activeSection, setActiveSection] = useState<AppDetailSection>('summary');
+  const [activeSection, setActiveSection] = useState<AppDetailSection>('overview');
   const [selectedGraphNodeKey, setSelectedGraphNodeKey] = useState<string | null>(null);
   const [selectedGraphEdgeKey, setSelectedGraphEdgeKey] = useState<string | null>(null);
   const [componentGraphMode, setComponentGraphMode] = useState<ComponentGraphViewMode>('all');
@@ -685,9 +683,9 @@ export const AppDetailScene: React.FC<AppDetailSceneProps> = ({
     switch (section) {
       case 'work':
         return appWorks.length;
-      case 'components':
-        return components.length;
-      case 'permissions':
+      case 'customize':
+        return !isNative && productApp!.upstreamUpdateAvailable ? 1 : null;
+      case 'control':
         return enabledPermissionCount + componentPermissions.length;
       default:
         return null;
@@ -705,7 +703,7 @@ export const AppDetailScene: React.FC<AppDetailSceneProps> = ({
   const renderSectionHeading = (section: AppDetailSection) => (
     <div className="app-detail-scene__content-heading">
       <h2>{sectionLabel(section, t)}</h2>
-      {section === 'summary' ? null : <p>{sectionDescription(section, t)}</p>}
+      <p>{sectionDescription(section, t)}</p>
     </div>
   );
 
@@ -745,11 +743,10 @@ export const AppDetailScene: React.FC<AppDetailSceneProps> = ({
     );
   };
 
-  const renderSummary = () => (
+  const renderOverview = () => (
     <section className="app-detail-scene__content-section">
-      {renderSectionHeading('summary')}
+      {renderSectionHeading('overview')}
       <div className="app-detail-scene__overview-copy">
-        {app.description ? <p className="app-detail-scene__lead">{app.description}</p> : null}
         {(app.tags ?? []).length ? (
           <div className="app-detail-scene__tags">
             {(app.tags ?? []).map((tag) => <Tag key={tag} size="small" color="gray">{tag}</Tag>)}
@@ -757,14 +754,6 @@ export const AppDetailScene: React.FC<AppDetailSceneProps> = ({
         ) : null}
       </div>
       <div className="app-detail-scene__summary-grid">
-        <div className="app-detail-scene__summary-item">
-          <span>{t('productSystem.detail.summary.availability')}</span>
-          <strong>{installedLabel}</strong>
-        </div>
-        <div className="app-detail-scene__summary-item">
-          <span>{t('productSystem.detail.summary.status')}</span>
-          <strong>{headerStatusLabel}</strong>
-        </div>
         {authors.length ? (
           <div className="app-detail-scene__summary-item">
             <span>
@@ -784,38 +773,39 @@ export const AppDetailScene: React.FC<AppDetailSceneProps> = ({
           <strong>{t(`productSystem.launchScope.${app.launch?.scopeRequirement ?? 'systemAllowed'}`)}</strong>
         </div>
         <div className="app-detail-scene__summary-item">
-          <span>{t('productSystem.fields.surfaceMode')}</span>
-          <strong>{app.primarySurfaceMode ? t(`productSystem.surfaceMode.${app.primarySurfaceMode}`) : '-'}</strong>
-        </div>
-        <div className="app-detail-scene__summary-item">
           <span>{t('productSystem.detail.header.workMode')}</span>
           <strong>{workModeLabel}</strong>
         </div>
-        <div className="app-detail-scene__summary-item">
-          <span>{t('productSystem.detail.summary.permissions')}</span>
-          <strong>{t('productSystem.detail.summary.permissionCount', {
-            enabled: enabledPermissionCount,
-            total: permissionList.length,
-          })}</strong>
-        </div>
       </div>
+      <section className="app-detail-scene__block">
+        <div className="app-detail-scene__block-heading">
+          <div>
+            <h3 className="app-detail-scene__section-title">
+              {appWorks.length
+                ? t('productSystem.detail.overview.recentWork')
+                : t('productSystem.detail.start.noWorkTitle')}
+            </h3>
+            <p>{appWorks.length
+              ? t('productSystem.detail.overview.recentWorkDescription')
+              : t('productSystem.detail.start.noWorkDescription')}</p>
+          </div>
+          {appWorks.length > 3 ? (
+            <Button variant="ghost" size="small" onClick={() => setActiveSection('work')}>
+              {t('productSystem.detail.overview.viewAllWork', { count: appWorks.length })}
+            </Button>
+          ) : null}
+        </div>
+        {renderWorkList(3)}
+      </section>
     </section>
   );
 
   const renderWork = () => (
     <section className="app-detail-scene__content-section">
       {renderSectionHeading('work')}
-      <div className="app-detail-scene__start-panel">
-        <div className="app-detail-scene__start-copy">
-          <span>{t('productSystem.detail.start.bestAction')}</span>
-          <strong>{primaryActionLabel}</strong>
-          <p>
-            {launchBehavior.requiresWorkspace
-              ? t('productSystem.detail.start.workspaceRequiredHint')
-              : t('productSystem.detail.start.launchHint')}
-          </p>
-        </div>
-        <div className="app-detail-scene__start-actions">
+      <section className="app-detail-scene__block">
+        <div className="app-detail-scene__block-heading">
+          <h3 className="app-detail-scene__section-title">{t('productSystem.detail.start.workTitle')}</h3>
           {showNewWorkAction ? (
             <Button
               variant="secondary"
@@ -824,36 +814,96 @@ export const AppDetailScene: React.FC<AppDetailSceneProps> = ({
               disabled={!isNative && !productApp!.enabled}
             >
               <Plus size={14} aria-hidden />
-              <span>{launchBehavior.requiresWorkspace
-                ? t('productSystem.detail.header.chooseWorkspace')
-                : t('productSystem.actions.newWork')}</span>
-            </Button>
-          ) : null}
-          {primaryActionEnabled ? (
-            <Button
-              variant="primary"
-              size="small"
-              onClick={handlePrimaryAction}
-              disabled={primaryActionDisabled}
-              isLoading={managing}
-              aria-busy={(useStopAction && stopping) || undefined}
-            >
-              <PrimaryActionIcon size={14} aria-hidden />
-              <span>{primaryActionLabel}</span>
+              {t('productSystem.actions.newWork')}
             </Button>
           ) : null}
         </div>
-      </div>
-      <section className="app-detail-scene__block">
-        <h3 className="app-detail-scene__section-title">{t('productSystem.detail.start.workTitle')}</h3>
         {renderWorkList()}
       </section>
     </section>
   );
 
+  const renderCustomize = () => {
+    if (isNative || !productApp) return null;
+    const isSystemApp = productApp.ownerKind === 'system';
+    const CustomizeIcon = isSystemApp ? GitFork : PencilLine;
+    const customizeLabel = isSystemApp
+      ? t('productSystem.actions.customize')
+      : t('productSystem.actions.edit');
+
+    return (
+      <section className="app-detail-scene__content-section">
+        {renderSectionHeading('customize')}
+        <section className="app-detail-scene__journey-card app-detail-scene__journey-card--accent">
+          <span className="app-detail-scene__journey-icon" aria-hidden>
+            <CustomizeIcon size={20} />
+          </span>
+          <div className="app-detail-scene__journey-copy">
+            <h3>{isSystemApp
+              ? t('productSystem.detail.customize.systemTitle')
+              : t('productSystem.detail.customize.userTitle')}</h3>
+            <p>{isSystemApp
+              ? t('productSystem.detail.customize.systemDescription')
+              : t('productSystem.detail.customize.userDescription')}</p>
+          </div>
+          <Button variant="primary" size="small" onClick={onCustomize} disabled={managing}>
+            <CustomizeIcon size={14} aria-hidden />
+            {customizeLabel}
+          </Button>
+        </section>
+
+        {productApp.upstreamUpdateAvailable ? (
+          <section className="app-detail-scene__journey-card app-detail-scene__journey-card--warning">
+            <span className="app-detail-scene__journey-icon" aria-hidden>
+              <RefreshCw size={20} />
+            </span>
+            <div className="app-detail-scene__journey-copy">
+              <h3>{t('productSystem.detail.customize.upstreamTitle')}</h3>
+              <p>{t('productSystem.detail.customize.upstreamDescription')}</p>
+            </div>
+            <Button variant="secondary" size="small" onClick={onSyncUpstream} disabled={managing}>
+              <RefreshCw size={14} aria-hidden />
+              {t('productSystem.actions.syncUpstream')}
+            </Button>
+          </section>
+        ) : null}
+
+        <section className="app-detail-scene__block">
+          <div className="app-detail-scene__block-heading">
+            <div>
+              <h3 className="app-detail-scene__section-title">{t('productSystem.detail.customize.versionTitle')}</h3>
+              <p>{t('productSystem.detail.customize.versionDescription')}</p>
+            </div>
+          </div>
+          <DetailFacts
+            items={[
+              { label: t('productSystem.fields.version'), value: productApp.version },
+              { label: t('productSystem.detail.customize.activeRelease'), value: productApp.releaseId, mono: true },
+              { label: t('productSystem.detail.customize.availableRelease'), value: productApp.availableReleaseId, mono: true },
+              { label: t('productSystem.detail.customize.owner'), value: t(`productSystem.owner.${productApp.ownerKind}`) },
+            ]}
+          />
+          <div className="app-detail-scene__inline-actions">
+            {hasUpdate ? (
+              <Button variant="primary" size="small" onClick={onInstall} disabled={managing}>
+                <Download size={14} aria-hidden />
+                {t('productSystem.manage.update')}
+              </Button>
+            ) : null}
+            {productApp.previousReleaseId ? (
+              <Button variant="secondary" size="small" onClick={onRollback} disabled={managing}>
+                <RotateCcw size={14} aria-hidden />
+                {t('productSystem.actions.rollback')}
+              </Button>
+            ) : null}
+          </div>
+        </section>
+      </section>
+    );
+  };
+
   const renderPermissions = () => (
     <section className="app-detail-scene__content-section">
-      {renderSectionHeading('permissions')}
       <section className="app-detail-scene__block">
         <h3 className="app-detail-scene__section-title">{t('productSystem.detail.permissions.appTitle')}</h3>
         <div className="app-detail-scene__permission-grid">
@@ -1139,7 +1189,6 @@ export const AppDetailScene: React.FC<AppDetailSceneProps> = ({
 
   const renderComponents = () => (
     <section className="app-detail-scene__content-section">
-      {renderSectionHeading('components')}
       {components.length ? (
         <div className="app-detail-scene__component-list">
           {components.map(({ ref, component }) => (
@@ -1193,13 +1242,11 @@ export const AppDetailScene: React.FC<AppDetailSceneProps> = ({
 
     return (
       <section className="app-detail-scene__content-section">
-        {renderSectionHeading('package')}
         <DetailFacts
           items={[
             { label: t('productSystem.fields.version'), value: productApp!.version },
             { label: t('productSystem.detail.source.installedStatus'), value: installedLabel },
             { label: t('productSystem.manage.updateAvailable'), value: hasUpdate ? t('productSystem.manage.updateAvailable') : '-' },
-            { label: t('productSystem.fields.scope'), value: t(`productSystem.installScope.${productApp!.installScope}`) },
             { label: t('productSystem.detail.source.catalogSource'), value: productApp!.catalogSource?.label ?? '-' },
             { label: t('productSystem.manage.updatePreviewRelease'), value: productApp!.catalogReleaseLabel ?? productApp!.catalogReleaseId ?? '-' },
             { label: t('productSystem.manage.updatePreviewPublished'), value: formatTimestamp(productApp!.catalogPublishedAtMs) },
@@ -1212,111 +1259,192 @@ export const AppDetailScene: React.FC<AppDetailSceneProps> = ({
     );
   };
 
+  const renderControl = () => (
+    <section className="app-detail-scene__content-section">
+      {renderSectionHeading('control')}
+      <div className="app-detail-scene__summary-grid">
+        <div className="app-detail-scene__summary-item">
+          <span>{t('productSystem.detail.summary.availability')}</span>
+          <strong>{installedLabel}</strong>
+        </div>
+        <div className="app-detail-scene__summary-item">
+          <span>{t('productSystem.detail.summary.status')}</span>
+          <strong>{headerStatusLabel}</strong>
+        </div>
+        <div className="app-detail-scene__summary-item">
+          <span>{t('productSystem.detail.summary.permissions')}</span>
+          <strong>{t('productSystem.detail.summary.permissionCount', {
+            enabled: enabledPermissionCount,
+            total: permissionList.length,
+          })}</strong>
+        </div>
+      </div>
+
+      {renderPermissions()}
+
+      {!isNative ? (
+        <details className="app-detail-scene__graph-disclosure app-detail-scene__control-disclosure">
+          <summary>
+            <span>{t('productSystem.detail.control.componentsTitle')}</span>
+            <Badge variant="neutral">{components.length}</Badge>
+          </summary>
+          {renderComponents()}
+        </details>
+      ) : null}
+
+      {!isNative ? (
+        <details className="app-detail-scene__graph-disclosure app-detail-scene__control-disclosure">
+          <summary>
+            <span>{t('productSystem.detail.control.technicalTitle')}</span>
+            <span className="app-detail-scene__control-summary-hint">
+              {t('productSystem.detail.control.technicalHint')}
+            </span>
+          </summary>
+          {renderPackage()}
+        </details>
+      ) : null}
+    </section>
+  );
+
   const renderActiveSection = () => {
     switch (resolvedSection) {
-      case 'summary':
-        return renderSummary();
+      case 'overview':
+        return renderOverview();
       case 'work':
         return renderWork();
-      case 'components':
-        return renderComponents();
-      case 'permissions':
-        return renderPermissions();
-      case 'package':
-        return renderPackage();
+      case 'customize':
+        return renderCustomize();
+      case 'control':
+        return renderControl();
       default:
-        return renderSummary();
+        return renderOverview();
+    }
+  };
+
+  const sectionIcon = (section: AppDetailSection) => {
+    switch (section) {
+      case 'overview':
+        return <LayoutDashboard size={16} aria-hidden />;
+      case 'work':
+        return <BriefcaseBusiness size={16} aria-hidden />;
+      case 'customize':
+        return <Sprout size={16} aria-hidden />;
+      case 'control':
+        return <ShieldCheck size={16} aria-hidden />;
+      default:
+        return null;
     }
   };
 
   return (
-    <>
-      <Dialog
-        open
-        onOpenChange={(open) => {
-          if (!open) onBack();
-        }}
-        size="xlarge"
-        className="app-detail-dialog"
-        overlayClassName="app-detail-dialog-overlay"
-        showCloseButton={false}
-        ariaLabel={t('productSystem.detail.dialogLabel', { name: app.name })}
-      >
-        <DialogBody className="app-detail-dialog__body">
-          <div className="app-detail-scene app-detail-scene--dialog" data-testid="app-detail-dialog" data-app-kind={appKind}>
-            <header className="app-detail-scene__header">
-              <div className="app-detail-scene__header-main">
-                <span className="app-detail-scene__header-icon" aria-hidden>
-                  <AppIcon app={app} size={48} />
-                </span>
-                <div className="app-detail-scene__header-copy">
-                  <div className="app-detail-scene__header-title-row">
-                    <h1>{app.name}</h1>
-                  </div>
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onBack();
+      }}
+      size="xlarge"
+      className="app-detail-dialog"
+      overlayClassName="app-detail-dialog-overlay"
+      showCloseButton={false}
+      ariaLabel={t('productSystem.detail.dialogLabel', { name: app.name })}
+    >
+      <DialogBody className="app-detail-dialog__body">
+        <div className="app-detail-scene app-detail-scene--dialog" data-testid="app-detail-dialog" data-app-kind={appKind}>
+          <header className="app-detail-scene__header">
+            <IconButton
+              className="app-detail-scene__header-close"
+              variant="ghost"
+              size="small"
+              shape="circle"
+              aria-label={t('productSystem.actions.close')}
+              tooltip={t('productSystem.actions.close')}
+              onClick={onBack}
+            >
+              <X size={14} aria-hidden />
+            </IconButton>
+            <div className="app-detail-scene__header-main">
+              <span className="app-detail-scene__header-icon" aria-hidden>
+                <AppIcon app={app} size={52} />
+              </span>
+              <div className="app-detail-scene__header-copy">
+                <div className="app-detail-scene__header-title-row">
+                  <h1>{app.name}</h1>
+                  {!isNative ? <span className="app-detail-scene__version">v{productApp!.version}</span> : null}
                 </div>
+                <div className="app-detail-scene__header-badges">
+                  <Badge variant={isInstalled || isNative ? 'success' : 'neutral'}>{installedLabel}</Badge>
+                  {!isNative ? (
+                    <Badge variant={productApp!.ownerKind === 'system' ? 'info' : 'accent'}>
+                      {t(`productSystem.owner.${productApp!.ownerKind}`)}
+                    </Badge>
+                  ) : null}
+                  {hasUpdate ? <Badge variant="warning">{t('productSystem.manage.updateAvailable')}</Badge> : null}
+                  {!isNative && productApp!.upstreamUpdateAvailable ? (
+                    <Badge variant="warning">{t('productSystem.detail.customize.upstreamBadge')}</Badge>
+                  ) : null}
+                </div>
+                {app.description ? <p>{app.description}</p> : null}
               </div>
-              <div className="app-detail-scene__header-actions">
-                {primaryActionEnabled ? (
-                  <IconButton
-                    variant="ghost"
-                    size="small"
-                    shape="circle"
-                    aria-label={primaryActionLabel}
-                    tooltip={primaryActionLabel}
-                    onClick={handlePrimaryAction}
-                    disabled={primaryActionDisabled}
-                    isLoading={managing || (useStopAction && stopping)}
-                  >
-                    <PrimaryActionIcon size={15} aria-hidden />
-                  </IconButton>
-                ) : null}
+            </div>
+            <div className="app-detail-scene__header-actions">
+              {primaryActionEnabled ? (
                 <IconButton
-                  variant="ghost"
+                  variant="primary"
                   size="small"
                   shape="circle"
-                  aria-label={t('productSystem.actions.close')}
-                  tooltip={t('productSystem.actions.close')}
-                  onClick={onBack}
+                  aria-label={primaryActionLabel}
+                  tooltip={primaryActionLabel}
+                  onClick={handlePrimaryAction}
+                  disabled={primaryActionDisabled}
+                  isLoading={managing || (useStopAction && stopping)}
                 >
-                  <X size={14} aria-hidden />
+                  <PrimaryActionIcon size={15} aria-hidden />
                 </IconButton>
-              </div>
-            </header>
+              ) : null}
+            </div>
+          </header>
 
-            <Tabs
-              activeKey={resolvedSection}
-              onChange={(section) => setActiveSection(section as AppDetailSection)}
-              type="line"
-              size="small"
-              className="app-detail-scene__tabs"
-            >
-              {sections.map((section) => {
-                const count = sectionCount(section);
-                return (
-                  <TabPane
-                    key={section}
-                    tabKey={section}
-                    label={(
-                      <span className="app-detail-scene__tab-label">
-                        <span>{sectionLabel(section, t)}</span>
-                        {count !== null ? <span className="app-detail-scene__section-count">{count}</span> : null}
+          <div className="app-detail-scene__layout">
+            <aside className="app-detail-scene__sections">
+              <nav className="app-detail-scene__section-nav" aria-label={t('productSystem.detail.sectionsLabel')}>
+                {sections.map((section) => {
+                  const count = sectionCount(section);
+                  return (
+                    <button
+                      key={section}
+                      type="button"
+                      className={`app-detail-scene__section${resolvedSection === section ? ' is-active' : ''}`}
+                      aria-current={resolvedSection === section ? 'page' : undefined}
+                      onClick={() => setActiveSection(section)}
+                    >
+                      {sectionIcon(section)}
+                      <span className="app-detail-scene__section-copy">
+                        <strong>{sectionLabel(section, t)}</strong>
+                        <small>{sectionDescription(section, t)}</small>
                       </span>
-                    )}
-                    className="app-detail-scene__tab-pane"
-                  >
-                    {resolvedSection === section ? (
-                      <main className="app-detail-scene__content">
-                        {renderActiveSection()}
-                      </main>
-                    ) : null}
-                  </TabPane>
-                );
-              })}
-            </Tabs>
+                      {count !== null ? <span className="app-detail-scene__section-count">{count}</span> : null}
+                    </button>
+                  );
+                })}
+              </nav>
+              <div className="app-detail-scene__nav-status">
+                <div>
+                  <StatusDot tone={productApp?.enabled || isNative ? 'success' : 'neutral'} size="small" />
+                  <span>{headerStatusLabel}</span>
+                </div>
+                <div>
+                  <StatusDot tone="info" size="small" />
+                  <span>{t(`productSystem.launchScope.${app.launch?.scopeRequirement ?? 'systemAllowed'}`)}</span>
+                </div>
+              </div>
+            </aside>
+            <main className="app-detail-scene__content">
+              {renderActiveSection()}
+            </main>
           </div>
-        </DialogBody>
-      </Dialog>
-    </>
+        </div>
+      </DialogBody>
+    </Dialog>
   );
 };
 

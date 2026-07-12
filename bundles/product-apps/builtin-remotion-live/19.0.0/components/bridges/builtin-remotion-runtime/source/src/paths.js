@@ -31,22 +31,6 @@ function ensureRuntimeDir(workspacePath, child = "") {
   return dir;
 }
 
-function previewServerStatePath(workspacePath) {
-  return path.join(ensureRuntimeDir(workspacePath), "preview-server.json");
-}
-
-function previewServerLogPath(workspacePath) {
-  return path.join(ensureRuntimeDir(workspacePath, "logs"), "preview-server.log");
-}
-
-function previewServerLauncherPath(workspacePath) {
-  return path.join(ensureRuntimeDir(workspacePath, "bin"), "preview-server-launcher.js");
-}
-
-function previewServerLauncherConfigPath(workspacePath, port) {
-  return path.join(ensureRuntimeDir(workspacePath, "bin"), `preview-server-${port}.json`);
-}
-
 function playerHostStatePath(workspacePath) {
   return path.join(ensureRuntimeDir(workspacePath), "player-host.json");
 }
@@ -76,10 +60,6 @@ module.exports = {
   normalizeWorkspace,
   relativeToWorkspace,
   ensureRuntimeDir,
-  previewServerStatePath,
-  previewServerLogPath,
-  previewServerLauncherPath,
-  previewServerLauncherConfigPath,
   playerHostStatePath,
   playerHostRootDir,
   playerHostSourceDir,

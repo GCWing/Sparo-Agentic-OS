@@ -1,0 +1,82 @@
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
+
+.sparo-workspace-hub-shell-preview {
+  .sparo-workspace-hub-preview__title {
+    font-size: var(--ds-font-size-xl);
+  }
+
+  .sparo-workspace-hub-preview__content {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 0;
+    margin-top: 20px;
+  }
+
+  .sparo-workspace-hub-preview__section-header {
+    min-height: 20px;
+    padding: 0 0 var(--ds-space-2);
+    border-bottom: 0;
+
+    h3 {
+      color: var(--ds-color-text-muted);
+    }
+  }
+
+  .sparo-workspace-hub-preview__row {
+    min-height: 44px;
+    padding: 6px var(--ds-space-2);
+    border-radius: var(--ds-radius-lg);
+
+    &:last-child {
+      border-bottom: 0;
+    }
+
+    &.is-interactive:hover:not(:disabled),
+    &.is-interactive:focus-visible {
+      background: var(--element-bg-soft);
+    }
+  }
+
+  .sparo-workspace-hub-preview__row-icon {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+.sparo-workspace-hub-shell-preview__header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+}
+
+.sparo-workspace-hub-shell-preview__body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sparo-workspace-hub-shell-preview__running,
+.sparo-workspace-hub-shell-preview__saved {
+  padding-bottom: var(--ds-space-4);
+}
+
+.sparo-workspace-hub-shell-preview__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 auto;
+
+  .sparo-workspace-hub-preview__empty {
+    align-items: center;
+    min-height: 0;
+    padding: 0;
+    text-align: center;
+
+    strong {
+      color: var(--ds-color-text-muted);
+      font-weight: var(--ds-font-weight-regular);
+    }
+  }
+}

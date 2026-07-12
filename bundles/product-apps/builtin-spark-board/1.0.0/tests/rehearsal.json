@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "scenarios": [
+    {
+      "id": "critical-user-path",
+      "title": "Open Spark Board and complete its first useful action",
+      "description": "A lightweight thinking canvas for capturing inspiration, organizing threads, and turning scattered ideas into drafts and next steps.",
+      "kind": "user-path",
+      "steps": [
+        {
+          "id": "open-app",
+          "action": "open",
+          "target": "primary",
+          "expect": [
+            "Spark Board opens"
+          ]
+        },
+        {
+          "id": "observe-ready-state",
+          "action": "observe",
+          "target": "work-outcome",
+          "expect": [
+            "A usable ready state is visible"
+          ]
+        }
+      ],
+      "expected": [
+        "The app opens without a fatal runtime issue",
+        "The primary workflow exposes an observable path"
+      ]
+    }
+  ]
+}

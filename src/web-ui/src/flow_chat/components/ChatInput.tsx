@@ -29,6 +29,7 @@ import { ComposerActions } from './composer/ComposerActions';
 import { ComposerActionMenu } from './composer/ComposerActionMenu';
 import { ComposerEditorArea } from './composer/ComposerEditorArea';
 import { ComposerIntentRail } from './composer/ComposerIntentRail';
+import { ComposerSpreadsheetFocusRail } from './composer/ComposerSpreadsheetFocusRail';
 import { ComposerSendAction } from './composer/ComposerSendAction';
 import { ComposerShell } from './composer/ComposerShell';
 import { useComposerLargePaste } from './composer/hooks/useComposerLargePaste';
@@ -823,6 +824,22 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         onClearGoalModifier={() => intentActions.removeModifier('goal')}
         onClearOperation={intentActions.clearOperation}
         onClearPromptTemplate={intentActions.clearPromptTemplate}
+      />
+      <ComposerSpreadsheetFocusRail
+        sessionId={effectiveTargetSessionId}
+        labels={{
+          included: t('chatInput.spreadsheetFocus.included', { defaultValue: 'Spreadsheet focus included' }),
+          excluded: t('chatInput.spreadsheetFocus.excluded', { defaultValue: 'Spreadsheet focus excluded' }),
+          includeAction: t('chatInput.spreadsheetFocus.includeAction', { defaultValue: 'Include with next message' }),
+          excludeAction: t('chatInput.spreadsheetFocus.excludeAction', { defaultValue: 'Exclude from next message' }),
+          partialCache: t('chatInput.spreadsheetFocus.partialCache', { defaultValue: 'Selection preview is incomplete' }),
+          staleFormulas: t('chatInput.spreadsheetFocus.staleFormulas', { defaultValue: 'Formula results are stale' }),
+          modes: {
+            inspect: t('chatInput.spreadsheetFocus.modes.inspect', { defaultValue: 'Inspect' }),
+            edit: t('chatInput.spreadsheetFocus.modes.edit', { defaultValue: 'Edit' }),
+            author: t('chatInput.spreadsheetFocus.modes.author', { defaultValue: 'Author' }),
+          },
+        }}
       />
       <ComposerEditorArea
         editorRef={richTextInputRef}

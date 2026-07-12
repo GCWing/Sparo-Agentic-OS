@@ -1,0 +1,98 @@
+{
+  "id": "runno",
+  "version": "1.0.0",
+  "name": "Runno",
+  "description": "Sparo OS's general execution app for flexible, goal-oriented work.",
+  "authors": [
+    {
+      "name": "Sparo OS",
+      "url": "https://gcwing.github.io/Sparo-Agentic-OS/"
+    }
+  ],
+  "i18n": {
+    "locales": {
+      "en-US": {
+        "name": "Runno",
+        "description": "Sparo OS's general execution app for flexible, goal-oriented work.",
+        "tags": [
+          "system",
+          "execution",
+          "general"
+        ]
+      },
+      "zh-CN": {
+        "name": "Runno",
+        "description": "Sparo OS 的通用执行应用，灵活且目标明确，适合处理各类任务。",
+        "tags": [
+          "系统",
+          "执行",
+          "通用"
+        ]
+      }
+    }
+  },
+  "interactionModel": "conversation",
+  "workMultiplicity": "multiple",
+  "workObjectKinds": [
+    {
+      "id": "task",
+      "label": "Task",
+      "scope": "runtime",
+      "identitySchema": {
+        "type": "object"
+      },
+      "contextSchema": {
+        "type": "object"
+      }
+    }
+  ],
+  "primarySurfaceMode": "chatPrimary",
+  "components": [],
+  "componentLockId": "",
+  "permissions": {
+    "fs": true,
+    "net": false,
+    "shell": true,
+    "gui": false,
+    "secrets": false,
+    "ai": true
+  },
+  "installScope": "system",
+  "catalogVisibility": "discoverable",
+  "enabled": true,
+  "icon": {
+    "kind": "nativeAsset",
+    "assetId": "runno",
+    "mimeType": "image/png"
+  },
+  "category": "system",
+  "tags": [
+    "system",
+    "execution",
+    "general"
+  ],
+  "launch": {
+    "kind": "agentSession",
+    "targetId": "Runno",
+    "scopeRequirement": "workspaceOptional",
+    "agentType": "Runno"
+  },
+  "osCapabilities": [
+    "filesystem.read",
+    "filesystem.write",
+    "terminal.run",
+    "process.spawn",
+    "workspace.inspect",
+    "workspace.modify",
+    "session.read",
+    "session.write",
+    "model.invoke",
+    "tool.invoke"
+  ],
+  "dataLifecycle": {
+    "retention": "workRuntimeScoped",
+    "deletion": "deleteWithWork",
+    "migration": "notSupported",
+    "share": "excludeRuntimePrivateData"
+  }
+}

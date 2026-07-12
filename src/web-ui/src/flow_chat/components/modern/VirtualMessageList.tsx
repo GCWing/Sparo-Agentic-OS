@@ -24,7 +24,11 @@ import { ScrollToLatestBar } from '../ScrollToLatestBar';
 import { ProcessingIndicator } from './ProcessingIndicator';
 import { ScrollAnchor } from './ScrollAnchor';
 import { useFlowViewportController } from '../../scroll/viewport/useFlowViewportController';
-import type { ViewportPinMode } from '../../scroll/viewport/FlowViewportGeometry';
+import {
+  acknowledgeFlowViewportTurnNavigation,
+  useFlowViewportTurnNavigationRequest,
+  type FlowViewportTurnNavigationRequest,
+} from '../../scroll/viewport/FlowViewportNavigationBroker';
 import { useVirtuosoVisibleTurnTracker } from '../../scroll/adapters/useVirtuosoVisibleTurnTracker';
 import { useVirtualItems, useActiveSession } from '../../store/modernFlowChatStore';
 import { useChatInputState } from '../../store/chatInputStateStore';
@@ -40,27 +44,24 @@ import './VirtualMessageList.scss';
 export interface VirtualMessageListRef {
   scrollToTurn: (turnIndex: number) => void;
   scrollToIndex: (index: number) => void;
-  // Clears the pin reservation first, then scrolls to the end of content.
-  scrollToPhysicalBottomAndClearPin: () => void;
   // Jump to the latest output and follow it while streaming.
   scrollToLatestEndPosition: () => void;
-  // Aligns the target turn's user message to the viewport reading offset.
-  pinTurnToTop: (turnId: string, options?: { behavior?: ScrollBehavior; pinMode?: ViewportPinMode }) => boolean;
 }
 
 export interface VirtualMessageListProps {
   /**
-   * When true, hide the right-edge scroll milestone dots. Used while the
-   * timeline sidebar is open so anchors do not overlap the panel.
+   * When true, dock the right-edge scroll milestone dots to the timeline
+   * sidebar's left border instead of letting the sidebar cover them.
    */
-  hideScrollAnchor?: boolean;
+  timelineSidebarOpen?: boolean;
 }
 
 export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessageListProps>(
-  ({ hideScrollAnchor = false }, ref) => {
+  ({ timelineSidebarOpen = false }, ref) => {
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const virtualItems = useVirtualItems();
   const activeSession = useActiveSession();
+  const navigationRequest = useFlowViewportTurnNavigationRequest(activeSession?.sessionId);
 
   const [scrollerElement, setScrollerElement] = useState<HTMLElement | null>(null);
   const scrollerElementRef = useRef<HTMLElement | null>(null);
@@ -82,6 +83,38 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
 
   const latestTurnId = userMessageItems[userMessageItems.length - 1]?.item.turnId ?? null;
   const latestUserMessageIndex = userMessageItems[userMessageItems.length - 1]?.index ?? 0;
+  const requestedUserMessageIndex = navigationRequest
+    ? userMessageItems.find(({ item }) => item.turnId === navigationRequest.turnId)?.index
+    : undefined;
+  const initialUserMessageIndex = requestedUserMessageIndex ?? latestUserMessageIndex;
+  const isSessionReady =
+    activeSession?.loadPhase === 'live' ||
+    activeSession?.loadPhase === 'hydrated' ||
+    activeSession?.loadPhase === 'hydrate-failed';
+
+  const handleNavigationRequestHandled = useCallback(
+    (request: FlowViewportTurnNavigationRequest) => {
+      acknowledgeFlowViewportTurnNavigation(request.sessionId, request.requestId);
+      if (!request.highlight) return;
+
+      let attempts = 0;
+      const applyHighlight = () => {
+        const node = scrollerElementRef.current?.querySelector<HTMLElement>(
+          `.virtual-item-wrapper[data-item-type="user-message"][data-turn-id="${CSS.escape(request.turnId)}"]`,
+        );
+        if (!node) {
+          if (attempts++ < 12) requestAnimationFrame(applyHighlight);
+          return;
+        }
+        node.classList.remove('agentic-os-anchor-pulse');
+        void node.offsetWidth;
+        node.classList.add('agentic-os-anchor-pulse');
+        window.setTimeout(() => node.classList.remove('agentic-os-anchor-pulse'), 1700);
+      };
+      requestAnimationFrame(applyHighlight);
+    },
+    [],
+  );
 
   const streamingOutputProjection = useMemo(
     () => projectStreamingOutput(activeSession),
@@ -113,7 +146,10 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
     latestTurnId,
     virtualItemCount: virtualItems.length,
     userMessageItems,
+    isSessionReady,
     isStreaming: isStreamingOutput,
+    navigationRequest,
+    onNavigationRequestHandled: handleNavigationRequestHandled,
     inputStackFooterPx,
     virtuosoRef,
     scrollerElementRef,
@@ -125,9 +161,7 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
   useImperativeHandle(ref, () => ({
     scrollToTurn: commands.scrollToTurn,
     scrollToIndex: commands.scrollToIndex,
-    scrollToPhysicalBottomAndClearPin: commands.scrollToPhysicalBottomAndClearPin,
     scrollToLatestEndPosition: commands.scrollToLatestEndPosition,
-    pinTurnToTop: commands.pinTurnToTop,
   }), [commands]);
 
   const processingAffordanceProjection = useMemo(
@@ -197,9 +231,9 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
         followOutput={false}
 
         alignToBottom={false}
-        // New mounts start near the latest user turn to avoid flashing older
-        // content before the sticky pin can establish.
-        initialTopMostItemIndex={latestUserMessageIndex}
+        // Cross-session requests seed their explicit turn; otherwise mounts
+        // start at latest while its owned layout is established.
+        initialTopMostItemIndex={initialUserMessageIndex}
 
         overscan={{ main: 360, reverse: 240 }}
 
@@ -214,14 +248,13 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
         components={components}
       />
 
-      {!hideScrollAnchor && (
-        <ScrollAnchor
-          onAnchorNavigate={(turnId) => {
-            commands.pinTurnToTop(turnId, { behavior: 'smooth' });
-          }}
-          scrollerRef={scrollerElementRef}
-        />
-      )}
+      <ScrollAnchor
+        onAnchorNavigate={(turnId) => {
+          commands.navigateToTurn(turnId, { behavior: 'smooth' });
+        }}
+        scrollerRef={scrollerElementRef}
+        dockToTimelineSidebar={timelineSidebarOpen}
+      />
 
       <ScrollToLatestBar
         visible={snapshot.showScrollToLatest && virtualItems.length > 0}

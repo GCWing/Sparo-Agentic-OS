@@ -1,58 +1,81 @@
-// remotion-live :: render-core.js (auto-split from ui.js; do not hand-merge)
-
-import { callBackend } from './backend.js';
-import { ICONS } from './constants.js';
-import { compositionDuration, currentComposition, previewClipKey, previewFrameKey } from './model.js';
-import { playerFrameNode, requestPlayerHandshake } from './player-dom.js';
+import { compositionDuration, currentComposition } from './model.js';
+import { notifyPlayerFrameLoaded, playerFrameNode, requestPlayerHandshake } from './player-dom.js';
 import { playerStageKey } from './preview-controller.js';
-import { playerPreviewReady, studioPreviewReady, usePlayerPreview, useStudioPreview } from './preview-mode.js';
 import { selectionSummary, shouldDeferRenderForSelection } from './selection-geom.js';
 import { state } from './state.js';
-import { escapeHtml, formatSMPTE, rootElement, t } from './util.js';
-import { commitSelectionMarkerDom, ensurePreviewVideoPlayback, fitPreviewStage, renderDetectingState, renderDetectionState, renderExportOverlay, renderHeader, renderLayers, renderPlayerPreviewContent, renderSelectCaptureLayer, renderSelectionMarker, renderSelectionOverlay, renderStudioPreviewContent, renderTimelineInline, renderTimelineZoomControls, renderWorkspaceEmpty, replaceElementHtml, syncFrameDom, syncPlayingDom, syncSelectionOverlayDom } from './views.js';
-
-function setLoading(loading, status = null) {
-  state.loading = loading;
-  if (status) state.status = status;
-  render();
-}
-
+import { escapeHtml, rootElement, runtime, t } from './util.js';
+import {
+  actualFrame,
+  commitSelectionMarkerDom,
+  fitPreviewStage,
+  isFrameCommitted,
+  previewPhase,
+  renderDetectingState,
+  renderDetectionState,
+  renderExportOverlay,
+  renderHeader,
+  renderPlaybackTransport,
+  renderPlayerOverlay,
+  renderPlayerPreviewContent,
+  renderPreviewClickLayer,
+  renderSelectCaptureLayer,
+  renderSelectionMarker,
+  renderSelectionOverlay,
+  renderTimelineInline,
+  renderWorkspaceEmpty,
+  replaceElementHtml,
+  syncFrameDom,
+  syncInteractionLayersDom,
+  syncPhaseDom,
+  syncPlayingDom,
+  syncSelectionOverlayDom,
+} from './views.js';
 
 function setError(error) {
-  state.error = error ? String(error.message || error) : null;
-  if (error) state.status = 'error';
+  const failedPhase = state.phase;
+  const message = error ? String(error?.message || error) : null;
+  state.error = message;
+  if (error) {
+    state.phase = 'error';
+    runtime().log?.error?.('Remotion Live operation failed', {
+      phase: failedPhase,
+      error: message,
+    });
+  }
   render();
 }
 
-
-async function renderStill() {
-  const composition = currentComposition();
-  if (!composition) return;
-  const { getPreviewSnapshot } = await import('./player-protocol.js');
-  const snapshot = await getPreviewSnapshot();
-  const frame = snapshot?.frame ?? state.frame;
-  setLoading(true, t('renderStill'));
-  try {
-    const output = await callBackend('renderStill', {
-      compositionId: composition.id,
-      frame,
-    });
-    state.lastStill = output;
-    state.status = output?.status || 'completed';
-    state.error = null;
-  } catch (error) {
-    setError(error);
-  } finally {
-    setLoading(false);
-  }
+function renderStatusStrip() {
+  const phase = previewPhase();
+  const busy = ['detecting', 'bundling', 'connecting', 'loading'].includes(phase);
+  return `<div class="rl-status-strip${busy ? ' is-busy' : ''}" aria-hidden="true"><span></span></div>`;
 }
 
+function renderContextTray() {
+  if (!currentComposition() || state.interactionMode !== 'inspect') return '';
+  const summary = selectionSummary();
+  return `
+    <aside class="rl-context-tray" aria-live="polite">
+      <div class="rl-context-tray__copy">
+        <span class="badge badge--accent">${escapeHtml(t('inspectActive'))}</span>
+        <span title="${escapeHtml(summary)}">${escapeHtml(state.selection ? summary : t('inspectHint'))}</span>
+      </div>
+      ${state.selection ? `<button type="button" class="btn btn-sm btn-ghost" data-action="clear-selection">${escapeHtml(t('clearSelection'))}</button>` : ''}
+    </aside>
+  `;
+}
 
 function updateContextTrayDom() {
   const tray = document.querySelector('.rl-context-tray');
   const html = renderContextTray().trim();
   if (!tray) {
-    if (html) render();
+    if (html) {
+      const template = document.createElement('template');
+      template.innerHTML = html;
+      const node = template.content.firstElementChild;
+      const transport = document.querySelector('.rl-workbench > .rl-transport');
+      if (node && transport) transport.before(node);
+    }
     return;
   }
   if (!html) {
@@ -61,53 +84,69 @@ function updateContextTrayDom() {
   }
   const template = document.createElement('template');
   template.innerHTML = html;
-  const node = template.content.firstElementChild;
-  if (node) tray.replaceWith(node);
+  tray.replaceWith(template.content.firstElementChild);
 }
-
-
-function renderStatusBar() {
-  if (state.loading) {
-    return '<div class="rl-status-bar"><div class="rl-progress" role="progressbar"><span></span></div></div>';
-  }
-  if (state.error) {
-    return `<div class="rl-status-bar"><div class="rl-error-bar">${escapeHtml(state.error)}</div></div>`;
-  }
-  return '<div class="rl-status-bar"></div>';
-}
-
 
 function patchExportOverlayDom(root) {
-  root.querySelectorAll('.rl-modal-scrim, .rl-export-toast').forEach((node) => node.remove());
+  root.querySelectorAll('.rl-export-dialog, .rl-export-job').forEach((node) => node.remove());
   const html = renderExportOverlay().trim();
   if (!html) return;
   const template = document.createElement('template');
   template.innerHTML = html;
   const node = template.content.firstElementChild;
   if (node) root.appendChild(node);
+  openExportDialog(root);
 }
 
+function openExportDialog(root) {
+  const dialog = root.querySelector('.rl-export-dialog');
+  if (!dialog || dialog.open) return;
+  try {
+    dialog.showModal();
+  } catch {
+    dialog.setAttribute('open', '');
+  }
+  queueMicrotask(() => dialog.querySelector('[autofocus], button')?.focus());
+}
 
-function patchStablePlayerRender(root, statusBar) {
-  if (!usePlayerPreview() || !playerPreviewReady()) return false;
+function patchPlayerOverlayDom(stage) {
+  stage.querySelectorAll('.rl-player-runtime-overlay').forEach((node) => node.remove());
+  const html = renderPlayerOverlay().trim();
+  if (!html) return;
+  const template = document.createElement('template');
+  template.innerHTML = html;
+  const node = template.content.firstElementChild;
+  if (node) stage.appendChild(node);
+}
+
+function patchInspectDom(stage) {
+  stage.classList.toggle('is-inspecting', state.interactionMode === 'inspect');
+  syncInteractionLayersDom();
+}
+
+function patchStablePlayerRender(root) {
   const frame = playerFrameNode();
-  const stageKey = playerStageKey();
-  if (!frame || frame.dataset.stageKey !== stageKey) return false;
-  if (!root.querySelector('.rl-content .rl-preview')) return false;
+  const stage = frame?.closest('.rl-stage');
+  if (!frame || !stage || frame.dataset.stageKey !== playerStageKey()) return false;
+  if (!root.querySelector('.rl-workbench')) return false;
 
   replaceElementHtml('.rl-header', renderHeader());
-  replaceElementHtml('.rl-status-bar', statusBar);
-  updateTimelineDom();
-  syncSelectionOverlayDom();
-  commitSelectionMarkerDom();
+  replaceElementHtml('.rl-status-strip', renderStatusStrip());
+  const composition = currentComposition();
+  if (composition) {
+    replaceElementHtml('.rl-transport', renderPlaybackTransport(composition, compositionDuration(composition), Number(composition.fps || 30)));
+    replaceElementHtml('.rl-review', renderTimelineInline(composition, compositionDuration(composition), Number(composition.fps || 30)));
+  }
+  patchPlayerOverlayDom(stage);
+  patchInspectDom(stage);
   updateContextTrayDom();
   patchExportOverlayDom(root);
+  syncFrameDom();
+  syncPlayingDom();
   fitPreviewStage();
   if (!state.playerRuntimeReady) requestPlayerHandshake();
-  ensurePreviewVideoPlayback();
   return true;
 }
-
 
 function refreshSelectionDom() {
   syncSelectionOverlayDom();
@@ -115,274 +154,127 @@ function refreshSelectionDom() {
   updateContextTrayDom();
 }
 
-
 function clearSelection() {
   state.selection = null;
   state.selectedElementId = null;
   refreshSelectionDom();
 }
 
-
-function renderContextTray() {
-  const composition = currentComposition();
-  if (!composition || useStudioPreview()) return '';
-  const summary = selectionSummary();
-  return `
-    <div class="rl-context-tray">
-      <span class="rl-context-tray__label">${escapeHtml(t('contextLabel'))}</span>
-      <span class="rl-context-tray__value" title="${escapeHtml(summary)}">${escapeHtml(summary)}</span>
-      ${state.selection
-        ? `<button type="button" class="rl-context-tray__clear" data-action="clear-selection">${escapeHtml(t('clearSelection'))}</button>`
-        : `<span class="rl-context-tray__hint">${escapeHtml(t('selectionHint'))}</span>`}
-    </div>
-  `;
-}
-
-
-function renderPreviewStageContent() {
-  if (usePlayerPreview()) {
-    return renderPlayerPreviewContent();
-  }
-
-  if (useStudioPreview()) {
-    return renderStudioPreviewContent();
-  }
-
-  const composition = currentComposition();
-  const key = previewFrameKey(composition);
-  const preview = state.previewFrame?.key === key ? state.previewFrame : null;
-  const clipKey = previewClipKey(composition);
-  const clip = state.previewClip?.key === clipKey ? state.previewClip : null;
-
-  // Playing: video clip ready
-  if (state.playing && clip?.dataUrl) {
-    return `
-      <video
-        class="rl-preview-video"
-        src="${escapeHtml(clip.dataUrl)}"
-        data-end-frame="${escapeHtml(clip.to ?? state.frame)}"
-        autoplay
-        muted
-        controls
-        playsinline
-      ></video>
-    `;
-  }
-
-  // Playing: waiting for clip render
-  if (state.playing && state.previewClipLoading) {
-    return `
-      <div class="rl-overlay">
-        <div class="rl-spinner"></div>
-        <p>${escapeHtml(t('preparingPlayback'))}</p>
-      </div>
-    `;
-  }
-
-  // Still frame available — show it (with subtle refresh spinner if re-rendering)
-  if (preview?.dataUrl) {
-    return `
-      <img class="rl-preview-frame" src="${escapeHtml(preview.dataUrl)}" alt="${escapeHtml(composition?.id || '')}" />
-      ${state.previewLoading
-        ? `<div class="rl-overlay rl-overlay--loading"><div class="rl-spinner rl-spinner--sm"></div></div>`
-        : ''}
-    `;
-  }
-
-  // Loading first frame
-  if (state.previewLoading) {
-    return `
-      <div class="rl-overlay">
-        <div class="rl-spinner"></div>
-        <p>${escapeHtml(t('renderingFrame'))}</p>
-      </div>
-    `;
-  }
-
-  // Clip error — fall back to still if available
-  if (state.previewClipError) {
-    return `
-      <div class="rl-overlay rl-overlay--error">
-        <p>${escapeHtml(t('playbackUnavailable'))}</p>
-        <small>${escapeHtml(state.previewClipError)}</small>
-      </div>
-    `;
-  }
-
-  // Still frame error — show layer boxes
-  if (state.previewError) {
-    return `
-      <div class="rl-overlay rl-overlay--error">
-        <p>${escapeHtml(t('previewUnavailable'))}</p>
-        <small>${escapeHtml(state.previewError)}</small>
-      </div>
-      <div class="rl-layers-fallback">${renderLayers()}</div>
-    `;
-  }
-
-  // Composition present but no render yet
-  if (composition) {
-    return `
-      <div class="rl-overlay">
-        <div class="rl-spinner"></div>
-        <p>${escapeHtml(t('renderingFrame'))}</p>
-      </div>
-    `;
-  }
-
-  return renderLayers();
-}
-
-// ─── Preview: main view (stable stage + replaceable controls/timeline) ────────
-
-
-function renderStudioTransport() {
-  return `
-    <div class="rl-transport rl-transport--studio">
-      <button class="rl-btn" data-action="open-studio" ${studioPreviewReady() ? '' : 'disabled'}>${escapeHtml(t('openStudio'))}</button>
-      <button class="rl-btn" data-action="restart-preview-server">${escapeHtml(t('restartStudio'))}</button>
-      <button class="rl-btn" data-action="stop-preview-server">${escapeHtml(t('stopStudio'))}</button>
-      <div class="rl-transport__spacer"></div>
-      <button class="rl-btn" data-action="render-still">${escapeHtml(t('renderStill'))}</button>
-    </div>
-  `;
-}
-
-
-function renderPlaybackTransport(composition, duration, fps) {
-  return `
-    <div class="rl-transport">
-      <div class="rl-transport__btns">
-        <button class="rl-icon-btn" data-action="step-prev" aria-label="${escapeHtml(t('previous'))}">${ICONS.prev}</button>
-        <button class="rl-play-btn${state.playing ? ' is-playing' : ''}" data-action="toggle-play" aria-label="${escapeHtml(state.playing ? t('pause') : t('play'))}">
-          ${state.playing ? ICONS.pause : ICONS.play}
-        </button>
-        <button class="rl-icon-btn" data-action="step-next" aria-label="${escapeHtml(t('next'))}">${ICONS.next}</button>
-      </div>
-      <div class="rl-transport__sep" aria-hidden="true"></div>
-      ${renderTimelineZoomControls()}
-      <div class="rl-transport__sep" aria-hidden="true"></div>
-      <div class="rl-transport__spacer"></div>
-      <div class="rl-transport__frame-tools">
-        <div class="rl-frame-num">
-          <input
-            type="number"
-            min="0"
-            max="${Math.max(0, duration - 1)}"
-            value="${state.frame}"
-            data-action="frame-number"
-            aria-label="${escapeHtml(t('frame'))}"
-          />
-          <span class="rl-frame-num__total">/ ${duration - 1}</span>
-        </div>
-        <div class="rl-transport__tc" title="SMPTE HH:MM:SS:FF">${escapeHtml(formatSMPTE(state.frame, fps))}</div>
-        <button class="rl-btn" data-action="render-still">${escapeHtml(t('renderStill'))}</button>
-      </div>
-    </div>
-  `;
-}
-
-
 function updateTimelineDom() {
   const composition = currentComposition();
-  if (!composition || useStudioPreview()) return;
+  if (!composition) return;
   const duration = compositionDuration(composition);
-  const fps = Number(composition?.fps || 30);
+  const fps = Number(composition.fps || 30);
   replaceElementHtml('.rl-transport', renderPlaybackTransport(composition, duration, fps));
-  replaceElementHtml('.rl-tl-inline', renderTimelineInline(composition, duration, fps));
+  replaceElementHtml('.rl-review', renderTimelineInline(composition, duration, fps));
   syncFrameDom();
   syncPlayingDom();
-  updateContextTrayDom();
 }
-
 
 function renderPreview() {
   const composition = currentComposition();
+  if (!composition) {
+    const error = state.error || state.playerHostError;
+    return `
+      <div class="bfui-empty rl-empty" role="${error ? 'alert' : 'status'}">
+        <strong class="bfui-empty__title">${escapeHtml(error ? t('playerUnavailable') : t('noCompositions'))}</strong>
+        ${error ? `<p class="bfui-empty__description">${escapeHtml(error)}</p>` : ''}
+        <button type="button" class="btn btn-sm btn-secondary" data-action="refresh">${escapeHtml(t('retry'))}</button>
+      </div>
+    `;
+  }
   const duration = compositionDuration(composition);
-  const fps = Number(composition?.fps || 30);
-  const studioMode = useStudioPreview();
-  const aspectRatio = composition
-    ? `${composition.width || 1920}/${composition.height || 1080}`
-    : '16/9';
-
+  const fps = Number(composition.fps || 30);
+  const phase = previewPhase();
+  const aspectRatio = `${composition.width || 1920}/${composition.height || 1080}`;
   return `
-    <section class="rl-preview" data-testid="remotion-preview-panel">
-      <!-- Dark cinema stage -->
+    <section class="rl-workbench" data-testid="remotion-preview-panel"
+      data-preview-phase="${phase}" data-actual-frame="${actualFrame()}"
+      data-actual-playing="${state.playerRuntimePlaying ? 'true' : 'false'}"
+      data-frame-state="${isFrameCommitted() ? 'committed' : 'pending'}"
+      data-inspect-mode="${state.interactionMode === 'inspect' ? 'true' : 'false'}"
+      data-buffering="${state.playerBuffering ? 'true' : 'false'}"
+      data-seeking="${state.playerSeeking ? 'true' : 'false'}"
+      data-player-host-ready="${state.playerHost?.ready ? 'true' : 'false'}"
+      data-player-connection-state="${escapeHtml(state.playerConnectionState || 'disconnected')}"
+      data-player-channel-connected="${state.playerChannelConnected ? 'true' : 'false'}">
       <div class="rl-stage-area">
-        <div class="rl-stage${studioMode ? ' rl-stage--studio' : ''}"${studioMode ? '' : ` style="aspect-ratio:${aspectRatio}"`}>
-          ${renderPreviewStageContent()}
-          ${composition && !studioMode ? renderSelectCaptureLayer() : ''}
+        <div class="rl-stage${state.interactionMode === 'inspect' ? ' is-inspecting' : ''}" style="aspect-ratio:${aspectRatio}">
+          ${renderPlayerPreviewContent()}
+          ${renderPreviewClickLayer()}
+          ${renderSelectCaptureLayer()}
           ${renderSelectionOverlay()}
-          ${composition && !studioMode ? renderSelectionMarker() : ''}
-          ${composition && !studioMode ? `
-            <div class="rl-stage-pill rl-stage-pill--br" aria-live="polite">F ${state.frame}</div>
-            <div class="rl-stage-pill rl-stage-pill--bl">${escapeHtml(t('resolution', composition))}</div>
-          ` : ''}
+          ${renderSelectionMarker()}
+          <div class="rl-stage-meta" aria-hidden="true">
+            <span>${escapeHtml(t('resolution', composition))}</span>
+            <span>F <span class="rl-frame-actual">${actualFrame()}</span></span>
+          </div>
         </div>
       </div>
-      ${composition && !studioMode ? renderContextTray() : ''}
-
-      ${composition ? studioMode
-        ? renderStudioTransport()
-        : `${renderPlaybackTransport(composition, duration, fps)}${renderTimelineInline(composition, duration, fps)}`
-      : ''}
+      ${renderContextTray()}
+      ${renderPlaybackTransport(composition, duration, fps)}
+      ${renderTimelineInline(composition, duration, fps)}
     </section>
   `;
 }
 
-// ─── Timeline helpers ─────────────────────────────────────────────────────────
-
-
 function renderRouteContent() {
   if (!state.workspacePath) return renderWorkspaceEmpty();
   const status = state.detection?.status;
-  if (status === 'notFound' || status === 'broken' || status === 'ambiguous') {
-    return renderDetectionState();
-  }
-  if (state.detecting && !state.manifest) {
-    return renderDetectingState();
-  }
+  if (status === 'notFound' || status === 'broken' || status === 'ambiguous') return renderDetectionState();
+  if (state.phase === 'detecting' && !state.manifest) return renderDetectingState();
   return renderPreview();
 }
-
-// ─── Main render ──────────────────────────────────────────────────────────────
-
 
 function render() {
   if (shouldDeferRenderForSelection()) {
     state.renderQueued = true;
     return;
   }
-
   const root = rootElement();
   if (!root) return;
-  const previousPlayerFrame = playerFrameNode();
   state.renderQueued = false;
   root.dataset.route = state.route;
+  root.dataset.previewPhase = previewPhase();
+  root.dataset.projectPhase = state.phase || 'idle';
+  root.dataset.detectionStatus = state.detection?.status || '';
+  root.dataset.error = state.error || state.playerHostError || '';
+  root.dataset.actualFrame = String(actualFrame());
+  root.dataset.actualPlaying = state.playerRuntimePlaying ? 'true' : 'false';
+  root.dataset.frameState = isFrameCommitted() ? 'committed' : 'pending';
+  root.dataset.inspectMode = state.interactionMode === 'inspect' ? 'true' : 'false';
+  root.dataset.buffering = state.playerBuffering ? 'true' : 'false';
+  root.dataset.seeking = state.playerSeeking ? 'true' : 'false';
+  root.dataset.playerHostReady = state.playerHost?.ready ? 'true' : 'false';
+  root.dataset.playerConnectionState = state.playerConnectionState || 'disconnected';
+  root.dataset.playerChannelConnected = state.playerChannelConnected ? 'true' : 'false';
   document.documentElement.dataset.route = state.route;
 
-  // Progress and error both live in the same auto-height row so the grid stays stable.
-  const statusBar = renderStatusBar();
+  if (patchStablePlayerRender(root)) return;
 
-  if (patchStablePlayerRender(root, statusBar)) return;
-
-  root.innerHTML = renderHeader() + statusBar + `<div class="rl-content">${renderRouteContent()}</div>` + renderExportOverlay();
+  const previousFrame = playerFrameNode();
+  root.innerHTML = `${renderHeader()}${renderStatusStrip()}<main class="rl-content">${renderRouteContent()}</main>${renderExportOverlay()}`;
+  openExportDialog(root);
   fitPreviewStage();
-  const nextPlayerFrame = playerFrameNode();
-  if (nextPlayerFrame) {
+  const nextFrame = playerFrameNode();
+  if (nextFrame) {
     const stageKey = playerStageKey();
-    nextPlayerFrame.dataset.stageKey = stageKey;
+    nextFrame.dataset.stageKey = stageKey;
     state.playerRenderedStageKey = stageKey;
   }
-  if (nextPlayerFrame && nextPlayerFrame !== previousPlayerFrame) {
+  if (nextFrame && nextFrame !== previousFrame) {
     state.playerRuntimeReady = false;
     state.playerRuntimePlaying = false;
+    nextFrame.addEventListener('load', () => notifyPlayerFrameLoaded(nextFrame), { once: true });
   }
-  if (playerPreviewReady() && !state.playerRuntimeReady) {
-    requestPlayerHandshake();
-  }
-  ensurePreviewVideoPlayback();
+  if (nextFrame && !state.playerRuntimeReady) requestPlayerHandshake();
+  syncPhaseDom();
 }
 
-
-export { clearSelection, refreshSelectionDom, render, renderStill, setError, setLoading, updateTimelineDom };
+export {
+  clearSelection,
+  refreshSelectionDom,
+  render,
+  setError,
+  updateTimelineDom,
+};

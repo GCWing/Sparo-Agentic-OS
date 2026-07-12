@@ -356,7 +356,6 @@
     "unpin": "Unpin Tab",
     "unsaved": "Unsaved",
     "fileDeleted": "Deleted",
-    "missionControl": "Mission Control",
     "hiddenTabsCount": "{{count}} hidden tabs",
     "confirmCloseWithDirty": "File \"{{title}}\" has unsaved changes.\n\nDiscard changes and close?",
     "confirmCloseAllWithDirty": "{{count}} files have unsaved changes:\n\n{{fileList}}\n\nDiscard all changes and close?"
@@ -597,6 +596,7 @@
       "planViewerMissingPath": "Cannot load Plan viewer: missing file path",
       "terminalMissingSessionId": "Cannot load terminal: missing session ID",
       "productAppRuntimeMissingHost": "Cannot load Product App runtime: missing host surface",
+      "productAppRuntimeBootTimeout": "The app did not become ready. Try loading it again.",
       "gitPanelRemoved": "Git integration has been removed from this build."
     },
     "placeholder": {

@@ -1,0 +1,184 @@
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
+
+.sparo-workspace-hub-memory-preview {
+  .sparo-workspace-hub-preview__title {
+    font-size: var(--ds-font-size-xl);
+  }
+
+  .sparo-workspace-hub-preview__content {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 0;
+    margin-top: 20px;
+  }
+}
+
+.sparo-workspace-hub-memory-preview__body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sparo-workspace-hub-memory-preview__auto-status {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 6px;
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-size-2xs);
+
+  > span {
+    width: 6px;
+    height: 6px;
+    background: var(--ds-color-text-muted);
+    border-radius: var(--ds-radius-full);
+  }
+
+  > small {
+    padding-left: 6px;
+    color: var(--ds-color-warning);
+    border-left: 1px solid var(--ds-color-border-subtle);
+  }
+
+  &.is-positive > span { background: var(--ds-color-success); }
+  &.is-warning > span { background: var(--ds-color-warning); }
+  &.is-danger > span { background: var(--ds-color-danger); }
+}
+
+.sparo-workspace-hub-memory-preview__constellation {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: center;
+  gap: var(--ds-space-3);
+  margin-top: var(--ds-space-5);
+
+  &::before {
+    position: absolute;
+    top: 21px;
+    right: 15%;
+    left: 15%;
+    height: 1px;
+    background: var(--ds-color-border-subtle);
+    content: '';
+  }
+}
+
+.sparo-workspace-hub-memory-preview__memory-node {
+  position: relative;
+  z-index: var(--ds-z-local);
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  min-width: 0;
+  gap: 5px;
+  text-align: center;
+
+  > strong {
+    color: var(--ds-color-text-primary);
+    font-size: var(--ds-font-size-xs);
+    font-weight: var(--ds-font-weight-medium);
+    line-height: 1.2;
+  }
+
+  > span:last-child {
+    max-width: 100%;
+    overflow: hidden;
+    color: var(--ds-color-text-muted);
+    font-size: var(--ds-font-size-2xs);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.sparo-workspace-hub-memory-preview__memory-node-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  margin-bottom: 3px;
+  color: var(--ds-color-text-secondary);
+  background: var(--ds-color-bg-elevated);
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: var(--ds-radius-full);
+
+  .is-accent & {
+    color: var(--ds-color-accent-500);
+    background: color-mix(in srgb, var(--ds-color-accent-500) 7%, var(--ds-color-bg-elevated));
+  }
+}
+
+.sparo-workspace-hub-memory-preview__consolidation {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--ds-space-2);
+  min-width: 0;
+  margin-top: auto;
+  padding-top: var(--ds-space-3);
+  border-top: 1px solid var(--ds-color-border-subtle);
+
+  &.is-failed .sparo-workspace-hub-memory-preview__consolidation-icon {
+    color: var(--ds-color-danger);
+    background: color-mix(in srgb, var(--ds-color-danger) 8%, transparent);
+  }
+
+  &.is-running .sparo-workspace-hub-memory-preview__consolidation-icon {
+    color: var(--ds-color-accent-500);
+    background: color-mix(in srgb, var(--ds-color-accent-500) 8%, transparent);
+  }
+
+  > button {
+    display: inline-flex;
+    gap: 6px;
+  }
+}
+
+.sparo-workspace-hub-memory-preview__consolidation-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  color: var(--ds-color-text-secondary);
+  background: var(--ds-color-surface-hover);
+  border-radius: var(--ds-radius-full);
+}
+
+.sparo-workspace-hub-memory-preview__consolidation-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+
+  > strong {
+    color: var(--ds-color-text-primary);
+    font-size: var(--ds-font-size-xs);
+    font-weight: var(--ds-font-weight-medium);
+  }
+
+  > span {
+    overflow: hidden;
+    color: var(--ds-color-text-muted);
+    font-size: var(--ds-font-size-2xs);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 540px) {
+  .sparo-workspace-hub-memory-preview__constellation {
+    gap: var(--ds-space-1);
+  }
+
+  .sparo-workspace-hub-memory-preview__consolidation {
+    grid-template-columns: 32px minmax(0, 1fr);
+
+    > button {
+      display: none;
+    }
+  }
+}

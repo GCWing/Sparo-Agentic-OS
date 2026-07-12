@@ -24,7 +24,8 @@ export type ContextItem =
   | GitRefContext
   | URLContext
   | WebElementContext
-  | ProductAppPreviewElementSelectionContext;
+  | ProductAppPreviewElementSelectionContext
+  | SpreadsheetFocusContext;
 
 export interface FileContext extends BaseContext {
   type: 'file';
@@ -155,6 +156,67 @@ export interface ProductAppPreviewElementSelectionContext extends BaseContext {
   confidence: 'high' | 'medium' | 'low';
 }
 
+export interface SpreadsheetFocusValueSummary {
+  cellCount?: number;
+  numericCount?: number;
+  textCount?: number;
+  emptyCount?: number;
+  formulaCount?: number;
+  sum?: number;
+  avg?: number | null;
+  headerGuess?: string[];
+}
+
+export type SpreadsheetFocusMode = 'inspect' | 'edit' | 'author';
+
+/**
+ * Cache coverage is emitted by the spreadsheet surface. Newer runtimes use a
+ * structured count, while early previews used a numeric ratio. Keep both
+ * forms so persisted/pinned contexts remain readable across runtime updates.
+ */
+export type SpreadsheetFocusCacheCoverage =
+  | number
+  | {
+      cachedCellCount?: number;
+      selectedCellCount?: number;
+      loadedCellCount?: number;
+      totalCellCount?: number;
+      ratio?: number;
+      [key: string]: unknown;
+    };
+
+export interface SpreadsheetFocusContext extends BaseContext {
+  type: 'spreadsheet-focus';
+  schemaVersion: 1;
+  role: 'ambient' | 'pinned';
+  /** Chat session bound to the Excel Live surface that produced this focus. */
+  sessionId?: string;
+  workbookId: string;
+  workbookPath?: string;
+  sheetId: string;
+  sheetName: string;
+  a1: string;
+  selectionKind: 'cell' | 'range' | 'row' | 'column' | 'sheet';
+  rowCount: number;
+  columnCount: number;
+  mode?: SpreadsheetFocusMode;
+  revision?: string | number;
+  cacheCoverage?: SpreadsheetFocusCacheCoverage;
+  /** Only an explicit `true` means preview/value cache covers the selection. */
+  cacheComplete: boolean;
+  /** False means selected formula results are cached/stale and not authoritative. */
+  formulaResultsFresh?: boolean;
+  /** Engine calculation state captured with this focus. */
+  calculationStatus?: Record<string, unknown>;
+  /** Separates live-view limitations from source-package round-trip safety. */
+  fidelity?: Record<string, unknown>;
+  /** Time at which this exact focus snapshot was captured by the surface. */
+  capturedAt: number;
+  previewTsv?: string;
+  previewTruncated: boolean;
+  valueSummary?: SpreadsheetFocusValueSummary;
+}
+
 /**
  * Convenience alias for the discriminant used by `ContextItem`.
  */
@@ -221,6 +283,12 @@ export function isProductAppPreviewElementSelectionContext(
   context: ContextItem,
 ): context is ProductAppPreviewElementSelectionContext {
   return context.type === 'product-app-preview-element-selection';
+}
+
+export function isSpreadsheetFocusContext(
+  context: ContextItem,
+): context is SpreadsheetFocusContext {
+  return context.type === 'spreadsheet-focus';
 }
 
  

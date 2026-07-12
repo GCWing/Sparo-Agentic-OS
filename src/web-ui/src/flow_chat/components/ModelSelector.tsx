@@ -18,6 +18,7 @@ import { globalEventBus } from '@/infrastructure/event-bus';
 import type { AIModelConfig } from '@/infrastructure/config/types';
 import { Button, Tooltip } from '@/design-system';
 import { FlowChatStore } from '../store/FlowChatStore';
+import { flowChatManager } from '../services/FlowChatManager';
 import { createLogger } from '@/shared/utils/logger';
 import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
 import './ModelSelector.scss';
@@ -287,6 +288,12 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
 
     setLoading(true);
     try {
+      const store = FlowChatStore.getInstance();
+      const session = sessionId ? store.getState().sessions.get(sessionId) : undefined;
+      if (sessionId && session && !session.isTransient) {
+        await flowChatManager.ensureBackendSession(sessionId);
+      }
+
       const currentAgentModels = await configManager.getConfig<Record<string, string>>('ai.agent_models') || {};
 
       const updatedAgentModels = {
@@ -298,10 +305,8 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
       setAgentModels(updatedAgentModels);
 
       if (sessionId) {
-        const store = FlowChatStore.getInstance();
         store.updateSessionModelName(sessionId, modelId);
-        const session = store.getState().sessions.get(sessionId);
-        if (!session?.isTransient) {
+        if (session && !session.isTransient) {
           await agentAPI.updateSessionModel({
             sessionId,
             modelName: modelId,

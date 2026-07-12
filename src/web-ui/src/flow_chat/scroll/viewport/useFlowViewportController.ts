@@ -26,12 +26,13 @@ import {
 import {
   TOUCH_SCROLL_INTENT_EXIT_THRESHOLD_PX,
   isEditableElement,
+  isDownwardScrollIntentKey,
   isPointerOnScrollbarGutter,
   isUpwardScrollIntentKey,
 } from '../FlowScrollIntent';
-import type { ViewportPinMode } from './FlowViewportGeometry';
 import { FlowViewportScheduler, type FlowViewportHost, type ViewportSnapshot } from './FlowViewportScheduler';
 import type { ViewportMode } from './FlowViewportMachine';
+import type { FlowViewportTurnNavigationRequest } from './FlowViewportNavigationBroker';
 
 interface UserMessageRenderItem {
   item: { turnId: string; data?: unknown };
@@ -43,7 +44,10 @@ export interface UseFlowViewportControllerOptions {
   latestTurnId: string | null;
   virtualItemCount: number;
   userMessageItems: UserMessageRenderItem[];
+  isSessionReady: boolean;
   isStreaming: boolean;
+  navigationRequest: FlowViewportTurnNavigationRequest | null;
+  onNavigationRequestHandled: (request: FlowViewportTurnNavigationRequest) => void;
   inputStackFooterPx: number;
   virtuosoRef: RefObject<VirtuosoHandle | null>;
   scrollerElementRef: MutableRefObject<HTMLElement | null>;
@@ -56,12 +60,11 @@ export interface UseFlowViewportControllerOptions {
 export interface FlowViewportCommands {
   scrollToTurn: (turnIndex: number) => void;
   scrollToIndex: (index: number) => void;
-  pinTurnToTop: (
+  navigateToTurn: (
     turnId: string,
-    options?: { behavior?: ScrollBehavior; pinMode?: ViewportPinMode },
+    options?: { behavior?: ScrollBehavior },
   ) => boolean;
   scrollToLatestEndPosition: () => void;
-  scrollToPhysicalBottomAndClearPin: () => void;
 }
 
 export interface UseFlowViewportControllerResult {
@@ -84,7 +87,10 @@ export function useFlowViewportController(
     latestTurnId,
     virtualItemCount,
     userMessageItems,
+    isSessionReady,
     isStreaming,
+    navigationRequest,
+    onNavigationRequestHandled,
     inputStackFooterPx,
     virtuosoRef,
     scrollerElementRef,
@@ -169,36 +175,62 @@ export function useFlowViewportController(
 
   // ── Session / turn / stream effects ────────────────────────────────────────
 
-  const previousSessionIdRef = useRef<string | undefined>(undefined);
+  const initializedSessionIdRef = useRef<string | null>(null);
   const previousLatestTurnIdRef = useRef<string | null>(null);
-  const hasMountedRef = useRef(false);
 
   useEffect(() => {
-    if (!hasMountedRef.current) {
-      hasMountedRef.current = true;
-      previousSessionIdRef.current = activeSessionId;
-      previousLatestTurnIdRef.current = latestTurnId;
-      // Initial mount inherits session semantics: a streaming session pins
-      // its latest turn; a static one starts in reading mode.
-      scheduler.resetForSession(latestTurnId, isStreaming);
+    if (!activeSessionId || !isSessionReady || !latestTurnId) {
       return;
     }
 
-    if (previousSessionIdRef.current !== activeSessionId) {
-      previousSessionIdRef.current = activeSessionId;
+    const matchingRequest =
+      navigationRequest?.sessionId === activeSessionId ? navigationRequest : null;
+    const requestTargetExists = matchingRequest
+      ? userMessageItems.some(({ item }) => item.turnId === matchingRequest.turnId)
+      : false;
+
+    // A registered cross-session target has priority over the default latest
+    // layout. Wait for hydration instead of briefly pinning latest first.
+    if (matchingRequest && !requestTargetExists) {
+      return;
+    }
+
+    if (initializedSessionIdRef.current !== activeSessionId) {
+      initializedSessionIdRef.current = activeSessionId;
       previousLatestTurnIdRef.current = latestTurnId;
-      scheduler.resetForSession(latestTurnId, isStreaming);
+      scheduler.enterSession(
+        activeSessionId,
+        latestTurnId,
+        matchingRequest?.turnId ?? null,
+      );
+      if (matchingRequest) {
+        onNavigationRequestHandled(matchingRequest);
+      }
       return;
     }
 
     if (previousLatestTurnIdRef.current !== latestTurnId) {
       previousLatestTurnIdRef.current = latestTurnId;
-      if (latestTurnId) {
-        scheduler.notifyTurnSent(latestTurnId);
-      }
+      scheduler.syncLatestTurn(activeSessionId, latestTurnId);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSessionId, latestTurnId, scheduler]);
+
+    if (matchingRequest) {
+      if (matchingRequest.source === 'send-message' && matchingRequest.turnId === latestTurnId) {
+        scheduler.submitLatestTurn(activeSessionId, matchingRequest.turnId);
+      } else {
+        scheduler.navigateToTurn(matchingRequest.turnId, matchingRequest.behavior);
+      }
+      onNavigationRequestHandled(matchingRequest);
+    }
+  }, [
+    activeSessionId,
+    isSessionReady,
+    latestTurnId,
+    navigationRequest,
+    onNavigationRequestHandled,
+    scheduler,
+    userMessageItems,
+  ]);
 
   const previousStreamingRef = useRef(isStreaming);
   useEffect(() => {
@@ -233,6 +265,8 @@ export function useFlowViewportController(
     const handleWheel = (event: WheelEvent) => {
       if (event.deltaY < 0) {
         scheduler.handleUserScrollUpIntent();
+      } else if (event.deltaY > 0) {
+        scheduler.handleUserScrollDownIntent();
       }
     };
 
@@ -246,6 +280,9 @@ export function useFlowViewportController(
       if (currentY - touchStartY > TOUCH_SCROLL_INTENT_EXIT_THRESHOLD_PX) {
         touchStartY = currentY;
         scheduler.handleUserScrollUpIntent();
+      } else if (touchStartY - currentY > TOUCH_SCROLL_INTENT_EXIT_THRESHOLD_PX) {
+        touchStartY = currentY;
+        scheduler.handleUserScrollDownIntent();
       }
     };
 
@@ -254,10 +291,14 @@ export function useFlowViewportController(
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (!isUpwardScrollIntentKey(event) || isEditableElement(event.target)) {
+      if (isEditableElement(event.target)) {
         return;
       }
-      scheduler.handleUserScrollUpIntent();
+      if (isUpwardScrollIntentKey(event)) {
+        scheduler.handleUserScrollUpIntent();
+      } else if (isDownwardScrollIntentKey(event)) {
+        scheduler.handleUserScrollDownIntent();
+      }
     };
 
     const handlePointerDown = (event: PointerEvent) => {
@@ -381,38 +422,15 @@ export function useFlowViewportController(
         target: { type: 'index-center', index, behavior: 'auto' },
       });
     },
-    pinTurnToTop: (turnId, pinOptions) => {
+    navigateToTurn: (turnId, navigationOptions) => {
       const exists = hostStateRef.current.userMessageItems.some(
         ({ item }) => item.turnId === turnId,
       );
       if (!exists) return false;
-      // Pin mode is derived from the target, not trusted from the caller:
-      // pinning the latest turn must always keep (or rebuild) the sticky tail
-      // floor, while pinning an older turn is a transient detour that leaves
-      // the floor untouched for the return trip. This keeps anchor-dot jumps,
-      // header jumps, and send-message pins consistent without per-caller
-      // mode decisions.
-      const pinMode: ViewportPinMode =
-        turnId === hostStateRef.current.latestTurnId ? 'sticky-latest' : 'transient';
-      scheduler.dispatch({
-        type: 'NAVIGATE',
-        target: {
-          type: 'turn-pin-top',
-          turnId,
-          pinMode,
-          behavior: pinOptions?.behavior ?? 'auto',
-        },
-      });
-      return true;
+      return scheduler.navigateToTurn(turnId, navigationOptions?.behavior ?? 'auto');
     },
     scrollToLatestEndPosition: () => {
       scheduler.dispatch({ type: 'USER_JUMP_LATEST' });
-    },
-    scrollToPhysicalBottomAndClearPin: () => {
-      scheduler.dispatch({
-        type: 'NAVIGATE',
-        target: { type: 'latest-end', behavior: 'smooth', clearPin: true },
-      });
     },
   }), [scheduler]);
 

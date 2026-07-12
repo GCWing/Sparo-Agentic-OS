@@ -2,7 +2,7 @@
  * UnifiedTopBar �?full-width application top bar.
  *
  * Layout (left �?right):
- *   [macOS traffic-lights reserve] [Logo�?menu: toolbar, appearance, language, about]
+ *   [macOS traffic-lights reserve] [Logo: Agentic OS home]
  *   [context capsule: �?| title] (conditional) ─drag─
  *   [search trigger] ─drag─ [📱 Remote] [_][□][×]
  *
@@ -19,13 +19,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft,
   FolderOpen,
-  House,
   Search,
 } from 'lucide-react';
-import { Button, Dialog, IconButton, Tooltip, WindowControls, DropdownMenu } from '@/design-system';
-import type { DropdownMenuEntry } from '@/design-system';
+import { Button, Dialog, IconButton, Tooltip, WindowControls } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
-import type { LocaleId } from '@/infrastructure/i18n/types';
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { useNotification } from '@/shared/notification-system';
 import { RemoteConnectDialog } from '../RemoteConnectDialog';
@@ -63,8 +60,6 @@ import RemoteControlButton from './RemoteControlButton';
 import NotificationDropdownButton from './NotificationDropdownButton';
 import GlobalSearchDialog from '../GlobalSearchDialog/GlobalSearchDialog';
 import type { WorkspaceSurface } from '../../navigation/workspaceSurfaceTypes';
-import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
-import { SYSTEM_THEME_ID } from '@/infrastructure/theme/types';
 import { appRuntime, runtimePolicy } from '@/infrastructure/app-runtime';
 import { runtimeScopeLabel } from '@/shared/types/runtime-scope';
 import './UnifiedTopBar.scss';
@@ -91,18 +86,11 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
   onClose,
   isMaximized = false,
 }) => {
-  const {
-    t: tCommon,
-    currentLanguage,
-    supportedLocales,
-    changeLanguage,
-    isChanging: localeChanging,
-  } = useI18n('common');
+  const { t: tCommon } = useI18n('common');
   const { t: tHeader } = useI18n('shell/header');
   const { t: tNav } = useI18n('shell/navigation');
   const { t: tRemote } = useI18n('shell/remote-connect');
   const { t: tApps } = useI18n('scenes/apps');
-  const { themes, themeId, setTheme, loading: themeLoading } = useTheme();
   const { hasWorkspace } = useLastUsedWorkspace();
   const { warning } = useNotification();
   const sessionContext = useSessionHeaderContext();
@@ -121,7 +109,6 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
   const hasSurfaceContext = activeSurface.kind !== 'agentic-os-home' || !!workContext;
 
   const [searchOpen, setSearchOpen] = useState(false);
-  const [logoMenuOpen, setLogoMenuOpen] = useState(false);
   const [sceneHistoryMenuOpen, setSceneHistoryMenuOpen] = useState(false);
   const [sceneHistoryCollapsedWidth, setSceneHistoryCollapsedWidth] = useState<number | null>(null);
   const [showRemoteConnect, setShowRemoteConnect] = useState(false);
@@ -131,37 +118,15 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
   );
   const [remoteConnectStatus, setRemoteConnectStatus] = useState<RemoteConnectStatus | null>(null);
 
-  const logoMenuAnchorRef = useRef<HTMLDivElement>(null);
   const sceneHistoryMenuRootRef = useRef<HTMLDivElement>(null);
   const sceneHistoryOpenFrameRef = useRef<number | null>(null);
   const lastMouseDownTimeRef = useRef<number>(0);
-
-  // ── Logo menu item handlers ───────────────────────────────────────────────
-
-  const handleThemePick = useCallback(
-    (id: string) => { void setTheme(id); },
-    [setTheme],
-  );
-
-  const handleLocalePick = useCallback(
-    (locale: LocaleId) => {
-      if (localeChanging) return;
-      void changeLanguage(locale);
-    },
-    [changeLanguage, localeChanging],
-  );
-
-  const handleLogoAbout = useCallback(() => {
-    setLogoMenuOpen(false);
-    window.dispatchEvent(new CustomEvent('nav:show-about'));
-  }, []);
 
   const handleRemoteConnect = useCallback(async () => {
     if (!hasWorkspace) {
       warning(tHeader('remoteConnectRequiresWorkspace'));
       return;
     }
-    setLogoMenuOpen(false);
     if (hasAgreedRemoteDisclaimer || getRemoteConnectDisclaimerAgreed()) {
       setHasAgreedRemoteDisclaimer(true);
       setShowRemoteConnect(true);
@@ -319,7 +284,6 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
     (showSessionWorkspace || !!workContext);
   const contextActions = contextNavOverride?.actions ?? [];
   const canGoBackScene = activeSurface.kind !== 'agentic-os-home' && sceneHistory.length > 0;
-  const showHomeControl = activeSurface.kind !== 'agentic-os-home';
   const showContextCapsule =
     (showContextNav || canGoBackScene) && (contextTitle || contextActions.length > 0);
   const backTooltip = tHeader('backToPreviousScene');
@@ -445,71 +409,6 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
     [onMaximize],
   );
 
-  // ── Logo menu items ───────────────────────────────────────────────────────
-
-  const logoMenuItems = useMemo((): DropdownMenuEntry[] => {
-    const appearanceSubmenu: DropdownMenuEntry[] = [
-      {
-        type: 'item',
-        id: 'theme-system',
-        label: tHeader('followSystemTheme'),
-        checked: themeId === SYSTEM_THEME_ID,
-        onClick: () => handleThemePick(SYSTEM_THEME_ID),
-        disabled: themeLoading,
-      },
-      ...themes.map((th) => ({
-        type: 'item' as const,
-        id: `theme-${th.id}`,
-        label: th.name,
-        checked: themeId !== SYSTEM_THEME_ID && themeId === th.id,
-        onClick: () => handleThemePick(th.id),
-        disabled: themeLoading,
-      })),
-    ];
-
-    const languageSubmenu: DropdownMenuEntry[] = supportedLocales.map((loc) => ({
-      type: 'item' as const,
-      id: `locale-${loc.id}`,
-      label: loc.nativeName,
-      checked: currentLanguage === loc.id,
-      onClick: () => handleLocalePick(loc.id as LocaleId),
-      disabled: localeChanging,
-    }));
-
-    return [
-      {
-        type: 'item',
-        id: 'appearance',
-        label: tHeader('appearance'),
-        submenu: appearanceSubmenu,
-      },
-      {
-        type: 'item',
-        id: 'language',
-        label: tHeader('language'),
-        submenu: languageSubmenu,
-      },
-      { type: 'separator', id: 'sep' },
-      {
-        type: 'item',
-        id: 'about',
-        label: tHeader('about'),
-        onClick: handleLogoAbout,
-      },
-    ];
-  }, [
-    currentLanguage,
-    handleLocalePick,
-    handleLogoAbout,
-    handleThemePick,
-    localeChanging,
-    supportedLocales,
-    tHeader,
-    themeId,
-    themeLoading,
-    themes,
-  ]);
-
   // ── Render ────────────────────────────────────────────────────────────────
 
   const rootCls = [
@@ -538,18 +437,17 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
         role="toolbar"
         aria-label={tNav('aria.sceneHeader')}
       >
-        {/* Left: app logo menu + overlay navigation */}
+        {/* Left: Agentic OS home + contextual navigation */}
         <div className="unified-top-bar__left">
-          <div className="unified-top-bar__logo-wrap" ref={logoMenuAnchorRef}>
-            <Tooltip content={tHeader('openMenu')} placement="bottom" followCursor disabled={logoMenuOpen}>
+          <div className="unified-top-bar__logo-wrap">
+            <Tooltip content={homeTooltip} placement="bottom" followCursor>
               <IconButton
                 size="small"
                 variant="ghost"
-                className={`unified-top-bar__logo-control${logoMenuOpen ? ' is-open' : ''}`}
-                aria-label={tHeader('openMenu')}
-                aria-haspopup="menu"
-                aria-expanded={logoMenuOpen}
-                onClick={() => setLogoMenuOpen((v) => !v)}
+                className="unified-top-bar__logo-control"
+                aria-label={homeTooltip}
+                onClick={handleHome}
+                data-testid="unified-top-bar-home"
               >
                 <span className="unified-top-bar__logo-mark" aria-hidden="true">
                   <img
@@ -561,31 +459,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
                 </span>
               </IconButton>
             </Tooltip>
-
-            <DropdownMenu
-              open={logoMenuOpen}
-              anchorRef={logoMenuAnchorRef}
-              items={logoMenuItems}
-              onClose={() => setLogoMenuOpen(false)}
-              align="left"
-              minWidth={160}
-            />
           </div>
-
-          {showHomeControl && (
-            <IconButton
-              size="small"
-              variant="ghost"
-              className="unified-top-bar__home-control"
-              onClick={handleHome}
-              aria-label={homeTooltip}
-              tooltip={homeTooltip}
-              tooltipPlacement="bottom"
-              data-testid="unified-top-bar-home"
-            >
-              <House size={14} strokeWidth={2.25} aria-hidden="true" />
-            </IconButton>
-          )}
 
           {showContextCapsule && (
             <div className="unified-top-bar__context-nav" aria-label={tHeader('sceneNavigation')}>

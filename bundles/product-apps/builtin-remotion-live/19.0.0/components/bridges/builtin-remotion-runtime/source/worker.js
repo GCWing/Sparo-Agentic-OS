@@ -1,87 +1,78 @@
-const { emit, readRequest } = require("./src/protocol");
-const { detectProject, compileProject, getCompositionManifest, evaluateFrame, indexAssets, readDiagnostics } = require("./src/project");
-const { renderPreviewFrame, renderPreviewClip, renderStill } = require("./src/render");
+const readline = require("node:readline");
+const { emitRunEvent, runWithRequestContext } = require("./src/protocol");
+const { detectProject, compileProject, getCompositionManifest, getFrameDescriptor, indexAssets, readDiagnostics } = require("./src/project");
+const { renderStill } = require("./src/render");
 const { ensurePlayerPreviewHost, getPlayerPreviewHostStatus, stopPlayerPreviewHost } = require("./src/player-host");
-const { ensurePreviewServer, getPreviewServerStatus, stopPreviewServer } = require("./src/preview-server");
 const { startExport, getExportStatus, cancelExport } = require("./src/export");
 
-async function main() {
-  const request = await readRequest();
-  const action = request.action;
-  const input = request.input || {};
-  emit({ type: "run.started", run_id: request.runId || request.run_id || `remotion-${Date.now()}` });
-
-  let output;
+async function dispatchAction(action, input) {
   switch (action) {
-    case "detectProject":
-      output = detectProject(input);
-      break;
-    case "compileProject":
-      output = compileProject(input);
-      break;
-    case "getCompositionManifest":
-      output = getCompositionManifest(input);
-      break;
-    case "getFrameContext":
-    case "evaluateFrame":
-      output = evaluateFrame(input);
-      break;
-    case "renderPreviewFrame":
-      output = renderPreviewFrame(input);
-      break;
-    case "renderPreviewClip":
-      output = renderPreviewClip(input);
-      break;
-    case "ensurePlayerPreviewHost":
-      output = await ensurePlayerPreviewHost(input);
-      break;
-    case "getPlayerPreviewHostStatus":
-      output = await getPlayerPreviewHostStatus(input);
-      break;
-    case "stopPlayerPreviewHost":
-      output = await stopPlayerPreviewHost(input);
-      break;
-    case "ensurePreviewServer":
-      output = await ensurePreviewServer(input);
-      break;
-    case "getPreviewServerStatus":
-      output = await getPreviewServerStatus(input);
-      break;
-    case "stopPreviewServer":
-      output = await stopPreviewServer(input);
-      break;
-    case "renderStill":
-      output = renderStill(input);
-      break;
-    case "startExport":
-      output = startExport(input);
-      break;
-    case "getExportStatus":
-      output = getExportStatus(input);
-      break;
-    case "cancelExport":
-      output = cancelExport(input);
-      break;
-    case "indexAssets":
-      output = indexAssets(input);
-      break;
-    case "readDiagnostics":
-      output = readDiagnostics(input);
-      break;
-    default:
-      throw new Error(`Unsupported Sparo Video Engine action: ${action}`);
+    case "detectProject": return detectProject(input);
+    case "compileProject": return compileProject(input);
+    case "getCompositionManifest": return getCompositionManifest(input);
+    case "getFrameDescriptor": return getFrameDescriptor(input);
+    case "ensurePlayerPreviewHost": return ensurePlayerPreviewHost(input);
+    case "getPlayerPreviewHostStatus": return getPlayerPreviewHostStatus(input);
+    case "stopPlayerPreviewHost": return stopPlayerPreviewHost(input);
+    case "renderStill": return renderStill(input);
+    case "startExport": return startExport(input);
+    case "getExportStatus": return getExportStatus(input);
+    case "cancelExport": return cancelExport(input);
+    case "indexAssets": return indexAssets(input);
+    case "readDiagnostics": return readDiagnostics(input);
+    default: throw new Error(`Unsupported Sparo Video Engine action: ${action}`);
   }
+}
 
-  emit({ type: "run.completed", output });
+async function handleRequest(request) {
+  const runId = request.runId || request.run_id || `remotion-${Date.now()}`;
+  const bridgeId = request.bridgeId || request.bridge_id || "builtin-remotion-runtime";
+  const topLevelWorkspacePath = request.workspacePath || request.workspace_path || null;
+  const input = {
+    ...(request.input && typeof request.input === "object" ? request.input : {}),
+    ...(topLevelWorkspacePath ? { workspacePath: topLevelWorkspacePath } : {}),
+  };
+  return runWithRequestContext({ bridgeId, runId }, async () => {
+    emitRunEvent({ type: "run.started", run_id: runId });
+    try {
+      const output = await dispatchAction(request.action, input);
+      emitRunEvent({ type: "run.completed", output });
+    } catch (error) {
+      emitRunEvent({
+        type: "run.failed",
+        error: { message: error instanceof Error ? error.message : String(error) },
+      });
+    }
+  });
+}
+
+async function main() {
+  const lines = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
+  const activeRequests = new Set();
+  let sawRequest = false;
+  for await (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    sawRequest = true;
+    let request;
+    try {
+      request = JSON.parse(line);
+    } catch (error) {
+      process.stderr.write(`Invalid Bridge worker request: ${error instanceof Error ? error.message : String(error)}\n`);
+      process.exitCode = 1;
+      return;
+    }
+    const active = handleRequest(request).finally(() => activeRequests.delete(active));
+    activeRequests.add(active);
+  }
+  if (!sawRequest) {
+    process.stderr.write("No Bridge worker request received on stdin\n");
+    process.exitCode = 1;
+  }
+  await Promise.allSettled(activeRequests);
 }
 
 main().catch((error) => {
-  emit({
-    type: "run.failed",
-    error: {
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-    },
-  });
+  process.stderr.write(`Bridge worker failed: ${error instanceof Error ? error.message : String(error)}\n`);
   process.exitCode = 1;
 });

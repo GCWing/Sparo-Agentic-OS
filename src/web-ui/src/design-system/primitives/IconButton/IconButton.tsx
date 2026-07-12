@@ -22,7 +22,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>((
   children,
   variant = 'default',
   size = 'medium',
-  shape = 'square',
+  shape = 'circle',
   isLoading = false,
   tooltip,
   tooltipPlacement = 'top',

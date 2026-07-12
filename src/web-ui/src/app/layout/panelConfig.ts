@@ -58,6 +58,19 @@ export const RIGHT_PANEL_CONFIG = {
   TRANSITION_DURATION: 200,     // Mode transition duration (ms)
 } as const;
 
+/** Canvas-first Product Apps need enough width for their primary workbench. */
+export const WIDE_WORKBENCH_RIGHT_PANEL_CONFIG = {
+  ...RIGHT_PANEL_CONFIG,
+  COMFORTABLE_DEFAULT: 720,
+  EXPANDED_THRESHOLD: 820,
+  SNAP_POINTS: [400, 540, 720, 900, 1100],
+} as const;
+
+export const WIDE_WORKBENCH_PRODUCT_APP_IDS = new Set([
+  'builtin-excel-live',
+  'builtin-remotion-live',
+]);
+
 // ==================== Common config ====================
 export const PANEL_COMMON_CONFIG = {
   RESIZER_WIDTH: 4,             // Resizer width
@@ -79,12 +92,25 @@ export const PANEL_SHORTCUTS = {
 
 // ==================== Utility functions ====================
 
+export type PanelSizeConfig = {
+  readonly COLLAPSED_WIDTH: number;
+  readonly COMPACT_WIDTH: number;
+  readonly COMPACT_THRESHOLD: number;
+  readonly COMFORTABLE_MIN: number;
+  readonly COMFORTABLE_DEFAULT: number;
+  readonly EXPANDED_THRESHOLD: number;
+  readonly MAX_WIDTH: number;
+  readonly SNAP_POINTS: readonly number[];
+  readonly SNAP_RANGE: number;
+  readonly TRANSITION_DURATION: number;
+};
+
 /**
  * Get panel display mode by width.
  */
 export function getPanelDisplayMode(
   width: number,
-  config: typeof LEFT_PANEL_CONFIG | typeof RIGHT_PANEL_CONFIG
+  config: PanelSizeConfig
 ): PanelDisplayMode {
   if (width <= 0) return 'collapsed';
   if (width < config.COMPACT_THRESHOLD) return 'compact';
@@ -97,7 +123,7 @@ export function getPanelDisplayMode(
  */
 export function getModeWidth(
   mode: PanelDisplayMode,
-  config: typeof LEFT_PANEL_CONFIG | typeof RIGHT_PANEL_CONFIG
+  config: PanelSizeConfig
 ): number {
   switch (mode) {
     case 'collapsed':
@@ -122,7 +148,7 @@ export function getModeWidth(
  */
 export function getSnappedWidth(
   width: number,
-  config: typeof LEFT_PANEL_CONFIG | typeof RIGHT_PANEL_CONFIG,
+  config: PanelSizeConfig,
   isDragging: boolean = false
 ): number {
   // Do not force snap while dragging; return original width.
@@ -162,7 +188,7 @@ export function getNextMode(currentMode: PanelDisplayMode): PanelDisplayMode {
  */
 export function clampWidth(
   width: number,
-  config: typeof LEFT_PANEL_CONFIG | typeof RIGHT_PANEL_CONFIG,
+  config: PanelSizeConfig,
   containerWidth?: number
 ): number {
   let maxWidth: number = config.MAX_WIDTH;

@@ -133,9 +133,10 @@ type RawMemoryRef = {
 
 type RawRuntimeInstanceRef = {
   id: string;
-  product_app_id: string;
-  app_version: string;
-  component_lock_digest: string;
+  slot_id: string;
+  app_id: string;
+  release_id: string;
+  config_revision: string;
   product_app_surface_id: string;
   surface_id: string;
 };
@@ -148,9 +149,11 @@ type RawWorkTitleState = {
 
 type RawWorkAppRef = {
   kind: WorkAppRef['kind'];
+  slot_id: string;
   app_id: string;
-  app_version?: string;
-  component_lock_digest?: string;
+  release_id: string;
+  config_revision: string;
+  data_schema_version: string;
 };
 
 type RawWorkComponentRef = {
@@ -386,18 +389,22 @@ function fromRawScope(scope: RawWorkScope): WorkScope {
 function toRawAppRef(app: WorkAppRef): RawWorkAppRef {
   return {
     kind: app.kind,
+    slot_id: app.slotId,
     app_id: app.appId,
-    app_version: app.appVersion ?? '',
-    component_lock_digest: app.componentLockDigest ?? '',
+    release_id: app.releaseId,
+    config_revision: app.configRevision,
+    data_schema_version: app.dataSchemaVersion,
   };
 }
 
 function fromRawAppRef(app: RawWorkAppRef): WorkAppRef {
   return {
     kind: app.kind,
+    slotId: app.slot_id,
     appId: app.app_id,
-    appVersion: app.app_version || undefined,
-    componentLockDigest: app.component_lock_digest || undefined,
+    releaseId: app.release_id,
+    configRevision: app.config_revision,
+    dataSchemaVersion: app.data_schema_version,
   };
 }
 
@@ -613,9 +620,10 @@ function fromRawMemoryRef(ref: RawMemoryRef): MemoryRef {
 function fromRawRuntimeInstanceRef(ref: RawRuntimeInstanceRef): RuntimeInstanceRef {
   return {
     id: ref.id,
-    productAppId: ref.product_app_id,
-    appVersion: ref.app_version,
-    componentLockDigest: ref.component_lock_digest,
+    slotId: ref.slot_id,
+    appId: ref.app_id,
+    releaseId: ref.release_id,
+    configRevision: ref.config_revision,
     productAppSurfaceId: ref.product_app_surface_id,
     surfaceId: ref.surface_id,
   };

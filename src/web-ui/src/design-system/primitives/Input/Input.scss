@@ -11,7 +11,7 @@
 
   &--small {
     .ds-input-container {
-      height: 28px;
+      height: var(--button-height-sm, 32px);
       font-size: 13px;
     }
 
@@ -54,11 +54,11 @@
 
       &:focus-within {
         background: var(--element-bg-soft, rgba(255, 255, 255, 0.08));
-        border-color: transparent;
+        border-color: var(--ds-input-focus-border, transparent);
       }
 
       &:hover:focus-within {
-        border-color: var(--color-accent-500, #60a5fa);
+        border-color: var(--ds-input-focus-border, var(--color-accent-500, #60a5fa));
       }
     }
   }
@@ -68,6 +68,16 @@
       background: transparent;
       border: 1px solid var(--border-medium, rgba(255, 255, 255, 0.20));
     }
+  }
+
+  &--pill {
+    .ds-input-container {
+      border-radius: var(--ds-radius-full, 999px);
+    }
+  }
+
+  &--focus-danger {
+    --ds-input-focus-border: var(--ds-color-danger-border, var(--color-error, #c77070));
   }
 
   &--error {
@@ -122,6 +132,10 @@
     border-color: var(--color-accent-500, #60a5fa);
     outline: none;
   }
+}
+
+.ds-input-wrapper--focus-danger .ds-input-container:focus-within {
+  border-color: var(--ds-color-danger, var(--color-error, #c77070)) !important;
 }
 
 .ds-input {

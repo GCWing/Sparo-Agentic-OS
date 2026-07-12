@@ -26,6 +26,7 @@
   "appearanceThemeList": "Theme",
   "followSystemTheme": "Follow system",
   "remoteConnect": "Remote Control",
+  "remoteConnectRequiresWorkspace": "Open a workspace before using Device Network.",
   "remoteControlConnected": "Remote control connected",
   "remoteControlWaiting": "Remote control – waiting for connection",
   "remoteControlSetup": "Set up connection",

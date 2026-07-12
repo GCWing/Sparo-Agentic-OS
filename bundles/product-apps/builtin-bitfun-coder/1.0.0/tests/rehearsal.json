@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "scenarios": [
+    {
+      "id": "critical-user-path",
+      "title": "Open BitFun Coder and complete its first useful action",
+      "description": "An efficient, high-completion Code Agent from the open-source community for implementation, debugging, refactoring, troubleshooting, and other software development work.",
+      "kind": "user-path",
+      "steps": [
+        {
+          "id": "open-app",
+          "action": "open",
+          "target": "agent-session",
+          "expect": [
+            "BitFun Coder opens"
+          ]
+        },
+        {
+          "id": "observe-ready-state",
+          "action": "observe",
+          "target": "work-outcome",
+          "expect": [
+            "A usable ready state is visible"
+          ]
+        }
+      ],
+      "expected": [
+        "The app opens without a fatal runtime issue",
+        "The primary workflow exposes an observable path"
+      ]
+    }
+  ]
+}

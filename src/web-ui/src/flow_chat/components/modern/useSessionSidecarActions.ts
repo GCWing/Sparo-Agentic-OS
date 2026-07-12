@@ -43,9 +43,12 @@ export function useSessionSidecarActions(): FlowChatSidecarActionViewModel[] {
     }
 
     const agentSessionBinding = activeSession.customMetadata?.agentSessionBinding;
-    const builderAppId = agentSessionBinding?.subject.kind === 'product-app'
-      ? agentSessionBinding.subject.id
-      : storeBuilderAppId;
+    const subjectData = agentSessionBinding?.surface?.data;
+    const boundDraftAppId = agentSessionBinding?.subject.kind === 'builder-draft' &&
+      subjectData && typeof subjectData.appId === 'string'
+      ? subjectData.appId
+      : undefined;
+    const builderAppId = boundDraftAppId ?? storeBuilderAppId;
 
     const extra: Record<string, unknown> = {
       appId: builderAppId,

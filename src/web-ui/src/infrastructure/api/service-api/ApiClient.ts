@@ -25,10 +25,19 @@ const SENSITIVE_KEY_PATTERNS = [
   'password',
   'authorization'
 ];
+const LARGE_PAYLOAD_KEY_PATTERNS = [
+  'pcm16base64',
+  'pcm16_base64',
+];
 
 function isSensitiveKey(key: string): boolean {
   const normalized = key.toLowerCase();
   return SENSITIVE_KEY_PATTERNS.some(pattern => normalized.includes(pattern));
+}
+
+function isLargePayloadKey(key: string): boolean {
+  const normalized = key.toLowerCase();
+  return LARGE_PAYLOAD_KEY_PATTERNS.some(pattern => normalized.includes(pattern));
 }
 
 function maskSensitiveValue(value: unknown): string {
@@ -39,6 +48,13 @@ function maskSensitiveValue(value: unknown): string {
     return '***';
   }
   return `${value.slice(0, 4)}***${value.slice(-4)}`;
+}
+
+function summarizeLargePayloadValue(value: unknown): string {
+  if (typeof value !== 'string') {
+    return '[redacted payload]';
+  }
+  return `[redacted payload: ${value.length} chars]`;
 }
 
 function sanitizeForLog(value: unknown, parentKey?: string): unknown {
@@ -54,6 +70,9 @@ function sanitizeForLog(value: unknown, parentKey?: string): unknown {
     if (parentKey && isSensitiveKey(parentKey)) {
       return maskSensitiveValue(value);
     }
+    if (parentKey && isLargePayloadKey(parentKey)) {
+      return summarizeLargePayloadValue(value);
+    }
     return value;
   }
 
@@ -63,6 +82,10 @@ function sanitizeForLog(value: unknown, parentKey?: string): unknown {
   for (const [key, rawVal] of Object.entries(obj)) {
     if (isSensitiveKey(key)) {
       sanitized[key] = maskSensitiveValue(rawVal);
+      continue;
+    }
+    if (isLargePayloadKey(key)) {
+      sanitized[key] = summarizeLargePayloadValue(rawVal);
       continue;
     }
 

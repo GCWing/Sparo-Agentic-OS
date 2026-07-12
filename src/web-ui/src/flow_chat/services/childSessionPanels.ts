@@ -1,6 +1,7 @@
 import { i18nService } from '@/infrastructure/i18n';
 import { appManager } from '@/app/services/AppManager';
 import { openSession } from '@/app/navigation/navigationController';
+import type { OpenWorkspaceSessionResult } from '@/app/navigation/navigationController';
 import type { WorkspaceSurfaceContext } from '@/app/navigation/workspaceSurfaceTypes';
 import { createTab } from '@/shared/utils/tabUtils';
 import type { PanelContent } from '@/app/components/panels/base/types';
@@ -122,8 +123,10 @@ export async function openMainSession(
     workspaceId?: string;
     activateWorkspace?: (workspaceId: string) => void | Promise<unknown>;
     context?: WorkspaceSurfaceContext | null;
+    commitPendingSurface?: boolean;
+    navigationEpoch?: number;
   }
-): Promise<void> {
+): Promise<OpenWorkspaceSessionResult> {
   appManager.updateLayout({
     leftPanelActiveTab: 'sessions',
   });
@@ -132,7 +135,11 @@ export async function openMainSession(
     await options.activateWorkspace(options.workspaceId);
   }
 
-  await openSession(sessionId, { context: options?.context });
+  return openSession(sessionId, {
+    context: options?.context,
+    commitPendingSurface: options?.commitPendingSurface,
+    navigationEpoch: options?.navigationEpoch,
+  });
 }
 
 export function openBtwSessionInAuxPane(params: {

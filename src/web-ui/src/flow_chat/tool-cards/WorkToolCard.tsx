@@ -148,14 +148,13 @@ function normalizeScope(rawValue: unknown): WorkScope {
 function normalizeAppRef(rawValue: unknown): WorkAppRef | null {
   const raw = asRecord(rawValue);
   const kind = stringValue(raw, 'kind') as WorkAppRef['kind'] | undefined;
+  const slotId = stringValue(raw, 'slotId', 'slot_id');
   const appId = stringValue(raw, 'appId', 'app_id');
-  const appVersion = stringValue(raw, 'appVersion', 'app_version');
-  const componentLockDigest = stringValue(raw, 'componentLockDigest', 'component_lock_digest');
-  if (kind === 'native_app') {
-    return appId ? { kind, appId } : null;
-  }
-  if (kind !== 'product_app' || !appId || !appVersion || !componentLockDigest) return null;
-  return { kind, appId, appVersion, componentLockDigest };
+  const releaseId = stringValue(raw, 'releaseId', 'release_id');
+  const configRevision = stringValue(raw, 'configRevision', 'config_revision');
+  const dataSchemaVersion = stringValue(raw, 'dataSchemaVersion', 'data_schema_version');
+  if (!kind || !slotId || !appId || !releaseId || !configRevision || !dataSchemaVersion) return null;
+  return { kind, slotId, appId, releaseId, configRevision, dataSchemaVersion };
 }
 
 function normalizeSubject(rawValue: unknown): WorkSubject {

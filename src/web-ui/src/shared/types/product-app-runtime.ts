@@ -1,9 +1,13 @@
 export interface ProductAppRuntimeContext {
   workId: string;
   runtimeInstanceId: string;
-  productAppId: string;
-  productAppVersion: string;
-  componentLockDigest: string;
+  slotId: string;
+  appId: string;
+  /** Historical event payload alias; new runtime code must use appId. */
+  productAppId?: string;
+  releaseId: string;
+  configRevision: string;
+  dataSchemaVersion: string;
   productAppSurfaceId: string;
   surfaceId: string;
   hostSurfaceId: string;

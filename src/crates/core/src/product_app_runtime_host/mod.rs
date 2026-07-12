@@ -28,6 +28,7 @@ pub use crate::product_app_runtime_host_engine::storage::ProductAppRuntimeHostSt
 pub use crate::product_app_runtime_host_engine::types::{
     AiPermissions as ProductAppRuntimeHostAiPermissions, EsmDep as ProductAppRuntimeHostEsmDep,
     FsPermissions as ProductAppRuntimeHostFsPermissions,
+    IframePermissions as ProductAppRuntimeHostIframePermissions,
     NetPermissions as ProductAppRuntimeHostNetPermissions,
     NodePermissions as ProductAppRuntimeHostNodePermissions, NpmDep as ProductAppRuntimeHostNpmDep,
     PathScope as ProductAppRuntimeHostPathScope, ProductAppRuntimeHostAiContext,

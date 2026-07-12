@@ -40,12 +40,14 @@ export interface ProductAppRuntimeTabMetadata {
 
 export interface ProductAppRuntimeSessionMetadata {
   appId: string;
+  slotId?: string | null;
+  releaseId: string;
+  configRevision?: string | null;
   appName: string;
   hostSurfaceId: string;
   hostSurfaceName?: string;
   entityId?: string | null;
   profile: 'product-app-runtime' | string;
-  version?: string | number;
   sourceRevision?: string;
   interactionTitle?: string;
   scope: AppScope;
@@ -64,8 +66,6 @@ export type AgentSessionBindingMode =
   | (string & {});
 
 export type AgentSessionBoundSubjectKind =
-  | 'product-app'
-  | 'component'
   | 'builder-draft'
   | 'artifact'
   | 'file'
@@ -75,22 +75,8 @@ export type AgentSessionBoundSubjectKind =
 
 export type AppBuilderSubject =
   | {
-      kind: 'product-app';
-      appId: string;
-      version?: string;
-      packageRoot: string;
-    }
-  | {
-      kind: 'component';
-      componentId: string;
-      componentKind: string;
-      version?: string;
-      packageRoot: string;
-    }
-  | {
       kind: 'builder-draft';
       draftId: string;
-      packageRoot: string;
     };
 
 export type AppBuilderFactStatus =

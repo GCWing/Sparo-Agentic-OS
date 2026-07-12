@@ -14,12 +14,22 @@
       "en-US": {
         "name": "BitFun Coder",
         "description": "An efficient, high-completion Code Agent from the open-source community for implementation, debugging, refactoring, troubleshooting, and other software development work.",
-        "tags": ["built-in", "open-source", "coding", "agent"]
+        "tags": [
+          "built-in",
+          "open-source",
+          "coding",
+          "agent"
+        ]
       },
       "zh-CN": {
         "name": "BitFun Coder",
         "description": "来自开源社区的高效、高完成率 Code Agent，全面处理实现、调试、重构、排障等软件开发任务。",
-        "tags": ["内置", "开源", "编码", "Agent"]
+        "tags": [
+          "内置",
+          "开源",
+          "编码",
+          "Agent"
+        ]
       }
     }
   },
@@ -129,5 +139,11 @@
     "session.write",
     "model.invoke",
     "tool.invoke"
-  ]
+  ],
+  "dataLifecycle": {
+    "retention": "userManaged",
+    "deletion": "deleteOnUserRequest",
+    "migration": "exportImport",
+    "share": "declaredWorkObjectsOnly"
+  }
 }

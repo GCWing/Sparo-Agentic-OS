@@ -11,13 +11,94 @@
 import { useCallback } from 'react';
 import { FlowChatManager } from '../services/FlowChatManager';
 import { notificationService } from '@/shared/notification-system';
-import type { ContextItem, ImageContext } from '@/shared/types/context';
+import type {
+  ContextItem,
+  ImageContext,
+  SpreadsheetFocusCacheCoverage,
+  SpreadsheetFocusContext,
+} from '@/shared/types/context';
 import type { TriggerSource } from '@/shared/types/session-history';
 import type { AIModelConfig, DefaultModelsConfig } from '@/infrastructure/config/types';
 import { createLogger } from '@/shared/utils/logger';
 import { descriptorFromAgentType } from '../domain/sessionDescriptor';
+import {
+  isSpreadsheetFocusBoundToSession,
+  spreadsheetFormulaResultsTrustworthy,
+  spreadsheetFocusMetadata,
+  useExcelLiveFocusStore,
+} from '@/app/agentic-os/excel-live/excelLiveFocusStore';
 
 const log = createLogger('FlowChat');
+
+function formatSpreadsheetCacheCoverage(
+  coverage: SpreadsheetFocusCacheCoverage | undefined,
+): string {
+  if (coverage == null) return 'unknown';
+  if (typeof coverage === 'number') {
+    if (coverage >= 0 && coverage <= 1) return `${Math.round(coverage * 100)}%`;
+    return String(coverage);
+  }
+
+  const cached = coverage.cachedCellCount ?? coverage.loadedCellCount;
+  const selected = coverage.selectedCellCount ?? coverage.totalCellCount;
+  if (typeof cached === 'number' && typeof selected === 'number') {
+    return `${cached}/${selected} cells`;
+  }
+  if (typeof coverage.ratio === 'number') {
+    return `${Math.round(coverage.ratio * 100)}%`;
+  }
+  return JSON.stringify(coverage);
+}
+
+function formatSpreadsheetFreshness(capturedAt: number, sendCapturedAt: number): string {
+  const hasCapturedAt = Number.isFinite(capturedAt) && capturedAt > 0;
+  const safeCapturedAt = hasCapturedAt ? capturedAt : sendCapturedAt;
+  const capturedIso = hasCapturedAt ? new Date(safeCapturedAt).toISOString() : 'unknown';
+  const ageMs = Math.max(0, sendCapturedAt - safeCapturedAt);
+  return `${capturedIso}; age at send ${ageMs} ms`;
+}
+
+export function formatSpreadsheetFocusContext(
+  context: SpreadsheetFocusContext,
+  sendCapturedAt: number,
+): string {
+  const formulaTrustworthy = spreadsheetFormulaResultsTrustworthy(context);
+  const lines = [
+    `[Spreadsheet Focus (${context.role}): ${context.sheetName}!${context.a1}]`,
+    `Binding: session=${context.sessionId || 'unbound'}; workbook=${context.workbookId}${context.workbookPath ? ` (${context.workbookPath})` : ''}`,
+    `Selection: ${context.selectionKind}; size=${context.rowCount}x${context.columnCount}`,
+    `Mode: ${context.mode || 'unknown'}`,
+    `Revision: ${context.revision ?? 'unknown'}`,
+    `Cache: ${context.cacheComplete ? 'complete' : 'incomplete'}; coverage=${formatSpreadsheetCacheCoverage(context.cacheCoverage)}`,
+    `Formula results: ${formulaTrustworthy ? (context.formulaResultsFresh === true ? 'fresh' : 'no untrusted formula evidence') : 'stale/unknown and untrusted'}; calculationStatus=${JSON.stringify(context.calculationStatus ?? null)}`,
+    `Fidelity: ${JSON.stringify(context.fidelity ?? null)}`,
+    `Freshness: ${formatSpreadsheetFreshness(context.capturedAt, sendCapturedAt)}`,
+  ];
+
+  if (context.valueSummary) {
+    lines.push(
+      `${context.cacheComplete ? 'Value summary' : 'Cached value summary (partial, not authoritative)'}: ${JSON.stringify(context.valueSummary)}`,
+    );
+  }
+
+  // Defense in depth: the store already strips previews that lack complete
+  // cache evidence, but persisted contexts may predate that rule.
+  if (!formulaTrustworthy) {
+    lines.push('Preview TSV: omitted because formula results are stale, cached, or not explicitly proven fresh. Inspect formulas, but require recalculation before trusting their numeric results.');
+  } else if (context.cacheComplete && context.previewTsv) {
+    lines.push(
+      context.previewTruncated
+        ? `Preview TSV (truncated):\n\`\`\`tsv\n${context.previewTsv}\n\`\`\``
+        : `Preview TSV:\n\`\`\`tsv\n${context.previewTsv}\n\`\`\``,
+    );
+  } else if (!context.cacheComplete) {
+    lines.push('Preview TSV: omitted because the selection cache is incomplete. Read the range before relying on cell values.');
+  } else {
+    lines.push('Preview TSV: unavailable for this captured focus. Use read_range / summarize_range when values are needed.');
+  }
+
+  return lines.join('\n');
+}
 
 function normalizeModelSelection(
   modelId: string | undefined,
@@ -101,13 +182,14 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
     // below. Leaving the placeholder in the prompt misleads the model into
     // looking up a non-existent file. The display message keeps the tag so
     // the UI can still render the inline pill.
-    const stripImageTags = (text: string): string =>
+    const stripOutOfBandContextTags = (text: string): string =>
       text
         .replace(/#img:[^\s\n]+\s?/g, '')
+        .replace(/#sheet:[^\s\n]+\s?/g, '')
         .replace(/[ \t]+\n/g, '\n')
         .replace(/\n{3,}/g, '\n\n')
         .trim();
-    const aiTrimmedMessage = stripImageTags(trimmedMessage);
+    const aiTrimmedMessage = stripOutOfBandContextTags(trimmedMessage);
     let sessionId = currentSessionId;
     log.debug('Send message initiated', {
       textLength: trimmedMessage.length,
@@ -137,7 +219,31 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
         log.debug('Reusing existing session', { sessionId });
       }
 
-      const imageContexts = contexts.filter(ctx => ctx.type === 'image') as ImageContext[];
+      const focusState = useExcelLiveFocusStore.getState();
+      const ambientCandidate = focusState.includeOnSend
+        ? focusState.getAmbientForSession(sessionId)
+        : null;
+      // Only attach ambient spreadsheet focus to the chat session that is
+      // actually bound to the Excel Live surface which produced it.
+      const ambientFocus = ambientCandidate
+        && isSpreadsheetFocusBoundToSession(ambientCandidate, sessionId)
+        ? ambientCandidate
+        : null;
+      // ContextStore is global and pinned tags can outlive a surface. Reject
+      // every spreadsheet context that is not bound to this exact session,
+      // and replace any stored ambient copy with the single latest snapshot.
+      const sessionContexts = contexts.filter((context) => (
+        context.type !== 'spreadsheet-focus'
+        || isSpreadsheetFocusBoundToSession(context, sessionId)
+      ));
+      const explicitContexts = sessionContexts.filter((context) => (
+        context.type !== 'spreadsheet-focus' || context.role !== 'ambient'
+      ));
+      const mergedContexts: ContextItem[] = ambientFocus
+        ? [ambientFocus, ...explicitContexts]
+        : explicitContexts;
+
+      const imageContexts = mergedContexts.filter(ctx => ctx.type === 'image') as ImageContext[];
       const clipboardImages = imageContexts.filter(ctx => !ctx.isLocal && ctx.dataUrl);
 
       if (clipboardImages.length > 0) {
@@ -176,9 +282,10 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
 
       let fullMessage = aiTrimmedMessage;
       const displayMessage = options?.displayMessage?.trim() || trimmedMessage;
+      const sendCapturedAt = Date.now();
 
-      if (contexts.length > 0) {
-        const fullContextSection = contexts.map(ctx => {
+      if (mergedContexts.length > 0) {
+        const fullContextSection = mergedContexts.map(ctx => {
           switch (ctx.type) {
             case 'file':
               return `[File: ${ctx.relativePath || ctx.filePath}]`;
@@ -220,6 +327,8 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
               lines.push(`Element Summary:\n\`\`\`json\n${JSON.stringify(ctx.element, null, 2)}\n\`\`\``);
               return lines.join('\n');
             }
+            case 'spreadsheet-focus':
+              return formatSpreadsheetFocusContext(ctx, sendCapturedAt);
             default:
               return '';
           }
@@ -255,6 +364,25 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
           }
         : undefined;
 
+      const spreadsheetContexts = mergedContexts.filter(
+        (context): context is SpreadsheetFocusContext => context.type === 'spreadsheet-focus',
+      );
+      const spreadsheetFocusMessageMetadata = spreadsheetContexts.length > 0
+        ? {
+            capturedForSendAt: sendCapturedAt,
+            ambient: ambientFocus ? spreadsheetFocusMetadata(ambientFocus) : null,
+            pinned: spreadsheetContexts
+              .filter(context => context.role === 'pinned')
+              .map(spreadsheetFocusMetadata),
+          }
+        : undefined;
+      const messageMetadata = spreadsheetFocusMessageMetadata
+        ? {
+            ...(options?.metadata ?? {}),
+            spreadsheetFocus: spreadsheetFocusMessageMetadata,
+          }
+        : options?.metadata;
+
       await flowChatManager.sendMessage(
         fullMessage,
         sessionId || undefined,
@@ -263,7 +391,7 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
         undefined,
         {
           ...imageContextsForBackend,
-          metadata: options?.metadata,
+          metadata: messageMetadata,
           triggerSource: options?.triggerSource,
           systemReminderOverride: options?.systemReminderOverride,
           localDialogTurnId: options?.localDialogTurnId,
@@ -278,7 +406,7 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
       log.info('Message sent successfully', {
         sessionId,
         composerAgentType: currentAgentType || 'Runno',
-        contextCount: contexts.length,
+        contextCount: mergedContexts.length,
         imageCount: imageContexts.length,
       });
     } catch (error) {

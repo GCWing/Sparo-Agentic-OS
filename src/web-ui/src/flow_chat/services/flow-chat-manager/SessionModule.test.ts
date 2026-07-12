@@ -5,7 +5,12 @@ import {
   getProductAppRuntimeSessionDescriptor,
 } from '../../domain/sessionDescriptor';
 import type { FlowChatContext } from './types';
-import { createChatSession, retargetEmptyChatSessionWorkspace } from './SessionModule';
+import {
+  createChatSession,
+  ensureBackendSession,
+  retryCreateBackendSession,
+  retargetEmptyChatSessionWorkspace,
+} from './SessionModule';
 
 const agentApiMock = vi.hoisted(() => ({
   createSession: vi.fn(),
@@ -140,6 +145,34 @@ describe('createChatSession workspace scope', () => {
     expect(store.getState().sessions.get(sessionId)?.workspacePath).toBe(workspacePath);
   });
 
+  it('honors a caller-reserved session id for an optimistic shell', async () => {
+    const store = FlowChatStore.getInstance();
+    const context = createTestContext(store);
+    const sessionId = `optimistic-session-${Date.now()}`;
+    sessionIds.push(sessionId);
+    agentApiMock.createSession.mockResolvedValue({
+      sessionId,
+      sessionName: 'Optimistic Product App',
+      agentType: 'product-app-agent',
+    });
+
+    await createChatSession(
+      context,
+      {
+        storageScope: 'agentic_os',
+        sessionName: 'Optimistic Product App',
+        navigate: false,
+      },
+      getProductAppRuntimeSessionDescriptor('product-app-agent'),
+      { sessionId },
+    );
+
+    expect(agentApiMock.createSession).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId }),
+    );
+    expect(store.getState().sessions.has(sessionId)).toBe(true);
+  });
+
   it('retargets the current empty workspace session without opening target workspace history', async () => {
     const store = FlowChatStore.getInstance();
     const context = createTestContext(store);
@@ -192,5 +225,143 @@ describe('createChatSession workspace scope', () => {
       'workspace',
     );
     expect(openSessionMock).toHaveBeenCalledWith(sessionId);
+  });
+
+  it('shares one backend readiness request across concurrent user actions', async () => {
+    const store = FlowChatStore.getInstance();
+    const context = createTestContext(store);
+    const sessionId = `readiness-session-${Date.now()}`;
+    sessionIds.push(sessionId);
+    store.createSession(
+      sessionId,
+      { workspacePath: 'D:/workspace/current', storageScope: 'workspace' },
+      undefined,
+      'Readiness',
+      128128,
+      getDefaultSessionDescriptor(),
+      'D:/workspace/current',
+      'workspace',
+    );
+
+    let release!: () => void;
+    agentApiMock.ensureCoordinatorSession.mockImplementationOnce(() => (
+      new Promise<void>((resolve) => { release = resolve; })
+    ));
+    const finishRuntimeWorkspaceSync = vi.fn(async () => {});
+
+    const first = ensureBackendSession(context, sessionId, finishRuntimeWorkspaceSync);
+    const second = ensureBackendSession(context, sessionId);
+    expect(agentApiMock.ensureCoordinatorSession).toHaveBeenCalledTimes(1);
+
+    release();
+    await Promise.all([first, second]);
+    expect(finishRuntimeWorkspaceSync).toHaveBeenCalledTimes(1);
+  });
+
+  it('waits for store-level transcript hydration before coordinator restore', async () => {
+    const store = FlowChatStore.getInstance();
+    const context = createTestContext(store);
+    const sessionId = `history-priority-${Date.now()}`;
+    sessionIds.push(sessionId);
+    store.createSession(
+      sessionId,
+      { workspacePath: 'D:/workspace/current', storageScope: 'workspace' },
+      undefined,
+      'History priority',
+      128128,
+      getDefaultSessionDescriptor(),
+      'D:/workspace/current',
+      'workspace',
+    );
+    let releaseHistory!: () => void;
+    const historyLoad = new Promise<void>((resolve) => { releaseHistory = resolve; });
+    const pendingHistorySpy = vi
+      .spyOn(store, 'getPendingSessionHistoryLoad')
+      .mockReturnValue(historyLoad);
+    agentApiMock.ensureCoordinatorSession.mockResolvedValue(undefined);
+
+    const readiness = ensureBackendSession(context, sessionId);
+    await Promise.resolve();
+    expect(agentApiMock.ensureCoordinatorSession).not.toHaveBeenCalled();
+
+    releaseHistory();
+    await readiness;
+    expect(agentApiMock.ensureCoordinatorSession).toHaveBeenCalledTimes(1);
+    pendingHistorySpy.mockRestore();
+  });
+
+  it('does not drop runtime workspace sync when it joins an existing readiness request', async () => {
+    const store = FlowChatStore.getInstance();
+    const context = createTestContext(store);
+    const sessionId = `readiness-reverse-${Date.now()}`;
+    sessionIds.push(sessionId);
+    store.createSession(
+      sessionId,
+      { workspacePath: 'D:/workspace/current', storageScope: 'workspace' },
+      undefined,
+      'Readiness reverse',
+      128128,
+      getDefaultSessionDescriptor(),
+      'D:/workspace/current',
+      'workspace',
+    );
+    let release!: () => void;
+    agentApiMock.ensureCoordinatorSession.mockImplementationOnce(() => (
+      new Promise<void>((resolve) => { release = resolve; })
+    ));
+    let releaseWorkspaceSync!: () => void;
+    const finishRuntimeWorkspaceSync = vi.fn(() => (
+      new Promise<void>((resolve) => { releaseWorkspaceSync = resolve; })
+    ));
+
+    const userAction = ensureBackendSession(context, sessionId);
+    const hostSync = ensureBackendSession(context, sessionId, finishRuntimeWorkspaceSync);
+    let userActionSettled = false;
+    void userAction.then(() => { userActionSettled = true; });
+    release();
+    await vi.waitFor(() => expect(finishRuntimeWorkspaceSync).toHaveBeenCalledTimes(1));
+    expect(userActionSettled).toBe(false);
+
+    const thirdAction = ensureBackendSession(context, sessionId);
+    let thirdActionSettled = false;
+    void thirdAction.then(() => { thirdActionSettled = true; });
+    await Promise.resolve();
+    expect(thirdActionSettled).toBe(false);
+
+    releaseWorkspaceSync();
+    await Promise.all([userAction, hostSync, thirdAction]);
+
+    expect(agentApiMock.ensureCoordinatorSession).toHaveBeenCalledTimes(1);
+    expect(finishRuntimeWorkspaceSync).toHaveBeenCalledTimes(1);
+  });
+
+  it('coalesces concurrent backend session recreation attempts', async () => {
+    const store = FlowChatStore.getInstance();
+    const context = createTestContext(store);
+    const sessionId = `retry-create-${Date.now()}`;
+    sessionIds.push(sessionId);
+    store.createSession(
+      sessionId,
+      { workspacePath: 'D:/workspace/current', storageScope: 'workspace' },
+      undefined,
+      'Retry create',
+      128128,
+      getDefaultSessionDescriptor(),
+      'D:/workspace/current',
+      'workspace',
+    );
+    let release!: () => void;
+    agentApiMock.createSession.mockImplementationOnce(() => (
+      new Promise<void>((resolve) => { release = resolve; })
+    ));
+
+    const first = retryCreateBackendSession(context, sessionId);
+    const second = retryCreateBackendSession(context, sessionId);
+    const concurrentReadiness = ensureBackendSession(context, sessionId);
+    expect(agentApiMock.createSession).toHaveBeenCalledTimes(1);
+    expect(agentApiMock.ensureCoordinatorSession).not.toHaveBeenCalled();
+
+    release();
+    await Promise.all([first, second, concurrentReadiness]);
   });
 });

@@ -1,7 +1,8 @@
 use crate::agent_component::AgentComponentManager;
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
 use crate::bridge_component::{
-    BridgeComponentConsumer, BridgeComponentConsumerKind, BridgeComponentManager,
+    bridge_run_result_for_assistant, ensure_bridge_run_completed, BridgeComponentConsumer,
+    BridgeComponentConsumerKind, BridgeComponentManager,
 };
 use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
@@ -112,6 +113,9 @@ impl Tool for BridgeComponentCallTool {
             consumer,
         )
         .await?;
+        let operation_label = format!("Bridge capability '{}' action '{}'", capability_id, action);
+        ensure_bridge_run_completed(&operation_label, &result)?;
+        let result_for_assistant = bridge_run_result_for_assistant(None, &result);
 
         Ok(vec![ToolResult::ok(
             json!({
@@ -124,10 +128,7 @@ impl Tool for BridgeComponentCallTool {
                 "events": result.events,
                 "stderr": result.stderr,
             }),
-            Some(format!(
-                "Bridge capability {} action {} finished with status {:?}",
-                capability_id, action, result.status
-            )),
+            Some(result_for_assistant),
         )])
     }
 }
