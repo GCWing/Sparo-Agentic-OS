@@ -1,32 +1,44 @@
-import type { ProductAppCatalogEntry } from '@/infrastructure/api/service-api/AppCatalogAPI';
 import type { WorkAppRef } from './workTypes';
 
-export function productAppWorkRef(app: ProductAppCatalogEntry): WorkAppRef {
+type ImmutableProductAppRef = Pick<
+  WorkAppRef,
+  'slotId' | 'appId' | 'releaseId' | 'configRevision' | 'dataSchemaVersion'
+>;
+
+export function productAppWorkRef(app: ImmutableProductAppRef): WorkAppRef {
   return {
     kind: 'product_app',
-    appId: app.id,
-    appVersion: app.version,
-    componentLockDigest: app.componentLockDigest || app.componentLockId,
+    slotId: app.slotId,
+    appId: app.appId,
+    releaseId: app.releaseId,
+    configRevision: app.configRevision,
+    dataSchemaVersion: app.dataSchemaVersion,
   };
 }
 
+/** Core-owned surfaces still receive an explicit, stable execution identity. */
 export function nativeAppWorkRef(appId: string): WorkAppRef {
   return {
     kind: 'native_app',
+    slotId: appId,
     appId,
+    releaseId: `core-${appId}`,
+    configRevision: 'core-default',
+    dataSchemaVersion: '1',
   };
 }
 
 export function sameProductAppRef(left: WorkAppRef, right: WorkAppRef): boolean {
-  return left.kind === right.kind
-    && left.appId === right.appId
-    && left.appVersion === right.appVersion
-    && left.componentLockDigest === right.componentLockDigest;
+  return left.kind === 'product_app'
+    && right.kind === 'product_app'
+    && sameAppRef(left, right);
 }
 
 export function sameAppRef(left: WorkAppRef, right: WorkAppRef): boolean {
-  if (left.kind !== right.kind || left.appId !== right.appId) return false;
-  if (left.kind === 'native_app') return true;
-  return left.appVersion === right.appVersion
-    && left.componentLockDigest === right.componentLockDigest;
+  return left.kind === right.kind
+    && left.slotId === right.slotId
+    && left.appId === right.appId
+    && left.releaseId === right.releaseId
+    && left.configRevision === right.configRevision
+    && left.dataSchemaVersion === right.dataSchemaVersion;
 }

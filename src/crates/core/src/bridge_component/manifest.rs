@@ -28,6 +28,10 @@ pub struct BridgeComponentRuntime {
     pub entry: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub package_manager: Option<String>,
+    /// Idle lifetime for a warm daemon. `0` keeps it alive until explicit
+    /// retirement (package replacement, cancellation, or application exit).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub idle_timeout_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

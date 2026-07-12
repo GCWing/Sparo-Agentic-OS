@@ -1,335 +1,422 @@
-// remotion-live :: views.js (auto-split from ui.js; do not hand-merge)
-
-import { ICONS } from './constants.js';
-import { compositionDuration, currentComposition, frameLayers, layerBox, layerElementId, layerStyle, previewFrameKey, timelineFramePercent } from './model.js';
+import { ICONS, PLAYER_CONTROL_PROTOCOL_VERSION, PLAYER_HOST_RUNTIME_VERSION } from './constants.js';
+import { compositionDuration, currentComposition, frameLayers, layerBox, layerElementId, timelineFramePercent } from './model.js';
 import { playerHostUrl } from './player-dom.js';
-import { playerStageKey } from './preview-controller.js';
-import { playerPreviewReady, studioPreviewReady, useStudioPreview } from './preview-mode.js';
+import { playerPreviewReady, playerStageKey } from './preview-controller.js';
 import { state } from './state.js';
 import { asArray, clamp, escapeHtml, formatSMPTE, previewStageNode, t, workspaceLabel } from './util.js';
 
-function renderModeSwitch() {
-  const modes = [
-    ['player', 'modePlayer'],
-    ['studio', 'modeStudio'],
-    ['still', 'modeStill'],
-  ];
+function actualFrame() {
+  const value = Number(state.playerActualState?.frame ?? state.playerRuntimeFrame ?? state.frame);
+  return Number.isFinite(value) ? Math.round(value) : 0;
+}
+
+function transportFrame() {
+  const seeking = state.playerSeeking || state.playerInFlightCommand?.type === 'seek';
+  const desired = Number(state.playerDesiredState?.frame ?? state.frame);
+  return seeking && Number.isFinite(desired) ? Math.round(desired) : actualFrame();
+}
+
+function isFrameCommitted() {
+  const composition = currentComposition();
+  const projectRevision = state.manifest?.projectRevision || state.manifest?.sourceRevision;
+  const descriptorRevision = composition?.descriptorRevision || state.manifest?.descriptorRevision;
+  return Boolean(
+    state.playerRuntimeReady
+      && projectRevision
+      && descriptorRevision
+      && state.playerActualState?.projectRevision === projectRevision
+      && state.playerActualState?.descriptorRevision === descriptorRevision
+      && !state.playerSeeking
+      && !state.playerBuffering
+      && !state.playerRuntimePlaying
+      && state.playerCommittedFrame !== null
+      && Number(state.playerCommittedFrame) === actualFrame()
+      && actualFrame() === Math.round(Number(state.frame) || 0),
+  );
+}
+
+function previewPhase() {
+  if (state.error || state.playerHostError || state.playerPhase === 'error') return 'error';
+  if (state.phase === 'detecting') return 'detecting';
+  if (state.phase === 'snapshot') return 'snapshot';
+  if (state.phase === 'bundling') return 'bundling';
+  if (state.playerBuffering || state.playerPhase === 'buffering') return 'buffering';
+  if (state.playerSeeking || state.playerPhase === 'seeking') return 'seeking';
+  if (state.playerRuntimePlaying || state.playerPhase === 'playing') return 'playing';
+  if (state.playerPhase === 'ended') return 'ended';
+  if (state.playerRuntimeReady || state.playerPhase === 'paused' || state.playerPhase === 'ready') return 'ready';
+  if (state.playerHostLoading || state.phase === 'hostStarting' || state.playerPhase === 'connecting') return 'connecting';
+  return state.manifest ? 'loading' : state.phase || 'idle';
+}
+
+function phaseLabel(phase = previewPhase()) {
+  const keys = {
+    idle: 'waitingWorkspace',
+    detecting: 'detecting',
+    snapshot: 'loadingSnapshot',
+    bundling: 'bundling',
+    connecting: 'hostStarting',
+    loading: 'playerLoading',
+    ready: 'readyPaused',
+    playing: 'playing',
+    buffering: 'buffering',
+    seeking: 'seeking',
+    ended: 'readyPaused',
+    error: 'playerUnavailable',
+    notFound: 'projectMissing',
+    broken: 'projectBrokenTitle',
+    ambiguous: 'ambiguousTitle',
+  };
+  return t(keys[phase] || 'readyPaused');
+}
+
+function phaseTone(phase = previewPhase()) {
+  if (phase === 'error' || phase === 'broken') return 'error';
+  if (phase === 'ready') return 'success';
+  if (phase === 'buffering' || phase === 'seeking' || phase === 'ambiguous') return 'warning';
+  if (phase === 'playing') return 'accent';
+  return 'info';
+}
+
+function renderStatus(phase = previewPhase()) {
   return `
-    <div class="rl-mode-switch" role="group" aria-label="${escapeHtml(t('previewMode'))}">
-      ${modes.map(([mode, key]) => `
-        <button
-          type="button"
-          class="rl-mode-btn${state.previewMode === mode ? ' is-active' : ''}"
-          data-action="set-mode"
-          data-mode="${mode}"
-          aria-pressed="${state.previewMode === mode ? 'true' : 'false'}"
-        >${escapeHtml(t(key))}</button>
-      `).join('')}
-    </div>
+    <span class="bfui-status bfui-status--${phaseTone(phase)} rl-status" data-preview-status data-phase="${phase}">
+      <span class="bfui-status__dot" aria-hidden="true"></span>
+      <span class="rl-status__label">${escapeHtml(phaseLabel(phase))}</span>
+    </span>
   `;
 }
 
+function actualAudioState() {
+  return {
+    muted: state.playerRuntimeReady ? Boolean(state.playerRuntimeMuted) : Boolean(state.muted),
+    volume: state.playerRuntimeReady ? clamp(Number(state.playerRuntimeVolume) || 0, 0, 1) : clamp(Number(state.volume) || 0, 0, 1),
+  };
+}
 
-function syncFrameDom() {
+function syncAudioDom() {
+  const audio = actualAudioState();
+  const button = document.querySelector('[data-action="toggle-muted"]');
+  if (button) {
+    button.setAttribute('aria-label', audio.muted ? t('unmute') : t('mute'));
+    button.setAttribute('aria-pressed', audio.muted ? 'true' : 'false');
+    button.innerHTML = audio.muted ? ICONS.muted : ICONS.volume;
+  }
+  const volume = document.querySelector('[data-action="volume"]');
+  if (volume) volume.value = String(audio.muted ? 0 : audio.volume);
+}
+
+function syncPhaseDom() {
+  const phase = previewPhase();
+  const frameState = isFrameCommitted() ? 'committed' : 'pending';
+  const inspectMode = state.interactionMode === 'inspect' ? 'true' : 'false';
+  const root = document.getElementById('remotionLiveRoot');
+  const workbench = document.querySelector('.rl-workbench');
+  [root, workbench].forEach((node) => {
+    if (!node) return;
+    node.dataset.previewPhase = phase;
+    node.dataset.actualFrame = String(actualFrame());
+    node.dataset.actualPlaying = state.playerRuntimePlaying ? 'true' : 'false';
+    node.dataset.frameState = frameState;
+    node.dataset.inspectMode = inspectMode;
+    node.dataset.buffering = state.playerBuffering ? 'true' : 'false';
+    node.dataset.seeking = state.playerSeeking ? 'true' : 'false';
+  });
+
+  const current = document.querySelector('[data-preview-status]');
+  if (current && current.dataset.phase !== phase) {
+    const template = document.createElement('template');
+    template.innerHTML = renderStatus(phase).trim();
+    current.replaceWith(template.content.firstElementChild);
+  }
+
+  const sendContext = document.querySelector('[data-action="send-context"]');
+  if (sendContext) sendContext.disabled = !isFrameCommitted();
+  syncAudioDom();
+
+  const stage = previewStageNode();
+  const interactionChanged = stage && (
+    stage.dataset.runtimePhase !== phase
+      || stage.dataset.frameState !== frameState
+      || stage.dataset.inspectMode !== inspectMode
+  );
+  if (stage && interactionChanged) {
+    stage.dataset.runtimePhase = phase;
+    stage.dataset.frameState = frameState;
+    stage.dataset.inspectMode = inspectMode;
+    stage.querySelectorAll('.rl-player-runtime-overlay').forEach((node) => node.remove());
+    const overlayTemplate = document.createElement('template');
+    overlayTemplate.innerHTML = renderPlayerOverlay().trim();
+    const overlay = overlayTemplate.content.firstElementChild;
+    if (overlay) stage.appendChild(overlay);
+    syncInteractionLayersDom();
+  }
+}
+
+function syncFrameDom(options = {}) {
   const composition = currentComposition();
   const duration = compositionDuration(composition);
   const fps = Number(composition?.fps || 30);
-  const frame = clamp(Number(state.frame) || 0, 0, duration - 1);
+  const committedFrame = clamp(actualFrame(), 0, duration - 1);
+  const frame = clamp(transportFrame(), 0, duration - 1);
   const percent = timelineFramePercent(frame, composition);
+
   document.querySelectorAll('input[data-action="frame-number"], input[data-action="frame-range"]').forEach((node) => {
     node.value = String(frame);
   });
-  const timecode = document.querySelector('.rl-transport__tc');
-  if (timecode) timecode.textContent = formatSMPTE(frame, fps);
-  const framePill = document.querySelector('.rl-stage-pill--br');
-  if (framePill) framePill.textContent = `F ${frame}`;
-  document.querySelectorAll('.rl-tl-playhead, .rl-tl-vline').forEach((node) => {
+  document.querySelectorAll('.rl-timecode__value').forEach((node) => {
+    node.textContent = formatSMPTE(frame, fps);
+  });
+  document.querySelectorAll('.rl-frame-current').forEach((node) => {
+    node.textContent = String(frame);
+  });
+  document.querySelectorAll('.rl-frame-actual').forEach((node) => {
+    node.textContent = String(committedFrame);
+  });
+  document.querySelectorAll('.rl-review-scrub').forEach((node) => {
+    node.style.setProperty('--rl-progress', `${percent}%`);
+  });
+  document.querySelectorAll('.rl-review-playhead').forEach((node) => {
     node.style.left = `${percent}%`;
   });
+  if (options.syncPhase !== false) syncPhaseDom();
 }
 
-
-function syncPlayingDom() {
-  const button = document.querySelector('.rl-play-btn[data-action="toggle-play"]');
-  if (!button) return;
-  button.classList.toggle('is-playing', Boolean(state.playing));
-  button.setAttribute('aria-label', state.playing ? t('pause') : t('play'));
-  button.innerHTML = state.playing ? ICONS.pause : ICONS.play;
+function syncPlayingDom(options = {}) {
+  const actualPlaying = Boolean(state.playerRuntimePlaying);
+  const desiredPlaying = Boolean(state.playerDesiredState?.playing ?? actualPlaying);
+  const pending = desiredPlaying !== actualPlaying;
+  document.querySelectorAll('[data-action="toggle-play"]').forEach((button) => {
+    button.classList.toggle('is-playing', actualPlaying);
+    button.classList.toggle('is-pending', pending);
+    button.setAttribute('aria-label', actualPlaying ? t('pause') : t('play'));
+    button.setAttribute('aria-pressed', actualPlaying ? 'true' : 'false');
+    button.setAttribute('aria-busy', pending ? 'true' : 'false');
+    if (button.classList.contains('rl-play-btn')) button.innerHTML = actualPlaying ? ICONS.pause : ICONS.play;
+  });
+  if (options.syncPhase !== false) syncPhaseDom();
 }
 
+function syncPlaybackDom() {
+  syncFrameDom({ syncPhase: false });
+  syncPlayingDom({ syncPhase: false });
+  syncPhaseDom();
+}
 
 function setPlayingState(playing) {
-  state.playing = Boolean(playing);
+  state.playerRuntimePlaying = Boolean(playing);
   syncPlayingDom();
 }
 
-
 function syncFrameFromPlayer(frame) {
-  const composition = currentComposition();
-  const duration = compositionDuration(composition);
-  const nextFrame = clamp(Math.round(Number(frame) || 0), 0, duration - 1);
-  state.playerRuntimeFrame = nextFrame;
-  state.frame = nextFrame;
+  state.playerRuntimeFrame = clamp(Math.round(Number(frame) || 0), 0, compositionDuration() - 1);
+  state.frame = state.playerRuntimeFrame;
   state.frameTouched = true;
-  if (state.playerFrameModel && Math.round(Number(state.playerFrameModel.frame) || 0) !== nextFrame) {
-    state.playerFrameModel = null;
-  }
   syncFrameDom();
 }
-
 
 function renderExportOverlay() {
   const composition = currentComposition();
   if (state.exportConfirmOpen && composition) {
-    const frames = compositionDuration(composition);
     return `
-      <div class="rl-modal-scrim">
-        <div class="rl-modal" role="dialog" aria-modal="true" aria-label="${escapeHtml(t('exportConfirmTitle'))}">
-          <h2 class="rl-modal__title">${escapeHtml(t('exportConfirmTitle'))}</h2>
-          <p class="rl-modal__body">${escapeHtml(t('exportConfirmBody', { composition: composition.id, frames }))}</p>
-          <div class="rl-modal__actions">
-            <button type="button" class="rl-btn" data-action="export-dismiss">${escapeHtml(t('cancel'))}</button>
-            <button type="button" class="rl-btn rl-btn--accent" data-action="export-confirm">${escapeHtml(t('exportConfirm'))}</button>
+      <dialog class="bfui-dialog rl-export-dialog" aria-modal="true" aria-labelledby="rl-export-title">
+        <div class="bfui-dialog__header">
+          <div>
+            <div class="bfui-dialog__title" id="rl-export-title">${escapeHtml(t('exportConfirmTitle'))}</div>
+            <div class="bfui-dialog__description">${escapeHtml(composition.id)}</div>
           </div>
         </div>
-      </div>
+        <div class="bfui-dialog__body">${escapeHtml(t('exportConfirmBody', {
+          composition: composition.id,
+          lastFrame: compositionDuration(composition) - 1,
+        }))}</div>
+        <div class="bfui-dialog__footer">
+          <button type="button" class="btn btn-sm btn-ghost" data-action="export-dismiss">${escapeHtml(t('cancel'))}</button>
+          <button type="button" class="btn btn-sm btn-primary" data-action="export-confirm" autofocus>${escapeHtml(t('exportConfirm'))}</button>
+        </div>
+      </dialog>
     `;
   }
 
   const run = state.exportRun;
-  if (run?.status === 'running') {
-    return `
-      <div class="rl-export-toast rl-export-toast--busy" role="status" aria-live="polite">
-        <span class="rl-spinner rl-spinner--sm"></span>
-        <span>${escapeHtml(t('exporting'))}\u2026</span>
+  if (!run) return '';
+  const busy = run.status === 'queued' || run.status === 'running' || run.status === 'cancelling';
+  const progress = clamp(Number(run.progress ?? 0), 0, 100);
+  const label = run.status === 'cancelling'
+    ? t('exportCancelling')
+    : busy
+    ? t('exporting')
+    : run.status === 'completed'
+    ? t('exportDone')
+    : run.status === 'cancelled'
+    ? t('exportCancelled')
+    : t('exportFailed');
+  return `
+    <aside class="v-card v-card--elevated v-card--padding-small rl-export-job" role="status" aria-live="polite">
+      <div class="rl-export-job__row">
+        ${busy ? '<span class="bfui-spinner__mark" aria-hidden="true"></span>' : ''}
+        <strong>${escapeHtml(label)}</strong>
+        ${busy && run.status !== 'cancelling' && run.runId ? `<button type="button" class="btn btn-sm btn-ghost" data-action="cancel-export">${escapeHtml(t('cancel'))}</button>` : ''}
+        ${!busy ? `<button type="button" class="btn btn-sm btn-ghost btn-icon-only" data-action="export-run-dismiss" aria-label="${escapeHtml(t('cancel'))}">×</button>` : ''}
       </div>
-    `;
-  }
-  if (run && (run.status === 'completed' || run.status === 'failed' || run.status === 'cancelled')) {
-    const label = run.status === 'completed'
-      ? t('exportDone')
-      : run.status === 'cancelled'
-      ? t('cancelExport')
-      : t('exportFailed');
-    const cls = run.status === 'completed' ? 'is-ok' : 'is-error';
-    return `
-      <div class="rl-export-toast ${cls}" role="status" aria-live="polite">
-        <span class="rl-export-toast__label">${escapeHtml(label)}</span>
-        ${run.outputPath ? `<span class="rl-export-toast__path" title="${escapeHtml(run.outputPath)}">${escapeHtml(run.outputPath)}</span>` : ''}
-        <button type="button" class="rl-export-toast__close" data-action="export-run-dismiss" aria-label="${escapeHtml(t('cancel'))}">\u00d7</button>
-      </div>
-    `;
-  }
-  return '';
+      ${busy ? `<div class="rl-export-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}"><span style="width:${progress}%"></span></div>` : ''}
+      ${run.outputPath ? `<small title="${escapeHtml(run.outputPath)}">${escapeHtml(run.outputPath)}</small>` : ''}
+      ${run.error ? `<small class="rl-export-job__error">${escapeHtml(run.error)}</small>` : ''}
+    </aside>
+  `;
 }
-
 
 function renderHeader() {
   const compositions = asArray(state.manifest?.compositions);
   const composition = currentComposition();
-  const hasMultiple = compositions.length > 1;
-  const statusClass = state.loading ? 'is-loading' : state.error ? 'is-error' : state.project ? 'is-ok' : '';
-  const statusLabel = state.loading
-    ? t('loadingProject')
-    : state.error
-    ? (state.error.length > 38 ? state.error.slice(0, 38) + '\u2026' : state.error)
-    : state.status || '';
-
-  let crumb = '';
-  if (state.workspacePath) {
-    crumb = `<span class="rl-header__ws">${escapeHtml(workspaceLabel())}</span>`;
-    if (hasMultiple) {
-      crumb += `<span class="rl-sep" aria-hidden="true">/</span>
-        <select class="rl-header__comp" data-action="select-composition">
-          ${compositions.map((c) => `<option value="${escapeHtml(c.id)}"${c.id === composition?.id ? ' selected' : ''}>${escapeHtml(c.id)}</option>`).join('')}
-        </select>`;
-    } else if (composition) {
-      crumb += `<span class="rl-sep" aria-hidden="true">/</span><span class="rl-header__comp">${escapeHtml(composition.id)}</span>`;
-    }
-  } else {
-    crumb = `<span class="rl-header__ws rl-header__ws--empty">Remotion Live</span>`;
-  }
-
+  const committed = isFrameCommitted();
+  const inspect = state.interactionMode === 'inspect';
+  const exportBusy = ['queued', 'running', 'cancelling'].includes(state.exportRun?.status);
   return `
-    <header class="rl-header">
-      <div class="rl-header__left">${crumb}</div>
-      <div class="rl-header__status ${statusClass}">
-        <span class="rl-dot"></span>
-        ${statusLabel ? `<span class="rl-dot-label">${escapeHtml(statusLabel)}</span>` : ''}
+    <header class="bfui-toolbar rl-header">
+      <div class="bfui-toolbar__group rl-header__identity">
+        <span class="rl-header__workspace" title="${escapeHtml(state.workspacePath || '')}">${escapeHtml(state.workspacePath ? workspaceLabel() : t('title'))}</span>
+        ${composition ? '<span class="rl-header__slash" aria-hidden="true">/</span>' : ''}
+        ${compositions.length > 1 ? `
+          <select class="rl-composition-select" data-action="select-composition" aria-label="${escapeHtml(t('composition'))}">
+            ${compositions.map((item) => `<option value="${escapeHtml(item.id)}"${item.id === composition?.id ? ' selected' : ''}>${escapeHtml(item.id)}</option>`).join('')}
+          </select>
+        ` : composition ? `<span class="rl-header__composition">${escapeHtml(composition.id)}</span>` : ''}
       </div>
-      <div class="rl-header__right">
-        ${composition ? renderModeSwitch() : ''}
-        <button class="rl-icon-btn" data-action="refresh" title="${escapeHtml(t('refresh'))}" aria-label="${escapeHtml(t('refresh'))}">${ICONS.refresh}</button>
-        <button class="rl-btn rl-btn--accent rl-header__export" data-action="start-export" ${composition ? '' : 'disabled'}>${escapeHtml(t('exportVideo'))}</button>
-        <button class="rl-ai-btn" data-action="send-context" title="${escapeHtml(t('sendContext'))}">${ICONS.send}<span>${escapeHtml(t('sendContext'))}</span></button>
+      <div class="rl-header__status" role="status" aria-live="polite">${renderStatus()}</div>
+      <div class="bfui-toolbar__group rl-header__actions">
+        <button type="button" class="btn btn-sm ${inspect ? 'btn-primary' : 'btn-secondary'} rl-labelled-action" data-action="toggle-inspect" aria-pressed="${inspect}" aria-label="${escapeHtml(inspect ? t('exitInspect') : t('inspect'))}">
+          ${ICONS.inspect}<span>${escapeHtml(inspect ? t('exitInspect') : t('inspect'))}</span>
+        </button>
+        <button type="button" class="btn btn-sm btn-ghost btn-icon-only" data-action="refresh" title="${escapeHtml(t('refresh'))}" aria-label="${escapeHtml(t('refresh'))}">${ICONS.refresh}</button>
+        <button type="button" class="btn btn-sm btn-ghost btn-icon-only rl-expand-action" data-action="expand-panel" title="${escapeHtml(t('expandPanel'))}" aria-label="${escapeHtml(t('expandPanel'))}">${ICONS.expand}</button>
+        <button type="button" class="btn btn-sm btn-secondary rl-labelled-action" data-action="start-export" ${composition && !exportBusy ? '' : 'disabled'}><span>${escapeHtml(t('exportVideo'))}</span></button>
+        <button type="button" class="btn btn-sm btn-primary rl-labelled-action" data-action="send-context" ${committed ? '' : 'disabled'} title="${escapeHtml(t('sendContext'))}">${ICONS.send}<span>${escapeHtml(t('sendContext'))}</span></button>
       </div>
     </header>
   `;
 }
 
-// ─── Empty / no workspace ─────────────────────────────────────────────────────
-
-
 function renderWorkspaceEmpty() {
   return `
-    <div class="rl-empty">
+    <div class="bfui-empty rl-empty">
       <div class="rl-empty__icon">${ICONS.film}</div>
-      <strong class="rl-empty__title">${escapeHtml(t('title'))}</strong>
-      <p>${escapeHtml(t('noWorkspace'))}</p>
+      <strong class="bfui-empty__title">${escapeHtml(t('title'))}</strong>
+      <p class="bfui-empty__description">${escapeHtml(t('noWorkspace'))}</p>
     </div>
   `;
 }
-
 
 function renderDetectingState() {
   return `
-    <div class="rl-empty">
-      <div class="rl-spinner"></div>
-      <p>${escapeHtml(t('detecting'))}</p>
+    <div class="bfui-empty rl-empty" role="status" aria-live="polite">
+      <span class="bfui-spinner"><span class="bfui-spinner__mark"></span><span>${escapeHtml(t('detecting'))}</span></span>
     </div>
   `;
 }
-
 
 function renderDetectionState() {
   const detection = state.detection || {};
   const status = detection.status || (detection.ok ? 'matched' : 'notFound');
-
   if (status === 'ambiguous') {
-    const entries = asArray(detection.entryPoints);
     return `
-      <div class="rl-detect">
-        <div class="rl-empty__icon">${ICONS.film}</div>
-        <strong class="rl-empty__title">${escapeHtml(t('ambiguousTitle'))}</strong>
+      <section class="v-card v-card--padding-medium rl-detection">
+        <h2>${escapeHtml(t('ambiguousTitle'))}</h2>
         <p>${escapeHtml(t('ambiguousHint'))}</p>
-        <ul class="rl-entry-list">
-          ${entries.map((entry) => `
-            <li>
-              <button type="button" class="rl-entry-item" data-action="select-entry" data-entry="${escapeHtml(entry.path)}">
-                <span class="rl-entry-path">${escapeHtml(entry.path)}</span>
-                <span class="rl-entry-source">${escapeHtml(entry.source || '')}</span>
-              </button>
-            </li>
+        <div class="bfui-stack">
+          ${asArray(detection.entryPoints).map((entry) => `
+            <button type="button" class="btn btn-base btn-secondary rl-entry" data-action="select-entry" data-entry="${escapeHtml(entry.path)}">
+              <span>${escapeHtml(entry.path)}</span><small>${escapeHtml(entry.source || '')}</small>
+            </button>
           `).join('')}
-        </ul>
-      </div>
+        </div>
+      </section>
     `;
   }
-
-  if (status === 'broken') {
-    const firstError = asArray(detection.diagnostics).find((item) => item.level === 'error');
-    const reason = detection.errorSummary || firstError?.message || t('projectBrokenTitle');
-    const needsInstall = detection.hasNodeModules === false;
-    return `
-      <div class="rl-detect rl-detect--error">
-        <div class="rl-empty__icon">${ICONS.film}</div>
-        <strong class="rl-empty__title">${escapeHtml(t('projectBrokenTitle'))}</strong>
-        <p>${escapeHtml(reason)}</p>
-        ${needsInstall ? `<p class="rl-detect__hint">${escapeHtml(t('installDeps'))}</p>` : ''}
-        <button type="button" class="rl-btn rl-btn--accent" data-action="refresh">${escapeHtml(t('retry'))}</button>
-      </div>
-    `;
-  }
-
+  const broken = status === 'broken';
+  const firstError = asArray(detection.diagnostics).find((item) => item.level === 'error');
+  const reason = detection.errorSummary || firstError?.message || (broken ? t('projectBrokenTitle') : t('notRemotion'));
   return `
-    <div class="rl-detect">
-      <div class="rl-empty__icon">${ICONS.film}</div>
-      <strong class="rl-empty__title">${escapeHtml(t('notRemotionTitle'))}</strong>
-      <p>${escapeHtml(t('notRemotion'))}</p>
-      <button type="button" class="rl-btn" data-action="refresh">${escapeHtml(t('retry'))}</button>
-    </div>
+    <section class="alert ${broken ? 'alert--error' : 'alert--info'} rl-detection">
+      <div class="alert__content">
+        <div class="alert__title">${escapeHtml(broken ? t('projectBrokenTitle') : t('notRemotionTitle'))}</div>
+        <div class="alert__description">${escapeHtml(reason)}</div>
+        ${broken && detection.hasNodeModules === false ? `<p>${escapeHtml(t('installDeps'))}</p>` : ''}
+        <button type="button" class="btn btn-sm btn-secondary" data-action="refresh">${escapeHtml(t('retry'))}</button>
+      </div>
+    </section>
   `;
 }
 
-// ─── Preview: native layer fallback boxes ─────────────────────────────────────
-
-
 function renderSelectionOverlay() {
   const layers = frameLayers();
-  const composition = currentComposition();
-  if (!composition || useStudioPreview() || !layers.length) return '';
+  if (state.interactionMode !== 'inspect' || !isFrameCommitted() || !layers.length) return '';
   return `
     <div class="rl-selection-overlay">
-      ${layers.map((layer, index) => {
+      ${layers.flatMap((layer, index) => {
         const id = layerElementId(layer, index);
         const box = layerBox(layer, index);
-        const zIndex = Math.max(1, Math.round(10000 - box.width * box.height));
+        if (!box) return [];
         const selected = id === state.selectedElementId;
         const label = layer.label || layer.id || layer.type || `Layer ${index + 1}`;
-        return `
-          <button
-            type="button"
-            class="rl-selection-hotspot${selected ? ' is-selected' : ''}"
+        return [`
+          <button type="button" class="rl-selection-hotspot${selected ? ' is-selected' : ''}"
             data-preview-layer-id="${escapeHtml(id)}"
-            style="left:${box.x}%;top:${box.y}%;width:${box.width}%;height:${box.height}%;z-index:${zIndex};--rl-layer-color:${escapeHtml(box.color)}"
-            title="${escapeHtml(label)}"
-            aria-label="Select preview element ${escapeHtml(label)}"
-          >
+            style="left:${box.x}%;top:${box.y}%;width:${box.width}%;height:${box.height}%;--rl-layer-color:${escapeHtml(box.color)}"
+            title="${escapeHtml(label)}" aria-label="${escapeHtml(`${t('selectionElement')} ${label}`)}">
             ${selected ? `<span>${escapeHtml(label)}</span>` : ''}
           </button>
-        `;
+        `];
       }).join('')}
     </div>
   `;
 }
 
-
 function syncSelectionOverlayDom() {
-  const stage = document.querySelector('.rl-stage:not(.rl-stage--studio)');
+  const stage = previewStageNode();
   if (!stage) return false;
-  const existing = stage.querySelector('.rl-selection-overlay');
-  const html = renderSelectionOverlay().trim();
-  if (!html) {
-    existing?.remove();
-    return true;
-  }
+  stage.querySelector('.rl-selection-overlay')?.remove();
   const template = document.createElement('template');
-  template.innerHTML = html;
-  const next = template.content.firstElementChild;
-  if (!next) return false;
-  if (existing) {
-    existing.replaceWith(next);
-    return true;
-  }
-  const chrome = stage.querySelector('.rl-stage-chrome');
-  if (chrome) stage.insertBefore(next, chrome);
-  else stage.appendChild(next);
+  template.innerHTML = renderSelectionOverlay().trim();
+  const node = template.content.firstElementChild;
+  if (node) stage.appendChild(node);
   return true;
 }
 
-// ─── Point / region selection (P2) ────────────────────────────────────────────
-
-
 function renderSelectCaptureLayer() {
-  return `<div class="rl-select-capture" data-select-capture="1" aria-hidden="true"></div>`;
+  return state.interactionMode === 'inspect' && isFrameCommitted()
+    ? '<div class="rl-select-capture" data-select-capture="1" aria-hidden="true"></div>'
+    : '';
 }
 
+function renderPreviewClickLayer() {
+  if (state.interactionMode !== 'preview' || !state.playerRuntimeReady) return '';
+  return `<button type="button" class="rl-preview-click-layer" data-action="toggle-play" aria-label="${escapeHtml(state.playerRuntimePlaying ? t('pause') : t('play'))}"></button>`;
+}
 
 function renderSelectionMarker() {
-  const sel = state.selection;
-  if (!sel || useStudioPreview()) return '';
-  if (sel.type === 'point' && sel.point) {
-    return `<div class="rl-sel-point" style="left:${sel.point.x}%;top:${sel.point.y}%" aria-hidden="true"></div>`;
+  if (state.interactionMode !== 'inspect' || !isFrameCommitted()) return '';
+  const selection = state.selection;
+  if (selection?.type === 'point' && selection.point) {
+    return `<div class="rl-sel-point" style="left:${selection.point.x}%;top:${selection.point.y}%" aria-hidden="true"></div>`;
   }
-  if (sel.type === 'region' && sel.normalizedBox) {
-    const box = sel.normalizedBox;
+  if (selection?.type === 'region' && selection.normalizedBox) {
+    const box = selection.normalizedBox;
     return `<div class="rl-sel-region" style="left:${box.x}%;top:${box.y}%;width:${box.width}%;height:${box.height}%" aria-hidden="true"></div>`;
   }
   return '';
 }
 
-
 function removeDraftMarker() {
   document.querySelectorAll('.rl-sel-draft').forEach((node) => node.remove());
 }
 
-
 function updateDraftMarkerDom() {
   const stage = previewStageNode();
-  if (!stage) return;
   const draft = state.selectionDraft;
+  if (!stage) return;
   let marker = stage.querySelector('.rl-sel-draft');
-  if (!state.selectionDragging || !draft) {
+  if (state.interactionMode !== 'inspect' || !state.selectionDragging || !draft) {
     marker?.remove();
     return;
   }
@@ -345,105 +432,90 @@ function updateDraftMarkerDom() {
   marker.style.height = `${draft.height}%`;
 }
 
-
 function commitSelectionMarkerDom() {
   const stage = previewStageNode();
   if (!stage) return;
   stage.querySelectorAll('.rl-sel-region:not(.rl-sel-draft), .rl-sel-point').forEach((node) => node.remove());
-  const html = renderSelectionMarker().trim();
-  if (!html) return;
   const template = document.createElement('template');
-  template.innerHTML = html;
-  const node = template.content.firstElementChild;
-  if (node) stage.appendChild(node);
+  template.innerHTML = renderSelectionMarker().trim();
+  const marker = template.content.firstElementChild;
+  if (marker) stage.appendChild(marker);
 }
 
+function syncInteractionLayersDom() {
+  const stage = previewStageNode();
+  if (!stage) return;
+  stage.classList.toggle('is-inspecting', state.interactionMode === 'inspect');
+  stage.querySelectorAll('.rl-preview-click-layer, .rl-select-capture').forEach((node) => node.remove());
+  for (const html of [renderPreviewClickLayer(), renderSelectCaptureLayer()]) {
+    if (!html.trim()) continue;
+    const template = document.createElement('template');
+    template.innerHTML = html.trim();
+    const node = template.content.firstElementChild;
+    if (node) stage.appendChild(node);
+  }
+  syncSelectionOverlayDom();
+  commitSelectionMarkerDom();
+}
 
-function renderLayers() {
-  const layers = frameLayers();
-  if (!layers.length) {
-    const composition = currentComposition();
-    if (!composition) return '';
+function renderPlayerOverlay() {
+  const phase = previewPhase();
+  if (phase === 'error') {
     return `
-      <div class="rl-native-layer" style="left:10%;top:14%;width:80%;height:52%;background:#5dc6ff;opacity:.2;">
-        <span>${escapeHtml(composition.id)}</span>
-      </div>
-      <div class="rl-native-layer" style="left:18%;top:72%;width:64%;height:12%;background:#f4c542;opacity:.6;">
-        <span>${escapeHtml(t('noLayers'))}</span>
+      <div class="rl-stage-overlay rl-stage-overlay--error rl-player-runtime-overlay">
+        <div class="alert alert--error">
+          <div class="alert__content">
+            <div class="alert__title">${escapeHtml(t('playerUnavailable'))}</div>
+            <div class="alert__description">${escapeHtml(state.playerHostError || state.error || t('playerUnavailableHint'))}</div>
+            <button type="button" class="btn btn-sm btn-secondary" data-action="retry-preview">${escapeHtml(t('retryPreview'))}</button>
+          </div>
+        </div>
       </div>
     `;
   }
-  return layers.map((layer, index) => `
-    <div class="rl-native-layer" style="${layerStyle(layer, index)}">
-      <span>${escapeHtml(layer.label || layer.id || layer.type || `Layer ${index + 1}`)}</span>
-    </div>
-  `).join('');
+  if (['detecting', 'snapshot', 'bundling', 'connecting', 'loading'].includes(phase)) {
+    return `<div class="rl-stage-overlay rl-player-runtime-overlay" role="status"><span class="bfui-spinner"><span class="bfui-spinner__mark"></span><span>${escapeHtml(phaseLabel(phase))}</span></span></div>`;
+  }
+  if (phase === 'buffering' || phase === 'seeking') {
+    return `<div class="rl-stage-state rl-player-runtime-overlay" role="status"><span class="bfui-spinner"><span class="bfui-spinner__mark"></span><span>${escapeHtml(phaseLabel(phase))}</span></span></div>`;
+  }
+  return '';
 }
-
-// ─── Preview: stage content (image / video / overlays) ────────────────────────
-
 
 function renderPlayerPreviewContent() {
-  const host = state.playerHost;
   if (playerPreviewReady()) {
     return `
-      <iframe
-        class="rl-player-frame"
-        data-testid="remotion-player-iframe"
-        data-stage-key="${escapeHtml(playerStageKey())}"
-        src="${escapeHtml(playerHostUrl())}"
-        title="Remotion Player preview"
-        allow="autoplay; fullscreen"
-      ></iframe>
-      ${state.playerHostLoading || !state.playerRuntimeReady ? `<div class="rl-overlay rl-overlay--loading rl-player-runtime-overlay"><div class="rl-spinner rl-spinner--sm"></div></div>` : ''}
+      <iframe class="rl-player-frame" data-testid="remotion-player-iframe" data-stage-key="${escapeHtml(playerStageKey())}"
+        src="${escapeHtml(playerHostUrl())}" title="${escapeHtml(t('preview'))}" allow="autoplay; fullscreen" tabindex="-1"></iframe>
+      ${renderPlayerOverlay()}
     `;
   }
-
-  const composition = currentComposition();
-  const key = previewFrameKey(composition);
-  const preview = state.previewFrame?.key === key ? state.previewFrame : null;
-  const statusText = state.playerHostError || host?.health?.error || host?.status || t('startingPlayer');
-  const still = preview?.dataUrl
-    ? `<img class="rl-preview-frame" src="${escapeHtml(preview.dataUrl)}" alt="${escapeHtml(composition?.id || '')}" />`
-    : `<div class="rl-layers-fallback">${renderLayers()}</div>`;
-  return `
-    ${still}
-    <div class="rl-overlay${state.playerHostError ? ' rl-overlay--error' : ''}">
-      ${state.playerHostError ? '' : '<div class="rl-spinner"></div>'}
-      <p>${escapeHtml(state.playerHostError ? t('playerUnavailable') : t('startingPlayer'))}</p>
-      <small>${escapeHtml(statusText)}</small>
-    </div>
-  `;
-}
-
-
-function renderStudioPreviewContent() {
-  const server = state.previewServer;
-  if (studioPreviewReady()) {
+  const stale = state.playerHost?.ready && (
+    state.playerHost?.runtimeVersion !== PLAYER_HOST_RUNTIME_VERSION
+      || state.playerHost?.protocolVersion !== PLAYER_CONTROL_PROTOCOL_VERSION
+  );
+  const error = state.playerHostError || (stale ? t('protocolMismatch') : null);
+  if (error) {
     return `
-      <iframe
-        class="rl-studio-frame"
-        data-testid="remotion-studio-iframe"
-        src="${escapeHtml(server.url)}"
-        title="${escapeHtml(t('studioPreview'))}"
-        allow="autoplay; fullscreen; clipboard-read; clipboard-write"
-      ></iframe>
-      ${state.previewServerLoading ? `<div class="rl-overlay rl-overlay--loading"><div class="rl-spinner rl-spinner--sm"></div></div>` : ''}
+      <div class="rl-stage-placeholder" aria-hidden="true">${ICONS.film}</div>
+      <div class="rl-stage-overlay rl-stage-overlay--error rl-player-runtime-overlay">
+        <div class="alert alert--error">
+          <div class="alert__content">
+            <div class="alert__title">${escapeHtml(t('playerUnavailable'))}</div>
+            <div class="alert__description">${escapeHtml(error)}</div>
+            <button type="button" class="btn btn-sm btn-secondary" data-action="retry-preview">${escapeHtml(t('retryPreview'))}</button>
+          </div>
+        </div>
+      </div>
     `;
   }
-
-  const log = server?.log || '';
-  const statusText = state.previewServerError || server?.health?.error || server?.status || t('startingStudio');
   return `
-    <div class="rl-studio-boot">
-      <div class="rl-spinner"></div>
-      <p>${escapeHtml(state.previewServerError ? t('studioUnavailable') : t('startingStudio'))}</p>
-      <small>${escapeHtml(statusText)}</small>
-      ${log ? `<pre class="rl-studio-log">${escapeHtml(log.slice(-1800))}</pre>` : ''}
+    <div class="rl-stage-placeholder" aria-hidden="true">${ICONS.film}</div>
+    <div class="rl-stage-overlay rl-player-runtime-overlay" role="status">
+      <span class="bfui-spinner"><span class="bfui-spinner__mark"></span><span>${escapeHtml(phaseLabel())}</span></span>
     </div>
   `;
 }
-
 
 function replaceElementHtml(selector, html) {
   const current = document.querySelector(selector);
@@ -456,144 +528,64 @@ function replaceElementHtml(selector, html) {
   return true;
 }
 
-
-function timelineTickInterval(duration) {
-  if (duration <= 30)   return 5;
-  if (duration <= 90)   return 10;
-  if (duration <= 300)  return 30;
-  if (duration <= 900)  return 60;
-  if (duration <= 3600) return 150;
-  return Math.ceil(duration / 20);
-}
-
-// SMPTE drop-frame-free timecode: HH:MM:SS:FF (industry standard used by
-// DaVinci Resolve, Premiere Pro, After Effects, Final Cut Pro, etc.)
-
-function renderTimelineZoomControls() {
-  const zoom = Math.max(1, state.tlZoom || 1);
-  const contentW = Math.round(zoom * 100);
-
+function renderPlaybackTransport(composition, duration, fps) {
+  const wantsToPlay = Boolean(state.playerRuntimePlaying);
+  const frame = clamp(transportFrame(), 0, duration - 1);
+  const audio = actualAudioState();
   return `
-    <div class="rl-transport__zoom" aria-label="Timeline zoom">
-      <button class="rl-tl-zoom-btn" data-action="tl-zoom-out" aria-label="Zoom out"${zoom <= 1 ? ' disabled' : ''}>
-        <svg width="10" height="2" viewBox="0 0 10 2" fill="none" aria-hidden="true"><path d="M1 1h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-      </button>
-      <input type="range" class="rl-tl-zoom-slider" min="1" max="16" step="0.25" value="${zoom}" data-action="tl-zoom" aria-label="Timeline zoom" />
-      <button class="rl-tl-zoom-btn" data-action="tl-zoom-in" aria-label="Zoom in"${zoom >= 16 ? ' disabled' : ''}>
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M5 1v8M1 5h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-      </button>
-      <span class="rl-tl-zoom-label">${contentW}%</span>
-      ${zoom > 1.05 ? `<button class="rl-tl-zoom-fit" data-action="tl-zoom-fit" aria-label="Fit all frames">Fit</button>` : ''}
+    <div class="rl-transport" role="toolbar" aria-label="${escapeHtml(t('preview'))}">
+      <div class="rl-transport__playback">
+        <button type="button" class="btn btn-sm btn-ghost btn-icon-only" data-action="step-prev" aria-label="${escapeHtml(t('previous'))}">${ICONS.prev}</button>
+        <button type="button" class="btn btn-base btn-primary btn-icon-only rl-play-btn${wantsToPlay ? ' is-playing' : ''}" data-action="toggle-play" aria-label="${escapeHtml(wantsToPlay ? t('pause') : t('play'))}" aria-pressed="${wantsToPlay}">${wantsToPlay ? ICONS.pause : ICONS.play}</button>
+        <button type="button" class="btn btn-sm btn-ghost btn-icon-only" data-action="step-next" aria-label="${escapeHtml(t('next'))}">${ICONS.next}</button>
+      </div>
+      <label class="rl-timecode">
+        <span class="rl-timecode__value">${escapeHtml(formatSMPTE(frame, fps))}</span>
+        <span class="rl-timecode__frame">
+          <input type="number" min="0" max="${duration - 1}" value="${frame}" data-action="frame-number" aria-label="${escapeHtml(t('frame'))}" />
+          <span>/ ${duration - 1}</span>
+        </span>
+      </label>
+      <div class="rl-transport__audio">
+        <button type="button" class="btn btn-sm btn-ghost btn-icon-only" data-action="toggle-muted" aria-label="${escapeHtml(audio.muted ? t('unmute') : t('mute'))}" aria-pressed="${audio.muted}">${audio.muted ? ICONS.muted : ICONS.volume}</button>
+        <input type="range" min="0" max="1" step="0.05" value="${audio.muted ? 0 : audio.volume}" class="rl-volume" data-action="volume" aria-label="${escapeHtml(t('volume'))}" />
+      </div>
     </div>
   `;
 }
-
 
 function renderTimelineInline(composition, duration, fps) {
-  const zoom = Math.max(1, state.tlZoom || 1);
-
-  const sequences = asArray(state.frameModel?.sequences).length
-    ? asArray(state.frameModel?.sequences)
+  const frame = clamp(transportFrame(), 0, duration - 1);
+  const percent = timelineFramePercent(frame, composition);
+  const sequences = asArray(state.playerFrameModel?.sequences).length
+    ? asArray(state.playerFrameModel?.sequences)
     : asArray(composition?.sequences);
-
-  // Percentage helpers — positions are always 0-100% within .rl-tl-content
-  // so they stay correct at any zoom level (the content div itself gets wider).
-  const scale = duration > 1 ? 100 / (duration - 1) : 0;
-  const pct = (f) => Math.min(100, Math.max(0, f * scale));
-  const playheadPct = pct(state.frame);
-
-  // Tick density adapts to zoom: zoomed-in → denser ticks (more frame detail).
-  // visibleFrames estimates how many frames fit in the viewport at current zoom.
-  const visibleFrames = Math.max(5, Math.ceil((duration - 1) / zoom));
-  const interval = timelineTickInterval(visibleFrames);
-  const ticks = [];
-  for (let f = 0; f < duration; f += interval) ticks.push(f);
-  if (duration > 1 && ticks[ticks.length - 1] !== duration - 1) ticks.push(duration - 1);
-
-  // Fall back to a single composition-wide track when sequences are unknown.
-  const trackRows = sequences.length
-    ? sequences
-    : [{ id: composition.id, from: 0, durationInFrames: duration }];
-
-  // Content width: 100% at zoom=1, 200% at zoom=2, up to 1600% at zoom=16.
-  // The .rl-tl-main container scrolls horizontally over this content.
-  const contentW = Math.round(zoom * 100);
-
-  // Tick label: frame number when zoomed in enough to show individual frames;
-  // switch to SMPTE timecode on large compositions for readability.
-  const useSmpteLabels = duration > 300;
-  const tickLabel = (f) =>
-    useSmpteLabels ? formatSMPTE(f, fps).slice(3) : String(f); // MM:SS:FF or raw frame
-
   return `
-    <div class="rl-tl-inline">
-
-      <!-- Two-column layout: fixed labels | scrollable ruler+tracks -->
-      <div class="rl-tl-workspace" data-tl-max="${duration - 1}">
-
-        <div class="rl-tl-labels">
-          <div class="rl-tl-gutter"></div>
-          ${trackRows.map((seq) => `
-            <div class="rl-tl-label"><span>${escapeHtml(seq.label || seq.id || 'Sequence')}</span></div>
-          `).join('')}
+    <section class="rl-review" aria-label="${escapeHtml(t('timeline'))}">
+      <header class="rl-review__header">
+        <strong>${escapeHtml(t('timeline'))}</strong>
+        <span>${escapeHtml(t('duration', { frames: duration }))} · ${escapeHtml(t('fps', { fps }))}</span>
+      </header>
+      <div class="rl-review-track">
+        <div class="rl-review-track__segments" aria-hidden="true">
+          ${sequences.map((sequence) => {
+            const start = clamp(Number(sequence.from || 0), 0, duration - 1);
+            const length = clamp(Number(sequence.durationInFrames || sequence.duration || 1), 1, duration - start);
+            const left = duration > 1 ? start / (duration - 1) * 100 : 0;
+            const width = duration > 1 ? length / (duration - 1) * 100 : 100;
+            return `<span style="left:${left}%;width:${Math.min(100 - left, width)}%"></span>`;
+          }).join('')}
         </div>
-
-        <!-- Scrollable region — inner content stretches to zoom * 100% -->
-        <div class="rl-tl-main">
-          <div class="rl-tl-content" style="width:${contentW}%;min-width:100%">
-
-            <!-- Ruler: invisible drag-to-scrub range input overlaid on tick marks -->
-            <div class="rl-tl-ruler" data-tl-seek="${duration - 1}">
-              <input
-                type="range"
-                class="rl-tl-scrub"
-                min="0"
-                max="${duration - 1}"
-                value="${state.frame}"
-                data-action="frame-range"
-                aria-label="${escapeHtml(t('frame'))}"
-              />
-              ${ticks.map((f) => `
-                <div class="rl-tl-tick${f === state.frame ? ' is-current' : ''}" style="left:${pct(f)}%" aria-hidden="true">
-                  <span class="rl-tl-tick__lbl">${tickLabel(f)}</span>
-                </div>
-              `).join('')}
-              <!-- Playhead: triangle + stem, always at current frame position -->
-              <div class="rl-tl-playhead" style="left:${playheadPct}%" aria-hidden="true"></div>
-            </div>
-
-            <!-- Sequence bars: click-to-seek, active bar highlighted by accent -->
-            <div class="rl-tl-tracks">
-              ${trackRows.map((seq) => {
-                const from   = clamp(Number(seq.from || 0), 0, duration - 1);
-                const len    = clamp(Number(seq.duration || seq.durationInFrames || duration), 1, duration);
-                const barL   = pct(from);
-                const barW   = Math.max(0.4, pct(from + len) - barL);
-                const active = state.frame >= from && state.frame < (from + len);
-                const seqDur = Math.min(len, duration - from);
-                return `
-                  <div class="rl-tl-track" data-tl-seek="${duration - 1}">
-                    <div class="rl-tl-bar${active ? ' is-active' : ''}" style="left:${barL}%;width:${barW}%">
-                      ${seqDur > 8 ? `<span class="rl-tl-bar__dur">${seqDur}f</span>` : ''}
-                    </div>
-                  </div>
-                `;
-              }).join('')}
-              <!-- Vertical playhead line spanning all tracks -->
-              <div class="rl-tl-vline" style="left:${playheadPct}%" aria-hidden="true"></div>
-            </div>
-
-          </div>
-        </div>
+        <input type="range" class="rl-review-scrub" min="0" max="${duration - 1}" value="${frame}" style="--rl-progress:${percent}%" data-action="frame-range" aria-label="${escapeHtml(t('timeline'))}" />
+        <span class="rl-review-playhead" style="left:${percent}%" aria-hidden="true"></span>
       </div>
-
-    </div>
+      <div class="rl-review__ticks" aria-hidden="true"><span>0</span><span class="rl-frame-current">${frame}</span><span>${duration - 1}</span></div>
+    </section>
   `;
 }
 
-
 function fitPreviewStage() {
-  const stage = document.querySelector('.rl-stage:not(.rl-stage--studio)');
+  const stage = previewStageNode();
   const area = stage?.closest('.rl-stage-area');
   const composition = currentComposition();
   if (!stage || !area || !composition) return;
@@ -601,31 +593,44 @@ function fitPreviewStage() {
   const sourceWidth = Math.max(1, Number(composition.width) || 1920);
   const sourceHeight = Math.max(1, Number(composition.height) || 1080);
   const ratio = sourceWidth / sourceHeight;
-  const maxWidth = Math.min(Math.max(1, areaRect.width), sourceWidth);
-  const maxHeight = Math.min(Math.max(1, areaRect.height), sourceHeight);
-  let width = maxWidth;
+  let width = Math.max(1, areaRect.width);
   let height = width / ratio;
-  if (height > maxHeight) {
-    height = maxHeight;
+  if (height > areaRect.height) {
+    height = Math.max(1, areaRect.height);
     width = height * ratio;
   }
-  stage.style.width = `${Math.max(1, Math.round(width))}px`;
-  stage.style.height = `${Math.max(1, Math.round(height))}px`;
+  stage.style.width = `${Math.floor(width)}px`;
+  stage.style.height = `${Math.floor(height)}px`;
 }
 
-
-function ensurePreviewVideoPlayback() {
-  if (!state.playing) return;
-  const video = document.querySelector('.rl-preview-video');
-  if (!video || video.tagName !== 'VIDEO') return;
-  video.muted = true;
-  const playPromise = video.play?.();
-  if (typeof playPromise?.catch === 'function') {
-    playPromise.catch(() => {
-      // Browsers can still require a second gesture; controls remain visible.
-    });
-  }
-}
-
-
-export { commitSelectionMarkerDom, ensurePreviewVideoPlayback, fitPreviewStage, removeDraftMarker, renderDetectingState, renderDetectionState, renderExportOverlay, renderHeader, renderLayers, renderPlayerPreviewContent, renderSelectCaptureLayer, renderSelectionMarker, renderSelectionOverlay, renderStudioPreviewContent, renderTimelineInline, renderTimelineZoomControls, renderWorkspaceEmpty, replaceElementHtml, setPlayingState, syncFrameDom, syncFrameFromPlayer, syncPlayingDom, syncSelectionOverlayDom, updateDraftMarkerDom };
+export {
+  actualFrame,
+  commitSelectionMarkerDom,
+  fitPreviewStage,
+  isFrameCommitted,
+  previewPhase,
+  removeDraftMarker,
+  renderDetectingState,
+  renderDetectionState,
+  renderExportOverlay,
+  renderHeader,
+  renderPlaybackTransport,
+  renderPlayerOverlay,
+  renderPlayerPreviewContent,
+  renderPreviewClickLayer,
+  renderSelectCaptureLayer,
+  renderSelectionMarker,
+  renderSelectionOverlay,
+  renderTimelineInline,
+  renderWorkspaceEmpty,
+  replaceElementHtml,
+  setPlayingState,
+  syncFrameDom,
+  syncPlaybackDom,
+  syncFrameFromPlayer,
+  syncInteractionLayersDom,
+  syncPhaseDom,
+  syncPlayingDom,
+  syncSelectionOverlayDom,
+  updateDraftMarkerDom,
+};

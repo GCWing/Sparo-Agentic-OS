@@ -1,80 +1,106 @@
-// remotion-live :: entry (ui.js). Event dispatcher + bootstrap. Logic split into ./src/*.js
-
-import { confirmExport, dismissExportDialog, dismissExportRun, refreshProject, requestExport, scheduleSelectionGuardRelease, selectEntry, selectPreviewLayer, sendContext, setComposition, setFrame, setPointSelection, setPreviewMode, setRegionSelection, stepFrame, togglePlayback } from './src/actions.js';
+import {
+  cancelExport,
+  confirmExport,
+  dismissExportDialog,
+  dismissExportRun,
+  refreshProject,
+  requestExport,
+  resetExportState,
+  retryPreview,
+  selectEntry,
+  selectPreviewLayer,
+  sendContext,
+  setComposition,
+  setFrame,
+  setInteractionMode,
+  setPointSelection,
+  setRegionSelection,
+  setVolume,
+  stepFrame,
+  toggleInspect,
+  toggleMuted,
+  togglePlayback,
+} from './src/actions.js';
 import { normalizeRoute } from './src/constants.js';
 import { compositionDuration } from './src/model.js';
-import { requestPlayerHandshake } from './src/player-dom.js';
-import { handlePlayerHostMessage, sendOrQueuePlayerCommand } from './src/player-protocol.js';
-import { resetPlayerRuntimeState } from './src/preview-mode.js';
-import { clearPlayerHostPoll, clearPreviewServerPoll, ensurePlayerPreviewHost, ensurePreviewServer, evaluateCurrentFrame, pollPlayerPreviewHostStatus, stopPreviewServer } from './src/preview-runtime.js';
-import { clearSelection, render, renderStill, updateTimelineDom } from './src/render-core.js';
-import { hasLiveTextSelection, isSelectionStartTarget, pausePlaybackForSelection, stageNormalizedPoint } from './src/selection-geom.js';
-import { previewClipCache, previewFrameCache, state } from './src/state.js';
-import { clamp, closestElement, runtime } from './src/util.js';
-import { fitPreviewStage, removeDraftMarker, updateDraftMarkerDom } from './src/views.js';
+import { requestPlayerHandshake, resetPlayerChannelConnection } from './src/player-dom.js';
+import { sendOrQueuePlayerCommand } from './src/player-protocol.js';
+import { resetPlayerRuntimeState } from './src/preview-controller.js';
+import { clearPlayerHostPoll, ensurePlayerPreviewHost, pollPlayerPreviewHostStatus } from './src/preview-runtime.js';
+import { clearSelection, render, updateTimelineDom } from './src/render-core.js';
+import { isSelectionStartTarget, stageNormalizedPoint } from './src/selection-geom.js';
+import { state } from './src/state.js';
+import { closestElement, runtime } from './src/util.js';
+import { fitPreviewStage, isFrameCommitted, removeDraftMarker, updateDraftMarkerDom } from './src/views.js';
+
+let layoutObserver = null;
+let fitAnimationFrame = null;
+
+function scheduleStageFit() {
+  if (fitAnimationFrame) cancelAnimationFrame(fitAnimationFrame);
+  fitAnimationFrame = requestAnimationFrame(() => {
+    fitAnimationFrame = null;
+    fitPreviewStage();
+  });
+}
+
+function observeLayout() {
+  if (layoutObserver || typeof ResizeObserver === 'undefined') return;
+  const root = document.getElementById('remotionLiveRoot');
+  if (!root) return;
+  layoutObserver = new ResizeObserver(scheduleStageFit);
+  layoutObserver.observe(root);
+}
 
 function handleRouteEvent(payload = {}) {
   state.route = normalizeRoute(payload.route || state.route);
   state.tabId = payload.tabId || state.tabId;
   state.sessionId = payload.sessionId || state.sessionId;
   const nextWorkspace = payload.workspacePath || payload.workbench?.workspacePath || state.workspacePath;
-  const workspaceChanged = nextWorkspace && nextWorkspace !== state.workspacePath;
+  const workspaceChanged = Boolean(nextWorkspace && nextWorkspace !== state.workspacePath);
   state.workspacePath = nextWorkspace || state.workspacePath;
+
   if (workspaceChanged) {
+    resetExportState();
     clearPlayerHostPoll();
-    clearPreviewServerPoll();
-    previewFrameCache.clear();
-    previewClipCache.clear();
-    state.previewFrame = null;
-    state.previewClip = null;
-    state.previewError = null;
-    state.previewClipError = null;
+    state.project = null;
+    state.error = null;
+    state.phase = 'idle';
+    state.manifest = null;
+    state.detection = null;
+    state.selectedEntry = null;
+    state.activeCompositionId = null;
+    state.frame = 0;
+    state.playerFrameModel = null;
     state.playerHost = null;
     state.playerHostError = null;
     state.playerHostLoading = false;
-    resetPlayerRuntimeState();
-    state.selectedElementId = null;
-    state.detection = null;
-    state.selectedEntry = null;
     state.selection = null;
-    state.selectionDraft = null;
-    state.selectionDragging = false;
-    state.previewServer = null;
-    state.previewServerError = null;
-    state.previewServerLoading = false;
+    state.selectedElementId = null;
+    state.interactionMode = 'preview';
+    resetPlayerChannelConnection({ rotateNonce: true });
+    resetPlayerRuntimeState();
   }
+
   render();
-  if (workspaceChanged || (!state.project && state.workspacePath)) {
-    void refreshProject();
-  }
+  if (workspaceChanged || (!state.project && state.workspacePath)) void refreshProject();
 }
 
-
-function pausePreviewForSelection() {
-  const shouldPausePlayer = state.previewMode === 'player' && (state.playing || state.playerRuntimePlaying);
-  pausePlaybackForSelection();
-  if (shouldPausePlayer) {
-    sendOrQueuePlayerCommand('pause', { frame: state.frame });
-  }
+function pauseForInspectGesture() {
+  if (!state.playerRuntimePlaying && !state.playerDesiredState?.playing) return;
+  sendOrQueuePlayerCommand('pause', { frame: state.frame });
 }
 
 document.addEventListener('pointerdown', (event) => {
   if (!isSelectionStartTarget(event.target)) return;
   state.selectionPointerDown = true;
-  state.selectionGuard = true;
-  pausePreviewForSelection();
+  pauseForInspectGesture();
 }, true);
 
-document.addEventListener('pointerup', () => {
-  if (!state.selectionPointerDown) return;
-  state.selectionPointerDown = false;
-  scheduleSelectionGuardRelease();
-}, true);
-
-// Point / region selection drawing on the preview stage (P2).
 document.addEventListener('pointerdown', (event) => {
+  if (state.interactionMode !== 'inspect' || event.button !== 0) return;
   const capture = closestElement(event.target, '[data-select-capture]');
-  if (!capture || event.button !== 0) return;
+  if (!capture) return;
   const start = stageNormalizedPoint(event);
   if (!start) return;
   state.selectionDragging = true;
@@ -89,14 +115,14 @@ document.addEventListener('pointerdown', (event) => {
   };
   try {
     capture.setPointerCapture(event.pointerId);
-  } catch (_error) {
-    // setPointerCapture is best-effort; drawing still works without it.
+  } catch {
+    // Pointer capture is an enhancement; document-level listeners still complete the gesture.
   }
   updateDraftMarkerDom();
 }, true);
 
 document.addEventListener('pointermove', (event) => {
-  if (!state.selectionDragging || !state.selectionDraft) return;
+  if (state.interactionMode !== 'inspect' || !state.selectionDragging || !state.selectionDraft) return;
   const current = stageNormalizedPoint(event);
   if (!current) return;
   const draft = state.selectionDraft;
@@ -104,53 +130,32 @@ document.addEventListener('pointermove', (event) => {
   draft.y = Math.min(draft.startY, current.y);
   draft.width = Math.abs(current.x - draft.startX);
   draft.height = Math.abs(current.y - draft.startY);
-  if (draft.width > 1.5 || draft.height > 1.5) draft.moved = true;
+  draft.moved = draft.width > 1.5 || draft.height > 1.5;
   updateDraftMarkerDom();
 }, true);
 
-document.addEventListener('pointerup', (event) => {
+document.addEventListener('pointerup', () => {
+  state.selectionPointerDown = false;
   if (!state.selectionDragging) return;
   state.selectionDragging = false;
   const draft = state.selectionDraft;
   state.selectionDraft = null;
   removeDraftMarker();
   if (!draft) return;
-  if (draft.moved && (draft.width > 1.5 || draft.height > 1.5)) {
-    setRegionSelection({ x: draft.x, y: draft.y, width: draft.width, height: draft.height });
-  } else {
-    setPointSelection({ x: draft.startX, y: draft.startY });
-  }
+  if (draft.moved) setRegionSelection({ x: draft.x, y: draft.y, width: draft.width, height: draft.height });
+  else setPointSelection({ x: draft.startX, y: draft.startY });
+  if (state.renderQueued) render();
 }, true);
-
-document.addEventListener('selectstart', (event) => {
-  if (!isSelectionStartTarget(event.target)) return;
-  state.selectionGuard = true;
-  pausePreviewForSelection();
-}, true);
-
-document.addEventListener('selectionchange', () => {
-  if (hasLiveTextSelection()) {
-    state.selectionGuard = true;
-    pausePreviewForSelection();
-    return;
-  }
-  if (!state.selectionPointerDown) {
-    scheduleSelectionGuardRelease();
-  }
-});
-
-window.addEventListener('message', (event) => {
-  handlePlayerHostMessage(event.data || {});
-});
 
 document.addEventListener('load', (event) => {
   const node = event.target;
   if (!node?.classList?.contains('rl-player-frame')) return;
   state.playerRuntimeReady = false;
+  resetPlayerChannelConnection({ rotateNonce: false });
   requestPlayerHandshake();
 }, true);
 
-window.addEventListener('resize', fitPreviewStage);
+window.addEventListener('resize', scheduleStageFit);
 
 window.addEventListener('remotion-live:ensure-player-host', (event) => {
   void ensurePlayerPreviewHost(Boolean(event.detail?.force));
@@ -160,90 +165,93 @@ window.addEventListener('remotion-live:poll-player-host-status', () => {
   void pollPlayerPreviewHostStatus();
 });
 
-window.addEventListener('remotion-live:render-request', () => {
-  render();
-});
+window.addEventListener('remotion-live:render-request', render);
 
 document.addEventListener('click', (event) => {
-  if (event.target?.classList?.contains('rl-modal-scrim')) {
-    dismissExportDialog();
-    return;
-  }
-
   const layerNode = closestElement(event.target, '[data-preview-layer-id]');
-  if (layerNode) {
+  if (layerNode && state.interactionMode === 'inspect') {
     event.preventDefault();
     event.stopPropagation();
     selectPreviewLayer(layerNode.dataset.previewLayerId);
     return;
   }
 
-  // Timeline seek: clicks on ruler or track area (not on interactive controls).
-  // The range input inside the ruler handles dragging via the 'input' event;
-  // this handler covers clicks directly on the track bars / empty track area.
-  const tlSeekNode = closestElement(event.target, '[data-tl-seek]');
-  if (tlSeekNode && !closestElement(event.target, 'input,button,select')) {
-    const scrollEl = tlSeekNode.closest('.rl-tl-main');
-    if (scrollEl) {
-      const rect = scrollEl.getBoundingClientRect();
-      const clickX = event.clientX - rect.left + scrollEl.scrollLeft;
-      const ratio = Math.max(0, Math.min(1, clickX / Math.max(1, scrollEl.scrollWidth)));
-      const maxFrame = Number(tlSeekNode.dataset.tlSeek) || 0;
-      setFrame(Math.round(ratio * maxFrame));
-    }
-    return;
-  }
-
   const actionNode = closestElement(event.target, '[data-action]');
-  if (!actionNode) return;
+  if (!actionNode || actionNode.disabled) return;
   const action = actionNode.dataset.action;
-  if (action === 'refresh') void refreshProject();
-  if (action === 'set-mode') setPreviewMode(actionNode.dataset.mode);
+  if (action === 'refresh') void refreshProject({ fresh: true });
+  if (action === 'retry-preview') retryPreview();
   if (action === 'select-entry') selectEntry(actionNode.dataset.entry);
   if (action === 'clear-selection') clearSelection();
-  if (action === 'send-context') void sendContext();
+  if (action === 'send-context' && isFrameCommitted()) void sendContext();
   if (action === 'step-prev') stepFrame(-1);
   if (action === 'step-next') stepFrame(1);
   if (action === 'toggle-play') togglePlayback();
-  if (action === 'open-studio' && state.previewServer?.url) {
-    window.open(state.previewServer.url, '_blank', 'noopener,noreferrer');
-  }
-  if (action === 'restart-preview-server') void ensurePreviewServer(true);
-  if (action === 'stop-preview-server') void stopPreviewServer();
-  if (action === 'render-still') void renderStill();
+  if (action === 'toggle-inspect') toggleInspect();
+  if (action === 'toggle-muted') toggleMuted();
   if (action === 'start-export') requestExport();
   if (action === 'export-confirm') void confirmExport();
   if (action === 'export-dismiss') dismissExportDialog();
   if (action === 'export-run-dismiss') dismissExportRun();
-  // Timeline zoom
-  if (action === 'tl-zoom-in')  { state.tlZoom = Math.min(16, (state.tlZoom || 1) * 1.5); updateTimelineDom(); }
-  if (action === 'tl-zoom-out') { state.tlZoom = Math.max(1,  (state.tlZoom || 1) / 1.5); updateTimelineDom(); }
-  if (action === 'tl-zoom-fit') { state.tlZoom = 1; updateTimelineDom(); }
+  if (action === 'cancel-export') void cancelExport();
+  if (action === 'expand-panel') void runtime().host?.setPanelMode?.('expanded');
 });
+
+document.addEventListener('cancel', (event) => {
+  if (!event.target?.classList?.contains('rl-export-dialog')) return;
+  event.preventDefault();
+  dismissExportDialog();
+}, true);
+
+function editableTarget(target) {
+  const element = closestElement(target, 'input,select,textarea,[contenteditable="true"]');
+  return Boolean(element);
+}
 
 document.addEventListener('keydown', (event) => {
-  if (event.key !== 'Escape') return;
-  if (state.exportConfirmOpen) {
-    dismissExportDialog();
+  if (event.key === 'Escape') {
+    if (state.exportConfirmOpen) {
+      event.preventDefault();
+      dismissExportDialog();
+    } else if (state.selection) {
+      event.preventDefault();
+      clearSelection();
+    } else if (state.interactionMode === 'inspect') {
+      event.preventDefault();
+      setInteractionMode('preview');
+    }
     return;
   }
-  if (state.selection) {
-    clearSelection();
+  if (editableTarget(event.target) || event.altKey || event.ctrlKey || event.metaKey) {
+    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter' && isFrameCommitted()) {
+      event.preventDefault();
+      void sendContext();
+    }
+    return;
+  }
+  if (event.code === 'Space' || event.key.toLowerCase() === 'k') {
+    event.preventDefault();
+    togglePlayback();
+  } else if (event.key === 'ArrowLeft') {
+    event.preventDefault();
+    stepFrame(event.shiftKey ? -10 : -1);
+  } else if (event.key === 'ArrowRight') {
+    event.preventDefault();
+    stepFrame(event.shiftKey ? 10 : 1);
+  } else if (event.key.toLowerCase() === 'i') {
+    event.preventDefault();
+    toggleInspect();
+  } else if (event.key.toLowerCase() === 'm') {
+    event.preventDefault();
+    toggleMuted();
+  } else if (event.key === 'Home') {
+    event.preventDefault();
+    setFrame(0);
+  } else if (event.key === 'End') {
+    event.preventDefault();
+    setFrame(compositionDuration() - 1);
   }
 });
-
-document.addEventListener('ended', (event) => {
-  const node = event.target;
-  if (!node || node.tagName !== 'VIDEO' || !node.classList.contains('rl-preview-video')) return;
-  const endFrame = Number(node.dataset.endFrame);
-  state.playing = false;
-  if (Number.isFinite(endFrame)) {
-    state.frame = clamp(endFrame, 0, compositionDuration() - 1);
-    state.frameTouched = true;
-  }
-  state.previewClip = null;
-  void evaluateCurrentFrame();
-}, true);
 
 document.addEventListener('change', (event) => {
   const node = event.target;
@@ -255,7 +263,7 @@ document.addEventListener('change', (event) => {
 document.addEventListener('input', (event) => {
   const node = event.target;
   if (node?.dataset?.action === 'frame-range') setFrame(node.value, { fastSync: true });
-  if (node?.dataset?.action === 'tl-zoom') { state.tlZoom = Math.max(1, Number(node.value)); updateTimelineDom(); }
+  if (node?.dataset?.action === 'volume') setVolume(node.value);
 });
 
 window.addEventListener('message', (event) => {
@@ -265,9 +273,7 @@ window.addEventListener('message', (event) => {
     state.locale = message.payload?.locale || state.locale;
     render();
   }
-  if (message.event === 'productAppRuntimeRouteChange') {
-    handleRouteEvent(message.payload || {});
-  }
+  if (message.event === 'productAppRuntimeRouteChange') handleRouteEvent(message.payload || {});
 });
 
 runtime().onLocaleChange?.((locale) => {
@@ -277,4 +283,6 @@ runtime().onLocaleChange?.((locale) => {
 
 window.addEventListener('DOMContentLoaded', () => {
   render();
+  observeLayout();
+  scheduleStageFit();
 });

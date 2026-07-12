@@ -14,12 +14,22 @@
       "en-US": {
         "name": "PPT Live",
         "description": "A presentation creation workspace that turns a topic into structure, slides, and speaking flow, producing an editable deck.",
-        "tags": ["built-in", "presentation", "deck", "export"]
+        "tags": [
+          "built-in",
+          "presentation",
+          "deck",
+          "export"
+        ]
       },
       "zh-CN": {
         "name": "PPT Live",
         "description": "专注演示稿创作，从主题到结构、页面和讲述节奏，生成可以继续编辑和展示的 PPT。",
-        "tags": ["内置", "演示文稿", "幻灯片", "导出"]
+        "tags": [
+          "内置",
+          "演示文稿",
+          "幻灯片",
+          "导出"
+        ]
       }
     }
   },
@@ -200,5 +210,11 @@
     "component.run",
     "model.invoke",
     "tool.invoke"
-  ]
+  ],
+  "dataLifecycle": {
+    "retention": "externalSystem",
+    "deletion": "externalSystem",
+    "migration": "externalSystem",
+    "share": "externalReferenceOnly"
+  }
 }

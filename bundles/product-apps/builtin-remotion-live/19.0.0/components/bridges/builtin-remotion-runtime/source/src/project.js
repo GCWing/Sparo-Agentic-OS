@@ -2,11 +2,18 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const { normalizeWorkspace, workspacePathOf, relativeToWorkspace, ensureRuntimeDir } = require("./paths");
-const { packageInfo, sourceFiles, dependencyVersion, readText, packageManager, hashContent, safeStat, readJson, writeJson, walkFiles } = require("./util");
+const { packageInfo, sourceFiles, dependencyVersion, packageManager, safeStat, readJson, writeJsonAtomic, walkFiles } = require("./util");
 const { detectRemotionRenderer } = require("./remotion-cli");
-const { findRemotionEntry, collectEntryPoints, parseCompositionBlocks, parseTextSnippets } = require("./source-parse");
-const { ASSET_EXTENSIONS } = require("./constants");
-const { emitStatus } = require("./protocol");
+const { findRemotionEntry, collectEntryPoints } = require("./source-parse");
+const { ASSET_EXTENSIONS, SOURCE_EXTENSIONS } = require("./constants");
+const { hasProjectModule, resolvedPackageInfo } = require("./project-deps");
+const {
+  RUNTIME_SCHEMA_VERSION,
+  computeInputPropsRevision,
+  computeSourceRevision,
+  resolveCompositionManifest,
+  rendererVersion,
+} = require("./project-runtime");
 
 function isWithinPath(root, candidate) {
   const relative = path.relative(root, candidate);
@@ -35,30 +42,46 @@ function packageRootForEntry(entryFile, workspacePath) {
   return entryFile ? nearestPackageRoot(entryFile, workspacePath) : workspacePath;
 }
 
+function resolveRequestedEntry(workspacePath, entryPoint) {
+  const workspaceRoot = fs.realpathSync(workspacePath);
+  const candidate = path.resolve(workspaceRoot, String(entryPoint));
+  if (!fs.existsSync(candidate) || !fs.statSync(candidate).isFile()) {
+    throw new Error(`Remotion entry point is not a file: ${entryPoint}`);
+  }
+  const canonical = fs.realpathSync(candidate);
+  if (!isWithinPath(workspaceRoot, canonical)) {
+    throw new Error(`Remotion entry point must stay inside the workspace: ${entryPoint}`);
+  }
+  if (!SOURCE_EXTENSIONS.has(path.extname(canonical).toLowerCase())) {
+    throw new Error(`Unsupported Remotion entry point extension: ${entryPoint}`);
+  }
+  return canonical;
+}
+
 function detectProject(input = {}) {
   const workspacePath = normalizeWorkspace(workspacePathOf(input));
   const files = sourceFiles(workspacePath);
   const entryFile = input.entryPoint
-    ? path.resolve(workspacePath, input.entryPoint)
+    ? resolveRequestedEntry(workspacePath, input.entryPoint)
     : findRemotionEntry(workspacePath, files);
   const projectRoot = packageRootForEntry(entryFile, workspacePath);
   const projectFiles = sourceFiles(projectRoot);
   const pkg = packageInfo(projectRoot);
   const entryPoint = entryFile ? relativeToWorkspace(workspacePath, entryFile) : null;
-  const hasRemotionDependency = Boolean(dependencyVersion(pkg, "remotion"));
-  const hasCompositions = projectFiles.some((filePath) => readText(filePath).includes("<Composition"));
+  const resolvedRemotionPackage = resolvedPackageInfo("remotion", projectRoot, workspacePath);
+  const hasRemotionDependency = Boolean(dependencyVersion(pkg, "remotion") || resolvedRemotionPackage?.version);
   const entryPoints = collectEntryPoints(workspacePath, projectFiles, entryPoint);
   const runnableEntryPoints = entryPoints.filter((entry) => entry.source !== "config");
-  const hasNodeModules = fs.existsSync(path.join(projectRoot, "node_modules"));
-  const missingDependencies = hasRemotionDependency ? [] : ["remotion"];
+  const requiredModules = ["remotion", "@remotion/bundler", "@remotion/renderer"];
+  const missingDependencies = requiredModules.filter((request) => !hasProjectModule(request, projectRoot, workspacePath));
+  const hasNodeModules = missingDependencies.length === 0;
 
   const diagnostics = [];
   if (!entryPoint) diagnostics.push({ level: "error", source: "detectProject", message: "No Remotion entry point found." });
   if (!hasRemotionDependency) diagnostics.push({ level: "warning", source: "package.json", message: "Package does not declare a remotion dependency." });
-  if (!hasCompositions) diagnostics.push({ level: "warning", source: "source", message: "No <Composition> declarations found." });
   if (entryPoint && hasRemotionDependency && !hasNodeModules) diagnostics.push({ level: "warning", source: "node_modules", message: "Dependencies are not installed (node_modules is missing)." });
 
-  const hasRemotionSignal = hasRemotionDependency || hasCompositions || entryPoints.length > 0;
+  const hasRemotionSignal = hasRemotionDependency || entryPoints.length > 0;
   let status;
   if (!hasRemotionSignal && !entryPoint) {
     status = "notFound";
@@ -82,20 +105,21 @@ function detectProject(input = {}) {
     : null;
 
   return {
-    ok: Boolean(entryPoint && (hasRemotionDependency || hasCompositions)),
+    ok: Boolean(entryPoint && hasRemotionDependency && missingDependencies.length === 0),
     status,
     confidence,
     workspacePath,
     projectRoot,
+    entryFile,
     projectRootRelative: relativeToWorkspace(workspacePath, projectRoot) || ".",
     projectName: pkg.name || path.basename(workspacePath),
-    packageManager: packageManager(projectRoot),
+    packageManager: packageManager(projectRoot, workspacePath),
     entryPoint,
     selectedEntryPoint: entryPoint,
     entryPoints,
     rootFile: entryPoint,
-    remotionVersion: dependencyVersion(pkg, "remotion") || null,
-    renderer: detectRemotionRenderer(projectRoot),
+    remotionVersion: dependencyVersion(pkg, "remotion") || resolvedRemotionPackage?.version || null,
+    renderer: detectRemotionRenderer(projectRoot, workspacePath),
     hasNodeModules,
     missingDependencies,
     sourceFileCount: projectFiles.length,
@@ -104,31 +128,18 @@ function detectProject(input = {}) {
   };
 }
 
-function buildManifest(input = {}) {
-  const detection = detectProject(input);
-  const workspacePath = detection.workspacePath;
-  const files = sourceFiles(detection.projectRoot || workspacePath);
-  const compositions = parseCompositionBlocks(workspacePath, files);
-  return {
-    schemaVersion: 1,
-    engine: "sparo-video-engine",
-    buildId: hashContent(JSON.stringify({
-      workspacePath,
-      projectRoot: detection.projectRoot,
-      entryPoint: detection.entryPoint,
-      files: files.map((filePath) => `${relativeToWorkspace(workspacePath, filePath)}:${safeStat(filePath)?.mtimeMs || 0}`),
-    })),
-    generatedAt: Date.now(),
-    compositions,
-  };
+async function buildManifest(input = {}, detection = detectProject(input)) {
+  if (!detection.ok || !detection.entryFile) {
+    throw new Error(detection.errorSummary || "No runnable Remotion project was detected.");
+  }
+  return resolveCompositionManifest(detection, input);
 }
 
-function compileProject(input = {}) {
-  emitStatus("Compiling Remotion project with Sparo Video Engine.");
+async function compileProject(input = {}) {
   const detection = detectProject(input);
   const workspacePath = detection.workspacePath;
-  const manifest = buildManifest(input);
-  const assets = indexAssets(input).assets;
+  const manifest = await buildManifest(input, detection);
+  const assets = indexAssetsForDetection(detection).assets;
   const diagnostics = [
     ...detection.diagnostics,
     ...(manifest.compositions.length ? [] : [{ level: "error", source: "compileProject", message: "No compositions were found." }]),
@@ -144,93 +155,65 @@ function compileProject(input = {}) {
     diagnostics,
     changes,
   };
-  writeJson(path.join(ensureRuntimeDir(workspacePath), "engine-state.json"), output);
+  writeJsonAtomic(path.join(ensureRuntimeDir(workspacePath), "engine-state.json"), output);
   return output;
 }
 
-function getCompositionManifest(input = {}) {
+async function getCompositionManifest(input = {}) {
   const workspacePath = normalizeWorkspace(workspacePathOf(input));
   const statePath = path.join(ensureRuntimeDir(workspacePath), "engine-state.json");
   const state = readJson(statePath, null);
-  const project = state?.project?.projectRoot ? state.project : detectProject(input);
-  if (state?.manifest) return { ok: true, manifest: state.manifest, project };
-  return { ok: true, manifest: buildManifest(input), project };
-}
-
-function colorForIndex(index) {
-  return ["#5dc6ff", "#f4c542", "#8de16d", "#ff7a90", "#b99cff", "#63dbc6"][index % 6];
-}
-
-function visualElementsForComposition(workspacePath, composition) {
-  const componentPath = composition?.componentPath ? path.join(workspacePath, composition.componentPath) : null;
-  if (!componentPath || !fs.existsSync(componentPath)) return [];
-  const source = readText(componentPath);
-  const snippets = parseTextSnippets(source);
-  const tagMatches = [...source.matchAll(/<(Img|Video|OffthreadVideo|Audio|svg|canvas|AbsoluteFill|div|h1|h2|p|span)\b/g)]
-    .map((match) => match[1])
-    .slice(0, 12);
-  const tags = tagMatches.length ? tagMatches : ["Composition"];
-  return tags.map((tag, index) => ({
-    id: `element-${index + 1}`,
-    type: tag,
-    label: snippets[index] || tag,
-    sourceHint: composition.componentPath || null,
-    componentPath: composition.componentPath || null,
-    x: 8 + (index % 3) * 8,
-    y: 10 + index * 6,
-    width: Math.max(18, 78 - (index % 4) * 10),
-    height: tag === "Audio" ? 8 : Math.max(10, 26 - (index % 3) * 4),
-    color: colorForIndex(index),
-    opacity: tag === "Audio" ? 0.42 : 0.78,
-  }));
-}
-
-function evaluateFrame(input = {}) {
-  const workspacePath = normalizeWorkspace(workspacePathOf(input));
-  const manifest = getCompositionManifest(input).manifest;
-  const compositionId = String(input.compositionId || input.composition || "").trim() || manifest.compositions[0]?.id;
-  const composition = manifest.compositions.find((item) => item.id === compositionId);
-  if (!composition) throw new Error(`Composition not found: ${compositionId || "(none)"}`);
-  const frame = Math.max(0, Math.min(Number(input.frame) || 0, composition.durationInFrames - 1));
-  const activeSequences = composition.sequences.filter((sequence) => {
-    const from = Number(sequence.from) || 0;
-    const duration = Number(sequence.duration) || composition.durationInFrames;
-    return frame >= from && frame < from + duration;
+  const project = detectProject(input);
+  if (!project.entryFile) throw new Error(project.errorSummary || "No runnable Remotion project was detected.");
+  const inputProps = input.inputProps && typeof input.inputProps === "object" ? input.inputProps : null;
+  const currentRevision = computeSourceRevision(project);
+  const currentInputPropsRevision = computeInputPropsRevision(inputProps);
+  if (
+    input.force !== true
+      && state?.manifest?.schemaVersion === RUNTIME_SCHEMA_VERSION
+      && state.manifest.sourceRevision === currentRevision
+      && state.manifest.inputPropsRevision === currentInputPropsRevision
+  ) {
+    return { ok: true, manifest: state.manifest, project };
+  }
+  const manifest = await resolveCompositionManifest(project, input);
+  writeJsonAtomic(statePath, {
+    ...(state && typeof state === "object" ? state : {}),
+    ok: manifest.compositions.length > 0,
+    buildId: manifest.buildId,
+    project,
+    renderer: project.renderer,
+    manifest,
+    diagnostics: project.diagnostics || [],
   });
-  const visualElements = visualElementsForComposition(workspacePath, composition);
-  const sequenceLayers = activeSequences.map((sequence, index) => ({
-    id: sequence.id,
-    type: "Sequence",
-    label: sequence.label,
-    sourceHint: composition.componentPath || null,
-    componentPath: composition.componentPath || null,
-    from: sequence.from,
-    duration: sequence.duration,
-    x: 6 + index * 4,
-    y: 8 + index * 8,
-    width: Math.max(20, 86 - index * 9),
-    height: 13,
-    color: colorForIndex(index),
-    opacity: 0.62,
-  }));
-  const layers = sequenceLayers.length ? sequenceLayers : visualElements;
+  return { ok: true, manifest, project };
+}
+
+async function getFrameDescriptor(input = {}) {
+  const { manifest, composition, frame } = await compositionForInput(input);
   return {
     ok: true,
     compositionId: composition.id,
     frame,
     timeSeconds: frame / composition.fps,
+    projectRevision: manifest.projectRevision || manifest.sourceRevision,
+    descriptorRevision: composition.descriptorRevision || manifest.descriptorRevision,
+    frameState: "descriptor-only",
     composition,
-    sequences: composition.sequences,
-    activeSequences,
-    layers,
+    sequences: [],
+    activeSequences: [],
+    layers: [],
+    contextSource: "project-descriptor",
     diagnostics: [],
   };
 }
 
-function indexAssets(input = {}) {
-  const workspacePath = normalizeWorkspace(workspacePathOf(input));
-  const files = walkFiles(workspacePath, { maxFiles: 8000 });
-  const assets = files
+function indexAssetsForDetection(detection) {
+  const workspacePath = detection.workspacePath;
+  const assets = walkFiles(detection.projectRoot || workspacePath, {
+    maxFiles: 8000,
+    include: (filePath) => ASSET_EXTENSIONS.has(path.extname(filePath).toLowerCase()),
+  })
     .map((filePath) => {
       const ext = path.extname(filePath).toLowerCase();
       const type = ASSET_EXTENSIONS.get(ext);
@@ -246,6 +229,10 @@ function indexAssets(input = {}) {
     .filter(Boolean)
     .slice(0, 500);
   return { ok: true, assets, truncated: assets.length >= 500 };
+}
+
+function indexAssets(input = {}) {
+  return indexAssetsForDetection(detectProject(input));
 }
 
 function gitChanges(workspacePath) {
@@ -277,16 +264,61 @@ function readDiagnostics(input = {}) {
   };
 }
 
-function compositionForInput(input = {}) {
+async function compositionForInput(input = {}) {
   const workspacePath = normalizeWorkspace(workspacePathOf(input));
-  const manifestResult = getCompositionManifest(input);
-  const manifest = manifestResult.manifest;
-  const projectRoot = manifestResult.project?.projectRoot || workspacePath;
-  const compositionId = String(input.compositionId || input.composition || "").trim() || manifest.compositions[0]?.id;
+  const statePath = path.join(ensureRuntimeDir(workspacePath), "engine-state.json");
+  const state = readJson(statePath, null);
+  const manifest = state?.manifest;
+  if (manifest?.schemaVersion !== RUNTIME_SCHEMA_VERSION || !manifest.sourceRevision || !manifest.inputPropsRevision) {
+    throw new Error("No resolved Remotion snapshot is available. Compile the project before running a snapshot-bound operation.");
+  }
+
+  const project = detectProject({
+    ...input,
+    entryPoint: input.entryPoint || manifest.entryPoint,
+  });
+  if (!project.ok || !project.entryFile) {
+    throw new Error(project.errorSummary || "The resolved Remotion snapshot no longer has a runnable project entry point.");
+  }
+  const inputProps = input.inputProps && typeof input.inputProps === "object" ? input.inputProps : null;
+  const currentProjectRevision = computeSourceRevision(project);
+  if (currentProjectRevision !== manifest.sourceRevision) {
+    throw new Error(
+      `Stale Remotion source snapshot. snapshot=${manifest.sourceRevision}, current=${currentProjectRevision}. Compile the project again.`,
+    );
+  }
+  const currentInputPropsRevision = computeInputPropsRevision(inputProps);
+  if (currentInputPropsRevision !== manifest.inputPropsRevision) {
+    throw new Error(
+      `Stale Remotion input snapshot. snapshot=${manifest.inputPropsRevision}, current=${currentInputPropsRevision}. Compile the project again with the intended input props.`,
+    );
+  }
+
+  const projectRoot = project.projectRoot || workspacePath;
+  const compositionId = String(input.compositionId || "").trim() || manifest.compositions[0]?.id;
   const composition = manifest.compositions.find((item) => item.id === compositionId);
   if (!composition) throw new Error(`Composition not found: ${compositionId || "(none)"}`);
+  const projectRevision = manifest.projectRevision || manifest.sourceRevision;
+  const descriptorRevision = composition.descriptorRevision || manifest.descriptorRevision;
+  const expectedProjectRevision = String(input.expectedProjectRevision || "").trim();
+  const expectedDescriptorRevision = String(input.expectedDescriptorRevision || "").trim();
+  if (!expectedProjectRevision || !expectedDescriptorRevision) {
+    throw new Error("expectedProjectRevision and expectedDescriptorRevision are required for a snapshot-bound Remotion operation.");
+  }
+  if (expectedProjectRevision !== projectRevision || expectedDescriptorRevision !== descriptorRevision) {
+    throw new Error(
+      `Stale Remotion snapshot. expected=${expectedProjectRevision}/${expectedDescriptorRevision}, current=${projectRevision}/${descriptorRevision}`,
+    );
+  }
   const frame = Math.max(0, Math.min(Math.round(Number(input.frame) || 0), composition.durationInFrames - 1));
-  return { workspacePath, projectRoot, manifest, composition, frame };
+  return {
+    workspacePath,
+    projectRoot,
+    manifest,
+    composition,
+    frame,
+    rendererVersion: rendererVersion(project),
+  };
 }
 
 module.exports = {
@@ -294,9 +326,7 @@ module.exports = {
   buildManifest,
   compileProject,
   getCompositionManifest,
-  colorForIndex,
-  visualElementsForComposition,
-  evaluateFrame,
+  getFrameDescriptor,
   indexAssets,
   gitChanges,
   readDiagnostics,

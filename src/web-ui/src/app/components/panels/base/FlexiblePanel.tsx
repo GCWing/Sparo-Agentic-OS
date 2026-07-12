@@ -571,18 +571,9 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
             <AppBuilderWorkbench
               sessionId={builderData.sessionId ?? null}
               appId={builderData.appId}
-              componentId={builderData.componentId || builderMetadata.appBuilderComponentId}
-              componentKind={builderData.componentKind || builderMetadata.appBuilderComponentKind}
-              componentVersion={builderData.componentVersion || builderMetadata.componentVersion}
-              componentPackageRoot={
-                builderData.componentPackageRoot ||
-                builderMetadata.componentPackageRoot ||
-                builderData.packageRoot ||
-                builderMetadata.packageRoot
-              }
-              componentName={builderData.componentName || builderMetadata.componentName}
-              componentDescription={builderData.componentDescription || builderMetadata.componentDescription}
-              productAppFacts={builderData.productAppFacts || builderMetadata.productAppFacts}
+              draftId={builderData.draftId || builderMetadata.appBuilderDraftId}
+              slotId={builderData.slotId}
+              baseReleaseId={builderData.baseReleaseId}
               scope={
                 builderData.scope ||
                 builderMetadata.appScope ||

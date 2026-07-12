@@ -8,7 +8,6 @@ export {
   useCanvasLayout,
   useTabActions,
   useDragState,
-  useMissionControl,
   default as CanvasContext,
 } from './CanvasContext';
 export { CanvasProvider } from './CanvasProvider';
@@ -18,6 +17,5 @@ export type {
   TabOperations,
   DragOperations,
   LayoutOperations,
-  MissionControlOperations,
 } from './CanvasContext';
 export type { CanvasProviderProps } from './CanvasProvider';

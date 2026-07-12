@@ -55,6 +55,7 @@ export interface ActiveSessionMeta {
   storageScope?: Session['storageScope'];
   createdAt?: number;
   lastFinishedAt?: number;
+  loadPhase?: Session['loadPhase'];
 }
 
 export function sessionToActiveSessionMeta(session: Session | null | undefined): ActiveSessionMeta {
@@ -70,6 +71,7 @@ export function sessionToActiveSessionMeta(session: Session | null | undefined):
     storageScope: session.storageScope,
     createdAt: session.createdAt,
     lastFinishedAt: session.lastFinishedAt,
+    loadPhase: session.loadPhase,
   };
 }
 

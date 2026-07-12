@@ -26,6 +26,7 @@
   "appearanceThemeList": "主题",
   "followSystemTheme": "跟随系统",
   "remoteConnect": "远程控制",
+  "remoteConnectRequiresWorkspace": "请先打开一个工作区，再使用设备网络。",
   "remoteControlConnected": "远程控制已连接",
   "remoteControlWaiting": "远程控制 - 等待连接中",
   "remoteControlSetup": "设置连接",

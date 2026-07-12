@@ -1,1 +1,1 @@
-export type AppCenterMode = 'home' | 'manage' | 'component-center';
+export type AppCenterMode = 'home' | 'manage';

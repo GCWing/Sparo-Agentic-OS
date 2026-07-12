@@ -99,6 +99,17 @@ describe('dialogTurnStability', () => {
     ).toBe('pending_confirmation');
   });
 
+  it('settles a confirmation when the restoring process has no execution channel', () => {
+    expect(
+      normalizeRecoveredToolStatus(
+        'pending_confirmation',
+        'cancelled',
+        null,
+        { preservePendingConfirmation: false },
+      ),
+    ).toBe('cancelled');
+  });
+
   it('cancels pending confirmation tools during an explicit cancellation settle', () => {
     const turn = createDialogTurn({
       modelRounds: [

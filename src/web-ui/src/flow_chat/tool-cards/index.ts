@@ -535,11 +535,11 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
   },
   'CreateProductAppCheckpoint': {
     toolName: 'CreateProductAppCheckpoint',
-    displayName: 'Create App Checkpoint',
+    displayName: 'Create Draft Checkpoint',
     icon: 'APP',
     requiresConfirmation: false,
     resultDisplayType: 'detailed',
-    description: 'Create a stable Product App package checkpoint',
+    description: 'Create a stable checkpoint of the current Product App Draft',
     displayMode: 'standard',
     primaryColor: 'var(--ds-tool-family-browser-fg)'
   },
@@ -549,59 +549,19 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     icon: 'APP',
     requiresConfirmation: false,
     resultDisplayType: 'detailed',
-    description: 'Compare Product App checkpoint revisions',
+    description: 'Compare the current Draft with a Draft checkpoint',
     displayMode: 'standard',
     primaryColor: 'var(--ds-tool-family-browser-fg)'
   },
-  'CreateProductAppFromReleaseTemplate': {
-    toolName: 'CreateProductAppFromReleaseTemplate',
-    displayName: 'Create App From Release',
-    icon: 'APP',
-    requiresConfirmation: false,
-    resultDisplayType: 'detailed',
-    description: 'Create a new Product App package from a release snapshot',
-    displayMode: 'standard',
-    primaryColor: 'var(--ds-status-surface-success-fg)'
-  },
   'RestoreProductAppCheckpoint': {
     toolName: 'RestoreProductAppCheckpoint',
-    displayName: 'Restore App Checkpoint',
+    displayName: 'Restore Draft Checkpoint',
     icon: 'APP',
-    requiresConfirmation: false,
+    requiresConfirmation: true,
     resultDisplayType: 'detailed',
-    description: 'Restore a Product App package from a checkpoint',
+    description: 'Restore the current Product App Draft from a checkpoint',
     displayMode: 'standard',
     primaryColor: 'var(--ds-status-surface-warning-fg)'
-  },
-  'RestoreProductAppRelease': {
-    toolName: 'RestoreProductAppRelease',
-    displayName: 'Restore App Release',
-    icon: 'APP',
-    requiresConfirmation: false,
-    resultDisplayType: 'detailed',
-    description: 'Roll back a Product App package to a release source snapshot',
-    displayMode: 'standard',
-    primaryColor: 'var(--ds-status-surface-warning-fg)'
-  },
-  'CreateProductAppRelease': {
-    toolName: 'CreateProductAppRelease',
-    displayName: 'Create App Release',
-    icon: 'APP',
-    requiresConfirmation: false,
-    resultDisplayType: 'detailed',
-    description: 'Create a Product App release artifact from passed release readiness',
-    displayMode: 'standard',
-    primaryColor: 'var(--ds-status-surface-success-fg)'
-  },
-  'PublishProductAppRelease': {
-    toolName: 'PublishProductAppRelease',
-    displayName: 'Publish App Release',
-    icon: 'APP',
-    requiresConfirmation: false,
-    resultDisplayType: 'detailed',
-    description: 'Publish a Product App release artifact into the local catalog source',
-    displayMode: 'standard',
-    primaryColor: 'var(--ds-status-surface-success-fg)'
   },
   'RunBuilderPreview': {
     toolName: 'RunBuilderPreview',
@@ -795,11 +755,7 @@ const EXACT_TOOL_UI_REGISTRY: Record<string, ToolUiRegistryEntry> = {
   ResolveBuilderPreviewTarget: { component: DefaultToolCard, template: 'detail', family: 'product-app' },
   CreateProductAppCheckpoint: { component: DefaultToolCard, template: 'detail', family: 'product-app' },
   CompareProductAppRevisions: { component: DefaultToolCard, template: 'detail', family: 'product-app' },
-  CreateProductAppFromReleaseTemplate: { component: DefaultToolCard, template: 'detail', family: 'product-app' },
   RestoreProductAppCheckpoint: { component: DefaultToolCard, template: 'detail', family: 'product-app' },
-  RestoreProductAppRelease: { component: DefaultToolCard, template: 'detail', family: 'product-app' },
-  CreateProductAppRelease: { component: DefaultToolCard, template: 'detail', family: 'product-app' },
-  PublishProductAppRelease: { component: DefaultToolCard, template: 'detail', family: 'product-app' },
   ValidateProductAppPackage: { component: ProductAppValidationToolDisplay, template: 'detail', family: 'product-app' },
   RunBuilderPreview: { component: ProductAppPreviewToolDisplay, template: 'detail', family: 'product-app' },
   ValidateComponentPackage: { component: ProductAppValidationToolDisplay, template: 'detail', family: 'component' },
@@ -826,26 +782,74 @@ const dynamicExactToolUiRegistry = new Map<string, ToolUiRegistryEntry>();
 const dynamicFamilyToolUiRegistry: ToolUiFamilyRegistryEntry[] = [];
 const dynamicToolCardConfigs = new Map<string, ToolCardConfig>();
 
+let toolCardRegistryRevision = 0;
+let registryBatchDepth = 0;
+let registryBatchChanged = false;
+const toolCardRegistryListeners = new Set<() => void>();
+
+function emitToolCardRegistryChange(): void {
+  if (registryBatchDepth > 0) {
+    registryBatchChanged = true;
+    return;
+  }
+
+  toolCardRegistryRevision += 1;
+  toolCardRegistryListeners.forEach(listener => listener());
+}
+
+/**
+ * Apply related registry mutations atomically from React's point of view.
+ * Manifest sync registers both config and renderer entries for each tool, so
+ * publishing one revision avoids exposing a half-registered card.
+ */
+export function batchToolCardRegistryUpdates<T>(update: () => T): T {
+  registryBatchDepth += 1;
+  try {
+    return update();
+  } finally {
+    registryBatchDepth -= 1;
+    if (registryBatchDepth === 0 && registryBatchChanged) {
+      registryBatchChanged = false;
+      emitToolCardRegistryChange();
+    }
+  }
+}
+
+export function subscribeToolCardRegistry(listener: () => void): () => void {
+  toolCardRegistryListeners.add(listener);
+  return () => toolCardRegistryListeners.delete(listener);
+}
+
+export function getToolCardRegistryRevision(): number {
+  return toolCardRegistryRevision;
+}
+
 export function registerToolUiRenderer(toolName: string, entry: ToolUiRegistryEntry): () => void {
   const key = resolveToolRegistryKey(toolName);
   dynamicExactToolUiRegistry.set(key, entry);
+  emitToolCardRegistryChange();
   return () => {
     if (dynamicExactToolUiRegistry.get(key) === entry) {
       dynamicExactToolUiRegistry.delete(key);
+      emitToolCardRegistryChange();
     }
   };
 }
 
 export function unregisterToolUiRenderer(toolName: string): void {
-  dynamicExactToolUiRegistry.delete(resolveToolRegistryKey(toolName));
+  if (dynamicExactToolUiRegistry.delete(resolveToolRegistryKey(toolName))) {
+    emitToolCardRegistryChange();
+  }
 }
 
 export function registerToolUiFamily(entry: ToolUiFamilyRegistryEntry): () => void {
   dynamicFamilyToolUiRegistry.unshift(entry);
+  emitToolCardRegistryChange();
   return () => {
     const index = dynamicFamilyToolUiRegistry.findIndex((candidate) => candidate.id === entry.id);
     if (index >= 0) {
       dynamicFamilyToolUiRegistry.splice(index, 1);
+      emitToolCardRegistryChange();
     }
   };
 }
@@ -854,21 +858,36 @@ export function unregisterToolUiFamily(id: string): void {
   const index = dynamicFamilyToolUiRegistry.findIndex((candidate) => candidate.id === id);
   if (index >= 0) {
     dynamicFamilyToolUiRegistry.splice(index, 1);
+    emitToolCardRegistryChange();
   }
 }
 
 export function registerToolCardConfig(toolName: string, config: ToolCardConfig): () => void {
   const key = resolveToolRegistryKey(toolName);
   dynamicToolCardConfigs.set(key, config);
+  emitToolCardRegistryChange();
   return () => {
     if (dynamicToolCardConfigs.get(key) === config) {
       dynamicToolCardConfigs.delete(key);
+      emitToolCardRegistryChange();
     }
   };
 }
 
 export function unregisterToolCardConfig(toolName: string): void {
-  dynamicToolCardConfigs.delete(resolveToolRegistryKey(toolName));
+  if (dynamicToolCardConfigs.delete(resolveToolRegistryKey(toolName))) {
+    emitToolCardRegistryChange();
+  }
+}
+
+/** Whether a tool has a real manifest/static config rather than the fallback. */
+export function hasToolCardConfig(toolName: string): boolean {
+  const raw = (toolName ?? '').trim();
+  if (!raw) return false;
+  if (isMcpToolName(raw)) return true;
+
+  const key = resolveToolRegistryKey(raw);
+  return dynamicToolCardConfigs.has(key) || Boolean(TOOL_CARD_CONFIGS[key]);
 }
 
 export function getToolUiRegistryEntry(toolName: string): ToolUiRegistryEntry {

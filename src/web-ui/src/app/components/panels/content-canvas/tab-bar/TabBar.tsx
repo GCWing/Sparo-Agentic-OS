@@ -40,8 +40,6 @@ export interface TabBarProps {
   draggingTabId: string | null;
   /** Reorder tab */
   onReorderTab: (tabId: string, newIndex: number) => void;
-  /** Open mission control */
-  onOpenMissionControl?: () => void;
   /** Close all tabs */
   onCloseAllTabs?: () => Promise<void> | void;
   /** Pop out tab as independent scene */
@@ -94,7 +92,6 @@ export const TabBar: React.FC<TabBarProps> = ({
   onDragEnd,
   draggingTabId,
   onReorderTab,
-  onOpenMissionControl,
   onCloseAllTabs,
   onTabPopOut,
 }) => {
@@ -161,15 +158,13 @@ export const TabBar: React.FC<TabBarProps> = ({
     // Base actions width (excluding overflow button)
     // Close-all button: 28px + gap
     const baseActionsWidth = (onCloseAllTabs ? 28 : 0) + 4;
-    // Overflow button width (~50px with badge, 28px with only mission control)
-    const overflowBtnWidth = onOpenMissionControl ? 50 : 28;
+    const overflowBtnWidth = 50;
     // Gap before actions area
     const actionsGap = 8;
     
     // Phase 1: check if all tabs fit without overflow
-    // Overflow can be hidden only when mission control entry is not needed
     const availableWithoutOverflow = containerWidth - baseActionsWidth - actionsGap;
-    const canFitAll = !onOpenMissionControl && totalTabsWidth <= availableWithoutOverflow;
+    const canFitAll = totalTabsWidth <= availableWithoutOverflow;
     
     // Compute actual available width
     const actionsWidth = canFitAll ? baseActionsWidth : (baseActionsWidth + overflowBtnWidth);
@@ -194,7 +189,7 @@ export const TabBar: React.FC<TabBarProps> = ({
     const finalCount = Math.max(1, Math.min(count, visibleTabs.length));
     setVisibleTabsCount(finalCount);
     setLayoutReady(true);
-  }, [visibleTabs, getTabWidth, getTabCacheKey, onCloseAllTabs, onOpenMissionControl]);
+  }, [visibleTabs, getTabWidth, getTabCacheKey, onCloseAllTabs]);
 
   // Reset to render all tabs when list changes (re-measure)
   useEffect(() => {
@@ -328,7 +323,7 @@ export const TabBar: React.FC<TabBarProps> = ({
 
       {/* Actions area */}
       <div ref={actionsRef} className="canvas-tab-bar__actions">
-        {/* Overflow menu (all groups; mission control only in primary) */}
+        {/* Overflow menu */}
         {visibleTabs.length > 0 && layoutReady && (
           <TabOverflowMenu
             overflowTabs={overflowTabs}
@@ -336,7 +331,6 @@ export const TabBar: React.FC<TabBarProps> = ({
             onTabClick={onTabClick}
             onTabClose={onTabClose}
             onReorderTab={onReorderTab}
-            onOpenMissionControl={onOpenMissionControl}
           />
         )}
 

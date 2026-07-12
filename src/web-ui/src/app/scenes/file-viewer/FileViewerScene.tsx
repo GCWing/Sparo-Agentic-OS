@@ -66,6 +66,7 @@ import { projectRuntimeScopeFromWorkspace, type RuntimeScope } from '@/shared/ty
 import {
   applyFileSelection,
   buildFileContextPack,
+  canOpenInExcelLive,
   canOpenInSparo,
   consumePendingFileWorkbenchPlanReview,
   decideFileOpenAction,
@@ -88,6 +89,11 @@ import {
   type FileScope,
   type SortOrder,
 } from '@/tools/file-workbench';
+import {
+  MAX_RECENT_FILE_LOCATIONS,
+  loadRecentFileLocations,
+  saveRecentFileLocations,
+} from './services/recentFileLocations';
 import './FileViewerScene.scss';
 
 const log = createLogger('SparoFilesScene');
@@ -113,7 +119,6 @@ const VIEW_MODE_STORAGE_KEY = 'sparo.files.viewMode';
 const COL_WIDTHS_STORAGE_KEY = 'sparo.files.colWidths';
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'sparo.files.sidebarCollapsed';
 const PROJECT_FILES_WIDTH_STORAGE_KEY = 'sparo.files.projectFilesWidth';
-const RECENT_PATHS_STORAGE_KEY = 'sparo.files.recentPaths';
 const DEFAULT_PROJECT_FILES_WIDTH = 300;
 const MIN_PROJECT_FILES_WIDTH = 220;
 const MAX_PROJECT_FILES_WIDTH = 560;
@@ -125,7 +130,6 @@ const MAX_TEXT_PREVIEW_SIZE = 512 * 1024;
 const TEXT_PREVIEW_CHARS = 380;
 const MAX_TEXT_PREVIEW_LOADS = 4;
 const MAX_TEXT_PREVIEW_CACHE_ENTRIES = 64;
-const MAX_RECENT_PATHS = 12;
 const DRAG_SELECTION_THRESHOLD = 4;
 
 function getCategoryIcon(category: FileCategory): React.ReactElement {
@@ -223,23 +227,6 @@ function toBase64Content(content: string): string {
     binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
   }
   return window.btoa(binary);
-}
-
-function loadRecentPaths(): string[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem(RECENT_PATHS_STORAGE_KEY) || '[]');
-    return Array.isArray(parsed)
-      ? parsed.filter((path): path is string => typeof path === 'string' && path.trim().length > 0)
-      : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveRecentPaths(paths: string[]): void {
-  if (typeof window === 'undefined') return;
-  window.localStorage.setItem(RECENT_PATHS_STORAGE_KEY, JSON.stringify(paths.slice(0, MAX_RECENT_PATHS)));
 }
 
 function thumbnailCacheKey(entry: FsEntry): string {
@@ -696,7 +683,7 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath, scopeK
   const [drives, setDrives] = useState<DriveInfo[]>([]);
   const [quickFolders, setQuickFolders] = useState<QuickFolder[]>([]);
   const [pinned, setPinned] = useState<PinnedPath[]>([]);
-  const [recentPaths, setRecentPaths] = useState<string[]>(loadRecentPaths);
+  const [recentPaths, setRecentPaths] = useState<string[]>(loadRecentFileLocations);
   const [currentPath, setCurrentPath] = useState(workspacePath || '');
   const [systemEntries, setSystemEntries] = useState<FileEntry[]>([]);
   const [selectedEntries, setSelectedEntries] = useState<FileEntry[]>([]);
@@ -838,8 +825,9 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath, scopeK
       setBrowserSearchQuery('');
       setEditingAddress(false);
       setRecentPaths((previous) => {
-        const next = [nextPath, ...previous.filter((path) => path !== nextPath)].slice(0, MAX_RECENT_PATHS);
-        saveRecentPaths(next);
+        const next = [nextPath, ...previous.filter((path) => path !== nextPath)]
+          .slice(0, MAX_RECENT_FILE_LOCATIONS);
+        saveRecentFileLocations(next);
         return next;
       });
       if (pushHistory) {
@@ -1515,6 +1503,18 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath, scopeK
     }, { source: 'project-nav' });
   }, [effectiveWorkspacePath]);
 
+  const handleOpenInExcelLive = useCallback((entry: FileEntry) => {
+    if (!canOpenInExcelLive(entry)) return;
+    void import('@/app/agentic-os/excel-live/openExcelLive').then(({ openExcelLive }) =>
+      openExcelLive({
+        workspacePath: effectiveWorkspacePath,
+        filePath: entry.path,
+      }),
+    ).catch((error) => {
+      log.error('Failed to open Excel Live', { path: entry.path, error });
+    });
+  }, [effectiveWorkspacePath]);
+
   const handleOpenExternally = useCallback((entry: FileEntry) => {
     if (entry.kind === 'dir') {
       void openSystemPath(entry.path);
@@ -1526,9 +1526,10 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath, scopeK
   const handlePrimaryEntryOpen = useCallback((entry: FileEntry) => {
     const decision = decideFileOpenAction(entry);
     if (decision.primary === 'openFolder') void openSystemPath(entry.path);
+    if (decision.primary === 'openInExcelLive') handleOpenInExcelLive(entry);
     if (decision.primary === 'openInSparo') handleOpenInSparo(entry);
     if (decision.primary === 'openExternal') void systemFsAPI.openWithDefault(entry.path);
-  }, [handleOpenInSparo, openSystemPath]);
+  }, [handleOpenInExcelLive, handleOpenInSparo, openSystemPath]);
 
   const handleAddEntryToChat = useCallback((entry: FileEntry) => {
     addFileMentionToChat({
@@ -1740,6 +1741,11 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath, scopeK
                 {primarySelectedEntry && canOpenInSparo(primarySelectedEntry) && (
                   <Button size="small" variant="secondary" onClick={() => handleOpenInSparo(primarySelectedEntry)}>
                     {t('actions.openInSparo')}
+                  </Button>
+                )}
+                {primarySelectedEntry && canOpenInExcelLive(primarySelectedEntry) && (
+                  <Button size="small" variant="secondary" onClick={() => handleOpenInExcelLive(primarySelectedEntry)}>
+                    {t('actions.openInExcelLive')}
                   </Button>
                 )}
                 {primarySelectedEntry && (
@@ -2444,6 +2450,15 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath, scopeK
               }}>
                 <FileText size={13} />
                 {t('actions.openInSparo')}
+              </button>
+            )}
+            {canOpenInExcelLive(contextMenu.entry) && (
+              <button role="menuitem" onClick={() => {
+                setContextMenu(null);
+                handleOpenInExcelLive(contextMenu.entry);
+              }}>
+                <FileText size={13} />
+                {t('actions.openInExcelLive')}
               </button>
             )}
             {contextMenu.entry.kind !== 'dir' && (

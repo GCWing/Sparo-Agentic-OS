@@ -9,7 +9,8 @@ use crate::agentic::agents::{Agent, PromptBuilder, PromptBuilderContext, Request
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
 use crate::agentic::tools::registry::{get_global_tool_registry, ToolRegistry};
 use crate::bridge_component::{
-    BridgeComponentConsumer, BridgeComponentConsumerKind, BridgeComponentManager,
+    bridge_run_result_for_assistant, ensure_bridge_run_completed, BridgeComponentConsumer,
+    BridgeComponentConsumerKind, BridgeComponentManager,
 };
 use crate::error::{CoreError, CoreResult};
 use crate::infrastructure::get_path_manager_arc;
@@ -893,6 +894,15 @@ impl AgentComponentRuntimeToolAdapter {
             )
             .await?
         };
+        // A Bridge invocation can return normally at the transport layer while its
+        // business operation has failed. Never let the Agent Component's static
+        // success summary overwrite that terminal status: returning an error here
+        // makes the tool pipeline emit a failed event and an `is_error` tool result
+        // to the next model round.
+        ensure_bridge_run_completed(
+            &format!("Agent Component tool '{}'", self.manifest.name),
+            &result,
+        )?;
         let summary = runtime_value
             .get("summary")
             .and_then(Value::as_str)
@@ -903,6 +913,7 @@ impl AgentComponentRuntimeToolAdapter {
                     self.manifest.name
                 )
             });
+        let result_for_assistant = bridge_run_result_for_assistant(Some(&summary), &result);
         Ok(vec![ToolResult::ok(
             json!({
                 "component_id": self.app_id,
@@ -919,7 +930,7 @@ impl AgentComponentRuntimeToolAdapter {
                     "stderr": result.stderr,
                 }
             }),
-            Some(summary),
+            Some(result_for_assistant),
         )])
     }
 

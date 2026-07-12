@@ -11,8 +11,12 @@
         "workspacePath": { "type": "string" },
         "projectName": { "type": "string" },
         "entryPoint": { "type": "string" },
+        "projectRevision": { "type": "string" },
+        "descriptorRevision": { "type": "string" },
         "compositionId": { "type": "string" },
         "frame": { "type": "integer", "minimum": 0 },
+        "frameState": { "type": "string", "const": "committed" },
+        "playbackState": { "type": "string", "enum": ["paused", "playing", "buffering", "seeking", "ended", "error"] },
         "fps": { "type": "number" },
         "durationInFrames": { "type": "integer" },
         "size": {
@@ -22,7 +26,6 @@
             "height": { "type": "number" }
           }
         },
-        "previewMode": { "type": "string", "enum": ["player", "studio", "still"] },
         "selectedVideoContext": { "$ref": "./selected-video-context.schema.json" },
         "sourceHints": {
           "type": "array",

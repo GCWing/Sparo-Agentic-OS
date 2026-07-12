@@ -1,44 +1,28 @@
 //! Sparo OS self-introspection prompt section.
 //!
-//! Builds the markdown block injected into the system prompt at
-//! the `{SPARO_SELF}` placeholder. The goal is to make Sparo OS's own
-//! capabilities (scenes, settings tabs, installed Product Apps) discoverable
-//! to the model with **zero tool calls**, so it never falls back to
-//! `Bash ls` against the user workspace when asked "what Product Apps do I
-//! have / what scenes are there / what can Sparo OS do".
-//!
-//! Refresh strategy: regenerated every time a system prompt is built. The
-//! Product App runtime catalog reads are cheap in-memory + metadata reads, so
-//! there is no caching layer to invalidate. Anything newly installed is
-//! visible to the model on the next prompt rebuild without bookkeeping.
+//! The prompt is rebuilt for each system prompt so active Intelligent App
+//! Releases are discoverable without asking the model to inspect user files.
 
 use std::fmt::Write as _;
 
-/// Build the Sparo OS self-introspection prompt block. Returns an empty
-/// string if there is nothing useful to say (e.g. Product App subsystem not
-/// initialized AND no extra context to surface) — callers should treat
-/// `""` as "skip the section".
 pub async fn build_sparo_self_prompt() -> String {
     let mut out = String::new();
-    out.push_str("# Sparo OS Self Capabilities (you are running INSIDE this app)\n");
+    out.push_str("# Sparo OS Self Capabilities (you are running inside this app)\n");
     out.push_str(
-        "When the user asks \"what Product Apps are installed / what scenes are there / how do I use Sparo OS\", \
-use ControlHub `domain: \"app\"` actions FIRST. Do NOT answer those questions by listing the workspace directory \
-— workspace folders belong to the user, not to Sparo OS's own catalog.\n\n",
+        "When the user asks what Intelligent Apps or scenes are available, use ControlHub `domain: \"app\"` actions first. User workspace files are not the Sparo OS App catalog.\n\n",
     );
 
     push_scene_catalog(&mut out);
     push_settings_tab_catalog(&mut out);
-    push_product_app_section(&mut out).await;
+    push_intelligent_app_section(&mut out).await;
 
     out.push_str(
         "\n## Quick recipes\n\
-- \"列一下 Product App / what Product Apps do I have\" → open scene `apps` or inspect the Product App catalog.\n\
-- \"打开 Product App X\" → `ControlHub { domain: \"app\", action: \"execute_task\", params: { task: \"open_product_app\", params: { productAppId: \"<id>\" } } }`.\n\
-- \"打开应用列表 / show the gallery\" → `ControlHub { domain: \"app\", action: \"execute_task\", params: { task: \"open_product_app_gallery\" } }`.\n\
-- \"Sparo OS 都能干啥 / 一次列出所有能力\" → `ControlHub { domain: \"app\", action: \"app_self_describe\" }`.\n",
+- \"列出智能应用 / what Intelligent Apps do I have\" → open scene `apps`.\n\
+- \"打开智能应用 X\" → `ControlHub { domain: \"app\", action: \"execute_task\", params: { task: \"open_product_app\", params: { productAppId: \"<id>\" } } }`.\n\
+- \"打开应用中心 / show the gallery\" → `ControlHub { domain: \"app\", action: \"execute_task\", params: { task: \"open_product_app_gallery\" } }`.\n\
+- \"Sparo OS 都能做什么\" → `ControlHub { domain: \"app\", action: \"app_self_describe\" }`.\n",
     );
-
     out
 }
 
@@ -47,78 +31,81 @@ fn push_scene_catalog(out: &mut String) {
     for (id, label_en, label_zh) in scene_catalog() {
         let _ = writeln!(out, "- `{id}` — {label_en} / {label_zh}");
     }
-    out.push_str("- `app-surface:<appId>` — opens a specific installed Product App surface.\n\n");
+    out.push_str("- `app-surface:<appId>` — opens an active Intelligent App surface.\n\n");
 }
 
 fn push_settings_tab_catalog(out: &mut String) {
     out.push_str("## Settings tabs (pass `tabId` to `open_settings_tab`)\n");
-    for (id, desc) in settings_tab_catalog() {
-        let _ = writeln!(out, "- `{id}` — {desc}");
+    for (id, description) in settings_tab_catalog() {
+        let _ = writeln!(out, "- `{id}` — {description}");
     }
     out.push('\n');
 }
 
-async fn push_product_app_section(out: &mut String) {
-    out.push_str("## Installed Product Apps\n");
+async fn push_intelligent_app_section(out: &mut String) {
+    out.push_str("## Active Intelligent Apps\n");
     let path_manager = match crate::infrastructure::try_get_path_manager_arc() {
         Ok(path_manager) => path_manager,
-        Err(e) => {
+        Err(error) => {
             let _ = writeln!(
                 out,
-                "(Product App package subsystem is not initialized: {e})"
+                "(Intelligent App registry is not initialized: {error})"
             );
             return;
         }
     };
-
-    if let Err(e) = crate::app_platform::seed_builtin_product_app_packages(&path_manager).await {
-        let _ = writeln!(out, "(Failed to seed built-in Product Apps: {e})");
-    }
-
-    let mut apps =
-        match crate::app_platform::list_installed_product_app_catalog(&path_manager).await {
-            Ok(apps) => apps,
-            Err(e) => {
-                let _ = writeln!(out, "(Failed to enumerate Product Apps: {e})");
+    let revision_store =
+        match crate::app_platform::AppRevisionStore::open(path_manager.app_root()).await {
+            Ok(store) => store,
+            Err(error) => {
+                let _ = writeln!(
+                    out,
+                    "(Failed to open the Intelligent App registry: {error})"
+                );
                 return;
             }
         };
-    apps.retain(|entry| {
-        entry.app.enabled
-            && entry.app.catalog_visibility != crate::app_platform::AppCatalogVisibility::Hidden
-    });
-    apps.sort_by(|left, right| {
-        left.app
-            .name
+    let catalog = revision_store
+        .list_catalog(&crate::app_platform::AppActivationScope::System)
+        .await;
+    let mut apps = catalog
+        .slots
+        .into_iter()
+        .filter_map(|slot| {
+            let activation = slot.activation?;
+            if !activation.enabled {
+                return None;
+            }
+            let variant = slot
+                .variants
+                .into_iter()
+                .find(|variant| variant.app.app_id == activation.selected_app_id)?;
+            let release = variant
+                .releases
+                .into_iter()
+                .find(|release| release.release_id == activation.active_release_id)?;
+            Some((variant.app, release))
+        })
+        .collect::<Vec<_>>();
+    apps.sort_by(|(left, _), (right, _)| {
+        left.display_name
             .to_lowercase()
-            .cmp(&right.app.name.to_lowercase())
-            .then_with(|| left.app.id.cmp(&right.app.id))
+            .cmp(&right.display_name.to_lowercase())
+            .then_with(|| left.app_id.cmp(&right.app_id))
     });
 
     if apps.is_empty() {
-        out.push_str(
-            "(No Product Apps installed yet. The user can install some from the Apps scene.)\n",
-        );
+        out.push_str("(No Intelligent App Release is active.)\n");
         return;
     }
 
-    let _ = writeln!(out, "({} installed)", apps.len());
-    for entry in apps.iter().take(40) {
-        let app = &entry.app;
-        let desc = if app.description.is_empty() {
-            "(no description)"
-        } else {
-            app.description.as_str()
-        };
-        let launch = app
-            .launch
-            .as_ref()
-            .map(|launch| format!("{:?}", launch.kind))
-            .unwrap_or_else(|| "no launch target".to_string());
+    let _ = writeln!(out, "({} active)", apps.len());
+    for (app, release) in apps.iter().take(40) {
+        let description = app.description.as_deref().unwrap_or("(no description)");
         let _ = writeln!(
             out,
-            "- `{}` — {} — {} — launch: {} (open via `execute_task open_product_app productAppId=\"{}\"`)",
-            app.id, app.name, desc, launch, app.id
+            "- `{}` — {} — {} — active Release `{}`",
+            app.app_id, app.display_name, description, release.release_id
         );
     }
     if apps.len() > 40 {
@@ -130,11 +117,7 @@ async fn push_product_app_section(out: &mut String) {
     }
 }
 
-// NOTE: these two catalogs MUST stay aligned with the Rust copies in
-// `control_hub_tool.rs::scene_catalog` / `settings_tab_catalog` and the
-// frontend registries (`scenes/registry.ts`, settings store). The e2e
-// suite already validates the `list_tasks` catalog; extend it to cover
-// these as well when adding new entries.
+// Keep these catalogs aligned with ControlHub and the frontend registries.
 fn scene_catalog() -> Vec<(&'static str, &'static str, &'static str)> {
     vec![
         ("welcome", "Welcome", "欢迎使用"),
@@ -159,7 +142,7 @@ fn scene_catalog() -> Vec<(&'static str, &'static str, &'static str)> {
 fn settings_tab_catalog() -> Vec<(&'static str, &'static str)> {
     vec![
         ("basics", "Basic preferences (language, theme, etc.)"),
-        ("models", "AI models (add / edit / set defaults / delete)"),
+        ("models", "AI models (add, edit, set defaults, delete)"),
         ("session-config", "Default session behavior"),
         ("agents", "Agent management"),
         ("skills", "Skill packages"),

@@ -1,0 +1,58 @@
+{
+  "name": "list_sheets",
+  "description": "List sheets in the open workbook, including active sheet id and basic dimensions.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "workbookId"
+    ],
+    "properties": {
+      "workbookId": {
+        "type": "string"
+      }
+    }
+  },
+  "runtime": "javascript",
+  "entry": "tools/list_sheets.js",
+  "readonly": true,
+  "permissions": {},
+  "timeoutMs": 30000,
+  "maxOutputBytes": 60000,
+  "ui": {
+    "card": {
+      "kind": "appDefined",
+      "family": "excel-live",
+      "template": "compact",
+      "displayMode": "compact",
+      "resultDisplayType": "detailed",
+      "primaryColor": "var(--ds-tool-family-agent-component-fg)",
+      "displayName": "List Sheets",
+      "icon": "Layers",
+      "title": "List Sheets",
+      "summary": {
+        "preparing": "Listing sheets",
+        "running": "Listing sheets",
+        "completed": "Sheets listed",
+        "failed": "List failed"
+      },
+      "fields": [
+        {
+          "label": "Workbook",
+          "inputPath": [
+            "workbookId"
+          ]
+        },
+        {
+          "label": "Sheets",
+          "resultPath": [
+            "bridge",
+            "output",
+            "sheets"
+          ],
+          "format": "json"
+        }
+      ]
+    }
+  }
+}

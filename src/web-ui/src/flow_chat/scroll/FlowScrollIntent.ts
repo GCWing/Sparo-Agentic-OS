@@ -24,6 +24,19 @@ export function isUpwardScrollIntentKey(event: KeyboardEvent): boolean {
   );
 }
 
+export function isDownwardScrollIntentKey(event: KeyboardEvent): boolean {
+  if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) {
+    return false;
+  }
+
+  return (
+    event.key === 'ArrowDown' ||
+    event.key === 'PageDown' ||
+    event.key === 'End' ||
+    (event.key === ' ' && !event.shiftKey)
+  );
+}
+
 export function isPointerOnScrollbarGutter(
   scroller: HTMLElement,
   clientX: number,

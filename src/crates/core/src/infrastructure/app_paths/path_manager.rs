@@ -288,11 +288,6 @@ impl PathManager {
         self.user_cron_dir().join("jobs.json")
     }
 
-    /// Get Product App catalog state file: <app-root>/state/product_app_catalog_state.json
-    pub fn product_app_catalog_state_path(&self) -> PathBuf {
-        self.user_state_dir().join("product_app_catalog_state.json")
-    }
-
     /// Product App Runtime Host surfaces root: `<app-root>/apps/product_app_runtime_hosts/`.
     pub fn product_app_runtime_hosts_dir(&self) -> PathBuf {
         self.apps_dir().join("product_app_runtime_hosts")
@@ -726,16 +721,6 @@ mod tests {
                 .join("work_runtimes")
                 .join("work_1")
                 .join("runtime_1")
-        );
-    }
-
-    #[test]
-    fn product_app_catalog_state_lives_under_user_state() {
-        let pm = PathManager::default();
-
-        assert_eq!(
-            pm.product_app_catalog_state_path(),
-            pm.user_state_dir().join("product_app_catalog_state.json")
         );
     }
 

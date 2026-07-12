@@ -1,10 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AppWindow,
-  Boxes,
   FileText,
   FolderOpen,
-  Layers3,
   LayoutDashboard,
   ListChecks,
   MessageSquare,
@@ -21,27 +19,18 @@ import type { SessionMetadata } from '@/shared/types/session-history';
 import type { WorkspaceInfo } from '@/shared/types';
 import { sessionAPI } from '@/infrastructure/api';
 import {
-  appCatalogAPI,
-  localizeCatalogApps,
-  type ComponentDefinition,
-  type ProductAppCatalogEntry,
-  type WorkObjectKind,
-} from '@/infrastructure/api/service-api/AppCatalogAPI';
-import {
-  NewWorkDialog,
-  launchWorkForChoice,
-  productAppWorkChoice,
-} from '@/app/components/WorkDock/NewWorkDialog';
-import { productAppRequiresWorkspace } from '@/app/agentic-os/work/domain/productAppLaunchPolicy';
+  intelligentAppAPI,
+  type AppSlotRecord,
+} from '@/infrastructure/api/service-api/IntelligentAppAPI';
+import { NewWorkDialog } from '@/app/components/WorkDock/NewWorkDialog';
 import { useWorks } from '@/app/agentic-os/work/hooks/useWorks';
 import { filterWorkProjections } from '@/app/agentic-os/work/data/workSelectors';
 import { openArtifactInCenter, openWorkCenterHome, openWorkInCenter } from '@/app/agentic-os/work/navigation/openWork';
 import type { WorkProjection } from '@/app/agentic-os/work/projections/workProjection';
 import { isSystemAgenticOsSession } from '@/flow_chat/domain/sessionDescriptor';
 import { notificationService } from '@/shared/notification-system';
-import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
-import { useAppsStore } from '@/app/scenes/apps/appsStore';
-import { openAppBuilderSession } from '@/app/scenes/apps/app-builder/openAppBuilderSession';
+import { launchActiveIntelligentApp } from '@/app/scenes/apps/intelligentAppLaunchService';
+import { systemAppScope } from '@/shared/types/app-scope';
 import type { ArtifactRef, WorkRecord } from '@/app/agentic-os/work/domain/workTypes';
 import {
   getWorkModeIcon,
@@ -58,7 +47,7 @@ interface GlobalSearchDialogProps {
   onClose: () => void;
 }
 
-type SearchResultKind = 'workspace' | 'work' | 'session' | 'app' | 'workObject' | 'component' | 'artifact';
+type SearchResultKind = 'workspace' | 'work' | 'session' | 'app' | 'artifact';
 
 interface SearchResultItem {
   kind: SearchResultKind;
@@ -69,9 +58,7 @@ interface SearchResultItem {
   workId?: string;
   work?: WorkProjection;
   appId?: string;
-  productApp?: ProductAppCatalogEntry;
-  workObject?: WorkObjectKind;
-  component?: ComponentDefinition;
+  appSlot?: AppSlotRecord;
   artifact?: ArtifactRef;
 }
 
@@ -88,46 +75,12 @@ const matchesQuery = (query: string, ...fields: (string | undefined | null)[]): 
   return fields.some(field => field && field.toLowerCase().includes(normalizedQuery));
 };
 
-function matchesProductApp(query: string, app: ProductAppCatalogEntry): boolean {
+function matchesAppSlot(query: string, slot: AppSlotRecord): boolean {
   return matchesQuery(
     query,
-    app.id,
-    app.name,
-    app.description,
-    app.category,
-    app.dependencySummary,
-    ...(app.tags ?? [])
-  );
-}
-
-function matchesComponent(query: string, component: ComponentDefinition): boolean {
-  return matchesQuery(
-    query,
-    component.id,
-    component.name,
-    component.description,
-    component.kind,
-    component.version,
-    component.implementationRef,
-    ...(component.usedByApps ?? []),
-    ...(component.capabilities ?? []).flatMap(capability => [
-      capability.id,
-      capability.title,
-      capability.description,
-      ...(capability.actions ?? []),
-    ])
-  );
-}
-
-function matchesWorkObject(query: string, app: ProductAppCatalogEntry, workObject: WorkObjectKind): boolean {
-  return matchesQuery(
-    query,
-    app.id,
-    app.name,
-    app.description,
-    workObject.id,
-    workObject.label,
-    workObject.scope
+    slot.slotId,
+    slot.displayName,
+    ...slot.variants.flatMap(({ app }) => [app.appId, app.displayName, app.description]),
   );
 }
 
@@ -250,16 +203,13 @@ function buildMergedSessionEntries(
 }
 
 const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }) => {
-  const { t, currentLanguage } = useI18n('common');
-  const { t: tApps } = useI18n('scenes/apps');
-  const { openedWorkspacesList, lastUsedWorkspace, rememberWorkspace } = useWorkspaceContext();
+  const { t } = useI18n('common');
+  const { openedWorkspacesList, rememberWorkspace } = useWorkspaceContext();
   const { works, projections } = useWorks();
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
-  const [productApps, setProductApps] = useState<ProductAppCatalogEntry[]>([]);
-  const [workspaceLaunchApp, setWorkspaceLaunchApp] = useState<ProductAppCatalogEntry | null>(null);
+  const [appSlots, setAppSlots] = useState<AppSlotRecord[]>([]);
   const [newWorkDialogOpen, setNewWorkDialogOpen] = useState(false);
-  const [components, setComponents] = useState<ComponentDefinition[]>([]);
   const [flowChatState, setFlowChatState] = useState<FlowChatState>(() => flowChatStore.getState());
   const [persistedOpenWorkspaceSessions, setPersistedOpenWorkspaceSessions] = useState<
     Array<{ meta: SessionMetadata; workspace: WorkspaceInfo }>
@@ -316,32 +266,20 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
 
   useEffect(() => {
     if (!open) {
-      setProductApps([]);
-      setComponents([]);
+      setAppSlots([]);
       return;
     }
 
     let cancelled = false;
-    void Promise.all([
-      appCatalogAPI.listAppCatalog(),
-      appCatalogAPI.listComponents(),
-    ])
-      .then(([catalog, componentItems]) => {
+    void intelligentAppAPI.listCatalog()
+      .then((catalog) => {
         if (!cancelled) {
-          const appsByKey = new Map<string, ProductAppCatalogEntry>();
-          for (const app of catalog.productApps.installed) {
-            if (!app.enabled) continue;
-            if ((app.catalogIssues?.length ?? 0) > 0) continue;
-            appsByKey.set(`${app.id}@${app.version}@${app.componentLockDigest}`, app);
-          }
-          setProductApps([...appsByKey.values()]);
-          setComponents(componentItems);
+          setAppSlots(catalog.slots.filter((slot) => intelligentAppAPI.activeRef(slot)));
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setProductApps([]);
-          setComponents([]);
+          setAppSlots([]);
         }
       });
 
@@ -354,11 +292,6 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
     () => new Set(openedWorkspacesList.map(workspace => workspace.id)),
     [openedWorkspacesList]
   );
-  const localizedProductApps = useMemo(
-    () => localizeCatalogApps(productApps, currentLanguage),
-    [currentLanguage, productApps],
-  );
-
   const sessionsInOpenedWorkspaces = useMemo((): Array<{ session: Session; workspace: WorkspaceInfo }> => {
     const result: Array<{ session: Session; workspace: WorkspaceInfo }> = [];
     for (const session of flowChatState.sessions.values()) {
@@ -412,47 +345,19 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
       });
     }
 
-    const filteredProductApps = localizedProductApps
-      .filter(app => matchesProductApp(trimmedQuery, app))
+    const filteredAppSlots = appSlots
+      .filter(slot => matchesAppSlot(trimmedQuery, slot))
       .slice(0, MAX_PER_GROUP);
-    for (const app of filteredProductApps) {
+    for (const slot of filteredAppSlots) {
+      const active = intelligentAppAPI.activeRef(slot);
+      const activeVariant = slot.variants.find(({ app }) => app.appId === active?.appId);
       items.push({
         kind: 'app',
-        id: app.id,
-        label: app.name,
-        sublabel: app.description,
-        productApp: app,
-      });
-    }
-
-    const workObjectMatches: SearchResultItem[] = [];
-    for (const app of localizedProductApps) {
-      for (const workObject of app.workObjectKinds ?? []) {
-        if (!matchesWorkObject(trimmedQuery, app, workObject)) continue;
-        const scope = tApps(`productSystem.workObjectScope.${workObject.scope}`);
-        workObjectMatches.push({
-          kind: 'workObject',
-          id: `work-object:${app.id}:${workObject.id}`,
-          appId: app.id,
-          label: workObject.label || workObject.id,
-          sublabel: t('nav.search.workObjectHint', { app: app.name, scope }),
-          productApp: app,
-          workObject,
-        });
-      }
-    }
-    items.push(...workObjectMatches.slice(0, MAX_PER_GROUP));
-
-    const filteredComponents = components
-      .filter(component => matchesComponent(trimmedQuery, component))
-      .slice(0, MAX_PER_GROUP);
-    for (const component of filteredComponents) {
-      items.push({
-        kind: 'component',
-        id: `${component.kind}:${component.id}`,
-        label: component.name,
-        sublabel: `${tApps(`productSystem.componentKinds.${component.kind}`)} · ${component.description}`,
-        component,
+        id: slot.slotId,
+        label: slot.displayName,
+        sublabel: activeVariant?.app.description ?? activeVariant?.app.displayName,
+        appId: active?.appId,
+        appSlot: slot,
       });
     }
 
@@ -502,15 +407,13 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
 
     return items;
   }, [
-    components,
-    localizedProductApps,
+    appSlots,
     openedWorkspaceIdSet,
     openedWorkspacesList,
     persistedOpenWorkspaceSessions,
     projections,
     query,
     t,
-    tApps,
     topLevelSessions,
     works,
   ]);
@@ -531,47 +434,19 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
       return;
     }
 
-    if (item.kind === 'app' && item.productApp) {
-      const app = item.productApp;
+    if (item.kind === 'app' && item.appSlot) {
+      const active = intelligentAppAPI.activeRef(item.appSlot);
+      if (!active) return;
+      const variant = item.appSlot.variants.find(({ app }) => app.appId === active.appId);
       try {
-        if (app.launch?.kind === 'applicationSurface' || app.launch?.kind === 'agentSession') {
-          if (productAppRequiresWorkspace(app)) {
-            setWorkspaceLaunchApp(app);
-            return;
-          }
-          await launchWorkForChoice({
-            agentChoice: productAppWorkChoice(app.id),
-            workspace: lastUsedWorkspace,
-            rememberWorkspace,
-            title: app.name,
-            objective: app.description,
-          });
-          return;
-        }
-
-        if (app.launch?.kind === 'appBuilder') {
-          await openAppBuilderSession();
-          return;
-        }
-
+        await launchActiveIntelligentApp(active, {
+          scope: systemAppScope(),
+          title: item.appSlot.displayName,
+          objective: variant?.app.description || item.appSlot.displayName,
+        });
       } catch (error) {
-        notificationService.error(error instanceof Error ? error.message : tApps('productSystem.messages.launchFailed', {
-          name: app.name,
-          error: String(error),
-        }));
+        notificationService.error(error instanceof Error ? error.message : String(error));
       }
-      return;
-    }
-
-    if (item.kind === 'workObject' && item.appId) {
-      useAppsStore.getState().openAppDetail(item.appId);
-      openWorkspaceScene('apps');
-      return;
-    }
-
-    if (item.kind === 'component' && item.component) {
-      useAppsStore.getState().openComponentCenter(item.component.id);
-      openWorkspaceScene('apps');
       return;
     }
 
@@ -589,10 +464,8 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
       activateWorkspace: item.workspaceId ? rememberWorkspace : undefined,
     });
   }, [
-    lastUsedWorkspace,
     onClose,
     rememberWorkspace,
-    tApps,
   ]);
 
   const handleOpenWorkCenter = useCallback(() => {
@@ -640,14 +513,6 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
     activeElement?.scrollIntoView({ block: 'nearest' });
   }, [activeIndex]);
 
-  const workspaceLaunchDialog = (
-    <NewWorkDialog
-      open={Boolean(workspaceLaunchApp)}
-      onClose={() => setWorkspaceLaunchApp(null)}
-      initialAgentChoice={workspaceLaunchApp ? productAppWorkChoice(workspaceLaunchApp.id) : undefined}
-      initialScopeRequirement={workspaceLaunchApp?.launch?.scopeRequirement}
-    />
-  );
   const newWorkDialog = (
     <NewWorkDialog
       open={newWorkDialogOpen}
@@ -658,7 +523,6 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
   if (!open) {
     return (
       <>
-        {workspaceLaunchApp ? workspaceLaunchDialog : null}
         {newWorkDialogOpen ? newWorkDialog : null}
       </>
     );
@@ -667,8 +531,6 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
   const workspaceItems = results.filter(result => result.kind === 'workspace');
   const workItems = results.filter(result => result.kind === 'work');
   const appItems = results.filter(result => result.kind === 'app');
-  const workObjectItems = results.filter(result => result.kind === 'workObject');
-  const componentItems = results.filter(result => result.kind === 'component');
   const artifactItems = results.filter(result => result.kind === 'artifact');
   const sessionItems = results.filter(result => result.kind === 'session');
   const queryTrimmed = query.trim();
@@ -810,8 +672,6 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
               )}
               {renderGroup(t('nav.search.groupWorkspaces'), workspaceItems, () => <FolderOpen size={14} />)}
               {renderGroup(t('nav.search.groupApps'), appItems, () => <AppWindow size={14} />)}
-              {renderGroup(t('nav.search.groupWorkObjects'), workObjectItems, () => <Layers3 size={14} />)}
-              {renderGroup(t('nav.search.groupComponents'), componentItems, () => <Boxes size={14} />)}
               {renderGroup(t('nav.search.groupArtifacts'), artifactItems, () => <FileText size={14} />)}
               {queryTrimmed ? renderGroup(
                 t('nav.search.groupSessions'),
@@ -822,7 +682,6 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
           )}
         </div>
       </Dialog>
-      {workspaceLaunchDialog}
       {newWorkDialog}
     </>
   );

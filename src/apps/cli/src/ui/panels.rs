@@ -617,11 +617,15 @@ fn filtered_snapshot_for_panel(
                         filter,
                         [
                             app.id.as_str(),
+                            app.slot_id.as_str(),
                             app.name.as_str(),
-                            app.kind.as_str(),
-                            app.capability.as_str(),
+                            app.state.as_str(),
+                            app.owner.as_str(),
+                            app.version.as_deref().unwrap_or(""),
+                            app.active_release_id.as_deref().unwrap_or(""),
+                            app.latest_release_id.as_deref().unwrap_or(""),
+                            app.capability_fingerprint.as_deref().unwrap_or(""),
                             app.description.as_str(),
-                            app.target.as_deref().unwrap_or(""),
                         ],
                     )
                 })
@@ -735,11 +739,15 @@ fn filtered_panel_indices(
                     filter,
                     [
                         app.id.as_str(),
+                        app.slot_id.as_str(),
                         app.name.as_str(),
-                        app.kind.as_str(),
-                        app.capability.as_str(),
+                        app.state.as_str(),
+                        app.owner.as_str(),
+                        app.version.as_deref().unwrap_or(""),
+                        app.active_release_id.as_deref().unwrap_or(""),
+                        app.latest_release_id.as_deref().unwrap_or(""),
+                        app.capability_fingerprint.as_deref().unwrap_or(""),
                         app.description.as_str(),
-                        app.target.as_deref().unwrap_or(""),
                     ],
                 )
                 .then_some(index)
@@ -1010,12 +1018,16 @@ pub fn selected_panel_detail(overlay: &OverlayState) -> Option<String> {
         }),
         PanelKind::Apps => snapshot.apps.get(selected).map(|app| {
             format!(
-                "App detail\nName: {}\nKind: {}\nId: {}\nCapability: {}\nTarget: {}\nDescription: {}",
+                "Intelligent App detail\nName: {}\nState: {}\nApp id: {}\nSlot id: {}\nOwner: {}\nActive release: {}\nLatest release: {}\nVersion: {}\nCapability fingerprint: {}\nDescription: {}\nLaunch: Sparo Desktop Work",
                 app.name,
-                app.kind,
+                app.state,
                 app.id,
-                app.capability,
-                app.target.as_deref().unwrap_or("not available"),
+                app.slot_id,
+                app.owner,
+                app.active_release_id.as_deref().unwrap_or("none"),
+                app.latest_release_id.as_deref().unwrap_or("none"),
+                app.version.as_deref().unwrap_or("none"),
+                app.capability_fingerprint.as_deref().unwrap_or("none"),
                 app.description
             )
         }),
@@ -1103,9 +1115,9 @@ fn selected_panel_preview(overlay: &OverlayState, width: usize) -> Option<String
             let app = snapshot.apps.get(selected)?;
             format!(
                 "{} - {} - {}",
-                app.kind,
-                app.capability,
-                app_target_label(app.target.as_deref())
+                app.state,
+                app.version.as_deref().unwrap_or("no release"),
+                app.active_release_id.as_deref().unwrap_or("not selected")
             )
         }
         PanelKind::Memory => {
@@ -1284,18 +1296,17 @@ fn panel_rows_for_width(
             if snapshot.apps.is_empty() {
                 return empty_panel_rows(
                     theme,
-                    "No Product Apps, Agent Components, or Bridge Components are available in this snapshot.",
-                    "Run `sparo apps list`; inspect `sparo tool schema CreateAgentComponent --json` or `CreateProductApp --json`.",
+                    "No Intelligent Apps are available in this activation scope.",
+                    "Run `sparo apps list`; create or fork an app in Sparo Desktop Apps Center / App Builder.",
                 );
             }
             let rows = snapshot
                 .apps
                 .iter()
                 .map(|app| {
-                    let target_label = app_target_label(app.target.as_deref());
                     ListItem::new(Line::from(vec![
                         Span::styled(
-                            format!("{:<10}", compact_inline_text(&app.kind, 10)),
+                            format!("{:<10}", compact_inline_text(&app.state, 10)),
                             theme.style(StyleKind::Muted),
                         ),
                         Span::styled(
@@ -1303,7 +1314,13 @@ fn panel_rows_for_width(
                             theme.style(StyleKind::Title),
                         ),
                         Span::styled(
-                            format!("{:<9}", target_label),
+                            format!(
+                                "{:<12}",
+                                compact_inline_text(
+                                    app.version.as_deref().unwrap_or("no release"),
+                                    12
+                                )
+                            ),
                             theme.style(StyleKind::Primary),
                         ),
                         Span::styled(
@@ -1311,7 +1328,10 @@ fn panel_rows_for_width(
                             theme.style(StyleKind::Text),
                         ),
                         Span::styled(
-                            compact_text(&app.capability, 20),
+                            compact_text(
+                                app.active_release_id.as_deref().unwrap_or("not selected"),
+                                20,
+                            ),
                             theme.style(StyleKind::Faint),
                         ),
                     ]))
@@ -1550,8 +1570,8 @@ fn compact_panel_rows(
             if snapshot.apps.is_empty() {
                 return empty_panel_rows(
                     theme,
-                    "No Product Apps, Agent Components, or Bridge Components are available in this snapshot.",
-                    "Run `sparo apps list`; inspect `sparo tool schema CreateAgentComponent --json` or `CreateProductApp --json`.",
+                    "No Intelligent Apps are available in this activation scope.",
+                    "Run `sparo apps list`; create or fork an app in Sparo Desktop Apps Center / App Builder.",
                 );
             }
             snapshot
@@ -1567,11 +1587,14 @@ fn compact_panel_rows(
                             theme.style(StyleKind::Title),
                         ),
                         Span::styled(
-                            format!(" {:<8}", app_target_label(app.target.as_deref())),
+                            format!(" {:<10}", compact_inline_text(&app.state, 10)),
                             theme.style(StyleKind::Primary),
                         ),
                         Span::styled(
-                            compact_inline_text(&app.kind, context_width),
+                            compact_inline_text(
+                                app.version.as_deref().unwrap_or("no release"),
+                                context_width,
+                            ),
                             theme.style(StyleKind::Muted),
                         ),
                     ]))
@@ -1715,7 +1738,7 @@ fn compact_panel_header_text(kind: PanelKind) -> &'static str {
     match kind {
         PanelKind::Sessions => "item  type  ctx",
         PanelKind::Tasks => "status  item  session",
-        PanelKind::Apps => "app  action  kind",
+        PanelKind::Apps => "app  state  version",
         PanelKind::Memory => "scope  file  action",
         PanelKind::Workspaces => "now  workspace  git  sessions",
         PanelKind::Settings => "setting  action  value",
@@ -1733,7 +1756,7 @@ fn panel_header_text(kind: PanelKind) -> &'static str {
     match kind {
         PanelKind::Sessions => "title  type  agent  active  activity",
         PanelKind::Tasks => "status  title  agent  session  detail",
-        PanelKind::Apps => "kind  name  action  desc  cap",
+        PanelKind::Apps => "state  name  version  desc  active release",
         PanelKind::Memory => "scope  file  action  target",
         PanelKind::Workspaces => "now  workspace  path  git  sessions",
         PanelKind::Settings => "setting    action    value",
@@ -1755,14 +1778,6 @@ fn empty_panel_rows(
             theme.style(StyleKind::Faint),
         ))),
     ]
-}
-
-fn app_target_label(target: Option<&str>) -> &'static str {
-    if target.is_some() {
-        "open"
-    } else {
-        "inspect"
-    }
 }
 
 fn workspace_current_label(path: Option<&str>, current_workspace: Option<&str>) -> &'static str {
@@ -1968,11 +1983,15 @@ mod tests {
             }],
             apps: vec![AgenticOsAppRow {
                 id: "files".to_string(),
+                slot_id: "files".to_string(),
                 name: "Files".to_string(),
-                kind: "AGENT APP".to_string(),
+                state: "active".to_string(),
+                owner: "system".to_string(),
                 description: "Browse files".to_string(),
-                capability: "read write".to_string(),
-                target: None,
+                active_release_id: Some("release-files-1".to_string()),
+                latest_release_id: Some("release-files-1".to_string()),
+                version: Some("1.0.0".to_string()),
+                capability_fingerprint: Some("sha256:files".to_string()),
             }],
             memories: vec![AgenticOsMemoryRow {
                 scope: "PROJECT".to_string(),
@@ -2041,21 +2060,16 @@ mod tests {
     }
 
     #[test]
-    fn apps_panel_marks_openable_apps() {
-        let mut inspect_only = sample_snapshot();
-        let inspect_rendered = format!(
+    fn apps_panel_reports_authoritative_lifecycle_state() {
+        let snapshot = sample_snapshot();
+        let rendered = format!(
             "{:?}",
-            panel_rows(PanelKind::Apps, Some(&inspect_only), &Theme::dark())
+            panel_rows(PanelKind::Apps, Some(&snapshot), &Theme::dark())
         );
-        assert!(inspect_rendered.contains("inspect"));
-        assert!(!inspect_rendered.contains("open     "));
-
-        inspect_only.apps[0].target = Some("D:\\apps\\files".to_string());
-        let open_rendered = format!(
-            "{:?}",
-            panel_rows(PanelKind::Apps, Some(&inspect_only), &Theme::dark())
-        );
-        assert!(open_rendered.contains("open"));
+        assert!(rendered.contains("active"));
+        assert!(rendered.contains("1.0.0"));
+        assert!(rendered.contains("release-files-1"));
+        assert!(!rendered.contains("open     "));
     }
 
     #[test]
@@ -2302,11 +2316,9 @@ mod tests {
             ),
         );
 
-        assert!(rendered
-            .contains("No Product Apps, Agent Components, or Bridge Components are available"));
+        assert!(rendered.contains("No Intelligent Apps are available in this activation scope"));
         assert!(rendered.contains("sparo apps list"));
-        assert!(rendered.contains("CreateAgentComponent"));
-        assert!(rendered.contains("CreateProductApp"));
+        assert!(rendered.contains("Sparo Desktop Apps Center / App Builder"));
         assert!(rendered.contains("sparo tasks list"));
         assert!(rendered.contains("sparo sessions list"));
         assert!(rendered.contains("sparo memory list"));
@@ -2331,12 +2343,12 @@ mod tests {
         snapshot.tasks[0].agent = "VeryLongBitFunDebugModeName".to_string();
         snapshot.tasks[0].session_id =
             Some("task-session-with-a-very-long-id-that-keeps-going".to_string());
-        snapshot.apps[0].kind = "AGENT APP WITH LONG KIND".to_string();
+        snapshot.apps[0].state = "AVAILABLE WITH LONG STATE".to_string();
         snapshot.apps[0].description =
             "A very long app description that should stay readable inside a compact panel row"
                 .to_string();
-        snapshot.apps[0].capability =
-            "read write execute summarize inspect generate rewrite".to_string();
+        snapshot.apps[0].active_release_id =
+            Some("release-files-with-a-very-long-content-addressed-identity".to_string());
         snapshot.memories[0].target =
             "D:\\workspace\\project\\with\\a\\very\\deep\\memory\\directory\\that\\keeps\\going"
                 .to_string();
@@ -2364,12 +2376,12 @@ mod tests {
         assert!(!rendered.contains("waiting-for-user-review"));
         assert!(!rendered.contains("VeryLongBitFunDebugModeName"));
         assert!(!rendered.contains("very-long-id-that-keeps-going"));
-        assert!(!rendered.contains("AGENT APP WITH LONG KIND"));
+        assert!(!rendered.contains("AVAILABLE WITH LONG STATE"));
         assert!(!rendered.contains("that-should-not-dominate-settings"));
         assert!(!rendered.contains("active\\workspace\\path\\that\\keeps\\going"));
         assert!(!rendered.contains("branch-name-that-keeps-going"));
         assert!(!rendered.contains("that should stay readable inside a compact panel row"));
-        assert!(!rendered.contains("summarize inspect generate rewrite"));
+        assert!(!rendered.contains("very-long-content-addressed-identity"));
         assert!(!rendered.contains("file-name-that-should-not-dominate"));
         assert!(!rendered.contains("workspace-branch-name-that-keeps-going"));
         assert!(!rendered.contains("that\\keeps\\going"));
@@ -2711,7 +2723,12 @@ mod tests {
                 "task-session",
                 "agent  session",
             ),
-            (PanelKind::Apps, "app  action  kind", "inspect", "desc  cap"),
+            (
+                PanelKind::Apps,
+                "app  state  version",
+                "active",
+                "desc  active release",
+            ),
             (
                 PanelKind::Memory,
                 "scope  file  action",

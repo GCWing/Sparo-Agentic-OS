@@ -4,7 +4,14 @@
  */
 
 import React from 'react';
-import { getToolCardConfig, getToolCardComponent, getToolUiRegistryEntry } from '../tool-cards';
+import {
+  getToolCardConfig,
+  getToolCardComponent,
+  getToolCardRegistryRevision,
+  getToolUiRegistryEntry,
+  hasToolCardConfig,
+  subscribeToolCardRegistry,
+} from '../tool-cards';
 import type { FlowToolItem } from '../types/flow-chat';
 import { createLogger } from '@/shared/utils/logger';
 import { FlowToolCardErrorBoundary } from './FlowToolCardErrorBoundary';
@@ -12,6 +19,7 @@ import { useTranslation } from 'react-i18next';
 import { getToolInterruptionNote } from '../utils/toolInterruption';
 import { invalidateFlowLayout } from '../scroll/FlowLayoutMutationEvents';
 import { ToolInterruptionNoteProvider } from '../tool-cards/ToolInterruptionNoteContext';
+import { watchToolCardRegistryEntry } from '../tool-cards/ToolManifestSync';
 
 const log = createLogger('FlowToolCard');
 
@@ -50,6 +58,20 @@ export const FlowToolCard: React.FC<FlowToolCardProps> = React.memo(({
   className = '',
 }) => {
   const { t } = useTranslation('flow-chat');
+  const toolCardRegistryRevision = React.useSyncExternalStore(
+    subscribeToolCardRegistry,
+    getToolCardRegistryRevision,
+    getToolCardRegistryRevision,
+  );
+  const hasRegisteredToolCard = hasToolCardConfig(toolItem.toolName);
+
+  React.useEffect(() => {
+    if (hasRegisteredToolCard) {
+      return undefined;
+    }
+    return watchToolCardRegistryEntry(toolItem.toolName);
+  }, [hasRegisteredToolCard, toolItem.toolName]);
+
   const config = getToolCardConfig(toolItem.toolName);
   const CardComponent = getToolCardComponent(toolItem.toolName);
   const uiRegistryEntry = getToolUiRegistryEntry(toolItem.toolName);
@@ -96,6 +118,7 @@ export const FlowToolCard: React.FC<FlowToolCardProps> = React.memo(({
     toolItem.status,
     toolItem.toolResult,
     toolItem.terminalSessionId,
+    toolCardRegistryRevision,
   ]);
 
   return (
@@ -111,8 +134,8 @@ export const FlowToolCard: React.FC<FlowToolCardProps> = React.memo(({
             <CardComponent
               toolItem={toolItem}
               config={config}
-              onConfirm={handleConfirm}
-              onReject={handleReject}
+              onConfirm={onConfirm ? handleConfirm : undefined}
+              onReject={onReject ? handleReject : undefined}
               onOpenInEditor={onOpenInEditor}
               onOpenInPanel={onOpenInPanel}
               onExpand={handleExpand}

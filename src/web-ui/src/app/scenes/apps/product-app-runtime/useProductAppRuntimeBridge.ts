@@ -22,6 +22,11 @@ import {
   workspacePathFromAppScope,
 } from '@/shared/types/app-scope';
 import type { ProductAppRuntimeContext } from '@/shared/types/product-app-runtime';
+import {
+  buildSpreadsheetFocusContext,
+  useExcelLiveFocusStore,
+} from '@/app/agentic-os/excel-live/excelLiveFocusStore';
+import { useContextStore } from '@/shared/stores/contextStore';
 
 interface JSONRPC {
   jsonrpc?: string;
@@ -68,6 +73,8 @@ interface RuntimeLogPayload {
 interface ProductAppRuntimeBridgeOptions {
   scope?: AppScope | null;
   runtimeContext?: ProductAppRuntimeContext | null;
+  sessionId?: string;
+  spreadsheetFocusEnabled?: boolean;
 }
 
 const NOOP_BRIDGE_METHODS = new Set([
@@ -113,6 +120,10 @@ export function useProductAppRuntimeBridge(
   workspacePathRef.current = workspacePathFromAppScope(normalizeAppScope(options.scope));
   const runtimeContextRef = useRef<ProductAppRuntimeContext | null>(options.runtimeContext ?? null);
   runtimeContextRef.current = options.runtimeContext ?? null;
+  const trustedSessionIdRef = useRef(options.sessionId);
+  trustedSessionIdRef.current = options.sessionId;
+  const spreadsheetFocusEnabledRef = useRef(options.spreadsheetFocusEnabled === true);
+  spreadsheetFocusEnabledRef.current = options.spreadsheetFocusEnabled === true;
   const agenticSessionIdsRef = useRef<Set<string>>(new Set());
 
   const appIdRef = useRef(app.id);
@@ -408,6 +419,54 @@ export function useProductAppRuntimeBridge(
         if (method === 'host.fillChatInput') {
           const text = typeof params.text === 'string' ? params.text : '';
           window.dispatchEvent(new CustomEvent('fill-chat-input', { detail: { message: text } }));
+          reply(null);
+          return;
+        }
+
+        if (method === 'host.syncSpreadsheetFocus') {
+          if (!spreadsheetFocusEnabledRef.current || !trustedSessionIdRef.current) {
+            throw new Error('Spreadsheet focus is only available to a session-bound Excel Live surface');
+          }
+          const payload = (params.payload && typeof params.payload === 'object')
+            ? params.payload as Record<string, unknown>
+            : params;
+          useExcelLiveFocusStore.getState().setAmbientFocus({
+            ...payload,
+            sessionId: trustedSessionIdRef.current,
+          } as any);
+          reply(null);
+          return;
+        }
+
+        if (method === 'host.addContext') {
+          if (!spreadsheetFocusEnabledRef.current || !trustedSessionIdRef.current) {
+            throw new Error('Spreadsheet context is only available to a session-bound Excel Live surface');
+          }
+          const payload = (params.payload && typeof params.payload === 'object')
+            ? params.payload as Record<string, unknown>
+            : params;
+          const context = buildSpreadsheetFocusContext({
+            ...payload,
+            sessionId: trustedSessionIdRef.current,
+          } as any, 'pinned');
+          if (context) {
+            useContextStore.getState().addContext(context);
+            window.dispatchEvent(new CustomEvent('insert-context-tag', {
+              detail: { context },
+            }));
+          }
+          reply(null);
+          return;
+        }
+
+        if (method === 'host.setPanelMode') {
+          const mode = params.mode;
+          if (mode !== 'comfortable' && mode !== 'expanded') {
+            throw new Error('host.setPanelMode requires comfortable or expanded');
+          }
+          window.dispatchEvent(new CustomEvent('product-app-request-panel-mode', {
+            detail: { appId, mode },
+          }));
           reply(null);
           return;
         }

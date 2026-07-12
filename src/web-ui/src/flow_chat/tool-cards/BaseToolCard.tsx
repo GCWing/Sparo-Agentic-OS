@@ -30,6 +30,8 @@ export interface BaseToolCardProps {
   headerRail?: ToolRightRailProps;
   /** Expanded content (optional) */
   expandedContent?: ReactNode;
+  /** Stable id used by the header disclosure affordance. */
+  expandedContentId?: string;
   /** Error content (optional) */
   errorContent?: ReactNode;
   /** Whether to show error */
@@ -62,6 +64,7 @@ export const BaseToolCard: React.FC<BaseToolCardProps> = ({
   header,
   headerRail,
   expandedContent,
+  expandedContentId,
   errorContent,
   isFailed = false,
   requiresConfirmation = false,
@@ -104,13 +107,16 @@ export const BaseToolCard: React.FC<BaseToolCardProps> = ({
       </div>
       
       {hasExpandedContent && (
-        <div className="base-tool-card-expanded">
+        <div id={expandedContentId} className="base-tool-card-expanded">
           {expandedContent}
         </div>
       )}
       
       {isFailed && errorContent && (
-        <div className="base-tool-card-error">
+        <div
+          id={hasExpandedContent ? undefined : expandedContentId}
+          className="base-tool-card-error"
+        >
           {errorContent}
         </div>
       )}
@@ -134,6 +140,10 @@ export interface ToolCardHeaderProps {
   headerExpanded?: boolean;
   /** Optional dedicated affordance click handler for the left icon rail. */
   onAffordanceClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  /** Accessible label for the icon affordance. */
+  affordanceLabel?: string;
+  /** Id of the disclosure region controlled by the affordance. */
+  affordanceControlsId?: string;
   /** Action text */
   action?: string;
   /** Main content */
@@ -154,6 +164,8 @@ export const ToolCardHeader: React.FC<ToolCardHeaderProps> = ({
   affordanceKind,
   headerExpanded,
   onAffordanceClick,
+  affordanceLabel,
+  affordanceControlsId,
   action,
   content,
   extra,
@@ -199,7 +211,9 @@ export const ToolCardHeader: React.FC<ToolCardHeaderProps> = ({
                 e.stopPropagation();
                 onAffordanceClick(e);
               }}
-              aria-label={isPanelAffordance ? 'Open details' : 'Expand details'}
+              aria-label={affordanceLabel ?? (isPanelAffordance ? 'Open details' : 'Expand details')}
+              aria-expanded={isPanelAffordance ? undefined : expandedForChevron}
+              aria-controls={isPanelAffordance ? undefined : affordanceControlsId}
               size="xs"
               variant="ghost"
             />

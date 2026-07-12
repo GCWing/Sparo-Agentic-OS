@@ -1,80 +1,76 @@
 /**
- * FlowChat viewport mode state machine.
- *
- * The single authority for "what is the viewport doing right now". All scroll
- * behavior branches on the current mode; nothing else may infer intent from
- * scroll deltas or timing windows.
- *
- * Modes:
- * - `reading`        user owns the viewport; no automatic scrolling.
- * - `pinned-latest`  latest user turn is pinned to the reading offset with a
- *                    synthetic tail floor; content growth is absorbed by the
- *                    floor (equal exchange) so the viewport never moves.
- * - `following`      viewport chases the end of content every frame.
- * - `finalizing`     stream just ended; keep chasing the tail while terminal
- *                    auto-collapses settle, then hand off to reading.
- * - `navigating`     an explicit navigation (pin, center, jump-to-latest) is
- *                    being executed by the scheduler.
- *
- * The reducer is pure; the scheduler owns all side effects.
+ * Pure viewport mode machine. The scheduler owns layout contracts and side
+ * effects; this reducer is the single authority for current scroll behavior.
  */
 
-import type { ViewportPinMode } from './FlowViewportGeometry';
+import {
+  areLatestTurnLayoutOwnersEqual,
+  type LatestTurnLayoutOwner,
+} from './FlowViewportGeometry';
 
 export type ViewportNavigationTarget =
   | {
-      type: 'turn-pin-top';
-      turnId: string;
-      pinMode: ViewportPinMode;
+      type: 'latest-turn-top';
+      owner: LatestTurnLayoutOwner;
       behavior: ScrollBehavior;
     }
+  | { type: 'turn-top'; turnId: string; behavior: ScrollBehavior }
   | { type: 'index-center'; index: number; behavior: ScrollBehavior }
-  | { type: 'latest-end'; behavior: ScrollBehavior; clearPin: boolean };
+  | { type: 'latest-end'; behavior: ScrollBehavior };
 
 export type ViewportMode =
   | { kind: 'reading' }
-  | { kind: 'pinned-latest'; turnId: string }
+  | { kind: 'pinned-latest'; owner: LatestTurnLayoutOwner }
   | { kind: 'following' }
   | { kind: 'finalizing'; sinceMs: number }
   | { kind: 'navigating'; target: ViewportNavigationTarget };
 
 export type ViewportEvent =
-  | { type: 'TURN_SENT'; turnId: string }
+  | { type: 'TURN_SUBMITTED'; owner: LatestTurnLayoutOwner }
+  | { type: 'LATEST_TURN_CHANGED' }
   | { type: 'PIN_FLOOR_CONSUMED' }
   | { type: 'USER_SCROLL_UP' }
-  | { type: 'USER_REACHED_CONTENT_BOTTOM' }
+  | { type: 'USER_SCROLL_DOWN_WITH_CONTENT' }
+  | { type: 'USER_REACHED_OUTPUT_END' }
+  | { type: 'USER_REACHED_LATEST_LAYOUT' }
   | { type: 'USER_JUMP_LATEST' }
   | { type: 'NAVIGATE'; target: ViewportNavigationTarget }
-  | { type: 'NAVIGATION_SETTLED'; nowMs: number }
+  | { type: 'NAVIGATION_SETTLED'; nowMs: number; ownerEpoch?: number }
   | { type: 'STREAM_STARTED' }
   | { type: 'STREAM_ENDED'; nowMs: number }
   | { type: 'FINALIZE_SETTLED' }
-  | { type: 'SESSION_CHANGED'; latestTurnId: string | null; isStreaming: boolean };
+  | {
+      type: 'SESSION_ENTERED';
+      owner: LatestTurnLayoutOwner | null;
+      initialTargetTurnId: string | null;
+    };
 
 export interface ViewportContext {
   isStreaming: boolean;
   latestTurnId: string | null;
-  /**
-   * Turn that currently owns a live sticky pin floor (synthetic tail blank),
-   * or null when no floor is active. The floor belongs to the latest turn's
-   * reading layout and survives detours into history; reaching the bottom
-   * again re-enters pinned-latest instead of stopping in reading.
-   */
-  stickyPinTurnId: string | null;
+  latestTurnLayoutOwner: LatestTurnLayoutOwner | null;
 }
 
 export const READING_MODE: ViewportMode = { kind: 'reading' };
 
-function createStickyPinNavigation(turnId: string): ViewportMode {
+function createLatestTurnNavigation(
+  owner: LatestTurnLayoutOwner,
+  behavior: ScrollBehavior = 'auto',
+): ViewportMode {
   return {
     kind: 'navigating',
-    target: {
-      type: 'turn-pin-top',
-      turnId,
-      pinMode: 'sticky-latest',
-      behavior: 'auto',
-    },
+    target: { type: 'latest-turn-top', owner, behavior },
   };
+}
+
+function isCurrentLatestOwner(
+  owner: LatestTurnLayoutOwner,
+  context: ViewportContext,
+): boolean {
+  return (
+    owner.turnId === context.latestTurnId &&
+    areLatestTurnLayoutOwnersEqual(owner, context.latestTurnLayoutOwner)
+  );
 }
 
 export function reduceViewportMode(
@@ -83,36 +79,37 @@ export function reduceViewportMode(
   context: ViewportContext,
 ): ViewportMode {
   switch (event.type) {
-    case 'TURN_SENT': {
-      // Idempotent per turn: repeated pin requests for the turn we are
-      // already pinning or pinned to are no-ops.
-      if (mode.kind === 'pinned-latest' && mode.turnId === event.turnId) {
+    case 'TURN_SUBMITTED': {
+      if (
+        mode.kind === 'pinned-latest' &&
+        areLatestTurnLayoutOwnersEqual(mode.owner, event.owner)
+      ) {
         return mode;
       }
       if (
         mode.kind === 'navigating' &&
-        mode.target.type === 'turn-pin-top' &&
-        mode.target.pinMode === 'sticky-latest' &&
-        mode.target.turnId === event.turnId
+        mode.target.type === 'latest-turn-top' &&
+        areLatestTurnLayoutOwnersEqual(mode.target.owner, event.owner)
       ) {
         return mode;
       }
-      return createStickyPinNavigation(event.turnId);
+      return createLatestTurnNavigation(event.owner);
     }
+
+    case 'LATEST_TURN_CHANGED':
+      return READING_MODE;
 
     case 'NAVIGATE': {
       if (
         mode.kind === 'navigating' &&
-        JSON.stringify(mode.target) === JSON.stringify(event.target)
+        areNavigationTargetsEqual(mode.target, event.target)
       ) {
         return mode;
       }
-      // Re-pinning the turn we are already pinned to is a no-op.
       if (
         mode.kind === 'pinned-latest' &&
-        event.target.type === 'turn-pin-top' &&
-        event.target.pinMode === 'sticky-latest' &&
-        event.target.turnId === mode.turnId
+        event.target.type === 'latest-turn-top' &&
+        areLatestTurnLayoutOwnersEqual(mode.owner, event.target.owner)
       ) {
         return mode;
       }
@@ -124,82 +121,122 @@ export function reduceViewportMode(
         return mode;
       }
       const target = mode.target;
-      if (
-        target.type === 'turn-pin-top' &&
-        target.pinMode === 'sticky-latest' &&
-        target.turnId === context.latestTurnId
-      ) {
-        return { kind: 'pinned-latest', turnId: target.turnId };
+      if (target.type === 'latest-turn-top') {
+        if (
+          event.ownerEpoch !== target.owner.epoch ||
+          !isCurrentLatestOwner(target.owner, context)
+        ) {
+          return mode;
+        }
+        return { kind: 'pinned-latest', owner: target.owner };
       }
       if (target.type === 'latest-end') {
-        if (
-          !context.isStreaming &&
-          context.stickyPinTurnId &&
-          context.stickyPinTurnId === context.latestTurnId
-        ) {
-          return { kind: 'pinned-latest', turnId: context.stickyPinTurnId };
-        }
         return context.isStreaming ? { kind: 'following' } : READING_MODE;
       }
       return READING_MODE;
     }
 
-    case 'PIN_FLOOR_CONSUMED': {
-      if (mode.kind === 'pinned-latest' && context.isStreaming) {
-        return { kind: 'following' };
-      }
-      return mode;
-    }
+    case 'PIN_FLOOR_CONSUMED':
+      return mode.kind === 'pinned-latest' && context.isStreaming
+        ? { kind: 'following' }
+        : mode;
 
-    case 'USER_SCROLL_UP': {
+    case 'USER_SCROLL_UP':
       return mode.kind === 'reading' ? mode : READING_MODE;
-    }
 
-    case 'USER_REACHED_CONTENT_BOTTOM': {
+    case 'USER_SCROLL_DOWN_WITH_CONTENT':
+      return mode.kind === 'pinned-latest' || mode.kind === 'navigating'
+        ? READING_MODE
+        : mode;
+
+    case 'USER_REACHED_OUTPUT_END': {
       if (mode.kind !== 'reading') {
         return mode;
       }
       if (context.isStreaming) {
         return { kind: 'following' };
       }
-      // Scrolling back down to the pinned layout restores it: the sticky
-      // floor survived the detour, so re-arm the equal-exchange invariant.
-      if (context.stickyPinTurnId && context.stickyPinTurnId === context.latestTurnId) {
-        return { kind: 'pinned-latest', turnId: context.stickyPinTurnId };
-      }
       return mode;
     }
 
+    case 'USER_REACHED_LATEST_LAYOUT': {
+      if (mode.kind !== 'reading' || context.isStreaming) {
+        return mode;
+      }
+      const owner = context.latestTurnLayoutOwner;
+      return owner && isCurrentLatestOwner(owner, context)
+        ? createLatestTurnNavigation(owner)
+        : mode;
+    }
+
     case 'USER_JUMP_LATEST': {
+      const owner = context.latestTurnLayoutOwner;
+      if (!context.isStreaming && owner && isCurrentLatestOwner(owner, context)) {
+        return createLatestTurnNavigation(owner, 'smooth');
+      }
       return {
         kind: 'navigating',
-        target: { type: 'latest-end', behavior: 'smooth', clearPin: false },
+        target: { type: 'latest-end', behavior: 'smooth' },
       };
     }
 
-    case 'STREAM_STARTED': {
-      // A stream that flaps back on during finalizing resumes following.
+    case 'STREAM_STARTED':
       return mode.kind === 'finalizing' ? { kind: 'following' } : mode;
-    }
 
     case 'STREAM_ENDED': {
       if (mode.kind === 'following') {
         return { kind: 'finalizing', sinceMs: event.nowMs };
       }
-      // pinned-latest deliberately survives stream end: short answers keep
-      // their synthetic tail so the pinned turn never drops.
       return mode;
     }
 
-    case 'FINALIZE_SETTLED': {
+    case 'FINALIZE_SETTLED':
       return mode.kind === 'finalizing' ? READING_MODE : mode;
-    }
 
-    case 'SESSION_CHANGED': {
-      if (event.isStreaming && event.latestTurnId) {
-        return createStickyPinNavigation(event.latestTurnId);
+    case 'SESSION_ENTERED': {
+      const owner = event.owner;
+      if (!owner) {
+        return READING_MODE;
       }
-      return READING_MODE;
+      if (event.initialTargetTurnId && event.initialTargetTurnId !== owner.turnId) {
+        return {
+          kind: 'navigating',
+          target: {
+            type: 'turn-top',
+            turnId: event.initialTargetTurnId,
+            behavior: 'auto',
+          },
+        };
+      }
+      return createLatestTurnNavigation(owner);
+    }
+  }
+}
+
+function areNavigationTargetsEqual(
+  left: ViewportNavigationTarget,
+  right: ViewportNavigationTarget,
+): boolean {
+  if (left.type !== right.type) return false;
+  switch (left.type) {
+    case 'latest-turn-top': {
+      const candidate = right as Extract<ViewportNavigationTarget, { type: 'latest-turn-top' }>;
+      return (
+        areLatestTurnLayoutOwnersEqual(left.owner, candidate.owner) &&
+        left.behavior === candidate.behavior
+      );
+    }
+    case 'turn-top': {
+      const candidate = right as Extract<ViewportNavigationTarget, { type: 'turn-top' }>;
+      return left.turnId === candidate.turnId && left.behavior === candidate.behavior;
+    }
+    case 'index-center': {
+      const candidate = right as Extract<ViewportNavigationTarget, { type: 'index-center' }>;
+      return left.index === candidate.index && left.behavior === candidate.behavior;
+    }
+    case 'latest-end': {
+      const candidate = right as Extract<ViewportNavigationTarget, { type: 'latest-end' }>;
+      return left.behavior === candidate.behavior;
     }
   }
 }
@@ -209,13 +246,16 @@ export function areViewportModesEqual(left: ViewportMode, right: ViewportMode): 
   if (left.kind !== right.kind) return false;
   switch (left.kind) {
     case 'pinned-latest':
-      return left.turnId === (right as Extract<ViewportMode, { kind: 'pinned-latest' }>).turnId;
+      return areLatestTurnLayoutOwnersEqual(
+        left.owner,
+        (right as Extract<ViewportMode, { kind: 'pinned-latest' }>).owner,
+      );
     case 'finalizing':
       return left.sinceMs === (right as Extract<ViewportMode, { kind: 'finalizing' }>).sinceMs;
     case 'navigating':
-      return (
-        JSON.stringify(left.target) ===
-        JSON.stringify((right as Extract<ViewportMode, { kind: 'navigating' }>).target)
+      return areNavigationTargetsEqual(
+        left.target,
+        (right as Extract<ViewportMode, { kind: 'navigating' }>).target,
       );
     default:
       return true;

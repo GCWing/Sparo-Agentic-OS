@@ -1,0 +1,98 @@
+{
+  "id": "app-builder",
+  "version": "1.0.0",
+  "name": "App Builder",
+  "description": "Create, fork, test, and evolve personal intelligent apps through conversation and live preview.",
+  "authors": [
+    {
+      "name": "Sparo OS",
+      "url": "https://gcwing.github.io/Sparo-Agentic-OS/"
+    }
+  ],
+  "i18n": {
+    "locales": {
+      "en-US": {
+        "name": "App Builder",
+        "description": "Create, fork, test, and evolve personal intelligent apps through conversation and live preview.",
+        "tags": [
+          "system",
+          "app-builder",
+          "intelligent-app"
+        ]
+      },
+      "zh-CN": {
+        "name": "App Builder",
+        "description": "通过对话和实时预览创建、派生、测试并持续演进个人智能应用。",
+        "tags": [
+          "系统",
+          "应用构建",
+          "智能应用"
+        ]
+      }
+    }
+  },
+  "interactionModel": "conversation",
+  "workMultiplicity": "multiple",
+  "workObjectKinds": [
+    {
+      "id": "app-draft",
+      "label": "App Draft",
+      "scope": "runtime",
+      "identitySchema": {
+        "type": "object"
+      },
+      "contextSchema": {
+        "type": "object"
+      }
+    }
+  ],
+  "primarySurfaceMode": "chatPrimary",
+  "components": [],
+  "componentLockId": "",
+  "permissions": {
+    "fs": true,
+    "net": false,
+    "shell": true,
+    "gui": false,
+    "secrets": false,
+    "ai": true
+  },
+  "installScope": "system",
+  "catalogVisibility": "discoverable",
+  "enabled": true,
+  "icon": {
+    "kind": "nativeAsset",
+    "assetId": "app-builder",
+    "mimeType": "image/png"
+  },
+  "category": "developer",
+  "tags": [
+    "system",
+    "app-builder",
+    "intelligent-app"
+  ],
+  "launch": {
+    "kind": "appBuilder",
+    "targetId": "AppBuilder",
+    "scopeRequirement": "systemAllowed",
+    "agentType": "AppBuilder"
+  },
+  "osCapabilities": [
+    "filesystem.read",
+    "filesystem.write",
+    "terminal.run",
+    "process.spawn",
+    "workspace.inspect",
+    "workspace.modify",
+    "session.read",
+    "session.write",
+    "model.invoke",
+    "tool.invoke"
+  ],
+  "dataLifecycle": {
+    "retention": "userManaged",
+    "deletion": "deleteOnUserRequest",
+    "migration": "schemaVersioned",
+    "share": "declaredWorkObjectsOnly"
+  }
+}

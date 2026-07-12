@@ -10,34 +10,50 @@ pub enum WorkAppKind {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorkAppRef {
     pub kind: WorkAppKind,
+    pub slot_id: String,
     pub app_id: String,
-    #[serde(default, skip_serializing_if = "String::is_empty")]
-    pub app_version: String,
-    #[serde(default, skip_serializing_if = "String::is_empty")]
-    pub component_lock_digest: String,
+    pub release_id: String,
+    pub config_revision: String,
+    pub data_schema_version: String,
 }
 
 impl WorkAppRef {
-    pub fn native_app(app_id: impl Into<String>) -> Self {
+    pub fn native_app(
+        slot_id: impl Into<String>,
+        app_id: impl Into<String>,
+        release_id: impl Into<String>,
+        config_revision: impl Into<String>,
+        data_schema_version: impl Into<String>,
+    ) -> Self {
         Self {
             kind: WorkAppKind::NativeApp,
+            slot_id: slot_id.into(),
             app_id: app_id.into(),
-            app_version: String::new(),
-            component_lock_digest: String::new(),
+            release_id: release_id.into(),
+            config_revision: config_revision.into(),
+            data_schema_version: data_schema_version.into(),
         }
     }
 
     pub fn product_app(
+        slot_id: impl Into<String>,
         app_id: impl Into<String>,
-        app_version: impl Into<String>,
-        component_lock_digest: impl Into<String>,
+        release_id: impl Into<String>,
+        config_revision: impl Into<String>,
+        data_schema_version: impl Into<String>,
     ) -> Self {
         Self {
             kind: WorkAppKind::ProductApp,
+            slot_id: slot_id.into(),
             app_id: app_id.into(),
-            app_version: app_version.into(),
-            component_lock_digest: component_lock_digest.into(),
+            release_id: release_id.into(),
+            config_revision: config_revision.into(),
+            data_schema_version: data_schema_version.into(),
         }
+    }
+
+    pub fn matches_slot(&self, slot_id: &str) -> bool {
+        self.slot_id == slot_id
     }
 
     pub fn matches_product_app_id(&self, app_id: &str) -> bool {
@@ -194,5 +210,39 @@ impl WorkAppRelation {
             role: WorkAppRelationRole::Subject,
             surface_id: None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn work_app_ref_requires_immutable_execution_binding_fields() {
+        let missing_release = serde_json::from_value::<WorkAppRef>(serde_json::json!({
+            "kind": "product_app",
+            "slot_id": "primary",
+            "app_id": "sample-app",
+            "config_revision": "config-1",
+            "data_schema_version": "1"
+        }))
+        .expect_err("release id is required");
+
+        assert!(missing_release.to_string().contains("release_id"));
+    }
+
+    #[test]
+    fn work_app_ref_serializes_slot_release_config_and_data_schema() {
+        let app =
+            WorkAppRef::product_app("primary", "sample-app", "release-sample-1", "config-2", "3");
+
+        let value = serde_json::to_value(app).expect("serialize Work App ref");
+
+        assert_eq!(value["slot_id"], "primary");
+        assert_eq!(value["release_id"], "release-sample-1");
+        assert_eq!(value["config_revision"], "config-2");
+        assert_eq!(value["data_schema_version"], "3");
+        assert!(value.get("app_version").is_none());
+        assert!(value.get("component_lock_digest").is_none());
     }
 }

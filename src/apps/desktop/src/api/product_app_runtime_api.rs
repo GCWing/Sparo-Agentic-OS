@@ -3,6 +3,9 @@
 //! Catalog APIs expose Product App and Component definitions. Runtime APIs bind
 //! a Product App Work to the host surface adapter that can execute it.
 
+use crate::api::app_release_runtime::{
+    resolve_authorized_app_release, validate_product_app_ref, ReleaseExecutionPurpose,
+};
 use crate::api::app_state::AppState;
 use crate::api::product_app_runtime_host_adapter as host_adapter;
 use crate::api::product_app_runtime_host_adapter::{
@@ -13,12 +16,13 @@ use crate::api::product_app_runtime_host_adapter::{
     HostAdapterCancelStalePptRunsRequest, HostAdapterCancelStalePptRunsResponse,
     HostAdapterClearRuntimeIssuesRequest, HostAdapterCoreBackendActionBinding,
     HostAdapterCoreBackendBinding, HostAdapterCoreBackendKind, HostAdapterCoreBackendMemoryScope,
-    HostAdapterCoreBackendSessionPolicy, HostAdapterCoreInteraction,
-    HostAdapterCoreInteractionChat, HostAdapterCoreInteractionMode, HostAdapterCoreInteractionTab,
-    HostAdapterCoreManager, HostAdapterCorePermissions, HostAdapterCoreSurface,
-    HostAdapterCoreSurfaceMeta, HostAdapterGetRequest, HostAdapterInstallResult,
-    HostAdapterPptTurnTextRequest, HostAdapterPptTurnTextResponse, HostAdapterRecompileRequest,
-    HostAdapterRecompileResult, HostAdapterRecordRecentRequest, HostAdapterRenderSlidePageRequest,
+    HostAdapterCoreBackendSessionPolicy, HostAdapterCoreIframePermissions,
+    HostAdapterCoreInteraction, HostAdapterCoreInteractionChat, HostAdapterCoreInteractionMode,
+    HostAdapterCoreInteractionTab, HostAdapterCoreManager, HostAdapterCoreNetPermissions,
+    HostAdapterCorePermissions, HostAdapterCoreSurface, HostAdapterCoreSurfaceMeta,
+    HostAdapterGetRequest, HostAdapterInstallResult, HostAdapterPptTurnTextRequest,
+    HostAdapterPptTurnTextResponse, HostAdapterRecompileRequest, HostAdapterRecompileResult,
+    HostAdapterRecordRecentRequest, HostAdapterRenderSlidePageRequest,
     HostAdapterRuntimeIssueRequest, HostAdapterRuntimeIssueSeverity, HostAdapterRuntimeLogLevel,
     HostAdapterRuntimeLogRequest, HostAdapterRuntimeState, HostAdapterRuntimeStatus,
     HostAdapterWorkerCallRequest,
@@ -27,17 +31,17 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sparo_core::agentic::coordination::{ConversationCoordinator, DialogScheduler};
 use sparo_core::agentic_os::work::{
-    default_work_store, RuntimeInstanceRef, WorkAppRef, WorkId, WorkRecord, WorkStore,
-    WorkSurfaceRef,
+    default_work_store, RuntimeInstanceRef, WorkAppIntent, WorkAppRef, WorkId, WorkKind,
+    WorkRecord, WorkScope, WorkStore, WorkSubject, WorkSurfaceRef, WorkVisibility,
 };
 use sparo_core::app_platform::{
-    get_installed_product_app_by_lock, private_component_source_dir,
-    register_private_product_app_runtime_components, seed_builtin_product_app_packages,
-    AppComponentRef, AppDefinition, AppIconSpec, AppSurfaceMode, AppTruthSource,
-    ComponentDefinition, ComponentKind, ProductAppRuntimeIssueSeverity, ProductAppRuntimeLogLevel,
+    private_component_source_dir, register_private_product_app_runtime_components, AppComponentRef,
+    AppDefinition, AppIconSpec, AppSurfaceMode, AppTruthSource, ComponentDefinition, ComponentKind,
+    ProductAppEvolutionStore, ProductAppRuntimeIssueSeverity, ProductAppRuntimeLogLevel,
     ProductAppRuntimeState, ResolvedProductApp,
 };
 use sparo_core::bridge_component::BridgeComponentRunResult;
+use std::collections::BTreeMap;
 use std::sync::Arc;
 use tauri::{AppHandle, State};
 
@@ -45,13 +49,13 @@ use tauri::{AppHandle, State};
 #[serde(rename_all = "camelCase")]
 pub struct ResolveProductAppRuntimeInstanceRequest {
     pub work_id: String,
-    pub product_app_id: String,
+    pub slot_id: String,
+    pub app_id: String,
+    pub release_id: String,
+    pub config_revision: String,
+    pub data_schema_version: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runtime_instance_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub product_app_version: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub component_lock_digest: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub product_app_surface_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -76,9 +80,11 @@ pub struct ProductAppRuntimeHost {
 pub struct ProductAppRuntimeContext {
     pub work_id: String,
     pub runtime_instance_id: String,
-    pub product_app_id: String,
-    pub product_app_version: String,
-    pub component_lock_digest: String,
+    pub slot_id: String,
+    pub app_id: String,
+    pub release_id: String,
+    pub config_revision: String,
+    pub data_schema_version: String,
     pub product_app_surface_id: String,
     pub surface_id: String,
     pub host_surface_id: String,
@@ -89,9 +95,11 @@ pub struct ProductAppRuntimeContext {
 pub struct ResolvedProductAppRuntimeInstance {
     pub work_id: String,
     pub runtime_instance_id: String,
-    pub product_app_id: String,
-    pub product_app_version: String,
-    pub component_lock_digest: String,
+    pub slot_id: String,
+    pub app_id: String,
+    pub release_id: String,
+    pub config_revision: String,
+    pub data_schema_version: String,
     pub product_app_surface_id: String,
     pub surface_id: String,
     pub implementation_ref: String,
@@ -531,6 +539,258 @@ fn product_app_runtime_host_surface_from_host_adapter(
     }
 }
 
+#[derive(Debug)]
+pub(crate) struct DraftRuntimePreview {
+    pub preview_session_id: String,
+    pub ephemeral_artifact_id: String,
+    pub host_surface: ProductAppRuntimeHostSurface,
+    pub runtime_context: ProductAppRuntimeContext,
+}
+
+/// Materializes a Draft into an isolated, hidden preview Work. The preview is
+/// never an Activation and its synthetic release id is never persisted as an
+/// App Release. Reusing the normal Work runtime guard keeps every host bridge
+/// operation scoped to this preview until `close_draft_runtime_preview` removes
+/// both the runtime host and hidden Work.
+pub(crate) async fn create_draft_runtime_preview(
+    state: &AppState,
+    draft_id: &str,
+    slot_id: &str,
+    resolved_app: &ResolvedProductApp,
+    theme: Option<&str>,
+    workspace_path: Option<&str>,
+) -> Result<DraftRuntimePreview, String> {
+    let primary_surface = resolved_app.app.primary_surface.as_ref().ok_or_else(|| {
+        format!(
+            "Draft {} does not declare an application primarySurface",
+            draft_id
+        )
+    })?;
+    let product_app_surface = resolved_app
+        .components
+        .iter()
+        .find(|component| {
+            component.kind == ComponentKind::Surface && component.id == primary_surface.component_id
+        })
+        .ok_or_else(|| {
+            format!(
+                "Draft {} primary surface component {} is not resolved",
+                draft_id, primary_surface.component_id
+            )
+        })?;
+    let implementation_ref = product_app_surface
+        .implementation_ref
+        .as_deref()
+        .ok_or_else(|| {
+            format!(
+                "Draft {} surface {} has no implementationRef",
+                draft_id, product_app_surface.id
+            )
+        })?;
+
+    let work_id = WorkId::generate();
+    let config_revision = resolved_app.lock.digest();
+    let release_id = format!("draft:{}", draft_id);
+    let app_ref = WorkAppRef::product_app(
+        slot_id,
+        &resolved_app.app.id,
+        &release_id,
+        &config_revision,
+        "draft",
+    );
+    let surface_id = primary_surface
+        .surface_id
+        .clone()
+        .unwrap_or_else(|| product_app_surface.id.clone());
+    let surface = WorkSurfaceRef::ApplicationSurface {
+        product_app_id: resolved_app.app.id.clone(),
+        product_app_surface_id: product_app_surface.id.clone(),
+        surface_id,
+    };
+    let now = chrono::Utc::now().timestamp_millis();
+    let scope = workspace_path
+        .map(str::trim)
+        .filter(|path| !path.is_empty())
+        .map(|workspace_path| WorkScope::Workspace {
+            workspace_path: workspace_path.to_string(),
+        })
+        .unwrap_or(WorkScope::System);
+    let mut work = WorkRecord::new(
+        work_id.clone(),
+        WorkKind::AppWorkflow,
+        format!("Draft preview: {}", resolved_app.app.name),
+        format!("Isolated preview for Draft {}", draft_id),
+        WorkVisibility::Hidden,
+        WorkSubject::App {
+            app: app_ref.clone(),
+            intent: WorkAppIntent::Develop,
+        },
+        Vec::new(),
+        scope,
+        surface.clone(),
+        now,
+    );
+    work.system_managed = true;
+    work.system_process_kind = Some("intelligent_app_draft_preview".to_string());
+    let runtime_instance =
+        RuntimeInstanceRef::product_app_application_surface(&work_id, &app_ref, &surface)
+            .ok_or_else(|| "Failed to bind Draft preview runtime instance".to_string())?;
+    work.bind_runtime_instance(runtime_instance.clone(), now);
+    let store = default_work_store().map_err(|error| error.to_string())?;
+    store.put(&work).await.map_err(|error| error.to_string())?;
+
+    let preview_result = async {
+        if !implementation_ref.starts_with("app://") {
+            return Err(format!(
+                "Draft preview only supports private application surfaces: {}",
+                implementation_ref
+            ));
+        }
+        validate_private_surface_ref(implementation_ref, &resolved_app.app, product_app_surface)?;
+        let source = resolved_app
+            .private_surface_sources
+            .get(&product_app_surface.id)
+            .cloned()
+            .ok_or_else(|| {
+                format!(
+                    "Draft {} has no source for private surface {}",
+                    draft_id, product_app_surface.id
+                )
+            })?;
+        let host_surface_id = runtime_instance.id.clone();
+        state
+            .product_app_runtime_host_manager
+            .upsert_runtime_host(
+                &host_surface_id,
+                product_app_surface.name.clone(),
+                product_app_surface.description.clone(),
+                resolved_app.app.icon.clone(),
+                resolved_app.app.category.clone(),
+                resolved_app.app.tags.clone(),
+                source,
+                HostAdapterCorePermissions::default(),
+                Vec::new(),
+                None,
+                None,
+            )
+            .await
+            .map_err(|error| error.to_string())?;
+        let workspace_root = workspace_path
+            .map(str::trim)
+            .filter(|path| !path.is_empty())
+            .map(std::path::PathBuf::from);
+        let host_surface = state
+            .product_app_runtime_host_manager
+            .recompile(
+                &host_surface_id,
+                theme.unwrap_or("dark"),
+                workspace_root.as_deref(),
+            )
+            .await
+            .map_err(|error| error.to_string())?;
+        let runtime_context = ProductAppRuntimeContext {
+            work_id: work_id.as_str().to_string(),
+            runtime_instance_id: runtime_instance.id.clone(),
+            slot_id: slot_id.to_string(),
+            app_id: resolved_app.app.id.clone(),
+            release_id,
+            config_revision,
+            data_schema_version: runtime_instance.data_schema_version.clone(),
+            product_app_surface_id: product_app_surface.id.clone(),
+            surface_id: match &surface {
+                WorkSurfaceRef::ApplicationSurface { surface_id, .. } => surface_id.clone(),
+                _ => unreachable!(),
+            },
+            host_surface_id: host_surface_id.clone(),
+        };
+        Ok::<_, String>(DraftRuntimePreview {
+            preview_session_id: work_id.as_str().to_string(),
+            ephemeral_artifact_id: host_surface_id,
+            host_surface: product_app_runtime_host_surface_from_host_adapter(host_surface),
+            runtime_context,
+        })
+    }
+    .await;
+
+    if preview_result.is_err() {
+        let _ = state
+            .product_app_runtime_host_manager
+            .delete(&runtime_instance.id)
+            .await;
+        let _ = store.delete(&work_id).await;
+    }
+    preview_result
+}
+
+pub(crate) async fn close_draft_runtime_preview(
+    state: &AppState,
+    preview_session_id: &str,
+) -> Result<(), String> {
+    let work_id =
+        WorkId::parse(preview_session_id.to_string()).map_err(|error| error.to_string())?;
+    let store = default_work_store().map_err(|error| error.to_string())?;
+    let work = store
+        .get(&work_id)
+        .await
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| format!("Draft preview not found: {}", preview_session_id))?;
+    if !work.system_managed
+        || work.system_process_kind.as_deref() != Some("intelligent_app_draft_preview")
+    {
+        return Err(format!(
+            "Work {} is not an Intelligent App Draft preview",
+            preview_session_id
+        ));
+    }
+    for runtime_instance in &work.runtime_instances {
+        state
+            .product_app_runtime_host_manager
+            .delete(&runtime_instance.id)
+            .await
+            .map_err(|error| error.to_string())?;
+    }
+    store
+        .delete(&work_id)
+        .await
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+pub(crate) async fn cleanup_draft_runtime_previews(state: &AppState) -> Result<usize, String> {
+    let store = default_work_store().map_err(|error| error.to_string())?;
+    let previews = store
+        .list()
+        .await
+        .map_err(|error| error.to_string())?
+        .into_iter()
+        .filter(|work| {
+            work.system_managed
+                && work.system_process_kind.as_deref() == Some("intelligent_app_draft_preview")
+        })
+        .collect::<Vec<_>>();
+    for preview in &previews {
+        for runtime_instance in &preview.runtime_instances {
+            if let Err(error) = state
+                .product_app_runtime_host_manager
+                .delete(&runtime_instance.id)
+                .await
+            {
+                log::warn!(
+                    "Failed to delete stale Draft preview runtime host: work_id={} runtime_instance_id={} error={}",
+                    preview.id,
+                    runtime_instance.id,
+                    error
+                );
+            }
+        }
+        store
+            .delete(&preview.id)
+            .await
+            .map_err(|error| error.to_string())?;
+    }
+    Ok(previews.len())
+}
+
 fn host_json<T: Serialize>(value: T) -> Value {
     serde_json::to_value(value).expect("product app runtime host payload should serialize")
 }
@@ -896,6 +1156,7 @@ pub async fn resolve_product_app_runtime_instance(
     state: State<'_, AppState>,
     request: ResolveProductAppRuntimeInstanceRequest,
 ) -> Result<ResolvedProductAppRuntimeInstance, String> {
+    validate_runtime_binding_request(&request)?;
     let work_id = WorkId::parse(request.work_id.clone()).map_err(|error| error.to_string())?;
     let store = default_work_store().map_err(|error| error.to_string())?;
     let mut work = store
@@ -904,15 +1165,23 @@ pub async fn resolve_product_app_runtime_instance(
         .map_err(|error| error.to_string())?
         .ok_or_else(|| format!("Work not found: {}", work_id))?;
 
-    let app_ref = work_product_app_ref(&work, &request.product_app_id)
+    let app_ref = work_product_app_ref(&work, &request.slot_id, &request.app_id)
         .ok_or_else(|| {
             format!(
-                "Work {} does not reference Product App {}",
-                work.id, request.product_app_id
+                "Work {} does not bind slot {} to App {}",
+                work.id, request.slot_id, request.app_id
             )
         })?
         .clone();
     validate_requested_app_ref(&request, &app_ref)?;
+    let authoritative = resolve_authorized_app_release(
+        &state,
+        &app_ref.app_id,
+        &app_ref.release_id,
+        ReleaseExecutionPurpose::ExistingWorkRuntime,
+    )
+    .await?;
+    validate_product_app_ref(&app_ref, &authoritative)?;
 
     let surface = work_application_surface(&work, &request, &app_ref.app_id)?.clone();
     let runtime_instance = ensure_work_runtime_instance(&store, &mut work, &app_ref, &surface)
@@ -932,22 +1201,26 @@ pub async fn resolve_product_app_runtime_instance(
         }
     }
 
-    let path_manager = state.workspace_service.path_manager().clone();
-    if let Err(error) = seed_builtin_product_app_packages(&path_manager).await {
-        log::warn!(
-            "Failed to seed built-in Product App packages before runtime resolution: {}",
-            error
-        );
+    if authoritative.resolved_release.release.config_revision != runtime_instance.config_revision {
+        return Err(format!(
+            "Work {} runtime config revision does not match its authoritative Release",
+            work.id
+        ));
     }
-
-    let (app, lock_digest) = get_installed_product_app_by_lock(
-        &path_manager,
-        &runtime_instance.product_app_id,
-        &runtime_instance.app_version,
-        &runtime_instance.component_lock_digest,
-    )
-    .await
-    .map_err(|error| error.to_string())?;
+    if authoritative.resolved_release.release.data_schema_version
+        != runtime_instance.data_schema_version
+    {
+        return Err(format!(
+            "Work {} runtime data schema does not match its authoritative Release",
+            work.id
+        ));
+    }
+    authoritative.validate_application_surface_runtime(
+        &work.scope,
+        &runtime_instance.product_app_surface_id,
+        &runtime_instance.surface_id,
+    )?;
+    let app = authoritative.package;
 
     let product_app_surface = app
         .components
@@ -982,17 +1255,22 @@ pub async fn resolve_product_app_runtime_instance(
 
     let resolved_work_id = work.id.into_string();
     let resolved_runtime_instance_id = runtime_instance.id;
-    let resolved_product_app_id = app.app.id;
-    let resolved_product_app_version = app.app.version;
+    let resolved_slot_id = runtime_instance.slot_id;
+    let resolved_app_id = runtime_instance.app_id;
+    let resolved_release_id = runtime_instance.release_id;
+    let resolved_config_revision = runtime_instance.config_revision;
+    let resolved_data_schema_version = runtime_instance.data_schema_version;
     let resolved_product_app_surface_id = runtime_instance.product_app_surface_id;
     let resolved_surface_id = runtime_instance.surface_id;
 
-    Ok(ResolvedProductAppRuntimeInstance {
+    let response = ResolvedProductAppRuntimeInstance {
         work_id: resolved_work_id.clone(),
         runtime_instance_id: resolved_runtime_instance_id.clone(),
-        product_app_id: resolved_product_app_id.clone(),
-        product_app_version: resolved_product_app_version.clone(),
-        component_lock_digest: lock_digest.clone(),
+        slot_id: resolved_slot_id.clone(),
+        app_id: resolved_app_id.clone(),
+        release_id: resolved_release_id.clone(),
+        config_revision: resolved_config_revision.clone(),
+        data_schema_version: resolved_data_schema_version.clone(),
         product_app_surface_id: resolved_product_app_surface_id.clone(),
         surface_id: resolved_surface_id.clone(),
         implementation_ref,
@@ -1003,14 +1281,31 @@ pub async fn resolve_product_app_runtime_instance(
         runtime_context: ProductAppRuntimeContext {
             work_id: resolved_work_id,
             runtime_instance_id: resolved_runtime_instance_id,
-            product_app_id: resolved_product_app_id,
-            product_app_version: resolved_product_app_version,
-            component_lock_digest: lock_digest,
+            slot_id: resolved_slot_id,
+            app_id: resolved_app_id,
+            release_id: resolved_release_id,
+            config_revision: resolved_config_revision,
+            data_schema_version: resolved_data_schema_version,
             product_app_surface_id: resolved_product_app_surface_id,
             surface_id: resolved_surface_id,
             host_surface_id,
         },
-    })
+    };
+    let mut metrics = BTreeMap::new();
+    metrics.insert("count".to_string(), 1.0);
+    if let Err(error) = ProductAppEvolutionStore::new(state.workspace_service.path_manager())
+        .record_signal_if_consented(
+            "app_open",
+            Some(response.slot_id.clone()),
+            Some(response.app_id.clone()),
+            Some(response.release_id.clone()),
+            metrics,
+        )
+        .await
+    {
+        log::warn!("Failed to record minimized App evolution signal: {}", error);
+    }
+    Ok(response)
 }
 
 #[tauri::command]
@@ -1130,11 +1425,38 @@ pub async fn product_app_runtime_report_runtime_issue(
     state: State<'_, AppState>,
     request: ProductAppRuntimeIssueRequest,
 ) -> Result<(), String> {
+    let runtime_context = request.runtime_context.clone();
+    let severity = request
+        .severity
+        .unwrap_or(ProductAppRuntimeIssueSeverity::Fatal);
     host_adapter::report_runtime_issue(
-        state,
+        state.clone(),
         runtime_issue_request_from_product_app_runtime(request),
     )
-    .await
+    .await?;
+    let mut metrics = BTreeMap::new();
+    metrics.insert("count".to_string(), 1.0);
+    metrics.insert(
+        "severity".to_string(),
+        match severity {
+            ProductAppRuntimeIssueSeverity::Noise => 0.0,
+            ProductAppRuntimeIssueSeverity::Warning => 1.0,
+            ProductAppRuntimeIssueSeverity::Fatal => 2.0,
+        },
+    );
+    if let Err(error) = ProductAppEvolutionStore::new(state.workspace_service.path_manager())
+        .record_signal_if_consented(
+            "runtime_issue",
+            Some(runtime_context.slot_id),
+            Some(runtime_context.app_id),
+            Some(runtime_context.release_id),
+            metrics,
+        )
+        .await
+    {
+        log::warn!("Failed to record minimized App evolution signal: {}", error);
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -1281,15 +1603,21 @@ pub async fn product_app_runtime_render_slide_page(
     .await
 }
 
-fn work_product_app_ref<'a>(work: &'a WorkRecord, product_app_id: &str) -> Option<&'a WorkAppRef> {
+fn work_product_app_ref<'a>(
+    work: &'a WorkRecord,
+    slot_id: &str,
+    app_id: &str,
+) -> Option<&'a WorkAppRef> {
     if let Some(app) = work.subject.app_ref() {
-        if app.matches_product_app_id(product_app_id) {
+        if app.matches_slot(slot_id) && app.matches_product_app_id(app_id) {
             return Some(app);
         }
     }
     work.app_refs
         .iter()
-        .find(|relation| relation.app.matches_product_app_id(product_app_id))
+        .find(|relation| {
+            relation.app.matches_slot(slot_id) && relation.app.matches_product_app_id(app_id)
+        })
         .map(|relation| &relation.app)
 }
 
@@ -1297,28 +1625,40 @@ fn validate_requested_app_ref(
     request: &ResolveProductAppRuntimeInstanceRequest,
     app_ref: &WorkAppRef,
 ) -> Result<(), String> {
-    if let Some(expected_version) = request
-        .product_app_version
-        .as_deref()
-        .filter(|version| !version.trim().is_empty())
-    {
-        if app_ref.app_version != expected_version {
-            return Err(format!(
-                "Work references Product App {} version {}, but runtime request used {}",
-                app_ref.app_id, app_ref.app_version, expected_version
-            ));
-        }
+    if app_ref.release_id != request.release_id {
+        return Err(format!(
+            "Work slot {} pins Release {}, but runtime request used {}",
+            app_ref.slot_id, app_ref.release_id, request.release_id
+        ));
     }
-    if let Some(expected_digest) = request
-        .component_lock_digest
-        .as_deref()
-        .filter(|digest| !digest.trim().is_empty())
-    {
-        if app_ref.component_lock_digest != expected_digest {
-            return Err(format!(
-                "Work references Product App {} lock {}, but runtime request used {}",
-                app_ref.app_id, app_ref.component_lock_digest, expected_digest
-            ));
+    if app_ref.config_revision != request.config_revision {
+        return Err(format!(
+            "Work slot {} pins config revision {}, but runtime request used {}",
+            app_ref.slot_id, app_ref.config_revision, request.config_revision
+        ));
+    }
+    if app_ref.data_schema_version != request.data_schema_version {
+        return Err(format!(
+            "Work slot {} pins data schema {}, but runtime request used {}",
+            app_ref.slot_id, app_ref.data_schema_version, request.data_schema_version
+        ));
+    }
+    Ok(())
+}
+
+fn validate_runtime_binding_request(
+    request: &ResolveProductAppRuntimeInstanceRequest,
+) -> Result<(), String> {
+    for (field, value) in [
+        ("workId", request.work_id.as_str()),
+        ("slotId", request.slot_id.as_str()),
+        ("appId", request.app_id.as_str()),
+        ("releaseId", request.release_id.as_str()),
+        ("configRevision", request.config_revision.as_str()),
+        ("dataSchemaVersion", request.data_schema_version.as_str()),
+    ] {
+        if value.trim().is_empty() {
+            return Err(format!("{} is required", field));
         }
     }
     Ok(())
@@ -1417,10 +1757,11 @@ fn runtime_instance_matches(
     else {
         return false;
     };
-    instance.product_app_id == *product_app_id
-        && instance.product_app_id == app_ref.app_id
-        && instance.app_version == app_ref.app_version
-        && instance.component_lock_digest == app_ref.component_lock_digest
+    instance.app_id == *product_app_id
+        && instance.slot_id == app_ref.slot_id
+        && instance.app_id == app_ref.app_id
+        && instance.release_id == app_ref.release_id
+        && instance.config_revision == app_ref.config_revision
         && instance.product_app_surface_id == *product_app_surface_id
         && instance.surface_id == *surface_id
 }
@@ -1458,7 +1799,7 @@ async fn resolve_product_app_host_surface_id(
                 app.app.category.clone(),
                 app.app.tags.clone(),
                 source,
-                HostAdapterCorePermissions::default(),
+                product_app_surface_host_permissions(product_app_surface),
                 host_adapter_backends_from_product_app_runtime(backends),
                 Some(host_adapter_interaction_from_product_app_runtime(
                     build_product_app_runtime_interaction(&app.app, product_app_surface),
@@ -1474,6 +1815,50 @@ async fn resolve_product_app_host_surface_id(
         "Unsupported Product App surface implementationRef: {}",
         implementation_ref
     ))
+}
+
+fn product_app_surface_host_permissions(
+    product_app_surface: &ComponentDefinition,
+) -> HostAdapterCorePermissions {
+    let mut autoplay = false;
+    let mut fullscreen = false;
+    let mut net_allow = Vec::new();
+    for permission in product_app_surface
+        .permissions
+        .iter()
+        .filter(|permission| permission.kind.eq_ignore_ascii_case("net"))
+    {
+        for scope in &permission.scopes {
+            let scope = scope.trim();
+            if !scope.is_empty() && !net_allow.iter().any(|existing| existing == scope) {
+                net_allow.push(scope.to_string());
+            }
+        }
+    }
+    for permission in product_app_surface
+        .permissions
+        .iter()
+        .filter(|permission| permission.kind.eq_ignore_ascii_case("iframe"))
+    {
+        for scope in &permission.scopes {
+            match scope.trim().to_ascii_lowercase().as_str() {
+                "autoplay" => autoplay = true,
+                "fullscreen" => fullscreen = true,
+                _ => {}
+            }
+        }
+    }
+
+    HostAdapterCorePermissions {
+        net: (!net_allow.is_empty()).then_some(HostAdapterCoreNetPermissions {
+            allow: Some(net_allow),
+        }),
+        iframe: (autoplay || fullscreen).then_some(HostAdapterCoreIframePermissions {
+            autoplay,
+            fullscreen,
+        }),
+        ..Default::default()
+    }
 }
 
 fn validate_private_surface_ref(
@@ -1810,6 +2195,42 @@ mod tests {
         SurfaceRef,
     };
 
+    fn runtime_request() -> ResolveProductAppRuntimeInstanceRequest {
+        ResolveProductAppRuntimeInstanceRequest {
+            work_id: "work_release_runtime".to_string(),
+            slot_id: "primary".to_string(),
+            app_id: "sample-app".to_string(),
+            release_id: "release-sample-4".to_string(),
+            config_revision: "config-2".to_string(),
+            runtime_instance_id: None,
+            product_app_surface_id: None,
+            surface_id: None,
+        }
+    }
+
+    #[test]
+    fn runtime_request_requires_complete_release_binding() {
+        let mut request = runtime_request();
+        request.release_id.clear();
+
+        let error = validate_runtime_binding_request(&request)
+            .expect_err("release identity must be explicit");
+
+        assert_eq!(error, "releaseId is required");
+    }
+
+    #[test]
+    fn runtime_request_cannot_override_work_config_revision() {
+        let request = runtime_request();
+        let app_ref =
+            WorkAppRef::product_app("primary", "sample-app", "release-sample-4", "config-1", "1");
+
+        let error = validate_requested_app_ref(&request, &app_ref)
+            .expect_err("runtime must use Work-pinned config");
+
+        assert!(error.contains("pins config revision config-1"));
+    }
+
     fn test_app() -> AppDefinition {
         AppDefinition {
             id: "sample-app".to_string(),
@@ -1964,6 +2385,32 @@ mod tests {
             &surface,
         )
         .is_err());
+    }
+
+    #[test]
+    fn private_surface_iframe_features_are_explicitly_scoped() {
+        let mut surface = test_surface();
+        surface.permissions = vec![
+            sparo_core::app_platform::PermissionSpec {
+                kind: "net".to_string(),
+                summary: "Preview host".to_string(),
+                scopes: vec!["http://127.0.0.1:*".to_string()],
+            },
+            sparo_core::app_platform::PermissionSpec {
+                kind: "iframe".to_string(),
+                summary: "Playback policy".to_string(),
+                scopes: vec!["autoplay".to_string(), "unknown".to_string()],
+            },
+        ];
+
+        let permissions = product_app_surface_host_permissions(&surface);
+        let iframe = permissions.iframe.expect("declared iframe permission");
+        assert!(iframe.autoplay);
+        assert!(!iframe.fullscreen);
+        assert_eq!(
+            permissions.net.and_then(|net| net.allow),
+            Some(vec!["http://127.0.0.1:*".to_string()])
+        );
     }
 
     #[test]

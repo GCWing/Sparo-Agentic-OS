@@ -3,7 +3,7 @@
     "name": "selected_text_revision",
     "intent": "Revise selected title text in the active Remotion Live preview.",
     "expectedTools": [
-      "agentcomponent__remotion-video-agent__get_frame_context",
+      "agentcomponent__remotion-video-agent__get_frame_descriptor",
       "Grep",
       "Read",
       "Edit"

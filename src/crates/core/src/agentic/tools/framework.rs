@@ -1,5 +1,5 @@
 //! Tool framework - Tool interface definition and execution context
-use crate::agentic::app_builder_context::AppBuilderExecutionContext;
+use crate::agentic::app_builder_context::{AppBuilderExecutionContext, AppBuilderSubject};
 use crate::agentic::tools::restrictions::{
     is_local_path_within_root, ToolPathOperation, ToolRuntimeRestrictions,
 };
@@ -9,6 +9,7 @@ use crate::agentic::tools::workspace_paths::{
 };
 use crate::agentic::workspace::WorkspaceServices;
 use crate::agentic::WorkspaceBinding;
+use crate::app_platform::draft_lock::acquire_draft_lock;
 use crate::error::CoreResult;
 use crate::infrastructure::get_path_manager_arc;
 use crate::runtime::{AgenticHandles, WorkspaceMount};
@@ -125,7 +126,20 @@ impl ToolUseContext {
         resolution: &ToolPathResolution,
     ) -> CoreResult<()> {
         if let Some(app_builder) = self.app_builder.as_ref() {
+            if !app_builder.package_root.is_dir() {
+                return Err(crate::error::CoreError::validation(
+                    "This App Draft has already been published or removed; create a new Draft before editing",
+                ));
+            }
             let target = Path::new(&resolution.resolved_path);
+            let control_root = app_builder.package_root.join(".sparo_os");
+            if is_local_path_within_root(target, &control_root)? {
+                return Err(crate::error::CoreError::validation(format!(
+                    "AppBuilder cannot {} platform-controlled Draft metadata '{}'",
+                    operation.verb(),
+                    resolution.logical_path
+                )));
+            }
             let mut allowed = false;
             for root in &app_builder.allowed_write_roots {
                 if is_local_path_within_root(target, root)? {
@@ -142,6 +156,10 @@ impl ToolUseContext {
                     resolution.logical_path
                 )));
             }
+        } else if self.agent_type.as_deref() == Some("AppBuilder") {
+            return Err(crate::error::CoreError::validation(
+                "AppBuilder file mutations require a valid bound App Draft execution context",
+            ));
         }
 
         let allowed_roots = self
@@ -489,6 +507,15 @@ pub trait Tool: Send + Sync {
         false
     }
 
+    /// Whether this tool mutates the package tree of a bound Builder Draft.
+    ///
+    /// This is intentionally narrower than `!is_readonly()`: orchestration and
+    /// external side-effect tools must not hold the Draft filesystem lock while
+    /// a nested AppBuilder agent is running.
+    fn mutates_app_builder_draft(&self) -> bool {
+        false
+    }
+
     /// Whether to be concurrency safe
     fn is_concurrency_safe(&self, _input: Option<&Value>) -> bool {
         self.is_readonly()
@@ -547,6 +574,33 @@ pub trait Tool: Send + Sync {
     /// execution to [`call_impl`], so most tools should override `call_impl`
     /// instead of overriding this method directly.
     async fn call(&self, input: &Value, context: &ToolUseContext) -> CoreResult<Vec<ToolResult>> {
+        let _draft_guard = if self.mutates_app_builder_draft() {
+            let draft_id = context.app_builder.as_ref().map(|app_builder| {
+                let AppBuilderSubject::BuilderDraft { draft_id, .. } = &app_builder.subject;
+                draft_id.as_str()
+            });
+            if let Some(draft_id) = draft_id {
+                let acquire = acquire_draft_lock(draft_id);
+                Some(
+                    if let Some(cancellation_token) = context.cancellation_token.as_ref() {
+                        tokio::select! {
+                            guard = acquire => guard,
+                            _ = cancellation_token.cancelled() => {
+                                return Err(crate::error::CoreError::Cancelled(
+                                    "Tool execution cancelled while waiting for the App Draft".to_string(),
+                                ));
+                            }
+                        }
+                    } else {
+                        acquire.await
+                    },
+                )
+            } else {
+                None
+            }
+        } else {
+            None
+        };
         if let Some(cancellation_token) = context.cancellation_token.as_ref() {
             tokio::select! {
                 result = self.call_impl(input, context) => {
@@ -587,9 +641,8 @@ mod tests {
             workspace: None,
             custom_data: HashMap::new(),
             app_builder: Some(AppBuilderExecutionContext {
-                subject: AppBuilderSubject::ProductApp {
-                    app_id: "focus-app".to_string(),
-                    version: "1.0.0".to_string(),
+                subject: AppBuilderSubject::BuilderDraft {
+                    draft_id: "draft_0123456789abcdef0123456789abcdef".to_string(),
                     title: None,
                     scope: AppBuilderSubjectScope::System,
                 },
@@ -645,6 +698,52 @@ mod tests {
         );
         assert!(denied.is_err());
 
+        let _ = std::fs::remove_dir_all(base);
+    }
+
+    #[test]
+    fn app_builder_file_mutations_reject_missing_subject() {
+        let base = std::env::temp_dir().join(format!(
+            "sparo-app-builder-framework-subject-{}",
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(&base).expect("create package root");
+        let mut unbound = app_builder_context(base.clone());
+        unbound.app_builder = None;
+        assert!(unbound
+            .enforce_path_operation(
+                ToolPathOperation::Write,
+                &resolution(&base.join("app.json")),
+            )
+            .is_err());
+        let _ = std::fs::remove_dir_all(base);
+    }
+
+    #[test]
+    fn app_builder_cannot_mutate_platform_control_metadata() {
+        let base = std::env::temp_dir().join(format!(
+            "sparo-app-builder-framework-control-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let package_root = base.join("draft");
+        let control_file = package_root
+            .join(".sparo_os")
+            .join("rebase")
+            .join("base.json");
+        std::fs::create_dir_all(control_file.parent().expect("control parent"))
+            .expect("create control root");
+        std::fs::write(&control_file, b"{}").expect("write control fixture");
+        let context = app_builder_context(package_root);
+
+        for operation in [
+            ToolPathOperation::Write,
+            ToolPathOperation::Edit,
+            ToolPathOperation::Delete,
+        ] {
+            assert!(context
+                .enforce_path_operation(operation, &resolution(&control_file))
+                .is_err());
+        }
         let _ = std::fs::remove_dir_all(base);
     }
 }

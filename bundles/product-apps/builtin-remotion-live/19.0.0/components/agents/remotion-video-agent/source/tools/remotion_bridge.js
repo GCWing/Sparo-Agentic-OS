@@ -6,13 +6,6 @@ function normalizeInput(input = {}, context = {}) {
   if (!payload.workspacePath && !payload.workspace_path && context.workspaceRoot) {
     payload.workspacePath = context.workspaceRoot;
   }
-  if (!payload.compositionId && payload.composition) {
-    payload.compositionId = payload.composition;
-  }
-  if (payload.selectedElement && !payload.selection) {
-    payload.selection = payload.selectedElement;
-    delete payload.selectedElement;
-  }
   return payload;
 }
 

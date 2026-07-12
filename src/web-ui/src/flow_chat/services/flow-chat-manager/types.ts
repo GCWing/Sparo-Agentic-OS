@@ -26,6 +26,8 @@ export interface FlowChatContext {
   }>;
   /** In-flight historical session hydration: sessionId -> promise */
   pendingHistoryLoads: Map<string, Promise<void>>;
+  /** Single-flight backend coordinator readiness: sessionId -> promise. */
+  pendingBackendReadiness?: Map<string, { tail: Promise<void> }>;
   /** Content buffers: sessionId -> (roundId -> content) */
   contentBuffers: Map<string, Map<string, string>>;
   /** Active text items: sessionId -> (roundId -> textItemId) */

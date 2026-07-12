@@ -14,12 +14,24 @@
       "en-US": {
         "name": "HarmonyOS Dev",
         "description": "An integrated HarmonyOS app development environment that brings ArkTS, ArkUI, building, packaging, debugging, and device runtime into one workspace.",
-        "tags": ["built-in", "harmonyos", "arkui", "device", "build"]
+        "tags": [
+          "built-in",
+          "harmonyos",
+          "arkui",
+          "device",
+          "build"
+        ]
       },
       "zh-CN": {
         "name": "HarmonyOS Dev",
         "description": "一体化鸿蒙应用开发环境，把 ArkTS、ArkUI、构建、打包、调试和设备运行集中到一个工作空间。",
-        "tags": ["内置", "harmonyos", "arkui", "设备", "构建"]
+        "tags": [
+          "内置",
+          "harmonyos",
+          "arkui",
+          "设备",
+          "构建"
+        ]
       }
     }
   },
@@ -294,5 +306,11 @@
     "workspace.modify",
     "model.invoke",
     "tool.invoke"
-  ]
+  ],
+  "dataLifecycle": {
+    "retention": "userManaged",
+    "deletion": "deleteOnUserRequest",
+    "migration": "schemaVersioned",
+    "share": "declaredWorkObjectsOnly"
+  }
 }

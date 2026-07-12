@@ -7,8 +7,11 @@ use crate::product_app_runtime_host_engine::types::{
     ProductAppRuntimeHostSurface, ProductAppRuntimeHostSurfaceMeta,
 };
 use serde_json;
-use std::path::PathBuf;
+use std::collections::BTreeSet;
+use std::path::{Component, Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
 const META_JSON: &str = "meta.json";
 const SOURCE_DIR: &str = "source";
@@ -32,6 +35,7 @@ const STANDARD_SOURCE_FILES: &[&str] = &[
     I18N_JSON,
     SOURCE_MANIFEST_JSON,
 ];
+static SOURCE_SNAPSHOT_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 
 fn infer_source_file_kind(path: &str) -> ProductAppRuntimeHostSourceFileKind {
     if path.ends_with(".js") || path.ends_with(".mjs") || path.ends_with(".ts") {
@@ -49,27 +53,50 @@ fn infer_source_file_kind(path: &str) -> ProductAppRuntimeHostSourceFileKind {
 
 fn sanitize_source_relative_path(path: &str) -> CoreResult<PathBuf> {
     let normalized = path.replace('\\', "/");
-    if normalized.starts_with('/')
-        || normalized.contains("../")
-        || normalized == ".."
+    let segments = normalized.split('/').collect::<Vec<_>>();
+    let invalid_segment = segments.iter().any(|segment| {
+        segment.is_empty()
+            || *segment == "."
+            || *segment == ".."
+            || segment.contains(':')
+            || segment.eq_ignore_ascii_case("node_modules")
+    });
+    let candidate = Path::new(&normalized);
+    let invalid_component = candidate
+        .components()
+        .any(|component| !matches!(component, Component::Normal(_)));
+    if normalized.is_empty()
         || normalized.contains('\0')
+        || invalid_segment
+        || invalid_component
+        || STANDARD_SOURCE_FILES
+            .iter()
+            .any(|standard| normalized.eq_ignore_ascii_case(standard))
     {
         return Err(CoreError::validation(format!(
             "Invalid source file path: {}",
             path
         )));
     }
-    Ok(PathBuf::from(normalized))
+    let mut relative = PathBuf::new();
+    for segment in segments {
+        relative.push(segment);
+    }
+    Ok(relative)
 }
 
 /// Product App Runtime Host storage service (file-based under `path_manager.product_app_runtime_hosts_dir()`).
 pub struct ProductAppRuntimeHostStorage {
     path_manager: Arc<crate::infrastructure::PathManager>,
+    snapshot_lock: RwLock<()>,
 }
 
 impl ProductAppRuntimeHostStorage {
     pub fn new(path_manager: Arc<crate::infrastructure::PathManager>) -> Self {
-        Self { path_manager }
+        Self {
+            path_manager,
+            snapshot_lock: RwLock::new(()),
+        }
     }
 
     fn app_dir(&self, app_id: &str) -> PathBuf {
@@ -100,6 +127,11 @@ impl ProductAppRuntimeHostStorage {
 
     /// Ensure app directory and source subdir exist.
     pub async fn ensure_app_dir(&self, app_id: &str) -> CoreResult<()> {
+        let _guard = self.snapshot_lock.write().await;
+        self.ensure_app_dir_unlocked(app_id).await
+    }
+
+    async fn ensure_app_dir_unlocked(&self, app_id: &str) -> CoreResult<()> {
         let dir = self.app_dir(app_id);
         let source = self.source_dir(app_id);
         tokio::fs::create_dir_all(&dir).await.map_err(|e| {
@@ -152,6 +184,7 @@ impl ProductAppRuntimeHostStorage {
 
     /// Load full Product App Runtime Host surface by id (meta + source + compiled_html).
     pub async fn load(&self, app_id: &str) -> CoreResult<ProductAppRuntimeHostSurface> {
+        let _guard = self.snapshot_lock.read().await;
         let meta_path = self.meta_path(app_id);
         let meta_content = tokio::fs::read_to_string(&meta_path).await.map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
@@ -318,6 +351,7 @@ impl ProductAppRuntimeHostStorage {
 
     /// Load only source files and package dependencies from disk.
     pub async fn load_source_only(&self, app_id: &str) -> CoreResult<ProductAppRuntimeHostSource> {
+        let _guard = self.snapshot_lock.read().await;
         self.load_source(app_id).await
     }
 
@@ -359,7 +393,10 @@ impl ProductAppRuntimeHostStorage {
 
     /// Save full Product App Runtime Host surface (meta, source files, compiled.html).
     pub async fn save(&self, app: &ProductAppRuntimeHostSurface) -> CoreResult<()> {
-        self.ensure_app_dir(&app.id).await?;
+        let _guard = self.snapshot_lock.write().await;
+        self.ensure_app_dir_unlocked(&app.id).await?;
+
+        self.replace_source_snapshot(&app.id, &app.source).await?;
 
         let meta = ProductAppRuntimeHostSurfaceMeta::from(app);
         let meta_path = self.meta_path(&app.id);
@@ -367,48 +404,6 @@ impl ProductAppRuntimeHostStorage {
         tokio::fs::write(&meta_path, meta_json)
             .await
             .map_err(|e| CoreError::io(format!("Failed to write meta: {}", e)))?;
-
-        let sd = self.source_dir(&app.id);
-        tokio::fs::write(sd.join(INDEX_HTML), &app.source.html)
-            .await
-            .map_err(|e| CoreError::io(format!("Failed to write index.html: {}", e)))?;
-        tokio::fs::write(sd.join(STYLE_CSS), &app.source.css)
-            .await
-            .map_err(|e| CoreError::io(format!("Failed to write style.css: {}", e)))?;
-        tokio::fs::write(sd.join(UI_JS), &app.source.ui_js)
-            .await
-            .map_err(|e| CoreError::io(format!("Failed to write ui.js: {}", e)))?;
-        tokio::fs::write(sd.join(WORKER_JS), &app.source.worker_js)
-            .await
-            .map_err(|e| CoreError::io(format!("Failed to write worker.js: {}", e)))?;
-        let source_manifest =
-            serde_json::to_string_pretty(&app.source.entry).map_err(CoreError::from)?;
-        tokio::fs::write(sd.join(SOURCE_MANIFEST_JSON), source_manifest)
-            .await
-            .map_err(|e| CoreError::io(format!("Failed to write source_manifest.json: {}", e)))?;
-        for file in &app.source.source_files {
-            let relative = sanitize_source_relative_path(&file.path)?;
-            let path = sd.join(relative);
-            if let Some(parent) = path.parent() {
-                tokio::fs::create_dir_all(parent).await.map_err(|e| {
-                    CoreError::io(format!("Failed to create source file dir: {}", e))
-                })?;
-            }
-            tokio::fs::write(&path, &file.content).await.map_err(|e| {
-                CoreError::io(format!("Failed to write source file {}: {}", file.path, e))
-            })?;
-        }
-
-        let esm_json =
-            serde_json::to_string_pretty(&app.source.esm_dependencies).map_err(CoreError::from)?;
-        tokio::fs::write(sd.join(ESM_DEPS_JSON), esm_json)
-            .await
-            .map_err(|e| CoreError::io(format!("Failed to write esm_dependencies.json: {}", e)))?;
-        let i18n_json =
-            serde_json::to_string_pretty(&app.source.i18n_messages).map_err(CoreError::from)?;
-        tokio::fs::write(sd.join(I18N_JSON), i18n_json)
-            .await
-            .map_err(|e| CoreError::io(format!("Failed to write i18n.json: {}", e)))?;
 
         self.write_package_json(&app.id, &app.source.npm_dependencies)
             .await?;
@@ -418,6 +413,141 @@ impl ProductAppRuntimeHostStorage {
             .map_err(|e| CoreError::io(format!("Failed to write compiled.html: {}", e)))?;
 
         Ok(())
+    }
+
+    async fn replace_source_snapshot(
+        &self,
+        app_id: &str,
+        source: &ProductAppRuntimeHostSource,
+    ) -> CoreResult<()> {
+        let mut source_files = Vec::with_capacity(source.source_files.len());
+        let mut seen_paths = BTreeSet::new();
+        for file in &source.source_files {
+            let relative = sanitize_source_relative_path(&file.path)?;
+            let normalized = relative.to_string_lossy().replace('\\', "/");
+            if !seen_paths.insert(normalized.to_ascii_lowercase()) {
+                return Err(CoreError::validation(format!(
+                    "Duplicate source file path: {}",
+                    file.path
+                )));
+            }
+            source_files.push((relative, file));
+        }
+
+        let source_manifest =
+            serde_json::to_string_pretty(&source.entry).map_err(CoreError::from)?;
+        let esm_json =
+            serde_json::to_string_pretty(&source.esm_dependencies).map_err(CoreError::from)?;
+        let i18n_json =
+            serde_json::to_string_pretty(&source.i18n_messages).map_err(CoreError::from)?;
+
+        let sequence = SOURCE_SNAPSHOT_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let app_dir = self.app_dir(app_id);
+        let source_dir = self.source_dir(app_id);
+        let staging_dir = app_dir.join(format!(
+            ".{SOURCE_DIR}.staging-{}-{sequence}",
+            std::process::id()
+        ));
+        let backup_dir = app_dir.join(format!(
+            ".{SOURCE_DIR}.backup-{}-{sequence}",
+            std::process::id()
+        ));
+
+        for transaction_dir in [&staging_dir, &backup_dir] {
+            if transaction_dir.exists() {
+                tokio::fs::remove_dir_all(transaction_dir)
+                    .await
+                    .map_err(|e| {
+                        CoreError::io(format!(
+                            "Failed to reset source transaction dir {}: {}",
+                            transaction_dir.display(),
+                            e
+                        ))
+                    })?;
+            }
+        }
+        tokio::fs::create_dir_all(&staging_dir)
+            .await
+            .map_err(|e| CoreError::io(format!("Failed to create source staging dir: {}", e)))?;
+
+        let prepare_result = async {
+            Self::write_source_file(&staging_dir, INDEX_HTML, &source.html).await?;
+            Self::write_source_file(&staging_dir, STYLE_CSS, &source.css).await?;
+            Self::write_source_file(&staging_dir, UI_JS, &source.ui_js).await?;
+            Self::write_source_file(&staging_dir, WORKER_JS, &source.worker_js).await?;
+            Self::write_source_file(&staging_dir, SOURCE_MANIFEST_JSON, &source_manifest).await?;
+            Self::write_source_file(&staging_dir, ESM_DEPS_JSON, &esm_json).await?;
+            Self::write_source_file(&staging_dir, I18N_JSON, &i18n_json).await?;
+            for (relative, file) in source_files {
+                let path = staging_dir.join(relative);
+                if let Some(parent) = path.parent() {
+                    tokio::fs::create_dir_all(parent).await.map_err(|e| {
+                        CoreError::io(format!("Failed to create source file dir: {}", e))
+                    })?;
+                }
+                tokio::fs::write(&path, &file.content).await.map_err(|e| {
+                    CoreError::io(format!("Failed to write source file {}: {}", file.path, e))
+                })?;
+            }
+            Ok::<(), CoreError>(())
+        }
+        .await;
+        if let Err(error) = prepare_result {
+            let _ = tokio::fs::remove_dir_all(&staging_dir).await;
+            return Err(error);
+        }
+
+        let had_source = source_dir.exists();
+        if had_source {
+            if let Err(error) = tokio::fs::rename(&source_dir, &backup_dir).await {
+                let _ = tokio::fs::remove_dir_all(&staging_dir).await;
+                return Err(CoreError::io(format!(
+                    "Failed to preserve source snapshot {}: {}",
+                    source_dir.display(),
+                    error
+                )));
+            }
+        }
+
+        if let Err(install_error) = tokio::fs::rename(&staging_dir, &source_dir).await {
+            let rollback_error = if had_source {
+                tokio::fs::rename(&backup_dir, &source_dir).await.err()
+            } else {
+                None
+            };
+            let _ = tokio::fs::remove_dir_all(&staging_dir).await;
+            return Err(CoreError::io(match rollback_error {
+                Some(rollback_error) => format!(
+                    "Failed to commit source snapshot {}: {}; rollback also failed: {}",
+                    source_dir.display(),
+                    install_error,
+                    rollback_error
+                ),
+                None => format!(
+                    "Failed to commit source snapshot {}: {}",
+                    source_dir.display(),
+                    install_error
+                ),
+            }));
+        }
+
+        if had_source {
+            if let Err(error) = tokio::fs::remove_dir_all(&backup_dir).await {
+                log::warn!(
+                    "Source snapshot was replaced but backup cleanup failed: app_id={}, backup_dir={}, error={}",
+                    app_id,
+                    backup_dir.display(),
+                    error
+                );
+            }
+        }
+        Ok(())
+    }
+
+    async fn write_source_file(root: &Path, relative: &str, content: &str) -> CoreResult<()> {
+        tokio::fs::write(root.join(relative), content)
+            .await
+            .map_err(|e| CoreError::io(format!("Failed to write {}: {}", relative, e)))
     }
 
     pub async fn copy_source_dir_recursive(
@@ -518,7 +648,8 @@ impl ProductAppRuntimeHostStorage {
         key: &str,
         value: serde_json::Value,
     ) -> CoreResult<()> {
-        self.ensure_app_dir(app_id).await?;
+        let _guard = self.snapshot_lock.write().await;
+        self.ensure_app_dir_unlocked(app_id).await?;
         let mut current = self.load_app_storage(app_id).await?;
         let obj = current
             .as_object_mut()
@@ -534,6 +665,7 @@ impl ProductAppRuntimeHostStorage {
 
     /// Delete Product App Runtime Host surface directory entirely.
     pub async fn delete(&self, app_id: &str) -> CoreResult<()> {
+        let _guard = self.snapshot_lock.write().await;
         let dir = self.app_dir(app_id);
         if dir.exists() {
             tokio::fs::remove_dir_all(&dir)
@@ -586,5 +718,176 @@ impl ProductAppRuntimeHostStorage {
         })?;
         serde_json::from_str(&c)
             .map_err(|e| CoreError::parse(format!("Invalid version file: {}", e)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app_platform::AppIconSpec;
+    use crate::infrastructure::PathManager;
+    use crate::product_app_runtime_host_engine::types::{
+        ProductAppRuntimeHostI18n, ProductAppRuntimeHostPermissions,
+        ProductAppRuntimeHostRuntimeState,
+    };
+
+    fn test_root(name: &str) -> PathBuf {
+        let sequence = SOURCE_SNAPSHOT_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        std::env::temp_dir().join(format!(
+            "sparo-runtime-host-storage-{name}-{}-{sequence}",
+            std::process::id()
+        ))
+    }
+
+    fn source_file(path: &str, content: &str) -> ProductAppRuntimeHostSourceFile {
+        ProductAppRuntimeHostSourceFile {
+            path: path.to_string(),
+            kind: ProductAppRuntimeHostSourceFileKind::Script,
+            content: content.to_string(),
+        }
+    }
+
+    fn surface(app_id: &str) -> ProductAppRuntimeHostSurface {
+        ProductAppRuntimeHostSurface {
+            id: app_id.to_string(),
+            name: "Snapshot test".to_string(),
+            description: "Snapshot replacement fixture".to_string(),
+            icon: AppIconSpec::Monogram {
+                label: "ST".to_string(),
+                seed: None,
+                background: None,
+            },
+            category: "test".to_string(),
+            tags: Vec::new(),
+            i18n: ProductAppRuntimeHostI18n::default(),
+            version: 1,
+            created_at: 1,
+            updated_at: 1,
+            source: ProductAppRuntimeHostSource {
+                html: "<main>snapshot</main>".to_string(),
+                css: "main { display: block; }".to_string(),
+                ui_js: "export {};".to_string(),
+                worker_js: "export {};".to_string(),
+                source_files: vec![
+                    source_file("src/current.js", "export const value = 1;"),
+                    source_file("src/stale.js", "export const stale = true;"),
+                ],
+                ..ProductAppRuntimeHostSource::default()
+            },
+            compiled_html: "<!doctype html><main>compiled</main>".to_string(),
+            permissions: ProductAppRuntimeHostPermissions::default(),
+            backends: Vec::new(),
+            interaction: None,
+            ai_context: None,
+            permission_rationale: None,
+            runtime: ProductAppRuntimeHostRuntimeState::default(),
+        }
+    }
+
+    #[test]
+    fn source_paths_must_be_portable_relative_files() {
+        assert_eq!(
+            sanitize_source_relative_path("src\\module.js").expect("relative source path"),
+            PathBuf::from("src").join("module.js")
+        );
+        for invalid in [
+            "",
+            "../escape.js",
+            "src/../escape.js",
+            "/absolute.js",
+            "C:\\absolute.js",
+            "node_modules/dependency.js",
+            "ui.js",
+        ] {
+            assert!(
+                sanitize_source_relative_path(invalid).is_err(),
+                "path should be rejected: {invalid}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn save_replaces_source_snapshot_and_preserves_runtime_state() {
+        let root = test_root("exact-source-snapshot");
+        let _ = tokio::fs::remove_dir_all(&root).await;
+        let path_manager = Arc::new(PathManager::with_user_root_for_tests(root.clone()));
+        let storage = ProductAppRuntimeHostStorage::new(path_manager);
+        let app_id = "snapshot-test";
+        let mut app = surface(app_id);
+
+        storage.save(&app).await.expect("save initial snapshot");
+        storage
+            .save_app_storage(app_id, "preserved", serde_json::json!(true))
+            .await
+            .expect("save runtime storage");
+        storage
+            .save_version(app_id, app.version, &app)
+            .await
+            .expect("save version snapshot");
+        let dependency_marker = storage
+            .app_dir(app_id)
+            .join("node_modules")
+            .join("dependency")
+            .join("marker.txt");
+        tokio::fs::create_dir_all(dependency_marker.parent().expect("dependency parent"))
+            .await
+            .expect("create dependency dir");
+        tokio::fs::write(&dependency_marker, "preserved")
+            .await
+            .expect("write dependency marker");
+
+        app.source.source_files = vec![source_file("src/current.js", "export const value = 2;")];
+        app.updated_at = 2;
+        storage
+            .save(&app)
+            .await
+            .expect("replace authoritative source snapshot");
+
+        let loaded = storage.load(app_id).await.expect("load replaced snapshot");
+        assert_eq!(loaded.source.source_files.len(), 1);
+        assert_eq!(loaded.source.source_files[0].path, "src/current.js");
+        assert_eq!(
+            loaded.source.source_files[0].content,
+            "export const value = 2;"
+        );
+        assert!(
+            !storage
+                .source_dir(app_id)
+                .join("src")
+                .join("stale.js")
+                .exists(),
+            "files absent from the authoritative source snapshot must be deleted"
+        );
+        assert_eq!(
+            storage
+                .load_app_storage(app_id)
+                .await
+                .expect("load runtime storage")["preserved"],
+            serde_json::json!(true)
+        );
+        assert_eq!(
+            storage.list_versions(app_id).await.expect("list versions"),
+            vec![1]
+        );
+        assert_eq!(
+            tokio::fs::read_to_string(&dependency_marker)
+                .await
+                .expect("read dependency marker"),
+            "preserved"
+        );
+
+        let mut entries = tokio::fs::read_dir(storage.app_dir(app_id))
+            .await
+            .expect("read app dir");
+        while let Some(entry) = entries.next_entry().await.expect("read app entry") {
+            assert!(
+                !entry.file_name().to_string_lossy().starts_with(".source."),
+                "completed source transactions must not leave staging or backup directories"
+            );
+        }
+
+        tokio::fs::remove_dir_all(root)
+            .await
+            .expect("remove test root");
     }
 }

@@ -68,7 +68,6 @@ function generationReasonMessage(reason: string | null | undefined, t: (key: str
   if (!reason) return null;
   if (reason.includes('already active')) return null;
   if (reason.includes('disabled in settings')) return t('messages.generateDisabled');
-  if (reason.includes('No authorized daily context')) return t('messages.generateNoSources');
   if (reason.includes('already exists')) return null;
   return t('messages.generateNoResult');
 }
@@ -205,8 +204,6 @@ const DailyLetterScene: React.FC<DailyLetterSceneProps> = ({ workspacePath }) =>
         writingTargetRef.current = null;
         if (state.lastAttemptStatus === 'error') {
           setError(t('messages.generateFailed'));
-        } else if (state.lastAttemptStatus === 'skipped_no_sources') {
-          setError(t('messages.generateNoSources'));
         }
         await loadLetters();
         if (state.lastAttemptStatus === 'ok' && target?.trigger === 'manual') {

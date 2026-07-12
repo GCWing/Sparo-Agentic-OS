@@ -40,6 +40,8 @@ export {
   createChatSession,
   switchChatSession,
   activateSessionData,
+  retrySessionHistory,
+  ensureBackendSession,
   deleteChatSession,
   retargetEmptyChatSessionWorkspace,
   renameChatSessionTitle,

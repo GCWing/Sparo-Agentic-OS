@@ -1,5 +1,6 @@
-const { emit, readRequest } = require("./src/protocol");
-const { workspacePathOf, normalizeWorkspace } = require("./src/paths");
+const readline = require("node:readline");
+const { emit } = require("./src/protocol");
+const { normalizeWorkspace } = require("./src/paths");
 const { detectProject } = require("./src/project");
 const { detectToolchain } = require("./src/harmony-env");
 const { listEmulators, startEmulator, stopEmulator } = require("./src/emulator");
@@ -9,87 +10,75 @@ const { readDiagnostics } = require("./src/diagnostics");
 const { readRuntimeState } = require("./src/runtime-state");
 const { redactValue } = require("./src/redact");
 
-async function main() {
-  const request = await readRequest();
-  const action = request.action;
-  const input = {
-    ...(request.input || {}),
-  };
-  if (!input.workspacePath) input.workspacePath = workspacePathOf(request);
-  if (input.workspacePath) input.workspacePath = normalizeWorkspace(input.workspacePath);
-
-  emit({ type: "run.started", run_id: request.runId || request.run_id || `harmony-${Date.now()}` });
-
-  let output;
+async function dispatchAction(action, input) {
   switch (action) {
-    case "detectProject":
-      output = detectProject(input);
-      break;
-    case "detectToolchain":
-      output = detectToolchain(input);
-      break;
-    case "listEmulators":
-      output = listEmulators(input);
-      break;
-    case "startEmulator":
-      output = await startEmulator(input);
-      break;
-    case "stopEmulator":
-      output = await stopEmulator(input);
-      break;
-    case "listTargets":
-      output = listTargets(input);
-      break;
-    case "runUnitTests":
-      output = runUnitTests(input);
-      break;
-    case "assembleApp":
-      output = assembleApp(input);
-      break;
-    case "buildProject":
-      output = buildProject(input);
-      break;
-    case "hotReload":
-      output = hotReload(input);
-      break;
-    case "installApp":
-      output = installApp(input);
-      break;
-    case "launchAbility":
-      output = launchAbility(input);
-      break;
-    case "captureScreen":
-      output = captureScreen(input);
-      break;
-    case "readScreenshot":
-      output = readScreenshot(input);
-      break;
-    case "dumpHierarchy":
-      output = dumpHierarchy(input);
-      break;
-    case "readLogs":
-      output = readLogs(input);
-      break;
-    case "readDiagnostics":
-      output = readDiagnostics(input);
-      break;
-    case "getRuntimeState":
-      output = { ok: true, runtimeState: readRuntimeState(input.workspacePath) };
-      break;
-    default:
-      throw new Error(`Unsupported HarmonyOS Dev Runtime action: ${action}`);
+    case "detectProject": return detectProject(input);
+    case "detectToolchain": return detectToolchain(input);
+    case "listEmulators": return listEmulators(input);
+    case "startEmulator": return startEmulator(input);
+    case "stopEmulator": return stopEmulator(input);
+    case "listTargets": return listTargets(input);
+    case "runUnitTests": return runUnitTests(input);
+    case "assembleApp": return assembleApp(input);
+    case "buildProject": return buildProject(input);
+    case "hotReload": return hotReload(input);
+    case "installApp": return installApp(input);
+    case "launchAbility": return launchAbility(input);
+    case "captureScreen": return captureScreen(input);
+    case "readScreenshot": return readScreenshot(input);
+    case "dumpHierarchy": return dumpHierarchy(input);
+    case "readLogs": return readLogs(input);
+    case "readDiagnostics": return readDiagnostics(input);
+    case "getRuntimeState": return { ok: true, runtimeState: readRuntimeState(input.workspacePath) };
+    default: throw new Error(`Unsupported HarmonyOS Dev Runtime action: ${action}`);
   }
+}
 
-  emit({ type: "run.completed", output: redactValue(output) });
+async function handleRequest(request) {
+  const runId = request.runId || request.run_id || `harmony-${Date.now()}`;
+  const bridgeId = request.bridgeId || request.bridge_id || "builtin-harmony-runtime";
+  const emitEvent = (event) => emit({ bridgeId, runId, event });
+  const workspacePath = request.workspacePath || request.workspace_path || null;
+  const input = {
+    ...(request.input && typeof request.input === "object" ? request.input : {}),
+    workspacePath: workspacePath ? normalizeWorkspace(workspacePath) : null,
+  };
+  emitEvent({ type: "run.started", run_id: runId });
+  try {
+    const output = await dispatchAction(request.action, input);
+    emitEvent({ type: "run.completed", output: redactValue(output) });
+  } catch (error) {
+    emitEvent({
+      type: "run.failed",
+      error: { message: error instanceof Error ? error.message : String(error) },
+    });
+  }
+}
+
+async function main() {
+  const lines = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
+  let sawRequest = false;
+  for await (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    sawRequest = true;
+    let request;
+    try {
+      request = JSON.parse(line);
+    } catch (error) {
+      process.stderr.write(`Invalid Bridge worker request: ${error instanceof Error ? error.message : String(error)}\n`);
+      process.exitCode = 1;
+      return;
+    }
+    await handleRequest(request);
+  }
+  if (!sawRequest) {
+    process.stderr.write("No Bridge worker request received on stdin\n");
+    process.exitCode = 1;
+  }
 }
 
 main().catch((error) => {
-  emit({
-    type: "run.failed",
-    error: {
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-    },
-  });
+  process.stderr.write(`Bridge worker failed: ${error instanceof Error ? error.message : String(error)}\n`);
   process.exitCode = 1;
 });

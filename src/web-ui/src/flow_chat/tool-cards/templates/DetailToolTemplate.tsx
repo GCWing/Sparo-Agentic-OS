@@ -1,5 +1,6 @@
 import React from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { BaseToolCard } from '../BaseToolCard';
 import type { ToolCardStatus } from '../toolStatus';
 import { isToolStatusFailed } from '../toolStatus';
@@ -53,6 +54,8 @@ export const DetailToolTemplate: React.FC<DetailToolTemplateProps> = ({
   disclosureMode = 'inline',
   showStatusIcon = true,
 }) => {
+  const { t } = useTranslation('flow-chat');
+  const detailsId = React.useId();
   const interruptionNote = useToolInterruptionNote();
   const resolvedIsFailed = isFailed ?? isToolStatusFailed(status);
   const hasExpandedContent = Boolean(expandedContent);
@@ -75,11 +78,15 @@ export const DetailToolTemplate: React.FC<DetailToolTemplateProps> = ({
         onClick={canInlineDisclose ? () => toggleExpanded('manual') : undefined}
         className={className}
         headerExpandAffordance={canInlineDisclose}
+        expandedContentId={canInlineDisclose ? detailsId : undefined}
         headerRail={headerRail}
         header={(
           <ToolHeaderLayout
             icon={icon}
             iconClassName={iconClassName}
+            onAffordanceClick={canInlineDisclose ? () => toggleExpanded('manual') : undefined}
+            affordanceLabel={t(isExpanded ? 'toolCards.common.collapse' : 'toolCards.common.expand')}
+            affordanceControlsId={canInlineDisclose ? detailsId : undefined}
             action={action}
             content={interruptionNote ? <ToolInlineInterruptionNote note={interruptionNote} subject={subject} /> : subject}
             extra={(

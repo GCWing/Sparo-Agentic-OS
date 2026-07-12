@@ -139,10 +139,9 @@ function formatCatalogDate(value?: number | null): string | null {
   return new Date(value).toLocaleDateString();
 }
 
-function buildCardMeta(app: ProductAppCatalogEntry, t: ManagementListProps['t']): string {
+function buildCardMeta(app: ProductAppCatalogEntry): string {
   const parts = [
     app.version,
-    t(`productSystem.installScope.${app.installScope}`),
   ];
   const published = formatCatalogDate(app.catalogPublishedAtMs);
   if (published) parts.push(published);
@@ -298,9 +297,6 @@ function ManagementRow({
           </span>
           <div className="management-list__meta">
             <ManagementAuthorInline authors={app.authors} t={t} />
-            <Tag size="small" color="gray">
-              {t(`productSystem.installScope.${app.installScope}`)}
-            </Tag>
             <span className="management-list__version">{app.version}</span>
             {app.catalogSource?.kind ? (
               <Tag size="small" color="gray">
@@ -474,7 +470,7 @@ function ManagementCard({
           className="management-list__card-author"
           t={t}
         />
-        <span className="management-list__card-meta">{buildCardMeta(app, t)}</span>
+        <span className="management-list__card-meta">{buildCardMeta(app)}</span>
         {hasUpdate ? (
           <Tag size="small" color="blue" className="management-list__card-tag">
             {t('productSystem.manage.updateAvailable')}
@@ -600,7 +596,6 @@ export const ManagementList: React.FC<ManagementListProps> = ({
         title={uninstallTarget ? t('productSystem.manage.uninstallTitle') : ''}
         message={uninstallTarget ? t('productSystem.manage.uninstallMessage', {
           name: uninstallTarget.name,
-          scope: t(`productSystem.installScope.${uninstallTarget.installScope}`),
         }) : ''}
         confirmText={t('productSystem.manage.uninstallConfirm')}
         cancelText={t('productSystem.actions.cancel')}

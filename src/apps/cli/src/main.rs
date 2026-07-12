@@ -13,6 +13,9 @@ mod ui;
 use anyhow::{Context, Result};
 use clap::{error::ErrorKind as ClapErrorKind, Parser, Subcommand, ValueEnum};
 use serde::{Deserialize, Serialize};
+use sparo_core::command::agentic_os::{
+    IntelligentAppCatalogRequest, IntelligentAppCatalogResponse as CliIntelligentAppCatalog,
+};
 use sparo_core::infrastructure::APP_CONFIG_DIR_NAME;
 
 use config::{canonical_shortcut, CliConfig};
@@ -185,7 +188,7 @@ enum Commands {
         action: ConfigAction,
     },
 
-    /// Manage Product Apps and components
+    /// Inspect global Intelligent Apps, immutable Releases, and Activation routing
     Apps {
         /// Output in JSON format
         #[arg(long, global = true)]
@@ -452,29 +455,17 @@ enum PrefsAction {
 
 #[derive(Subcommand)]
 enum AppsAction {
-    /// List installed apps
-    List {
-        /// Workspace hint for project-scoped context (defaults to CLI preference workspace.default_path when set)
-        #[arg(short, long)]
-        workspace: Option<String>,
-    },
-    /// Show one installed app
+    /// List global Intelligent Apps
+    List,
+    /// Show one Intelligent App and its Releases/Activation
     Show {
         /// App id or name
         id: String,
-
-        /// Workspace hint for project-scoped context (defaults to CLI preference workspace.default_path when set)
-        #[arg(short, long)]
-        workspace: Option<String>,
     },
-    /// Open the app package or target in the OS file manager
+    /// Launch an Intelligent App (currently requires Sparo Desktop Work)
     Open {
         /// App id or name
         id: String,
-
-        /// Workspace hint for project-scoped context (defaults to CLI preference workspace.default_path when set)
-        #[arg(short, long)]
-        workspace: Option<String>,
     },
 }
 
@@ -1400,7 +1391,7 @@ fn can_use_default_config_silently(command: &Option<Commands>) -> bool {
     matches!(
         command,
         Some(Commands::Apps {
-            action: AppsAction::List { .. } | AppsAction::Show { .. },
+            action: AppsAction::List | AppsAction::Show { .. },
             ..
         }) | Some(Commands::Memory {
             action: MemoryAction::List | MemoryAction::Show { .. },
@@ -1466,7 +1457,7 @@ fn cli_error_hint(error: &anyhow::Error) -> Option<&'static str> {
         && message.contains("tip: '")
         && message.contains("--workspace")
     {
-        Some("Place `--workspace <path>` after the subcommand that accepts it, for example `sparo apps show --workspace <path> <id>` or `sparo memory show --workspace <path> <id>`.")
+        Some("Place `--workspace <path>` after the subcommand that accepts it, for example `sparo tool run --workspace <path> <name>` or `sparo memory show --workspace <path> <id>`.")
     } else if message.contains("No history sessions") {
         Some("Start a session with `sparo chat`, or run `sparo exec \"<message>\"` for a one-shot task.")
     } else if message.contains("Session not found:") {
@@ -1483,13 +1474,10 @@ fn cli_error_hint(error: &anyhow::Error) -> Option<&'static str> {
         Some("Use `sparo tasks resume <id-or-title>` to continue the task in the TUI; task export requires a persisted session transcript.")
     } else if message.contains("Memory file not found:") {
         Some("Run `sparo memory list` to see available global and project memory files.")
-    } else if message.contains("App not found:") {
-        Some("Run `sparo apps list` to see available Product Apps and components.")
-    } else if message.contains("does not expose a local target to open")
-        || message.contains("App target does not exist:")
-        || message.contains("Failed to open app target:")
-    {
-        Some("Use `sparo apps show <id>` to inspect app details; only apps with a local target can be opened from the CLI.")
+    } else if message.contains("Intelligent App not found:") {
+        Some("Run `sparo apps list` to see Intelligent Apps in the effective activation scope.")
+    } else if message.contains("CLI Intelligent App launch is unavailable") {
+        Some("Open Sparo Desktop Apps Center and launch the selected Intelligent App into a Work; the CLI never falls back to opening package files.")
     } else if message.contains("Workspace not found:") {
         Some("Run `sparo workspaces list` to see known workspace labels and paths.")
     } else if message.contains("Tool not found:") {
@@ -1949,7 +1937,7 @@ async fn run_cli() -> Result<()> {
         }
 
         Some(Commands::Apps { action, json }) => {
-            handle_apps_action(action, json, &config).await?;
+            handle_apps_action(action, json).await?;
         }
 
         Some(Commands::Workspaces { action, json }) => {
@@ -4258,284 +4246,281 @@ async fn handle_config_action(action: ConfigAction, config: &CliConfig) -> Resul
     Ok(())
 }
 
-async fn load_apps_snapshot(
-    workspace: Option<String>,
-) -> Result<Vec<sparo_core::command::agentic_os::AgenticOsAppRow>> {
-    let snapshot = sparo_core::command::agentic_os::get_snapshot_without_config(
-        sparo_core::command::agentic_os::AgenticOsSnapshotRequest {
-            workspace_hint: workspace,
-        },
-    )
-    .await?;
-    Ok(snapshot.apps)
+#[derive(Debug, Clone, Serialize)]
+struct CliIntelligentAppDetails {
+    slot_id: String,
+    slot_display_name: String,
+    activation: Option<sparo_core::app_platform::ActivationRecord>,
+    state: sparo_core::app_platform::AppVariantState,
+    app: sparo_core::app_platform::AppRecord,
+    releases: Vec<sparo_core::app_platform::ReleaseRecord>,
+    latest_release: Option<sparo_core::app_platform::ReleaseRecord>,
+    drafts: Vec<sparo_core::app_platform::DraftRecord>,
 }
 
-fn app_storage_health_checks() -> Vec<(&'static str, DirectoryHealth)> {
-    let Ok(path_manager) = sparo_core::infrastructure::try_get_path_manager_arc() else {
-        return Vec::new();
-    };
-
-    vec![
-        (
-            "product_apps",
-            directory_health(&path_manager.system_product_apps_dir()),
-        ),
-        (
-            "components",
-            directory_health(&path_manager.system_components_dir()),
-        ),
-        (
-            "product_app_runtime_hosts",
-            directory_health(&path_manager.product_app_runtime_hosts_dir()),
-        ),
-        (
-            "agent_components",
-            directory_health(&path_manager.user_agent_components_dir()),
-        ),
-        (
-            "bridge_components",
-            directory_health(&path_manager.user_bridge_components_dir()),
-        ),
-    ]
+async fn load_intelligent_app_catalog() -> Result<CliIntelligentAppCatalog> {
+    let _runtime = initialize_cli_process_runtime().await?;
+    sparo_core::command::agentic_os::get_intelligent_app_catalog(IntelligentAppCatalogRequest {})
+        .await
+        .context("Failed to load authoritative Intelligent App catalog")
 }
 
-fn has_app_storage_problem(checks: &[(&'static str, DirectoryHealth)]) -> bool {
-    checks.iter().any(|(_, check)| {
-        matches!(
-            check.status.as_str(),
-            "inaccessible" | "not_directory" | "unreadable"
-        )
-    })
-}
-
-fn find_app_row<'a>(
-    apps: &'a [sparo_core::command::agentic_os::AgenticOsAppRow],
+fn intelligent_app_details(
+    catalog: &CliIntelligentAppCatalog,
     id_or_name: &str,
-) -> Option<&'a sparo_core::command::agentic_os::AgenticOsAppRow> {
-    let needle = id_or_name.to_ascii_lowercase();
-    apps.iter().find(|app| {
-        app.id.eq_ignore_ascii_case(id_or_name) || app.name.to_ascii_lowercase() == needle
+) -> Result<CliIntelligentAppDetails> {
+    let exact_app_id = catalog.slots.iter().find_map(|slot| {
+        slot.variants
+            .iter()
+            .find(|variant| variant.app.app_id.eq_ignore_ascii_case(id_or_name))
+            .map(|variant| (slot, variant))
+    });
+
+    let selected = if let Some(selected) = exact_app_id {
+        selected
+    } else {
+        let matches = catalog
+            .slots
+            .iter()
+            .flat_map(|slot| {
+                slot.variants.iter().filter_map(move |variant| {
+                    (variant.app.display_name.eq_ignore_ascii_case(id_or_name)
+                        || (slot.slot_id.eq_ignore_ascii_case(id_or_name)
+                            && slot.variants.len() == 1))
+                        .then_some((slot, variant))
+                })
+            })
+            .collect::<Vec<_>>();
+        match matches.as_slice() {
+            [] => anyhow::bail!("Intelligent App not found: {id_or_name}"),
+            [selected] => *selected,
+            _ => {
+                let ids = matches
+                    .iter()
+                    .map(|(_, variant)| variant.app.app_id.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                anyhow::bail!(
+                    "Intelligent App name is ambiguous: {id_or_name}; use one of these app ids: {ids}"
+                );
+            }
+        }
+    };
+
+    let (slot, variant) = selected;
+    Ok(CliIntelligentAppDetails {
+        slot_id: slot.slot_id.clone(),
+        slot_display_name: slot.display_name.clone(),
+        activation: slot.activation.clone(),
+        state: variant.state,
+        app: variant.app.clone(),
+        releases: variant.releases.clone(),
+        latest_release: variant.latest_release.clone(),
+        drafts: catalog
+            .drafts
+            .iter()
+            .filter(|draft| draft.app_id == variant.app.app_id)
+            .cloned()
+            .collect(),
     })
 }
 
-fn open_path_in_file_manager(path: &str) -> Result<()> {
-    let path = std::path::Path::new(path);
-    if !path.exists() {
-        anyhow::bail!("App target does not exist: {}", path.display());
-    }
-
-    #[cfg(target_os = "windows")]
-    let mut command = {
-        let mut command = std::process::Command::new("explorer");
-        command.arg(path);
-        command
-    };
-
-    #[cfg(target_os = "macos")]
-    let mut command = {
-        let mut command = std::process::Command::new("open");
-        command.arg(path);
-        command
-    };
-
-    #[cfg(all(unix, not(target_os = "macos")))]
-    let mut command = {
-        let mut command = std::process::Command::new("xdg-open");
-        command.arg(path);
-        command
-    };
-
-    command
-        .spawn()
-        .with_context(|| format!("Failed to open app target: {}", path.display()))?;
-    Ok(())
-}
-
-async fn handle_apps_action(action: AppsAction, json: bool, config: &CliConfig) -> Result<()> {
+async fn handle_apps_action(action: AppsAction, json: bool) -> Result<()> {
     match action {
-        AppsAction::List { workspace } => {
-            let workspace = effective_workspace_hint(config, workspace.as_deref());
-            let apps = load_apps_snapshot(workspace.clone()).await?;
+        AppsAction::List => {
+            let catalog = load_intelligent_app_catalog().await?;
             if json {
-                print_json(apps)?;
+                print_json(&catalog)?;
             } else {
-                let app_storage_checks = app_storage_health_checks();
-                for line in apps_list_human_lines(
-                    &apps,
-                    workspace.as_deref(),
-                    has_app_storage_problem(&app_storage_checks),
-                ) {
+                for line in apps_list_human_lines(&catalog) {
                     println!("{}", line);
                 }
             }
         }
-        AppsAction::Show { id, workspace } => {
-            let workspace = effective_workspace_hint(config, workspace.as_deref());
-            let apps = load_apps_snapshot(workspace.clone()).await?;
-            let app =
-                find_app_row(&apps, &id).ok_or_else(|| anyhow::anyhow!("App not found: {}", id))?;
+        AppsAction::Show { id } => {
+            let catalog = load_intelligent_app_catalog().await?;
+            let app = intelligent_app_details(&catalog, &id)?;
             if json {
-                print_json(app)?;
+                print_json(&app)?;
             } else {
-                for line in app_human_detail_lines(app, workspace.as_deref()) {
+                for line in app_human_detail_lines(&app) {
                     println!("{}", line);
                 }
             }
         }
-        AppsAction::Open { id, workspace } => {
-            let workspace = effective_workspace_hint(config, workspace.as_deref());
-            let apps = load_apps_snapshot(workspace.clone()).await?;
-            let app =
-                find_app_row(&apps, &id).ok_or_else(|| anyhow::anyhow!("App not found: {}", id))?;
-            let target = app.target.as_deref().ok_or_else(|| {
-                anyhow::anyhow!(
-                    "{} '{}' does not expose a local target to open",
-                    app.kind,
-                    app.name
-                )
-            })?;
-            open_path_in_file_manager(target)?;
-            if json {
-                print_json(serde_json::json!({
-                    "id": app.id,
-                    "name": app.name,
-                    "target": target,
-                    "opened": true,
-                }))?;
-            } else {
-                for line in app_open_human_lines(app, workspace.as_deref(), target) {
-                    println!("{}", line);
-                }
-            }
+        AppsAction::Open { id } => {
+            let catalog = load_intelligent_app_catalog().await?;
+            let app = intelligent_app_details(&catalog, &id)?;
+            anyhow::bail!(
+                "CLI Intelligent App launch is unavailable for '{}' ({}): open Sparo Desktop Apps Center and launch it into a Work",
+                app.app.display_name,
+                app.app.app_id
+            );
         }
     }
     Ok(())
 }
 
-fn apps_list_human_lines(
-    apps: &[sparo_core::command::agentic_os::AgenticOsAppRow],
-    workspace: Option<&str>,
-    has_storage_problem: bool,
-) -> Vec<String> {
-    let workspace_arg = workspace_option(workspace);
-
-    if apps.is_empty() {
-        if has_storage_problem {
-            return vec![
-                "No apps could be loaded because app storage is not fully accessible.".to_string(),
-                "Run `sparo health` to diagnose Sparo CLI data directory access.".to_string(),
-                "Machine output: sparo apps list --json".to_string(),
-            ];
-        }
-
+fn apps_list_human_lines(catalog: &CliIntelligentAppCatalog) -> Vec<String> {
+    if catalog.slots.is_empty() {
         return vec![
-            "No Product Apps, Agent Components, or Bridge Components installed.".to_string(),
-            "Create one from chat with App Builder component authoring.".to_string(),
-            "Inspect creation schemas: sparo tool schema CreateAgentComponent --json; sparo tool schema CreateProductApp --json".to_string(),
-            format!("Open app-building chat: sparo chat{}", workspace_arg),
+            "No Intelligent Apps are available.".to_string(),
+            "Create or fork one in Sparo Desktop Apps Center / App Builder.".to_string(),
             "Machine output: sparo apps list --json".to_string(),
         ];
     }
 
+    let variant_count = catalog
+        .slots
+        .iter()
+        .map(|slot| slot.variants.len())
+        .sum::<usize>();
     let mut lines = vec![
-        format!("Installed Apps (total {})", apps.len()),
+        format!(
+            "Intelligent Apps ({} slots, {} variants)",
+            catalog.slots.len(),
+            variant_count
+        ),
         String::new(),
     ];
-    for app in apps {
-        lines.push(format!("{} | {} | {}", app.id, app.kind, app.name));
-        if let Some(description) = compact_description(&app.description) {
-            lines.push(format!("  {}", description));
-        }
-        lines.push(format!("  capability: {}", app.capability));
-        if let Some(target) = &app.target {
-            lines.push(format!("  target: {}", target));
+
+    for slot in &catalog.slots {
+        let activation_label = slot.activation.as_ref().map_or_else(
+            || "not configured".to_string(),
+            |activation| {
+                format!(
+                    "{} | app {} | release {}",
+                    if activation.enabled {
+                        "enabled"
+                    } else {
+                        "disabled"
+                    },
+                    activation.selected_app_id,
+                    activation.active_release_id
+                )
+            },
+        );
+        lines.push(format!("{} | slot {}", slot.display_name, slot.slot_id));
+        lines.push(format!("  activation: {activation_label}"));
+        for variant in &slot.variants {
+            let latest = variant.latest_release.as_ref().map_or_else(
+                || "no release".to_string(),
+                |release| format!("{} ({})", release.version, release.release_id),
+            );
+            lines.push(format!(
+                "  - {} | {} | owner {} | latest {} | {} releases",
+                variant.app.app_id,
+                app_variant_state_label(variant.state),
+                app_owner_label(&variant.app.owner),
+                latest,
+                variant.releases.len()
+            ));
+            if let Some(description) = variant
+                .app
+                .description
+                .as_deref()
+                .and_then(compact_description)
+            {
+                lines.push(format!("    {description}"));
+            }
         }
         lines.push(String::new());
     }
 
-    if let Some(app) = apps.first() {
-        let app_arg = shell_arg(&app.id);
+    if let Some(app) = catalog.slots.first().and_then(|slot| slot.variants.first()) {
+        let app_arg = shell_arg(&app.app.app_id);
         lines.push("Next actions:".to_string());
-        lines.push(format!(
-            "  Inspect latest: sparo apps show{} {}",
-            workspace_arg, app_arg
-        ));
-        if app.target.is_some() {
-            lines.push(format!(
-                "  Open latest: sparo apps open{} {}",
-                workspace_arg, app_arg
-            ));
-        } else {
-            lines.push(
-                "  Open latest: unavailable because this app has no local target.".to_string(),
-            );
-        }
-        lines.push(format!("  Discuss in chat: sparo chat{}", workspace_arg));
+        lines.push(format!("  Inspect latest: sparo apps show {}", app_arg));
+        lines.push(
+            "  Launch: use Sparo Desktop Apps Center to create or resume a Work.".to_string(),
+        );
         lines.push("  Machine output: sparo apps list --json".to_string());
     }
 
     lines
 }
 
-fn app_human_detail_lines(
-    app: &sparo_core::command::agentic_os::AgenticOsAppRow,
-    workspace: Option<&str>,
-) -> Vec<String> {
-    let app_arg = shell_arg(&app.id);
-    let workspace_arg = workspace_option(workspace);
+fn app_human_detail_lines(details: &CliIntelligentAppDetails) -> Vec<String> {
+    let app = &details.app;
+    let app_arg = shell_arg(&app.app_id);
     let mut lines = vec![
-        "App Details".to_string(),
+        "Intelligent App Details".to_string(),
         String::new(),
-        format!("Name: {}", app.name),
-        format!("ID: {}", app.id),
-        format!("Kind: {}", app.kind),
-        format!("Description: {}", app.description),
-        format!("Capability: {}", app.capability),
+        format!("Name: {}", app.display_name),
+        format!("App ID: {}", app.app_id),
+        format!("Slot ID: {}", details.slot_id),
+        format!("Owner: {}", app_owner_label(&app.owner)),
+        format!("State: {}", app_variant_state_label(details.state)),
         format!(
-            "Target: {}",
-            app.target.as_deref().unwrap_or("not available")
+            "Description: {}",
+            app.description.as_deref().unwrap_or("not provided")
         ),
+        format!("Releases: {}", details.releases.len()),
+        format!("Drafts: {}", details.drafts.len()),
         String::new(),
-        "Next actions:".to_string(),
-        format!("  Inspect: sparo apps show{} {}", workspace_arg, app_arg),
     ];
 
-    if app.target.is_some() {
+    if let Some(activation) = &details.activation {
+        lines.push("Activation".to_string());
         lines.push(format!(
-            "  Open: sparo apps open{} {}",
-            workspace_arg, app_arg
+            "  Status: {}",
+            if activation.enabled {
+                "enabled"
+            } else {
+                "disabled"
+            }
+        ));
+        lines.push(format!("  Selected app: {}", activation.selected_app_id));
+        lines.push(format!(
+            "  Active release: {}",
+            activation.active_release_id
+        ));
+        lines.push(format!(
+            "  Previous release: {}",
+            activation.previous_release_id.as_deref().unwrap_or("none")
         ));
     } else {
-        lines.push("  Open: unavailable because this app has no local target.".to_string());
+        lines.push("Activation: not configured".to_string());
     }
 
+    lines.push(String::new());
+    lines.push("Immutable Releases".to_string());
+    for release in &details.releases {
+        lines.push(format!(
+            "  {} | version {} | schema {} | config {} | provenance {:?}",
+            release.release_id,
+            release.version,
+            release.data_schema_version,
+            release.config_revision,
+            release.provenance
+        ));
+    }
+    lines.push(String::new());
+    lines.push("Next actions:".to_string());
+    lines.push(format!("  Inspect: sparo apps show {}", app_arg));
+    lines.push("  Launch: use Sparo Desktop Apps Center to create or resume a Work.".to_string());
     lines
 }
 
-fn app_open_human_lines(
-    app: &sparo_core::command::agentic_os::AgenticOsAppRow,
-    workspace: Option<&str>,
-    target: &str,
-) -> Vec<String> {
-    let workspace_arg = workspace_option(workspace);
-    let app_arg = shell_arg(&app.id);
-    vec![
-        "App Target Opened".to_string(),
-        format!("App: {} ({})", app.name, app.kind),
-        format!("ID: {}", app.id),
-        format!("Target: {}", target),
-        String::new(),
-        "Next actions:".to_string(),
-        format!(
-            "  Inspect app: sparo apps show{} {}",
-            workspace_arg, app_arg
-        ),
-        format!("  Discuss in chat: sparo chat{}", workspace_arg),
-        format!(
-            "  Machine output: sparo apps open{} {} --json",
-            workspace_arg, app_arg
-        ),
-    ]
+fn app_variant_state_label(state: sparo_core::app_platform::AppVariantState) -> &'static str {
+    match state {
+        sparo_core::app_platform::AppVariantState::Active => "active",
+        sparo_core::app_platform::AppVariantState::Disabled => "disabled",
+        sparo_core::app_platform::AppVariantState::Available => "available",
+    }
+}
+
+fn app_owner_label(owner: &sparo_core::app_platform::AppOwner) -> String {
+    let kind = match owner.kind {
+        sparo_core::app_platform::AppOwnerKind::System => "system",
+        sparo_core::app_platform::AppOwnerKind::User => "user",
+        sparo_core::app_platform::AppOwnerKind::Organization => "organization",
+    };
+    owner
+        .owner_id
+        .as_deref()
+        .map(|owner_id| format!("{kind}:{owner_id}"))
+        .unwrap_or_else(|| kind.to_string())
 }
 
 async fn load_workspaces_snapshot(
@@ -5669,7 +5654,6 @@ mod tests {
         assert!(!can_dispatch_before_cli_config(&Some(Commands::Apps {
             action: AppsAction::Show {
                 id: "cursor-bridge".to_string(),
-                workspace: None,
             },
             json: true,
         })));
@@ -5688,7 +5672,6 @@ mod tests {
         assert!(can_use_default_config_silently(&Some(Commands::Apps {
             action: AppsAction::Show {
                 id: "cursor-bridge".to_string(),
-                workspace: None,
             },
             json: false,
         })));
@@ -5734,7 +5717,6 @@ mod tests {
         assert!(!can_dispatch_before_cli_config(&Some(Commands::Apps {
             action: AppsAction::Open {
                 id: "cursor-bridge".to_string(),
-                workspace: None,
             },
             json: true,
         })));
@@ -5834,36 +5816,6 @@ mod tests {
 
         std::fs::remove_file(existing_file).expect("remove temp health file");
         std::fs::remove_dir_all(temp_root).expect("remove temp health root");
-    }
-
-    #[test]
-    fn app_storage_problem_ignores_missing_dirs_but_flags_inaccessible_storage() {
-        let missing = DirectoryHealth {
-            path: "missing".to_string(),
-            kind: "directory".to_string(),
-            status: "missing".to_string(),
-            exists: false,
-            is_dir: false,
-            readable: false,
-            error: None,
-            hint: directory_health_hint("missing"),
-        };
-        let inaccessible = DirectoryHealth {
-            path: "blocked".to_string(),
-            kind: "directory".to_string(),
-            status: "inaccessible".to_string(),
-            exists: false,
-            is_dir: false,
-            readable: false,
-            error: Some("access denied".to_string()),
-            hint: directory_health_hint("inaccessible"),
-        };
-
-        assert!(!has_app_storage_problem(&[("agent_components", missing)]));
-        assert!(has_app_storage_problem(&[(
-            "agent_components",
-            inaccessible
-        )]));
     }
 
     #[test]
@@ -6577,19 +6529,22 @@ mod tests {
             Some("Run `sparo memory list` to see available global and project memory files.")
         );
 
-        let missing_app = anyhow::anyhow!("App not found: files");
+        let missing_app = anyhow::anyhow!("Intelligent App not found: files");
         assert_eq!(cli_error_kind(&missing_app), "execution_error");
         assert_eq!(
             cli_error_hint(&missing_app),
-            Some("Run `sparo apps list` to see available Product Apps and components.")
+            Some(
+                "Run `sparo apps list` to see Intelligent Apps in the effective activation scope."
+            )
         );
 
-        let app_without_target =
-            anyhow::anyhow!("LIVE APP 'Dashboard' does not expose a local target to open");
-        assert_eq!(cli_error_kind(&app_without_target), "execution_error");
+        let cli_launch = anyhow::anyhow!(
+            "CLI Intelligent App launch is unavailable for 'Dashboard' (dashboard)"
+        );
+        assert_eq!(cli_error_kind(&cli_launch), "execution_error");
         assert_eq!(
-            cli_error_hint(&app_without_target),
-            Some("Use `sparo apps show <id>` to inspect app details; only apps with a local target can be opened from the CLI.")
+            cli_error_hint(&cli_launch),
+            Some("Open Sparo Desktop Apps Center and launch the selected Intelligent App into a Work; the CLI never falls back to opening package files.")
         );
 
         let no_sessions = anyhow::anyhow!("No history sessions");
@@ -6664,7 +6619,7 @@ mod tests {
         assert_eq!(
             cli_error_hint(&misplaced_workspace),
             Some(
-                "Place `--workspace <path>` after the subcommand that accepts it, for example `sparo apps show --workspace <path> <id>` or `sparo memory show --workspace <path> <id>`."
+                "Place `--workspace <path>` after the subcommand that accepts it, for example `sparo tool run --workspace <path> <name>` or `sparo memory show --workspace <path> <id>`."
             )
         );
     }
@@ -7524,163 +7479,104 @@ mod tests {
         );
     }
 
-    #[test]
-    fn find_app_row_matches_id_or_name_case_insensitively() {
-        let apps = vec![sparo_core::command::agentic_os::AgenticOsAppRow {
-            id: "files".to_string(),
-            name: "Files".to_string(),
-            kind: "AGENT APP".to_string(),
-            description: "Browse files".to_string(),
-            capability: "read write".to_string(),
-            target: Some("C:\\apps\\files".to_string()),
-        }];
-
-        assert_eq!(find_app_row(&apps, "FILES").unwrap().id, "files");
-        assert_eq!(find_app_row(&apps, "files").unwrap().name, "Files");
-        assert!(find_app_row(&apps, "missing").is_none());
+    fn sample_intelligent_app_catalog() -> CliIntelligentAppCatalog {
+        let scope = sparo_core::app_platform::AppActivationScope::System;
+        let app = sparo_core::app_platform::AppRecord {
+            app_id: "runno".to_string(),
+            slot_id: "assistant".to_string(),
+            display_name: "Runno".to_string(),
+            description: Some("Built-in Intelligent App".to_string()),
+            owner: sparo_core::app_platform::AppOwner::system(),
+            derived_from: None,
+            created_at_ms: 1,
+        };
+        let activation = sparo_core::app_platform::ActivationRecord {
+            scope: scope.clone(),
+            slot_id: app.slot_id.clone(),
+            selected_app_id: app.app_id.clone(),
+            active_release_id: "release_runno_1".to_string(),
+            previous_release_id: None,
+            enabled: true,
+        };
+        CliIntelligentAppCatalog {
+            slots: vec![sparo_core::app_platform::AppSlotProjection {
+                slot_id: app.slot_id.clone(),
+                display_name: app.display_name.clone(),
+                activation: Some(activation),
+                variants: vec![sparo_core::app_platform::AppVariantProjection {
+                    app,
+                    releases: Vec::new(),
+                    latest_release: None,
+                    upstream_base_release_id: None,
+                    upstream_latest_release_id: None,
+                    upstream_update_available: false,
+                    state: sparo_core::app_platform::AppVariantState::Active,
+                }],
+            }],
+            drafts: Vec::new(),
+        }
     }
 
     #[test]
-    fn app_human_detail_lines_include_open_action_when_target_exists() {
-        let app = sparo_core::command::agentic_os::AgenticOsAppRow {
-            id: "bridge app".to_string(),
-            name: "Bridge Component".to_string(),
-            kind: "BRIDGE APP".to_string(),
-            description: "Connects a local tool".to_string(),
-            capability: "inspect run".to_string(),
-            target: Some("D:\\apps\\bridge".to_string()),
-        };
+    fn intelligent_app_details_match_app_id_or_name_case_insensitively() {
+        let catalog = sample_intelligent_app_catalog();
 
-        let output = app_human_detail_lines(&app, Some("D:\\workspace\\my project")).join("\n");
-
-        assert!(output.contains("App Details"));
-        assert!(output.contains("Target: D:\\apps\\bridge"));
-        assert!(output.contains(
-            "Inspect: sparo apps show --workspace \"D:\\workspace\\my project\" \"bridge app\""
-        ));
-        assert!(output.contains(
-            "Open: sparo apps open --workspace \"D:\\workspace\\my project\" \"bridge app\""
-        ));
+        assert_eq!(
+            intelligent_app_details(&catalog, "RUNNO")
+                .unwrap()
+                .app
+                .app_id,
+            "runno"
+        );
+        assert_eq!(
+            intelligent_app_details(&catalog, "runno")
+                .unwrap()
+                .app
+                .display_name,
+            "Runno"
+        );
+        assert!(intelligent_app_details(&catalog, "missing").is_err());
     }
 
     #[test]
-    fn app_human_detail_lines_explain_inspect_only_apps() {
-        let app = sparo_core::command::agentic_os::AgenticOsAppRow {
-            id: "runno".to_string(),
-            name: "Runno".to_string(),
-            kind: "AGENT APP".to_string(),
-            description: "Built-in agent app".to_string(),
-            capability: "inspect".to_string(),
-            target: None,
-        };
+    fn app_human_detail_lines_report_activation_and_desktop_launch_boundary() {
+        let catalog = sample_intelligent_app_catalog();
+        let app = intelligent_app_details(&catalog, "runno").unwrap();
 
-        let output = app_human_detail_lines(&app, None).join("\n");
+        let output = app_human_detail_lines(&app).join("\n");
 
-        assert!(output.contains("Target: not available"));
+        assert!(output.contains("Intelligent App Details"));
+        assert!(output.contains("App ID: runno"));
+        assert!(output.contains("Active release: release_runno_1"));
         assert!(output.contains("Inspect: sparo apps show runno"));
-        assert!(output.contains("Open: unavailable because this app has no local target."));
+        assert!(output.contains("Launch: use Sparo Desktop Apps Center"));
+        assert!(!output.contains("sparo apps open"));
     }
 
     #[test]
-    fn app_open_human_lines_include_followup_actions() {
-        let app = sparo_core::command::agentic_os::AgenticOsAppRow {
-            id: "bridge app".to_string(),
-            name: "Bridge Component".to_string(),
-            kind: "BRIDGE APP".to_string(),
-            description: "Connects a local tool".to_string(),
-            capability: "inspect run".to_string(),
-            target: Some("D:\\apps\\bridge".to_string()),
-        };
+    fn apps_list_human_lines_report_slots_variants_and_activation() {
+        let catalog = sample_intelligent_app_catalog();
+        let output = apps_list_human_lines(&catalog).join("\n");
 
-        let output =
-            app_open_human_lines(&app, Some("D:\\workspace\\my project"), "D:\\apps\\bridge")
-                .join("\n");
-
-        assert!(output.contains("App Target Opened"));
-        assert!(output.contains("App: Bridge Component (BRIDGE APP)"));
-        assert!(output.contains("Target: D:\\apps\\bridge"));
-        assert!(output.contains(
-            "Inspect app: sparo apps show --workspace \"D:\\workspace\\my project\" \"bridge app\""
-        ));
-        assert!(output
-            .contains("Discuss in chat: sparo chat --workspace \"D:\\workspace\\my project\""));
-        assert!(output.contains(
-            "Machine output: sparo apps open --workspace \"D:\\workspace\\my project\" \"bridge app\" --json"
-        ));
-    }
-
-    #[test]
-    fn apps_list_human_lines_include_open_next_actions_for_target_apps() {
-        let apps = vec![sparo_core::command::agentic_os::AgenticOsAppRow {
-            id: "bridge app".to_string(),
-            name: "Bridge Component".to_string(),
-            kind: "BRIDGE APP".to_string(),
-            description: "Connects a local tool".to_string(),
-            capability: "inspect run".to_string(),
-            target: Some("D:\\apps\\bridge".to_string()),
-        }];
-
-        let output =
-            apps_list_human_lines(&apps, Some("D:\\workspace\\my project"), false).join("\n");
-
-        assert!(output.contains("Installed Apps (total 1)"));
-        assert!(output.contains("bridge app | BRIDGE APP | Bridge Component"));
-        assert!(output.contains("Next actions:"));
-        assert!(output.contains(
-            "Inspect latest: sparo apps show --workspace \"D:\\workspace\\my project\" \"bridge app\""
-        ));
-        assert!(output.contains(
-            "Open latest: sparo apps open --workspace \"D:\\workspace\\my project\" \"bridge app\""
-        ));
-        assert!(output
-            .contains("Discuss in chat: sparo chat --workspace \"D:\\workspace\\my project\""));
-        assert!(output.contains("Machine output: sparo apps list --json"));
-    }
-
-    #[test]
-    fn apps_list_human_lines_explain_inspect_only_latest_app() {
-        let apps = vec![sparo_core::command::agentic_os::AgenticOsAppRow {
-            id: "runno".to_string(),
-            name: "Runno".to_string(),
-            kind: "AGENT APP".to_string(),
-            description: "Built-in agent app".to_string(),
-            capability: "inspect".to_string(),
-            target: None,
-        }];
-
-        let output = apps_list_human_lines(&apps, None, false).join("\n");
-
+        assert!(output.contains("Intelligent Apps (1 slots, 1 variants)"));
+        assert!(output.contains("Runno | slot assistant"));
+        assert!(output.contains("activation: enabled | app runno | release release_runno_1"));
+        assert!(output.contains("runno | active | owner system"));
         assert!(output.contains("Inspect latest: sparo apps show runno"));
-        assert!(output.contains("Open latest: unavailable because this app has no local target."));
-        assert!(output.contains("Discuss in chat: sparo chat"));
+        assert!(output.contains("Launch: use Sparo Desktop Apps Center"));
     }
 
     #[test]
-    fn apps_list_human_lines_empty_state_guides_creation() {
-        let output =
-            apps_list_human_lines(&[], Some("D:\\workspace\\my project"), false).join("\n");
+    fn apps_list_human_lines_empty_state_guides_desktop_builder() {
+        let catalog = CliIntelligentAppCatalog {
+            slots: Vec::new(),
+            drafts: Vec::new(),
+        };
+        let output = apps_list_human_lines(&catalog).join("\n");
 
-        assert!(
-            output.contains("No Product Apps, Agent Components, or Bridge Components installed.")
-        );
-        assert!(output.contains("App Builder component authoring"));
-        assert!(output.contains("sparo tool schema CreateAgentComponent --json"));
-        assert!(output.contains(
-            "Open app-building chat: sparo chat --workspace \"D:\\workspace\\my project\""
-        ));
+        assert!(output.contains("No Intelligent Apps are available."));
+        assert!(output.contains("Sparo Desktop Apps Center / App Builder"));
         assert!(output.contains("Machine output: sparo apps list --json"));
-    }
-
-    #[test]
-    fn apps_list_human_lines_storage_problem_points_to_health() {
-        let output = apps_list_human_lines(&[], None, true).join("\n");
-
-        assert!(
-            output.contains("No apps could be loaded because app storage is not fully accessible.")
-        );
-        assert!(output.contains("sparo health"));
-        assert!(output.contains("Machine output: sparo apps list --json"));
-        assert!(!output.contains("App Builder component authoring"));
     }
 
     #[test]

@@ -15,6 +15,7 @@
     "agents": "AI Apps",
     "skills": "Skills",
     "tools": "Tools",
+    "capabilities": "Capabilities",
     "terminal": "Shell",
     "git": "Git",
     "subAgent": "Subagents"
@@ -323,7 +324,797 @@
     "agenticOSDesc": "Coordinate and carry AI work",
     "sectionExtensions": "Extensions",
     "sectionSystem": "System",
-    "welcomeHint": "Open Agentic OS on the left, or browse extensions and system tools"
+    "welcomeHint": "Open Agentic OS on the left, or browse extensions and system tools",
+    "hub": {
+      "ariaLabel": "Sparo Hub",
+      "sections": {
+        "frequent": "Main",
+        "more": "More",
+        "preview": "Browse previews",
+        "direct": "Go directly"
+      },
+      "aria": {
+        "frequent": "Main destinations",
+        "more": "More destinations",
+        "preview": "Destinations that switch the preview",
+        "direct": "Destinations that open scenes directly"
+      },
+      "controls": {
+        "group": "Environment and preferences",
+        "settings": "Open Settings",
+        "about": "About",
+        "settingsShort": "Settings",
+        "theme": "Theme",
+        "language": "Language",
+        "systemTheme": "Follow system",
+        "systemThemeShort": "System",
+        "lightTheme": "Light",
+        "darkTheme": "Dark",
+        "currentTheme": "Theme: {{value}}",
+        "currentLanguage": "Language: {{value}}",
+        "exitTheme": "Exit theme selection",
+        "exitLanguage": "Exit language selection"
+      },
+      "trigger": {
+        "open": "Open Sparo Hub",
+        "close": "Close Sparo Hub"
+      },
+      "capsule": {
+        "default": "Sparo Hub",
+        "running": "Work · {{count}} running",
+        "attention": "Work · {{count}} need you",
+        "dailyLetter": "Daily Letter · Unread"
+      },
+      "states": {
+        "current": "Current",
+        "ready": "Ready",
+        "unread": "Unread",
+        "running": "{{count}} running"
+      },
+      "actions": {
+        "openItem": "Open {{item}}",
+        "newAgenticOsSession": "New session"
+      },
+      "work": {
+        "summary": "{{running}} running · {{attention}} need you",
+        "empty": "No work needs attention right now",
+        "open": "Open Work Center",
+        "new": "New work"
+      },
+      "stage": {
+        "agentic-os": {
+          "status": "Ready",
+          "lede": "Start with an outcome. Sparo connects the right capabilities and keeps the work continuous.",
+          "points": {
+            "first": {
+              "title": "Start a conversation",
+              "meta": "Name the next outcome"
+            },
+            "second": {
+              "title": "Continue together",
+              "meta": "Return to recent context"
+            },
+            "third": {
+              "title": "Run history",
+              "meta": "See the execution thread"
+            }
+          }
+        },
+        "apps": {
+          "status": "Action surface",
+          "lede": "Apps work independently or become the dedicated execution surface for a work item.",
+          "points": {
+            "first": {
+              "title": "Discover",
+              "meta": "Find the right capability"
+            },
+            "second": {
+              "title": "Open",
+              "meta": "Enter the app space"
+            },
+            "third": {
+              "title": "Carry work",
+              "meta": "Connect the current task"
+            }
+          }
+        },
+        "files": {
+          "status": "Global scope",
+          "lede": "Move naturally between the local file system, global locations, and project workspaces.",
+          "points": {
+            "first": {
+              "title": "Computer",
+              "meta": "Drives and pinned folders"
+            },
+            "second": {
+              "title": "Workspace",
+              "meta": "Project-scoped browsing"
+            },
+            "third": {
+              "title": "Open location",
+              "meta": "Continue with a file"
+            }
+          }
+        },
+        "shell": {
+          "status": "Environment ready",
+          "lede": "Choose the right system or project execution scope while keeping context intact.",
+          "points": {
+            "first": {
+              "title": "System scope",
+              "meta": "Global command environment"
+            },
+            "second": {
+              "title": "Project scope",
+              "meta": "Follow the workspace"
+            },
+            "third": {
+              "title": "Permission edge",
+              "meta": "Keep execution explicit"
+            }
+          }
+        },
+        "daily-letter": {
+          "status": "Working in background",
+          "lede": "The system gathers progress, distills what matters, and delivers it at the right moment.",
+          "points": {
+            "first": {
+              "title": "Gather",
+              "meta": "Collect today's activity"
+            },
+            "second": {
+              "title": "Distill",
+              "meta": "Find signals and follow-ups"
+            },
+            "third": {
+              "title": "Deliver",
+              "meta": "Shape the Daily Letter"
+            }
+          }
+        },
+        "memory": {
+          "status": "Only visible to you",
+          "lede": "Memory is not a filing cabinet. It is a personal trajectory formed through long-term collaboration.",
+          "points": {
+            "first": {
+              "title": "Preferences",
+              "meta": "Understand your choices"
+            },
+            "second": {
+              "title": "Collaboration",
+              "meta": "Adapt how Sparo works"
+            },
+            "third": {
+              "title": "Project context",
+              "meta": "Carry context forward"
+            }
+          }
+        },
+        "skills": {
+          "status": "Matched automatically",
+          "lede": "Connect specialist knowledge and working methods so they appear in the right tasks.",
+          "points": {
+            "first": {
+              "title": "Knowledge",
+              "meta": "Capture expertise"
+            },
+            "second": {
+              "title": "Method",
+              "meta": "Organize reliable flows"
+            },
+            "third": {
+              "title": "Invocation",
+              "meta": "Match the task"
+            }
+          }
+        },
+        "tools": {
+          "status": "Called on demand",
+          "lede": "Built-in tools and connected services extend what agents can execute safely.",
+          "points": {
+            "first": {
+              "title": "Built-in tools",
+              "meta": "System execution"
+            },
+            "second": {
+              "title": "MCP services",
+              "meta": "Connected systems"
+            },
+            "third": {
+              "title": "Permission edge",
+              "meta": "Keep calls controlled"
+            }
+          }
+        },
+        "subagents": {
+          "status": "Ready to coordinate",
+          "lede": "The lead agent holds direction while specialists take on clearly bounded work in parallel.",
+          "points": {
+            "first": {
+              "title": "Lead agent",
+              "meta": "Hold the overall direction"
+            },
+            "second": {
+              "title": "Specialists",
+              "meta": "Match focused capability"
+            },
+            "third": {
+              "title": "Parallel work",
+              "meta": "Return one result"
+            }
+          }
+        },
+        "settings": {
+          "status": "Applies globally",
+          "lede": "A small set of controls shapes Sparo OS capabilities, boundaries, and expression.",
+          "points": {
+            "first": {
+              "title": "Models",
+              "meta": "Default intelligence"
+            },
+            "second": {
+              "title": "Permissions",
+              "meta": "Execution boundaries"
+            },
+            "third": {
+              "title": "Appearance & behavior",
+              "meta": "Personalize the experience"
+            }
+          }
+        }
+      },
+      "preview": {
+        "common": {
+          "loading": "Loading",
+          "statusUnavailable": "Status unavailable",
+          "partialData": "Partial data",
+          "enabled": "On",
+          "disabled": "Off",
+          "count": "{{count}} items",
+          "retry": "Retry"
+        },
+        "agenticOs": {
+          "category": "Coordination hub",
+          "status": {
+            "processing": "Working now",
+            "current": "Current session",
+            "available": "Ready"
+          },
+          "summary": "{{sessions}} sessions · {{turns}} turns",
+          "sections": {
+            "continue": "Continue together",
+            "recent": "Recent sessions",
+            "sessionCount": "{{count}} shown"
+          },
+          "session": {
+            "turns": "{{count}} turns",
+            "loading": "Loading…"
+          },
+          "empty": {
+            "title": "Start a new collaboration",
+            "description": "Tell Sparo what you want to make happen.",
+            "noRecent": "No other recent sessions"
+          },
+          "actions": {
+            "newSession": "New session",
+            "openTimeline": "View timeline"
+          },
+          "aria": {
+            "openSession": "Open session: {{title}}"
+          }
+        },
+        "workCenter": {
+          "category": "Work surface",
+          "status": {
+            "loading": "Loading",
+            "unavailable": "Unavailable",
+            "attention": "{{count}} need you",
+            "running": "{{count}} running",
+            "idle": "Up to date"
+          },
+          "metrics": {
+            "running": "Running",
+            "attention": "Need you",
+            "recent": "Recent"
+          },
+          "sections": {
+            "running": "Running now",
+            "recent": "Recent work",
+            "workCount": "{{count}} total"
+          },
+          "empty": {
+            "noWork": "No work yet",
+            "noRunning": "Nothing is running",
+            "noRecent": "No recent work"
+          },
+          "error": {
+            "loadFailed": "Couldn't load work"
+          },
+          "actions": {
+            "newWork": "New work",
+            "openAll": "View all work",
+            "retry": "Retry",
+            "handle": "Handle",
+            "viewProgress": "View progress",
+            "resume": "Resume",
+            "continue": "Continue",
+            "viewResult": "View result",
+            "open": "Open"
+          },
+          "aria": {
+            "openWork": "Open work: {{title}}"
+          },
+          "workStatus": {
+            "draft": "Draft",
+            "active": "Ready",
+            "running": "Running",
+            "waiting_user": "Waiting for you",
+            "blocked": "Blocked",
+            "paused": "Paused",
+            "completed": "Completed",
+            "failed": "Failed",
+            "cancelled": "Cancelled",
+            "interrupted": "Interrupted",
+            "archived": "Archived"
+          }
+        },
+        "apps": {
+          "category": "Intelligent apps",
+          "status": "{{count}} ready to continue",
+          "metrics": {
+            "active": "Continue",
+            "installed": "Installed",
+            "discover": "Discover"
+          },
+          "sections": {
+            "apps": "Apps",
+            "continue": "Continue running",
+            "running": "Running",
+            "pinned": "Pinned",
+            "recommended": "Recommended apps",
+            "recent": "Recently opened",
+            "installed": "My apps",
+            "discover": "Discover apps"
+          },
+          "workStatus": {
+            "running": "Running",
+            "attention": "Needs attention",
+            "active": "Ready to continue"
+          },
+          "appState": {
+            "running": "Running",
+            "installed": "Installed",
+            "discover": "View"
+          },
+          "actions": {
+            "open": "Open App Center",
+            "create": "Create app",
+            "manage": "Manage"
+          },
+          "empty": {
+            "appsTitle": "No apps available",
+            "continueTitle": "Nothing to continue",
+            "runningTitle": "No running apps",
+            "catalogTitle": "No recommendations"
+          },
+          "aria": {
+            "apps": "Apps",
+            "runningApps": "Running apps",
+            "recommendedApps": "Recommended apps",
+            "continueApp": "Continue {{name}}",
+            "openRunningApp": "Open running app {{name}}",
+            "openApp": "Open app {{name}}"
+          },
+          "errors": {
+            "works": "App work is temporarily unavailable",
+            "catalog": "The app catalog is temporarily unavailable"
+          }
+        },
+        "files": {
+          "category": "Global file system",
+          "search": {
+            "placeholder": "Search locations or enter a path",
+            "ariaLabel": "Search known locations or enter a full path",
+            "clear": "Clear location search"
+          },
+          "sections": {
+            "continue": "Continue browsing",
+            "common": "Common locations",
+            "results": "Location results"
+          },
+          "actions": {
+            "open": "Open file manager",
+            "search": "Search locations"
+          },
+          "types": {
+            "folder": "Folder",
+            "file": "File"
+          },
+          "empty": {
+            "continueTitle": "Nothing to continue",
+            "commonTitle": "No common locations",
+            "searchTitle": "No matching locations",
+            "contentsTitle": "This location is empty"
+          },
+          "aria": {
+            "openLocation": "Open location {{name}}",
+            "openEntry": "Open {{name}}"
+          },
+          "errors": {
+            "contents": "This location is temporarily unavailable"
+          }
+        },
+        "shell": {
+          "category": "Execution environments",
+          "status": "{{count}} running",
+          "metrics": {
+            "running": "Running",
+            "manual": "Manual",
+            "agent": "Agent"
+          },
+          "sections": {
+            "running": "Running",
+            "saved": "Saved terminals"
+          },
+          "actions": {
+            "open": "Open Shell",
+            "new": "New terminal"
+          },
+          "newSessionName": "Terminal {{count}}",
+          "empty": {
+            "runningTitle": "No terminals",
+            "savedTitle": "No saved terminals",
+            "savedDescription": "Save a name, directory, and startup command in Shell.",
+            "workspaceDescription": "Open a workspace to use saved terminals."
+          },
+          "errors": {
+            "sessions": "Terminal status is temporarily unavailable"
+          }
+        },
+        "dailyLetter": {
+          "category": "System briefing",
+          "status": {
+            "notGenerated": "Not written today",
+            "writing": "Writing today's letter",
+            "unread": "Unread",
+            "ready": "Read"
+          },
+          "actions": {
+            "generate": "Generate today's letter",
+            "generating": "Generating…",
+            "open": "Open Daily Letter",
+            "openUnread": "Open the letter",
+            "continue": "Continue reading",
+            "expandReading": "Expand to read",
+            "reviewReceipts": "Review {{count}} receipts"
+          },
+          "receiptPrompt": "{{count}} thing to confirm",
+          "metrics": {
+            "pendingReceipts": "Receipts",
+            "appIdeas": "App ideas",
+            "history": "Letters"
+          },
+          "sections": {
+            "today": "Today",
+            "recent": "Recent letters"
+          },
+          "scope": {
+            "agentic_os": "Global",
+            "workspace": "Workspace"
+          },
+          "empty": {
+            "todayTitle": "No letter today",
+            "writingTitle": "Generating letter",
+            "history": "No previous letters"
+          },
+          "errors": {
+            "load": "Daily Letter is temporarily unavailable",
+            "history": "Recent letters could not be loaded",
+            "generate": "The letter could not be generated"
+          }
+        },
+        "memory": {
+          "category": "User trajectory",
+          "status": {
+            "ready": "Automatic memory is on",
+            "partial": "Partially active",
+            "paused": "Automatic memory is paused"
+          },
+          "actions": {
+            "open": "Open Memory"
+          },
+          "sections": {
+            "current": "Current memory"
+          },
+          "items": {
+            "user": {
+              "title": "About you",
+              "meta": "Preferences and collaboration style"
+            },
+            "longTerm": {
+              "title": "Long-term memory",
+              "meta": "Formed through continued collaboration"
+            },
+            "workspace": {
+              "title": "Current workspace",
+              "meta": "Project context"
+            }
+          },
+          "updated": {
+            "today": "Today",
+            "hoursAgo": "{{count}}h ago",
+            "unavailable": "Not formed yet",
+            "noWorkspace": "No workspace"
+          },
+          "consolidation": {
+            "ariaLabel": "Memory consolidation status",
+            "state": {
+              "ready": "Organized",
+              "running": "Organizing",
+              "failed": "Needs attention",
+              "disabled": "Unavailable",
+              "notRun": "Not organized yet"
+            },
+            "summary": "{{count}} sources · {{time}}",
+            "lastRun": "Last organized {{time}}",
+            "runningMeta": "Consolidating recent memory records",
+            "notRunMeta": "Ready when memory records appear",
+            "statusUnavailable": "Status unavailable",
+            "actions": {
+              "run": "Organize now",
+              "running": "Organizing"
+            },
+            "messages": {
+              "started": "Memory organization started",
+              "notNeeded": "Memory is already up to date",
+              "failed": "Memory organization failed"
+            }
+          },
+          "errors": {
+            "load": "Memory is temporarily unavailable",
+            "records": "Memory records could not be loaded"
+          }
+        },
+        "skills": {
+          "category": "Capability extensions",
+          "status": {
+            "available": "Capabilities available",
+            "empty": "No skills installed"
+          },
+          "metrics": {
+            "installed": "Installed",
+            "project": "Project",
+            "suites": "Suites"
+          },
+          "sections": {
+            "available": "Available now",
+            "popular": "Popular to discover"
+          },
+          "scope": {
+            "builtin": "Built in",
+            "user": "User",
+            "project": "Project"
+          },
+          "meta": {
+            "installed": "{{count}} installed",
+            "installs": "{{count}} installs"
+          },
+          "actions": {
+            "open": "Open Skills"
+          },
+          "empty": {
+            "installedTitle": "No installed skills",
+            "marketTitle": "No new skills"
+          },
+          "errors": {
+            "load": "Skills are temporarily unavailable",
+            "installed": "Installed skills could not be loaded",
+            "market": "Discoverable skills could not be loaded"
+          }
+        },
+        "capabilities": {
+          "category": "Execution and delegation",
+          "status": {
+            "ready": "Capabilities ready",
+            "attention": "Connections need attention",
+            "partial": "Some status is unavailable",
+            "idle": "Ready when needed"
+          },
+          "metrics": {
+            "builtin": "Built-in",
+            "connected": "Connected",
+            "specialists": "Experts"
+          },
+          "sections": {
+            "execution": "Execution",
+            "specialists": "Specialists"
+          },
+          "meta": {
+            "servers": "{{count}} servers",
+            "specialists": "{{count}} ready",
+            "connectedOf": "{{connected}} / {{count}} connected",
+            "tools": "{{count}} tools"
+          },
+          "execution": {
+            "builtin": "Built-in tools",
+            "builtinDescription": "Files, Shell, Web, and workflow capabilities",
+            "mcpServices": "MCP services",
+            "mcpServicesDescription": "Connections to external systems and data",
+            "mcpTools": "MCP tools",
+            "mcpToolsDescription": "Extensions provided by connected services"
+          },
+          "actions": {
+            "tools": "Open Tool Center",
+            "subagents": "Manage Subagents"
+          },
+          "empty": {
+            "noneTitle": "No subagents yet",
+            "noneDescription": "Create a specialist for clearly bounded delegated work.",
+            "noneEnabledTitle": "No specialists are enabled",
+            "noneEnabledDescription": "Open Subagents to choose who can be called."
+          },
+          "errors": {
+            "execution": "Execution status is temporarily unavailable",
+            "servers": "MCP status is unavailable",
+            "tools": "The tool catalog is unavailable",
+            "subagents": "Subagents are temporarily unavailable"
+          }
+        },
+        "tools": {
+          "category": "Connected capabilities",
+          "status": {
+            "ready": "Connections healthy",
+            "attention": "Needs attention",
+            "noServers": "No MCP servers",
+            "idle": "Servers are idle"
+          },
+          "metrics": {
+            "builtin": "Built-in tools",
+            "mcpTools": "MCP tools",
+            "connected": "Connected"
+          },
+          "sections": {
+            "servers": "MCP connections",
+            "capabilities": "Capability map"
+          },
+          "meta": {
+            "servers": "{{count}} servers"
+          },
+          "serverStatus": {
+            "connected": "Connected",
+            "needsAuth": "Authorization needed",
+            "failed": "Failed",
+            "starting": "Starting",
+            "reconnecting": "Reconnecting",
+            "stopping": "Stopping",
+            "stopped": "Stopped",
+            "idle": "Idle"
+          },
+          "capabilities": {
+            "files": "Files & navigation",
+            "filesDescription": "Read, edit, search, and move through files",
+            "workflow": "Planning & sessions",
+            "workflowDescription": "Plan work, interact, and manage sessions",
+            "extensions": "Extensions",
+            "extensionsDescription": "Delegated and MCP-provided capabilities"
+          },
+          "actions": {
+            "open": "Open Tools"
+          },
+          "empty": {
+            "serversTitle": "No MCP servers configured",
+            "serversDescription": "Open Tools to add a connected capability."
+          },
+          "errors": {
+            "load": "Tools are temporarily unavailable",
+            "servers": "MCP status could not be loaded"
+          }
+        },
+        "subagents": {
+          "category": "Delegated specialists",
+          "status": {
+            "ready": "Ready to call",
+            "empty": "No subagents",
+            "noneEnabled": "None enabled"
+          },
+          "metrics": {
+            "ready": "Ready",
+            "all": "All",
+            "project": "Project"
+          },
+          "sections": {
+            "ready": "Ready specialists",
+            "sources": "Sources"
+          },
+          "meta": {
+            "ready": "{{count}} ready",
+            "tools": "{{count}} tools"
+          },
+          "sources": {
+            "project": "Project",
+            "projectDescription": "Available in the current workspace",
+            "user": "User",
+            "userDescription": "Available across workspaces",
+            "builtin": "Built in",
+            "builtinDescription": "Maintained by Sparo"
+          },
+          "actions": {
+            "open": "Open Subagents"
+          },
+          "empty": {
+            "noneTitle": "No subagents yet",
+            "noneDescription": "Create a specialist for focused delegated work.",
+            "noneEnabledTitle": "No specialists are enabled",
+            "noneEnabledDescription": "Open Subagents to choose who can be called."
+          },
+          "errors": {
+            "load": "Subagents are temporarily unavailable"
+          }
+        }
+      },
+      "items": {
+        "agentic-os": {
+          "category": "Coordination hub",
+          "description": "Coordinate tasks, call capabilities, and move work across apps and projects.",
+          "hint": "Continue global collaboration here, or start a separate session."
+        },
+        "workCenter": {
+          "category": "Action surface",
+          "description": "Review running, waiting, and scheduled work.",
+          "hint": "Work state feeds directly back into the bottom-left entry."
+        },
+        "apps": {
+          "category": "Action surface",
+          "description": "Open intelligent apps for the work at hand.",
+          "hint": "Apps can open independently or become the execution surface for a work item."
+        },
+        "files": {
+          "category": "Global environment",
+          "description": "Browse local files, drives, and pinned folders, or open a folder as a workspace.",
+          "hint": "This is the global file-system entry, not just the current project."
+        },
+        "shell": {
+          "category": "Global environment",
+          "description": "Open a shell in system or project scope.",
+          "hint": "Switch between system and project sessions after entering."
+        },
+        "daily-letter": {
+          "category": "System background",
+          "description": "Review today's progress and follow-ups gathered for you in the background.",
+          "hint": "New letters appear on both the icon and the bottom-left entry."
+        },
+        "memory": {
+          "category": "User trajectory",
+          "description": "Review preferences, collaboration feedback, and workspace context remembered by Agentic OS.",
+          "hint": "Memory reflects long-term collaboration, not a one-off action."
+        },
+        "skills": {
+          "category": "Extended capability",
+          "description": "Manage reusable specialist knowledge and working methods.",
+          "hint": "Agents call skills automatically when they fit the task."
+        },
+        "capabilities": {
+          "category": "Execution and delegation",
+          "description": "Review executable tools, connected services, and delegatable specialists together.",
+          "hint": "Tools execute; subagents take on clearly bounded work in parallel."
+        },
+        "tools": {
+          "category": "Extended capability",
+          "description": "Review built-in tools and connected MCP services.",
+          "hint": "Tools extend execution boundaries and rarely need daily management."
+        },
+        "subagents": {
+          "category": "Extended capability",
+          "description": "Manage specialist collaborators that top-level agents can call.",
+          "hint": "Subagents take on bounded tasks in parallel during complex work."
+        },
+        "settings": {
+          "category": "System settings",
+          "description": "Manage models, permissions, appearance, and system behavior.",
+          "hint": "Changes here affect how Sparo OS operates globally."
+        }
+      }
+    }
   },
   "workDock": {
     "label": "Work Dock",
@@ -382,7 +1173,8 @@
     "resultCount": "{{count}} results",
     "executor": {
       "systemGroup": "Built-in executors",
-      "productAppGroup": "Product Apps",
+      "intelligentAppGroup": "Intelligent Apps",
+      "releaseUnavailable": "This app has no active compatible Release in the selected scope.",
       "systemBadge": "Built-in",
       "bitfunCoder": "BitFun Coder",
       "bitfunCoderDescription": "Coding, debugging, verification, and handoff",

@@ -44,6 +44,10 @@
     font-size: var(--font-size-lg, 16px);
   }
 
+  &-pill {
+    border-radius: var(--ds-radius-full, 999px);
+  }
+
   &:hover:not(:disabled) {
     background: var(--element-bg-medium, rgba(255, 255, 255, 0.14));
     color: var(--color-text-primary, #ffffff);

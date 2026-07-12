@@ -4,15 +4,15 @@
   "inputSchema": {
     "type": "object",
     "additionalProperties": false,
+    "required": ["compositionId", "frame", "expectedProjectRevision", "expectedDescriptorRevision"],
     "properties": {
       "workspacePath": { "type": "string" },
       "entryPoint": { "type": "string" },
       "compositionId": { "type": "string" },
-      "composition": { "type": "string" },
+      "expectedProjectRevision": { "type": "string", "minLength": 1 },
+      "expectedDescriptorRevision": { "type": "string", "minLength": 1 },
       "frame": { "type": "integer" },
-      "scale": { "type": "number" },
-      "outputPath": { "type": "string" },
-      "timeoutMs": { "type": "integer" },
+      "scale": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
       "inputProps": { "type": "object" }
     }
   },

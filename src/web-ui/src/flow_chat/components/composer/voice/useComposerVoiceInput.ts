@@ -391,6 +391,7 @@ export function useComposerVoiceInput({
     bufferedChunksRef.current = [];
     bufferedSecondsRef.current = 0;
     let sessionPromise: Promise<SpeechInputSession> | null = null;
+    const startupStartedAt = performance.now();
 
     try {
       const voiceSettings = settings;
@@ -401,6 +402,29 @@ export function useComposerVoiceInput({
         return;
       }
 
+      log.debug('Voice input startup requested', { modelInstalled });
+      const recorder = await createVoiceInputRecorder({
+        targetSampleRate: DEFAULT_SPEECH_SAMPLE_RATE,
+        chunkDurationMs: RECORDING_CHUNK_DURATION_MS,
+        onChunk: enqueueChunk,
+        onLevel: updateAudioLevel,
+        onStartupTiming: timing => {
+          log.debug('Voice input recorder startup stage completed', timing);
+        },
+      });
+      if (activeRecordingIdRef.current !== recordingId) {
+        await recorder.stop().catch(error => {
+          log.warn('Failed to stop stale voice recorder', { error });
+        });
+        return;
+      }
+      recorderRef.current = recorder;
+      setPhase('recording');
+      log.debug('Voice input recorder ready', {
+        startupMs: Math.round(performance.now() - startupStartedAt),
+      });
+
+      const sessionStartedAt = performance.now();
       sessionPromise = speechAPI.startInputSession({
         modelId: LOCAL_SENSEVOICE_SMALL_INT8_MODEL_ID,
         language: voiceSettings.default_language,
@@ -410,6 +434,10 @@ export function useComposerVoiceInput({
       sessionPromiseRef.current = sessionPromise;
       sessionPromise
         .then(session => {
+          log.debug('Voice input session ready', {
+            sessionMs: Math.round(performance.now() - sessionStartedAt),
+            startupMs: Math.round(performance.now() - startupStartedAt),
+          });
           attachSession(session, recordingId);
         })
         .catch(async error => {
@@ -418,7 +446,7 @@ export function useComposerVoiceInput({
           }
           log.error('Failed to create voice input session', { error });
           activeRecordingIdRef.current += 1;
-          const recorder = recorderRef.current;
+          const activeRecorder = recorderRef.current;
           recorderRef.current = null;
           sessionRef.current = null;
           sessionPromiseRef.current = null;
@@ -427,8 +455,8 @@ export function useComposerVoiceInput({
           latestAudioLevelRef.current = 0;
           setAudioLevel(0);
           setPhase('idle');
-          if (recorder) {
-            await recorder.stop().catch(stopError => {
+          if (activeRecorder) {
+            await activeRecorder.stop().catch(stopError => {
               log.warn('Failed to stop recorder after session creation failure', { error: stopError });
             });
           }
@@ -440,21 +468,6 @@ export function useComposerVoiceInput({
           }
           notificationService.error(t('input.voiceInput.failed'));
         });
-
-      const recorder = await createVoiceInputRecorder({
-        targetSampleRate: DEFAULT_SPEECH_SAMPLE_RATE,
-        chunkDurationMs: RECORDING_CHUNK_DURATION_MS,
-        onChunk: enqueueChunk,
-        onLevel: updateAudioLevel,
-      });
-      if (activeRecordingIdRef.current !== recordingId) {
-        await recorder.stop().catch(error => {
-          log.warn('Failed to stop stale voice recorder', { error });
-        });
-        return;
-      }
-      recorderRef.current = recorder;
-      setPhase('recording');
     } catch (error) {
       log.error('Failed to start voice input', { error });
       activeRecordingIdRef.current += 1;

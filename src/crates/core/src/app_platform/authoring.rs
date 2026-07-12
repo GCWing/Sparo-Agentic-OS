@@ -1,6 +1,6 @@
 //! Product App and Component package authoring.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -126,7 +126,8 @@ pub struct WrittenComponentPackage {
     pub package_dir: PathBuf,
 }
 
-pub async fn create_product_app_package(
+#[cfg(test)]
+pub(crate) async fn create_product_app_package(
     path_manager: &PathManager,
     draft: CreateProductAppPackageDraft,
 ) -> CoreResult<WrittenProductAppPackage> {
@@ -138,8 +139,32 @@ pub async fn create_product_app_package(
     .await
 }
 
-pub async fn create_product_app_package_with_options(
+#[cfg(test)]
+pub(crate) async fn create_product_app_package_with_options(
     path_manager: &PathManager,
+    draft: CreateProductAppPackageDraft,
+    options: CreateProductAppPackageOptions,
+) -> CoreResult<WrittenProductAppPackage> {
+    let package_dir = path_manager.system_product_app_version_dir(&draft.app_id, &draft.version);
+    ensure_new_package_dir(&package_dir).await?;
+    write_product_app_package(&package_dir, draft, options).await
+}
+
+/// Scaffolds a new package directly inside an already-authorized mutable Draft.
+///
+/// The caller owns the Draft identity and path authorization. This function never derives an
+/// install/catalog path and rejects a Draft that already contains package source.
+pub async fn scaffold_product_app_draft(
+    draft_root: &Path,
+    draft: CreateProductAppPackageDraft,
+    options: CreateProductAppPackageOptions,
+) -> CoreResult<WrittenProductAppPackage> {
+    ensure_empty_draft_root(draft_root).await?;
+    write_product_app_package(draft_root, draft, options).await
+}
+
+async fn write_product_app_package(
+    package_dir: &Path,
     draft: CreateProductAppPackageDraft,
     options: CreateProductAppPackageOptions,
 ) -> CoreResult<WrittenProductAppPackage> {
@@ -151,9 +176,6 @@ pub async fn create_product_app_package_with_options(
         .include_surface
         .unwrap_or(draft.primary_surface_mode != AppSurfaceMode::ChatPrimary);
     let include_agent = resolve_include_agent(&draft, &options, include_surface)?;
-
-    let package_dir = path_manager.system_product_app_version_dir(&draft.app_id, &draft.version);
-    ensure_new_package_dir(&package_dir).await?;
 
     let surface_id = format!("{}-surface", draft.app_id);
     let agent_id = format!("{}-agent", draft.app_id);
@@ -342,8 +364,19 @@ pub async fn create_product_app_package_with_options(
         launch: Some(launch),
     };
 
-    fs::create_dir_all(&package_dir).await?;
+    fs::create_dir_all(package_dir).await?;
     write_json(package_dir.join("app.json"), &app).await?;
+    write_json(package_dir.join("config").join("default.json"), &json!({})).await?;
+    write_json(
+        package_dir.join("config").join("data-schema.json"),
+        &json!({ "version": "1.0.0" }),
+    )
+    .await?;
+    write_json(
+        package_dir.join("compatibility.json"),
+        &json!({ "runtimeCompatibility": format!(">={}", env!("CARGO_PKG_VERSION")) }),
+    )
+    .await?;
     write_default_app_icon(&package_dir, &draft.name).await?;
     if let Some(primary_surface_definition) = primary_surface_definition.as_ref() {
         let primary_surface_dir = package_dir
@@ -391,7 +424,7 @@ pub async fn create_product_app_package_with_options(
         app_id: app.id,
         version: app.version,
         component_lock_digest: resolved.lock.digest(),
-        package_dir,
+        package_dir: package_dir.to_path_buf(),
     })
 }
 
@@ -1284,7 +1317,7 @@ async fn write_text(path: PathBuf, value: &str) -> CoreResult<()> {
     Ok(())
 }
 
-async fn write_default_app_icon(package_dir: &PathBuf, label: &str) -> CoreResult<()> {
+async fn write_default_app_icon(package_dir: &Path, label: &str) -> CoreResult<()> {
     let initial = label
         .chars()
         .find(|character| character.is_alphanumeric())
@@ -1407,6 +1440,25 @@ async fn ensure_new_package_dir(path: &PathBuf) -> CoreResult<()> {
     Ok(())
 }
 
+async fn ensure_empty_draft_root(path: &Path) -> CoreResult<()> {
+    if !fs::try_exists(path).await? || !path.is_dir() {
+        return Err(CoreError::validation(format!(
+            "Authorized Intelligent App Draft does not exist: {}",
+            path.display()
+        )));
+    }
+    let mut entries = fs::read_dir(path).await?;
+    while let Some(entry) = entries.next_entry().await? {
+        if entry.file_name() != ".sparo_os" {
+            return Err(CoreError::validation(format!(
+                "Intelligent App Draft already contains package source: {}",
+                path.display()
+            )));
+        }
+    }
+    Ok(())
+}
+
 fn validate_required(field: &str, value: &str) -> CoreResult<()> {
     if value.trim().is_empty() {
         return Err(CoreError::validation(format!("{field} is required")));
@@ -1458,7 +1510,6 @@ mod tests {
 
     use crate::infrastructure::PathManager;
 
-    use super::super::catalog::{AppManagementAction, ProductAppManagementOrigin};
     use super::*;
 
     #[tokio::test]
@@ -1537,32 +1588,6 @@ mod tests {
         );
         assert!(package.app.data_lifecycle.is_some());
         assert!(!written.package_dir.join("work-objects").exists());
-
-        let installed_catalog =
-            crate::app_platform::list_installed_product_app_catalog(&path_manager)
-                .await
-                .unwrap();
-        let catalog_app = installed_catalog
-            .iter()
-            .find(|app| app.app.id == "sample-app")
-            .expect("created Product App should be listed as installed");
-        assert_eq!(
-            catalog_app.app.catalog_visibility,
-            AppCatalogVisibility::InstalledOnly
-        );
-        assert!(catalog_app.installed);
-        assert_eq!(
-            catalog_app.management.origin,
-            ProductAppManagementOrigin::InstalledPackage
-        );
-        assert!(catalog_app
-            .management
-            .actions
-            .contains(&AppManagementAction::Disable));
-        assert!(catalog_app
-            .management
-            .actions
-            .contains(&AppManagementAction::Uninstall));
     }
 
     #[tokio::test]

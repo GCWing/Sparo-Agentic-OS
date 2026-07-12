@@ -19,7 +19,6 @@
     "loadFailed": "Failed to load daily letters.",
     "generateFailed": "Failed to write today's letter.",
     "generateDisabled": "Daily Letter is turned off in settings.",
-    "generateNoSources": "There is not enough authorized context yet to write today's letter.",
     "generateNoResult": "No new letter was written this time. Please try again later.",
     "receiptFailed": "Failed to submit receipt.",
     "sealFailed": "Failed to seal today's letter."
@@ -67,7 +66,7 @@
   },
   "empty": {
     "title": "No letter has arrived yet",
-    "body": "When today has enough authorized context, Sparo can write a warm letter here.",
+    "body": "Sparo writes one letter every day. Today's is still on its way.",
     "loadingBody": "Looking for today's letters."
   },
   "status": {

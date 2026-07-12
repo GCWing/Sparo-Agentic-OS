@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "scenarios": [
+    {
+      "id": "critical-user-path",
+      "title": "Open Excel Live and complete its first useful action",
+      "description": "A revisioned spreadsheet workbench where people and agents share grounded focus, review proposals on the grid, undo safely, and export source-preserving workbook copies.",
+      "kind": "user-path",
+      "steps": [
+        {
+          "id": "open-app",
+          "action": "open",
+          "target": "primary",
+          "expect": [
+            "Excel Live opens"
+          ]
+        },
+        {
+          "id": "observe-ready-state",
+          "action": "observe",
+          "target": "work-outcome",
+          "expect": [
+            "A usable ready state is visible"
+          ]
+        }
+      ],
+      "expected": [
+        "The app opens without a fatal runtime issue",
+        "The primary workflow exposes an observable path"
+      ]
+    }
+  ]
+}

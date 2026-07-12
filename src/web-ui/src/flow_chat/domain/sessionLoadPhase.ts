@@ -8,6 +8,13 @@ export function isSessionHydrating(session?: Pick<Session, 'loadPhase'> | null):
   return session?.loadPhase === 'hydrating';
 }
 
+/** Visible transcript loading excludes hydrate-failed, which is retryable but idle. */
+export function isSessionTranscriptLoading(
+  session?: Pick<Session, 'loadPhase'> | null,
+): boolean {
+  return session?.loadPhase === 'metadata-only' || session?.loadPhase === 'hydrating';
+}
+
 export function isSessionTranscriptReady(session?: Pick<Session, 'loadPhase'> | null): boolean {
   return session?.loadPhase === 'hydrated' || session?.loadPhase === 'live';
 }

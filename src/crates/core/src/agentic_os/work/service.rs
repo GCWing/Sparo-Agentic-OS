@@ -2,9 +2,6 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::app_platform::{
-    get_installed_product_app_by_lock, seed_builtin_product_app_packages, ComponentKind,
-};
 use crate::error::{CoreError, CoreResult};
 use crate::infrastructure::try_get_path_manager_arc;
 
@@ -35,7 +32,8 @@ use super::runtime_bridge::{
 };
 use super::store::WorkStore;
 use super::subject::{
-    WorkAppIntent, WorkAppRef, WorkAppRelation, WorkComponentIntent, WorkComponentRef, WorkSubject,
+    WorkAppIntent, WorkAppKind, WorkAppRef, WorkAppRelation, WorkComponentIntent, WorkComponentRef,
+    WorkSubject,
 };
 use super::surface::WorkSurfaceRef;
 use super::title::{WorkTitleSource, WorkTitleState};
@@ -477,8 +475,8 @@ impl WorkService {
                 assignment: request.assignment,
                 title_state: Some(requested_title_state),
                 delegation: None,
-                        topic_work_id: None,
-        })
+                topic_work_id: None,
+            })
             .await?;
         Ok(ResolveAppWorkResponse {
             work,
@@ -545,8 +543,8 @@ impl WorkService {
                 assignment: request.assignment,
                 title_state: None,
                 delegation: None,
-                        topic_work_id: None,
-        })
+                topic_work_id: None,
+            })
             .await?;
         Ok(ResolveComponentWorkResponse {
             work,
@@ -557,6 +555,7 @@ impl WorkService {
     pub async fn create(&self, request: CreateWorkRequest) -> CoreResult<WorkRecord> {
         validate_required("title", &request.title)?;
         validate_required("objective", &request.objective)?;
+        validate_work_app_bindings(&request.subject, &request.app_refs)?;
 
         let now = now_millis();
         let work_id = WorkId::generate();
@@ -749,10 +748,7 @@ impl WorkService {
         Ok(record)
     }
 
-    pub async fn reclassify(
-        &self,
-        request: ReclassifyWorkRequest,
-    ) -> CoreResult<WorkRecord> {
+    pub async fn reclassify(&self, request: ReclassifyWorkRequest) -> CoreResult<WorkRecord> {
         self.update(
             &request.work_id,
             UpdateWorkRequest {
@@ -1385,8 +1381,8 @@ impl WorkService {
                 assignment: Some(assignment),
                 title_state: Some(WorkTitleState::agent()),
                 delegation: Some(delegation),
-                        topic_work_id: None,
-        })
+                topic_work_id: None,
+            })
             .await?;
 
         let advanced = self
@@ -1424,8 +1420,8 @@ impl WorkService {
                 assignment: Some(request.assignment),
                 title_state: Some(WorkTitleState::agent()),
                 delegation: parent.delegation.clone(),
-                        topic_work_id: None,
-        })
+                topic_work_id: None,
+            })
             .await?;
 
         let mut parent = parent;
@@ -1921,65 +1917,17 @@ async fn application_surface_for_product_app_subject(
             "subject.kind=app is required when primary_surface_policy=application_surface",
         )
     })?;
-    validate_required("subject.app.app_id", &app.app_id)?;
-    validate_required("subject.app.app_version", &app.app_version)?;
-    validate_required(
-        "subject.app.component_lock_digest",
-        &app.component_lock_digest,
-    )?;
-
-    let path_manager = try_get_path_manager_arc()?;
-    if let Err(error) = seed_builtin_product_app_packages(path_manager.as_ref()).await {
-        log::warn!(
-            "Failed to seed built-in Product App packages before Work surface resolution: {}",
-            error
-        );
+    validate_work_app_ref("subject.app", app)?;
+    if app.kind != WorkAppKind::ProductApp {
+        return Err(CoreError::validation(
+            "application_surface requires a product_app Work binding",
+        ));
     }
 
-    let (resolved_app, _installed_lock_digest) = get_installed_product_app_by_lock(
-        path_manager.as_ref(),
-        &app.app_id,
-        &app.app_version,
-        &app.component_lock_digest,
-    )
-    .await?;
-
-    let primary_surface = resolved_app.app.primary_surface.as_ref().ok_or_else(|| {
-        CoreError::validation(format!(
-            "Product App {}@{} does not declare a primary surface for application surface Work",
-            app.app_id, app.app_version
-        ))
-    })?;
-    let product_app_surface_id = primary_surface.component_id.clone();
-    validate_required(
-        "installed_product_app.primary_surface.component_id",
-        &product_app_surface_id,
-    )?;
-    let surface_id = resolved_app
-        .app
-        .primary_surface
-        .as_ref()
-        .and_then(|surface| surface.surface_id.clone())
-        .unwrap_or_else(|| "primary".to_string());
-    validate_required(
-        "installed_product_app.primary_surface.surface_id",
-        &surface_id,
-    )?;
-
-    if !resolved_app.components.iter().any(|component| {
-        component.kind == ComponentKind::Surface && component.id == product_app_surface_id
-    }) {
-        return Err(CoreError::validation(format!(
-            "Product App {} lock does not resolve primary Product App surface {}",
-            app.app_id, product_app_surface_id
-        )));
-    }
-
-    Ok(WorkSurfaceRef::ApplicationSurface {
-        product_app_id: app.app_id.clone(),
-        product_app_surface_id,
-        surface_id,
-    })
+    Err(CoreError::validation(format!(
+        "primary_surface must be supplied from immutable Release {} when creating application surface Work for App {}",
+        app.release_id, app.app_id
+    )))
 }
 
 fn validate_surface_ref(label: &str, surface: &WorkSurfaceRef) -> CoreResult<()> {
@@ -2011,6 +1959,46 @@ fn validate_surface_ref(label: &str, surface: &WorkSurfaceRef) -> CoreResult<()>
             validate_required(&format!("{label}.surface_id"), surface_id)?;
         }
     }
+    Ok(())
+}
+
+fn validate_work_app_bindings(
+    subject: &WorkSubject,
+    app_refs: &[WorkAppRelation],
+) -> CoreResult<()> {
+    let mut bindings: Vec<&WorkAppRef> = Vec::new();
+    if let Some(app) = subject.app_ref() {
+        validate_work_app_ref("subject.app", app)?;
+        bindings.push(app);
+    }
+    for (index, relation) in app_refs.iter().enumerate() {
+        validate_work_app_ref(&format!("app_refs[{index}].app"), &relation.app)?;
+        if let Some(existing) = bindings
+            .iter()
+            .find(|existing| existing.slot_id == relation.app.slot_id)
+        {
+            if **existing != relation.app {
+                return Err(CoreError::validation(format!(
+                    "Work slot {} cannot bind multiple App releases or config revisions",
+                    relation.app.slot_id
+                )));
+            }
+        } else {
+            bindings.push(&relation.app);
+        }
+    }
+    Ok(())
+}
+
+fn validate_work_app_ref(label: &str, app: &WorkAppRef) -> CoreResult<()> {
+    validate_required(&format!("{label}.slot_id"), &app.slot_id)?;
+    validate_required(&format!("{label}.app_id"), &app.app_id)?;
+    validate_required(&format!("{label}.release_id"), &app.release_id)?;
+    validate_required(&format!("{label}.config_revision"), &app.config_revision)?;
+    validate_required(
+        &format!("{label}.data_schema_version"),
+        &app.data_schema_version,
+    )?;
     Ok(())
 }
 
@@ -2090,8 +2078,26 @@ fn system_process_kind_key(
 fn system_work_id_for_process(
     process: &crate::agentic_os::background_process::BackgroundProcess,
 ) -> CoreResult<WorkId> {
-    let id = format!("sysbp_{}", process.id.replace(':', "_"));
+    // Background-process ids are external/runtime identifiers. They may contain
+    // separators such as ':' or path-like characters, while WorkId is an
+    // intentionally narrow persistence key. Normalize the identifier at this
+    // boundary so one malformed process cannot make the whole Work list fail.
+    let normalized = normalize_system_work_id_component(&process.id);
+    let id = format!("sysbp_{normalized}");
     WorkId::parse(id).map_err(CoreError::validation)
+}
+
+fn normalize_system_work_id_component(value: &str) -> String {
+    value
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || character == '_' || character == '-' {
+                character
+            } else {
+                '_'
+            }
+        })
+        .collect()
 }
 
 fn work_scope_from_process_scope(
@@ -2140,14 +2146,24 @@ fn system_work_objective(
 fn process_summary_text(
     process: &crate::agentic_os::background_process::BackgroundProcess,
 ) -> String {
-    let mut parts = vec![format!("status={}", format!("{:?}", process.status).to_ascii_lowercase())];
+    let mut parts = vec![format!(
+        "status={}",
+        format!("{:?}", process.status).to_ascii_lowercase()
+    )];
     if let Some(phase) = process.phase {
-        parts.push(format!("phase={}", format!("{:?}", phase).to_ascii_lowercase()));
+        parts.push(format!(
+            "phase={}",
+            format!("{:?}", phase).to_ascii_lowercase()
+        ));
     }
     if let Some(next_run_at) = process.next_run_at {
         parts.push(format!("next_run_at={next_run_at}"));
     }
-    if let Some(error) = process.last_error.as_deref().filter(|value| !value.is_empty()) {
+    if let Some(error) = process
+        .last_error
+        .as_deref()
+        .filter(|value| !value.is_empty())
+    {
         parts.push(format!("error={error}"));
     } else if let Some(message) = process
         .last_result
@@ -2387,8 +2403,7 @@ fn work_references_application_surface(record: &WorkRecord, application_id: &str
                     runtime_instance_id,
                     ..
                 } => record.runtime_instances.iter().any(|instance| {
-                    instance.id == runtime_instance_id.as_str()
-                        && instance.product_app_id == application_id
+                    instance.id == runtime_instance_id.as_str() && instance.app_id == application_id
                 }),
                 _ => false,
             })
@@ -3355,7 +3370,7 @@ fn refresh_builder_preview_result_for_runtime_instance(
             checks: Vec::new(),
             work_id: record.id.clone(),
             runtime_instance_id: Some(runtime_instance_id.to_string()),
-            product_app_id: Some(instance.product_app_id),
+            product_app_id: Some(instance.app_id),
             component_id: Some(instance.product_app_surface_id.clone()),
             product_app_surface_id: Some(instance.product_app_surface_id),
             surface_id: Some(instance.surface_id),
@@ -4288,9 +4303,62 @@ mod tests {
     };
     use super::super::record::ArtifactRuntimeProvenance;
     use super::*;
+
+    #[test]
+    fn system_work_id_normalizes_external_process_id_characters() {
+        let normalized = normalize_system_work_id_component("workspace-overview:refresh/2026 07");
+        assert_eq!(normalized, "workspace-overview_refresh_2026_07");
+    }
     use crate::agentic_os::work::store::MemoryWorkStore;
     use crate::agentic_os::work::subject::WorkAppRelationRole;
-    use crate::app_platform::list_installed_product_apps;
+
+    fn test_product_app_ref(app_id: &str) -> WorkAppRef {
+        WorkAppRef::product_app(
+            "primary",
+            app_id,
+            format!("release-{app_id}-1"),
+            "config-1",
+            "1",
+        )
+    }
+
+    #[tokio::test]
+    async fn create_rejects_multiple_release_bindings_for_one_slot() {
+        let service = service();
+        let active = test_product_app_ref("sample-app");
+        let mut conflicting = active.clone();
+        conflicting.release_id = "release-sample-app-2".to_string();
+
+        let error = service
+            .create(CreateWorkRequest {
+                kind: WorkKind::AppWorkflow,
+                title: "Pinned app".to_string(),
+                objective: "Run exactly one release".to_string(),
+                subject: WorkSubject::App {
+                    app: active,
+                    intent: WorkAppIntent::Run,
+                },
+                app_refs: vec![WorkAppRelation {
+                    app: conflicting,
+                    role: WorkAppRelationRole::Executor,
+                    surface_id: None,
+                }],
+                scope: WorkScope::System,
+                visibility: WorkVisibility::Primary,
+                primary_surface_policy: PrimarySurfacePolicy::WorkCenter,
+                primary_surface: None,
+                assignment: None,
+                title_state: None,
+                delegation: None,
+                topic_work_id: None,
+            })
+            .await
+            .expect_err("one slot cannot bind two releases");
+
+        assert!(error
+            .to_string()
+            .contains("cannot bind multiple App releases"));
+    }
 
     #[derive(Debug)]
     struct TestRuntimeBridge;
@@ -4446,8 +4514,8 @@ mod tests {
                 assignment: None,
                 title_state: None,
                 delegation: None,
-                        topic_work_id: None,
-        })
+                topic_work_id: None,
+            })
             .await
             .expect("create work");
 
@@ -4476,8 +4544,8 @@ mod tests {
                 assignment: Some(WorkAssignmentRef::agent("Runno")),
                 title_state: None,
                 delegation: None,
-                        topic_work_id: None,
-        })
+                topic_work_id: None,
+            })
             .await
             .expect("create work session");
 
@@ -4504,8 +4572,8 @@ mod tests {
                 assignment: Some(WorkAssignmentRef::agent("Runno")),
                 title_state: None,
                 delegation: None,
-                        topic_work_id: None,
-        })
+                topic_work_id: None,
+            })
             .await
             .expect("create work session");
         let session_id = record.work_session_id().expect("work session").to_string();
@@ -4544,8 +4612,8 @@ mod tests {
                 assignment: Some(WorkAssignmentRef::agent("Runno")),
                 title_state: Some(WorkTitleState::template()),
                 delegation: None,
-                        topic_work_id: None,
-        })
+                topic_work_id: None,
+            })
             .await
             .expect("create work session");
         let session_id = record.work_session_id().expect("work session").to_string();
@@ -4584,8 +4652,8 @@ mod tests {
                 assignment: Some(WorkAssignmentRef::agent("Runno")),
                 title_state: Some(WorkTitleState::user_locked()),
                 delegation: None,
-                        topic_work_id: None,
-        })
+                topic_work_id: None,
+            })
             .await
             .expect("create work session");
         let session_id = record.work_session_id().expect("work session").to_string();
@@ -4605,7 +4673,7 @@ mod tests {
     #[tokio::test]
     async fn legacy_default_agent_session_work_title_can_adopt_generated_session_title() {
         let service = service();
-        let app = WorkAppRef::product_app("builtin-bitfun-coder", "1.0.0", "sha256:test-lock");
+        let app = test_product_app_ref("builtin-bitfun-coder");
         let record = service
             .create(CreateWorkRequest {
                 kind: WorkKind::AppWorkflow,
@@ -4629,8 +4697,8 @@ mod tests {
                 assignment: Some(WorkAssignmentRef::agent("bitfun-coder")),
                 title_state: Some(WorkTitleState::user_locked()),
                 delegation: None,
-                        topic_work_id: None,
-        })
+                topic_work_id: None,
+            })
             .await
             .expect("create legacy app work session");
         let session_id = record.work_session_id().expect("work session").to_string();
@@ -4669,8 +4737,8 @@ mod tests {
                 assignment: Some(WorkAssignmentRef::agent("Runno")),
                 title_state: Some(WorkTitleState::template()),
                 delegation: None,
-                        topic_work_id: None,
-        })
+                topic_work_id: None,
+            })
             .await
             .expect("create work session");
         let session_id = record.work_session_id().expect("work session").to_string();
@@ -4701,7 +4769,7 @@ mod tests {
     #[tokio::test]
     async fn resolve_app_work_unlocks_legacy_default_work_session_title() {
         let service = service();
-        let app = WorkAppRef::product_app("builtin-bitfun-coder", "1.0.0", "sha256:test-lock");
+        let app = test_product_app_ref("builtin-bitfun-coder");
         let existing = service
             .create(CreateWorkRequest {
                 kind: WorkKind::AppWorkflow,
@@ -4725,8 +4793,8 @@ mod tests {
                 assignment: Some(WorkAssignmentRef::agent("bitfun-coder")),
                 title_state: Some(WorkTitleState::user_locked()),
                 delegation: None,
-                        topic_work_id: None,
-        })
+                topic_work_id: None,
+            })
             .await
             .expect("create legacy app work session");
 
@@ -4763,7 +4831,7 @@ mod tests {
                 title: "Old app name".to_string(),
                 objective: "Run the app workflow".to_string(),
                 subject: WorkSubject::App {
-                    app: WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:test-lock"),
+                    app: test_product_app_ref("product-app-1"),
                     intent: Default::default(),
                 },
                 app_refs: Vec::new(),
@@ -4778,8 +4846,8 @@ mod tests {
                 assignment: None,
                 title_state: None,
                 delegation: None,
-                        topic_work_id: None,
-        })
+                topic_work_id: None,
+            })
             .await
             .expect("create application surface work");
 
@@ -4808,7 +4876,7 @@ mod tests {
     #[tokio::test]
     async fn resolve_app_work_creates_and_reuses_app_subject_work() {
         let service = service();
-        let app = WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:test-lock");
+        let app = test_product_app_ref("product-app-1");
         let first = service
             .resolve_app_work(ResolveAppWorkRequest {
                 app: app.clone(),
@@ -4862,14 +4930,12 @@ mod tests {
         assert_eq!(first.work.runtime_instances.len(), 1);
         assert_eq!(first.work.status, WorkStatus::Active);
         assert!(first.work.execution_bindings.is_empty());
+        assert_eq!(first.work.runtime_instances[0].slot_id, app.slot_id);
+        assert_eq!(first.work.runtime_instances[0].app_id, app.app_id);
+        assert_eq!(first.work.runtime_instances[0].release_id, app.release_id);
         assert_eq!(
-            first.work.runtime_instances[0].product_app_id,
-            "product-app-1"
-        );
-        assert_eq!(first.work.runtime_instances[0].app_version, "1.0.0");
-        assert_eq!(
-            first.work.runtime_instances[0].component_lock_digest,
-            "sha256:test-lock"
+            first.work.runtime_instances[0].config_revision,
+            app.config_revision
         );
         assert_eq!(
             first.work.runtime_instances[0].product_app_surface_id,
@@ -4991,7 +5057,7 @@ mod tests {
     #[tokio::test]
     async fn execution_graph_uses_work_owned_runtime_facts() {
         let service = service();
-        let app = WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:test-lock");
+        let app = test_product_app_ref("product-app-1");
         let response = service
             .resolve_app_work(ResolveAppWorkRequest {
                 app: app.clone(),
@@ -5145,7 +5211,7 @@ mod tests {
 
     #[tokio::test]
     async fn builder_validation_result_records_fact_and_resolves_validation_issues() {
-        let app_ref = WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:lock");
+        let app_ref = test_product_app_ref("product-app-1");
         let service = service();
         let work = service
             .create(CreateWorkRequest {
@@ -5164,8 +5230,8 @@ mod tests {
                 assignment: None,
                 title_state: None,
                 delegation: None,
-                        topic_work_id: None,
-        })
+                topic_work_id: None,
+            })
             .await
             .expect("create work");
         let work_id = work.id.clone();
@@ -5829,7 +5895,7 @@ mod tests {
     #[tokio::test]
     async fn release_rehearsal_passes_after_validation_and_preview_are_clean() {
         let service = service();
-        let app = WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:test-lock");
+        let app = test_product_app_ref("product-app-1");
         let response = service
             .resolve_app_work(ResolveAppWorkRequest {
                 app,
@@ -6246,7 +6312,7 @@ mod tests {
     #[tokio::test]
     async fn release_rehearsal_does_not_use_validation_agent_eval_as_execution_evidence() {
         let service = service();
-        let app = WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:test-lock");
+        let app = test_product_app_ref("product-app-1");
         let response = service
             .resolve_app_work(ResolveAppWorkRequest {
                 app,
@@ -6465,7 +6531,7 @@ mod tests {
     #[tokio::test]
     async fn release_rehearsal_absorbs_preview_harness_readiness_warnings() {
         let service = service();
-        let app = WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:test-lock");
+        let app = test_product_app_ref("product-app-1");
         let response = service
             .resolve_app_work(ResolveAppWorkRequest {
                 app,
@@ -6656,7 +6722,7 @@ mod tests {
     #[tokio::test]
     async fn release_rehearsal_requires_permission_review_for_elevated_permission_warning() {
         let service = service();
-        let app = WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:test-lock");
+        let app = test_product_app_ref("product-app-1");
         let response = service
             .resolve_app_work(ResolveAppWorkRequest {
                 app,
@@ -7058,7 +7124,7 @@ mod tests {
     #[tokio::test]
     async fn release_rehearsal_absorbs_runtime_visual_checks() {
         let service = service();
-        let app = WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:test-lock");
+        let app = test_product_app_ref("product-app-1");
         let response = service
             .resolve_app_work(ResolveAppWorkRequest {
                 app,
@@ -7311,25 +7377,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn resolve_app_work_derives_application_surface_from_product_app_lock() {
-        let path_manager = try_get_path_manager_arc().expect("path manager");
-        seed_builtin_product_app_packages(path_manager.as_ref())
-            .await
-            .expect("seed built-in product apps");
-        let app = list_installed_product_apps(path_manager.as_ref())
-            .await
-            .expect("list installed product apps")
-            .into_iter()
-            .find(|app| app.app.id == "builtin-remotion-live")
-            .expect("built-in Remotion Live app");
-        let app_ref = WorkAppRef::product_app(
-            app.app.id.clone(),
-            app.app.version.clone(),
-            app.lock.digest(),
-        );
+    async fn application_surface_work_requires_surface_from_resolved_release() {
+        let app_ref = test_product_app_ref("builtin-remotion-live");
         let service = service();
 
-        let response = service
+        let error = service
             .resolve_app_work(ResolveAppWorkRequest {
                 app: app_ref.clone(),
                 intent: WorkAppIntent::Run,
@@ -7339,39 +7391,16 @@ mod tests {
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
                 primary_surface: None,
-                assignment: Some(WorkAssignmentRef {
-                    kind: WorkAssignmentKind::Application,
-                    agent_type: None,
-                    assistant_id: None,
-                    application_id: Some(app.app.id.clone()),
-                    human_label: None,
-                    external_label: None,
-                }),
-                app_refs: vec![WorkAppRelation {
-                    app: app_ref.clone(),
-                    role: WorkAppRelationRole::Executor,
-                    surface_id: None,
-                }],
+                assignment: None,
+                app_refs: Vec::new(),
             })
             .await
-            .expect("resolve app work");
+            .expect_err("surface must come from resolved immutable release");
 
-        assert!(response.created);
-        assert!(matches!(
-            response.work.primary_surface,
-            WorkSurfaceRef::ApplicationSurface {
-                ref product_app_id,
-                ref product_app_surface_id,
-                ref surface_id,
-            } if product_app_id == "builtin-remotion-live"
-                && product_app_surface_id == &app.app.primary_surface.as_ref().expect("primary surface").component_id
-                && surface_id.as_str() == app.app.primary_surface.as_ref().and_then(|surface| surface.surface_id.as_deref()).unwrap_or("primary")
-        ));
-        assert_eq!(response.work.runtime_instances.len(), 1);
-        assert_eq!(
-            response.work.runtime_instances[0].component_lock_digest,
-            app_ref.component_lock_digest
-        );
+        assert!(error
+            .to_string()
+            .contains("primary_surface must be supplied"));
+        assert!(error.to_string().contains(&app_ref.release_id));
     }
 
     #[tokio::test]
@@ -7393,8 +7422,8 @@ mod tests {
                 assignment: None,
                 title_state: None,
                 delegation: None,
-                        topic_work_id: None,
-        })
+                topic_work_id: None,
+            })
             .await
             .expect("create work");
 
@@ -7445,8 +7474,8 @@ mod tests {
                 assignment: Some(WorkAssignmentRef::agent("Runno")),
                 title_state: None,
                 delegation: None,
-                        topic_work_id: None,
-        })
+                topic_work_id: None,
+            })
             .await
             .expect("create work");
         let session_id = record
@@ -7498,8 +7527,8 @@ mod tests {
                 assignment: None,
                 title_state: None,
                 delegation: None,
-                        topic_work_id: None,
-        })
+                topic_work_id: None,
+            })
             .await
             .expect("create work");
         let linked = service
@@ -7548,8 +7577,8 @@ mod tests {
                 assignment: None,
                 title_state: None,
                 delegation: None,
-                        topic_work_id: None,
-        })
+                topic_work_id: None,
+            })
             .await
             .expect("create work");
         let linked = service
@@ -7626,8 +7655,8 @@ mod tests {
                 assignment: None,
                 title_state: None,
                 delegation: None,
-                        topic_work_id: None,
-        })
+                topic_work_id: None,
+            })
             .await
             .expect("create work");
 
@@ -7662,8 +7691,8 @@ mod tests {
                 assignment: None,
                 title_state: None,
                 delegation: None,
-                        topic_work_id: None,
-        })
+                topic_work_id: None,
+            })
             .await
             .expect("parent");
 
@@ -7814,7 +7843,7 @@ mod tests {
     #[tokio::test]
     async fn completed_app_builder_fix_turn_marks_bound_builder_issue_fixed() {
         let service = service();
-        let app = WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:test-lock");
+        let app = test_product_app_ref("product-app-1");
         let response = service
             .resolve_app_work(ResolveAppWorkRequest {
                 app: app.clone(),
@@ -7911,7 +7940,7 @@ mod tests {
     #[tokio::test]
     async fn builder_preview_observation_ready_resolves_runtime_issues() {
         let service = service();
-        let app = WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:test-lock");
+        let app = test_product_app_ref("product-app-1");
         let response = service
             .resolve_app_work(ResolveAppWorkRequest {
                 app,
@@ -8004,7 +8033,7 @@ mod tests {
     #[tokio::test]
     async fn failed_preview_observation_marks_active_issue_still_open() {
         let service = service();
-        let app = WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:test-lock");
+        let app = test_product_app_ref("product-app-1");
         let response = service
             .resolve_app_work(ResolveAppWorkRequest {
                 app,
@@ -8089,7 +8118,7 @@ mod tests {
     #[tokio::test]
     async fn blocked_preview_observation_without_runtime_identity_creates_preview_issue() {
         let service = service();
-        let app = WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:test-lock");
+        let app = test_product_app_ref("product-app-1");
         let response = service
             .resolve_app_work(ResolveAppWorkRequest {
                 app,
@@ -8175,7 +8204,7 @@ mod tests {
     #[tokio::test]
     async fn failed_preview_rerun_marks_previously_fixed_issue_regressed() {
         let service = service();
-        let app = WorkAppRef::product_app("product-app-1", "1.0.0", "sha256:test-lock");
+        let app = test_product_app_ref("product-app-1");
         let response = service
             .resolve_app_work(ResolveAppWorkRequest {
                 app,
@@ -8455,8 +8484,8 @@ mod tests {
                 assignment: Some(WorkAssignmentRef::agent("Runno")),
                 title_state: Some(WorkTitleState::template()),
                 delegation: None,
-                        topic_work_id: None,
-        })
+                topic_work_id: None,
+            })
             .await
             .expect("create work session");
 

@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 import { versionInjectionPlugin } from "./vite.config.version-plugin";
 
-const host = process.env.TAURI_DEV_HOST;
+const devHost = process.env.TAURI_DEV_HOST || "127.0.0.1";
 
 // https://vite.dev/config/
 export default defineConfig(({ mode, command }) => {
@@ -50,13 +50,15 @@ export default defineConfig(({ mode, command }) => {
   // 2. tauri expects a fixed port, fail if that port is not available
   server: {
     port: 5722,
-    // Tauri devUrl is fixed to http://localhost:5722.
+    // Keep one canonical loopback address for the page, HMR, and E2E. Using
+    // localhost allows separate IPv4 and IPv6 Vite servers to coexist on the
+    // same port and mix dependency graphs inside one WebView.
     // If Vite silently falls back to another port, the desktop webview stays blank.
     strictPort: true,
-    host: host || "localhost",
+    host: devHost,
     hmr: {
       protocol: "ws",
-      host: host || "localhost",
+      host: devHost,
       port: 5721,
     },
     // Allow access to workspace root for dependencies like monaco-editor
@@ -96,7 +98,10 @@ export default defineConfig(({ mode, command }) => {
   // top-level heavy dep here lets the pre-bundle finish before the very first
   // request and keeps cold-start under 5 seconds even on Windows.
   optimizeDeps: {
-    exclude: [],
+    // The desktop WebView must never switch React dependency graphs after a
+    // lazy Product App panel is opened. Keep discovery closed and explicitly
+    // pre-bundle the CJS/singleton and expensive dependencies used by the app.
+    noDiscovery: true,
     include: [
       'react',
       'react-dom',
@@ -109,19 +114,61 @@ export default defineConfig(({ mode, command }) => {
       'zustand/middleware',
       'zustand/middleware/immer',
       'zustand/react/shallow',
+      '@tanstack/react-virtual',
       '@tauri-apps/api/core',
       '@tauri-apps/api/event',
       '@tauri-apps/api/path',
       '@tauri-apps/api/window',
       '@tauri-apps/api/dpi',
+      '@tauri-apps/api/webview',
+      '@tauri-apps/plugin-autostart',
+      '@tauri-apps/plugin-dialog',
+      '@tauri-apps/plugin-fs',
+      '@tauri-apps/plugin-log',
+      '@tauri-apps/plugin-notification',
+      '@tauri-apps/plugin-opener',
+      '@tiptap/core',
+      '@tiptap/extension-details',
+      '@tiptap/extension-link',
+      '@tiptap/extension-placeholder',
+      '@tiptap/extension-task-item',
+      '@tiptap/extension-task-list',
+      '@tiptap/pm/state',
+      '@tiptap/pm/view',
+      '@tiptap/react',
+      '@tiptap/starter-kit',
+      '@xterm/addon-fit',
+      '@xterm/addon-web-links',
+      '@xterm/addon-webgl',
+      '@xterm/xterm',
       '@monaco-editor/react',
+      'monaco-editor',
+      'diff',
+      'html-to-image',
+      'immer',
+      'katex',
+      'morphdom',
+      'qrcode.react',
       'react-markdown',
+      'react-syntax-highlighter',
+      'react-syntax-highlighter/dist/esm/styles/prism',
+      'react-virtuoso',
       'remark-gfm',
       'remark-math',
+      'remark-parse',
+      'remark-rehype',
       'rehype-raw',
       'rehype-katex',
+      'rehype-sanitize',
+      'unified',
+      'unist-util-visit',
+      'yaml',
       'mermaid',
       'mermaid/dist/mermaid.esm.min.mjs',
+      'lucide-react',
+      'partial-json',
+      'path-browserify',
+      'prismjs',
     ],
   },
 

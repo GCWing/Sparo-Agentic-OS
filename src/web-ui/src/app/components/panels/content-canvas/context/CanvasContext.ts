@@ -82,18 +82,6 @@ export interface LayoutOperations {
   setActiveGroup: (groupId: EditorGroupId) => void;
 }
 
-/**
- * Mission control operations.
- */
-export interface MissionControlOperations {
-  /** Open mission control */
-  openMissionControl: () => void;
-  /** Close mission control */
-  closeMissionControl: () => void;
-  /** Toggle mission control */
-  toggleMissionControl: () => void;
-}
-
 // ==================== Context Value Types ====================
 
 export interface CanvasContextValue {
@@ -102,14 +90,12 @@ export interface CanvasContextValue {
   secondaryGroup: EditorGroupState;
   activeGroupId: EditorGroupId;
   layout: LayoutState;
-  isMissionControlOpen: boolean;
   workspacePath?: string;
   
   // Operations
   tabOps: TabOperations;
   dragOps: DragOperations;
   layoutOps: LayoutOperations;
-  missionControlOps: MissionControlOperations;
   
   // Panel interactions
   onInteraction?: (itemId: string, userInput: string) => Promise<void>;
@@ -174,14 +160,6 @@ export const useTabActions = () => {
 export const useDragState = () => {
   const { dragOps } = useCanvas();
   return dragOps;
-};
-
-/**
- * Get mission control state and operations only.
- */
-export const useMissionControl = () => {
-  const { isMissionControlOpen, missionControlOps } = useCanvas();
-  return { isOpen: isMissionControlOpen, ...missionControlOps };
 };
 
 export { CanvasContext };

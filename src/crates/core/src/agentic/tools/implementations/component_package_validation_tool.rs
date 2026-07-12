@@ -1,15 +1,13 @@
-//! ValidateComponentPackage tool - read-only shared Component package gate.
+//! ValidateComponentPackage tool - read-only app-private Component package gate.
 
 use std::path::{Path, PathBuf};
 
 use crate::agentic::app_builder_context::AppBuilderSubject;
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
-use crate::agentic::tools::restrictions::is_local_path_within_root;
 use crate::app_platform::{
-    ComponentKind, ComponentPackageSource, ComponentSource, ProductAppResolver,
+    AppDefinition, ComponentDefinition, ComponentKind, ComponentPackageSource, ComponentSource,
 };
 use crate::error::{CoreError, CoreResult};
-use crate::infrastructure::try_get_path_manager_arc;
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use tokio::fs;
@@ -35,9 +33,9 @@ impl Tool for ValidateComponentPackageTool {
     }
 
     async fn description(&self) -> CoreResult<String> {
-        Ok(r#"Validate a shared Component package without modifying it. Checks component.json, shared component identity, contract file presence, capabilities, permissions, dependency boundary, implementation reference, consumer compatibility evidence, and release gate placeholders.
+        Ok(r#"Validate an app-private Component inside the Product App package of the current Builder Draft without modifying it. Checks component.json, ownership, contract file presence, capabilities, permissions, dependency boundary, implementation reference, runtime evidence placeholders, and release gate placeholders.
 
-Input: path, or component_id plus kind and optional version. In a bound AppBuilder component session, input may be empty and defaults to the current bound Component package. Use this after meaningful Component package edits and before a Product App consumes or releases the component. This is a package contract gate; Product App consumer compatibility and eval evidence remain separate gates."#
+Input requires component_id and kind. Arbitrary paths, version locators, installed Releases, and shared Component packages are not AppBuilder subjects. Use this after meaningful app-private Component edits and before publishing the Draft. Runtime and eval evidence remain separate gates."#
             .to_string())
     }
 
@@ -45,26 +43,19 @@ Input: path, or component_id plus kind and optional version. In a bound AppBuild
         json!({
             "type": "object",
             "additionalProperties": false,
+            "required": ["component_id", "kind"],
             "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Component package directory containing component.json."
-                },
                 "component_id": {
                     "type": "string",
-                    "description": "Shared Component id. Used with kind and version when path is omitted."
+                    "description": "App-private Component id inside the current Builder Draft."
                 },
                 "kind": {
                     "type": "string",
                     "enum": ["surface", "agent", "bridge", "runtime", "tool", "skill", "surfaces", "agents", "bridges", "runtimes", "tools", "skills"],
                     "description": "Component kind or component kind path segment."
-                },
-                "version": {
-                    "type": "string",
-                    "description": "Component package version. Defaults to 1.0.0 when component_id is used outside a bound session."
                 }
             },
-            "description": "Provide path or component_id/kind for standalone validation. Leave empty in a bound AppBuilder component session to validate the current Component package."
+            "description": "Select an app-private Component from the Product App package in the bound Builder Draft."
         })
     }
 
@@ -81,10 +72,13 @@ Input: path, or component_id plus kind and optional version. In a bound AppBuild
         input: &Value,
         context: &ToolUseContext,
     ) -> CoreResult<Vec<ToolResult>> {
-        let path_manager = try_get_path_manager_arc()
-            .map_err(|e| CoreError::tool(format!("PathManager not initialized: {}", e)))?;
-        let package_dir = package_dir_from_input(input, &path_manager, context)?;
-        let validation = validate_component_package(&package_dir).await?;
+        let package_dir = package_dir_from_input(input, context)?;
+        let draft_root = &context
+            .app_builder
+            .as_ref()
+            .expect("package locator proved a bound Builder Draft")
+            .package_root;
+        let validation = validate_component_package(&package_dir, draft_root).await?;
 
         Ok(vec![ToolResult::Result {
             data: validation.data,
@@ -99,11 +93,13 @@ struct ComponentPackageValidation {
     result_for_assistant: String,
 }
 
-async fn validate_component_package(package_dir: &Path) -> CoreResult<ComponentPackageValidation> {
-    let package = ProductAppResolver::read_component_package(package_dir)
-        .await
-        .map_err(|e| CoreError::tool(format!("Failed to read Component package: {}", e)))?;
-    let component = package.component;
+async fn validate_component_package(
+    package_dir: &Path,
+    draft_root: &Path,
+) -> CoreResult<ComponentPackageValidation> {
+    let app: AppDefinition = read_package_json(&draft_root.join("app.json"), "Product App").await?;
+    let component: ComponentDefinition =
+        read_package_json(&package_dir.join("component.json"), "Component").await?;
     let component_id = component.id.clone();
     let component_kind = component.kind.path_segment();
     let kind_label = component_kind_name(component.kind);
@@ -120,21 +116,24 @@ async fn validate_component_package(package_dir: &Path) -> CoreResult<ComponentP
         format!("Read Component package {}@{}.", component_id, version),
     );
 
+    let owner_matches_app = component
+        .owner_app
+        .as_ref()
+        .is_some_and(|owner| owner.app_id == app.id && owner.app_version == app.version);
     push_check(
         &mut checks,
         "componentSchema",
-        if component.package_source == ComponentPackageSource::Shared
-            && component.owner_app.is_none()
+        if component.package_source == ComponentPackageSource::AppPrivate
+            && component.version.is_none()
+            && owner_matches_app
         {
             "passed"
         } else {
             "failed"
         },
         format!(
-            "kind={}, packageSource={:?}, ownerApp={}",
-            kind_label,
-            component.package_source,
-            component.owner_app.is_some()
+            "kind={}, packageSource={:?}, ownerMatchesApp={}",
+            kind_label, component.package_source, owner_matches_app
         ),
     );
 
@@ -214,7 +213,7 @@ async fn validate_component_package(package_dir: &Path) -> CoreResult<ComponentP
             )
         } else {
             format!(
-                "Shared Component packages cannot depend on app-private components: {}",
+                "App-private Components may depend only on shared Components; invalid dependencies: {}",
                 invalid_dependencies.join(", ")
             )
         },
@@ -302,71 +301,67 @@ async fn validate_component_package(package_dir: &Path) -> CoreResult<ComponentP
     })
 }
 
-fn package_dir_from_input(
-    input: &Value,
-    path_manager: &crate::infrastructure::PathManager,
-    context: &ToolUseContext,
-) -> CoreResult<PathBuf> {
-    if let Some(app_builder) = context.app_builder.as_ref() {
-        let AppBuilderSubject::Component {
-            component_id: bound_component_id,
-            component_kind: bound_component_kind,
-            version: bound_version,
-            ..
-        } = &app_builder.subject
-        else {
-            return Err(CoreError::validation(
-                "ValidateComponentPackage requires a bound Component subject".to_string(),
-            ));
-        };
+async fn read_package_json<T>(path: &Path, label: &str) -> CoreResult<T>
+where
+    T: for<'de> serde::Deserialize<'de>,
+{
+    let bytes = fs::read(path)
+        .await
+        .map_err(|error| CoreError::tool(format!("Failed to read {label} package: {error}")))?;
+    serde_json::from_slice(&bytes)
+        .map_err(|error| CoreError::tool(format!("Failed to parse {label} package: {error}")))
+}
 
-        if let Some(path) = optional_string(input, "path").filter(|value| !value.trim().is_empty())
-        {
-            let package_dir = PathBuf::from(path);
-            if !is_local_path_within_root(&package_dir, &app_builder.package_root)? {
-                return Err(CoreError::validation(format!(
-                    "ValidateComponentPackage is bound to package root '{}' and cannot validate '{}'",
-                    app_builder.package_root.display(),
-                    package_dir.display()
-                )));
-            }
-            return Ok(package_dir);
-        }
-
-        if let Some(component_id) = optional_component_id(input) {
-            let requested_kind = optional_component_kind_segment(input)?;
-            let requested_version = optional_string(input, "version");
-            if component_id != *bound_component_id
-                || requested_kind
-                    .as_deref()
-                    .is_some_and(|kind| kind != bound_component_kind)
-                || requested_version
-                    .as_deref()
-                    .is_some_and(|version| version != bound_version)
-            {
-                return Err(CoreError::validation(format!(
-                    "ValidateComponentPackage is bound to {}/{}@{} and cannot validate {}/{}@{}",
-                    bound_component_kind,
-                    bound_component_id,
-                    bound_version,
-                    requested_kind.unwrap_or_else(|| bound_component_kind.clone()),
-                    component_id,
-                    requested_version.unwrap_or_else(|| bound_version.clone())
-                )));
-            }
-        }
-
-        return Ok(app_builder.package_root.clone());
-    }
-
-    if let Some(path) = optional_string(input, "path").filter(|value| !value.trim().is_empty()) {
-        return Ok(PathBuf::from(path));
-    }
-
+fn package_dir_from_input(input: &Value, context: &ToolUseContext) -> CoreResult<PathBuf> {
+    let Some(app_builder) = context.app_builder.as_ref() else {
+        return Err(CoreError::validation(
+            "ValidateComponentPackage requires a bound Builder Draft",
+        ));
+    };
+    let AppBuilderSubject::BuilderDraft { .. } = &app_builder.subject;
     let component_id = required_component_id(input)?;
+    validate_component_id(&component_id)?;
     let component_kind = required_component_kind_segment(input)?;
-    let version = optional_string(input, "version").unwrap_or_else(|| "1.0.0".to_string());
-    Ok(path_manager.system_component_version_dir(&component_kind, &component_id, &version))
+    let components_root = app_builder.package_root.join("components");
+    let package_dir = components_root.join(component_kind).join(component_id);
+    if !package_dir.is_dir() {
+        return Err(CoreError::validation(format!(
+            "The selected app-private Component does not exist in the current Builder Draft: {}",
+            package_dir.display()
+        )));
+    }
+    let canonical_components_root = dunce::canonicalize(&components_root).map_err(|error| {
+        CoreError::validation(format!(
+            "Failed to resolve Builder Draft component root '{}': {error}",
+            components_root.display()
+        ))
+    })?;
+    let canonical_package_dir = dunce::canonicalize(&package_dir).map_err(|error| {
+        CoreError::validation(format!(
+            "Failed to resolve app-private Component '{}': {error}",
+            package_dir.display()
+        ))
+    })?;
+    if !canonical_package_dir.starts_with(&canonical_components_root) {
+        return Err(CoreError::validation(
+            "App-private Component path escapes the current Builder Draft",
+        ));
+    }
+    Ok(canonical_package_dir)
+}
+
+fn validate_component_id(component_id: &str) -> CoreResult<()> {
+    if component_id.is_empty()
+        || matches!(component_id, "." | "..")
+        || !component_id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
+    {
+        return Err(CoreError::validation(
+            "component_id must be a non-empty package id without path separators",
+        ));
+    }
+    Ok(())
 }
 
 fn push_check(checks: &mut Vec<Value>, id: &str, status: &str, detail: String) {
@@ -447,20 +442,16 @@ fn optional_string(input: &Value, field: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agentic::app_builder_context::{AppBuilderExecutionContext, AppBuilderSubjectScope};
+    use crate::agentic::app_builder_context::AppBuilderSubjectScope;
     use crate::agentic::tools::ToolRuntimeRestrictions;
     use crate::app_platform::{
-        create_component_package, ComponentKind, CreateComponentPackageDraft,
+        create_product_app_package_with_options, AppSurfaceMode, CreateProductAppPackageDraft,
+        CreateProductAppPackageOptions,
     };
     use crate::infrastructure::PathManager;
     use std::collections::HashMap;
 
-    fn bound_component_context(
-        package_root: PathBuf,
-        component_id: &str,
-        component_kind: &str,
-        version: &str,
-    ) -> ToolUseContext {
+    fn draft_context(package_root: PathBuf) -> ToolUseContext {
         ToolUseContext {
             tool_call_id: None,
             agent_type: Some("AppBuilder".to_string()),
@@ -468,20 +459,20 @@ mod tests {
             dialog_turn_id: None,
             workspace: None,
             custom_data: HashMap::new(),
-            app_builder: Some(AppBuilderExecutionContext {
-                subject: AppBuilderSubject::Component {
-                    component_id: component_id.to_string(),
-                    component_kind: component_kind.to_string(),
-                    version: version.to_string(),
-                    title: Some("Shared Agent".to_string()),
-                    scope: AppBuilderSubjectScope::System,
+            app_builder: Some(
+                crate::agentic::app_builder_context::AppBuilderExecutionContext {
+                    subject: AppBuilderSubject::BuilderDraft {
+                        draft_id: "draft_0123456789abcdef0123456789abcdef".to_string(),
+                        title: Some("Current Draft".to_string()),
+                        scope: AppBuilderSubjectScope::System,
+                    },
+                    package_root: package_root.clone(),
+                    allowed_write_roots: vec![package_root],
+                    work_id: None,
+                    runtime_instance_id: None,
+                    preview_issue_id: None,
                 },
-                package_root: package_root.clone(),
-                allowed_write_roots: vec![package_root],
-                work_id: None,
-                runtime_instance_id: None,
-                preview_issue_id: None,
-            }),
+            ),
             computer_use_host: None,
             cancellation_token: None,
             runtime_tool_restrictions: ToolRuntimeRestrictions::default(),
@@ -492,183 +483,89 @@ mod tests {
     }
 
     fn unbound_context() -> ToolUseContext {
-        ToolUseContext {
-            tool_call_id: None,
-            agent_type: Some("AppBuilder".to_string()),
-            session_id: Some("session-1".to_string()),
-            dialog_turn_id: None,
-            workspace: None,
-            custom_data: HashMap::new(),
-            app_builder: None,
-            computer_use_host: None,
-            cancellation_token: None,
-            runtime_tool_restrictions: ToolRuntimeRestrictions::default(),
-            workspace_services: None,
-            workspace_mount: None,
-            agentic: None,
-        }
+        let mut context = draft_context(PathBuf::new());
+        context.app_builder = None;
+        context
     }
 
     #[test]
-    fn validate_component_package_defaults_to_bound_package_root() {
-        let base = test_root("default-bound");
-        let package_root = base
-            .join("components")
-            .join("agents")
-            .join("shared-agent")
-            .join("1.0.0");
-        std::fs::create_dir_all(&package_root).expect("create package root");
-        let path_manager = PathManager::with_user_root_for_tests(base.clone());
-        let context =
-            bound_component_context(package_root.clone(), "shared-agent", "agents", "1.0.0");
+    fn component_locator_is_always_relative_to_the_bound_builder_draft() {
+        let root = std::env::temp_dir().join(format!(
+            "sparo-private-component-locator-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let component_root = root.join("components").join("agents").join("current-agent");
+        std::fs::create_dir_all(&component_root).expect("create component root");
+        let resolved = package_dir_from_input(
+            &json!({ "component_id": "current-agent", "kind": "agent" }),
+            &draft_context(root.clone()),
+        )
+        .expect("resolve component");
 
-        let resolved = package_dir_from_input(&json!({}), &path_manager, &context)
-            .expect("bound default package root");
-
-        assert_eq!(resolved, package_root);
-        let _ = std::fs::remove_dir_all(base);
-    }
-
-    #[test]
-    fn validate_component_package_rejects_non_component_bound_subject() {
-        let base = test_root("wrong-subject");
-        let package_root = base.join("apps").join("current-app").join("1.0.0");
-        std::fs::create_dir_all(&package_root).expect("create package root");
-        let path_manager = PathManager::with_user_root_for_tests(base.clone());
-        let mut context =
-            bound_component_context(package_root.clone(), "shared-agent", "agents", "1.0.0");
-        context.app_builder.as_mut().expect("context").subject = AppBuilderSubject::ProductApp {
-            app_id: "current-app".to_string(),
-            version: "1.0.0".to_string(),
-            title: Some("Current App".to_string()),
-            scope: AppBuilderSubjectScope::System,
-        };
-
-        let denied = package_dir_from_input(&json!({}), &path_manager, &context);
-
-        assert!(denied.is_err());
-        let _ = std::fs::remove_dir_all(base);
-    }
-
-    #[test]
-    fn validate_component_package_rejects_mismatched_bound_component() {
-        let base = test_root("mismatched-component");
-        let package_root = base
-            .join("components")
-            .join("agents")
-            .join("shared-agent")
-            .join("1.0.0");
-        std::fs::create_dir_all(&package_root).expect("create package root");
-        let path_manager = PathManager::with_user_root_for_tests(base.clone());
-        let context = bound_component_context(package_root, "shared-agent", "agents", "1.0.0");
-
-        let denied = package_dir_from_input(
-            &json!({
-                "component_id": "other-agent",
-                "kind": "agent",
-                "version": "1.0.0"
-            }),
-            &path_manager,
-            &context,
+        assert_eq!(
+            resolved,
+            dunce::canonicalize(component_root).expect("canonical component")
         );
-
-        assert!(denied.is_err());
-        let _ = std::fs::remove_dir_all(base);
-    }
-
-    #[test]
-    fn validate_component_package_rejects_path_outside_bound_root() {
-        let base = test_root("outside-path");
-        let package_root = base
-            .join("components")
-            .join("agents")
-            .join("shared-agent")
-            .join("1.0.0");
-        let sibling_root = base
-            .join("components")
-            .join("agents")
-            .join("other-agent")
-            .join("1.0.0");
-        std::fs::create_dir_all(&package_root).expect("create package root");
-        std::fs::create_dir_all(&sibling_root).expect("create sibling root");
-        let path_manager = PathManager::with_user_root_for_tests(base.clone());
-        let context = bound_component_context(package_root, "shared-agent", "agents", "1.0.0");
-
-        let denied = package_dir_from_input(
-            &json!({ "path": sibling_root.to_string_lossy() }),
-            &path_manager,
-            &context,
-        );
-
-        assert!(denied.is_err());
-        let _ = std::fs::remove_dir_all(base);
-    }
-
-    #[test]
-    fn validate_component_package_standalone_requires_kind_with_component_id() {
-        let base = test_root("standalone-kind-required");
-        let path_manager = PathManager::with_user_root_for_tests(base.clone());
-        let context = unbound_context();
-
-        let denied = package_dir_from_input(
-            &json!({
-                "component_id": "shared-agent",
-            }),
-            &path_manager,
-            &context,
-        );
-
-        assert!(denied.is_err());
-        let _ = std::fs::remove_dir_all(base);
+        assert!(package_dir_from_input(
+            &json!({ "component_id": "../outside", "kind": "agent" }),
+            &draft_context(root.clone()),
+        )
+        .is_err());
+        assert!(package_dir_from_input(
+            &json!({ "component_id": "current-agent", "kind": "agent" }),
+            &unbound_context(),
+        )
+        .is_err());
+        let _ = std::fs::remove_dir_all(root);
     }
 
     #[tokio::test]
-    async fn validate_component_package_reads_contract_gate() {
-        let base = test_root("contract-gate");
+    async fn validates_an_app_private_component_from_the_builder_draft() {
+        let base = std::env::temp_dir().join(format!(
+            "sparo-private-component-validation-{}",
+            uuid::Uuid::new_v4()
+        ));
         let path_manager = PathManager::with_user_root_for_tests(base.clone());
-        let written = create_component_package(
+        let written = create_product_app_package_with_options(
             &path_manager,
-            CreateComponentPackageDraft {
-                component_id: "shared-agent".to_string(),
-                kind: ComponentKind::Agent,
-                name: "Shared Agent".to_string(),
-                description: "Reusable agent contract".to_string(),
+            CreateProductAppPackageDraft {
+                app_id: "current-app".to_string(),
+                name: "Current App".to_string(),
+                description: "A test Product App.".to_string(),
+                authors: Vec::new(),
+                i18n: Default::default(),
                 version: "1.0.0".to_string(),
-                implementation_ref: Some("agent://shared-agent".to_string()),
+                agent_type: "Runno".to_string(),
+                category: "test".to_string(),
+                tags: Vec::new(),
+                primary_surface_mode: AppSurfaceMode::ImmersivePrimary,
+                work_multiplicity: Default::default(),
+                truth_source: None,
+            },
+            CreateProductAppPackageOptions {
+                include_agent: Some(true),
+                include_surface: Some(true),
             },
         )
         .await
-        .expect("create component package");
-
-        let validation = validate_component_package(&written.package_dir)
+        .expect("create Product App package");
+        let package_root = written.package_dir;
+        let component_root = package_dir_from_input(
+            &json!({ "component_id": "current-app-agent", "kind": "agent" }),
+            &draft_context(package_root.clone()),
+        )
+        .expect("resolve app-private component");
+        let result = validate_component_package(&component_root, &package_root)
             .await
-            .expect("validate component package");
+            .expect("validate app-private component");
 
-        assert_eq!(
-            validation.data.get("componentKind").and_then(Value::as_str),
-            Some("agents")
-        );
-        assert_eq!(
-            validation
-                .data
-                .pointer("/checks/2/id")
-                .and_then(Value::as_str),
-            Some("componentContract")
-        );
-        assert_eq!(
-            validation
-                .data
-                .pointer("/summary/failed")
-                .and_then(Value::as_u64),
-            Some(0)
-        );
+        let schema = result.data["checks"]
+            .as_array()
+            .expect("checks")
+            .iter()
+            .find(|check| check["id"] == "componentSchema")
+            .expect("component schema");
+        assert_eq!(schema["status"], "passed", "{}", result.data);
         let _ = std::fs::remove_dir_all(base);
-    }
-
-    fn test_root(name: &str) -> PathBuf {
-        std::env::temp_dir().join(format!(
-            "sparo-validate-component-package-{name}-{}",
-            uuid::Uuid::new_v4()
-        ))
     }
 }

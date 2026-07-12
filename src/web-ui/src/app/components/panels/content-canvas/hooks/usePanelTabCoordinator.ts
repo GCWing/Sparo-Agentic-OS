@@ -9,12 +9,17 @@
  * 4. Ensure state consistency and avoid race conditions
  */
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { useCanvasStore } from '../stores';
 import { useAgentCanvasStore } from '../stores';
 import { useApp } from '@/app/hooks/useApp';
 import { useSessionProfile } from '@/app/session-profiles';
 import { useActiveSession } from '@/flow_chat/store/modernFlowChatStore';
+import { isSessionTranscriptLoading } from '@/flow_chat/domain/sessionLoadPhase';
+import {
+  selectFocusedSessionId,
+  useWorkspaceSurfaceStore,
+} from '@/app/navigation/workspaceSurfaceStore';
 import { useProductAppRuntimeStore } from '@/app/scenes/apps/product-app-runtime/productAppRuntimeStore';
 import { useWorkStore } from '@/app/agentic-os/work/data/workStore';
 import {
@@ -82,6 +87,7 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
   const { state, toggleRightPanel, updateRightPanelWidth } = useApp();
   const { profile } = useSessionProfile();
   const activeSession = useActiveSession();
+  const focusedSessionId = useWorkspaceSurfaceStore(selectFocusedSessionId);
   const works = useWorkStore((store) => store.works);
 
   // Use refs to avoid stale closures and add guards
@@ -115,9 +121,12 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
   const activeSessionAppScope =
     agentSessionBinding?.scope ??
     workSessionScopeToAppScope(activeSession?.sessionId, works);
-  const builderAppId = agentSessionBinding?.subject.kind === 'product-app'
-    ? agentSessionBinding.subject.id
-    : storeBuilderAppId;
+  const subjectData = agentSessionBinding?.surface?.data;
+  const boundDraftAppId = agentSessionBinding?.subject.kind === 'builder-draft' &&
+    subjectData && typeof subjectData.appId === 'string'
+    ? subjectData.appId
+    : undefined;
+  const builderAppId = boundDraftAppId ?? storeBuilderAppId;
 
   /**
    * Expand right panel (set width first, then expand to avoid flicker).
@@ -195,6 +204,10 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
     if (!isInitializedRef.current) return;
     if (!activeSession?.sessionId) return;
     if (!profile.auxTabs.autoOpen) return;
+    // Historical chat is the foreground resume path. Heavy sidecars (Product
+    // Apps, Excel, App Builder) start only after the transcript has committed,
+    // so iframe/runtime boot cannot starve the left conversation's first paint.
+    if (isSessionTranscriptLoading(activeSession)) return;
 
     // Map profile id -> tab title. Keeps the profile free of i18n imports.
     const extra: Record<string, unknown> = {
@@ -259,6 +272,7 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
     expandPanel();
   }, [
     activeSession?.customMetadata,
+    activeSession?.loadPhase,
     activeSession?.sessionId,
     addTab,
     expandPanel,
@@ -296,9 +310,8 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
     lastCleanedProfileIdRef.current = profile.id;
   }, [profile.id, profile.auxTabs.exclusiveTabTypes]);
 
-  useEffect(() => {
-    if (!isInitializedRef.current) return;
-    if (!activeSession?.sessionId) return;
+  useLayoutEffect(() => {
+    if (!focusedSessionId) return;
 
     const productAppRuntimeTabTypes = ['product-app-runtime'];
     const currentOwnedTypes = profile.auxTabs.exclusiveTabTypes || [];
@@ -318,7 +331,7 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
           if (!productAppRuntimeTabTypes.includes(t.content.type)) return false;
           const bound = t.content.metadata?.boundSessionId;
           const ownedByCurrentProfile = currentOwnedTypes.includes(t.content.type);
-          return !ownedByCurrentProfile || (typeof bound === 'string' && bound !== activeSession.sessionId);
+          return !ownedByCurrentProfile || (typeof bound === 'string' && bound !== focusedSessionId);
         });
         if (tab) {
           store.closeTab(tab.id, groupId, { forceRemove: true });
@@ -328,7 +341,7 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
       }
       if (!closedOne) break;
     }
-  }, [activeSession?.sessionId, profile]);
+  }, [focusedSessionId, profile]);
 
   /**
    * Non-AppBuilder sessions: close any app-builder tabs that don't belong

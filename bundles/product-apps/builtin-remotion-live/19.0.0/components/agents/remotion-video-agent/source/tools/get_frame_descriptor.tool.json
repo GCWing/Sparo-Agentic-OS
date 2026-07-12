@@ -1,0 +1,24 @@
+{
+  "name": "get_frame_descriptor",
+  "description": "Read the non-visual composition descriptor at an integer frame. Committed visual selection context comes from the open Remotion Live Player.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["compositionId", "frame", "expectedProjectRevision", "expectedDescriptorRevision"],
+    "properties": {
+      "workspacePath": { "type": "string" },
+      "entryPoint": { "type": "string" },
+      "compositionId": { "type": "string" },
+      "frame": { "type": "integer" },
+      "expectedProjectRevision": { "type": "string", "minLength": 1 },
+      "expectedDescriptorRevision": { "type": "string", "minLength": 1 },
+      "inputProps": { "type": "object" }
+    }
+  },
+  "runtime": "javascript",
+  "entry": "tools/get_frame_descriptor.js",
+  "readonly": true,
+  "permissions": {},
+  "timeoutMs": 30000,
+  "maxOutputBytes": 80000
+}

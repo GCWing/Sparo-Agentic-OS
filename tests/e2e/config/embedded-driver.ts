@@ -396,6 +396,13 @@ async function startSparoApp(): Promise<void> {
   if (isDevAppMode()) {
     stopSparoApp();
 
+    if (await isPortOpen(DEV_SERVER_PORT, [DEV_SERVER_HOST, '::1'])) {
+      throw new Error(
+        `Dev E2E requires exclusive ownership of ${DEV_SERVER_HOST}:${DEV_SERVER_PORT}. ` +
+        'Stop the existing Vite or desktop dev process before starting the run.',
+      );
+    }
+
     console.log(`Starting Sparo OS dev mode with embedded WebDriver on port ${DRIVER_PORT}`);
     const env = {
       ...process.env,

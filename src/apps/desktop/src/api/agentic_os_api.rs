@@ -100,10 +100,7 @@ impl WorkLifecycleHookHandler for ProductRuntimeWorkerLifecycleHook {
                             Self::worker_id(context.work.id.as_str(), instance.id.as_str());
                         let mut metadata = BTreeMap::new();
                         metadata.insert("runtime_instance_id".to_string(), instance.id.clone());
-                        metadata.insert(
-                            "product_app_id".to_string(),
-                            instance.product_app_id.clone(),
-                        );
+                        metadata.insert("product_app_id".to_string(), instance.app_id.clone());
                         metadata.insert(
                             "product_app_surface_id".to_string(),
                             instance.product_app_surface_id.clone(),
@@ -211,10 +208,13 @@ pub async fn agentic_os_get_work_execution_graph(
 
 #[tauri::command]
 pub async fn agentic_os_create_work(
+    state: State<'_, AppState>,
     coordinator: State<'_, Arc<ConversationCoordinator>>,
     scheduler: State<'_, Arc<DialogScheduler>>,
-    request: agentic_os_command::AgenticOsCreateWorkRequest,
+    mut request: agentic_os_command::AgenticOsCreateWorkRequest,
 ) -> Result<agentic_os_command::AgenticOsCreateWorkResponse, String> {
+    crate::api::app_release_runtime::authorize_create_work_request(&state, &mut request.work)
+        .await?;
     let service = work_service(&coordinator, &scheduler)?;
     agentic_os_command::create_work_with_service(&service, request)
         .await
@@ -223,10 +223,16 @@ pub async fn agentic_os_create_work(
 
 #[tauri::command]
 pub async fn agentic_os_resolve_app_work(
+    state: State<'_, AppState>,
     coordinator: State<'_, Arc<ConversationCoordinator>>,
     scheduler: State<'_, Arc<DialogScheduler>>,
-    request: agentic_os_command::AgenticOsResolveAppWorkRequest,
+    mut request: agentic_os_command::AgenticOsResolveAppWorkRequest,
 ) -> Result<agentic_os_command::AgenticOsResolveAppWorkResponse, String> {
+    crate::api::app_release_runtime::authorize_resolve_app_work_request(
+        &state,
+        &mut request.app_work,
+    )
+    .await?;
     let service = work_service(&coordinator, &scheduler)?;
     agentic_os_command::resolve_app_work_with_service(&service, request)
         .await
@@ -247,10 +253,13 @@ pub async fn agentic_os_resolve_component_work(
 
 #[tauri::command]
 pub async fn agentic_os_start_work(
+    state: State<'_, AppState>,
     coordinator: State<'_, Arc<ConversationCoordinator>>,
     scheduler: State<'_, Arc<DialogScheduler>>,
-    request: agentic_os_command::AgenticOsStartWorkRequest,
+    mut request: agentic_os_command::AgenticOsStartWorkRequest,
 ) -> Result<agentic_os_command::AgenticOsStartWorkResponse, String> {
+    crate::api::app_release_runtime::authorize_start_work_request(&state, &mut request.start)
+        .await?;
     let service = work_service(&coordinator, &scheduler)?;
     agentic_os_command::start_work_with_service(&service, request)
         .await

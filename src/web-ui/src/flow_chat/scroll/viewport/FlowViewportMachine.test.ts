@@ -5,155 +5,171 @@ import {
   type ViewportContext,
   type ViewportMode,
 } from './FlowViewportMachine';
+import type { LatestTurnLayoutOwner } from './FlowViewportGeometry';
+
+const owner: LatestTurnLayoutOwner = {
+  sessionId: 'session-b',
+  turnId: 'turn-b3',
+  epoch: 2,
+};
+const nextOwner: LatestTurnLayoutOwner = {
+  sessionId: 'session-b',
+  turnId: 'turn-b4',
+  epoch: 3,
+};
 
 const streamingCtx: ViewportContext = {
   isStreaming: true,
-  latestTurnId: 'turn-2',
-  stickyPinTurnId: null,
+  latestTurnId: owner.turnId,
+  latestTurnLayoutOwner: owner,
 };
-const idleCtx: ViewportContext = {
-  isStreaming: false,
-  latestTurnId: 'turn-2',
-  stickyPinTurnId: null,
-};
-const idleWithFloorCtx: ViewportContext = {
-  isStreaming: false,
-  latestTurnId: 'turn-2',
-  stickyPinTurnId: 'turn-2',
-};
+const idleCtx: ViewportContext = { ...streamingCtx, isStreaming: false };
 
-const pinnedLatest: ViewportMode = { kind: 'pinned-latest', turnId: 'turn-2' };
+const pinnedLatest: ViewportMode = { kind: 'pinned-latest', owner };
 const following: ViewportMode = { kind: 'following' };
 const finalizing: ViewportMode = { kind: 'finalizing', sinceMs: 1000 };
-const stickyNavigating: ViewportMode = {
+const latestNavigation: ViewportMode = {
   kind: 'navigating',
-  target: { type: 'turn-pin-top', turnId: 'turn-2', pinMode: 'sticky-latest', behavior: 'auto' },
+  target: { type: 'latest-turn-top', owner, behavior: 'auto' },
 };
 
 describe('FlowViewportMachine', () => {
-  it('routes a sent turn into sticky pin navigation', () => {
-    const next = reduceViewportMode(READING_MODE, { type: 'TURN_SENT', turnId: 'turn-2' }, streamingCtx);
-    expect(next).toEqual(stickyNavigating);
+  it('routes a submitted turn into its owned latest-layout navigation', () => {
+    expect(
+      reduceViewportMode(READING_MODE, { type: 'TURN_SUBMITTED', owner }, streamingCtx),
+    ).toEqual(latestNavigation);
   });
 
-  it('keeps TURN_SENT idempotent for the already pinned turn', () => {
+  it('keeps an activation idempotent only for the same owner epoch', () => {
     expect(
-      reduceViewportMode(pinnedLatest, { type: 'TURN_SENT', turnId: 'turn-2' }, streamingCtx),
+      reduceViewportMode(pinnedLatest, { type: 'TURN_SUBMITTED', owner }, streamingCtx),
     ).toBe(pinnedLatest);
     expect(
-      reduceViewportMode(stickyNavigating, { type: 'TURN_SENT', turnId: 'turn-2' }, streamingCtx),
-    ).toBe(stickyNavigating);
-  });
+      reduceViewportMode(latestNavigation, { type: 'TURN_SUBMITTED', owner }, streamingCtx),
+    ).toBe(latestNavigation);
 
-  it('treats a sticky NAVIGATE to the already pinned turn as a no-op', () => {
     expect(
-      reduceViewportMode(pinnedLatest, {
-        type: 'NAVIGATE',
-        target: { type: 'turn-pin-top', turnId: 'turn-2', pinMode: 'sticky-latest', behavior: 'smooth' },
-      }, streamingCtx),
-    ).toBe(pinnedLatest);
+      reduceViewportMode(pinnedLatest, { type: 'TURN_SUBMITTED', owner: nextOwner }, {
+        ...streamingCtx,
+        latestTurnId: nextOwner.turnId,
+        latestTurnLayoutOwner: nextOwner,
+      }),
+    ).toEqual({
+      kind: 'navigating',
+      target: { type: 'latest-turn-top', owner: nextOwner, behavior: 'auto' },
+    });
   });
 
-  it('settles sticky pin navigation of the latest turn into pinned-latest', () => {
-    const next = reduceViewportMode(
-      stickyNavigating,
-      { type: 'NAVIGATION_SETTLED', nowMs: 5 },
-      streamingCtx,
-    );
-    expect(next).toEqual(pinnedLatest);
+  it('settles latest navigation only for the current owner epoch', () => {
+    expect(
+      reduceViewportMode(
+        latestNavigation,
+        { type: 'NAVIGATION_SETTLED', nowMs: 5, ownerEpoch: owner.epoch },
+        idleCtx,
+      ),
+    ).toEqual(pinnedLatest);
+
+    expect(
+      reduceViewportMode(
+        latestNavigation,
+        { type: 'NAVIGATION_SETTLED', nowMs: 5, ownerEpoch: owner.epoch - 1 },
+        idleCtx,
+      ),
+    ).toBe(latestNavigation);
   });
 
-  it('settles transient pin navigation into reading', () => {
+  it('settles an older-turn navigation into reading without changing ownership', () => {
     const navigating: ViewportMode = {
       kind: 'navigating',
-      target: { type: 'turn-pin-top', turnId: 'turn-1', pinMode: 'transient', behavior: 'smooth' },
+      target: { type: 'turn-top', turnId: 'turn-b1', behavior: 'smooth' },
     };
     expect(
-      reduceViewportMode(navigating, { type: 'NAVIGATION_SETTLED', nowMs: 5 }, streamingCtx),
+      reduceViewportMode(navigating, { type: 'NAVIGATION_SETTLED', nowMs: 5 }, idleCtx),
     ).toEqual(READING_MODE);
   });
 
-  it('activates follow once the pin floor is consumed while streaming', () => {
+  it('restores latest at its layout boundary and follows streaming output end', () => {
+    expect(
+      reduceViewportMode(READING_MODE, { type: 'USER_REACHED_LATEST_LAYOUT' }, idleCtx),
+    ).toEqual(latestNavigation);
+    expect(
+      reduceViewportMode(READING_MODE, { type: 'USER_REACHED_OUTPUT_END' }, streamingCtx),
+    ).toEqual(following);
+  });
+
+  it('does not restore a layout whose owner was superseded', () => {
+    expect(
+      reduceViewportMode(READING_MODE, { type: 'USER_REACHED_LATEST_LAYOUT' }, {
+        ...idleCtx,
+        latestTurnId: nextOwner.turnId,
+      }),
+    ).toBe(READING_MODE);
+  });
+
+  it('enters an older explicit session target while retaining latest ownership in context', () => {
+    expect(
+      reduceViewportMode(following, {
+        type: 'SESSION_ENTERED',
+        owner,
+        initialTargetTurnId: 'turn-b1',
+      }, idleCtx),
+    ).toEqual({
+      kind: 'navigating',
+      target: { type: 'turn-top', turnId: 'turn-b1', behavior: 'auto' },
+    });
+  });
+
+  it('opens static and streaming sessions at the latest turn reading position', () => {
+    for (const context of [idleCtx, streamingCtx]) {
+      expect(
+        reduceViewportMode(following, {
+          type: 'SESSION_ENTERED',
+          owner,
+          initialTargetTurnId: null,
+        }, context),
+      ).toEqual(latestNavigation);
+    }
+  });
+
+  it('returns static sessions to latest-turn-top and streaming sessions to output end', () => {
+    expect(reduceViewportMode(READING_MODE, { type: 'USER_JUMP_LATEST' }, idleCtx))
+      .toEqual({
+        kind: 'navigating',
+        target: { type: 'latest-turn-top', owner, behavior: 'smooth' },
+      });
+    expect(reduceViewportMode(READING_MODE, { type: 'USER_JUMP_LATEST' }, streamingCtx))
+      .toEqual({
+        kind: 'navigating',
+        target: { type: 'latest-end', behavior: 'smooth' },
+      });
+  });
+
+  it('yields to upward intent and to downward intent when real content exists', () => {
+    for (const mode of [pinnedLatest, following, finalizing, latestNavigation]) {
+      expect(reduceViewportMode(mode, { type: 'USER_SCROLL_UP' }, streamingCtx))
+        .toEqual(READING_MODE);
+    }
+    expect(
+      reduceViewportMode(pinnedLatest, { type: 'USER_SCROLL_DOWN_WITH_CONTENT' }, idleCtx),
+    ).toEqual(READING_MODE);
+    expect(
+      reduceViewportMode(following, { type: 'USER_SCROLL_DOWN_WITH_CONTENT' }, streamingCtx),
+    ).toBe(following);
+  });
+
+  it('follows after floor consumption only while streaming', () => {
     expect(reduceViewportMode(pinnedLatest, { type: 'PIN_FLOOR_CONSUMED' }, streamingCtx))
       .toEqual(following);
     expect(reduceViewportMode(pinnedLatest, { type: 'PIN_FLOOR_CONSUMED' }, idleCtx))
       .toBe(pinnedLatest);
   });
 
-  it('always yields to explicit upward user intent', () => {
-    for (const mode of [pinnedLatest, following, finalizing, stickyNavigating]) {
-      expect(reduceViewportMode(mode, { type: 'USER_SCROLL_UP' }, streamingCtx))
-        .toEqual(READING_MODE);
-    }
-  });
-
-  it('re-enters follow when the user returns to the content bottom mid-stream', () => {
-    expect(
-      reduceViewportMode(READING_MODE, { type: 'USER_REACHED_CONTENT_BOTTOM' }, streamingCtx),
-    ).toEqual(following);
-    expect(
-      reduceViewportMode(READING_MODE, { type: 'USER_REACHED_CONTENT_BOTTOM' }, idleCtx),
-    ).toBe(READING_MODE);
-  });
-
-  it('re-enters pinned-latest when the user scrolls back down onto a live sticky floor', () => {
-    expect(
-      reduceViewportMode(READING_MODE, { type: 'USER_REACHED_CONTENT_BOTTOM' }, idleWithFloorCtx),
-    ).toEqual(pinnedLatest);
-    // A floor owned by a superseded turn must not re-pin.
-    expect(
-      reduceViewportMode(READING_MODE, { type: 'USER_REACHED_CONTENT_BOTTOM' }, {
-        ...idleWithFloorCtx,
-        stickyPinTurnId: 'turn-1',
-      }),
-    ).toBe(READING_MODE);
-  });
-
-  it('keeps pinned-latest alive across stream end (short answers stay pinned)', () => {
+  it('keeps short completed answers pinned and finalizes followed output', () => {
     expect(reduceViewportMode(pinnedLatest, { type: 'STREAM_ENDED', nowMs: 100 }, idleCtx))
       .toBe(pinnedLatest);
-  });
-
-  it('moves follow into finalizing on stream end, then into reading on settle', () => {
     const next = reduceViewportMode(following, { type: 'STREAM_ENDED', nowMs: 100 }, idleCtx);
     expect(next).toEqual({ kind: 'finalizing', sinceMs: 100 });
-    expect(reduceViewportMode(next, { type: 'FINALIZE_SETTLED' }, idleCtx)).toEqual(READING_MODE);
-  });
-
-  it('resumes follow when a stream flaps back on during finalizing', () => {
-    expect(reduceViewportMode(finalizing, { type: 'STREAM_STARTED' }, streamingCtx))
-      .toEqual(following);
-  });
-
-  it('jump-to-latest settles into follow while streaming, pinned-latest when a sticky floor is live', () => {
-    const navigating = reduceViewportMode(READING_MODE, { type: 'USER_JUMP_LATEST' }, streamingCtx);
-    expect(navigating.kind).toBe('navigating');
-    expect(reduceViewportMode(navigating, { type: 'NAVIGATION_SETTLED', nowMs: 5 }, streamingCtx))
-      .toEqual(following);
-    expect(
-      reduceViewportMode(navigating, { type: 'NAVIGATION_SETTLED', nowMs: 5 }, idleWithFloorCtx),
-    ).toEqual(pinnedLatest);
-    expect(reduceViewportMode(navigating, { type: 'NAVIGATION_SETTLED', nowMs: 5 }, idleCtx))
+    expect(reduceViewportMode(next, { type: 'FINALIZE_SETTLED' }, idleCtx))
       .toEqual(READING_MODE);
-  });
-
-  it('initializes sessions by streaming state', () => {
-    expect(
-      reduceViewportMode(following, {
-        type: 'SESSION_CHANGED',
-        latestTurnId: 'turn-9',
-        isStreaming: true,
-      }, streamingCtx),
-    ).toEqual({
-      kind: 'navigating',
-      target: { type: 'turn-pin-top', turnId: 'turn-9', pinMode: 'sticky-latest', behavior: 'auto' },
-    });
-    expect(
-      reduceViewportMode(following, {
-        type: 'SESSION_CHANGED',
-        latestTurnId: 'turn-9',
-        isStreaming: false,
-      }, idleCtx),
-    ).toEqual(READING_MODE);
   });
 });

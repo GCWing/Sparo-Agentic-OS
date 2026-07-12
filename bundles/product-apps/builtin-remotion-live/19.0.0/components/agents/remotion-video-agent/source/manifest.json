@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "remotion-video-agent",
   "name": "Remotion Video Agent",
-  "description": "A Remotion-native video development agent for inspecting compositions, revising React video code, refreshing preview context, rendering stills, and starting exports through the Sparo Video Engine.",
+  "description": "A Remotion-native video development agent for inspecting compositions, revising React video code, refreshing committed preview context, rendering stills, and managing exports through the Sparo Video Engine.",
   "icon": "film",
   "category": "video",
   "tags": [
@@ -26,10 +26,12 @@
     "Bash",
     "agentcomponent__remotion-video-agent__detect_project",
     "agentcomponent__remotion-video-agent__get_composition_manifest",
-    "agentcomponent__remotion-video-agent__get_frame_context",
+    "agentcomponent__remotion-video-agent__get_frame_descriptor",
     "agentcomponent__remotion-video-agent__refresh_preview",
     "agentcomponent__remotion-video-agent__render_still",
-    "agentcomponent__remotion-video-agent__start_export"
+    "agentcomponent__remotion-video-agent__start_export",
+    "agentcomponent__remotion-video-agent__get_export_status",
+    "agentcomponent__remotion-video-agent__cancel_export"
   ],
   "skills": [
     "remotion-fundamentals",
@@ -77,16 +79,18 @@
         "Edit",
         "Write",
         "GetFileDiff",
-        "agentcomponent__remotion-video-agent__get_frame_context",
+        "agentcomponent__remotion-video-agent__get_frame_descriptor",
         "agentcomponent__remotion-video-agent__refresh_preview"
       ]
     },
     {
       "name": "renderReviewArtifact",
-      "description": "Render a still or export candidate through the workspace Remotion toolchain for review.",
+      "description": "Render a still or start, monitor, and cancel an export through the workspace Remotion toolchain.",
       "toolPolicy": [
         "agentcomponent__remotion-video-agent__render_still",
-        "agentcomponent__remotion-video-agent__start_export"
+        "agentcomponent__remotion-video-agent__start_export",
+        "agentcomponent__remotion-video-agent__get_export_status",
+        "agentcomponent__remotion-video-agent__cancel_export"
       ]
     }
   ],
@@ -101,7 +105,7 @@
     },
     {
       "title": "Prepare an export",
-      "prompt": "Review the current composition, render a still for the key frame, then start an MP4 export when the source looks ready."
+      "prompt": "Review the current composition, render a still for the key frame, then export the MP4 and monitor the job until it reaches a terminal state."
     }
   ]
 }

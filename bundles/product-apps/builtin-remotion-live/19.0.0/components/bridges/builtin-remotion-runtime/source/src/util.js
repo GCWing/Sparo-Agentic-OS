@@ -170,6 +170,23 @@ function writeJson(filePath, value) {
   fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
+function writeJsonAtomic(filePath, value) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const temporaryPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  fs.writeFileSync(temporaryPath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  try {
+    fs.renameSync(temporaryPath, filePath);
+  } catch (error) {
+    try {
+      fs.rmSync(filePath, { force: true });
+      fs.renameSync(temporaryPath, filePath);
+    } catch {
+      fs.rmSync(temporaryPath, { force: true });
+      throw error;
+    }
+  }
+}
+
 function readText(filePath) {
   return fs.readFileSync(filePath, "utf8");
 }
@@ -183,7 +200,12 @@ function safeStat(filePath) {
 }
 
 function walkFiles(root, options = {}) {
-  const maxFiles = options.maxFiles || 5000;
+  const maxFiles = options.maxFiles === Number.POSITIVE_INFINITY
+    ? Number.POSITIVE_INFINITY
+    : Number.isFinite(options.maxFiles) && options.maxFiles > 0
+    ? Math.floor(options.maxFiles)
+    : 5000;
+  const include = typeof options.include === "function" ? options.include : null;
   const files = [];
   const stack = [root];
   while (stack.length && files.length < maxFiles) {
@@ -194,6 +216,7 @@ function walkFiles(root, options = {}) {
       if (entry.isDirectory()) {
         if (!IGNORED_DIRS.has(entry.name)) stack.push(absolute);
       } else if (entry.isFile()) {
+        if (include && !include(absolute)) continue;
         files.push(absolute);
         if (files.length >= maxFiles) break;
       }
@@ -203,16 +226,27 @@ function walkFiles(root, options = {}) {
 }
 
 function sourceFiles(workspacePath) {
-  return walkFiles(workspacePath)
-    .filter((filePath) => SOURCE_EXTENSIONS.has(path.extname(filePath).toLowerCase()))
+  return walkFiles(workspacePath, {
+    maxFiles: 25_000,
+    include: (filePath) => SOURCE_EXTENSIONS.has(path.extname(filePath).toLowerCase()),
+  })
     .filter((filePath) => (safeStat(filePath)?.size || 0) < 750_000);
 }
 
-function packageManager(workspacePath) {
-  if (fs.existsSync(path.join(workspacePath, "pnpm-lock.yaml"))) return "pnpm";
-  if (fs.existsSync(path.join(workspacePath, "yarn.lock"))) return "yarn";
-  if (fs.existsSync(path.join(workspacePath, "bun.lockb"))) return "bun";
-  if (fs.existsSync(path.join(workspacePath, "package-lock.json"))) return "npm";
+function packageManager(startPath, boundaryPath = startPath) {
+  let current = path.resolve(startPath);
+  const boundary = path.resolve(boundaryPath);
+  while (true) {
+    if (fs.existsSync(path.join(current, "pnpm-lock.yaml"))) return "pnpm";
+    if (fs.existsSync(path.join(current, "yarn.lock"))) return "yarn";
+    if (fs.existsSync(path.join(current, "bun.lock")) || fs.existsSync(path.join(current, "bun.lockb"))) return "bun";
+    if (fs.existsSync(path.join(current, "package-lock.json"))) return "npm";
+    if (current === boundary) break;
+    const parent = path.dirname(current);
+    const relative = path.relative(boundary, parent);
+    if (parent === current || relative.startsWith("..") || path.isAbsolute(relative)) break;
+    current = parent;
+  }
   return "npm";
 }
 
@@ -231,6 +265,12 @@ function dependencyVersion(pkg, name) {
 
 function hashContent(value) {
   return crypto.createHash("sha1").update(String(value)).digest("hex").slice(0, 12);
+}
+
+function stableJson(value) {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(",")}}`;
 }
 
 function clampNumber(value, min, max, fallback) {
@@ -259,6 +299,7 @@ module.exports = {
   waitForHttp,
   readJson,
   writeJson,
+  writeJsonAtomic,
   readText,
   safeStat,
   walkFiles,
@@ -267,6 +308,7 @@ module.exports = {
   packageInfo,
   dependencyVersion,
   hashContent,
+  stableJson,
   clampNumber,
   safeFilePart,
 };

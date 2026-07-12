@@ -238,6 +238,7 @@ export class FlowChatStore {
   private toolItemIndex = new Map<string, Omit<ToolItemLocation, 'item'>>();
   private metadataPreloadedWorkspaceScopes = new Set<string>();
   private warmedSessionIds = new Set<string>();
+  private pendingSessionHistoryLoads = new Map<string, Promise<void>>();
   private onPersistUnreadCompletion?: (sessionId: string, value: 'completed' | 'error' | 'interrupted' | undefined) => void;
   
   private silentMode = false;
@@ -2266,24 +2267,50 @@ export class FlowChatStore {
   /**
    * Lazy load session history (convert historical data to FlowChat format)
    */
-  public async loadSessionHistory(
+  public loadSessionHistory(
     sessionId: string,
     workspacePath: string,
     limit?: number,
     storageScope?: import('@/shared/types/session-history').SessionStorageScope
   ): Promise<void> {
+    const existing = this.pendingSessionHistoryLoads.get(sessionId);
+    if (existing) return existing;
+
+    let pending: Promise<void>;
+    pending = this.loadSessionHistoryOnce(
+      sessionId,
+      workspacePath,
+      limit,
+      storageScope,
+    ).finally(() => {
+      if (this.pendingSessionHistoryLoads.get(sessionId) === pending) {
+        this.pendingSessionHistoryLoads.delete(sessionId);
+      }
+    });
+    this.pendingSessionHistoryLoads.set(sessionId, pending);
+    return pending;
+  }
+
+  public getPendingSessionHistoryLoad(sessionId: string): Promise<void> | null {
+    return this.pendingSessionHistoryLoads.get(sessionId) ?? null;
+  }
+
+  private async loadSessionHistoryOnce(
+    sessionId: string,
+    workspacePath: string,
+    limit?: number,
+    storageScope?: import('@/shared/types/session-history').SessionStorageScope
+  ): Promise<void> {
+    const loadStartedAt = Date.now();
     this.setSessionLoadPhase(sessionId, 'hydrating');
     try {
       const { stateMachineManager } = await import('../state-machine');
       stateMachineManager.getOrCreate(sessionId);
-      
-      try {
-        const { agentAPI } = await import('@/infrastructure/api');
-        await agentAPI.restoreSession(sessionId, workspacePath, storageScope);
-      } catch (error) {
-        log.warn('Backend session restore failed (may be new session)', { sessionId, error });
-      }
-      
+
+      // Transcript hydration is a read-only presentation concern. Backend
+      // coordinator restore is demand-driven by ensureBackendSession before a
+      // user action; coupling it here forced the visible chat to wait for the
+      // backend to rebuild its full execution context from the same turn files.
       const { sessionAPI } = await import('@/infrastructure/api');
       const turns = await sessionAPI.loadSessionTurns(
         sessionId,
@@ -2320,12 +2347,34 @@ export class FlowChatStore {
         };
       });
       this.markSessionHistoryWarmed(sessionId);
-      await this.hydrateExecutionProjections(hydratedDialogTurns);
+      log.debug('Session transcript hydrated', {
+        sessionId,
+        turnCount: turns.length,
+        durationMs: Date.now() - loadStartedAt,
+      });
+      this.scheduleExecutionProjectionHydration(hydratedDialogTurns);
     } catch (error) {
       this.setSessionLoadPhase(sessionId, 'hydrate-failed');
       log.error('Failed to load session history', { sessionId, error });
       throw error;
     }
+  }
+
+  private scheduleExecutionProjectionHydration(dialogTurns: DialogTurn[]): void {
+    const hydrate = () => {
+      void this.hydrateExecutionProjections(dialogTurns).catch(error => {
+        log.warn('Failed to hydrate deferred execution projections', { error });
+      });
+    };
+
+    // Projection recovery is secondary state. Give React one frame to commit
+    // the transcript before walking historical tool items and importing the
+    // execution graph store.
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(() => window.setTimeout(hydrate, 0));
+      return;
+    }
+    setTimeout(hydrate, 0);
   }
 
   private async hydrateExecutionProjections(dialogTurns: DialogTurn[]): Promise<void> {
@@ -2429,7 +2478,13 @@ export class FlowChatStore {
           }))
         : undefined,
       modelRounds: turn.modelRounds.map((round: any) => {
-        const normalizedRoundStatus = normalizeRecoveredRoundStatus(round.status, normalizedTurnStatus);
+        const recoveredRoundStatus = normalizeRecoveredRoundStatus(round.status, normalizedTurnStatus);
+        // Confirmation channels are process-local and cannot survive an app
+        // restart. A disk-hydrated prompt must not remain actionable against a
+        // newly restored coordinator that has no matching ToolPipeline task.
+        const normalizedRoundStatus = recoveredRoundStatus === 'pending_confirmation'
+          ? 'cancelled'
+          : recoveredRoundStatus;
 
         return {
           id: round.id,
@@ -2447,18 +2502,20 @@ export class FlowChatStore {
               orderIndex: text.orderIndex,
             })),
             ...round.toolItems.map((tool: any) => {
-              const status = normalizeRecoveredToolStatus(
-                tool.status,
-                normalizedTurnStatus,
-                tool.toolResult,
-                { preservePendingConfirmation: true },
-              );
+              const status = tool.status === 'pending_confirmation' || tool.status === 'confirmed'
+                ? 'cancelled'
+                : normalizeRecoveredToolStatus(
+                    tool.status,
+                    normalizedTurnStatus,
+                    tool.toolResult,
+                    { preservePendingConfirmation: false },
+                  );
               return {
               id: tool.id,
               type: 'tool' as const,
               toolName: tool.toolName,
               interruptionReason:
-                tool.interruptionReason === 'app_restart'
+                tool.interruptionReason === 'app_restart' || tool.status === 'pending_confirmation'
                   ? 'app_restart'
                   : isTransientToolStatus(tool.status)
                     ? 'app_restart'

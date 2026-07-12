@@ -14,10 +14,15 @@ import {
   openSceneHistoryEntry as openSceneHistoryEntryController,
   openSession as openSessionController,
   type OpenWorkspaceSceneOptions,
+  type OpenWorkspaceSessionResult,
   type OpenWorkspaceSessionOptions,
 } from './navigationController';
 
-export type { OpenWorkspaceSceneOptions, OpenWorkspaceSessionOptions };
+export type {
+  OpenWorkspaceSceneOptions,
+  OpenWorkspaceSessionOptions,
+  OpenWorkspaceSessionResult,
+};
 
 export function openWorkspaceScene(
   sceneId: WorkspaceSceneId,
@@ -37,8 +42,8 @@ export function openWorkspaceSceneHistoryEntry(index: number): boolean {
 export async function openWorkspaceSession(
   sessionId: string,
   options: OpenWorkspaceSessionOptions = {}
-): Promise<void> {
-  await openSessionController(sessionId, options);
+): Promise<OpenWorkspaceSessionResult> {
+  return openSessionController(sessionId, options);
 }
 
 export async function openWorkspaceHome(): Promise<string | null> {

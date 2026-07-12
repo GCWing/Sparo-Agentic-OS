@@ -66,20 +66,28 @@ export function useProductAppRuntimeCatalogSync() {
       void refreshApps();
       requestWorkRefresh('product-app-runtime-host-created');
     });
-    const unlistenUpdated = api.listen(productAppRuntimeHostEvents.updated, () => {
+    const unlistenUpdated = api.listen<{ id?: string }>(productAppRuntimeHostEvents.updated, (payload) => {
+      productAppRuntimeHostAPI.invalidateHostSurface(payload?.id);
       void refreshApps();
       requestWorkRefresh('product-app-runtime-host-updated');
     });
-    const unlistenRecompiled = api.listen(productAppRuntimeHostEvents.recompiled, () => {
+    const unlistenRecompiled = api.listen<{ id?: string }>(productAppRuntimeHostEvents.recompiled, (payload) => {
+      productAppRuntimeHostAPI.invalidateHostSurface(payload?.id);
+      void refreshApps();
+    });
+    const unlistenRolledBack = api.listen<{ id?: string }>(productAppRuntimeHostEvents.rolledBack, (payload) => {
+      productAppRuntimeHostAPI.invalidateHostSurface(payload?.id);
       void refreshApps();
     });
     const unlistenDeleted = api.listen<{ id?: string }>(productAppRuntimeHostEvents.deleted, (payload) => {
+      productAppRuntimeHostAPI.invalidateHostSurface(payload?.id);
       if (payload?.id) {
         markWorkerStopped(payload.id);
       }
       void refreshApps();
     });
     const unlistenRestarted = api.listen<{ id?: string }>(productAppRuntimeHostEvents.workerRestarted, (payload) => {
+      productAppRuntimeHostAPI.invalidateHostSurface(payload?.id);
       if (payload?.id) {
         markWorkerRunning(payload.id);
       }
@@ -103,6 +111,7 @@ export function useProductAppRuntimeCatalogSync() {
       unlistenCreated();
       unlistenUpdated();
       unlistenRecompiled();
+      unlistenRolledBack();
       unlistenDeleted();
       unlistenRestarted();
       unlistenStopped();

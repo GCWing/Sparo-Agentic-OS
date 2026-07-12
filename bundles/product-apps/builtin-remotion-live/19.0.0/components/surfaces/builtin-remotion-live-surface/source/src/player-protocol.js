@@ -1,22 +1,32 @@
 // remotion-live :: player-protocol.js
 
 import { compositionDuration, currentComposition, selectedLayer } from './model.js';
-import { applyPlayerFrame, currentPreviewSnapshot, nextPlayerCommandId, normalizePreviewFrame } from './preview-controller.js';
-import { playerFrameNode, postPlayerMessage, requestPlayerHandshake, syncPlayerRuntimeDom } from './player-dom.js';
-import { playerPreviewReady, usePlayerPreview, useStudioPreview } from './preview-mode.js';
+import { applyPlayerFrame, currentPreviewSnapshot, ensurePlayerInstanceId, nextPlayerCommandId, normalizePreviewFrame, playerPreviewReady } from './preview-controller.js';
+import {
+  playerFrameNode,
+  postPlayerMessage,
+  requestPlayerHandshake,
+  setPlayerMessageHandler,
+  syncPlayerRuntimeDom,
+} from './player-dom.js';
 import { state } from './state.js';
-import { asArray, clamp } from './util.js';
-import { setPlayingState, syncFrameDom, syncPlayingDom, syncSelectionOverlayDom } from './views.js';
+import { asArray, clamp, rootElement } from './util.js';
+import { setPlayingState, syncPhaseDom, syncPlaybackDom, syncPlayingDom, syncSelectionOverlayDom } from './views.js';
 
 const snapshotRequests = new Map();
+let playbackDomFrame = null;
+
+function schedulePlaybackDomSync() {
+  if (playbackDomFrame !== null) return;
+  playbackDomFrame = window.requestAnimationFrame(() => {
+    playbackDomFrame = null;
+    syncPlayerStateAttributes();
+    syncPlaybackDom();
+  });
+}
 
 function requestPlayerHostEnsure(force = false) {
   window.dispatchEvent(new CustomEvent('remotion-live:ensure-player-host', { detail: { force } }));
-}
-
-
-function requestPlayerHostStatusPoll() {
-  window.dispatchEvent(new CustomEvent('remotion-live:poll-player-host-status'));
 }
 
 
@@ -25,32 +35,82 @@ function requestRender() {
 }
 
 
-function clearPlayerCommandFallback() {
-  if (!state.playerCommandFallbackTimer) return;
-  clearTimeout(state.playerCommandFallbackTimer);
-  state.playerCommandFallbackTimer = null;
+function syncPlayerStateAttributes() {
+  const root = rootElement();
+  if (!root) return;
+  root.dataset.playerPhase = state.playerPhase || 'disconnected';
+  root.dataset.playerBuffering = String(Boolean(state.playerBuffering));
+  root.dataset.playerSeeking = String(Boolean(state.playerSeeking));
+  root.dataset.playerReady = String(Boolean(state.playerRuntimeReady));
 }
 
 
-function clearInFlightCommand(commandId = null) {
-  if (commandId && state.playerInFlightCommand?.commandId !== commandId) return false;
-  state.playerInFlightCommand = null;
-  clearPlayerCommandFallback();
-  return true;
+function setPlayerPhase(phase) {
+  state.playerPhase = phase;
+  syncPlayerStateAttributes();
+  syncPhaseDom();
+}
+
+
+function desiredState() {
+  const instanceId = state.playerInstanceId || null;
+  if (state.playerDesiredState?.instanceId === instanceId) return state.playerDesiredState;
+  state.playerDesiredState = {
+    instanceId,
+    revision: Number(state.playerDesiredRevision) || 0,
+    frame: normalizePreviewFrame(state.frame),
+    playing: Boolean(state.playerRuntimePlaying),
+    muted: state.muted !== false,
+    volume: clamp(Number.isFinite(Number(state.volume)) ? Number(state.volume) : 1, 0, 1),
+  };
+  return state.playerDesiredState;
+}
+
+
+function nextDesiredState(type, payload = {}) {
+  const previous = desiredState();
+  const next = { ...previous };
+  if (payload.frame !== undefined) next.frame = normalizePreviewFrame(payload.frame);
+
+  if (type === 'play') next.playing = true;
+  if (type === 'pause') next.playing = false;
+  if (type === 'toggle') next.playing = !next.playing;
+  if (type === 'mute') next.muted = payload.muted !== false;
+  if (type === 'unmute') next.muted = false;
+  if (type === 'volume') {
+    next.volume = clamp(Number(payload.volume) || 0, 0, 1);
+    if (payload.muted !== undefined) next.muted = Boolean(payload.muted);
+  }
+
+  const revision = Math.max(
+    Number(state.playerDesiredRevision) || 0,
+    Number(state.playerActualRevision) || 0,
+  ) + 1;
+  next.instanceId = state.playerInstanceId || null;
+  next.revision = revision;
+  state.playerDesiredRevision = revision;
+  state.playerDesiredState = next;
+  state.muted = next.muted;
+  state.volume = next.volume;
+  syncPlayingDom();
+  return next;
 }
 
 
 function preparePlayerCommand(type, payload = {}) {
-  const frame = normalizePreviewFrame(payload.frame ?? state.frame);
+  ensurePlayerInstanceId();
+  const desired = nextDesiredState(type, payload);
   const commandId = payload.commandId || nextPlayerCommandId(type);
   return {
     type,
     commandId,
-    frame,
+    revision: desired.revision,
+    desired,
     payload: {
-      ...payload,
-      frame,
       commandId,
+      command: type,
+      revision: desired.revision,
+      desired,
     },
   };
 }
@@ -60,83 +120,39 @@ function markCommandInFlight(command) {
   state.playerInFlightCommand = {
     commandId: command.commandId,
     type: command.type,
-    frame: command.frame,
+    revision: command.revision,
+    desired: command.desired,
+    accepted: false,
     startedAt: Date.now(),
   };
+  if (command.type === 'seek') {
+    state.playerCommittedFrame = null;
+    state.playerSeeking = true;
+    setPlayerPhase('seeking');
+  }
 }
 
 
-function postPreparedPlayerCommand(command, options = {}) {
-  const posted = postPlayerMessage(command.type, command.payload, options);
-  if (posted) markCommandInFlight(command);
+function postPreparedPlayerCommand(command) {
+  const posted = postPlayerMessage('reconcile', command.payload, { requireReady: false });
+  if (posted) {
+    markCommandInFlight(command);
+    state.playerPendingCommand = null;
+  }
   return posted;
 }
 
 
-function retryPlayerCommand(command) {
-  requestPlayerHostStatusPoll();
-  postPreparedPlayerCommand(command, { requireReady: false });
-  requestPlayerHandshake();
-}
-
-
-function schedulePlayerCommandFallback(command) {
-  if (!usePlayerPreview() || !playerPreviewReady()) return;
-  clearPlayerCommandFallback();
-
-  const epoch = ++state.playerControlEpoch;
-  const expectedFrame = normalizePreviewFrame(command.frame);
-  const startRuntimeFrame = Number(state.playerRuntimeFrame);
-  const hasStartRuntimeFrame = Number.isFinite(startRuntimeFrame);
-  const delay = command.type === 'play' ? 700 : command.type === 'pause' ? 260 : 300;
-
-  state.playerCommandFallbackTimer = window.setTimeout(() => {
-    state.playerCommandFallbackTimer = null;
-    if (epoch !== state.playerControlEpoch || !playerPreviewReady()) return;
-    if (state.playerInFlightCommand?.commandId !== command.commandId) return;
-
-    if (command.type === 'pause') {
-      if (!state.playing && state.playerRuntimePlaying) retryPlayerCommand(command);
-      return;
-    }
-
-    if (command.type === 'seek') {
-      const runtimeFrame = Number(state.playerRuntimeFrame);
-      const hasRuntimeFrame = Number.isFinite(runtimeFrame);
-      if (!hasRuntimeFrame || Math.abs(runtimeFrame - expectedFrame) > 1) {
-        retryPlayerCommand(command);
-      }
-      return;
-    }
-
-    if (command.type === 'play') {
-      if (!state.playing) return;
-      const runtimeFrame = Number(state.playerRuntimeFrame);
-      const hasRuntimeFrame = Number.isFinite(runtimeFrame);
-      const baselineFrame = hasStartRuntimeFrame ? Math.max(expectedFrame, startRuntimeFrame) : expectedFrame;
-      const advanced = hasRuntimeFrame && runtimeFrame > baselineFrame + 1;
-      if (!advanced) retryPlayerCommand(command);
-    }
-  }, delay);
-}
-
-
 function queuePlayerCommand(command) {
+  // This is a complete desired-state snapshot, not a lossy one-command queue.
   state.playerPendingCommand = command;
 }
 
 
 function sendOrQueuePlayerCommand(type, payload = {}) {
   const command = preparePlayerCommand(type, payload);
-  if (postPreparedPlayerCommand(command)) {
-    schedulePlayerCommandFallback(command);
-    return true;
-  }
-  if (playerPreviewReady() && postPreparedPlayerCommand(command, { requireReady: false })) {
-    schedulePlayerCommandFallback(command);
-    requestPlayerHandshake();
-    return true;
-  }
+  if (postPreparedPlayerCommand(command)) return true;
+
   queuePlayerCommand(command);
   if (!playerPreviewReady() && state.workspacePath && currentComposition()) {
     requestPlayerHostEnsure();
@@ -148,46 +164,54 @@ function sendOrQueuePlayerCommand(type, payload = {}) {
 
 
 function flushPlayerCommand() {
-  if (!state.playerRuntimeReady) return;
-  if (state.playerHandshakeTimer) {
-    clearTimeout(state.playerHandshakeTimer);
-    state.playerHandshakeTimer = null;
-  }
-
+  if (!state.playerChannelConnected) return;
   const pending = state.playerPendingCommand;
-  state.playerPendingCommand = null;
   if (pending) {
-    if (postPreparedPlayerCommand(pending)) {
-      schedulePlayerCommandFallback(pending);
-    } else {
-      queuePlayerCommand(pending);
-    }
+    if (!postPreparedPlayerCommand(pending)) queuePlayerCommand(pending);
     return;
   }
 
-  const type = state.playing ? 'play' : state.playerRuntimePlaying ? 'pause' : 'seek';
-  const command = preparePlayerCommand(type, { frame: state.frame });
-  if (postPreparedPlayerCommand(command)) {
-    schedulePlayerCommandFallback(command);
-  }
+  const desired = desiredState();
+  if (state.playerInFlightCommand?.revision === desired.revision) return;
+  const commandId = nextPlayerCommandId('reconcile');
+  const command = {
+    type: desired.playing ? 'play' : 'pause',
+    commandId,
+    revision: desired.revision,
+    desired,
+    payload: {
+      commandId,
+      command: 'reconcile',
+      revision: desired.revision,
+      desired,
+    },
+  };
+  postPreparedPlayerCommand(command);
 }
 
 
-function currentMessageBelongsToPreview(message) {
+function currentMessageBelongsToPreview(message, options = {}) {
+  if (options.trusted !== true) return false;
   if (message.source !== 'sparo-remotion-player-host') return false;
   const composition = currentComposition();
-  if (message.compositionId && composition?.id && message.compositionId !== composition.id) return false;
-  if (message.instanceId && state.playerInstanceId && message.instanceId !== state.playerInstanceId) return false;
-  if (!state.playerInstanceId && message.instanceId) {
-    state.playerInstanceId = String(message.instanceId);
-  }
+  if (message.compositionId !== composition?.id) return false;
+  if (message.projectRevision !== (state.manifest?.projectRevision || state.manifest?.sourceRevision)) return false;
+  if (message.descriptorRevision !== (composition?.descriptorRevision || state.manifest?.descriptorRevision)) return false;
+  if (message.instanceId !== state.playerInstanceId) return false;
+  if (message.channelNonce !== state.playerChannelNonce) return false;
   return true;
 }
 
 
-function syncFrameFromPlayerMessage(frame) {
-  const nextFrame = applyPlayerFrame(frame);
-  syncFrameDom();
+function syncFrameFromPlayerMessage(frame, playing = state.playerRuntimePlaying) {
+  const desiredFrame = Number(state.playerInFlightCommand?.desired?.frame);
+  const pendingSeek = state.playerInFlightCommand?.type === 'seek'
+    && Number.isFinite(desiredFrame)
+    && Number(frame) !== desiredFrame;
+  const nextFrame = applyPlayerFrame(frame, { updateDesired: !pendingSeek });
+  if (playing && state.playerDesiredState?.playing) {
+    state.playerDesiredState = { ...state.playerDesiredState, frame: nextFrame };
+  }
   return nextFrame;
 }
 
@@ -205,34 +229,81 @@ function applyFrameContextMessage(message) {
     measurement: frameContext.measurement || 'player-dom',
     layers: asArray(frameContext.layers),
   };
-  if (state.selectedElementId && !selectedLayer()) {
-    state.selectedElementId = null;
-  }
+  if (state.selectedElementId && !selectedLayer()) state.selectedElementId = null;
   if (!syncSelectionOverlayDom()) requestRender();
 }
 
 
+function mergeActualState(message = {}) {
+  const previous = state.playerActualState || {};
+  const revision = Number(message.revision);
+  const currentRevision = Number(state.playerActualRevision) || 0;
+  if (Number.isFinite(revision) && revision < currentRevision) return previous;
+  const nextRevision = Number.isFinite(revision)
+    ? revision
+    : currentRevision;
+  const actual = {
+    ...previous,
+    ...(message.actual && typeof message.actual === 'object' ? message.actual : {}),
+    instanceId: state.playerInstanceId,
+    revision: nextRevision,
+    projectRevision: message.projectRevision,
+    descriptorRevision: message.descriptorRevision,
+  };
+  if (message.frame !== undefined) actual.frame = normalizePreviewFrame(message.frame);
+  if (typeof message.playing === 'boolean') actual.playing = message.playing;
+  if (typeof message.buffering === 'boolean') actual.buffering = message.buffering;
+  if (typeof message.seeking === 'boolean') actual.seeking = message.seeking;
+  if (typeof message.muted === 'boolean') actual.muted = message.muted;
+  if (Number.isFinite(Number(message.volume))) actual.volume = clamp(Number(message.volume), 0, 1);
+
+  state.playerActualRevision = nextRevision;
+  state.playerActualState = actual;
+  if (actual.frame !== undefined) syncFrameFromPlayerMessage(actual.frame, actual.playing);
+  if (typeof actual.playing === 'boolean') state.playerRuntimePlaying = actual.playing;
+  if (typeof actual.buffering === 'boolean') state.playerBuffering = actual.buffering;
+  if (typeof actual.seeking === 'boolean') state.playerSeeking = actual.seeking;
+  if (typeof actual.muted === 'boolean') state.playerRuntimeMuted = actual.muted;
+  if (Number.isFinite(Number(actual.volume))) state.playerRuntimeVolume = actual.volume;
+  return actual;
+}
+
+
+function commandIsSettled(command, actual) {
+  if (!command || Number(actual.revision) < Number(command.revision)) return false;
+  if (command.type === 'play') return actual.playing === true;
+  if (command.type === 'pause') return actual.playing === false;
+  if (command.type === 'seek') return Number(actual.frame) === Number(command.desired.frame) && !actual.seeking;
+  if (command.type === 'mute' || command.type === 'unmute') return actual.muted === command.desired.muted;
+  if (command.type === 'volume') {
+    return Math.abs(Number(actual.volume) - Number(command.desired.volume)) < 0.001
+      && actual.muted === command.desired.muted;
+  }
+  return true;
+}
+
+
+function settleInFlightCommand(actual) {
+  if (!commandIsSettled(state.playerInFlightCommand, actual)) return;
+  state.playerInFlightCommand = null;
+  state.playerPendingCommand = null;
+}
+
+
 function applySnapshotMessage(message) {
-  const frame = message.frame !== undefined ? syncFrameFromPlayerMessage(message.frame) : normalizePreviewFrame(state.frame);
-  if (typeof message.playing === 'boolean') {
-    state.playerRuntimePlaying = message.playing;
-    setPlayingState(message.playing);
-  } else {
-    syncPlayingDom();
-  }
-  if (message.frameContext) {
-    applyFrameContextMessage({
-      ...message.frameContext,
-      frame,
-      compositionId: message.compositionId,
-    });
-  }
+  const actual = mergeActualState(message);
+  if (message.frameContext) applyFrameContextMessage({ ...message.frameContext, frame: actual.frame });
   return {
     ok: true,
     source: 'player-snapshot',
+    projectRevision: message.projectRevision,
+    descriptorRevision: message.descriptorRevision,
     compositionId: message.compositionId || currentComposition()?.id || state.activeCompositionId,
-    frame,
-    playing: Boolean(message.playing),
+    frame: actual.frame ?? normalizePreviewFrame(state.frame),
+    playing: Boolean(actual.playing),
+    muted: actual.muted,
+    volume: actual.volume,
+    buffering: Boolean(actual.buffering),
     durationInFrames: message.durationInFrames ?? currentComposition()?.durationInFrames ?? compositionDuration(),
     fps: message.fps ?? currentComposition()?.fps ?? null,
     width: message.width ?? currentComposition()?.width ?? null,
@@ -253,25 +324,28 @@ function resolveSnapshotRequest(message) {
 }
 
 
-function acknowledgeCommand(message) {
-  const commandId = message.commandId || null;
-  if (!state.playerInFlightCommand) return false;
-  if (commandId && commandId !== state.playerInFlightCommand.commandId) return false;
-  clearInFlightCommand(commandId || state.playerInFlightCommand.commandId);
-  return true;
-}
+function handlePlayerHostMessage(message = {}, options = {}) {
+  if (!currentMessageBelongsToPreview(message, options)) return false;
+  const messageRevision = Number(message.revision);
+  if (
+    message.type !== 'commandAccepted'
+      && Number.isFinite(messageRevision)
+      && messageRevision < (Number(state.playerActualRevision) || 0)
+  ) return true;
 
-
-function handlePlayerHostMessage(message = {}) {
-  if (!currentMessageBelongsToPreview(message)) return false;
+  if (message.type === 'channelReady') {
+    setPlayerPhase('connecting');
+    flushPlayerCommand();
+    return true;
+  }
 
   if (message.type === 'ready') {
     state.playerRuntimeReady = true;
     state.playerHostError = null;
-    syncFrameFromPlayerMessage(message.frame ?? state.frame);
-    if (typeof message.playing === 'boolean') {
-      state.playerRuntimePlaying = message.playing;
-    }
+    const actual = mergeActualState({ ...message, buffering: false, seeking: false });
+    setPlayingState(Boolean(actual.playing));
+    setPlayerPhase(actual.playing ? 'playing' : 'paused');
+    syncPlaybackDom();
     syncPlayerRuntimeDom();
     flushPlayerCommand();
     return true;
@@ -282,56 +356,81 @@ function handlePlayerHostMessage(message = {}) {
     return true;
   }
 
-  if (message.type === 'frame') {
-    if (message.frame !== undefined) syncFrameFromPlayerMessage(message.frame);
-    if (typeof message.playing === 'boolean') {
-      state.playerRuntimePlaying = message.playing;
-    }
-    return true;
-  }
-
   if (message.type === 'frameContext') {
     applyFrameContextMessage(message);
     return true;
   }
 
-  if (message.type === 'command') {
-    acknowledgeCommand(message);
-    if (message.frame !== undefined) syncFrameFromPlayerMessage(message.frame);
-    if (typeof message.playing === 'boolean') {
-      state.playerRuntimePlaying = message.playing;
-      if (message.command === 'play') setPlayingState(message.playing);
-      else syncPlayingDom();
+  if (message.type === 'commandAccepted') {
+    if (state.playerInFlightCommand?.commandId === message.commandId) {
+      state.playerInFlightCommand.accepted = true;
+      state.playerInFlightCommand.acceptedAt = Date.now();
     }
     return true;
   }
 
-  if (message.type === 'play') {
-    state.playerRuntimePlaying = true;
-    if (message.frame !== undefined) syncFrameFromPlayerMessage(message.frame);
-    if (!state.playing) {
-      if (!state.playerInFlightCommand || state.playerInFlightCommand.type !== 'pause') {
-        sendOrQueuePlayerCommand('pause', { frame: message.frame ?? state.frame });
-      }
-      return true;
-    }
+  if (message.type === 'frameCommitted' || message.type === 'actualState') {
+    const actual = mergeActualState(message);
+    if (message.type === 'frameCommitted') state.playerCommittedFrame = actual.frame;
+    settleInFlightCommand(actual);
+    state.playerPhase = actual.buffering
+      ? 'buffering'
+      : actual.seeking
+      ? 'seeking'
+      : actual.playing
+      ? 'playing'
+      : 'paused';
+    schedulePlaybackDomSync();
+    return true;
+  }
+
+  if (message.type === 'seekSettled') {
+    const actual = mergeActualState({ ...message, seeking: false });
+    state.playerSeeking = false;
+    settleInFlightCommand(actual);
+    setPlayerPhase(actual.playing ? 'playing' : 'paused');
+    syncPlaybackDom();
+    return true;
+  }
+
+  if (message.type === 'playing') {
+    const actual = mergeActualState({ ...message, playing: true, buffering: false });
+    state.playerBuffering = false;
     setPlayingState(true);
+    settleInFlightCommand(actual);
+    setPlayerPhase('playing');
+    syncPlaybackDom();
     return true;
   }
 
-  if (message.type === 'pause') {
-    state.playerRuntimePlaying = false;
-    if (message.frame !== undefined) syncFrameFromPlayerMessage(message.frame);
-    if (!(state.playing && state.playerInFlightCommand?.type === 'play')) {
-      setPlayingState(false);
-    }
+  if (message.type === 'paused') {
+    const actual = mergeActualState({ ...message, playing: false });
+    setPlayingState(false);
+    settleInFlightCommand(actual);
+    setPlayerPhase('paused');
+    syncPlaybackDom();
+    return true;
+  }
+
+  if (message.type === 'buffering') {
+    mergeActualState(message);
+    state.playerBuffering = Boolean(message.buffering);
+    setPlayerPhase(state.playerBuffering ? 'buffering' : state.playerRuntimePlaying ? 'playing' : 'paused');
+    syncPlaybackDom();
     return true;
   }
 
   if (message.type === 'ended') {
-    state.playerRuntimePlaying = false;
+    const actual = mergeActualState({ ...message, playing: false, buffering: false, seeking: false });
+    if (state.playerDesiredState) {
+      state.playerDesiredState = { ...state.playerDesiredState, frame: actual.frame, playing: false };
+    }
+    state.playerBuffering = false;
+    state.playerSeeking = false;
+    state.playerInFlightCommand = null;
     setPlayingState(false);
-    if (message.frame !== undefined) syncFrameFromPlayerMessage(message.frame);
+    setPlayerPhase('ended');
+    syncPlaybackDom();
     return true;
   }
 
@@ -339,17 +438,21 @@ function handlePlayerHostMessage(message = {}) {
     state.playerHostError = String(message.message || 'Player preview failed.');
     state.playerRuntimeReady = false;
     state.playerRuntimePlaying = false;
-    clearInFlightCommand();
+    state.playerBuffering = false;
+    state.playerSeeking = false;
+    state.playerInFlightCommand = null;
+    if (state.playerDesiredState) state.playerDesiredState = { ...state.playerDesiredState, playing: false };
     setPlayingState(false);
+    setPlayerPhase('error');
     requestRender();
     return true;
   }
 
-  return true;
+  return false;
 }
 
 
-function requestPlayerSnapshot(timeoutMs = 700) {
+function requestPlayerSnapshot(timeoutMs = 1_000) {
   if (!playerPreviewReady() || !playerFrameNode()) return Promise.resolve(null);
   const requestId = nextPlayerCommandId('snapshot');
   return new Promise((resolve) => {
@@ -368,22 +471,36 @@ function requestPlayerSnapshot(timeoutMs = 700) {
 }
 
 
-async function getPreviewSnapshot() {
-  if (usePlayerPreview() && playerPreviewReady()) {
-    const snapshot = await requestPlayerSnapshot();
-    if (snapshot) return snapshot;
-    return currentPreviewSnapshot('player-fallback');
-  }
-  if (useStudioPreview()) return currentPreviewSnapshot('studio-state');
-  return currentPreviewSnapshot('still-state');
+function requestPlayerFrameContext() {
+  return postPlayerMessage('frameContext', {}, { requireReady: false });
 }
 
 
+function setPlayerAudio({ muted, volume } = {}) {
+  if (volume !== undefined) return sendOrQueuePlayerCommand('volume', { volume, muted });
+  return sendOrQueuePlayerCommand(muted === false ? 'unmute' : 'mute', { muted });
+}
+
+
+async function getPreviewSnapshot() {
+  if (playerPreviewReady()) {
+    const snapshot = await requestPlayerSnapshot();
+    if (snapshot) return snapshot;
+    return currentPreviewSnapshot('player-unavailable');
+  }
+  return currentPreviewSnapshot('player-state');
+}
+
+
+setPlayerMessageHandler(handlePlayerHostMessage);
+
 export {
-  clearPlayerCommandFallback,
   flushPlayerCommand,
   getPreviewSnapshot,
   handlePlayerHostMessage,
+  requestPlayerFrameContext,
   requestPlayerSnapshot,
   sendOrQueuePlayerCommand,
+  setPlayerAudio,
+  syncPlayerStateAttributes,
 };

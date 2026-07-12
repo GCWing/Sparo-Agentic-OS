@@ -17,6 +17,8 @@ impl Default for DailyLetterScope {
 #[serde(rename_all = "snake_case")]
 pub enum DailyLetterRecordStatus {
     Ready,
+    /// Legacy status kept only so records written by older versions still
+    /// deserialize. New letters are always written, whatever the day held.
     InsufficientContext,
     NeedsReceipt,
     Sealed,
@@ -113,13 +115,6 @@ pub struct DailyLetterContextPacket {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DailyLetterAgentResult {
-    Letter,
-    InsufficientContext,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DailyLetterAgentPreview {
     pub title: String,
@@ -148,7 +143,6 @@ pub struct DailyLetterAgentAppOpportunity {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DailyLetterAgentOutput {
-    pub result: DailyLetterAgentResult,
     pub preview: DailyLetterAgentPreview,
     pub body_markdown: String,
     #[serde(default)]
@@ -292,6 +286,8 @@ pub enum DailyLetterAttemptStatus {
     Ok,
     Error,
     Cancelled,
+    /// Legacy status kept only so older state files still deserialize.
+    /// Letters are no longer skipped for lack of sources.
     SkippedNoSources,
 }
 

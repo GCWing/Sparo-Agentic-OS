@@ -4,7 +4,6 @@ use std::path::{Component, Path, PathBuf};
 use base64::Engine as _;
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use sha2::{Digest, Sha256};
 use tokio::fs;
 
@@ -231,6 +230,51 @@ impl ProductAppResolver {
     pub async fn read_lock(package_dir: &Path) -> CoreResult<ComponentLock> {
         read_json(&package_dir.join("app.lock.json")).await
     }
+
+    /// Resolves an immutable release from its persisted lock without running
+    /// dependency selection again.
+    pub async fn resolve_package_runtime(
+        package_dir: &Path,
+        shared_components: &[ComponentDefinition],
+    ) -> CoreResult<ResolvedProductApp> {
+        let package = Self::read_product_app_package(package_dir).await?;
+        let lock = Self::read_lock(package_dir).await?;
+        let components =
+            components_for_runtime_lock(&package.private_components, shared_components, &lock)?;
+        let mut resolved = Self::build_runtime_projection(
+            package.app,
+            components,
+            lock,
+            package.component_implementation_digests,
+            package.private_surface_sources,
+        )?;
+        resolved.package_dir = Some(package_dir.to_path_buf());
+        Self::hydrate_package_icon(&mut resolved, package_dir)?;
+        Ok(resolved)
+    }
+}
+
+fn components_for_runtime_lock(
+    private_components: &[ComponentDefinition],
+    shared_components: &[ComponentDefinition],
+    lock: &ComponentLock,
+) -> CoreResult<Vec<ComponentDefinition>> {
+    let by_fqid = private_components
+        .iter()
+        .chain(shared_components.iter())
+        .map(|component| (component.fqid(), component.clone()))
+        .collect::<BTreeMap<_, _>>();
+    lock.resolved_components
+        .iter()
+        .map(|entry| {
+            by_fqid.get(&entry.fqid).cloned().ok_or_else(|| {
+                CoreError::validation(format!(
+                    "Release lock references missing immutable component {}",
+                    entry.fqid
+                ))
+            })
+        })
+        .collect()
 }
 
 struct InstallResolver {
@@ -930,41 +974,7 @@ where
 }
 
 async fn read_product_app_definition(path: &Path) -> CoreResult<AppDefinition> {
-    let bytes = fs::read(path)
-        .await
-        .map_err(|error| CoreError::io(format!("Failed to read {}: {}", path.display(), error)))?;
-    let mut value: Value = serde_json::from_slice(&bytes).map_err(CoreError::from)?;
-    if canonicalize_legacy_icon_value(&mut value) {
-        let bytes = serde_json::to_vec_pretty(&value).map_err(CoreError::from)?;
-        fs::write(path, bytes).await.map_err(|error| {
-            CoreError::io(format!("Failed to write {}: {}", path.display(), error))
-        })?;
-    }
-    serde_json::from_value(value).map_err(CoreError::from)
-}
-
-fn canonicalize_legacy_icon_value(value: &mut Value) -> bool {
-    let Some(icon_name) = value.get("icon").and_then(Value::as_str) else {
-        return false;
-    };
-    let icon = if icon_name.trim().is_empty() || icon_name.eq_ignore_ascii_case("app") {
-        let label = value
-            .get("name")
-            .and_then(Value::as_str)
-            .or_else(|| value.get("id").and_then(Value::as_str))
-            .unwrap_or("App");
-        serde_json::json!({
-            "kind": "monogram",
-            "label": label
-        })
-    } else {
-        serde_json::json!({
-            "kind": "lucide",
-            "name": icon_name
-        })
-    };
-    value["icon"] = icon;
-    true
+    read_json(path).await
 }
 
 async fn read_optional_json<T>(path: &Path) -> CoreResult<Option<T>>
@@ -1643,8 +1653,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn package_reader_canonicalizes_legacy_string_icon() {
-        let root = test_root("legacy-string-icon");
+    async fn package_reader_rejects_string_icon_without_mutating_source() {
+        let root = test_root("string-icon-rejected");
         let app = test_app(vec![private_ref(
             "preview",
             ComponentKind::Surface,
@@ -1654,22 +1664,13 @@ mod tests {
         app_value["icon"] = json!("Boxes");
         write_json_sync(root.join("app.json"), &app_value);
 
-        let package = ProductAppResolver::read_product_app_package(&root)
+        ProductAppResolver::read_product_app_package(&root)
             .await
-            .expect("legacy string icon should be canonicalized before AppDefinition deserialize");
+            .expect_err("string icon must be rejected");
 
-        assert_eq!(
-            package.app.icon,
-            AppIconSpec::Lucide {
-                name: "Boxes".to_string(),
-                background: None,
-            }
-        );
-
-        let repaired: serde_json::Value =
+        let unchanged: serde_json::Value =
             serde_json::from_slice(&std::fs::read(root.join("app.json")).unwrap()).unwrap();
-        assert_eq!(repaired["icon"]["kind"], "lucide");
-        assert_eq!(repaired["icon"]["name"], "Boxes");
+        assert_eq!(unchanged["icon"], "Boxes");
     }
 
     #[tokio::test]

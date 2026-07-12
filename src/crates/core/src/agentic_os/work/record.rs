@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 use super::assignment::WorkAssignmentRef;
 use super::execution_binding::WorkExecutionBinding;
@@ -69,9 +70,11 @@ pub struct WorkDelegationContext {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RuntimeInstanceRef {
     pub id: String,
-    pub product_app_id: String,
-    pub app_version: String,
-    pub component_lock_digest: String,
+    pub slot_id: String,
+    pub app_id: String,
+    pub release_id: String,
+    pub config_revision: String,
+    pub data_schema_version: String,
     pub product_app_surface_id: String,
     pub surface_id: String,
 }
@@ -95,17 +98,14 @@ impl RuntimeInstanceRef {
             return None;
         }
 
-        let lock_suffix = runtime_id_segment(&app.component_lock_digest, 12);
+        let binding_digest = runtime_binding_digest(work_id, app, surface);
         Some(Self {
-            id: format!(
-                "runtime_{}_{}_{}",
-                work_id.as_str(),
-                runtime_id_segment(product_app_id, 48),
-                lock_suffix
-            ),
-            product_app_id: product_app_id.clone(),
-            app_version: app.app_version.clone(),
-            component_lock_digest: app.component_lock_digest.clone(),
+            id: format!("runtime_{}_{}", work_id.as_str(), &binding_digest[..24]),
+            slot_id: app.slot_id.clone(),
+            app_id: product_app_id.clone(),
+            release_id: app.release_id.clone(),
+            config_revision: app.config_revision.clone(),
+            data_schema_version: app.data_schema_version.clone(),
             product_app_surface_id: product_app_surface_id.clone(),
             surface_id: surface_id.clone(),
         })
@@ -297,22 +297,95 @@ fn push_app_relation(relations: &mut Vec<WorkAppRelation>, relation: WorkAppRela
     relations.push(relation);
 }
 
-fn runtime_id_segment(value: &str, max_len: usize) -> String {
-    let mut segment = value
-        .chars()
-        .filter_map(|ch| {
-            if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
-                Some(ch)
-            } else if ch == ':' || ch == '/' || ch == '.' {
-                Some('_')
-            } else {
-                None
-            }
-        })
-        .take(max_len)
-        .collect::<String>();
-    if segment.is_empty() {
-        segment = "instance".to_string();
+fn runtime_binding_digest(work_id: &WorkId, app: &WorkAppRef, surface: &WorkSurfaceRef) -> String {
+    let mut hasher = Sha256::new();
+    for value in [
+        work_id.as_str(),
+        app.slot_id.as_str(),
+        app.app_id.as_str(),
+        app.release_id.as_str(),
+        app.config_revision.as_str(),
+        app.data_schema_version.as_str(),
+    ] {
+        hasher.update(value.len().to_le_bytes());
+        hasher.update(value.as_bytes());
     }
-    segment
+    let WorkSurfaceRef::ApplicationSurface {
+        product_app_surface_id,
+        surface_id,
+        ..
+    } = surface
+    else {
+        unreachable!("runtime binding digest requires an application surface");
+    };
+    for value in [product_app_surface_id.as_str(), surface_id.as_str()] {
+        hasher.update(value.len().to_le_bytes());
+        hasher.update(value.as_bytes());
+    }
+    format!("{:x}", hasher.finalize())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn app_ref(slot_id: &str, release_id: &str, config_revision: &str) -> WorkAppRef {
+        WorkAppRef::product_app(slot_id, "sample-app", release_id, config_revision, "3")
+    }
+
+    fn surface() -> WorkSurfaceRef {
+        WorkSurfaceRef::ApplicationSurface {
+            product_app_id: "sample-app".to_string(),
+            product_app_surface_id: "sample-surface".to_string(),
+            surface_id: "primary".to_string(),
+        }
+    }
+
+    #[test]
+    fn runtime_instance_pins_slot_release_and_config_revision() {
+        let work_id = WorkId::parse("work_release_binding").expect("work id");
+        let app = app_ref("primary", "release-sample-7", "config-4");
+
+        let instance =
+            RuntimeInstanceRef::product_app_application_surface(&work_id, &app, &surface())
+                .expect("runtime instance");
+
+        assert_eq!(instance.slot_id, "primary");
+        assert_eq!(instance.app_id, "sample-app");
+        assert_eq!(instance.release_id, "release-sample-7");
+        assert_eq!(instance.config_revision, "config-4");
+    }
+
+    #[test]
+    fn runtime_identity_changes_for_every_execution_binding_dimension() {
+        let work_id = WorkId::parse("work_release_identity").expect("work id");
+        let baseline = RuntimeInstanceRef::product_app_application_surface(
+            &work_id,
+            &app_ref("primary", "release-sample-7", "config-4"),
+            &surface(),
+        )
+        .expect("baseline runtime");
+        let different_slot = RuntimeInstanceRef::product_app_application_surface(
+            &work_id,
+            &app_ref("secondary", "release-sample-7", "config-4"),
+            &surface(),
+        )
+        .expect("slot runtime");
+        let different_release = RuntimeInstanceRef::product_app_application_surface(
+            &work_id,
+            &app_ref("primary", "release-sample-8", "config-4"),
+            &surface(),
+        )
+        .expect("release runtime");
+        let different_config = RuntimeInstanceRef::product_app_application_surface(
+            &work_id,
+            &app_ref("primary", "release-sample-7", "config-5"),
+            &surface(),
+        )
+        .expect("config runtime");
+
+        assert_ne!(baseline.id, different_slot.id);
+        assert_ne!(baseline.id, different_release.id);
+        assert_ne!(baseline.id, different_config.id);
+    }
 }

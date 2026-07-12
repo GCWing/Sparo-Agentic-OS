@@ -3,9 +3,9 @@
 use std::path::PathBuf;
 
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
-use crate::agentic::tools::implementations::util::bound_app_builder_product_app_root;
+use crate::agentic::tools::implementations::util::bound_app_builder_draft_root;
 use crate::app_platform::{
-    list_installed_shared_components, AppSurfaceMode, AppWorkMultiplicity, ComponentKind,
+    list_system_shared_components, AppSurfaceMode, AppWorkMultiplicity, ComponentKind,
     ProductAppLaunchKind, ProductAppResolver,
 };
 use crate::error::{CoreError, CoreResult};
@@ -34,9 +34,7 @@ impl Tool for ValidateProductAppPackageTool {
     }
 
     async fn description(&self) -> CoreResult<String> {
-        Ok(r#"Validate a Product App package without modifying it. Checks app.json, private components, primary surface, launch policy, component lock digest, permission boundary, data boundary, data lifecycle policy, user-path rehearsal contract, and package resolver consistency.
-
-Input: path, or app_id plus optional version for standalone validation. In a bound AppBuilder session, leave input empty; the current bound Product App package is always used. Use this after meaningful Product App package edits and before final handoff. This is a package validation gate; preview/runtime/user-path/eval evidence still requires the platform preview and eval facts."#
+        Ok(r#"Validate the current bound Intelligent App Draft without modifying it. Checks app.json, private components, primary surface, launch policy, component lock digest, permission boundary, data boundary, data lifecycle policy, user-path rehearsal contract, and package resolver consistency. Use this after meaningful edits and before final handoff. Preview/runtime/user-path/eval evidence remains a separate release gate."#
             .to_string())
     }
 
@@ -44,21 +42,8 @@ Input: path, or app_id plus optional version for standalone validation. In a bou
         json!({
             "type": "object",
             "additionalProperties": false,
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Product App package directory containing app.json and app.lock.json."
-                },
-                "app_id": {
-                    "type": "string",
-                    "description": "Installed Product App id. Used with version when path is omitted."
-                },
-                "version": {
-                    "type": "string",
-                    "description": "Product App version. Defaults to 1.0.0 when app_id is used."
-                }
-            },
-            "description": "Use path/app_id only for standalone validation. Leave empty in a bound AppBuilder session; the current Product App package is used."
+            "properties": {},
+            "description": "The package is derived exclusively from the bound Draft identity."
         })
     }
 
@@ -72,12 +57,12 @@ Input: path, or app_id plus optional version for standalone validation. In a bou
 
     async fn call_impl(
         &self,
-        input: &Value,
+        _input: &Value,
         context: &ToolUseContext,
     ) -> CoreResult<Vec<ToolResult>> {
         let path_manager = try_get_path_manager_arc()
             .map_err(|e| CoreError::tool(format!("PathManager not initialized: {}", e)))?;
-        let package_dir = package_dir_from_input(input, &path_manager, context)?;
+        let package_dir = package_dir_from_context(context)?;
         let package = ProductAppResolver::read_product_app_package(&package_dir)
             .await
             .map_err(|e| CoreError::tool(format!("Failed to read Product App package: {}", e)))?;
@@ -104,11 +89,12 @@ Input: path, or app_id plus optional version for standalone validation. In a bou
             })
             .unwrap_or(0);
 
-        let shared_components = list_installed_shared_components(&path_manager)
-            .await
-            .map_err(|e| {
-                CoreError::tool(format!("Failed to read installed shared components: {}", e))
-            })?;
+        let shared_components =
+            list_system_shared_components(&path_manager)
+                .await
+                .map_err(|e| {
+                    CoreError::tool(format!("Failed to read system shared components: {}", e))
+                })?;
         let resolved = ProductAppResolver::resolve_package_install(package, shared_components)
             .map_err(|e| CoreError::tool(format!("Product App resolver failed: {}", e)))?;
         let lock = ProductAppResolver::read_lock(&package_dir)
@@ -427,23 +413,12 @@ Input: path, or app_id plus optional version for standalone validation. In a bou
     }
 }
 
-fn package_dir_from_input(
-    input: &Value,
-    path_manager: &crate::infrastructure::PathManager,
-    context: &ToolUseContext,
-) -> CoreResult<PathBuf> {
-    if let Some(package_root) =
-        bound_app_builder_product_app_root(context, "ValidateProductAppPackage")?
-    {
-        return Ok(package_root);
-    }
-
-    if let Some(path) = optional_string(input, "path").filter(|value| !value.trim().is_empty()) {
-        return Ok(PathBuf::from(path));
-    }
-    let app_id = required_string(input, "app_id")?;
-    let version = optional_string(input, "version").unwrap_or_else(|| "1.0.0".to_string());
-    Ok(path_manager.system_product_app_version_dir(&app_id, &version))
+fn package_dir_from_context(context: &ToolUseContext) -> CoreResult<PathBuf> {
+    bound_app_builder_draft_root(context, "ValidateProductAppPackage")?.ok_or_else(|| {
+        CoreError::validation(
+            "ValidateProductAppPackage is only available inside an authorized Intelligent App Draft",
+        )
+    })
 }
 
 fn push_check(checks: &mut Vec<Value>, id: &str, status: &str, detail: String) {
@@ -454,22 +429,6 @@ fn push_check(checks: &mut Vec<Value>, id: &str, status: &str, detail: String) {
     }));
 }
 
-fn required_string(input: &Value, field: &str) -> CoreResult<String> {
-    let value = optional_string(input, field)
-        .ok_or_else(|| CoreError::validation(format!("Missing required field: {field}")))?;
-    if value.trim().is_empty() {
-        return Err(CoreError::validation(format!("{field} cannot be empty")));
-    }
-    Ok(value)
-}
-
-fn optional_string(input: &Value, field: &str) -> Option<String> {
-    input
-        .get(field)
-        .and_then(|value| value.as_str())
-        .map(|value| value.trim().to_string())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -477,10 +436,9 @@ mod tests {
         AppBuilderExecutionContext, AppBuilderSubject, AppBuilderSubjectScope,
     };
     use crate::agentic::tools::ToolRuntimeRestrictions;
-    use crate::infrastructure::PathManager;
     use std::collections::HashMap;
 
-    fn bound_context(package_root: PathBuf, app_id: &str, version: &str) -> ToolUseContext {
+    fn bound_context(package_root: PathBuf) -> ToolUseContext {
         ToolUseContext {
             tool_call_id: None,
             agent_type: Some("AppBuilder".to_string()),
@@ -489,9 +447,8 @@ mod tests {
             workspace: None,
             custom_data: HashMap::new(),
             app_builder: Some(AppBuilderExecutionContext {
-                subject: AppBuilderSubject::ProductApp {
-                    app_id: app_id.to_string(),
-                    version: version.to_string(),
+                subject: AppBuilderSubject::BuilderDraft {
+                    draft_id: "draft_0123456789abcdef0123456789abcdef".to_string(),
                     title: Some("Current App".to_string()),
                     scope: AppBuilderSubjectScope::System,
                 },
@@ -515,83 +472,45 @@ mod tests {
         let base = test_root("default-bound");
         let package_root = base.join("apps").join("current-app").join("1.0.0");
         std::fs::create_dir_all(&package_root).expect("create package root");
-        let path_manager = PathManager::with_user_root_for_tests(base.clone());
-        let context = bound_context(package_root.clone(), "current-app", "1.0.0");
+        let context = bound_context(package_root.clone());
 
-        let resolved = package_dir_from_input(&json!({}), &path_manager, &context)
-            .expect("bound default package root");
+        let resolved = package_dir_from_context(&context).expect("bound default package root");
 
         assert_eq!(resolved, package_root);
         let _ = std::fs::remove_dir_all(base);
     }
 
     #[test]
-    fn validate_product_app_accepts_matching_bound_app_id() {
-        let base = test_root("matching-app-id");
+    fn validate_product_app_uses_only_bound_draft_identity() {
+        let base = test_root("bound-draft-only");
         let package_root = base.join("apps").join("current-app").join("1.2.3");
         std::fs::create_dir_all(&package_root).expect("create package root");
-        let path_manager = PathManager::with_user_root_for_tests(base.clone());
-        let context = bound_context(package_root.clone(), "current-app", "1.2.3");
+        let context = bound_context(package_root.clone());
 
-        let resolved = package_dir_from_input(
-            &json!({
-                "app_id": "current-app",
-                "version": "1.2.3"
-            }),
-            &path_manager,
-            &context,
-        )
-        .expect("matching bound app id");
+        let resolved = package_dir_from_context(&context).expect("bound Draft root");
 
         assert_eq!(resolved, package_root);
         let _ = std::fs::remove_dir_all(base);
     }
 
     #[test]
-    fn validate_product_app_rejects_mismatched_bound_app_id() {
-        let base = test_root("mismatched-app-id");
-        let package_root = base.join("apps").join("current-app").join("1.0.0");
-        std::fs::create_dir_all(&package_root).expect("create package root");
-        let path_manager = PathManager::with_user_root_for_tests(base.clone());
-        let context = bound_context(package_root, "current-app", "1.0.0");
-
-        let denied = package_dir_from_input(
-            &json!({
-                "app_id": "other-app",
-                "version": "1.0.0"
-            }),
-            &path_manager,
-            &context,
-        );
-
-        assert!(denied.is_err());
-        let _ = std::fs::remove_dir_all(base);
-    }
-
-    #[test]
-    fn validate_product_app_rejects_path_outside_bound_root() {
-        let base = test_root("outside-path");
+    fn validate_product_app_cannot_select_a_sibling_draft() {
+        let base = test_root("sibling-draft");
         let package_root = base.join("apps").join("current-app").join("1.0.0");
         let sibling_root = base.join("apps").join("other-app").join("1.0.0");
         std::fs::create_dir_all(&package_root).expect("create package root");
         std::fs::create_dir_all(&sibling_root).expect("create sibling root");
-        let path_manager = PathManager::with_user_root_for_tests(base.clone());
-        let context = bound_context(package_root, "current-app", "1.0.0");
+        let context = bound_context(package_root.clone());
 
-        let denied = package_dir_from_input(
-            &json!({ "path": sibling_root.to_string_lossy() }),
-            &path_manager,
-            &context,
-        );
+        let resolved = package_dir_from_context(&context).expect("bound Draft root");
 
-        assert!(denied.is_err());
+        assert_eq!(resolved, package_root);
         let _ = std::fs::remove_dir_all(base);
     }
 
     #[test]
-    fn validate_product_app_standalone_requires_path_or_app_id() {
-        let base = test_root("standalone-required");
-        let path_manager = PathManager::with_user_root_for_tests(base.clone());
+    fn validate_product_app_rejects_an_unbound_session() {
+        let base = test_root("unbound-rejected");
         let context = ToolUseContext {
             tool_call_id: None,
             agent_type: Some("Runno".to_string()),
@@ -608,7 +527,7 @@ mod tests {
             agentic: None,
         };
 
-        let denied = package_dir_from_input(&json!({}), &path_manager, &context);
+        let denied = package_dir_from_context(&context);
 
         assert!(denied.is_err());
         let _ = std::fs::remove_dir_all(base);

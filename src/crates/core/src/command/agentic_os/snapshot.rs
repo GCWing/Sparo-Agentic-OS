@@ -2,17 +2,16 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::agent_component::AgentComponentManager;
 use crate::agentic::core::SessionKind;
 use crate::agentic::persistence::PersistenceManager;
 use crate::agentic_os::work::{default_work_store, WorkProjection};
-use crate::bridge_component::BridgeComponentManager;
+use crate::app_platform::{AppOwnerKind, AppVariantState};
 use crate::infrastructure::try_get_path_manager_arc;
-use crate::product_app_runtime_host::ProductAppRuntimeHostManager;
 use crate::service::config::types::AIConfig;
 use crate::service::workspace::get_global_workspace_service;
 
 use super::super::{CommandContext, CommandError, CommandResult};
+use super::apps::{get_intelligent_app_catalog, IntelligentAppCatalogRequest};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct AgenticOsSnapshotRequest {
@@ -71,11 +70,15 @@ pub struct AgenticOsTaskRow {
 #[derive(Debug, Clone, Serialize)]
 pub struct AgenticOsAppRow {
     pub id: String,
+    pub slot_id: String,
     pub name: String,
-    pub kind: String,
+    pub state: String,
+    pub owner: String,
     pub description: String,
-    pub capability: String,
-    pub target: Option<String>,
+    pub active_release_id: Option<String>,
+    pub latest_release_id: Option<String>,
+    pub version: Option<String>,
+    pub capability_fingerprint: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -137,7 +140,7 @@ async fn get_snapshot_with_model(
     }
     snapshot.works = load_works().await?;
     snapshot.tasks = snapshot.works.iter().map(task_row_from_work).collect();
-    snapshot.apps = load_apps().await;
+    snapshot.apps = load_apps(snapshot.current_workspace.as_deref()).await;
     snapshot.memories = load_memories(snapshot.current_workspace.as_deref()).await;
 
     Ok(snapshot)
@@ -304,46 +307,67 @@ async fn load_works() -> CommandResult<Vec<AgenticOsWorkRow>> {
         .collect())
 }
 
-async fn load_apps() -> Vec<AgenticOsAppRow> {
-    let mut rows = Vec::new();
-
-    if let Ok(apps) = AgentComponentManager::list(None) {
-        rows.extend(apps.into_iter().map(|app| AgenticOsAppRow {
-            id: app.id,
-            name: app.name,
-            kind: "AGENT APP".to_string(),
-            description: app.description,
-            capability: app.tools.join(" "),
-            target: Some(app.path),
-        }));
-    }
-
-    if let Ok(apps) = BridgeComponentManager::list() {
-        rows.extend(apps.into_iter().map(|app| AgenticOsAppRow {
-            id: app.manifest.id,
-            name: app.manifest.name,
-            kind: "BRIDGE APP".to_string(),
-            description: app.manifest.description,
-            capability: format!("{:?}", app.manifest.runtime.language),
-            target: Some(app.path),
-        }));
-    }
-
-    if let Ok(path_manager) = try_get_path_manager_arc() {
-        let manager = ProductAppRuntimeHostManager::new(path_manager);
-        if let Ok(apps) = manager.list().await {
-            rows.extend(apps.into_iter().map(|app| AgenticOsAppRow {
-                id: app.id,
-                name: app.name,
-                kind: "LIVE APP".to_string(),
-                description: app.description,
-                capability: app.category,
-                target: None,
-            }));
+async fn load_apps(_workspace: Option<&str>) -> Vec<AgenticOsAppRow> {
+    let catalog = match get_intelligent_app_catalog(IntelligentAppCatalogRequest {}).await {
+        Ok(catalog) => catalog,
+        Err(error) => {
+            log::warn!("Failed to load authoritative Intelligent App catalog: {error}");
+            return Vec::new();
         }
-    }
+    };
 
-    rows
+    catalog
+        .slots
+        .into_iter()
+        .flat_map(|slot| {
+            let activation = slot.activation;
+            slot.variants.into_iter().map(move |variant| {
+                let selected_activation = activation
+                    .as_ref()
+                    .filter(|activation| activation.selected_app_id == variant.app.app_id);
+                let active_release = selected_activation.and_then(|activation| {
+                    variant
+                        .releases
+                        .iter()
+                        .find(|release| release.release_id == activation.active_release_id)
+                });
+                let release = active_release.or(variant.latest_release.as_ref());
+                let owner = match variant.app.owner.kind {
+                    AppOwnerKind::System => "system".to_string(),
+                    AppOwnerKind::User => format!(
+                        "user:{}",
+                        variant.app.owner.owner_id.as_deref().unwrap_or("unknown")
+                    ),
+                    AppOwnerKind::Organization => format!(
+                        "organization:{}",
+                        variant.app.owner.owner_id.as_deref().unwrap_or("unknown")
+                    ),
+                };
+                AgenticOsAppRow {
+                    id: variant.app.app_id,
+                    slot_id: variant.app.slot_id,
+                    name: variant.app.display_name,
+                    state: match variant.state {
+                        AppVariantState::Active => "active",
+                        AppVariantState::Disabled => "disabled",
+                        AppVariantState::Available => "available",
+                    }
+                    .to_string(),
+                    owner,
+                    description: variant.app.description.unwrap_or_default(),
+                    active_release_id: selected_activation
+                        .map(|activation| activation.active_release_id.clone()),
+                    latest_release_id: variant
+                        .latest_release
+                        .as_ref()
+                        .map(|release| release.release_id.clone()),
+                    version: release.map(|release| release.version.clone()),
+                    capability_fingerprint: release
+                        .map(|release| release.capability_fingerprint.clone()),
+                }
+            })
+        })
+        .collect()
 }
 
 fn task_row_from_work(work: &AgenticOsWorkRow) -> AgenticOsTaskRow {

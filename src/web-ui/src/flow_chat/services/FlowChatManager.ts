@@ -28,6 +28,8 @@ import {
   immediateSaveDialogTurn,
   createChatSession as createChatSessionModule,
   activateSessionData as activateSessionDataModule,
+  retrySessionHistory as retrySessionHistoryModule,
+  ensureBackendSession as ensureBackendSessionModule,
   deleteChatSession as deleteChatSessionModule,
   retargetEmptyChatSessionWorkspace as retargetEmptyChatSessionWorkspaceModule,
   renameChatSessionTitle as renameChatSessionTitleModule,
@@ -95,6 +97,7 @@ export class FlowChatManager {
       toolParamParseTimestamps: new Map(),
       pendingTurnCompletions: new Map(),
       pendingHistoryLoads: new Map(),
+      pendingBackendReadiness: new Map(),
       contentBuffers: new Map(),
       activeTextItems: new Map(),
       saveDebouncers: new Map(),
@@ -453,8 +456,12 @@ export class FlowChatManager {
     );
   }
 
-  async createChatSession(config: SessionConfig, descriptor?: SessionDescriptor): Promise<string> {
-    return createChatSessionModule(this.context, config, descriptor);
+  async createChatSession(
+    config: SessionConfig,
+    descriptor?: SessionDescriptor,
+    options?: { sessionId?: string; notifyOnError?: boolean },
+  ): Promise<string> {
+    return createChatSessionModule(this.context, config, descriptor, options);
   }
 
   async switchChatSession(sessionId: string): Promise<void> {
@@ -464,6 +471,17 @@ export class FlowChatManager {
 
   async activateSessionData(sessionId: string): Promise<void> {
     return activateSessionDataModule(this.context, sessionId);
+  }
+
+  async retrySessionHistory(sessionId: string): Promise<void> {
+    return retrySessionHistoryModule(this.context, sessionId);
+  }
+
+  async ensureBackendSession(
+    sessionId: string,
+    afterReady?: () => Promise<void>,
+  ): Promise<void> {
+    return ensureBackendSessionModule(this.context, sessionId, afterReady);
   }
 
   async persistSessionMetadata(sessionId: string): Promise<void> {

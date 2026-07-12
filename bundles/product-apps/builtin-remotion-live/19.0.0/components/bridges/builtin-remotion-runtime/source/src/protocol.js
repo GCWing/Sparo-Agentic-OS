@@ -1,4 +1,7 @@
 const fs = require("node:fs");
+const { AsyncLocalStorage } = require("node:async_hooks");
+
+const requestContext = new AsyncLocalStorage();
 
 function emit(event) {
   const line = `${JSON.stringify(event)}\n`;
@@ -9,30 +12,24 @@ function emit(event) {
   }
 }
 
-function emitStatus(message, status = "running") {
-  emit({ type: "run.status", status, message });
+function emitStatus(message, phase = "running") {
+  emitRunEvent({ type: "run.status", status: "running", phase, message });
 }
 
-function readRequest() {
-  return new Promise((resolve, reject) => {
-    let input = "";
-    process.stdin.setEncoding("utf8");
-    process.stdin.on("data", (chunk) => {
-      input += chunk;
-    });
-    process.stdin.on("end", () => {
-      try {
-        resolve(JSON.parse(input.trim() || "{}"));
-      } catch (error) {
-        reject(error);
-      }
-    });
-    process.stdin.on("error", reject);
-  });
+function emitRunEvent(event) {
+  const context = requestContext.getStore();
+  if (!context?.runId || !context?.bridgeId) {
+    throw new Error("Bridge runtime event emitted outside a request context.");
+  }
+  emit({ bridgeId: context.bridgeId, runId: context.runId, event });
+}
+
+function runWithRequestContext(context, callback) {
+  return requestContext.run(context, callback);
 }
 
 module.exports = {
-  emit,
+  emitRunEvent,
   emitStatus,
-  readRequest,
+  runWithRequestContext,
 };

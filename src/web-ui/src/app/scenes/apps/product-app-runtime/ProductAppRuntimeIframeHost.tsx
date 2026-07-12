@@ -10,7 +10,7 @@ import React, {
   useMemo,
   useRef,
 } from 'react';
-import type { ProductAppRehearsalPlan } from '@/infrastructure/api/service-api/AppCatalogAPI';
+import type { ProductAppRehearsalPlan } from '@/shared/types/app-manifest';
 import type { ProductAppRuntimeSessionMetadata } from '@/shared/types/session-history';
 import { useProductAppRuntimeBridge } from './useProductAppRuntimeBridge';
 import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
@@ -30,6 +30,61 @@ import {
   type AppScope,
   workspacePathFromAppScope,
 } from '@/shared/types/app-scope';
+import { api } from '@/infrastructure/api/service-api/ApiClient';
+import { useExcelLiveLaunchStore } from '@/app/agentic-os/excel-live/excelLiveLaunchStore';
+import { useExcelLiveFocusStore } from '@/app/agentic-os/excel-live/excelLiveFocusStore';
+
+const EXCEL_LIVE_APP_ID = 'builtin-excel-live';
+
+function iframeFeaturePolicy(app: ProductAppHostSurface): string | undefined {
+  const features: string[] = [];
+  if (app.permissions.iframe?.autoplay) features.push('autoplay');
+  if (app.permissions.iframe?.fullscreen) features.push('fullscreen');
+  return features.length > 0 ? features.join('; ') : undefined;
+}
+
+interface AgentToolEventPayload {
+  sessionId?: string;
+  turnId?: string;
+  toolEvent?: {
+    tool_id?: string;
+    tool_name?: string;
+    event_type?: string;
+    params?: unknown;
+    result?: unknown;
+  };
+}
+
+function findWorkbookId(value: unknown, depth = 0): string | undefined {
+  if (depth > 8 || value == null) return undefined;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed || (!trimmed.startsWith('{') && !trimmed.startsWith('['))) return undefined;
+    try {
+      return findWorkbookId(JSON.parse(trimmed) as unknown, depth + 1);
+    } catch {
+      return undefined;
+    }
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findWorkbookId(item, depth + 1);
+      if (found) return found;
+    }
+    return undefined;
+  }
+  if (typeof value !== 'object') return undefined;
+  const record = value as Record<string, unknown>;
+  for (const key of ['workbookId', 'workbook_id']) {
+    const candidate = record[key];
+    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
+  }
+  for (const nested of Object.values(record)) {
+    const found = findWorkbookId(nested, depth + 1);
+    if (found) return found;
+  }
+  return undefined;
+}
 
 interface ProductAppRuntimeIframeHostProps {
   app: ProductAppHostSurface;
@@ -326,6 +381,7 @@ const ProductAppRuntimeIframeHost: React.FC<ProductAppRuntimeIframeHostProps> = 
 }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const previewLoadedRef = useRef(false);
+  const iframeLoadedRef = useRef(false);
   const { theme } = useTheme();
   const { currentLanguage } = useI18n();
   const displayMeta = resolveProductAppHostSurfaceMeta(app, currentLanguage);
@@ -342,9 +398,13 @@ const ProductAppRuntimeIframeHost: React.FC<ProductAppRuntimeIframeHostProps> = 
   );
   const effectiveWorkspacePath = workspacePathFromAppScope(effectiveScope);
   const effectiveRuntimeContext = runtimeContext ?? productAppRuntime?.runtimeContext ?? null;
+  const productAppId = productAppRuntime?.appId ?? effectiveRuntimeContext?.appId ?? app.id;
+  const isExcelLive = productAppId === EXCEL_LIVE_APP_ID;
   useProductAppRuntimeBridge(iframeRef, app, {
     scope: effectiveScope,
     runtimeContext: effectiveRuntimeContext,
+    sessionId,
+    spreadsheetFocusEnabled: isExcelLive,
   });
 
   const pushElementInspectorState = useCallback(() => {
@@ -368,12 +428,23 @@ const ProductAppRuntimeIframeHost: React.FC<ProductAppRuntimeIframeHostProps> = 
     const target = iframeRef.current?.contentWindow;
     if (!target) return;
 
+    const appId = productAppRuntime?.appId ?? effectiveRuntimeContext?.appId ?? app.id;
+    const excelLaunchKey = productAppRuntime?.entityId || null;
+    // Peek while the iframe may still be booting; only consume the pending
+    // path once the runtime signalled readiness so the message is not lost.
+    const iframeReady = previewLoadedRef.current || iframeLoadedRef.current;
+    const launchPath = appId === EXCEL_LIVE_APP_ID && excelLaunchKey
+      ? (iframeReady
+        ? useExcelLiveLaunchStore.getState().consumePendingPath(excelLaunchKey)
+        : useExcelLiveLaunchStore.getState().peekPendingPath(excelLaunchKey))
+      : null;
+
     target.postMessage(
       {
         type: 'sparo:event',
         event: 'productAppRuntimeRouteChange',
         payload: {
-          productAppId: productAppRuntime?.appId ?? effectiveRuntimeContext?.productAppId ?? app.id,
+          productAppId: appId,
           productAppName: productAppRuntime?.appName ?? displayMeta.name,
           hostSurfaceId: app.id,
           hostSurfaceName: displayMeta.name,
@@ -384,6 +455,8 @@ const ProductAppRuntimeIframeHost: React.FC<ProductAppRuntimeIframeHostProps> = 
           workspacePath: effectiveWorkspacePath || null,
           scope: effectiveScope,
           entityId: productAppRuntime?.entityId || null,
+          launchPath,
+          path: launchPath,
           runtime: productAppRuntime
             ? {
               appId: productAppRuntime.appId,
@@ -477,13 +550,32 @@ const ProductAppRuntimeIframeHost: React.FC<ProductAppRuntimeIframeHostProps> = 
     );
   }, [userPathRehearsalPlan]);
 
+  const pushSpreadsheetFocusPreference = useCallback((includeOnSend: boolean) => {
+    if (!isExcelLive) return;
+    const target = iframeRef.current?.contentWindow;
+    if (!target) return;
+    target.postMessage(
+      {
+        type: 'sparo:event',
+        event: 'spreadsheetFocusPreferenceChange',
+        payload: { includeOnSend },
+      },
+      '*',
+    );
+  }, [isExcelLive]);
+
   const handlePreviewLoad = useCallback(() => {
+    // The load event fires after the srcdoc module scripts ran, so the
+    // iframe message listeners are attached from this point on.
+    iframeLoadedRef.current = true;
     pushInitialRuntimeState();
+    pushSpreadsheetFocusPreference(useExcelLiveFocusStore.getState().includeOnSend);
     requestRuntimeReady();
-  }, [pushInitialRuntimeState, requestRuntimeReady]);
+  }, [pushInitialRuntimeState, pushSpreadsheetFocusPreference, requestRuntimeReady]);
 
   useEffect(() => {
     previewLoadedRef.current = false;
+    iframeLoadedRef.current = false;
     if (!onPreviewBootTimeout) return undefined;
     const timeout = window.setTimeout(() => {
       if (!previewLoadedRef.current) {
@@ -492,6 +584,56 @@ const ProductAppRuntimeIframeHost: React.FC<ProductAppRuntimeIframeHostProps> = 
     }, previewBootTimeoutMs);
     return () => window.clearTimeout(timeout);
   }, [app.compiled_html, app.id, normalizedRoute, onPreviewBootTimeout, previewBootTimeoutMs]);
+
+  // Ambient spreadsheet focus must not outlive the Excel Live surface,
+  // otherwise unrelated chat sessions keep receiving stale focus context.
+  useEffect(() => {
+    if (!isExcelLive || !sessionId) return undefined;
+    return () => {
+      const focusState = useExcelLiveFocusStore.getState();
+      if (!focusState.getAmbientForSession(sessionId)) return;
+      focusState.clearAmbientFocus(sessionId);
+    };
+  }, [isExcelLive, sessionId]);
+
+  useEffect(() => {
+    if (!isExcelLive) return undefined;
+    return useExcelLiveFocusStore.subscribe((state, previousState) => {
+      if (state.includeOnSend === previousState.includeOnSend) return;
+      pushSpreadsheetFocusPreference(state.includeOnSend);
+    });
+  }, [isExcelLive, pushSpreadsheetFocusPreference]);
+
+  // Forward agent tool completions from the bound chat session so the
+  // surface can refresh proposals and cells the agent changed.
+  useEffect(() => {
+    if (!isExcelLive || !sessionId) return undefined;
+    const unlisten = api.listen<AgentToolEventPayload>('agentic://tool-event', (payload) => {
+      if (!payload?.sessionId || payload.sessionId !== sessionId) return;
+      const target = iframeRef.current?.contentWindow;
+      if (!target) return;
+      const toolEvent = payload.toolEvent;
+      // ToolEventData is a tagged enum: event_type is the variant name
+      // (Completed / Failed / ...). Also accept lowercase for safety.
+      const eventType = toolEvent?.event_type;
+      const workbookId = findWorkbookId(toolEvent?.result)
+        ?? findWorkbookId(toolEvent?.params);
+      target.postMessage(
+        {
+          type: 'sparo:event',
+          event: 'productAppRuntimeAgentToolEvent',
+          payload: {
+            sessionId: payload.sessionId,
+            toolName: toolEvent?.tool_name,
+            eventType,
+            workbookId,
+          },
+        },
+        '*',
+      );
+    });
+    return unlisten;
+  }, [isExcelLive, sessionId]);
 
   useEffect(() => {
     pushWorkbenchContext();
@@ -598,10 +740,11 @@ const ProductAppRuntimeIframeHost: React.FC<ProductAppRuntimeIframeHostProps> = 
       ref={iframeRef}
       srcDoc={app.compiled_html}
       data-app-id={app.id}
-      data-product-app-id={effectiveRuntimeContext?.productAppId ?? productAppRuntime?.appId ?? app.id}
+      data-product-app-id={effectiveRuntimeContext?.appId ?? productAppRuntime?.appId ?? app.id}
       data-route={normalizedRoute}
       onLoad={handlePreviewLoad}
       sandbox="allow-scripts allow-forms allow-modals allow-popups allow-downloads"
+      allow={iframeFeaturePolicy(app)}
       scrolling={locksViewportScroll ? 'no' : undefined}
       style={{
         width: '100%',

@@ -22,6 +22,5 @@ export * from './hooks';
 export { TabBar, Tab, TabOverflowMenu } from './tab-bar';
 export { EditorArea, EditorGroup, SplitHandle, DropZone } from './editor-area';
 export { AnchorZone } from './anchor-zone';
-export { MissionControl, ThumbnailCard, SearchFilter } from './mission-control';
 export { QuickLook } from './quick-look';
 export { EmptyState } from './empty-state';

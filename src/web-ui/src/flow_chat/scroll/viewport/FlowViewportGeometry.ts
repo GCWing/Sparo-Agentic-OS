@@ -1,19 +1,16 @@
 /**
  * FlowChat viewport geometry.
  *
- * Pure math for the synthetic bottom reservation model used by the
- * virtualized main chat list:
+ * The synthetic footer has three independent owners:
  *
- * - `collapsePx` protects the viewport against height loss near the bottom
- *   while the user is reading (shrink compensation).
- * - `pinPx` / `pinFloorPx` provide the synthetic tail space that keeps the
- *   latest user message pinned to the reading offset. The floor part is
- *   never consumable; only reservation space above the floor may be consumed
- *   by content growth or user downward scrolling.
+ * - `collapsePx` protects a reading anchor from real-content shrink.
+ * - `transientTailPx` is temporary range borrowed by history navigation.
+ * - `latestTurnLayout` owns the durable blank for the latest turn's reading
+ *   page. Its semantic owner survives history detours; its pixels are always
+ *   remeasured for the current viewport and never copied to another owner.
  *
- * All height comparisons must use the effective content height:
- * `scrollHeight - totalCompensation - inputFooterPx`. Raw `scrollHeight`
- * deltas would misattribute reservation changes to content changes.
+ * All height comparisons use effective content height. Raw `scrollHeight`
+ * includes these reservations and cannot identify real content growth.
  */
 
 export const VIEWPORT_EPSILON_PX = 0.5;
@@ -24,7 +21,7 @@ export const PINNED_TURN_VIEWPORT_OFFSET_PX = 61;
 /** Content-bottom distance beyond which the scroll-to-latest bar shows. */
 export const SCROLL_TO_LATEST_THRESHOLD_PX = 50;
 
-/** Content-bottom distance within which a user downward scroll re-enters follow. */
+/** Content-bottom distance within which a downward scroll re-enters follow. */
 export const REENTER_FOLLOW_THRESHOLD_PX = 100;
 
 /** How long a shrink anchor lock stays enforceable. */
@@ -33,7 +30,7 @@ export const ANCHOR_LOCK_DURATION_MS = 450;
 /** How long a collapse intent stays valid while waiting for the real shrink. */
 export const COLLAPSE_INTENT_TTL_MS = 1000;
 
-/** How long a turn pin keeps retrying while the target item is not rendered. */
+/** How long a turn navigation keeps retrying while its item is not rendered. */
 export const PIN_RETRY_TTL_MS = 1500;
 
 /** Stable frames required before finalizing settles into reading. */
@@ -51,17 +48,31 @@ export const VIEWPORT_ANIMATION_MS = 260;
 /** Idle frames after which the continuous pipeline goes to sleep. */
 export const PIPELINE_IDLE_FRAMES = 4;
 
-export type ViewportPinMode = 'transient' | 'sticky-latest';
+export interface LatestTurnLayoutOwner {
+  sessionId: string;
+  turnId: string;
+  /** Scheduler-local generation. A pixel measurement is valid for one epoch. */
+  epoch: number;
+}
+
+export type LatestTurnLayoutPhase = 'dormant' | 'activating' | 'active';
+
+export interface LatestTurnLayoutContract {
+  owner: LatestTurnLayoutOwner;
+  phase: LatestTurnLayoutPhase;
+  /** Durable, non-consumable blank for the latest turn's reading page. */
+  floorPx: number;
+  /** Provisional range used only while the owner is being brought into view. */
+  activationTailPx: number;
+}
 
 export interface ViewportGeometryState {
   /** Consumable shrink-protection reservation. */
   collapsePx: number;
-  /** Total pin reservation; always >= pinFloorPx. */
-  pinPx: number;
-  /** Non-consumable part of the pin reservation. */
-  pinFloorPx: number;
-  pinMode: ViewportPinMode;
-  pinTargetTurnId: string | null;
+  /** Consumable range used by an older-turn navigation. */
+  transientTailPx: number;
+  /** Semantic latest-turn layout plus its current measured reservation. */
+  latestTurnLayout: LatestTurnLayoutContract | null;
 }
 
 export interface ScrollerMetrics {
@@ -73,10 +84,8 @@ export interface ScrollerMetrics {
 export function createInitialGeometry(): ViewportGeometryState {
   return {
     collapsePx: 0,
-    pinPx: 0,
-    pinFloorPx: 0,
-    pinMode: 'transient',
-    pinTargetTurnId: null,
+    transientTailPx: 0,
+    latestTurnLayout: null,
   };
 }
 
@@ -84,30 +93,56 @@ function sanitizePx(value: number): number {
   return Number.isFinite(value) ? Math.max(0, value) : 0;
 }
 
+export function areLatestTurnLayoutOwnersEqual(
+  left: LatestTurnLayoutOwner | null | undefined,
+  right: LatestTurnLayoutOwner | null | undefined,
+): boolean {
+  return Boolean(
+    left &&
+    right &&
+    left.sessionId === right.sessionId &&
+    left.turnId === right.turnId &&
+    left.epoch === right.epoch,
+  );
+}
+
 export function sanitizeGeometry(state: ViewportGeometryState): ViewportGeometryState {
-  const pinPx = sanitizePx(state.pinPx);
-  const pinFloorPx = Math.min(pinPx, sanitizePx(state.pinFloorPx));
+  const latestTurnLayout = state.latestTurnLayout
+    ? {
+        ...state.latestTurnLayout,
+        floorPx: sanitizePx(state.latestTurnLayout.floorPx),
+        activationTailPx: sanitizePx(state.latestTurnLayout.activationTailPx),
+      }
+    : null;
   return {
     collapsePx: sanitizePx(state.collapsePx),
-    pinPx,
-    pinFloorPx,
-    pinMode: state.pinMode ?? 'transient',
-    pinTargetTurnId: state.pinTargetTurnId ?? null,
+    transientTailPx: sanitizePx(state.transientTailPx),
+    latestTurnLayout,
   };
 }
 
+export function getLatestTurnReservationPx(state: ViewportGeometryState): number {
+  const layout = state.latestTurnLayout;
+  return layout ? sanitizePx(layout.floorPx) + sanitizePx(layout.activationTailPx) : 0;
+}
+
 export function getTotalCompensationPx(state: ViewportGeometryState): number {
-  return sanitizePx(state.collapsePx) + sanitizePx(state.pinPx);
+  return (
+    sanitizePx(state.collapsePx) +
+    sanitizePx(state.transientTailPx) +
+    getLatestTurnReservationPx(state)
+  );
 }
 
 export function getConsumableCompensationPx(state: ViewportGeometryState): number {
-  return sanitizePx(state.collapsePx) + Math.max(0, state.pinPx - state.pinFloorPx);
+  return (
+    sanitizePx(state.collapsePx) +
+    sanitizePx(state.transientTailPx) +
+    sanitizePx(state.latestTurnLayout?.activationTailPx ?? 0)
+  );
 }
 
-/**
- * Consume compensation from the collapse reservation first, then from pin
- * space above the floor. Floors are never consumed.
- */
+/** Consume collapse protection, transient range, then activation range. */
 export function consumeCompensation(
   state: ViewportGeometryState,
   amountPx: number,
@@ -119,32 +154,118 @@ export function consumeCompensation(
   let remaining = Math.max(0, amountPx);
   const collapseConsumed = Math.min(state.collapsePx, remaining);
   remaining -= collapseConsumed;
-  const pinConsumable = Math.max(0, state.pinPx - state.pinFloorPx);
-  const pinConsumed = Math.min(pinConsumable, remaining);
+  const transientConsumed = Math.min(state.transientTailPx, remaining);
+  remaining -= transientConsumed;
+
+  const activationTailPx = state.latestTurnLayout?.activationTailPx ?? 0;
+  const activationConsumed = Math.min(activationTailPx, remaining);
 
   return sanitizeGeometry({
     ...state,
     collapsePx: state.collapsePx - collapseConsumed,
-    pinPx: state.pinPx - pinConsumed,
+    transientTailPx: state.transientTailPx - transientConsumed,
+    latestTurnLayout: state.latestTurnLayout
+      ? {
+          ...state.latestTurnLayout,
+          activationTailPx: activationTailPx - activationConsumed,
+        }
+      : null,
   });
 }
 
-export function clearPinReservation(state: ViewportGeometryState): ViewportGeometryState {
-  return {
-    ...state,
-    pinPx: 0,
-    pinFloorPx: 0,
-    pinMode: 'transient',
-    pinTargetTurnId: null,
-  };
-}
-
-/** Drop everything consumable; keep only the sticky pin floor. */
+/** Drop all consumable space while preserving the latest-turn floor. */
 export function clearConsumableCompensation(state: ViewportGeometryState): ViewportGeometryState {
   return sanitizeGeometry({
     ...state,
     collapsePx: 0,
-    pinPx: state.pinFloorPx,
+    transientTailPx: 0,
+    latestTurnLayout: state.latestTurnLayout
+      ? { ...state.latestTurnLayout, activationTailPx: 0 }
+      : null,
+  });
+}
+
+export function replaceLatestTurnLayout(
+  state: ViewportGeometryState,
+  owner: LatestTurnLayoutOwner,
+  phase: LatestTurnLayoutPhase = 'dormant',
+): ViewportGeometryState {
+  if (areLatestTurnLayoutOwnersEqual(state.latestTurnLayout?.owner, owner)) {
+    return setLatestTurnLayoutPhase(state, phase);
+  }
+  return sanitizeGeometry({
+    ...state,
+    transientTailPx: 0,
+    latestTurnLayout: {
+      owner,
+      phase,
+      floorPx: 0,
+      activationTailPx: 0,
+    },
+  });
+}
+
+export function setLatestTurnLayoutPhase(
+  state: ViewportGeometryState,
+  phase: LatestTurnLayoutPhase,
+): ViewportGeometryState {
+  const layout = state.latestTurnLayout;
+  if (!layout) return state;
+  const activationTailPx = phase === 'activating' ? layout.activationTailPx : 0;
+  if (layout.phase === phase && layout.activationTailPx === activationTailPx) {
+    return state;
+  }
+  return sanitizeGeometry({
+    ...state,
+    latestTurnLayout: { ...layout, phase, activationTailPx },
+  });
+}
+
+export function setLatestTurnActivationTail(
+  state: ViewportGeometryState,
+  owner: LatestTurnLayoutOwner,
+  activationTailPx: number,
+): ViewportGeometryState {
+  const layout = state.latestTurnLayout;
+  if (!layout || !areLatestTurnLayoutOwnersEqual(layout.owner, owner)) {
+    return state;
+  }
+  return sanitizeGeometry({
+    ...state,
+    latestTurnLayout: {
+      ...layout,
+      phase: 'activating',
+      activationTailPx,
+    },
+  });
+}
+
+export function setTransientTail(
+  state: ViewportGeometryState,
+  transientTailPx: number,
+): ViewportGeometryState {
+  return sanitizeGeometry({ ...state, transientTailPx });
+}
+
+export function increaseLatestTurnFloor(
+  state: ViewportGeometryState,
+  owner: LatestTurnLayoutOwner,
+  amountPx: number,
+): ViewportGeometryState {
+  const layout = state.latestTurnLayout;
+  if (
+    amountPx <= VIEWPORT_EPSILON_PX ||
+    !layout ||
+    !areLatestTurnLayoutOwnersEqual(layout.owner, owner)
+  ) {
+    return state;
+  }
+  return sanitizeGeometry({
+    ...state,
+    latestTurnLayout: {
+      ...layout,
+      floorPx: layout.floorPx + amountPx,
+    },
   });
 }
 
@@ -152,19 +273,25 @@ export function areGeometriesEqual(
   left: ViewportGeometryState,
   right: ViewportGeometryState,
 ): boolean {
+  const leftLayout = left.latestTurnLayout;
+  const rightLayout = right.latestTurnLayout;
   return (
     Math.abs(left.collapsePx - right.collapsePx) <= VIEWPORT_EPSILON_PX &&
-    Math.abs(left.pinPx - right.pinPx) <= VIEWPORT_EPSILON_PX &&
-    Math.abs(left.pinFloorPx - right.pinFloorPx) <= VIEWPORT_EPSILON_PX &&
-    left.pinMode === right.pinMode &&
-    left.pinTargetTurnId === right.pinTargetTurnId
+    Math.abs(left.transientTailPx - right.transientTailPx) <= VIEWPORT_EPSILON_PX &&
+    ((!leftLayout && !rightLayout) ||
+      Boolean(
+        leftLayout &&
+        rightLayout &&
+        areLatestTurnLayoutOwnersEqual(leftLayout.owner, rightLayout.owner) &&
+        leftLayout.phase === rightLayout.phase &&
+        Math.abs(leftLayout.floorPx - rightLayout.floorPx) <= VIEWPORT_EPSILON_PX &&
+        Math.abs(leftLayout.activationTailPx - rightLayout.activationTailPx) <=
+          VIEWPORT_EPSILON_PX,
+      ))
   );
 }
 
-/**
- * Effective content height with synthetic reservations and the input-stack
- * footer removed. This is the only valid basis for growth/shrink deltas.
- */
+/** Effective real-content height with all synthetic reservations removed. */
 export function getEffectiveContentHeight(
   metrics: ScrollerMetrics,
   state: ViewportGeometryState,
@@ -173,11 +300,7 @@ export function getEffectiveContentHeight(
   return Math.max(0, metrics.scrollHeight - getTotalCompensationPx(state) - inputFooterPx);
 }
 
-/**
- * Distance between the viewport bottom and the end of real content
- * (synthetic reservation space excluded). The single "at bottom" semantics
- * used by follow targeting, bar visibility, and follow re-entry.
- */
+/** Distance from viewport bottom to the end of real content. */
 export function getContentDistanceFromBottom(
   metrics: ScrollerMetrics,
   state: ViewportGeometryState,
@@ -188,10 +311,7 @@ export function getContentDistanceFromBottom(
   );
 }
 
-/**
- * Scroll target that aligns the end of real content (plus input clearance)
- * with the viewport bottom, without scrolling into synthetic tail space.
- */
+/** Scroll target for the end of real content, excluding synthetic tail space. */
 export function getFollowTargetScrollTop(
   metrics: ScrollerMetrics,
   state: ViewportGeometryState,
@@ -206,115 +326,82 @@ export function getMaxScrollTop(metrics: ScrollerMetrics): number {
   return Math.max(0, metrics.scrollHeight - metrics.clientHeight);
 }
 
-/**
- * Pin alignment math for a rendered target element.
- *
- * `missingTailSpacePx` is how much synthetic tail is required so that
- * `desiredScrollTop` becomes reachable once the current pin reservation is
- * excluded from the available scroll range.
- */
-export interface PinMetrics {
+export interface TailAlignmentMetrics {
   desiredScrollTop: number;
-  missingTailSpacePx: number;
+  /** Absolute reservation required, excluding the current reservation. */
+  requiredTailSpacePx: number;
 }
 
-export function resolvePinMetrics(
+/**
+ * Resolve the absolute tail needed to align a rendered target. Removing the
+ * current reservation from `scrollHeight` makes the result independent of old
+ * pixels, so an owner can never inherit another owner's floor at equilibrium.
+ */
+export function resolveTailAlignmentMetrics(
   metrics: ScrollerMetrics,
   targetTopDeltaPx: number,
-  currentPinPx: number,
-): PinMetrics {
+  currentReservationPx: number,
+): TailAlignmentMetrics {
   const desiredScrollTop = Math.max(0, metrics.scrollTop + targetTopDeltaPx);
-  const rawMaxScrollTop = metrics.scrollHeight - Math.max(0, currentPinPx) - metrics.clientHeight;
-  const missingTailSpacePx = Math.max(0, desiredScrollTop - rawMaxScrollTop);
-  return { desiredScrollTop, missingTailSpacePx };
+  const maxWithoutCurrentReservation =
+    metrics.scrollHeight - sanitizePx(currentReservationPx) - metrics.clientHeight;
+  const requiredTailSpacePx = Math.max(0, desiredScrollTop - maxWithoutCurrentReservation);
+  return { desiredScrollTop, requiredTailSpacePx };
 }
 
-/** Whether a live sticky pin floor is active for the latest turn's layout. */
-export function hasActiveStickyFloor(state: ViewportGeometryState): boolean {
-  return (
-    state.pinMode === 'sticky-latest' &&
-    state.pinFloorPx > VIEWPORT_EPSILON_PX &&
-    state.pinTargetTurnId !== null
-  );
+export function hasLatestTurnLayout(state: ViewportGeometryState): boolean {
+  return state.latestTurnLayout !== null;
 }
 
-/**
- * Reconcile the sticky pin reservation from a pin-alignment measurement.
- *
- * `missingTailSpacePx` is **incremental** tail needed beyond what `pinPx`
- * already provisions in `scrollHeight`. At equilibrium (message aligned and
- * reservation correct) it is zero — that means "keep the current floor", not
- * "floor should be zero".
- */
-export function reconcileStickyPinReservation(
+export function hasLatestTurnFloor(state: ViewportGeometryState): boolean {
+  return (state.latestTurnLayout?.floorPx ?? 0) > VIEWPORT_EPSILON_PX;
+}
+
+/** Apply an absolute floor measurement only when its owner epoch is current. */
+export function reconcileLatestTurnFloor(
   state: ViewportGeometryState,
-  missingTailSpacePx: number,
+  owner: LatestTurnLayoutOwner,
+  requiredFloorPx: number,
   holdFloorDuringTransition: boolean,
-  turnId: string,
 ): ViewportGeometryState {
-  if (holdFloorDuringTransition) {
-    return sanitizeGeometry({
-      ...state,
-      pinMode: 'sticky-latest',
-      pinTargetTurnId: turnId,
-    });
-  }
-
-  const hadOnlyFloor = state.pinPx <= state.pinFloorPx + VIEWPORT_EPSILON_PX;
-
-  if (hadOnlyFloor && missingTailSpacePx <= VIEWPORT_EPSILON_PX) {
-    return sanitizeGeometry({
-      ...state,
-      pinMode: 'sticky-latest',
-      pinTargetTurnId: turnId,
-    });
-  }
-
-  if (hadOnlyFloor) {
-    return sanitizeGeometry({
-      ...state,
-      pinPx: missingTailSpacePx,
-      pinFloorPx: missingTailSpacePx,
-      pinMode: 'sticky-latest',
-      pinTargetTurnId: turnId,
-    });
-  }
-
-  const nextFloor = missingTailSpacePx;
-  const nextPx = Math.max(nextFloor, state.pinPx);
-  return sanitizeGeometry({
-    ...state,
-    pinPx: nextPx,
-    pinFloorPx: nextFloor,
-    pinMode: 'sticky-latest',
-    pinTargetTurnId: turnId,
-  });
-}
-
-/**
- * Equal exchange while pinned: content growth below the pinned turn shrinks the
- * floor 1:1 so scrollHeight stays constant. Falls back to consumable
- * consumption when a consumable headroom exists above the floor.
- */
-export function absorbPinnedContentGrowth(
-  state: ViewportGeometryState,
-  growthPx: number,
-): ViewportGeometryState {
-  if (growthPx <= VIEWPORT_EPSILON_PX) {
+  const layout = state.latestTurnLayout;
+  if (!layout || !areLatestTurnLayoutOwnersEqual(layout.owner, owner)) {
     return state;
   }
 
-  const hadOnlyFloor = state.pinPx <= state.pinFloorPx + VIEWPORT_EPSILON_PX;
-  if (!hadOnlyFloor || state.pinFloorPx <= VIEWPORT_EPSILON_PX) {
-    return consumeCompensation(state, growthPx);
-  }
-
-  const shrinkBy = Math.min(state.pinFloorPx, growthPx);
-  const nextFloor = state.pinFloorPx - shrinkBy;
+  const measuredFloor = sanitizePx(requiredFloorPx);
+  const floorPx = holdFloorDuringTransition
+    ? Math.max(layout.floorPx, measuredFloor)
+    : measuredFloor;
   return sanitizeGeometry({
     ...state,
-    pinPx: nextFloor,
-    pinFloorPx: nextFloor,
+    latestTurnLayout: {
+      ...layout,
+      floorPx,
+      activationTailPx: 0,
+    },
+  });
+}
+
+/** Equal exchange: real growth consumes only the current owner's floor. */
+export function absorbLatestTurnContentGrowth(
+  state: ViewportGeometryState,
+  owner: LatestTurnLayoutOwner,
+  growthPx: number,
+): ViewportGeometryState {
+  const layout = state.latestTurnLayout;
+  if (
+    growthPx <= VIEWPORT_EPSILON_PX ||
+    !layout ||
+    !areLatestTurnLayoutOwnersEqual(layout.owner, owner)
+  ) {
+    return state;
+  }
+
+  const floorPx = Math.max(0, layout.floorPx - growthPx);
+  return sanitizeGeometry({
+    ...state,
+    latestTurnLayout: { ...layout, floorPx },
   });
 }
 

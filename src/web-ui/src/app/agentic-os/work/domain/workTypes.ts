@@ -41,9 +41,11 @@ export type WorkAppKind = 'native_app' | 'product_app';
 
 export interface WorkAppRef {
   kind: WorkAppKind;
+  slotId: string;
   appId: string;
-  appVersion?: string;
-  componentLockDigest?: string;
+  releaseId: string;
+  configRevision: string;
+  dataSchemaVersion: string;
 }
 
 export type WorkAppIntent = 'use' | 'run' | 'develop' | 'debug' | 'edit' | 'review';
@@ -167,9 +169,10 @@ export interface MemoryRef {
 
 export interface RuntimeInstanceRef {
   id: string;
-  productAppId: string;
-  appVersion: string;
-  componentLockDigest: string;
+  slotId: string;
+  appId: string;
+  releaseId: string;
+  configRevision: string;
   productAppSurfaceId: string;
   surfaceId: string;
 }

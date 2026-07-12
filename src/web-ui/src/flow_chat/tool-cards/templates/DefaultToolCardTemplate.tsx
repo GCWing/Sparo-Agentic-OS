@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Tooltip } from '@/design-system';
 import { CompactToolCard } from '../CompactToolCard';
 import { ToolStatusIndicator } from '../ToolStatusIndicator';
@@ -24,6 +25,7 @@ export interface DefaultToolCardTemplateProps {
   action?: React.ReactNode;
   summary: React.ReactNode;
   extra?: React.ReactNode;
+  icon?: React.ReactNode;
   statusIcon?: React.ReactNode;
   primaryAction?: DefaultToolCardPrimaryAction;
   expandedContent?: React.ReactNode;
@@ -43,6 +45,7 @@ export const DefaultToolCardTemplate: React.FC<DefaultToolCardTemplateProps> = (
   action,
   summary,
   extra,
+  icon,
   statusIcon,
   primaryAction,
   expandedContent,
@@ -54,6 +57,8 @@ export const DefaultToolCardTemplate: React.FC<DefaultToolCardTemplateProps> = (
   onExpand,
   onClick,
 }) => {
+  const { t } = useTranslation('flow-chat');
+  const detailsId = React.useId();
   const contextInterruptionNote = useToolInterruptionNote();
   const resolvedInterruptionNote = interruptionNote ?? contextInterruptionNote;
   const hasExpandedContent = Boolean(expandedContent);
@@ -90,6 +95,15 @@ export const DefaultToolCardTemplate: React.FC<DefaultToolCardTemplateProps> = (
     onClick?.();
   };
 
+  const handleDisclosureAffordance = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (!templateExpandable) return;
+    if (onToggle) {
+      onToggle(!isExpanded, event);
+    } else {
+      toggleExpanded('manual');
+    }
+  };
+
   const primaryActionNode = primaryAction ? (
     <Tooltip content={primaryAction.label} placement="top">
       <button
@@ -124,6 +138,7 @@ export const DefaultToolCardTemplate: React.FC<DefaultToolCardTemplateProps> = (
       {extra}
     </>
   ) : undefined;
+  const resolvedStatusIcon = statusIcon ?? <ToolStatusIndicator status={status} size={12} />;
 
   return (
     <div ref={cardRootRef} data-tool-card-id={toolId ?? ''}>
@@ -133,14 +148,20 @@ export const DefaultToolCardTemplate: React.FC<DefaultToolCardTemplateProps> = (
         className={className}
         clickable={clickable}
         onClick={clickable ? handleCardClick : undefined}
+        expandedContentId={templateExpandable ? detailsId : undefined}
         header={(
           <ToolCompactHeaderLayout
-            statusIcon={statusIcon ?? <ToolStatusIndicator status={status} size={12} />}
+            icon={icon}
+            statusIcon={resolvedStatusIcon}
             expandable={templateExpandable}
             isExpanded={isExpanded}
+            onAffordanceClick={templateExpandable ? handleDisclosureAffordance : undefined}
+            affordanceLabel={t(isExpanded ? 'toolCards.common.collapse' : 'toolCards.common.expand')}
+            affordanceControlsId={templateExpandable ? detailsId : undefined}
             action={action}
             content={summaryNode}
             extra={extraNode}
+            rightIcon={icon ? resolvedStatusIcon : undefined}
           />
         )}
         expandedContent={isExpanded ? expandedContent : undefined}

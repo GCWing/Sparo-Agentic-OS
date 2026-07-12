@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Feather, Mail, X } from 'lucide-react';
+import { Mail, X } from 'lucide-react';
 import { Button, IconButton } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import { createLogger } from '@/shared/utils/logger';
@@ -7,11 +7,14 @@ import { aiExperienceConfigService } from '@/infrastructure/config/services/AIEx
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { dailyLetterApi } from '@/app/scenes/daily-letter/dailyLetterApi';
 import { LetterPaper } from '@/app/scenes/daily-letter/LetterPaper';
-import { markDailyLetterAcknowledged, useDailyLetterArrivalStore } from '../store/dailyLetterArrivalStore';
+import {
+  announceDailyLetterArrival,
+  markDailyLetterAcknowledged,
+  useDailyLetterArrivalStore,
+} from '../store/dailyLetterArrivalStore';
 import './DailyLetterArrivalDock.scss';
 
 const log = createLogger('DailyLetterArrivalDock');
-const POLL_INTERVAL_MS = 20_000;
 const OPENING_TRANSITION_MS = 260;
 
 function pendingReceiptCountOf(letter: { receiptCandidates: { status: string }[] } | null): number {
@@ -28,7 +31,6 @@ const DailyLetterArrivalDock: React.FC = () => {
   const pendingReceiptCount = useDailyLetterArrivalStore((s) => s.pendingReceiptCount);
   const paperOpen = useDailyLetterArrivalStore((s) => s.paperOpen);
   const tick = useDailyLetterArrivalStore((s) => s.tick);
-  const expand = useDailyLetterArrivalStore((s) => s.expand);
   const dismiss = useDailyLetterArrivalStore((s) => s.dismiss);
   const openLetter = useDailyLetterArrivalStore((s) => s.openLetter);
   const closePaper = useDailyLetterArrivalStore((s) => s.closePaper);
@@ -51,11 +53,11 @@ const DailyLetterArrivalDock: React.FC = () => {
 
   useEffect(() => {
     if (!enabled) return undefined;
+    const unlisten = dailyLetterApi.onArrived(announceDailyLetterArrival);
+    // One initial reconciliation covers arrivals that happened while the UI
+    // was not mounted; subsequent arrivals are delivered by the backend.
     void tick(workspacePath || null);
-    const id = window.setInterval(() => {
-      void tick(workspacePath || null);
-    }, POLL_INTERVAL_MS);
-    return () => window.clearInterval(id);
+    return unlisten;
   }, [enabled, tick, workspacePath]);
 
   useEffect(() => () => {
@@ -93,11 +95,7 @@ const DailyLetterArrivalDock: React.FC = () => {
   // itself is open and focused — the scene no longer pops its own full-text
   // dialog on generation, so this is the one consistent "letter arrived"
   // ceremony for every trigger (auto or manual).
-  const dockOffsetClass = phase === 'card'
-    ? 'is-card'
-    : phase === 'chip'
-      ? 'is-chip'
-      : '';
+  const dockOffsetClass = phase === 'card' ? 'is-card' : '';
 
   useEffect(() => {
     document.documentElement.setAttribute('data-daily-letter-dock', dockOffsetClass || 'none');
@@ -150,35 +148,6 @@ const DailyLetterArrivalDock: React.FC = () => {
                 {t('actions.full')}
               </Button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {phase === 'chip' && letter && !paperOpen && (
-        <div className="dla-dock" aria-label={t('arrival.label')}>
-          <div className="dla-chip-wrap">
-            <IconButton
-              className="dla-chip"
-              onClick={expand}
-              aria-label={t('arrival.chipLabel')}
-              tooltip={t('arrival.chipLabel')}
-              size="medium"
-              shape="circle"
-              variant="accent"
-            >
-              <Feather size={15} aria-hidden="true" />
-            </IconButton>
-            <IconButton
-              className="dla-chip-wrap__close"
-              onClick={dismiss}
-              aria-label={t('arrival.later')}
-              tooltip={t('arrival.later')}
-              size="xs"
-              shape="circle"
-              variant="ghost"
-            >
-              <X strokeWidth={2} />
-            </IconButton>
           </div>
         </div>
       )}

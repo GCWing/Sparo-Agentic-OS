@@ -11,6 +11,7 @@ export type BrowserSortBy = 'name' | 'modified' | 'size' | 'type';
 export type SortOrder = 'asc' | 'desc';
 export type FileCapability =
   | 'openInSparo'
+  | 'openInExcelLive'
   | 'openExternal'
   | 'addToChat'
   | 'askSparo'
@@ -22,7 +23,7 @@ export type FileCapability =
   | 'organize'
   | 'findDuplicates'
   | 'operationPlan';
-export type FileOpenActionId = 'openFolder' | 'openInSparo' | 'openExternal';
+export type FileOpenActionId = 'openFolder' | 'openInSparo' | 'openInExcelLive' | 'openExternal';
 
 export interface FileEntryStatus {
   opened?: boolean;

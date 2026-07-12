@@ -1,22 +1,16 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Archive, ArchiveRestore, ArrowRight, Check, ChevronDown, ExternalLink, FolderOpen, ListChecks, Pencil, Plus, Send, Trash2, X, XCircle } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Archive, ArchiveRestore, ChevronDown, FolderOpen, ListChecks, Plus, Trash2, X, XCircle } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-dialog';
 import {
-  Badge,
   Button,
   Checkbox,
   Dialog,
   DialogBody,
   DialogFooter,
   IconButton,
-  Textarea,
 } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
-import {
-  getWorkspaceDisplayName,
-  useWorkspaceContext,
-} from '@/infrastructure/contexts/WorkspaceContext';
-import { agenticOsWorkApi } from '@/app/agentic-os/work/data/workApi';
+import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { useWorkStore } from '@/app/agentic-os/work/data/workStore';
 import { openWork, openWorkSurface } from '@/app/agentic-os/work/navigation/openWork';
 import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
@@ -25,21 +19,12 @@ import type { BackgroundProcessKind } from '@/app/agentic-os/background-process/
 import type {
   ArtifactRef,
   ControlWorkAction,
-  WorkExecutionGraph,
-  WorkExecutionSource,
-  WorkExecutionBindingStatus,
   WorkKind,
-  WorkLifecycleEvent,
   WorkRecord,
-  RuntimeInstanceRef,
   WorkDeleteResult,
-  WorkRuntimeIssueSeverity,
-  WorkRuntimeLogLevel,
-  WorkRuntimeRunStatus,
   WorkStatus,
   WorkSurfaceRef,
 } from '@/app/agentic-os/work/domain/workTypes';
-import { resolveEffectiveWorkStatus } from '@/app/agentic-os/work/domain/workStatus';
 import type { WorkProjection } from '@/app/agentic-os/work/projections/workProjection';
 import type { ScopedWorksResult } from '@/app/agentic-os/work/hooks/useScopedWorks';
 import type { WorkspaceInfo } from '@/shared/types';
@@ -62,19 +47,10 @@ import { workspaceAPI } from '@/infrastructure/api/service-api/WorkspaceAPI';
 import { openFileInBestTarget } from '@/shared/utils/tabUtils';
 import BoardHeader from './BoardHeader';
 import RunningWorkProcessTable from './RunningWorkProcessTable';
+import WorkDetailDialog from './WorkDetailDialog';
 import './WorkBoard.scss';
 
-const RECLASSIFY_OPTIONS: Array<{ kind: WorkKind; labelKey: string }> = [
-  { kind: 'topic', labelKey: 'detail.classify.asTopic' },
-  { kind: 'tracking', labelKey: 'detail.classify.asTracking' },
-  { kind: 'long_running_session', labelKey: 'detail.classify.asLongRunning' },
-  { kind: 'recurring', labelKey: 'detail.classify.asRecurring' },
-  { kind: 'multi_step', labelKey: 'detail.classify.asImmediate' },
-];
-
 const log = createLogger('WorkBoard');
-
-type WorkCenterTranslator = (key: string, params?: Record<string, string | number>) => string;
 
 interface WorkBoardProps {
   scope: WorkCenterScope;
@@ -142,154 +118,6 @@ function dirname(path: string): string {
   return /^[A-Za-z]:$/.test(parent) ? `${parent}/` : parent;
 }
 
-function formatRuntimeLockDigest(digest: string): string {
-  const value = digest.trim();
-  if (!value) return '';
-  const prefix = 'sha256:';
-  if (!value.startsWith(prefix)) return value;
-  return `${prefix}${value.slice(prefix.length, prefix.length + 12)}`;
-}
-
-function getRuntimeInstanceReference(instance: RuntimeInstanceRef): string {
-  return [
-    instance.id,
-    instance.productAppId,
-    instance.appVersion,
-    instance.componentLockDigest,
-    instance.productAppSurfaceId,
-    instance.surfaceId,
-  ].filter(Boolean).join(' | ');
-}
-
-function getSurfaceLabelKey(surface: WorkSurfaceRef): string {
-  switch (surface.kind) {
-    case 'work_session':
-      return 'detail.surface.workSession';
-    case 'agent_session':
-      return 'detail.surface.agentSession';
-    case 'work_center':
-      return 'detail.surfaces';
-    case 'application_surface':
-      return 'detail.surface.application';
-    case 'os_agent_home':
-      return 'detail.surface.agentHome';
-  }
-}
-
-function getSurfaceReference(surface: WorkSurfaceRef): string | null {
-  switch (surface.kind) {
-    case 'work_session':
-    case 'agent_session':
-      return surface.sessionId;
-    case 'application_surface':
-      return surface.surfaceId;
-    case 'os_agent_home':
-    case 'work_center':
-      return null;
-  }
-}
-
-function getSurfaceKey(surface: WorkSurfaceRef): string {
-  const reference = getSurfaceReference(surface);
-  if (reference) return `${surface.kind}:${reference}`;
-  if (surface.kind === 'work_center') return `${surface.kind}:${surface.workId}`;
-  if (surface.kind === 'os_agent_home') return `${surface.kind}:${surface.agenticOsSessionId ?? 'home'}`;
-  return surface.kind;
-}
-
-function getAssignmentLabel(work: WorkRecord, t: WorkCenterTranslator): string {
-  const assignment = work.assignment;
-  if (!assignment) return t('detail.assignment.unassigned');
-  if (assignment.kind === 'agent') {
-    return t('detail.assignment.agent', { label: assignment.agentType ?? t('detail.assignment.unknown') });
-  }
-  if (assignment.kind === 'assistant') {
-    return t('detail.assignment.assistant', { label: assignment.assistantId ?? t('detail.assignment.unknown') });
-  }
-  if (assignment.kind === 'application') {
-    return t('detail.assignment.application', { label: assignment.applicationId ?? t('detail.assignment.unknown') });
-  }
-  if (assignment.kind === 'human') {
-    return t('detail.assignment.human', { label: assignment.humanLabel ?? t('detail.assignment.unknown') });
-  }
-  return t('detail.assignment.external', { label: assignment.externalLabel ?? t('detail.assignment.unknown') });
-}
-
-function getWorkWorkspaceLabel(work: WorkRecord, workspaces: WorkspaceInfo[], t: WorkCenterTranslator): string {
-  const scope = work.scope;
-  if (scope.kind === 'system') return t('detail.globalWorkspace');
-  const workspace = workspaces.find((item) => item.rootPath === scope.workspacePath);
-  return workspace ? getWorkspaceDisplayName(workspace) : scope.workspacePath;
-}
-
-function getExecutionSourceLabel(source: WorkExecutionSource, t: WorkCenterTranslator): string {
-  switch (source.source) {
-    case 'agent_session_run':
-      return t('detail.executionSource.agentSessionRun');
-    case 'delegated_work_run':
-      return t('detail.executionSource.delegatedWorkRun');
-    case 'application_action':
-      return t('detail.executionSource.applicationAction');
-    case 'runtime_instance_run':
-      return t('detail.executionSource.runtimeInstanceRun');
-    case 'runtime_subagent_run':
-      return t('detail.executionSource.runtimeSubagentRun');
-    case 'external':
-      return source.label || t('detail.executionSource.external');
-  }
-}
-
-function getExecutionSourceReference(source: WorkExecutionSource): string | null {
-  switch (source.source) {
-    case 'agent_session_run':
-      return source.turnId ?? source.sessionId;
-    case 'delegated_work_run':
-      return source.childWorkId;
-    case 'application_action':
-      return `${source.applicationId}:${source.actionId}`;
-    case 'runtime_instance_run':
-      return source.runId;
-    case 'runtime_subagent_run':
-      return source.runId;
-    case 'external':
-      return source.reference || null;
-  }
-}
-
-const LIFECYCLE_LABEL_KEYS: Record<string, string> = {
-  'created': 'detail.lifecycleEvent.created',
-  'advanced': 'detail.lifecycleEvent.advanced',
-  'paused': 'detail.lifecycleEvent.paused',
-  'resumed': 'detail.lifecycleEvent.resumed',
-  'archived': 'detail.lifecycleEvent.archived',
-  'reopened': 'detail.lifecycleEvent.reopened',
-  'status updated': 'detail.lifecycleEvent.statusUpdated',
-  'application surface workflow started': 'detail.lifecycleEvent.applicationSurfaceWorkflowStarted',
-  'current execution cancelled': 'detail.lifecycleEvent.currentExecutionCancelled',
-  'agent session continued': 'detail.lifecycleEvent.agentSessionContinued',
-  'agent session turn completed': 'detail.lifecycleEvent.agentSessionTurnCompleted',
-  'agent session turn cancelled': 'detail.lifecycleEvent.agentSessionTurnCancelled',
-  'agent session failed': 'detail.lifecycleEvent.agentSessionFailed',
-  'agent session waiting for user': 'detail.lifecycleEvent.agentSessionWaitingUser',
-  'agent session resumed': 'detail.lifecycleEvent.agentSessionResumed',
-};
-
-function getLifecycleEventLabel(event: WorkLifecycleEvent, t: WorkCenterTranslator): string {
-  const label = event.label.trim();
-  if (!label) return t(`status.${event.status}`);
-
-  const normalized = label.toLowerCase();
-  const failurePrefix = 'agent session failed:';
-  if (normalized.startsWith(failurePrefix)) {
-    return t('detail.lifecycleEvent.agentSessionFailedWithReason', {
-      reason: label.slice(failurePrefix.length).trim(),
-    });
-  }
-
-  const labelKey = LIFECYCLE_LABEL_KEYS[normalized];
-  return labelKey ? t(labelKey) : label;
-}
-
 const GROUP_ORDER: Record<WorkCenterGrouping, string[]> = {
   priority: ['needs_attention', 'running', 'recurring', 'long_term', 'immediate', 'done'],
   status: ['waiting_user', 'blocked', 'failed', 'running', 'active', 'paused', 'draft', 'completed', 'cancelled', 'interrupted', 'archived'],
@@ -349,34 +177,6 @@ function getWorkspaceCardStatus(count: { total: number; running: number; attenti
   return 'active';
 }
 
-function getDetailActivityTone(status: WorkStatus | WorkExecutionBindingStatus): 'neutral' | 'running' | 'attention' | 'success' | 'danger' {
-  if (status === 'failed') return 'danger';
-  if (status === 'waiting_user' || status === 'blocked') return 'attention';
-  if (status === 'running' || status === 'queued') return 'running';
-  if (status === 'completed') return 'success';
-  return 'neutral';
-}
-
-function getRuntimeRunTone(status: WorkRuntimeRunStatus): 'neutral' | 'running' | 'attention' | 'success' | 'danger' {
-  if (status === 'failed') return 'danger';
-  if (status === 'waiting_user') return 'attention';
-  if (status === 'running' || status === 'pending') return 'running';
-  if (status === 'completed') return 'success';
-  return 'neutral';
-}
-
-function getRuntimeIssueTone(severity: WorkRuntimeIssueSeverity): 'neutral' | 'attention' | 'danger' {
-  if (severity === 'fatal') return 'danger';
-  if (severity === 'warning') return 'attention';
-  return 'neutral';
-}
-
-function getRuntimeLogTone(level: WorkRuntimeLogLevel): 'neutral' | 'attention' | 'danger' {
-  if (level === 'error') return 'danger';
-  if (level === 'warn') return 'attention';
-  return 'neutral';
-}
-
 const WorkBoard: React.FC<WorkBoardProps> = ({
   scope,
   workspaces,
@@ -411,7 +211,6 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
   const refreshWorks = useWorkStore((state) => state.refreshWorks);
   const {
     processes: backgroundProcesses,
-    runningKind: backgroundRunningKind,
     runProcess: runBackgroundProcess,
     refreshProcesses: refreshBackgroundProcesses,
   } = useBackgroundProcesses();
@@ -423,24 +222,12 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
   } = useWorkspaceContext();
   const [workspaceActionId, setWorkspaceActionId] = useState<string | null>(null);
   const [openingWorkspace, setOpeningWorkspace] = useState(false);
-  const [objectiveDialogWorkId, setObjectiveDialogWorkId] = useState<string | null>(null);
-  const [objectiveDraft, setObjectiveDraft] = useState('');
-  const [objectiveSaving, setObjectiveSaving] = useState(false);
-  const [advanceDraft, setAdvanceDraft] = useState('');
-  const [advanceDialogWorkId, setAdvanceDialogWorkId] = useState<string | null>(null);
-  const [advanceSubmitting, setAdvanceSubmitting] = useState(false);
   const [reclassifySubmittingId, setReclassifySubmittingId] = useState<string | null>(null);
   const [systemRunSubmittingKind, setSystemRunSubmittingKind] = useState<string | null>(null);
-  const [copiedSurfaceKey, setCopiedSurfaceKey] = useState<string | null>(null);
-  const [executionGraph, setExecutionGraph] = useState<WorkExecutionGraph | null>(null);
-  const [executionGraphLoading, setExecutionGraphLoading] = useState(false);
   const [selectedWorkIds, setSelectedWorkIds] = useState<string[]>([]);
   const [batchSubmitting, setBatchSubmitting] = useState(false);
   const [deleteDialogWorkIds, setDeleteDialogWorkIds] = useState<string[] | null>(null);
   const [deleteLinkedSessions, setDeleteLinkedSessions] = useState(true);
-  const objectiveTextareaRef = useRef<HTMLTextAreaElement>(null);
-  const advanceTextareaRef = useRef<HTMLTextAreaElement>(null);
-  const copyResetTimerRef = useRef<number | null>(null);
 
   const groups = useMemo(
     () => buildGroups(result.all, grouping),
@@ -524,9 +311,15 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
     () => selectedWorkId ? works.find((work) => work.id === selectedWorkId) ?? null : null,
     [selectedWorkId, works]
   );
-
-  const selectedExecutionGraph = selectedWork && executionGraph?.workId === selectedWork.id
-    ? executionGraph
+  const selectedProjectionIndex = useMemo(
+    () => selectedWorkId ? result.all.findIndex((work) => work.id === selectedWorkId) : -1,
+    [result.all, selectedWorkId]
+  );
+  const selectedProjection = selectedProjectionIndex >= 0
+    ? result.all[selectedProjectionIndex]
+    : null;
+  const detailPosition = selectedProjectionIndex >= 0
+    ? { current: selectedProjectionIndex + 1, total: result.all.length }
     : null;
 
   const showWorkspaceOverview = scope.kind === 'workspaces';
@@ -551,62 +344,6 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
     }
   }, [onSelectedWorkChange, result.all, selectedWorkId, showWorkspaceOverview, worksLoaded]);
 
-  useEffect(() => {
-    setAdvanceDraft('');
-    setAdvanceDialogWorkId(null);
-    setObjectiveDialogWorkId(null);
-    setObjectiveDraft('');
-    setCopiedSurfaceKey(null);
-  }, [selectedWorkId]);
-
-  useEffect(() => {
-    if (!selectedWorkId) {
-      setExecutionGraph(null);
-      setExecutionGraphLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    setExecutionGraphLoading(true);
-    void agenticOsWorkApi.getWorkExecutionGraph(selectedWorkId)
-      .then((graph) => {
-        if (cancelled) return;
-        setExecutionGraph(graph);
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        setExecutionGraph(null);
-        log.error('Failed to load work execution graph', { workId: selectedWorkId, error });
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setExecutionGraphLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedWorkId, selectedWork?.updatedAt]);
-
-  useEffect(() => () => {
-    if (copyResetTimerRef.current !== null) {
-      window.clearTimeout(copyResetTimerRef.current);
-    }
-  }, []);
-
-  const handleCopyReference = useCallback(async (surfaceKey: string, reference: string) => {
-    try {
-      await navigator.clipboard.writeText(reference);
-      setCopiedSurfaceKey(surfaceKey);
-      if (copyResetTimerRef.current !== null) {
-        window.clearTimeout(copyResetTimerRef.current);
-      }
-      copyResetTimerRef.current = window.setTimeout(() => setCopiedSurfaceKey(null), 1600);
-    } catch (error) {
-      log.error('Failed to copy surface reference', { reference, error });
-    }
-  }, []);
 
   const handleOpenWorkspaceFilter = useCallback((workspace: WorkspaceInfo) => {
     onWorkspaceFilterChange({ kind: 'workspace', id: workspace.id });
@@ -679,6 +416,18 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
     });
   }, [getWork, onSelectedWorkChange, t, works]);
 
+  const handleSelectPreviousWork = useCallback(() => {
+    if (selectedProjectionIndex <= 0) return;
+    const previous = result.all[selectedProjectionIndex - 1];
+    if (previous) handleSelectWork(previous);
+  }, [handleSelectWork, result.all, selectedProjectionIndex]);
+
+  const handleSelectNextWork = useCallback(() => {
+    if (selectedProjectionIndex < 0 || selectedProjectionIndex >= result.all.length - 1) return;
+    const next = result.all[selectedProjectionIndex + 1];
+    if (next) handleSelectWork(next);
+  }, [handleSelectWork, result.all, selectedProjectionIndex]);
+
   const handleOpenWorkRecord = useCallback(async (work: WorkRecord) => {
     try {
       await openWork(work);
@@ -748,35 +497,49 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
     }
   }, [t]);
 
-  const handleCancelWork = useCallback(async (work: WorkProjection) => {
-    if (work.systemManaged) return;
+  const handleCancelWork = useCallback(async (
+    work: Pick<WorkProjection, 'id' | 'systemManaged'>
+  ): Promise<boolean> => {
+    if (work.systemManaged) return false;
     try {
       await controlWork({ workId: work.id, action: 'cancel_current_execution' });
+      return true;
     } catch (error) {
       log.error('Failed to cancel work from Work Center', { workId: work.id, error });
       notificationService.error(t('errors.cancelFailed'));
+      return false;
     }
   }, [controlWork, t]);
 
-  const handleRemoveWork = useCallback(async (work: WorkProjection) => {
-    if (work.systemManaged) return;
+  const handleArchiveWork = useCallback(async (
+    work: Pick<WorkProjection, 'id' | 'systemManaged'>
+  ): Promise<boolean> => {
+    if (work.systemManaged) return false;
     try {
       await controlWork({ workId: work.id, action: 'archive' });
+      notificationService.success(t('messages.archived'), { duration: 2500 });
+      return true;
     } catch (error) {
-      log.error('Failed to remove work from Work Center', { workId: work.id, error });
+      log.error('Failed to archive work from Work Center', { workId: work.id, error });
       notificationService.error(t('errors.removeFailed'));
+      return false;
     }
   }, [controlWork, t]);
 
-  const handleReclassifyWork = useCallback(async (work: WorkRecord, kind: WorkKind) => {
-    if (work.systemManaged || work.kind === kind || reclassifySubmittingId) return;
+  const handleReclassifyWork = useCallback(async (
+    work: WorkRecord,
+    kind: WorkKind
+  ): Promise<boolean> => {
+    if (work.systemManaged || work.kind === kind || reclassifySubmittingId) return false;
     try {
       setReclassifySubmittingId(work.id);
       await updateWork({ workId: work.id, kind });
       notificationService.success(t('detail.classify.updated'), { duration: 2500 });
+      return true;
     } catch (error) {
       log.error('Failed to reclassify work from Work Center', { workId: work.id, kind, error });
       notificationService.error(t('errors.reclassifyFailed'));
+      return false;
     } finally {
       setReclassifySubmittingId(null);
     }
@@ -965,84 +728,83 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
     t,
   ]);
 
-  const handleOpenObjectiveDialog = useCallback((work: WorkRecord) => {
-    setObjectiveDialogWorkId(work.id);
-    setObjectiveDraft(work.objective);
-  }, []);
-
-  const handleCloseObjectiveDialog = useCallback(() => {
-    setObjectiveDialogWorkId(null);
-    setObjectiveDraft('');
-  }, []);
-
-  const handleObjectiveDialogOpenChange = useCallback((open: boolean) => {
-    if (open) return;
-    if (!objectiveSaving) {
-      handleCloseObjectiveDialog();
-    }
-  }, [handleCloseObjectiveDialog, objectiveSaving]);
-
-  const handleAdvanceDialogOpenChange = useCallback((open: boolean) => {
-    if (open) return;
-    if (!advanceSubmitting) {
-      setAdvanceDialogWorkId(null);
-      setAdvanceDraft('');
-    }
-  }, [advanceSubmitting]);
-
-  const handleCloseAdvanceDialog = useCallback(() => {
-    setAdvanceDialogWorkId(null);
-    setAdvanceDraft('');
-  }, []);
-
-  const handleSaveObjective = useCallback(async (work: WorkRecord) => {
-    const nextObjective = objectiveDraft.trim();
+  const handleSaveObjective = useCallback(async (
+    work: WorkRecord,
+    objective: string
+  ): Promise<boolean> => {
+    const nextObjective = objective.trim();
     if (!nextObjective) {
       notificationService.error(t('errors.objectiveRequired'));
-      return;
+      return false;
     }
 
     try {
-      setObjectiveSaving(true);
       await updateWork({
         workId: work.id,
         objective: nextObjective,
       });
-      setObjectiveDialogWorkId(null);
-      setObjectiveDraft('');
       notificationService.success(t('messages.objectiveSaved'), { duration: 2500 });
+      return true;
     } catch (error) {
       log.error('Failed to update work objective from Work Center', { workId: work.id, error });
       notificationService.error(t('errors.updateObjectiveFailed'));
-    } finally {
-      setObjectiveSaving(false);
+      return false;
     }
-  }, [objectiveDraft, t, updateWork]);
+  }, [t, updateWork]);
 
-  const handleAdvanceWork = useCallback(async (work: WorkRecord) => {
-    const instructions = advanceDraft.trim();
+  const handleAdvanceWork = useCallback(async (
+    work: WorkRecord,
+    instruction: string
+  ): Promise<boolean> => {
+    const instructions = instruction.trim();
     if (!instructions) {
       notificationService.error(t('errors.advanceRequired'));
-      return;
+      return false;
     }
 
     try {
-      setAdvanceSubmitting(true);
       await advanceWork({
         workId: work.id,
         instructions,
         advancePolicy: 'start_if_idle',
       });
-      setAdvanceDraft('');
-      setAdvanceDialogWorkId(null);
       notificationService.success(t('messages.advanceSent'), { duration: 2500 });
+      return true;
     } catch (error) {
       log.error('Failed to advance work from Work Center', { workId: work.id, error });
       notificationService.error(t('errors.advanceFailed'));
-    } finally {
-      setAdvanceSubmitting(false);
+      return false;
     }
-  }, [advanceDraft, advanceWork, t]);
+  }, [advanceWork, t]);
+
+  const handleDialogControlWork = useCallback(async (
+    work: WorkRecord,
+    action: ControlWorkAction
+  ): Promise<boolean> => {
+    if (work.systemManaged) return false;
+    try {
+      await controlWork({ workId: work.id, action });
+      if (action === 'resume') {
+        notificationService.success(t('messages.resumed'), { duration: 2500 });
+      } else if (action === 'reopen') {
+        notificationService.success(t('messages.reopened'), { duration: 2500 });
+      } else if (action === 'archive') {
+        notificationService.success(t('messages.archived'), { duration: 2500 });
+      }
+      return true;
+    } catch (error) {
+      const errorKey = action === 'resume'
+        ? 'errors.resumeFailed'
+        : action === 'reopen'
+          ? 'errors.reopenFailed'
+          : action === 'cancel_current_execution'
+            ? 'errors.cancelFailed'
+            : 'errors.removeFailed';
+      log.error('Failed to control work from detail dialog', { workId: work.id, action, error });
+      notificationService.error(t(errorKey));
+      return false;
+    }
+  }, [controlWork, t]);
 
   const visibleWorkspaceCount = visibleActiveWorkspaces.length + visibleHistoryWorkspaces.length;
   const headerTotalCount = showWorkspaceOverview ? visibleWorkspaceCount : result.totalCount;
@@ -1064,736 +826,6 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
     onAppFilterChange({ kind: 'all' });
     onSearchChange('');
   }, [onAppFilterChange, onScopeChange, onSearchChange, onWorkspaceFilterChange]);
-
-  const renderWorkDetail = (work: WorkRecord) => {
-    const status = resolveEffectiveWorkStatus(work);
-    const statusModifier = status.replace(/_/g, '-');
-    const category = getWorkCategory(work.kind);
-    const canCancel = !work.systemManaged && isCancellableStatus(status);
-    const canArchive = !work.systemManaged && status !== 'archived';
-    const canAdvance = !work.systemManaged && status !== 'archived';
-    const canReclassify = !work.systemManaged;
-    const rawSurfaces = work.surfaces.length > 0 ? work.surfaces : [work.primarySurface];
-    const seenSurfaceKeys = new Set<string>();
-    const surfaces = rawSurfaces.filter((surface) => {
-      if (surface.kind === 'work_center') return false;
-      const key = getSurfaceKey(surface);
-      if (seenSurfaceKeys.has(key)) return false;
-      seenSurfaceKeys.add(key);
-      return true;
-    });
-    const objectiveDialogOpen = objectiveDialogWorkId === work.id;
-    const workspaceLabel = getWorkWorkspaceLabel(work, workspaces, t);
-    const assignmentLabel = getAssignmentLabel(work, t);
-    const scopeLabel = work.scope.kind === 'system'
-      ? t('detail.globalWorkspace')
-      : workspaceLabel;
-    const topicWork = work.topicWorkId
-      ? works.find((item) => item.id === work.topicWorkId) ?? null
-      : null;
-    const systemProcess = work.systemManaged && work.systemProcessKind
-      ? backgroundProcesses.find((process) => process.kind === work.systemProcessKind) ?? null
-      : null;
-    const systemProcessBusy = systemProcess
-      ? backgroundRunningKind === systemProcess.kind || systemRunSubmittingKind === systemProcess.kind
-      : false;
-    const canRunSystemProcess = Boolean(
-      systemProcess?.actions.includes('run_now')
-    );
-    const graph = selectedExecutionGraph?.workId === work.id ? selectedExecutionGraph : null;
-    const graphRuntimeRuns = graph
-      ? graph.runtimeInstances.flatMap((runtime) => runtime.runs)
-      : [];
-    const graphIssues = graph?.issues ?? [];
-    const graphLogs = graph?.logs ?? [];
-    const referenceCounts = [
-      work.artifactRefs.length > 0 ? t('detail.artifacts', { count: work.artifactRefs.length }) : null,
-      work.memoryRefs.length > 0 ? t('detail.memories', { count: work.memoryRefs.length }) : null,
-      work.sessionRefs.length > 0 ? t('detail.sessions', { count: work.sessionRefs.length }) : null,
-      work.runtimeInstances.length > 0 ? t('detail.runtimeInstanceCount', { count: work.runtimeInstances.length }) : null,
-      graph && graph.summary.runtimeRunCount > 0 ? t('detail.runtimeRuns', { count: graph.summary.runtimeRunCount }) : null,
-      graph && graph.summary.issueCount > 0 ? t('detail.runtimeIssues', { count: graph.summary.issueCount }) : null,
-      graph && graph.logs.length > 0 ? t('detail.runtimeLogs', { count: graph.logs.length }) : null,
-    ].filter((item): item is string => item !== null);
-    const advanceDialogOpen = advanceDialogWorkId === work.id;
-    const activityItems = [
-      ...graphRuntimeRuns.map((run) => ({
-        id: `runtime-run:${run.runId}`,
-        label: t(`detail.runtimeRunStatus.${run.status}`),
-        meta: t('detail.runtimeRunMeta', { component: run.componentId, action: run.action }),
-        reference: run.runId,
-        time: run.updatedAt || run.startedAt,
-        tone: getRuntimeRunTone(run.status),
-      })),
-      ...graphIssues.map((issue, index) => ({
-        id: `runtime-issue:${issue.runtimeInstanceId}:${issue.timestampMs}:${index}`,
-        label: t(`detail.runtimeIssueSeverity.${issue.severity}`),
-        meta: issue.message,
-        reference: issue.source ?? issue.category ?? null,
-        time: issue.timestampMs,
-        tone: getRuntimeIssueTone(issue.severity),
-      })),
-      ...work.executionBindings.map((execution) => ({
-        id: `execution:${execution.id}`,
-        label: t(`detail.executionStatus.${execution.status}`),
-        meta: getExecutionSourceLabel(execution.source, t),
-        reference: getExecutionSourceReference(execution.source),
-        time: execution.updatedAt || execution.createdAt,
-        tone: getDetailActivityTone(execution.status),
-      })),
-      ...work.lifecycle.events.map((event, index) => ({
-        id: `event:${event.status}:${event.at}:${index}`,
-        label: getLifecycleEventLabel(event, t),
-        meta: t('detail.lifecycle'),
-        reference: null,
-        time: event.at,
-        tone: getDetailActivityTone(event.status),
-      })),
-    ].sort((left, right) => right.time - left.time).slice(0, 6);
-
-    return (
-      <>
-      <aside className="ab-detail" aria-label={t('detail.label')} key={work.id}>
-        <header className="ab-detail__header">
-          <div className="ab-detail__status-row">
-            {/* Keyed by status: a live status change replays the seed ping. */}
-            <span className={`ab-detail__status ab-detail__status--${statusModifier}`} key={status}>
-              <span className="ab-detail__status-dot" aria-hidden="true" />
-              {t(`status.${status}`)}
-            </span>
-            {work.systemManaged ? (
-              <Badge className="ab-detail__system-badge" variant="neutral">
-                {t('rail.system')}
-              </Badge>
-            ) : null}
-            <IconButton
-              size="xs"
-              variant="ghost"
-              aria-label={t('detail.close')}
-              tooltip={t('detail.close')}
-              onClick={() => onSelectedWorkChange(null)}
-            >
-              <X size={13} />
-            </IconButton>
-          </div>
-          <h2 className="ab-detail__title">{work.title}</h2>
-          <div className="ab-detail__meta">
-            <span className="ab-detail__meta-item">{workspaceLabel}</span>
-            <span className="ab-detail__meta-rule" aria-hidden="true" />
-            <span className="ab-detail__meta-item">{t(`category.${category}`)}</span>
-            <span className="ab-detail__meta-rule" aria-hidden="true" />
-            <span className="ab-detail__meta-item">{t(`kind.${kindKey(work.kind)}`)}</span>
-            <span className="ab-detail__meta-rule" aria-hidden="true" />
-            <span className="ab-detail__meta-item">{t('detail.updatedAt', { time: formatTime(work.updatedAt) })}</span>
-          </div>
-          <div className="ab-detail__actions">
-            {canAdvance ? (
-              <Button
-                className="ab-detail__cmd ab-detail__cmd--advance"
-                size="small"
-                variant="primary"
-                onClick={() => {
-                  setAdvanceDraft('');
-                  setAdvanceDialogWorkId(work.id);
-                }}
-              >
-                <Send size={13} />
-                {t('detail.command.advance')}
-              </Button>
-            ) : null}
-            <Button
-              className="ab-detail__cmd ab-detail__cmd--open"
-              size="small"
-              variant="secondary"
-              onClick={() => void handleOpenWorkRecord(work)}
-            >
-              {t('detail.command.open')}
-              <ArrowRight size={13} />
-            </Button>
-            <span className="ab-detail__actions-spacer" aria-hidden="true" />
-            {canCancel ? (
-              <IconButton
-                className="ab-detail__command-icon"
-                size="small"
-                variant="ghost"
-                aria-label={t('detail.command.cancel')}
-                tooltip={t('actions.cancelWork')}
-                onClick={() => void handleCancelWork({
-                  id: work.id,
-                  kind: work.kind,
-                  title: work.title,
-                  objective: work.objective,
-                  status,
-                  subject: work.subject,
-                  appRefs: work.appRefs,
-                  workspacePath: work.scope.kind === 'workspace' ? work.scope.workspacePath : undefined,
-                  primarySurface: work.primarySurface,
-                  systemManaged: work.systemManaged,
-                  systemProcessKind: work.systemProcessKind,
-                  topicWorkId: work.topicWorkId,
-                  visibility: work.visibility,
-                  updatedAt: work.updatedAt,
-                })}
-              >
-                <XCircle size={13} />
-              </IconButton>
-            ) : null}
-            {canArchive ? (
-              <IconButton
-                className="ab-detail__command-icon"
-                size="small"
-                variant="ghost"
-                aria-label={t('detail.command.archive')}
-                tooltip={t('actions.removeWork')}
-                onClick={() => void handleRemoveWork({
-                  id: work.id,
-                  kind: work.kind,
-                  title: work.title,
-                  objective: work.objective,
-                  status,
-                  subject: work.subject,
-                  appRefs: work.appRefs,
-                  workspacePath: work.scope.kind === 'workspace' ? work.scope.workspacePath : undefined,
-                  primarySurface: work.primarySurface,
-                  systemManaged: work.systemManaged,
-                  systemProcessKind: work.systemProcessKind,
-                  topicWorkId: work.topicWorkId,
-                  visibility: work.visibility,
-                  updatedAt: work.updatedAt,
-                })}
-              >
-                <Archive size={13} />
-              </IconButton>
-            ) : null}
-          </div>
-        </header>
-
-        <div className="ab-detail__body">
-        <div className="ab-detail__section ab-detail__section--brief">
-          <div className="ab-detail__section-head">
-            <h3 className="ab-detail__section-title">
-              {t('detail.brief')}
-            </h3>
-            {!work.systemManaged ? (
-              <IconButton
-                size="xs"
-                variant="ghost"
-                aria-label={t('detail.editObjective')}
-                tooltip={t('detail.editObjective')}
-                onClick={() => handleOpenObjectiveDialog(work)}
-              >
-                <Pencil size={12} />
-              </IconButton>
-            ) : null}
-          </div>
-          <div className="ab-detail__brief">
-            <div className="ab-detail__brief-block">
-              <span className="ab-detail__field-label">{t('detail.objective')}</span>
-              <p className={['ab-detail__body-text', !work.objective && 'ab-detail__body-text--muted'].filter(Boolean).join(' ')}>
-                {work.objective || t('detail.emptyObjective')}
-              </p>
-            </div>
-            {work.summary?.text ? (
-              <div className="ab-detail__brief-block">
-                <span className="ab-detail__field-label">{t('detail.summary')}</span>
-                <p className="ab-detail__body-text">{work.summary.text}</p>
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="ab-detail__section ab-detail__section--facts">
-          <div className="ab-detail__facts">
-            <div className="ab-detail__fact">
-              <span>{t('detail.assignment.label')}</span>
-              <strong>{assignmentLabel}</strong>
-            </div>
-            <div className="ab-detail__fact">
-              <span>{t('detail.created')}</span>
-              <strong>{formatTime(work.createdAt)}</strong>
-            </div>
-          </div>
-        </div>
-
-        {canReclassify ? (
-          <div className="ab-detail__section ab-detail__section--classify">
-            <div className="ab-detail__section-head">
-              <h3 className="ab-detail__section-title">
-                {t('detail.classify.title')}
-              </h3>
-            </div>
-            <div className="ab-detail__classify-actions">
-              {RECLASSIFY_OPTIONS.map((option) => {
-                const active = work.kind === option.kind;
-                const busy = reclassifySubmittingId === work.id;
-                return (
-                  <Button
-                    key={option.kind}
-                    size="small"
-                    variant={active ? 'secondary' : 'ghost'}
-                    disabled={busy || active}
-                    onClick={() => void handleReclassifyWork(work, option.kind)}
-                  >
-                    {t(option.labelKey)}
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
-        ) : null}
-
-        <div className="ab-detail__section ab-detail__section--attachments">
-          <div className="ab-detail__section-head">
-            <h3 className="ab-detail__section-title">
-              {t('detail.attachments.title')}
-            </h3>
-          </div>
-          <div className="ab-detail__facts">
-            <div className="ab-detail__fact">
-              <span>{t('scope.workspace')}</span>
-              <strong>{scopeLabel}</strong>
-            </div>
-            {work.topicWorkId ? (
-              <div className="ab-detail__fact">
-                <span>{t('detail.attachments.topic')}</span>
-                <strong>{topicWork?.title ?? work.topicWorkId}</strong>
-              </div>
-            ) : (
-              <div className="ab-detail__fact">
-                <span>{t('detail.attachments.topic')}</span>
-                <strong>{t('detail.attachments.none')}</strong>
-              </div>
-            )}
-            {work.systemManaged && work.systemProcessKind ? (
-              <div className="ab-detail__fact">
-                <span>{t('detail.attachments.systemProcess')}</span>
-                <strong>
-                  {t(`background.kinds.${work.systemProcessKind}`)}
-                </strong>
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        {work.systemManaged && work.systemProcessKind ? (
-          <div className="ab-detail__section ab-detail__section--system-runtime">
-            <div className="ab-detail__section-head">
-              <h3 className="ab-detail__section-title">
-                {t('detail.systemRuntime.title')}
-              </h3>
-            </div>
-            {systemProcess ? (
-              <div className="ab-detail__system-runtime">
-                <div className="ab-detail__facts">
-                  <div className="ab-detail__fact">
-                    <span>{t('background.columns.status')}</span>
-                    <strong>{t(`background.status.${systemProcess.status}`)}</strong>
-                  </div>
-                  <div className="ab-detail__fact">
-                    <span>{t('background.columns.phase')}</span>
-                    <strong>
-                      {systemProcess.phase
-                        ? t(`background.phase.${systemProcess.phase}`)
-                        : t('background.emptyValue')}
-                    </strong>
-                  </div>
-                  <div className="ab-detail__fact">
-                    <span>{t('detail.systemRuntime.nextRun')}</span>
-                    <strong>
-                      {systemProcess.nextRunAt
-                        ? formatTime(systemProcess.nextRunAt)
-                        : t('background.emptyValue')}
-                    </strong>
-                  </div>
-                </div>
-                {canRunSystemProcess ? (
-                  <div className="ab-detail__system-runtime-actions">
-                    <Button
-                      size="small"
-                      variant="secondary"
-                      disabled={systemProcessBusy}
-                      isLoading={systemProcessBusy}
-                      onClick={() => void handleRunSystemProcess(systemProcess.kind)}
-                    >
-                      {t('detail.systemRuntime.runNow')}
-                    </Button>
-                  </div>
-                ) : null}
-              </div>
-            ) : (
-              <p className="ab-detail__body-text ab-detail__body-text--muted">
-                {t('detail.systemRuntime.unavailable')}
-              </p>
-            )}
-          </div>
-        ) : null}
-
-        {(surfaces.length > 0 || referenceCounts.length > 0) ? (
-          <div className="ab-detail__section ab-detail__section--links">
-            <div className="ab-detail__section-head">
-              <h3 className="ab-detail__section-title">
-                {t('detail.links')}
-              </h3>
-            </div>
-            {referenceCounts.length > 0 ? (
-              <div className="ab-detail__reference-row">
-                {referenceCounts.map((label) => (
-                  <Badge key={label} className="ab-detail__reference-badge" variant="neutral">
-                    {label}
-                  </Badge>
-                ))}
-              </div>
-            ) : null}
-            {work.artifactRefs.length > 0 ? (
-              <div className="ab-detail__list ab-detail__list--artifacts">
-                {work.artifactRefs.map((artifact) => {
-                  const artifactTitle = artifact.label?.trim() || artifact.id;
-                  const artifactReference = artifact.uri?.trim() || artifact.id;
-                  const artifactKey = `artifact:${artifact.id}`;
-                  const copied = copiedSurfaceKey === artifactKey;
-                  const focused = selectedArtifactId === artifact.id;
-                  const canOpenArtifact = Boolean(artifact.uri?.trim());
-                  return (
-                    <div
-                      className={['ab-detail__list-row', 'ab-detail__list-row--artifact', focused && 'is-focused'].filter(Boolean).join(' ')}
-                      data-testid={focused ? 'work-detail-selected-artifact' : undefined}
-                      aria-current={focused ? 'true' : undefined}
-                      key={artifact.id}
-                    >
-                      <div className="ab-detail__list-row-copy">
-                        <span>{artifactTitle}</span>
-                        <button
-                          type="button"
-                          className={['ab-detail__list-ref', copied && 'is-copied'].filter(Boolean).join(' ')}
-                          title={t('detail.copyReference')}
-                          aria-label={t('detail.copyReference')}
-                          onClick={() => void handleCopyReference(artifactKey, artifactReference)}
-                        >
-                          {copied ? <Check size={11} aria-hidden /> : null}
-                          <code>{copied ? t('detail.copied') : artifactReference}</code>
-                        </button>
-                      </div>
-                      {canOpenArtifact ? (
-                        <IconButton
-                          className="ab-detail__list-open"
-                          size="xs"
-                          variant="ghost"
-                          aria-label={t('detail.openArtifact')}
-                          tooltip={t('detail.openArtifact')}
-                          onClick={() => void handleOpenArtifact(artifact)}
-                        >
-                          <ExternalLink size={13} />
-                        </IconButton>
-                      ) : null}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : null}
-            {surfaces.length > 0 ? (
-              <div className="ab-detail__list">
-                {surfaces.map((surface) => {
-                  const surfaceKey = getSurfaceKey(surface);
-                  const reference = getSurfaceReference(surface);
-                  const copied = copiedSurfaceKey === surfaceKey;
-                  return (
-                    <div className="ab-detail__list-row" key={surfaceKey}>
-                      <div className="ab-detail__list-row-copy">
-                        <span>{t(getSurfaceLabelKey(surface))}</span>
-                        {reference ? (
-                          <button
-                            type="button"
-                            className={['ab-detail__list-ref', copied && 'is-copied'].filter(Boolean).join(' ')}
-                            title={t('detail.copyReference')}
-                            aria-label={t('detail.copyReference')}
-                            onClick={() => void handleCopyReference(surfaceKey, reference)}
-                          >
-                            {copied ? <Check size={11} aria-hidden /> : null}
-                            <code>{copied ? t('detail.copied') : reference}</code>
-                          </button>
-                        ) : null}
-                      </div>
-                      <IconButton
-                        className="ab-detail__list-open"
-                        size="xs"
-                        variant="ghost"
-                        aria-label={t('detail.openSurface')}
-                        tooltip={t('detail.openSurface')}
-                        onClick={() => void handleOpenSurface(work, surface)}
-                      >
-                        <ArrowRight size={12} />
-                      </IconButton>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-
-        {work.runtimeInstances.length > 0 ? (
-          <div className="ab-detail__section ab-detail__section--runtime">
-            <div className="ab-detail__section-head">
-              <h3 className="ab-detail__section-title">
-                {t('detail.runtimeInstances')}
-              </h3>
-            </div>
-            <div className="ab-detail__runtime-list">
-              {work.runtimeInstances.map((instance) => {
-                const runtimeKey = `runtime:${instance.id}`;
-                const copied = copiedSurfaceKey === runtimeKey;
-                const lockDigest = formatRuntimeLockDigest(instance.componentLockDigest);
-                const reference = getRuntimeInstanceReference(instance);
-                return (
-                  <div className="ab-detail__runtime-row" key={instance.id}>
-                    <div className="ab-detail__runtime-copy">
-                      <span className="ab-detail__runtime-title">{instance.productAppId}</span>
-                      <span className="ab-detail__runtime-meta">
-                        {t('detail.runtimeVersion', { version: instance.appVersion, lock: lockDigest })}
-                      </span>
-                      <span className="ab-detail__runtime-meta">
-                        {t('detail.runtimeSurface', {
-                          component: instance.productAppSurfaceId,
-                          surface: instance.surfaceId,
-                        })}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      className={['ab-detail__list-ref', copied && 'is-copied'].filter(Boolean).join(' ')}
-                      title={t('detail.copyReference')}
-                      aria-label={t('detail.copyReference')}
-                      onClick={() => void handleCopyReference(runtimeKey, reference)}
-                    >
-                      {copied ? <Check size={11} aria-hidden /> : null}
-                      <code>{copied ? t('detail.copied') : instance.id}</code>
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ) : null}
-
-        {(graph || executionGraphLoading) ? (
-          <div
-            className="ab-detail__section ab-detail__section--execution-graph"
-            data-testid="work-execution-graph"
-            data-execution-count={graph?.summary.executionCount ?? 0}
-            data-runtime-instance-count={graph?.summary.runtimeInstanceCount ?? 0}
-            data-runtime-run-count={graph?.summary.runtimeRunCount ?? 0}
-            data-runtime-log-count={graph?.logs.length ?? 0}
-            data-artifact-count={graph?.summary.artifactCount ?? 0}
-            data-issue-count={graph?.summary.issueCount ?? 0}
-          >
-            <div className="ab-detail__section-head">
-              <h3 className="ab-detail__section-title">
-                {t('detail.executionGraph')}
-              </h3>
-            </div>
-            {executionGraphLoading && !graph ? (
-              <p className="ab-detail__body-text ab-detail__body-text--muted">
-                {t('detail.graphLoading')}
-              </p>
-            ) : null}
-            {graph ? (
-              <>
-                <div className="ab-detail__graph-summary">
-                  <Badge className="ab-detail__reference-badge" variant="neutral">
-                    {t('detail.runtimeRuns', { count: graph.summary.runtimeRunCount })}
-                  </Badge>
-                  <Badge className="ab-detail__reference-badge" variant="neutral">
-                    {t('detail.runtimeIssues', { count: graph.summary.issueCount })}
-                  </Badge>
-                  <Badge className="ab-detail__reference-badge" variant="neutral">
-                    {t('detail.runtimeLogs', { count: graph.logs.length })}
-                  </Badge>
-                  <Badge className="ab-detail__reference-badge" variant="neutral">
-                    {t('detail.graphArtifacts', { count: graph.summary.artifactCount })}
-                  </Badge>
-                </div>
-                {graphRuntimeRuns.length > 0 ? (
-                  <div className="ab-detail__graph-list">
-                    {graphRuntimeRuns.slice(0, 5).map((run) => (
-                      <div className="ab-detail__graph-row" key={run.runId}>
-                        <span className={`ab-detail__graph-dot ab-detail__graph-dot--${getRuntimeRunTone(run.status)}`} aria-hidden="true" />
-                        <div className="ab-detail__graph-copy">
-                          <strong>{t(`detail.runtimeRunStatus.${run.status}`)}</strong>
-                          <span>{t('detail.runtimeRunMeta', { component: run.componentId, action: run.action })}</span>
-                        </div>
-                        <time dateTime={new Date(run.updatedAt || run.startedAt).toISOString()}>
-                          {formatTime(run.updatedAt || run.startedAt)}
-                        </time>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-                {graphIssues.length > 0 ? (
-                  <div className="ab-detail__graph-list">
-                    {graphIssues.slice(-3).reverse().map((issue, index) => (
-                      <div className="ab-detail__graph-row" key={`${issue.runtimeInstanceId}:${issue.timestampMs}:${index}`}>
-                        <span className={`ab-detail__graph-dot ab-detail__graph-dot--${getRuntimeIssueTone(issue.severity)}`} aria-hidden="true" />
-                        <div className="ab-detail__graph-copy">
-                          <strong>{t(`detail.runtimeIssueSeverity.${issue.severity}`)}</strong>
-                          <span>{issue.message}</span>
-                        </div>
-                        <time dateTime={new Date(issue.timestampMs).toISOString()}>
-                          {formatTime(issue.timestampMs)}
-                        </time>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-                {graphLogs.length > 0 ? (
-                  <div className="ab-detail__graph-list">
-                    {graphLogs.slice(-5).reverse().map((log, index) => (
-                      <div className="ab-detail__graph-row" key={`${log.runtimeInstanceId}:${log.timestampMs}:${index}`}>
-                        <span className={`ab-detail__graph-dot ab-detail__graph-dot--${getRuntimeLogTone(log.level)}`} aria-hidden="true" />
-                        <div className="ab-detail__graph-copy">
-                          <strong>{t(`detail.runtimeLogLevel.${log.level}`)}</strong>
-                          <span>{t('detail.runtimeLogMeta', { category: log.category, component: log.componentId })}</span>
-                          <span>{log.message}</span>
-                        </div>
-                        <time dateTime={new Date(log.timestampMs).toISOString()}>
-                          {formatTime(log.timestampMs)}
-                        </time>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-                {graphRuntimeRuns.length === 0 && graphIssues.length === 0 && graphLogs.length === 0 ? (
-                  <p className="ab-detail__body-text ab-detail__body-text--muted">
-                    {t('detail.noRuntimeRuns')}
-                  </p>
-                ) : null}
-              </>
-            ) : null}
-          </div>
-        ) : null}
-
-        {activityItems.length > 0 ? (
-          <div className="ab-detail__section ab-detail__section--activity">
-            <div className="ab-detail__section-head">
-              <h3 className="ab-detail__section-title">
-                {t('detail.activity')}
-              </h3>
-            </div>
-            <div className="ab-detail__timeline">
-              <span className="ab-detail__timeline-spine" aria-hidden="true" />
-              {activityItems.map((item, itemIndex) => (
-                <div
-                  className="ab-detail__timeline-item"
-                  key={item.id}
-                  style={{ '--wc-i': itemIndex } as React.CSSProperties}
-                >
-                  <span className={`ab-detail__timeline-dot ab-detail__timeline-dot--${item.tone}`} aria-hidden="true" />
-                  <div className="ab-detail__timeline-copy">
-                    <strong>{item.label}</strong>
-                    <span>{item.meta}</span>
-                  </div>
-                  <time dateTime={new Date(item.time).toISOString()}>{formatTime(item.time)}</time>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null}
-        </div>
-      </aside>
-      <Dialog
-        open={objectiveDialogOpen}
-        onOpenChange={handleObjectiveDialogOpenChange}
-        title={t('detail.editObjective')}
-        titleExtra={<span className="ab-objective-dialog__title-extra">{work.title}</span>}
-        size="small"
-        closeLabel={t('detail.cancelEdit')}
-        initialFocusRef={objectiveTextareaRef}
-      >
-        <DialogBody className="ab-objective-dialog__body">
-          <Textarea
-            ref={objectiveTextareaRef}
-            className="ab-work-prompt-dialog__editor"
-            value={objectiveDraft}
-            onChange={(event) => setObjectiveDraft(event.target.value)}
-            placeholder={t('detail.objectivePlaceholder')}
-            rows={5}
-            maxLength={1200}
-            showCount
-            autoResize
-            disabled={objectiveSaving}
-            aria-label={t('detail.objective')}
-            data-testid="work-objective-dialog-input"
-          />
-        </DialogBody>
-        <DialogFooter>
-          <Button
-            size="small"
-            variant="ghost"
-            disabled={objectiveSaving}
-            onClick={handleCloseObjectiveDialog}
-          >
-            {t('detail.cancelEdit')}
-          </Button>
-          <Button
-            size="small"
-            variant="primary"
-            isLoading={objectiveSaving}
-            onClick={() => void handleSaveObjective(work)}
-            disabled={objectiveSaving || objectiveDraft.trim().length === 0}
-          >
-            <Check size={13} />
-            {t('detail.saveObjective')}
-          </Button>
-        </DialogFooter>
-      </Dialog>
-      <Dialog
-        open={advanceDialogOpen}
-        onOpenChange={handleAdvanceDialogOpenChange}
-        title={t('detail.advance')}
-        titleExtra={<span className="ab-advance-dialog__title-extra">{work.title}</span>}
-        size="small"
-        closeLabel={t('detail.cancelEdit')}
-        initialFocusRef={advanceTextareaRef}
-      >
-        <DialogBody className="ab-advance-dialog__body">
-          <Textarea
-            ref={advanceTextareaRef}
-            className="ab-work-prompt-dialog__editor"
-            value={advanceDraft}
-            onChange={(event) => setAdvanceDraft(event.target.value)}
-            placeholder={t('detail.advancePlaceholder')}
-            rows={5}
-            maxLength={1000}
-            showCount
-            autoResize
-            disabled={!canAdvance || advanceSubmitting}
-            aria-label={t('detail.advance')}
-            data-testid="work-advance-dialog-input"
-          />
-        </DialogBody>
-        <DialogFooter>
-          <Button
-            size="small"
-            variant="ghost"
-            disabled={advanceSubmitting}
-            onClick={handleCloseAdvanceDialog}
-          >
-            {t('detail.cancelEdit')}
-          </Button>
-          <Button
-            size="small"
-            variant="primary"
-            isLoading={advanceSubmitting}
-            onClick={() => void handleAdvanceWork(work)}
-            disabled={!canAdvance || advanceSubmitting || advanceDraft.trim().length === 0}
-          >
-            <Send size={13} />
-            {t('detail.sendAdvance')}
-          </Button>
-        </DialogFooter>
-      </Dialog>
-      </>
-    );
-  };
 
   const renderBatchToolbar = () => {
     if (showWorkspaceOverview || selectableWorkCount === 0) return null;
@@ -2102,7 +1134,6 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
       ) : (
       <div className={[
         'ab-board__content',
-        selectedWork && 'ab-board__content--with-detail',
         scope.kind === 'running' && 'ab-board__content--process-table',
       ].filter(Boolean).join(' ')}>
       {scope.kind === 'running' ? (
@@ -2191,7 +1222,7 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
                     <div className="wc-group__grid">
                       {group.items.map((work, workIndex) => {
                         const showCancelAction = !work.systemManaged && isCancellableStatus(work.status);
-                        const showRemoveAction = !work.systemManaged && !showCancelAction && work.status !== 'archived';
+                        const showArchiveAction = !work.systemManaged && work.status !== 'archived';
                         const category = getWorkCategory(work.kind);
                         const statusModifier = work.status.replace('_', '-');
                         const bulkSelected = selectedWorkIdSet.has(work.id);
@@ -2212,7 +1243,8 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
                             tabIndex={0}
                             role="button"
                             aria-label={t('detail.openDetailsFor', { title: work.title })}
-                            aria-pressed={selectedWorkId === work.id}
+                            aria-haspopup="dialog"
+                            aria-expanded={selectedWorkId === work.id}
                             aria-selected={bulkSelected}
                             onKeyDown={(event) => {
                               if (event.key === 'Enter' || event.key === ' ') {
@@ -2248,37 +1280,40 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
                                   </span>
                                 ) : null}
                               </span>
-                              {showCancelAction || showRemoveAction ? (
+                              {showArchiveAction || showCancelAction ? (
                                 <span className="wc-card__top-actions">
-                                  {showCancelAction ? (
+                                  {showArchiveAction ? (
                                     <IconButton
                                       className="wc-card__action"
                                       size="xs"
                                       variant="ghost"
-                                      aria-label={t('actions.cancelWork')}
-                                      tooltip={t('actions.cancelWork')}
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        void handleCancelWork(work);
-                                      }}
-                                    >
-                                      <XCircle size={13} />
-                                    </IconButton>
-                                  ) : (
-                                    <IconButton
-                                      className="wc-card__action"
-                                      size="xs"
-                                      variant="ghost"
+                                      shape="circle"
                                       aria-label={t('actions.removeWork')}
                                       tooltip={t('actions.removeWork')}
                                       onClick={(event) => {
                                         event.stopPropagation();
-                                        void handleRemoveWork(work);
+                                        void handleArchiveWork(work);
                                       }}
                                     >
-                                      <Trash2 size={13} />
+                                      <Archive size={13} />
                                     </IconButton>
-                                  )}
+                                  ) : null}
+                                  {showCancelAction ? (
+                                  <IconButton
+                                    className="wc-card__action"
+                                    size="xs"
+                                    variant="ghost"
+                                    shape="circle"
+                                    aria-label={t('actions.cancelWork')}
+                                    tooltip={t('actions.cancelWork')}
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      void handleCancelWork(work);
+                                    }}
+                                  >
+                                    <XCircle size={13} />
+                                  </IconButton>
+                                  ) : null}
                                 </span>
                               ) : null}
                             </span>
@@ -2303,9 +1338,34 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
         )}
       </div>
       )}
-      {selectedWork ? renderWorkDetail(selectedWork) : null}
       </div>
       )}
+      <WorkDetailDialog
+        open={selectedWorkId !== null}
+        workId={selectedWorkId}
+        work={selectedWork}
+        fallbackTitle={selectedProjection?.title}
+        works={works}
+        workspaces={workspaces}
+        selectedArtifactId={selectedArtifactId}
+        position={detailPosition}
+        canSelectPrevious={selectedProjectionIndex > 0}
+        canSelectNext={selectedProjectionIndex >= 0 && selectedProjectionIndex < result.all.length - 1}
+        backgroundProcesses={backgroundProcesses}
+        systemRunSubmittingKind={systemRunSubmittingKind}
+        reclassifySubmittingId={reclassifySubmittingId}
+        onClose={() => onSelectedWorkChange(null)}
+        onSelectPrevious={handleSelectPreviousWork}
+        onSelectNext={handleSelectNextWork}
+        onOpenWork={handleOpenWorkRecord}
+        onOpenSurface={handleOpenSurface}
+        onOpenArtifact={handleOpenArtifact}
+        onSaveObjective={handleSaveObjective}
+        onAppendInstruction={handleAdvanceWork}
+        onControlWork={handleDialogControlWork}
+        onReclassifyWork={handleReclassifyWork}
+        onRunSystemProcess={handleRunSystemProcess}
+      />
       <Dialog
         open={deleteDialogWorkIds !== null}
         onOpenChange={handleDeleteDialogOpenChange}

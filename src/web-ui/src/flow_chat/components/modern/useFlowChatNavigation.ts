@@ -5,7 +5,7 @@
  * virtualized list.
  */
 
-import { useEffect, useState, type RefObject } from 'react';
+import { useEffect, type RefObject } from 'react';
 import { globalEventBus } from '@/infrastructure/event-bus';
 import { createLogger } from '@/shared/utils/logger';
 import { flowChatStore } from '../../store/FlowChatStore';
@@ -13,17 +13,18 @@ import { useModernFlowChatStore, type VirtualItem } from '../../store/modernFlow
 import { openSession } from '@/app/navigation/navigationController';
 import {
   FLOWCHAT_FOCUS_ITEM_EVENT,
-  FLOWCHAT_PIN_TURN_TO_TOP_EVENT,
   type FlowChatFocusItemRequest,
-  type FlowChatPinTurnToTopRequest,
 } from '../../events/flowchatNavigation';
 import type { VirtualMessageListRef } from './VirtualMessageList';
+import {
+  acknowledgeFlowViewportTurnNavigation,
+  requestFlowViewportTurnNavigation,
+} from '../../scroll/viewport/FlowViewportNavigationBroker';
 
 const log = createLogger('useFlowChatNavigation');
 
 interface UseFlowChatNavigationOptions {
   activeSessionId?: string;
-  virtualItems: VirtualItem[];
   virtualListRef: RefObject<VirtualMessageListRef | null>;
 }
 
@@ -111,11 +112,6 @@ function navigateToResolvedTarget(
   const list = virtualListRef.current;
   if (!list) return;
 
-  if (target.preferPinnedTurnNavigation && target.resolvedTurnId) {
-    list.pinTurnToTop(target.resolvedTurnId, { behavior: 'auto' });
-    return;
-  }
-
   if (target.resolvedVirtualIndex != null) {
     list.scrollToIndex(target.resolvedVirtualIndex);
     return;
@@ -128,48 +124,32 @@ function navigateToResolvedTarget(
 
 export function useFlowChatNavigation({
   activeSessionId,
-  virtualItems,
   virtualListRef,
 }: UseFlowChatNavigationOptions): void {
-  const [pendingTurnPinRequest, setPendingTurnPinRequest] = useState<FlowChatPinTurnToTopRequest | null>(null);
-
-  useEffect(() => {
-    const unsubscribe = globalEventBus.on<FlowChatPinTurnToTopRequest>(FLOWCHAT_PIN_TURN_TO_TOP_EVENT, (request) => {
-      if (!request || request.sessionId !== activeSessionId) {
-        return;
-      }
-
-      setPendingTurnPinRequest(request);
-    });
-
-    return unsubscribe;
-  }, [activeSessionId]);
-
-  useEffect(() => {
-    if (!pendingTurnPinRequest) return;
-    if (pendingTurnPinRequest.sessionId !== activeSessionId) {
-      setPendingTurnPinRequest(null);
-      return;
-    }
-
-    const accepted = virtualListRef.current?.pinTurnToTop(pendingTurnPinRequest.turnId, {
-      behavior: pendingTurnPinRequest.behavior ?? 'auto',
-      pinMode: pendingTurnPinRequest.pinMode,
-    }) ?? false;
-    if (accepted) {
-      setPendingTurnPinRequest(null);
-    }
-  }, [activeSessionId, pendingTurnPinRequest, virtualItems, virtualListRef]);
-
   useEffect(() => {
     const unsubscribe = globalEventBus.on<FlowChatFocusItemRequest>(FLOWCHAT_FOCUS_ITEM_EVENT, async (request) => {
       const { sessionId, itemId } = request;
       if (!sessionId) return;
 
+      const stagedTarget = resolveFocusTarget(request, []);
+      let stagedPinnedRequestId: number | null = null;
+      if (stagedTarget.preferPinnedTurnNavigation && stagedTarget.resolvedTurnId) {
+        const viewportRequest = requestFlowViewportTurnNavigation({
+          sessionId,
+          turnId: stagedTarget.resolvedTurnId,
+          source: 'btw-back',
+          behavior: 'auto',
+        });
+        stagedPinnedRequestId = viewportRequest.requestId;
+      }
+
       if (activeSessionId !== sessionId) {
         try {
           await openSession(sessionId);
         } catch (error) {
+          if (stagedPinnedRequestId !== null) {
+            acknowledgeFlowViewportTurnNavigation(sessionId, stagedPinnedRequestId);
+          }
           log.warn('Failed to switch session for focus request', { sessionId, error });
           return;
         }
@@ -185,7 +165,18 @@ export function useFlowChatNavigation({
         useModernFlowChatStore.getState().virtualItems,
       );
 
-      navigateToResolvedTarget(virtualListRef, resolvedTarget);
+      if (resolvedTarget.preferPinnedTurnNavigation && resolvedTarget.resolvedTurnId) {
+        if (stagedPinnedRequestId === null) {
+          requestFlowViewportTurnNavigation({
+            sessionId,
+            turnId: resolvedTarget.resolvedTurnId,
+            source: 'btw-back',
+            behavior: 'auto',
+          });
+        }
+      } else {
+        navigateToResolvedTarget(virtualListRef, resolvedTarget);
+      }
 
       if (!itemId) return;
 

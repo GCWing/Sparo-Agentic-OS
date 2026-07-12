@@ -73,6 +73,10 @@ Usage:
         false
     }
 
+    fn mutates_app_builder_draft(&self) -> bool {
+        true
+    }
+
     fn is_concurrency_safe(&self, _input: Option<&Value>) -> bool {
         false
     }

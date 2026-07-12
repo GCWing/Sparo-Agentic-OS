@@ -39,7 +39,6 @@
       "escapeToAgenticBase": "Return to Agentic OS desktop"
     },
     "canvas": {
-      "missionControl": "Mission Control",
       "splitHorizontal": "Horizontal Split",
       "splitVertical": "Vertical Split",
       "anchorZone": "Toggle Anchor Zone",

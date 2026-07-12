@@ -12,6 +12,10 @@ import type {
 } from './dailyLetterTypes';
 
 export class DailyLetterApi {
+  onArrived(callback: (record: DailyLetterRecord) => void): () => void {
+    return api.listen<DailyLetterRecord>('daily-letter://arrived', callback);
+  }
+
   async list(request: DailyLetterListRequest = {}): Promise<DailyLetterRecord[]> {
     try {
       return await api.invoke<DailyLetterRecord[]>('daily_letter_list', { request });

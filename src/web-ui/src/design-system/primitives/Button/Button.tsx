@@ -9,6 +9,7 @@ import './Button.scss';
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'ghost' | 'dashed' | 'danger' | 'success' | 'accent' | 'ai';
   size?: 'small' | 'medium' | 'large';
+  shape?: 'default' | 'pill';
   isLoading?: boolean;
   iconOnly?: boolean;
   loadingLabel?: string;
@@ -18,6 +19,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
   children,
   variant = 'primary',
   size = 'medium',
+  shape = 'default',
   isLoading = false,
   iconOnly = false,
   loadingLabel = 'Loading',
@@ -58,6 +60,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
     'btn',
     getVariantClass(variant),
     `btn-${sizeClassMap[size] || 'base'}`,
+    shape === 'pill' && 'btn-pill',
     iconOnly && 'btn-icon-only',
     isLoading && 'btn-loading',
     disabled && 'btn-disabled',

@@ -1,18 +1,51 @@
 const IGNORED_DIRS = new Set([".git", "node_modules", "out", "dist", "build", ".next", ".sparo_os", "coverage"]);
 const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]);
-const PREVIEW_CACHE_LIMIT = 160;
-const PREVIEW_VIDEO_CACHE_LIMIT = 24;
-const DEFAULT_PREVIEW_SCALE = 1;
-const DEFAULT_PREVIEW_VIDEO_SCALE = 0.5;
-const DEFAULT_PREVIEW_CLIP_SECONDS = 3;
+const PROJECT_REVISION_EXTENSIONS = new Set([
+  ...SOURCE_EXTENSIONS,
+  ".json",
+  ".css",
+  ".scss",
+  ".sass",
+  ".less",
+  ".html",
+  ".md",
+  ".yml",
+  ".yaml",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".webp",
+  ".avif",
+  ".gif",
+  ".svg",
+  ".bmp",
+  ".ico",
+  ".mp4",
+  ".mov",
+  ".webm",
+  ".m4v",
+  ".mp3",
+  ".wav",
+  ".m4a",
+  ".ogg",
+  ".oga",
+  ".opus",
+  ".aac",
+  ".flac",
+  ".ttf",
+  ".otf",
+  ".woff",
+  ".woff2",
+  ".srt",
+  ".vtt",
+]);
 const DEFAULT_STILL_SCALE = 1;
 const REMOTION_RENDER_TIMEOUT_MS = 240_000;
-const REMOTION_EXPORT_TIMEOUT_MS = 600_000;
-const PREVIEW_SERVER_BOOT_WAIT_MS = 0;
-const PREVIEW_SERVER_STALE_MS = 120_000;
+const ARTIFACT_CACHE_MAX_BYTES = 512 * 1024 * 1024;
+const PROJECT_BUNDLE_CACHE_LIMIT = 3;
 const PLAYER_HOST_BOOT_WAIT_MS = 45_000;
-const PLAYER_HOST_STALE_MS = 10 * 60_000;
-const PLAYER_HOST_RUNTIME_VERSION = 8;
+const PLAYER_HOST_RUNTIME_VERSION = 14;
+const PLAYER_CONTROL_PROTOCOL_VERSION = 3;
 const ASSET_EXTENSIONS = new Map([
   [".png", "image"],
   [".jpg", "image"],
@@ -41,18 +74,13 @@ const ASSET_EXTENSIONS = new Map([
 module.exports = {
   IGNORED_DIRS,
   SOURCE_EXTENSIONS,
-  PREVIEW_CACHE_LIMIT,
-  PREVIEW_VIDEO_CACHE_LIMIT,
-  DEFAULT_PREVIEW_SCALE,
-  DEFAULT_PREVIEW_VIDEO_SCALE,
-  DEFAULT_PREVIEW_CLIP_SECONDS,
+  PROJECT_REVISION_EXTENSIONS,
   DEFAULT_STILL_SCALE,
   REMOTION_RENDER_TIMEOUT_MS,
-  REMOTION_EXPORT_TIMEOUT_MS,
-  PREVIEW_SERVER_BOOT_WAIT_MS,
-  PREVIEW_SERVER_STALE_MS,
+  ARTIFACT_CACHE_MAX_BYTES,
+  PROJECT_BUNDLE_CACHE_LIMIT,
   PLAYER_HOST_BOOT_WAIT_MS,
-  PLAYER_HOST_STALE_MS,
   PLAYER_HOST_RUNTIME_VERSION,
+  PLAYER_CONTROL_PROTOCOL_VERSION,
   ASSET_EXTENSIONS,
 };

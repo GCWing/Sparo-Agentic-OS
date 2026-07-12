@@ -41,10 +41,17 @@
   &__logo-control {
     width: 32px;
     height: 32px;
+
+    &:hover:not(:disabled),
+    &:focus-visible,
+    &:active:not(:disabled) {
+      background: transparent;
+      border-color: transparent;
+      box-shadow: none;
+    }
   }
 
-  &__logo-control:hover &__logo-mark,
-  &__logo-control.is-open &__logo-mark {
+  &__logo-control:hover &__logo-mark {
     transform: scale(1.06);
   }
 

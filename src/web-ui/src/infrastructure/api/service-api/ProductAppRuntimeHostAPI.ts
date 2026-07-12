@@ -1,6 +1,6 @@
 import { api } from './ApiClient';
 import { createTauriCommandError } from '../errors/TauriCommandError';
-import type { AppIconSpec } from './AppCatalogAPI';
+import type { AppIconSpec } from '@/shared/types/app-manifest';
 import type { ProductAppRuntimeContext } from '@/shared/types/product-app-runtime';
 
 export interface ProductAppHostSurfaceEsmDependency {
@@ -52,6 +52,10 @@ export interface ProductAppHostSurfacePermissions {
     allowed_models?: string[];
     max_tokens_per_request?: number;
     rate_limit_per_minute?: number;
+  };
+  iframe?: {
+    autoplay?: boolean;
+    fullscreen?: boolean;
   };
 }
 
@@ -260,7 +264,59 @@ export interface ProductAppRuntimeHostLogInput {
   timestampMs?: number;
 }
 
+const HOST_SURFACE_CACHE_TTL_MS = 30_000;
+const HOST_SURFACE_CACHE_LIMIT = 4;
+
+interface HostSurfaceCacheEntry {
+  surface: ProductAppHostSurface;
+  expiresAt: number;
+}
+
 export class ProductAppRuntimeHostAPI {
+  private readonly hostSurfaceCache = new Map<string, HostSurfaceCacheEntry>();
+  private readonly pendingHostSurfaces = new Map<string, Promise<ProductAppHostSurface>>();
+  private readonly hostSurfaceGenerations = new Map<string, number>();
+  private hostSurfaceGeneration = 0;
+
+  private hostSurfaceKey(appId: string, theme?: string, workspacePath?: string): string {
+    return [appId, theme ?? 'dark', workspacePath?.trim() ?? ''].join('\u0001');
+  }
+
+  private rememberHostSurface(key: string, surface: ProductAppHostSurface): void {
+    this.hostSurfaceCache.delete(key);
+    this.hostSurfaceCache.set(key, {
+      surface,
+      expiresAt: Date.now() + HOST_SURFACE_CACHE_TTL_MS,
+    });
+    while (this.hostSurfaceCache.size > HOST_SURFACE_CACHE_LIMIT) {
+      const oldestKey = this.hostSurfaceCache.keys().next().value as string | undefined;
+      if (!oldestKey) break;
+      this.hostSurfaceCache.delete(oldestKey);
+    }
+  }
+
+  invalidateHostSurface(appId?: string): void {
+    if (!appId) {
+      this.hostSurfaceGeneration += 1;
+      this.hostSurfaceCache.clear();
+      this.pendingHostSurfaces.clear();
+      this.hostSurfaceGenerations.clear();
+      return;
+    }
+
+    const prefix = `${appId}\u0001`;
+    for (const key of this.hostSurfaceCache.keys()) {
+      if (key.startsWith(prefix)) this.hostSurfaceCache.delete(key);
+    }
+    for (const key of this.pendingHostSurfaces.keys()) {
+      if (key.startsWith(prefix)) this.pendingHostSurfaces.delete(key);
+    }
+    this.hostSurfaceGenerations.set(
+      appId,
+      (this.hostSurfaceGenerations.get(appId) ?? 0) + 1,
+    );
+  }
+
   async listHostSurfaces(): Promise<ProductAppHostSurfaceMeta[]> {
     try {
       return await api.invoke('product_app_runtime_list_host_surfaces', {});
@@ -286,12 +342,50 @@ export class ProductAppRuntimeHostAPI {
   }
 
   async getHostSurface(appId: string, theme?: string, workspacePath?: string): Promise<ProductAppHostSurface> {
-    try {
-      return await api.invoke('product_app_runtime_get_host_surface', {
-        request: { appId, theme: theme ?? undefined, workspacePath },
-      });
-    } catch (error) {
+    const key = this.hostSurfaceKey(appId, theme, workspacePath);
+    const cached = this.hostSurfaceCache.get(key);
+    if (cached && cached.expiresAt > Date.now()) {
+      // Refresh LRU order without extending the freshness window.
+      this.hostSurfaceCache.delete(key);
+      this.hostSurfaceCache.set(key, cached);
+      return cached.surface;
+    }
+    if (cached) this.hostSurfaceCache.delete(key);
+
+    const existing = this.pendingHostSurfaces.get(key);
+    if (existing) return existing;
+
+    const globalGeneration = this.hostSurfaceGeneration;
+    const generation = this.hostSurfaceGenerations.get(appId) ?? 0;
+    let pending: Promise<ProductAppHostSurface>;
+    pending = api.invoke<ProductAppHostSurface>('product_app_runtime_get_host_surface', {
+      request: { appId, theme: theme ?? undefined, workspacePath },
+    }).then(async (surface) => {
+      const requestIsCurrent = (
+        this.hostSurfaceGeneration === globalGeneration
+        && (this.hostSurfaceGenerations.get(appId) ?? 0) === generation
+      );
+      if (!requestIsCurrent) {
+        // The source/runtime changed while this request was rendering. Never
+        // hand the stale surface to the original waiter; join a fresh render.
+        if (this.pendingHostSurfaces.get(key) === pending) {
+          this.pendingHostSurfaces.delete(key);
+        }
+        return this.getHostSurface(appId, theme, workspacePath);
+      }
+      this.rememberHostSurface(key, surface);
+      return surface;
+    }).catch((error) => {
       throw createTauriCommandError('product_app_runtime_get_host_surface', error, { appId, workspacePath });
+    });
+    this.pendingHostSurfaces.set(key, pending);
+
+    try {
+      return await pending;
+    } finally {
+      if (this.pendingHostSurfaces.get(key) === pending) {
+        this.pendingHostSurfaces.delete(key);
+      }
     }
   }
 
@@ -314,6 +408,7 @@ export class ProductAppRuntimeHostAPI {
   async stopWorker(appId: string): Promise<void> {
     try {
       await api.invoke('product_app_runtime_stop_worker', { appId });
+      this.invalidateHostSurface(appId);
     } catch (error) {
       throw createTauriCommandError('product_app_runtime_stop_worker', error, { appId });
     }
@@ -321,7 +416,9 @@ export class ProductAppRuntimeHostAPI {
 
   async installDependencies(appId: string): Promise<ProductAppHostSurfaceInstallResult> {
     try {
-      return await api.invoke('product_app_runtime_install_dependencies', { appId });
+      const result = await api.invoke<ProductAppHostSurfaceInstallResult>('product_app_runtime_install_dependencies', { appId });
+      this.invalidateHostSurface(appId);
+      return result;
     } catch (error) {
       throw createTauriCommandError('product_app_runtime_install_dependencies', error, { appId });
     }
@@ -332,10 +429,13 @@ export class ProductAppRuntimeHostAPI {
     theme?: string,
     workspacePath?: string,
   ): Promise<ProductAppHostSurfaceRecompileResult> {
+    this.invalidateHostSurface(appId);
     try {
-      return await api.invoke('product_app_runtime_recompile_host_surface', {
+      const result = await api.invoke<ProductAppHostSurfaceRecompileResult>('product_app_runtime_recompile_host_surface', {
         request: { appId, theme: theme ?? undefined, workspacePath },
       });
+      this.invalidateHostSurface(appId);
+      return result;
     } catch (error) {
       throw createTauriCommandError('product_app_runtime_recompile_host_surface', error, { appId, workspacePath });
     }

@@ -8,6 +8,7 @@
 /// Names exported by `window.app.ui`.
 pub const RUNTIME_UI_KIT_COMPONENTS: &[&str] = &[
     "Button",
+    "IconButton",
     "Card",
     "CardHeader",
     "CardBody",
@@ -18,6 +19,10 @@ pub const RUNTIME_UI_KIT_COMPONENTS: &[&str] = &[
     "Empty",
     "Stack",
     "Toolbar",
+    "Spinner",
+    "Status",
+    "SegmentedControl",
+    "Dialog",
 ];
 
 /// CSS for the runtime UI kit. The class names intentionally mirror a small
@@ -228,6 +233,152 @@ pub fn build_runtime_ui_kit_css() -> &'static str {
 
 @keyframes bfui-spin {
   to { transform: rotate(360deg); }
+}
+
+.bfui-spinner {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-gap-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.bfui-spinner__mark {
+  width: var(--bfui-spinner-size, 16px);
+  height: var(--bfui-spinner-size, 16px);
+  border: 2px solid color-mix(in srgb, currentColor 22%, transparent);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: bfui-spin 0.8s linear infinite;
+}
+
+.bfui-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.bfui-status__dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.bfui-status--success { color: var(--color-success); }
+.bfui-status--warning { color: var(--color-warning); }
+.bfui-status--error { color: var(--color-error); }
+.bfui-status--info { color: var(--color-info); }
+.bfui-status--accent { color: var(--color-accent-500); }
+
+.bfui-segmented {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 32px;
+  padding: 2px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--size-radius-sm);
+  background: var(--element-bg-soft);
+}
+
+.bfui-segmented__item {
+  min-height: 26px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: calc(var(--size-radius-sm) - 2px);
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.bfui-segmented__item:hover:not(:disabled) {
+  color: var(--color-text-primary);
+}
+
+.bfui-segmented__item[aria-pressed="true"] {
+  background: var(--element-bg-medium);
+  color: var(--color-text-primary);
+}
+
+.bfui-segmented__item:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-accent-500) 55%, transparent);
+  outline-offset: 1px;
+}
+
+.bfui-dialog {
+  width: min(var(--bfui-dialog-width, 440px), calc(100vw - 32px));
+  max-height: min(720px, calc(100vh - 32px));
+  padding: 0;
+  border: 1px solid var(--border-base);
+  border-radius: var(--size-radius-lg);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  box-shadow: 0 24px 72px color-mix(in srgb, #000 52%, transparent);
+  overflow: hidden;
+}
+
+.bfui-dialog::backdrop {
+  background: color-mix(in srgb, #000 58%, transparent);
+  backdrop-filter: blur(3px);
+}
+
+.bfui-dialog__header,
+.bfui-dialog__body,
+.bfui-dialog__footer {
+  padding: var(--size-gap-4);
+}
+
+.bfui-dialog__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--size-gap-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.bfui-dialog__title {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+}
+
+.bfui-dialog__description {
+  margin-top: var(--size-gap-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.bfui-dialog__body {
+  overflow: auto;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+}
+
+.bfui-dialog__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--size-gap-2);
+  border-top: 1px solid var(--border-subtle);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn,
+  .v-card,
+  .sparo-input-container {
+    transition: none;
+  }
+
+  .btn-loading-icon,
+  .bfui-spinner__mark {
+    animation-duration: 1.8s;
+  }
 }
 
 .v-card {
@@ -488,6 +639,7 @@ pub fn build_runtime_ui_kit_script() -> &'static str {
 (function () {
   const COMPONENTS = Object.freeze([
     'Button',
+    'IconButton',
     'Card',
     'CardHeader',
     'CardBody',
@@ -498,6 +650,10 @@ pub fn build_runtime_ui_kit_script() -> &'static str {
     'Empty',
     'Stack',
     'Toolbar',
+    'Spinner',
+    'Status',
+    'SegmentedControl',
+    'Dialog',
   ]);
 
   const sizeClass = { small: 'sm', medium: 'base', large: 'lg' };
@@ -575,6 +731,16 @@ pub fn build_runtime_ui_kit_script() -> &'static str {
       append(node, options.children ?? options.text);
     }
     return node;
+  }
+
+  function IconButton(options = {}) {
+    return Button({
+      ...options,
+      iconOnly: true,
+      variant: options.variant || 'ghost',
+      children: options.icon ?? options.children,
+      ariaLabel: options.ariaLabel || options.title,
+    });
   }
 
   function Card(options = {}) {
@@ -692,6 +858,115 @@ pub fn build_runtime_ui_kit_script() -> &'static str {
     return createElement('div', { className: classes(['bfui-toolbar', options.className]) }, options.children);
   }
 
+  function Spinner(options = {}) {
+    const mark = createElement('span', { className: 'bfui-spinner__mark', 'aria-hidden': 'true' });
+    if (options.size != null) {
+      mark.style.setProperty('--bfui-spinner-size', typeof options.size === 'number' ? options.size + 'px' : String(options.size));
+    }
+    return createElement('span', {
+      className: classes(['bfui-spinner', options.className]),
+      role: 'status',
+      'aria-live': options.live || 'polite',
+      'aria-label': options.ariaLabel || options.label || 'Loading',
+    }, [mark, options.label ? createElement('span', null, options.label) : null]);
+  }
+
+  function Status(options = {}) {
+    return createElement('span', {
+      className: classes(['bfui-status', 'bfui-status--' + (options.variant || 'neutral'), options.className]),
+      role: options.role || 'status',
+      'aria-live': options.live || 'polite',
+    }, [
+      createElement('span', { className: 'bfui-status__dot', 'aria-hidden': 'true' }),
+      createElement('span', { className: 'bfui-status__label' }, options.label || options.children || ''),
+    ]);
+  }
+
+  function SegmentedControl(options = {}) {
+    const items = Array.isArray(options.items) ? options.items : [];
+    const root = createElement('div', {
+      className: classes(['bfui-segmented', options.className]),
+      role: 'group',
+      'aria-label': options.ariaLabel,
+    });
+    const buttons = items.map((item) => {
+      const value = typeof item === 'object' ? item.value : item;
+      const label = typeof item === 'object' ? item.label : item;
+      const button = createElement('button', {
+        type: 'button',
+        className: 'bfui-segmented__item',
+        disabled: typeof item === 'object' && item.disabled,
+        'aria-pressed': value === options.value ? 'true' : 'false',
+        dataset: { value: String(value) },
+        onClick: () => options.onChange?.(value),
+      }, label);
+      root.appendChild(button);
+      return button;
+    });
+    root.addEventListener('keydown', (event) => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      const enabled = buttons.filter((button) => !button.disabled);
+      if (!enabled.length) return;
+      const activeIndex = Math.max(0, enabled.indexOf(document.activeElement));
+      const nextIndex = event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? enabled.length - 1
+          : (activeIndex + (event.key === 'ArrowRight' ? 1 : -1) + enabled.length) % enabled.length;
+      event.preventDefault();
+      enabled[nextIndex].focus();
+      enabled[nextIndex].click();
+    });
+    return root;
+  }
+
+  function Dialog(options = {}) {
+    const previousFocus = document.activeElement;
+    const titleId = 'bfui-dialog-title-' + Math.random().toString(36).slice(2);
+    const descriptionId = options.description ? titleId + '-description' : null;
+    const dialog = createElement('dialog', {
+      className: classes(['bfui-dialog', options.className]),
+      'aria-labelledby': titleId,
+      'aria-describedby': descriptionId,
+    });
+    if (options.width) dialog.style.setProperty('--bfui-dialog-width', typeof options.width === 'number' ? options.width + 'px' : String(options.width));
+    const close = (returnValue = '') => {
+      if (dialog.open) dialog.close(returnValue);
+    };
+    const header = createElement('div', { className: 'bfui-dialog__header' }, [
+      createElement('div', null, [
+        createElement('div', { className: 'bfui-dialog__title', id: titleId }, options.title || ''),
+        options.description ? createElement('div', { className: 'bfui-dialog__description', id: descriptionId }, options.description) : null,
+      ]),
+      options.dismissible === false ? null : IconButton({ icon: '×', ariaLabel: options.closeLabel || 'Close', onClick: () => close('cancel') }),
+    ]);
+    dialog.appendChild(header);
+    dialog.appendChild(createElement('div', { className: 'bfui-dialog__body' }, options.children));
+    if (options.actions) dialog.appendChild(createElement('div', { className: 'bfui-dialog__footer' }, options.actions));
+    dialog.addEventListener('cancel', (event) => {
+      if (options.dismissible === false) event.preventDefault();
+    });
+    dialog.addEventListener('click', (event) => {
+      if (options.closeOnBackdrop !== false && event.target === dialog) close('cancel');
+    });
+    dialog.addEventListener('close', () => {
+      options.onClose?.(dialog.returnValue);
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
+    });
+    dialog.openDialog = () => {
+      if (!dialog.isConnected) document.body.appendChild(dialog);
+      if (!dialog.open) dialog.showModal();
+      requestAnimationFrame(() => {
+        const initial = options.initialFocus || dialog.querySelector('[autofocus], button, input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        initial?.focus?.();
+      });
+      return dialog;
+    };
+    dialog.closeDialog = close;
+    if (options.open !== false) queueMicrotask(() => dialog.openDialog());
+    return dialog;
+  }
+
   function mount(target, child) {
     const root = typeof target === 'string' ? document.querySelector(target) : target;
     if (!root) throw new Error('Product App Runtime Host UI Kit mount target not found');
@@ -706,6 +981,7 @@ pub fn build_runtime_ui_kit_script() -> &'static str {
     createElement,
     mount,
     Button,
+    IconButton,
     Card,
     CardHeader,
     CardBody,
@@ -716,6 +992,10 @@ pub fn build_runtime_ui_kit_script() -> &'static str {
     Empty,
     Stack,
     Toolbar,
+    Spinner,
+    Status,
+    SegmentedControl,
+    Dialog,
   });
 
   window.BitfunProductAppRuntimeHostSurfaceUI = ui;
@@ -733,7 +1013,19 @@ mod tests {
     #[test]
     fn runtime_ui_kit_exports_expected_subset() {
         for component in [
-            "Button", "Card", "Input", "Badge", "Alert", "Empty", "Stack", "Toolbar",
+            "Button",
+            "IconButton",
+            "Card",
+            "Input",
+            "Badge",
+            "Alert",
+            "Empty",
+            "Stack",
+            "Toolbar",
+            "Spinner",
+            "Status",
+            "SegmentedControl",
+            "Dialog",
         ] {
             assert!(RUNTIME_UI_KIT_COMPONENTS.contains(&component));
         }
@@ -754,5 +1046,7 @@ mod tests {
         assert!(script.contains("window.app.ui = ui"));
         assert!(script.contains("Button"));
         assert!(script.contains("Card"));
+        assert!(script.contains("SegmentedControl"));
+        assert!(script.contains("Dialog"));
     }
 }

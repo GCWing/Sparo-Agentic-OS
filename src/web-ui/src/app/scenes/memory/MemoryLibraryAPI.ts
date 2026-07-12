@@ -258,6 +258,18 @@ export class MemoryLibraryAPI {
     }
 
     await this.ensureMemorySpace(space.memoryDir);
+    return this.listAvailableMemoryRecords(space);
+  }
+
+  async listExistingMemoryRecords(space: MemorySpace): Promise<MemoryRecord[]> {
+    if (!space.available || !await systemAPI.checkPathExists(space.memoryDir)) {
+      return [];
+    }
+
+    return this.listAvailableMemoryRecords(space);
+  }
+
+  private async listAvailableMemoryRecords(space: MemorySpace): Promise<MemoryRecord[]> {
     const workspaceOverviewTargets = isWorkspaceOverviewDir(space.memoryDir)
       ? await this.loadWorkspaceOverviewTargets()
       : new Map<string, WorkspaceOverviewTarget>();

@@ -45,11 +45,13 @@ export function ComposerVoiceInputButton({ controller }: ComposerVoiceInputButto
     return null;
   }
 
-  const busy = controller.phase === 'preparing' || controller.phase === 'transcribing';
+  const preparing = controller.phase === 'preparing';
+  const transcribing = controller.phase === 'transcribing';
   const recording = controller.phase === 'recording';
+  const activeVoicePill = preparing || recording;
 
-  if (recording) {
-    const currentSample = controller.audioLevel < VOICE_SILENCE_THRESHOLD
+  if (activeVoicePill) {
+    const currentSample = !recording || controller.audioLevel < VOICE_SILENCE_THRESHOLD
       ? 0
       : Math.min(1, controller.audioLevel);
     const visibleTimelineSamples = [
@@ -61,6 +63,7 @@ export function ComposerVoiceInputButton({ controller }: ComposerVoiceInputButto
       <span className="sparo-chat-input__voice-cluster sparo-chat-input__voice-cluster--recording">
         <span
           aria-label={controller.tooltip}
+          aria-busy={preparing}
           className="sparo-chat-input__voice-pill"
           role="group"
         >
@@ -95,18 +98,26 @@ export function ComposerVoiceInputButton({ controller }: ComposerVoiceInputButto
           </IconButton>
 
           <IconButton
-            aria-label={controller.confirmTooltip}
+            aria-label={preparing ? controller.tooltip : controller.confirmTooltip}
             className="sparo-chat-input__voice-pill-action sparo-chat-input__voice-pill-action--confirm"
             variant="ghost"
             size="xs"
             shape="circle"
-            tooltip={controller.confirmTooltip}
+            disabled={preparing}
+            tooltip={preparing ? controller.tooltip : controller.confirmTooltip}
             onClick={(event) => {
               event.stopPropagation();
+              if (preparing) {
+                return;
+              }
               controller.confirm();
             }}
           >
-            <Check size={16} />
+            {preparing ? (
+              <Loader2 size={16} className="sparo-chat-input__voice-spinner" />
+            ) : (
+              <Check size={16} />
+            )}
           </IconButton>
         </span>
       </span>
@@ -128,7 +139,7 @@ export function ComposerVoiceInputButton({ controller }: ComposerVoiceInputButto
           controller.toggle();
         }}
       >
-        {busy ? (
+        {transcribing ? (
           <Loader2 size={14} className="sparo-chat-input__voice-spinner" />
         ) : (
           <Mic size={14} />

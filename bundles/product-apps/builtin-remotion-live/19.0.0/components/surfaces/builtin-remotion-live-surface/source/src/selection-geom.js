@@ -1,88 +1,68 @@
-// remotion-live :: selection-geom.js (auto-split from ui.js; do not hand-merge)
-
 import { activeFrameModel, currentComposition, selectedElementContext, selectedLayer } from './model.js';
 import { state } from './state.js';
-import { asElement, clamp, nodeInsideRoot, previewStageNode, projectName, round2, stopPlaybackTimer, t } from './util.js';
-
-function hasLiveTextSelection() {
-  const selection = window.getSelection?.();
-  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return false;
-  if (!nodeInsideRoot(selection.anchorNode) && !nodeInsideRoot(selection.focusNode)) return false;
-  return selection.toString().trim().length > 0;
-}
-
+import { asElement, clamp, nodeInsideRoot, previewStageNode, projectName, round2, t } from './util.js';
 
 function isSelectionStartTarget(target) {
+  if (state.interactionMode !== 'inspect') return false;
   const element = asElement(target);
-  if (!element || !nodeInsideRoot(element)) return false;
-  if (element.closest('[data-preview-layer-id]')) return false;
-  return !element.closest('button,input,select,textarea,[contenteditable="true"],[data-action]');
+  return Boolean(element && nodeInsideRoot(element) && element.closest('[data-select-capture],[data-preview-layer-id]'));
 }
-
-
-function pausePlaybackForSelection() {
-  if (!state.playing && !state.playTimer) return;
-  state.playing = false;
-  stopPlaybackTimer();
-  state.renderQueued = true;
-}
-
 
 function shouldDeferRenderForSelection() {
-  return state.selectionPointerDown || state.selectionGuard || hasLiveTextSelection();
+  return state.selectionPointerDown || state.selectionDragging;
 }
-
 
 function buildSelectedVideoContext() {
   const composition = currentComposition();
   const model = activeFrameModel();
-  const sel = state.selection;
+  const selection = state.selection;
   const fps = composition?.fps ?? null;
-  const frame = Math.round(Number(state.frame) || 0);
+  const frame = Math.round(Number(state.playerRuntimeFrame ?? state.frame) || 0);
   const context = {
     workspacePath: state.workspacePath || null,
     projectName: projectName(),
     entryPoint: state.project?.entryPoint || state.detection?.entryPoint || null,
     compositionId: composition?.id || null,
+    projectRevision: state.manifest?.projectRevision || state.manifest?.buildId || null,
     frame,
+    frameState: 'committed',
     timeSeconds: model?.timeSeconds ?? (fps ? round2(frame / fps) : null),
     fps,
     durationInFrames: composition?.durationInFrames ?? null,
-    previewMode: state.previewMode,
+    descriptorRevision: composition?.descriptorRevision || state.manifest?.descriptorRevision || null,
+    playbackState: state.playerPhase,
   };
   if (composition?.width && composition?.height) {
     context.size = { width: composition.width, height: composition.height };
   }
-  if (sel?.type === 'element') {
+  if (selection?.type === 'element') {
     const elementContext = selectedElementContext();
     if (elementContext) {
       context.selection = { type: 'element', element: elementContext.element };
       context.contextSource = elementContext.contextSource;
     }
-  } else if (sel?.type === 'point' && sel.point) {
-    context.selection = { type: 'point', point: sel.point };
-  } else if (sel?.type === 'region' && sel.normalizedBox) {
-    context.selection = { type: 'region', normalizedBox: sel.normalizedBox };
+  } else if (selection?.type === 'point' && selection.point) {
+    context.selection = { type: 'point', point: selection.point };
+  } else if (selection?.type === 'region' && selection.normalizedBox) {
+    context.selection = { type: 'region', normalizedBox: selection.normalizedBox };
   }
   return context;
 }
 
-
 function selectionContextSentence(context) {
-  const parts = [`${t('composition')} ${context.compositionId || '-'} · ${t('frame')} ${context.frame}`];
-  const sel = context.selection;
-  if (!sel) {
+  const parts = [`${t('composition')} ${context.compositionId || '-'}`, `${t('frame')} ${context.frame}`];
+  const selection = context.selection;
+  if (!selection) {
     parts.push(t('selectionWhole'));
-  } else if (sel.type === 'point' && sel.point) {
-    parts.push(`${t('selectionPoint')} ${Math.round(sel.point.x)}%, ${Math.round(sel.point.y)}%`);
-  } else if (sel.type === 'region' && sel.normalizedBox) {
-    parts.push(`${t('selectionRegion')} ${Math.round(sel.normalizedBox.width)}% × ${Math.round(sel.normalizedBox.height)}%`);
-  } else if (sel.type === 'element' && sel.element) {
-    parts.push(`${t('selectionElement')} ${sel.element.label || sel.element.id || ''}`.trim());
+  } else if (selection.type === 'point' && selection.point) {
+    parts.push(`${t('selectionPoint')} ${Math.round(selection.point.x)}%, ${Math.round(selection.point.y)}%`);
+  } else if (selection.type === 'region' && selection.normalizedBox) {
+    parts.push(`${t('selectionRegion')} ${Math.round(selection.normalizedBox.width)}% × ${Math.round(selection.normalizedBox.height)}%`);
+  } else if (selection.type === 'element' && selection.element) {
+    parts.push(`${t('selectionElement')} ${selection.element.label || selection.element.id || ''}`.trim());
   }
   return parts.join(' · ');
 }
-
 
 function stageNormalizedPoint(event) {
   const stage = previewStageNode();
@@ -95,26 +75,29 @@ function stageNormalizedPoint(event) {
   };
 }
 
-
 function selectionSummary() {
   const composition = currentComposition();
   const base = `${composition?.id || '-'} · ${t('frame')} ${Math.round(Number(state.frame) || 0)}`;
-  const sel = state.selection;
-  if (!sel) return `${base} · ${t('selectionWhole')}`;
-  if (sel.type === 'point' && sel.point) {
-    return `${base} · ${t('selectionPoint')} ${Math.round(sel.point.x)}%, ${Math.round(sel.point.y)}%`;
+  const selection = state.selection;
+  if (!selection) return `${base} · ${t('selectionWhole')}`;
+  if (selection.type === 'point' && selection.point) {
+    return `${base} · ${t('selectionPoint')} ${Math.round(selection.point.x)}%, ${Math.round(selection.point.y)}%`;
   }
-  if (sel.type === 'region' && sel.normalizedBox) {
-    return `${base} · ${t('selectionRegion')} ${Math.round(sel.normalizedBox.width)}% × ${Math.round(sel.normalizedBox.height)}%`;
+  if (selection.type === 'region' && selection.normalizedBox) {
+    return `${base} · ${t('selectionRegion')} ${Math.round(selection.normalizedBox.width)}% × ${Math.round(selection.normalizedBox.height)}%`;
   }
-  if (sel.type === 'element') {
-    const selected = selectedLayer();
-    const layer = selected?.layer;
-    const label = layer?.label || layer?.id || layer?.type || t('selectionElement');
-    return `${base} · ${t('selectionElement')} ${label}`;
+  if (selection.type === 'element') {
+    const layer = selectedLayer()?.layer;
+    return `${base} · ${t('selectionElement')} ${layer?.label || layer?.id || layer?.type || ''}`.trim();
   }
   return base;
 }
 
-
-export { buildSelectedVideoContext, hasLiveTextSelection, isSelectionStartTarget, pausePlaybackForSelection, selectionContextSentence, selectionSummary, shouldDeferRenderForSelection, stageNormalizedPoint };
+export {
+  buildSelectedVideoContext,
+  isSelectionStartTarget,
+  selectionContextSentence,
+  selectionSummary,
+  shouldDeferRenderForSelection,
+  stageNormalizedPoint,
+};

@@ -2,7 +2,7 @@
 
 use sparo_core::agentic::side_question::SideQuestionRuntime;
 use sparo_core::agentic::{agents, tools};
-use sparo_core::app_platform::seed_builtin_product_app_packages;
+use sparo_core::app_platform::{seed_system_app_releases, AppRevisionStore};
 use sparo_core::error::*;
 use sparo_core::infrastructure::ai::{AIClient, AIClientFactory};
 use sparo_core::product_app_runtime_host::{
@@ -48,6 +48,7 @@ pub struct AppState {
     pub speech_service: Arc<speech::SpeechService>,
     pub token_usage_service: Arc<token_usage::TokenUsageService>,
     pub product_app_runtime_host_manager: Arc<ProductAppRuntimeHostManager>,
+    pub app_revision_store: Arc<AppRevisionStore>,
     pub js_worker_pool: Option<Arc<ProductAppRuntimeHostWorkerPool>>,
     pub statistics: Arc<RwLock<AppStatistics>>,
     pub macos_edit_menu_mode: Arc<RwLock<crate::macos_menubar::EditMenuMode>>,
@@ -97,6 +98,32 @@ impl AppState {
             }
         };
         let path_manager = workspace_service.path_manager().clone();
+        let app_revision_store = Arc::new(
+            AppRevisionStore::open(path_manager.app_root())
+                .await
+                .map_err(|error| {
+                    CoreError::service(format!(
+                        "Failed to initialize Intelligent App revision store: {error}"
+                    ))
+                })?,
+        );
+        let seed_result = seed_system_app_releases(&path_manager, &app_revision_store)
+            .await
+            .map_err(|error| {
+                CoreError::service(format!(
+                    "Failed to initialize system Intelligent App releases: {error}"
+                ))
+            })?;
+        log::info!(
+            "Initialized system Intelligent App releases: components_added={}, components_reused={}, releases_added={}, releases_reused={}, activations_created={}, activations_advanced={}, activations_preserved={}",
+            seed_result.components_added,
+            seed_result.components_reused,
+            seed_result.releases_added,
+            seed_result.releases_reused,
+            seed_result.activations_created,
+            seed_result.activations_advanced,
+            seed_result.activations_preserved,
+        );
         let speech_service = Arc::new(speech::SpeechService::new(path_manager.as_ref().clone()));
 
         let announcement_scheduler = Arc::new(
@@ -115,12 +142,6 @@ impl AppState {
         initialize_global_product_app_runtime_host_manager(
             product_app_runtime_host_manager.clone(),
         );
-        let product_app_path_manager = path_manager.clone();
-        tauri::async_runtime::spawn(async move {
-            if let Err(e) = seed_builtin_product_app_packages(&product_app_path_manager).await {
-                log::warn!("Failed to seed built-in Product App packages: {}", e);
-            }
-        });
         let worker_host_path = match resolve_worker_host_path() {
             Some(p) => {
                 log::info!("Resolved worker_host.js at: {}", p.display());
@@ -183,6 +204,7 @@ impl AppState {
             speech_service,
             token_usage_service,
             product_app_runtime_host_manager,
+            app_revision_store,
             js_worker_pool,
             statistics,
             macos_edit_menu_mode: Arc::new(RwLock::new(crate::macos_menubar::EditMenuMode::System)),
@@ -190,6 +212,16 @@ impl AppState {
             active_searches: Arc::new(Mutex::new(HashMap::new())),
             announcement_scheduler,
         };
+
+        match crate::api::product_app_runtime_api::cleanup_draft_runtime_previews(&app_state).await
+        {
+            Ok(0) => {}
+            Ok(count) => log::info!(
+                "Removed stale Intelligent App Draft previews: count={}",
+                count
+            ),
+            Err(error) => log::warn!("Failed to remove stale Draft previews: {}", error),
+        }
 
         log::info!("AppState initialized successfully");
         Ok(app_state)

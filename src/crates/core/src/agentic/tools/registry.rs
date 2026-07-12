@@ -99,7 +99,8 @@ impl ToolRegistry {
         // AgentSession-level handoff remains available outside OSAgent Work management.
         self.register_tool(Arc::new(AgentHandoffTool::new()));
 
-        // Component authoring tools used by App Builder.
+        // System/shared Component management. AppBuilder's tool profile intentionally excludes
+        // these tools and uses CreateProductAppComponent inside its bound Draft instead.
         self.register_tool(Arc::new(ListAgentComponentsTool));
         self.register_tool(Arc::new(GetAgentComponentTool));
         self.register_tool(Arc::new(CreateAgentComponentTool));
@@ -189,11 +190,7 @@ impl ToolRegistry {
         self.register_tool(Arc::new(ResolveBuilderPreviewTargetTool::new()));
         self.register_tool(Arc::new(CreateProductAppCheckpointTool::new()));
         self.register_tool(Arc::new(CompareProductAppRevisionsTool::new()));
-        self.register_tool(Arc::new(CreateProductAppFromReleaseTemplateTool::new()));
         self.register_tool(Arc::new(RestoreProductAppCheckpointTool::new()));
-        self.register_tool(Arc::new(RestoreProductAppReleaseTool::new()));
-        self.register_tool(Arc::new(CreateProductAppReleaseTool::new()));
-        self.register_tool(Arc::new(PublishProductAppReleaseTool::new()));
         self.register_tool(Arc::new(ValidateProductAppPackageTool::new()));
         self.register_tool(Arc::new(RunBuilderPreviewTool::new()));
 

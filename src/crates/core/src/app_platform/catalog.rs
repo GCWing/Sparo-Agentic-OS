@@ -350,7 +350,7 @@ pub enum ComponentVisibility {
     Hidden,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SurfaceRef {
     pub component_id: String,
@@ -539,7 +539,7 @@ impl Default for ProductAppLaunchScopeRequirement {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProductAppLaunch {
     pub kind: ProductAppLaunchKind,
@@ -703,32 +703,83 @@ pub fn build_component_lock_with_implementation_digests(
 #[serde(rename_all = "camelCase")]
 struct ProductAppPermissionContract<'a> {
     permissions: &'a AppPermissionSummary,
-    os_capabilities: &'a [String],
-    component_uses_capabilities: BTreeMap<String, &'a [String]>,
+    os_capabilities: Vec<&'a str>,
+    component_uses_capabilities: BTreeMap<String, Vec<&'a str>>,
+    component_permissions: BTreeMap<String, Vec<ComponentPermissionContract<'a>>>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ComponentPermissionContract<'a> {
+    kind: String,
+    scopes: Vec<&'a str>,
 }
 
 fn permission_contract_digest(app: &AppDefinition, components: &[ComponentDefinition]) -> String {
     let mut component_uses_capabilities = BTreeMap::new();
+    let mut component_permissions = BTreeMap::new();
     for component_ref in &app.components {
+        let mut uses = component_ref
+            .uses_capabilities
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>();
+        uses.sort_unstable();
+        uses.dedup();
         component_uses_capabilities.insert(
             format!(
                 "ref:{}/{}",
                 component_ref.kind.path_segment(),
                 component_ref.component_id
             ),
-            component_ref.uses_capabilities.as_slice(),
+            uses,
         );
     }
     for component in components {
-        component_uses_capabilities.insert(
-            format!("component:{}", component.fqid()),
-            component.uses_capabilities.as_slice(),
-        );
+        let mut uses = component
+            .uses_capabilities
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>();
+        uses.sort_unstable();
+        uses.dedup();
+        component_uses_capabilities.insert(format!("component:{}", component.fqid()), uses);
+        let mut permissions = component
+            .permissions
+            .iter()
+            .map(|permission| {
+                let mut scopes = permission
+                    .scopes
+                    .iter()
+                    .map(String::as_str)
+                    .collect::<Vec<_>>();
+                scopes.sort_unstable();
+                scopes.dedup();
+                ComponentPermissionContract {
+                    kind: permission.kind.trim().to_ascii_lowercase(),
+                    scopes,
+                }
+            })
+            .collect::<Vec<_>>();
+        permissions.sort_by(|left, right| {
+            left.kind
+                .cmp(&right.kind)
+                .then_with(|| left.scopes.cmp(&right.scopes))
+        });
+        component_permissions.insert(format!("component:{}", component.fqid()), permissions);
     }
+    let mut os_capabilities = app
+        .os_capabilities
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<_>>();
+    os_capabilities.sort_unstable();
+    os_capabilities.dedup();
     stable_digest(&ProductAppPermissionContract {
         permissions: &app.permissions,
-        os_capabilities: &app.os_capabilities,
+        os_capabilities,
         component_uses_capabilities,
+        component_permissions,
     })
 }
 
@@ -747,6 +798,88 @@ pub fn stable_digest<T: Serialize>(value: &T) -> String {
     let mut hasher = Sha256::new();
     hasher.update(bytes);
     format!("sha256:{:x}", hasher.finalize())
+}
+
+#[cfg(test)]
+mod permission_contract_tests {
+    use super::*;
+
+    #[test]
+    fn component_permission_scope_changes_capability_fingerprint() {
+        let app = test_app();
+        let mut component = test_component();
+        component.permissions = vec![PermissionSpec {
+            kind: "net".to_string(),
+            summary: "Network access".to_string(),
+            scopes: vec!["https://api.example.com".to_string()],
+        }];
+        let first = build_component_lock(&app, &[component.clone()]).permission_digest;
+
+        component.permissions[0].summary = "Different user-facing copy".to_string();
+        let copy_only = build_component_lock(&app, &[component.clone()]).permission_digest;
+        assert_eq!(first, copy_only, "permission copy is not an authority");
+
+        component.permissions[0]
+            .scopes
+            .push("https://upload.example.com".to_string());
+        let expanded = build_component_lock(&app, &[component]).permission_digest;
+        assert_ne!(first, expanded, "expanded scopes require a new grant");
+    }
+
+    fn test_app() -> AppDefinition {
+        AppDefinition {
+            id: "permission-contract".to_string(),
+            version: "1.0.0".to_string(),
+            name: "Permission Contract".to_string(),
+            description: "Test app".to_string(),
+            authors: Vec::new(),
+            i18n: AppI18n::default(),
+            interaction_model: AppInteractionModel::Conversation,
+            work_multiplicity: AppWorkMultiplicity::Multiple,
+            work_object_kinds: Vec::new(),
+            data_lifecycle: None,
+            truth_source: None,
+            primary_surface: None,
+            primary_surface_mode: None,
+            components: Vec::new(),
+            component_lock_id: String::new(),
+            permissions: AppPermissionSummary::default(),
+            os_capabilities: Vec::new(),
+            install_scope: AppInstallScope::System,
+            catalog_visibility: AppCatalogVisibility::Discoverable,
+            enabled: true,
+            icon: AppIconSpec::Monogram {
+                label: "P".to_string(),
+                seed: None,
+                background: None,
+            },
+            category: "test".to_string(),
+            tags: Vec::new(),
+            launch: None,
+        }
+    }
+
+    fn test_component() -> ComponentDefinition {
+        ComponentDefinition {
+            id: "surface".to_string(),
+            version: None,
+            kind: ComponentKind::Surface,
+            name: "Surface".to_string(),
+            description: "Test surface".to_string(),
+            package_source: ComponentPackageSource::AppPrivate,
+            owner_app: Some(ComponentOwnerApp {
+                app_id: "permission-contract".to_string(),
+                app_version: "1.0.0".to_string(),
+            }),
+            capabilities: Vec::new(),
+            permissions: Vec::new(),
+            uses_capabilities: Vec::new(),
+            used_by_apps: Vec::new(),
+            visibility: ComponentVisibility::AppDependency,
+            dependencies: Vec::new(),
+            implementation_ref: None,
+        }
+    }
 }
 
 fn default_enabled() -> bool {

@@ -1,466 +1,465 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Mail, Maximize2 } from 'lucide-react';
 import {
-  SquareTerminal,
-  BookOpen,
-  ChevronUp,
-  ChevronRight,
-  FolderTree,
-  Orbit,
-  RotateCcw,
-  Brain,
-  AppWindow,
-  LayoutDashboard,
-  MailOpen,
-  Settings,
-  Code2,
-  Wrench,
-} from 'lucide-react';
-import { Button, IconButton, Panel, PanelBody, SparoAgentIcon, SparoSubagentIcon } from '@/design-system';
+  Button,
+  IconButton,
+  Panel,
+  PanelBody,
+  SparoAgentIcon,
+  useDialogFocusTrap,
+} from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
-import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
-import { openAgenticOsSession } from '@/flow_chat/services/openAgenticOsSession';
-import { openWorkspaceScene, openWorkspaceSession } from '../../navigation/workspaceNavigation';
-import { useWorkspaceSurfaceStore } from '../../navigation/workspaceSurfaceStore';
-import { openWorkCenterHome } from '@/app/agentic-os/work/navigation/openWork';
-import { createLogger } from '@/shared/utils/logger';
-import { getAgenticOsSessionDescriptor } from '@/flow_chat/domain/sessionDescriptor';
-import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
-import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
-import {
-  projectRuntimeScopeFromWorkspace,
-  systemRuntimeScope,
-} from '@/shared/types/runtime-scope';
+import { systemRuntimeScope } from '@/shared/types/runtime-scope';
 import { useDailyLetterArrivalStore } from '@/app/daily-letter-arrival/store/dailyLetterArrivalStore';
+import { useWorkStore } from '@/app/agentic-os/work/data/workStore';
+import { selectWorkProjections } from '@/app/agentic-os/work/data/workSelectors';
+import {
+  isDockEligibleWork,
+  isWorkAttentionStatus,
+  isWorkRunningStatus,
+} from '@/app/agentic-os/work/domain/workClassification';
+import { openWorkCenterHome } from '@/app/agentic-os/work/navigation/openWork';
+import type { WorkspaceSceneId } from '@/app/navigation/workspaceSceneTypes';
+import { NewWorkDialog } from '../WorkDock/NewWorkDialog';
+import { openWorkspaceScene } from '../../navigation/workspaceNavigation';
+import { useWorkspaceSurfaceStore } from '../../navigation/workspaceSurfaceStore';
+import { WorkspaceHubPreview } from './previews/WorkspaceHubPreviewRegistry';
+import { WorkspaceHubUtilityRail } from './WorkspaceHubUtilityRail';
+import {
+  WORKSPACE_HUB_ITEM_DEFINITIONS,
+  getWorkspaceHubItem,
+  renderWorkspaceHubItemIcon,
+  resolveWorkspaceHubItem,
+  type WorkspaceHubItemId,
+  type WorkspaceHubPreviewItemId,
+} from './workspaceHubItems';
 import './WorkspaceFooterActions.scss';
 
-const log = createLogger('WorkspaceFooterActions');
+const HUB_PREVIEW_ITEM_ROWS = [
+  ['work-center', 'apps'],
+  ['daily-letter', 'memory'],
+  ['files', 'shell'],
+] as const satisfies readonly (readonly WorkspaceHubPreviewItemId[])[];
 
-const GREETING_KEYS = ['greetingMorning', 'greetingAfternoon', 'greetingEvening', 'greetingNight'] as const;
+const HUB_PREVIEW_ITEM_IDS = HUB_PREVIEW_ITEM_ROWS.flat();
+const HUB_PREVIEW_ITEM_ID_SET = new Set<WorkspaceHubItemId>(HUB_PREVIEW_ITEM_IDS);
+const HUB_DIRECT_ITEM_IDS = ['skills', 'tools', 'subagents', 'settings'] as const satisfies readonly WorkspaceHubItemId[];
 
-interface FooterActionProps {
-  active?: boolean;
-  children: React.ReactNode;
-  className?: string;
-  icon: React.ReactNode;
-  movingHoverHandlers?: React.HTMLAttributes<HTMLButtonElement>;
-  onClick: () => void;
-  testId?: string;
-  title?: string;
+type WorkspaceHubDirectItemId = (typeof HUB_DIRECT_ITEM_IDS)[number];
+
+function isHubPreviewNavigationItem(
+  itemId: WorkspaceHubItemId,
+): itemId is (typeof HUB_PREVIEW_ITEM_IDS)[number] {
+  return HUB_PREVIEW_ITEM_ID_SET.has(itemId);
 }
-
-const FooterAction: React.FC<FooterActionProps> = ({
-  active = false,
-  children,
-  className = '',
-  icon,
-  movingHoverHandlers,
-  onClick,
-  testId,
-  title,
-}) => (
-  <Button
-    type="button"
-    variant="ghost"
-    size="small"
-    className={[
-      'sparo-workspace-footer__action',
-      active && 'is-active',
-      className,
-    ].filter(Boolean).join(' ')}
-    role="menuitem"
-    title={title}
-    data-testid={testId}
-    onClick={onClick}
-    {...movingHoverHandlers}
-  >
-    {icon}
-    <span className="sparo-workspace-footer__action-label">{children}</span>
-  </Button>
-);
 
 const WorkspaceFooterActions: React.FC = () => {
   const { t } = useI18n('common');
-  const activeSurface = useWorkspaceSurfaceStore(s => s.activeSurface);
-  const { workspace: defaultWorkspace } = useLastUsedWorkspace();
-  const activeSceneId = activeSurface.kind === 'scene' ? activeSurface.sceneId : null;
-  const isAgenticOsActive = activeSurface.kind === 'agentic-os-home';
+  const activeSurface = useWorkspaceSurfaceStore((state) => state.activeSurface);
+  const works = useWorkStore((state) => state.works);
+  const hasUnreadDailyLetter = useDailyLetterArrivalStore((state) => state.hasUnread);
 
-  const greeting = useMemo(() => {
-    const hour = new Date().getHours();
-    const key = hour >= 5 && hour < 12
-      ? GREETING_KEYS[0]
-      : hour >= 12 && hour < 18
-        ? GREETING_KEYS[1]
-        : hour >= 18 && hour < 22
-          ? GREETING_KEYS[2]
-          : GREETING_KEYS[3];
-    return t(`welcome.${key}`);
-  }, [t]);
-
-  const hasUnreadDailyLetter = useDailyLetterArrivalStore((s) => s.hasUnread);
-
-  const isMemoryActive = activeSceneId === 'memory';
-  const isWorkCenterActive = activeSceneId === 'work-center';
-  const isDailyLetterActive = activeSceneId === 'daily-letter';
-  const isAppsActive = activeSceneId === 'apps'
-    || (typeof activeSceneId === 'string' && activeSceneId.startsWith('app-surface:'));
-  const isSkillsActive = activeSceneId === 'skills';
-  const isToolsActive = activeSceneId === 'tools';
-  const isSubagentsActive = activeSceneId === 'subagents';
-  const isSettingsActive = activeSceneId === 'settings';
-  const isShellActive = activeSceneId === 'shell';
-  const isFileViewerActive = activeSceneId === 'file-viewer';
-  const isDevKitChildActive = isSkillsActive || isToolsActive || isSubagentsActive;
-  const defaultProjectScope = useMemo(
-    () => projectRuntimeScopeFromWorkspace(defaultWorkspace) ?? systemRuntimeScope(),
-    [defaultWorkspace],
+  const activeItemId = useMemo(() => resolveWorkspaceHubItem(activeSurface), [activeSurface]);
+  const projections = useMemo(() => selectWorkProjections(works), [works]);
+  const runningWorkCount = useMemo(
+    () => projections.filter((work) => (
+      isDockEligibleWork(work) && isWorkRunningStatus(work.status)
+    )).length,
+    [projections],
+  );
+  const attentionWorkCount = useMemo(
+    () => projections.filter((work) => (
+      isDockEligibleWork(work) && isWorkAttentionStatus(work.status)
+    )).length,
+    [projections],
   );
 
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [menuClosing, setMenuClosing] = useState(false);
-  const [isDevKitSubmenuOpen, setIsDevKitSubmenuOpen] = useState(isDevKitChildActive);
-  const closeTimerRef = useRef<number | null>(null);
-  const menuHover = useMovingHoverHighlight<HTMLDivElement>();
+  const [hubOpen, setHubOpen] = useState(false);
+  const [hubClosing, setHubClosing] = useState(false);
+  const [selectedItemId, setSelectedItemId] = useState<WorkspaceHubPreviewItemId>(
+    isHubPreviewNavigationItem(activeItemId) ? activeItemId : 'work-center',
+  );
+  const [newWorkDialogOpen, setNewWorkDialogOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const selectedItemRef = useRef<HTMLButtonElement | null>(null);
+  const detailPrimaryActionRef = useRef<HTMLButtonElement>(null);
+  const itemRefs = useRef(new Map<WorkspaceHubItemId, HTMLButtonElement>());
+  const closeAnimationTimerRef = useRef<number | null>(null);
 
-  const clearCloseTimer = useCallback(() => {
-    if (closeTimerRef.current === null) return;
-    window.clearTimeout(closeTimerRef.current);
-    closeTimerRef.current = null;
+  const closeHub = useCallback(() => {
+    if (closeAnimationTimerRef.current !== null) {
+      window.clearTimeout(closeAnimationTimerRef.current);
+    }
+    setHubOpen(false);
+    setHubClosing(true);
+    closeAnimationTimerRef.current = window.setTimeout(() => {
+      setHubClosing(false);
+      closeAnimationTimerRef.current = null;
+    }, 240);
   }, []);
+  const openHub = useCallback(() => {
+    if (closeAnimationTimerRef.current !== null) {
+      window.clearTimeout(closeAnimationTimerRef.current);
+      closeAnimationTimerRef.current = null;
+    }
+    setHubClosing(false);
+    setSelectedItemId(isHubPreviewNavigationItem(activeItemId) ? activeItemId : 'work-center');
+    setHubOpen(true);
+  }, [activeItemId]);
 
-  const closeMenu = useCallback(() => {
-    clearCloseTimer();
-    setMenuClosing(true);
-    setIsDevKitSubmenuOpen(false);
-    setTimeout(() => {
-      setMenuOpen(false);
-      setMenuClosing(false);
-    }, 150);
-  }, [clearCloseTimer]);
-
-  const openMenu = useCallback(() => {
-    clearCloseTimer();
-    setIsDevKitSubmenuOpen(isDevKitChildActive);
-    setMenuOpen(true);
-  }, [clearCloseTimer, isDevKitChildActive]);
-
-  const scheduleCloseMenu = useCallback(() => {
-    if (!menuOpen) return;
-    clearCloseTimer();
-    closeTimerRef.current = window.setTimeout(() => {
-      closeMenu();
-    }, 320);
-  }, [clearCloseTimer, closeMenu, menuOpen]);
-
-  useEffect(() => clearCloseTimer, [clearCloseTimer]);
-
-  const toggleMenu = useCallback(() => {
-    if (menuOpen) {
-      closeMenu();
+  useEffect(() => () => {
+    if (closeAnimationTimerRef.current !== null) {
+      window.clearTimeout(closeAnimationTimerRef.current);
+    }
+  }, []);
+  const toggleHub = useCallback(() => {
+    if (hubOpen) {
+      closeHub();
       return;
     }
-    openMenu();
-  }, [closeMenu, menuOpen, openMenu]);
+    openHub();
+  }, [closeHub, hubOpen, openHub]);
 
-  const handleOpenShell = useCallback(() => {
-    closeMenu();
-    openWorkspaceScene('shell', { scope: defaultProjectScope });
-  }, [closeMenu, defaultProjectScope]);
+  useDialogFocusTrap({
+    enabled: hubOpen,
+    containerRef: panelRef,
+    initialFocusRef: selectedItemRef,
+    restoreFocus: true,
+  });
 
-  const handleOpenFiles = useCallback(() => {
-    closeMenu();
-    openWorkspaceScene('file-viewer', { scope: defaultProjectScope });
-  }, [closeMenu, defaultProjectScope]);
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+    if (hubOpen) panel.removeAttribute('inert');
+    else panel.setAttribute('inert', '');
+  }, [hubOpen, hubClosing]);
 
-  const handleOpenAgenticOs = useCallback(async () => {
-    closeMenu();
-    try {
-      await openAgenticOsSession();
-    } catch (error) {
-      log.error('Failed to open Agentic OS', error);
+  const labels = useMemo<Record<WorkspaceHubItemId, string>>(() => Object.fromEntries(
+    WORKSPACE_HUB_ITEM_DEFINITIONS.map((item) => [item.id, t(item.labelKey)]),
+  ) as Record<WorkspaceHubItemId, string>, [t]);
+
+  const capsuleLabel = useMemo(() => {
+    if (attentionWorkCount > 0) {
+      return t('nav.menuPanel.hub.capsule.attention', { count: attentionWorkCount });
     }
-  }, [closeMenu]);
-
-  const handleCreateAgenticOsSession = useCallback(async (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.stopPropagation();
-    try {
-      const sessionId = await flowChatManager.createChatSession(
-        { storageScope: 'agentic_os' },
-        getAgenticOsSessionDescriptor()
-      );
-      await openWorkspaceSession(sessionId);
-      closeMenu();
-    } catch (error) {
-      log.error('Failed to create new Agentic OS session', error);
+    if (runningWorkCount > 0) {
+      return t('nav.menuPanel.hub.capsule.running', { count: runningWorkCount });
     }
-  }, [closeMenu]);
+    if (hasUnreadDailyLetter) {
+      return t('nav.menuPanel.hub.capsule.dailyLetter');
+    }
+    return t('nav.menuPanel.hub.capsule.default');
+  }, [attentionWorkCount, hasUnreadDailyLetter, runningWorkCount, t]);
 
-  const handleOpenMemory = useCallback(() => {
-    closeMenu();
-    openWorkspaceScene('memory');
-  }, [closeMenu]);
+  const openItem = useCallback(async (itemId: WorkspaceHubItemId) => {
+    closeHub();
+    const { openTarget } = getWorkspaceHubItem(itemId);
+    switch (openTarget.kind) {
+      case 'work-center':
+        openWorkCenterHome();
+        return;
+      case 'preview-only':
+        return;
+      case 'scene':
+        openWorkspaceScene(
+          openTarget.sceneId,
+          'systemScope' in openTarget && openTarget.systemScope
+            ? { scope: systemRuntimeScope() }
+            : {},
+        );
+    }
+  }, [closeHub]);
 
-  const handleOpenWorkCenter = useCallback(() => {
-    closeMenu();
-    openWorkCenterHome();
-  }, [closeMenu]);
+  const openScene = useCallback((sceneId: WorkspaceSceneId) => {
+    closeHub();
+    openWorkspaceScene(sceneId);
+  }, [closeHub]);
 
-  const handleOpenDailyLetter = useCallback(() => {
-    closeMenu();
-    openWorkspaceScene('daily-letter');
-  }, [closeMenu]);
+  const startNewWork = useCallback(() => {
+    closeHub();
+    setNewWorkDialogOpen(true);
+  }, [closeHub]);
 
-  const handleOpenApps = useCallback(() => {
-    closeMenu();
-    openWorkspaceScene('apps');
-  }, [closeMenu]);
+  const openAbout = useCallback(() => {
+    closeHub();
+    window.dispatchEvent(new CustomEvent('nav:show-about'));
+  }, [closeHub]);
 
-  const handleOpenSkills = useCallback(() => {
-    closeMenu();
-    openWorkspaceScene('skills');
-  }, [closeMenu]);
+  const focusItem = useCallback((itemId: WorkspaceHubItemId) => {
+    window.requestAnimationFrame(() => itemRefs.current.get(itemId)?.focus());
+  }, []);
 
-  const handleOpenTools = useCallback(() => {
-    closeMenu();
-    openWorkspaceScene('tools');
-  }, [closeMenu]);
+  const handleGroupKeyDown = useCallback((
+    event: React.KeyboardEvent<HTMLButtonElement>,
+    ids: readonly WorkspaceHubItemId[],
+    index: number,
+    columns: number,
+    moveToDetailOnRight = false,
+  ) => {
+    let nextIndex: number | null = null;
+    if (event.key === 'Home') nextIndex = 0;
+    if (event.key === 'End') nextIndex = ids.length - 1;
+    if (event.key === 'ArrowRight') {
+      if (columns === 1 && moveToDetailOnRight) {
+        event.preventDefault();
+        detailPrimaryActionRef.current?.focus();
+        return;
+      }
+      nextIndex = Math.min(ids.length - 1, index + 1);
+    }
+    if (event.key === 'ArrowLeft' && columns > 1) nextIndex = Math.max(0, index - 1);
+    if (event.key === 'ArrowDown') nextIndex = Math.min(ids.length - 1, index + columns);
+    if (event.key === 'ArrowUp') nextIndex = Math.max(0, index - columns);
+    if (nextIndex === null || nextIndex === index) return;
+    event.preventDefault();
+    focusItem(ids[nextIndex]);
+  }, [focusItem]);
 
-  const handleOpenSubagents = useCallback(() => {
-    closeMenu();
-    openWorkspaceScene('subagents');
-  }, [closeMenu]);
+  const registerItemRef = useCallback((itemId: WorkspaceHubItemId, element: HTMLButtonElement | null) => {
+    if (element) itemRefs.current.set(itemId, element);
+    else itemRefs.current.delete(itemId);
+  }, []);
 
-  const handleOpenSettings = useCallback(() => {
-    closeMenu();
-    openWorkspaceScene('settings');
-  }, [closeMenu]);
+  const renderPreviewItem = (
+    itemId: (typeof HUB_PREVIEW_ITEM_IDS)[number],
+    index: number,
+  ) => {
+    const selected = selectedItemId === itemId;
+    const current = activeItemId === itemId;
+    const unread = itemId === 'daily-letter' && hasUnreadDailyLetter;
+    const workMeta = itemId === 'work-center' && runningWorkCount > 0
+      ? t('nav.menuPanel.hub.states.running', { count: runningWorkCount })
+      : null;
+    const canOpenDirectly = getWorkspaceHubItem(itemId).openTarget.kind !== 'preview-only';
 
-  const agenticOsTitle = `${t('nav.sessions.agenticOsShort')} — ${t('nav.menuPanel.agenticOSDesc')}`;
+    return (
+      <div
+        key={itemId}
+        className={`sparo-workspace-hub__preview-item-shell${selected ? ' is-selected' : ''}`}
+      >
+        <Button
+          ref={(element) => {
+            registerItemRef(itemId, element);
+            if (selected) selectedItemRef.current = element;
+          }}
+          id={`workspace-hub-item-${itemId}`}
+          variant="ghost"
+          size="small"
+          className="sparo-workspace-hub__preview-item"
+          aria-controls="workspace-hub-detail"
+          aria-current={current ? 'page' : undefined}
+          aria-pressed={selected}
+          onClick={() => setSelectedItemId(itemId)}
+          onKeyDown={(event) => handleGroupKeyDown(event, HUB_PREVIEW_ITEM_IDS, index, 2)}
+        >
+          <span className="sparo-workspace-hub__item-icon" aria-hidden="true">
+            {renderWorkspaceHubItemIcon(itemId, 16)}
+            {unread && <span className="sparo-workspace-hub__unread-dot" />}
+          </span>
+          <span className="sparo-workspace-hub__item-copy">
+            <span className="sparo-workspace-hub__item-label">{labels[itemId]}</span>
+            {workMeta && (
+              <span className="sparo-workspace-hub__item-meta">{workMeta}</span>
+            )}
+          </span>
+          {unread && (
+            <span className="sparo-workspace-hub__sr-only">
+              {t('nav.menuPanel.hub.states.unread')}
+            </span>
+          )}
+        </Button>
+        {canOpenDirectly && (
+          <IconButton
+            size="xs"
+            variant="primary"
+            shape="circle"
+            className="sparo-workspace-hub__preview-item-open"
+            aria-label={t('nav.menuPanel.hub.actions.openItem', { item: labels[itemId] })}
+            tooltip={t('nav.menuPanel.hub.actions.openItem', { item: labels[itemId] })}
+            tooltipPlacement="top"
+            onClick={() => { void openItem(itemId); }}
+          >
+            <Maximize2 size={12} strokeWidth={2.2} aria-hidden="true" />
+          </IconButton>
+        )}
+      </div>
+    );
+  };
+
+  const renderDirectItem = (itemId: WorkspaceHubDirectItemId, index: number) => {
+    const current = activeItemId === itemId;
+
+    return (
+      <Button
+        key={itemId}
+        ref={(element) => registerItemRef(itemId, element)}
+        id={`workspace-hub-item-${itemId}`}
+        variant="ghost"
+        size="small"
+        className={`sparo-workspace-hub__direct-item${itemId === 'settings' ? ' is-wide' : ''}${current ? ' is-current' : ''}`}
+        aria-current={current ? 'page' : undefined}
+        onClick={() => { void openItem(itemId); }}
+        onKeyDown={(event) => handleGroupKeyDown(
+          event,
+          HUB_DIRECT_ITEM_IDS,
+          index,
+          3,
+        )}
+      >
+        <span className="sparo-workspace-hub__item-icon" aria-hidden="true">
+          {renderWorkspaceHubItemIcon(itemId, 16)}
+        </span>
+        <span className="sparo-workspace-hub__item-label">{labels[itemId]}</span>
+      </Button>
+    );
+  };
 
   return (
     <div className="sparo-workspace-footer">
-      <div className="sparo-workspace-footer__left">
-        <div
-          className="sparo-workspace-footer__more"
-          onMouseEnter={clearCloseTimer}
-          onMouseLeave={scheduleCloseMenu}
-          onFocus={clearCloseTimer}
+      <div className="sparo-workspace-hub">
+        <Button
+          ref={triggerRef}
+          type="button"
+          variant="ghost"
+          size="small"
+          shape="pill"
+          iconOnly
+          className={`sparo-workspace-hub__trigger${hubOpen ? ' is-open' : ''}${hasUnreadDailyLetter ? ' has-unread-letter' : ''}`}
+          aria-label={hubOpen
+            ? t('nav.menuPanel.hub.trigger.close')
+            : t('nav.menuPanel.hub.trigger.open')}
+          aria-haspopup="dialog"
+          aria-expanded={hubOpen}
+          aria-controls={hubOpen ? 'workspace-hub-panel' : undefined}
+          data-testid="workspace-footer-more-button"
+          onClick={toggleHub}
         >
-          <IconButton
-            className={`sparo-workspace-footer__trigger${menuOpen ? ' is-active' : ''}`}
-            size="small"
-            variant="ghost"
-            tooltip={menuOpen ? undefined : t('nav.moreOptions')}
-            tooltipPlacement="right"
-            aria-label={t('nav.moreOptions')}
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            data-testid="workspace-footer-more-button"
-            onClick={toggleMenu}
-          >
-            {menuOpen ? (
-              <ChevronUp size={15} aria-hidden="true" />
-            ) : (
-              <span className="sparo-workspace-footer__trigger-icon-swap" aria-hidden="true">
-                <Orbit size={14} className="sparo-workspace-footer__trigger-icon-default" />
-                <ChevronUp size={15} className="sparo-workspace-footer__trigger-icon-hover" />
-              </span>
-            )}
-          </IconButton>
-
-          {menuOpen && (
-            <>
-              <div
-                className="sparo-workspace-footer__backdrop"
-                onClick={closeMenu}
-              />
-              <Panel
-                variant="elevated"
-                className={`sparo-workspace-footer__panel${menuClosing ? ' is-closing' : ''}`}
-                role="menu"
-              >
-                <PanelBody
-                  className="sparo-workspace-footer__panel-body"
-                  ref={menuHover.setSurfaceElement}
-                  {...menuHover.getSurfaceHandlers('.sparo-workspace-footer__agentic-os, .sparo-workspace-footer__action')}
-                >
-                  <span
-                    className={`sparo-workspace-footer__moving-hover ${menuHover.highlight.visible ? 'sparo-workspace-footer__moving-hover--visible' : ''}`}
-                    style={{
-                      '--sparo-footer-hover-top': `${menuHover.highlight.top}px`,
-                      '--sparo-footer-hover-left': `${menuHover.highlight.left}px`,
-                      '--sparo-footer-hover-width': `${menuHover.highlight.width}px`,
-                      '--sparo-footer-hover-height': `${menuHover.highlight.height}px`,
-                      '--sparo-footer-hover-stretch-x': menuHover.highlight.stretchX,
-                      '--sparo-footer-hover-stretch-y': menuHover.highlight.stretchY,
-                    } as React.CSSProperties}
-                    aria-hidden="true"
-                  />
-                  <p className="sparo-workspace-footer__menu-greeting">{greeting}</p>
-
-                  <nav className="sparo-workspace-footer__menu" aria-label={t('nav.aria.mainNav')}>
-                    <div
-                      className="sparo-workspace-footer__agentic-os"
-                      {...menuHover.getItemHandlers()}
-                    >
-                      <FooterAction
-                        active={isAgenticOsActive}
-                        className="sparo-workspace-footer__agentic-os-primary"
-                        icon={<SparoAgentIcon size={14} />}
-                        title={agenticOsTitle}
-                        onClick={() => { void handleOpenAgenticOs(); }}
-                      >
-                        {t('nav.sessions.agenticOsShort')}
-                      </FooterAction>
-                      <IconButton
-                        className="sparo-workspace-footer__agentic-os-new"
-                        size="xs"
-                        variant="ghost"
-                        tooltip={t('nav.tooltips.newAgenticOsSession')}
-                        tooltipPlacement="right"
-                        onClick={handleCreateAgenticOsSession}
-                        aria-label={t('nav.tooltips.newAgenticOsSession')}
-                      >
-                        <RotateCcw size={12} />
-                      </IconButton>
-                    </div>
-
-                    <FooterAction
-                      active={isWorkCenterActive}
-                      icon={<LayoutDashboard size={14} />}
-                      movingHoverHandlers={menuHover.getItemHandlers()}
-                      onClick={handleOpenWorkCenter}
-                    >
-                      {t('scenes.workCenter')}
-                    </FooterAction>
-
-                    <FooterAction
-                      active={isDailyLetterActive}
-                      icon={(
-                        <span className="sparo-workspace-footer__icon-with-dot">
-                          <MailOpen size={14} />
-                          {hasUnreadDailyLetter && (
-                            <span className="sparo-workspace-footer__unread-dot" aria-hidden="true" />
-                          )}
-                        </span>
-                      )}
-                      movingHoverHandlers={menuHover.getItemHandlers()}
-                      testId="workspace-footer-daily-letter-button"
-                      onClick={handleOpenDailyLetter}
-                    >
-                      {t('scenes.dailyLetter')}
-                    </FooterAction>
-
-                    <div className="sparo-workspace-footer__separator" />
-
-                    <FooterAction
-                      active={isMemoryActive}
-                      icon={<Brain size={14} />}
-                      movingHoverHandlers={menuHover.getItemHandlers()}
-                      onClick={handleOpenMemory}
-                    >
-                      {t('nav.items.memory')}
-                    </FooterAction>
-
-                    <FooterAction
-                      active={isAppsActive}
-                      icon={<AppWindow size={14} />}
-                      movingHoverHandlers={menuHover.getItemHandlers()}
-                      onClick={handleOpenApps}
-                    >
-                      {t('nav.sections.apps')}
-                    </FooterAction>
-
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="small"
-                      className={`sparo-workspace-footer__action sparo-workspace-footer__action--expandable${isDevKitSubmenuOpen ? ' is-open' : ''}`}
-                      role="menuitem"
-                      aria-expanded={isDevKitSubmenuOpen}
-                      onClick={() => setIsDevKitSubmenuOpen(value => !value)}
-                      {...menuHover.getItemHandlers()}
-                    >
-                      <Code2 size={14} />
-                      <span className="sparo-workspace-footer__action-label">{t('nav.sections.devKit')}</span>
-                      <ChevronRight
-                        size={13}
-                        className="sparo-workspace-footer__action-chevron"
-                        aria-hidden="true"
-                      />
-                    </Button>
-
-                    <div className={`sparo-workspace-footer__subactions${isDevKitSubmenuOpen ? ' is-open' : ''}`}>
-                      <div>
-                        <FooterAction
-                          active={isSkillsActive}
-                          className="sparo-workspace-footer__action--sub"
-                          icon={<BookOpen size={13} />}
-                          movingHoverHandlers={menuHover.getItemHandlers()}
-                          onClick={handleOpenSkills}
-                        >
-                          {t('nav.items.skills')}
-                        </FooterAction>
-
-                        <FooterAction
-                          active={isToolsActive}
-                          className="sparo-workspace-footer__action--sub"
-                          icon={<Wrench size={13} />}
-                          movingHoverHandlers={menuHover.getItemHandlers()}
-                          onClick={handleOpenTools}
-                        >
-                          {t('nav.items.tools')}
-                        </FooterAction>
-
-                        <FooterAction
-                          active={isSubagentsActive}
-                          className="sparo-workspace-footer__action--sub"
-                          icon={<SparoSubagentIcon size={13} />}
-                          movingHoverHandlers={menuHover.getItemHandlers()}
-                          onClick={handleOpenSubagents}
-                        >
-                          {t('nav.items.subAgent')}
-                        </FooterAction>
-                      </div>
-                    </div>
-
-                    <div className="sparo-workspace-footer__separator" />
-
-                    <FooterAction
-                      active={isFileViewerActive}
-                      icon={<FolderTree size={14} />}
-                      movingHoverHandlers={menuHover.getItemHandlers()}
-                      testId="workspace-footer-files-button"
-                      onClick={handleOpenFiles}
-                    >
-                      {t('scenes.fileViewer')}
-                    </FooterAction>
-
-                    <FooterAction
-                      active={isShellActive}
-                      icon={<SquareTerminal size={14} />}
-                      movingHoverHandlers={menuHover.getItemHandlers()}
-                      onClick={handleOpenShell}
-                    >
-                      {t('scenes.shell')}
-                    </FooterAction>
-
-                    <FooterAction
-                      active={isSettingsActive}
-                      icon={<Settings size={14} />}
-                      movingHoverHandlers={menuHover.getItemHandlers()}
-                      testId="workspace-footer-settings-button"
-                      onClick={handleOpenSettings}
-                    >
-                      {t('tabs.settings')}
-                    </FooterAction>
-                  </nav>
-                </PanelBody>
-              </Panel>
-            </>
+          <SparoAgentIcon size={17} aria-hidden="true" />
+          {hasUnreadDailyLetter && (
+            <span className="sparo-workspace-hub__letter-badge" aria-hidden="true">
+              <Mail size={10} strokeWidth={2.4} />
+            </span>
           )}
-        </div>
+          <span className="sparo-workspace-hub__sr-only">{capsuleLabel}</span>
+        </Button>
+
+        {(hubOpen || hubClosing) && (
+          <>
+            {hubOpen && (
+              <div
+                className="sparo-workspace-hub__backdrop"
+                aria-hidden="true"
+                onMouseDown={(event) => {
+                  if (event.target === event.currentTarget) closeHub();
+                }}
+              />
+            )}
+            <div
+              className={`sparo-workspace-hub__bloom${hubOpen ? ' is-open' : ' is-closing'}`}
+              onAnimationEnd={(event) => {
+                if (event.target !== event.currentTarget || hubOpen) return;
+                if (closeAnimationTimerRef.current !== null) {
+                  window.clearTimeout(closeAnimationTimerRef.current);
+                  closeAnimationTimerRef.current = null;
+                }
+                setHubClosing(false);
+              }}
+            >
+              <div className="sparo-workspace-hub__surface-stack">
+                <div className="sparo-workspace-hub__seed-socket" aria-hidden="true" />
+                <Panel
+                  ref={panelRef}
+                  id="workspace-hub-panel"
+                  variant="elevated"
+                  className="sparo-workspace-hub__panel"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-hidden={!hubOpen}
+                  aria-label={t('nav.menuPanel.hub.ariaLabel')}
+                  tabIndex={hubOpen ? -1 : undefined}
+                  onKeyDown={(event) => {
+                    if (event.defaultPrevented || event.key !== 'Escape') return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    closeHub();
+                  }}
+                >
+                  <PanelBody className="sparo-workspace-hub__panel-body">
+                    <div className="sparo-workspace-hub__layout">
+                      <div className="sparo-workspace-hub__navigation">
+                        <div className="sparo-workspace-hub__navigation-scroll">
+                          <section className="sparo-workspace-hub__nav-group is-preview">
+                            <h2 className="sparo-workspace-hub__nav-group-title">
+                              {t('nav.menuPanel.hub.sections.preview')}
+                            </h2>
+                            <nav
+                              className="sparo-workspace-hub__preview-tracks"
+                              aria-label={t('nav.menuPanel.hub.aria.preview')}
+                            >
+                              {HUB_PREVIEW_ITEM_ROWS.map((row, rowIndex) => (
+                                <div
+                                  key={row.join('-')}
+                                  className="sparo-workspace-hub__preview-track"
+                                >
+                                  {row.map((itemId, columnIndex) => renderPreviewItem(
+                                    itemId,
+                                    rowIndex * 2 + columnIndex,
+                                  ))}
+                                </div>
+                              ))}
+                            </nav>
+                          </section>
+
+                          <section className="sparo-workspace-hub__nav-group is-direct">
+                            <h2 className="sparo-workspace-hub__nav-group-title">
+                              {t('nav.menuPanel.hub.sections.direct')}
+                            </h2>
+                            <nav
+                              className="sparo-workspace-hub__direct-list"
+                              aria-label={t('nav.menuPanel.hub.aria.direct')}
+                            >
+                              {HUB_DIRECT_ITEM_IDS.map(renderDirectItem)}
+                            </nav>
+                          </section>
+                        </div>
+
+                        <WorkspaceHubUtilityRail
+                          onOpenAbout={openAbout}
+                        />
+                      </div>
+
+                      <section
+                        id="workspace-hub-detail"
+                        className="sparo-workspace-hub__detail"
+                        aria-labelledby={`workspace-hub-item-${selectedItemId}`}
+                      >
+                        <WorkspaceHubPreview
+                          key={selectedItemId}
+                          itemId={selectedItemId}
+                          label={labels[selectedItemId]}
+                          primaryActionRef={detailPrimaryActionRef}
+                           onOpenItem={(itemId) => { void openItem(itemId); }}
+                           onOpenScene={openScene}
+                          onCreateWork={startNewWork}
+                          onClose={closeHub}
+                        />
+                      </section>
+                    </div>
+                  </PanelBody>
+                </Panel>
+              </div>
+            </div>
+          </>
+        )}
       </div>
+
+      {newWorkDialogOpen && (
+        <NewWorkDialog
+          open
+          onClose={() => setNewWorkDialogOpen(false)}
+        />
+      )}
     </div>
   );
 };

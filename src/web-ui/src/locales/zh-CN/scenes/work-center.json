@@ -227,6 +227,87 @@
     "copyReference": "复制引用",
     "copied": "已复制",
     "openDetailsFor": "查看 {{title}} 的详情",
+    "loading": "正在加载工作详情",
+    "navigation": {
+      "position": "第 {{current}} / {{total}} 项工作",
+      "positionCompact": "{{current}} / {{total}}",
+      "previous": "上一项工作",
+      "next": "下一项工作"
+    },
+    "tabs": {
+      "overview": "概览",
+      "outputs": "产出与入口",
+      "runtime": "运行记录"
+    },
+    "currentState": {
+      "title": "当前情况",
+      "fallback": "打开这项工作，查看最新上下文。",
+      "systemManaged": "由 Sparo OS 自动维护，无需手动处理。",
+      "memorySourcesTracked": "系统已整理来自 {{count}} 个来源的记忆。",
+      "systemHealthy": "最近一次运行已完成，系统会继续自动维护。",
+      "systemRunning": "系统正在后台处理，完成后会自动更新结果。",
+      "systemScheduled": "系统已安排下一次运行，无需手动处理。",
+      "systemAttention": "最近一次运行未完成，可在运行记录中查看详情。",
+      "systemDisabled": "这项系统任务当前已停用。"
+    },
+    "systemStatus": {
+      "healthy": "运行正常",
+      "running": "正在运行",
+      "scheduled": "等待运行",
+      "attention": "需要处理",
+      "disabled": "已停用"
+    },
+    "systemOverview": {
+      "title": "自动运行",
+      "automatic": "自动维护",
+      "trigger": "运行方式",
+      "lastFinished": "最近完成"
+    },
+    "systemActivity": {
+      "running": "正在运行",
+      "lastRun": "最近一次运行：{{status}}"
+    },
+    "primaryAction": {
+      "handle": "去处理",
+      "inspectProgress": "进入工作台",
+      "viewResult": "查看结果",
+      "enter": "进入工作台",
+      "resume": "继续工作",
+      "reopen": "重新打开",
+      "openAndHandle": "打开并处理"
+    },
+    "appendInstruction": {
+      "label": "追加指令",
+      "placeholder": "告诉这项工作接下来要做什么...",
+      "send": "发送指令",
+      "cancel": "取消"
+    },
+    "more": {
+      "label": "更多操作",
+      "collapse": "收起操作",
+      "changeType": "更改类型",
+      "reopen": "重新打开工作"
+    },
+    "context": {
+      "title": "工作上下文"
+    },
+    "outputs": {
+      "artifacts": "产出",
+      "destinations": "继续入口",
+      "primary": "主入口"
+    },
+    "runtimeEvents": "运行事件",
+    "technical": {
+      "show": "显示技术信息",
+      "hide": "收起技术信息",
+      "workId": "工作 ID",
+      "runtimeInstanceId": "运行实例 ID"
+    },
+    "empty": {
+      "outputs": "暂无产出或入口",
+      "activity": "暂无最近动态",
+      "runtime": "暂无运行记录"
+    },
     "command": {
       "open": "打开",
       "advance": "继续",
@@ -272,6 +353,7 @@
     "runtimeRunMeta": "{{component}} · {{action}}",
     "runtimeLogMeta": "{{category}} · {{component}}",
     "runtimeVersion": "v{{version}} · {{lock}}",
+    "runtimeRelease": "Release {{release}} · 配置 {{config}}",
     "runtimeSurface": "{{surface}} · {{component}}",
     "runtimeLogLevel": {
       "debug": "调试",
@@ -486,6 +568,7 @@
     "paused": "工作已暂停",
     "resumed": "工作已继续",
     "reopened": "工作已重新打开",
+    "archived": "工作已归档",
     "bulkArchived": "已归档 {{count}} 个工作项",
     "bulkReopened": "已重开 {{count}} 个工作项",
     "bulkCancelled": "已取消 {{count}} 个工作运行",

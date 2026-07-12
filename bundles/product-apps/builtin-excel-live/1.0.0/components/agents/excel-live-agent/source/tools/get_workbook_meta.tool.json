@@ -1,0 +1,58 @@
+{
+  "name": "get_workbook_meta",
+  "description": "Return workbook runtime truth: revision, mode, sheets, focus, proposal/history state, calculation status, source/export fidelity, and capability flags for formulas, styles, number formats, layout, and structural edits. Inspect this before non-trivial authoring.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "workbookId"
+    ],
+    "properties": {
+      "workbookId": {
+        "type": "string"
+      }
+    }
+  },
+  "runtime": "javascript",
+  "entry": "tools/get_workbook_meta.js",
+  "readonly": true,
+  "permissions": {},
+  "timeoutMs": 30000,
+  "maxOutputBytes": 60000,
+  "ui": {
+    "card": {
+      "kind": "appDefined",
+      "family": "excel-live",
+      "template": "compact",
+      "displayMode": "compact",
+      "resultDisplayType": "detailed",
+      "primaryColor": "var(--ds-tool-family-agent-component-fg)",
+      "displayName": "Workbook Meta",
+      "icon": "Info",
+      "title": "Workbook Meta",
+      "summary": {
+        "preparing": "Loading meta",
+        "running": "Fetching workbook meta",
+        "completed": "Meta loaded",
+        "failed": "Meta lookup failed"
+      },
+      "fields": [
+        {
+          "label": "Workbook",
+          "inputPath": [
+            "workbookId"
+          ]
+        },
+        {
+          "label": "Meta",
+          "resultPath": [
+            "bridge",
+            "output",
+            "meta"
+          ],
+          "format": "json"
+        }
+      ]
+    }
+  }
+}

@@ -46,6 +46,7 @@ base64 = { workspace = true }
 log = { workspace = true }
 chrono = { workspace = true }
 regex = { workspace = true }
+semver = { workspace = true }
 dirs = { workspace = true }
 dark-light = { workspace = true }
 similar = { workspace = true }

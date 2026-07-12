@@ -28,6 +28,10 @@ const VIDEO_EXTENSIONS = new Set(['mp4', 'mov', 'avi', 'mkv', 'webm', 'flv', 'wm
 const AUDIO_EXTENSIONS = new Set(['mp3', 'wav', 'flac', 'ogg', 'aac', 'm4a', 'wma', 'opus']);
 const ARCHIVE_EXTENSIONS = new Set(['zip', 'tar', 'gz', 'rar', '7z', 'bz2', 'xz', 'zst', 'tgz']);
 const DOCUMENT_EXTENSIONS = new Set(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp', 'epub']);
+// Keep this list aligned with the Excel engine's real import surface. TSV and
+// ODS are not accepted by openWorkbook and must continue through normal file
+// handling instead of advertising an action that will fail after launch.
+const SPREADSHEET_EXTENSIONS = new Set(['xlsx', 'xlsm', 'csv']);
 const SPARO_PREVIEW_CATEGORIES = new Set<FileCategory>(['text', 'image']);
 
 export function getFileCategory(entry: FsEntry): FileCategory {
@@ -46,6 +50,12 @@ export function getFileCategory(entry: FsEntry): FileCategory {
 
 export function canOpenInSparo(entry: FsEntry): boolean {
   return entry.kind !== 'dir' && SPARO_PREVIEW_CATEGORIES.has(getFileCategory(entry));
+}
+
+export function canOpenInExcelLive(entry: FsEntry): boolean {
+  if (entry.kind === 'dir') return false;
+  const ext = entry.name.toLowerCase().split('.').pop() || '';
+  return SPREADSHEET_EXTENSIONS.has(ext);
 }
 
 export function imageMimeTypeFromPath(filePath: string): string {
@@ -81,6 +91,7 @@ export function baseFileCapabilities(entry: FsEntry): FileCapability[] {
   }
 
   capabilities.push('openExternal', 'summarize');
+  if (canOpenInExcelLive(entry)) capabilities.unshift('openInExcelLive');
   if (canOpenInSparo(entry)) capabilities.unshift('openInSparo');
   return capabilities;
 }

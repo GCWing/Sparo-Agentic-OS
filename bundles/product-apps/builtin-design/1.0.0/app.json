@@ -14,12 +14,22 @@
       "en-US": {
         "name": "Design",
         "description": "A product and UI design Agent that turns ideas, requirements, and references into prototypes, interfaces, and visual directions.",
-        "tags": ["built-in", "design", "ui", "prototype"]
+        "tags": [
+          "built-in",
+          "design",
+          "ui",
+          "prototype"
+        ]
       },
       "zh-CN": {
         "name": "Design",
         "description": "面向产品与界面设计的 Agent，把想法、需求和参考图转成原型、界面和视觉方案。",
-        "tags": ["内置", "设计", "ui", "原型"]
+        "tags": [
+          "内置",
+          "设计",
+          "ui",
+          "原型"
+        ]
       }
     }
   },
@@ -112,5 +122,11 @@
     "memory.read",
     "model.invoke",
     "tool.invoke"
-  ]
+  ],
+  "dataLifecycle": {
+    "retention": "userManaged",
+    "deletion": "deleteOnUserRequest",
+    "migration": "exportImport",
+    "share": "declaredWorkObjectsOnly"
+  }
 }

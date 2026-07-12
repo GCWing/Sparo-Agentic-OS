@@ -145,6 +145,19 @@ pub struct ProductAppRuntimeHostPermissions {
     pub node: Option<NodePermissions>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ai: Option<AiPermissions>,
+    /// Explicit Permissions Policy features granted to the sandbox iframe.
+    /// Features stay denied unless the surface component declares them.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub iframe: Option<IframePermissions>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IframePermissions {
+    #[serde(default)]
+    pub autoplay: bool,
+    #[serde(default)]
+    pub fullscreen: bool,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

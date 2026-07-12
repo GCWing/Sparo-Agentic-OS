@@ -21,13 +21,15 @@ import React, {
 import { createPortal } from 'react-dom';
 import {
   Bell,
-  BellDot,
-  BellRing,
+  CheckCircle2,
   ChevronDown,
   ChevronUp,
+  CircleAlert,
+  Download,
+  Info,
   ListX,
-  MessageCircleWarning,
-  XCircle,
+  Trash2,
+  TriangleAlert,
 } from 'lucide-react';
 import { Badge, Button, DotMatrixLoader, IconButton, Search, Select, StatusDot, Tooltip } from '@/design-system';
 import type { StatusTone } from '@/design-system';
@@ -43,6 +45,34 @@ import {
 import { notificationService } from '@/shared/notification-system/services/NotificationService';
 import type { NotificationFilter, NotificationRecord, Notification } from '@/shared/notification-system/types';
 import './NotificationDropdownButton.scss';
+
+if (
+  import.meta.env.DEV
+  && typeof window !== 'undefined'
+  && new URLSearchParams(window.location.search).has('notificationPreview')
+) {
+  const previewWindow = window as typeof window & { __notificationPreviewSeeded?: boolean };
+  if (!previewWindow.__notificationPreviewSeeded) {
+    previewWindow.__notificationPreviewSeeded = true;
+    notificationService.success('今天的日报已准备好，可以查看了', {
+      title: '日报已生成',
+      duration: 0,
+    });
+    notificationService.success('SenseVoice 模型已可用', {
+      title: '模型下载完成',
+      duration: 0,
+    });
+    notificationService.error(
+      '无法连接到远程设备，请检查局域网连接、目标设备在线状态、访问权限和防火墙设置，然后再尝试重新连接。',
+      { title: '连接失败', duration: 0 },
+    );
+    notificationService.info('语音输入设置已保存', {
+      title: '设置已更新',
+      duration: 0,
+    });
+    notificationService.toggleCenter(true);
+  }
+}
 
 // ── Component ───────────────────────────────────────────────────────────────
 
@@ -305,15 +335,18 @@ const NotificationDropdownButton: React.FC = () => {
 
   const renderNotificationIcon = (notification: NotificationRecord) => {
     if (notification.status === 'completed' || notification.type === 'success') {
-      return <BellRing size={16} />;
+      return <CheckCircle2 size={18} />;
     }
     if (notification.status === 'failed' || notification.status === 'cancelled' || notification.type === 'error') {
-      return <MessageCircleWarning size={16} />;
+      return <CircleAlert size={18} />;
     }
     if (notification.type === 'warning') {
-      return <BellDot size={16} />;
+      return <TriangleAlert size={18} />;
     }
-    return <Bell size={16} />;
+    if (notification.variant === 'progress') {
+      return <Download size={18} />;
+    }
+    return <Info size={18} />;
   };
 
   const getNotificationMessageText = (notification: Notification | NotificationRecord) => {
@@ -472,34 +505,32 @@ const NotificationDropdownButton: React.FC = () => {
         </div>
         <div className="notif-panel__item-meta">
           <div className="notif-panel__item-time">{formatTime(notification.timestamp)}</div>
-          <div className="notif-panel__item-meta-row">
-            <div className="notif-panel__item-actions">
-              {showExpandAction && (
-                <IconButton
-                  size="xs"
-                  variant="ghost"
-                  className="notif-panel__item-action notif-panel__item-action--expand"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleToggleNotificationExpanded(notification);
-                  }}
-                  aria-label={isExpanded ? t('common:actions.collapse') : t('common:actions.expand')}
-                  tooltip={isExpanded ? t('common:actions.collapse') : t('common:actions.expand')}
-                >
-                  {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                </IconButton>
-              )}
+          <div className="notif-panel__item-actions">
+            {showExpandAction && (
               <IconButton
                 size="xs"
                 variant="ghost"
-                className="notif-panel__item-action notif-panel__item-action--delete"
-                onClick={(e) => handleDeleteNotification(e, notification.id)}
-                aria-label={t('common:actions.delete')}
-                tooltip={t('common:actions.delete')}
+                className="notif-panel__item-action notif-panel__item-action--expand"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleToggleNotificationExpanded(notification);
+                }}
+                aria-label={isExpanded ? t('common:actions.collapse') : t('common:actions.expand')}
+                tooltip={isExpanded ? t('common:actions.collapse') : t('common:actions.expand')}
               >
-                <XCircle size={14} />
+                {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
               </IconButton>
-            </div>
+            )}
+            <IconButton
+              size="xs"
+              variant="ghost"
+              className="notif-panel__item-action notif-panel__item-action--delete"
+              onClick={(e) => handleDeleteNotification(e, notification.id)}
+              aria-label={t('common:actions.delete')}
+              tooltip={t('common:actions.delete')}
+            >
+              <Trash2 size={13} />
+            </IconButton>
           </div>
         </div>
       </div>

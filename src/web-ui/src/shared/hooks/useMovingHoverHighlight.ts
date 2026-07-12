@@ -16,6 +16,8 @@ const clampTravel = (value: number): number => Math.max(-34, Math.min(34, value)
 export function useMovingHoverHighlight<TSurface extends HTMLElement = HTMLElement>() {
   const surfaceRef = useRef<TSurface | null>(null);
   const settleTimerRef = useRef<number | null>(null);
+  const scrollFrameRef = useRef<number | null>(null);
+  const pointerPositionRef = useRef<{ x: number; y: number } | null>(null);
   const [highlight, setHighlight] = useState<MovingHoverHighlightState>({
     top: 0,
     left: 0,
@@ -30,6 +32,9 @@ export function useMovingHoverHighlight<TSurface extends HTMLElement = HTMLEleme
     return () => {
       if (settleTimerRef.current !== null) {
         window.clearTimeout(settleTimerRef.current);
+      }
+      if (scrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(scrollFrameRef.current);
       }
     };
   }, []);
@@ -74,33 +79,76 @@ export function useMovingHoverHighlight<TSurface extends HTMLElement = HTMLEleme
   }, []);
 
   const hideHighlight = useCallback(() => {
+    if (settleTimerRef.current !== null) {
+      window.clearTimeout(settleTimerRef.current);
+      settleTimerRef.current = null;
+    }
     setHighlight(previous => ({ ...previous, visible: false }));
   }, []);
 
+  const syncHighlightAtPointer = useCallback((itemSelector: string) => {
+    const surface = surfaceRef.current;
+    const pointer = pointerPositionRef.current;
+    if (!surface || !pointer) return;
+
+    const hit = document.elementFromPoint(pointer.x, pointer.y);
+    const option = hit?.closest<HTMLElement>(itemSelector);
+    if (option && surface.contains(option)) {
+      updateHighlight(option);
+    } else {
+      hideHighlight();
+    }
+  }, [hideHighlight, updateHighlight]);
+
   const getSurfaceHandlers = useCallback((itemSelector: string) => ({
     onMouseMove: (event: React.MouseEvent<TSurface>) => {
+      pointerPositionRef.current = { x: event.clientX, y: event.clientY };
       const option = (event.target as HTMLElement | null)?.closest<HTMLElement>(itemSelector);
       if (option) updateHighlight(option);
     },
     onMouseOver: (event: React.MouseEvent<TSurface>) => {
+      pointerPositionRef.current = { x: event.clientX, y: event.clientY };
       const option = (event.target as HTMLElement | null)?.closest<HTMLElement>(itemSelector);
       if (option) updateHighlight(option);
     },
     onPointerMove: (event: React.PointerEvent<TSurface>) => {
+      pointerPositionRef.current = { x: event.clientX, y: event.clientY };
       const option = (event.target as HTMLElement | null)?.closest<HTMLElement>(itemSelector);
       if (option) updateHighlight(option);
     },
     onPointerOver: (event: React.PointerEvent<TSurface>) => {
+      pointerPositionRef.current = { x: event.clientX, y: event.clientY };
       const option = (event.target as HTMLElement | null)?.closest<HTMLElement>(itemSelector);
       if (option) updateHighlight(option);
     },
-    onMouseLeave: hideHighlight,
-    onPointerLeave: hideHighlight,
-  }), [hideHighlight, updateHighlight]);
+    onScrollCapture: () => {
+      if (scrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(scrollFrameRef.current);
+      }
+      scrollFrameRef.current = window.requestAnimationFrame(() => {
+        scrollFrameRef.current = null;
+        syncHighlightAtPointer(itemSelector);
+      });
+    },
+    onMouseLeave: () => {
+      pointerPositionRef.current = null;
+      hideHighlight();
+    },
+    onPointerLeave: () => {
+      pointerPositionRef.current = null;
+      hideHighlight();
+    },
+  }), [hideHighlight, syncHighlightAtPointer, updateHighlight]);
 
   const getItemHandlers = useCallback(() => ({
-    onMouseEnter: (event: React.MouseEvent<HTMLElement>) => updateHighlight(event.currentTarget),
-    onPointerEnter: (event: React.PointerEvent<HTMLElement>) => updateHighlight(event.currentTarget),
+    onMouseEnter: (event: React.MouseEvent<HTMLElement>) => {
+      pointerPositionRef.current = { x: event.clientX, y: event.clientY };
+      updateHighlight(event.currentTarget);
+    },
+    onPointerEnter: (event: React.PointerEvent<HTMLElement>) => {
+      pointerPositionRef.current = { x: event.clientX, y: event.clientY };
+      updateHighlight(event.currentTarget);
+    },
   }), [updateHighlight]);
 
   const setSurfaceElement = useCallback((element: TSurface | null) => {

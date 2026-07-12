@@ -457,8 +457,10 @@ export interface ToolCardConfig {
 export interface AppDefinedToolCardSummary {
   preparing?: string;
   running?: string;
+  confirming?: string;
   completed?: string;
   failed?: string;
+  cancelled?: string;
 }
 
 export interface AppDefinedToolCardField {

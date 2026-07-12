@@ -39,7 +39,6 @@
       "escapeToAgenticBase": "返回 Agentic OS 桌面"
     },
     "canvas": {
-      "missionControl": "Mission Control",
       "splitHorizontal": "水平分屏",
       "splitVertical": "垂直分屏",
       "anchorZone": "切换锚点区",

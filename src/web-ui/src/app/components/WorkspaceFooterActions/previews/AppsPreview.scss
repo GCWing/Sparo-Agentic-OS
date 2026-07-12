@@ -1,0 +1,137 @@
+.sparo-workspace-hub-apps-preview {
+  .sparo-workspace-hub-preview__content {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: var(--ds-space-4);
+    margin-top: var(--ds-space-4);
+  }
+
+  .sparo-workspace-hub-preview__title {
+    font-size: var(--ds-font-size-xl);
+  }
+}
+
+.sparo-workspace-hub-apps-preview__header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+}
+
+.sparo-workspace-hub-apps-preview__running-section {
+  .sparo-workspace-hub-preview__empty {
+    min-height: 54px;
+    padding: var(--ds-space-3);
+
+    strong {
+      color: var(--ds-color-text-muted);
+      font-weight: var(--ds-font-weight-normal);
+    }
+  }
+}
+
+.sparo-workspace-hub-apps-preview__running-dock {
+  display: flex;
+  width: 100%;
+  min-height: 50px;
+  align-items: center;
+  gap: var(--ds-space-1);
+  padding: var(--ds-space-1);
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: var(--ds-radius-xl);
+  background: color-mix(in srgb, var(--ds-color-bg-muted) 28%, var(--ds-color-bg-panel));
+  box-shadow: none;
+}
+
+.sparo-workspace-hub-apps-preview__running-item {
+  position: relative;
+  display: inline-flex;
+}
+
+.sparo-workspace-hub-apps-preview__running-indicator {
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--ds-color-bg-panel);
+  border-radius: var(--ds-radius-full);
+  background: var(--ds-color-success);
+  pointer-events: none;
+}
+
+.sparo-workspace-hub-apps-preview__apps-grid-section {
+  margin-top: auto;
+}
+
+.sparo-workspace-hub-apps-preview__apps-section {
+  min-width: 0;
+
+  .sparo-workspace-hub-preview__section-header {
+    min-height: 22px;
+    padding-inline: var(--ds-space-1);
+    padding-bottom: var(--ds-space-2);
+    border-bottom: 0;
+
+    h3,
+    > span {
+      font-size: var(--ds-font-size-2xs);
+    }
+  }
+
+  .sparo-workspace-hub-preview__section-body {
+    padding-top: 0;
+  }
+}
+
+.sparo-workspace-hub-apps-preview__quick-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--ds-space-2);
+}
+
+.sparo-workspace-hub-apps-preview .sparo-workspace-hub-apps-preview__quick-card {
+  width: 100%;
+  height: 92px;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-2);
+  border-radius: var(--ds-radius-lg);
+  border: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-bg-muted);
+  transition:
+    border-color var(--ds-motion-fast) var(--ds-easing-standard),
+    background-color var(--ds-motion-fast) var(--ds-easing-standard),
+    transform var(--ds-motion-fast) var(--ds-easing-standard);
+
+  > span:last-child {
+    width: 100%;
+    overflow: hidden;
+    color: var(--ds-color-text-secondary);
+    font-size: var(--ds-font-size-xs);
+    font-weight: var(--ds-font-weight-medium);
+    line-height: 1.2;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &:hover,
+  &:focus-visible {
+    background: var(--ds-color-bg-hover);
+    border-color: var(--ds-color-danger);
+    transform: scale(1.04);
+  }
+}
+
+@media (max-width: 560px) {
+  .sparo-workspace-hub-apps-preview__quick-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sparo-workspace-hub-apps-preview .sparo-workspace-hub-apps-preview__quick-card {
+    height: 82px;
+  }
+}

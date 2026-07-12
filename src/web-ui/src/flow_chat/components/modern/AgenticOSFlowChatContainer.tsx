@@ -6,7 +6,7 @@
  * independently from StandardFlowChatContainer.
  */
 
-import React, { useMemo, useCallback, useRef, useEffect, useState } from 'react';
+import React, { useMemo, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShortcut } from '@/infrastructure/hooks/useShortcut';
 import { openSession } from '@/app/navigation/navigationController';
@@ -16,6 +16,12 @@ import { FlowChatHeader } from './FlowChatHeader';
 import { AgenticOsTimelineSidebar } from './AgenticOsTimelineSidebar';
 import { FlowChatSelectionAddButton } from './FlowChatSelectionAddButton';
 import { WelcomePanel } from '../WelcomePanel';
+import {
+  SessionTranscriptError,
+  SessionTranscriptLoading,
+  shouldShowSessionTranscriptError,
+  shouldShowSessionTranscriptLoading,
+} from './SessionTranscriptLoading';
 import {
   FlowChatContext,
   FlowChatStaticContext,
@@ -27,6 +33,10 @@ import { useFlowChatCore, type UseFlowChatCoreOptions } from './useFlowChatCore'
 import { useSessionSidecarActions } from './useSessionSidecarActions';
 import { createLogger } from '@/shared/utils/logger';
 import { getAgenticOsSessionDescriptor } from '../../domain/sessionDescriptor';
+import {
+  acknowledgeFlowViewportTurnNavigation,
+  requestFlowViewportTurnNavigation,
+} from '../../scroll/viewport/FlowViewportNavigationBroker';
 import './ModernFlowChatContainer.scss';
 
 const log = createLogger('AgenticOSFlowChatContainer');
@@ -81,6 +91,8 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
     [staticContextValue, viewContextValue],
   );
   const sidecarActions = useSessionSidecarActions();
+  const transcriptLoading = shouldShowSessionTranscriptLoading(sessionId, activeSession);
+  const transcriptError = shouldShowSessionTranscriptError(sessionId, activeSession);
 
   // ── Agentic OS-specific state ─────────────────────────────────────────────
   const agenticOsTimeline = useAgenticOsTimeline();
@@ -95,10 +107,24 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
   } | null>(null);
   const [agenticOsFadeKey, setAgenticOsFadeKey] = useState(0);
 
-  // Refs tracking cross-session navigation state.
-  const autoPinnedSessionIdRef = useRef<string | null>(null);
-  const pendingCrossSessionTargetRef = useRef<{ sessionId: string; turnId: string } | null>(null);
-  const pendingHighlightTurnIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!timelineOpen) return;
+
+    const handleMouseDownOutsideTimeline = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (timelineSidebarRef.current?.contains(target)) return;
+
+      const targetElement = target instanceof Element ? target : target.parentElement;
+      if (targetElement?.closest('[aria-controls="agentic-os-timeline-sidebar"]')) return;
+      if (targetElement?.closest('.scroll-anchor')) return;
+
+      setTimelineOpen(false);
+    };
+
+    document.addEventListener('mousedown', handleMouseDownOutsideTimeline);
+    return () => document.removeEventListener('mousedown', handleMouseDownOutsideTimeline);
+  }, [setTimelineOpen, timelineOpen, timelineSidebarRef]);
 
   // ── Auto-dismiss switch banner ────────────────────────────────────────────
   useEffect(() => {
@@ -108,82 +134,6 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
   }, [agenticOsSwitchBanner]);
 
   // ── Auto-pin latest turn on session change ────────────────────────────────
-  useEffect(() => {
-    autoPinnedSessionIdRef.current = null;
-    setPendingHeaderTurnId(null);
-  }, [activeSession?.sessionId, setPendingHeaderTurnId]);
-
-  useEffect(() => {
-    const sessionId = activeSession?.sessionId;
-    const latestTurnId = turnSummaries[turnSummaries.length - 1]?.turnId;
-    if (!sessionId || !latestTurnId || autoPinnedSessionIdRef.current === sessionId) return;
-
-    const crossTarget = pendingCrossSessionTargetRef.current;
-    let resolvedTurnId = latestTurnId;
-    let pinMode: 'sticky-latest' | 'transient' = 'sticky-latest';
-
-    if (crossTarget && crossTarget.sessionId === sessionId) {
-      const targetExists = turnSummaries.some(t => t.turnId === crossTarget.turnId);
-      if (targetExists) {
-        resolvedTurnId = crossTarget.turnId;
-        pinMode = resolvedTurnId === latestTurnId ? 'sticky-latest' : 'transient';
-        pendingCrossSessionTargetRef.current = null;
-      } else {
-        // Target turn not yet hydrated; defer to a later effect run.
-        return;
-      }
-    }
-
-    autoPinnedSessionIdRef.current = sessionId;
-    setPendingHeaderTurnId(resolvedTurnId);
-
-    const highlightTurnId = pendingHighlightTurnIdRef.current;
-    pendingHighlightTurnIdRef.current = null;
-
-    const frameId = requestAnimationFrame(() => {
-      const accepted =
-        virtualListRef.current?.pinTurnToTop(resolvedTurnId, {
-          behavior: 'auto',
-          pinMode,
-        }) ?? false;
-
-      if (!accepted) {
-        autoPinnedSessionIdRef.current = null;
-        setPendingHeaderTurnId(null);
-      }
-
-      if (highlightTurnId) {
-        const applyPulse = () => {
-          const root = chatScopeRef.current;
-          const node = root?.querySelector<HTMLElement>(
-            `.virtual-item-wrapper[data-item-type="user-message"][data-turn-id="${CSS.escape(highlightTurnId)}"]`,
-          );
-          if (!node) return false;
-          node.classList.remove('agentic-os-anchor-pulse');
-          // Restart the CSS animation cleanly (force layout read).
-          void node.offsetWidth;
-          node.classList.add('agentic-os-anchor-pulse');
-          window.setTimeout(() => node.classList.remove('agentic-os-anchor-pulse'), 1700);
-          return true;
-        };
-        let attempts = 0;
-        const tryApply = () => {
-          if (applyPulse()) return;
-          if (attempts++ < 8) requestAnimationFrame(tryApply);
-        };
-        requestAnimationFrame(tryApply);
-      }
-    });
-
-    return () => cancelAnimationFrame(frameId);
-  }, [
-    activeSession?.sessionId,
-    turnSummaries,
-    virtualListRef,
-    chatScopeRef,
-    setPendingHeaderTurnId,
-  ]);
-
   // ── Switch banner builder ─────────────────────────────────────────────────
   const buildSwitchBanner = useCallback(
     (
@@ -235,33 +185,38 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
   const handleAgenticOsTimelineTurnSelect = useCallback(
     async (sessionId: string, turnId: string) => {
       if (activeSession?.sessionId === sessionId) {
-        pendingHighlightTurnIdRef.current = turnId;
-        handleJumpToTurn(turnId);
+        requestFlowViewportTurnNavigation({
+          sessionId,
+          turnId,
+          source: 'timeline',
+          behavior: 'smooth',
+          highlight: true,
+        });
+        setPendingHeaderTurnId(turnId);
         return;
       }
+      let navigationRequestId: number | null = null;
       try {
         const bannerInfo = buildSwitchBanner(sessionId);
-        pendingCrossSessionTargetRef.current = { sessionId, turnId };
-        pendingHighlightTurnIdRef.current = turnId;
-        autoPinnedSessionIdRef.current = null;
+        const navigationRequest = requestFlowViewportTurnNavigation({
+          sessionId,
+          turnId,
+          source: 'timeline',
+          behavior: 'auto',
+          highlight: true,
+        });
+        navigationRequestId = navigationRequest.requestId;
         if (bannerInfo) setAgenticOsSwitchBanner({ key: Date.now(), ...bannerInfo });
         setAgenticOsFadeKey(prev => prev + 1);
         await openSession(sessionId);
-        window.setTimeout(() => {
-          if (
-            pendingCrossSessionTargetRef.current?.sessionId === sessionId &&
-            pendingCrossSessionTargetRef.current?.turnId === turnId
-          ) {
-            pendingCrossSessionTargetRef.current = null;
-          }
-        }, 8000);
       } catch (error) {
-        pendingCrossSessionTargetRef.current = null;
-        pendingHighlightTurnIdRef.current = null;
+        if (navigationRequestId !== null) {
+          acknowledgeFlowViewportTurnNavigation(sessionId, navigationRequestId);
+        }
         log.warn('Agentic OS timeline turn select failed', { sessionId, turnId, error });
       }
     },
-    [activeSession?.sessionId, buildSwitchBanner, handleJumpToTurn],
+    [activeSession?.sessionId, buildSwitchBanner, setPendingHeaderTurnId],
   );
 
   const handleAgenticOsTimelineSessionSelect = useCallback(
@@ -269,7 +224,6 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
       if (activeSession?.sessionId === sessionId) return;
       try {
         const bannerInfo = buildSwitchBanner(sessionId);
-        autoPinnedSessionIdRef.current = null;
         if (bannerInfo) setAgenticOsSwitchBanner({ key: Date.now(), ...bannerInfo });
         setAgenticOsFadeKey(prev => prev + 1);
         await openSession(sessionId);
@@ -498,7 +452,13 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
                   className="modern-flowchat-container__messages-inner agentic-os-messages-fade"
                   key={`agentic-os-fade-${agenticOsFadeKey}`}
                 >
-                  {virtualItems.length === 0 ? (
+                  {transcriptLoading ? (
+                    <SessionTranscriptLoading />
+                  ) : transcriptError && activeSession?.sessionId ? (
+                    <SessionTranscriptError
+                      sessionId={activeSession.sessionId}
+                    />
+                  ) : virtualItems.length === 0 ? (
                     <WelcomePanel
                       key={activeSession?.sessionId ?? 'welcome'}
                       sessionId={activeSession?.sessionId}
@@ -514,7 +474,7 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
                     <VirtualMessageList
                       key={activeSession?.sessionId ?? 'virtual-message-list'}
                       ref={virtualListRef}
-                      hideScrollAnchor={timelineOpen}
+                      timelineSidebarOpen={timelineOpen}
                     />
                   )}
                 </div>

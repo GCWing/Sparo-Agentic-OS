@@ -1,0 +1,44 @@
+.app-defined-tool-card {
+  --app-defined-tool-accent: var(--ds-status-surface-neutral-fg);
+
+  min-width: 0;
+
+  .tool-card-icon-main {
+    color: var(--app-defined-tool-accent);
+  }
+
+  .compact-card-extra {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  &.requires-confirmation .compact-tool-card {
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--ds-status-surface-warning-fg) 5%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ds-status-surface-warning-fg) 18%, transparent);
+  }
+}
+
+.app-defined-tool-card__bridge-status {
+  color: var(--ds-chat-text-muted);
+  font-size: var(--flowchat-font-size-xs);
+  white-space: nowrap;
+}
+
+.app-defined-tool-card__details {
+  min-width: 0;
+}
+
+.app-defined-tool-card__json-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.app-defined-tool-card__json-label {
+  color: var(--tool-card-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}

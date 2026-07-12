@@ -30,17 +30,73 @@
     },
     "navigation": {
       "label": "应用中心视图",
-      "home": "启动",
+      "home": "应用中心",
       "manage": "管理",
       "components": "组件"
     },
     "launch": {
-      "title": "启动应用",
-      "subtitle": "继续正在进行的工作，或直接启动合适的产品应用。",
-      "searchPlaceholder": "搜索应用或进行中的工作...",
-      "continueDescription": "先回到已经展开的工作。"
+      "title": "智能应用",
+      "subtitle": "你的双域智能应用台，连接知识与行动",
+      "searchPlaceholder": "搜索应用、能力或进行中的工作...",
+      "continueDescription": "先回到已经展开的工作。",
+      "emptyTitle": "没有找到匹配的应用或工作",
+      "emptyDescription": "可以换一个应用名称、能力、标签或工作标题试试。"
+    },
+    "homeRail": {
+      "label": "应用运行状态",
+      "running": "运行中",
+      "idle": "暂无运行中应用",
+      "workStates": "应用任务状态",
+      "pinned": "固定应用",
+      "multiRunningTitle": "多应用进行中",
+      "multiRunningDescription": "{{count}} 个应用正在并行执行",
+      "multiRunningStatus": "{{count}} 个进行中",
+      "states": {
+        "waiting": "等待处理",
+        "running": "正在执行",
+        "paused": "已暂停"
+      }
+    },
+    "homeViews": {
+      "label": "应用中心内容",
+      "installed": "我的应用",
+      "discover": "发现"
     },
     "manage": {
+      "title": "应用管理",
+      "subtitle": "维护已安装应用、创作与组件",
+      "railTitle": "管理",
+      "railSubtitle": "应用与组件",
+      "sections": {
+        "apps": "全部应用",
+        "updates": "可更新",
+        "disabled": "已停用",
+        "creations": "我的智能应用",
+        "drafts": "草稿",
+        "components": "组件"
+      },
+      "sectionTitles": {
+        "apps": "全部应用",
+        "updates": "可更新应用",
+        "disabled": "已停用应用",
+        "creations": "我的智能应用",
+        "drafts": "草稿",
+        "components": "组件"
+      },
+      "sectionDescriptions": {
+        "apps": "查看和维护所有已安装应用。",
+        "updates": "安装可用更新并查看发布说明。",
+        "disabled": "重新启用或移除已停用应用。",
+        "creations": "管理你开发或 AI 生成的智能应用。",
+        "drafts": "继续尚未发布的创作。",
+        "components": "检查应用共享与私有的构建单元。"
+      },
+      "drafts": {
+        "updated": "更新于 {{time}}",
+        "missingApp": "无法找到该草稿对应的应用。",
+        "emptyTitle": "没有草稿",
+        "emptyDescription": "新建或编辑智能应用后，草稿会显示在这里。"
+      },
       "searchLabel": "搜索被管理的应用",
       "searchPlaceholder": "按应用、分类、描述、标签或组件摘要搜索...",
       "emptyTitle": "没有匹配的应用",
@@ -80,8 +136,7 @@
       "sortOptions": {
         "attention": "待处理优先",
         "name": "名称",
-        "status": "状态",
-        "scope": "范围"
+        "status": "状态"
       },
       "categoriesLabel": "应用筛选",
       "viewModeLabel": "视图模式",
@@ -91,6 +146,8 @@
       }
     },
     "actions": {
+      "pin": "固定 {{name}}",
+      "unpin": "取消固定 {{name}}",
       "components": "组件",
       "createComponent": "创建组件",
       "createApp": "创建应用",
@@ -106,9 +163,20 @@
       "back": "返回",
       "close": "关闭",
       "cancel": "取消",
-      "inspect": "检查"
+      "inspect": "检查",
+      "customize": "派生并定制",
+      "edit": "编辑草稿",
+      "rollback": "回滚激活版本",
+      "syncUpstream": "审查上游更新"
+    },
+    "capabilities": {
+      "title": "审查应用能力",
+      "description": "{{name}} 请求以下系统能力。请在激活此 Release 前逐项确认。",
+      "scopeNote": "授权只绑定当前应用与能力指纹；能力发生变化后必须重新审查。",
+      "approveAndActivate": "授权并激活"
     },
     "messages": {
+      "rolledBack": "{{name}} 已切回上一个 Release。",
       "installBeforeLaunch": "请先安装 {{name}}，再启动它。",
       "noLaunch": "{{name}} 没有启动目标。",
       "launchFailed": "启动 {{name}} 失败：{{error}}",
@@ -131,7 +199,7 @@
     "continue": {
       "title": "继续工作",
       "count": "{{count}} 个进行中",
-      "description": "先回到正在进行的工作，再决定是否启动新的应用。",
+      "description": "直接回到已经展开的事情。",
       "viewAll": "全部",
       "closeWork": "关闭工作「{{title}}」",
       "expandRelated": "选择相关工作",
@@ -142,7 +210,7 @@
     "myApps": {
       "title": "我的应用",
       "count": "{{count}} 个已安装",
-      "description": "选择正确的产品应用，然后启动它或检查运行时边界。",
+      "description": "打开熟悉的应用，或者选择一个开始新的工作。",
       "syncing": "同步中",
       "syncingRemaining": "同步 {{count}} 个",
       "loadingProductApps": "正在加载已安装的产品应用",
@@ -152,7 +220,10 @@
       "emptyDescription": "安装或创建一个产品应用后，它会显示在这里。"
     },
     "discover": {
-      "title": "发现",
+      "emptyTitle": "暂无新应用",
+      "emptyDescription": "有新的可安装应用时，会显示在这里。",
+      "title": "发现更多",
+      "description": "当现有应用不够用时，在这里增加新的能力。",
       "count": "{{count}} 个可用",
       "loadingBadge": "加载中",
       "syncingRemaining": "同步 {{count}} 个",
@@ -255,6 +326,11 @@
       "conversation": "对话型",
       "interactiveWorkspace": "交互工作区"
     },
+    "owner": {
+      "system": "系统应用",
+      "user": "我的应用",
+      "organization": "组织应用"
+    },
     "componentSource": {
       "appPrivate": "应用私有",
       "shared": "共享"
@@ -296,6 +372,48 @@
         "workMode": "工作模式"
       },
       "sectionsLabel": "详情内容",
+      "journeys": {
+        "overview": {
+          "label": "概览",
+          "description": "先理解它的价值，以及当前最合适的下一步。"
+        },
+        "work": {
+          "label": "工作",
+          "description": "继续已有工作，或开始一项新的工作。"
+        },
+        "customize": {
+          "label": "定制与演进",
+          "description": "编辑、派生，并审查上游变化。"
+        },
+        "control": {
+          "label": "管理与信任",
+          "description": "版本、权限、数据与技术组成。"
+        }
+      },
+      "overview": {
+        "recentWork": "最近的工作",
+        "recentWorkDescription": "从上次停下的位置继续，不必重新开始。",
+        "viewAllWork": "查看全部 {{count}} 项"
+      },
+      "customize": {
+        "systemTitle": "变成自己的应用，同时不修改系统原版",
+        "systemDescription": "从当前 Release 创建个人派生版本。系统更新保持独立，直到你主动审查和合并。",
+        "userTitle": "继续演进你的应用",
+        "userDescription": "基于当前激活 Release 打开可编辑 Draft；已有 Work 仍固定使用原来的 Release。",
+        "upstreamBadge": "上游有更新",
+        "upstreamTitle": "来源应用已经继续演进",
+        "upstreamDescription": "在 Rebase Draft 中审查上游 Release、处理差异，确认满意后再发布。",
+        "versionTitle": "发布与恢复",
+        "versionDescription": "发布会生成不可变 Release；激活只影响之后新建的 Work。",
+        "activeRelease": "当前激活 Release",
+        "availableRelease": "可用 Release",
+        "owner": "所有权"
+      },
+      "control": {
+        "componentsTitle": "组件与能力",
+        "technicalTitle": "技术与包详情",
+        "technicalHint": "高级信息"
+      },
       "tabs": {
         "summary": "摘要",
         "work": "工作",
@@ -482,11 +600,6 @@
       "gui": "图形界面",
       "secrets": "密钥",
       "ai": "模型访问"
-    },
-    "installScope": {
-      "system": "系统",
-      "workspace": "工作区",
-      "project": "项目"
     },
     "catalogVisibility": {
       "discoverable": "可发现",

@@ -258,6 +258,9 @@ pub fn build_bridge_script(
     }},
     host: {{
       fillChatInput: (text) => _rpc('host.fillChatInput', {{ text }}),
+      syncSpreadsheetFocus: (payload) => _rpc('host.syncSpreadsheetFocus', {{ payload: payload || {{}} }}),
+      addContext: (payload) => _rpc('host.addContext', {{ payload: payload || {{}} }}),
+      setPanelMode: (mode) => _rpc('host.setPanelMode', {{ mode }}),
     }},
     deck: {{
       renderPage: (opts) => _rpc('sparo.deck.renderPage', opts || {{}}),
@@ -308,7 +311,26 @@ pub fn build_bridge_script(
     }},
   }};
 
+  function _parentOriginFromReferrer() {{
+    try {{
+      if (!document.referrer) return null;
+      const referrer = new URL(document.referrer);
+      return referrer.origin !== 'null'
+        ? referrer.origin
+        : referrer.protocol + '//' + referrer.host;
+    }} catch (_) {{
+      return null;
+    }}
+  }}
+
+  function _isTrustedHostEvent(e) {{
+    if (e.source === window.parent) return true;
+    const parentOrigin = _parentOriginFromReferrer();
+    return Boolean(parentOrigin && e.origin === parentOrigin);
+  }}
+
   window.addEventListener('message', (e) => {{
+    if (!_isTrustedHostEvent(e)) return;
     if (e.data?.type === 'sparo:event') {{
       const {{ event, payload }} = e.data;
       if (event === 'runtimeReadyProbe') {{
@@ -472,10 +494,32 @@ pub fn build_bridge_script(
 
   function _elementSummary(el) {{
     if (!el) return {{}};
+    const attributes = {{}};
+    for (const name of [
+      'data-preview-phase',
+      'data-project-phase',
+      'data-detection-status',
+      'data-error',
+      'data-actual-frame',
+      'data-actual-playing',
+      'data-frame-state',
+      'data-inspect-mode',
+      'data-buffering',
+      'data-seeking',
+      'data-player-host-ready',
+      'data-player-connection-state',
+      'data-player-channel-connected',
+      'aria-pressed',
+      'aria-busy',
+    ]) {{
+      if (el.hasAttribute && el.hasAttribute(name)) attributes[name] = el.getAttribute(name);
+    }}
     return {{
       targetTag: el.tagName ? el.tagName.toLowerCase() : undefined,
       targetRole: el.getAttribute ? el.getAttribute('role') || undefined : undefined,
       targetType: el.getAttribute ? el.getAttribute('type') || undefined : undefined,
+      value: 'value' in el ? String(el.value ?? '') : undefined,
+      attributes,
     }};
   }}
 
@@ -603,6 +647,12 @@ pub fn build_bridge_script(
         const visible = _isVisibleInteractionCandidate(target);
         result.status = _statusFromBoolean(visible);
         result.detail = visible ? 'Target is visible in the runtime DOM.' : 'Target is not visible in the runtime DOM.';
+      }} else if (action === 'wait') {{
+        const durationMs = Math.max(0, Math.min(10_000, Number(step && step.durationMs) || 0));
+        await _sleep(durationMs);
+        result.status = 'passed';
+        result.detail = 'Waited ' + durationMs + 'ms.';
+        Object.assign(result, _elementSummary(target));
       }} else if (action === 'focus') {{
         if (!target.focus) {{
           result.status = 'failed';
@@ -742,6 +792,7 @@ pub fn build_bridge_script(
         method: 'sparo/user-path-rehearsal',
         params: {{
           appId: {app_id_esc},
+          requestId: plan && typeof plan.requestId === 'string' ? plan.requestId : undefined,
           route: window.location && window.location.hash ? window.location.hash : undefined,
           result,
           timestampMs: Date.now(),
@@ -752,6 +803,7 @@ pub fn build_bridge_script(
         method: 'sparo/user-path-rehearsal',
         params: {{
           appId: {app_id_esc},
+          requestId: plan && typeof plan.requestId === 'string' ? plan.requestId : undefined,
           route: window.location && window.location.hash ? window.location.hash : undefined,
           result: {{
             status: 'failed',
@@ -1335,4 +1387,41 @@ pub fn build_product_app_runtime_host_default_theme_css() -> &'static str {
 [data-theme-type="dark"] { --sparo-scrollbar-thumb:rgba(255,255,255,0.12);--sparo-scrollbar-thumb-hover:rgba(255,255,255,0.22);--sparo-app-shadow-sm:0 1px 2px rgba(0,0,0,0.28);--sparo-app-shadow:0 10px 30px rgba(0,0,0,0.3); }
 html,body{width:100%;min-width:0;min-height:0;}
 </style>"#
+}
+
+#[cfg(test)]
+mod tests {
+    use super::build_bridge_script;
+
+    fn bridge_script() -> String {
+        build_bridge_script(
+            "app-id",
+            "C:/app-data",
+            "C:/workspace",
+            "dark",
+            "windows",
+            "{}",
+            "source-revision",
+            "deps-revision",
+            false,
+            false,
+        )
+    }
+
+    #[test]
+    fn bridge_exposes_panel_mode_request() {
+        let script = bridge_script();
+
+        assert!(script.contains("setPanelMode"));
+        assert!(script.contains("host.setPanelMode"));
+    }
+
+    #[test]
+    fn bridge_restricts_host_events_and_correlates_rehearsal_responses() {
+        let script = bridge_script();
+
+        assert!(script.contains("e.source === window.parent"));
+        assert!(script.contains("_parentOriginFromReferrer"));
+        assert!(script.contains("requestId: plan"));
+    }
 }

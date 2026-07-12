@@ -1,6 +1,6 @@
 /**
  * TabOverflowMenu component styles.
- * Combines mission control entry and overflow menu.
+ * Overflow tabs menu.
  */
 
 // Button wrapper
@@ -30,17 +30,6 @@
     width: auto;
     padding: 0 6px;
     gap: 2px;
-  }
-
-  // Overflow-only mode (no mission control)
-  &.overflow-only {
-    // Ensure button visibility
-    opacity: 1;
-    
-    // When overflow exists, match mission control button styles
-    &.has-overflow {
-      // Keep consistent styling with mission control button
-    }
   }
 
   // Overflow count badge
@@ -77,14 +66,6 @@
   z-index: var(--ds-z-context-menu);
   animation: menuSlideIn 0.12s ease-out;
 
-  &--hover-mission {
-    --canvas-tab-overflow-hover-bg: var(--ds-color-accent-100);
-  }
-
-  &--hover-tab {
-    --canvas-tab-overflow-hover-bg: var(--ds-color-element-medium);
-  }
-
   &__hover-highlight {
     position: absolute;
     top: 0;
@@ -116,53 +97,6 @@
       opacity: 1;
       transform: translateY(0);
     }
-  }
-
-  // Mission control entry (fixed first item)
-  &__mission-control {
-    position: relative;
-    z-index: var(--ds-z-local);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    cursor: pointer;
-    color: var(--ds-color-text-primary);
-    transition: background-color 0.15s ease;
-
-    &:hover {
-      // Use accent-200 for clear hover in light/dark themes
-      background: var(--ds-color-accent-100);
-    }
-
-    span {
-      flex: 1;
-      font-size: 12px;
-      font-weight: 500;
-    }
-
-    kbd {
-      font-size: 10px;
-      padding: 2px 5px;
-      background: var(--ds-color-bg-panel);
-      border: 1px solid var(--ds-color-border-base);
-      border-radius: 3px;
-      color: var(--ds-color-text-muted);
-      font-family: inherit;
-    }
-
-    svg {
-      color: var(--ds-color-accent-500);
-    }
-  }
-
-  // Divider
-  &__divider {
-    position: relative;
-    z-index: var(--ds-z-local);
-    height: 1px;
-    margin: 4px 12px;
-    background: var(--ds-color-border-base);
   }
 
   // Tab list
@@ -248,7 +182,6 @@
     }
   }
 
-  &--motion &__mission-control:hover,
   &--motion &__entry:hover:not(.is-active) {
     background: transparent;
   }

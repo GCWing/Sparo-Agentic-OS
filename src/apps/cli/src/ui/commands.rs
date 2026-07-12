@@ -66,7 +66,7 @@ pub const COMMANDS: &[CommandSpec] = &[
         slash: "/apps",
         aliases: &["/app"],
         title: "Apps",
-        description: "Browse Product Apps and components",
+        description: "Browse Intelligent Apps and activation state",
         shortcut: Some("Ctrl+P"),
         action: CommandAction::OpenPanel(PanelKind::Apps),
         scopes: BOTH,

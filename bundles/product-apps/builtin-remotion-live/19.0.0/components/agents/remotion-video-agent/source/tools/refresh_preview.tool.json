@@ -1,16 +1,17 @@
 {
   "name": "refresh_preview",
-  "description": "Start or refresh the Remotion preview host for the current workspace. Use player mode for the embedded Remotion Live preview and studio mode only when Studio is explicitly needed.",
+  "description": "Start or refresh the authoritative Remotion Player preview for the current workspace.",
   "inputSchema": {
     "type": "object",
     "additionalProperties": false,
+    "required": ["compositionId", "expectedProjectRevision", "expectedDescriptorRevision"],
     "properties": {
       "workspacePath": { "type": "string" },
       "entryPoint": { "type": "string" },
       "compositionId": { "type": "string" },
-      "composition": { "type": "string" },
+      "expectedProjectRevision": { "type": "string", "minLength": 1 },
+      "expectedDescriptorRevision": { "type": "string", "minLength": 1 },
       "frame": { "type": "integer" },
-      "mode": { "type": "string", "enum": ["player", "studio"] },
       "force": { "type": "boolean" },
       "port": { "type": "integer" },
       "waitMs": { "type": "integer" },
@@ -21,6 +22,6 @@
   "entry": "tools/refresh_preview.js",
   "readonly": true,
   "permissions": {},
-  "timeoutMs": 90000,
+  "timeoutMs": 180000,
   "maxOutputBytes": 60000
 }

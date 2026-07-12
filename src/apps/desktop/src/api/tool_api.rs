@@ -37,6 +37,12 @@ pub struct ToolInfo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetToolInfoRequest {
+    pub tool_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolExecutionResponse {
     pub tool_name: String,
     pub success: bool,
@@ -210,7 +216,8 @@ pub async fn get_readonly_tools_info() -> Result<Vec<ToolInfo>, String> {
 }
 
 #[tauri::command]
-pub async fn get_tool_info(tool_name: String) -> Result<Option<ToolInfo>, String> {
+pub async fn get_tool_info(request: GetToolInfoRequest) -> Result<Option<ToolInfo>, String> {
+    let tool_name = request.tool_name;
     let tools = get_all_tools().await;
 
     for tool in tools {

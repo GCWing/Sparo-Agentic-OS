@@ -8,7 +8,7 @@ const log = createLogger('DailyLetterArrivalStore');
 const STORAGE_KEY = 'sparo.dailyLetterArrival.v1';
 const CHIP_COLLAPSE_MS = 15_000;
 
-export type DailyLetterArrivalPhase = 'hidden' | 'card' | 'chip';
+export type DailyLetterArrivalPhase = 'hidden' | 'card';
 
 interface PersistedArrivalState {
   /** Highest `lastAttemptFinishedAtMs` already processed by the poller, of any outcome. */
@@ -69,10 +69,10 @@ interface DailyLetterArrivalStoreState {
   _chipTimer: ReturnType<typeof setTimeout> | null;
 
   tick: (workspacePath: string | null) => Promise<void>;
-  expand: () => void;
-  collapseToChip: () => void;
+  collapseCard: () => void;
   dismiss: () => void;
   openLetter: () => void;
+  openRecord: (letter: DailyLetterRecord) => void;
   closePaper: () => void;
   suspendAutoCollapse: () => void;
   resumeAutoCollapse: () => void;
@@ -150,16 +150,9 @@ export const useDailyLetterArrivalStore = create<DailyLetterArrivalStoreState>((
     }
   },
 
-  expand: () => {
-    if (get().letter) {
-      set({ phase: 'card' });
-      get().resumeAutoCollapse();
-    }
-  },
-
-  collapseToChip: () => {
+  collapseCard: () => {
     if (get().letter && get().phase === 'card') {
-      set({ phase: 'chip' });
+      set({ phase: 'hidden', letter: null });
     }
   },
 
@@ -186,6 +179,16 @@ export const useDailyLetterArrivalStore = create<DailyLetterArrivalStoreState>((
     set({ paperOpen: true, phase: 'hidden' });
   },
 
+  openRecord: (letter) => {
+    get().suspendAutoCollapse();
+    set({
+      paperOpen: true,
+      phase: 'hidden',
+      letter,
+      pendingReceiptCount: pendingReceiptCountOf(letter),
+    });
+  },
+
   closePaper: () => {
     // Closing the paper is terminal for this arrival: clear the letter
     // reference so nothing can resurface the same card/chip afterward.
@@ -203,7 +206,7 @@ export const useDailyLetterArrivalStore = create<DailyLetterArrivalStoreState>((
   resumeAutoCollapse: () => {
     get().suspendAutoCollapse();
     const timer = setTimeout(() => {
-      get().collapseToChip();
+      get().collapseCard();
     }, CHIP_COLLAPSE_MS);
     set({ _chipTimer: timer });
   },

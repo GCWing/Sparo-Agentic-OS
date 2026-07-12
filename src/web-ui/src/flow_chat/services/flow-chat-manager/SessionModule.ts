@@ -24,6 +24,12 @@ import { canHydrateSession } from '../../domain/sessionLoadPhase';
 
 const log = createLogger('SessionModule');
 const pendingSessionCreations = new Map<string, Promise<string>>();
+const pendingBackendSessionRecreations = new Map<string, Promise<void>>();
+
+export interface CreateChatSessionOptions {
+  sessionId?: string;
+  notifyOnError?: boolean;
+}
 
 async function hydrateHistoricalSession(
   context: FlowChatContext,
@@ -63,7 +69,7 @@ async function hydrateHistoricalSession(
   } catch (error) {
     log.error('Failed to load session history', { sessionId, error });
     if (notifyOnError) {
-      notificationService.warning('Failed to load session history, showing empty session', {
+      notificationService.warning('Failed to load session history. Retry from the conversation.', {
         duration: 3000
       });
     }
@@ -171,7 +177,8 @@ export async function getModelMaxTokens(modelName?: string): Promise<number> {
 export async function createChatSession(
   context: FlowChatContext,
   config: SessionConfig,
-  descriptor: SessionDescriptor = getDefaultSessionDescriptor()
+  descriptor: SessionDescriptor = getDefaultSessionDescriptor(),
+  options: CreateChatSessionOptions = {},
 ): Promise<string> {
   try {
     const workspacePath = resolveSessionWorkspacePath(context, config);
@@ -207,15 +214,16 @@ export async function createChatSession(
     const generatedSessionName = i18nService.t(sessionType.lifecycle.titleKey, { count: sameModeCount });
     const sessionName = config.sessionName?.trim() || generatedSessionName;
     
-    const maxContextTokens = await getModelMaxTokens(config.modelName);
-
     const mergedConfig: SessionConfig = {
       ...config,
       workspaceId: workspace?.id ?? config.workspaceId,
     };
 
     const createPromise = (async () => {
+      const maxContextTokens = await getModelMaxTokens(config.modelName);
+      const requestedSessionId = options.sessionId?.trim() || undefined;
       const response = await agentAPI.createSession({
+        sessionId: requestedSessionId,
         sessionName,
         agentType,
         workspacePath: workspacePath || undefined,
@@ -230,6 +238,10 @@ export async function createChatSession(
           storageScope,
         }
       });
+
+      if (requestedSessionId && response.sessionId !== requestedSessionId) {
+        throw new Error('Backend returned an unexpected session id for optimistic navigation');
+      }
 
       context.flowChatStore.createSession(
         response.sessionId, 
@@ -262,9 +274,11 @@ export async function createChatSession(
   } catch (error) {
     log.error('Failed to create chat session', { config, error });
     
-    notificationService.error('Failed to create chat session', {
-      duration: 3000
-    });
+    if (options.notifyOnError !== false) {
+      notificationService.error('Failed to create chat session', {
+        duration: 3000
+      });
+    }
     throw error;
   }
 }
@@ -289,12 +303,23 @@ export async function activateSessionData(
     });
 
     if (canHydrateSession(session)) {
-      void hydrateHistoricalSession(context, sessionId, true);
+      void hydrateHistoricalSession(context, sessionId, true).catch(() => {
+        // hydrateHistoricalSession already records, notifies, and sets the
+        // persistent retryable phase. Activation itself remains non-blocking.
+      });
+
     }
   } catch (error) {
     log.error('Failed to activate session data', { sessionId, error });
     throw error;
   }
+}
+
+export async function retrySessionHistory(
+  context: FlowChatContext,
+  sessionId: string,
+): Promise<void> {
+  await hydrateHistoricalSession(context, sessionId, true);
 }
 
 /**
@@ -507,10 +532,16 @@ export async function forkChatSession(
 /**
  * Ensure backend session exists (check before sending message)
  */
-export async function ensureBackendSession(
+async function ensureBackendSessionOnce(
   context: FlowChatContext,
   sessionId: string
 ): Promise<void> {
+  const pendingHistoryLoad = context.flowChatStore.getPendingSessionHistoryLoad(sessionId)
+    ?? context.pendingHistoryLoads.get(sessionId);
+  if (pendingHistoryLoad) {
+    await pendingHistoryLoad;
+  }
+
   const session = context.flowChatStore.getState().sessions.get(sessionId);
   if (!session) {
     throw new Error(`Session does not exist: ${sessionId}`);
@@ -577,10 +608,40 @@ export async function ensureBackendSession(
   }
 }
 
+export async function ensureBackendSession(
+  context: FlowChatContext,
+  sessionId: string,
+  afterReady?: () => Promise<void>,
+): Promise<void> {
+  const pendingReadiness = context.pendingBackendReadiness
+    ?? (context.pendingBackendReadiness = new Map<string, { tail: Promise<void> }>());
+  let entry = pendingReadiness.get(sessionId);
+  if (!entry) {
+    entry = { tail: ensureBackendSessionOnce(context, sessionId) };
+    pendingReadiness.set(sessionId, entry);
+  }
+  if (afterReady) {
+    entry.tail = entry.tail.then(afterReady);
+  }
+
+  let observedTail = entry.tail;
+  try {
+    while (true) {
+      observedTail = entry.tail;
+      await observedTail;
+      if (entry.tail === observedTail) return;
+    }
+  } finally {
+    if (pendingReadiness.get(sessionId) === entry && entry.tail === observedTail) {
+      pendingReadiness.delete(sessionId);
+    }
+  }
+}
+
 /**
  * Retry creating backend session (retry after message send failure)
  */
-export async function retryCreateBackendSession(
+async function retryCreateBackendSessionOnce(
   context: FlowChatContext,
   sessionId: string
 ): Promise<void> {
@@ -611,4 +672,44 @@ export async function retryCreateBackendSession(
       storageScope: session.storageScope,
     }
   });
+}
+
+export async function retryCreateBackendSession(
+  context: FlowChatContext,
+  sessionId: string,
+): Promise<void> {
+  const existing = pendingBackendSessionRecreations.get(sessionId);
+  if (existing) return existing;
+
+  let pending: Promise<void>;
+  pending = (async () => {
+    const pendingReadiness = context.pendingBackendReadiness
+      ?? (context.pendingBackendReadiness = new Map<string, { tail: Promise<void> }>());
+    let entry = pendingReadiness.get(sessionId);
+    if (entry) {
+      entry.tail = entry.tail.then(() => retryCreateBackendSessionOnce(context, sessionId));
+    } else {
+      entry = { tail: retryCreateBackendSessionOnce(context, sessionId) };
+      pendingReadiness.set(sessionId, entry);
+    }
+
+    let observedTail = entry.tail;
+    try {
+      while (true) {
+        observedTail = entry.tail;
+        await observedTail;
+        if (entry.tail === observedTail) return;
+      }
+    } finally {
+      if (pendingReadiness.get(sessionId) === entry && entry.tail === observedTail) {
+        pendingReadiness.delete(sessionId);
+      }
+    }
+  })().finally(() => {
+    if (pendingBackendSessionRecreations.get(sessionId) === pending) {
+      pendingBackendSessionRecreations.delete(sessionId);
+    }
+  });
+  pendingBackendSessionRecreations.set(sessionId, pending);
+  return pending;
 }

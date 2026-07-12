@@ -135,6 +135,9 @@ schannel = "0.1"
 default = []
 tauri-support = ["tauri"]  # Optional tauri support
 
+[dev-dependencies]
+tempfile = "3"
+
 [[example]]
 name = "recompile_product_app_runtime_host"
 path = "examples/recompile_product_app_runtime_host.rs"

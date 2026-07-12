@@ -21,6 +21,17 @@ const folderEntry: FileEntry = fileEntryFromFsEntry({
   hidden: false,
 }, { kind: 'workspace', root: '/work' });
 
+function fileEntry(name: string): FileEntry {
+  return fileEntryFromFsEntry({
+    path: `/work/${name}`,
+    name,
+    kind: 'file',
+    size: 64,
+    readonly: false,
+    hidden: false,
+  }, { kind: 'workspace', root: '/work' });
+}
+
 describe('fileOpenStrategy', () => {
   it('prefers Sparo for previewable files', () => {
     expect(decideFileOpenAction(textEntry).primary).toBe('openInSparo');
@@ -31,5 +42,17 @@ describe('fileOpenStrategy', () => {
     const decision = decideFileOpenAction(folderEntry);
     expect(decision.primary).toBe('openFolder');
     expect(decision.capabilities).toContain('openAsWorkspace');
+  });
+
+  it.each(['book.xlsx', 'macro.xlsm', 'data.csv'])('routes supported spreadsheet %s to Excel Live', (name) => {
+    const decision = decideFileOpenAction(fileEntry(name));
+    expect(decision.primary).toBe('openInExcelLive');
+    expect(decision.capabilities).toContain('openInExcelLive');
+  });
+
+  it.each(['data.tsv', 'book.ods', 'legacy.xls'])('does not advertise unsupported spreadsheet %s', (name) => {
+    const decision = decideFileOpenAction(fileEntry(name));
+    expect(decision.primary).not.toBe('openInExcelLive');
+    expect(decision.capabilities).not.toContain('openInExcelLive');
   });
 });

@@ -8,6 +8,7 @@ export interface BridgeComponentRuntime {
   language: BridgeComponentRuntimeLanguage;
   entry: string;
   packageManager?: string;
+  idleTimeoutMs?: number;
 }
 
 export interface BridgeComponentSurfaces {

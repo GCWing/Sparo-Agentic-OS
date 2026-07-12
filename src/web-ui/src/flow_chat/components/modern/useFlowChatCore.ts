@@ -25,6 +25,7 @@ import type { FlowChatConfig } from '../../types/flow-chat';
 import type { LineRange } from '@/shared/markdown';
 import type { FlowChatHeaderTurnSummary } from './FlowChatHeader';
 import type { VirtualMessageListRef } from './VirtualMessageList';
+import { requestFlowViewportTurnNavigation } from '../../scroll/viewport/FlowViewportNavigationBroker';
 import type {
   FlowChatStaticContextValue,
   FlowChatViewContextValue,
@@ -101,7 +102,6 @@ export function useFlowChatCore(options: UseFlowChatCoreOptions = {}) {
   useFlowChatCopyDialog();
   useFlowChatNavigation({
     activeSessionId: activeSession?.sessionId,
-    virtualItems,
     virtualListRef,
   });
 
@@ -169,16 +169,17 @@ export function useFlowChatCore(options: UseFlowChatCoreOptions = {}) {
   // ── Jump to turn ──────────────────────────────────────────────────────────
   const handleJumpToTurn = useCallback(
     (turnId: string) => {
-      if (!turnId) return;
-      const isLatest = turnSummaries[turnSummaries.length - 1]?.turnId === turnId;
-      const accepted =
-        virtualListRef.current?.pinTurnToTop(turnId, {
-          behavior: 'smooth',
-          pinMode: isLatest ? 'sticky-latest' : 'transient',
-        }) ?? false;
-      setPendingHeaderTurnId(accepted ? turnId : null);
+      const sessionId = activeSession?.sessionId;
+      if (!sessionId || !turnSummaries.some(turn => turn.turnId === turnId)) return;
+      requestFlowViewportTurnNavigation({
+        sessionId,
+        turnId,
+        source: 'header',
+        behavior: 'smooth',
+      });
+      setPendingHeaderTurnId(turnId);
     },
-    [turnSummaries],
+    [activeSession?.sessionId, turnSummaries],
   );
 
   // ── Scroll to current search match ───────────────────────────────────────

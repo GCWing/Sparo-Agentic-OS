@@ -1,7 +1,13 @@
-import { api } from './ApiClient';
-import { createTauriCommandError } from '../errors/TauriCommandError';
 import { i18nService } from '@/infrastructure/i18n';
-import { notificationService } from '@/shared/notification-system';
+import {
+  intelligentAppAPI,
+  type ActiveAppRef,
+  type AppReleaseRecord,
+  type AppSlotRecord,
+  type AppVariantRecord,
+  type IntelligentAppOwnerKind,
+} from './IntelligentAppAPI';
+import { bridgeComponentAPI } from './BridgeComponentAPI';
 
 export type AppInteractionModel = 'conversation' | 'interactiveWorkspace';
 export type AppWorkMultiplicity = 'multiple' | 'singleton';
@@ -249,6 +255,20 @@ export interface AppDefinition {
 }
 
 export interface ProductAppCatalogEntry extends AppDefinition {
+  /** Lifecycle projection fields. App Center may render these, but runtime must use them exactly. */
+  slotId: string;
+  appId: string;
+  releaseId: string;
+  availableReleaseId: string;
+  configRevision: string;
+  dataSchemaVersion: string;
+  ownerKind: IntelligentAppOwnerKind;
+  derivedFromReleaseId?: string | null;
+  activeRef?: ActiveAppRef | null;
+  releases?: AppReleaseRecord[];
+  previousReleaseId?: string | null;
+  upstreamUpdateAvailable?: boolean;
+  upstreamLatestReleaseId?: string | null;
   componentLockDigest: string;
   packageDigest?: string | null;
   updateAvailable?: boolean;
@@ -426,6 +446,13 @@ export function productAppCatalogLabel(app: ProductAppCatalogEntry): string {
   return app.name || app.id;
 }
 
+export function requireActiveAppRef(app: ProductAppCatalogEntry): ActiveAppRef {
+  if (!app.activeRef) {
+    throw new Error(`App ${app.appId} has no active Release in this scope`);
+  }
+  return app.activeRef;
+}
+
 export interface ResolvedCatalogAppMeta {
   name: string;
   description: string;
@@ -503,211 +530,162 @@ export function localizeCatalogApps<T extends CatalogAppMetadataSource>(
   return apps.map((app) => localizeCatalogApp(app, locale));
 }
 
-const APP_CATALOG_CACHE_TTL_MS = 30_000;
-
 export interface CatalogCacheOptions {
   force?: boolean;
 }
 
-interface CatalogCacheEntry<T> {
-  value: T;
-  timestampMs: number;
-}
-
-let appCenterCatalogCache: CatalogCacheEntry<AppCenterCatalog> | null = null;
-let nativeAppCatalogCache: CatalogCacheEntry<NativeAppCatalogEntry[]> | null = null;
-let productAppHomeCatalogCache: CatalogCacheEntry<ProductAppHomeCatalog> | null = null;
-let productAppLibraryCache: CatalogCacheEntry<ProductAppLibrary> | null = null;
-let componentCatalogCache: CatalogCacheEntry<ComponentDefinition[]> | null = null;
-
-let appCenterCatalogRequest: Promise<AppCenterCatalog> | null = null;
-let nativeAppCatalogRequest: Promise<NativeAppCatalogEntry[]> | null = null;
-let productAppHomeCatalogRequest: Promise<ProductAppHomeCatalog> | null = null;
-let productAppLibraryRequest: Promise<ProductAppLibrary> | null = null;
-let componentCatalogRequest: Promise<ComponentDefinition[]> | null = null;
-let productAppCatalogIssueSignature: string | null = null;
-let productAppCatalogIssueNotifiedAtMs = 0;
-
-const PRODUCT_APP_CATALOG_ISSUE_NOTIFY_DEDUP_MS = 30_000;
-
-function isFreshCacheEntry<T>(
-  entry: CatalogCacheEntry<T> | null,
-  nowMs: number = Date.now(),
-): entry is CatalogCacheEntry<T> {
-  return entry !== null && nowMs - entry.timestampMs < APP_CATALOG_CACHE_TTL_MS;
-}
-
 function invalidateAppCatalogCache() {
-  appCenterCatalogCache = null;
-  productAppHomeCatalogCache = null;
-  productAppLibraryCache = null;
-  componentCatalogCache = null;
+  // Lifecycle catalog is authoritative and loaded on demand; there is no
+  // second mutable installation cache to invalidate.
 }
 
-function productAppCatalogIssueTarget(issue: ProductAppCatalogIssue): string {
-  if (issue.appId && issue.appVersion) {
-    return `${issue.appId}@${issue.appVersion}`;
+function projectLifecycleEntry(
+  slot: AppSlotRecord,
+  variant: AppVariantRecord,
+  release: AppReleaseRecord,
+): ProductAppCatalogEntry {
+  const activation = slot.activation;
+  const isSelected = activation?.enabled === true
+    && activation.selectedAppId === variant.app.appId;
+  const activeRef = isSelected ? intelligentAppAPI.activeRef(slot) : null;
+  const installedRelease = isSelected
+    ? variant.releases.find(({ releaseId }) => releaseId === activation?.activeReleaseId) ?? release
+    : null;
+  const launch = release.runtime.launch;
+  const primarySurface = release.runtime.primarySurface;
+  const components: AppComponentRef[] = [];
+  if (primarySurface) {
+    components.push({
+      componentId: primarySurface.componentId,
+      kind: 'surface',
+      source: 'private',
+      role: 'primarySurface',
+    });
   }
-  return issue.packageDir;
-}
-
-function productAppCatalogIssueKey(issue: ProductAppCatalogIssue): string {
-  return [
-    issue.source,
-    issue.appId ?? '',
-    issue.appVersion ?? '',
-    issue.packageDir,
-    issue.message,
-  ].join('\u001f');
-}
-
-function notifyProductAppCatalogIssues(issues: ProductAppCatalogIssue[] | undefined): void {
-  if (!issues?.length) return;
-
-  const signature = issues.map(productAppCatalogIssueKey).sort().join('\u001e');
-  const nowMs = Date.now();
-  if (
-    signature === productAppCatalogIssueSignature &&
-    nowMs - productAppCatalogIssueNotifiedAtMs < PRODUCT_APP_CATALOG_ISSUE_NOTIFY_DEDUP_MS
-  ) {
-    return;
+  if (launch?.targetId && !components.some(({ componentId }) => componentId === launch.targetId)) {
+    components.push({
+      componentId: launch.targetId,
+      kind: launch.kind === 'agentSession' || launch.kind === 'appBuilder' ? 'agent' : 'runtime',
+      source: 'private',
+      role: 'launchTarget',
+    });
   }
+  const ownerKind = variant.app.owner.kind;
+  const isInteractive = launch?.kind === 'applicationSurface' || Boolean(primarySurface);
+  const updateAvailable = isSelected && activation.activeReleaseId !== release.releaseId;
+  const managementActions: AppManagementAction[] = isSelected
+    ? [updateAvailable ? 'update' : 'disable', 'uninstall']
+    : ['install'];
 
-  productAppCatalogIssueSignature = signature;
-  productAppCatalogIssueNotifiedAtMs = nowMs;
-
-  const first = issues[0];
-  const target = productAppCatalogIssueTarget(first);
-  const message = issues.length === 1
-    ? i18nService.t('scenes/apps:productSystem.messages.catalogPartialFailureOne', {
-        target,
-        error: first.message,
-      })
-    : i18nService.t('scenes/apps:productSystem.messages.catalogPartialFailureMany', {
-        count: issues.length,
-        target,
-        error: first.message,
-      });
-
-  notificationService.error(message, {
-    title: i18nService.t('scenes/apps:productSystem.messages.catalogPartialFailureTitle'),
-    duration: 8000,
-    metadata: {
-      source: 'product-app-catalog',
-      issues,
+  return {
+    id: variant.app.appId,
+    appId: variant.app.appId,
+    slotId: slot.slotId,
+    releaseId: activeRef?.releaseId ?? release.releaseId,
+    availableReleaseId: release.releaseId,
+    configRevision: activeRef?.configRevision ?? release.configRevision,
+    dataSchemaVersion: activeRef?.dataSchemaVersion ?? release.dataSchemaVersion,
+    ownerKind,
+    derivedFromReleaseId: variant.app.derivedFrom?.releaseId ?? null,
+    activeRef,
+    releases: variant.releases,
+    previousReleaseId: isSelected ? activation?.previousReleaseId ?? null : null,
+    upstreamUpdateAvailable: variant.upstreamUpdateAvailable,
+    upstreamLatestReleaseId: variant.upstreamLatestReleaseId ?? null,
+    version: installedRelease?.version ?? release.version,
+    name: variant.app.displayName,
+    description: variant.app.description ?? '',
+    interactionModel: isInteractive ? 'interactiveWorkspace' : 'conversation',
+    workMultiplicity: release.runtime.workMultiplicity,
+    primarySurface: primarySurface
+      ? { componentId: primarySurface.componentId, surfaceId: primarySurface.surfaceId }
+      : null,
+    primarySurfaceMode: release.runtime.primarySurfaceMode ?? null,
+    components,
+    componentLockId: installedRelease?.componentLockDigest ?? release.componentLockDigest,
+    componentLockDigest: installedRelease?.componentLockDigest ?? release.componentLockDigest,
+    permissions: { fs: false, net: false, shell: false, gui: false, secrets: false, ai: false },
+    osCapabilities: [],
+    installScope: 'system',
+    catalogVisibility: 'discoverable',
+    enabled: isSelected,
+    icon: release.runtime.icon,
+    category: release.runtime.category,
+    tags: release.runtime.tags,
+    launch: launch ? {
+      kind: launch.kind,
+      targetId: launch.targetId,
+      scopeRequirement: launch.scopeRequirement,
+      agentType: launch.agentType,
+      surfaceId: launch.surfaceId,
+    } : null,
+    installed: isSelected,
+    discoverable: !isSelected,
+    updateAvailable,
+    catalogReleaseId: release.releaseId,
+    catalogReleaseLabel: release.label,
+    catalogReleaseNotes: release.notes,
+    catalogPublishedAtMs: release.createdAtMs,
+    packageDigest: installedRelease?.artifactDigest ?? release.artifactDigest,
+    installedPackageDigest: installedRelease?.artifactDigest ?? null,
+    availablePackageDigest: release.artifactDigest,
+    installedComponentLockDigest: installedRelease?.componentLockDigest ?? null,
+    availableComponentLockDigest: release.componentLockDigest,
+    dependencySummary: `${components.length} components`,
+    librarySources: isSelected ? ['installed'] : ['discoverable'],
+    management: {
+      origin: ownerKind === 'system' ? 'discoverableSource' : 'installedPackage',
+      actions: ownerKind === 'system'
+        ? managementActions.filter((action) => action !== 'uninstall')
+        : managementActions,
+      uninstall: {
+        removesInstalledPackage: ownerKind !== 'system',
+        retainsWork: true,
+        retainsRuntimeStorage: true,
+      },
     },
-  });
+  };
 }
 
 export class AppCatalogAPI {
   async listNativeAppCatalog(options: CatalogCacheOptions = {}): Promise<NativeAppCatalogEntry[]> {
-    if (!options.force && isFreshCacheEntry(nativeAppCatalogCache)) {
-      return nativeAppCatalogCache.value;
-    }
-    if (!options.force && nativeAppCatalogRequest) {
-      return nativeAppCatalogRequest;
-    }
-
-    const request = api.invoke<NativeAppCatalogEntry[]>('list_native_app_catalog', {})
-      .then((apps) => {
-        nativeAppCatalogCache = { value: apps, timestampMs: Date.now() };
-        return apps;
-      });
-    nativeAppCatalogRequest = request;
-    try {
-      return await request;
-    } catch (error) {
-      throw createTauriCommandError('list_native_app_catalog', error);
-    } finally {
-      if (nativeAppCatalogRequest === request) {
-        nativeAppCatalogRequest = null;
-      }
-    }
+    void options;
+    // Native/system Apps are lifecycle-managed Releases now. The native lane is
+    // intentionally empty; the original App Center layout remains unchanged.
+    return [];
   }
 
   async listProductAppHomeCatalog(options: CatalogCacheOptions = {}): Promise<ProductAppHomeCatalog> {
-    if (!options.force && isFreshCacheEntry(productAppHomeCatalogCache)) {
-      return productAppHomeCatalogCache.value;
-    }
-    if (!options.force && productAppHomeCatalogRequest) {
-      return productAppHomeCatalogRequest;
-    }
-
-    const request = api.invoke<ProductAppHomeCatalog>('list_product_app_home_catalog', {})
-      .then((catalog) => {
-        notifyProductAppCatalogIssues(catalog.issues);
-        productAppHomeCatalogCache = { value: catalog, timestampMs: Date.now() };
-        return catalog;
-      });
-    productAppHomeCatalogRequest = request;
-    try {
-      return await request;
-    } catch (error) {
-      throw createTauriCommandError('list_product_app_home_catalog', error);
-    } finally {
-      if (productAppHomeCatalogRequest === request) {
-        productAppHomeCatalogRequest = null;
-      }
-    }
+    const library = await this.listProductAppLibrary(options);
+    return { apps: library.installed, issues: library.issues };
   }
 
   async listAppCatalog(options: CatalogCacheOptions = {}): Promise<AppCenterCatalog> {
-    if (!options.force && isFreshCacheEntry(appCenterCatalogCache)) {
-      return appCenterCatalogCache.value;
-    }
-    if (!options.force && appCenterCatalogRequest) {
-      return appCenterCatalogRequest;
-    }
-
-    const request = api.invoke<AppCenterCatalog>('list_app_catalog', {})
-      .then((catalog) => {
-        notifyProductAppCatalogIssues(catalog.productApps.issues);
-        const timestampMs = Date.now();
-        appCenterCatalogCache = { value: catalog, timestampMs };
-        productAppLibraryCache = { value: catalog.productApps, timestampMs };
-        return catalog;
-      });
-    appCenterCatalogRequest = request;
-    try {
-      return await request;
-    } catch (error) {
-      throw createTauriCommandError('list_app_catalog', error);
-    } finally {
-      if (appCenterCatalogRequest === request) {
-        appCenterCatalogRequest = null;
-      }
-    }
+    return {
+      native: await this.listNativeAppCatalog(options),
+      productApps: await this.listProductAppLibrary(options),
+    };
   }
 
   async listProductAppLibrary(options: CatalogCacheOptions = {}): Promise<ProductAppLibrary> {
-    if (!options.force && isFreshCacheEntry(productAppLibraryCache)) {
-      return productAppLibraryCache.value;
-    }
-    if (!options.force && productAppLibraryRequest) {
-      return productAppLibraryRequest;
-    }
-
-    const request = api.invoke<ProductAppLibrary>('list_product_app_library', {})
-      .then((library) => {
-        notifyProductAppCatalogIssues(library.issues);
-        productAppLibraryCache = { value: library, timestampMs: Date.now() };
-        return library;
-      });
-    productAppLibraryRequest = request;
-    try {
-      return await request;
-    } catch (error) {
-      throw createTauriCommandError('list_product_app_library', error);
-    } finally {
-      if (productAppLibraryRequest === request) {
-        productAppLibraryRequest = null;
-      }
-    }
+    void options;
+    const catalog = await intelligentAppAPI.listCatalog();
+    const entries = catalog.slots.flatMap((slot) => slot.variants.flatMap((variant) => {
+      const release = variant.latestRelease
+        ?? [...variant.releases].sort((left, right) => right.createdAtMs - left.createdAtMs)[0];
+      return release ? [projectLifecycleEntry(slot, variant, release)] : [];
+    }));
+    return {
+      installed: entries.filter((entry) => entry.installed),
+      discoverable: entries.filter((entry) => !entry.installed || entry.updateAvailable),
+      issues: [],
+    };
   }
 
   async getProductApp(appId: string): Promise<ProductAppCatalogEntry> {
     const library = await this.listProductAppLibrary();
-    const app = library.installed.find((entry) => entry.id === appId);
+    const app = [...library.installed, ...library.discoverable]
+      .find((entry) => entry.id === appId);
     if (!app) {
       throw new Error(`Installed Product App not found: ${appId}`);
     }
@@ -715,81 +693,63 @@ export class AppCatalogAPI {
   }
 
   async setProductAppEnabled(app: ProductAppCatalogEntry, enabled: boolean): Promise<void> {
-    try {
-      await api.invoke('set_product_app_enabled', {
-        request: { appId: app.id, appVersion: app.version, enabled },
-      });
+    if (!enabled) {
+      await intelligentAppAPI.deactivateSlot(app.slotId);
       invalidateAppCatalogCache();
-    } catch (error) {
-      throw createTauriCommandError('set_product_app_enabled', error, {
-        appId: app.id,
-        appVersion: app.version,
-        enabled,
-      });
+      return;
     }
+    await this.installProductApp(app);
   }
 
   async installProductApp(app: ProductAppCatalogEntry): Promise<void> {
-    try {
-      await api.invoke('install_product_app', {
-        request: { appId: app.id, appVersion: app.version },
-      });
-      invalidateAppCatalogCache();
-    } catch (error) {
-      throw createTauriCommandError('install_product_app', error, {
-        appId: app.id,
-        appVersion: app.version,
-      });
+    const review = await intelligentAppAPI.getReleaseCapabilityReview(
+      app.appId,
+      app.availableReleaseId,
+    );
+    if (review.requiresApproval && !review.approved) {
+      throw new Error(`Capability approval required for App ${app.appId} Release ${app.availableReleaseId}`);
     }
+    await intelligentAppAPI.activateRelease({
+      slotId: app.slotId,
+      appId: app.appId,
+      releaseId: app.availableReleaseId,
+    });
+    invalidateAppCatalogCache();
   }
 
   async uninstallProductApp(app: ProductAppCatalogEntry): Promise<void> {
-    try {
-      await api.invoke('uninstall_product_app', {
-        request: { appId: app.id, appVersion: app.version },
-      });
-      invalidateAppCatalogCache();
-    } catch (error) {
-      throw createTauriCommandError('uninstall_product_app', error, {
-        appId: app.id,
-        appVersion: app.version,
-      });
+    if (app.installed) {
+      await intelligentAppAPI.deactivateSlot(app.slotId);
     }
+    if (app.ownerKind !== 'system') {
+      await intelligentAppAPI.removeApp(app.appId);
+    }
+    invalidateAppCatalogCache();
   }
 
   async listComponents(options: CatalogCacheOptions = {}): Promise<ComponentDefinition[]> {
-    if (!options.force && isFreshCacheEntry(componentCatalogCache)) {
-      return componentCatalogCache.value;
-    }
-    if (!options.force && componentCatalogRequest) {
-      return componentCatalogRequest;
-    }
-
-    const request = api.invoke<ComponentDefinition[]>('list_components', {})
-      .then((components) => {
-        componentCatalogCache = { value: components, timestampMs: Date.now() };
-        return components;
-      });
-    componentCatalogRequest = request;
-    try {
-      return await request;
-    } catch (error) {
-      throw createTauriCommandError('list_components', error);
-    } finally {
-      if (componentCatalogRequest === request) {
-        componentCatalogRequest = null;
-      }
-    }
+    void options;
+    const components = await bridgeComponentAPI.listBridgeComponents();
+    return components.map(({ manifest }) => ({
+      id: manifest.id,
+      kind: 'bridge',
+      name: manifest.name,
+      description: manifest.description,
+      packageSource: 'shared',
+      capabilities: manifest.capabilities,
+      permissions: Object.entries(manifest.permissions ?? {}).flatMap(([kind, scopes]) => (
+        scopes ? [{ kind, scopes: Array.isArray(scopes) ? scopes.map(String) : undefined }] : []
+      )),
+      visibility: 'developer',
+      implementationRef: manifest.runtime.entry,
+    }));
   }
 
   async getComponent(componentId: string, kind?: ComponentKind): Promise<ComponentDefinition> {
-    try {
-      return await api.invoke('get_component', {
-        request: { componentId, kind },
-      });
-    } catch (error) {
-      throw createTauriCommandError('get_component', error, { componentId, kind });
-    }
+    void kind;
+    const { manifest } = await bridgeComponentAPI.getBridgeComponent(componentId);
+    return (await this.listComponents()).find(({ id }) => id === manifest.id)
+      ?? Promise.reject(new Error(`Component not found: ${componentId}`));
   }
 
   async componentHealth(
@@ -797,23 +757,62 @@ export class AppCatalogAPI {
     kind?: ComponentKind,
     workspacePath?: string | null,
   ): Promise<ComponentHealthResponse> {
-    try {
-      return await api.invoke('component_health', {
-        request: { componentId, kind, workspacePath },
-      });
-    } catch (error) {
-      throw createTauriCommandError('component_health', error, { componentId, kind, workspacePath });
-    }
+    void kind;
+    void workspacePath;
+    const runs = await bridgeComponentAPI.listBridgeComponentRuns(componentId);
+    const failures = runs.filter(({ status }) => status === 'failed');
+    const latest = [...runs].sort((left, right) => right.updatedAt - left.updatedAt)[0];
+    return {
+      componentId,
+      status: failures.length > 0 ? 'warning' : 'healthy',
+      detail: failures.length > 0
+        ? `${failures.length} recent run(s) failed`
+        : runs.length > 0 ? 'Recent component runs completed without failure' : 'No runtime evidence yet',
+      checks: [{
+        name: 'package',
+        status: 'passed',
+        detail: 'Bridge Component manifest resolved',
+      }],
+      runtime: {
+        recentRunCount: runs.length,
+        recentFailureCount: failures.length,
+        runtimeIssueCount: failures.length,
+        runtimeWarningCount: 0,
+        recentFailures: failures.map((run) => ({
+          workId: run.consumerId,
+          productAppId: run.consumerKind === 'productAppRuntime' ? run.consumerId : null,
+          runId: run.runId,
+          severity: 'error',
+          message: run.stderr || 'Component run failed',
+          timestampMs: run.updatedAt,
+        })),
+        lastActivityAt: latest?.updatedAt ?? null,
+      },
+    };
   }
 
   async componentUsage(componentId: string, kind?: ComponentKind): Promise<ComponentUsageResponse> {
-    try {
-      return await api.invoke('component_usage', {
-        request: { componentId, kind },
-      });
-    } catch (error) {
-      throw createTauriCommandError('component_usage', error, { componentId, kind });
+    void kind;
+    const runs = await bridgeComponentAPI.listBridgeComponentRuns(componentId);
+    const byConsumer = new Map<string, typeof runs>();
+    for (const run of runs) {
+      const current = byConsumer.get(run.consumerId) ?? [];
+      current.push(run);
+      byConsumer.set(run.consumerId, current);
     }
+    return {
+      componentId,
+      usedByApps: [...new Set(runs
+        .filter(({ consumerKind }) => consumerKind === 'productAppRuntime')
+        .map(({ consumerId }) => consumerId))],
+      runtimeUsages: [...byConsumer.entries()].map(([consumerId, consumerRuns]) => ({
+        workId: consumerId,
+        productAppId: consumerRuns[0]?.consumerKind === 'productAppRuntime' ? consumerId : null,
+        runCount: consumerRuns.length,
+        issueCount: consumerRuns.filter(({ status }) => status === 'failed').length,
+        lastActivityAt: Math.max(...consumerRuns.map(({ updatedAt }) => updatedAt)),
+      })),
+    };
   }
 }
 

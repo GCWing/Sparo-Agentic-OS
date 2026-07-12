@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { Button, DotMatrixLoader } from '@/design-system';
 import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
@@ -51,8 +51,10 @@ const ProductAppRuntimePanel: React.FC<ProductAppRuntimePanelProps> = ({
   const closeApp = useProductAppRuntimeStore((state) => state.closeApp);
   const setRecentAppIds = useProductAppRuntimeStore((state) => state.setRecentAppIds);
   const [app, setApp] = useState<ProductAppHostSurface | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(Boolean(appId));
+  const [previewReady, setPreviewReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const loadRequestRef = useRef(0);
   const effectiveScope = useMemo(
     () => normalizeAppScope(
       scope ||
@@ -75,25 +77,36 @@ const ProductAppRuntimePanel: React.FC<ProductAppRuntimePanelProps> = ({
 
   const load = useCallback(async () => {
     if (!appId) return;
+    const requestId = ++loadRequestRef.current;
     setLoading(true);
+    setApp(null);
+    setPreviewReady(false);
+    setError(null);
     try {
       const loaded = await productAppRuntimeHostAPI.getHostSurface(
         appId,
         themeType ?? 'dark',
         effectiveWorkspacePath,
       );
+      if (requestId !== loadRequestRef.current) return;
       setApp(loaded);
-      setError(null);
     } catch (error) {
+      if (requestId !== loadRequestRef.current) return;
       log.error('Failed to load Product App runtime panel', { appId, error });
+      setApp(null);
       setError(error instanceof Error ? error.message : String(error));
     } finally {
-      setLoading(false);
+      if (requestId === loadRequestRef.current) {
+        setLoading(false);
+      }
     }
   }, [appId, effectiveWorkspacePath, themeType]);
 
   useEffect(() => {
     void load();
+    return () => {
+      loadRequestRef.current += 1;
+    };
   }, [load]);
 
   const runnerKey = useMemo(
@@ -110,13 +123,21 @@ const ProductAppRuntimePanel: React.FC<ProductAppRuntimePanelProps> = ({
     [app, effectiveScope, route, tabId, themeType],
   );
 
+  const handlePreviewBootTimeout = useCallback(() => {
+    log.warn('Product App runtime readiness timed out', { appId });
+    productAppRuntimeHostAPI.invalidateHostSurface(appId);
+    setPreviewReady(false);
+    setApp(null);
+    setError(t('flexiblePanel.errors.productAppRuntimeBootTimeout'));
+  }, [appId, t]);
+
   if (!appId) {
     return (
       <div
         className="product-app-runtime-panel product-app-runtime-panel--empty"
         data-testid="product-app-runtime-panel"
         data-app-id={appId}
-        data-product-app-id={runtimeContext?.productAppId ?? productAppRuntime?.appId ?? appId}
+        data-product-app-id={runtimeContext?.appId ?? productAppRuntime?.appId ?? appId}
       >
         <AlertTriangle size={24} />
         <p>{t('flexiblePanel.errors.productAppRuntimeMissingHost')}</p>
@@ -129,8 +150,9 @@ const ProductAppRuntimePanel: React.FC<ProductAppRuntimePanelProps> = ({
       className="product-app-runtime-panel"
       data-testid="product-app-runtime-panel"
       data-app-id={appId}
-      data-product-app-id={runtimeContext?.productAppId ?? productAppRuntime?.appId ?? appId}
+      data-product-app-id={runtimeContext?.appId ?? productAppRuntime?.appId ?? appId}
       data-route={route || '/'}
+      aria-busy={loading || (Boolean(app) && !previewReady)}
     >
       {loading && !app ? (
         <div className="product-app-runtime-panel__state">
@@ -159,10 +181,12 @@ const ProductAppRuntimePanel: React.FC<ProductAppRuntimePanelProps> = ({
             workspacePath={effectiveWorkspacePath}
             runtimeContext={runtimeContext ?? productAppRuntime?.runtimeContext ?? null}
             productAppRuntime={productAppRuntime}
+            onPreviewLoad={() => setPreviewReady(true)}
+            onPreviewBootTimeout={handlePreviewBootTimeout}
           />
         </React.Suspense>
       ) : null}
-      {loading && app ? (
+      {app && (loading || !previewReady) ? (
         <div className="product-app-runtime-panel__updating" role="status">
           <DotMatrixLoader size="tiny" />
           <span>{t('flexiblePanel.loading.productAppRuntimeUpdating')}</span>

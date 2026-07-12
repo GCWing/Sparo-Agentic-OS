@@ -7,6 +7,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ProductAppHostSurface } from '@/infrastructure/api/service-api/ProductAppRuntimeHostAPI';
+import { useExcelLiveFocusStore } from '@/app/agentic-os/excel-live/excelLiveFocusStore';
 import ProductAppRuntimeIframeHost from './ProductAppRuntimeIframeHost';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -78,11 +79,30 @@ const app: ProductAppHostSurface = {
   },
 };
 
+const excelLiveApp: ProductAppHostSurface = {
+  ...app,
+  id: 'builtin-excel-live',
+  name: 'Excel Live',
+};
+
+function setAmbientFocusForSession(sessionId: string): void {
+  useExcelLiveFocusStore.getState().setAmbientFocus({
+    sessionId,
+    workbookId: 'workbook-1',
+    sheetId: 'sheet-1',
+    sheetName: 'Sheet 1',
+    a1: 'A1',
+    rowCount: 1,
+    columnCount: 1,
+  });
+}
+
 describe('Product App runtime host adapter preview observation', () => {
   let container: HTMLDivElement;
   let root: Root;
 
   beforeEach(() => {
+    useExcelLiveFocusStore.setState({ ambient: null, ambientBySessionId: {}, includeOnSend: true });
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -90,8 +110,26 @@ describe('Product App runtime host adapter preview observation', () => {
 
   afterEach(() => {
     act(() => root.unmount());
+    useExcelLiveFocusStore.setState({ ambient: null, ambientBySessionId: {}, includeOnSend: true });
     container.remove();
     vi.clearAllMocks();
+  });
+
+  it('grants only iframe features declared by the surface', () => {
+    act(() => {
+      root.render(
+        <ProductAppRuntimeIframeHost
+          app={{
+            ...app,
+            permissions: {
+              iframe: { autoplay: true, fullscreen: true },
+            },
+          }}
+        />,
+      );
+    });
+
+    expect(container.querySelector('iframe')?.getAttribute('allow')).toBe('autoplay; fullscreen');
   });
 
   it('waits for iframe runtime-ready bridge message before reporting preview load', () => {
@@ -391,4 +429,72 @@ describe('Product App runtime host adapter preview observation', () => {
     expect(readyPayload?.sourceRevision).toBe('src:1');
     expect(readyPayload?.depsRevision).toBe('');
   });
+
+  it('syncs the spreadsheet focus preference on load and subsequent changes', () => {
+    useExcelLiveFocusStore.getState().setIncludeOnSend(false);
+
+    act(() => {
+      root.render(<ProductAppRuntimeIframeHost app={excelLiveApp} />);
+    });
+
+    const iframe = container.querySelector('iframe');
+    expect(iframe).not.toBeNull();
+    const postMessage = vi.spyOn(iframe!.contentWindow!, 'postMessage');
+
+    act(() => {
+      iframe!.dispatchEvent(new Event('load'));
+    });
+    expect(postMessage).toHaveBeenCalledWith(
+      {
+        type: 'sparo:event',
+        event: 'spreadsheetFocusPreferenceChange',
+        payload: { includeOnSend: false },
+      },
+      '*',
+    );
+
+    postMessage.mockClear();
+    act(() => {
+      useExcelLiveFocusStore.getState().setIncludeOnSend(true);
+    });
+    expect(postMessage).toHaveBeenCalledWith(
+      {
+        type: 'sparo:event',
+        event: 'spreadsheetFocusPreferenceChange',
+        payload: { includeOnSend: true },
+      },
+      '*',
+    );
+  });
+
+  it('keeps ambient spreadsheet focus owned by another session on unmount', () => {
+    setAmbientFocusForSession('other-session');
+    act(() => {
+      root.render(
+        <ProductAppRuntimeIframeHost app={excelLiveApp} sessionId="host-session" />,
+      );
+    });
+
+    act(() => {
+      root.render(null);
+    });
+
+    expect(useExcelLiveFocusStore.getState().ambient?.sessionId).toBe('other-session');
+  });
+
+  it('clears ambient spreadsheet focus owned by the same session on unmount', () => {
+    setAmbientFocusForSession('host-session');
+    act(() => {
+      root.render(
+        <ProductAppRuntimeIframeHost app={excelLiveApp} sessionId="host-session" />,
+      );
+    });
+
+    act(() => {
+      root.render(null);
+    });
+
+    expect(useExcelLiveFocusStore.getState().ambient).toBeNull();
+  });
+
 });

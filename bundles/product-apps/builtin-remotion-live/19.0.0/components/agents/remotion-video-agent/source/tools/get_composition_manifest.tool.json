@@ -1,6 +1,6 @@
 {
   "name": "get_composition_manifest",
-  "description": "Read the current Remotion composition manifest, including composition ids, dimensions, fps, duration, sequence hints, source paths, and diagnostics.",
+  "description": "Read the authoritative Remotion composition manifest, including project and descriptor revisions, resolved props, dimensions, fps, duration, source paths, and diagnostics.",
   "inputSchema": {
     "type": "object",
     "additionalProperties": false,

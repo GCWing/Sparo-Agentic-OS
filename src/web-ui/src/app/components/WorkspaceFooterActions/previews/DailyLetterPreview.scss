@@ -1,0 +1,115 @@
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
+
+$daily-letter-serif: georgia, 'Iowan Old Style', 'Times New Roman', 'Songti SC', simsun, 'Noto Serif CJK SC', serif;
+
+.sparo-workspace-hub-daily-letter-preview {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: column;
+  animation: sparo-workspace-hub-stage-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  .sparo-workspace-hub-preview__loading,
+  .sparo-workspace-hub-preview__error,
+  .sparo-workspace-hub-preview__empty {
+    width: 100%;
+  }
+
+  .sparo-workspace-hub-preview__empty {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 0;
+  }
+}
+
+.sparo-workspace-hub-daily-letter-preview__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ds-space-3);
+  min-width: 0;
+
+  h2 {
+    margin: 0;
+    color: var(--ds-color-text-primary);
+    font-size: calc(var(--ds-font-size-2xl) + 2px);
+    font-weight: var(--ds-font-weight-semibold);
+    line-height: 1.15;
+  }
+
+}
+
+.sparo-workspace-hub-daily-letter-preview__content {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: column;
+  margin-top: 18px;
+}
+
+.sparo-workspace-hub-daily-letter-preview__letter {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 24px 26px 14px;
+  border: 1px solid color-mix(in srgb, var(--ds-color-border-subtle) 72%, transparent);
+  border-radius: var(--ds-radius-xl);
+  background: color-mix(in srgb, var(--ds-color-bg-panel) 82%, transparent);
+  box-shadow:
+    0 1px 2px var(--ds-shadow-color-soft),
+    0 10px 24px color-mix(in srgb, var(--ds-shadow-color-modal) 12%, transparent);
+
+  > .sparo-workspace-hub-preview__actions {
+    justify-content: flex-end;
+    margin-top: auto;
+    padding-top: 12px;
+    border-top: 0;
+  }
+}
+
+.sparo-workspace-hub-daily-letter-preview__letter-body {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.sparo-workspace-hub-daily-letter-preview__copy {
+  min-width: 0;
+  max-height: 100%;
+  overflow: hidden;
+
+  p {
+    display: -webkit-box;
+    margin: 0;
+    overflow: hidden;
+    color: var(--ds-color-text-secondary);
+    font-family: $daily-letter-serif;
+    font-size: var(--ds-font-size-sm);
+    line-height: 1.72;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+
+    + p {
+      margin-top: 13px;
+    }
+  }
+}
+
+@media (max-width: 540px) {
+  .sparo-workspace-hub-daily-letter-preview__header h2 {
+    font-size: var(--ds-font-size-2xl);
+  }
+
+  .sparo-workspace-hub-daily-letter-preview__letter {
+    padding: 18px 18px 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sparo-workspace-hub-daily-letter-preview {
+    animation: none;
+  }
+}

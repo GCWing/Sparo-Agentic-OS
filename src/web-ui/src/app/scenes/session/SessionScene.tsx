@@ -20,6 +20,8 @@ import AuxPane, { type AuxPaneRef } from './AuxPane';
 
 import {
   RIGHT_PANEL_CONFIG,
+  WIDE_WORKBENCH_RIGHT_PANEL_CONFIG,
+  WIDE_WORKBENCH_PRODUCT_APP_IDS,
   PANEL_COMMON_CONFIG,
   STORAGE_KEYS,
   PanelDisplayMode,
@@ -30,6 +32,13 @@ import {
   savePanelWidth,
   loadPanelWidth,
 } from '../../layout/panelConfig';
+import { useActiveSession } from '@/flow_chat/store/modernFlowChatStore';
+import {
+  isSessionTranscriptLoading,
+  isSessionTranscriptReady,
+} from '@/flow_chat/domain/sessionLoadPhase';
+import { DotMatrixLoader } from '@/design-system';
+import { useCanvasStore } from '@/app/components/panels/content-canvas';
 
 import './SessionScene.scss';
 
@@ -50,6 +59,34 @@ const SessionScene: React.FC<SessionSceneProps> = ({
   const { t } = useTranslation('flow-chat');
   const { state, updateRightPanelWidth, toggleRightPanel } = useApp();
   const { profile } = useSessionProfile();
+  const activeSession = useActiveSession();
+  const [auxPaneReleasedSessionId, setAuxPaneReleasedSessionId] = useState<string | null>(null);
+  const hasBoundProductAppTab = useCanvasStore(state => (
+    [state.primaryGroup, state.secondaryGroup, state.tertiaryGroup].some(group => (
+      group.tabs.some(tab => (
+        tab.content.type === 'product-app-runtime' &&
+        tab.content.metadata?.boundSessionId === surfaceSessionId
+      ))
+    ))
+  ));
+  const productAppId = activeSession?.customMetadata?.productAppRuntime?.appId;
+  const isTranscriptLoading = Boolean(surfaceSessionId) && (
+    activeSession?.sessionId !== surfaceSessionId ||
+    isSessionTranscriptLoading(activeSession)
+  );
+  const transcriptAcceptsInput = Boolean(surfaceSessionId) && (
+    activeSession?.sessionId === surfaceSessionId
+    && isSessionTranscriptReady(activeSession)
+  );
+  useEffect(() => {
+    if (surfaceSessionId && !isTranscriptLoading) {
+      setAuxPaneReleasedSessionId(surfaceSessionId);
+    }
+  }, [isTranscriptLoading, surfaceSessionId]);
+  const auxPaneReleased = !surfaceSessionId || auxPaneReleasedSessionId === surfaceSessionId;
+  const isSessionSurfaceLoading = !auxPaneReleased || (
+    Boolean(productAppId) && !hasBoundProductAppTab
+  );
   const goalSnapshot = useSessionGoalSnapshot(surfaceSessionId);
   // Once the goal is completed the session returns to its normal look: drop the
   // focus frame. The banner stays (neutral) so the result is still visible/clearable.
@@ -59,6 +96,15 @@ const SessionScene: React.FC<SessionSceneProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
 
+  const rightPanelConfig = useMemo(
+    () => (
+      productAppId && WIDE_WORKBENCH_PRODUCT_APP_IDS.has(productAppId)
+        ? WIDE_WORKBENCH_RIGHT_PANEL_CONFIG
+        : RIGHT_PANEL_CONFIG
+    ),
+    [productAppId],
+  );
+
   const [, setLastRightWidth] = useState<number>(() =>
     loadPanelWidth(STORAGE_KEYS.RIGHT_PANEL_LAST_WIDTH, RIGHT_PANEL_CONFIG.COMFORTABLE_DEFAULT)
   );
@@ -67,13 +113,14 @@ const SessionScene: React.FC<SessionSceneProps> = ({
   const resizerRef = useRef<HTMLDivElement>(null);
   const auxPaneElementRef = useRef<HTMLDivElement>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const autoSizedWorkbenchRef = useRef<string | null>(null);
 
-  const currentRightWidth = state.layout.rightPanelWidth || RIGHT_PANEL_CONFIG.COMFORTABLE_DEFAULT;
+  const currentRightWidth = state.layout.rightPanelWidth || rightPanelConfig.COMFORTABLE_DEFAULT;
 
   const rightPanelMode: PanelDisplayMode = useMemo(() => {
     if (state.layout.rightPanelCollapsed) return 'collapsed';
-    return getPanelDisplayMode(currentRightWidth, RIGHT_PANEL_CONFIG);
-  }, [state.layout.rightPanelCollapsed, currentRightWidth]);
+    return getPanelDisplayMode(currentRightWidth, rightPanelConfig);
+  }, [state.layout.rightPanelCollapsed, currentRightWidth, rightPanelConfig]);
 
   // Keep right panel visible when chat is hidden
   useEffect(() => {
@@ -89,11 +136,11 @@ const SessionScene: React.FC<SessionSceneProps> = ({
     const reserved = PANEL_COMMON_CONFIG.RESIZER_WIDTH + PANEL_COMMON_CONFIG.MIN_CENTER_WIDTH;
     const dynamicMax = containerWidth - reserved;
     const maxWidth =
-      dynamicMax < RIGHT_PANEL_CONFIG.COMPACT_WIDTH
-        ? RIGHT_PANEL_CONFIG.MAX_WIDTH
-        : Math.min(RIGHT_PANEL_CONFIG.MAX_WIDTH, dynamicMax);
-    return Math.min(maxWidth, Math.max(RIGHT_PANEL_CONFIG.COMPACT_WIDTH, newWidth));
-  }, []);
+      dynamicMax < rightPanelConfig.COMPACT_WIDTH
+        ? rightPanelConfig.MAX_WIDTH
+        : Math.min(rightPanelConfig.MAX_WIDTH, dynamicMax);
+    return Math.min(maxWidth, Math.max(rightPanelConfig.COMPACT_WIDTH, newWidth));
+  }, [rightPanelConfig]);
 
   const saveAndUpdateRightWidth = useCallback((width: number) => {
     updateRightPanelWidth(width);
@@ -103,9 +150,44 @@ const SessionScene: React.FC<SessionSceneProps> = ({
 
   const handleDoubleClick = useCallback(() => {
     const nextMode = getNextMode(rightPanelMode);
-    const targetWidth = getModeWidth(nextMode, RIGHT_PANEL_CONFIG);
+    const targetWidth = getModeWidth(nextMode, rightPanelConfig);
     saveAndUpdateRightWidth(calculateValidRightWidth(targetWidth));
-  }, [rightPanelMode, calculateValidRightWidth, saveAndUpdateRightWidth]);
+  }, [rightPanelMode, rightPanelConfig, calculateValidRightWidth, saveAndUpdateRightWidth]);
+
+  // Canvas-first Product Apps should enter at a usable workbench width.
+  useEffect(() => {
+    if (!productAppId || !WIDE_WORKBENCH_PRODUCT_APP_IDS.has(productAppId)) {
+      autoSizedWorkbenchRef.current = null;
+      return;
+    }
+    const workbenchKey = `${surfaceSessionId ?? 'active'}:${productAppId}`;
+    if (autoSizedWorkbenchRef.current === workbenchKey) return;
+    autoSizedWorkbenchRef.current = workbenchKey;
+    if ((state.layout.rightPanelWidth || 0) >= WIDE_WORKBENCH_RIGHT_PANEL_CONFIG.COMFORTABLE_DEFAULT) {
+      return;
+    }
+    saveAndUpdateRightWidth(
+      calculateValidRightWidth(WIDE_WORKBENCH_RIGHT_PANEL_CONFIG.COMFORTABLE_DEFAULT),
+    );
+  }, [
+    productAppId,
+    surfaceSessionId,
+    state.layout.rightPanelWidth,
+    calculateValidRightWidth,
+    saveAndUpdateRightWidth,
+  ]);
+
+  useEffect(() => {
+    const handleProductAppPanelMode = (event: Event) => {
+      const detail = (event as CustomEvent<{ appId?: string; mode?: PanelDisplayMode }>).detail;
+      if (!productAppId || detail?.appId !== productAppId) return;
+      if (detail.mode !== 'comfortable' && detail.mode !== 'expanded') return;
+      const targetWidth = getModeWidth(detail.mode, rightPanelConfig);
+      saveAndUpdateRightWidth(calculateValidRightWidth(targetWidth));
+    };
+    window.addEventListener('product-app-request-panel-mode', handleProductAppPanelMode);
+    return () => window.removeEventListener('product-app-request-panel-mode', handleProductAppPanelMode);
+  }, [productAppId, rightPanelConfig, calculateValidRightWidth, saveAndUpdateRightWidth]);
 
   const handleMouseDownResizer = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -140,7 +222,7 @@ const SessionScene: React.FC<SessionSceneProps> = ({
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
 
-      const snapped = getSnappedWidth(lastValidWidth, RIGHT_PANEL_CONFIG, false);
+      const snapped = getSnappedWidth(lastValidWidth, rightPanelConfig, false);
       if (snapped !== lastValidWidth) {
         saveAndUpdateRightWidth(snapped);
       } else {
@@ -153,7 +235,14 @@ const SessionScene: React.FC<SessionSceneProps> = ({
 
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
-  }, [currentRightWidth, calculateValidRightWidth, updateRightPanelWidth, saveAndUpdateRightWidth, state.layout.chatCollapsed]);
+  }, [
+    currentRightWidth,
+    calculateValidRightWidth,
+    updateRightPanelWidth,
+    saveAndUpdateRightWidth,
+    state.layout.chatCollapsed,
+    rightPanelConfig,
+  ]);
 
   // No-animation expansion
   const [isAuxPaneExpandingImmediate, setIsAuxPaneExpandingImmediate] = useState(false);
@@ -235,7 +324,7 @@ const SessionScene: React.FC<SessionSceneProps> = ({
             isDragging={false}
             workspacePath={workspacePath}
             sessionId={surfaceSessionId}
-            showChatInput
+            showChatInput={transcriptAcceptsInput}
           />
         </div>
       )}
@@ -259,8 +348,8 @@ const SessionScene: React.FC<SessionSceneProps> = ({
           aria-orientation="vertical"
           aria-label={t('layout.resizer.rightAriaLabel')}
           aria-valuenow={currentRightWidth}
-          aria-valuemin={RIGHT_PANEL_CONFIG.COMPACT_WIDTH}
-          aria-valuemax={RIGHT_PANEL_CONFIG.MAX_WIDTH}
+          aria-valuemin={rightPanelConfig.COMPACT_WIDTH}
+          aria-valuemax={rightPanelConfig.MAX_WIDTH}
           title={t('layout.resizer.title', { mode: panelModeLabels[rightPanelMode] })}
         >
           <div className="sparo-pane-resizer__line" />
@@ -294,11 +383,24 @@ const SessionScene: React.FC<SessionSceneProps> = ({
         }}
         data-mode={rightPanelMode}
       >
-        <AuxPane
-          ref={auxPaneRef}
-          workspacePath={workspacePath}
-          isSceneActive={isActive}
-        />
+        {auxPaneReleased ? (
+          <AuxPane
+            ref={auxPaneRef}
+            workspacePath={workspacePath}
+            isSceneActive={isActive}
+          />
+        ) : null}
+        {isSessionSurfaceLoading ? (
+          <div
+            className="sparo-session-scene__aux-loading"
+            role="status"
+            aria-live="polite"
+            aria-label={t('session.loadingSurface')}
+          >
+            <DotMatrixLoader size="small" />
+            <span>{t('session.loadingSurface')}</span>
+          </div>
+        ) : null}
       </div>
     </div>
   );
