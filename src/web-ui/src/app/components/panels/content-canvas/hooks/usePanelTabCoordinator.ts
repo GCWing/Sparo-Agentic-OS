@@ -207,7 +207,7 @@ export const usePanelTabCoordinator = (options: UsePanelTabCoordinatorOptions = 
     // Historical chat is the foreground resume path. Heavy sidecars (Product
     // Apps, Excel, App Builder) start only after the transcript has committed,
     // so iframe/runtime boot cannot starve the left conversation's first paint.
-    if (isSessionTranscriptLoading(activeSession)) return;
+    if (isSessionTranscriptLoading({ loadPhase: activeSession.loadPhase })) return;
 
     // Map profile id -> tab title. Keeps the profile free of i18n imports.
     const extra: Record<string, unknown> = {

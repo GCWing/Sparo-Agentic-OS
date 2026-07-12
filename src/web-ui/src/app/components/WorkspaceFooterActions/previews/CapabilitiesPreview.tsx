@@ -95,11 +95,14 @@ const CapabilitiesPreview: React.FC<WorkspaceHubPreviewProps> = ({
 
   const openTools = useCallback(() => onOpenScene('tools'), [onOpenScene]);
   const openSubagents = useCallback(() => onOpenScene('subagents'), [onOpenScene]);
+  const refreshServers = serversResource.refresh;
+  const refreshTools = toolsResource.refresh;
+  const refreshSubagents = subagentsResource.refresh;
   const refreshAll = useCallback(() => {
-    serversResource.refresh();
-    toolsResource.refresh();
-    subagentsResource.refresh();
-  }, [serversResource.refresh, subagentsResource.refresh, toolsResource.refresh]);
+    refreshServers();
+    refreshTools();
+    refreshSubagents();
+  }, [refreshServers, refreshSubagents, refreshTools]);
 
   const initialLoading = executionLoading
     && subagentsResource.loading

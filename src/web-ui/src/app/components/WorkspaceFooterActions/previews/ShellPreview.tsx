@@ -67,13 +67,14 @@ const ShellPreview: React.FC<WorkspaceHubPreviewProps> = ({
     [sessions.data],
   );
   const initialLoading = sessions.loading && !sessions.data;
+  const refreshSessions = sessions.refresh;
 
   useEffect(() => {
     const service = getTerminalService();
     return service.onEvent((event) => {
-      if (event.type === 'ready' || event.type === 'exit') sessions.refresh();
+      if (event.type === 'ready' || event.type === 'exit') refreshSessions();
     });
-  }, [sessions.refresh]);
+  }, [refreshSessions]);
 
   const handleOpenSession = useCallback((session: SessionResponse) => {
     onClose();
