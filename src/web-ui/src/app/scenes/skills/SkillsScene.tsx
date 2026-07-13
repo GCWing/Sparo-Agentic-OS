@@ -129,6 +129,8 @@ const SkillsScene: React.FC = () => {
     typeFilter: installedTypeFilter,
     sourceFilter: installedSourceFilter,
   });
+  const loadInstalledSkills = installed.loadSkills;
+  const resetInstalledForm = installed.resetForm;
   const installedSkillNames = useMemo(
     () => new Set(installed.skills.map(skill => skill.name)),
     [installed.skills],
@@ -145,13 +147,14 @@ const SkillsScene: React.FC = () => {
     installedSkillNames,
     pageSize: 15,
     onInstalledChanged: async () => {
-      await installed.loadSkills(true);
+      await loadInstalledSkills(true);
     },
   });
+  const refreshMarket = market.refresh;
 
   const refetchSkillsScene = useCallback(async () => {
-    await Promise.all([installed.loadSkills(true), market.refresh()]);
-  }, [installed.loadSkills, market.refresh]);
+    await Promise.all([loadInstalledSkills(true), refreshMarket()]);
+  }, [loadInstalledSkills, refreshMarket]);
 
   useGallerySceneAutoRefresh({ sceneId: 'skills', refetch: refetchSkillsScene });
 
@@ -185,9 +188,9 @@ const SkillsScene: React.FC = () => {
   };
 
   const closeAddPackageCard = useCallback(() => {
-    installed.resetForm();
+    resetInstalledForm();
     setAddFormOpen(false);
-  }, [installed.resetForm, setAddFormOpen]);
+  }, [resetInstalledForm, setAddFormOpen]);
 
   useEffect(() => {
     if (!isAddFormOpen) return undefined;

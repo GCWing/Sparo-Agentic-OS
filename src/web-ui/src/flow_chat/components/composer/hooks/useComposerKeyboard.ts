@@ -24,7 +24,6 @@ interface UseComposerKeyboardParams {
   currentDraft: ComposerContextSnapshot;
   restoreDraft: (snapshot: ComposerContextSnapshot) => void;
   hasContent: boolean;
-  inputValue: string;
   setInputValue: (value: string) => void;
   activateInput: () => void;
   focusInputSoon: () => void;
@@ -86,7 +85,6 @@ export function useComposerKeyboard({
   currentDraft,
   restoreDraft,
   hasContent,
-  inputValue,
   setInputValue,
   activateInput,
   focusInputSoon,
@@ -221,7 +219,6 @@ export function useComposerKeyboard({
     hasContent,
     historyIndex,
     inputHistory,
-    inputValue,
     isImeComposingRef,
     moveCommandSelection,
     onBtwShortcutBlocked,

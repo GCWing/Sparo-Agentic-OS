@@ -726,7 +726,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     currentDraft: currentComposerSnapshot,
     restoreDraft: restoreComposerSnapshot,
     hasContent: hasComposerContent(composerDocument) || currentImageCount > 0,
-    inputValue: inputState.value,
     setInputValue: setComposerInputValue,
     activateInput: activateComposerInput,
     focusInputSoon: focusRichTextInputSoon,
@@ -853,7 +852,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         agent;
     }
     return tChatInput(`agentNames.${agent.id}`, { defaultValue: '' }) || agent.name;
-  }, [modeState.available, t]);
+  }, [modeState.available, tChatInput]);
   const selectedAgentLabel = canSwitchAgents && modeState.current !== defaultAgentId
     ? getAgentDisplayName(modeState.current) || modeState.current
     : null;
