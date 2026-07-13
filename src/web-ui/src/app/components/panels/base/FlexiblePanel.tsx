@@ -217,6 +217,9 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
         const markdownWorkspacePath = markdownEditorData.workspacePath || workspacePath;
         const markdownJumpToLine = markdownEditorData.jumpToLine;
         const markdownJumpToColumn = markdownEditorData.jumpToColumn;
+        const markdownOnContentChange = markdownEditorData.onContentChange as
+          | ((content: string, hasChanges: boolean) => void)
+          | undefined;
 
         return (
           <div className="sparo-flexible-panel__markdown-editor">
@@ -231,7 +234,17 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
                 jumpToColumn={markdownJumpToColumn}
                 isActiveTab={isActive}
                 onFileMissingFromDiskChange={onFileMissingFromDiskChange}
-                onContentChange={(_newContent, hasChanges) => {
+                onContentChange={(newContent, hasChanges) => {
+                  markdownOnContentChange?.(newContent, hasChanges);
+                  if (!markdownFilePath && onContentChange) {
+                    onContentChange({
+                      ...content,
+                      data: {
+                        ...markdownEditorData,
+                        initialContent: newContent,
+                      },
+                    });
+                  }
                   if (onDirtyStateChange) {
                     onDirtyStateChange(hasChanges);
                   }

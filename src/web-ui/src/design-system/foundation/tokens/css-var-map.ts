@@ -99,6 +99,7 @@ export function createThemeCssVarMap(theme: ThemeConfig): CssVarMap {
     '--ds-radius-md': tokens.radius.md,
     '--ds-radius-lg': tokens.radius.lg,
     '--ds-radius-xl': tokens.radius.xl,
+    '--ds-radius-2xl': tokens.radius['2xl'],
     '--ds-radius-full': tokens.radius.full,
     '--ds-z-underlay': String(tokens.zIndex.underlay),
     '--ds-z-base': String(tokens.zIndex.base),

@@ -1,6 +1,4 @@
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
-@use '@/design-system/styles/_extended-mixins' as mixins;
-@use '@/flow_chat/styles/flow-chat-style-contract' as flow;
 
 .sparo-chat-input {
   &__agent-boost {
@@ -192,12 +190,12 @@
   }
 
   &__boost-section--agent-motion &__boost-motion-highlight {
-    background: var(--ds-chat-surface-muted);
+    background: var(--ds-popup-menu-row-hover-bg);
   }
 
   &__boost-section--context-motion &__boost-motion-highlight,
   &__boost-submenu-panel--motion > &__boost-motion-highlight {
-    background: var(--ds-chat-surface-hover);
+    background: var(--ds-popup-menu-row-hover-bg);
   }
 
   &__boost-section--motion:hover > &__boost-motion-highlight,
@@ -366,19 +364,21 @@
 
   &__boost-submenu-panel {
     position: relative;
-    min-width: 220px;
-    max-width: 300px;
-    max-height: 280px;
+    width: min(264px, calc(100vw - 24px));
+    max-height: min(440px, calc(100vh - 24px));
     display: flex;
     flex-direction: column;
-    background: var(--ds-chat-surface-elevated);
-    border: 1px solid var(--ds-chat-border);
-    border-radius: 8px;
-    box-shadow: var(--ds-chat-shadow-popover);
-    backdrop-filter: blur(20px) saturate(1.2);
-    -webkit-backdrop-filter: blur(20px) saturate(1.2);
     overflow: hidden;
-    animation: mentionPickerSlideUp 0.16s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  &__boost-submenu-search {
+    flex-shrink: 0;
+    padding: 8px;
+    border-bottom: 1px solid var(--ds-chat-border);
+
+    .search__wrapper {
+      width: 100%;
+    }
   }
 
   &__boost-submenu-loading,
@@ -400,7 +400,7 @@
   &__boost-submenu-list {
     flex: 1;
     min-height: 0;
-    max-height: 210px;
+    max-height: 350px;
     overflow-y: auto;
     padding: var(--sparo-composer-menu-list-padding-y, 2px) 0;
 
@@ -421,8 +421,7 @@
     gap: var(--sparo-composer-menu-row-gap, 8px);
     width: 100%;
     justify-content: flex-start;
-    height: var(--sparo-composer-menu-row-height, 28px);
-    min-height: var(--sparo-composer-menu-row-height, 28px);
+    min-height: 34px;
     padding: 0 var(--sparo-composer-menu-row-padding-x, 10px);
     border: none;
     border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
@@ -442,17 +441,66 @@
     }
   }
 
+  &__boost-submenu-suite {
+    margin: 0 4px 2px;
+  }
+
+  &__boost-submenu-suite-row {
+    display: flex;
+    align-items: stretch;
+    min-width: 0;
+  }
+
+  &__boost-submenu-suite-select.sparo-chat-input__boost-submenu-suite-select {
+    flex: 1;
+    min-width: 0;
+    min-height: 34px;
+    height: 34px;
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 0 6px 0 10px;
+    border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
+    color: var(--ds-chat-text-secondary);
+  }
+
+  &__boost-submenu-suite-toggle {
+    flex: 0 0 auto;
+    align-self: center;
+    min-width: 42px;
+    margin-right: 4px;
+  }
+
+  &__boost-submenu-entry-count {
+    flex: 0 0 auto;
+    min-width: 14px;
+    color: var(--ds-chat-text-muted);
+    font-size: var(--flowchat-font-size-2xs);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  &__boost-submenu-members {
+    position: relative;
+    margin-left: 14px;
+    padding-left: 8px;
+    border-left: 1px solid var(--ds-chat-border);
+  }
+
+  &__boost-submenu-entry--member.sparo-chat-input__boost-submenu-entry--member {
+    padding-left: 8px;
+  }
+
   &__boost-submenu-group-label {
     padding: 7px 10px 3px;
     font-size: var(--flowchat-font-size-2xs);
     font-weight: 600;
     color: var(--ds-chat-text-muted);
-    text-transform: uppercase;
   }
 
   &__boost-submenu-entry-name {
     flex: 1;
     display: block;
+    text-align: left;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -461,8 +509,8 @@
   }
 
   &__boost-submenu-list &__boost-submenu-entry.sparo-chat-input__boost-submenu-entry {
-    height: var(--sparo-composer-menu-row-height, 28px);
-    min-height: var(--sparo-composer-menu-row-height, 28px);
+    height: 34px;
+    min-height: 34px;
     padding: 0 var(--sparo-composer-menu-row-padding-x, 10px);
   }
 
@@ -519,14 +567,4 @@
     }
   }
 
-  @keyframes mentionPickerSlideUp {
-    from {
-      opacity: 0;
-      transform: translateY(8px) scale(0.98);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
-  }
 }

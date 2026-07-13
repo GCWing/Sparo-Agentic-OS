@@ -35,13 +35,10 @@ export function useRichTextTags({
       range.deleteContents();
 
       const tag = createTagElement(context);
-      const space = document.createTextNode(' ');
-
-      range.insertNode(space);
       range.insertNode(tag);
 
-      range.setStartAfter(space);
-      range.setEndAfter(space);
+      range.setStartAfter(tag);
+      range.collapse(true);
       selection.removeAllRanges();
       selection.addRange(range);
 
@@ -50,9 +47,15 @@ export function useRichTextTags({
     }
 
     const tag = createTagElement(context);
-    const space = document.createTextNode(' ');
     editor.appendChild(tag);
-    editor.appendChild(space);
+    const fallbackSelection = window.getSelection();
+    if (fallbackSelection) {
+      const range = document.createRange();
+      range.setStartAfter(tag);
+      range.collapse(true);
+      fallbackSelection.removeAllRanges();
+      fallbackSelection.addRange(range);
+    }
     handleInput();
   }, [createTagElement, editorRef, handleInput]);
 
@@ -70,15 +73,13 @@ export function useRichTextTags({
     if (range) {
       range.deleteContents();
       const tag = createTagElement(context);
-      const space = document.createTextNode(' ');
-      range.insertNode(space);
       range.insertNode(tag);
 
       const selection = window.getSelection();
       if (selection) {
         const newRange = document.createRange();
-        newRange.setStartAfter(space);
-        newRange.setEndAfter(space);
+        newRange.setStartAfter(tag);
+        newRange.collapse(true);
         selection.removeAllRanges();
         selection.addRange(newRange);
       }

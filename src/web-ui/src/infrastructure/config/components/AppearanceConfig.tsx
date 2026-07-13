@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { SunMoon } from 'lucide-react';
 import { Select } from '@/design-system';
 import { FontPreferencePanel } from '@/infrastructure/font-preference';
 import { useTheme, ThemeMetadata, ThemeConfig as ThemeConfigType, SYSTEM_THEME_ID } from '@/infrastructure/theme';
@@ -142,8 +143,6 @@ function AppearanceBasicsSection() {
                     {themeCarouselItems.map((item, index) => {
                       const active = index === selectedThemeIndex;
                       const colors = item.theme?.colors;
-                      const lightColors = item.systemThemes?.[0].colors;
-                      const darkColors = item.systemThemes?.[1].colors;
                       return (
                         <React.Fragment key={item.value}>
                           <button
@@ -159,22 +158,21 @@ function AppearanceBasicsSection() {
                             aria-current={active ? 'true' : undefined}
                             title={item.label}
                             style={{
-                              background: colors?.background.primary,
-                              borderColor: active ? colors?.accent['500'] : colors?.border.base,
+                              background: item.systemThemes ? undefined : colors?.background.primary,
+                              borderColor: item.systemThemes
+                                ? undefined
+                                : active
+                                  ? colors?.accent['500']
+                                  : colors?.border.base,
                             }}
                           >
                             {item.systemThemes ? (
-                              <>
-                                <span
-                                  className="theme-config__theme-carousel-dot-band"
-                                  style={{ background: lightColors?.background.primary }}
-                                />
-                                <span
-                                  className="theme-config__theme-carousel-dot-band"
-                                  style={{ background: darkColors?.background.primary }}
-                                />
-                                <span className="theme-config__theme-carousel-dot-system-mark" />
-                              </>
+                              <SunMoon
+                                className="theme-config__theme-carousel-dot-system-icon"
+                                size={16}
+                                strokeWidth={1.9}
+                                aria-hidden="true"
+                              />
                             ) : (
                               <>
                                 <span
@@ -226,7 +224,8 @@ function SystemThemePreview({ lightTheme, darkTheme }: SystemThemePreviewProps) 
         <ThemePreviewThumbnail theme={darkTheme} />
       </div>
       <div className="theme-system-preview__badge">
-        {t('appearance.systemThemeBadge', { defaultValue: 'System' })}
+        <SunMoon size={12} strokeWidth={1.9} aria-hidden="true" />
+        <span>{t('appearance.systemThemeBadge', { defaultValue: 'System' })}</span>
       </div>
     </div>
   );

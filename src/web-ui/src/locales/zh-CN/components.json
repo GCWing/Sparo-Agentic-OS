@@ -420,28 +420,6 @@
       "custom": "自定义",
       "unknown": "未知"
     },
-    "contextRegistry": {
-      "file": {
-        "name": "文件",
-        "description": "文件系统中的文件"
-      },
-      "directory": {
-        "name": "目录",
-        "description": "文件系统中的目录"
-      },
-      "codeSnippet": {
-        "name": "代码片段",
-        "description": "选中的代码片段"
-      },
-      "image": {
-        "name": "图片",
-        "description": "图片文件（用于多模态理解）"
-      },
-      "webElement": {
-        "name": "网页元素",
-        "description": "浏览器中捕获的 DOM 元素"
-      }
-    },
     "webElement": {
       "from": "来自"
     },

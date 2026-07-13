@@ -1,13 +1,13 @@
-import React, { useMemo, useState } from 'react';
-import { BookOpen, Brain, Folder, Sparkles, UserRound } from 'lucide-react';
-import { Button, IconButton } from '@/design-system';
+import React, { useMemo } from 'react';
 import {
-  backgroundProcessApi,
-} from '@/app/agentic-os/background-process/data/backgroundProcessApi';
-import type {
-  BackgroundProcess,
-  BackgroundProcessStatus,
-} from '@/app/agentic-os/background-process/domain/backgroundProcessTypes';
+  Brain,
+  Database,
+  MessageSquareText,
+  Sparkles,
+} from 'lucide-react';
+import { IconButton } from '@/design-system';
+import { backgroundProcessApi } from '@/app/agentic-os/background-process/data/backgroundProcessApi';
+import type { BackgroundProcess } from '@/app/agentic-os/background-process/domain/backgroundProcessTypes';
 import {
   memoryLibraryAPI,
   type AutoMemoryStatus,
@@ -16,7 +16,6 @@ import {
 } from '@/app/scenes/memory/MemoryLibraryAPI';
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
-import { notificationService } from '@/shared/notification-system';
 import {
   WorkspaceHubPreviewError,
   WorkspaceHubPreviewFrame,
@@ -33,30 +32,69 @@ interface MemoryPreviewData {
   consolidationProcess: BackgroundProcess | null;
   recordsPartial: boolean;
   autoStatusFailed: boolean;
-  consolidationStatusFailed: boolean;
 }
 
-interface MemoryPreviewItem {
-  id: 'user' | 'long-term' | 'workspace';
-  icon: React.ReactNode;
-  title: string;
-  meta: string;
-  updatedAt?: number;
-  unavailableLabel?: string;
-  tone: WorkspaceHubPreviewTone;
+interface MemoryJournalPoint {
+  id: string;
+  content: string;
+  occurredAt: number;
 }
 
-const ACTIVE_PROCESS_STATUSES = new Set<BackgroundProcessStatus>(['queued', 'running']);
+interface MemoryJournalRecordPayload {
+  time?: unknown;
+  content?: unknown;
+}
+
+function isSameLocalDay(timestamp: number, reference: Date): boolean {
+  const value = new Date(timestamp);
+  return value.getFullYear() === reference.getFullYear()
+    && value.getMonth() === reference.getMonth()
+    && value.getDate() === reference.getDate();
+}
+
+function compactMemoryContent(content: string): string {
+  const normalized = content
+    .replace(/^#+\s*/gm, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (normalized.length <= 46) return normalized;
+  return `${normalized.slice(0, 45).trimEnd()}…`;
+}
+
+function parseJournalPoints(records: MemoryRecord[], now: Date): MemoryJournalPoint[] {
+  const points: MemoryJournalPoint[] = [];
+
+  records
+    .filter((record) => record.type === 'memory_log')
+    .forEach((record) => {
+      record.content.split(/\r?\n/).forEach((line, index) => {
+        if (!line.trim()) return;
+        try {
+          const payload = JSON.parse(line) as MemoryJournalRecordPayload;
+          if (typeof payload.time !== 'string' || typeof payload.content !== 'string') return;
+          const occurredAt = Date.parse(payload.time);
+          if (!Number.isFinite(occurredAt) || !isSameLocalDay(occurredAt, now)) return;
+          const content = compactMemoryContent(payload.content);
+          if (!content) return;
+          points.push({
+            id: `${record.id}:${index}`,
+            content,
+            occurredAt,
+          });
+        } catch {
+          // A malformed journal line should not make the whole preview unavailable.
+        }
+      });
+    });
+
+  return points.sort((left, right) => right.occurredAt - left.occurredAt);
+}
 
 function memoryConsolidationSourceCount(process: BackgroundProcess | null): number | null {
   if (!process || process.kind !== 'memory_consolidation') return null;
   const message = process.lastResult?.message?.trim() ?? '';
   const match = /^(\d+)\s+source\(s\)\s+tracked$/i.exec(message);
   return match ? Number(match[1]) : null;
-}
-
-function memoryConsolidationFinishedAt(process: BackgroundProcess | null): number | null {
-  return process?.lastResult?.finishedAt ?? process?.finishedAt ?? null;
 }
 
 const MemoryPreview: React.FC<WorkspaceHubPreviewProps> = ({
@@ -66,7 +104,6 @@ const MemoryPreview: React.FC<WorkspaceHubPreviewProps> = ({
 }) => {
   const { t } = useI18n('common');
   const { workspacePath, workspaceName, hasWorkspace } = useLastUsedWorkspace();
-  const [isConsolidating, setIsConsolidating] = useState(false);
   const key = `workspace-hub:memory:${workspacePath || 'global'}`;
 
   const resource = useHubPreviewResource<MemoryPreviewData>(key, async () => {
@@ -98,26 +135,12 @@ const MemoryPreview: React.FC<WorkspaceHubPreviewProps> = ({
     let records: MemoryRecord[] | null = null;
     let recordsPartial = false;
     if (storageResult.ok) {
-      const spaces: MemorySpace[] = [
-        {
-          scope: 'global',
-          label: 'global',
-          memoryDir: storageResult.value.agenticOsMemoryDir,
-          available: true,
-        },
-        {
-          scope: 'global',
-          label: 'global',
-          memoryDir: storageResult.value.agenticOsHostDir,
-          available: true,
-        },
-        {
-          scope: 'global',
-          label: 'global',
-          memoryDir: storageResult.value.agenticOsWorkspacesOverviewDir,
-          available: true,
-        },
-      ];
+      const spaces: MemorySpace[] = [{
+        scope: 'global',
+        label: 'global',
+        memoryDir: storageResult.value.agenticOsMemoryDir,
+        available: true,
+      }];
       if (workspaceResult.ok && workspaceResult.value) {
         spaces.push({
           scope: 'workspace',
@@ -147,82 +170,22 @@ const MemoryPreview: React.FC<WorkspaceHubPreviewProps> = ({
       ) ?? null,
       recordsPartial,
       autoStatusFailed: !autoStatusResult.ok,
-      consolidationStatusFailed: !processResult.ok,
     };
   });
 
-  const items = useMemo<MemoryPreviewItem[]>(() => {
-    const records = resource.data?.records ?? [];
-    const userRecord = records.find(
-      (record) => record.scope === 'global' && record.type === 'user',
-    );
-    const longTermRecord = records.find(
-      (record) => record.scope === 'global' && record.type === 'memory' && !record.isWorkspaceOverview,
-    );
-    const workspaceRecord = records.find(
-      (record) => record.scope === 'workspace' && record.type === 'memory',
-    );
-
-    return [
-      {
-        id: 'user',
-        icon: <UserRound size={16} />,
-        title: t('nav.menuPanel.hub.preview.memory.items.user.title'),
-        meta: t('nav.menuPanel.hub.preview.memory.items.user.meta'),
-        updatedAt: userRecord?.updatedAt,
-        tone: 'accent',
-      },
-      {
-        id: 'long-term',
-        icon: <BookOpen size={16} />,
-        title: t('nav.menuPanel.hub.preview.memory.items.longTerm.title'),
-        meta: t('nav.menuPanel.hub.preview.memory.items.longTerm.meta'),
-        updatedAt: longTermRecord?.updatedAt,
-        tone: 'accent',
-      },
-      {
-        id: 'workspace',
-        icon: <Folder size={16} />,
-        title: t('nav.menuPanel.hub.preview.memory.items.workspace.title'),
-        meta: t('nav.menuPanel.hub.preview.memory.items.workspace.meta'),
-        updatedAt: workspaceRecord?.updatedAt,
-        unavailableLabel: hasWorkspace
-          ? undefined
-          : t('nav.menuPanel.hub.preview.memory.updated.noWorkspace'),
-        tone: 'neutral',
-      },
-    ];
-  }, [hasWorkspace, resource.data?.records, t]);
-
-  const formatUpdatedAt = (item: MemoryPreviewItem): string => {
-    if (item.unavailableLabel) return item.unavailableLabel;
-    if (!item.updatedAt) return t('nav.menuPanel.hub.preview.memory.updated.unavailable');
-
-    const updated = new Date(item.updatedAt);
-    const now = new Date();
-    const elapsedHours = (now.getTime() - updated.getTime()) / 3_600_000;
-    if (elapsedHours >= 0 && elapsedHours < 1) {
-      return t('nav.menuPanel.hub.preview.memory.updated.today');
-    }
-
-    const hoursAgo = Math.max(1, Math.floor(elapsedHours));
-    if (hoursAgo < 24) {
-      return t('nav.menuPanel.hub.preview.memory.updated.hoursAgo', { count: hoursAgo });
-    }
-
-    return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(updated);
-  };
+  const todayPoints = useMemo(
+    () => parseJournalPoints(resource.data?.records ?? [], new Date()),
+    [resource.data?.records],
+  );
+  const recentPoints = todayPoints.slice(0, 2);
+  const sourceCount = memoryConsolidationSourceCount(
+    resource.data?.consolidationProcess ?? null,
+  );
 
   const autoStatus = resource.data?.autoStatus;
   let statusKey = 'nav.menuPanel.hub.preview.memory.status.ready';
   let statusTone: WorkspaceHubPreviewTone = 'positive';
-  if (resource.loading && !resource.data) {
-    statusKey = 'nav.menuPanel.hub.preview.common.loading';
-    statusTone = 'neutral';
-  } else if (resource.error && !resource.data) {
-    statusKey = 'nav.menuPanel.hub.preview.common.statusUnavailable';
-    statusTone = 'danger';
-  } else if (!autoStatus && resource.data?.autoStatusFailed) {
+  if (!autoStatus && resource.data?.autoStatusFailed) {
     statusKey = 'nav.menuPanel.hub.preview.common.statusUnavailable';
     statusTone = 'danger';
   } else if (autoStatus && !autoStatus.globalEnabled && !autoStatus.workspaceEnabled) {
@@ -233,74 +196,10 @@ const MemoryPreview: React.FC<WorkspaceHubPreviewProps> = ({
     statusTone = 'warning';
   }
 
-  const consolidationProcess = resource.data?.consolidationProcess ?? null;
-  const processActive = Boolean(
-    consolidationProcess && ACTIVE_PROCESS_STATUSES.has(consolidationProcess.status),
-  );
-  const consolidationActive = isConsolidating || processActive;
-  const consolidationFinishedAt = memoryConsolidationFinishedAt(consolidationProcess);
-  const sourceCount = memoryConsolidationSourceCount(consolidationProcess);
-
-  let consolidationStateKey = 'nav.menuPanel.hub.preview.memory.consolidation.state.ready';
-  let consolidationStateClass = 'is-ready';
-  if (consolidationActive) {
-    consolidationStateKey = 'nav.menuPanel.hub.preview.memory.consolidation.state.running';
-    consolidationStateClass = 'is-running';
-  } else if (consolidationProcess?.status === 'failed') {
-    consolidationStateKey = 'nav.menuPanel.hub.preview.memory.consolidation.state.failed';
-    consolidationStateClass = 'is-failed';
-  } else if (consolidationProcess?.status === 'disabled') {
-    consolidationStateKey = 'nav.menuPanel.hub.preview.memory.consolidation.state.disabled';
-    consolidationStateClass = 'is-disabled';
-  } else if (!consolidationFinishedAt) {
-    consolidationStateKey = 'nav.menuPanel.hub.preview.memory.consolidation.state.notRun';
-    consolidationStateClass = 'is-idle';
-  }
-
-  const consolidationMeta = (() => {
-    if (resource.data?.consolidationStatusFailed) {
-      return t('nav.menuPanel.hub.preview.memory.consolidation.statusUnavailable');
-    }
-    if (consolidationActive) {
-      return t('nav.menuPanel.hub.preview.memory.consolidation.runningMeta');
-    }
-    if (!consolidationFinishedAt) {
-      return t('nav.menuPanel.hub.preview.memory.consolidation.notRunMeta');
-    }
-
-    const time = new Intl.DateTimeFormat(undefined, {
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(consolidationFinishedAt);
-    return sourceCount === null
-      ? t('nav.menuPanel.hub.preview.memory.consolidation.lastRun', { time })
-      : t('nav.menuPanel.hub.preview.memory.consolidation.summary', { count: sourceCount, time });
-  })();
-
-  const runConsolidation = async () => {
-    setIsConsolidating(true);
-    try {
-      const response = await backgroundProcessApi.runProcess('memory_consolidation');
-      if (response.started) {
-        notificationService.success(
-          t('nav.menuPanel.hub.preview.memory.consolidation.messages.started'),
-          { duration: 2500 },
-        );
-      } else {
-        notificationService.info(
-          t('nav.menuPanel.hub.preview.memory.consolidation.messages.notNeeded'),
-          { duration: 2500 },
-        );
-      }
-      await resource.refresh();
-    } catch {
-      notificationService.error(
-        t('nav.menuPanel.hub.preview.memory.consolidation.messages.failed'),
-      );
-    } finally {
-      setIsConsolidating(false);
-    }
-  };
+  const formatPointTime = (timestamp: number): string => new Intl.DateTimeFormat(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(timestamp);
 
   return (
     <WorkspaceHubPreviewFrame
@@ -323,7 +222,7 @@ const MemoryPreview: React.FC<WorkspaceHubPreviewProps> = ({
     >
       {resource.loading && !resource.data ? (
         <div className="sparo-workspace-hub-preview__wide">
-          <WorkspaceHubPreviewLoading rows={3} />
+          <WorkspaceHubPreviewLoading rows={4} />
         </div>
       ) : resource.error || !resource.data ? (
         <div className="sparo-workspace-hub-preview__wide">
@@ -335,68 +234,57 @@ const MemoryPreview: React.FC<WorkspaceHubPreviewProps> = ({
         </div>
       ) : (
         <div className="sparo-workspace-hub-preview__wide sparo-workspace-hub-memory-preview__body">
-          <div className={`sparo-workspace-hub-memory-preview__auto-status is-${statusTone}`}>
-            <span aria-hidden="true" />
-            {t(statusKey)}
-            {resource.data.recordsPartial && (
-              <small>{t('nav.menuPanel.hub.preview.common.partialData')}</small>
-            )}
-          </div>
-
-          {resource.data.records === null ? (
-            <WorkspaceHubPreviewError
-              message={t('nav.menuPanel.hub.preview.memory.errors.records')}
-              retryLabel={t('nav.menuPanel.hub.preview.common.retry')}
-              onRetry={resource.refresh}
-            />
-          ) : (
-            <div
-              className="sparo-workspace-hub-memory-preview__constellation"
-              role="list"
-              aria-label={t('nav.menuPanel.hub.preview.memory.sections.current')}
-            >
-              {items.map((item) => (
-                <div
-                  key={item.id}
-                  role="listitem"
-                  className={`sparo-workspace-hub-memory-preview__memory-node is-${item.tone}`}
-                  aria-label={`${item.title}, ${item.meta}, ${formatUpdatedAt(item)}`}
-                >
-                  <span className="sparo-workspace-hub-memory-preview__memory-node-icon" aria-hidden="true">
-                    {item.icon}
-                  </span>
-                  <strong>{item.title}</strong>
-                  <span>{formatUpdatedAt(item)}</span>
-                </div>
-              ))}
+          <section className="sparo-workspace-hub-memory-preview__growth" aria-labelledby="memory-growth-title">
+            <h3 id="memory-growth-title">
+              {t('nav.menuPanel.hub.preview.memory.growth.title')}
+            </h3>
+            <div className="sparo-workspace-hub-memory-preview__metric">
+              <strong>{todayPoints.length}</strong>
+              <span>{t('nav.menuPanel.hub.preview.memory.growth.unit')}</span>
             </div>
-          )}
-
-          <section
-            className={`sparo-workspace-hub-memory-preview__consolidation ${consolidationStateClass}`}
-            aria-label={t('nav.menuPanel.hub.preview.memory.consolidation.ariaLabel')}
-            aria-live="polite"
-          >
-            <span className="sparo-workspace-hub-memory-preview__consolidation-icon" aria-hidden="true">
-              <Sparkles size={17} />
-            </span>
-            <span className="sparo-workspace-hub-memory-preview__consolidation-copy">
-              <strong>{t(consolidationStateKey)}</strong>
-              <span>{consolidationMeta}</span>
-            </span>
-            <Button
-              variant="ghost"
-              size="small"
-              shape="pill"
-              isLoading={consolidationActive}
-              loadingLabel={t('nav.menuPanel.hub.preview.memory.consolidation.actions.running')}
-              disabled={consolidationProcess?.status === 'disabled'}
-              onClick={() => void runConsolidation()}
-            >
-              <Sparkles size={14} aria-hidden="true" />
-              {t('nav.menuPanel.hub.preview.memory.consolidation.actions.run')}
-            </Button>
+            <p>{t('nav.menuPanel.hub.preview.memory.growth.caption')}</p>
           </section>
+
+          <section className="sparo-workspace-hub-memory-preview__recent" aria-label={t('nav.menuPanel.hub.preview.memory.growth.recent')}>
+            <span className="sparo-workspace-hub-memory-preview__section-label">
+              {t('nav.menuPanel.hub.preview.memory.growth.recent')}
+              {resource.data.recordsPartial && (
+                <small>{t('nav.menuPanel.hub.preview.common.partialData')}</small>
+              )}
+            </span>
+            {recentPoints.length > 0 ? (
+              <div role="list" className="sparo-workspace-hub-memory-preview__point-list">
+                {recentPoints.map((point, index) => (
+                  <div key={point.id} role="listitem" className="sparo-workspace-hub-memory-preview__point">
+                    <span aria-hidden="true">
+                      {index === 0 ? <MessageSquareText size={15} /> : <Sparkles size={15} />}
+                    </span>
+                    <strong>{point.content}</strong>
+                    <time dateTime={new Date(point.occurredAt).toISOString()}>
+                      {formatPointTime(point.occurredAt)}
+                    </time>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="sparo-workspace-hub-memory-preview__empty">
+                {t('nav.menuPanel.hub.preview.memory.growth.empty')}
+              </p>
+            )}
+          </section>
+
+          <div className="sparo-workspace-hub-memory-preview__persistence">
+            <Database size={17} aria-hidden="true" />
+            <span>
+              {sourceCount === null
+                ? t('nav.menuPanel.hub.preview.memory.growth.persistencePending')
+                : t('nav.menuPanel.hub.preview.memory.growth.persistence', { count: sourceCount })}
+            </span>
+            <span className={`sparo-workspace-hub-memory-preview__auto-status is-${statusTone}`}>
+              <span aria-hidden="true" />
+              {t(statusKey)}
+            </span>
+          </div>
         </div>
       )}
     </WorkspaceHubPreviewFrame>

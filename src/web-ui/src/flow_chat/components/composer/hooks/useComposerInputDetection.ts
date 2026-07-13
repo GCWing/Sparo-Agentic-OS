@@ -1,6 +1,8 @@
 import { useCallback } from 'react';
 import type { Dispatch, MutableRefObject } from 'react';
 import type { ContextItem } from '../../../../shared/types/context';
+import type { ComposerDocument } from '../../../../shared/types/composer';
+import { getComposerText } from '../../../../shared/types/composer';
 import type { InputAction } from '../../../reducers/inputReducer';
 import type { SessionDerivedState } from '../../../state-machine/types';
 import {
@@ -15,7 +17,7 @@ export function useComposerInputDetection({
   inputIsActive,
   inputValueRef,
   isImeComposingRef,
-  prunePendingLargePastes,
+  setDocument,
   removeContext,
   setInputDetection,
   setQueuedInput,
@@ -27,13 +29,14 @@ export function useComposerInputDetection({
   inputIsActive: boolean;
   inputValueRef: MutableRefObject<string>;
   isImeComposingRef: MutableRefObject<boolean>;
-  prunePendingLargePastes: (text: string) => void;
+  setDocument: (document: ComposerDocument) => void;
   removeContext: (id: string) => void;
   setInputDetection: (detection: ComposerInputDetection) => void;
   setQueuedInput: (value: string | null) => void;
   shouldQueueDraft: (text: string) => boolean;
 }) {
-  return useCallback((text: string, activeContexts: ContextItem[]) => {
+  return useCallback((document: ComposerDocument, activeContexts: ContextItem[]) => {
+    const text = getComposerText(document);
     if (!inputIsActive && text.length > 0) {
       dispatchInput({ type: 'ACTIVATE' });
     }
@@ -46,7 +49,7 @@ export function useComposerInputDetection({
       }
     });
 
-    prunePendingLargePastes(text);
+    setDocument(document);
     dispatchInput({ type: 'SET_VALUE', payload: text });
     inputValueRef.current = text;
 
@@ -67,7 +70,7 @@ export function useComposerInputDetection({
     inputIsActive,
     inputValueRef,
     isImeComposingRef,
-    prunePendingLargePastes,
+    setDocument,
     removeContext,
     setInputDetection,
     setQueuedInput,

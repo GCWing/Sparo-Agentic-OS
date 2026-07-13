@@ -16,7 +16,7 @@ import { getProviderDisplayName } from '@/infrastructure/config/services/modelCo
 import { getEffectiveReasoningMode, isReasoningVisiblyEnabled } from '@/infrastructure/config/utils/reasoning';
 import { globalEventBus } from '@/infrastructure/event-bus';
 import type { AIModelConfig } from '@/infrastructure/config/types';
-import { Button, Tooltip } from '@/design-system';
+import { Button, PopupMenu, Tooltip } from '@/design-system';
 import { FlowChatStore } from '../store/FlowChatStore';
 import { flowChatManager } from '../services/FlowChatManager';
 import { createLogger } from '@/shared/utils/logger';
@@ -346,6 +346,8 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
           variant="ghost"
           size="small"
           aria-label={tooltipContent}
+          aria-haspopup="menu"
+          aria-expanded={dropdownOpen}
           className={`sparo-model-selector__trigger ${dropdownOpen ? 'sparo-model-selector__trigger--open' : ''}`}
           onClick={() => setDropdownOpen(!dropdownOpen)}
           disabled={loading}
@@ -358,8 +360,9 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
       </Tooltip>
 
       {dropdownOpen && (
-        <div
+        <PopupMenu
           ref={modelHover.surfaceRef}
+          padding="none"
           className="sparo-model-selector__dropdown"
           {...modelHover.getSurfaceHandlers('.sparo-model-selector__option')}
         >
@@ -389,6 +392,8 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                   type="button"
                   variant="ghost"
                   size="small"
+                  role="menuitemradio"
+                  aria-checked={currentAgentlId === 'primary'}
                   className={`sparo-model-selector__option sparo-model-selector__option--special ${currentAgentlId === 'primary' ? 'sparo-model-selector__option--selected' : ''}`}
                   {...modelHover.getItemHandlers()}
                   onClick={() => { void handleSelectModel('primary'); }}
@@ -418,6 +423,8 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                   type="button"
                   variant="ghost"
                   size="small"
+                  role="menuitemradio"
+                  aria-checked={currentAgentlId === 'fast'}
                   className={`sparo-model-selector__option sparo-model-selector__option--special ${currentAgentlId === 'fast' ? 'sparo-model-selector__option--selected' : ''}`}
                   {...modelHover.getItemHandlers()}
                   onClick={() => { void handleSelectModel('fast'); }}
@@ -445,6 +452,8 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                     type="button"
                     variant="ghost"
                     size="small"
+                    role="menuitemradio"
+                    aria-checked={isSelected}
                     className={`sparo-model-selector__option ${isSelected ? 'sparo-model-selector__option--selected' : ''}`}
                     {...modelHover.getItemHandlers()}
                     onClick={() => { void handleSelectModel(model.id); }}
@@ -465,7 +474,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
               );
             })}
           </div>
-        </div>
+        </PopupMenu>
       )}
     </div>
   );

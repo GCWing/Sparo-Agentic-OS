@@ -1,0 +1,78 @@
+@use '../../foundation/tokens/tokens.scss' as ds;
+
+.ds-floating-card {
+  @include ds.ds-floating-surface;
+
+  position: relative;
+  isolation: isolate;
+  color: var(--ds-color-text-secondary, var(--color-text-secondary));
+  animation: ds-floating-card-enter 180ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  &:focus {
+    outline: none;
+  }
+
+  &--padding-compact {
+    padding: var(--ds-space-3, 12px);
+  }
+
+  &--padding-default {
+    padding: var(--ds-space-4, 16px);
+  }
+
+  &--padding-spacious {
+    padding: var(--ds-space-5, 20px);
+  }
+
+  &--dismissible {
+    padding-inline-end: calc(var(--ds-space-4, 16px) + 26px);
+  }
+
+  &__action.icon-btn {
+    color: var(--ds-color-text-muted, var(--color-text-muted));
+    background: var(--ds-color-element-soft, var(--element-bg-soft));
+    border: 1px solid color-mix(in srgb, var(--ds-color-border-base) 72%, transparent);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ds-color-text-primary) 5%, transparent);
+
+    &:hover:not(:disabled) {
+      color: var(--ds-color-text-primary, var(--color-text-primary));
+      background: var(--ds-color-element-medium, var(--element-bg-medium));
+      border-color: var(--ds-color-border-base, var(--border-base));
+    }
+  }
+
+  &__dismiss.icon-btn {
+    position: absolute;
+    inset-block-start: var(--ds-space-2, 8px);
+    inset-inline-end: var(--ds-space-2, 8px);
+    z-index: var(--ds-z-local, 1);
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+
+    &:hover:not(:disabled),
+    &:focus-visible {
+      background: var(--ds-color-element-soft, var(--element-bg-soft));
+      border-color: transparent;
+      box-shadow: none;
+    }
+  }
+}
+
+@keyframes ds-floating-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-floating-card {
+    animation: none;
+  }
+}

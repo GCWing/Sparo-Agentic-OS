@@ -3,6 +3,7 @@ import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from 'reac
 import type { TFunction } from 'i18next';
 import { notificationService } from '@/shared/notification-system';
 import type { ContextItem } from '../../../../shared/types/context';
+import type { ComposerContextSnapshot } from '../../../../shared/types/composer';
 import { CHAT_INPUT_CONFIG } from '../../../constants/chatInputConfig';
 import type { InputAction } from '../../../reducers/inputReducer';
 import type { RichTextInputHandle } from '../../RichTextInput';
@@ -15,6 +16,9 @@ export function useComposerInputActions({
   inputValueRef,
   isBtwSession,
   richTextInputRef,
+  replaceDraftText,
+  clearDraft,
+  addContext,
   setHistoryIndex,
   setSavedDraft,
   t,
@@ -26,8 +30,11 @@ export function useComposerInputActions({
   inputValueRef: MutableRefObject<string>;
   isBtwSession: boolean;
   richTextInputRef: RefObject<RichTextInputHandle | null>;
+  replaceDraftText: (text: string) => void;
+  clearDraft: () => void;
+  addContext: (context: ContextItem) => void;
   setHistoryIndex: Dispatch<SetStateAction<number>>;
-  setSavedDraft: Dispatch<SetStateAction<string>>;
+  setSavedDraft: Dispatch<SetStateAction<ComposerContextSnapshot | null>>;
   t: TFunction<'flow-chat'>;
 }) {
   const focusRichTextInputSoon = useCallback(() => {
@@ -37,22 +44,24 @@ export function useComposerInputActions({
   }, [richTextInputRef]);
 
   const setComposerInputValue = useCallback((value: string) => {
+    replaceDraftText(value);
     dispatchInput({ type: 'SET_VALUE', payload: value });
     inputValueRef.current = value;
-  }, [dispatchInput, inputValueRef]);
+  }, [dispatchInput, inputValueRef, replaceDraftText]);
 
   const activateComposerInput = useCallback(() => {
     dispatchInput({ type: 'ACTIVATE' });
   }, [dispatchInput]);
 
   const clearComposerInput = useCallback(() => {
+    clearDraft();
     dispatchInput({ type: 'CLEAR_VALUE' });
     inputValueRef.current = '';
-  }, [dispatchInput, inputValueRef]);
+  }, [clearDraft, dispatchInput, inputValueRef]);
 
   const resetHistoryDraft = useCallback(() => {
     setHistoryIndex(-1);
-    setSavedDraft('');
+    setSavedDraft(null);
   }, [setHistoryIndex, setSavedDraft]);
 
   const isBtwShortcutBlocked = useCallback(() => {
@@ -89,13 +98,14 @@ export function useComposerInputActions({
       notificationService.warning(t('input.maxImagesWarning', { count: CHAT_INPUT_CONFIG.image.maxCount }), { duration: 3000 });
       return;
     }
+    addContext(context);
     if (context.type !== 'image') {
       richTextInputRef.current?.insertTag(context);
     }
     if (!inputIsActive) {
       dispatchInput({ type: 'ACTIVATE' });
     }
-  }, [currentImageCount, dispatchInput, inputIsActive, richTextInputRef, t]);
+  }, [addContext, currentImageCount, dispatchInput, inputIsActive, richTextInputRef, t]);
 
   return {
     activateComposerInput,

@@ -43,7 +43,8 @@
     min-width: 24px;
 
     &--recording {
-      min-width: 0;
+      min-width: 270px;
+      flex-shrink: 0;
     }
   }
 
@@ -67,28 +68,66 @@
   &__voice-pill {
     display: inline-flex;
     align-items: center;
-    width: clamp(156px, 22vw, 224px);
-    height: 34px;
-    min-width: 0;
-    padding: 0 4px 0 14px;
-    gap: 8px;
-    border: 1px solid color-mix(in srgb, var(--ds-chat-danger) 72%, transparent);
+    width: clamp(270px, 27vw, 320px);
+    max-width: 100%;
+    height: 32px;
+    min-width: 270px;
+    padding: 0 2px 0 9px;
+    gap: 5px;
+    border: 1px solid color-mix(in srgb, var(--ds-chat-danger) 76%, transparent);
     border-radius: var(--ds-radius-full);
-    background: color-mix(in srgb, var(--ds-color-bg-panel) 94%, var(--ds-chat-surface-elevated));
-    box-shadow: 0 1px 3px color-mix(in srgb, var(--ds-chat-danger) 13%, transparent);
+    background: color-mix(in srgb, var(--ds-color-bg-panel) 96%, var(--ds-chat-surface-elevated));
+    box-shadow:
+      0 2px 8px color-mix(in srgb, var(--ds-chat-danger) 10%, transparent),
+      inset 0 1px 0 color-mix(in srgb, var(--ds-color-bg-panel) 80%, transparent);
+    animation: sparo-voice-pill-in 220ms cubic-bezier(0.18, 0.9, 0.3, 1.18) both;
+  }
+
+  &__voice-pill-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 12px;
+    height: 12px;
+    flex: 0 0 12px;
+    color: var(--ds-chat-danger);
+  }
+
+  &__voice-pill-recording-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: var(--ds-radius-full);
+    background: var(--ds-chat-danger);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ds-chat-danger) 9%, transparent);
+    animation: sparo-voice-recording-dot 1.6s ease-in-out infinite;
+  }
+
+  &__voice-pill-time {
+    min-width: 36px;
+    color: var(--ds-color-text-primary);
+    font-size: 12px;
+    font-weight: 550;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.01em;
+    line-height: 1;
   }
 
   &__voice-pill-timeline {
+    position: relative;
     display: grid;
-    grid-template-columns: repeat(22, minmax(1px, 1fr));
+    grid-template-columns: repeat(32, minmax(1px, 1fr));
     align-items: center;
     flex: 1 1 auto;
-    min-width: 72px;
-    height: 20px;
+    min-width: 78px;
+    height: 18px;
     gap: 2px;
     overflow: hidden;
-    color: color-mix(in srgb, var(--ds-chat-danger) 58%, var(--ds-chat-text-muted));
+    color: color-mix(in srgb, var(--ds-chat-danger) 74%, var(--ds-chat-text-secondary));
     pointer-events: none;
+
+    &--paused {
+      opacity: 0.58;
+    }
   }
 
   &__voice-pill-timeline-bar {
@@ -97,38 +136,84 @@
     height: 18px;
     border-radius: var(--ds-radius-full);
     background: currentColor;
-    opacity: 0.78;
-    transform: scaleY(0.04);
+    transform: scaleY(0.12);
     transform-origin: center;
     transition:
       transform 72ms linear,
       opacity 72ms linear;
   }
 
+  &__voice-pill-divider {
+    width: 1px;
+    height: 16px;
+    flex: 0 0 1px;
+    background: var(--ds-color-border-subtle);
+  }
+
   &__voice-pill-action.icon-btn {
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    min-height: 24px;
+    border: none;
+    background: transparent;
+    color: var(--ds-chat-text-muted);
+    box-shadow: none;
+    flex-shrink: 0;
+    transition:
+      color 150ms ease,
+      background-color 150ms ease,
+      transform 180ms cubic-bezier(0.18, 0.9, 0.3, 1.24);
+
+    &:not(:disabled):hover {
+      border: none;
+      background: color-mix(in srgb, var(--ds-chat-danger) 9%, transparent);
+      color: var(--ds-color-text-primary);
+      transform: scale(1.08);
+    }
+
+    &:active:not(:disabled) {
+      transform: scale(0.9);
+    }
+
+    &.sparo-chat-input__voice-pill-action--transcribe {
+      color: color-mix(in srgb, var(--ds-chat-danger) 76%, var(--ds-chat-text-secondary));
+    }
+  }
+
+  &__voice-pill-send.icon-btn {
     width: 28px;
     height: 28px;
     min-width: 28px;
     min-height: 28px;
-    border: 1px solid var(--ds-color-border-subtle);
-    background: color-mix(in srgb, var(--ds-color-bg-panel) 90%, var(--ds-chat-surface-elevated));
-    color: var(--ds-chat-text-muted);
-    box-shadow: none;
-    flex-shrink: 0;
+    border: none;
+    border-radius: var(--ds-radius-full);
+    background: var(--ds-chat-danger);
+    color: var(--ds-color-on-danger, white);
+    box-shadow: 0 2px 6px color-mix(in srgb, var(--ds-chat-danger) 22%, transparent);
+    flex: 0 0 28px;
+    transition:
+      background-color 150ms ease,
+      box-shadow 150ms ease,
+      transform 190ms cubic-bezier(0.18, 0.9, 0.3, 1.28);
 
     &:not(:disabled):hover {
-      border-color: color-mix(in srgb, var(--ds-chat-danger) 34%, var(--ds-color-border-subtle));
-      background: color-mix(in srgb, var(--ds-chat-danger) 8%, var(--ds-color-bg-panel));
-      color: var(--ds-color-text-primary);
+      border: none;
+      background: color-mix(in srgb, var(--ds-chat-danger) 88%, var(--ds-color-text-primary));
+      color: var(--ds-color-on-danger, white);
+      box-shadow: 0 3px 8px color-mix(in srgb, var(--ds-chat-danger) 26%, transparent);
       transform: none;
     }
 
     &:active:not(:disabled) {
-      transform: scale(0.96);
+      transform: scale(0.9);
     }
 
-    &.sparo-chat-input__voice-pill-action--confirm {
-      color: color-mix(in srgb, var(--ds-chat-danger) 76%, var(--ds-chat-text-secondary));
+    &:disabled {
+      border: none;
+      background: var(--ds-chat-danger);
+      color: var(--ds-color-on-danger, white);
+      opacity: 0.58;
     }
   }
   
@@ -227,5 +312,29 @@
 @keyframes sparo-voice-input-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes sparo-voice-pill-in {
+  from {
+    opacity: 0;
+    transform: scaleX(0.94) scaleY(0.88);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes sparo-voice-recording-dot {
+  0%, 100% {
+    transform: scale(0.92);
+    opacity: 0.76;
+  }
+
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
   }
 }

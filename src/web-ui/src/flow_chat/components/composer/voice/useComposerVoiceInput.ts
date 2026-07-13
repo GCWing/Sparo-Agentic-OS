@@ -23,6 +23,7 @@ import {
 const log = createLogger('ComposerVoiceInput');
 
 type VoiceInputPhase = 'idle' | 'preparing' | 'recording' | 'transcribing';
+export type VoiceInputCompletionMode = 'transcribe' | 'send';
 const STARTUP_AUDIO_BUFFER_LIMIT_SECONDS = 5;
 const RECORDING_CHUNK_DURATION_MS = 1000;
 
@@ -30,19 +31,23 @@ export interface ComposerVoiceInputController {
   enabled: boolean;
   disabled: boolean;
   phase: VoiceInputPhase;
+  completionMode: VoiceInputCompletionMode | null;
   audioLevel: number;
   tooltip: string;
   cancelTooltip: string;
-  confirmTooltip: string;
+  transcribeTooltip: string;
+  sendTooltip: string;
   toggle: () => void;
   cancel: () => void;
-  confirm: () => void;
+  transcribe: () => void;
+  transcribeAndSend: () => void;
 }
 
 export interface UseComposerVoiceInputOptions {
   activateInput: () => void;
   focusInputSoon: () => void;
-  insertText: (text: string) => void;
+  insertText: (text: string) => boolean;
+  submitText: () => Promise<void>;
 }
 
 function isMediaCaptureSupported(): boolean {
@@ -74,6 +79,7 @@ export function useComposerVoiceInput({
   activateInput,
   focusInputSoon,
   insertText,
+  submitText,
 }: UseComposerVoiceInputOptions): ComposerVoiceInputController {
   const { t } = useTranslation('flow-chat');
   const [settings, setSettings] = useState<VoiceInputSettings>(
@@ -81,6 +87,7 @@ export function useComposerVoiceInput({
   );
   const [modelInstalled, setModelInstalled] = useState<boolean | null>(null);
   const [phase, setPhase] = useState<VoiceInputPhase>('idle');
+  const [completionMode, setCompletionMode] = useState<VoiceInputCompletionMode | null>(null);
   const [audioLevel, setAudioLevel] = useState(0);
   const sessionRef = useRef<SpeechInputSession | null>(null);
   const sessionPromiseRef = useRef<Promise<SpeechInputSession> | null>(null);
@@ -267,6 +274,7 @@ export function useComposerVoiceInput({
     bufferedSecondsRef.current = 0;
     latestAudioLevelRef.current = 0;
     setAudioLevel(0);
+    setCompletionMode(null);
     setPhase('idle');
 
     if (recorder) {
@@ -305,7 +313,7 @@ export function useComposerVoiceInput({
     };
   }, [cancelRecording]);
 
-  const stopAndTranscribe = useCallback(async () => {
+  const stopAndTranscribe = useCallback(async (mode: VoiceInputCompletionMode) => {
     let session = sessionRef.current;
     const sessionPromise = sessionPromiseRef.current;
     const recorder = recorderRef.current;
@@ -314,6 +322,7 @@ export function useComposerVoiceInput({
       return;
     }
 
+    setCompletionMode(mode);
     setPhase('transcribing');
     latestAudioLevelRef.current = 0;
     setAudioLevel(0);
@@ -336,8 +345,12 @@ export function useComposerVoiceInput({
       const text = result.text.trim();
       if (text) {
         activateInput();
-        focusInputSoon();
-        insertText(text);
+        const inserted = insertText(text);
+        if (mode === 'send' && inserted) {
+          await submitText();
+        } else {
+          focusInputSoon();
+        }
       } else {
         notificationService.info(t('input.voiceInput.empty'));
       }
@@ -365,9 +378,10 @@ export function useComposerVoiceInput({
       pendingAppendRef.current = Promise.resolve();
       bufferedChunksRef.current = [];
       bufferedSecondsRef.current = 0;
+      setCompletionMode(null);
       setPhase('idle');
     }
-  }, [activateInput, attachSession, focusInputSoon, insertText, t]);
+  }, [activateInput, attachSession, focusInputSoon, insertText, submitText, t]);
 
   const startRecording = useCallback(async () => {
     if (!settings.enabled) {
@@ -380,6 +394,7 @@ export function useComposerVoiceInput({
     }
 
     setPhase('preparing');
+    setCompletionMode(null);
     latestAudioLevelRef.current = 0;
     setAudioLevel(0);
     const recordingId = activeRecordingIdRef.current + 1;
@@ -515,7 +530,7 @@ export function useComposerVoiceInput({
 
   const toggle = useCallback(() => {
     if (phase === 'recording') {
-      void stopAndTranscribe();
+      void stopAndTranscribe('transcribe');
       return;
     }
     if (phase !== 'idle') {
@@ -528,8 +543,12 @@ export function useComposerVoiceInput({
     void cancelRecording();
   }, [cancelRecording]);
 
-  const confirm = useCallback(() => {
-    void stopAndTranscribe();
+  const transcribe = useCallback(() => {
+    void stopAndTranscribe('transcribe');
+  }, [stopAndTranscribe]);
+
+  const transcribeAndSend = useCallback(() => {
+    void stopAndTranscribe('send');
   }, [stopAndTranscribe]);
 
   useEffect(() => {
@@ -563,12 +582,15 @@ export function useComposerVoiceInput({
     enabled: settings.enabled,
     disabled,
     phase,
+    completionMode,
     audioLevel,
     tooltip,
     cancelTooltip: t('input.cancelShortcut'),
-    confirmTooltip: t('input.voiceInput.stop'),
+    transcribeTooltip: t('input.voiceInput.transcribeOnly'),
+    sendTooltip: t('input.voiceInput.transcribeAndSend'),
     toggle,
     cancel,
-    confirm,
+    transcribe,
+    transcribeAndSend,
   };
 }

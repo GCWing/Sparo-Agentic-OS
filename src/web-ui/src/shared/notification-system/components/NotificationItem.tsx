@@ -1,8 +1,8 @@
  
 
 import React from 'react';
-import { X, CheckCircle, XCircle, AlertTriangle, Info } from 'lucide-react';
-import { Button, IconButton } from '@/design-system';
+import { CheckCircle, XCircle, AlertTriangle, Info } from 'lucide-react';
+import { Button, FloatingCard } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { Notification } from '../types';
 import { notificationService } from '../services/NotificationService';
@@ -46,8 +46,12 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({ notification
   };
 
   return (
-    <div
+    <FloatingCard
       className={`notification-item notification-item--${type}`}
+      padding="compact"
+      onDismiss={closable ? handleClose : undefined}
+      dismissLabel={t('actions.close')}
+      dismissTooltip={t('actions.close')}
       role={type === 'error' ? 'alert' : 'status'}
       aria-live={type === 'error' ? 'assertive' : 'polite'}
     >
@@ -80,19 +84,7 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({ notification
       </div>
 
       
-      {closable && (
-        <IconButton
-          className="notification-item__close"
-          onClick={handleClose}
-          aria-label={t('actions.close')}
-          tooltip={t('actions.close')}
-          size="xs"
-          variant="ghost"
-        >
-          <X size={14} />
-        </IconButton>
-      )}
-    </div>
+    </FloatingCard>
   );
 };
 

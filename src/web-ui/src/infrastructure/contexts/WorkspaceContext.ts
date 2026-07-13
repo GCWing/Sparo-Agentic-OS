@@ -1,5 +1,5 @@
  
-import { createContext, useContext, useEffect } from 'react';
+import { createContext, useContext, useEffect, type Context } from 'react';
 import { workspaceManager, WorkspaceState, WorkspaceEvent } from '../services/business/workspaceManager';
 import { WorkspaceInfo } from '../../shared/types';
 
@@ -33,7 +33,20 @@ export interface WorkspaceContextValue extends WorkspaceState {
   workspacePath: string;
 }
 
-const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
+const workspaceContextGlobal = globalThis as typeof globalThis & {
+  __sparoWorkspaceContext?: Context<WorkspaceContextValue | null>;
+};
+
+// Keep the context identity stable while Vite replaces modules in development.
+// Otherwise an already-mounted provider can retain the previous context while a
+// lazily loaded consumer reads the replacement and incorrectly sees `null`.
+const WorkspaceContext = import.meta.env.DEV && workspaceContextGlobal.__sparoWorkspaceContext
+  ? workspaceContextGlobal.__sparoWorkspaceContext
+  : createContext<WorkspaceContextValue | null>(null);
+
+if (import.meta.env.DEV) {
+  workspaceContextGlobal.__sparoWorkspaceContext = WorkspaceContext;
+}
 
 export const useWorkspaceContext = (): WorkspaceContextValue => {
   const context = useContext(WorkspaceContext);

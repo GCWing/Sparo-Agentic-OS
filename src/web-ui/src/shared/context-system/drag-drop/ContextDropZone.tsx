@@ -2,14 +2,12 @@
 
 import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { dragManager } from '../../services/DragManager';
-import { contextRegistry } from '../../services/ContextRegistry';
-import { useContextStore } from '../../stores/contextStore';
 import type { IDropTarget } from '../../types/drag';
 import type { DragPayload } from '../../types/drag';
 import type { ContextItem, ContextType } from '../../types/context';
 import './ContextDropZone.scss';
 export interface ContextDropZoneProps {
-  acceptedTypes?: ContextType[];
+  acceptedTypes: ContextType[];
   children?: React.ReactNode;
   className?: string;
   onContextAdded?: (context: ContextItem) => void;
@@ -25,14 +23,7 @@ export const ContextDropZone: React.FC<ContextDropZoneProps> = ({
   const [canAccept, setCanAccept] = useState(false);
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const dragCounterRef = useRef(0);
-  const addContext = useContextStore(state => state.addContext);
-  const updateValidation = useContextStore(state => state.updateValidation);
-
-
-  const acceptedTypesArray = React.useMemo(() =>
-    acceptedTypes || contextRegistry.getAllTypes(),
-    [acceptedTypes]
-  );
+  const acceptedTypesArray = React.useMemo(() => acceptedTypes, [acceptedTypes]);
 
 
   const dropTarget = React.useMemo<IDropTarget>(() => ({
@@ -45,13 +36,6 @@ export const ContextDropZone: React.FC<ContextDropZoneProps> = ({
 
     onDrop: async (payload: DragPayload<ContextItem>) => {
       const context = payload.data;
-
-
-      addContext(context);
-
-
-
-      updateValidation(context.id, { valid: true });
 
 
       onContextAdded?.(context);
@@ -75,7 +59,7 @@ export const ContextDropZone: React.FC<ContextDropZoneProps> = ({
     onDragOver: () => {
 
     }
-  }), [acceptedTypesArray, addContext, updateValidation, onContextAdded]);
+  }), [acceptedTypesArray, onContextAdded]);
 
 
   const dropTargetRef = useRef(dropTarget);

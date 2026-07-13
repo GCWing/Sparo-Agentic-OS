@@ -541,10 +541,14 @@ with open(os.path.join(os.getcwd(), '{LOG_PATH}'), 'a', encoding='utf-8') as _f:
   },
 };
 
-export interface SkillValidationResult {
+export type SkillPackageKind = 'skill' | 'suite';
+
+export interface SkillPackageValidationResult {
   valid: boolean;
+  kind?: SkillPackageKind;
   name?: string;
   description?: string;
+  memberCount?: number;
   error?: string;
 }
 

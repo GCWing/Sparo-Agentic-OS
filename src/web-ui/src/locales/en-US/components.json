@@ -420,28 +420,6 @@
       "custom": "Custom",
       "unknown": "Unknown"
     },
-    "contextRegistry": {
-      "file": {
-        "name": "File",
-        "description": "File in the file system"
-      },
-      "directory": {
-        "name": "Directory",
-        "description": "Directory in the file system"
-      },
-      "codeSnippet": {
-        "name": "Code snippet",
-        "description": "Selected code snippet"
-      },
-      "image": {
-        "name": "Image",
-        "description": "Image file (for multimodal understanding)"
-      },
-      "webElement": {
-        "name": "Web element",
-        "description": "DOM element captured from the browser"
-      }
-    },
     "webElement": {
       "from": "from"
     },

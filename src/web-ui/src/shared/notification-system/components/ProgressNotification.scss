@@ -1,15 +1,11 @@
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
-@use '../styles/match-nav-search-surface' as search-surface;
 
 .progress-notification {
   display: flex;
   align-items: flex-start;
   gap: $size-gap-2;
-  padding: $size-gap-3;
-  @include search-surface.match-nav-search-card-core;
   min-width: 280px;
   max-width: 320px;
-  animation: sparo-notification-surface-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
   font-family: $font-family-sans;
 
 
@@ -123,10 +119,6 @@
     background: var(--ds-color-danger);
   }
 
-
-  &__cancel {
-    flex-shrink: 0;
-  }
 }
 
 

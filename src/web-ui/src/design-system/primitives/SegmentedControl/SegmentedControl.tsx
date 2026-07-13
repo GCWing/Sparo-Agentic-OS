@@ -14,6 +14,7 @@ export interface SegmentedControlProps extends Omit<React.HTMLAttributes<HTMLDiv
   defaultValue?: string;
   onChange?: (value: string) => void;
   size?: 'small' | 'medium';
+  variant?: 'default' | 'accent';
   stretch?: boolean;
   disabled?: boolean;
   ariaLabel?: string;
@@ -26,6 +27,7 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
     defaultValue,
     onChange,
     size = 'medium',
+    variant = 'default',
     stretch = false,
     disabled = false,
     ariaLabel,
@@ -88,6 +90,7 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
         className={[
           'ds-segmented-control',
           `ds-segmented-control--${size}`,
+          `ds-segmented-control--${variant}`,
           stretch && 'ds-segmented-control--stretch',
           disabled && 'ds-segmented-control--disabled',
           className,

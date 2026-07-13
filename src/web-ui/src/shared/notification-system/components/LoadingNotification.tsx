@@ -1,6 +1,6 @@
 import React from 'react';
-import { CheckCircle, X, XCircle } from 'lucide-react';
-import { DotMatrixLoader, IconButton } from '@/design-system';
+import { CheckCircle, XCircle } from 'lucide-react';
+import { DotMatrixLoader, FloatingCard } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { Notification } from '../types';
 import { notificationService } from '../services/NotificationService';
@@ -33,8 +33,12 @@ export const LoadingNotification: React.FC<LoadingNotificationProps> = ({ notifi
   };
 
   return (
-    <div
+    <FloatingCard
       className={`loading-notification loading-notification--${status || 'active'}`}
+      padding="compact"
+      onDismiss={cancellable && status === 'active' ? handleCancel : undefined}
+      dismissLabel={t('actions.cancel')}
+      dismissTooltip={t('actions.cancel')}
       role="status"
       aria-live="polite"
     >
@@ -47,18 +51,6 @@ export const LoadingNotification: React.FC<LoadingNotificationProps> = ({ notifi
         <div className="loading-notification__message">{message}</div>
       </div>
 
-      {cancellable && status === 'active' && (
-        <IconButton
-          className="loading-notification__cancel"
-          onClick={handleCancel}
-          aria-label={t('actions.cancel')}
-          tooltip={t('actions.cancel')}
-          size="xs"
-          variant="ghost"
-        >
-          <X size={14} />
-        </IconButton>
-      )}
-    </div>
+    </FloatingCard>
   );
 };

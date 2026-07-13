@@ -12,22 +12,39 @@ import {
   Plug,
   Wrench,
   Settings2,
+  BriefcaseBusiness,
+  LayoutGrid,
+  Files,
+  SearchCode,
+  Terminal,
+  Globe2,
+  MonitorCog,
+  ListTodo,
+  MessagesSquare,
+  MessageCircleQuestion,
+  UsersRound,
+  PlugZap,
+  CheckCircle2,
+  type LucideIcon,
 } from 'lucide-react';
 import {
   ActionListRow,
   Badge,
   Button,
   ConfirmDialog,
+  DataList,
+  DataListEmpty,
+  DataListItem,
   Dialog,
   DialogBody,
   DialogFooter,
-  EmptyState,
   IconButton,
+  ListDetail,
   Panel,
   PanelBody,
+  PanelHeader,
   Search,
   SegmentedControl,
-  SelectableRow,
   StatusDot,
   StatusPill,
   Textarea,
@@ -35,11 +52,6 @@ import {
   ToolbarGroup,
   type StatusTone,
 } from '@/design-system';
-import {
-  SceneCompactNav,
-  SceneCompactNavCategory,
-  SceneCompactNavItem,
-} from '@/app/scenes/shared/SceneCompactNav';
 import { useNotification } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
 import MCPAPI, { type MCPServerInfo } from '@/infrastructure/api/service-api/MCPAPI';
@@ -90,14 +102,21 @@ type UnifiedTool =
   | { kind: 'builtin'; meta: BuiltinToolMeta }
   | { kind: 'mcp'; mcp: McpToolEntry };
 
-/** Sidebar selection model. */
-type Selection =
-  | { kind: 'all' }
-  | { kind: 'builtin-category'; category: ToolCategory }
-  | { kind: 'mcp-all' }
-  | { kind: 'mcp-server'; serverId: string };
+type ToolSource = 'all' | 'builtin' | 'mcp';
+type ToolCategoryFilter = 'all' | ToolCategory;
 
-const SEL_ALL: Selection = { kind: 'all' };
+const CATEGORY_ICONS: Record<ToolCategory, LucideIcon> = {
+  file: Files,
+  navigate: SearchCode,
+  shell: Terminal,
+  web: Globe2,
+  desktop: MonitorCog,
+  plan: ListTodo,
+  session: MessagesSquare,
+  interact: MessageCircleQuestion,
+  delegate: UsersRound,
+  mcpMeta: PlugZap,
+};
 
 function isSameTool(a: UnifiedTool, b: UnifiedTool | null): boolean {
   if (!b || a.kind !== b.kind) return false;
@@ -156,79 +175,94 @@ const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title
   </section>
 );
 
-// Category tree
+// Filter rail
 
-const CategoryTree: React.FC<{
-  selection: Selection;
-  onSelect: (s: Selection) => void;
+const ToolFilters: React.FC<{
+  source: ToolSource;
+  category: ToolCategoryFilter;
+  onSourceChange: (source: ToolSource) => void;
+  onCategoryChange: (category: ToolCategoryFilter) => void;
   counts: Record<ToolCategory, number>;
   totalBuiltin: number;
   totalMcp: number;
-  servers: MCPServerInfo[];
-  mcpToolsByServer: Map<string, McpToolEntry[]>;
-}> = ({ selection, onSelect, counts, totalBuiltin, totalMcp, servers, mcpToolsByServer }) => {
+  connectedServers: number;
+}> = ({
+  source,
+  category,
+  onSourceChange,
+  onCategoryChange,
+  counts,
+  totalBuiltin,
+  totalMcp,
+  connectedServers,
+}) => {
   const { t } = useTranslation('scenes/tools');
 
-  const isActive = (pred: (s: Selection) => boolean): boolean => pred(selection);
+  const sourceOptions = useMemo(() => [
+    {
+      value: 'all',
+      label: <span className="tools-filter-label"><span>{t('categories.all')}</span><small>{totalBuiltin + totalMcp}</small></span>,
+    },
+    {
+      value: 'builtin',
+      label: <span className="tools-filter-label"><span>{t('sidebar.builtin')}</span><small>{totalBuiltin}</small></span>,
+    },
+    {
+      value: 'mcp',
+      label: <span className="tools-filter-label"><span>{t('sidebar.mcp')}</span><small>{totalMcp}</small></span>,
+    },
+  ], [t, totalBuiltin, totalMcp]);
+
+  const categoryOptions = useMemo(() => [
+    {
+      value: 'all',
+      label: <span className="tools-filter-label"><span>{t('categories.all')}</span><small>{totalBuiltin}</small></span>,
+      icon: <LayoutGrid size={16} />,
+    },
+    ...CATEGORY_ORDER.map((item) => {
+      const Icon = CATEGORY_ICONS[item];
+      return {
+        value: item,
+        label: <span className="tools-filter-label"><span>{t(`categories.${item}`)}</span><small>{counts[item]}</small></span>,
+        icon: <Icon size={16} />,
+      };
+    }),
+  ], [counts, t, totalBuiltin]);
 
   return (
-    <SceneCompactNav title={t('page.title')}>
-      <SceneCompactNavCategory>
-        <SceneCompactNavItem
-          label={t('categories.all')}
-          meta={totalBuiltin + totalMcp}
-          active={isActive((s) => s.kind === 'all')}
-          onClick={() => onSelect({ kind: 'all' })}
-        />
-      </SceneCompactNavCategory>
-
-      <SceneCompactNavCategory label={t('sidebar.builtin')}>
-        {CATEGORY_ORDER.map((c) => (
-          <SceneCompactNavItem
-            key={c}
-            label={t(`categories.${c}`)}
-            meta={counts[c]}
-            active={isActive((s) => s.kind === 'builtin-category' && s.category === c)}
-            onClick={() => onSelect({ kind: 'builtin-category', category: c })}
+    <Panel className="tools-filters">
+      <div className="tools-filters__source-row">
+        <div className="tools-filters__scroll">
+          <SegmentedControl
+            className="tools-filters__source-switch"
+            value={source}
+            onChange={(value) => onSourceChange(value as ToolSource)}
+            options={sourceOptions}
+            ariaLabel={t('filters.sourceLabel')}
+            size="medium"
           />
-        ))}
-      </SceneCompactNavCategory>
-
-      <SceneCompactNavCategory label={t('sidebar.mcp')}>
-        <SceneCompactNavItem
-          label={t('sidebar.mcp')}
-          meta={totalMcp}
-          active={isActive((s) => s.kind === 'mcp-all')}
-          onClick={() => onSelect({ kind: 'mcp-all' })}
+        </div>
+        <div className="tools-filters__connection" aria-live="polite">
+          <StatusDot tone={connectedServers > 0 ? 'success' : 'neutral'} size="small" />
+          <span>{t('filters.connectedServers', { count: connectedServers })}</span>
+        </div>
+      </div>
+      <div className="tools-filters__category-row">
+        <SegmentedControl
+          className="tools-filters__category-switch"
+          value={category}
+          onChange={(value) => onCategoryChange(value as ToolCategoryFilter)}
+          options={categoryOptions}
+          ariaLabel={t('filters.categoryLabel')}
+          size="medium"
+          stretch
         />
-        {servers.length === 0 ? (
-          <p className="tools-tree__empty">{t('sidebar.noServers')}</p>
-        ) : (
-          servers.map((s) => {
-            const n = mcpToolsByServer.get(s.id)?.length ?? 0;
-            return (
-              <SceneCompactNavItem
-                key={s.id}
-                label={(
-                  <span className="tools-tree__server-label">
-                    <McpStatusDot status={s.status} />
-                    <span>{s.name || s.id}</span>
-                  </span>
-                )}
-                meta={n}
-                nested
-                active={isActive((sel) => sel.kind === 'mcp-server' && sel.serverId === s.id)}
-                onClick={() => onSelect({ kind: 'mcp-server', serverId: s.id })}
-              />
-            );
-          })
-        )}
-      </SceneCompactNavCategory>
-    </SceneCompactNav>
+      </div>
+    </Panel>
   );
 };
 
-const ToolRow: React.FC<{
+const ToolCard: React.FC<{
   tool: UnifiedTool;
   active: boolean;
   onClick: () => void;
@@ -238,27 +272,37 @@ const ToolRow: React.FC<{
   if (tool.kind === 'builtin') {
     const Icon = tool.meta.Icon;
     return (
-      <SelectableRow
+      <DataListItem
+        className="tools-card"
         selected={active}
         onClick={onClick}
-        leading={<Icon size={15} strokeWidth={1.6} />}
-        title={tool.meta.name}
-        description={t(`builtin.${tool.meta.name}.summary`)}
-        meta={<PermissionBadge level={tool.meta.permission} />}
-      />
+      >
+        <span className="tools-card__icon" aria-hidden="true"><Icon size={20} strokeWidth={1.6} /></span>
+        <span className="tools-card__copy">
+          <strong>{tool.meta.name}</strong>
+          <small>{t(`builtin.${tool.meta.name}.summary`)}</small>
+        </span>
+        <span className="tools-card__meta"><PermissionBadge level={tool.meta.permission} /></span>
+        {active ? <CheckCircle2 className="tools-card__selected" size={17} aria-hidden="true" /> : null}
+      </DataListItem>
     );
   }
 
   const mcp = tool.mcp;
   return (
-    <SelectableRow
+    <DataListItem
+      className="tools-card"
       selected={active}
       onClick={onClick}
-      leading={<Plug size={14} strokeWidth={1.6} />}
-      title={mcp.shortName}
-      description={mcp.description || mcp.serverId}
-      meta={<Badge variant="neutral">{mcp.serverId}</Badge>}
-    />
+    >
+      <span className="tools-card__icon" aria-hidden="true"><Plug size={20} strokeWidth={1.6} /></span>
+      <span className="tools-card__copy">
+        <strong>{mcp.shortName}</strong>
+        <small>{mcp.description || mcp.serverId}</small>
+      </span>
+      <span className="tools-card__meta"><Badge variant="neutral">{mcp.serverId}</Badge></span>
+      {active ? <CheckCircle2 className="tools-card__selected" size={17} aria-hidden="true" /> : null}
+    </DataListItem>
   );
 };
 
@@ -312,7 +356,6 @@ const BuiltinToolDetail: React.FC<{ tool: BuiltinToolMeta }> = ({ tool }) => {
           </div>
           <p className="tools-detail__summary">{localized(`builtin.${tool.name}.summary`)}</p>
         </div>
-        <LangToggle lang={lang} onChange={setLang} />
       </header>
 
       <div className="tools-detail__body">
@@ -357,6 +400,9 @@ const BuiltinToolDetail: React.FC<{ tool: BuiltinToolMeta }> = ({ tool }) => {
           </Section>
         )}
       </div>
+      <footer className="tools-detail__footer">
+        <LangToggle lang={lang} onChange={setLang} />
+      </footer>
     </div>
   );
 };
@@ -661,7 +707,8 @@ const McpManagerModal: React.FC<{
 
 const ToolsScene: React.FC = () => {
   const { t } = useTranslation('scenes/tools');
-  const [selection, setSelection] = useState<Selection>(SEL_ALL);
+  const [source, setSource] = useState<ToolSource>('all');
+  const [category, setCategory] = useState<ToolCategoryFilter>('all');
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<UnifiedTool | null>(null);
   const [managerOpen, setManagerOpen] = useState(false);
@@ -707,6 +754,11 @@ const ToolsScene: React.FC = () => {
     [mcpToolsByServer],
   );
 
+  const connectedServerCount = useMemo(
+    () => servers.filter(server => /Connected|Healthy/.test(server.status)).length,
+    [servers],
+  );
+
   // Filtered tool list for the center pane.
   const visibleTools: UnifiedTool[] = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -730,120 +782,142 @@ const ToolsScene: React.FC = () => {
       });
     };
 
-    switch (selection.kind) {
-      case 'all':
-        pushBuiltin(() => true);
-        pushMcp(() => true);
-        break;
-      case 'builtin-category':
-        pushBuiltin((m) => m.category === selection.category);
-        break;
-      case 'mcp-all':
-        pushMcp(() => true);
-        break;
-      case 'mcp-server':
-        pushMcp((e) => e.serverId === selection.serverId);
-        break;
+    if (source !== 'mcp') {
+      pushBuiltin((meta) => category === 'all' || meta.category === category);
+    }
+    if (source !== 'builtin' && category === 'all') {
+      pushMcp(() => true);
     }
     return items;
-  }, [selection, query, mcpToolsByServer]);
+  }, [source, category, query, mcpToolsByServer]);
 
   // Keep the selected detail in sync when the underlying list changes.
   useEffect(() => {
-    if (!selected) return;
-    if (selected.kind === 'mcp') {
-      const stillThere = mcpToolsByServer.get(selected.mcp.serverId)?.some(e => e.name === selected.mcp.name);
-      if (!stillThere) setSelected(null);
+    if (visibleTools.length === 0) {
+      if (selected) setSelected(null);
+      return;
     }
-  }, [mcpToolsByServer, selected]);
+    if (!selected || !visibleTools.some(tool => isSameTool(tool, selected))) {
+      setSelected(visibleTools[0]);
+    }
+  }, [selected, visibleTools]);
 
   const counts = useMemo(() => countByCategory(), []);
+
+  const currentGroupLabel = useMemo(() => {
+    if (source === 'mcp') return t('sidebar.mcp');
+    if (category !== 'all') return t(`categories.${category}`);
+    if (source === 'builtin') return t('sidebar.builtin');
+    return t('categories.all');
+  }, [category, source, t]);
 
   return (
     <div className="sparo-tools-scene">
       <header className="sparo-tools-scene__header">
         <div className="sparo-tools-scene__identity">
-          <h1 className="sparo-tools-scene__title">{t('page.title')}</h1>
-          <div className="sparo-tools-scene__subline">
+          <span className="sparo-tools-scene__hero-icon" aria-hidden="true">
+            <BriefcaseBusiness size={27} strokeWidth={1.55} />
+          </span>
+          <div className="sparo-tools-scene__identity-copy">
+            <h1 className="sparo-tools-scene__title">{t('page.title')}</h1>
             <p className="sparo-tools-scene__subtitle">{t('page.subtitle')}</p>
-            <div className="sparo-tools-scene__actions">
-              <Search
-                className="sparo-tools-scene__search"
-                value={query}
-                onChange={setQuery}
-                onSearch={setQuery}
-                onClear={() => setQuery('')}
-                placeholder={t('search.placeholder')}
-                size="small"
-                clearable
-              />
-              <Button
-                variant="secondary"
-                size="small"
-                className="sparo-tools-scene__manage"
-                onClick={() => setManagerOpen(true)}
-              >
-                <Settings2 size={13} />
-                <span>{t('sidebar.manageServers')}</span>
-                {servers.length > 0 && (
-                  <Badge variant="neutral">{servers.length}</Badge>
-                )}
-              </Button>
-            </div>
           </div>
+        </div>
+        <div className="sparo-tools-scene__actions">
+          <Search
+            className="sparo-tools-scene__search"
+            value={query}
+            onChange={setQuery}
+            onSearch={setQuery}
+            onClear={() => setQuery('')}
+            placeholder={t('search.placeholder')}
+            size="medium"
+            clearable
+          />
+          <Button
+            variant="secondary"
+            size="medium"
+            className="sparo-tools-scene__manage"
+            onClick={() => setManagerOpen(true)}
+          >
+            <Settings2 size={15} />
+            <span>{t('sidebar.manageServers')}</span>
+            {servers.length > 0 && (
+              <Badge variant="neutral">{servers.length}</Badge>
+            )}
+          </Button>
         </div>
       </header>
 
+      <ToolFilters
+        source={source}
+        category={category}
+        onSourceChange={(nextSource) => {
+          setSource(nextSource);
+          if (nextSource === 'all' || nextSource === 'mcp') setCategory('all');
+        }}
+        onCategoryChange={(nextCategory) => {
+          setCategory(nextCategory);
+          if (nextCategory !== 'all' && source === 'mcp') setSource('all');
+        }}
+        counts={counts}
+        totalBuiltin={BUILTIN_TOOLS.length}
+        totalMcp={totalMcpTools}
+        connectedServers={connectedServerCount}
+      />
+
       <div className="sparo-tools-scene__body">
-        <div className="tools-split">
-          {/* Left: category tree */}
-          <aside className="tools-split__sidebar">
-            <CategoryTree
-              selection={selection}
-              onSelect={setSelection}
-              counts={counts}
-              totalBuiltin={BUILTIN_TOOLS.length}
-              totalMcp={totalMcpTools}
-              servers={servers}
-              mcpToolsByServer={mcpToolsByServer}
-            />
-          </aside>
-
-          {/* Middle: list */}
-          <Panel className="tools-split__list">
-            <PanelBody className="tools-split__rows">
-              {visibleTools.length === 0 ? (
-                <EmptyState description={t('list.emptyAll')} />
+        <ListDetail
+          className="tools-workbench"
+          ratio="balanced"
+          listLabel={t('list.listLabel')}
+          detailLabel={t('list.detailLabel')}
+          list={(
+            <Panel className="tools-workbench__list-panel">
+              <PanelHeader
+                title={(
+                  <span className="tools-workbench__group-title">
+                    <span>{currentGroupLabel}</span>
+                    <span aria-hidden="true">·</span>
+                    <span>{visibleTools.length}</span>
+                  </span>
+                )}
+              />
+              <PanelBody className="tools-workbench__list-body">
+                <DataList className="tools-card-grid" aria-label={t('list.listLabel')}>
+                  {visibleTools.map(tool => (
+                    <ToolCard
+                      key={tool.kind === 'builtin' ? `b:${tool.meta.name}` : `m:${tool.mcp.name}`}
+                      tool={tool}
+                      active={isSameTool(tool, selected)}
+                      onClick={() => setSelected(tool)}
+                    />
+                  ))}
+                  {visibleTools.length === 0 ? (
+                    <DataListEmpty>{t('list.emptyAll')}</DataListEmpty>
+                  ) : null}
+                </DataList>
+              </PanelBody>
+            </Panel>
+          )}
+          detail={(
+            <Panel className="tools-workbench__detail-panel">
+              {selected ? (
+                selected.kind === 'builtin'
+                  ? <BuiltinToolDetail tool={selected.meta} />
+                  : <McpToolDetail
+                      tool={selected.mcp}
+                      server={servers.find(server => server.id === selected.mcp.serverId) ?? null}
+                    />
               ) : (
-                visibleTools.map(tool => (
-                  <ToolRow
-                    key={tool.kind === 'builtin' ? `b:${tool.meta.name}` : `m:${tool.mcp.name}`}
-                    tool={tool}
-                    active={isSameTool(tool, selected)}
-                    onClick={() => setSelected(tool)}
-                  />
-                ))
+                <div className="tools-workbench__detail-empty">
+                  <Wrench size={32} strokeWidth={1.4} />
+                  <span>{t('detail.selectHint')}</span>
+                </div>
               )}
-            </PanelBody>
-          </Panel>
-
-          {/* Right: detail */}
-          <Panel className="tools-split__detail">
-            {selected ? (
-              selected.kind === 'builtin'
-                ? <BuiltinToolDetail tool={selected.meta} />
-                : <McpToolDetail
-                    tool={selected.mcp}
-                    server={servers.find(s => s.id === selected.mcp.serverId) ?? null}
-                  />
-            ) : (
-              <div className="tools-split__detail-empty">
-                <Wrench size={32} strokeWidth={1.4} />
-                <span>{t('detail.selectHint')}</span>
-              </div>
-            )}
-          </Panel>
-        </div>
+            </Panel>
+          )}
+        />
       </div>
 
       <McpManagerModal

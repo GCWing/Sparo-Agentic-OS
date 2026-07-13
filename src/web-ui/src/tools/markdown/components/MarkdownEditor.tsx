@@ -552,6 +552,11 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
         loadFileContent();
       }
     } else if (initialContent !== undefined) {
+      // Virtual documents mirror edits back into their owning tab. When that
+      // controlled value is merely echoing the editor's current content,
+      // resetting the editing surface would destroy the active selection and
+      // make typing appear to flicker or revert.
+      if (initialContent === contentRef.current) return;
       const nextEditability = analyzeMarkdownEditability(initialContent);
       const nextContent = nextEditability.mode === 'unsafe'
         ? initialContent

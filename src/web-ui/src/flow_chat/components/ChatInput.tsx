@@ -3,7 +3,8 @@
  * Separated from bottom bar, supports session-level state awareness
  */
 
-import React, { useRef, useCallback, useEffect, useReducer, useState, useMemo } from 'react';
+import React, { useRef, useCallback, useEffect, useLayoutEffect, useReducer, useState, useMemo } from 'react';
+import { flushSync } from 'react-dom';
 import { Trans, useTranslation } from 'react-i18next';
 import { useContextStore } from '../../shared/context-system';
 import type { MentionState, RichTextInputHandle } from './RichTextInput';
@@ -14,11 +15,16 @@ import {
   useSessionStateMachineActions,
 } from '../hooks/useSessionStateMachine';
 import { ModelSelector } from './ModelSelector';
-import type { ImageContext } from '../../shared/types/context';
+import type { ImageContext, SkillSelectionContext, TextFragmentContext } from '../../shared/types/context';
+import { getComposerText, hasComposerContent } from '../../shared/types/composer';
+import {
+  createComposerContextSnapshot,
+} from '../domain/composerContextRegistry';
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { inputReducer, initialInputState } from '../reducers/inputReducer';
 import { agentReducer, initialAgentState } from '../reducers/agentReducer';
 import { useMessageSender } from '../hooks/useMessageSender';
+import { CHAT_INPUT_CONFIG } from '../constants/chatInputConfig';
 import { useInputHistoryStore } from '../store/inputHistoryStore';
 import { useSessionTurnQueueStore } from '../store/sessionTurnQueueStore';
 import { useSessionProfile } from '@/app/session-profiles';
@@ -32,7 +38,6 @@ import { ComposerIntentRail } from './composer/ComposerIntentRail';
 import { ComposerSpreadsheetFocusRail } from './composer/ComposerSpreadsheetFocusRail';
 import { ComposerSendAction } from './composer/ComposerSendAction';
 import { ComposerShell } from './composer/ComposerShell';
-import { useComposerLargePaste } from './composer/hooks/useComposerLargePaste';
 import { useComposerLayout } from './composer/hooks/useComposerLayout';
 import { useComposerBoostActions } from './composer/hooks/useComposerBoostActions';
 import { useComposerBoostSkills } from './composer/hooks/useComposerBoostSkills';
@@ -137,11 +142,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   onDispatchComposerAppAction,
 }) => {
   const { t } = useTranslation('flow-chat');
+  const { t: tChatInput } = useTranslation('flow-chat/chat-input');
 
   const [inputState, dispatchInput] = useReducer(inputReducer, initialInputState);
   const [modeState, dispatchMode] = useReducer(agentReducer, initialAgentState);
 
   const richTextInputRef = useRef<RichTextInputHandle>(null);
+  const voiceSubmitRef = useRef<() => Promise<void>>(async () => undefined);
   const agentBoostRef = useRef<HTMLDivElement>(null);
   const isImeComposingRef = useRef(false);
   // Ref so the queuedInput sync effect can read the latest value without it being a dep
@@ -149,7 +156,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   // History navigation state
   const [historyIndex, setHistoryIndex] = useState(-1);
-  const [savedDraft, setSavedDraft] = useState('');
+  const [savedDraft, setSavedDraft] = useState<ReturnType<typeof createComposerContextSnapshot> | null>(null);
   const [isAwakening, setIsAwakening] = useState(false);
   const { addMessage: addToHistory, getSessionHistory } = useInputHistoryStore();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -169,9 +176,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   }, [composerIntent.target, intentActions]);
 
   const contexts = useContextStore(state => state.contexts);
+  const composerDocument = useContextStore(state => state.document);
   const addContext = useContextStore(state => state.addContext);
   const removeContext = useContextStore(state => state.removeContext);
-  const clearContexts = useContextStore(state => state.clearContexts);
+  const clearDraft = useContextStore(state => state.clearDraft);
+  const replaceDraftText = useContextStore(state => state.replaceDraftText);
+  const restoreDraft = useContextStore(state => state.restoreDraft);
+  const restoreDraftIfEmpty = useContextStore(state => state.restoreDraftIfEmpty);
+  const setActiveDraft = useContextStore(state => state.setActiveDraft);
+  const setComposerDocument = useContextStore(state => state.setDocument);
+  const updateContext = useContextStore(state => state.updateContext);
 
   const imageContexts = useMemo(
     () => contexts.filter((c): c is ImageContext => c.type === 'image'),
@@ -206,6 +220,20 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }),
     [activeSessionDescriptor, surfaceProfile],
   );
+  const composerDraftKey = useMemo(
+    () => `composer:${effectiveTargetSessionId || currentSessionId || targetSessionId || 'new'}`,
+    [currentSessionId, effectiveTargetSessionId, targetSessionId],
+  );
+  useLayoutEffect(() => {
+    setActiveDraft(composerDraftKey);
+  }, [composerDraftKey, setActiveDraft]);
+
+  useEffect(() => {
+    const text = getComposerText(composerDocument);
+    if (inputValueRef.current === text) return;
+    inputValueRef.current = text;
+    dispatchInput({ type: 'SET_VALUE', payload: text });
+  }, [composerDocument]);
   const queuedTurnCount = useSessionTurnQueueStore(state =>
     effectiveTargetSessionId ? state.queuesBySession[effectiveTargetSessionId]?.length ?? 0 : 0
   );
@@ -300,8 +328,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   }, [workspaceFilesTargetPath]);
 
   const {
-    boostPanelSkills,
-    boostPanelSuites,
+    boostSkillUnits,
     boostSkillsLoading,
     closeSkillsFlyout,
     dismissSkillsFlyout,
@@ -316,7 +343,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   } = useComposerBoostSkills({
     dropdownOpen: modeState.dropdownOpen,
     workspacePath: effectiveWorkspacePath ?? undefined,
+    agentId: currentAgent,
   });
+  const selectedSkillCommands = useMemo(
+    () => new Set(contexts
+      .filter((context): context is SkillSelectionContext => context.type === 'skill-selection')
+      .map(context => context.command)),
+    [contexts],
+  );
 
   useComposerHeightObserver(containerRef);
   useComposerInputLifecycle({
@@ -329,7 +363,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const { sendMessage } = useMessageSender({
     currentSessionId: effectiveTargetSessionId || undefined,
     contexts,
-    onClearContexts: clearContexts,
     onSuccess: onSendMessage,
     // Composer agent is authoritative, synced from the session descriptor.
     currentAgentType: modeState.current,
@@ -413,15 +446,33 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     loadMcpPromptCommands,
   });
 
-  const {
-    clearPendingLargePastes,
-    createLargePastePlaceholder,
-    expandPendingLargePastes,
-    getCharacterCount,
-    prunePendingLargePastes,
-    restorePendingLargePastes,
-    snapshotPendingLargePastes,
-  } = useComposerLargePaste(inputState.value, t);
+  const createTextFragment = useCallback((text: string): TextFragmentContext | null => {
+    const charCount = Array.from(text).length;
+    if (charCount <= CHAT_INPUT_CONFIG.largePaste.thresholdChars) return null;
+    const context: TextFragmentContext = {
+      id: typeof globalThis.crypto?.randomUUID === 'function'
+        ? `text-fragment-${globalThis.crypto.randomUUID()}`
+        : `text-fragment-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+      type: 'text-fragment',
+      timestamp: Date.now(),
+      content: text,
+      charCount,
+      source: 'clipboard',
+      format: 'markdown',
+    };
+    addContext(context);
+    return context;
+  }, [addContext]);
+  const currentComposerSnapshot = useMemo(
+    () => createComposerContextSnapshot(composerDocument, contexts),
+    [composerDocument, contexts],
+  );
+  const updateDraftContext = useCallback((
+    id: string,
+    updates: Parameters<typeof updateContext>[2],
+  ) => {
+    updateContext(composerDraftKey, id, updates);
+  }, [composerDraftKey, updateContext]);
 
   const {
     activateComposerInput,
@@ -440,34 +491,38 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     inputValueRef,
     isBtwSession,
     richTextInputRef,
+    replaceDraftText,
+    clearDraft,
+    addContext,
     setHistoryIndex,
     setSavedDraft,
     t,
   });
+  const restoreComposerSnapshot = useCallback((snapshot: typeof currentComposerSnapshot) => {
+    restoreDraft(snapshot.document, snapshot.contexts);
+    const text = getComposerText(snapshot.document);
+    dispatchInput({ type: 'SET_VALUE', payload: text });
+    inputValueRef.current = text;
+    activateComposerInput();
+    focusRichTextInputSoon();
+  }, [activateComposerInput, focusRichTextInputSoon, restoreDraft]);
 
-  const insertVoiceInputText = useCallback((text: string) => {
+  const insertVoiceInputText = useCallback((text: string): boolean => {
     const trimmed = text.trim();
-    if (!trimmed) return;
+    if (!trimmed) return false;
 
     const editor = richTextInputRef.current;
     const currentValue = editor?.getPlainText() ?? inputValueRef.current;
     const prefix = currentValue.trim().length > 0 && !/\s$/.test(currentValue) ? ' ' : '';
-    activateComposerInput();
-
-    if (editor) {
-      editor.insertText(`${prefix}${trimmed}`);
-    } else {
-      setComposerInputValue(`${currentValue}${prefix}${trimmed}`);
-    }
-
-    focusRichTextInputSoon();
-  }, [activateComposerInput, focusRichTextInputSoon, setComposerInputValue]);
-
-  const voiceInputController = useComposerVoiceInput({
-    activateInput: activateComposerInput,
-    focusInputSoon: focusRichTextInputSoon,
-    insertText: insertVoiceInputText,
-  });
+    flushSync(() => {
+      if (editor) {
+        editor.insertText(`${prefix}${trimmed}`);
+      } else {
+        setComposerInputValue(`${currentValue}${prefix}${trimmed}`);
+      }
+    });
+    return true;
+  }, [setComposerInputValue]);
 
   useComposerAgentSync({
     activeSessionDescriptor,
@@ -476,7 +531,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   });
 
   useComposerQueuedInputRestore({
-    clearPendingLargePastes,
+    replaceDraftText,
     dispatchInput,
     effectiveTargetSessionId,
     inputValueRef,
@@ -499,7 +554,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     inputIsActive: inputState.isActive,
     inputValueRef,
     isImeComposingRef,
-    prunePendingLargePastes,
+    setDocument: setComposerDocument,
     removeContext,
     setInputDetection,
     setQueuedInput,
@@ -562,11 +617,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     inputValueRef,
     isActive: inputState.isActive,
     currentImageCount,
-    clearPendingLargePastes,
     activateInput: activateComposerInput,
     setInputValue: setComposerInputValue,
     setInputTarget: setComposerTarget,
     addContext,
+    restoreComposerSnapshot,
     t,
   });
 
@@ -635,13 +690,22 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     addToHistory,
     resetHistoryDraft,
     onSendMessage,
-    clearPendingLargePastes,
-    expandPendingLargePastes,
-    getCharacterCount,
-    snapshotPendingLargePastes,
-    restorePendingLargePastes,
+    document: composerDocument,
+    contexts,
+    restoreDraft,
+    restoreDraftIfEmpty,
+    updateDraftContext,
+    draftKey: composerDraftKey,
     activeGoalId: activeGoalSnapshot.goal?.goalId,
     onBtwStarted: () => intentActions.setTarget('btw-thread'),
+  });
+
+  voiceSubmitRef.current = handleSendOrCancel;
+  const voiceInputController = useComposerVoiceInput({
+    activateInput: activateComposerInput,
+    focusInputSoon: focusRichTextInputSoon,
+    insertText: insertVoiceInputText,
+    submitText: () => voiceSubmitRef.current(),
   });
 
   const handleKeyDown = useComposerKeyboard({
@@ -659,6 +723,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     setHistoryIndex,
     savedDraft,
     setSavedDraft,
+    currentDraft: currentComposerSnapshot,
+    restoreDraft: restoreComposerSnapshot,
+    hasContent: hasComposerContent(composerDocument) || currentImageCount > 0,
     inputValue: inputState.value,
     setInputValue: setComposerInputValue,
     activateInput: activateComposerInput,
@@ -689,9 +756,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     dismissSkillsFlyout,
     dispatchInput,
     dispatchMode,
+    contexts,
+    addContext,
+    removeContext,
     focusInputSoon: focusRichTextInputSoon,
     handleImageInput,
-    inputValue: inputState.value,
     isBtwSession,
     onStartSideQuestionDraft: () => intentActions.setTarget('btw-draft'),
     richTextInputRef,
@@ -779,11 +848,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   const getAgentDisplayName = useCallback((agent: { id: string; name: string } | string) => {
     if (typeof agent === 'string') {
-      return t(`chatInput.agentNames.${agent}`, { defaultValue: '' }) ||
+      return tChatInput(`agentNames.${agent}`, { defaultValue: '' }) ||
         modeState.available.find(item => item.id === agent)?.name ||
         agent;
     }
-    return t(`chatInput.agentNames.${agent.id}`, { defaultValue: '' }) || agent.name;
+    return tChatInput(`agentNames.${agent.id}`, { defaultValue: '' }) || agent.name;
   }, [modeState.available, t]);
   const selectedAgentLabel = canSwitchAgents && modeState.current !== defaultAgentId
     ? getAgentDisplayName(modeState.current) || modeState.current
@@ -807,17 +876,17 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         inputTarget={inputTarget}
         showTargetToggle={showTargetSwitcher}
         labels={{
-          remove: t('chatInput.intentChips.remove', { defaultValue: 'Remove' }),
-          targetMain: t('chatInput.targetMain', { defaultValue: 'Main' }),
-          targetBtwDraft: t('chatInput.intentChips.targetBtwDraft', { defaultValue: 'Side question' }),
-          targetBtwThread: t('chatInput.intentChips.targetBtwThread', { defaultValue: 'Side session' }),
-          goalDraft: t('chatInput.intentChips.goalDraft', { defaultValue: 'Goal mode' }),
-          goalActive: t('chatInput.intentChips.goalActive', { defaultValue: 'Goal active' }),
-          goalPaused: t('chatInput.intentChips.goalPaused', { defaultValue: 'Goal paused' }),
-          goalPending: t('chatInput.intentChips.goalPending', { defaultValue: 'Goal pending' }),
-          operationCompact: t('chatInput.compactAction', { defaultValue: 'Compact session' }),
-          operationInit: t('chatInput.initAction', { defaultValue: 'Generate AGENTS.md' }),
-          promptTemplate: t('chatInput.intentChips.promptTemplate', { defaultValue: 'Prompt' }),
+          remove: tChatInput('intentChips.remove', { defaultValue: 'Remove' }),
+          targetMain: tChatInput('targetMain', { defaultValue: 'Main' }),
+          targetBtwDraft: tChatInput('intentChips.targetBtwDraft', { defaultValue: 'Side question' }),
+          targetBtwThread: tChatInput('intentChips.targetBtwThread', { defaultValue: 'Side session' }),
+          goalDraft: tChatInput('intentChips.goalDraft', { defaultValue: 'Goal mode' }),
+          goalActive: tChatInput('intentChips.goalActive', { defaultValue: 'Goal active' }),
+          goalPaused: tChatInput('intentChips.goalPaused', { defaultValue: 'Goal paused' }),
+          goalPending: tChatInput('intentChips.goalPending', { defaultValue: 'Goal pending' }),
+          operationCompact: tChatInput('compactAction', { defaultValue: 'Compact session' }),
+          operationInit: tChatInput('initAction', { defaultValue: 'Generate AGENTS.md' }),
+          promptTemplate: tChatInput('intentChips.promptTemplate', { defaultValue: 'Prompt' }),
         }}
         onClearTarget={() => intentActions.setTarget('main')}
         onToggleTarget={handleToggleComposerTarget}
@@ -828,22 +897,23 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       <ComposerSpreadsheetFocusRail
         sessionId={effectiveTargetSessionId}
         labels={{
-          included: t('chatInput.spreadsheetFocus.included', { defaultValue: 'Spreadsheet focus included' }),
-          excluded: t('chatInput.spreadsheetFocus.excluded', { defaultValue: 'Spreadsheet focus excluded' }),
-          includeAction: t('chatInput.spreadsheetFocus.includeAction', { defaultValue: 'Include with next message' }),
-          excludeAction: t('chatInput.spreadsheetFocus.excludeAction', { defaultValue: 'Exclude from next message' }),
-          partialCache: t('chatInput.spreadsheetFocus.partialCache', { defaultValue: 'Selection preview is incomplete' }),
-          staleFormulas: t('chatInput.spreadsheetFocus.staleFormulas', { defaultValue: 'Formula results are stale' }),
+          included: tChatInput('spreadsheetFocus.included', { defaultValue: 'Spreadsheet focus included' }),
+          excluded: tChatInput('spreadsheetFocus.excluded', { defaultValue: 'Spreadsheet focus excluded' }),
+          includeAction: tChatInput('spreadsheetFocus.includeAction', { defaultValue: 'Include with next message' }),
+          excludeAction: tChatInput('spreadsheetFocus.excludeAction', { defaultValue: 'Exclude from next message' }),
+          partialCache: tChatInput('spreadsheetFocus.partialCache', { defaultValue: 'Selection preview is incomplete' }),
+          staleFormulas: tChatInput('spreadsheetFocus.staleFormulas', { defaultValue: 'Formula results are stale' }),
           modes: {
-            inspect: t('chatInput.spreadsheetFocus.modes.inspect', { defaultValue: 'Inspect' }),
-            edit: t('chatInput.spreadsheetFocus.modes.edit', { defaultValue: 'Edit' }),
-            author: t('chatInput.spreadsheetFocus.modes.author', { defaultValue: 'Author' }),
+            inspect: tChatInput('spreadsheetFocus.modes.inspect', { defaultValue: 'Inspect' }),
+            edit: tChatInput('spreadsheetFocus.modes.edit', { defaultValue: 'Edit' }),
+            author: tChatInput('spreadsheetFocus.modes.author', { defaultValue: 'Author' }),
           },
         }}
       />
       <ComposerEditorArea
         editorRef={richTextInputRef}
-        value={inputState.value}
+        document={composerDocument}
+        draftKey={composerDraftKey}
         contexts={contexts}
         imageContexts={imageContexts}
         mentionState={mentionState}
@@ -863,18 +933,19 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             />
           ),
           removeImage: t('input.removeImage', { defaultValue: 'Remove image' }),
-          commands: t('chatInput.composerCommands.title', { defaultValue: 'Commands' }),
-          selectHint: t('chatInput.selectHint'),
-          noMatchingCommand: t('chatInput.noMatchingCommand', { defaultValue: 'No matching command' }),
-          loadingMcpPrompts: t('chatInput.loadingMcpPrompts', { defaultValue: 'Loading MCP prompts...' }),
-          current: t('chatInput.current'),
+          commands: tChatInput('composerCommands.title', { defaultValue: 'Commands' }),
+          selectHint: tChatInput('selectHint'),
+          noMatchingCommand: tChatInput('noMatchingCommand', { defaultValue: 'No matching command' }),
+          loadingMcpPrompts: tChatInput('loadingMcpPrompts', { defaultValue: 'Loading MCP prompts...' }),
+          current: tChatInput('current'),
         }}
         onChange={handleInputChange}
-        onLargePaste={createLargePastePlaceholder}
+        onLargePaste={createTextFragment}
         onKeyDown={handleKeyDown}
         onCompositionStart={handleImeCompositionStart}
         onCompositionEnd={handleImeCompositionEnd}
         onRemoveContext={removeContext}
+        onUpdateContext={updateDraftContext}
         onMentionStateChange={setMentionState}
         onAddContext={addContext}
         onCloseMention={() => {
@@ -901,20 +972,25 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               skillsFlyoutLeft={skillsFlyoutLeft}
               skillsFlyoutUp={skillsFlyoutUp}
               skillsTooltipSuppressed={skillsTooltipSuppressed}
-              boostPanelSkills={boostPanelSkills}
-              boostPanelSuites={boostPanelSuites}
+              skillUnits={boostSkillUnits}
+              selectedSkillCommands={selectedSkillCommands}
               boostSkillsLoading={boostSkillsLoading}
               selectedAgentLabel={selectedAgentLabel}
               labels={{
-                addBoostTooltip: t('chatInput.addBoostTooltip'),
-                current: t('chatInput.current'),
-                resetAgent: t('chatInput.resetToAgentic'),
-                switchAgent: t('chatInput.switchAgent', { defaultValue: 'Switch Agent' }),
-                boostSkillsLoading: t('chatInput.boostSkillsLoading'),
-                boostSkillsEmpty: t('chatInput.boostSkillsEmpty'),
-                boostSkillsStandalone: t('chatInput.boostSkillsStandalone'),
-                boostSkillsSuiteFallback: t('chatInput.boostSkillsSuiteFallback'),
-                openSkillsLibrary: t('chatInput.openSkillsLibrary'),
+                addBoostTooltip: tChatInput('addBoostTooltip'),
+                current: tChatInput('current'),
+                resetAgent: tChatInput('resetToAgentic'),
+                switchAgent: tChatInput('switchAgent', { defaultValue: 'Switch Agent' }),
+                boostSkillsLoading: tChatInput('boostSkillsLoading'),
+                boostSkillsEmpty: tChatInput('boostSkillsEmpty'),
+                boostSkillsNoMatch: tChatInput('boostSkillsNoMatch'),
+                boostSkillsSearch: tChatInput('boostSkillsSearch'),
+                boostSkillsSuites: tChatInput('boostSkillsSuites'),
+                boostSkillsStandalone: tChatInput('boostSkillsStandalone'),
+                expandSuite: tChatInput('expandSkillSuite'),
+                collapseSuite: tChatInput('collapseSkillSuite'),
+                selected: tChatInput('skillSelected'),
+                openSkillsLibrary: tChatInput('openSkillsLibrary'),
               }}
               onToggleDropdown={e => {
                 e.stopPropagation();
@@ -925,9 +1001,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               onOpenSkillsFlyout={openSkillsFlyout}
               onCloseSkillsFlyout={closeSkillsFlyout}
               onSkillsListScroll={handleSkillsListScroll}
-              onInsertSkill={(skillName, e) => {
+              onInsertSkill={(target, e) => {
                 e.stopPropagation();
-                insertSkillIntoInput(skillName);
+                insertSkillIntoInput(target);
               }}
               onOpenSkillsLibrary={handleOpenSkillsLibrary}
             />
@@ -943,22 +1019,24 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
           <ComposerVoiceInputButton controller={voiceInputController} />
 
-          <ComposerSendAction
-            derivedState={derivedState ?? null}
-            draftValue={inputState.value}
-            labels={{
-              sendShortcut: t('input.sendShortcut'),
-              queueShortcut: t('input.queueShortcut'),
-              stopGeneration: t('input.stopGeneration'),
-              retry: t('input.retry'),
-            }}
-            onCancel={() => {
-              void handleCancelGeneration();
-            }}
-            onSendOrCancel={() => {
-              void handleSendOrCancel();
-            }}
-          />
+          {voiceInputController.phase === 'idle' ? (
+            <ComposerSendAction
+              derivedState={derivedState ?? null}
+              draftValue={inputState.value}
+              labels={{
+                sendShortcut: t('input.sendShortcut'),
+                queueShortcut: t('input.queueShortcut'),
+                stopGeneration: t('input.stopGeneration'),
+                retry: t('input.retry'),
+              }}
+              onCancel={() => {
+                void handleCancelGeneration();
+              }}
+              onSendOrCancel={() => {
+                void handleSendOrCancel();
+              }}
+            />
+          ) : null}
         </>
       )}
       isCollapsedProcessing={isCollapsedProcessing}

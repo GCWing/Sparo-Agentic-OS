@@ -62,6 +62,8 @@ export interface StartDialogTurnRequest {
   persistAgentType?: boolean;
   workspacePath?: string;
   triggerSource?: TriggerSource;
+  /** Immutable metadata persisted with the submitted user message. */
+  userMessageMetadata?: Record<string, unknown>;
   /** Optional multimodal image contexts (snake_case fields, aligned with backend ImageContextData). */
   imageContexts?: ImageInputContextData[];
 }

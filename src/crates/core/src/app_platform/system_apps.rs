@@ -5,6 +5,7 @@
 //! enabled, untouched official selection to the bundled release, but never
 //! replaces a user fork or re-enables a disabled slot.
 
+use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
@@ -60,7 +61,11 @@ async fn load_shared_components<'a>(
     Ok(cache.as_deref().unwrap_or_default())
 }
 
-async fn reusable_embedded_system_release(
+// Startup is a release consumer, not a publisher. Once a valid system Release
+// owns an app/version identity, preserve it even when a development filesystem
+// bundle has drifted. Direct imports still reject changed bytes at the same
+// version, so authors must publish the bundle under a new version.
+async fn reusable_system_release(
     revision_store: &AppRevisionStore,
     existing_releases: &[ReleaseRecord],
     source_identity: &[String],
@@ -156,22 +161,10 @@ pub async fn seed_system_app_releases(
     let mut releases_reused = 0;
     for source in collect_package_sources(&SYSTEM_PRODUCT_APP_BUNDLES, &filesystem_root, APP_JSON) {
         let source_identity = package_source_segments(&source, 2, "Product App")?;
-        let filesystem_source_present =
-            filesystem_package_source_exists(&filesystem_root.join(&source)).await?;
-        let release = if !filesystem_source_present {
-            if let Some(release) = reusable_embedded_system_release(
-                revision_store,
-                &existing_releases,
-                &source_identity,
-            )
-            .await?
-            {
-                release
-            } else {
-                let components =
-                    load_shared_components(&mut shared_components, path_manager).await?;
-                import_system_app_release(revision_store, &source, components).await?
-            }
+        let release = if let Some(release) =
+            reusable_system_release(revision_store, &existing_releases, &source_identity).await?
+        {
+            release
         } else {
             let components = load_shared_components(&mut shared_components, path_manager).await?;
             import_system_app_release(revision_store, &source, components).await?
@@ -663,10 +656,11 @@ async fn digest_directory(root: &Path, domain: &[u8]) -> CoreResult<String> {
         })?;
         let relative = relative.to_string_lossy().replace('\\', "/");
         let bytes = fs::read(&file).await?;
+        let bytes = canonical_system_package_bytes(&bytes);
         hasher.update((relative.len() as u64).to_le_bytes());
         hasher.update(relative.as_bytes());
         hasher.update((bytes.len() as u64).to_le_bytes());
-        hasher.update(bytes);
+        hasher.update(bytes.as_ref());
     }
     Ok(format!("sha256:{}", hex::encode(hasher.finalize())))
 }
@@ -718,7 +712,13 @@ async fn copy_filesystem_tree(source: &Path, destination: &Path) -> CoreResult<(
                 fs::create_dir(&destination_path).await?;
                 pending.push((source_path, destination_path));
             } else if metadata.is_file() {
-                fs::copy(source_path, destination_path).await?;
+                let bytes = fs::read(&source_path).await?;
+                fs::write(
+                    &destination_path,
+                    canonical_system_package_bytes(&bytes).as_ref(),
+                )
+                .await?;
+                fs::set_permissions(&destination_path, metadata.permissions()).await?;
             } else {
                 let _ = fs::remove_dir_all(destination).await;
                 return Err(CoreError::validation(format!(
@@ -753,10 +753,24 @@ async fn copy_embedded_tree(source: &'static Dir<'static>, destination: &Path) -
                     file.path().display()
                 ))
             })?;
-            fs::write(destination_dir.join(name), file.contents()).await?;
+            fs::write(
+                destination_dir.join(name),
+                canonical_system_package_bytes(file.contents()).as_ref(),
+            )
+            .await?;
         }
     }
     Ok(())
+}
+
+fn canonical_system_package_bytes(bytes: &[u8]) -> Cow<'_, [u8]> {
+    let Ok(text) = std::str::from_utf8(bytes) else {
+        return Cow::Borrowed(bytes);
+    };
+    if !bytes.windows(2).any(|window| window == b"\r\n") {
+        return Cow::Borrowed(bytes);
+    }
+    Cow::Owned(text.replace("\r\n", "\n").into_bytes())
 }
 
 fn collect_package_sources(
@@ -843,6 +857,120 @@ mod tests {
 
     fn test_path_manager(temp: &TempDir) -> PathManager {
         PathManager::with_user_root_for_tests(temp.path().join("app-root"))
+    }
+
+    #[test]
+    fn canonical_system_package_bytes_normalizes_only_utf8_line_endings() {
+        assert_eq!(
+            canonical_system_package_bytes(b"line one\r\nline two\r\n").as_ref(),
+            b"line one\nline two\n"
+        );
+        assert_eq!(
+            canonical_system_package_bytes(b"line one\nline two\n").as_ref(),
+            b"line one\nline two\n"
+        );
+
+        let binary = b"\xff\r\n\x00";
+        assert_eq!(canonical_system_package_bytes(binary).as_ref(), binary);
+    }
+
+    #[tokio::test]
+    async fn filesystem_line_endings_reuse_embedded_system_release() {
+        let temp = TempDir::new().expect("temp dir");
+        let store = AppRevisionStore::open(temp.path().join("store"))
+            .await
+            .expect("revision store");
+        let relative = Path::new("app-builder/1.0.0");
+        let missing_filesystem_root = temp.path().join("missing-bundles");
+
+        let embedded_staging = temp.path().join("embedded-staging");
+        materialize_source(
+            relative,
+            &missing_filesystem_root,
+            &SYSTEM_PRODUCT_APP_BUNDLES,
+            &embedded_staging,
+        )
+        .await
+        .expect("embedded package");
+        let embedded_release = normalize_and_import_system_app(&store, &embedded_staging, &[])
+            .await
+            .expect("embedded release");
+
+        let filesystem_root = temp.path().join("filesystem-bundles");
+        let filesystem_source = filesystem_root.join(relative);
+        fs::create_dir_all(filesystem_source.parent().expect("package parent"))
+            .await
+            .expect("filesystem package parent");
+        materialize_source(
+            relative,
+            &missing_filesystem_root,
+            &SYSTEM_PRODUCT_APP_BUNDLES,
+            &filesystem_source,
+        )
+        .await
+        .expect("filesystem source package");
+        let compatibility_path = filesystem_source.join("compatibility.json");
+        let compatibility = fs::read_to_string(&compatibility_path)
+            .await
+            .expect("compatibility manifest");
+        fs::write(&compatibility_path, compatibility.replace('\n', "\r\n"))
+            .await
+            .expect("CRLF compatibility manifest");
+
+        let filesystem_staging = temp.path().join("filesystem-staging");
+        materialize_source(
+            relative,
+            &filesystem_root,
+            &SYSTEM_PRODUCT_APP_BUNDLES,
+            &filesystem_staging,
+        )
+        .await
+        .expect("materialized filesystem package");
+        let filesystem_release = normalize_and_import_system_app(&store, &filesystem_staging, &[])
+            .await
+            .expect("filesystem release");
+
+        assert_eq!(filesystem_release.release_id, embedded_release.release_id);
+        assert_eq!(store.list_releases(Some("app-builder")).await.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn system_seed_preserves_existing_same_version_release() {
+        let temp = TempDir::new().expect("temp dir");
+        let path_manager = test_path_manager(&temp);
+        let store = AppRevisionStore::open(path_manager.app_root())
+            .await
+            .expect("revision store");
+        let staging = temp.path().join("legacy-app-builder");
+        materialize_source(
+            Path::new("app-builder/1.0.0"),
+            &temp.path().join("missing-bundles"),
+            &SYSTEM_PRODUCT_APP_BUNDLES,
+            &staging,
+        )
+        .await
+        .expect("app builder package");
+        fs::write(
+            staging.join("legacy-build.txt"),
+            b"different immutable bytes",
+        )
+        .await
+        .expect("legacy marker");
+        let existing = normalize_and_import_system_app(&store, &staging, &[])
+            .await
+            .expect("existing release");
+
+        let seeded = seed_system_app_releases(&path_manager, &store)
+            .await
+            .expect("system seed");
+        let activation = store
+            .get_active(&AppActivationScope::System, "app-builder")
+            .await
+            .expect("app builder activation");
+
+        assert_eq!(activation.active_release_id, existing.release_id);
+        assert!(seeded.releases_reused >= 1);
+        assert_eq!(store.list_releases(Some("app-builder")).await.len(), 1);
     }
 
     #[tokio::test]
@@ -989,7 +1117,7 @@ mod tests {
             .await
             .expect("official release")
             .release;
-        let fast_path_release = reusable_embedded_system_release(
+        let fast_path_release = reusable_system_release(
             &store,
             &store.list_releases(None).await,
             &[

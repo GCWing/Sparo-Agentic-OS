@@ -138,6 +138,10 @@
   border-color: var(--ds-color-danger, var(--color-error, #c77070)) !important;
 }
 
+.ds-input-wrapper--focus-danger:not(.ds-input-wrapper--disabled) .ds-input-container:hover {
+  border-color: var(--ds-color-danger, var(--color-error, #c77070));
+}
+
 .ds-input {
   flex: 1;
   min-width: 0;

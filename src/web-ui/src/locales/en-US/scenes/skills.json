@@ -1,165 +1,139 @@
 {
   "nav": {
-    "title": "Skills",
-    "summary": "Browse installed skills locally and jump to the external marketplace section.",
-    "anchors": {
-      "installed": "Installed Skills",
-      "market": "Marketplace"
-    },
-    "anchorDescriptions": {
-      "installed": "Manage skills already available in this environment.",
-      "market": "Search and download more skills from skills.sh."
-    },
-    "categories": {
-      "discover": "Discover",
-      "installed": "Installed"
-    },
-    "items": {
-      "market": "Marketplace",
-      "installedAll": "All",
-      "installedUser": "User",
-      "installedProject": "Project"
-    }
-  },
-  "page": {
-    "title": "Skills",
-    "subtitle": "Manage installed skills and discover reusable skills from the external marketplace.",
-    "searchPlaceholder": "Search installed and marketplace skills..."
+    "title": "Skills"
   },
   "installed": {
-    "titleAll": "Installed Skills",
-    "subtitleAll": "Manage all installed user-level and project-level skills",
-    "titleUser": "User Skills",
-    "subtitleUser": "Globally installed user-level skills",
-    "titleProject": "Project Skills",
-    "subtitleProject": "Project-level skills in the current workspace"
+    "titleAll": "Skill Library",
+    "summary": "{{count}} packages available in this environment"
+  },
+  "library": {
+    "listLabel": "Skill packages",
+    "detailLabel": "Selected package details"
   },
   "toolbar": {
-    "searchPlaceholder": "Search skills...",
-    "addTooltip": "Add Skill"
+    "searchPlaceholder": "Search packages or members...",
+    "addPackage": "Add package"
   },
   "filters": {
-    "all": "All",
-    "builtin": "Built-in",
-    "user": "User",
-    "project": "Project",
-    "suite": "Suite"
-  },
-  "categories": {
-    "all": "All installed skills across every category.",
-    "builtin": "System built-in skills that come with the platform. Not removable.",
-    "user": "Skills you have installed globally for your user account.",
-    "project": "Skills installed within the current workspace project.",
-    "suite": "Curated skill suites that bundle multiple related skills together."
-  },
-  "section": {
-    "user": {
-      "description": "Skills installed globally for the current user."
+    "typeLabel": "Package type",
+    "sourceLabel": "Source",
+    "type": {
+      "all": "All",
+      "suite": "Suites",
+      "standalone": "Standalone"
     },
-    "project": {
-      "description": "Project-level skills in the current workspace."
+    "source": {
+      "all": "All sources",
+      "builtin": "Built-in",
+      "user": "User",
+      "project": "Project"
     }
+  },
+  "detail": {
+    "runtime": "Invocation details",
+    "command": "Command",
+    "type": "Type",
+    "status": "Status",
+    "level": "Location",
+    "path": "Path",
+    "router": "Router",
+    "tags": "Tags",
+    "members": "Members",
+    "member": "Suite member",
+    "memberCount": "{{count}} members",
+    "missingMembers": "Missing members",
+    "noMembers": "This suite has no available members.",
+    "healthReady": "Ready",
+    "healthMissing": "{{count}} missing",
+    "reveal": "Open package folder",
+    "deletePackage": "Delete package",
+    "backToSuite": "Back to suite",
+    "emptyTitle": "Select a Skill package",
+    "emptyDescription": "Choose a suite or standalone Skill to inspect its runtime command, source, and contents."
+  },
+  "management": {
+    "title": "Management",
+    "agentLabel": "Apply to Agent",
+    "availabilityLabel": "Allow this Agent to use it",
+    "availabilityEnabled": "{{agent}} can invoke this package at runtime.",
+    "availabilityDisabled": "This package is blocked for {{agent}}.",
+    "noAgents": "No configurable Agents",
+    "filesTitle": "Files and installation",
+    "builtinDescription": "Built-in packages can be blocked or restored, but cannot be deleted.",
+    "removableDescription": "Open the package folder or permanently remove it from this library.",
+    "openFolder": "Open folder",
+    "delete": "Delete"
   },
   "market": {
     "title": "Skill Marketplace",
-    "subtitle": "Search and download reusable skills (default scope: current project)",
-    "subtitlePrefix": "Browse reusable skills from",
-    "subtitleSuffix": ".",
-    "searchPlaceholder": "Search marketplace skills...",
-    "loading": "Loading marketplace skills...",
-    "errorPrefix": "Failed to load marketplace: ",
+    "subtitle": "Find reusable Skills and install them into the current project.",
+    "searchPlaceholder": "Search marketplace Skills...",
+    "resultsInfo": "{{count}} results for “{{query}}”",
     "empty": {
-      "noMatch": "No matching marketplace skills found",
-      "noSkills": "No marketplace skills available"
+      "noMatch": "No marketplace Skills match this search.",
+      "noSkills": "No marketplace Skills are available."
     },
     "item": {
-      "sourceLabel": "Source: ",
-      "installs": "Installs: {{count}}",
-      "noDescription": "No description available",
-      "downloadProject": "Download to Project",
+      "sourceLabel": "Source",
+      "downloadProject": "Install to project",
       "installed": "Installed",
-      "installedTooltip": "This skill is already installed",
-      "downloading": "Downloading..."
+      "downloading": "Installing..."
     },
     "pagination": {
-      "prev": "Previous page",
-      "next": "Next page",
       "info": "{{current}} / {{total}}",
-      "infoMore": "Page {{current}}",
-      "loading": "Loading..."
-    },
-    "sourceNote": {
-      "prefix": "Source:",
-      "suffix": " · Up to {{max}} results"
+      "infoMore": "Page {{current}}"
     },
     "detail": {
-      "installsLabel": "Installs",
       "linkLabel": "Link"
     }
   },
   "form": {
-    "title": "Add Skill",
-    "closeTooltip": "Close",
+    "title": "Add Skill package",
     "level": {
-      "label": "Level",
-      "user": "User-level (Global)",
-      "project": "Project-level (Workspace Path)",
-      "projectDisabled": " - Need to open workspace first",
-      "selectedProjectPath": "Selected project path: {{path}}"
+      "label": "Install location",
+      "user": "User library (global)",
+      "project": "Project library (current workspace)",
+      "projectDisabled": " — open a workspace first",
+      "selectedProjectPath": "Current project: {{path}}"
     },
     "path": {
-      "label": "Skill Folder Path",
-      "placeholder": "Select or enter skill folder path",
-      "browseTooltip": "Browse",
-      "hint": "Folder must contain a valid SKILL.md file"
+      "label": "Package folder",
+      "placeholder": "Select a Skill or suite folder",
+      "browseTooltip": "Browse folders",
+      "hint": "A Skill contains SKILL.md. A suite contains suite.json and its member folders."
     },
-    "validating": "Validating...",
+    "validating": "Validating package...",
     "actions": {
+      "close": "Close add package card",
       "cancel": "Cancel",
-      "add": "Add",
+      "add": "Add package",
       "adding": "Adding..."
     }
   },
   "list": {
-    "loading": "Loading...",
-    "errorPrefix": "Failed to load: ",
     "empty": {
-      "noMatch": "No matching skills found",
-      "noSkills": "No skills configured yet"
-    },
-    "item": {
-      "user": "User",
-      "project": "Project",
-      "builtin": "Built-in",
-      "standalone": "Standalone",
-      "userInstalled": "Installed",
-      "deleteTooltip": "Delete",
-      "detail": "Details",
-      "pathLabel": "Path:",
-      "openPathInExplorer": "Open this folder in file explorer",
-      "revealPathUnavailableRemote": "Remote workspace paths cannot be opened in the local file manager"
+      "noMatch": "No packages match the current filters.",
+      "noSkills": "No Skill packages are installed."
     }
   },
   "deleteModal": {
-    "title": "Confirm Delete",
-    "message": "Are you sure you want to delete skill \"{{name}}\"?",
-    "warning": "This will delete the skill folder and cannot be undone.",
+    "title": "Delete Skill package",
+    "message": "Delete the {{type}} package “{{name}}”? Its entire package folder will be removed.",
     "cancel": "Cancel",
-    "delete": "Delete"
+    "delete": "Delete package"
   },
   "messages": {
-    "invalidPath": "Please select a valid skill folder",
-    "noWorkspace": "Please open a workspace first to add project-level skills",
-    "addSuccess": "Skill \"{{name}}\" added successfully",
-    "addFailed": "Failed to add: {{error}}",
-    "deleteSuccess": "Skill \"{{name}}\" deleted",
-    "deleteFailed": "Failed to delete: {{error}}",
-    "toggleSuccess": "Skill \"{{name}}\" {{status}}",
-    "toggleFailed": "Failed to toggle: {{error}}",
-    "marketDownloadSuccess": "Skill \"{{name}}\" downloaded successfully",
-    "marketDownloadFailed": "Failed to download: {{error}}",
-    "enabled": "enabled",
-    "disabled": "disabled",
-    "revealPathFailed": "Could not open in file explorer: {{error}}"
+    "invalidPath": "Select a valid Skill package folder.",
+    "noWorkspace": "Open a workspace before adding a project-level package.",
+    "addSuccess": "Package “{{name}}” added.",
+    "addFailed": "Could not add package: {{error}}",
+    "deleteSuccess": "Package “{{name}}” deleted.",
+    "deleteFailed": "Could not delete package: {{error}}",
+    "disableSuccess": "Package “{{name}}” blocked for this Agent.",
+    "enableSuccess": "Package “{{name}}” restored for this Agent.",
+    "availabilityUpdateFailed": "Could not update Agent availability: {{error}}",
+    "marketDownloadSuccess": "Skill “{{name}}” installed.",
+    "marketDownloadFailed": "Could not install Skill: {{error}}",
+    "revealPathFailed": "Could not open package folder: {{error}}"
   }
 }

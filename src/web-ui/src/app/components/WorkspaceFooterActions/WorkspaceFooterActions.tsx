@@ -20,7 +20,7 @@ import {
 } from '@/app/agentic-os/work/domain/workClassification';
 import { openWorkCenterHome } from '@/app/agentic-os/work/navigation/openWork';
 import type { WorkspaceSceneId } from '@/app/navigation/workspaceSceneTypes';
-import { NewWorkDialog } from '../WorkDock/NewWorkDialog';
+import { NewWorkDialog, type NewWorkAgentChoice } from '../WorkDock/NewWorkDialog';
 import { openWorkspaceScene } from '../../navigation/workspaceNavigation';
 import { useWorkspaceSurfaceStore } from '../../navigation/workspaceSurfaceStore';
 import { WorkspaceHubPreview } from './previews/WorkspaceHubPreviewRegistry';
@@ -42,15 +42,35 @@ const HUB_PREVIEW_ITEM_ROWS = [
 ] as const satisfies readonly (readonly WorkspaceHubPreviewItemId[])[];
 
 const HUB_PREVIEW_ITEM_IDS = HUB_PREVIEW_ITEM_ROWS.flat();
-const HUB_PREVIEW_ITEM_ID_SET = new Set<WorkspaceHubItemId>(HUB_PREVIEW_ITEM_IDS);
+const HUB_PREVIEW_ITEM_ID_SET = new Set<string>(HUB_PREVIEW_ITEM_IDS);
 const HUB_DIRECT_ITEM_IDS = ['skills', 'tools', 'subagents', 'settings'] as const satisfies readonly WorkspaceHubItemId[];
+const HUB_LAST_SELECTED_PREVIEW_STORAGE_KEY = 'sparo.workspaceHub.lastPreview.v1';
 
 type WorkspaceHubDirectItemId = (typeof HUB_DIRECT_ITEM_IDS)[number];
 
 function isHubPreviewNavigationItem(
-  itemId: WorkspaceHubItemId,
-): itemId is (typeof HUB_PREVIEW_ITEM_IDS)[number] {
+  itemId: string,
+): itemId is WorkspaceHubPreviewItemId {
   return HUB_PREVIEW_ITEM_ID_SET.has(itemId);
+}
+
+function readLastSelectedPreview(): WorkspaceHubPreviewItemId | null {
+  try {
+    const itemId = window.localStorage.getItem(HUB_LAST_SELECTED_PREVIEW_STORAGE_KEY);
+    if (itemId && isHubPreviewNavigationItem(itemId)) return itemId;
+    if (itemId !== null) window.localStorage.removeItem(HUB_LAST_SELECTED_PREVIEW_STORAGE_KEY);
+  } catch {
+    // This preference is best-effort; in-memory selection still works without storage access.
+  }
+  return null;
+}
+
+function writeLastSelectedPreview(itemId: WorkspaceHubPreviewItemId): void {
+  try {
+    window.localStorage.setItem(HUB_LAST_SELECTED_PREVIEW_STORAGE_KEY, itemId);
+  } catch {
+    // This preference is best-effort; in-memory selection still works without storage access.
+  }
 }
 
 const WorkspaceFooterActions: React.FC = () => {
@@ -76,10 +96,12 @@ const WorkspaceFooterActions: React.FC = () => {
 
   const [hubOpen, setHubOpen] = useState(false);
   const [hubClosing, setHubClosing] = useState(false);
-  const [selectedItemId, setSelectedItemId] = useState<WorkspaceHubPreviewItemId>(
-    isHubPreviewNavigationItem(activeItemId) ? activeItemId : 'work-center',
-  );
+  const [selectedItemId, setSelectedItemId] = useState<WorkspaceHubPreviewItemId>(() => (
+    readLastSelectedPreview()
+      ?? (isHubPreviewNavigationItem(activeItemId) ? activeItemId : 'work-center')
+  ));
   const [newWorkDialogOpen, setNewWorkDialogOpen] = useState(false);
+  const [newWorkInitialAgentChoice, setNewWorkInitialAgentChoice] = useState<NewWorkAgentChoice>();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const selectedItemRef = useRef<HTMLButtonElement | null>(null);
@@ -104,9 +126,13 @@ const WorkspaceFooterActions: React.FC = () => {
       closeAnimationTimerRef.current = null;
     }
     setHubClosing(false);
-    setSelectedItemId(isHubPreviewNavigationItem(activeItemId) ? activeItemId : 'work-center');
     setHubOpen(true);
-  }, [activeItemId]);
+  }, []);
+
+  const selectPreviewItem = useCallback((itemId: WorkspaceHubPreviewItemId) => {
+    setSelectedItemId(itemId);
+    writeLastSelectedPreview(itemId);
+  }, []);
 
   useEffect(() => () => {
     if (closeAnimationTimerRef.current !== null) {
@@ -176,8 +202,9 @@ const WorkspaceFooterActions: React.FC = () => {
     openWorkspaceScene(sceneId);
   }, [closeHub]);
 
-  const startNewWork = useCallback(() => {
+  const startNewWork = useCallback((initialAgentChoice?: NewWorkAgentChoice) => {
     closeHub();
+    setNewWorkInitialAgentChoice(initialAgentChoice);
     setNewWorkDialogOpen(true);
   }, [closeHub]);
 
@@ -250,7 +277,7 @@ const WorkspaceFooterActions: React.FC = () => {
           aria-controls="workspace-hub-detail"
           aria-current={current ? 'page' : undefined}
           aria-pressed={selected}
-          onClick={() => setSelectedItemId(itemId)}
+          onClick={() => selectPreviewItem(itemId)}
           onKeyDown={(event) => handleGroupKeyDown(event, HUB_PREVIEW_ITEM_IDS, index, 2)}
         >
           <span className="sparo-workspace-hub__item-icon" aria-hidden="true">
@@ -457,7 +484,11 @@ const WorkspaceFooterActions: React.FC = () => {
       {newWorkDialogOpen && (
         <NewWorkDialog
           open
-          onClose={() => setNewWorkDialogOpen(false)}
+          initialAgentChoice={newWorkInitialAgentChoice}
+          onClose={() => {
+            setNewWorkDialogOpen(false);
+            setNewWorkInitialAgentChoice(undefined);
+          }}
         />
       )}
     </div>

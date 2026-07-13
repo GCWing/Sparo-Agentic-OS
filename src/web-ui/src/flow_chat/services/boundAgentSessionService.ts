@@ -27,6 +27,10 @@ export interface OpenBoundAgentSessionRequest {
   binding: AgentSessionBindingMetadata;
   sessionName: string;
   storageScope?: SessionStorageScope;
+  existingSession?: {
+    sessionId: string;
+    workspacePath?: string | null;
+  };
   customMetadata?: SessionCustomMetadata;
   context?: WorkspaceSurfaceContext | null;
   onOpened?: (session: Session) => void;
@@ -121,6 +125,37 @@ async function findExistingBoundSessionId(
     await findPersistedBoundSessionId(binding, storageScope);
 }
 
+async function ensureExistingSessionLoaded(
+  sessionId: string,
+  workspacePath: string | null | undefined,
+  storageScope: SessionStorageScope,
+): Promise<boolean> {
+  if (flowChatStore.getState().sessions.has(sessionId)) return true;
+
+  try {
+    const metadata = await sessionAPI.loadSessionMetadata(
+      sessionId,
+      workspacePath || undefined,
+      storageScope,
+    );
+    if (!metadata) return false;
+
+    await flowChatStore.hydrateWorkspaceSessionsMetadata(
+      [metadata],
+      metadata.workspacePath || workspacePath || '',
+      metadata.storageScope || storageScope,
+    );
+    return flowChatStore.getState().sessions.has(sessionId);
+  } catch (error) {
+    log.warn('Failed to load an existing bound agent session', {
+      sessionId,
+      workspacePath,
+      error,
+    });
+    return false;
+  }
+}
+
 function mergeCustomMetadata(
   existing: SessionCustomMetadata | undefined,
   incoming: SessionCustomMetadata | undefined,
@@ -155,7 +190,9 @@ function updateBoundSessionMetadata(
       request.customMetadata,
       request.binding,
     );
-    const nextWorkspacePath = workspacePathFromAppScope(request.binding.scope);
+    const nextWorkspacePath = request.existingSession?.workspacePath
+      ?? session.workspacePath
+      ?? workspacePathFromAppScope(request.binding.scope);
 
     updatedSession = {
       ...session,
@@ -200,7 +237,26 @@ export async function openBoundAgentSession(
     binding,
   };
 
-  const existingSessionId = await findExistingBoundSessionId(binding, storageScope);
+  let existingSessionId: string | null = null;
+  if (request.existingSession) {
+    const loaded = await ensureExistingSessionLoaded(
+      request.existingSession.sessionId,
+      request.existingSession.workspacePath,
+      storageScope,
+    );
+    if (!loaded) {
+      log.error('Required bound agent session is unavailable', {
+        sessionId: request.existingSession.sessionId,
+        agentType: binding.intent.agentType,
+        subjectKind: binding.subject.kind,
+        subjectId: binding.subject.id,
+      });
+      return null;
+    }
+    existingSessionId = request.existingSession.sessionId;
+  } else {
+    existingSessionId = await findExistingBoundSessionId(binding, storageScope);
+  }
   if (existingSessionId) {
     const session = updateBoundSessionMetadata(existingSessionId, normalizedRequest, storageScope);
     await flowChatManager.persistSessionMetadata(existingSessionId);
@@ -208,6 +264,8 @@ export async function openBoundAgentSession(
     if (session) request.onOpened?.(session);
     return session;
   }
+
+  if (request.existingSession) return null;
 
   const sessionId = await flowChatManager.createChatSession(
     {

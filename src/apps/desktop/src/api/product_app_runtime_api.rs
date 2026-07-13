@@ -2302,7 +2302,10 @@ mod tests {
             name: "Sample Agent".to_string(),
             description: "Sample private agent".to_string(),
             package_source: ComponentPackageSource::AppPrivate,
-            owner_app: None,
+            owner_app: Some(ComponentOwnerApp {
+                app_id: "sample-app".to_string(),
+                app_version: "1.0.0".to_string(),
+            }),
             capabilities: vec![CapabilityRef {
                 id: "agent.run".to_string(),
                 title: "Run agent".to_string(),

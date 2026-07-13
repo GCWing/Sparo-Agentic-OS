@@ -13,11 +13,22 @@ pub struct ProductAppPrivateComponentRegistration {
     pub private_agent_component_ids: Vec<String>,
 }
 
+fn uses_packaged_private_implementation(component: &ComponentDefinition) -> bool {
+    component.owner_app.is_some()
+        && component
+            .implementation_ref
+            .as_deref()
+            .is_none_or(|implementation_ref| implementation_ref.starts_with("app://"))
+}
+
 pub fn private_component_source_dir(
     app: &ResolvedProductApp,
     component: &ComponentDefinition,
 ) -> CoreResult<Option<PathBuf>> {
-    if component.owner_app.is_none() {
+    // ownerApp describes catalog ownership. Explicit agent:// and other
+    // delegated implementations intentionally have no source/ directory in
+    // the app. app:// and legacy declarations without a ref remain packaged.
+    if !uses_packaged_private_implementation(component) {
         return Ok(None);
     }
     let package_dir = app.package_dir.as_ref().ok_or_else(|| {
@@ -117,4 +128,50 @@ pub async fn register_private_product_app_runtime_components(
         private_bridge_package_dirs,
         private_agent_component_ids,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    fn private_agent(implementation_ref: &str) -> ComponentDefinition {
+        serde_json::from_value(json!({
+            "id": "sample-agent",
+            "kind": "agent",
+            "name": "Sample Agent",
+            "description": "Sample app-private agent",
+            "packageSource": "appPrivate",
+            "ownerApp": {
+                "appId": "sample-app",
+                "appVersion": "1.0.0"
+            },
+            "visibility": "appDependency",
+            "implementationRef": implementation_ref
+        }))
+        .expect("private agent definition")
+    }
+
+    #[test]
+    fn delegated_private_agent_does_not_require_packaged_source() {
+        let component = private_agent("agent://Runno");
+
+        assert!(!uses_packaged_private_implementation(&component));
+    }
+
+    #[test]
+    fn app_private_agent_requires_packaged_source() {
+        let component = private_agent("app://sample-app@1.0.0/agents/sample-agent");
+
+        assert!(uses_packaged_private_implementation(&component));
+    }
+
+    #[test]
+    fn legacy_private_agent_without_ref_requires_packaged_source() {
+        let mut component = private_agent("agent://Runno");
+        component.implementation_ref = None;
+
+        assert!(uses_packaged_private_implementation(&component));
+    }
 }

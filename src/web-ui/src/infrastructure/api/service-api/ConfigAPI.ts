@@ -11,7 +11,8 @@ import type {
   SkillLevel,
   SkillMarketDownloadResult,
   SkillMarketItem,
-  SkillValidationResult,
+  SkillPackageKind,
+  SkillPackageValidationResult,
 } from '../../config/types';
 
 export interface GetSkillConfigsParams {
@@ -46,14 +47,15 @@ export interface ReplaceAgentSkillSelectionParams {
   workspacePath?: string;
 }
 
-export interface AddSkillParams {
+export interface AddSkillPackageParams {
   sourcePath: string;
   level: SkillLevel;
   workspacePath?: string;
 }
 
-export interface DeleteSkillParams {
-  skillKey: string;
+export interface DeleteSkillPackageParams {
+  kind: SkillPackageKind;
+  key: string;
   workspacePath?: string;
 }
 
@@ -373,36 +375,47 @@ export class ConfigAPI {
   }
 
    
-  async validateSkillPath(path: string): Promise<SkillValidationResult> {
+  async validateSkillPackagePath(path: string): Promise<SkillPackageValidationResult> {
     try {
-      return await api.invoke('validate_skill_path', { path });
+      return await api.invoke('validate_skill_package_path', { path });
     } catch (error) {
-      throw createTauriCommandError('validate_skill_path', error, { path });
+      throw createTauriCommandError('validate_skill_package_path', error, { path });
     }
   }
 
-   
-  async addSkill({
+  async addSkillPackage({
     sourcePath,
     level,
     workspacePath,
-  }: AddSkillParams): Promise<string> {
+  }: AddSkillPackageParams): Promise<string> {
     try {
-      return await api.invoke('add_skill', { sourcePath, level, workspacePath });
+      return await api.invoke('add_skill_package', {
+        request: { sourcePath, level, workspacePath },
+      });
     } catch (error) {
-      throw createTauriCommandError('add_skill', error, { sourcePath, level, workspacePath });
+      throw createTauriCommandError('add_skill_package', error, {
+        sourcePath,
+        level,
+        workspacePath,
+      });
     }
   }
 
-   
-  async deleteSkill({
-    skillKey,
+  async deleteSkillPackage({
+    kind,
+    key,
     workspacePath,
-  }: DeleteSkillParams): Promise<string> {
+  }: DeleteSkillPackageParams): Promise<string> {
     try {
-      return await api.invoke('delete_skill', { skillKey, workspacePath });
+      return await api.invoke('delete_skill_package', {
+        request: { kind, key, workspacePath },
+      });
     } catch (error) {
-      throw createTauriCommandError('delete_skill', error, { skillKey, workspacePath });
+      throw createTauriCommandError('delete_skill_package', error, {
+        kind,
+        key,
+        workspacePath,
+      });
     }
   }
 

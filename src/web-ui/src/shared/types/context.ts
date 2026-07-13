@@ -16,6 +16,8 @@ export interface BaseContext {
  * A discriminated union representing supported context payloads.
  */
 export type ContextItem =
+  | TextFragmentContext
+  | SkillSelectionContext
   | FileContext
   | DirectoryContext
   | CodeSnippetContext
@@ -26,6 +28,34 @@ export type ContextItem =
   | WebElementContext
   | ProductAppPreviewElementSelectionContext
   | SpreadsheetFocusContext;
+
+/**
+ * Long-form text captured as an atomic Composer resource.
+ *
+ * The resource owns the full text while the Composer document owns its exact
+ * position through a context-ref node. This avoids lossy placeholder strings
+ * and makes the content independently inspectable and editable.
+ */
+export interface TextFragmentContext extends BaseContext {
+  type: 'text-fragment';
+  content: string;
+  charCount: number;
+  source: 'clipboard';
+  format: 'markdown';
+}
+
+/** A first-class Skill or Skill Suite selected for the next Composer turn. */
+export interface SkillSelectionContext extends BaseContext {
+  type: 'skill-selection';
+  targetKind: 'skill' | 'suite';
+  targetKey: string;
+  command: string;
+  name: string;
+  description: string;
+  suiteId?: string;
+  suiteName?: string;
+  memberCount?: number;
+}
 
 export interface FileContext extends BaseContext {
   type: 'file';
@@ -249,6 +279,14 @@ export interface RenderOptions {
 
 export function isFileContext(context: ContextItem): context is FileContext {
   return context.type === 'file';
+}
+
+export function isTextFragmentContext(context: ContextItem): context is TextFragmentContext {
+  return context.type === 'text-fragment';
+}
+
+export function isSkillSelectionContext(context: ContextItem): context is SkillSelectionContext {
+  return context.type === 'skill-selection';
 }
 
 export function isDirectoryContext(context: ContextItem): context is DirectoryContext {

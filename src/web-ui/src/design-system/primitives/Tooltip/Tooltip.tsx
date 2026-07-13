@@ -404,8 +404,8 @@ export const Tooltip: React.FC<TooltipProps> = ({
             position: 'fixed',
             top: `${position.top}px`,
             left: `${position.left}px`,
-            zIndex: 9999,
           }}
+          role="tooltip"
         >
           <div className="ds-tooltip__content">{content}</div>
         </div>,

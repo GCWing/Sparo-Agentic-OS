@@ -153,25 +153,39 @@ export async function openProductAppRuntime(
   const appRef = productAppWorkRef(app);
   const title = options.title?.trim() || app.appId;
   const objective = options.objective?.trim() || title;
-  const { work } = await useWorkStore.getState().resolveAppWork({
+  const request = {
     app: appRef,
-    intent: 'use',
+    intent: 'use' as const,
     title,
     objective,
     scope: workScopeFromAppScope(scope),
-    visibility: 'primary',
-    primarySurfacePolicy: 'application_surface',
+    visibility: 'primary' as const,
+    primarySurfacePolicy: 'application_surface' as const,
     primarySurface: {
-      kind: 'application_surface',
+      kind: 'application_surface' as const,
       productAppId: app.appId,
       productAppSurfaceId: declaredSurface.componentId,
       surfaceId: declaredSurface.surfaceId ?? declaredSurface.componentId,
     },
     assignment: {
-      kind: 'application',
+      kind: 'application' as const,
       applicationId: app.appId,
     },
-  });
+  };
+  const work = app.runtime.workMultiplicity === 'singleton'
+    ? (await useWorkStore.getState().resolveAppWork(request)).work
+    : await useWorkStore.getState().createWork({
+        kind: 'app_workflow',
+        title,
+        objective,
+        subject: { kind: 'app', app: appRef, intent: 'use' },
+        appRefs: [{ app: appRef, role: 'executor' }],
+        scope: request.scope,
+        visibility: request.visibility,
+        primarySurfacePolicy: request.primarySurfacePolicy,
+        primarySurface: request.primarySurface,
+        assignment: request.assignment,
+      });
   const target = await resolveRuntimeTarget(work, appRef, scope, options);
   const context: WorkspaceSurfaceContext = options.context ?? { kind: 'work', workId: work.id };
   await openProductAppRuntimeHost(target, {

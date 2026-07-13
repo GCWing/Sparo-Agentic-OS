@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, Info, Languages } from 'lucide-react';
-import { Button, SegmentedControl } from '@/design-system';
+import { ChevronLeft, Info, Languages, Sun, SunMoon } from 'lucide-react';
+import { Button, SegmentedControl, Tooltip } from '@/design-system';
 import { useLanguageSelector } from '@/infrastructure/i18n';
 import type { LocaleId, LocaleMetadata } from '@/infrastructure/i18n/types';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
@@ -27,6 +27,13 @@ type ThemePreviewStyle = React.CSSProperties & {
   '--hub-theme-preview-right'?: string;
 };
 
+type CurrentThemePreviewStyle = React.CSSProperties & {
+  '--hub-current-theme-accent'?: string;
+  '--hub-current-theme-foreground'?: string;
+  '--hub-current-theme-surface-primary'?: string;
+  '--hub-current-theme-border'?: string;
+};
+
 function choiceStyle(index: number, count: number): ChoiceStyle {
   return {
     '--hub-choice-count': Math.max(count, 1),
@@ -39,13 +46,52 @@ function compactLocaleLabel(locale: LocaleMetadata): string {
   return locale.id.split('-')[0]?.toUpperCase() || locale.nativeName.slice(0, 2);
 }
 
-function ThemeColorPreview({ left, right }: { left?: string; right?: string }) {
+function ThemeColorPreview({
+  left,
+  right,
+  label,
+}: {
+  left?: string;
+  right?: string;
+  label: string;
+}) {
   const style: ThemePreviewStyle = {
     '--hub-theme-preview-left': left,
     '--hub-theme-preview-right': right,
   };
 
-  return <span className="sparo-workspace-hub__theme-preview" style={style} aria-hidden="true" />;
+  return (
+    <Tooltip content={label} placement="top" delay={200}>
+      <span className="sparo-workspace-hub__theme-preview" style={style} aria-hidden="true" />
+    </Tooltip>
+  );
+}
+
+function CurrentThemePreview({
+  accent,
+  foreground,
+  surfacePrimary,
+  border,
+}: {
+  accent?: string;
+  foreground?: string;
+  surfacePrimary?: string;
+  border?: string;
+}) {
+  const style: CurrentThemePreviewStyle = {
+    '--hub-current-theme-accent': accent,
+    '--hub-current-theme-foreground': foreground,
+    '--hub-current-theme-surface-primary': surfacePrimary,
+    '--hub-current-theme-border': border,
+  };
+
+  return (
+    <span className="sparo-workspace-hub__current-theme-preview" style={style} aria-hidden="true">
+      <span className="sparo-workspace-hub__current-theme-swatch is-primary" />
+      <span className="sparo-workspace-hub__current-theme-swatch is-secondary" />
+      <span className="sparo-workspace-hub__current-theme-swatch is-accent" />
+    </span>
+  );
 }
 
 export const WorkspaceHubUtilityRail: React.FC<WorkspaceHubUtilityRailProps> = ({
@@ -63,15 +109,7 @@ export const WorkspaceHubUtilityRail: React.FC<WorkspaceHubUtilityRailProps> = (
 
   const activeThemeChoice = themeId === SYSTEM_THEME_ID ? SYSTEM_THEME_ID : (themeId || themeType);
   const themeOptions = useMemo(() => {
-    const lightTheme = builtinThemes.find((candidate) => candidate.id === 'light');
-    const darkTheme = builtinThemes.find((candidate) => candidate.id === 'dark');
     const previewFor = (id: string) => {
-      if (id === SYSTEM_THEME_ID) {
-        return {
-          left: lightTheme?.colors.background.primary,
-          right: darkTheme?.colors.background.primary,
-        };
-      }
       const candidate = themeService.getTheme(id) ?? builtinThemes.find((item) => item.id === id);
       return {
         left: candidate?.colors.background.primary,
@@ -83,12 +121,18 @@ export const WorkspaceHubUtilityRail: React.FC<WorkspaceHubUtilityRailProps> = (
       {
         value: SYSTEM_THEME_ID,
         label: <span className="sparo-workspace-hub__sr-only">{t('nav.menuPanel.hub.controls.systemTheme')}</span>,
-        icon: <ThemeColorPreview {...previewFor(SYSTEM_THEME_ID)} />,
+        icon: (
+          <Tooltip content={t('nav.menuPanel.hub.controls.systemTheme')} placement="top" delay={200}>
+            <span className="sparo-workspace-hub__system-theme-preview">
+              <SunMoon size={16} strokeWidth={1.9} aria-hidden="true" />
+            </span>
+          </Tooltip>
+        ),
       },
       ...themes.map((candidate) => ({
         value: candidate.id,
         label: <span className="sparo-workspace-hub__sr-only">{candidate.name}</span>,
-        icon: <ThemeColorPreview {...previewFor(candidate.id)} />,
+        icon: <ThemeColorPreview {...previewFor(candidate.id)} label={candidate.name} />,
       })),
     ];
   }, [t, themes]);
@@ -108,21 +152,6 @@ export const WorkspaceHubUtilityRail: React.FC<WorkspaceHubUtilityRailProps> = (
       : activeThemeChoice === 'dark'
         ? t('nav.menuPanel.hub.controls.darkTheme')
         : theme?.name || activeThemeChoice;
-  const systemLightTheme = builtinThemes.find((candidate) => candidate.id === 'light');
-  const systemDarkTheme = builtinThemes.find((candidate) => candidate.id === 'dark');
-  const currentThemeIcon = activeThemeChoice === SYSTEM_THEME_ID
-    ? (
-      <ThemeColorPreview
-        left={systemLightTheme?.colors.background.primary}
-        right={systemDarkTheme?.colors.background.primary}
-      />
-    )
-    : (
-      <ThemeColorPreview
-        left={theme?.colors.background.primary}
-        right={theme?.colors.accent[500]}
-      />
-    );
   const currentLanguageLabel = currentLocale ? compactLocaleLabel(currentLocale) : currentLanguage;
 
   const clearCollapseTimer = useCallback(() => {
@@ -154,9 +183,10 @@ export const WorkspaceHubUtilityRail: React.FC<WorkspaceHubUtilityRailProps> = (
     }, COLLAPSE_AFTER_SELECTION_MS);
   }, [clearCollapseTimer, returnFocusToTrigger]);
 
-  const openEditor = useCallback((control: Exclude<ExpandedControl, null>) => {
+  const openEditor = useCallback((control: Exclude<ExpandedControl, null>, focusSelection: boolean) => {
     clearCollapseTimer();
     setExpandedControl(control);
+    if (!focusSelection) return;
     window.requestAnimationFrame(() => {
       const target = control === 'theme' ? themeControlRef.current : languageControlRef.current;
       target?.querySelector<HTMLButtonElement>('[role="radio"][aria-checked="true"]')?.focus();
@@ -197,16 +227,22 @@ export const WorkspaceHubUtilityRail: React.FC<WorkspaceHubUtilityRailProps> = (
             ref={themeTriggerRef}
             variant="ghost"
             size="small"
-            className="sparo-workspace-hub__utility-status"
+            className="sparo-workspace-hub__quick-theme"
             aria-label={t('nav.menuPanel.hub.controls.currentTheme', { value: currentThemeLabel })}
             aria-controls="workspace-hub-theme-controls"
             aria-expanded="false"
             title={t('nav.menuPanel.hub.controls.currentTheme', { value: currentThemeLabel })}
-            onClick={() => openEditor('theme')}
+            onClick={(event) => openEditor('theme', event.detail === 0)}
           >
-            <span className="sparo-workspace-hub__utility-status-icon" aria-hidden="true">
-              {currentThemeIcon}
+            <span className="sparo-workspace-hub__quick-theme-icon" aria-hidden="true">
+              <Sun size={16} strokeWidth={2} />
             </span>
+            <CurrentThemePreview
+              accent={theme?.colors.accent[500]}
+              foreground={theme?.colors.text.muted}
+              surfacePrimary={theme?.colors.background.secondary}
+              border={theme?.colors.border.base}
+            />
           </Button>
           <Button
             ref={languageTriggerRef}
@@ -217,7 +253,7 @@ export const WorkspaceHubUtilityRail: React.FC<WorkspaceHubUtilityRailProps> = (
             aria-controls="workspace-hub-language-controls"
             aria-expanded="false"
             title={t('nav.menuPanel.hub.controls.currentLanguage', { value: currentLanguageLabel })}
-            onClick={() => openEditor('language')}
+            onClick={(event) => openEditor('language', event.detail === 0)}
           >
             <Languages size={14} aria-hidden="true" />
           </Button>

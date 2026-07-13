@@ -20,6 +20,15 @@ import {
   type ComposerTargetIntent,
 } from '../model/composerIntentState';
 import { createLogger } from '@/shared/utils/logger';
+import type { ComposerDocument } from '@/shared/types/composer';
+import type { ContextItem } from '@/shared/types/context';
+import {
+  createComposerContextSnapshot,
+  freezeComposerDraftContextEditors,
+  restoreComposerDraftContextEditors,
+  serializeComposerDocumentForDisplay,
+  serializeComposerDocumentForModel,
+} from '../../../domain/composerContextRegistry';
 
 const log = createLogger('ComposerSubmission');
 
@@ -49,14 +58,19 @@ interface UseComposerSubmissionParams {
   derivedState: SessionDerivedState | null;
   transition: (event: SessionExecutionEvent) => Promise<unknown>;
   sendMessage: (message: string, options?: ComposerSendMessageOptions) => Promise<void>;
-  addToHistory: (sessionId: string, message: string) => void;
+  addToHistory: (
+    sessionId: string,
+    message: string,
+    composerContext: ReturnType<typeof createComposerContextSnapshot>,
+  ) => void;
   resetHistoryDraft: () => void;
   onSendMessage?: (message: string) => void;
-  clearPendingLargePastes: () => void;
-  expandPendingLargePastes: (text: string) => string;
-  getCharacterCount: (text: string) => number;
-  snapshotPendingLargePastes: () => Record<string, string>;
-  restorePendingLargePastes: (snapshot: Record<string, string>) => void;
+  document: ComposerDocument;
+  contexts: ContextItem[];
+  restoreDraft: (document: ComposerDocument, contexts: ContextItem[]) => void;
+  restoreDraftIfEmpty: (document: ComposerDocument, contexts: ContextItem[]) => boolean;
+  updateDraftContext: (contextId: string, updates: Partial<ContextItem>) => void;
+  draftKey: string;
   activeGoalId?: string | null;
   onBtwStarted?: () => void;
 }
@@ -98,16 +112,17 @@ export function useComposerSubmission({
   addToHistory,
   resetHistoryDraft,
   onSendMessage,
-  clearPendingLargePastes,
-  expandPendingLargePastes,
-  getCharacterCount,
-  snapshotPendingLargePastes,
-  restorePendingLargePastes,
+  document,
+  contexts,
+  restoreDraft,
+  restoreDraftIfEmpty,
+  updateDraftContext,
+  draftKey,
   activeGoalId,
   onBtwStarted,
 }: UseComposerSubmissionParams) {
   const validateMessageSize = useCallback((message: string): boolean => {
-    const messageCharCount = getCharacterCount(message);
+    const messageCharCount = Array.from(message).length;
     if (messageCharCount <= CHAT_INPUT_CONFIG.largePaste.maxMessageChars) {
       return true;
     }
@@ -118,31 +133,45 @@ export function useComposerSubmission({
       defaultValue: 'Message exceeds the maximum length of {{max}} characters ({{count}} provided).',
     }), { duration: 4000 });
     return false;
-  }, [getCharacterCount, t]);
+  }, [t]);
+
+  const modelMessage = serializeComposerDocumentForModel(document, contexts);
+  const displayMessage = serializeComposerDocumentForDisplay(document, contexts, t);
+  const composerContextSnapshot = createComposerContextSnapshot(document, contexts);
 
   const clearDraftForSubmit = useCallback(() => {
+    freezeComposerDraftContextEditors(composerContextSnapshot, draftKey);
     resetHistoryDraft();
     clearInput();
-    clearPendingLargePastes();
     setQueuedInput(null);
-  }, [clearInput, clearPendingLargePastes, resetHistoryDraft, setQueuedInput]);
+  }, [clearInput, composerContextSnapshot, draftKey, resetHistoryDraft, setQueuedInput]);
 
   const restoreDraftAfterFailure = useCallback((
-    originalMessage: string,
-    pendingLargePastes: Record<string, string>,
+    originalDocument: ComposerDocument,
+    originalContexts: ContextItem[],
   ) => {
-    restorePendingLargePastes(pendingLargePastes);
+    if (!restoreDraftIfEmpty(originalDocument, originalContexts)) return;
+    const originalSnapshot = createComposerContextSnapshot(originalDocument, originalContexts);
+    restoreComposerDraftContextEditors(originalSnapshot, draftKey, updateDraftContext);
     activateInput();
-    setInputValue(originalMessage);
+    setInputValue(originalDocument.nodes
+      .filter(node => node.type === 'text')
+      .map(node => node.text)
+      .join(''));
+    restoreDraft(originalDocument, originalContexts);
     if (derivedState?.isProcessing) {
-      setQueuedInput(originalMessage);
+      setQueuedInput(modelMessage);
     }
   }, [
     activateInput,
     derivedState?.isProcessing,
-    restorePendingLargePastes,
+    modelMessage,
+    restoreDraft,
+    restoreDraftIfEmpty,
+    draftKey,
     setInputValue,
     setQueuedInput,
+    updateDraftContext,
   ]);
 
   const submitBtwDraft = useCallback(async () => {
@@ -155,16 +184,15 @@ export function useComposerSubmission({
       return;
     }
 
-    const originalMessage = inputValue.trim();
-    const pendingLargePastes = snapshotPendingLargePastes();
-    const question = expandPendingLargePastes(originalMessage).trim();
+    const originalDocument = structuredClone(document);
+    const originalContexts = structuredClone(contexts);
+    const question = modelMessage.trim();
 
     if (!question) {
       notificationService.warning(t('btw.empty', { defaultValue: 'Please provide a side question.' }));
       return;
     }
     if (!validateMessageSize(question)) {
-      restorePendingLargePastes(pendingLargePastes);
       return;
     }
 
@@ -187,7 +215,7 @@ export function useComposerSubmission({
       onBtwStarted?.();
     } catch (error) {
       log.error('Failed to start side question thread', { error });
-      restoreDraftAfterFailure(originalMessage, pendingLargePastes);
+      restoreDraftAfterFailure(originalDocument, originalContexts);
       notificationService.error(error instanceof Error ? error.message : t('error.unknown'), {
         title: t('btw.startFailed', { defaultValue: 'Side question failed' }),
         duration: 5000,
@@ -197,14 +225,14 @@ export function useComposerSubmission({
     clearDraftForSubmit,
     currentSessionId,
     currentSessionModelId,
-    expandPendingLargePastes,
+    contexts,
+    document,
     inputValue,
     isBtwSession,
     onBtwStarted,
     resetIntentAfterSubmit,
     restoreDraftAfterFailure,
-    restorePendingLargePastes,
-    snapshotPendingLargePastes,
+    modelMessage,
     t,
     validateMessageSize,
     workspacePath,
@@ -319,33 +347,33 @@ export function useComposerSubmission({
       return;
     }
 
-    const originalMessage = inputValue.trim();
-    const pendingLargePastes = snapshotPendingLargePastes();
-    const goalBody = expandPendingLargePastes(originalMessage).trim();
+    const originalDocument = structuredClone(document);
+    const originalContexts = structuredClone(contexts);
+    const goalBody = modelMessage.trim();
     if (!goalBody) {
       notificationService.warning(t('chatInput.goalEmpty', { defaultValue: 'Describe the goal before sending.' }));
       return;
     }
     if (!validateMessageSize(goalBody)) {
-      restorePendingLargePastes(pendingLargePastes);
       return;
     }
 
     const rawInput = `/goal ${goalBody}`;
     const goalTurnId = createGoalTurnId();
 
-    addToHistory(effectiveTargetSessionId, originalMessage);
+    addToHistory(effectiveTargetSessionId, displayMessage.trim(), composerContextSnapshot);
     clearDraftForSubmit();
 
     let goalTurnSubmitted = false;
     try {
       const { goalAPI } = await import('@/infrastructure/api');
       await sendMessage(goalBody, {
-        displayMessage: goalBody,
+        displayMessage: displayMessage.trim(),
         triggerSource: 'goal',
         systemReminderOverride: goalInitialSystemReminder(),
         localDialogTurnId: goalTurnId,
         metadata: {
+          composerContext: composerContextSnapshot,
           goal: {
             kind: 'initial',
             rawInput,
@@ -371,7 +399,7 @@ export function useComposerSubmission({
     } catch (error) {
       log.error('Failed to submit goal', { error, sessionId: effectiveTargetSessionId });
       if (!goalTurnSubmitted) {
-        restoreDraftAfterFailure(originalMessage, pendingLargePastes);
+        restoreDraftAfterFailure(originalDocument, originalContexts);
       }
       notificationService.error(error instanceof Error ? error.message : t('error.unknown'), {
         title: t('chatInput.goalFailed', { defaultValue: 'Goal command failed' }),
@@ -383,13 +411,15 @@ export function useComposerSubmission({
     clearDraftForSubmit,
     effectiveTargetSession,
     effectiveTargetSessionId,
-    expandPendingLargePastes,
+    composerContextSnapshot,
+    contexts,
+    displayMessage,
+    document,
     inputValue,
     resetIntentAfterSubmit,
     restoreDraftAfterFailure,
-    restorePendingLargePastes,
     sendMessage,
-    snapshotPendingLargePastes,
+    modelMessage,
     t,
     validateMessageSize,
     workspacePath,
@@ -399,9 +429,10 @@ export function useComposerSubmission({
     const command = intent.promptTemplate;
     if (!command) return;
 
-    const originalMessage = inputValue.trim();
-    const pendingLargePastes = snapshotPendingLargePastes();
-    const expandedArguments = expandPendingLargePastes(originalMessage).trim();
+    const originalDocument = structuredClone(document);
+    const originalContexts = structuredClone(contexts);
+    const originalMessage = displayMessage.trim();
+    const expandedArguments = modelMessage.trim();
     const argValues = parseSlashArguments(expandedArguments);
     const requiredArgs = command.arguments.filter(argument => argument.required);
     if (argValues.length < requiredArgs.length) {
@@ -412,9 +443,16 @@ export function useComposerSubmission({
       return;
     }
 
-    const displayMessage = `${command.command}${originalMessage ? ` ${originalMessage}` : ''}`;
+    const commandDisplayMessage = `${command.command}${originalMessage ? ` ${originalMessage}` : ''}`;
+    const commandComposerContext = createComposerContextSnapshot({
+      version: 1,
+      nodes: [
+        { type: 'text', text: `${command.command}${document.nodes.length > 0 ? ' ' : ''}` },
+        ...document.nodes,
+      ],
+    }, contexts);
     if (effectiveTargetSessionId) {
-      addToHistory(effectiveTargetSessionId, displayMessage);
+      addToHistory(effectiveTargetSessionId, commandDisplayMessage, commandComposerContext);
     }
     clearDraftForSubmit();
 
@@ -438,11 +476,14 @@ export function useComposerSubmission({
         throw new Error('MCP prompt returned no displayable content');
       }
 
-      await sendMessage(renderedPrompt, { displayMessage });
+      await sendMessage(renderedPrompt, {
+        displayMessage: commandDisplayMessage,
+        metadata: { composerContext: commandComposerContext },
+      });
       resetIntentAfterSubmit();
     } catch (error) {
       log.error('Failed to run MCP prompt command', { command: command.command, error });
-      restoreDraftAfterFailure(originalMessage, pendingLargePastes);
+      restoreDraftAfterFailure(originalDocument, originalContexts);
       notificationService.error(error instanceof Error ? error.message : t('error.unknown'), {
         title: t('chatInput.mcpPromptFailed', { defaultValue: 'MCP prompt failed' }),
         duration: 5000,
@@ -452,13 +493,16 @@ export function useComposerSubmission({
     addToHistory,
     clearDraftForSubmit,
     effectiveTargetSessionId,
-    expandPendingLargePastes,
+    composerContextSnapshot,
+    contexts,
+    displayMessage,
+    document,
     inputValue,
     intent.promptTemplate,
     resetIntentAfterSubmit,
     restoreDraftAfterFailure,
     sendMessage,
-    snapshotPendingLargePastes,
+    modelMessage,
     t,
   ]);
 
@@ -468,59 +512,59 @@ export function useComposerSubmission({
   }, [effectiveTargetSessionId]);
 
   const submitNormalMessage = useCallback(async () => {
-    const originalMessage = inputValue.trim();
-    if (!originalMessage) return;
-
-    const pendingLargePastes = snapshotPendingLargePastes();
-    const message = expandPendingLargePastes(originalMessage).trim();
+    const originalDocument = structuredClone(document);
+    const originalContexts = structuredClone(contexts);
+    const message = modelMessage.trim();
+    if (!message) return;
     if (!validateMessageSize(message)) {
-      restorePendingLargePastes(pendingLargePastes);
       return;
     }
 
     if (effectiveTargetSessionId) {
-      addToHistory(effectiveTargetSessionId, message);
+      addToHistory(effectiveTargetSessionId, displayMessage.trim(), composerContextSnapshot);
     }
     clearDraftForSubmit();
     resetIntentAfterSubmit(intent.target === 'btw-thread' ? 'btw-thread' : undefined);
 
     try {
-      await sendMessage(message, activeGoalId ? {
+      await sendMessage(message, {
+        displayMessage: displayMessage.trim(),
         metadata: {
-          goal: {
+          composerContext: composerContextSnapshot,
+          ...(activeGoalId ? { goal: {
             kind: 'active',
             goalId: activeGoalId,
-          },
+          } } : {}),
         },
-      } : undefined);
-      clearPendingLargePastes();
+      });
       clearInput();
     } catch (error) {
       log.error('Failed to send message', { error });
-      restoreDraftAfterFailure(originalMessage, pendingLargePastes);
+      restoreDraftAfterFailure(originalDocument, originalContexts);
     }
   }, [
     activeGoalId,
     addToHistory,
     clearDraftForSubmit,
     clearInput,
-    clearPendingLargePastes,
+    composerContextSnapshot,
+    contexts,
+    displayMessage,
+    document,
     effectiveTargetSessionId,
-    expandPendingLargePastes,
     inputValue,
     intent.target,
     resetIntentAfterSubmit,
     restoreDraftAfterFailure,
-    restorePendingLargePastes,
     sendMessage,
-    snapshotPendingLargePastes,
+    modelMessage,
     validateMessageSize,
   ]);
 
   const handleSendOrCancel = useCallback(async () => {
     if (!derivedState) return;
 
-    const draftTrimmed = inputValue.trim();
+    const draftTrimmed = modelMessage.trim();
     if (derivedState.sendButtonMode === 'cancel' && !draftTrimmed && !intent.operation) {
       await handleCancelGeneration();
       return;
@@ -556,6 +600,7 @@ export function useComposerSubmission({
     handleCancelGeneration,
     inputValue,
     intent,
+    modelMessage,
     submitBtwDraft,
     submitCompact,
     submitGoalDraft,

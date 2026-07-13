@@ -129,7 +129,8 @@
     'overlay': 100,
     'modal': 200,
     'toast': 300,
-    'tooltip': 400
+    'popover': 340,
+    'tooltip': 360
   );
   
   @return map.get($z-layers, $layer) or 0;

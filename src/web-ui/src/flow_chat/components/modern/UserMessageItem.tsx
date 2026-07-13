@@ -5,6 +5,7 @@
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import {
   Copy,
   Check,
@@ -23,7 +24,6 @@ import { useFlowChatStaticContext, useFlowChatViewContext } from './FlowChatCont
 import { flowChatStore } from '../../store/FlowChatStore';
 import { snapshotAPI } from '@/infrastructure/api';
 import { notificationService } from '@/shared/notification-system';
-import { globalEventBus } from '@/infrastructure/event-bus';
 import { Badge, DotMatrixLoader, IconButton, confirmDanger } from '@/design-system';
 import type { MarkdownLayoutMutationDetail } from '@/shared/markdown';
 import { ReproductionStepsBlock } from '@/shared/markdown';
@@ -35,6 +35,13 @@ import {
   editAndRerunUserMessage,
 } from '../../services/UserMessageEditService';
 import { UserMessageEditComposer } from './UserMessageEditComposer';
+import type { ComposerContextSnapshot } from '@/shared/types/composer';
+import { isComposerContextSnapshot } from '@/shared/types/composer';
+import {
+  getContextPresentation,
+  openComposerContext,
+  serializeComposerDocumentForModel,
+} from '../../domain/composerContextRegistry';
 import { incrementFlowChatCounter } from '../../performance/flowChatPerf';
 import { invalidateFlowLayout } from '../../scroll/FlowLayoutMutationEvents';
 import './UserMessageItem.scss';
@@ -122,6 +129,47 @@ function highlightText(text: string, query: string): React.ReactNode {
   );
 }
 
+function ComposerSnapshotContent({
+  snapshot,
+  query,
+  t,
+}: {
+  snapshot: ComposerContextSnapshot;
+  query: string;
+  t: TFunction<'flow-chat'>;
+}) {
+  const byId = new Map(snapshot.contexts.map(context => [context.id, context]));
+  return (
+    <span className="user-message-item__composer-document">
+      {snapshot.document.nodes.map((node, index) => {
+        if (node.type === 'text') {
+          return <React.Fragment key={`text-${index}`}>{highlightText(node.text, query)}</React.Fragment>;
+        }
+        const context = byId.get(node.contextId);
+        if (!context) return null;
+        const presentation = getContextPresentation(context, t);
+        const ContextIcon = presentation.icon;
+        return (
+          <button
+            key={`${node.contextId}-${index}`}
+            type="button"
+            className={`user-message-item__context-tag user-message-item__context-tag--${presentation.color}`}
+            disabled={!presentation.canOpen}
+            title={presentation.detail}
+            onClick={event => {
+              event.stopPropagation();
+              if (presentation.canOpen) openComposerContext(context, { readOnly: true });
+            }}
+          >
+            <ContextIcon size={12} aria-hidden="true" />
+            <span>{presentation.label}</span>
+          </button>
+        );
+      })}
+    </span>
+  );
+}
+
 export const UserMessageItem = React.memo<UserMessageItemProps>(
   ({ message, turnId, turnIndex, turnStatus, turnStartMs, sessionStartMs, variant = 'primary' }) => {
     incrementFlowChatCounter('render.userMessageItem');
@@ -137,6 +185,10 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
     const editAttentionRafRef = useRef<number | null>(null);
     const editAttentionTimeoutRef = useRef<number | null>(null);
     const messageContent = typeof message?.content === 'string' ? message.content : String(message?.content || '');
+    const composerSnapshot = useMemo(() => {
+      const value = message?.metadata?.composerContext;
+      return isComposerContextSnapshot(value) ? value : null;
+    }, [message?.metadata?.composerContext]);
     const messageImages = useMemo(() => message?.images ?? [], [message?.images]);
     const isFollowUp = variant === 'follow-up';
     const triggerSource = 'triggerSource' in message ? message.triggerSource : undefined;
@@ -200,29 +252,30 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
       return { displayText: cleaned, reproductionSteps: reproduction };
     }, [messageContent, messageImages]);
 
-    /** Human user row: wrap preview in typographic double quotes. */
-    const quotedDisplayText = useMemo(
-      () => `\u201c${displayText}\u201d`,
-      [displayText],
-    );
     const editInitialContent = useMemo(
-      () => displayText || messageContent,
-      [displayText, messageContent],
+      () => composerSnapshot
+        ? serializeComposerDocumentForModel(composerSnapshot.document, composerSnapshot.contexts)
+        : displayText || messageContent,
+      [composerSnapshot, displayText, messageContent],
     );
     const isEditDirty = editDraft !== editInitialContent;
     const isTruncated = displayText.length > 120;
+    const copyContent = useMemo(() => composerSnapshot
+      ? serializeComposerDocumentForModel(composerSnapshot.document, composerSnapshot.contexts)
+      : messageContent,
+    [composerSnapshot, messageContent]);
 
     // Copy the user message.
     const handleCopy = useCallback(async (e: React.MouseEvent) => {
       e.stopPropagation(); // Prevent toggle via bubbling.
       try {
-        await navigator.clipboard.writeText(messageContent);
+        await navigator.clipboard.writeText(copyContent);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       } catch (error) {
         log.error('Failed to copy', error);
       }
-    }, [messageContent]);
+    }, [copyContent]);
 
     const handleRollback = useCallback(async (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -260,10 +313,13 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
         // 3) Restore the original user input back into the chat input box,
         //    but only when the input is empty to avoid clobbering pending edits.
         if (messageContent.trim().length > 0) {
-          globalEventBus.emit('fill-chat-input', {
-            content: messageContent,
-            onlyIfEmpty: true,
-          });
+          window.dispatchEvent(new CustomEvent('fill-chat-input', {
+            detail: {
+              message: messageContent,
+              composerContext: composerSnapshot,
+              onlyIfEmpty: true,
+            },
+          }));
         }
 
         notificationService.success(t('message.rollbackSuccess'));
@@ -273,7 +329,7 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
       } finally {
         setIsRollingBack(false);
       }
-    }, [canRollback, sessionId, t, turnIndex, messageContent]);
+    }, [canRollback, composerSnapshot, sessionId, t, turnIndex, messageContent]);
 
     const handleBeginEdit = useCallback((e: React.MouseEvent) => {
       e.stopPropagation();
@@ -379,10 +435,13 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
     // Fill content into the input (failed state only).
     const handleFillToInput = useCallback((e: React.MouseEvent) => {
       e.stopPropagation();
-      globalEventBus.emit('fill-chat-input', {
-        content: messageContent
-      });
-    }, [messageContent]);
+      window.dispatchEvent(new CustomEvent('fill-chat-input', {
+        detail: {
+          message: messageContent,
+          composerContext: composerSnapshot,
+        },
+      }));
+    }, [composerSnapshot, messageContent]);
     
     // Collapse when clicking outside.
     useEffect(() => {
@@ -499,7 +558,11 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
             title={(isTruncated || expanded) ? (expanded ? t('message.clickToCollapse') : t('message.clickToExpand')) : undefined}
           >
             <span className="user-message-item__system-content">
-              {highlightText(displayText, searchQuery ?? '')}
+              {composerSnapshot ? (
+                <ComposerSnapshotContent snapshot={composerSnapshot} query={searchQuery ?? ''} t={t} />
+              ) : (
+                highlightText(displayText, searchQuery ?? '')
+              )}
             </span>
             <IconButton
               className={`user-message-item__copy-action ${copied ? 'copied' : ''}`}
@@ -572,7 +635,13 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
             {isFollowUp ? <CornerDownRight size={14} strokeWidth={2} /> : <User size={14} strokeWidth={2} />}
           </span>
           <span className="user-message-item__system-content">
-            {highlightText(quotedDisplayText, searchQuery ?? '')}
+            <span aria-hidden="true">“</span>
+            {composerSnapshot ? (
+              <ComposerSnapshotContent snapshot={composerSnapshot} query={searchQuery ?? ''} t={t} />
+            ) : (
+              highlightText(displayText, searchQuery ?? '')
+            )}
+            <span aria-hidden="true">”</span>
           </span>
           <div className="user-message-item__actions" onClick={e => e.stopPropagation()}>
             <IconButton

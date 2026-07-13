@@ -17,6 +17,7 @@ export * from './Card';
 export * from './CubeLoading';
 export * from './EmptyState';
 export * from './FilterPill';
+export * from './FloatingCard';
 export * from './Input';
 export * from './DividerSwitch';
 export * from './ModeSwitch';

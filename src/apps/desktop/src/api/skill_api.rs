@@ -29,7 +29,7 @@ use sparo_core::agentic::tools::implementations::skills::{
         is_skill_enabled_for_agent,
     },
     AgentSkillInfo, SkillCatalog, SkillData, SkillInfo, SkillLocation, SkillRegistry,
-    SkillSuiteInfo,
+    SkillSuiteInfo, SkillSuiteManifest,
 };
 use sparo_core::infrastructure::get_path_manager_arc;
 use sparo_core::infrastructure::APP_HIDDEN_DIR_NAME;
@@ -47,12 +47,38 @@ const MARKET_DESC_MAX_LEN: usize = 220;
 
 static MARKET_DESCRIPTION_CACHE: OnceLock<RwLock<HashMap<String, String>>> = OnceLock::new();
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct SkillValidationResult {
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SkillPackageKind {
+    Skill,
+    Suite,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkillPackageValidationResult {
     pub valid: bool,
+    pub kind: Option<SkillPackageKind>,
     pub name: Option<String>,
     pub description: Option<String>,
+    pub member_count: Option<usize>,
     pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AddSkillPackageRequest {
+    pub source_path: String,
+    pub level: SkillLocation,
+    pub workspace_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeleteSkillPackageRequest {
+    pub kind: SkillPackageKind,
+    pub key: String,
+    pub workspace_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -179,21 +205,25 @@ async fn get_agent_skill_infos_for_workspace_input(
         .await
         .map_err(|e| format!("Failed to load user skill overrides: {}", e))?;
 
-    let workspace_root = workspace_root_from_input(workspace_path)
-        .ok_or_else(|| "Project-level skill overrides require an open workspace".to_string())?;
-    let project_config = load_project_agent_skills_document_local(&workspace_root)
-        .await
-        .map_err(|e| format!("Failed to load project agent skills: {}", e))?;
-    let disabled_project: HashSet<String> =
-        get_disabled_agent_skills_from_document(&project_config, agent_id)
-            .into_iter()
-            .collect();
-    let disabled_project_suites: HashSet<String> =
-        get_disabled_agent_skill_suites_from_document(&project_config, agent_id)
-            .into_iter()
-            .collect();
+    let workspace_root = workspace_root_from_input(workspace_path);
+    let (disabled_project, disabled_project_suites) = if let Some(workspace_root) = &workspace_root
+    {
+        let project_config = load_project_agent_skills_document_local(workspace_root)
+            .await
+            .map_err(|e| format!("Failed to load project agent skills: {}", e))?;
+        (
+            get_disabled_agent_skills_from_document(&project_config, agent_id)
+                .into_iter()
+                .collect::<HashSet<String>>(),
+            get_disabled_agent_skill_suites_from_document(&project_config, agent_id)
+                .into_iter()
+                .collect::<HashSet<String>>(),
+        )
+    } else {
+        (HashSet::new(), HashSet::new())
+    };
     let resolved_skills = registry
-        .get_resolved_skills_for_workspace(Some(&workspace_root), Some(agent_id))
+        .get_resolved_skills_for_workspace(workspace_root.as_deref(), Some(agent_id))
         .await;
 
     let resolved_keys: HashSet<String> =
@@ -628,92 +658,193 @@ pub async fn replace_agent_skill_selection(
     ))
 }
 
-#[tauri::command]
-pub async fn validate_skill_path(path: String) -> Result<SkillValidationResult, String> {
-    use std::path::Path;
-
-    let skill_path = Path::new(&path);
-
-    if !skill_path.exists() {
-        return Ok(SkillValidationResult {
-            valid: false,
-            name: None,
-            description: None,
-            error: Some("Path does not exist".to_string()),
-        });
-    }
-
-    if !skill_path.is_dir() {
-        return Ok(SkillValidationResult {
-            valid: false,
-            name: None,
-            description: None,
-            error: Some("Path is not a directory".to_string()),
-        });
-    }
-
-    let skill_md_path = skill_path.join("SKILL.md");
-    if !skill_md_path.exists() {
-        return Ok(SkillValidationResult {
-            valid: false,
-            name: None,
-            description: None,
-            error: Some("Directory is missing SKILL.md file".to_string()),
-        });
-    }
-
-    match tokio::fs::read_to_string(&skill_md_path).await {
-        Ok(content) => {
-            match SkillData::from_markdown(path.clone(), &content, SkillLocation::User, false) {
-                Ok(data) => Ok(SkillValidationResult {
-                    valid: true,
-                    name: Some(data.name),
-                    description: Some(data.description),
-                    error: None,
-                }),
-                Err(e) => Ok(SkillValidationResult {
-                    valid: false,
-                    name: None,
-                    description: None,
-                    error: Some(e.to_string()),
-                }),
-            }
-        }
-        Err(e) => Ok(SkillValidationResult {
-            valid: false,
-            name: None,
-            description: None,
-            error: Some(format!("Failed to read SKILL.md: {}", e)),
-        }),
+fn invalid_skill_package(error: impl Into<String>) -> SkillPackageValidationResult {
+    SkillPackageValidationResult {
+        valid: false,
+        kind: None,
+        name: None,
+        description: None,
+        member_count: None,
+        error: Some(error.into()),
     }
 }
 
 #[tauri::command]
-pub async fn add_skill(
-    _state: State<'_, AppState>,
-    source_path: String,
-    level: String,
-    workspace_path: Option<String>,
-) -> Result<String, String> {
-    let validation = validate_skill_path(source_path.clone()).await?;
-    if !validation.valid {
-        return Err(validation.error.unwrap_or("Invalid skill path".to_string()));
+pub async fn validate_skill_package_path(
+    path: String,
+) -> Result<SkillPackageValidationResult, String> {
+    let package_path = Path::new(&path);
+
+    if !package_path.exists() {
+        return Ok(invalid_skill_package("Path does not exist"));
+    }
+    if !package_path.is_dir() {
+        return Ok(invalid_skill_package("Path is not a directory"));
     }
 
-    let skill_name = validation
+    let skill_md_path = package_path.join("SKILL.md");
+    let suite_manifest_path = package_path.join("suite.json");
+    let has_skill = skill_md_path.is_file();
+    let has_suite = suite_manifest_path.is_file();
+
+    if has_skill == has_suite {
+        return Ok(invalid_skill_package(
+            "Package must contain exactly one of SKILL.md or suite.json",
+        ));
+    }
+
+    if has_skill {
+        let content = match tokio::fs::read_to_string(&skill_md_path).await {
+            Ok(content) => content,
+            Err(error) => {
+                return Ok(invalid_skill_package(format!(
+                    "Failed to read SKILL.md: {}",
+                    error
+                )))
+            }
+        };
+        return match SkillData::from_markdown(path, &content, SkillLocation::User, false) {
+            Ok(data) => Ok(SkillPackageValidationResult {
+                valid: true,
+                kind: Some(SkillPackageKind::Skill),
+                name: Some(data.name),
+                description: Some(data.description),
+                member_count: None,
+                error: None,
+            }),
+            Err(error) => Ok(invalid_skill_package(error.to_string())),
+        };
+    }
+
+    let manifest_content = match tokio::fs::read_to_string(&suite_manifest_path).await {
+        Ok(content) => content,
+        Err(error) => {
+            return Ok(invalid_skill_package(format!(
+                "Failed to read suite.json: {}",
+                error
+            )))
+        }
+    };
+    let manifest = match serde_json::from_str::<SkillSuiteManifest>(&manifest_content) {
+        Ok(manifest) => manifest,
+        Err(error) => {
+            return Ok(invalid_skill_package(format!(
+                "Failed to parse suite.json: {}",
+                error
+            )))
+        }
+    };
+    let folder_name = package_path.file_name().and_then(|name| name.to_str());
+    if folder_name != Some(manifest.id.as_str()) {
+        return Ok(invalid_skill_package(format!(
+            "Suite id '{}' must match its folder name",
+            manifest.id
+        )));
+    }
+    if manifest.name.trim().is_empty() || manifest.description.trim().is_empty() {
+        return Ok(invalid_skill_package(
+            "Suite name and description must not be empty",
+        ));
+    }
+    if let Some(router_path) = manifest.router_path.as_deref() {
+        if !package_path.join(router_path).is_file() {
+            return Ok(invalid_skill_package(format!(
+                "Suite router file '{}' does not exist",
+                router_path
+            )));
+        }
+    }
+
+    let skills_dir = package_path.join("skills");
+    let mut seen_member_ids = HashSet::new();
+    for member in &manifest.members {
+        if !seen_member_ids.insert(member.skill_id.as_str()) {
+            return Ok(invalid_skill_package(format!(
+                "Suite member '{}' is declared more than once",
+                member.skill_id
+            )));
+        }
+        let member_path = skills_dir.join(&member.skill_id);
+        let member_skill_path = member_path.join("SKILL.md");
+        if !member_skill_path.is_file() {
+            if member.required {
+                return Ok(invalid_skill_package(format!(
+                    "Required suite member '{}' is missing SKILL.md",
+                    member.skill_id
+                )));
+            }
+            continue;
+        }
+        let content = match tokio::fs::read_to_string(&member_skill_path).await {
+            Ok(content) => content,
+            Err(error) => {
+                return Ok(invalid_skill_package(format!(
+                    "Failed to read member '{}': {}",
+                    member.skill_id, error
+                )))
+            }
+        };
+        if let Err(error) = SkillData::from_markdown(
+            member_path.to_string_lossy().to_string(),
+            &content,
+            SkillLocation::User,
+            false,
+        ) {
+            return Ok(invalid_skill_package(format!(
+                "Invalid suite member '{}': {}",
+                member.skill_id, error
+            )));
+        }
+    }
+
+    Ok(SkillPackageValidationResult {
+        valid: true,
+        kind: Some(SkillPackageKind::Suite),
+        name: Some(manifest.name),
+        description: Some(manifest.description),
+        member_count: Some(manifest.members.len()),
+        error: None,
+    })
+}
+
+#[tauri::command]
+pub async fn add_skill_package(
+    _state: State<'_, AppState>,
+    request: AddSkillPackageRequest,
+) -> Result<String, String> {
+    let validation = validate_skill_package_path(request.source_path.clone()).await?;
+    if !validation.valid {
+        return Err(validation
+            .error
+            .unwrap_or_else(|| "Invalid Skill package".to_string()));
+    }
+
+    let package_name = validation
         .name
         .as_ref()
-        .ok_or_else(|| "Skill name missing after validation".to_string())?;
-    let source = Path::new(&source_path);
+        .ok_or_else(|| "Package name missing after validation".to_string())?;
+    let package_kind = validation
+        .kind
+        .ok_or_else(|| "Package kind missing after validation".to_string())?;
+    let source = Path::new(&request.source_path);
+    let workspace_root = workspace_root_from_input(request.workspace_path.as_deref());
+    let path_manager = get_path_manager_arc();
 
-    let target_dir = if level == "project" {
-        if let Some(workspace_root) = workspace_root_from_input(workspace_path.as_deref()) {
-            workspace_root.join(APP_HIDDEN_DIR_NAME).join("skills")
-        } else {
-            return Err("No workspace open, cannot add project-level Skill".to_string());
-        }
-    } else {
-        get_path_manager_arc().user_skills_dir()
+    let target_dir = match (request.level, package_kind) {
+        (SkillLocation::User, SkillPackageKind::Skill) => path_manager.user_skills_dir(),
+        (SkillLocation::User, SkillPackageKind::Suite) => path_manager.user_skill_suites_dir(),
+        (SkillLocation::Project, SkillPackageKind::Skill) => workspace_root
+            .as_ref()
+            .map(|root| root.join(APP_HIDDEN_DIR_NAME).join("skills"))
+            .ok_or_else(|| {
+                "No workspace open, cannot add a project-level Skill package".to_string()
+            })?,
+        (SkillLocation::Project, SkillPackageKind::Suite) => workspace_root
+            .as_ref()
+            .map(|root| path_manager.project_skill_suites_dir(root))
+            .ok_or_else(|| {
+                "No workspace open, cannot add a project-level Skill suite".to_string()
+            })?,
     };
 
     if let Err(e) = tokio::fs::create_dir_all(&target_dir).await {
@@ -729,31 +860,31 @@ pub async fn add_skill(
 
     if target_path.exists() {
         return Err(format!(
-            "Skill '{}' already exists in {} level directory",
+            "Skill package '{}' already exists in the {} library",
             folder_name,
-            if level == "project" {
-                "project"
-            } else {
-                "user"
-            }
+            request.level.as_str()
         ));
     }
 
     if let Err(e) = copy_dir_all(source, &target_path).await {
-        return Err(format!("Failed to copy skill folder: {}", e));
+        return Err(format!("Failed to copy Skill package: {}", e));
     }
 
     SkillRegistry::global()
-        .refresh_for_workspace(workspace_root_from_input(workspace_path.as_deref()).as_deref())
+        .refresh_for_workspace(workspace_root.as_deref())
         .await;
 
     info!(
-        "Skill added: name={}, level={}, path={}",
-        skill_name,
-        level,
+        "Skill package added: name={}, kind={:?}, level={}, path={}",
+        package_name,
+        package_kind,
+        request.level.as_str(),
         target_path.display()
     );
-    Ok(format!("Skill '{}' added successfully", skill_name))
+    Ok(format!(
+        "Skill package '{}' added successfully",
+        package_name
+    ))
 }
 
 async fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
@@ -776,32 +907,59 @@ async fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> std::io::
 }
 
 #[tauri::command]
-pub async fn delete_skill(
-    _state: State<'_, AppState>,
-    skill_key: String,
-    workspace_path: Option<String>,
+pub async fn delete_skill_package(
+    state: State<'_, AppState>,
+    request: DeleteSkillPackageRequest,
 ) -> Result<String, String> {
     let registry = SkillRegistry::global();
+    let workspace_root = workspace_root_from_input(request.workspace_path.as_deref());
 
-    let workspace_root = workspace_root_from_input(workspace_path.as_deref());
-    let skill_info = registry
-        .find_skill_by_key_for_workspace(&skill_key, workspace_root.as_deref())
-        .await
-        .ok_or_else(|| format!("Skill '{}' not found", skill_key))?;
-
-    if !skill_info.can_delete {
-        return Err(format!(
-            "Skill '{}' is managed by Sparo OS and cannot be deleted",
-            skill_info.name
-        ));
-    }
-
-    let skill_path = std::path::PathBuf::from(&skill_info.path);
-
-    if skill_path.exists() {
-        if let Err(e) = tokio::fs::remove_dir_all(&skill_path).await {
-            return Err(format!("Failed to delete skill folder: {}", e));
+    let (package_name, package_path) = match request.kind {
+        SkillPackageKind::Skill => {
+            let skill = registry
+                .find_skill_by_key_for_workspace(&request.key, workspace_root.as_deref())
+                .await
+                .ok_or_else(|| format!("Skill '{}' not found", request.key))?;
+            if let Some(suite_id) = skill.suite_key.as_deref() {
+                return Err(format!(
+                    "Skill '{}' belongs to suite '{}'; delete the suite package instead",
+                    skill.name, suite_id
+                ));
+            }
+            if !skill.can_delete {
+                return Err(format!(
+                    "Skill '{}' is managed by Sparo OS and cannot be deleted",
+                    skill.name
+                ));
+            }
+            (skill.name, PathBuf::from(skill.path))
         }
+        SkillPackageKind::Suite => {
+            let catalog = get_skill_catalog_for_workspace_input(
+                &state,
+                registry,
+                request.workspace_path.as_deref(),
+            )
+            .await?;
+            let suite = catalog
+                .suites
+                .into_iter()
+                .find(|suite| suite.key == request.key)
+                .ok_or_else(|| format!("Skill suite '{}' not found", request.key))?;
+            if !suite.can_delete {
+                return Err(format!(
+                    "Skill suite '{}' is managed by Sparo OS and cannot be deleted",
+                    suite.name
+                ));
+            }
+            (suite.name, PathBuf::from(suite.path))
+        }
+    };
+
+    if package_path.exists() {
+        tokio::fs::remove_dir_all(&package_path)
+            .await
+            .map_err(|error| format!("Failed to delete Skill package: {}", error))?;
     }
 
     registry
@@ -809,11 +967,15 @@ pub async fn delete_skill(
         .await;
 
     info!(
-        "Skill deleted: key={}, path={}",
-        skill_key,
-        skill_path.display()
+        "Skill package deleted: key={}, kind={:?}, path={}",
+        request.key,
+        request.kind,
+        package_path.display()
     );
-    Ok(format!("Skill '{}' deleted successfully", skill_info.name))
+    Ok(format!(
+        "Skill package '{}' deleted successfully",
+        package_name
+    ))
 }
 
 #[tauri::command]

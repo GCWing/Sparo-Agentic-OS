@@ -2,19 +2,36 @@ import React from 'react';
 import {
   Bot,
   BookOpen,
+  Check,
+  ChevronDown,
   ChevronRight,
   CircuitBoard,
   FileCog,
   Files,
   Flag,
   Image,
+  Layers,
   MessageSquarePlus,
   Minimize2,
   Sparkles,
 } from 'lucide-react';
-import { Badge, Button, SelectableRow, Spinner, Tooltip } from '@/design-system';
+import {
+  Badge,
+  Button,
+  PopupMenu,
+  Search,
+  SelectableRow,
+  Spinner,
+  Tooltip,
+} from '@/design-system';
 import { useMovingHoverHighlight } from '@/shared/hooks/useMovingHoverHighlight';
-import type { SkillInfo, SkillSuiteInfo } from '@/infrastructure/config/types';
+import {
+  filterSkillLibraryUnits,
+  selectionTargetFromSkill,
+  selectionTargetFromUnit,
+  type SkillLibraryUnit,
+  type SkillSelectionTarget,
+} from '@/shared/skillLibrary';
 import type {
   ComposerActionDescriptor,
   ComposerActionIconId,
@@ -31,8 +48,8 @@ interface ComposerActionMenuProps {
   skillsFlyoutLeft: boolean;
   skillsFlyoutUp: boolean;
   skillsTooltipSuppressed: boolean;
-  boostPanelSkills: SkillInfo[];
-  boostPanelSuites: SkillSuiteInfo[];
+  skillUnits: SkillLibraryUnit[];
+  selectedSkillCommands: Set<string>;
   boostSkillsLoading: boolean;
   selectedAgentLabel?: string | null;
   labels: {
@@ -42,8 +59,13 @@ interface ComposerActionMenuProps {
     switchAgent: string;
     boostSkillsLoading: string;
     boostSkillsEmpty: string;
+    boostSkillsNoMatch: string;
+    boostSkillsSearch: string;
+    boostSkillsSuites: string;
     boostSkillsStandalone: string;
-    boostSkillsSuiteFallback: string;
+    expandSuite: string;
+    collapseSuite: string;
+    selected: string;
     openSkillsLibrary: string;
   };
   onToggleDropdown: (event: React.MouseEvent) => void;
@@ -52,7 +74,7 @@ interface ComposerActionMenuProps {
   onOpenSkillsFlyout: () => void;
   onCloseSkillsFlyout: () => void;
   onSkillsListScroll: () => void;
-  onInsertSkill: (skillName: string, event: React.MouseEvent) => void;
+  onInsertSkill: (target: SkillSelectionTarget, event: React.MouseEvent) => void;
   onOpenSkillsLibrary: (event: React.MouseEvent) => void;
 }
 
@@ -96,8 +118,8 @@ export function ComposerActionMenu({
   skillsFlyoutLeft,
   skillsFlyoutUp,
   skillsTooltipSuppressed,
-  boostPanelSkills,
-  boostPanelSuites,
+  skillUnits,
+  selectedSkillCommands,
   boostSkillsLoading,
   selectedAgentLabel,
   labels,
@@ -114,29 +136,30 @@ export function ComposerActionMenu({
   const contextSectionHover = useMovingHoverHighlight<HTMLDivElement>();
   const intentSectionHover = useMovingHoverHighlight<HTMLDivElement>();
   const appSectionHover = useMovingHoverHighlight<HTMLDivElement>();
-  const skillsPanelHover = useMovingHoverHighlight<HTMLDivElement>();
-  const boostSkillGroups = React.useMemo(() => {
-    const suiteById = new Map(boostPanelSuites.map(suite => [suite.id, suite]));
-    const suiteOrder = new Map(boostPanelSuites.map((suite, index) => [suite.id, index]));
-    const groups = new Map<string, { key: string; label: string; order: number; skills: SkillInfo[] }>();
+  const [skillSearch, setSkillSearch] = React.useState('');
+  const [expandedSuites, setExpandedSuites] = React.useState<Set<string>>(new Set());
+  const filteredSkillUnits = React.useMemo(
+    () => filterSkillLibraryUnits(skillUnits, { query: skillSearch }),
+    [skillSearch, skillUnits],
+  );
+  const suiteUnits = filteredSkillUnits.filter(unit => unit.kind === 'suite');
+  const standaloneUnits = filteredSkillUnits.filter(unit => unit.kind === 'skill');
 
-    for (const skill of boostPanelSkills) {
-      const suiteKey = skill.suiteKey ?? '__standalone';
-      const suite = skill.suiteKey ? suiteById.get(skill.suiteKey) : undefined;
-      const group = groups.get(suiteKey) ?? {
-        key: suiteKey,
-        label: skill.suiteKey
-          ? (suite?.name ?? `${labels.boostSkillsSuiteFallback}: ${skill.suiteKey}`)
-          : labels.boostSkillsStandalone,
-        order: skill.suiteKey ? (suiteOrder.get(skill.suiteKey) ?? 1000) : 2000,
-        skills: [],
-      };
-      group.skills.push(skill);
-      groups.set(suiteKey, group);
+  React.useEffect(() => {
+    if (!skillsFlyoutOpen) {
+      setSkillSearch('');
+      setExpandedSuites(new Set());
     }
+  }, [skillsFlyoutOpen]);
 
-    return Array.from(groups.values()).sort((a, b) => a.order - b.order || a.label.localeCompare(b.label));
-  }, [boostPanelSkills, boostPanelSuites, labels.boostSkillsStandalone, labels.boostSkillsSuiteFallback]);
+  const toggleSuite = React.useCallback((suiteKey: string) => {
+    setExpandedSuites(current => {
+      const next = new Set(current);
+      if (next.has(suiteKey)) next.delete(suiteKey);
+      else next.add(suiteKey);
+      return next;
+    });
+  }, []);
 
   const sectionHover = {
     agent: agentSectionHover,
@@ -236,23 +259,17 @@ export function ComposerActionMenu({
           }}
           onMouseLeave={onCloseSkillsFlyout}
         >
-          <div
-            ref={skillsPanelHover.surfaceRef}
-            className="sparo-chat-input__boost-submenu-panel sparo-chat-input__boost-submenu-panel--motion"
-            {...skillsPanelHover.getSurfaceHandlers('.sparo-chat-input__boost-submenu-entry')}
-          >
-            <div
-              className={`sparo-chat-input__boost-motion-highlight ${skillsPanelHover.highlight.visible ? 'sparo-chat-input__boost-motion-highlight--visible' : ''}`}
-              style={{
-                '--sparo-boost-hover-top': `${skillsPanelHover.highlight.top}px`,
-                '--sparo-boost-hover-left': `${skillsPanelHover.highlight.left}px`,
-                '--sparo-boost-hover-width': `${skillsPanelHover.highlight.width}px`,
-                '--sparo-boost-hover-height': `${skillsPanelHover.highlight.height}px`,
-                '--sparo-boost-hover-stretch-x': skillsPanelHover.highlight.stretchX,
-                '--sparo-boost-hover-stretch-y': skillsPanelHover.highlight.stretchY,
-              } as React.CSSProperties}
-              aria-hidden
-            />
+          <PopupMenu padding="none" className="sparo-chat-input__boost-submenu-panel">
+            <div className="sparo-chat-input__boost-submenu-search">
+              <Search
+                value={skillSearch}
+                onChange={setSkillSearch}
+                onClear={() => setSkillSearch('')}
+                placeholder={labels.boostSkillsSearch}
+                size="small"
+                clearable
+              />
+            </div>
             {boostSkillsLoading ? (
               <div className="sparo-chat-input__boost-submenu-loading">
                 <Spinner
@@ -261,49 +278,131 @@ export function ComposerActionMenu({
                   size="small"
                 />
               </div>
-            ) : boostPanelSkills.length === 0 ? (
+            ) : skillUnits.length === 0 ? (
               <div className="sparo-chat-input__boost-submenu-empty">{labels.boostSkillsEmpty}</div>
+            ) : filteredSkillUnits.length === 0 ? (
+              <div className="sparo-chat-input__boost-submenu-empty">{labels.boostSkillsNoMatch}</div>
             ) : (
               <div className="sparo-chat-input__boost-submenu-list" onScroll={onSkillsListScroll}>
-                {boostSkillGroups.map(group => (
-                  <React.Fragment key={group.key}>
-                    <div className="sparo-chat-input__boost-submenu-group-label">
-                      {group.label}
-                    </div>
-                    {group.skills.map(skill => (
-                      <Tooltip
-                        key={skill.key}
-                        content={skill.description || skill.name}
-                        disabled={skillsTooltipSuppressed}
-                        placement="left"
-                      >
-                        <Button
-                          className="sparo-chat-input__boost-submenu-entry"
-                          {...skillsPanelHover.getItemHandlers()}
-                          onClick={e => onInsertSkill(skill.name, e)}
-                          size="small"
-                          variant="ghost"
+                {suiteUnits.length > 0 ? (
+                  <div className="sparo-chat-input__boost-submenu-group-label">{labels.boostSkillsSuites}</div>
+                ) : null}
+                {suiteUnits.map(unit => {
+                  if (unit.kind !== 'suite') return null;
+                  const target = selectionTargetFromUnit(unit);
+                  const selected = selectedSkillCommands.has(target.command);
+                  const normalizedSearch = skillSearch.trim().toLocaleLowerCase();
+                  const matchingMembers = normalizedSearch
+                    ? unit.members.filter(member => [member.name, member.description]
+                        .some(value => value.toLocaleLowerCase().includes(normalizedSearch)))
+                    : unit.members;
+                  const expanded = expandedSuites.has(unit.key) || (normalizedSearch.length > 0 && matchingMembers.length > 0);
+                  return (
+                    <div key={unit.key} className="sparo-chat-input__boost-submenu-suite">
+                      <div className="sparo-chat-input__boost-submenu-suite-row">
+                        <Tooltip
+                          content={unit.description || unit.name}
+                          disabled={skillsTooltipSuppressed}
+                          placement="left"
                         >
-                          <BookOpen size={14} className="sparo-chat-input__boost-context-icon" aria-hidden />
-                          <span className="sparo-chat-input__boost-submenu-entry-name">{skill.name}</span>
+                          <Button
+                            className="sparo-chat-input__boost-submenu-suite-select"
+                            onClick={event => onInsertSkill(target, event)}
+                            size="small"
+                            variant="ghost"
+                          >
+                            <Layers size={15} className="sparo-chat-input__boost-context-icon" aria-hidden />
+                            <span className="sparo-chat-input__boost-submenu-entry-name">{unit.name}</span>
+                            {selected ? <Check size={14} aria-label={labels.selected} /> : null}
+                          </Button>
+                        </Tooltip>
+                        <Button
+                          className="sparo-chat-input__boost-submenu-suite-toggle"
+                          variant="ghost"
+                          size="small"
+                          shape="pill"
+                          aria-label={expanded ? labels.collapseSuite : labels.expandSuite}
+                          aria-expanded={expanded}
+                          onClick={event => {
+                            event.stopPropagation();
+                            toggleSuite(unit.key);
+                          }}
+                        >
+                          <span className="sparo-chat-input__boost-submenu-entry-count">
+                            {unit.members.length}
+                          </span>
+                          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                         </Button>
-                      </Tooltip>
-                    ))}
-                  </React.Fragment>
-                ))}
+                      </div>
+                      {expanded ? (
+                        <div className="sparo-chat-input__boost-submenu-members">
+                          {matchingMembers.map(member => {
+                            const memberTarget = selectionTargetFromSkill(member, unit.suite);
+                            const memberSelected = selectedSkillCommands.has(memberTarget.command);
+                            const includedBySuite = selected && !memberSelected;
+                            return (
+                              <Tooltip
+                                key={member.key}
+                                content={member.description || member.name}
+                                disabled={skillsTooltipSuppressed}
+                                placement="left"
+                              >
+                                <Button
+                                  className="sparo-chat-input__boost-submenu-entry sparo-chat-input__boost-submenu-entry--member"
+                                  onClick={event => onInsertSkill(memberTarget, event)}
+                                  size="small"
+                                  variant="ghost"
+                                >
+                                  <BookOpen size={14} className="sparo-chat-input__boost-context-icon" aria-hidden />
+                                  <span className="sparo-chat-input__boost-submenu-entry-name">{member.name}</span>
+                                  {memberSelected || includedBySuite ? <Check size={13} aria-label={labels.selected} /> : null}
+                                </Button>
+                              </Tooltip>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+                {standaloneUnits.length > 0 ? (
+                  <div className="sparo-chat-input__boost-submenu-group-label">{labels.boostSkillsStandalone}</div>
+                ) : null}
+                {standaloneUnits.map(unit => {
+                  if (unit.kind !== 'skill') return null;
+                  const target = selectionTargetFromUnit(unit);
+                  const selected = selectedSkillCommands.has(target.command);
+                  return (
+                    <Tooltip
+                      key={unit.key}
+                      content={unit.description || unit.name}
+                      disabled={skillsTooltipSuppressed}
+                      placement="left"
+                    >
+                      <Button
+                        className="sparo-chat-input__boost-submenu-entry"
+                        onClick={event => onInsertSkill(target, event)}
+                        size="small"
+                        variant="ghost"
+                      >
+                        <BookOpen size={14} className="sparo-chat-input__boost-context-icon" aria-hidden />
+                        <span className="sparo-chat-input__boost-submenu-entry-name">{unit.name}</span>
+                        {selected ? <Check size={13} aria-label={labels.selected} /> : null}
+                      </Button>
+                    </Tooltip>
+                  );
+                })}
               </div>
             )}
             <Button
               className="sparo-chat-input__boost-submenu-manage"
-              onMouseEnter={skillsPanelHover.hideHighlight}
-              onPointerEnter={skillsPanelHover.hideHighlight}
               onClick={onOpenSkillsLibrary}
               size="small"
               variant="ghost"
             >
               {labels.openSkillsLibrary}
             </Button>
-          </div>
+          </PopupMenu>
         </div>
       </div>
     );
@@ -386,14 +485,17 @@ export function ComposerActionMenu({
       />
 
       {dropdownOpen && (
-        <div className="sparo-chat-input__mode-dropdown sparo-chat-input__mode-dropdown--agent-boost">
+        <PopupMenu
+          className="sparo-chat-input__mode-dropdown sparo-chat-input__mode-dropdown--agent-boost"
+          padding="none"
+        >
           {sections.map((section, index) => (
             <React.Fragment key={section.id}>
               {index > 0 && <div className="sparo-chat-input__boost-section-divider" aria-hidden />}
               {renderActionSection(section)}
             </React.Fragment>
           ))}
-        </div>
+        </PopupMenu>
       )}
     </div>
   );

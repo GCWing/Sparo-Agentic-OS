@@ -65,6 +65,26 @@
   padding: 5px var(--ds-space-2, 8px);
 }
 
+.ds-segmented-control--accent {
+  border-radius: var(--ds-radius-full, 999px);
+  box-shadow: none;
+
+  .ds-segmented-control__item {
+    border-radius: var(--ds-radius-full, 999px);
+    box-shadow: none;
+
+    &:hover:not(:disabled):not(.ds-segmented-control__item--selected) {
+      background: var(--ds-color-element-soft, var(--element-bg-soft));
+    }
+
+    &--selected {
+      background: var(--btn-primary-bg, var(--ds-color-accent-500, var(--color-accent-500)));
+      color: var(--btn-primary-color, var(--ds-color-text-inverse, white));
+      font-weight: var(--ds-font-weight-semibold, 600);
+    }
+  }
+}
+
 .ds-segmented-control--stretch .ds-segmented-control__item {
   flex: 1 1 0;
 }
