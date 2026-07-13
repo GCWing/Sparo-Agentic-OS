@@ -4,6 +4,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import RichTextInput from './RichTextInput';
 import type { RichTextInputHandle } from './RichTextInput';
 import type { ContextItem } from '../../shared/types/context';
+import { createComposerTextDocument, getComposerText } from '../../shared/types/composer';
 
 type HarnessHandle = {
   focusInput: () => void;
@@ -36,9 +37,10 @@ const ControlledHarness = forwardRef<HarnessHandle>(function ControlledHarness(_
   return (
     <RichTextInput
       ref={inputRef}
-      value={value}
-      onChange={(nextValue) => setValue(nextValue)}
+      document={createComposerTextDocument(value)}
+      onChange={(nextDocument) => setValue(getComposerText(nextDocument))}
       contexts={emptyContexts}
+      openContextOptions={{ readOnly: true }}
       onRemoveContext={() => {}}
     />
   );

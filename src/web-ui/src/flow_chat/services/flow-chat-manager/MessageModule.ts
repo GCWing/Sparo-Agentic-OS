@@ -338,6 +338,7 @@ export async function sendMessage(
         persistAgentType,
         workspacePath,
         triggerSource: options?.triggerSource,
+        userMessageMetadata: options?.metadata,
         imageContexts: options?.imageContexts,
       });
     } catch (error: any) {
@@ -359,6 +360,7 @@ export async function sendMessage(
           persistAgentType,
           workspacePath,
           triggerSource: options?.triggerSource,
+          userMessageMetadata: options?.metadata,
           imageContexts: options?.imageContexts,
         });
       } else {

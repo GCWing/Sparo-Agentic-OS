@@ -1,4 +1,5 @@
 export { DropdownMenu } from './DropdownMenu';
+export { PopupMenu } from './PopupMenu';
 export type {
   DropdownMenuProps,
   DropdownMenuEntry,
@@ -6,3 +7,4 @@ export type {
   DropdownMenuSeparatorDef,
   DropdownMenuLabelDef,
 } from './DropdownMenu';
+export type { PopupMenuPadding, PopupMenuProps } from './PopupMenu';

@@ -1,4 +1,5 @@
 import type React from 'react';
+import type { ComposerDocument } from '@/shared/types/composer';
 import type { ContextItem, DirectoryContext, FileContext, ImageContext } from '@/shared/types/context';
 import { FileMentionPicker } from '../FileMentionPicker';
 import { RichTextInput, type MentionState, type RichTextInputHandle } from '../RichTextInput';
@@ -20,7 +21,8 @@ interface ComposerEditorAreaLabels {
 
 interface ComposerEditorAreaProps {
   editorRef: React.RefObject<RichTextInputHandle | null>;
-  value: string;
+  document: ComposerDocument;
+  draftKey: string;
   contexts: ContextItem[];
   imageContexts: ImageContext[];
   mentionState: MentionState;
@@ -29,12 +31,13 @@ interface ComposerEditorAreaProps {
   commandOptions: ComposerCommandOption[];
   mcpPromptCommandsLoading: boolean;
   labels: ComposerEditorAreaLabels;
-  onChange: (text: string, activeContexts: ContextItem[]) => void;
-  onLargePaste: (text: string) => string | null;
+  onChange: (document: ComposerDocument, activeContexts: ContextItem[]) => void;
+  onLargePaste: (text: string) => ContextItem | null;
   onKeyDown: (event: React.KeyboardEvent) => void;
   onCompositionStart: () => void;
   onCompositionEnd: () => void;
   onRemoveContext: (id: string) => void;
+  onUpdateContext: (id: string, updates: Partial<ContextItem>) => void;
   onMentionStateChange: (state: MentionState) => void;
   onAddContext: (context: FileContext | DirectoryContext) => void;
   onCloseMention: () => void;
@@ -44,7 +47,8 @@ interface ComposerEditorAreaProps {
 
 export function ComposerEditorArea({
   editorRef,
-  value,
+  document,
+  draftKey,
   contexts,
   imageContexts,
   mentionState,
@@ -59,6 +63,7 @@ export function ComposerEditorArea({
   onCompositionStart,
   onCompositionEnd,
   onRemoveContext,
+  onUpdateContext,
   onMentionStateChange,
   onAddContext,
   onCloseMention,
@@ -74,7 +79,7 @@ export function ComposerEditorArea({
       />
       <RichTextInput
         ref={editorRef as React.RefObject<RichTextInputHandle>}
-        value={value}
+        document={document}
         onChange={onChange}
         onLargePaste={onLargePaste}
         onKeyDown={onKeyDown}
@@ -83,6 +88,12 @@ export function ComposerEditorArea({
         placeholder={labels.placeholder}
         disabled={false}
         contexts={contexts}
+        openContextOptions={{
+          readOnly: false,
+          draftKey,
+          workspacePath,
+          onUpdate: onUpdateContext,
+        }}
         onRemoveContext={onRemoveContext}
         onMentionStateChange={onMentionStateChange}
         data-testid="chat-input-textarea"

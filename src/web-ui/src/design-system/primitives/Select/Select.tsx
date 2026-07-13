@@ -62,6 +62,7 @@ export interface SelectProps {
   disabled?: boolean;
   onChange?: (value: string | number | (string | number)[]) => void;
   size?: 'small' | 'medium' | 'large';
+  shape?: 'default' | 'pill';
   label?: string;
   multiple?: boolean;
   searchable?: boolean;
@@ -75,6 +76,10 @@ export interface SelectProps {
   emptyText?: string;
   renderOption?: (option: SelectOption) => React.ReactNode;
   renderValue?: (option?: SelectOption | SelectOption[]) => React.ReactNode;
+  /** Optional menu width when the expanded list should be wider than its trigger. */
+  dropdownWidth?: React.CSSProperties['width'];
+  /** Alignment used when dropdownWidth makes the menu wider than its trigger. */
+  dropdownAlign?: 'start' | 'end';
   className?: string;
   placement?: 'bottom' | 'top';
   autoClose?: boolean;
@@ -97,6 +102,7 @@ export const Select: React.FC<SelectProps> = ({
   disabled = false,
   onChange,
   size = 'medium',
+  shape = 'default',
   label,
   multiple = false,
   searchable = false,
@@ -110,6 +116,8 @@ export const Select: React.FC<SelectProps> = ({
   emptyText,
   renderOption,
   renderValue,
+  dropdownWidth,
+  dropdownAlign = 'start',
   className = '',
   placement = 'bottom',
   autoClose = false,
@@ -377,6 +385,7 @@ export const Select: React.FC<SelectProps> = ({
   const classNames = [
     'select',
     `select--${size}`,
+    `select--shape-${shape}`,
     `select--placement-${placement}`,
     isOpen && 'select--open',
     disabled && 'select--disabled',
@@ -541,6 +550,11 @@ export const Select: React.FC<SelectProps> = ({
         <div
           className={`select__dropdown select__dropdown--${placement}`}
           ref={dropdownRef}
+          style={dropdownWidth ? {
+            width: dropdownWidth,
+            left: dropdownAlign === 'end' ? 'auto' : 0,
+            right: dropdownAlign === 'end' ? 0 : 'auto',
+          } : undefined}
         >
           {searchable && (
             <div className="select__search">

@@ -5,6 +5,7 @@ import type {
   ProductAppLaunch,
 } from '@/infrastructure/api/service-api/AppCatalogAPI';
 import {
+  catalogAppLaunchRequiresWorkConfirmation,
   getCatalogAppLaunchBehavior,
   getProductAppLaunchBehavior,
   resolveProductAppWorkScope,
@@ -73,6 +74,20 @@ describe('Product App launch behavior', () => {
       primarySurfaceMode: 'immersivePrimary',
       workMultiplicity: 'multiple',
     })).supportsMultipleWorks).toBe(true);
+  });
+
+  it('confirms new Work details unless the app is a global singleton', () => {
+    expect(catalogAppLaunchRequiresWorkConfirmation(app({
+      workMultiplicity: 'multiple',
+    }))).toBe(true);
+    expect(catalogAppLaunchRequiresWorkConfirmation(app({
+      launch: { scopeRequirement: 'workspaceRequired' },
+      workMultiplicity: 'singleton',
+    }))).toBe(true);
+    expect(catalogAppLaunchRequiresWorkConfirmation(app({
+      launch: { scopeRequirement: 'workspaceOptional' },
+      workMultiplicity: 'singleton',
+    }))).toBe(false);
   });
 
   it('keeps singleton system-allowed apps in system scope', () => {

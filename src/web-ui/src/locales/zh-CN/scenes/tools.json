@@ -1,7 +1,7 @@
 {
   "page": {
     "title": "工具箱",
-    "subtitle": "工具是 Agent 执行具体动作的最小单位。Built-in 由系统提供，MCP 来自你接入的外部服务。",
+    "subtitle": "浏览 Agent 可调用的动作与权限边界",
     "learnMore": "了解 Agent 如何装配工具"
   },
   "sidebar": {
@@ -30,6 +30,9 @@
     "danger": "高风险"
   },
   "filters": {
+    "sourceLabel": "工具来源",
+    "categoryLabel": "工具分类",
+    "connectedServers": "{{count}} 个 Server 已连接",
     "allPermissions": "全部权限",
     "enabledOnly": "仅已启用"
   },
@@ -37,6 +40,8 @@
     "placeholder": "搜索工具…"
   },
   "list": {
+    "listLabel": "工具列表",
+    "detailLabel": "工具详情",
     "countSuffix": "共 {{count}} 项",
     "pagination": "\u5de5\u5177\u5217\u8868\u5206\u9875",
     "emptyAll": "没有匹配当前筛选条件的工具。",

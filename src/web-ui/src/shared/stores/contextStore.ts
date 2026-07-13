@@ -1,213 +1,233 @@
- 
-
 import { create } from 'zustand';
-import { devtools, persist } from 'zustand/middleware';
-import { ContextItem, ValidationResult } from '../types/context';
+import { devtools } from 'zustand/middleware';
+import type { ComposerDocument } from '../types/composer';
+import {
+  createComposerTextDocument,
+  EMPTY_COMPOSER_DOCUMENT,
+  hasComposerContent,
+  removeComposerContext,
+} from '../types/composer';
+import type { ContextItem, ValidationResult } from '../types/context';
 import { createLogger } from '@/shared/utils/logger';
 
-const log = createLogger('ContextStore');
+const log = createLogger('ComposerContextStore');
+const DEFAULT_DRAFT_KEY = 'composer:unbound';
 
-
+interface ComposerDraft {
+  document: ComposerDocument;
+  contexts: ContextItem[];
+}
 
 interface ContextState {
-  
+  activeDraftKey: string;
+  drafts: Record<string, ComposerDraft>;
   contexts: ContextItem[];
-  
-  
+  document: ComposerDocument;
   validationStates: Map<string, ValidationResult>;
-  
-  
   validatingIds: Set<string>;
-  
-  // Actions
+  setActiveDraft: (draftKey: string) => void;
+  setDocument: (document: ComposerDocument) => void;
+  replaceDraftText: (text: string) => void;
+  restoreDraft: (document: ComposerDocument, contexts: ContextItem[]) => void;
+  restoreDraftIfEmpty: (document: ComposerDocument, contexts: ContextItem[]) => boolean;
   addContext: (item: ContextItem) => void;
   removeContext: (id: string) => void;
   clearContexts: () => void;
+  clearDraft: () => void;
   updateValidation: (id: string, result: ValidationResult) => void;
   setValidating: (id: string, validating: boolean) => void;
   reorderContexts: (startIndex: number, endIndex: number) => void;
-  updateContext: (id: string, updates: Partial<ContextItem>) => void;
+  updateContext: (draftKey: string, id: string, updates: Partial<ContextItem>) => void;
 }
 
+function emptyDraft(): ComposerDraft {
+  return { document: { version: 1, nodes: [] }, contexts: [] };
+}
 
+function withActiveDraft(
+  state: ContextState,
+  update: (draft: ComposerDraft) => ComposerDraft,
+): Partial<ContextState> {
+  const current = state.drafts[state.activeDraftKey] ?? emptyDraft();
+  const next = update(current);
+  return {
+    drafts: { ...state.drafts, [state.activeDraftKey]: next },
+    document: next.document,
+    contexts: next.contexts,
+  };
+}
 
+/**
+ * Draft-scoped Composer context state.
+ *
+ * Nothing is persisted to localStorage: contexts belong to a concrete draft,
+ * and submitted snapshots are persisted with the dialog turn instead.
+ */
 export const useContextStore = create<ContextState>()(
-  devtools(
-    persist(
-      (set, _get) => ({
-        
-        contexts: [],
+  devtools((set, get) => ({
+    activeDraftKey: DEFAULT_DRAFT_KEY,
+    drafts: {},
+    contexts: [],
+    document: EMPTY_COMPOSER_DOCUMENT,
+    validationStates: new Map(),
+    validatingIds: new Set(),
+
+    setActiveDraft: (draftKey) => {
+      const normalizedKey = draftKey.trim() || DEFAULT_DRAFT_KEY;
+      set((state) => {
+        if (state.activeDraftKey === normalizedKey) return state;
+        const draft = state.drafts[normalizedKey] ?? emptyDraft();
+        return {
+          activeDraftKey: normalizedKey,
+          document: draft.document,
+          contexts: draft.contexts,
+          validationStates: new Map(),
+          validatingIds: new Set(),
+        };
+      }, false, 'setActiveDraft');
+    },
+
+    setDocument: (document) => {
+      set(state => withActiveDraft(state, draft => ({ ...draft, document })), false, 'setDocument');
+    },
+
+    replaceDraftText: (text) => {
+      set(state => withActiveDraft(state, draft => ({
+        ...draft,
+        document: createComposerTextDocument(text),
+        contexts: draft.contexts.filter(context => context.type === 'image'),
+      })), false, 'replaceDraftText');
+    },
+
+    restoreDraft: (document, contexts) => {
+      set(state => withActiveDraft(state, () => ({ document, contexts })), false, 'restoreDraft');
+    },
+
+    restoreDraftIfEmpty: (document, contexts) => {
+      const state = get();
+      const current = state.drafts[state.activeDraftKey] ?? emptyDraft();
+      if (hasComposerContent(current.document) || current.contexts.length > 0) return false;
+      set(currentState => withActiveDraft(
+        currentState,
+        () => ({ document, contexts }),
+      ), false, 'restoreDraftIfEmpty');
+      return true;
+    },
+
+    addContext: (item) => {
+      set((state) => withActiveDraft(state, draft => {
+        const existingIndex = draft.contexts.findIndex(context => context.id === item.id);
+        if (existingIndex >= 0) {
+          const contexts = [...draft.contexts];
+          contexts[existingIndex] = item;
+          return { ...draft, contexts };
+        }
+        return { ...draft, contexts: [...draft.contexts, item] };
+      }), false, 'addContext');
+    },
+
+    removeContext: (id) => {
+      set((state) => {
+        const validationStates = new Map(state.validationStates);
+        validationStates.delete(id);
+        const validatingIds = new Set(state.validatingIds);
+        validatingIds.delete(id);
+        return {
+          ...withActiveDraft(state, draft => ({
+            contexts: draft.contexts.filter(context => context.id !== id),
+            document: removeComposerContext(draft.document, id),
+          })),
+          validationStates,
+          validatingIds,
+        };
+      }, false, 'removeContext');
+    },
+
+    clearContexts: () => {
+      set(state => ({
+        ...withActiveDraft(state, draft => ({
+          contexts: [],
+          document: {
+            version: 1,
+            nodes: draft.document.nodes.filter(node => node.type === 'text'),
+          },
+        })),
         validationStates: new Map(),
         validatingIds: new Set(),
-        
-        
-        addContext: (item: ContextItem) => {
-          set((state) => {
-            
-            if (state.contexts.some(c => c.id === item.id)) {
-              log.warn('Context already exists', { id: item.id });
-              return state;
-            }
-            
-            return {
-              contexts: [...state.contexts, item]
-            };
-          }, false, 'addContext');
-        },
-        
-        
-        removeContext: (id: string) => {
-          set((state) => {
-            const newValidationStates = new Map(state.validationStates);
-            newValidationStates.delete(id);
-            
-            const newValidatingIds = new Set(state.validatingIds);
-            newValidatingIds.delete(id);
-            
-            return {
-              contexts: state.contexts.filter(c => c.id !== id),
-              validationStates: newValidationStates,
-              validatingIds: newValidatingIds
-            };
-          }, false, 'removeContext');
-        },
-        
-        
-        clearContexts: () => {
-          set({
-            contexts: [],
-            validationStates: new Map(),
-            validatingIds: new Set()
-          }, false, 'clearContexts');
-        },
-        
-        
-        updateValidation: (id: string, result: ValidationResult) => {
-          set((state) => {
-            const newValidationStates = new Map(state.validationStates);
-            newValidationStates.set(id, result);
-            
-            const newValidatingIds = new Set(state.validatingIds);
-            newValidatingIds.delete(id);
-            
-            return {
-              validationStates: newValidationStates,
-              validatingIds: newValidatingIds
-            };
-          }, false, 'updateValidation');
-        },
-        
-        
-        setValidating: (id: string, validating: boolean) => {
-          set((state) => {
-            const newValidatingIds = new Set(state.validatingIds);
-            if (validating) {
-              newValidatingIds.add(id);
-            } else {
-              newValidatingIds.delete(id);
-            }
-            
-            return { validatingIds: newValidatingIds };
-          }, false, 'setValidating');
-        },
-        
-        
-        reorderContexts: (startIndex: number, endIndex: number) => {
-          set((state) => {
-            const newContexts = [...state.contexts];
-            const [removed] = newContexts.splice(startIndex, 1);
-            newContexts.splice(endIndex, 0, removed);
-            
-            return { contexts: newContexts };
-          }, false, 'reorderContexts');
-        },
-        
-        
-        updateContext: (id: string, updates: Partial<ContextItem>) => {
-          set((state) => {
-            const contexts = state.contexts.map(c => 
-              c.id === id ? { ...c, ...updates } as ContextItem : c
-            );
-            
-            return { contexts };
-          }, false, 'updateContext');
+      }), false, 'clearContexts');
+    },
+
+    clearDraft: () => {
+      set(state => ({
+        ...withActiveDraft(state, () => emptyDraft()),
+        validationStates: new Map(),
+        validatingIds: new Set(),
+      }), false, 'clearDraft');
+    },
+
+    updateValidation: (id, result) => {
+      set((state) => {
+        const validationStates = new Map(state.validationStates);
+        validationStates.set(id, result);
+        const validatingIds = new Set(state.validatingIds);
+        validatingIds.delete(id);
+        return { validationStates, validatingIds };
+      }, false, 'updateValidation');
+    },
+
+    setValidating: (id, validating) => {
+      set((state) => {
+        const validatingIds = new Set(state.validatingIds);
+        if (validating) validatingIds.add(id);
+        else validatingIds.delete(id);
+        return { validatingIds };
+      }, false, 'setValidating');
+    },
+
+    reorderContexts: (startIndex, endIndex) => {
+      set(state => withActiveDraft(state, draft => {
+        const contexts = [...draft.contexts];
+        const [removed] = contexts.splice(startIndex, 1);
+        if (!removed) return draft;
+        contexts.splice(endIndex, 0, removed);
+        return { ...draft, contexts };
+      }), false, 'reorderContexts');
+    },
+
+    updateContext: (draftKey, id, updates) => {
+      set(state => {
+        const draft = state.drafts[draftKey] ?? emptyDraft();
+        const contexts = draft.contexts.map(context => {
+          if (context.id !== id) return context;
+          const next = { ...context, ...updates } as ContextItem;
+          if (next.type === 'text-fragment') {
+            next.charCount = Array.from(next.content).length;
+          }
+          return next;
+        });
+        if (!contexts.some(context => context.id === id)) {
+          log.warn('Cannot update missing Composer context', { id, draftKey });
         }
-      }),
-      {
-        name: 'sparo-context-storage',
-        
-        serialize: (state: any) => {
-          return JSON.stringify({
-            ...state.state,
-            validationStates: Array.from(state.state.validationStates.entries()),
-            validatingIds: Array.from(state.state.validatingIds)
-          });
-        },
-        
-        deserialize: (str: string) => {
-          const parsed = JSON.parse(str);
-          return {
-            ...parsed,
-            state: {
-              ...parsed.state,
-              validationStates: new Map(parsed.state.validationStates),
-              validatingIds: new Set(parsed.state.validatingIds)
-            }
-          };
-        },
-        
-        partialize: (state: any) => ({ 
-          contexts: state.contexts.filter((ctx: any) => ctx.type !== 'image')
-        })
-      } as any
-    ),
-    {
-      name: 'ContextStore',
-      enabled: process.env.NODE_ENV === 'development'
-    }
-  )
+        const nextDraft = { ...draft, contexts };
+        return {
+          drafts: { ...state.drafts, [draftKey]: nextDraft },
+          ...(state.activeDraftKey === draftKey ? { contexts } : {}),
+        };
+      }, false, 'updateContext');
+    },
+  }), {
+    name: 'ComposerContextStore',
+    enabled: process.env.NODE_ENV === 'development',
+  }),
 );
-
-
 
 export const selectContexts = (state: ContextState) => state.contexts;
 export const selectContextCount = (state: ContextState) => state.contexts.length;
-export const selectContextById = (id: string) => (state: ContextState) => 
-  state.contexts.find(c => c.id === id);
-export const selectValidationState = (id: string) => (state: ContextState) => 
+export const selectContextById = (id: string) => (state: ContextState) =>
+  state.contexts.find(context => context.id === id);
+export const selectValidationState = (id: string) => (state: ContextState) =>
   state.validationStates.get(id);
-export const selectIsValidating = (id: string) => (state: ContextState) => 
+export const selectIsValidating = (id: string) => (state: ContextState) =>
   state.validatingIds.has(id);
-export const selectHasInvalidContexts = (state: ContextState) => 
-  Array.from(state.validationStates.values()).some(v => !v.valid);
-
-
-
- 
-export const cleanupImageContextsFromStorage = () => {
-  try {
-    const storageKey = 'sparo-context-storage';
-    const stored = localStorage.getItem(storageKey);
-    
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      
-      if (parsed.state && Array.isArray(parsed.state.contexts)) {
-        const imageCount = parsed.state.contexts.filter((ctx: any) => ctx.type === 'image').length;
-        
-        if (imageCount > 0) {
-          
-          parsed.state.contexts = parsed.state.contexts.filter((ctx: any) => ctx.type !== 'image');
-          
-          
-          localStorage.setItem(storageKey, JSON.stringify(parsed));
-        }
-      }
-    }
-  } catch (error) {
-    log.warn('Failed to cleanup image contexts', error);
-  }
-};
-
-
-cleanupImageContextsFromStorage();
+export const selectHasInvalidContexts = (state: ContextState) =>
+  Array.from(state.validationStates.values()).some(result => !result.valid);

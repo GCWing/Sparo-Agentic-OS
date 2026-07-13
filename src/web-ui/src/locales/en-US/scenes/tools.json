@@ -1,7 +1,7 @@
 {
   "page": {
     "title": "Tools",
-    "subtitle": "Tools are the smallest unit of action an agent can take. Built-in tools ship with Sparo OS; MCP tools come from external services you connect.",
+    "subtitle": "Browse the actions agents can call and their permission boundaries",
     "learnMore": "How agents use tools"
   },
   "sidebar": {
@@ -30,6 +30,9 @@
     "danger": "Dangerous"
   },
   "filters": {
+    "sourceLabel": "Tool source",
+    "categoryLabel": "Tool category",
+    "connectedServers": "{{count}} server connected",
     "allPermissions": "All levels",
     "enabledOnly": "Enabled only"
   },
@@ -37,6 +40,8 @@
     "placeholder": "Search tools…"
   },
   "list": {
+    "listLabel": "Tool list",
+    "detailLabel": "Tool details",
     "countSuffix": "{{count}} tools",
     "pagination": "Tool list pagination",
     "emptyAll": "No tools match your filters.",

@@ -1,3 +1,5 @@
+import { useWorkStore } from '@/app/agentic-os/work/data/workStore';
+import type { WorkRecord } from '@/app/agentic-os/work/domain/workTypes';
 import { SESSION_DESCRIPTORS } from '@/flow_chat/domain/sessionDescriptor';
 import { openBoundAgentSession } from '@/flow_chat/services/boundAgentSessionService';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
@@ -8,6 +10,21 @@ import {
   type IntelligentAppRecord,
 } from '@/infrastructure/api/service-api/IntelligentAppAPI';
 import { systemAppScope, type AppScope } from '@/shared/types/app-scope';
+import { buildAppBuilderWorkRequest } from './appBuilderWork';
+
+function getWorkSession(work: WorkRecord): { sessionId: string; workspacePath?: string | null } {
+  const surface = work.primarySurface.kind === 'work_session'
+    ? work.primarySurface
+    : work.surfaces.find((candidate) => candidate.kind === 'work_session');
+  if (!surface || surface.kind !== 'work_session') {
+    throw new Error(`App Builder Work has no WorkSession: ${work.id}`);
+  }
+  const sessionRef = work.sessionRefs.find((candidate) => candidate.sessionId === surface.sessionId);
+  return {
+    sessionId: surface.sessionId,
+    workspacePath: sessionRef?.workspacePath,
+  };
+}
 
 export interface OpenAppBuilderDraftRequest {
   app: IntelligentAppRecord;
@@ -22,10 +39,16 @@ export async function openAppBuilderSession(
   request: OpenAppBuilderDraftRequest,
 ): Promise<string> {
   const scope = request.scope ?? systemAppScope();
+  const { work } = await useWorkStore.getState().resolveComponentWork(
+    buildAppBuilderWorkRequest(request, scope),
+  );
+  const workSession = getWorkSession(work);
   const session = await openBoundAgentSession({
     descriptor: SESSION_DESCRIPTORS.appBuilder,
     sessionName: request.app.displayName,
-    storageScope: 'agentic_os',
+    storageScope: 'workspace',
+    existingSession: workSession,
+    context: { kind: 'work', workId: work.id },
     binding: {
       schemaVersion: 1,
       intent: {
@@ -50,6 +73,9 @@ export async function openAppBuilderSession(
         duplicateKey: `app-builder-draft:${request.draft.draftId}`,
       },
       scope,
+      executionContext: {
+        workId: work.id,
+      },
       openedFrom: 'apps-center',
       updatedAt: Date.now(),
     },

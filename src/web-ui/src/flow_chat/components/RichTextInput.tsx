@@ -1,19 +1,39 @@
 /**
- * Rich text input component.
- * Supports inserting file tags inline and using @ to select files/folders.
+ * Structured Composer editor.
+ * Text and atomic context references are read from the DOM in visual order;
+ * no context is represented by a magic string or absolute character offset.
  */
 
-import React, { useRef, useEffect, useCallback, useImperativeHandle, useState } from 'react';
-import type { ContextItem } from '../../shared/types/context';
-import { getRichTextExternalSyncAction } from './richTextInputSync';
-import { createContextTagElement } from './rich-text-input/richTextContextTags';
+import React, {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react';
+import { useTranslation } from 'react-i18next';
+import type { ComposerDocument } from '@/shared/types/composer';
+import {
+  areComposerDocumentsEqual,
+  getComposerText,
+  hasComposerContent,
+} from '@/shared/types/composer';
+import type { ContextItem } from '@/shared/types/context';
+import {
+  openComposerContext,
+  type OpenContextOptions,
+} from '../domain/composerContextRegistry';
+import {
+  createContextTagElement,
+  updateContextTagElement,
+} from './rich-text-input/richTextContextTags';
 import {
   collapseSelectionToEnd,
   insertPlainTextAtSelection,
   scrubInvisibleTextNodes,
 } from './rich-text-input/richTextSelection';
 import {
-  extractRichTextContent,
+  extractComposerDocument,
   getVisibleRichTextContexts,
   sanitizeRichText,
 } from './rich-text-input/richTextPlainText';
@@ -21,18 +41,17 @@ import { useRichTextMention } from './rich-text-input/useRichTextMention';
 import { useRichTextTags } from './rich-text-input/useRichTextTags';
 import './RichTextInput.scss';
 
-/** @ mention state */
 export interface MentionState {
   isActive: boolean;
   query: string;
-  startOffset: number;  // Position of the @ symbol in text
+  startOffset: number;
 }
 
 export interface RichTextInputProps {
-  value: string;
-  onChange: (value: string, contexts: ContextItem[]) => void;
-  onLargePaste?: (text: string) => string | null;
-  onKeyDown?: (e: React.KeyboardEvent) => void;
+  document: ComposerDocument;
+  onChange: (document: ComposerDocument, contexts: ContextItem[]) => void;
+  onLargePaste?: (text: string) => ContextItem | null;
+  onKeyDown?: (event: React.KeyboardEvent) => void;
   onCompositionStart?: () => void;
   onCompositionEnd?: () => void;
   onFocus?: () => void;
@@ -41,9 +60,10 @@ export interface RichTextInputProps {
   disabled?: boolean;
   className?: string;
   contexts: ContextItem[];
+  openContextOptions: OpenContextOptions;
   onRemoveContext: (id: string) => void;
-  /** Callback when @ mention state changes */
   onMentionStateChange?: (state: MentionState) => void;
+  'data-testid'?: string;
 }
 
 export interface RichTextInputHandle {
@@ -56,10 +76,24 @@ export interface RichTextInputHandle {
   openMention: () => void;
   closeMention: () => void;
   getPlainText: () => string;
+  getDocument: () => ComposerDocument;
+}
+
+function contextBeforeCaret(editor: HTMLElement, range: Range): HTMLElement | null {
+  if (!range.collapsed) return null;
+  let candidate: Node | null = null;
+  if (range.startContainer.nodeType === Node.TEXT_NODE && range.startOffset === 0) {
+    candidate = range.startContainer.previousSibling;
+  } else if (range.startContainer === editor && range.startOffset > 0) {
+    candidate = editor.childNodes[range.startOffset - 1] ?? null;
+  }
+  return candidate instanceof HTMLElement && candidate.classList.contains('rich-text-tag-pill')
+    ? candidate
+    : null;
 }
 
 export const RichTextInput = React.forwardRef<RichTextInputHandle, RichTextInputProps>(({
-  value,
+  document: composerDocument,
   onChange,
   onLargePaste,
   onKeyDown,
@@ -71,27 +105,39 @@ export const RichTextInput = React.forwardRef<RichTextInputHandle, RichTextInput
   disabled = false,
   className = '',
   contexts,
+  openContextOptions,
   onRemoveContext,
   onMentionStateChange,
+  'data-testid': testId,
 }, ref) => {
+  const { t } = useTranslation('flow-chat');
   const editorRef = useRef<HTMLDivElement>(null);
-  const internalRef = editorRef;
-  const [isFocused, setIsFocused] = useState(false);
+  const contextsRef = useRef(contexts);
+  const openOptionsRef = useRef(openContextOptions);
   const isComposingRef = useRef(false);
-  const lastContextIdsRef = useRef<Set<string>>(new Set());
+  const [isFocused, setIsFocused] = useState(false);
+  contextsRef.current = contexts;
+  openOptionsRef.current = openContextOptions;
 
-  const createTagElement = useCallback((context: ContextItem): HTMLSpanElement => {
-    return createContextTagElement(context, onRemoveContext);
-  }, [onRemoveContext]);
+  const resolveContext = useCallback((id: string) => (
+    contextsRef.current.find(context => context.id === id)
+  ), []);
 
-  // Extract plain text including # tag format
-  const extractTextContent = useCallback((): string => {
-    return extractRichTextContent(internalRef.current);
-  }, [internalRef]);
+  const createTagElement = useCallback((context: ContextItem): HTMLSpanElement => (
+    createContextTagElement(
+      context,
+      t,
+      resolveContext,
+      openComposerContext,
+      () => openOptionsRef.current,
+      onRemoveContext,
+    )
+  ), [onRemoveContext, resolveContext, t]);
 
+  const extractDocument = useCallback(() => extractComposerDocument(editorRef.current), []);
   const insertPlainText = useCallback((text: string) => {
-    insertPlainTextAtSelection(internalRef.current, text);
-  }, [internalRef]);
+    insertPlainTextAtSelection(editorRef.current, text);
+  }, []);
 
   const {
     closeMention,
@@ -100,231 +146,165 @@ export const RichTextInput = React.forwardRef<RichTextInputHandle, RichTextInput
     mentionStateRef,
     openMention,
   } = useRichTextMention({
-    editorRef: internalRef,
+    editorRef,
     insertPlainText,
     onMentionStateChange,
   });
 
   const handleInput = useCallback(() => {
     if (isComposingRef.current) return;
+    const editor = editorRef.current;
+    if (editor) scrubInvisibleTextNodes(editor);
 
-    const editor = internalRef.current;
-
-    if (editor) {
-      scrubInvisibleTextNodes(editor);
-    }
-
-    const textContent = extractTextContent();
-    const visibleContexts = getVisibleRichTextContexts(internalRef.current, contexts);
-
-    if (editor && textContent.length === 0 && visibleContexts.length === 0) {
+    let nextDocument = extractDocument();
+    const visibleContexts = getVisibleRichTextContexts(nextDocument, contextsRef.current);
+    if (editor && !hasComposerContent(nextDocument) && visibleContexts.every(context => context.type === 'image')) {
       editor.replaceChildren();
+      nextDocument = { version: 1, nodes: [] };
     }
+    onChange(nextDocument, visibleContexts);
+    requestAnimationFrame(detectMention);
+  }, [detectMention, extractDocument, onChange]);
 
-    onChange(textContent, visibleContexts);
-
-    // Ensure detection runs after DOM updates
-    requestAnimationFrame(() => {
-      detectMention();
-    });
-  }, [contexts, detectMention, extractTextContent, internalRef, onChange]);
-
-  const handleBeforeInput = useCallback((e: React.FormEvent<HTMLDivElement>) => {
-    const inputEvent = e.nativeEvent as InputEvent;
-    const inputType = inputEvent.inputType;
-
-    // Only act on insertText and block attempts to insert purely-invisible content.
-    // We intentionally avoid a blanket whitelist so that we never accidentally
-    // block browser-internal input types (cursor movement, spellcheck, etc.).
-    if (inputType === 'insertText' && inputEvent.data != null) {
-      const cleaned = sanitizeRichText(inputEvent.data);
-      if (cleaned.length === 0) {
-        e.preventDefault();
-      }
-    }
-  }, []);
-
-  const handlePaste = useCallback((e: React.ClipboardEvent) => {
-    e.preventDefault();
-
-    // Detect image paste
-    const items = Array.from(e.clipboardData.items);
-    const imageItem = items.find(item => item.type.startsWith('image/'));
-
-    if (imageItem) {
-      // Dispatch image paste event for parent handling
-      const file = imageItem.getAsFile();
-      if (file && internalRef.current) {
-        const customEvent = new CustomEvent('imagePaste', {
-          detail: { file },
-          bubbles: true
-        });
-        internalRef.current.dispatchEvent(customEvent);
-      }
-      return;
-    }
-
-    closeMention();
-
-    const text = e.clipboardData.getData('text/plain');
-    const largePastePlaceholder = onLargePaste?.(text);
-    insertPlainText(largePastePlaceholder ?? text);
-
-    // Mark that we just pasted to prevent mention detection in the next input event
-    isComposingRef.current = true;
-    requestAnimationFrame(() => {
-      isComposingRef.current = false;
-      handleInput();
-    });
-  }, [closeMention, handleInput, internalRef, insertPlainText, onLargePaste]);
-
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    const nativeIsComposing = (e.nativeEvent as KeyboardEvent).isComposing;
-    const composing = nativeIsComposing || isComposingRef.current;
-
-    if (!composing && e.key === 'Backspace' && internalRef.current) {
-      const selection = window.getSelection();
-      if (selection) {
-        const range = selection.getRangeAt(0);
-
-        if (range.collapsed && range.startOffset === 0) {
-          const previousSibling = range.startContainer.previousSibling;
-          if (previousSibling && (previousSibling as HTMLElement).classList?.contains('rich-text-tag-pill')) {
-            e.preventDefault();
-            const contextId = (previousSibling as HTMLElement).dataset.contextId;
-            if (contextId) {
-              onRemoveContext(contextId);
-            }
-            return;
-          }
-        }
-      }
-    }
-
-    if (composing && e.key === 'Enter') {
-      return;
-    }
-
-    onKeyDown?.(e);
-  }, [internalRef, onKeyDown, onRemoveContext]);
-
-  const {
-    insertTagAtCursor,
-    insertTagReplacingMention,
-  } = useRichTextTags({
+  const { insertTagAtCursor, insertTagReplacingMention } = useRichTextTags({
     createTagElement,
-    editorRef: internalRef,
+    editorRef,
     handleInput,
     mentionStateRef,
     onMentionStateChange,
   });
 
+  const handleBeforeInput = useCallback((event: React.FormEvent<HTMLDivElement>) => {
+    const inputEvent = event.nativeEvent as InputEvent;
+    if (inputEvent.inputType === 'insertText' && inputEvent.data != null) {
+      if (sanitizeRichText(inputEvent.data).length === 0) event.preventDefault();
+    }
+  }, []);
+
+  const handlePaste = useCallback((event: React.ClipboardEvent) => {
+    event.preventDefault();
+    const imageItem = Array.from(event.clipboardData.items)
+      .find(item => item.type.startsWith('image/'));
+    if (imageItem) {
+      const file = imageItem.getAsFile();
+      if (file && editorRef.current) {
+        editorRef.current.dispatchEvent(new CustomEvent('imagePaste', {
+          detail: { file },
+          bubbles: true,
+        }));
+      }
+      return;
+    }
+
+    closeMention();
+    const text = event.clipboardData.getData('text/plain');
+    const context = onLargePaste?.(text) ?? null;
+    if (context) {
+      contextsRef.current = [
+        ...contextsRef.current.filter(item => item.id !== context.id),
+        context,
+      ];
+      insertTagAtCursor(context);
+      return;
+    }
+
+    insertPlainText(text);
+    isComposingRef.current = true;
+    requestAnimationFrame(() => {
+      isComposingRef.current = false;
+      handleInput();
+    });
+  }, [closeMention, handleInput, insertPlainText, insertTagAtCursor, onLargePaste]);
+
+  const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
+    const composing = (event.nativeEvent as KeyboardEvent).isComposing || isComposingRef.current;
+    if (!composing && event.key === 'Backspace' && editorRef.current) {
+      const selection = window.getSelection();
+      if (selection?.rangeCount) {
+        const tag = contextBeforeCaret(editorRef.current, selection.getRangeAt(0));
+        const contextId = tag?.dataset.contextId;
+        if (contextId) {
+          event.preventDefault();
+          onRemoveContext(contextId);
+          return;
+        }
+      }
+    }
+    if (composing && event.key === 'Enter') return;
+    onKeyDown?.(event);
+  }, [onKeyDown, onRemoveContext]);
+
   useImperativeHandle(ref, () => ({
-    get element() {
-      return internalRef.current;
-    },
+    get element() { return editorRef.current; },
     focus: () => {
-      const editor = internalRef.current;
+      const editor = editorRef.current;
       if (!editor) return;
       editor.focus();
       collapseSelectionToEnd(editor);
     },
-    contains: (node: Node | null) => {
-      return !!node && !!internalRef.current?.contains(node);
-    },
+    contains: node => !!node && !!editorRef.current?.contains(node),
     insertTag: insertTagAtCursor,
     insertTagReplacingMention,
-    insertText: (text: string) => {
+    insertText: text => {
       insertPlainText(text);
       handleInput();
     },
     openMention,
     closeMention,
-    getPlainText: extractTextContent,
-  }), [closeMention, extractTextContent, handleInput, insertPlainText, insertTagAtCursor, insertTagReplacingMention, internalRef, openMention]);
+    getPlainText: () => getComposerText(extractDocument()),
+    getDocument: extractDocument,
+  }), [
+    closeMention,
+    extractDocument,
+    handleInput,
+    insertPlainText,
+    insertTagAtCursor,
+    insertTagReplacingMention,
+    openMention,
+  ]);
 
-  // Initialize and sync value changes from external sources.
-  // This editor is effectively controlled by comparing the parent's value
-  // with the current DOM content, rather than tracking a "skip next sync" flag.
   useEffect(() => {
-    const editor = internalRef.current;
-    if (!editor) return;
+    const editor = editorRef.current;
+    if (!editor || isComposingRef.current) return;
+    if (editor.querySelector('.rich-text-placeholder')) return;
 
-    if (isComposingRef.current) return;
-
-    // Detect template fill mode via placeholder elements
-    const hasPlaceholders = editor.querySelector('.rich-text-placeholder') !== null;
-    if (hasPlaceholders) {
-      // Skip value sync; template rendering owns the content
-      return;
-    }
-
-    const currentContent = extractTextContent();
-    const syncAction = getRichTextExternalSyncAction(value, currentContent);
-
-    if (syncAction === 'noop') {
-      return;
-    }
-
-    if (syncAction === 'clear') {
-      editor.textContent = '';
-      return;
-    }
-
-    if (syncAction === 'replace') {
-      editor.textContent = value;
-
-      // Restore cursor to the end
-      requestAnimationFrame(() => {
-        if (editor.childNodes.length > 0) {
-          collapseSelectionToEnd(editor);
+    const currentDocument = extractDocument();
+    if (!areComposerDocumentsEqual(composerDocument, currentDocument)) {
+      const fragment = window.document.createDocumentFragment();
+      const byId = new Map(contexts.map(context => [context.id, context]));
+      for (const node of composerDocument.nodes) {
+        if (node.type === 'text') {
+          fragment.appendChild(window.document.createTextNode(node.text));
+        } else {
+          const context = byId.get(node.contextId);
+          if (context) fragment.appendChild(createTagElement(context));
         }
-        editor.focus();
-      });
-    }
-  }, [extractTextContent, internalRef, value]);
-
-  // Remove tags for deleted contexts
-  useEffect(() => {
-    const editor = internalRef.current;
-    if (!editor) return;
-
-    const currentContextIds = new Set(contexts.map(c => c.id));
-    const previousContextIds = lastContextIdsRef.current;
-
-    const deletedIds = Array.from(previousContextIds).filter(id => !currentContextIds.has(id));
-
-    deletedIds.forEach(id => {
-      const tagElement = editor.querySelector(`[data-context-id="${id}"]`);
-      if (tagElement) {
-        const nextSibling = tagElement.nextSibling;
-        if (nextSibling && nextSibling.nodeType === Node.TEXT_NODE && nextSibling.textContent === ' ') {
-          nextSibling.remove();
-        }
-        tagElement.remove();
       }
-    });
+      editor.replaceChildren(fragment);
+      if (document.activeElement === editor) collapseSelectionToEnd(editor);
+      return;
+    }
 
-    lastContextIdsRef.current = currentContextIds;
-  }, [contexts, internalRef]);
+    const byId = new Map(contexts.map(context => [context.id, context]));
+    editor.querySelectorAll<HTMLSpanElement>('.rich-text-tag-pill').forEach(tag => {
+      const context = tag.dataset.contextId ? byId.get(tag.dataset.contextId) : undefined;
+      if (context) updateContextTagElement(tag, context, t);
+    });
+  }, [composerDocument, contexts, createTagElement, extractDocument, t]);
 
   const handleFocus = useCallback(() => {
     setIsFocused(true);
     onFocus?.();
   }, [onFocus]);
-
   const handleBlur = useCallback(() => {
     setIsFocused(false);
     closeMentionSoon();
     onBlur?.();
   }, [closeMentionSoon, onBlur]);
-
-  // Handle IME composition
   const handleCompositionStart = useCallback(() => {
     isComposingRef.current = true;
     onCompositionStart?.();
   }, [onCompositionStart]);
-
   const handleCompositionEnd = useCallback(() => {
     isComposingRef.current = false;
     onCompositionEnd?.();
@@ -333,7 +313,7 @@ export const RichTextInput = React.forwardRef<RichTextInputHandle, RichTextInput
 
   return (
     <div
-      ref={internalRef}
+      ref={editorRef}
       className={`rich-text-input ${isFocused ? 'rich-text-input--focused' : ''} ${className}`}
       contentEditable={!disabled}
       onBeforeInput={handleBeforeInput}
@@ -345,11 +325,11 @@ export const RichTextInput = React.forwardRef<RichTextInputHandle, RichTextInput
       onCompositionStart={handleCompositionStart}
       onCompositionEnd={handleCompositionEnd}
       data-placeholder={placeholder}
+      data-testid={testId}
       suppressContentEditableWarning
     />
   );
 });
 
 RichTextInput.displayName = 'RichTextInput';
-
 export default RichTextInput;

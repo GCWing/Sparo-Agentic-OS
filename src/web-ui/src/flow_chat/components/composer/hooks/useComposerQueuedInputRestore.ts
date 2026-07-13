@@ -7,14 +7,14 @@ import type { RichTextInputHandle } from '../../RichTextInput';
 const log = createLogger('ComposerQueuedInputRestore');
 
 export function useComposerQueuedInputRestore({
-  clearPendingLargePastes,
+  replaceDraftText,
   dispatchInput,
   effectiveTargetSessionId,
   inputValueRef,
   queuedInput,
   richTextInputRef,
 }: {
-  clearPendingLargePastes: () => void;
+  replaceDraftText: (text: string) => void;
   dispatchInput: Dispatch<InputAction>;
   effectiveTargetSessionId?: string | null;
   inputValueRef: MutableRefObject<string>;
@@ -29,14 +29,14 @@ export function useComposerQueuedInputRestore({
     const currentValue = inputValueRef.current;
     if (currentValue !== queuedInput && !currentValue.trim()) {
       log.debug('Detected queuedInput, restoring message to input', { queuedInput });
-      clearPendingLargePastes();
+      replaceDraftText(queuedInput);
       dispatchInput({ type: 'ACTIVATE' });
       dispatchInput({ type: 'SET_VALUE', payload: queuedInput });
       inputValueRef.current = queuedInput;
       richTextInputRef.current?.focus();
     }
   }, [
-    clearPendingLargePastes,
+    replaceDraftText,
     dispatchInput,
     effectiveTargetSessionId,
     inputValueRef,

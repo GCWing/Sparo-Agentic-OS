@@ -1,2 +1,3 @@
+// Keep the composer entrypoint explicit so partial style changes hot-reload with the active shell.
 @use './composer/styles/Composer';
 

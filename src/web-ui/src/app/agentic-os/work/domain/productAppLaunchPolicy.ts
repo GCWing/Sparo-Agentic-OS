@@ -124,6 +124,14 @@ export function getProductAppLaunchBehavior(
   return getCatalogAppLaunchBehavior(app);
 }
 
+/** Only a global singleton can launch without confirming a new Work scope. */
+export function catalogAppLaunchRequiresWorkConfirmation(
+  app: CatalogAppLaunchBehaviorInput | null | undefined
+): boolean {
+  const behavior = getCatalogAppLaunchBehavior(app);
+  return behavior.supportsMultipleWorks || behavior.requiresWorkspace;
+}
+
 export function getNativeAppLaunchBehavior(
   app: Pick<NativeAppCatalogEntry, 'launch' | 'workMultiplicity' | 'primarySurfaceMode'> | null | undefined
 ): ProductAppLaunchBehavior {

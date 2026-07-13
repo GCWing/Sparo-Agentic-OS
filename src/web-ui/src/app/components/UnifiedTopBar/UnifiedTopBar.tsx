@@ -21,7 +21,14 @@ import {
   FolderOpen,
   Search,
 } from 'lucide-react';
-import { Button, Dialog, IconButton, Tooltip, WindowControls } from '@/design-system';
+import {
+  Button,
+  Dialog,
+  IconButton,
+  SparoLogoMark,
+  Tooltip,
+  WindowControls,
+} from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { useNotification } from '@/shared/notification-system';
@@ -450,12 +457,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
                 data-testid="unified-top-bar-home"
               >
                 <span className="unified-top-bar__logo-mark" aria-hidden="true">
-                  <img
-                    className="unified-top-bar__logo-img"
-                    src="/sparo-logo-mark.png"
-                    alt=""
-                    draggable={false}
-                  />
+                  <SparoLogoMark className="unified-top-bar__logo-svg" size={22} />
                 </span>
               </IconButton>
             </Tooltip>

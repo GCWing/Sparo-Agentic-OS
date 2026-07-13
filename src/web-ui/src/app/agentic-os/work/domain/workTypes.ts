@@ -519,6 +519,7 @@ export interface ResolveComponentWorkRequest {
   visibility?: WorkVisibility;
   primarySurfacePolicy?: PrimarySurfacePolicy;
   assignment?: WorkAssignmentRef | null;
+  appRefs?: WorkAppRelation[];
 }
 
 export interface LinkSessionToWorkRequest {

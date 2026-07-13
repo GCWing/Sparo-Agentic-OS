@@ -8,6 +8,12 @@ export function getRangeByTextOffsets(root: Node, start: number, end: number): R
   let endOffset = 0;
 
   const walk = (node: Node): boolean => {
+    if (
+      node.nodeType === Node.ELEMENT_NODE
+      && (node as HTMLElement).classList.contains('rich-text-tag-pill')
+    ) {
+      return false;
+    }
     if (node.nodeType === Node.TEXT_NODE) {
       const len = (node.textContent || '').length;
       if (startNode === null && start < current + len) {
@@ -47,11 +53,39 @@ export function getCursorOffset(editor: HTMLElement): number {
 
   const range = selection.getRangeAt(0);
   if (!range.collapsed) return -1;
+  if (
+    range.startContainer.parentElement?.closest('.rich-text-tag-pill')
+    || (range.startContainer instanceof HTMLElement && range.startContainer.closest('.rich-text-tag-pill'))
+  ) return -1;
 
-  const preRange = document.createRange();
-  preRange.selectNodeContents(editor);
-  preRange.setEnd(range.startContainer, range.startOffset);
-  return preRange.toString().length;
+  let offset = 0;
+  let found = false;
+  const walk = (node: Node) => {
+    if (found) return;
+    if (
+      node.nodeType === Node.ELEMENT_NODE
+      && (node as HTMLElement).classList.contains('rich-text-tag-pill')
+    ) return;
+    if (node === range.startContainer) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        offset += Math.min(range.startOffset, node.textContent?.length ?? 0);
+      } else {
+        Array.from(node.childNodes).slice(0, range.startOffset).forEach(child => {
+          if (child.nodeType === Node.ELEMENT_NODE && (child as HTMLElement).classList.contains('rich-text-tag-pill')) return;
+          offset += child.textContent?.length ?? 0;
+        });
+      }
+      found = true;
+      return;
+    }
+    if (node.nodeType === Node.TEXT_NODE) {
+      offset += node.textContent?.length ?? 0;
+      return;
+    }
+    node.childNodes.forEach(walk);
+  };
+  walk(editor);
+  return found ? offset : -1;
 }
 
 export function setCursorOffset(editor: HTMLElement, offset: number) {
@@ -60,6 +94,7 @@ export function setCursorOffset(editor: HTMLElement, offset: number) {
   let node: Text | null;
 
   while ((node = walker.nextNode() as Text | null)) {
+    if (node.parentElement?.closest('.rich-text-tag-pill')) continue;
     const len = (node.textContent || '').length;
     if (remaining <= len) {
       window.getSelection()?.collapse(node, remaining);
@@ -87,6 +122,7 @@ export function scrubInvisibleTextNodes(editor: HTMLElement): boolean {
   let node: Text | null;
 
   while ((node = walker.nextNode() as Text | null)) {
+    if (node.parentElement?.closest('.rich-text-tag-pill')) continue;
     const original = node.textContent || '';
     const cleaned = sanitizeRichText(original);
     if (cleaned !== original) {

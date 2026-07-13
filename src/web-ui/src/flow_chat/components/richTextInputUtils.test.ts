@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ContextItem } from '../../shared/types/context';
-import { createContextTagElement } from './rich-text-input/richTextContextTags';
-import { extractRichTextContent, getVisibleRichTextContexts, sanitizeRichText } from './rich-text-input/richTextPlainText';
+import { extractComposerDocument, getVisibleRichTextContexts, sanitizeRichText } from './rich-text-input/richTextPlainText';
 
 let JSDOMCtor: (new (html?: string) => { window: Window & typeof globalThis }) | null = null;
 
@@ -31,18 +30,32 @@ describeWithJsdom('rich text input utilities', () => {
     vi.stubGlobal('HTMLElement', dom.window.HTMLElement);
   });
 
-  it('extracts plain text with context tag formats', () => {
+  const createTag = () => {
+    const tag = document.createElement('span');
+    tag.className = 'rich-text-tag-pill';
+    tag.dataset.contextId = fileContext.id;
+    return tag;
+  };
+
+  it('extracts an ordered document without converting tags to strings', () => {
     const editor = document.createElement('div');
     editor.append('please read ');
-    editor.appendChild(createContextTagElement(fileContext, () => {}));
+    editor.appendChild(createTag());
     editor.append(' now');
 
-    expect(extractRichTextContent(editor)).toBe('please read #file:agent.ts now');
+    expect(extractComposerDocument(editor)).toEqual({
+      version: 1,
+      nodes: [
+        { type: 'text', text: 'please read ' },
+        { type: 'context-ref', contextId: 'file-1' },
+        { type: 'text', text: ' now' },
+      ],
+    });
   });
 
   it('returns only context tags visible in the editor', () => {
     const editor = document.createElement('div');
-    editor.appendChild(createContextTagElement(fileContext, () => {}));
+    editor.appendChild(createTag());
 
     const hiddenContext: ContextItem = {
       id: 'file-2',
@@ -52,7 +65,7 @@ describeWithJsdom('rich text input utilities', () => {
       filePath: 'D:/workspace/hidden.ts',
     };
 
-    expect(getVisibleRichTextContexts(editor, [fileContext, hiddenContext])).toEqual([fileContext]);
+    expect(getVisibleRichTextContexts(extractComposerDocument(editor), [fileContext, hiddenContext])).toEqual([fileContext]);
   });
 
   it('removes invisible control characters while preserving normal whitespace', () => {

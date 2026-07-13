@@ -7,7 +7,9 @@
   position: fixed;
   opacity: 0;
   pointer-events: none;
-  z-index: tokens.$z-tooltip;
+  // Tooltips are portaled to document.body and use the semantic runtime layer.
+  // Keep this above popovers so controls inside menus can still be described.
+  z-index: var(--ds-z-tooltip, #{tokens.$z-tooltip});
 
   transform: scale(0.98);
   transition:

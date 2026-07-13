@@ -1,6 +1,10 @@
 import type { PreviewCategory } from '@/design-system/types';
+import { useState } from 'react';
 import {
   ActionListRow,
+  AppWindow,
+  AppWindowBody,
+  AppWindowFooter,
   Badge,
   Button,
   CommandBar,
@@ -44,6 +48,35 @@ import {
 } from '@/design-system';
 import { ArrowRight, Bot, Clock, FileCode2, FolderOpen, GitBranch, MoreHorizontal, Search, Square, Terminal } from 'lucide-react';
 
+function AppWindowPreview() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="recipe-preview-stack">
+      <Button size="small" variant="secondary" onClick={() => setOpen(true)}>Open application window</Button>
+      <AppWindow
+        open={open}
+        onOpenChange={setOpen}
+        title="Device Network"
+        titleExtra={<Badge variant="success">Local device online</Badge>}
+        size="wide"
+        closeLabel="Close application window"
+      >
+        <AppWindowBody style={{ padding: 'var(--ds-space-5)', minHeight: 320 }}>
+          <strong style={{ color: 'var(--ds-color-text-primary)' }}>Large in-app content surface</strong>
+          <p style={{ maxWidth: 620, color: 'var(--ds-color-text-secondary)', lineHeight: 1.6 }}>
+            This non-modal window supports longer workflows without dimming or blocking the surrounding application.
+            It receives focus on open, closes with Escape, and restores focus to its trigger.
+          </p>
+        </AppWindowBody>
+        <AppWindowFooter>
+          <Button size="small" variant="secondary" onClick={() => setOpen(false)}>Close</Button>
+        </AppWindowFooter>
+      </AppWindow>
+    </div>
+  );
+}
+
 export const patternPreviewCategories: PreviewCategory[] = [
   {
     id: 'ds-patterns',
@@ -59,6 +92,20 @@ export const patternPreviewCategories: PreviewCategory[] = [
       'Use ToolCard only for AI/tool execution output and preserve streaming behavior in product code.',
     ],
     examples: [
+      {
+        id: 'ds-app-window',
+        name: 'Application window',
+        description: 'Non-modal in-app popup window for substantial content without a backdrop.',
+        category: 'ds-patterns',
+        render: () => <AppWindowPreview />,
+        ai: {
+          recipe: 'recipes/floating-surfaces.recipe.md',
+          useWhen: ['A substantial multi-section workflow must float above the app without blocking the background'],
+          composeWith: ['AppWindowHeader', 'AppWindowBody', 'AppWindowFooter', 'Toolbar', 'Tabs'],
+          avoid: ['Compact confirmations', 'Backdrop overlays', 'Feature-local window chrome'],
+          states: ['default', 'focused', 'long text', 'narrow', 'theme', 'i18n'],
+        },
+      },
       {
         id: 'ds-scene-panel',
         name: 'Scene + Panel',

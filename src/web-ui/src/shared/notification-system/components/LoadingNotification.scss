@@ -1,15 +1,11 @@
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
-@use '../styles/match-nav-search-surface' as search-surface;
 
 .loading-notification {
   min-width: 260px;
   max-width: 320px;
-  @include search-surface.match-nav-search-card-core;
-  padding: $size-gap-2 $size-gap-3;
   display: flex;
   align-items: flex-start;
   gap: $size-gap-2;
-  animation: sparo-notification-surface-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
 
 
   &--failed {
@@ -61,9 +57,5 @@
     line-height: 1.4;
   }
 
-
-  &__cancel {
-    flex-shrink: 0;
-  }
 }
 

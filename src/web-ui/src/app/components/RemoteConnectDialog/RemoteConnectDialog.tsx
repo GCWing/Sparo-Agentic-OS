@@ -9,7 +9,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { CloudCog, Network, QrCode, Server, Wifi } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useI18n } from '@/infrastructure/i18n';
-import { Dialog, Badge, Button, Input, SegmentedControl } from '@/design-system';
+import { AppWindow, Dialog, Badge, Button, Input, SegmentedControl } from '@/design-system';
 import { systemAPI } from '@/infrastructure/api/service-api/SystemAPI';
 import {
   remoteConnectAPI,
@@ -1040,7 +1040,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
 
   return (
     <>
-      <Dialog
+      <AppWindow
         open={isOpen}
         onOpenChange={(nextOpen) => {
           if (!nextOpen) {
@@ -1072,8 +1072,8 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
           </span>
         )}
         showCloseButton
-        size="xlarge"
-        overlayClassName="sparo-remote-connect-overlay"
+        size="wide"
+        className="sparo-remote-connect-window"
         contentClassName="sparo-remote-connect-modal__content"
       >
         <DistributedDeviceOverview
@@ -1086,7 +1086,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
           onOpenNetworkSetup={() => openNetworkSetup()}
           onOpenBotSetup={(tab) => openBotSetup(tab as BotTab)}
         />
-      </Dialog>
+      </AppWindow>
 
       <Dialog
         open={isOpen && showSetup}

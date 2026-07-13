@@ -1,7 +1,16 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { FolderOpen } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-dialog';
-import { Button, Dialog, IconButton, Select, Textarea, type SelectOption } from '@/design-system';
+import {
+  Button,
+  FloatingCard,
+  IconButton,
+  Input,
+  SegmentedControl,
+  Select,
+  type SelectOption,
+} from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import {
   getWorkspaceDisplayName,
@@ -44,11 +53,7 @@ const INTELLIGENT_APP_CHOICE_PREFIX = 'app-slot:';
 const NATIVE_AGENT_APP_IDS: Record<string, string> = {
   OSAgent: 'os-agent',
 };
-const AGENT_TYPE_BY_SLOT: Record<string, 'Runno' | 'AppBuilder'> = {
-  runno: 'Runno',
-  'app-builder': 'AppBuilder',
-};
-
+const BUILTIN_WORK_SLOT_IDS = ['runno', 'app-builder'] as const;
 type NewWorkStartMode = 'manual' | 'agentic-os';
 
 export type NewWorkClassifyKind = Extract<
@@ -229,15 +234,15 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
 
   const [agentChoice, setAgentChoice] = useState<NewWorkAgentChoice>(appSlotWorkChoice('runno'));
   const [startMode, setStartMode] = useState<NewWorkStartMode>('manual');
-  const [classifyKind, setClassifyKind] = useState<NewWorkClassifyKind>('multi_step');
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [browsedWorkspacePath, setBrowsedWorkspacePath] = useState<string | null>(null);
   const [objective, setObjective] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [appSlots, setAppSlots] = useState<AppSlotRecord[]>([]);
+  const cardRef = useRef<HTMLDivElement | null>(null);
 
   const knownBuiltinChoices = useMemo<Set<string>>(
-    () => new Set(['OSAgent']),
+    () => new Set(BUILTIN_WORK_SLOT_IDS.map(appSlotWorkChoice)),
     []
   );
 
@@ -249,19 +254,13 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
   }, [browsedWorkspacePath, openedWorkspacesList, workspaceId]);
 
   const intelligentExecutors = useMemo(() => appSlots.flatMap((slot) => {
-    const defaultAgentType = AGENT_TYPE_BY_SLOT[slot.slotId];
-    const activeApp = defaultAgentType ? intelligentAppAPI.activeRef(slot) : null;
-    if (!defaultAgentType || !activeApp) return [];
-    const launch = activeApp.runtime.launch;
-    const agentType = launch?.kind === 'appBuilder'
-      ? 'AppBuilder'
-      : launch?.agentType || defaultAgentType;
+    const activeApp = intelligentAppAPI.activeRef(slot);
+    if (!activeApp?.runtime.launch) return [];
     const variant = slot.variants.find(({ app }) => app.appId === activeApp.appId);
     return [{
       choice: appSlotWorkChoice(slot.slotId),
       slot,
       activeApp,
-      agentType,
       description: variant?.app.description ?? '',
     }];
   }), [appSlots]);
@@ -284,7 +283,6 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
 
     setAgentChoice(initialAgentChoice ?? storedAgent ?? appSlotWorkChoice('runno'));
     setStartMode('manual');
-    setClassifyKind('multi_step');
     setBrowsedWorkspacePath(null);
     setObjective('');
     setWorkspaceId(
@@ -304,24 +302,50 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
 
   useEffect(() => {
     if (!isOpen) return;
+    const previouslyFocused = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    const focusFrame = window.requestAnimationFrame(() => cardRef.current?.focus());
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!cardRef.current?.contains(event.target as Node)) onClose();
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
     let cancelled = false;
     setAppSlots([]);
     intelligentAppAPI.listCatalog().then((catalog) => {
       if (cancelled) return;
       setAppSlots(catalog.slots);
-      const available = new Set<string>(['OSAgent']);
+      const available = new Set<string>();
       for (const slot of catalog.slots) {
-        if (AGENT_TYPE_BY_SLOT[slot.slotId] && intelligentAppAPI.activeRef(slot)) {
+        if (intelligentAppAPI.activeRef(slot)?.runtime.launch) {
           available.add(appSlotWorkChoice(slot.slotId));
         }
       }
-      setAgentChoice((current) => normalizeChoiceForAvailableApps(current, available)
-        ?? (available.has(appSlotWorkChoice('runno')) ? appSlotWorkChoice('runno') : 'OSAgent'));
+      const fallbackChoice = BUILTIN_WORK_SLOT_IDS
+        .map(appSlotWorkChoice)
+        .find((choice) => available.has(choice))
+        ?? (available.values().next().value as NewWorkAgentChoice | undefined)
+        ?? appSlotWorkChoice('runno');
+      setAgentChoice((current) => normalizeChoiceForAvailableApps(current, available) ?? fallbackChoice);
     }).catch((error) => {
       if (cancelled) return;
       log.error('Failed to load active Intelligent App executors', { error });
       setAppSlots([]);
-      setAgentChoice('OSAgent');
+      setAgentChoice(appSlotWorkChoice('runno'));
     });
     return () => {
       cancelled = true;
@@ -361,74 +385,30 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
 
   const agentOptions = useMemo<SelectOption[]>(
     () => {
-      const systemOption = {
-        value: 'OSAgent',
-        label: 'OSAgent',
-        description: 'Coordinate Sparo OS work, sessions, and memory.',
-        group: t('nav.workDock.executor.systemGroup'),
-      };
-      const appOptions = intelligentExecutors.map((executor) => ({
+      const optionForExecutor = (executor: (typeof intelligentExecutors)[number], group: string) => ({
         value: executor.choice,
         label: executor.slot.displayName,
         description: executor.description,
-        group: t('nav.workDock.executor.intelligentAppGroup'),
-      }));
-      return [systemOption, ...appOptions];
+        group,
+      });
+      const builtinOptions = BUILTIN_WORK_SLOT_IDS.flatMap((slotId) => {
+        const executor = intelligentExecutors.find((candidate) => candidate.slot.slotId === slotId);
+        return executor
+          ? [optionForExecutor(executor, t('nav.workDock.executor.systemGroup'))]
+          : [];
+      });
+      const appOptions = intelligentExecutors
+        .filter((executor) => !knownBuiltinChoices.has(executor.choice))
+        .map((executor) => optionForExecutor(executor, t('nav.workDock.executor.intelligentAppGroup')));
+      return [...builtinOptions, ...appOptions];
     },
-    [intelligentExecutors, t]
+    [intelligentExecutors, knownBuiltinChoices, t]
   );
 
-  const startModeOptions = useMemo<Array<{
-    value: NewWorkStartMode;
-    title: string;
-  }>>(() => [
-    {
-      value: 'manual',
-      title: t('nav.workDock.modeManual'),
-    },
-    {
-      value: 'agentic-os',
-      title: t('nav.workDock.modeAgenticOs'),
-    },
+  const startModeOptions = useMemo(() => [
+    { value: 'manual', label: t('nav.workDock.modeManual') },
+    { value: 'agentic-os', label: t('nav.workDock.modeAgenticOs') },
   ], [t]);
-  const classifyOptions = useMemo<Array<{
-    value: NewWorkClassifyKind;
-    label: string;
-  }>>(() => [
-    { value: 'multi_step', label: t('newWork.classify.immediate') },
-    { value: 'topic', label: t('newWork.classify.topic') },
-    { value: 'tracking', label: t('newWork.classify.tracking') },
-    { value: 'recurring', label: t('newWork.classify.recurring') },
-  ], [t]);
-  const showClassifyControls = startMode === 'manual';
-  const modeLede = startMode === 'manual'
-    ? t('nav.workDock.modeManualLede')
-    : t('nav.workDock.modeAgenticOsLede');
-
-  const handleStartModeKeyDown = useCallback((
-    event: React.KeyboardEvent<HTMLButtonElement>,
-    mode: NewWorkStartMode
-  ) => {
-    let nextMode: NewWorkStartMode | null = null;
-    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
-      nextMode = mode === 'manual' ? 'agentic-os' : 'manual';
-    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
-      nextMode = mode === 'agentic-os' ? 'manual' : 'agentic-os';
-    } else if (event.key === 'Home') {
-      nextMode = 'manual';
-    } else if (event.key === 'End') {
-      nextMode = 'agentic-os';
-    }
-
-    if (!nextMode) return;
-    event.preventDefault();
-    setStartMode(nextMode);
-    window.requestAnimationFrame(() => {
-      document
-        .querySelector<HTMLButtonElement>(`[data-new-work-mode="${nextMode}"]`)
-        ?.focus();
-    });
-  }, []);
 
   const renderAgentOption = useCallback((option: SelectOption) => (
     <div className="new-work-dialog__agent-option">
@@ -545,7 +525,6 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
           agentChoice,
           workspace,
           rememberWorkspace,
-          classifyKind,
         });
       }
 
@@ -578,7 +557,6 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
     agentChoice,
     browsedWorkspacePath,
     workAppScope,
-    classifyKind,
     objective,
     onClose,
     openWorkspace,
@@ -590,198 +568,118 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
     workspaceId,
   ]);
 
-  const selectedWorkspaceOption = workspaceOptions.find((option) => option.value === (workspaceId ?? SYSTEM_WORKSPACE_VALUE));
   const canSubmit = (startMode === 'manual' || objective.trim().length > 0)
-    && (!parseAppSlotWorkChoice(agentChoice) || Boolean(selectedExecutor))
+    && (startMode === 'agentic-os' || !parseAppSlotWorkChoice(agentChoice) || Boolean(selectedExecutor))
     && !submitting;
 
-  return (
-    <Dialog
-      open={isOpen}
-      onOpenChange={(nextOpen) => {
-        if (!nextOpen) onClose();
-      }}
-      size="medium"
-      contentInset
-      contentClassName="new-work-dialog__modal-surface"
-      overlayClassName="new-work-dialog-overlay"
-      showCloseButton
-      closeOnOverlayClick={false}
-    >
-      <div className="new-work-dialog" data-testid="new-work-dialog">
-        <header className="new-work-dialog__masthead">
-          <div className="new-work-dialog__intent-line">
-            <span className="new-work-dialog__intent-prefix">{t('nav.workDock.intentPrefix')}</span>
-            <div
-              className="new-work-dialog__path-choice"
-              role="radiogroup"
-              aria-label={t('nav.workDock.modeAriaLabel')}
-            >
-              {startModeOptions.map((option, index) => {
-                const selected = startMode === option.value;
-                return (
-                  <React.Fragment key={option.value}>
-                    {index > 0 && (
-                      <span className="new-work-dialog__path-separator" aria-hidden>
-                        /
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      className={`new-work-dialog__path-option${selected ? ' is-selected' : ''}`}
-                      role="radio"
-                      aria-checked={selected}
-                      tabIndex={selected ? 0 : -1}
-                      data-new-work-mode={option.value}
-                      onClick={() => setStartMode(option.value)}
-                      onKeyDown={(event) => handleStartModeKeyDown(event, option.value)}
-                    >
-                      <span className="new-work-dialog__path-title">{option.title}</span>
-                    </button>
-                  </React.Fragment>
-                );
-              })}
-            </div>
-          </div>
-          <p key={startMode} className="new-work-dialog__lede">{modeLede}</p>
+  if (!isOpen) return null;
+
+  return createPortal(
+    <div className="new-work-dialog-layer">
+      <FloatingCard
+        ref={cardRef}
+        className="new-work-dialog"
+        padding="default"
+        onDismiss={onClose}
+        dismissLabel={t('actions.close')}
+        dismissTooltip={t('actions.close')}
+        role="dialog"
+        aria-modal="false"
+        aria-labelledby="new-work-dialog-title"
+        tabIndex={-1}
+        data-testid="new-work-dialog"
+      >
+        <header className="new-work-dialog__header">
+          <h2 className="new-work-dialog__title" id="new-work-dialog-title">
+            {t('nav.workDock.createTitle')}
+          </h2>
+          <SegmentedControl
+            className="new-work-dialog__mode"
+            options={startModeOptions}
+            value={startMode}
+            onChange={(value) => setStartMode(value as NewWorkStartMode)}
+            size="small"
+            variant="accent"
+            ariaLabel={t('nav.workDock.modeAriaLabel')}
+          />
         </header>
 
-        <div className="new-work-dialog__card">
-          {startMode === 'agentic-os' ? (
-            <section className="new-work-dialog__section" aria-labelledby="new-work-objective-heading">
-              <div className="new-work-dialog__section-head">
-                <span className="new-work-dialog__index" aria-hidden>
-                  01
-                </span>
-                <h2 className="new-work-dialog__section-title" id="new-work-objective-heading">
-                  {t('nav.workDock.newWorkSectionObjective')}
-                </h2>
+        <div className="new-work-dialog__mode-content">
+          {startMode === 'manual' ? (
+            <div className="new-work-dialog__sentence" key="manual">
+              <span className="new-work-dialog__sentence-copy">{t('nav.workDock.sentencePrefix')}</span>
+              <div className="new-work-dialog__agent-select">
+                <Select
+                  id="new-work-agent-select"
+                  size="medium"
+                  shape="pill"
+                  options={agentOptions}
+                  value={agentChoice}
+                  onChange={(value) => setAgentChoice(value as NewWorkAgentChoice)}
+                  renderOption={renderAgentOption}
+                  renderValue={renderAgentValue}
+                  dropdownWidth="min(360px, calc(100vw - 32px))"
+                  searchPlaceholder={t('nav.workDock.agentSearchPlaceholder')}
+                  searchable
+                />
               </div>
-              <Textarea
+              <span className="new-work-dialog__sentence-copy">{t('nav.workDock.sentenceInfix')}</span>
+              <div className="new-work-dialog__workspace-field">
+                <div className="new-work-dialog__workspace-select">
+                  <Select
+                    id="new-work-workspace-select"
+                    size="medium"
+                    shape="pill"
+                    options={workspaceOptions}
+                    value={workspaceId ?? ''}
+                    onChange={(value) => {
+                      const selectedValue = String(value);
+                      setWorkspaceId(selectedValue);
+                      if (selectedValue !== BROWSED_WORKSPACE_VALUE) {
+                        setBrowsedWorkspacePath(null);
+                      }
+                    }}
+                    placeholder={t('nav.workDock.workspacePlaceholder')}
+                    searchable
+                    dropdownWidth="min(420px, calc(100vw - 32px))"
+                    dropdownAlign="end"
+                    emptyText={t('nav.workDock.noOpenWorkspace')}
+                  />
+                </div>
+                <IconButton
+                  type="button"
+                  variant="ghost"
+                  size="medium"
+                  className="new-work-dialog__browse"
+                  onClick={() => void handleBrowse()}
+                  aria-label={t('nav.workDock.browseWorkspace')}
+                  tooltip={t('nav.workDock.browseWorkspace')}
+                  tooltipPlacement="top"
+                >
+                  <FolderOpen size={16} aria-hidden />
+                </IconButton>
+              </div>
+              <span className="new-work-dialog__sentence-copy">{t('nav.workDock.sentenceSuffix')}</span>
+            </div>
+          ) : (
+            <div className="new-work-dialog__sentence new-work-dialog__sentence--delegate" key="agentic-os">
+              <span className="new-work-dialog__sentence-copy">{t('nav.workDock.delegatePrefix')}</span>
+              <Input
                 className="new-work-dialog__objective"
                 value={objective}
                 onChange={(event) => setObjective(event.target.value)}
                 placeholder={t('nav.workDock.objectivePlaceholder')}
-                rows={4}
+                size="medium"
+                shape="pill"
+                focusTone="danger"
                 maxLength={600}
-                showCount
-                autoResize
-                required
+                autoFocus
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && canSubmit) void handleConfirm();
+                }}
               />
-            </section>
-          ) : (
-            <>
-              <section className="new-work-dialog__section" aria-labelledby="new-work-agent-heading">
-                <div className="new-work-dialog__section-head">
-                  <span className="new-work-dialog__index" aria-hidden>
-                    01
-                  </span>
-                  <h2 className="new-work-dialog__section-title" id="new-work-agent-heading">
-                    {t('nav.workDock.newWorkSectionAgent')}
-                  </h2>
-                </div>
-                <div className="new-work-dialog__control">
-                  <Select
-                    id="new-work-agent-select"
-                    size="medium"
-                    options={agentOptions}
-                    value={agentChoice}
-                    onChange={(value) => setAgentChoice(value as NewWorkAgentChoice)}
-                    renderOption={renderAgentOption}
-                    renderValue={renderAgentValue}
-                    searchPlaceholder={t('nav.workDock.agentSearchPlaceholder')}
-                    searchable
-                  />
-                </div>
-              </section>
-
-              <div className="new-work-dialog__divider" role="presentation" />
-
-              <section className="new-work-dialog__section" aria-labelledby="new-work-workspace-heading">
-                <div className="new-work-dialog__section-head">
-                  <span className="new-work-dialog__index" aria-hidden>
-                    02
-                  </span>
-                  <h2 className="new-work-dialog__section-title" id="new-work-workspace-heading">
-                    {t('nav.workDock.newWorkSectionWorkspace')}
-                  </h2>
-                </div>
-                <div className="new-work-dialog__workspace-row">
-                  <div className="new-work-dialog__workspace-select">
-                    <Select
-                      size="medium"
-                      options={workspaceOptions}
-                      value={workspaceId ?? ''}
-                      onChange={(value) => {
-                        const selectedValue = String(value);
-                        setWorkspaceId(selectedValue);
-                        if (selectedValue !== BROWSED_WORKSPACE_VALUE) {
-                          setBrowsedWorkspacePath(null);
-                        }
-                      }}
-                      placeholder={t('nav.workDock.workspacePlaceholder')}
-                      searchable
-                      emptyText={t('nav.workDock.noOpenWorkspace')}
-                    />
-                  </div>
-                  <IconButton
-                    type="button"
-                    variant="default"
-                    size="medium"
-                    className="new-work-dialog__browse"
-                    onClick={() => void handleBrowse()}
-                    aria-label={t('nav.workDock.browseWorkspace')}
-                    tooltip={t('nav.workDock.browseWorkspace')}
-                    tooltipPlacement="top"
-                  >
-                    <FolderOpen size={16} aria-hidden />
-                  </IconButton>
-                </div>
-                <p className="new-work-dialog__scope-hint">
-                  {t('nav.workDock.scopePreview', {
-                    scope: selectedWorkspaceOption?.label ?? t('nav.workDock.globalScopeLabel'),
-                  })}
-                </p>
-              </section>
-
-              {showClassifyControls ? (
-                <>
-                  <div className="new-work-dialog__divider" role="presentation" />
-
-                  <section className="new-work-dialog__section" aria-labelledby="new-work-classify-heading">
-                    <div className="new-work-dialog__section-head">
-                      <span className="new-work-dialog__index" aria-hidden>
-                        03
-                      </span>
-                      <h2 className="new-work-dialog__section-title" id="new-work-classify-heading">
-                        {t('newWork.classify.label')}
-                      </h2>
-                    </div>
-                    <div
-                      className="new-work-dialog__classify"
-                      role="radiogroup"
-                      aria-label={t('newWork.classify.label')}
-                    >
-                      {classifyOptions.map((option) => {
-                        const selected = classifyKind === option.value;
-                        return (
-                          <button
-                            key={option.value}
-                            type="button"
-                            className={`new-work-dialog__classify-option${selected ? ' is-selected' : ''}`}
-                            role="radio"
-                            aria-checked={selected}
-                            onClick={() => setClassifyKind(option.value)}
-                          >
-                            {option.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </section>
-                </>
-              ) : null}
-            </>
+              <span className="new-work-dialog__sentence-copy">{t('nav.workDock.delegateSuffix')}</span>
+            </div>
           )}
         </div>
 
@@ -803,7 +701,8 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
               : t('nav.workDock.confirmCreate')}
           </Button>
         </footer>
-      </div>
-    </Dialog>
+      </FloatingCard>
+    </div>,
+    document.body,
   );
 };

@@ -1,18 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { SkillInfo, SkillSuiteInfo } from '@/infrastructure/config/types';
 import { createLogger } from '@/shared/utils/logger';
+import { buildSkillLibraryUnits, type SkillLibraryUnit } from '@/shared/skillLibrary';
 
 const log = createLogger('ComposerBoostSkills');
 
 export function useComposerBoostSkills({
   dropdownOpen,
   workspacePath,
+  agentId,
 }: {
   dropdownOpen: boolean;
   workspacePath?: string;
+  agentId: string;
 }) {
-  const [boostPanelSkills, setBoostPanelSkills] = useState<SkillInfo[]>([]);
-  const [boostPanelSuites, setBoostPanelSuites] = useState<SkillSuiteInfo[]>([]);
+  const [boostSkillUnits, setBoostSkillUnits] = useState<SkillLibraryUnit[]>([]);
   const [boostSkillsLoading, setBoostSkillsLoading] = useState(false);
   const [skillsFlyoutOpen, setSkillsFlyoutOpen] = useState(false);
   const [skillsFlyoutLeft, setSkillsFlyoutLeft] = useState(false);
@@ -34,8 +35,8 @@ export function useComposerBoostSkills({
     const host = skillsHostRef.current;
     if (host) {
       const r = host.getBoundingClientRect();
-      setSkillsFlyoutLeft(r.right + 260 > window.innerWidth - 8);
-      setSkillsFlyoutUp(r.top + 200 > window.innerHeight - 8);
+      setSkillsFlyoutLeft(r.right + 284 > window.innerWidth - 8);
+      setSkillsFlyoutUp(r.top + 440 > window.innerHeight - 8);
     }
     setSkillsFlyoutOpen(true);
   }, [clearSkillsTimer]);
@@ -75,18 +76,23 @@ export function useComposerBoostSkills({
     (async () => {
       try {
         const { configAPI } = await import('@/infrastructure/api');
-        const catalog = await configAPI.getSkillConfigs({
-          workspacePath: workspacePath || undefined,
-        });
+        const [catalog, agentSkills] = await Promise.all([
+          configAPI.getSkillConfigs({ workspacePath: workspacePath || undefined }),
+          configAPI.getAgentSkillConfigs({
+            agentId,
+            workspacePath: workspacePath || undefined,
+          }),
+        ]);
         if (!cancelled) {
-          setBoostPanelSkills(catalog.skills);
-          setBoostPanelSuites(catalog.suites);
+          setBoostSkillUnits(buildSkillLibraryUnits(
+            catalog,
+            agentSkills.filter(skill => skill.selectedForRuntime),
+          ).filter(unit => unit.kind === 'skill' || unit.members.length > 0));
         }
       } catch (err) {
         log.error('Failed to load skills for boost panel', { err });
         if (!cancelled) {
-          setBoostPanelSkills([]);
-          setBoostPanelSuites([]);
+          setBoostSkillUnits([]);
         }
       } finally {
         if (!cancelled) setBoostSkillsLoading(false);
@@ -96,7 +102,7 @@ export function useComposerBoostSkills({
     return () => {
       cancelled = true;
     };
-  }, [dropdownOpen, workspacePath]);
+  }, [agentId, dropdownOpen, workspacePath]);
 
   useEffect(() => {
     if (!dropdownOpen) {
@@ -117,8 +123,7 @@ export function useComposerBoostSkills({
   );
 
   return {
-    boostPanelSkills,
-    boostPanelSuites,
+    boostSkillUnits,
     boostSkillsLoading,
     closeSkillsFlyout,
     dismissSkillsFlyout,

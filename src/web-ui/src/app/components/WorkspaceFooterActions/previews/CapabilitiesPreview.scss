@@ -50,7 +50,6 @@
   &:hover:not(:disabled),
   &:focus-visible {
     color: var(--ds-color-text-primary);
-    background: var(--ds-color-surface-hover);
     transform: none;
   }
 
@@ -103,7 +102,7 @@
   height: 38px;
   margin-bottom: 2px;
   color: var(--ds-color-text-secondary);
-  background: var(--ds-color-surface-hover);
+  background: var(--ds-color-element-soft, var(--element-bg-soft));
   border-radius: var(--ds-radius-full);
 }
 

@@ -186,6 +186,8 @@ pub struct ResolveComponentWorkRequest {
     pub primary_surface_policy: PrimarySurfacePolicy,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub assignment: Option<WorkAssignmentRef>,
+    #[serde(default)]
+    pub app_refs: Vec<WorkAppRelation>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -535,7 +537,7 @@ impl WorkService {
                 title: request.title,
                 objective: request.objective,
                 subject,
-                app_refs: Vec::new(),
+                app_refs: request.app_refs,
                 scope: request.scope,
                 visibility: request.visibility,
                 primary_surface_policy: request.primary_surface_policy,
@@ -4982,6 +4984,13 @@ mod tests {
             "1.0.0",
             "D:/workspace/project/.sparo_os/components/agent-1",
         );
+        let builder_app = WorkAppRef::native_app(
+            "app-builder",
+            "app-builder",
+            "core-app-builder",
+            "core-default",
+            "1",
+        );
         let first = service
             .resolve_component_work(ResolveComponentWorkRequest {
                 component: component.clone(),
@@ -4994,6 +5003,11 @@ mod tests {
                 visibility: WorkVisibility::Secondary,
                 primary_surface_policy: PrimarySurfacePolicy::WorkCenter,
                 assignment: None,
+                app_refs: vec![WorkAppRelation {
+                    app: builder_app.clone(),
+                    role: WorkAppRelationRole::Executor,
+                    surface_id: None,
+                }],
             })
             .await
             .expect("resolve component work");
@@ -5013,7 +5027,9 @@ mod tests {
             }
         );
         assert!(first.work.references_component(&component));
-        assert!(first.work.app_refs.is_empty());
+        assert_eq!(first.work.app_refs.len(), 1);
+        assert_eq!(first.work.app_refs[0].app, builder_app);
+        assert_eq!(first.work.app_refs[0].role, WorkAppRelationRole::Executor);
 
         let second = service
             .resolve_component_work(ResolveComponentWorkRequest {
@@ -5027,6 +5043,7 @@ mod tests {
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::WorkCenter,
                 assignment: None,
+                app_refs: Vec::new(),
             })
             .await
             .expect("reuse component work");
@@ -5046,6 +5063,7 @@ mod tests {
                 visibility: WorkVisibility::Secondary,
                 primary_surface_policy: PrimarySurfacePolicy::WorkCenter,
                 assignment: None,
+                app_refs: Vec::new(),
             })
             .await
             .expect("resolve review component work");
@@ -5422,6 +5440,7 @@ mod tests {
                 visibility: WorkVisibility::Secondary,
                 primary_surface_policy: PrimarySurfacePolicy::WorkCenter,
                 assignment: None,
+                app_refs: Vec::new(),
             })
             .await
             .expect("resolve component work");
@@ -5650,6 +5669,7 @@ mod tests {
                 visibility: WorkVisibility::Secondary,
                 primary_surface_policy: PrimarySurfacePolicy::WorkCenter,
                 assignment: None,
+                app_refs: Vec::new(),
             })
             .await
             .expect("resolve component work");

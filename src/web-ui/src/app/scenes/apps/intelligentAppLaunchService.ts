@@ -77,19 +77,23 @@ export async function launchActiveIntelligentApp(
   app: ActiveAppRef,
   options: LaunchIntelligentAppOptions,
 ): Promise<void> {
-  const scope = normalizeAppScope(options.scope ?? systemAppScope());
+  const requestedScope = normalizeAppScope(options.scope ?? systemAppScope());
+  const launch = app.runtime.launch;
+  if (launch?.kind === 'appBuilder') {
+    await createAndOpenAppBuilder({ scope: requestedScope });
+    return;
+  }
+  const scope = app.runtime.workMultiplicity === 'singleton'
+    && launch?.scopeRequirement !== 'workspaceRequired'
+    ? systemAppScope()
+    : requestedScope;
   const title = options.title.trim() || app.appId;
   const objective = options.objective?.trim() || title;
-  const launch = app.runtime.launch;
   if (launch?.scopeRequirement === 'workspaceRequired' && scope.kind !== 'workspace') {
     throw new Error(`App ${app.appId} requires a workspace scope`);
   }
   const agentType = agentTypeFor(app);
 
-  if (launch?.kind === 'appBuilder') {
-    await createAndOpenAppBuilder({ scope });
-    return;
-  }
   if (agentType) {
     await openAgentAppWork(app, scope, title, objective, agentType);
     return;

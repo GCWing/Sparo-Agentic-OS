@@ -2,6 +2,8 @@ import { useCallback, useEffect } from 'react';
 import type { MutableRefObject, RefObject } from 'react';
 import type { TFunction } from 'i18next';
 import type { ContextItem, ImageContext } from '@/shared/types/context';
+import type { ComposerContextSnapshot } from '@/shared/types/composer';
+import { isComposerContextSnapshot } from '@/shared/types/composer';
 import { globalEventBus } from '@/infrastructure/event-bus';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
@@ -24,11 +26,11 @@ interface UseComposerExternalEventsParams {
   inputValueRef: MutableRefObject<string>;
   isActive: boolean;
   currentImageCount: number;
-  clearPendingLargePastes: () => void;
   activateInput: () => void;
   setInputValue: (value: string) => void;
   setInputTarget: (target: ChatInputTarget) => void;
   addContext: (context: ContextItem) => void;
+  restoreComposerSnapshot: (snapshot: ComposerContextSnapshot) => void;
   t: TFunction<'flow-chat'>;
 }
 
@@ -38,11 +40,11 @@ export function useComposerExternalEvents({
   inputValueRef,
   isActive,
   currentImageCount,
-  clearPendingLargePastes,
   activateInput,
   setInputValue,
   setInputTarget,
   addContext,
+  restoreComposerSnapshot,
   t,
 }: UseComposerExternalEventsParams) {
   const applyRequestedTarget = useCallback((target?: ChatInputEventTarget) => {
@@ -52,14 +54,23 @@ export function useComposerExternalEvents({
 
   useEffect(() => {
     const handleFillInput = (event: Event) => {
-      const customEvent = event as CustomEvent<{ message: string; target?: ChatInputEventTarget }>;
+      const customEvent = event as CustomEvent<{
+        message: string;
+        target?: ChatInputEventTarget;
+        composerContext?: unknown;
+        onlyIfEmpty?: boolean;
+      }>;
       const message = customEvent.detail?.message;
 
       if (message) {
+        if (customEvent.detail?.onlyIfEmpty && inputValueRef.current.trim()) return;
         applyRequestedTarget(customEvent.detail?.target);
-        clearPendingLargePastes();
-        activateInput();
-        setInputValue(message);
+        const snapshot = customEvent.detail?.composerContext;
+        if (isComposerContextSnapshot(snapshot)) restoreComposerSnapshot(snapshot);
+        else {
+          activateInput();
+          setInputValue(message);
+        }
         editorRef.current?.focus();
       }
     };
@@ -68,7 +79,7 @@ export function useComposerExternalEvents({
     return () => {
       window.removeEventListener('fill-chat-input', handleFillInput);
     };
-  }, [activateInput, applyRequestedTarget, clearPendingLargePastes, editorRef, setInputValue]);
+  }, [activateInput, applyRequestedTarget, editorRef, inputValueRef, restoreComposerSnapshot, setInputValue]);
 
   useEffect(() => {
     const handleAppendInput = (event: Event) => {
@@ -81,28 +92,27 @@ export function useComposerExternalEvents({
 
       applyRequestedTarget(customEvent.detail?.target);
       const currentValue = inputValueRef.current;
-      const nextValue = currentValue.trim().length > 0
-        ? `${currentValue.replace(/\s+$/, '')}\n\n${text}`
-        : text;
-
-      clearPendingLargePastes();
       activateInput();
-      setInputValue(nextValue);
-      editorRef.current?.focus();
+      if (currentValue.trim().length > 0 && editorRef.current) {
+        editorRef.current.focus();
+        editorRef.current.insertText(`\n\n${text}`);
+      } else {
+        setInputValue(text);
+        editorRef.current?.focus();
+      }
     };
 
     window.addEventListener('append-chat-input', handleAppendInput);
     return () => {
       window.removeEventListener('append-chat-input', handleAppendInput);
     };
-  }, [activateInput, applyRequestedTarget, clearPendingLargePastes, editorRef, inputValueRef, setInputValue]);
+  }, [activateInput, applyRequestedTarget, editorRef, inputValueRef, setInputValue]);
 
   useEffect(() => {
     const handleFillChatInput = (data: { content: string; onlyIfEmpty?: boolean }) => {
       if (data.onlyIfEmpty && inputValueRef.current.trim().length > 0) {
         return;
       }
-      clearPendingLargePastes();
       activateInput();
       setInputValue(data.content);
       editorRef.current?.focus();
@@ -112,7 +122,7 @@ export function useComposerExternalEvents({
     return () => {
       globalEventBus.off('fill-chat-input', handleFillChatInput);
     };
-  }, [activateInput, clearPendingLargePastes, editorRef, inputValueRef, setInputValue]);
+  }, [activateInput, editorRef, inputValueRef, setInputValue]);
 
   useEffect(() => {
     const handleMcpAppMessage = async (event: McpAppMessageEvent) => {
@@ -134,7 +144,6 @@ export function useComposerExternalEvents({
           .join('\n\n');
 
         if (textContent) {
-          clearPendingLargePastes();
           activateInput();
           setInputValue(textContent);
         }
@@ -179,7 +188,7 @@ export function useComposerExternalEvents({
     return () => {
       globalEventBus.off('mcp-app:message', handleMcpAppMessage);
     };
-  }, [activateInput, addContext, clearPendingLargePastes, currentImageCount, editorRef, inputValue, setInputValue]);
+  }, [activateInput, addContext, currentImageCount, editorRef, inputValue, setInputValue]);
 
   useEffect(() => {
     const handleInsertContextTag = (event: Event) => {
@@ -187,6 +196,7 @@ export function useComposerExternalEvents({
       const context = customEvent.detail?.context;
 
       if (context) {
+        addContext(context);
         if (!isActive) {
           activateInput();
         }
@@ -213,7 +223,7 @@ export function useComposerExternalEvents({
     return () => {
       window.removeEventListener('insert-context-tag', handleInsertContextTag);
     };
-  }, [activateInput, editorRef, isActive]);
+  }, [activateInput, addContext, editorRef, isActive]);
 
   useEffect(() => {
     const handleImagePaste = async (event: Event) => {

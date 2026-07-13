@@ -1,5 +1,5 @@
 import type { PreviewCategory } from '@/design-system/types';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Alert,
   Badge,
@@ -9,7 +9,9 @@ import {
   Dialog,
   DialogBody,
   DialogFooter,
+  DropdownMenu,
   EmptyState,
+  FloatingCard,
   IconButton,
   NumberField,
   Pagination,
@@ -29,6 +31,7 @@ import {
   ModeSwitch,
   StatusDot,
   StatusPill,
+  SparoLogoMark,
   type DateRangeValue,
 } from '@/design-system';
 import { ChevronDown, Copy, Grid3X3, List, Plus, RefreshCw, Search, Settings2, Sparkles, Trash2 } from 'lucide-react';
@@ -53,6 +56,70 @@ function DialogPreview() {
           <Button variant="primary" size="small" onClick={() => setOpen(false)}>Confirm</Button>
         </DialogFooter>
       </Dialog>
+    </div>
+  );
+}
+
+function FloatingCardPreview() {
+  const [visible, setVisible] = useState(true);
+
+  if (!visible) {
+    return <Button size="small" variant="secondary" onClick={() => setVisible(true)}>Restore card</Button>;
+  }
+
+  return (
+    <div style={{ width: 'min(320px, 100%)' }}>
+      <FloatingCard
+        padding="compact"
+        onDismiss={() => setVisible(false)}
+        dismissLabel="Dismiss notification"
+        dismissTooltip="Dismiss notification"
+      >
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--ds-space-2)' }}>
+          <Sparkles size={18} style={{ flexShrink: 0, color: 'var(--ds-color-accent-500)' }} />
+          <div style={{ minWidth: 0 }}>
+            <strong style={{ display: 'block', color: 'var(--ds-color-text-primary)', fontSize: 'var(--ds-font-size-sm)' }}>
+              Workspace summary is ready
+            </strong>
+            <span style={{ display: 'block', marginTop: 3, color: 'var(--ds-color-text-secondary)', fontSize: 'var(--ds-font-size-xs)', lineHeight: 1.45 }}>
+              通知内容可以自然换行；浮卡的圆角、阴影与关闭按钮都由设计系统负责。
+            </span>
+          </div>
+        </div>
+      </FloatingCard>
+    </div>
+  );
+}
+
+function PopupMenuPreview() {
+  const [open, setOpen] = useState(false);
+  const anchorRef = useRef<HTMLButtonElement>(null);
+
+  return (
+    <div style={{ minHeight: 180 }}>
+      <Button
+        ref={anchorRef}
+        size="small"
+        variant="secondary"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen(value => !value)}
+      >
+        Session options <ChevronDown size={14} />
+      </Button>
+      <DropdownMenu
+        open={open}
+        anchorRef={anchorRef}
+        align="left"
+        minWidth={200}
+        onClose={() => setOpen(false)}
+        items={[
+          { type: 'item', id: 'rename', label: 'Rename session', onClick: () => undefined },
+          { type: 'item', id: 'duplicate', label: 'Duplicate session', onClick: () => undefined },
+          { type: 'separator', id: 'separator' },
+          { type: 'item', id: 'disabled', label: 'Unavailable action', disabled: true },
+        ]}
+      />
     </div>
   );
 }
@@ -140,6 +207,31 @@ export const primitivePreviewCategories: PreviewCategory[] = [
     ],
     examples: [
       {
+        id: 'ds-sparo-logo-mark',
+        name: 'Sparo logo mark',
+        description: 'Vector brand mark with configurable size, stroke width, and currentColor inheritance.',
+        category: 'ds-primitives',
+        render: () => (
+          <div className="recipe-preview-inline">
+            <SparoLogoMark size={18} aria-label="Sparo OS" role="img" />
+            <SparoLogoMark size={24} aria-label="Sparo OS" role="img" />
+            <SparoLogoMark
+              size={32}
+              strokeWidth={5.5}
+              aria-label="Sparo OS brand color"
+              role="img"
+              style={{ color: 'var(--ds-color-accent-500)' }}
+            />
+          </div>
+        ),
+        ai: {
+          useWhen: ['A first-party Sparo OS surface needs the official brand mark'],
+          composeWith: ['IconButton', 'Toolbar', 'DialogHeader', 'EmptyState'],
+          avoid: ['Generic actions or objects that already have a Lucide icon', 'Raster copies of the brand mark'],
+          states: ['default', 'theme', 'narrow'],
+        },
+      },
+      {
         id: 'ds-button-semantics',
         name: 'Button command semantics',
         description: 'Variant, size, loading, disabled, and icon-only command rules.',
@@ -177,6 +269,32 @@ export const primitivePreviewCategories: PreviewCategory[] = [
         },
       },
       {
+        id: 'ds-floating-card',
+        name: 'Floating card',
+        description: 'Large-radius non-modal surface with a pronounced two-stage elevation shadow and a standard circular dismiss command.',
+        category: 'ds-primitives',
+        render: () => <FloatingCardPreview />,
+        ai: {
+          useWhen: ['A transient notification, anchored helper, or compact popup needs a lightweight surface'],
+          composeWith: ['FloatingCardAction', 'Button', 'StatusDot', 'Badge'],
+          avoid: ['Modal workflows', 'Feature-local radius, shadow, background, or close-button styling'],
+          states: ['default', 'focused', 'long text', 'narrow', 'theme', 'i18n'],
+        },
+      },
+      {
+        id: 'ds-popup-menu',
+        name: 'Popup menu',
+        description: 'Anchored menu baseline with the shared floating shadow and an intermediate xl corner radius.',
+        category: 'ds-primitives',
+        render: () => <PopupMenuPreview />,
+        ai: {
+          useWhen: ['A command trigger opens a compact anchored menu or a richer composed menu surface'],
+          composeWith: ['DropdownMenu', 'PopupMenu', 'Button', 'IconButton', 'SelectableRow'],
+          avoid: ['Feature-local popup backgrounds, borders, radii, shadows, or entry motion'],
+          states: ['default', 'open', 'disabled', 'focused', 'long text', 'narrow', 'theme', 'i18n'],
+        },
+      },
+      {
         id: 'ds-form-controls',
         name: 'Form controls',
         description: 'Text, select, switch, and checkbox primitives in realistic settings copy.',
@@ -188,7 +306,13 @@ export const primitivePreviewCategories: PreviewCategory[] = [
               description="Human-readable project label."
               placeholder="Sparo Agentic OS"
             />
-            <Select options={agentOptions} placeholder="Choose an agent" searchable />
+            <Select
+              options={agentOptions}
+              placeholder="Choose an agent"
+              searchable
+              shape="pill"
+              dropdownWidth="min(320px, calc(100vw - 32px))"
+            />
             <Switch label="Enable proactive assistance" description="Suggest the next action after a tool batch." />
             <Radio
               name="preview-default-agent"
@@ -322,6 +446,16 @@ export const primitivePreviewCategories: PreviewCategory[] = [
               options={[
                 { value: 'list', label: '列表' },
                 { value: 'grid', label: '网格视图' },
+              ]}
+            />
+            <SegmentedControl
+              ariaLabel="Accent mode switch"
+              defaultValue="direct"
+              size="small"
+              variant="accent"
+              options={[
+                { value: 'direct', label: 'I choose' },
+                { value: 'delegate', label: 'Delegate to OS' },
               ]}
             />
             <DividerSwitch

@@ -2,14 +2,25 @@ import React, { useCallback, useEffect, useMemo } from 'react';
 import { LayoutGrid, Plus, Workflow } from 'lucide-react';
 import { Button, IconButton } from '@/design-system';
 import { useWorkStore } from '@/app/agentic-os/work/data/workStore';
-import type { WorkAppRef, WorkRecord, WorkStatus } from '@/app/agentic-os/work/domain/workTypes';
-import { catalogAppRequiresWorkspace } from '@/app/agentic-os/work/domain/productAppLaunchPolicy';
+import { productAppWorkRef, sameProductAppRef } from '@/app/agentic-os/work/domain/productAppRefs';
+import type { WorkRecord } from '@/app/agentic-os/work/domain/workTypes';
+import {
+  catalogAppLaunchRequiresWorkConfirmation,
+  getCatalogAppLaunchBehavior,
+} from '@/app/agentic-os/work/domain/productAppLaunchPolicy';
 import { openWork } from '@/app/agentic-os/work/navigation/openWork';
+import { productAppWorkChoice } from '@/app/components/WorkDock/NewWorkDialog';
 import { AppIcon } from '@/app/scenes/apps/AppIcon';
 import { useAppsStore } from '@/app/scenes/apps/appsStore';
 import { createAndOpenAppBuilder } from '@/app/scenes/apps/app-builder/openAppBuilderSession';
 import { launchActiveIntelligentApp } from '@/app/scenes/apps/intelligentAppLaunchService';
 import { useProductAppRuntimeStore } from '@/app/scenes/apps/product-app-runtime/productAppRuntimeStore';
+import { NATIVE_SYSTEM_APP_CATALOG } from '@/app/scenes/apps/nativeSystemCatalog';
+import {
+  selectDistinctOpenAppWorkActivities,
+  selectOpenAppWorkActivities,
+  type AppWorkActivity,
+} from '@/app/scenes/apps/appWorkActivity';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import {
   appCatalogAPI,
@@ -33,31 +44,11 @@ import './AppsPreview.scss';
 
 const log = createLogger('WorkspaceHubAppsPreview');
 
-const CONTINUABLE_STATUSES = new Set<WorkStatus>([
-  'active',
-  'running',
-  'waiting_user',
-  'blocked',
-  'paused',
-  'interrupted',
-]);
-
-type AppActivityItem =
-  | { kind: 'work'; work: WorkRecord; appRef: WorkAppRef }
-  | { kind: 'app'; app: ProductAppCatalogEntry };
-
-function appRefFromWork(work: WorkRecord): WorkAppRef | null {
-  if (work.subject.kind === 'app') return work.subject.app;
-  return work.appRefs.find(({ role }) => role === 'subject')?.app
-    ?? work.appRefs.find(({ role }) => role === 'executor')?.app
-    ?? work.appRefs[0]?.app
-    ?? null;
-}
-
 const AppsPreview: React.FC<WorkspaceHubPreviewProps> = ({
   label,
   primaryActionRef,
   onOpenItem,
+  onCreateWork,
   onClose,
 }) => {
   const { t, currentLanguage } = useI18n('common');
@@ -67,7 +58,6 @@ const AppsPreview: React.FC<WorkspaceHubPreviewProps> = ({
   const worksLoading = useWorkStore((state) => state.loading);
   const worksError = useWorkStore((state) => state.error);
   const refreshWorks = useWorkStore((state) => state.refreshWorks);
-  const runningRuntimeAppIds = useProductAppRuntimeStore((state) => state.runningWorkerIds);
   const recentRuntimeAppIds = useProductAppRuntimeStore((state) => state.recentAppIds);
   const pinnedAppIds = useAppsStore((state) => state.pinnedAppIds);
 
@@ -81,12 +71,7 @@ const AppsPreview: React.FC<WorkspaceHubPreviewProps> = ({
     if (!worksLoaded && !worksLoading) void refreshWorks();
   }, [refreshWorks, worksLoaded, worksLoading]);
 
-  const continuableWorks = useMemo(() => works
-    .map((work) => ({ work, appRef: appRefFromWork(work) }))
-    .filter((item): item is { work: WorkRecord; appRef: WorkAppRef } => (
-      Boolean(item.appRef) && CONTINUABLE_STATUSES.has(item.work.status)
-    ))
-    .sort((left, right) => right.work.updatedAt - left.work.updatedAt), [works]);
+  const continuableWorks = useMemo(() => selectOpenAppWorkActivities(works), [works]);
 
   const installedApps = useMemo(
     () => localizeCatalogApps(catalog.data?.installed ?? [], currentLanguage)
@@ -102,38 +87,21 @@ const AppsPreview: React.FC<WorkspaceHubPreviewProps> = ({
     () => new Map(installedApps.map((app) => [app.appId, app])),
     [installedApps],
   );
+  const nativeAppById = useMemo(
+    () => new Map(
+      localizeCatalogApps(NATIVE_SYSTEM_APP_CATALOG, currentLanguage)
+        .map((app) => [app.id, app]),
+    ),
+    [currentLanguage],
+  );
   const installedAppBySurfaceId = useMemo(
     () => new Map(installedApps.map((app) => [app.id, app])),
     [installedApps],
   );
-  const runningRuntimeIdSet = useMemo(
-    () => new Set(runningRuntimeAppIds),
-    [runningRuntimeAppIds],
-  );
-  const workAppIds = useMemo(
-    () => new Set(continuableWorks.map(({ appRef }) => appRef.appId)),
+  const runningDockItems = useMemo(
+    () => selectDistinctOpenAppWorkActivities(continuableWorks, 4),
     [continuableWorks],
   );
-  const runningAppsWithoutWork = useMemo(
-    () => installedApps.filter((app) => (
-      runningRuntimeIdSet.has(app.id) && !workAppIds.has(app.appId)
-    )),
-    [installedApps, runningRuntimeIdSet, workAppIds],
-  );
-  const activityItems = useMemo<AppActivityItem[]>(() => [
-    ...continuableWorks.map((item) => ({ kind: 'work' as const, ...item })),
-    ...runningAppsWithoutWork.map((app) => ({ kind: 'app' as const, app })),
-  ], [continuableWorks, runningAppsWithoutWork]);
-  const runningDockItems = useMemo(() => {
-    const seenAppIds = new Set<string>();
-    return activityItems.filter((item) => {
-      const running = item.kind === 'app' || item.work.status === 'running';
-      const appId = item.kind === 'app' ? item.app.appId : item.appRef.appId;
-      if (!running || seenAppIds.has(appId)) return false;
-      seenAppIds.add(appId);
-      return true;
-    }).slice(0, 4);
-  }, [activityItems]);
   const recentApps = useMemo(
     () => recentRuntimeAppIds
       .map((id) => installedAppBySurfaceId.get(id))
@@ -179,14 +147,31 @@ const AppsPreview: React.FC<WorkspaceHubPreviewProps> = ({
   }, [onClose]);
 
   const handleOpenApp = useCallback((app: ProductAppCatalogEntry) => {
-    if (!app.activeRef || catalogAppRequiresWorkspace(app)) {
+    if (!app.activeRef) {
       openAppDetails(app.id);
+      return;
+    }
+
+    const launchBehavior = getCatalogAppLaunchBehavior(app);
+    if (!launchBehavior.supportsMultipleWorks) {
+      const appRef = productAppWorkRef(app.activeRef);
+      const existingWork = continuableWorks.find((item) => (
+        sameProductAppRef(item.appRef, appRef)
+      ));
+      if (existingWork) {
+        handleOpenWork(existingWork.work);
+        return;
+      }
+    }
+
+    if (catalogAppLaunchRequiresWorkConfirmation(app)) {
+      onCreateWork(productAppWorkChoice(app.slotId));
       return;
     }
 
     onClose();
     void launchActiveIntelligentApp(app.activeRef, {
-      scope: appScopeFromWorkspace(lastUsedWorkspace) ?? systemAppScope(),
+      scope: systemAppScope(),
       title: app.name,
       objective: app.description || app.name,
     }).catch((error) => {
@@ -194,7 +179,7 @@ const AppsPreview: React.FC<WorkspaceHubPreviewProps> = ({
       useAppsStore.getState().openAppDetail(app.id);
       onOpenItem('apps');
     });
-  }, [lastUsedWorkspace, onClose, onOpenItem, openAppDetails]);
+  }, [continuableWorks, handleOpenWork, onClose, onCreateWork, onOpenItem, openAppDetails]);
 
   const handleCreateApp = useCallback(() => {
     onClose();
@@ -205,23 +190,12 @@ const AppsPreview: React.FC<WorkspaceHubPreviewProps> = ({
     });
   }, [lastUsedWorkspace, onClose]);
 
-  const handleOpenActivity = useCallback((item: AppActivityItem) => {
-    if (item.kind === 'app') {
-      handleOpenApp(item.app);
-      return;
-    }
-    handleOpenWork(item.work);
-  }, [handleOpenApp, handleOpenWork]);
-
-  const activityTitle = useCallback((item: AppActivityItem) => (
-    item.kind === 'app' ? item.app.name : item.work.title
-  ), []);
-
-  const renderActivityIcon = useCallback((item: AppActivityItem, size: number) => {
-    if (item.kind === 'app') return <AppIcon app={item.app} size={size} />;
-    const app = appById.get(item.appRef.appId);
+  const renderActivityIcon = useCallback((item: AppWorkActivity, size: number) => {
+    const app = item.appRef.kind === 'native_app'
+      ? nativeAppById.get(item.appRef.appId)
+      : appById.get(item.appRef.appId);
     return app ? <AppIcon app={app} size={size} /> : <Workflow size={Math.round(size * 0.7)} />;
-  }, [appById]);
+  }, [appById, nativeAppById]);
 
   const initialLoading = (!worksLoaded && !worksError) || (catalog.loading && !catalog.data);
 
@@ -273,11 +247,10 @@ const AppsPreview: React.FC<WorkspaceHubPreviewProps> = ({
             aria-label={t('nav.menuPanel.hub.preview.apps.aria.runningApps')}
           >
             {runningDockItems.map((item) => {
-              const title = activityTitle(item);
-              const key = item.kind === 'app' ? `app:${item.app.id}` : `work:${item.work.id}`;
+              const title = item.work.title;
               return (
                 <span
-                  key={key}
+                  key={`work:${item.work.id}`}
                   className="sparo-workspace-hub-apps-preview__running-item"
                   role="listitem"
                 >
@@ -288,7 +261,7 @@ const AppsPreview: React.FC<WorkspaceHubPreviewProps> = ({
                     aria-label={t('nav.menuPanel.hub.preview.apps.aria.openRunningApp', { name: title })}
                     tooltip={title}
                     tooltipPlacement="bottom"
-                    onClick={() => handleOpenActivity(item)}
+                    onClick={() => handleOpenWork(item.work)}
                   >
                     {renderActivityIcon(item, 26)}
                   </IconButton>

@@ -6,15 +6,8 @@
   min-height: min(336px, calc(100vh - 168px));
 }
 
-.sparo-remote-connect-overlay {
-  animation: modal-overlay-fade 0.18s ease;
-
-  .ds-dialog {
-    width: min(900px, 100%);
-    max-width: min(900px, 100%);
-    min-height: min(540px, calc(100vh - 48px));
-    animation: sparo-remote-connect-dialog-enter 0.22s cubic-bezier(0.22, 1, 0.36, 1);
-  }
+.sparo-remote-connect-window {
+  min-height: min(540px, calc(100vh - 48px));
 }
 
 .sparo-remote-connect-modal__content {
@@ -54,11 +47,11 @@
   margin-inline-end: 24px;
 }
 
-.sparo-remote-connect-overlay .ds-dialog__title-group {
+.sparo-remote-connect-window .ds-app-window__title-group {
   width: 100%;
 }
 
-.sparo-remote-connect-overlay .ds-dialog__title-extra {
+.sparo-remote-connect-window .ds-app-window__title-extra {
   margin-inline-start: auto;
 }
 
@@ -1080,7 +1073,7 @@
 }
 
 @media (max-width: 720px) {
-  .sparo-remote-connect-overlay .ds-dialog {
+  .sparo-remote-connect-window {
     min-height: 0;
   }
 
@@ -1816,18 +1809,6 @@
   }
 }
 
-@keyframes sparo-remote-connect-dialog-enter {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 @keyframes sparo-remote-connect-info-fade-in {
   from {
     opacity: 0;
@@ -1839,10 +1820,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sparo-remote-connect-overlay .ds-dialog {
-    animation: none;
-  }
-
   .sparo-remote-connect__info-meta-group--ready,
   .sparo-remote-connect__info-meta-skeleton-line {
     animation: none;

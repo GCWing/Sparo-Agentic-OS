@@ -18,6 +18,7 @@ import React, {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronRight } from 'lucide-react';
+import { PopupMenu } from './PopupMenu';
 import './DropdownMenu.scss';
 
 // ── Item Types ────────────────────────────────────────────────────────────────
@@ -146,10 +147,9 @@ const SubmenuPanel: React.FC<SubmenuPanelProps> = ({ items, direction, onClose }
   }, []);
 
   return (
-    <div
+    <PopupMenu
       ref={ref}
       className={`cl-dropdown-menu__submenu is-${direction}`}
-      role="menu"
       style={topOffset ? { top: topOffset } : undefined}
       onMouseDown={(e) => e.stopPropagation()}
     >
@@ -176,7 +176,7 @@ const SubmenuPanel: React.FC<SubmenuPanelProps> = ({ items, direction, onClose }
           <MenuItem key={entry.id} entry={entry} onClose={onClose} />
         );
       })}
-    </div>
+    </PopupMenu>
   );
 };
 
@@ -327,10 +327,9 @@ export const DropdownMenu: React.FC<DropdownMenuProps> = ({
         onMouseDown={(e) => e.stopPropagation()}
         onClick={onClose}
       />
-      <div
+      <PopupMenu
         ref={menuRef}
         className="cl-dropdown-menu"
-        role="menu"
         style={{ top: position.top, left: position.left, minWidth }}
         onMouseDown={(e) => e.stopPropagation()}
       >
@@ -341,7 +340,7 @@ export const DropdownMenu: React.FC<DropdownMenuProps> = ({
           submenuDirection={submenuDirection}
           onSubmenuTrigger={handleSubmenuTrigger}
         />
-      </div>
+      </PopupMenu>
     </>,
     document.body,
   );

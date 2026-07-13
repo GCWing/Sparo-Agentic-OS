@@ -90,6 +90,8 @@ pub struct StartDialogTurnRequest {
     #[serde(default)]
     pub trigger_source: Option<DialogTriggerSourceDto>,
     #[serde(default)]
+    pub user_message_metadata: Option<serde_json::Value>,
+    #[serde(default)]
     pub persist_agent_type: Option<bool>,
     #[serde(default)]
     pub image_contexts: Option<Vec<ImageContextData>>,
@@ -495,6 +497,7 @@ pub async fn start_dialog_turn(
         workspace_path,
         turn_id,
         trigger_source,
+        user_message_metadata,
         persist_agent_type,
         image_contexts,
     } = request;
@@ -516,7 +519,7 @@ pub async fn start_dialog_turn(
     };
 
     let outcome = scheduler
-        .submit(
+        .submit_with_metadata(
             session_id,
             user_input,
             original_user_input,
@@ -527,6 +530,7 @@ pub async fn start_dialog_turn(
             policy,
             None,
             resolved_images,
+            user_message_metadata,
         )
         .await
         .map_err(|e| format!("Failed to start dialog turn: {}", e))?;

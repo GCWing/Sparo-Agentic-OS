@@ -87,6 +87,7 @@ export interface ThemeEffectsConfig {
     base: string;
     lg: string;
     xl: string;
+    '2xl'?: string;
     full: string;
   };
   shadow: object;
@@ -328,6 +329,7 @@ export interface DesignTokens {
     md: string;
     lg: string;
     xl: string;
+    '2xl': string;
     full: string;
   };
   typography: {
@@ -550,6 +552,7 @@ export function createDesignTokens(theme: ThemeConfig): DesignTokens {
       md: effects.radius.base,
       lg: effects.radius.lg,
       xl: effects.radius.xl,
+      '2xl': effects.radius['2xl'] ?? effects.radius.xl,
       full: effects.radius.full,
     },
     typography: {

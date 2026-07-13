@@ -4,9 +4,8 @@
  * with quick switching support.
  *
  * Design guidelines:
- * - Radius: pill for dropdown rows, compact radius for the dropdown surface
- * - Border: light gray; blue-purple gradient on hover/active
- * - Shadow: layered soft shadows, avoid harsh glow
+ * - Popup surface: shared PopupMenu contract
+ * - Rows: pill radius with moving hover highlight
  */
 
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
@@ -90,9 +89,8 @@
     right: 0;
     min-width: 220px;
     max-width: 280px;
-    @include flow.flow-chat-popover(6px);
+    z-index: var(--ds-z-dropdown);
     overflow: hidden;
-    animation: sparo-model-dropdown-fade-in 0.15s ease-out;
     padding-top: 4px;
   }
 
@@ -103,7 +101,7 @@
     width: var(--sparo-model-hover-width, 0);
     height: var(--sparo-model-hover-height, 0);
     border-radius: var(--ds-list-row-radius, var(--ds-radius-full));
-    background: var(--ds-chat-accent-soft);
+    background: var(--ds-popup-menu-row-hover-bg);
     opacity: 0;
     pointer-events: none;
     transform-origin: center;
@@ -257,29 +255,9 @@
   :root[data-theme="light"] &,
   :root[data-theme-type="light"] &,
   .light & {
-    &__dropdown {
-      background: var(--ds-color-bg-elevated);
-      border: 1px solid var(--ds-chat-border);
-      backdrop-filter: none;
-      -webkit-backdrop-filter: none;
-      box-shadow: var(--ds-chat-shadow-popover);
-    }
-
     &__list {
       @include flow.flow-chat-soft-scrollbar;
     }
-  }
-}
-
-// Dropdown fade-in animation
-@keyframes sparo-model-dropdown-fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
   }
 }
 

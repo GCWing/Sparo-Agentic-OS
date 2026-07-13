@@ -2,6 +2,8 @@ import { useCallback, useRef } from 'react';
 import type { RefObject } from 'react';
 import type { MentionState } from '../RichTextInput';
 import { getCursorOffset } from './richTextSelection';
+import { extractComposerDocument } from './richTextPlainText';
+import { getComposerText } from '@/shared/types/composer';
 
 const closedMentionState: MentionState = {
   isActive: false,
@@ -49,7 +51,7 @@ export function useRichTextMention({
       return;
     }
 
-    const fullText = editor.textContent || '';
+    const fullText = getComposerText(extractComposerDocument(editor));
     const textBeforeCursor = fullText.slice(0, cursorPosition);
     const lastAtIndex = textBeforeCursor.lastIndexOf('@');
 

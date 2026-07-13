@@ -267,7 +267,7 @@ const WorkCenterPreview: React.FC<WorkspaceHubPreviewProps> = ({
             aria-label={t('nav.menuPanel.hub.preview.workCenter.actions.newWork')}
             tooltip={t('nav.menuPanel.hub.preview.workCenter.actions.newWork')}
             tooltipPlacement="top"
-            onClick={onCreateWork}
+            onClick={() => onCreateWork()}
           >
             <CirclePlus size={16} aria-hidden="true" />
           </IconButton>

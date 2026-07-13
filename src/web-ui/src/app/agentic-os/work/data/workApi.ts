@@ -1066,6 +1066,7 @@ export class AgenticOsWorkApi {
           visibility: request.visibility ?? 'secondary',
           primary_surface_policy: request.primarySurfacePolicy ?? 'work_center',
           assignment: toRawAssignment(request.assignment),
+          app_refs: (request.appRefs ?? []).map(toRawAppRelation),
         },
       });
       return { work: fromRawWorkRecord(response.work), created: response.created };

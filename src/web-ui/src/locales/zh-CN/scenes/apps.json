@@ -46,11 +46,11 @@
       "label": "应用运行状态",
       "running": "运行中",
       "idle": "暂无运行中应用",
+      "closeRunningApp": "关闭 {{name}}",
+      "previousRunningApps": "查看前面的运行中应用",
+      "nextRunningApps": "查看更多运行中应用",
       "workStates": "应用任务状态",
-      "pinned": "固定应用",
-      "multiRunningTitle": "多应用进行中",
-      "multiRunningDescription": "{{count}} 个应用正在并行执行",
-      "multiRunningStatus": "{{count}} 个进行中",
+      "pinnedApps": "置顶应用",
       "states": {
         "waiting": "等待处理",
         "running": "正在执行",
@@ -146,8 +146,8 @@
       }
     },
     "actions": {
-      "pin": "固定 {{name}}",
-      "unpin": "取消固定 {{name}}",
+      "pin": "置顶 {{name}}",
+      "unpin": "取消置顶 {{name}}",
       "components": "组件",
       "createComponent": "创建组件",
       "createApp": "创建应用",

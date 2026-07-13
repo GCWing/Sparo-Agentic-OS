@@ -152,7 +152,7 @@
   &.is-interactive:hover:not(:disabled),
   &.is-interactive:focus-visible {
     color: var(--ds-color-text-primary);
-    background: var(--element-bg-soft);
+    background: var(--ds-color-element-soft, var(--element-bg-soft));
     border-color: var(--ds-color-border-subtle);
     transform: none;
   }
@@ -165,7 +165,7 @@
   width: 30px;
   height: 30px;
   color: var(--ds-color-text-muted);
-  background: var(--element-bg-soft);
+  background: var(--ds-color-element-soft, var(--element-bg-soft));
   border-radius: var(--ds-radius-lg);
 
   &.is-accent {

@@ -3,6 +3,8 @@ import type React from 'react';
 import type { SessionDerivedState } from '../../../state-machine/types';
 import type { RichTextInputHandle } from '../../RichTextInput';
 import type { ChatInputTarget } from '../model/composerState';
+import type { ComposerContextSnapshot } from '@/shared/types/composer';
+import type { InputHistoryEntry } from '../../../store/inputHistoryStore';
 
 interface UseComposerKeyboardParams {
   editorRef: RefObject<RichTextInputHandle | null>;
@@ -14,12 +16,14 @@ interface UseComposerKeyboardParams {
   closeCommandPicker: (options?: { suppressCurrentToken?: boolean }) => void;
   showTargetSwitcher: boolean;
   setInputTarget: (target: ChatInputTarget | ((previous: ChatInputTarget) => ChatInputTarget)) => void;
-  inputHistory: string[];
+  inputHistory: InputHistoryEntry[];
   historyIndex: number;
   setHistoryIndex: Dispatch<SetStateAction<number>>;
-  savedDraft: string;
-  setSavedDraft: Dispatch<SetStateAction<string>>;
-  inputValue: string;
+  savedDraft: ComposerContextSnapshot | null;
+  setSavedDraft: Dispatch<SetStateAction<ComposerContextSnapshot | null>>;
+  currentDraft: ComposerContextSnapshot;
+  restoreDraft: (snapshot: ComposerContextSnapshot) => void;
+  hasContent: boolean;
   setInputValue: (value: string) => void;
   activateInput: () => void;
   focusInputSoon: () => void;
@@ -78,7 +82,9 @@ export function useComposerKeyboard({
   setHistoryIndex,
   savedDraft,
   setSavedDraft,
-  inputValue,
+  currentDraft,
+  restoreDraft,
+  hasContent,
   setInputValue,
   activateInput,
   focusInputSoon,
@@ -148,13 +154,13 @@ export function useComposerKeyboard({
 
         if (e.key === 'ArrowUp' && isCursorAtEditorStart(range, editor)) {
           e.preventDefault();
-          if (historyIndex === -1 && inputValue.trim()) {
-            setSavedDraft(inputValue);
+          if (historyIndex === -1 && hasContent) {
+            setSavedDraft(currentDraft);
           }
           if (historyIndex < inputHistory.length - 1) {
             const newIndex = historyIndex + 1;
             setHistoryIndex(newIndex);
-            setInputValue(inputHistory[newIndex]);
+            restoreDraft(inputHistory[newIndex].composerContext);
           }
           return;
         }
@@ -164,10 +170,11 @@ export function useComposerKeyboard({
           if (historyIndex > 0) {
             const newIndex = historyIndex - 1;
             setHistoryIndex(newIndex);
-            setInputValue(inputHistory[newIndex]);
+            restoreDraft(inputHistory[newIndex].composerContext);
           } else if (historyIndex === 0) {
             setHistoryIndex(-1);
-            setInputValue(savedDraft);
+            if (savedDraft) restoreDraft(savedDraft);
+            else setInputValue('');
           }
           return;
         }
@@ -187,7 +194,7 @@ export function useComposerKeyboard({
 
       e.preventDefault();
 
-      if (derivedState?.isProcessing && !inputValue.trim() && !hasSubmitIntent) {
+      if (derivedState?.isProcessing && !hasContent && !hasSubmitIntent) {
         return;
       }
 
@@ -209,14 +216,16 @@ export function useComposerKeyboard({
     focusInputSoon,
     handleSendOrCancel,
     hasSubmitIntent,
+    hasContent,
     historyIndex,
     inputHistory,
-    inputValue,
     isImeComposingRef,
     moveCommandSelection,
     onBtwShortcutBlocked,
     onBtwShortcutDraft,
     savedDraft,
+    currentDraft,
+    restoreDraft,
     selectCurrentCommandOption,
     setHistoryIndex,
     setInputTarget,

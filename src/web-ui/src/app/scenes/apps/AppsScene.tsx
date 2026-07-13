@@ -3,6 +3,8 @@ import {
   Activity,
   ArrowUpRight,
   Blocks,
+  ChevronLeft,
+  ChevronRight,
   CircleOff,
   Download,
   FilePenLine,
@@ -13,6 +15,7 @@ import {
   RefreshCw,
   ShieldCheck,
   Sparkles,
+  X,
 } from 'lucide-react';
 import { ManagementList, ManageViewToggle, type ManageViewMode } from './components/ManagementList';
 import { ComponentCenter } from './components/ComponentCenter';
@@ -57,12 +60,12 @@ import {
   productAppWorkChoice,
 } from '@/app/components/WorkDock/NewWorkDialog';
 import {
-  catalogAppRequiresWorkspace,
+  catalogAppLaunchRequiresWorkConfirmation,
   getCatalogAppLaunchBehavior,
   getNativeAppLaunchBehavior,
 } from '@/app/agentic-os/work/domain/productAppLaunchPolicy';
 import { useWorkStore } from '@/app/agentic-os/work/data/workStore';
-import { openWork, openWorkCenterHome } from '@/app/agentic-os/work/navigation/openWork';
+import { openWork } from '@/app/agentic-os/work/navigation/openWork';
 import {
   nativeAppWorkRef,
   productAppWorkRef,
@@ -86,6 +89,7 @@ import { mergeProductAppLibrary, productAppLibraryKey } from './productAppLibrar
 import { AppIcon } from './AppIcon';
 import { launchActiveIntelligentApp } from './intelligentAppLaunchService';
 import { createAndOpenAppBuilder, openAppBuilderSession } from './app-builder/openAppBuilderSession';
+import { selectOpenAppWorkActivities } from './appWorkActivity';
 import { appScopeFromWorkspace, systemAppScope } from '@/shared/types/app-scope';
 import {
   intelligentAppAPI,
@@ -116,10 +120,7 @@ const MANAGE_CATEGORY_ICONS = {
 } as const;
 
 const MANAGE_SORT_KEYS: ManageSortKey[] = ['attention', 'name', 'status'];
-const HOME_APP_FIRST_REVEAL_DELAY_MS = 40;
-const HOME_APP_REVEAL_INTERVAL_MS = 120;
-const HOME_ACTIVITY_LIMIT = 6;
-const PINNED_SYSTEM_APP_ORDER: Record<string, number> = {
+const SYSTEM_APP_DISPLAY_ORDER: Record<string, number> = {
   runno: 0,
   'app-builder': 1,
 };
@@ -140,17 +141,17 @@ function isAssetIcon(icon: AppIconSpec): boolean {
   return icon.kind === 'packageAsset' || icon.kind === 'nativeAsset';
 }
 
-function pinSystemAppsFirst<T extends Pick<ProductAppCatalogEntry, 'id' | 'appId'>>(
+function sortSystemAppsFirst<T extends Pick<ProductAppCatalogEntry, 'id' | 'appId'>>(
   apps: T[],
 ): T[] {
   return [...apps].sort((left, right) => {
-    const leftOrder = PINNED_SYSTEM_APP_ORDER[left.appId ?? left.id] ?? Number.MAX_SAFE_INTEGER;
-    const rightOrder = PINNED_SYSTEM_APP_ORDER[right.appId ?? right.id] ?? Number.MAX_SAFE_INTEGER;
+    const leftOrder = SYSTEM_APP_DISPLAY_ORDER[left.appId ?? left.id] ?? Number.MAX_SAFE_INTEGER;
+    const rightOrder = SYSTEM_APP_DISPLAY_ORDER[right.appId ?? right.id] ?? Number.MAX_SAFE_INTEGER;
     return leftOrder - rightOrder;
   });
 }
 
-function pinKeyForApp(app: NativeAppCatalogEntry | ProductAppCatalogEntry): string {
+function getPinnedAppId(app: NativeAppCatalogEntry | ProductAppCatalogEntry): string {
   return 'appId' in app ? app.appId : app.id;
 }
 
@@ -188,17 +189,8 @@ function sortManageApps(
       });
       break;
   }
-  return pinSystemAppsFirst(sorted);
+  return sortSystemAppsFirst(sorted);
 }
-
-const OPEN_WORK_STATUSES = new Set<WorkRecord['status']>([
-  'active',
-  'running',
-  'waiting_user',
-  'blocked',
-  'paused',
-  'interrupted',
-]);
 
 function normalized(value: string | null | undefined): string {
   return (value ?? '').trim().toLowerCase();
@@ -325,14 +317,6 @@ function AppAuthorLine({
   );
 }
 
-function appRefFromWork(work: WorkRecord): WorkAppRef | null {
-  if (work.subject.kind === 'app') return work.subject.app;
-  return work.appRefs.find((relation) => relation.role === 'subject')?.app
-    ?? work.appRefs.find((relation) => relation.role === 'executor')?.app
-    ?? work.appRefs[0]?.app
-    ?? null;
-}
-
 function resolveAppComponents(
   app: ProductAppCatalogEntry,
   components: ComponentDefinition[],
@@ -411,14 +395,11 @@ export const AppsScene: React.FC = () => {
   const works = useWorkStore((state) => state.works);
   const worksLoaded = useWorkStore((state) => state.loaded);
   const refreshWorks = useWorkStore((state) => state.refreshWorks);
+  const controlWork = useWorkStore((state) => state.controlWork);
   const runningProductAppRuntimeIds = useProductAppRuntimeStore((state) => state.runningWorkerIds);
   const markProductAppRuntimeWorkerStopped = useProductAppRuntimeStore((state) => state.markWorkerStopped);
 
   const [homeApps, setHomeApps] = useState<ProductAppCatalogEntry[]>([]);
-  const [visibleHomeApps, setVisibleHomeApps] = useState<ProductAppCatalogEntry[]>([]);
-  const [homeRevealPendingCount, setHomeRevealPendingCount] = useState(0);
-  const [visibleDiscoverApps, setVisibleDiscoverApps] = useState<ProductAppCatalogEntry[]>([]);
-  const [discoverRevealPendingCount, setDiscoverRevealPendingCount] = useState(0);
   const [libraryApps, setLibraryApps] = useState<ProductAppCatalogEntry[]>([]);
   const [nativeApps, setNativeApps] = useState<NativeAppCatalogEntry[]>([]);
   const [components, setComponents] = useState<ComponentDefinition[]>([]);
@@ -432,10 +413,11 @@ export const AppsScene: React.FC = () => {
   const [intelligentCatalogLoading, setIntelligentCatalogLoading] = useState(false);
   const [launchingAppId, setLaunchingAppId] = useState<string | null>(null);
   const [stoppingAppId, setStoppingAppId] = useState<string | null>(null);
+  const [closingWorkId, setClosingWorkId] = useState<string | null>(null);
   const [managingAppId, setManagingAppId] = useState<string | null>(null);
   const [flippedAppId, setFlippedAppId] = useState<string | null>(null);
   const [manageViewMode, setManageViewMode] = useState<ManageViewMode>('cards');
-  const [workspaceLaunchApp, setWorkspaceLaunchApp] = useState<ProductAppCatalogEntry | null>(null);
+  const [workLaunchApp, setWorkLaunchApp] = useState<ProductAppCatalogEntry | null>(null);
   const [pendingCapabilityApproval, setPendingCapabilityApproval] = useState<{
     app: ProductAppCatalogEntry;
     review: AppReleaseCapabilityReview;
@@ -451,123 +433,14 @@ export const AppsScene: React.FC = () => {
   const componentsLoadIdRef = useRef(0);
   const intelligentCatalogLoadIdRef = useRef(0);
   const pageRetryRef = useRef<string | null>(null);
-  const homeRevealQueueRef = useRef<ProductAppCatalogEntry[]>([]);
-  const discoverRevealQueueRef = useRef<ProductAppCatalogEntry[]>([]);
-  const visibleHomeAppKeysRef = useRef<Set<string>>(new Set());
-  const visibleDiscoverAppKeysRef = useRef<Set<string>>(new Set());
-  const homeRevealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const discoverRevealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shellRef = useRef<HTMLDivElement | null>(null);
+  const runningCapsuleRef = useRef<HTMLDivElement | null>(null);
+  const runningItemsViewportRef = useRef<HTMLDivElement | null>(null);
   const pendingCardRectsRef = useRef<Map<string, DOMRect>>(new Map());
   const pendingCardMorphRef = useRef(false);
-
-  const clearHomeRevealTimer = useCallback(() => {
-    if (homeRevealTimerRef.current) {
-      clearTimeout(homeRevealTimerRef.current);
-      homeRevealTimerRef.current = null;
-    }
-  }, []);
-
-  const clearDiscoverRevealTimer = useCallback(() => {
-    if (discoverRevealTimerRef.current) {
-      clearTimeout(discoverRevealTimerRef.current);
-      discoverRevealTimerRef.current = null;
-    }
-  }, []);
-
-  const revealNextHomeApp = useCallback(() => {
-    const next = homeRevealQueueRef.current.shift();
-    if (!next) {
-      setHomeRevealPendingCount(0);
-      homeRevealTimerRef.current = null;
-      return;
-    }
-
-    setVisibleHomeApps((current) => {
-      const nextKey = productAppLibraryKey(next);
-      const nextVisible = [
-        ...current.filter((app) => productAppLibraryKey(app) !== nextKey),
-        next,
-      ];
-      visibleHomeAppKeysRef.current = new Set(nextVisible.map(productAppLibraryKey));
-      return nextVisible;
-    });
-    setHomeRevealPendingCount(homeRevealQueueRef.current.length);
-
-    if (homeRevealQueueRef.current.length > 0) {
-      homeRevealTimerRef.current = setTimeout(revealNextHomeApp, HOME_APP_REVEAL_INTERVAL_MS);
-    } else {
-      homeRevealTimerRef.current = null;
-    }
-  }, []);
-
-  const revealNextDiscoverApp = useCallback(() => {
-    const next = discoverRevealQueueRef.current.shift();
-    if (!next) {
-      setDiscoverRevealPendingCount(0);
-      discoverRevealTimerRef.current = null;
-      return;
-    }
-
-    setVisibleDiscoverApps((current) => {
-      const nextKey = productAppLibraryKey(next);
-      const nextVisible = [
-        ...current.filter((app) => productAppLibraryKey(app) !== nextKey),
-        next,
-      ];
-      visibleDiscoverAppKeysRef.current = new Set(nextVisible.map(productAppLibraryKey));
-      return nextVisible;
-    });
-    setDiscoverRevealPendingCount(discoverRevealQueueRef.current.length);
-
-    if (discoverRevealQueueRef.current.length > 0) {
-      discoverRevealTimerRef.current = setTimeout(revealNextDiscoverApp, HOME_APP_REVEAL_INTERVAL_MS);
-    } else {
-      discoverRevealTimerRef.current = null;
-    }
-  }, []);
-
-  const beginHomeAppReveal = useCallback((nextApps: ProductAppCatalogEntry[]) => {
-    clearHomeRevealTimer();
-    const nextByKey = new Map(nextApps.map((app) => [productAppLibraryKey(app), app]));
-    const retainedKeys = new Set(
-      [...visibleHomeAppKeysRef.current].filter((key) => nextByKey.has(key)),
-    );
-
-    visibleHomeAppKeysRef.current = retainedKeys;
-    setVisibleHomeApps((current) => current
-      .filter((app) => nextByKey.has(productAppLibraryKey(app)))
-      .map((app) => nextByKey.get(productAppLibraryKey(app)) ?? app));
-
-    const revealQueue = nextApps.filter((app) => !retainedKeys.has(productAppLibraryKey(app)));
-    homeRevealQueueRef.current = revealQueue;
-    setHomeRevealPendingCount(revealQueue.length);
-
-    if (revealQueue.length > 0) {
-      homeRevealTimerRef.current = setTimeout(revealNextHomeApp, HOME_APP_FIRST_REVEAL_DELAY_MS);
-    }
-  }, [clearHomeRevealTimer, revealNextHomeApp]);
-
-  const beginDiscoverAppReveal = useCallback((nextApps: ProductAppCatalogEntry[]) => {
-    clearDiscoverRevealTimer();
-    const nextByKey = new Map(nextApps.map((app) => [productAppLibraryKey(app), app]));
-    const retainedKeys = new Set(
-      [...visibleDiscoverAppKeysRef.current].filter((key) => nextByKey.has(key)),
-    );
-
-    visibleDiscoverAppKeysRef.current = retainedKeys;
-    setVisibleDiscoverApps((current) => current
-      .filter((app) => nextByKey.has(productAppLibraryKey(app)))
-      .map((app) => nextByKey.get(productAppLibraryKey(app)) ?? app));
-
-    const revealQueue = nextApps.filter((app) => !retainedKeys.has(productAppLibraryKey(app)));
-    discoverRevealQueueRef.current = revealQueue;
-    setDiscoverRevealPendingCount(revealQueue.length);
-
-    if (revealQueue.length > 0) {
-      discoverRevealTimerRef.current = setTimeout(revealNextDiscoverApp, HOME_APP_FIRST_REVEAL_DELAY_MS);
-    }
-  }, [clearDiscoverRevealTimer, revealNextDiscoverApp]);
+  const [canScrollRunningBackward, setCanScrollRunningBackward] = useState(false);
+  const [canScrollRunningForward, setCanScrollRunningForward] = useState(false);
+  const [hasRunningOverflow, setHasRunningOverflow] = useState(false);
 
   const loadNativeCatalog = useCallback(async (options: { force?: boolean; silent?: boolean } = {}) => {
     const loadId = nativeLoadIdRef.current + 1;
@@ -601,9 +474,8 @@ export const AppsScene: React.FC = () => {
     try {
       const catalog = await appCatalogAPI.listProductAppHomeCatalog({ force: options.force });
       if (productHomeLoadIdRef.current !== loadId) return;
-      const orderedApps = pinSystemAppsFirst(catalog.apps);
+      const orderedApps = sortSystemAppsFirst(catalog.apps);
       setHomeApps(orderedApps);
-      beginHomeAppReveal(orderedApps);
     } catch (error) {
       if (productHomeLoadIdRef.current !== loadId) return;
       log.error('Failed to load Product App home catalog', { error });
@@ -611,7 +483,7 @@ export const AppsScene: React.FC = () => {
     } finally {
       if (productHomeLoadIdRef.current === loadId) setProductHomeLoading(false);
     }
-  }, [beginHomeAppReveal]);
+  }, []);
 
   const loadProductAppLibrary = useCallback(async (options: { force?: boolean } = {}) => {
     const loadId = libraryLoadIdRef.current + 1;
@@ -621,13 +493,9 @@ export const AppsScene: React.FC = () => {
     try {
       const library = await appCatalogAPI.listProductAppLibrary({ force: options.force });
       if (libraryLoadIdRef.current !== loadId) return;
-      const nextLibraryApps = pinSystemAppsFirst(mergeProductAppLibrary(library));
+      const nextLibraryApps = sortSystemAppsFirst(mergeProductAppLibrary(library));
       setLibraryApps(nextLibraryApps);
       setLibraryLoaded(true);
-      beginDiscoverAppReveal(nextLibraryApps
-        .filter((app) => app.installed !== true)
-        .filter((app) => app.discoverable === true)
-        .filter((app) => !appHasCatalogIssues(app)));
     } catch (error) {
       if (libraryLoadIdRef.current !== loadId) return;
       log.error('Failed to load Product App library catalog', { error });
@@ -635,7 +503,7 @@ export const AppsScene: React.FC = () => {
     } finally {
       if (libraryLoadIdRef.current === loadId) setLibraryLoading(false);
     }
-  }, [beginDiscoverAppReveal]);
+  }, []);
 
   const loadComponents = useCallback(async (options: { force?: boolean } = {}) => {
     const loadId = componentsLoadIdRef.current + 1;
@@ -701,11 +569,6 @@ export const AppsScene: React.FC = () => {
     });
   }, [loadNativeCatalog, loadProductAppLibrary, loadProductHomeCatalog]);
 
-  useEffect(() => () => {
-    clearHomeRevealTimer();
-    clearDiscoverRevealTimer();
-  }, [clearDiscoverRevealTimer, clearHomeRevealTimer]);
-
   useEffect(() => {
     if (nativeLoading || productHomeLoading) return;
     const homeError = [nativeLoadError, productHomeLoadError].filter(Boolean).join('\n');
@@ -762,25 +625,17 @@ export const AppsScene: React.FC = () => {
     () => localizeCatalogApps(homeApps, currentLocale),
     [currentLocale, homeApps],
   );
-  const localizedVisibleHomeApps = useMemo(
-    () => localizeCatalogApps(visibleHomeApps, currentLocale),
-    [currentLocale, visibleHomeApps],
-  );
-  const localizedVisibleDiscoverApps = useMemo(
-    () => localizeCatalogApps(visibleDiscoverApps, currentLocale),
-    [currentLocale, visibleDiscoverApps],
-  );
   const localizedLibraryApps = useMemo(
     () => localizeCatalogApps(libraryApps, currentLocale),
     [currentLocale, libraryApps],
   );
-  const homeDisplayApps = localizedVisibleHomeApps;
+  const homeDisplayApps = localizedHomeApps;
   const managementApps = libraryLoaded ? localizedLibraryApps : localizedHomeApps;
   const detailApps = libraryLoaded ? localizedLibraryApps : localizedHomeApps;
-  const homeSyncActive = productHomeLoading || homeRevealPendingCount > 0;
-  const discoverSyncActive = libraryLoading || discoverRevealPendingCount > 0;
+  const homeSyncActive = productHomeLoading;
+  const discoverSyncActive = libraryLoading;
   const loading = nativeLoading || productHomeLoading || libraryLoading || componentsLoading || intelligentCatalogLoading;
-  const homeInitialLoading = nativeLoading && nativeApps.length === 0 && visibleHomeApps.length === 0;
+  const homeInitialLoading = productHomeLoading && homeApps.length === 0;
   const loadError = [
     nativeLoadError,
     productHomeLoadError,
@@ -811,8 +666,11 @@ export const AppsScene: React.FC = () => {
 
   const launchCardCount = launchNativeApps.length + launchApps.length;
 
-  const discoverApps = useMemo(() => localizedVisibleDiscoverApps
-    .filter((app) => appMatchesSearch(app, discoverQuery)), [discoverQuery, localizedVisibleDiscoverApps]);
+  const discoverApps = useMemo(() => localizedLibraryApps
+    .filter((app) => app.installed !== true)
+    .filter((app) => app.discoverable === true)
+    .filter((app) => !appHasCatalogIssues(app))
+    .filter((app) => appMatchesSearch(app, discoverQuery)), [discoverQuery, localizedLibraryApps]);
 
   const manageApps = useMemo(() => {
     const filtered = managementApps
@@ -821,24 +679,18 @@ export const AppsScene: React.FC = () => {
     return sortManageApps(filtered, manageSort, runningSurfaceAppIdSet);
   }, [managementApps, manageQuery, manageSection, manageSort, runningSurfaceAppIdSet]);
 
-  const continueWorks = useMemo(() => works
-    .filter((work) => OPEN_WORK_STATUSES.has(work.status))
-    .map((work) => ({ work, appRef: appRefFromWork(work) }))
-    .filter((item): item is { work: WorkRecord; appRef: WorkAppRef } => Boolean(item.appRef))
+  const continueWorks = useMemo(() => selectOpenAppWorkActivities(works)
     .filter((item) => {
       const nativeApp = displayNativeApps.find((candidate) => sameAppRef(nativeAppWorkRef(candidate.id), item.appRef));
       if (nativeApp) {
-        return nativeAppSupportsMultipleWorks(nativeApp)
-          && workMatchesSearch(item.work, nativeApp.name, installedQuery);
+        return workMatchesSearch(item.work, nativeApp.name, installedQuery);
       }
       const app = homeDisplayApps.find((candidate) => sameProductAppRef(productAppWorkRef(candidate), item.appRef));
       return Boolean(app)
         && app?.installed === true
         && !appHasCatalogIssues(app)
-        && getCatalogAppLaunchBehavior(app).supportsMultipleWorks
         && workMatchesSearch(item.work, app?.name, installedQuery);
-    })
-    .sort((left, right) => right.work.updatedAt - left.work.updatedAt), [displayNativeApps, homeDisplayApps, installedQuery, works]);
+    }), [displayNativeApps, homeDisplayApps, installedQuery, works]);
 
   const filteredComponents = useMemo(() => components
     .filter((component) => componentFilter === 'all' || component.kind === componentFilter)
@@ -881,24 +733,75 @@ export const AppsScene: React.FC = () => {
     return byApp;
   }, [continueWorks, displayNativeApps]);
 
-  const runningAppsWithoutWork = useMemo(() => launchApps.filter((app) => (
-    runningSurfaceAppIdSet.has(app.id)
-    && !(continueWorksByAppId.get(app.id)?.length)
-  )), [continueWorksByAppId, launchApps, runningSurfaceAppIdSet]);
-  const activeItemCount = continueWorks.length + runningAppsWithoutWork.length;
-  const visibleContinueWorks = continueWorks.slice(0, HOME_ACTIVITY_LIMIT);
-  const pinnedApps = useMemo(() => {
+  const activeItemCount = continueWorks.length;
+  const showRunningForwardControl = hasRunningOverflow
+    && (!canScrollRunningBackward || canScrollRunningForward);
+  const railPinnedApps = useMemo(() => {
     const available = [...displayNativeApps, ...launchApps];
-    const explicit = pinnedAppIds
-      .map((id) => available.find((app) => pinKeyForApp(app) === id))
+    return pinnedAppIds
+      .map((id) => available.find((app) => getPinnedAppId(app) === id))
       .filter((app): app is NativeAppCatalogEntry | ProductAppCatalogEntry => Boolean(app));
-    const filled = [...explicit];
-    for (const app of available) {
-      if (filled.length >= 4) break;
-      if (!filled.some((candidate) => pinKeyForApp(candidate) === pinKeyForApp(app))) filled.push(app);
-    }
-    return filled.slice(0, 4);
   }, [displayNativeApps, launchApps, pinnedAppIds]);
+
+  const syncRunningScrollState = useCallback(() => {
+    const capsule = runningCapsuleRef.current;
+    const viewport = runningItemsViewportRef.current;
+    if (!capsule || !viewport) return;
+    const track = viewport.firstElementChild as HTMLElement | null;
+    const styles = window.getComputedStyle(capsule);
+    const capsuleInnerWidth = capsule.clientWidth
+      - Number.parseFloat(styles.paddingInlineStart || '0')
+      - Number.parseFloat(styles.paddingInlineEnd || '0');
+    const runningItems = track?.querySelectorAll<HTMLElement>('.app-center-shell__running-item') ?? [];
+    const firstRunningItem = runningItems[0];
+    const trackStyles = track ? window.getComputedStyle(track) : null;
+    const trackGap = Number.parseFloat(trackStyles?.columnGap || trackStyles?.gap || '0') || 0;
+    const trailingControlSlotWidth = firstRunningItem
+      ? firstRunningItem.getBoundingClientRect().width + trackGap
+      : 0;
+    const runningItemsWidth = Array.from(runningItems).reduce(
+      (total, item) => total + item.getBoundingClientRect().width,
+      0,
+    ) + Math.max(0, runningItems.length - 1) * trackGap;
+    const nextHasRunningOverflow = (
+      runningItems.length > 1
+      && runningItemsWidth > capsuleInnerWidth - trailingControlSlotWidth + 1
+    );
+    setHasRunningOverflow(nextHasRunningOverflow);
+    if (!nextHasRunningOverflow && viewport.scrollLeft !== 0) viewport.scrollLeft = 0;
+    const maxScrollLeft = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
+    setCanScrollRunningBackward(nextHasRunningOverflow && viewport.scrollLeft > 1);
+    setCanScrollRunningForward(
+      nextHasRunningOverflow && viewport.scrollLeft < maxScrollLeft - 1,
+    );
+  }, []);
+
+  const scrollRunningItems = useCallback((direction: 'backward' | 'forward') => {
+    const viewport = runningItemsViewportRef.current;
+    if (!viewport) return;
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    viewport.scrollBy({
+      left: (direction === 'forward' ? 1 : -1) * Math.max(32, viewport.clientWidth * 0.75),
+      behavior: prefersReducedMotion ? 'auto' : 'smooth',
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    const viewport = runningItemsViewportRef.current;
+    const capsule = runningCapsuleRef.current;
+    if (!capsule || !viewport) return;
+    const track = viewport.firstElementChild;
+    const resizeObserver = new ResizeObserver(syncRunningScrollState);
+    resizeObserver.observe(capsule);
+    resizeObserver.observe(viewport);
+    if (track) resizeObserver.observe(track);
+    viewport.addEventListener('scroll', syncRunningScrollState, { passive: true });
+    syncRunningScrollState();
+    return () => {
+      resizeObserver.disconnect();
+      viewport.removeEventListener('scroll', syncRunningScrollState);
+    };
+  }, [continueWorks.length, syncRunningScrollState]);
 
   const captureActiveCardRects = useCallback(() => {
     const activePanel = shellRef.current?.querySelector<HTMLElement>('.app-center-shell__main-panel.is-active');
@@ -969,8 +872,8 @@ export const AppsScene: React.FC = () => {
         || app.launch?.kind === 'agentSession'
         || app.launch?.kind === 'appBuilder'
       ) {
-        if (catalogAppRequiresWorkspace(app)) {
-          setWorkspaceLaunchApp(app);
+        if (catalogAppLaunchRequiresWorkConfirmation(app)) {
+          setWorkLaunchApp(app);
           return;
         }
         await launchActiveIntelligentApp(app.activeRef!, {
@@ -995,7 +898,11 @@ export const AppsScene: React.FC = () => {
   const handleLaunchNativeApp = useCallback(async (app: NativeAppCatalogEntry) => {
     setLaunchingAppId(app.id);
     try {
-      if (app.launch?.kind === 'agentSession' || app.launch?.kind === 'appBuilder') {
+      if (app.launch?.kind === 'appBuilder') {
+        await createAndOpenAppBuilder({ scope: workAppScope });
+        return;
+      }
+      if (app.launch?.kind === 'agentSession') {
         const agentChoice = nativeAgentChoiceForApp(app);
         if (!agentChoice) {
           notificationService.error(t('productSystem.messages.noLaunch', { name: app.name }));
@@ -1022,7 +929,7 @@ export const AppsScene: React.FC = () => {
     } finally {
       setLaunchingAppId(null);
     }
-  }, [lastUsedWorkspace, rememberWorkspace, t]);
+  }, [lastUsedWorkspace, rememberWorkspace, t, workAppScope]);
 
   const handleStopApp = useCallback(async (app: ProductAppCatalogEntry) => {
     setStoppingAppId(app.id);
@@ -1040,6 +947,24 @@ export const AppsScene: React.FC = () => {
       setStoppingAppId(null);
     }
   }, [markProductAppRuntimeWorkerStopped, t]);
+
+  const handleCloseRunningWork = useCallback(async (work: WorkRecord) => {
+    setClosingWorkId(work.id);
+    try {
+      const action = work.status === 'running' || work.status === 'waiting_user' || work.status === 'blocked'
+        ? 'cancel_current_execution'
+        : 'archive';
+      await controlWork({ workId: work.id, action });
+    } catch (error) {
+      log.error('Failed to close running app work', { workId: work.id, error });
+      notificationService.error(t('productSystem.messages.closeWorkFailed', {
+        name: work.title,
+        error: errorToMessage(error),
+      }));
+    } finally {
+      setClosingWorkId(null);
+    }
+  }, [controlWork, t]);
 
   const handleSetProductAppEnabled = useCallback(async (
     app: ProductAppCatalogEntry,
@@ -1250,9 +1175,9 @@ export const AppsScene: React.FC = () => {
 
   const workspaceLaunchDialog = (
     <NewWorkDialog
-      open={Boolean(workspaceLaunchApp)}
-      onClose={() => setWorkspaceLaunchApp(null)}
-      initialAgentChoice={workspaceLaunchApp ? productAppWorkChoice(workspaceLaunchApp.slotId) : undefined}
+      open={Boolean(workLaunchApp)}
+      onClose={() => setWorkLaunchApp(null)}
+      initialAgentChoice={workLaunchApp ? productAppWorkChoice(workLaunchApp.slotId) : undefined}
     />
   );
 
@@ -1361,51 +1286,104 @@ export const AppsScene: React.FC = () => {
               <span>{t('productSystem.homeRail.running')}</span>
               <Badge variant="success">{activeItemCount}</Badge>
             </div>
-            <div className="app-center-shell__running-capsule" role="list">
-              {visibleContinueWorks.slice(0, 4).map(({ work, appRef }) => {
-                const app = displayNativeApps.find((candidate) => sameAppRef(nativeAppWorkRef(candidate.id), appRef))
-                  ?? homeDisplayApps.find((candidate) => sameProductAppRef(productAppWorkRef(candidate), appRef));
-                return (
-                  <IconButton
-                    key={work.id}
-                    variant="ghost"
-                    size="medium"
-                    shape="circle"
-                    role="listitem"
-                    aria-label={work.title}
-                    tooltip={work.title}
-                    onClick={() => void openWork(work)}
-                  >
-                    {app ? <AppIcon app={app} size={26} /> : <Activity size={18} aria-hidden />}
-                  </IconButton>
-                );
-              })}
-              {!visibleContinueWorks.length ? <span className="app-center-shell__running-empty">{t('productSystem.homeRail.idle')}</span> : null}
+            <div ref={runningCapsuleRef} className="app-center-shell__running-capsule">
+              {hasRunningOverflow && canScrollRunningBackward ? (
+                <IconButton
+                  className="app-center-shell__running-page"
+                  variant="ghost"
+                  size="medium"
+                  shape="circle"
+                  aria-label={t('productSystem.homeRail.previousRunningApps')}
+                  tooltip={t('productSystem.homeRail.previousRunningApps')}
+                  onClick={() => scrollRunningItems('backward')}
+                >
+                  <ChevronLeft size={14} aria-hidden />
+                </IconButton>
+              ) : null}
+              <div
+                ref={runningItemsViewportRef}
+                className="app-center-shell__running-viewport"
+                role="list"
+              >
+                <div className="app-center-shell__running-track">
+                  {continueWorks.map(({ work, appRef }) => {
+                    const app = displayNativeApps.find((candidate) => sameAppRef(nativeAppWorkRef(candidate.id), appRef))
+                      ?? homeDisplayApps.find((candidate) => sameProductAppRef(productAppWorkRef(candidate), appRef));
+                    return (
+                      <span
+                        key={work.id}
+                        role="listitem"
+                        className="app-center-shell__running-item"
+                      >
+                        <IconButton
+                          variant="ghost"
+                          size="medium"
+                          shape="circle"
+                          aria-label={work.title}
+                          tooltip={work.title}
+                          onClick={() => void openWork(work)}
+                        >
+                          {app ? <AppIcon app={app} size={26} /> : <Activity size={18} aria-hidden />}
+                        </IconButton>
+                        <IconButton
+                          className="app-center-shell__running-close"
+                          variant="danger"
+                          size="xs"
+                          shape="circle"
+                          aria-label={t('productSystem.homeRail.closeRunningApp', { name: work.title })}
+                          tooltip={t('productSystem.homeRail.closeRunningApp', { name: work.title })}
+                          disabled={closingWorkId === work.id}
+                          aria-busy={closingWorkId === work.id || undefined}
+                          onClick={() => void handleCloseRunningWork(work)}
+                        >
+                          <X size={12} aria-hidden />
+                        </IconButton>
+                      </span>
+                    );
+                  })}
+                  {!continueWorks.length ? <span className="app-center-shell__running-empty">{t('productSystem.homeRail.idle')}</span> : null}
+                </div>
+              </div>
+              {showRunningForwardControl ? (
+                <IconButton
+                  className="app-center-shell__running-page"
+                  variant="ghost"
+                  size="medium"
+                  shape="circle"
+                  aria-label={t('productSystem.homeRail.nextRunningApps')}
+                  tooltip={t('productSystem.homeRail.nextRunningApps')}
+                  onClick={() => scrollRunningItems('forward')}
+                >
+                  <ChevronRight size={14} aria-hidden />
+                </IconButton>
+              ) : null}
             </div>
               </section>
 
-              <section className="app-center-shell__pinned">
-            <div className="app-center-shell__rail-heading">
-              <span>{t('productSystem.homeRail.pinned')}</span>
-            </div>
-            <div className="app-center-shell__pinned-list">
-              {pinnedApps.map((app) => (
-                <button
-                  key={pinKeyForApp(app)}
-                  type="button"
-                  className="app-center-shell__pinned-app"
-                  onClick={() => {
-                    if ('slotId' in app) void handleLaunchApp(app);
-                    else void handleLaunchNativeApp(app);
-                  }}
-                >
-                  <AppIcon app={app} size={32} />
-                  <span>{app.name}</span>
-                  <ArrowUpRight size={14} aria-hidden />
-                </button>
-              ))}
-            </div>
-              </section>
+              {railPinnedApps.length ? (
+                <section className="app-center-shell__pinned">
+                  <div className="app-center-shell__rail-heading">
+                    <span>{t('productSystem.homeRail.pinnedApps')}</span>
+                  </div>
+                  <div className="app-center-shell__pinned-list">
+                    {railPinnedApps.map((app) => (
+                      <button
+                        key={getPinnedAppId(app)}
+                        type="button"
+                        className="app-center-shell__pinned-app"
+                        onClick={() => {
+                          if ('slotId' in app) void handleLaunchApp(app);
+                          else void handleLaunchNativeApp(app);
+                        }}
+                      >
+                        <AppIcon app={app} size={32} />
+                        <span>{app.name}</span>
+                        <ArrowUpRight size={14} aria-hidden />
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
             </div>
             <div
               className={`app-center-shell__rail-panel app-center-shell__rail-panel--manage${page === 'manage' ? ' is-active' : ''}`}
@@ -1486,10 +1464,7 @@ export const AppsScene: React.FC = () => {
           ) : null}
 
           {homeInitialLoading ? (
-            <div className="apps-scene__loading">
-              <DotMatrixLoader size="small" />
-              <span>{t('productSystem.loading')}</span>
-            </div>
+            <CatalogInitialSkeleton label={t('productSystem.loading')} />
           ) : (
             <div className="app-center-shell__view-stack">
               <SceneBody
@@ -1500,8 +1475,11 @@ export const AppsScene: React.FC = () => {
                 {launchCardCount || homeSyncActive ? (
                   <div className="apps-scene__app-grid">
                     {launchNativeApps.map((app) => (
-                      <div className="apps-scene__app-tile" key={app.id}>
-                        <PinAction app={app} pinned={pinnedAppIds.includes(pinKeyForApp(app))} onToggle={togglePinnedApp} t={t} />
+                      <div
+                        className="apps-scene__app-tile apps-scene__app-tile--revealing"
+                        key={app.id}
+                      >
+                        <PinAction app={app} pinned={pinnedAppIds.includes(getPinnedAppId(app))} onToggle={togglePinnedApp} t={t} />
                         <NativeAppCard
                           app={app}
                           launching={launchingAppId === app.id}
@@ -1521,8 +1499,11 @@ export const AppsScene: React.FC = () => {
                     {launchApps.map((app) => {
                       const launchBehavior = getCatalogAppLaunchBehavior(app);
                       return (
-                        <div className="apps-scene__app-tile" key={productAppLibraryKey(app)}>
-                          <PinAction app={app} pinned={pinnedAppIds.includes(pinKeyForApp(app))} onToggle={togglePinnedApp} t={t} />
+                        <div
+                          className="apps-scene__app-tile apps-scene__app-tile--revealing"
+                          key={productAppLibraryKey(app)}
+                        >
+                          <PinAction app={app} pinned={pinnedAppIds.includes(getPinnedAppId(app))} onToggle={togglePinnedApp} t={t} />
                           <ProductAppCard
                             app={app}
                             launching={launchingAppId === app.id}
@@ -1538,7 +1519,6 @@ export const AppsScene: React.FC = () => {
                             onStop={() => void handleStopApp(app)}
                             onContinue={(work) => void openWork(work)}
                             onOpenDetails={() => openAppDetail(app.id)}
-                            appearing
                             t={t}
                           />
                         </div>
@@ -1549,19 +1529,6 @@ export const AppsScene: React.FC = () => {
                         label={t('productSystem.myApps.loadingProductApps')}
                         detail={t('productSystem.myApps.loadingProductAppsDetail')}
                       />
-                    ) : null}
-                    {activeItemCount > 1 ? (
-                      <button type="button" className="apps-scene__running-summary-card" onClick={openWorkCenterHome}>
-                        <span className="apps-scene__running-summary-icon" aria-hidden><Blocks size={20} /></span>
-                        <span className="apps-scene__running-summary-copy">
-                          <strong>{t('productSystem.homeRail.multiRunningTitle')}</strong>
-                          <small>{t('productSystem.homeRail.multiRunningDescription', { count: activeItemCount })}</small>
-                        </span>
-                        <span className="apps-scene__running-summary-status">
-                          {t('productSystem.homeRail.multiRunningStatus', { count: activeItemCount })}
-                        </span>
-                        <ArrowUpRight size={15} aria-hidden />
-                      </button>
                     ) : null}
                   </div>
                 ) : (
@@ -1576,15 +1543,18 @@ export const AppsScene: React.FC = () => {
                 {discoverApps.length || discoverSyncActive ? (
                   <div className="apps-scene__app-grid">
                     {discoverApps.map((app) => (
-                      <DiscoverAppCard
+                      <div
+                        className="apps-scene__app-tile apps-scene__app-tile--revealing"
                         key={productAppLibraryKey(app)}
-                        app={app}
-                        installing={managingAppId === app.id}
-                        onInstall={() => void handleInstallProductApp(app)}
-                        onOpenDetails={() => openAppDetail(app.id)}
-                        appearing
-                        t={t}
-                      />
+                      >
+                        <DiscoverAppCard
+                          app={app}
+                          installing={managingAppId === app.id}
+                          onInstall={() => void handleInstallProductApp(app)}
+                          onOpenDetails={() => openAppDetail(app.id)}
+                          t={t}
+                        />
+                      </div>
                     ))}
                     {discoverSyncActive ? <CatalogGhostCard label={t('productSystem.discover.loading')} detail={t('productSystem.discover.loadingDetail')} /> : null}
                   </div>
@@ -1677,7 +1647,7 @@ function PinAction({
       shape="circle"
       aria-label={label}
       tooltip={label}
-      onClick={() => onToggle(pinKeyForApp(app))}
+      onClick={() => onToggle(getPinnedAppId(app))}
     >
       {pinned ? <PinOff size={13} aria-hidden /> : <Pin size={13} aria-hidden />}
     </IconButton>
@@ -1703,6 +1673,30 @@ function CatalogGhostCard({
       <div className="apps-scene__ghost-card-lines" aria-hidden="true">
         <span />
         <span />
+      </div>
+    </div>
+  );
+}
+
+function CatalogInitialSkeleton({ label }: { label: string }) {
+  return (
+    <div className="apps-scene__initial-catalog" role="status" aria-label={label}>
+      <div className="apps-scene__app-grid" aria-hidden="true">
+        {Array.from({ length: 6 }, (_, index) => (
+          <ItemCard className="apps-scene__app-card apps-scene__app-card--skeleton" key={index}>
+            <ItemCardTop className="apps-scene__app-card-top">
+              <span className="apps-scene__app-card-skeleton-icon" />
+              <ItemCardTitle className="apps-scene__app-card-title apps-scene__app-card-skeleton-title">
+                <span />
+                <span />
+              </ItemCardTitle>
+            </ItemCardTop>
+            <div className="apps-scene__app-card-skeleton-description">
+              <span />
+              <span />
+            </div>
+          </ItemCard>
+        ))}
       </div>
     </div>
   );
@@ -2096,14 +2090,12 @@ function NativeAppCard({
 function DiscoverAppCard({
   app,
   installing,
-  appearing,
   onInstall,
   onOpenDetails,
   t,
 }: {
   app: ProductAppCatalogEntry;
   installing: boolean;
-  appearing?: boolean;
   onInstall: () => void;
   onOpenDetails: () => void;
   t: (key: string, options?: Record<string, unknown>) => string;
@@ -2113,7 +2105,6 @@ function DiscoverAppCard({
       className={[
         'apps-scene__app-card',
         'apps-scene__app-card--discover',
-        appearing && 'apps-scene__app-card--appearing',
       ].filter(Boolean).join(' ')}
       onActivate={onOpenDetails}
       aria-label={app.name}
@@ -2161,7 +2152,6 @@ function ProductAppCard({
   supportsMultipleWorks,
   relatedWorks,
   flipped,
-  appearing,
   onToggleFlip,
   onLaunch,
   onStop,
@@ -2176,7 +2166,6 @@ function ProductAppCard({
   supportsMultipleWorks: boolean;
   relatedWorks: WorkRecord[];
   flipped: boolean;
-  appearing?: boolean;
   onToggleFlip: () => void;
   onLaunch: () => void;
   onStop: () => void;
@@ -2191,7 +2180,6 @@ function ProductAppCard({
     <WorkCardFrame
       depth={hasStack ? Math.min(relatedWorks.length, 2) : 0}
       expanded={isExpanded}
-      className={appearing ? 'apps-scene__app-card--appearing' : undefined}
     >
       <ItemCard
         className="apps-scene__app-card"

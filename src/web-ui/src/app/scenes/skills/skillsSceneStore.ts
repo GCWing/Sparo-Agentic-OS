@@ -1,15 +1,19 @@
 import { create } from 'zustand';
-
-export type InstalledFilter = 'all' | 'builtin' | 'user' | 'project' | 'suite';
+import type {
+  SkillLibrarySourceFilter,
+  SkillLibraryTypeFilter,
+} from '@/shared/skillLibrary';
 
 interface SkillsSceneState {
   searchDraft: string;
   marketQuery: string;
-  installedFilter: InstalledFilter;
+  installedTypeFilter: SkillLibraryTypeFilter;
+  installedSourceFilter: SkillLibrarySourceFilter;
   isAddFormOpen: boolean;
   setSearchDraft: (value: string) => void;
   submitMarketQuery: () => void;
-  setInstalledFilter: (filter: InstalledFilter) => void;
+  setInstalledTypeFilter: (filter: SkillLibraryTypeFilter) => void;
+  setInstalledSourceFilter: (filter: SkillLibrarySourceFilter) => void;
   setAddFormOpen: (open: boolean) => void;
   toggleAddForm: () => void;
 }
@@ -17,11 +21,13 @@ interface SkillsSceneState {
 export const useSkillsSceneStore = create<SkillsSceneState>((set) => ({
   searchDraft: '',
   marketQuery: '',
-  installedFilter: 'all',
+  installedTypeFilter: 'all',
+  installedSourceFilter: 'all',
   isAddFormOpen: false,
   setSearchDraft: (value) => set({ searchDraft: value }),
   submitMarketQuery: () => set((state) => ({ marketQuery: state.searchDraft.trim() })),
-  setInstalledFilter: (filter) => set({ installedFilter: filter }),
+  setInstalledTypeFilter: (filter) => set({ installedTypeFilter: filter }),
+  setInstalledSourceFilter: (filter) => set({ installedSourceFilter: filter }),
   setAddFormOpen: (open) => set({ isAddFormOpen: open }),
   toggleAddForm: () => set((state) => ({ isAddFormOpen: !state.isAddFormOpen })),
 }));

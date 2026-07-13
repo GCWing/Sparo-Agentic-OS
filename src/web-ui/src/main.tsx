@@ -287,8 +287,6 @@ async function initializeBeforeRender(): Promise<void> {
   log.debug('Monaco loader configured', { vs: monacoPath, isDev });
   log.info('Initializing Sparo OS');
 
-  const { registerDefaultContextTypes } = await import('./shared/context-system/core/registerDefaultTypes');
-  registerDefaultContextTypes();
 
   const { initRecommendationProviders } = await import('./flow_chat/components/smart-recommendations');
   initRecommendationProviders();

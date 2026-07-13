@@ -58,6 +58,51 @@
     border-radius: 0 0 var(--size-radius-sm, 6px) var(--size-radius-sm, 6px);
   }
 
+  &--shape-pill &__trigger {
+    min-height: 34px;
+    padding-block: 5px;
+    border-color: transparent;
+    border-radius: var(--ds-radius-full, 999px);
+    background: var(--ds-color-element-subtle, var(--element-bg-subtle));
+    box-shadow: none;
+  }
+
+  &--shape-pill &__trigger:hover:not(.select--disabled &) {
+    border-color: transparent;
+    background: var(--ds-color-element-soft, var(--element-bg-soft));
+  }
+
+  &--shape-pill &__trigger:focus-visible {
+    border-color: transparent;
+    background: var(--ds-color-element-medium, var(--element-bg-medium));
+  }
+
+  &--shape-pill.select--open &__trigger,
+  &--shape-pill.select--open.select--placement-top &__trigger {
+    border-color: transparent;
+    border-radius: var(--ds-radius-full, 999px);
+    background: var(--ds-color-element-medium, var(--element-bg-medium));
+  }
+
+  &--shape-pill &__dropdown {
+    border: 0;
+    border-radius: var(--ds-radius-lg, 12px);
+
+    &::before {
+      content: none;
+    }
+
+    &--bottom {
+      top: calc(100% + var(--ds-space-1, 4px));
+    }
+
+    &--top {
+      bottom: calc(100% + var(--ds-space-1, 4px));
+      border: 0;
+      border-radius: var(--ds-radius-lg, 12px);
+    }
+  }
+
   &--disabled {
     opacity: var(--opacity-disabled, 0.6);
     cursor: default;

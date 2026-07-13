@@ -295,6 +295,11 @@ export interface AgentSessionBindingMetadata {
     duplicateKey?: string;
   };
   scope: AppScope;
+  executionContext?: {
+    workId?: string | null;
+    runtimeInstanceId?: string | null;
+    previewIssueId?: string | null;
+  };
   workspacePath?: string | null;
   openedFrom?: string;
   updatedAt: number;

@@ -39,7 +39,7 @@
   padding: var(--ds-space-1);
   border: 1px solid var(--ds-color-border-subtle);
   border-radius: var(--ds-radius-xl);
-  background: color-mix(in srgb, var(--ds-color-bg-muted) 28%, var(--ds-color-bg-panel));
+  background: color-mix(in srgb, var(--ds-color-element-subtle) 28%, var(--ds-color-bg-panel));
   box-shadow: none;
 }
 
@@ -99,10 +99,9 @@
   gap: var(--ds-space-2);
   padding: var(--ds-space-2);
   border-radius: var(--ds-radius-lg);
-  border: 1px solid var(--ds-color-border-subtle);
-  background: var(--ds-color-bg-muted);
+  border: 0;
+  background: var(--ds-color-element-subtle);
   transition:
-    border-color var(--ds-motion-fast) var(--ds-easing-standard),
     background-color var(--ds-motion-fast) var(--ds-easing-standard),
     transform var(--ds-motion-fast) var(--ds-easing-standard);
 
@@ -120,8 +119,6 @@
 
   &:hover,
   &:focus-visible {
-    background: var(--ds-color-bg-hover);
-    border-color: var(--ds-color-danger);
     transform: scale(1.04);
   }
 }

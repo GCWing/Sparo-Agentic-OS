@@ -27,6 +27,24 @@
   }
 }
 
+@mixin ds-floating-surface($radius: var(--ds-radius-2xl, #{legacy.$size-radius-2xl})) {
+  @include ds-surface(elevated);
+
+  border-color: transparent;
+  border-radius: $radius;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--ds-color-border-base) 42%, transparent),
+    var(
+      --ds-shadow-floating,
+      0 16px 34px var(--ds-shadow-color-floating, rgb(0 0 0 / 45%))
+    ),
+    0 28px 64px -20px color-mix(
+      in srgb,
+      var(--ds-shadow-color-floating, rgb(0 0 0 / 45%)) 82%,
+      transparent
+    );
+}
+
 @mixin ds-status-surface($status: neutral) {
   background: var(--ds-status-surface-#{$status}-bg, var(--element-bg-base, #{legacy.$element-bg-base}));
   border: 1px solid var(--ds-status-surface-#{$status}-border, var(--border-base, #{legacy.$border-base}));

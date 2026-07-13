@@ -24,9 +24,8 @@
     bottom: calc(100% + 6px);
     left: 0;
     min-width: 200px;
-    @include flow.flow-chat-popover(6px);
+    z-index: var(--ds-z-dropdown);
     overflow: hidden;
-    animation: mode-dropdown-fade-in 0.15s ease-out;
 
     &--agent-boost {
       min-width: 228px;
@@ -241,17 +240,6 @@
     }
   }
   
-  @keyframes mode-dropdown-fade-in {
-    from {
-      opacity: 0;
-      transform: translateY(4px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-  
   &__slash-command-picker {
     position: absolute;
     bottom: calc(100% + 6px);
@@ -260,7 +248,19 @@
     max-height: 280px;
     @include flow.flow-chat-popover(6px);
     overflow: hidden;
-    animation: mode-dropdown-fade-in 0.15s ease-out;
+    animation: slash-command-picker-fade-in 0.15s ease-out;
+  }
+
+  @keyframes slash-command-picker-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
   
   &__slash-command-header {
@@ -637,8 +637,7 @@
   :root[data-theme="light"] &,
   :root[data-theme-type="light"] &,
   .light & {
-    &__slash-command-picker,
-    &__mode-dropdown {
+    &__slash-command-picker {
       background: var(--ds-chat-surface-elevated);
       border: 1px solid var(--ds-chat-border);
       backdrop-filter: none;

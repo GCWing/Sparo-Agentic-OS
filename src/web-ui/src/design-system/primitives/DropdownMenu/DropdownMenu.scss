@@ -11,13 +11,7 @@
 
 .cl-dropdown-menu {
   position: fixed;
-  padding: $size-gap-1;
-  background: var(--color-bg-elevated, #1e1e22);
-  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
-  border-radius: $size-radius-base;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   z-index: $z-popover;
-  outline: none;
 }
 
 // ── Submenu wrap �?provides relative positioning context ──────────────────────
@@ -51,7 +45,7 @@
   &:hover,
   &.is-open {
     color: var(--color-text-primary);
-    background: var(--element-bg-soft);
+    background: var(--ds-popup-menu-row-hover-bg);
   }
 
   &.is-checked {
@@ -116,11 +110,6 @@
   max-height: min(70vh, 360px);
   overflow-x: hidden;
   overflow-y: auto;
-  padding: $size-gap-1;
-  background: var(--color-bg-elevated, #1e1e22);
-  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
-  border-radius: $size-radius-base;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   // One layer above the parent menu to ensure it paints on top.
   z-index: calc(#{$z-popover} + 1);
 

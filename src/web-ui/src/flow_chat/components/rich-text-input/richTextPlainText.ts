@@ -1,61 +1,63 @@
-import type { ContextItem } from '../../../shared/types/context';
+import type { ComposerDocument, ComposerNode } from '@/shared/types/composer';
+import { normalizeComposerDocument } from '@/shared/types/composer';
+import type { ContextItem } from '@/shared/types/context';
 
 export function sanitizeRichText(text: string): string {
-  // Strip zero-width and control characters that WebKit/WebView may inject.
-  // Preserve normal whitespace: space, tab, newline, and carriage return.
-  // eslint-disable-next-line no-control-regex -- This intentionally removes specific ASCII control-character ranges.
+  // Strip invisible/control characters WebKit may inject while preserving
+  // ordinary spaces, tabs and line breaks authored by the user.
+  // eslint-disable-next-line no-control-regex -- intentional control-character ranges
   return text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F\u200B-\u200F\u2028\u2029\uFEFF\u2060\u00AD]/g, '');
 }
 
-export function extractRichTextContent(editor: HTMLElement | null): string {
-  if (!editor) return '';
+export function extractComposerDocument(editor: HTMLElement | null): ComposerDocument {
+  if (!editor) return { version: 1, nodes: [] };
 
-  let text = '';
+  const nodes: ComposerNode[] = [];
+  const appendText = (text: string) => {
+    const clean = sanitizeRichText(text);
+    if (!clean) return;
+    nodes.push({ type: 'text', text: clean });
+  };
+  const endsWithNewline = () => {
+    const last = nodes[nodes.length - 1];
+    return last?.type === 'text' && last.text.endsWith('\n');
+  };
+
   const traverse = (node: Node) => {
     if (node.nodeType === Node.TEXT_NODE) {
-      text += node.textContent || '';
+      appendText(node.textContent || '');
       return;
     }
-
-    if (node.nodeType !== Node.ELEMENT_NODE) {
-      return;
-    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
 
     const element = node as HTMLElement;
-    const isBlock = element.tagName === 'DIV' || element.tagName === 'P';
-    if (isBlock && text.length > 0 && !text.endsWith('\n')) {
-      text += '\n';
-    }
-
     if (element.classList.contains('rich-text-tag-pill')) {
-      const tagFormat = element.getAttribute('data-tag-format');
-      if (tagFormat) {
-        text += tagFormat;
-      }
+      const contextId = element.dataset.contextId;
+      if (contextId) nodes.push({ type: 'context-ref', contextId });
       return;
     }
-
     if (element.tagName === 'BR') {
-      text += '\n';
+      appendText('\n');
       return;
     }
 
-    node.childNodes.forEach(traverse);
+    const isBlock = element.tagName === 'DIV' || element.tagName === 'P';
+    if (isBlock && nodes.length > 0 && !endsWithNewline()) appendText('\n');
+    element.childNodes.forEach(traverse);
   };
 
   editor.childNodes.forEach(traverse);
-  return sanitizeRichText(text).trim();
+  return normalizeComposerDocument({ version: 1, nodes });
 }
 
 export function getVisibleRichTextContexts(
-  editor: HTMLElement | null,
+  document: ComposerDocument,
   contexts: ContextItem[],
 ): ContextItem[] {
   const visibleContextIds = new Set(
-    Array.from(editor?.querySelectorAll<HTMLElement>('[data-context-id]') ?? [])
-      .map(element => element.dataset.contextId)
-      .filter((id): id is string => !!id),
+    document.nodes
+      .filter(node => node.type === 'context-ref')
+      .map(node => node.contextId),
   );
-
-  return contexts.filter(context => visibleContextIds.has(context.id));
+  return contexts.filter(context => context.type === 'image' || visibleContextIds.has(context.id));
 }

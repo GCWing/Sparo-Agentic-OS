@@ -7,15 +7,19 @@ import type { WorkspaceSceneId } from '@/app/navigation/workspaceSceneTypes';
 import type { InputAction } from '../../../reducers/inputReducer';
 import type { AgentAction } from '../../../reducers/agentReducer';
 import type { RichTextInputHandle } from '../../RichTextInput';
+import type { ContextItem, SkillSelectionContext } from '@/shared/types/context';
+import type { SkillSelectionTarget } from '@/shared/skillLibrary';
 
 export function useComposerBoostActions({
   currentSessionId,
   dismissSkillsFlyout,
   dispatchInput,
   dispatchMode,
+  contexts,
+  addContext,
+  removeContext,
   focusInputSoon,
   handleImageInput,
-  inputValue,
   isBtwSession,
   onStartSideQuestionDraft,
   richTextInputRef,
@@ -25,25 +29,67 @@ export function useComposerBoostActions({
   dismissSkillsFlyout: () => void;
   dispatchInput: Dispatch<InputAction>;
   dispatchMode: Dispatch<AgentAction>;
+  contexts: ContextItem[];
+  addContext: (context: ContextItem) => void;
+  removeContext: (id: string) => void;
   focusInputSoon: () => void;
   handleImageInput: () => void;
-  inputValue: string;
   isBtwSession: boolean;
   onStartSideQuestionDraft: () => void;
   richTextInputRef: RefObject<RichTextInputHandle | null>;
   t: TFunction<'flow-chat'>;
 }) {
   const insertSkillIntoInput = useCallback(
-    (skillName: string) => {
-      const line = t('chatInput.insertSkillLine', { name: skillName });
+    (target: SkillSelectionTarget) => {
+      const selectedSkills = contexts.filter(
+        (context): context is SkillSelectionContext => context.type === 'skill-selection',
+      );
+      if (selectedSkills.some(context => context.command === target.command)) {
+        dismissSkillsFlyout();
+        dispatchMode({ type: 'CLOSE_DROPDOWN' });
+        focusInputSoon();
+        return;
+      }
+
+      selectedSkills.forEach(context => {
+        const sameSuite = Boolean(target.suiteId) && context.suiteId === target.suiteId;
+        if (!sameSuite) return;
+        if (target.kind === 'suite' || context.targetKind === 'suite') {
+          removeContext(context.id);
+        }
+      });
+
+      const context: SkillSelectionContext = {
+        id: `skill-selection:${target.kind}:${target.key}`,
+        type: 'skill-selection',
+        timestamp: Date.now(),
+        targetKind: target.kind,
+        targetKey: target.key,
+        command: target.command,
+        name: target.name,
+        description: target.description,
+        suiteId: target.suiteId,
+        suiteName: target.suiteName,
+        memberCount: target.memberCount,
+      };
+
       dispatchInput({ type: 'ACTIVATE' });
-      const next = inputValue.trim() ? `${inputValue.trimEnd()}\n\n${line}` : line;
-      dispatchInput({ type: 'SET_VALUE', payload: next });
+      addContext(context);
+      richTextInputRef.current?.insertTag(context);
       dismissSkillsFlyout();
       dispatchMode({ type: 'CLOSE_DROPDOWN' });
       focusInputSoon();
     },
-    [dismissSkillsFlyout, dispatchInput, dispatchMode, focusInputSoon, inputValue, t],
+    [
+      addContext,
+      contexts,
+      dismissSkillsFlyout,
+      dispatchInput,
+      dispatchMode,
+      focusInputSoon,
+      removeContext,
+      richTextInputRef,
+    ],
   );
 
   const handleBoostPickImage = useCallback(

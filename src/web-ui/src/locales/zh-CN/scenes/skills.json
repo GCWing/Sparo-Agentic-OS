@@ -1,165 +1,139 @@
 {
   "nav": {
-    "title": "技能",
-    "summary": "在本地已安装技能与外部技能市场之间快速切换查看。",
-    "anchors": {
-      "installed": "已安装技能",
-      "market": "技能市场"
-    },
-    "anchorDescriptions": {
-      "installed": "管理当前环境中已经可用的技能。",
-      "market": "从 skills.sh 检索并下载更多技能。"
-    },
-    "categories": {
-      "discover": "探索",
-      "installed": "已安装"
-    },
-    "items": {
-      "market": "技能市场",
-      "installedAll": "全部",
-      "installedUser": "用户级",
-      "installedProject": "项目级"
-    }
-  },
-  "page": {
-    "title": "技能",
-    "subtitle": "统一管理已安装技能，并从外部技能市场发现更多可复用能力。",
-    "searchPlaceholder": "搜索已安装技能和市场技能..."
+    "title": "Skills"
   },
   "installed": {
-    "titleAll": "已安装技能",
-    "subtitleAll": "管理所有已安装的用户级和项目级技能",
-    "titleUser": "用户级技能",
-    "subtitleUser": "全局安装的用户级技能",
-    "titleProject": "项目级技能",
-    "subtitleProject": "当前工作区的项目级技能"
+    "titleAll": "Skill 资源库",
+    "summary": "当前环境共有 {{count}} 个管理单元"
+  },
+  "library": {
+    "listLabel": "Skill 管理单元",
+    "detailLabel": "所选管理单元详情"
   },
   "toolbar": {
-    "searchPlaceholder": "搜索技能...",
-    "addTooltip": "添加技能"
+    "searchPlaceholder": "搜索套装、独立 Skill 或成员…",
+    "addPackage": "添加管理单元"
   },
   "filters": {
-    "all": "全部",
-    "builtin": "内置",
-    "user": "用户级",
-    "project": "项目级",
-    "suite": "套件"
-  },
-  "categories": {
-    "all": "查看所有已安装的技能，包含内置、用户和项目级。",
-    "builtin": "系统出厂自带的核心技能，不可删除。",
-    "user": "您全局安装到当前账户的用户级技能。",
-    "project": "安装到当前工作区项目的项目级技能。",
-    "suite": "精选的技能套件，将多个相关技能打包提供。"
-  },
-  "section": {
-    "user": {
-      "description": "已为当前用户全局安装的技能"
+    "typeLabel": "管理单元类型",
+    "sourceLabel": "资源来源",
+    "type": {
+      "all": "全部",
+      "suite": "套装",
+      "standalone": "独立 Skill"
     },
-    "project": {
-      "description": "当前工作区的项目级技能"
+    "source": {
+      "all": "全部来源",
+      "builtin": "内置",
+      "user": "用户",
+      "project": "项目"
     }
   },
+  "detail": {
+    "runtime": "调用信息",
+    "command": "调用命令",
+    "type": "类型",
+    "status": "状态",
+    "level": "位置",
+    "path": "路径",
+    "router": "路由 Skill",
+    "tags": "标签",
+    "members": "套装成员",
+    "member": "套装成员",
+    "memberCount": "{{count}} 个成员",
+    "missingMembers": "缺失成员",
+    "noMembers": "此套装当前没有可用成员。",
+    "healthReady": "完整可用",
+    "healthMissing": "缺失 {{count}} 项",
+    "reveal": "打开管理单元目录",
+    "deletePackage": "删除管理单元",
+    "backToSuite": "返回套装",
+    "emptyTitle": "选择一个 Skill 管理单元",
+    "emptyDescription": "选择套装或独立 Skill，查看调用命令、来源和内部结构。"
+  },
+  "management": {
+    "title": "管理设置",
+    "agentLabel": "应用到 Agent",
+    "availabilityLabel": "允许此 Agent 使用",
+    "availabilityEnabled": "{{agent}} 可在运行时调用此管理单元。",
+    "availabilityDisabled": "此管理单元已对 {{agent}} 屏蔽。",
+    "noAgents": "没有可配置的 Agent",
+    "filesTitle": "文件与安装",
+    "builtinDescription": "内置管理单元可以屏蔽或恢复，但不能删除。",
+    "removableDescription": "打开管理单元目录，或从当前资源库中永久删除。",
+    "openFolder": "打开目录",
+    "delete": "删除"
+  },
   "market": {
-    "title": "技能市场",
-    "subtitle": "搜索并下载可复用技能（默认下载到当前项目）",
-    "subtitlePrefix": "从",
-    "subtitleSuffix": "浏览和下载可复用技能。",
-    "searchPlaceholder": "搜索市场技能...",
-    "loading": "正在加载市场技能...",
-    "errorPrefix": "市场加载失败: ",
+    "title": "Skill 市场",
+    "subtitle": "发现可复用的 Skill，并安装到当前项目。",
+    "searchPlaceholder": "搜索市场 Skill…",
+    "resultsInfo": "“{{query}}”共有 {{count}} 个结果",
     "empty": {
-      "noMatch": "没有找到匹配的市场技能",
-      "noSkills": "暂时没有可展示的市场技能"
+      "noMatch": "没有符合当前搜索的市场 Skill。",
+      "noSkills": "市场暂无可用 Skill。"
     },
     "item": {
-      "sourceLabel": "来源: ",
-      "installs": "安装量: {{count}}",
-      "noDescription": "暂无简介",
-      "downloadProject": "下载到项目",
+      "sourceLabel": "来源",
+      "downloadProject": "安装到项目",
       "installed": "已安装",
-      "installedTooltip": "该技能已安装",
-      "downloading": "下载中..."
+      "downloading": "安装中…"
     },
     "pagination": {
-      "prev": "上一页",
-      "next": "下一页",
-      "info": "第 {{current}} / {{total}} 页",
-      "infoMore": "第 {{current}} 页",
-      "loading": "加载中..."
-    },
-    "sourceNote": {
-      "prefix": "数据来源",
-      "suffix": " · 最多显示前 {{max}} 条结果"
+      "info": "{{current}} / {{total}}",
+      "infoMore": "第 {{current}} 页"
     },
     "detail": {
-      "installsLabel": "安装量",
       "linkLabel": "链接"
     }
   },
   "form": {
-    "title": "添加技能",
-    "closeTooltip": "关闭",
+    "title": "添加 Skill 管理单元",
     "level": {
-      "label": "级别",
-      "user": "用户级（全局）",
-      "project": "项目级（工作区路径）",
-      "projectDisabled": " - 需要先打开工作区",
-      "selectedProjectPath": "所选项目路径: {{path}}"
+      "label": "安装位置",
+      "user": "用户资源库（全局）",
+      "project": "项目资源库（当前工作区）",
+      "projectDisabled": " — 请先打开工作区",
+      "selectedProjectPath": "当前项目：{{path}}"
     },
     "path": {
-      "label": "技能文件夹路径",
-      "placeholder": "选择或输入技能文件夹路径",
-      "browseTooltip": "浏览",
-      "hint": "文件夹需包含有效的 SKILL.md 文件"
+      "label": "管理单元目录",
+      "placeholder": "选择 Skill 或套装目录",
+      "browseTooltip": "浏览目录",
+      "hint": "独立 Skill 包含 SKILL.md；套装包含 suite.json 及其成员目录。"
     },
-    "validating": "校验中...",
+    "validating": "正在校验管理单元…",
     "actions": {
+      "close": "关闭添加卡片",
       "cancel": "取消",
-      "add": "添加",
-      "adding": "添加中..."
+      "add": "添加管理单元",
+      "adding": "正在添加…"
     }
   },
   "list": {
-    "loading": "加载中...",
-    "errorPrefix": "加载失败: ",
     "empty": {
-      "noMatch": "没有找到匹配的技能",
-      "noSkills": "还没有配置任何技能"
-    },
-    "item": {
-      "user": "用户级",
-      "project": "项目级",
-      "builtin": "内置",
-      "standalone": "独立",
-      "userInstalled": "已安装",
-      "deleteTooltip": "删除",
-      "detail": "详情",
-      "pathLabel": "路径:",
-      "openPathInExplorer": "在资源管理器中打开此文件夹",
-      "revealPathUnavailableRemote": "远程工作区无法在本地资源管理器中打开路径"
+      "noMatch": "没有符合当前筛选条件的管理单元。",
+      "noSkills": "尚未安装任何 Skill 管理单元。"
     }
   },
   "deleteModal": {
-    "title": "确认删除",
-    "message": "确定要删除技能 \"{{name}}\" 吗？",
-    "warning": "此操作将删除技能文件夹，无法恢复。",
+    "title": "删除 Skill 管理单元",
+    "message": "删除{{type}}“{{name}}”？其整个管理单元目录都会被移除。",
     "cancel": "取消",
-    "delete": "删除"
+    "delete": "删除管理单元"
   },
   "messages": {
-    "invalidPath": "请选择有效的技能文件夹",
-    "noWorkspace": "请先打开一个工作区才能添加项目级技能",
-    "addSuccess": "技能 \"{{name}}\" 添加成功",
-    "addFailed": "添加失败: {{error}}",
-    "deleteSuccess": "技能 \"{{name}}\" 已删除",
-    "deleteFailed": "删除失败: {{error}}",
-    "toggleSuccess": "技能 \"{{name}}\" 已{{status}}",
-    "toggleFailed": "切换状态失败: {{error}}",
-    "marketDownloadSuccess": "技能 \"{{name}}\" 下载成功",
-    "marketDownloadFailed": "下载失败: {{error}}",
-    "enabled": "启用",
-    "disabled": "禁用",
-    "revealPathFailed": "无法在资源管理器中打开: {{error}}"
+    "invalidPath": "请选择有效的 Skill 管理单元目录。",
+    "noWorkspace": "请先打开工作区，再添加项目级管理单元。",
+    "addSuccess": "已添加“{{name}}”。",
+    "addFailed": "添加失败：{{error}}",
+    "deleteSuccess": "已删除“{{name}}”。",
+    "deleteFailed": "删除失败：{{error}}",
+    "disableSuccess": "已对当前 Agent 屏蔽“{{name}}”。",
+    "enableSuccess": "已为当前 Agent 恢复“{{name}}”。",
+    "availabilityUpdateFailed": "无法更新 Agent 可用性：{{error}}",
+    "marketDownloadSuccess": "已安装 Skill“{{name}}”。",
+    "marketDownloadFailed": "Skill 安装失败：{{error}}",
+    "revealPathFailed": "无法打开管理单元目录：{{error}}"
   }
 }
