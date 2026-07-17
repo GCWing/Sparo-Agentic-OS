@@ -36,6 +36,7 @@ export interface UseFlowChatCoreOptions {
   sessionId?: string | null;
   workspacePath?: string | null;
   config?: Partial<FlowChatConfig>;
+  mutationsDisabled?: boolean;
   onFileViewRequest?: (filePath: string, fileName: string, lineRange?: LineRange) => void;
   onTabOpen?: (tabInfo: any, sessionId?: string, panelType?: string) => void;
   onOpenVisualization?: (type: string, data: any) => void;
@@ -48,6 +49,7 @@ export function useFlowChatCore(options: UseFlowChatCoreOptions = {}) {
     sessionId,
     workspacePath: scopedWorkspacePath,
     config,
+    mutationsDisabled = false,
     onFileViewRequest,
     onTabOpen,
     onOpenVisualization,
@@ -92,7 +94,7 @@ export function useFlowChatCore(options: UseFlowChatCoreOptions = {}) {
     onCollapseGroup: handleCollapseGroup,
   } = useExploreGroupState(virtualItems);
 
-  const { handleToolConfirm, handleToolReject } = useFlowChatToolActions();
+  const { handleToolConfirm, handleToolReject } = useFlowChatToolActions({ mutationsDisabled });
   const { handleFileViewRequest } = useFlowChatFileActions({
     workspacePath: effectiveWorkspacePath,
     onFileViewRequest,
@@ -200,6 +202,7 @@ export function useFlowChatCore(options: UseFlowChatCoreOptions = {}) {
       onSwitchToChatPanel,
       onToolConfirm: handleToolConfirm,
       onToolReject: handleToolReject,
+      mutationsDisabled,
       sessionId: activeSession?.sessionId,
       config: {
         enableMarkdown: true,
@@ -218,6 +221,7 @@ export function useFlowChatCore(options: UseFlowChatCoreOptions = {}) {
       onSwitchToChatPanel,
       handleToolConfirm,
       handleToolReject,
+      mutationsDisabled,
       activeSession?.sessionId,
       config,
     ],
@@ -253,6 +257,7 @@ export function useFlowChatCore(options: UseFlowChatCoreOptions = {}) {
 
   return {
     // Store data
+    session: scopedSession,
     virtualItems,
     activeSession,
     visibleTurnInfo,

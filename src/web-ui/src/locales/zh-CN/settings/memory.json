@@ -5,7 +5,7 @@
     "global": {
       "sectionTitle": "全局记忆",
       "enabled": "启用全局自动记忆",
-      "enabledDesc": "",
+      "enabledDesc": "自动提取可长期复用的知识并写入全局 agentic_os 记忆。",
       "extractEveryEligibleTurns": "全局记忆更新频率",
       "extractEveryEligibleTurnsDesc": "每完成 N 轮符合条件的对话，更新一次 agentic_os 记忆。",
       "minExtractIntervalMinutes": "最小更新时间间隔",
@@ -16,7 +16,7 @@
     "workspace": {
       "sectionTitle": "工作区记忆",
       "enabled": "启用工作区自动记忆",
-      "enabledDesc": "",
+      "enabledDesc": "自动提取可长期复用的知识并写入当前工作区记忆。",
       "extractEveryEligibleTurns": "工作区记忆更新频率",
       "extractEveryEligibleTurnsDesc": "每完成 N 轮符合条件的对话，更新一次工作区记忆。",
       "minExtractIntervalMinutes": "最小更新时间间隔",
@@ -35,7 +35,8 @@
   "actions": {
     "disableAll": "禁用",
     "enableAll": "启用",
-    "resetAll": "重置"
+    "resetAll": "重置",
+    "retry": "重试"
   },
   "resetDialog": {
     "title": "重置记忆设置？",

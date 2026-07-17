@@ -1,11 +1,7 @@
- 
-
 import { api } from './ApiClient';
 import { createTauriCommandError } from '../errors/TauriCommandError';
 import type {
-  AgentCapabilityProfile,
   AgentSkillInfo,
-  AgentCapabilityConfigItem,
   RuntimeLoggingInfo,
   SkillCatalog,
   SkillLevel,
@@ -14,6 +10,26 @@ import type {
   SkillPackageKind,
   SkillPackageValidationResult,
 } from '../../config/types';
+import type {
+  ConfigCatalog,
+  DescribeConfigCatalogRequest,
+} from '../../config/catalog/types';
+import type {
+  ConfigSnapshot,
+  GetConfigSnapshotRequest,
+} from '../../config/snapshot/types';
+import type { ConfigStartupStatus } from '../../config/startup/types';
+import type {
+  CommitConfigPatchRequest,
+  ConfigApplyStatusEvent,
+  ConfigCommit,
+  ConfigCommittedEvent,
+  ConfigRolledBackEvent,
+  ConfigPlan,
+  PlanConfigPatchRequest,
+  RetryConfigApplyRequest,
+  UndoConfigCommitRequest,
+} from '../../config/transaction/types';
 
 export interface GetSkillConfigsParams {
   forceRefresh?: boolean;
@@ -65,120 +81,118 @@ export interface DownloadSkillMarketParams {
   workspacePath?: string;
 }
 
-export interface GetAgentCapabilityProfileParams {
-  agentId: string;
-  workspacePath?: string;
-}
-
-export interface UpdateAgentCapabilityProfileParams {
-  agentId: string;
-  workspacePath?: string;
-  enabled?: boolean;
-  model?: string;
-  tools?: string[];
-  skills?: string[];
-  subagents?: string[];
-}
-
-
 export class ConfigAPI {
-  async getAgentCapabilityProfile({
-    agentId,
-    workspacePath,
-  }: GetAgentCapabilityProfileParams): Promise<AgentCapabilityProfile> {
+  async getConfigStartupStatus(): Promise<ConfigStartupStatus> {
     try {
-      return await api.invoke('get_agent_capability_profile', {
-        request: { agentId, workspacePath },
+      return await api.invoke<ConfigStartupStatus>('get_config_startup_status', {
+        request: {},
       });
     } catch (error) {
-      throw createTauriCommandError('get_agent_capability_profile', error, { agentId, workspacePath });
+      throw createTauriCommandError('get_config_startup_status', error);
     }
   }
 
-  async updateAgentCapabilityProfile(params: UpdateAgentCapabilityProfileParams): Promise<AgentCapabilityProfile> {
+  async rebuildDefaultConfig(): Promise<ConfigStartupStatus> {
     try {
-      return await api.invoke('update_agent_capability_profile', {
-        request: params,
+      return await api.invoke<ConfigStartupStatus>('rebuild_default_config', {
+        request: {},
       });
     } catch (error) {
-      throw createTauriCommandError('update_agent_capability_profile', error, params);
+      throw createTauriCommandError('rebuild_default_config', error);
     }
   }
 
-   
-  async getConfig(path?: string, options?: { skipRetryOnNotFound?: boolean }): Promise<any> {
+  async describeConfigCatalog(request: DescribeConfigCatalogRequest): Promise<ConfigCatalog> {
     try {
-      
-      const shouldSkipRetry = options?.skipRetryOnNotFound ?? false;
-      
-      return await api.invoke('get_config', 
-        { request: path ? { path } : {} },
-        shouldSkipRetry ? { retries: 0 } : undefined
-      );
+      return await api.invoke<ConfigCatalog>('describe_config_catalog', { request });
     } catch (error) {
-      
-      
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      if (errorMessage.includes('not found') || errorMessage.includes('Config path')) {
-        return undefined;
-      }
-      throw createTauriCommandError('get_config', error, { path });
+      throw createTauriCommandError('describe_config_catalog', error, {
+        scope: request.scope,
+        query: request.query,
+      });
     }
   }
 
-   
-  async setConfig(path: string, value: any): Promise<void> {
+  async getConfigSnapshot(request: GetConfigSnapshotRequest): Promise<ConfigSnapshot> {
     try {
-      await api.invoke('set_config', { 
-        request: { path, value } 
-      });
+      return await api.invoke<ConfigSnapshot>('get_config_snapshot', { request });
     } catch (error) {
-      throw createTauriCommandError('set_config', error, { path, value });
+      throw createTauriCommandError('get_config_snapshot', error, { scope: request.scope });
     }
   }
 
-   
-  async resetConfig(path?: string): Promise<void> {
+  async planConfigPatch(request: PlanConfigPatchRequest): Promise<ConfigPlan> {
     try {
-      await api.invoke('reset_config', { 
-        request: path ? { path } : {} 
-      });
+      return await api.invoke<ConfigPlan>('plan_config_patch', { request });
     } catch (error) {
-      throw createTauriCommandError('reset_config', error, { path });
+      throw createTauriCommandError('plan_config_patch', error, {
+        requestId: request.requestId,
+        expectedRevision: request.expectedRevision,
+        settingIds: request.operations.map((operation) => operation.settingId),
+      });
     }
   }
 
-   
-  async exportConfig(): Promise<any> {
+  async commitConfigPatch(request: CommitConfigPatchRequest): Promise<ConfigCommit> {
     try {
-      return await api.invoke('export_config', { 
-        request: {} 
-      });
+      return await api.invoke<ConfigCommit>('commit_config_patch', { request });
     } catch (error) {
-      throw createTauriCommandError('export_config', error);
+      throw createTauriCommandError('commit_config_patch', error, {
+        planId: request.planId,
+        expectedRevision: request.expectedRevision,
+        confirmed: request.confirmed,
+      });
     }
   }
 
-   
-  async importConfig(configData: any): Promise<void> {
+  async undoConfigCommit(request: UndoConfigCommitRequest): Promise<ConfigCommit> {
     try {
-      await api.invoke('import_config', { 
-        request: { configData } 
-      });
+      return await api.invoke<ConfigCommit>('undo_config_commit', { request });
     } catch (error) {
-      throw createTauriCommandError('import_config', error, { configData });
+      throw createTauriCommandError('undo_config_commit', error, {
+        commitId: request.commitId,
+        expectedRevision: request.expectedRevision,
+        confirmed: request.confirmed,
+      });
     }
   }
 
-   
-  async reloadConfig(): Promise<void> {
+  async getConfigCommit(commitId: string): Promise<ConfigCommit> {
     try {
-      await api.invoke('reload_config', { 
-        request: {} 
+      return await api.invoke<ConfigCommit>('get_config_commit', {
+        request: { commitId },
       });
     } catch (error) {
-      throw createTauriCommandError('reload_config', error);
+      throw createTauriCommandError('get_config_commit', error, { commitId });
     }
+  }
+
+  async retryConfigApply(request: RetryConfigApplyRequest): Promise<ConfigCommit> {
+    try {
+      return await api.invoke<ConfigCommit>('retry_config_apply', { request });
+    } catch (error) {
+      throw createTauriCommandError('retry_config_apply', error, {
+        commitId: request.commitId,
+        consumer: request.consumer,
+        expectedAttempt: request.expectedAttempt,
+      });
+    }
+  }
+
+  onConfigCommitted(callback: (event: ConfigCommittedEvent) => void): () => void {
+    return api.listen<ConfigCommittedEvent>('config://committed', callback);
+  }
+
+  onConfigSnapshotRefreshed(callback: (snapshot: ConfigSnapshot) => void): () => void {
+    return api.listen<ConfigSnapshot>('config://snapshot-refreshed', callback);
+  }
+
+  onConfigRolledBack(callback: (event: ConfigRolledBackEvent) => void): () => void {
+    return api.listen<ConfigRolledBackEvent>('config://rolled-back', callback);
+  }
+
+  onConfigApplyStatus(callback: (event: ConfigApplyStatusEvent) => void): () => void {
+    return api.listen<ConfigApplyStatusEvent>('config://apply-status', callback);
   }
 
   async getRuntimeLoggingInfo(): Promise<RuntimeLoggingInfo> {
@@ -190,110 +204,6 @@ export class ConfigAPI {
       throw createTauriCommandError('get_runtime_logging_info', error);
     }
   }
-
-   
-  async getModelConfigs(): Promise<any[]> {
-    try {
-      return await api.invoke('get_model_configs', { 
-        request: {} 
-      });
-    } catch (error) {
-      throw createTauriCommandError('get_model_configs', error);
-    }
-  }
-
-   
-  async saveModelConfig(config: any): Promise<void> {
-    try {
-      await api.invoke('save_model_config', { 
-        request: { config } 
-      });
-    } catch (error) {
-      throw createTauriCommandError('save_model_config', error, { config });
-    }
-  }
-
-   
-  async deleteModelConfig(configId: string): Promise<void> {
-    try {
-      await api.invoke('delete_model_config', { 
-        request: { configId } 
-      });
-    } catch (error) {
-      throw createTauriCommandError('delete_model_config', error, { configId });
-    }
-  }
-
-  
-
-   
-  async getAgentCapabilityConfigs(): Promise<Record<string, AgentCapabilityConfigItem>> {
-    try {
-      return await api.invoke<Record<string, AgentCapabilityConfigItem>>('get_agent_capability_configs');
-    } catch (error) {
-      throw createTauriCommandError('get_agent_capability_configs', error);
-    }
-  }
-
-   
-  async getAgentCapabilityConfig(agentId: string): Promise<AgentCapabilityConfigItem> {
-    try {
-      return await api.invoke<AgentCapabilityConfigItem>('get_agent_capability_config', { agentId });
-    } catch (error) {
-      throw createTauriCommandError('get_agent_capability_config', error, { agentId });
-    }
-  }
-
-   
-  async setAgentCapabilityConfig(agentId: string, config: any): Promise<string> {
-    try {
-      return await api.invoke('set_agent_capability_config', { agentId, config });
-    } catch (error) {
-      throw createTauriCommandError('set_agent_capability_config', error, { agentId, config });
-    }
-  }
-
-   
-  async resetAgentCapabilityConfig(agentId: string): Promise<string> {
-    try {
-      return await api.invoke('reset_agent_capability_config', { agentId });
-    } catch (error) {
-      throw createTauriCommandError('reset_agent_capability_config', error, { agentId });
-    }
-  }
-
-  
-
-   
-  async getSubagentConfigs(): Promise<Record<string, { enabled: boolean }>> {
-    try {
-      return await api.invoke('get_subagent_configs');
-    } catch (error) {
-      throw createTauriCommandError('get_subagent_configs', error);
-    }
-  }
-
-   
-  async setSubagentConfig(subagentId: string, enabled: boolean): Promise<string> {
-    try {
-      return await api.invoke('set_subagent_config', { subagentId, enabled });
-    } catch (error) {
-      throw createTauriCommandError('set_subagent_config', error, { subagentId, enabled });
-    }
-  }
-
-   
-  async deleteSubagent(subagentId: string): Promise<void> {
-    try {
-      await api.invoke('delete_subagent', {
-        request: { subagentId },
-      });
-    } catch (error) {
-      throw createTauriCommandError('delete_subagent', error, { subagentId });
-    }
-  }
-
-  
 
    
   async getSkillConfigs({

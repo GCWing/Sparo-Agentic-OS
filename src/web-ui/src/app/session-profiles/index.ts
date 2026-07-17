@@ -25,6 +25,7 @@ export {
   SESSION_TYPE_DEFINITIONS,
 } from './SessionProfileRegistry';
 export { SessionProfileProvider } from './SessionProfileProvider';
+export { SessionProfileScope } from './SessionProfileScope';
 export { useSessionProfile } from './useSessionProfile';
 export { openSessionSidecarPanel } from './sidecarActionController';
 
@@ -36,4 +37,5 @@ export { coworkProfile } from './profiles/coworkProfile';
 export { designProfile } from './profiles/designProfile';
 export { deepResearchProfile } from './profiles/deepResearchProfile';
 export { appBuilderProfile } from './profiles/appBuilderProfile';
+export { settingsProfile } from './profiles/settingsProfile';
 export { productAppRuntimeProfile } from './profiles/productAppRuntimeProfile';

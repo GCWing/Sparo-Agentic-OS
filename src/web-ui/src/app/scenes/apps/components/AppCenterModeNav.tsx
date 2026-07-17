@@ -1,6 +1,6 @@
 import React from 'react';
 import { Grid2X2, SlidersHorizontal } from 'lucide-react';
-import { SegmentedControl } from '@/design-system';
+import { ModeSwitch } from '@/design-system';
 import type { AppCenterMode } from './types';
 
 interface AppCenterModeNavProps {
@@ -17,10 +17,10 @@ export const AppCenterModeNav: React.FC<AppCenterModeNavProps> = ({
   t,
 }) => (
   <div className="apps-scene__mode-nav">
-    <SegmentedControl
+    <ModeSwitch
+      appearance="slider"
       className="apps-scene__mode-switch"
       value={currentMode}
-      size="small"
       stretch
       data-mode={currentMode}
       ariaLabel={t('productSystem.navigation.label')}

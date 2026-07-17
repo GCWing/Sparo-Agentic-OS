@@ -50,6 +50,7 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
   sessionId,
   workspacePath,
   config,
+  mutationsDisabled = false,
   onFileViewRequest,
   onTabOpen,
   onOpenVisualization,
@@ -62,6 +63,7 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
     sessionId,
     workspacePath,
     config,
+    mutationsDisabled,
     onFileViewRequest,
     onTabOpen,
     onOpenVisualization,
@@ -69,6 +71,7 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
   });
 
   const {
+    session: scopedSession,
     virtualItems,
     activeSession,
     effectiveVisibleTurnInfo,
@@ -474,6 +477,8 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
                     <VirtualMessageList
                       key={activeSession?.sessionId ?? 'virtual-message-list'}
                       ref={virtualListRef}
+                      session={scopedSession}
+                      virtualItems={virtualItems}
                       timelineSidebarOpen={timelineOpen}
                     />
                   )}

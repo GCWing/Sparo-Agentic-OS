@@ -29,36 +29,16 @@ type AutoMemoryScopeState = {
 
 type AutoMemoryState = Record<AutoMemoryScopeKey, AutoMemoryScopeState>;
 
-const DEFAULT_AUTO_MEMORY_STATE: AutoMemoryState = {
-  global: {
-    enabled: true,
-    extractEveryEligibleTurns: 6,
-    minExtractIntervalMinutes: 60,
-    forceExtractAfterPendingEligibleTurns: 20,
-  },
-  workspace: {
-    enabled: true,
-    extractEveryEligibleTurns: 1,
-    minExtractIntervalMinutes: 60,
-    forceExtractAfterPendingEligibleTurns: 5,
-  },
-};
-
-const AUTO_MEMORY_CONFIG_PATHS = {
-  global: {
-    scope: 'ai.auto_memory.global',
-  },
-  workspace: {
-    scope: 'ai.auto_memory.workspace',
-  },
+const AUTO_MEMORY_SETTING_NAMESPACES = {
+  global: 'core.ai.auto_memory.global',
+  workspace: 'core.ai.auto_memory.workspace',
 } as const;
 
 const AUTO_MEMORY_SCOPES: AutoMemoryScopeKey[] = ['global', 'workspace'];
 
-const DEFAULT_EXTRACT_EVERY_ELIGIBLE_TURNS =
-  DEFAULT_AUTO_MEMORY_STATE.workspace.extractEveryEligibleTurns;
+const MIN_EXTRACT_EVERY_ELIGIBLE_TURNS = 1;
 const normalizeExtractEveryEligibleTurns = (value: number) =>
-  Math.max(DEFAULT_EXTRACT_EVERY_ELIGIBLE_TURNS, value);
+  Math.max(MIN_EXTRACT_EVERY_ELIGIBLE_TURNS, Math.round(value));
 const normalizeExtractIntervalMinutes = (value: number) => Math.max(0, Math.round(value));
 const normalizeForceExtractAfterPendingEligibleTurns = (
   value: number,
@@ -96,26 +76,21 @@ const normalizeScopeState = (
   };
 };
 const deserializeScopeState = (
-  loadedScopeConfig: AutoMemoryScopeConfig | null | undefined,
-  defaultScopeState: AutoMemoryScopeState
+  loadedScopeConfig: AutoMemoryScopeConfig
 ): AutoMemoryScopeState => {
   const extractEveryEligibleTurns = normalizeExtractEveryEligibleTurns(
-    loadedScopeConfig?.extract_every_eligible_turns ?? defaultScopeState.extractEveryEligibleTurns
+    loadedScopeConfig.extract_every_eligible_turns
   );
 
   return {
-    enabled: loadedScopeConfig?.enabled ?? defaultScopeState.enabled,
+    enabled: loadedScopeConfig.enabled,
     extractEveryEligibleTurns,
     minExtractIntervalMinutes: normalizeExtractIntervalMinutes(
-      secondsToMinutes(
-        loadedScopeConfig?.min_extract_interval_secs ??
-          minutesToSeconds(defaultScopeState.minExtractIntervalMinutes)
-      )
+      secondsToMinutes(loadedScopeConfig.min_extract_interval_secs)
     ),
     forceExtractAfterPendingEligibleTurns:
       normalizeForceExtractAfterPendingEligibleTurns(
-        loadedScopeConfig?.force_extract_after_pending_eligible_turns ??
-          defaultScopeState.forceExtractAfterPendingEligibleTurns,
+        loadedScopeConfig.force_extract_after_pending_eligible_turns ?? 0,
         extractEveryEligibleTurns
       ),
   };
@@ -138,18 +113,12 @@ const serializeScopeState = (
   };
 };
 
-const DEFAULT_HOST_SCAN_CONFIG: AppHostScanConfig = {
-  auto_scan_enabled: false,
-  auto_scan_interval_days: 7,
-};
-
 const MemoryConfig: React.FC = () => {
   const { t } = useTranslation('settings/memory');
   const [isLoading, setIsLoading] = useState(true);
-  const [autoMemoryState, setAutoMemoryState] = useState<AutoMemoryState>(
-    DEFAULT_AUTO_MEMORY_STATE
-  );
-  const [hostScanConfig, setHostScanConfig] = useState<AppHostScanConfig>(DEFAULT_HOST_SCAN_CONFIG);
+  const [autoMemoryState, setAutoMemoryState] = useState<AutoMemoryState | null>(null);
+  const [hostScanConfig, setHostScanConfig] = useState<AppHostScanConfig | null>(null);
+  const [loadError, setLoadError] = useState<Error | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
@@ -181,15 +150,20 @@ const MemoryConfig: React.FC = () => {
   const loadConfig = useCallback(
     async () => {
       setIsLoading(true);
+      setLoadError(null);
       try {
         const [
           loadedGlobalScopeConfig,
           loadedWorkspaceScopeConfig,
           loadedHostScanConfig,
         ] = await Promise.all([
-          configManager.getConfig<AutoMemoryScopeConfig>(AUTO_MEMORY_CONFIG_PATHS.global.scope),
-          configManager.getConfig<AutoMemoryScopeConfig>(AUTO_MEMORY_CONFIG_PATHS.workspace.scope),
-          configManager.getConfig<AppHostScanConfig>('app.host_scan'),
+          configManager.getSetting<AutoMemoryScopeConfig>(
+            AUTO_MEMORY_SETTING_NAMESPACES.global,
+          ),
+          configManager.getSetting<AutoMemoryScopeConfig>(
+            AUTO_MEMORY_SETTING_NAMESPACES.workspace,
+          ),
+          configManager.getSetting<AppHostScanConfig>('core.app.host_scan'),
         ]);
 
         if (!isMountedRef.current) {
@@ -197,26 +171,17 @@ const MemoryConfig: React.FC = () => {
         }
 
         setAutoMemoryState({
-          global: deserializeScopeState(
-            loadedGlobalScopeConfig,
-            DEFAULT_AUTO_MEMORY_STATE.global
-          ),
-          workspace: deserializeScopeState(
-            loadedWorkspaceScopeConfig,
-            DEFAULT_AUTO_MEMORY_STATE.workspace
-          ),
+          global: deserializeScopeState(loadedGlobalScopeConfig),
+          workspace: deserializeScopeState(loadedWorkspaceScopeConfig),
         });
-        setHostScanConfig({
-          auto_scan_enabled:
-            loadedHostScanConfig?.auto_scan_enabled ?? DEFAULT_HOST_SCAN_CONFIG.auto_scan_enabled,
-          auto_scan_interval_days:
-            loadedHostScanConfig?.auto_scan_interval_days ??
-            DEFAULT_HOST_SCAN_CONFIG.auto_scan_interval_days,
-        });
+        setHostScanConfig(loadedHostScanConfig);
       } catch (error) {
-        log.error('Failed to load auto memory settings', error);
+        const resolvedError = error instanceof Error ? error : new Error(String(error));
+        log.error('Failed to load auto memory settings', { error: resolvedError });
         if (isMountedRef.current) {
-          showMessage('error', t('messages.loadFailed'));
+          setLoadError(resolvedError);
+          setAutoMemoryState(null);
+          setHostScanConfig(null);
         }
       } finally {
         if (isMountedRef.current) {
@@ -224,10 +189,11 @@ const MemoryConfig: React.FC = () => {
         }
       }
     },
-    [showMessage, t]
+    []
   );
 
   useEffect(() => {
+    isMountedRef.current = true;
     void loadConfig();
 
     return () => {
@@ -245,20 +211,25 @@ const MemoryConfig: React.FC = () => {
     scope: AutoMemoryScopeKey,
     nextState: Partial<AutoMemoryScopeState>
   ) => {
-    setAutoMemoryState((previousState) => ({
-      ...previousState,
-      [scope]: {
-        ...previousState[scope],
-        ...nextState,
-      },
-    }));
+    setAutoMemoryState((previousState) => {
+      if (!previousState) return null;
+      return {
+        ...previousState,
+        [scope]: {
+          ...previousState[scope],
+          ...nextState,
+        },
+      };
+    });
   };
 
   const areAllBackgroundFeaturesDisabled =
-    AUTO_MEMORY_SCOPES.every((scope) => !autoMemoryState[scope].enabled) &&
-    !hostScanConfig.auto_scan_enabled;
+    Boolean(autoMemoryState && hostScanConfig) &&
+    AUTO_MEMORY_SCOPES.every((scope) => !autoMemoryState?.[scope].enabled) &&
+    !hostScanConfig?.auto_scan_enabled;
 
   const saveEnabled = async (scope: AutoMemoryScopeKey, nextValue: boolean) => {
+    if (!autoMemoryState) return;
     const previousState = autoMemoryState[scope];
     const nextState = normalizeScopeState({
       ...previousState,
@@ -268,11 +239,10 @@ const MemoryConfig: React.FC = () => {
     updateScopeState(scope, nextState);
     setIsSaving(true);
     try {
-      await configManager.setConfig(
-        AUTO_MEMORY_CONFIG_PATHS[scope].scope,
+      await configManager.setSetting(
+        AUTO_MEMORY_SETTING_NAMESPACES[scope],
         serializeScopeState(nextState)
       );
-      configManager.clearCache();
       showMessage('success', t('messages.saveSuccess'));
     } catch (error) {
       log.error('Failed to save auto memory enabled setting', {
@@ -287,6 +257,7 @@ const MemoryConfig: React.FC = () => {
   };
 
   const saveThreshold = async (scope: AutoMemoryScopeKey, nextValue: number) => {
+    if (!autoMemoryState) return;
     const normalizedValue = normalizeExtractEveryEligibleTurns(nextValue);
     const previousState = autoMemoryState[scope];
 
@@ -302,11 +273,10 @@ const MemoryConfig: React.FC = () => {
     updateScopeState(scope, nextState);
     setIsSaving(true);
     try {
-      await configManager.setConfig(
-        AUTO_MEMORY_CONFIG_PATHS[scope].scope,
+      await configManager.setSetting(
+        AUTO_MEMORY_SETTING_NAMESPACES[scope],
         serializeScopeState(nextState)
       );
-      configManager.clearCache();
       showMessage('success', t('messages.saveSuccess'));
     } catch (error) {
       log.error('Failed to save auto memory threshold setting', {
@@ -321,6 +291,7 @@ const MemoryConfig: React.FC = () => {
   };
 
   const saveMinExtractIntervalMinutes = async (scope: AutoMemoryScopeKey, nextValue: number) => {
+    if (!autoMemoryState) return;
     const normalizedMinutes = normalizeExtractIntervalMinutes(nextValue);
     const previousState = autoMemoryState[scope];
 
@@ -336,11 +307,10 @@ const MemoryConfig: React.FC = () => {
     updateScopeState(scope, nextState);
     setIsSaving(true);
     try {
-      await configManager.setConfig(
-        AUTO_MEMORY_CONFIG_PATHS[scope].scope,
+      await configManager.setSetting(
+        AUTO_MEMORY_SETTING_NAMESPACES[scope],
         serializeScopeState(nextState)
       );
-      configManager.clearCache();
       showMessage('success', t('messages.saveSuccess'));
     } catch (error) {
       log.error('Failed to save auto memory interval setting', {
@@ -358,6 +328,7 @@ const MemoryConfig: React.FC = () => {
     scope: AutoMemoryScopeKey,
     nextValue: number
   ) => {
+    if (!autoMemoryState) return;
     const previousState = autoMemoryState[scope];
     const normalizedValue = normalizeForceExtractAfterPendingEligibleTurns(
       nextValue,
@@ -378,11 +349,10 @@ const MemoryConfig: React.FC = () => {
     updateScopeState(scope, nextState);
     setIsSaving(true);
     try {
-      await configManager.setConfig(
-        AUTO_MEMORY_CONFIG_PATHS[scope].scope,
+      await configManager.setSetting(
+        AUTO_MEMORY_SETTING_NAMESPACES[scope],
         serializeScopeState(nextState)
       );
-      configManager.clearCache();
       showMessage('success', t('messages.saveSuccess'));
     } catch (error) {
       log.error('Failed to save auto memory force extract threshold setting', {
@@ -400,8 +370,7 @@ const MemoryConfig: React.FC = () => {
     async (nextConfig: AppHostScanConfig, successMessage: string) => {
       setIsSaving(true);
       try {
-        await configManager.setConfig('app.host_scan', nextConfig);
-        configManager.clearCache();
+        await configManager.setSetting('core.app.host_scan', nextConfig);
         setHostScanConfig(nextConfig);
         showMessage('success', successMessage);
       } catch (error) {
@@ -416,6 +385,7 @@ const MemoryConfig: React.FC = () => {
 
   const handleHostScanEnabledChange = useCallback(
     async (checked: boolean) => {
+      if (!hostScanConfig) return;
       await persistHostScanConfig(
         { ...hostScanConfig, auto_scan_enabled: checked },
         t('hostScan.messages.enabledUpdated')
@@ -426,6 +396,7 @@ const MemoryConfig: React.FC = () => {
 
   const handleHostScanIntervalChange = useCallback(
     async (value: string) => {
+      if (!hostScanConfig) return;
       const nextInterval = Number.parseInt(value, 10);
       if (!Number.isFinite(nextInterval) || nextInterval <= 0) {
         return;
@@ -440,6 +411,7 @@ const MemoryConfig: React.FC = () => {
   );
 
   const handleToggleAllEnabled = useCallback(async () => {
+    if (!autoMemoryState || !hostScanConfig) return;
     const previousAutoMemoryState = autoMemoryState;
     const previousHostScanConfig = hostScanConfig;
     const shouldEnableAll = areAllBackgroundFeaturesDisabled;
@@ -464,17 +436,16 @@ const MemoryConfig: React.FC = () => {
 
     try {
       await Promise.all([
-        configManager.setConfig(
-          AUTO_MEMORY_CONFIG_PATHS.global.scope,
+        configManager.setSetting(
+          AUTO_MEMORY_SETTING_NAMESPACES.global,
           serializeScopeState(nextAutoMemoryState.global)
         ),
-        configManager.setConfig(
-          AUTO_MEMORY_CONFIG_PATHS.workspace.scope,
+        configManager.setSetting(
+          AUTO_MEMORY_SETTING_NAMESPACES.workspace,
           serializeScopeState(nextAutoMemoryState.workspace)
         ),
-        configManager.setConfig('app.host_scan', nextHostScanConfig),
+        configManager.setSetting('core.app.host_scan', nextHostScanConfig),
       ]);
-      configManager.clearCache();
       showMessage(
         'success',
         shouldEnableAll ? t('messages.enableAllSuccess') : t('messages.disableAllSuccess')
@@ -500,11 +471,10 @@ const MemoryConfig: React.FC = () => {
 
     try {
       await Promise.all([
-        configManager.resetConfig(AUTO_MEMORY_CONFIG_PATHS.global.scope),
-        configManager.resetConfig(AUTO_MEMORY_CONFIG_PATHS.workspace.scope),
-        configManager.resetConfig('app.host_scan'),
+        configManager.resetSetting(AUTO_MEMORY_SETTING_NAMESPACES.global),
+        configManager.resetSetting(AUTO_MEMORY_SETTING_NAMESPACES.workspace),
+        configManager.resetSetting('core.app.host_scan'),
       ]);
-      configManager.clearCache();
       await loadConfig();
       showMessage('success', t('messages.resetAllSuccess'));
     } catch (error) {
@@ -521,6 +491,20 @@ const MemoryConfig: React.FC = () => {
         <ConfigPageHeader title={t('title')} />
         <ConfigPageContent className="sparo-func-agent-config__content">
           <ConfigPageLoading text={t('loading.text')} />
+        </ConfigPageContent>
+      </ConfigPageLayout>
+    );
+  }
+
+  if (loadError || !autoMemoryState || !hostScanConfig) {
+    return (
+      <ConfigPageLayout className="sparo-func-agent-config">
+        <ConfigPageHeader title={t('title')} />
+        <ConfigPageContent className="sparo-func-agent-config__content">
+          <ConfigPageMessage message={{ type: 'error', text: t('messages.loadFailed') }} />
+          <Button variant="secondary" size="small" onClick={() => void loadConfig()}>
+            {t('actions.retry')}
+          </Button>
         </ConfigPageContent>
       </ConfigPageLayout>
     );

@@ -175,36 +175,27 @@ impl BashTool {
         env
     }
 
-    /// Resolve shell configuration for bash tool.
-    /// If configured shell doesn't support integration, falls back to system default.
-    async fn resolve_shell() -> ResolvedShell {
-        // Try configured shell first, fall back to system default
-        Self::try_configured_shell()
-            .await
-            .unwrap_or_else(Self::system_default_shell)
-    }
-
-    /// Try to get a valid configured shell that supports integration.
-    async fn try_configured_shell() -> Option<ResolvedShell> {
-        let config_service = get_global_config_service().await.ok()?;
+    /// Resolve the authoritative shell configuration for the bash tool.
+    async fn resolve_shell() -> CoreResult<ResolvedShell> {
+        let config_service = get_global_config_service().await?;
         let shell_str: String = config_service
             .get_config::<String>(Some("terminal.default_shell"))
-            .await
-            .ok()
-            .filter(|s| !s.is_empty())?;
+            .await?;
+
+        if shell_str.trim().is_empty() {
+            return Ok(Self::system_default_shell());
+        }
 
         let parsed = ShellType::from_executable(&shell_str);
         if parsed.supports_integration() {
-            Some(ResolvedShell {
+            Ok(ResolvedShell {
                 shell_type: Some(parsed.clone()),
                 display_name: parsed.name().to_string(),
             })
         } else {
-            debug!(
-                "Configured shell '{}' does not support integration, using system default",
-                shell_str
-            );
-            None
+            Err(CoreError::config(format!(
+                "Configured terminal shell does not support tool integration: {shell_str}"
+            )))
         }
     }
 
@@ -300,7 +291,7 @@ impl Tool for BashTool {
     }
 
     async fn description(&self) -> CoreResult<String> {
-        let shell_info = Self::resolve_shell().await.display_name;
+        let shell_info = Self::resolve_shell().await?.display_name;
 
         Ok(format!(
             r#"Executes a given command in a persistent shell session with optional timeout, ensuring proper handling and security measures.
@@ -702,7 +693,7 @@ Usage notes:
             .map_err(|e| CoreError::tool(format!("Terminal not initialized: {}", e)))?;
 
         // 2. Resolve shell type
-        let shell_type = Self::resolve_shell().await.shell_type;
+        let shell_type = Self::resolve_shell().await?.shell_type;
 
         let binding = terminal_api.session_manager().binding();
         let workspace_path = context

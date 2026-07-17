@@ -95,7 +95,20 @@
         "updated": "Updated {{time}}",
         "missingApp": "The app for this draft could not be found.",
         "emptyTitle": "No drafts",
-        "emptyDescription": "Drafts appear here after you create or edit an intelligent app."
+        "emptyDescription": "Drafts appear here after you create or edit an intelligent app.",
+        "actions": {
+          "open": "Open draft {{name}}",
+          "delete": "Delete draft {{name}}"
+        },
+        "deleteDialog": {
+          "title": "Delete this draft?",
+          "message": "This permanently deletes the unpublished changes in \"{{name}}\" and cannot be undone. Published releases are not affected, but App Builder work using this draft can no longer continue.",
+          "confirm": "Delete draft"
+        },
+        "messages": {
+          "deleted": "Draft \"{{name}}\" deleted",
+          "deleteFailed": "Failed to delete draft \"{{name}}\": {{error}}"
+        }
       },
       "searchLabel": "Search managed apps",
       "searchPlaceholder": "Search by app, category, description, tag, or component summary...",
@@ -105,9 +118,14 @@
       "install": "Install",
       "update": "Update",
       "updateAvailable": "Update available",
+      "updateAvailableVersion": "Update to {{version}}",
       "updateTitle": "Update App",
-      "updateMessage": "Update \"{{name}}\" to the published release below. Existing Work stays in Work Center; the installed package is replaced by the release package.",
+      "updateMessage": "Use the published release below for new Work in \"{{name}}\". Existing Work keeps its bound release and remains available.",
       "updateConfirm": "Update",
+      "updateCloseLabel": "Close update dialog",
+      "updateCurrentVersion": "Current version",
+      "updateTargetVersion": "After update",
+      "updatePreviewVersion": "Version",
       "updatePreviewRelease": "Release",
       "updatePreviewReleaseId": "Release ID",
       "updatePreviewPublished": "Published",
@@ -173,7 +191,58 @@
       "title": "Review app capabilities",
       "description": "{{name}} requests the capabilities below. Review them before activating this Release.",
       "scopeNote": "Approval is bound to this App and capability fingerprint. A capability change requires a new review.",
-      "approveAndActivate": "Approve and activate"
+        "approveAndActivate": "Approve and activate",
+        "count": "{{count}} items",
+        "columns": {
+          "capability": "Capability",
+          "permission": "Allowed action",
+          "usedBy": "Used by"
+        },
+        "permissionLabels": {
+          "ai": "Use AI capabilities",
+          "modelInvoke": "Invoke the configured model",
+          "sessionRead": "Read the current session",
+          "toolInvoke": "Invoke application tools",
+          "componentRun": "Run application components",
+          "filesystem": "Access the file system",
+          "network": "Access the network",
+          "appData": "Access application data",
+          "networkAny": "Access external networks"
+        },
+        "sources": {
+        "app": "App",
+        "system": "System"
+      },
+      "groups": {
+        "ai": {
+          "title": "AI and models",
+          "description": "Use the app agent and invoke the configured model."
+        },
+        "files": {
+          "title": "App files",
+          "description": "Access the app's own data directory."
+        },
+        "network": {
+          "title": "Network access",
+          "description": "Access user-provided sources or external resources."
+        },
+        "session": {
+          "title": "Session context",
+          "description": "Read the context required from the current work session."
+        },
+        "tools": {
+          "title": "Tool invocation",
+          "description": "Invoke capabilities declared by the app."
+        },
+        "runtime": {
+          "title": "Component runtime",
+          "description": "Start and coordinate components within the app."
+        },
+        "other": {
+          "title": "Other capabilities",
+          "description": "Other system capabilities declared by the app."
+        }
+      }
     },
     "messages": {
       "rolledBack": "{{name}} now uses the previous Release.",

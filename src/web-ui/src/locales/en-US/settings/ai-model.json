@@ -278,6 +278,7 @@
     "fillRequired": "Please fill in required fields",
     "fillModelName": "Please fill in model name",
     "duplicateModelNameUnderProvider": "This provider already has a model with this name. Use a different name or edit the existing entry.",
+    "changedExternally": "This model configuration changed elsewhere. Reopen it before saving.",
     "saveFailed": "Save failed",
     "deleteFailed": "Failed to delete configuration",
     "loadFailed": "Failed to load AI configuration",

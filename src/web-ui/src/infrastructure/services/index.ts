@@ -5,7 +5,6 @@
  */
 
 // API layer: external IO and data access
-export * from './api/aiService';
 
 // Business layer: domain logic and orchestration
 export * from './business/agentService';

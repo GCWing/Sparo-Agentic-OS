@@ -6,6 +6,7 @@ use sparo_core::service::announcement::{AnnouncementCard, CardType};
 use tauri::State;
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AnnouncementIdRequest {
     pub id: String,
 }
@@ -21,9 +22,9 @@ pub async fn get_pending_announcements(
 ) -> Result<Vec<AnnouncementCard>, String> {
     let locale = state
         .config_service
-        .get_config::<String>(Some("app.general.language"))
+        .get_config::<String>(Some("app.language"))
         .await
-        .unwrap_or_else(|_| "zh-CN".to_string());
+        .map_err(|error| format!("Failed to read app.language: {error}"))?;
 
     let mut cards = state
         .announcement_scheduler
@@ -36,7 +37,7 @@ pub async fn get_pending_announcements(
         .config_service
         .get_config::<bool>(Some("app.notifications.enable_startup_tips"))
         .await
-        .unwrap_or(true); // default on if config is missing / unset
+        .map_err(|error| format!("Failed to read startup tip preference: {error}"))?;
 
     if !tips_enabled {
         cards.retain(|c| c.card_type != CardType::Tip);
@@ -99,9 +100,9 @@ pub async fn trigger_announcement(
 ) -> Result<Option<AnnouncementCard>, String> {
     let locale = state
         .config_service
-        .get_config::<String>(Some("app.general.language"))
+        .get_config::<String>(Some("app.language"))
         .await
-        .unwrap_or_else(|_| "zh-CN".to_string());
+        .map_err(|error| format!("Failed to read app.language: {error}"))?;
 
     Ok(state
         .announcement_scheduler
@@ -116,9 +117,9 @@ pub async fn get_announcement_tips(
 ) -> Result<Vec<AnnouncementCard>, String> {
     let locale = state
         .config_service
-        .get_config::<String>(Some("app.general.language"))
+        .get_config::<String>(Some("app.language"))
         .await
-        .unwrap_or_else(|_| "zh-CN".to_string());
+        .map_err(|error| format!("Failed to read app.language: {error}"))?;
 
     // Re-use the scheduler run result but filter to tips only.
     let cards = state

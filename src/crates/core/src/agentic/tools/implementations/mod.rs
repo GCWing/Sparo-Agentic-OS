@@ -45,10 +45,10 @@ pub mod playbook_tool;
 pub mod product_app_authoring_tool;
 pub mod product_app_checkpoint_tool;
 pub mod product_app_validation_tool;
-pub mod self_control_tool;
 pub mod session_control_tool;
 pub mod session_history_tool;
 pub mod session_message_tool;
+pub mod settings_tools;
 pub mod skill_tool;
 pub mod skills;
 pub mod task_tool;
@@ -113,10 +113,10 @@ pub use product_app_checkpoint_tool::{
     CompareProductAppRevisionsTool, CreateProductAppCheckpointTool, RestoreProductAppCheckpointTool,
 };
 pub use product_app_validation_tool::ValidateProductAppPackageTool;
-pub use self_control_tool::SelfControlTool;
 pub use session_control_tool::SessionControlTool;
 pub use session_history_tool::SessionHistoryTool;
 pub use session_message_tool::SessionMessageTool;
+pub use settings_tools::{SettingsCatalogTool, SettingsChangeTool};
 pub use skill_tool::SkillTool;
 pub use task_tool::TaskTool;
 pub use terminal_control_tool::TerminalControlTool;

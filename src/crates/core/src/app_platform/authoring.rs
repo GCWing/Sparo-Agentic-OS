@@ -333,6 +333,7 @@ async fn write_product_app_package(
         } else {
             AppInteractionModel::Conversation
         },
+        runtime_interaction: None,
         work_multiplicity,
         work_object_kinds: vec![work_object.clone()],
         data_lifecycle: Some(AppDataLifecyclePolicy::default()),

@@ -1,0 +1,53 @@
+{
+  "modeLabel": "Settings mode",
+  "manualMode": "Manual",
+  "aiMode": "AI",
+  "session": {
+    "title": "AI Settings",
+    "loading": "Preparing the settings assistant…",
+    "loadError": "The AI settings conversation could not be opened.",
+    "retry": "Retry",
+    "newConversation": "New conversation",
+    "resetting": "Starting…",
+    "resetBusy": "Stop the current task before starting a new conversation",
+    "resetError": "A new conversation could not be started. The current conversation is unchanged.",
+    "resetAttachError": "The new conversation started, but its history could not be loaded. Reopen Settings to try again.",
+    "sendErrors": {
+      "title": "Settings request could not be completed",
+      "secureInputRequired": "This change needs a sensitive value. Enter it directly in Manual settings.",
+      "requestInvalid": "This request could not be validated. Rephrase it and try again.",
+      "revisionConflict": "These settings changed elsewhere. Review the latest values and try again.",
+      "manualDraftConflict": "Manual settings contain unsaved changes. Save or discard them before trying again.",
+      "recoveryReadOnly": "Settings are currently in read-only recovery mode. Rebuild the default configuration first.",
+      "fallback": "This settings request could not be processed. Please try again."
+    },
+    "resetDialog": {
+      "title": "Start a new conversation?",
+      "message": "This clears this AI settings conversation and unconfirmed plans, but does not undo settings already applied.",
+      "confirm": "Start new conversation",
+      "cancel": "Keep current conversation"
+    }
+  },
+  "confirmation": {
+    "title": "Confirm this settings change",
+    "description": "This change affects protected settings. Review the authoritative plan before continuing.",
+    "confirm": "Confirm and apply",
+    "reject": "Keep current settings"
+  },
+  "secret": {
+    "configured": "Configured",
+    "unconfigured": "Not configured",
+    "placeholder": "Enter a replacement value",
+    "update": "Update"
+  },
+  "values": {
+    "notSet": "Not set"
+  },
+  "errors": {
+    "catalog": "Settings could not be loaded.",
+    "submit": "The request could not be started.",
+    "conflict": "These settings changed elsewhere. The latest values have been reloaded.",
+    "manualConflict": "This setting changed elsewhere. Keep your draft or press Escape to use the latest value.",
+    "invalidJson": "Enter valid JSON before saving this setting."
+  }
+}

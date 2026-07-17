@@ -312,6 +312,12 @@ pub struct ProductAppRuntimeHostInteractionChat {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub agent_component_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_type: Option<String>,
+    /// Agent used by app-owned backend actions. It may be hidden even when the
+    /// visible Product App chat shell temporarily uses a public conversation agent.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub backend_agent_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub session_policy: Option<ProductAppRuntimeHostBackendSessionPolicy>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub memory_scope: Option<ProductAppRuntimeHostBackendMemoryScope>,
@@ -319,6 +325,21 @@ pub struct ProductAppRuntimeHostInteractionChat {
     pub initial_prompt_key: Option<String>,
     #[serde(default)]
     pub allow_user_prompt: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProductAppRuntimeHostInteractionTabSidecar {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub action_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub availability: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_group: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -337,6 +358,8 @@ pub struct ProductAppRuntimeHostInteractionTab {
     pub default: bool,
     #[serde(default)]
     pub developer_only: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sidecar: Option<ProductAppRuntimeHostInteractionTabSidecar>,
     #[serde(default, skip_serializing_if = "serde_json::Value::is_null")]
     pub data: serde_json::Value,
 }

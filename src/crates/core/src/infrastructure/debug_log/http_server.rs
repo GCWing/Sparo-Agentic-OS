@@ -9,7 +9,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use log::{debug, error, info, trace, warn};
+use log::{error, info, trace, warn};
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -86,7 +86,17 @@ impl IngestServerManager {
         let mut updated_cfg = cfg;
         updated_cfg.port = actual_port;
 
-        let state = IngestServerState::new(updated_cfg);
+        self.start_with_listener(updated_cfg, listener).await
+    }
+
+    async fn start_with_listener(
+        &self,
+        config: IngestServerConfig,
+        listener: tokio::net::TcpListener,
+    ) -> anyhow::Result<()> {
+        let actual_port = listener.local_addr()?.port();
+
+        let state = IngestServerState::new(config);
         let cancel_token = CancellationToken::new();
 
         *self.state.write().await = Some(state.clone());
@@ -140,15 +150,6 @@ impl IngestServerManager {
         *self.state.write().await = None;
     }
 
-    pub async fn restart(&self, config: IngestServerConfig) -> anyhow::Result<()> {
-        debug!(
-            "Restarting Debug Log Ingest Server with new config (port: {}, log_path: {:?})",
-            config.port, config.log_config.log_path
-        );
-        self.stop().await;
-        self.start(Some(config)).await
-    }
-
     pub async fn update_log_path(&self, log_path: PathBuf) {
         if let Some(state) = self.state.read().await.as_ref() {
             state.update_log_path(log_path).await;
@@ -157,13 +158,29 @@ impl IngestServerManager {
 
     pub async fn update_port(&self, new_port: u16, log_path: PathBuf) -> anyhow::Result<()> {
         let current_port = *self.actual_port.read().await;
-        if current_port != new_port {
-            let config = IngestServerConfig::from_debug_mode_config(new_port, log_path);
-            self.restart(config).await
-        } else {
+        if current_port == new_port && self.is_running().await {
             self.update_log_path(log_path).await;
-            Ok(())
+            return Ok(());
         }
+
+        let listener = try_bind_port(new_port).await.ok_or_else(|| {
+            anyhow::anyhow!("Debug Log Ingest Server port {new_port} is unavailable")
+        })?;
+        let config = IngestServerConfig::with_log_path(new_port, log_path);
+        self.stop().await;
+        self.start_with_listener(config, listener).await
+    }
+
+    /// Preflights an exact requested port without disrupting the active server.
+    pub async fn prepare_port(&self, port: u16) -> anyhow::Result<()> {
+        if *self.actual_port.read().await == port && self.is_running().await {
+            return Ok(());
+        }
+        let listener = try_bind_port(port)
+            .await
+            .ok_or_else(|| anyhow::anyhow!("Debug Log Ingest Server port {port} is unavailable"))?;
+        drop(listener);
+        Ok(())
     }
 
     pub async fn get_actual_port(&self) -> u16 {

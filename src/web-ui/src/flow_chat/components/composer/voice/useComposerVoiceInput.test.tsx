@@ -36,19 +36,18 @@ vi.mock('@/infrastructure/api', () => ({
   },
 }));
 
-vi.mock('@/infrastructure/config/services/AIExperienceConfigService', () => {
+vi.mock('@/infrastructure/config/hooks', () => {
   const voiceInput = {
     enabled: true,
     default_language: 'auto',
     max_recording_seconds: 60,
   };
   return {
-    DEFAULT_VOICE_INPUT_SETTINGS: voiceInput,
-    aiExperienceConfigService: {
-      getSettings: vi.fn(() => ({ voice_input: voiceInput })),
-      getSettingsAsync: vi.fn(async () => ({ voice_input: voiceInput })),
-      addChangeListener: vi.fn(() => () => undefined),
-    },
+    useAIExperienceSettings: () => ({
+      settings: { voice_input: voiceInput },
+      isLoading: false,
+      error: null,
+    }),
   };
 });
 

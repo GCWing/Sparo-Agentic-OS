@@ -2,7 +2,6 @@
 
 pub mod content_loader;
 pub mod registry;
-pub mod remote;
 pub mod scheduler;
 pub mod state_store;
 pub mod tips_pool;

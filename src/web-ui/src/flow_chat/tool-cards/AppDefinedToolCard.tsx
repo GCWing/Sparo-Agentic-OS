@@ -340,7 +340,6 @@ export const AppDefinedToolCard: React.FC<ToolCardProps> = React.memo(({
           toolId={toolItem.id ?? toolCall?.id}
           toolName={toolItem.toolName}
           status={displayStatus}
-          icon={icon}
           action={`${title}:`}
           summary={summary}
           extra={headerExtra}

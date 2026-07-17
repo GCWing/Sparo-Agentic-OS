@@ -1,7 +1,7 @@
 //! GenerativeUI tool — renders LLM-generated HTML/SVG widgets.
 
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext, ValidationResult};
-use crate::error::CoreResult;
+use crate::error::{CoreError, CoreResult};
 use crate::service::config::get_global_config_service;
 use async_trait::async_trait;
 use serde_json::{json, Value};
@@ -194,31 +194,34 @@ impl GenerativeUITool {
         )
     }
 
-    async fn build_theme_prompt_context(&self) -> Option<String> {
-        let config_service = get_global_config_service().await.ok()?;
+    async fn build_theme_prompt_context(&self) -> CoreResult<String> {
+        let config_service = get_global_config_service().await?;
         let selected_theme_id = config_service
             .get_config::<String>(Some("themes.current"))
-            .await
-            .ok()
-            .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| "system".to_string());
+            .await?;
+        let selected_theme_id = selected_theme_id.trim();
+        if selected_theme_id.is_empty() {
+            return Err(CoreError::validation(
+                "Configured theme id must not be empty",
+            ));
+        }
 
         if selected_theme_id == "system" {
-            return Some(format!(
+            return Ok(format!(
                 "Sparo OS active theme selection: system. Exact runtime resolution is host-dependent, so do not assume one palette. {}",
                 Self::baseline_theme_context()
             ));
         }
 
-        if let Some(snapshot) = Self::builtin_theme_snapshot(&selected_theme_id) {
-            return Some(format!(
+        if let Some(snapshot) = Self::builtin_theme_snapshot(selected_theme_id) {
+            return Ok(format!(
                 "Sparo OS active theme snapshot: {}. {}",
                 Self::format_theme_snapshot(&snapshot),
                 Self::baseline_theme_context()
             ));
         }
 
-        Some(format!(
+        Ok(format!(
             "Sparo OS active theme selection: {}. Backend does not have an exact built-in snapshot for this theme, so use Sparo OS CSS variables strictly and avoid hard-coded fallback palettes. {}",
             selected_theme_id,
             Self::baseline_theme_context()
@@ -287,10 +290,9 @@ Input rules:
         _context: Option<&ToolUseContext>,
     ) -> CoreResult<String> {
         let mut description = self.description().await?;
-        if let Some(theme_context) = self.build_theme_prompt_context().await {
-            description.push_str("\n\n");
-            description.push_str(&theme_context);
-        }
+        let theme_context = self.build_theme_prompt_context().await?;
+        description.push_str("\n\n");
+        description.push_str(&theme_context);
         Ok(description)
     }
 
@@ -343,7 +345,6 @@ Input rules:
         _context: Option<&ToolUseContext>,
     ) -> Value {
         let mut schema = self.input_schema();
-        let theme_context = self.build_theme_prompt_context().await;
         if let Some(obj) = schema.as_object_mut() {
             obj.insert(
                 "x-sparo-os-reminder".to_string(),
@@ -353,21 +354,6 @@ Input rules:
                 "x-sparo-os-design-system".to_string(),
                 Value::String(Self::sparo_os_design_system_reminder().to_string()),
             );
-            if let Some(theme_context) = theme_context {
-                obj.insert(
-                    "x-sparo-os-theme-context".to_string(),
-                    Value::String(theme_context.clone()),
-                );
-                if let Some(description) = obj
-                    .get_mut("description")
-                    .and_then(|value| value.as_str().map(str::to_string))
-                {
-                    obj.insert(
-                        "description".to_string(),
-                        Value::String(format!("{} {}", description, theme_context)),
-                    );
-                }
-            }
         }
         schema
     }

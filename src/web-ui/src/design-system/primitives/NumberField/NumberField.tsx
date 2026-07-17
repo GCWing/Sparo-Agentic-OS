@@ -7,9 +7,7 @@ const DEFAULT_NUMBER_FIELD_ARIA_LABELS = {
   decrease: 'Decrease value',
 };
 
-export interface NumberFieldProps {
-  value: number;
-  onChange: (value: number) => void;
+interface NumberFieldBaseProps {
   min?: number;
   max?: number;
   step?: number;
@@ -29,11 +27,26 @@ export interface NumberFieldProps {
   disableWheel?: boolean;
   increaseAriaLabel?: string;
   decreaseAriaLabel?: string;
+  placeholder?: string;
 }
 
+export interface RequiredNumberFieldProps extends NumberFieldBaseProps {
+  value: number;
+  nullable?: false;
+  onChange: (value: number) => void;
+}
+
+export interface NullableNumberFieldProps extends NumberFieldBaseProps {
+  value: number | null;
+  nullable: true;
+  onChange: (value: number | null) => void;
+}
+
+export type NumberFieldProps = RequiredNumberFieldProps | NullableNumberFieldProps;
+
 export const NumberField = forwardRef<HTMLInputElement, NumberFieldProps>(
-  (
-    {
+  (props, ref) => {
+    const {
       value,
       onChange,
       min = -Infinity,
@@ -55,9 +68,9 @@ export const NumberField = forwardRef<HTMLInputElement, NumberFieldProps>(
       disableWheel = false,
       increaseAriaLabel = DEFAULT_NUMBER_FIELD_ARIA_LABELS.increase,
       decreaseAriaLabel = DEFAULT_NUMBER_FIELD_ARIA_LABELS.decrease,
-    },
-    ref
-  ) => {
+      placeholder,
+      nullable = false,
+    } = props;
     const generatedId = useId();
     const inputId = id ?? `number-field-${generatedId}`;
     const hintId = `${inputId}-hint`;
@@ -67,16 +80,31 @@ export const NumberField = forwardRef<HTMLInputElement, NumberFieldProps>(
       !error && hint ? hintId : undefined,
     ].filter(Boolean).join(' ') || undefined;
     const [isEditing, setIsEditing] = useState(false);
-    const [inputValue, setInputValue] = useState(String(value));
+    const [inputValue, setInputValue] = useState(value === null ? '' : String(value));
     const [isDragging, setIsDragging] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
     const dragStartRef = useRef<{ y: number; value: number } | null>(null);
     const inputRef = useRef<HTMLInputElement | null>(null);
 
     const formatValue = useCallback(
-      (val: number) => (precision > 0 ? val.toFixed(precision) : String(Math.round(val))),
+      (val: number | null) => {
+        if (val === null) {
+          return '';
+        }
+        return precision > 0 ? val.toFixed(precision) : String(Math.round(val));
+      },
       [precision]
     );
+
+    const emitChange = useCallback((nextValue: number | null) => {
+      if (nextValue === null) {
+        if (nullable) {
+          (onChange as NullableNumberFieldProps['onChange'])(null);
+        }
+        return;
+      }
+      onChange(nextValue);
+    }, [nullable, onChange]);
 
     useEffect(() => {
       if (!isEditing) {
@@ -89,35 +117,49 @@ export const NumberField = forwardRef<HTMLInputElement, NumberFieldProps>(
       [max, min]
     );
 
-    const increment = useCallback(() => {
-      if (!disabled) {
-        onChange(clampValue(value + step));
+    const stepValue = useCallback((direction: 1 | -1) => {
+      if (disabled) {
+        return;
       }
-    }, [clampValue, disabled, onChange, step, value]);
+      const nextValue = value === null
+        ? clampValue(0)
+        : clampValue(value + direction * step);
+      emitChange(nextValue);
+      setInputValue(formatValue(nextValue));
+    }, [clampValue, disabled, emitChange, formatValue, step, value]);
 
-    const decrement = useCallback(() => {
-      if (!disabled) {
-        onChange(clampValue(value - step));
-      }
-    }, [clampValue, disabled, onChange, step, value]);
+    const increment = useCallback(() => stepValue(1), [stepValue]);
+    const decrement = useCallback(() => stepValue(-1), [stepValue]);
 
     const handleInputBlur = useCallback(() => {
       setIsEditing(false);
-      const parsed = Number.parseFloat(inputValue);
+      const normalizedInput = inputValue.trim();
+      if (normalizedInput === '') {
+        if (nullable) {
+          if (value !== null) {
+            emitChange(null);
+          }
+          setInputValue('');
+          return;
+        }
+        setInputValue(formatValue(value));
+        return;
+      }
+
+      const parsed = Number(normalizedInput);
       if (Number.isNaN(parsed)) {
         setInputValue(formatValue(value));
         return;
       }
 
       const clamped = clampValue(parsed);
-      onChange(clamped);
+      emitChange(clamped);
       setInputValue(formatValue(clamped));
-    }, [clampValue, formatValue, inputValue, onChange, value]);
+    }, [clampValue, emitChange, formatValue, inputValue, nullable, value]);
 
     const handleKeyDown = useCallback(
       (event: React.KeyboardEvent<HTMLInputElement>) => {
         if (event.key === 'Enter') {
-          handleInputBlur();
           inputRef.current?.blur();
         } else if (event.key === 'Escape') {
           setIsEditing(false);
@@ -131,12 +173,12 @@ export const NumberField = forwardRef<HTMLInputElement, NumberFieldProps>(
           decrement();
         }
       },
-      [decrement, formatValue, handleInputBlur, increment, value]
+      [decrement, formatValue, increment, value]
     );
 
     const handleDragStart = useCallback(
       (event: React.MouseEvent) => {
-        if (!draggable || disabled) return;
+        if (!draggable || disabled || value === null) return;
         event.preventDefault();
         setIsDragging(true);
         dragStartRef.current = { y: event.clientY, value };
@@ -152,7 +194,7 @@ export const NumberField = forwardRef<HTMLInputElement, NumberFieldProps>(
         if (!dragStartRef.current) return;
         const delta = dragStartRef.current.y - event.clientY;
         const steps = Math.round(delta / 5);
-        onChange(clampValue(dragStartRef.current.value + steps * step));
+        emitChange(clampValue(dragStartRef.current.value + steps * step));
       };
 
       const handleMouseUp = () => {
@@ -169,7 +211,7 @@ export const NumberField = forwardRef<HTMLInputElement, NumberFieldProps>(
         document.removeEventListener('mouseup', handleMouseUp);
         document.body.style.cursor = '';
       };
-    }, [clampValue, isDragging, onChange, step]);
+    }, [clampValue, emitChange, isDragging, step]);
 
     const handleWheel = useCallback(
       (event: React.WheelEvent) => {
@@ -208,8 +250,8 @@ export const NumberField = forwardRef<HTMLInputElement, NumberFieldProps>(
         >
           <div
             className="ds-number-field__value-area"
-            onMouseDown={draggable ? handleDragStart : undefined}
-            style={{ cursor: draggable && !disabled ? 'ns-resize' : 'text' }}
+            onMouseDown={draggable && value !== null ? handleDragStart : undefined}
+            style={{ cursor: draggable && !disabled && value !== null ? 'ns-resize' : 'text' }}
           >
             <input
               ref={(node) => {
@@ -223,8 +265,10 @@ export const NumberField = forwardRef<HTMLInputElement, NumberFieldProps>(
               type="text"
               id={inputId}
               inputMode="decimal"
+              role="spinbutton"
               className="ds-number-field__input"
               value={inputValue}
+              placeholder={placeholder}
               onChange={(event) => setInputValue(event.target.value)}
               onFocus={() => setIsEditing(true)}
               onBlur={handleInputBlur}
@@ -232,8 +276,12 @@ export const NumberField = forwardRef<HTMLInputElement, NumberFieldProps>(
               disabled={disabled}
               aria-invalid={error || undefined}
               aria-describedby={describedBy}
+              aria-valuemin={Number.isFinite(min) ? min : undefined}
+              aria-valuemax={Number.isFinite(max) ? max : undefined}
+              aria-valuenow={value ?? undefined}
+              aria-valuetext={value === null && placeholder ? placeholder : undefined}
             />
-            {unit && <span className="ds-number-field__unit">{unit}</span>}
+            {unit && inputValue.trim() !== '' && <span className="ds-number-field__unit">{unit}</span>}
           </div>
 
           {showButtons && variant !== 'compact' && (
@@ -244,7 +292,7 @@ export const NumberField = forwardRef<HTMLInputElement, NumberFieldProps>(
                     type="button"
                     className="ds-number-field__btn ds-number-field__btn--minus"
                     onClick={decrement}
-                    disabled={disabled || value <= min}
+                    disabled={disabled || (value !== null && value <= min)}
                     tabIndex={-1}
                     aria-label={decreaseAriaLabel}
                   >
@@ -254,7 +302,7 @@ export const NumberField = forwardRef<HTMLInputElement, NumberFieldProps>(
                     type="button"
                     className="ds-number-field__btn ds-number-field__btn--plus"
                     onClick={increment}
-                    disabled={disabled || value >= max}
+                    disabled={disabled || (value !== null && value >= max)}
                     tabIndex={-1}
                     aria-label={increaseAriaLabel}
                   >
@@ -267,7 +315,7 @@ export const NumberField = forwardRef<HTMLInputElement, NumberFieldProps>(
                     type="button"
                     className="ds-number-field__btn ds-number-field__btn--up"
                     onClick={increment}
-                    disabled={disabled || value >= max}
+                    disabled={disabled || (value !== null && value >= max)}
                     tabIndex={-1}
                     aria-label={increaseAriaLabel}
                   >
@@ -277,7 +325,7 @@ export const NumberField = forwardRef<HTMLInputElement, NumberFieldProps>(
                     type="button"
                     className="ds-number-field__btn ds-number-field__btn--down"
                     onClick={decrement}
-                    disabled={disabled || value <= min}
+                    disabled={disabled || (value !== null && value <= min)}
                     tabIndex={-1}
                     aria-label={decreaseAriaLabel}
                   >
@@ -288,7 +336,7 @@ export const NumberField = forwardRef<HTMLInputElement, NumberFieldProps>(
             </div>
           )}
 
-          {min !== -Infinity && max !== Infinity && (
+          {value !== null && min !== -Infinity && max !== Infinity && max > min && (
             <div className="ds-number-field__progress">
               <div
                 className="ds-number-field__progress-bar"

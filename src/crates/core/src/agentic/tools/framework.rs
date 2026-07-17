@@ -526,6 +526,22 @@ pub trait Tool: Send + Sync {
         !self.is_readonly()
     }
 
+    /// Whether user/global skip-confirmation preferences may bypass this tool's
+    /// permission confirmation. Security-boundary tools override this to keep
+    /// explicit confirmation mandatory.
+    fn allows_confirmation_bypass(&self, _input: Option<&Value>) -> bool {
+        true
+    }
+
+    /// Build the payload projected to a confirmation surface.
+    ///
+    /// The default preserves the submitted arguments. Tools whose confirmation
+    /// must be backed by trusted state (for example, a server-side transaction
+    /// plan) should override this and return a redacted authoritative view.
+    fn confirmation_payload(&self, input: &Value) -> Value {
+        input.clone()
+    }
+
     /// Whether to support streaming output
     fn supports_streaming(&self) -> bool {
         false

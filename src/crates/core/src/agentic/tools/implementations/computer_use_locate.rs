@@ -1,13 +1,14 @@
 //! Accessibility tree locate -- invoked as `ComputerUse` **`action: "locate"`** (same tool as screenshot / keys).
 
-use crate::agentic::tools::computer_use_capability::computer_use_desktop_available;
+use crate::agentic::tools::computer_use_capability::{
+    computer_use_desktop_available, computer_use_setting_enabled,
+};
 use crate::agentic::tools::computer_use_host::{
     suggested_point_crop_half_extent_from_native_bounds, UiElementLocateQuery,
 };
 use crate::agentic::tools::framework::{ToolResult, ToolUseContext};
 use crate::agentic::tools::implementations::computer_use_tool::computer_use_augment_result_json;
 use crate::error::{CoreError, CoreResult};
-use crate::service::config::global::GlobalConfigManager;
 use serde_json::{json, Value};
 
 /// Runs native UI locate (AX / UIA / AT-SPI) for the foreground app -- `ComputerUse` `action: "locate"`.
@@ -26,14 +27,7 @@ pub(crate) async fn execute_computer_use_locate(
             "Computer use is not available on this host.".to_string(),
         ));
     }
-    let Ok(service) = GlobalConfigManager::get_service().await else {
-        return Err(CoreError::tool(
-            "Computer use configuration is unavailable.".to_string(),
-        ));
-    };
-    let ai: crate::service::config::types::AIConfig =
-        service.get_config(Some("ai")).await.unwrap_or_default();
-    if !ai.computer_use_enabled {
+    if !computer_use_setting_enabled().await? {
         return Err(CoreError::tool(
             "Computer use is disabled in Sparo OS settings.".to_string(),
         ));

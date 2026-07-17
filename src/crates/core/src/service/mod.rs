@@ -17,6 +17,7 @@ pub(crate) mod host; // Agentic OS host-level runtime context and scan prompts
 pub mod i18n; // I18n service
 pub(crate) mod instructions; // Instruction memory (AGENTS.md / CLAUDE.md style files)
 pub mod mcp; // MCP (Model Context Protocol) system
+pub mod ppt_deck; // Managed PPT manuscript and visual-deck state
 pub mod project_detection; // Workspace project / language detection
 pub mod remote_connect; // Remote Connect (phone → desktop)
 pub mod runtime; // Managed runtime and capability management
@@ -36,7 +37,7 @@ pub use agentshell as terminal;
 
 // Re-export main components.
 pub use announcement::{AnnouncementCard, AnnouncementScheduler, AnnouncementSchedulerRef};
-pub use config::{ConfigManager, ConfigProvider, ConfigService};
+pub use config::{ConfigManager, ConfigService};
 pub use cron::{
     get_global_cron_service, install_global_cron_service, CronEventSubscriber, CronService,
 };

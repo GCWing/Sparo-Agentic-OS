@@ -44,6 +44,7 @@ import {
   descriptorFromAgentType,
   getBackendAgentType,
   getDefaultSessionDescriptor,
+  getProductAppRuntimeAgentType,
   getProductAppRuntimeSessionDescriptor,
   isEvolutionLabSession,
   isSystemAgenticOsSession,
@@ -53,7 +54,7 @@ import {
 } from '../domain/sessionDescriptor';
 
 const log = createLogger('FlowChatStore');
-const DEFAULT_CONTEXT_WINDOW = 128128;
+export const DEFAULT_CONTEXT_WINDOW = 128128;
 
 type ToolItemLocation = {
   sessionId: string;
@@ -68,9 +69,8 @@ function descriptorFromSessionMetadata(
 ): SessionDescriptor {
   const productAppRuntime = metadata.customMetadata?.productAppRuntime;
   if (productAppRuntime) {
-    const agentComponentId = productAppRuntime.chat?.agentComponentId;
     return getProductAppRuntimeSessionDescriptor(
-      typeof agentComponentId === 'string' ? agentComponentId : undefined,
+      getProductAppRuntimeAgentType(productAppRuntime),
     );
   }
   return descriptorFromAgentType(metadata.agentType || fallbackAgentType);
@@ -119,8 +119,8 @@ async function createMetadataContextWindowResolver(
 
   try {
     const { configManager } = await import('@/infrastructure/config/services/ConfigManager');
-    const models = await configManager.getConfig<ModelContextWindowConfig[]>('ai.models') || [];
-    const defaultModels = await configManager.getConfig<Record<string, string>>('ai.default_models') || {};
+    const models = await configManager.getSetting<ModelContextWindowConfig[]>('core.ai.models') || [];
+    const defaultModels = await configManager.getSetting<Record<string, string>>('core.ai.default_models') || {};
     const contextWindowsByModel = new Map<string, number>();
 
     for (const model of models) {
@@ -1028,6 +1028,11 @@ export class FlowChatStore {
     if (removedSessionIds.length === 0) {
       return [];
     }
+
+    removedSessionIds.forEach((removedSessionId) => {
+      this.warmedSessionIds.delete(removedSessionId);
+      this.clearSessionToolIndex(removedSessionId);
+    });
 
     this.setState(prev => {
       const removedSessionIdSet = new Set(removedSessionIds);

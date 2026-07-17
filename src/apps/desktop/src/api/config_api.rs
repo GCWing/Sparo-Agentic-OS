@@ -1,776 +1,393 @@
 //! Configuration API
 
-use crate::api::app_state::AppState;
-use log::{error, info, warn};
+use crate::api::command_error::{public_config_error, PublicCommandError};
+use crate::bootstrap::AppContainer;
+use log::error;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
-use sparo_core::agent_component::AgentComponentManager;
-use sparo_core::agentic::agents::AgentCategory;
-use sparo_core::agentic::tools::get_all_registered_tool_names;
-use sparo_core::command::config as core_config_command;
-use sparo_core::command::CommandContext;
-use std::collections::{HashMap, HashSet};
+use serde_json::Value;
+use sparo_core::service::config::{
+    CommitConfigPlanRequest, ConfigPatch, ConfigPatchOperation, ConfigPlan, ConfigService,
+    ConfigSnapshot, ConfigStartupStatus, PublishedConfigCatalog, PublishedConfigCommit,
+    RetryConfigApplyRequest, UndoConfigCommitRequest,
+};
+use sparo_events::{ConfigChangeSource, ConfigChangeSourceKind, ConfigScope, ConfigScopeKind};
+use std::sync::Arc;
 use tauri::State;
 
-pub use core_config_command::{GetConfigRequest, ResetConfigRequest, SetConfigRequest};
+fn config_command_error(
+    operation: &'static str,
+    error: &impl std::fmt::Display,
+) -> PublicCommandError {
+    let public_error = public_config_error(error);
+    error!(
+        "Config command failed: operation={}, error_code={}",
+        operation,
+        public_error.code()
+    );
+    public_error
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DescribeConfigCatalogRequest {
+    pub scope: ConfigScope,
+    #[serde(default)]
+    pub query: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct GetConfigSnapshotRequest {
+    pub scope: ConfigScope,
+}
 
 #[derive(Debug, Deserialize, Default)]
+#[serde(deny_unknown_fields)]
+pub struct GetConfigStartupStatusRequest {}
+
+#[derive(Debug, Deserialize, Default)]
+#[serde(deny_unknown_fields)]
+pub struct RebuildDefaultConfigRequest {}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct GetConfigCommitRequest {
+    pub commit_id: String,
+}
+
+/// WebView-owned configuration changes are always manual changes. The desktop
+/// adapter owns the audit source so an untrusted caller cannot claim a system,
+/// CLI, import, or AI identity.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PlanConfigPatchRequest {
+    pub request_id: String,
+    pub idempotency_key: String,
+    pub expected_revision: u64,
+    pub scope: ConfigScope,
+    pub operations: Vec<ConfigPatchOperation>,
+}
+
+impl PlanConfigPatchRequest {
+    fn into_manual_patch(self) -> ConfigPatch {
+        let source_request_id = self.request_id.clone();
+        ConfigPatch {
+            request_id: self.request_id,
+            idempotency_key: self.idempotency_key,
+            expected_revision: self.expected_revision,
+            source: desktop_manual_source(Some(source_request_id)),
+            scope: self.scope,
+            operations: self.operations,
+        }
+    }
+}
+
+fn desktop_manual_source(request_id: Option<String>) -> ConfigChangeSource {
+    ConfigChangeSource {
+        kind: ConfigChangeSourceKind::Manual,
+        surface: Some("desktop-web-ui".to_string()),
+        request_id,
+    }
+}
+
+#[derive(Debug, Deserialize, Default)]
+#[serde(deny_unknown_fields)]
 pub struct GetRuntimeLoggingInfoRequest {}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GetAgentCapabilityProfileRequest {
-    pub agent_id: String,
-    pub workspace_path: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UpdateAgentCapabilityProfileRequest {
-    pub agent_id: String,
-    pub workspace_path: Option<String>,
-    pub enabled: Option<bool>,
-    pub model: Option<String>,
-    pub tools: Option<Vec<String>>,
-    pub skills: Option<Vec<String>>,
-    pub subagents: Option<Vec<String>>,
-}
-
-fn workspace_root_from_request(workspace_path: Option<&str>) -> Option<std::path::PathBuf> {
-    workspace_path
-        .filter(|path| !path.trim().is_empty())
-        .map(std::path::PathBuf::from)
-}
-
-fn normalize_unique_list(items: Vec<String>) -> Vec<String> {
-    let mut seen = HashSet::new();
-    items
-        .into_iter()
-        .map(|item| item.trim().to_string())
-        .filter(|item| !item.is_empty())
-        .filter(|item| seen.insert(item.clone()))
-        .collect()
-}
 
 fn to_json_value<T: Serialize>(value: T, context: &str) -> Result<Value, String> {
     serde_json::to_value(value).map_err(|e| format!("Failed to serialize {}: {}", context, e))
 }
 
-fn command_context(state: &State<'_, AppState>) -> CommandContext {
-    CommandContext::new(state.config_service.clone())
-        .with_ai_client_factory(state.ai_client_factory.clone())
-}
-
-#[tauri::command]
-pub async fn get_config(
-    state: State<'_, AppState>,
-    request: GetConfigRequest,
-) -> Result<Value, String> {
-    let request_path = request.path.clone();
-    match core_config_command::get_config(&command_context(&state), request).await {
-        Ok(config) => Ok(config),
-        Err(e) => {
-            error!("Failed to get config: path={:?}, error={}", request_path, e);
-            Err(format!("Failed to get config: {}", e))
-        }
-    }
-}
-
-#[tauri::command]
-pub async fn set_config(
-    state: State<'_, AppState>,
-    request: SetConfigRequest,
-) -> Result<String, String> {
-    let request_path = request.path.clone();
-    match core_config_command::set_config(&command_context(&state), request).await {
-        Ok(response) => {
-            info!(
-                "Config set through shared command layer: path={}, invalidated_ai_cache={}",
-                request_path, response.invalidated_ai_cache
-            );
-            Ok(response.message)
-        }
-        Err(e) => {
-            error!("Failed to set config: path={}, error={}", request_path, e);
-            Err(format!("Failed to set config: {}", e))
-        }
-    }
-}
-
-#[tauri::command]
-pub async fn reset_config(
-    state: State<'_, AppState>,
-    request: ResetConfigRequest,
-) -> Result<String, String> {
-    let request_path = request.path.clone();
-    match core_config_command::reset_config(&command_context(&state), request).await {
-        Ok(response) => {
-            info!(
-                "Config reset through shared command layer: path={:?}, invalidated_ai_cache={}",
-                request_path, response.invalidated_ai_cache
-            );
-            Ok(response.message)
-        }
-        Err(e) => {
-            error!(
-                "Failed to reset config: path={:?}, error={}",
-                request_path, e
-            );
-            Err(format!("Failed to reset config: {}", e))
-        }
-    }
-}
-
-#[tauri::command]
-pub async fn export_config(state: State<'_, AppState>) -> Result<Value, String> {
-    match core_config_command::export_config(&command_context(&state)).await {
-        Ok(export_data) => Ok(to_json_value(export_data, "export config data")?),
-        Err(e) => {
-            error!("Failed to export config: {}", e);
-            Err(format!("Failed to export config: {}", e))
-        }
-    }
-}
-
-#[tauri::command]
-pub async fn import_config(state: State<'_, AppState>, config: Value) -> Result<Value, String> {
-    let export_data: sparo_core::service::config::ConfigExport =
-        serde_json::from_value(config).map_err(|e| format!("Invalid config format: {}", e))?;
-
-    match core_config_command::import_config(
-        &command_context(&state),
-        core_config_command::ImportConfigRequest {
-            config: export_data,
-        },
-    )
-    .await
+fn require_user_scope(scope: &ConfigScope) -> Result<(), PublicCommandError> {
+    if scope.kind == ConfigScopeKind::User
+        && scope.workspace_id.is_none()
+        && scope.session_id.is_none()
     {
-        Ok(response) => {
-            info!(
-                "Config imported through shared command layer: invalidated_ai_cache={}",
-                response.invalidated_ai_cache
-            );
-            Ok(to_json_value(response.result, "import config result")?)
-        }
-        Err(e) => {
-            error!("Failed to import config: {}", e);
-            Err(format!("Failed to import config: {}", e))
-        }
+        Ok(())
+    } else {
+        Err(PublicCommandError::new("config.scope_unsupported"))
     }
 }
 
-#[tauri::command]
-pub async fn validate_config(state: State<'_, AppState>) -> Result<Value, String> {
-    match core_config_command::validate_config(&command_context(&state)).await {
-        Ok(validation_result) => Ok(validation_result),
-        Err(e) => {
-            error!("Failed to validate config: {}", e);
-            Err(format!("Failed to validate config: {}", e))
-        }
-    }
+fn require_config_service(
+    container: &State<'_, Arc<AppContainer>>,
+) -> Result<Arc<ConfigService>, PublicCommandError> {
+    container
+        .config_service()
+        .ok_or_else(|| PublicCommandError::new("config.service_unavailable"))
 }
 
 #[tauri::command]
-pub async fn reload_config(state: State<'_, AppState>) -> Result<String, String> {
-    match core_config_command::reload_config(&command_context(&state)).await {
-        Ok(message) => {
-            info!("Config reloaded");
-            Ok(message)
-        }
-        Err(e) => {
-            error!("Failed to reload config: {}", e);
-            Err(format!("Failed to reload config: {}", e))
-        }
-    }
+pub async fn describe_config_catalog(
+    container: State<'_, Arc<AppContainer>>,
+    request: DescribeConfigCatalogRequest,
+) -> Result<PublishedConfigCatalog, PublicCommandError> {
+    require_user_scope(&request.scope)?;
+    require_config_service(&container)?
+        .describe_published_catalog(request.query.as_deref())
+        .await
+        .map_err(|error| config_command_error("describe_catalog", &error))
 }
 
 #[tauri::command]
-pub async fn sync_config_to_global(_state: State<'_, AppState>) -> Result<String, String> {
-    match core_config_command::sync_config_to_global().await {
-        Ok(message) => {
-            info!("Config synced to global service");
-            Ok(message)
-        }
-        Err(e) => {
-            error!("Failed to sync config to global service: {}", e);
-            Err(format!("Failed to sync config to global service: {}", e))
-        }
-    }
+pub async fn get_config_snapshot(
+    container: State<'_, Arc<AppContainer>>,
+    request: GetConfigSnapshotRequest,
+) -> Result<ConfigSnapshot, PublicCommandError> {
+    require_user_scope(&request.scope)?;
+    require_config_service(&container)?
+        .get_snapshot()
+        .await
+        .map_err(|error| config_command_error("get_snapshot", &error))
 }
 
 #[tauri::command]
-pub async fn get_global_config_health() -> Result<bool, String> {
-    Ok(core_config_command::get_global_config_health())
+pub async fn get_config_startup_status(
+    container: State<'_, Arc<AppContainer>>,
+    request: GetConfigStartupStatusRequest,
+) -> Result<ConfigStartupStatus, PublicCommandError> {
+    let _ = request;
+    Ok(require_config_service(&container)?
+        .get_startup_status()
+        .await)
+}
+
+#[tauri::command]
+pub async fn rebuild_default_config(
+    container: State<'_, Arc<AppContainer>>,
+    request: RebuildDefaultConfigRequest,
+) -> Result<ConfigStartupStatus, PublicCommandError> {
+    let _ = request;
+    let service = require_config_service(&container)?;
+    let status = service
+        .rebuild_default_config()
+        .await
+        .map_err(|error| config_command_error("rebuild_defaults", &error))?;
+    sparo_core::service::config::GlobalConfigManager::activate_external_watcher_after_rebuild(
+        service,
+    );
+    Ok(status)
+}
+
+#[tauri::command]
+pub async fn plan_config_patch(
+    container: State<'_, Arc<AppContainer>>,
+    request: PlanConfigPatchRequest,
+) -> Result<ConfigPlan, PublicCommandError> {
+    require_user_scope(&request.scope)?;
+    let patch = request.into_manual_patch();
+    require_config_service(&container)?
+        .plan_product_surface_patch(patch)
+        .await
+        .map_err(|error| config_command_error("plan_patch", &error))
+}
+
+#[tauri::command]
+pub async fn commit_config_patch(
+    container: State<'_, Arc<AppContainer>>,
+    request: CommitConfigPlanRequest,
+) -> Result<PublishedConfigCommit, PublicCommandError> {
+    require_config_service(&container)?
+        .commit_plan(request)
+        .await
+        .map(|commit| commit.published())
+        .map_err(|error| config_command_error("commit_patch", &error))
+}
+
+#[tauri::command]
+pub async fn undo_config_commit(
+    container: State<'_, Arc<AppContainer>>,
+    request: UndoConfigCommitRequest,
+) -> Result<PublishedConfigCommit, PublicCommandError> {
+    let source = desktop_manual_source(None);
+    require_config_service(&container)?
+        .undo_commit(request, source)
+        .await
+        .map(|commit| commit.published())
+        .map_err(|error| config_command_error("undo_commit", &error))
+}
+
+#[tauri::command]
+pub async fn get_config_commit(
+    container: State<'_, Arc<AppContainer>>,
+    request: GetConfigCommitRequest,
+) -> Result<PublishedConfigCommit, PublicCommandError> {
+    require_config_service(&container)?
+        .get_commit(&request.commit_id)
+        .await
+        .map(|commit| commit.published())
+        .map_err(|error| config_command_error("get_commit", &error))
+}
+
+#[tauri::command]
+pub async fn retry_config_apply(
+    container: State<'_, Arc<AppContainer>>,
+    request: RetryConfigApplyRequest,
+) -> Result<PublishedConfigCommit, PublicCommandError> {
+    require_config_service(&container)?
+        .retry_apply(request)
+        .await
+        .map(|commit| commit.published())
+        .map_err(|error| config_command_error("retry_apply", &error))
 }
 
 #[tauri::command]
 pub async fn get_runtime_logging_info(
-    _state: State<'_, AppState>,
     _request: GetRuntimeLoggingInfoRequest,
 ) -> Result<Value, String> {
     let logging_info = crate::logging::get_runtime_logging_info();
     to_json_value(logging_info, "runtime logging info")
 }
 
-#[tauri::command]
-pub async fn get_agent_capability_profile(
-    state: State<'_, AppState>,
-    request: GetAgentCapabilityProfileRequest,
-) -> Result<Value, String> {
-    let workspace = workspace_root_from_request(request.workspace_path.as_deref());
-    let profile = state
-        .agent_registry
-        .get_agent_capability_profile(&request.agent_id, workspace.as_deref())
-        .await
-        .ok_or_else(|| format!("Agent not found: {}", request.agent_id))?;
+#[cfg(test)]
+mod tests {
+    use super::{
+        public_config_error, DescribeConfigCatalogRequest, GetConfigStartupStatusRequest,
+        PlanConfigPatchRequest, UndoConfigCommitRequest,
+    };
+    use serde_json::json;
+    use sparo_core::service::config::{ConfigStartupFailurePhase, ConfigStartupStatus};
+    use sparo_events::ConfigChangeSourceKind;
 
-    to_json_value(profile, "agent capability profile")
-}
-
-async fn set_agent_model_config(
-    state: &State<'_, AppState>,
-    agent_id: &str,
-    model: Option<String>,
-) -> Result<(), String> {
-    let mut agent_models: HashMap<String, String> = state
-        .config_service
-        .get_config(Some("ai.agent_models"))
-        .await
-        .unwrap_or_default();
-
-    match model.map(|value| value.trim().to_string()) {
-        Some(model) if !model.is_empty() => {
-            agent_models.insert(agent_id.to_string(), model);
-        }
-        _ => {
-            agent_models.remove(agent_id);
-        }
+    fn valid_request_json() -> serde_json::Value {
+        json!({
+            "requestId": "request-1",
+            "idempotencyKey": "change-1",
+            "expectedRevision": 7,
+            "scope": { "kind": "user" },
+            "operations": [{
+                "op": "set",
+                "settingId": "app.language",
+                "value": "zh-CN"
+            }]
+        })
     }
 
-    state
-        .config_service
-        .set_config("ai.agent_models", &agent_models)
-        .await
-        .map_err(|e| format!("Failed to update model configuration: {}", e))
-}
+    #[test]
+    fn desktop_plan_request_constructs_a_manual_source() {
+        let request: PlanConfigPatchRequest =
+            serde_json::from_value(valid_request_json()).expect("valid desktop request");
 
-async fn validate_known_skills(
-    skill_keys: &[String],
-    workspace_path: Option<&str>,
-) -> Result<(), String> {
-    let registry = sparo_core::agentic::tools::implementations::skills::SkillRegistry::global();
-    let workspace = workspace_root_from_request(workspace_path);
-    let all_skills = registry
-        .get_all_skills_for_workspace(workspace.as_deref())
-        .await;
-    let known: HashSet<String> = all_skills.into_iter().map(|skill| skill.key).collect();
-    let unknown = skill_keys
-        .iter()
-        .filter(|key| !known.contains(*key))
-        .cloned()
-        .collect::<Vec<_>>();
-    if unknown.is_empty() {
-        Ok(())
-    } else {
-        Err(format!("Unknown skill keys: {}", unknown.join(", ")))
+        let patch = request.into_manual_patch();
+
+        assert_eq!(patch.source.kind, ConfigChangeSourceKind::Manual);
+        assert_eq!(patch.source.surface.as_deref(), Some("desktop-web-ui"));
+        assert_eq!(patch.source.request_id.as_deref(), Some("request-1"));
     }
-}
 
-async fn validate_known_subagents(
-    state: &State<'_, AppState>,
-    subagent_ids: &[String],
-    workspace: Option<&std::path::Path>,
-) -> Result<(), String> {
-    let known: HashSet<String> = state
-        .agent_registry
-        .get_subagents_info(workspace)
-        .await
-        .into_iter()
-        .filter(|subagent| subagent.enabled)
-        .map(|subagent| subagent.id)
-        .collect();
-    let unknown = subagent_ids
-        .iter()
-        .filter(|id| !known.contains(*id))
-        .cloned()
-        .collect::<Vec<_>>();
-    if unknown.is_empty() {
-        Ok(())
-    } else {
-        Err(format!("Unknown subagents: {}", unknown.join(", ")))
+    #[test]
+    fn desktop_plan_request_rejects_a_client_supplied_source() {
+        let mut value = valid_request_json();
+        value["source"] = json!({ "kind": "system", "surface": "forged" });
+
+        let error = serde_json::from_value::<PlanConfigPatchRequest>(value)
+            .expect_err("source must be owned by the desktop adapter");
+
+        assert!(error.to_string().contains("unknown field `source`"));
     }
-}
 
-async fn update_agent_capability_profile_for_builtin_agent(
-    state: State<'_, AppState>,
-    request: UpdateAgentCapabilityProfileRequest,
-) -> Result<(), String> {
-    let mut config = serde_json::Map::new();
+    #[test]
+    fn desktop_plan_request_rejects_a_client_supplied_surface() {
+        let mut value = valid_request_json();
+        value["surface"] = json!("settings-ai-mode");
+        let error = serde_json::from_value::<PlanConfigPatchRequest>(value)
+            .expect_err("surface must be owned by the desktop adapter");
 
-    if let Some(enabled) = request.enabled {
-        config.insert("enabled".to_string(), json!(enabled));
+        assert!(error.to_string().contains("unknown field `surface`"));
     }
-    if let Some(tools) = request.tools {
-        config.insert(
-            "enabled_tools".to_string(),
-            json!(normalize_unique_list(tools)),
+
+    #[test]
+    fn desktop_undo_request_rejects_a_client_supplied_source() {
+        let error = serde_json::from_value::<UndoConfigCommitRequest>(json!({
+            "commitId": "commit-1",
+            "undoToken": "undo-1",
+            "expectedRevision": 8,
+            "idempotencyKey": "undo-request-1",
+            "confirmed": false,
+            "source": { "kind": "ai", "surface": "forged" }
+        }))
+        .expect_err("undo source must be owned by the desktop adapter");
+
+        assert!(error.to_string().contains("unknown field `source`"));
+    }
+
+    #[test]
+    fn desktop_catalog_request_rejects_client_truth_filtering() {
+        let error = serde_json::from_value::<DescribeConfigCatalogRequest>(json!({
+            "scope": { "kind": "user" },
+            "includeHidden": false
+        }))
+        .expect_err("the published Catalog truth set is not client-filterable");
+
+        assert!(error.to_string().contains("unknown field `includeHidden`"));
+    }
+
+    #[test]
+    fn config_command_error_exposes_only_a_stable_code() {
+        let error = public_config_error(
+            &"validation failed: config.revision_conflict at C:\\private\\app.json",
         );
-    }
-    if !config.is_empty() {
-        sparo_core::service::config::agent_capability_config_canonicalizer::persist_agent_capability_config_from_value(
-            &request.agent_id,
-            Value::Object(config),
-        )
-        .await
-        .map_err(|e| format!("Failed to update agent capabilities: {}", e))?;
+        let published = serde_json::to_value(error).expect("serializable command error");
+
+        assert_eq!(published, json!({ "code": "config.revision_conflict" }));
+        assert!(!published.to_string().contains("private"));
     }
 
-    if let Some(skills) = request.skills {
-        crate::api::skill_api::replace_agent_skill_selection(
-            state.clone(),
-            crate::api::skill_api::ReplaceAgentSkillSelectionRequest {
-                agent_id: request.agent_id.clone(),
-                enabled_skill_keys: normalize_unique_list(skills),
-                enabled_suite_keys: None,
-                workspace_path: request.workspace_path.clone(),
-            },
-        )
-        .await?;
+    #[test]
+    fn unknown_config_failures_collapse_to_the_generic_code() {
+        let error = public_config_error(&"failed to read C:\\private\\app.json");
+        let published = serde_json::to_value(error).expect("serializable command error");
+
+        assert_eq!(published, json!({ "code": "config.operation_failed" }));
     }
 
-    if let Some(subagents) = request.subagents {
-        crate::api::subagent_api::replace_agent_subagent_selection(
-            state.clone(),
-            crate::api::subagent_api::ReplaceAgentSubagentSelectionRequest {
-                agent_id: request.agent_id.clone(),
-                enabled_subagent_ids: normalize_unique_list(subagents),
-                workspace_path: request.workspace_path.clone(),
-            },
-        )
-        .await?;
-    }
-
-    if request.model.is_some() {
-        set_agent_model_config(&state, &request.agent_id, request.model).await?;
-    }
-
-    if let Err(e) = sparo_core::service::config::reload_global_config().await {
-        warn!(
-            "Failed to reload global config after agent capability update: agent_id={}, error={}",
-            request.agent_id, e
-        );
-    }
-    Ok(())
-}
-
-async fn update_agent_component_capability_profile(
-    state: State<'_, AppState>,
-    request: UpdateAgentCapabilityProfileRequest,
-    workspace: Option<&std::path::Path>,
-) -> Result<(), String> {
-    let package = AgentComponentManager::get(&request.agent_id, None, workspace)
-        .map_err(|e| e.to_string())?;
-    let mut manifest = package.manifest;
-
-    if let Some(enabled) = request.enabled {
-        manifest.enabled = enabled;
-    }
-    if let Some(model) = request.model {
-        manifest.model = model.trim().to_string();
-    }
-    if let Some(tools) = request.tools {
-        manifest.tools = normalize_unique_list(tools);
-    }
-    if let Some(skills) = request.skills {
-        manifest.skills = normalize_unique_list(skills);
-    }
-    if let Some(subagents) = request.subagents {
-        manifest.subagents = normalize_unique_list(subagents);
-    }
-
-    let valid_tools = get_all_registered_tool_names().await;
-    let invalid_tools = manifest
-        .tools
-        .iter()
-        .filter(|tool| !valid_tools.contains(*tool))
-        .cloned()
-        .collect::<Vec<_>>();
-    if !invalid_tools.is_empty() {
-        return Err(format!("Unknown tools: {}", invalid_tools.join(", ")));
-    }
-    validate_known_skills(&manifest.skills, request.workspace_path.as_deref()).await?;
-    validate_known_subagents(&state, &manifest.subagents, workspace).await?;
-    AgentComponentManager::validate_manifest(&mut manifest).map_err(|e| e.to_string())?;
-    AgentComponentManager::create_or_update(manifest, package.prompt, workspace, true)
-        .map_err(|e| e.to_string())?;
-    AgentComponentManager::register_runtime_tools(workspace)
-        .await
-        .map(|_| ())
-        .map_err(|e| e.to_string())
-}
-
-async fn update_subagent_capability_profile(
-    state: State<'_, AppState>,
-    request: UpdateAgentCapabilityProfileRequest,
-    workspace: Option<&std::path::Path>,
-) -> Result<(), String> {
-    if request.skills.is_some() {
-        return Err("Subagent skill overrides are not configurable yet".to_string());
-    }
-    if request.subagents.is_some() {
-        return Err("Nested subagent delegation is not configurable yet".to_string());
-    }
-
-    let is_custom = state
-        .agent_registry
-        .get_custom_subagent_config(&request.agent_id)
-        .is_some();
-
-    if let Some(tools) = request.tools {
-        if !is_custom {
-            return Err("Built-in subagent tools are read-only".to_string());
-        }
-        let detail = state
-            .agent_registry
-            .get_custom_subagent_detail(&request.agent_id, workspace)
-            .await
-            .map_err(|e| format!("Failed to load subagent detail: {}", e))?;
-        let tools = normalize_unique_list(tools);
-        let valid_tools = get_all_registered_tool_names().await;
-        let invalid_tools = tools
-            .iter()
-            .filter(|tool| !valid_tools.contains(*tool))
-            .cloned()
-            .collect::<Vec<_>>();
-        if !invalid_tools.is_empty() {
-            return Err(format!("Unknown tools: {}", invalid_tools.join(", ")));
-        }
-        state
-            .agent_registry
-            .update_custom_subagent_definition(
-                &request.agent_id,
-                workspace,
-                detail.description,
-                detail.prompt,
-                Some(tools),
-                Some(detail.readonly),
-            )
-            .await
-            .map_err(|e| format!("Failed to update subagent tools: {}", e))?;
-        state
-            .agent_registry
-            .update_and_save_custom_subagent_config(
-                &request.agent_id,
-                Some(detail.enabled),
-                Some(detail.model),
-            )
-            .map_err(|e| format!("Failed to preserve subagent configuration: {}", e))?;
-    }
-
-    if is_custom {
-        if request.enabled.is_some() || request.model.is_some() {
-            state
-                .agent_registry
-                .update_and_save_custom_subagent_config(
-                    &request.agent_id,
-                    request.enabled,
-                    request.model,
-                )
-                .map_err(|e| format!("Failed to update subagent configuration: {}", e))?;
-        }
-    } else {
-        if let Some(enabled) = request.enabled {
-            let config = sparo_core::service::config::types::SubAgentConfig { enabled };
-            let path = format!("ai.subagent_configs.{}", request.agent_id);
-            let config_value = serde_json::to_value(&config)
-                .map_err(|e| format!("Failed to serialize subagent config: {}", e))?;
-            state
-                .config_service
-                .set_config(&path, config_value)
-                .await
-                .map_err(|e| format!("Failed to update enabled status: {}", e))?;
+    #[test]
+    fn config_startup_status_request_rejects_unknown_fields() {
+        #[derive(Debug, serde::Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct CommandEnvelope {
+            request: GetConfigStartupStatusRequest,
         }
 
-        if request.model.is_some() {
-            set_agent_model_config(&state, &request.agent_id, request.model).await?;
-        }
+        serde_json::from_value::<GetConfigStartupStatusRequest>(json!({}))
+            .expect("empty request is valid");
+        let envelope = serde_json::from_value::<CommandEnvelope>(json!({ "request": {} }))
+            .expect("command uses the structured request argument");
+        let _ = envelope.request;
+        serde_json::from_value::<CommandEnvelope>(json!({ "_request": {} }))
+            .expect_err("underscored command arguments are not part of the IPC contract");
+        let error = serde_json::from_value::<GetConfigStartupStatusRequest>(json!({
+            "includeRawError": true
+        }))
+        .expect_err("startup status request is not client-extensible");
+
+        assert!(error
+            .to_string()
+            .contains("unknown field `includeRawError`"));
     }
 
-    if let Err(e) = sparo_core::service::config::reload_global_config().await {
-        warn!(
-            "Failed to reload global config after subagent capability update: agent_id={}, error={}",
-            request.agent_id, e
-        );
-    }
-
-    Ok(())
-}
-
-fn reject_hidden_capability_update(
-    request: &UpdateAgentCapabilityProfileRequest,
-) -> Result<(), String> {
-    let mut fields = Vec::new();
-    if request.enabled.is_some() {
-        fields.push("enabled");
-    }
-    if request.model.is_some() {
-        fields.push("model");
-    }
-    if request.tools.is_some() {
-        fields.push("tools");
-    }
-    if request.skills.is_some() {
-        fields.push("skills");
-    }
-    if request.subagents.is_some() {
-        fields.push("subagents");
-    }
-    if fields.is_empty() {
-        Ok(())
-    } else {
-        Err(format!(
-            "Hidden agents are read-only; cannot update {}",
-            fields.join(", ")
+    #[test]
+    fn config_startup_status_is_redacted_and_stable() {
+        let published = serde_json::to_value(ConfigStartupStatus::read_only_defaults(
+            ConfigStartupFailurePhase::Validation,
         ))
-    }
-}
+        .expect("serializable startup status");
 
-#[tauri::command]
-pub async fn update_agent_capability_profile(
-    state: State<'_, AppState>,
-    request: UpdateAgentCapabilityProfileRequest,
-) -> Result<Value, String> {
-    let workspace = workspace_root_from_request(request.workspace_path.as_deref());
-    let agent_id = request.agent_id.clone();
-    let category = state
-        .agent_registry
-        .get_agent_category(&agent_id, workspace.as_deref())
-        .ok_or_else(|| format!("Agent not found: {}", agent_id))?;
-
-    match category {
-        AgentCategory::Agent => {
-            update_agent_capability_profile_for_builtin_agent(state.clone(), request).await?
-        }
-        AgentCategory::AgentComponent => {
-            update_agent_component_capability_profile(state.clone(), request, workspace.as_deref())
-                .await?
-        }
-        AgentCategory::SubAgent => {
-            update_subagent_capability_profile(state.clone(), request, workspace.as_deref()).await?
-        }
-        AgentCategory::Hidden => {
-            reject_hidden_capability_update(&request)?;
-        }
-    }
-
-    let profile = state
-        .agent_registry
-        .get_agent_capability_profile(&agent_id, workspace.as_deref())
-        .await
-        .ok_or_else(|| format!("Agent not found after update: {}", agent_id))?;
-    to_json_value(profile, "agent capability profile")
-}
-
-#[tauri::command]
-pub async fn get_agent_capability_configs(_state: State<'_, AppState>) -> Result<Value, String> {
-    let agent_capability_configs =
-        sparo_core::service::config::agent_capability_config_canonicalizer::get_agent_capability_config_views()
-            .await
-            .map_err(|e| format!("Failed to get agent capability configs: {}", e))?;
-
-    to_json_value(agent_capability_configs, "agent capability configs")
-}
-
-#[tauri::command]
-pub async fn get_agent_capability_config(
-    _state: State<'_, AppState>,
-    agent_id: String,
-) -> Result<Value, String> {
-    let config =
-        sparo_core::service::config::agent_capability_config_canonicalizer::get_agent_capability_config_view(&agent_id)
-            .await
-            .map_err(|e| format!("Failed to get agent capability config: {}", e))?;
-
-    to_json_value(config, "agent capability config")
-}
-
-#[tauri::command]
-pub async fn set_agent_capability_config(
-    state: State<'_, AppState>,
-    agent_id: String,
-    config: Value,
-) -> Result<String, String> {
-    let _ = state;
-
-    match sparo_core::service::config::agent_capability_config_canonicalizer::persist_agent_capability_config_from_value(
-        &agent_id, config,
-    )
-    .await
-    {
-        Ok(_) => {
-            if let Err(e) = sparo_core::service::config::reload_global_config().await {
-                warn!(
-                    "Failed to reload global config after agent capability config change: agent_id={}, error={}",
-                    agent_id, e
-                );
-            } else {
-                info!(
-                    "Global config reloaded after agent capability config change: agent_id={}",
-                    agent_id
-                );
-            }
-
-            Ok(format!("Agent {}' configuration set successfully", agent_id))
-        }
-        Err(e) => {
-            error!(
-                "Failed to set agent capability config: agent_id={}, error={}",
-                agent_id, e
-            );
-            Err(format!("Failed to set agent capability config: {}", e))
-        }
-    }
-}
-
-#[tauri::command]
-pub async fn reset_agent_capability_config(
-    _state: State<'_, AppState>,
-    agent_id: String,
-) -> Result<String, String> {
-    match sparo_core::service::config::agent_capability_config_canonicalizer::reset_agent_capability_config_to_default(
-        &agent_id,
-    )
-    .await
-    {
-        Ok(_) => {
-            if let Err(e) = sparo_core::service::config::reload_global_config().await {
-                warn!(
-                    "Failed to reload global config after agent capability config reset: agent_id={}, error={}",
-                    agent_id, e
-                );
-            } else {
-                info!(
-                    "Global config reloaded after agent capability config reset: agent_id={}",
-                    agent_id
-                );
-            }
-
-            Ok(format!(
-                "Agent {}' configuration reset successfully",
-                agent_id
-            ))
-        }
-        Err(e) => {
-            error!(
-                "Failed to reset agent capability config: agent_id={}, error={}",
-                agent_id, e
-            );
-            Err(format!("Failed to reset agent capability config: {}", e))
-        }
-    }
-}
-
-#[tauri::command]
-pub async fn get_subagent_configs(state: State<'_, AppState>) -> Result<Value, String> {
-    use sparo_core::service::config::types::SubAgentConfig;
-    use std::collections::HashMap;
-
-    let config_service = &state.config_service;
-    let mut subagent_configs: HashMap<String, SubAgentConfig> = config_service
-        .get_config(Some("ai.subagent_configs"))
-        .await
-        .unwrap_or_default();
-
-    let workspace = state.workspace_path.read().await.clone();
-    let all_subagents = state
-        .agent_registry
-        .get_subagents_info(workspace.as_deref())
-        .await;
-    let mut needs_save = false;
-
-    for subagent in all_subagents {
-        let subagent_id = subagent.id;
-        if let std::collections::hash_map::Entry::Vacant(e) = subagent_configs.entry(subagent_id) {
-            e.insert(SubAgentConfig { enabled: true });
-            needs_save = true;
-        }
-    }
-
-    if needs_save {
-        match to_json_value(&subagent_configs, "subagent configs") {
-            Ok(subagent_configs_value) => {
-                if let Err(e) = config_service
-                    .set_config("ai.subagent_configs", subagent_configs_value)
-                    .await
-                {
-                    warn!("Failed to save initialized subagent configs: {}", e);
+        assert_eq!(
+            published,
+            json!({
+                "mode": "readOnlyDefaults",
+                "schemaVersion": "1",
+                "writesAllowed": false,
+                "sourcePreserved": true,
+                "rebuildAllowed": true,
+                "issue": {
+                    "code": "config.startup.validation_failed",
+                    "phase": "validation"
                 }
-            }
-            Err(e) => {
-                warn!("Failed to serialize initialized subagent configs: {}", e);
-            }
-        }
-    }
-
-    to_json_value(subagent_configs, "subagent configs")
-}
-
-#[tauri::command]
-pub async fn set_subagent_config(
-    state: State<'_, AppState>,
-    subagent_id: String,
-    enabled: bool,
-) -> Result<String, String> {
-    use sparo_core::service::config::types::SubAgentConfig;
-
-    let config_service = &state.config_service;
-    let config = SubAgentConfig { enabled };
-    let path = format!("ai.subagent_configs.{}", subagent_id);
-    let config_value = to_json_value(&config, "subagent config")?;
-
-    match config_service.set_config(&path, config_value).await {
-        Ok(_) => {
-            if let Err(e) = sparo_core::service::config::reload_global_config().await {
-                warn!("Failed to reload global config after subagent config change: subagent_id={}, error={}", subagent_id, e);
-            } else {
-                info!("Global config reloaded after subagent config change: subagent_id={}, enabled={}", subagent_id, enabled);
-            }
-
-            Ok(format!(
-                "SubAgent '{}' configuration set successfully",
-                subagent_id
-            ))
-        }
-        Err(e) => {
-            error!(
-                "Failed to set subagent config: subagent_id={}, enabled={}, error={}",
-                subagent_id, enabled, e
-            );
-            Err(format!("Failed to set SubAgent config: {}", e))
-        }
-    }
-}
-
-#[tauri::command]
-pub async fn canonicalize_agent_capability_configs(
-    _state: State<'_, AppState>,
-) -> Result<Value, String> {
-    match sparo_core::service::config::agent_capability_config_canonicalizer::canonicalize_agent_capability_configs().await
-    {
-        Ok(report) => {
-            info!(
-                "Agent capability configs canonicalized: removed_agents={}, updated_agents={}",
-                report.removed_agent_capability_configs.len(),
-                report.updated_agents.len()
-            );
-            Ok(to_json_value(
-                report,
-                "agent capability config canonicalization report",
-            )?)
-        }
-        Err(e) => {
-            error!("Failed to canonicalize agent capability configs: {}", e);
-            Err(format!("Failed to canonicalize agent capability configs: {}", e))
-        }
+            })
+        );
+        assert!(!published.to_string().contains("app.json"));
+        assert!(!published.to_string().contains("force_extract"));
     }
 }

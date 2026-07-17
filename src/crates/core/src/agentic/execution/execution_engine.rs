@@ -355,23 +355,26 @@ impl ExecutionEngine {
     fn resolve_configured_model_id(
         ai_config: &crate::service::config::types::AIConfig,
         model_id: &str,
-    ) -> String {
+    ) -> CoreResult<String> {
         let trimmed = model_id.trim();
-        let selector = if trimmed.is_empty() || trimmed == "default" {
+        let selector = if trimmed.is_empty() {
             "primary"
         } else {
             trimmed
         };
 
-        let resolved = ai_config.resolve_model_selection(selector);
-        if let Some(id) = resolved {
-            return id;
-        }
-
-        ai_config
-            .resolve_model_selection("primary")
-            .or_else(|| ai_config.first_enabled_model_id())
-            .unwrap_or_else(|| selector.to_string())
+        ai_config.resolve_model_selection(selector).ok_or_else(|| {
+            let selector_needs_default = selector == "primary" || selector == "fast";
+            let has_enabled_model = ai_config.models.iter().any(|model| model.enabled);
+            if selector_needs_default || !has_enabled_model {
+                CoreError::AiClient(
+                    "ai.model_not_configured: configure an enabled primary AI model before starting AI work"
+                        .to_string(),
+                )
+            } else {
+                CoreError::AiClient(format!("Configured model selector is invalid: {selector}"))
+            }
+        })
     }
 
     async fn build_prompt_context(
@@ -412,10 +415,8 @@ impl ExecutionEngine {
                 e
             ))
         })?;
-        let ai_config: crate::service::config::types::AIConfig = config_service
-            .get_config(Some("ai"))
-            .await
-            .unwrap_or_default();
+        let ai_config: crate::service::config::types::AIConfig =
+            config_service.get_config(Some("ai")).await?;
         let configured_model_id = session
             .config
             .model_id
@@ -425,7 +426,7 @@ impl ExecutionEngine {
             .map(str::to_string)
             .unwrap_or(fallback_model_id.clone());
         let resolved_configured_model_id =
-            Self::resolve_configured_model_id(&ai_config, &configured_model_id);
+            Self::resolve_configured_model_id(&ai_config, &configured_model_id)?;
 
         Ok(resolved_configured_model_id)
     }
@@ -1045,7 +1046,7 @@ impl ExecutionEngine {
         if let Some(workspace) = context.workspace.as_ref() {
             agent_registry
                 .load_custom_subagents(workspace.root_path())
-                .await;
+                .await?;
         }
         let current_agent = agent_registry
             .get_agent(
@@ -1108,45 +1109,27 @@ impl ExecutionEngine {
 
         // Primary model vision capability (tools + system prompt appendix; also used below for API message stripping).
         let (resolved_primary_model_id, primary_supports_image_understanding) = {
-            let config_service = get_global_config_service().await.ok();
-            if let Some(service) = config_service {
-                let ai_config: crate::service::config::types::AIConfig =
-                    service.get_config(Some("ai")).await.unwrap_or_default();
+            let config_service = get_global_config_service().await?;
+            let ai_config: crate::service::config::types::AIConfig =
+                config_service.get_config(Some("ai")).await?;
 
-                let resolved_id = Self::resolve_configured_model_id(&ai_config, &model_id);
+            let resolved_id = Self::resolve_configured_model_id(&ai_config, &model_id)?;
 
-                let model_cfg = ai_config
-                    .models
-                    .iter()
-                    .find(|m| m.id == resolved_id)
-                    .or_else(|| ai_config.models.iter().find(|m| m.name == resolved_id))
-                    .or_else(|| {
-                        ai_config
-                            .models
-                            .iter()
-                            .find(|m| m.model_name == resolved_id)
-                    })
-                    .or_else(|| {
-                        ai_config.models.iter().find(|m| {
-                            m.model_name == ai_client.config.model
-                                && m.provider == ai_client.config.format
-                        })
-                    });
+            let model_cfg = ai_config
+                .models
+                .iter()
+                .find(|m| m.id == resolved_id)
+                .ok_or_else(|| {
+                    CoreError::AiClient(format!("Configured model not found: {resolved_id}"))
+                })?;
 
-                let supports = model_cfg.is_some_and(|m| {
-                    m.capabilities
-                        .iter()
-                        .any(|cap| matches!(cap, ModelCapability::ImageUnderstanding))
-                        || matches!(m.category, ModelCategory::Multimodal)
-                });
+            let supports = model_cfg
+                .capabilities
+                .iter()
+                .any(|cap| matches!(cap, ModelCapability::ImageUnderstanding))
+                || matches!(model_cfg.category, ModelCategory::Multimodal);
 
-                (resolved_id, supports)
-            } else {
-                warn!(
-                    "Config service unavailable, assuming primary model is text-only for image input gating"
-                );
-                (model_id.clone(), false)
-            }
+            (resolved_id, supports)
         };
 
         let model_context_window = ai_client.config.context_window as usize;
@@ -1242,7 +1225,7 @@ impl ExecutionEngine {
                     .as_ref()
                     .map(|workspace| workspace.root_path()),
             )
-            .await;
+            .await?;
         let allowed_tools = Self::resolve_effective_tool_allowlist(
             agent_allowed_tools,
             context.tool_allowlist_override.as_deref(),
@@ -1264,7 +1247,7 @@ impl ExecutionEngine {
                 &agent_type,
                 primary_supports_image_understanding,
             )
-            .await
+            .await?
         } else {
             (vec![], None)
         };
@@ -1490,6 +1473,7 @@ impl ExecutionEngine {
                 model_name: ai_client.config.model.clone(),
                 agent_type: agent_type.clone(),
                 context_vars: round_context_vars,
+                tool_confirmation_policy: context.tool_confirmation_policy,
                 runtime_tool_restrictions: runtime_tool_restrictions.clone(),
                 app_builder: context.app_builder.clone(),
                 cancellation_token: CancellationToken::new(),
@@ -1893,7 +1877,7 @@ impl ExecutionEngine {
         workspace: Option<&crate::agentic::WorkspaceBinding>,
         agent_type: &str,
         primary_supports_image_understanding: bool,
-    ) -> (Vec<String>, Option<Vec<ToolDefinition>>) {
+    ) -> CoreResult<(Vec<String>, Option<Vec<ToolDefinition>>)> {
         // Use get_all_registered_tools to get all tools including MCP tools
         let all_tools = get_all_registered_tools().await;
 
@@ -1928,8 +1912,7 @@ impl ExecutionEngine {
             if mode_allowed_tools.contains(&tool_name) {
                 let description = tool
                     .description_with_context(Some(&description_context))
-                    .await
-                    .unwrap_or_else(|_| format!("Tool: {}", tool.name()));
+                    .await?;
 
                 let parameters = tool
                     .input_schema_for_model_with_context(Some(&description_context))
@@ -1971,7 +1954,7 @@ impl ExecutionEngine {
         let enabled_tool_names: Vec<String> =
             tool_definitions.iter().map(|d| d.name.clone()).collect();
 
-        (enabled_tool_names, Some(tool_definitions))
+        Ok((enabled_tool_names, Some(tool_definitions)))
     }
 
     /// Emit event
@@ -2004,25 +1987,30 @@ mod tests {
         ai_config.default_models.primary = Some("model-primary".to_string());
 
         assert_eq!(
-            ExecutionEngine::resolve_configured_model_id(&ai_config, ""),
+            ExecutionEngine::resolve_configured_model_id(&ai_config, "").unwrap(),
             "model-primary"
         );
         assert_eq!(
-            ExecutionEngine::resolve_configured_model_id(&ai_config, "primary"),
+            ExecutionEngine::resolve_configured_model_id(&ai_config, "primary").unwrap(),
             "model-primary"
         );
     }
 
     #[test]
-    fn resolve_configured_fast_model_falls_back_to_primary_when_fast_is_stale() {
+    fn resolve_configured_fast_model_rejects_stale_id() {
         let mut ai_config = AIConfig::default();
         ai_config.models = vec![build_model("model-primary", "Primary", "claude-sonnet-4.5")];
         ai_config.default_models.primary = Some("model-primary".to_string());
         ai_config.default_models.fast = Some("deleted-fast-model".to_string());
 
-        assert_eq!(
-            ExecutionEngine::resolve_configured_model_id(&ai_config, "fast"),
-            "model-primary"
-        );
+        assert!(ExecutionEngine::resolve_configured_model_id(&ai_config, "fast").is_err());
+    }
+
+    #[test]
+    fn resolve_primary_without_models_returns_stable_configuration_error() {
+        let error = ExecutionEngine::resolve_configured_model_id(&AIConfig::default(), "primary")
+            .expect_err("zero-model configuration must not start AI execution");
+
+        assert!(error.to_string().contains("ai.model_not_configured"));
     }
 }

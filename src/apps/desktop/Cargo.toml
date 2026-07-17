@@ -20,6 +20,7 @@ serde_json = { workspace = true }
 [dependencies]
 # Internal crates
 sparo-core = { path = "../../crates/core" }
+sparo-events = { path = "../../crates/events" }
 cli-credential = { path = "../../crates/libs/cli-credential" }
 sparo-transport = { path = "../../crates/transport", features = ["tauri-adapter"] }
 sparo-webdriver = { path = "../../crates/webdriver" }

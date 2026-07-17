@@ -101,13 +101,21 @@ export class AIApi {
   }
 
    
-  async initializeAI(config: any): Promise<void> {
+  async initializeAI(): Promise<void> {
     try {
-      await api.invoke('initialize_ai', { 
-        request: { config } 
+      await api.invoke('initialize_ai');
+    } catch (error) {
+      throw createTauriCommandError('initialize_ai', error);
+    }
+  }
+
+  async testSavedModelConnection(modelId: string): Promise<ConnectionTestResult> {
+    try {
+      return await api.invoke('test_saved_ai_model_connection', {
+        request: { modelId },
       });
     } catch (error) {
-      throw createTauriCommandError('initialize_ai', error, { config });
+      throw createTauriCommandError('test_saved_ai_model_connection', error, { modelId });
     }
   }
 

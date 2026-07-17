@@ -30,7 +30,7 @@ impl Default for IngestServerConfig {
 }
 
 impl IngestServerConfig {
-    pub fn from_debug_mode_config(port: u16, log_path: PathBuf) -> Self {
+    pub fn with_log_path(port: u16, log_path: PathBuf) -> Self {
         Self {
             port,
             log_config: DebugLogConfig {

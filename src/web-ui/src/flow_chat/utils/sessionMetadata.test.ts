@@ -12,6 +12,7 @@ import {
   buildSessionMetadata,
   deriveLastFinishedAtFromMetadata,
   deriveSessionRelationshipFromMetadata,
+  normalizeSessionKind,
   normalizeSessionRelationship,
   resolveSessionRelationship,
 } from './sessionMetadata';
@@ -44,6 +45,10 @@ function createSession(overrides: Partial<Session> = {}): Session {
 }
 
 describe('sessionMetadata', () => {
+  it('preserves the internal kind for system-owned hidden sessions', () => {
+    expect(normalizeSessionKind('internal')).toBe('internal');
+  });
+
   it('normalizes runtime sessions to an explicit normal kind', () => {
     expect(normalizeSessionRelationship({})).toEqual({
       sessionKind: 'normal',

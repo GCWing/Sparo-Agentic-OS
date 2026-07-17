@@ -10,7 +10,11 @@ use sparo_core::infrastructure::constants::{
     EVENT_AGENT_COMPANION_OPEN_LATEST_TASK, EVENT_AGENT_COMPANION_OPEN_SETTINGS,
     EVENT_AGENT_COMPANION_SETTINGS_UPDATED, WINDOW_AGENT_COMPANION, WINDOW_MAIN,
 };
-use sparo_core::service::config::{get_global_config_service, types::GlobalConfig};
+use sparo_core::service::config::catalog::SETTING_AGENT_COMPANION_ENABLED;
+use sparo_core::service::config::{
+    get_global_config_service, types::GlobalConfig, ConfigPatchOperation,
+};
+use sparo_events::{ConfigChangeSource, ConfigChangeSourceKind};
 use std::sync::{OnceLock, RwLock};
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
@@ -70,15 +74,19 @@ const MENU_EN: MenuLabels = MenuLabels {
     hide: "Hide Companion",
 };
 
-async fn menu_labels() -> &'static MenuLabels {
-    if let Ok(service) = get_global_config_service().await {
-        if let Ok(config) = service.get_config::<GlobalConfig>(None).await {
-            if config.app.language.starts_with("zh") {
-                return &MENU_ZH;
-            }
-        }
+async fn menu_labels() -> Result<&'static MenuLabels, String> {
+    let service = get_global_config_service()
+        .await
+        .map_err(|error| error.to_string())?;
+    let config = service
+        .get_config::<GlobalConfig>(None)
+        .await
+        .map_err(|error| error.to_string())?;
+    if config.app.language.starts_with("zh") {
+        Ok(&MENU_ZH)
+    } else {
+        Ok(&MENU_EN)
     }
-    &MENU_EN
 }
 
 fn build_context_menu(
@@ -102,7 +110,7 @@ fn build_context_menu(
     )
 }
 
-async fn set_enabled(app: AppHandle, enabled: bool) -> Result<(), String> {
+pub(crate) async fn set_enabled(app: AppHandle, enabled: bool) -> Result<(), String> {
     let service = get_global_config_service()
         .await
         .map_err(|e| e.to_string())?;
@@ -111,13 +119,22 @@ async fn set_enabled(app: AppHandle, enabled: bool) -> Result<(), String> {
         .await
         .map_err(|e| e.to_string())?;
 
+    let operations = vec![ConfigPatchOperation::Set {
+        setting_id: SETTING_AGENT_COMPANION_ENABLED.to_string(),
+        value: serde_json::json!(enabled),
+    }];
     config.app.ai_experience.enable_agent_companion = enabled;
-    if enabled {
-        config.app.ai_experience.agent_companion_display_mode = "desktop".to_string();
-    }
 
     service
-        .set_config("app.ai_experience", &config.app.ai_experience)
+        .commit_operations(
+            ConfigChangeSource {
+                kind: ConfigChangeSourceKind::Manual,
+                surface: Some("agent-companion".to_string()),
+                request_id: None,
+            },
+            operations,
+            true,
+        )
         .await
         .map_err(|e| e.to_string())?;
 
@@ -132,7 +149,6 @@ async fn set_enabled(app: AppHandle, enabled: bool) -> Result<(), String> {
         hide_agent_companion_desktop_pet(app.clone()).await?;
     }
 
-    crate::tray::request_menu_refresh(&app);
     Ok(())
 }
 
@@ -175,9 +191,10 @@ pub fn handle_context_menu_event(app: &AppHandle, id: &str) -> bool {
         MENU_HIDE => {
             let app = app.clone();
             tauri::async_runtime::spawn(async move {
-                if let Err(e) = set_enabled(app, false).await {
+                if let Err(e) = set_enabled(app.clone(), false).await {
                     warn!("Agent companion menu failed to hide desktop pet: {}", e);
                 }
+                crate::tray::request_menu_refresh(&app);
             });
             true
         }
@@ -426,7 +443,7 @@ pub async fn show_agent_companion_context_menu(app: AppHandle) -> Result<(), Str
     let Some(window) = app.get_webview_window(WINDOW_AGENT_COMPANION) else {
         return Err("Agent companion window not found".to_string());
     };
-    let labels = menu_labels().await;
+    let labels = menu_labels().await?;
     let menu = build_context_menu(&app, labels)
         .map_err(|e| format!("Failed to build Agent companion context menu: {}", e))?;
     window

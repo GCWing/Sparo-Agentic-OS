@@ -36,6 +36,7 @@ pub struct CoreAgentAdapter {
     event_queue: Arc<EventQueue>,
     workspace_path: Arc<RwLock<Option<PathBuf>>>,
     session_id: Arc<Mutex<Option<String>>>,
+    skip_tool_confirmation: bool,
 }
 
 impl CoreAgentAdapter {
@@ -44,6 +45,7 @@ impl CoreAgentAdapter {
         coordinator: Arc<ConversationCoordinator>,
         event_queue: Arc<EventQueue>,
         workspace_path: Option<PathBuf>,
+        skip_tool_confirmation: bool,
     ) -> Self {
         Self {
             agent_type: Arc::new(RwLock::new(agent_type.clone())),
@@ -51,6 +53,7 @@ impl CoreAgentAdapter {
             event_queue,
             workspace_path: Arc::new(RwLock::new(workspace_path)),
             session_id: Arc::new(Mutex::new(None)),
+            skip_tool_confirmation,
         }
     }
 
@@ -60,6 +63,7 @@ impl CoreAgentAdapter {
         event_queue: Arc<EventQueue>,
         workspace_path: Option<PathBuf>,
         session_id: Option<String>,
+        skip_tool_confirmation: bool,
     ) -> Self {
         Self {
             agent_type: Arc::new(RwLock::new(agent_type)),
@@ -67,6 +71,7 @@ impl CoreAgentAdapter {
             event_queue,
             workspace_path: Arc::new(RwLock::new(workspace_path)),
             session_id: Arc::new(Mutex::new(session_id.filter(|id| !id.trim().is_empty()))),
+            skip_tool_confirmation,
         }
     }
 
@@ -139,7 +144,8 @@ impl Agent for CoreAgentAdapter {
                 agent_type,
                 None,
                 workspace_path.as_ref().map(|p| p.display().to_string()),
-                DialogSubmissionPolicy::for_source(DialogTriggerSource::Cli),
+                DialogSubmissionPolicy::for_source(DialogTriggerSource::Cli)
+                    .with_skip_tool_confirmation(self.skip_tool_confirmation),
                 None,
             )
             .await?;

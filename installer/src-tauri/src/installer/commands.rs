@@ -2,12 +2,8 @@
 
 use super::app_identity::{APP_EXE_FILENAME, INSTALL_FOLDER_NAME, INSTALL_MANIFEST_FILENAME};
 use super::extract::{self, ESTIMATED_INSTALL_SIZE};
-use super::types::{
-    ConnectionTestResult, DiskSpaceInfo, InstallOptions, InstallProgress, ModelConfig,
-    RemoteModelInfo,
-};
+use super::types::{DiskSpaceInfo, InstallOptions, InstallProgress};
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value};
 use std::fs::File;
 use std::io::{Cursor, Read};
 use std::path::{Path, PathBuf};
@@ -26,7 +22,7 @@ struct WindowsInstallState {
 const MIN_WINDOWS_APP_EXE_BYTES: u64 = 5 * 1024 * 1024;
 const PAYLOAD_MANIFEST_FILE: &str = "payload-manifest.json";
 const INSTALLER_STATE_FILE: &str = "installer-state.json";
-const APP_CONFIG_DIR_NAME: &str = "sparo_os";
+const INSTALLER_STATE_DIR_NAME: &str = "sparo_os_installer";
 const EMBEDDED_PAYLOAD_ZIP: &[u8] =
     include_bytes!(concat!(env!("OUT_DIR"), "/embedded_payload.zip"));
 
@@ -51,7 +47,6 @@ struct InstalledManifest {
 pub struct LaunchContext {
     pub mode: String,
     pub uninstall_path: Option<String>,
-    pub app_language: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -61,7 +56,7 @@ pub struct InstallPathValidation {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct InstallerState {
     last_install_path: String,
 }
@@ -176,7 +171,6 @@ unsafe fn windows_sys_get_disk_free_space(
 #[tauri::command]
 pub fn get_launch_context() -> LaunchContext {
     let args: Vec<String> = std::env::args().collect();
-    let app_language = read_saved_app_language();
     if let Some(idx) = args.iter().position(|arg| arg == "--uninstall") {
         let uninstall_path = args
             .get(idx + 1)
@@ -185,7 +179,6 @@ pub fn get_launch_context() -> LaunchContext {
         return LaunchContext {
             mode: "uninstall".to_string(),
             uninstall_path,
-            app_language,
         };
     }
 
@@ -193,14 +186,12 @@ pub fn get_launch_context() -> LaunchContext {
         return LaunchContext {
             mode: "uninstall".to_string(),
             uninstall_path: guess_uninstall_path_from_exe(),
-            app_language,
         };
     }
 
     LaunchContext {
         mode: "install".to_string(),
         uninstall_path: None,
-        app_language,
     }
 }
 
@@ -400,11 +391,7 @@ pub async fn start_installation(window: Window, options: InstallOptions) -> Resu
 
         write_installed_manifest(&install_path, installed_files)?;
 
-        // Step 4: Save first-launch language preference for Sparo OS.
-        emit_progress(&window, "config", 92, "Applying startup preferences...");
-        apply_first_launch_language(&options.app_language)
-            .map_err(|e| format!("Failed to apply startup preferences: {}", e))?;
-        // Step 5: Done
+        // Step 4: Done. The installed application owns all first-run configuration.
         emit_progress(&window, "complete", 100, "Installation complete!");
         Ok(())
     })();
@@ -614,242 +601,7 @@ pub fn close_installer(window: Window) {
     let _ = window.close();
 }
 
-/// Save theme preference for first launch (called after installation).
-#[tauri::command]
-pub fn set_theme_preference(theme_preference: String) -> Result<(), String> {
-    let allowed = [
-        "system",
-        "dark",
-        "light",
-        "sparo-china-style",
-        "sparo-china-night",
-        "sparo-cyber",
-        "slate",
-    ];
-    let normalized = theme_preference;
-    if !allowed.contains(&normalized.as_str()) {
-        return Err("Unsupported theme preference".to_string());
-    }
-
-    let app_config_file = ensure_app_config_path()?;
-    let mut root = read_or_create_root_config(&app_config_file)?;
-
-    let root_obj = root
-        .as_object_mut()
-        .ok_or_else(|| "Invalid root config object".to_string())?;
-
-    let themes_obj = root_obj
-        .entry("themes".to_string())
-        .or_insert_with(|| Value::Object(Map::new()))
-        .as_object_mut()
-        .ok_or_else(|| "Invalid themes config object".to_string())?;
-    themes_obj.insert("current".to_string(), Value::String(normalized));
-
-    write_root_config(&app_config_file, &root)
-}
-
-/// Save default model configuration for first launch (called after installation).
-#[tauri::command]
-pub fn set_model_config(model_config: ModelConfig) -> Result<(), String> {
-    apply_first_launch_model(&model_config)
-}
-
-/// Validate model configuration connectivity from installer (same stack as desktop `test_ai_config_connection`).
-#[tauri::command]
-pub async fn test_model_config_connection(
-    model_config: ModelConfig,
-) -> Result<ConnectionTestResult, String> {
-    let required_fields = [
-        ("baseUrl", model_config.base_url.trim()),
-        ("apiKey", model_config.api_key.trim()),
-        ("modelName", model_config.model_name.trim()),
-    ];
-    for (field, value) in required_fields {
-        if value.is_empty() {
-            return Ok(ConnectionTestResult {
-                success: false,
-                response_time_ms: 0,
-                model_response: None,
-                message_code: None,
-                error_details: Some(format!("Missing required field: {}", field)),
-            });
-        }
-    }
-
-    let ai_config = super::ai_config::ai_config_from_installer_model(&model_config)
-        .map_err(|e| e.to_string())?;
-    let model_name = ai_config.name.clone();
-    let supports_image_input = super::ai_config::supports_image_input(&model_config);
-
-    let ai_client = sparo_ai_adapters::AIClient::new(ai_config);
-
-    match ai_client.test_connection().await {
-        Ok(result) => {
-            if !result.success {
-                log::info!(
-                    "Installer AI config connection test: model={}, success={}, response_time={}ms",
-                    model_name,
-                    result.success,
-                    result.response_time_ms
-                );
-                return Ok(result.into());
-            }
-
-            if supports_image_input {
-                match ai_client.test_image_input_connection().await {
-                    Ok(image_result) => {
-                        let response_time_ms =
-                            result.response_time_ms + image_result.response_time_ms;
-
-                        if !image_result.success {
-                            let merged = ConnectionTestResult {
-                                success: false,
-                                response_time_ms,
-                                model_response: image_result
-                                    .model_response
-                                    .or(result.model_response),
-                                message_code: image_result.message_code.map(Into::into),
-                                error_details: image_result.error_details,
-                            };
-                            log::info!(
-                                "Installer AI config connection test: model={}, success={}, response_time={}ms",
-                                model_name, merged.success, merged.response_time_ms
-                            );
-                            return Ok(merged.into());
-                        }
-
-                        let merged = ConnectionTestResult {
-                            success: true,
-                            response_time_ms,
-                            model_response: image_result.model_response.or(result.model_response),
-                            message_code: result.message_code.map(Into::into),
-                            error_details: result.error_details,
-                        };
-                        log::info!(
-                            "Installer AI config connection test: model={}, success={}, response_time={}ms",
-                            model_name, merged.success, merged.response_time_ms
-                        );
-                        return Ok(merged.into());
-                    }
-                    Err(e) => {
-                        log::error!(
-                            "Installer multimodal image test failed unexpectedly: model={}, error={}",
-                            model_name, e
-                        );
-                        return Err(format!("Connection test failed: {}", e));
-                    }
-                }
-            }
-
-            log::info!(
-                "Installer AI config connection test: model={}, success={}, response_time={}ms",
-                model_name,
-                result.success,
-                result.response_time_ms
-            );
-            Ok(result.into())
-        }
-        Err(e) => {
-            log::error!(
-                "Installer AI config connection test failed: model={}, error={}",
-                model_name,
-                e
-            );
-            Err(format!("Connection test failed: {}", e))
-        }
-    }
-}
-
-/// List remote models using the same discovery rules as the main app (installer-local HTTP).
-#[tauri::command]
-pub async fn list_model_config_models(
-    model_config: ModelConfig,
-) -> Result<Vec<RemoteModelInfo>, String> {
-    if model_config.api_key.trim().is_empty() {
-        return Err("API key is required".to_string());
-    }
-    if model_config.base_url.trim().is_empty() {
-        return Err("Base URL is required".to_string());
-    }
-    let ai_config = super::ai_config::ai_config_from_installer_model(&model_config)
-        .map_err(|e| e.to_string())?;
-    let ai_client = sparo_ai_adapters::AIClient::new(ai_config);
-    ai_client
-        .list_models()
-        .await
-        .map(|models| models.into_iter().map(Into::into).collect())
-        .map_err(|e| e.to_string())
-}
-
 // ── Helpers ────────────────────────────────────────────────────────────────
-
-fn storage_format(model: &ModelConfig) -> String {
-    model.format.trim().to_ascii_lowercase()
-}
-
-/// Stored `request_url` aligned with settings `resolveRequestUrl` (no sparo_core).
-fn resolve_stored_request_url(base_url: &str, format: &str) -> String {
-    let trimmed = base_url.trim().trim_end_matches('/');
-    if trimmed.ends_with('#') {
-        return trimmed[..trimmed.len().saturating_sub(1)]
-            .trim_end_matches('/')
-            .to_string();
-    }
-    match format {
-        "openai" => {
-            if trimmed.ends_with("chat/completions") {
-                trimmed.to_string()
-            } else {
-                format!("{}/chat/completions", trimmed)
-            }
-        }
-        "responses" | "response" => {
-            if trimmed.ends_with("responses") {
-                trimmed.to_string()
-            } else {
-                format!("{}/responses", trimmed)
-            }
-        }
-        "anthropic" => {
-            if trimmed.ends_with("v1/messages") {
-                trimmed.to_string()
-            } else {
-                format!("{}/v1/messages", trimmed)
-            }
-        }
-        "gemini" | "google" => gemini_installer_base_url(trimmed).to_string(),
-        _ => trimmed.to_string(),
-    }
-}
-
-fn gemini_installer_base_url(url: &str) -> &str {
-    let mut u = url;
-    if let Some(pos) = u.find("/v1beta") {
-        u = &u[..pos];
-    }
-    if let Some(pos) = u.find("/models/") {
-        u = &u[..pos];
-    }
-    u.trim_end_matches('/')
-}
-
-fn parse_custom_request_body(raw: &Option<String>) -> Result<Option<Map<String, Value>>, String> {
-    let Some(raw_value) = raw else {
-        return Ok(None);
-    };
-
-    let trimmed = raw_value.trim();
-    if trimmed.is_empty() {
-        return Ok(None);
-    }
-
-    let parsed: Value = serde_json::from_str(trimmed)
-        .map_err(|e| format!("customRequestBody is invalid JSON: {}", e))?;
-    let obj = parsed.as_object().ok_or_else(|| {
-        "customRequestBody must be a JSON object (for example: {\"temperature\": 0.7})".to_string()
-    })?;
-    Ok(Some(obj.clone()))
-}
 
 fn emit_progress(window: &Window, step: &str, percent: u32, message: &str) {
     let progress = InstallProgress {
@@ -1036,22 +788,13 @@ fn directory_has_entries(path: &Path) -> Result<bool, String> {
         .is_some())
 }
 
-fn ensure_app_config_path() -> Result<PathBuf, String> {
-    let config_root = dirs::config_dir()
-        .ok_or_else(|| "Failed to get user config directory".to_string())?
-        .join(APP_CONFIG_DIR_NAME)
-        .join("config");
-    std::fs::create_dir_all(&config_root)
-        .map_err(|e| format!("Failed to create Sparo OS config directory: {}", e))?;
-    Ok(config_root.join("app.json"))
-}
-
 fn installer_state_path() -> Result<PathBuf, String> {
-    let app_config_file = ensure_app_config_path()?;
-    let parent = app_config_file
-        .parent()
-        .ok_or_else(|| "Invalid app config path".to_string())?;
-    Ok(parent.join(INSTALLER_STATE_FILE))
+    let data_root = dirs::data_local_dir()
+        .or_else(dirs::config_dir)
+        .ok_or_else(|| "Failed to get user data directory".to_string())?;
+    Ok(data_root
+        .join(INSTALLER_STATE_DIR_NAME)
+        .join(INSTALLER_STATE_FILE))
 }
 
 fn read_last_install_path() -> Option<String> {
@@ -1076,6 +819,14 @@ fn persist_last_install_path(install_path: &Path) {
     let state = InstallerState {
         last_install_path: install_path.to_string_lossy().to_string(),
     };
+    let Some(state_dir) = state_path.parent() else {
+        log::warn!("Installer state path has no parent directory");
+        return;
+    };
+    if let Err(e) = std::fs::create_dir_all(state_dir) {
+        log::warn!("Failed to create installer state directory: {}", e);
+        return;
+    }
     let body = match serde_json::to_string_pretty(&state) {
         Ok(b) => b,
         Err(e) => {
@@ -1086,209 +837,6 @@ fn persist_last_install_path(install_path: &Path) {
     if let Err(e) = std::fs::write(&state_path, body) {
         log::warn!("Failed to write installer state: {}", e);
     }
-}
-
-fn read_saved_app_language() -> Option<String> {
-    let app_config_file = ensure_app_config_path().ok()?;
-    if !app_config_file.exists() {
-        return None;
-    }
-
-    let content = std::fs::read_to_string(&app_config_file).ok()?;
-    let root: Value = serde_json::from_str(&content).ok()?;
-    let lang = root.get("app")?.get("language")?.as_str()?;
-
-    match lang {
-        "zh-CN" => Some("zh-CN".to_string()),
-        "en-US" => Some("en-US".to_string()),
-        "zh" => Some("zh-CN".to_string()),
-        "en" => Some("en-US".to_string()),
-        _ => None,
-    }
-}
-
-fn read_or_create_root_config(app_config_file: &Path) -> Result<Value, String> {
-    let mut root = if app_config_file.exists() {
-        let content = std::fs::read_to_string(app_config_file)
-            .map_err(|e| format!("Failed to read app config: {}", e))?;
-        serde_json::from_str(&content).unwrap_or_else(|_| Value::Object(Map::new()))
-    } else {
-        Value::Object(Map::new())
-    };
-
-    if !root.is_object() {
-        root = Value::Object(Map::new());
-    }
-    Ok(root)
-}
-
-fn write_root_config(app_config_file: &Path, root: &Value) -> Result<(), String> {
-    let formatted = serde_json::to_string_pretty(root)
-        .map_err(|e| format!("Failed to serialize app config: {}", e))?;
-    std::fs::write(app_config_file, formatted)
-        .map_err(|e| format!("Failed to write app config: {}", e))
-}
-
-fn apply_first_launch_language(app_language: &str) -> Result<(), String> {
-    let allowed = ["zh-CN", "en-US"];
-    if !allowed.contains(&app_language) {
-        return Err("Unsupported app language".to_string());
-    }
-
-    let app_config_file = ensure_app_config_path()?;
-    let mut root = read_or_create_root_config(&app_config_file)?;
-
-    let root_obj = root
-        .as_object_mut()
-        .ok_or_else(|| "Invalid root config object".to_string())?;
-    let app_obj = root_obj
-        .entry("app".to_string())
-        .or_insert_with(|| Value::Object(Map::new()))
-        .as_object_mut()
-        .ok_or_else(|| "Invalid app config object".to_string())?;
-    app_obj.insert(
-        "language".to_string(),
-        Value::String(app_language.to_string()),
-    );
-
-    write_root_config(&app_config_file, &root)
-}
-
-fn apply_first_launch_model(model: &ModelConfig) -> Result<(), String> {
-    if model.provider.trim().is_empty()
-        || model.api_key.trim().is_empty()
-        || model.base_url.trim().is_empty()
-        || model.model_name.trim().is_empty()
-    {
-        return Ok(());
-    }
-
-    let app_config_file = ensure_app_config_path()?;
-    let mut root = read_or_create_root_config(&app_config_file)?;
-    let root_obj = root
-        .as_object_mut()
-        .ok_or_else(|| "Invalid root config object".to_string())?;
-
-    let ai_obj = root_obj
-        .entry("ai".to_string())
-        .or_insert_with(|| Value::Object(Map::new()))
-        .as_object_mut()
-        .ok_or_else(|| "Invalid ai config object".to_string())?;
-
-    let model_id = format!(
-        "installer_{}_{}",
-        model.provider,
-        chrono::Utc::now().timestamp()
-    );
-    let display_name = model
-        .config_name
-        .as_deref()
-        .map(str::trim)
-        .filter(|v| !v.is_empty())
-        .map(|v| v.to_string())
-        .unwrap_or_else(|| format!("{} - {}", model.provider, model.model_name));
-
-    let _ = parse_custom_request_body(&model.custom_request_body)?;
-    let stored_fmt = storage_format(model);
-    let request_url = resolve_stored_request_url(model.base_url.trim(), &stored_fmt);
-    let mut model_map = Map::new();
-    model_map.insert("id".to_string(), Value::String(model_id.clone()));
-    model_map.insert("name".to_string(), Value::String(display_name));
-    model_map.insert("provider".to_string(), Value::String(stored_fmt));
-    model_map.insert(
-        "model_name".to_string(),
-        Value::String(model.model_name.trim().to_string()),
-    );
-    model_map.insert(
-        "base_url".to_string(),
-        Value::String(model.base_url.trim().to_string()),
-    );
-    model_map.insert("request_url".to_string(), Value::String(request_url));
-    model_map.insert(
-        "api_key".to_string(),
-        Value::String(model.api_key.trim().to_string()),
-    );
-    model_map.insert("enabled".to_string(), Value::Bool(true));
-    model_map.insert(
-        "category".to_string(),
-        Value::String("general_chat".to_string()),
-    );
-    model_map.insert(
-        "capabilities".to_string(),
-        Value::Array(vec![
-            Value::String("text_chat".to_string()),
-            Value::String("function_calling".to_string()),
-        ]),
-    );
-    model_map.insert("recommended_for".to_string(), Value::Array(Vec::new()));
-    model_map.insert("metadata".to_string(), Value::Null);
-    model_map.insert("enable_thinking_process".to_string(), Value::Bool(false));
-    model_map.insert("inline_think_in_text".to_string(), Value::Bool(false));
-
-    if let Some(skip_ssl_verify) = model.skip_ssl_verify {
-        model_map.insert("skip_ssl_verify".to_string(), Value::Bool(skip_ssl_verify));
-    }
-    if let Some(headers) = &model.custom_headers {
-        let mut header_map = Map::new();
-        for (key, value) in headers {
-            let key_trimmed = key.trim();
-            if key_trimmed.is_empty() {
-                continue;
-            }
-            header_map.insert(
-                key_trimmed.to_string(),
-                Value::String(value.trim().to_string()),
-            );
-        }
-        if !header_map.is_empty() {
-            model_map.insert("custom_headers".to_string(), Value::Object(header_map));
-            let mode = model
-                .custom_headers_mode
-                .as_deref()
-                .unwrap_or("merge")
-                .trim()
-                .to_ascii_lowercase();
-            if mode == "merge" || mode == "replace" {
-                model_map.insert("custom_headers_mode".to_string(), Value::String(mode));
-            }
-        }
-    }
-    if let Some(raw) = &model.custom_request_body {
-        let trimmed = raw.trim();
-        if !trimmed.is_empty() {
-            model_map.insert(
-                "custom_request_body".to_string(),
-                Value::String(trimmed.to_string()),
-            );
-        }
-    }
-
-    let model_json = Value::Object(model_map);
-
-    let models_entry = ai_obj
-        .entry("models".to_string())
-        .or_insert_with(|| Value::Array(Vec::new()));
-    if !models_entry.is_array() {
-        *models_entry = Value::Array(Vec::new());
-    }
-    let models_arr = models_entry
-        .as_array_mut()
-        .ok_or_else(|| "Invalid ai.models type".to_string())?;
-    models_arr.push(model_json);
-
-    let default_models_entry = ai_obj
-        .entry("default_models".to_string())
-        .or_insert_with(|| Value::Object(Map::new()));
-    if !default_models_entry.is_object() {
-        *default_models_entry = Value::Object(Map::new());
-    }
-    let default_models_obj = default_models_entry
-        .as_object_mut()
-        .ok_or_else(|| "Invalid ai.default_models type".to_string())?;
-    default_models_obj.insert("primary".to_string(), Value::String(model_id.clone()));
-    default_models_obj.insert("fast".to_string(), Value::String(model_id));
-
-    write_root_config(&app_config_file, &root)
 }
 
 fn preflight_validate_payload_zip_bytes(

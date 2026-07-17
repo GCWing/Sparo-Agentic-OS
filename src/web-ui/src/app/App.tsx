@@ -1,15 +1,14 @@
 import { useEffect, useCallback, useRef } from 'react';
-import { ChatProvider, useAIInitialization } from '../infrastructure';
+import { ChatProvider } from '../infrastructure';
 import { ViewModeProvider } from '../infrastructure/contexts/ViewModeProvider';
 import AppLayout from './layout/AppLayout';
-import { useCurrentModelConfig } from '../hooks/useModelConfigs';
 import { ContextMenuRenderer } from '../shared/context-menu-system/components/ContextMenuRenderer';
 import { NotificationContainer } from '../shared/notification-system';
 import { AnnouncementProvider } from '../shared/announcement-system';
 import DailyLetterArrivalDock from './daily-letter-arrival/components/DailyLetterArrivalDock';
 import { ConfirmDialogRenderer } from '@/design-system';
 import { createLogger } from '@/shared/utils/logger';
-import { aiExperienceConfigService } from '@/infrastructure/config/services/AIExperienceConfigService';
+import { useAIExperienceSettings } from '@/infrastructure/config/hooks';
 import { syncAgentCompanionDesktopWindow } from '@/infrastructure/config/services/AgentCompanionWindowService';
 import { isTauriRuntime } from '@/infrastructure/runtime';
 import { buildAgentCompanionActivity, subscribeAgentCompanionActivity } from '@/flow_chat/utils/agentCompanionActivity';
@@ -22,6 +21,8 @@ import { useGlobalSceneShortcuts } from './hooks/useGlobalSceneShortcuts';
 import { openAgentCompanionSession } from './services/openAgentCompanionSession';
 import { useSettingsStore } from './scenes/settings/settingsStore';
 import { openWorkspaceScene } from './navigation/workspaceNavigation';
+import { aiApi } from '@/infrastructure/api';
+import { ConfigRecoveryPrompt } from './components/ConfigRecoveryPrompt';
 
 const log = createLogger('App');
 /**
@@ -35,10 +36,7 @@ const log = createLogger('App');
  * - Header is always present; elements toggle by state
  */
 function App() {
-  // AI initialization
-  const { currentConfig } = useCurrentModelConfig();
-  const { isInitialized: aiInitialized, isInitializing: aiInitializing, error: aiError } = useAIInitialization(currentConfig);
-
+  const { settings: aiExperienceSettings } = useAIExperienceSettings();
   // Workspace loading state — keeps WorkspaceProvider context honest, but is
   // no longer the source of truth for splash exit (the boot stage event is).
   const { loading: workspaceLoading } = useWorkspaceContext();
@@ -86,6 +84,14 @@ function App() {
     void showMainWindow('startup-overlay');
   }, [showMainWindow]);
 
+  // The desktop command resolves the primary model and its secret from the
+  // authoritative backend config. The Web UI never reads or retains API keys.
+  useEffect(() => {
+    void aiApi.initializeAI().catch((error) => {
+      log.debug('AI runtime initialization deferred until a model is configured', { error });
+    });
+  }, []);
+
   // Safety net: if backend never reports WorkspaceReady in 3s, reveal the
   // window anyway so the user can see what's happening (or use BootErrorPanel).
   useEffect(() => {
@@ -122,43 +128,23 @@ function App() {
       }
     };
 
-    // Initialize self-control event listener
-    const initSelfControl = async () => {
-      try {
-        const { startSelfControlEventListener } = await import('../infrastructure/self-control');
-        startSelfControlEventListener();
-        log.debug('Self-control event listener initialized');
-      } catch (error) {
-        log.error('Failed to initialize self-control event listener', error);
-      }
-    };
-
     initIdeControl();
     initMCPServers();
-    initSelfControl();
     
   }, []);
 
   useEffect(() => {
-    if (!isTauriRuntime()) return;
+    if (!isTauriRuntime() || !aiExperienceSettings) return;
 
     const emitCurrentAgentCompanionActivity = () => {
       void emitAgentCompanionActivity(buildAgentCompanionActivity());
     };
 
-    void aiExperienceConfigService.getSettingsAsync().then(async settings => {
-      await syncAgentCompanionDesktopWindow(settings);
+    void syncAgentCompanionDesktopWindow(aiExperienceSettings).then(() => {
       emitCurrentAgentCompanionActivity();
       window.setTimeout(emitCurrentAgentCompanionActivity, 250);
     });
-
-    return aiExperienceConfigService.addChangeListener(settings => {
-      void syncAgentCompanionDesktopWindow(settings).then(() => {
-        emitCurrentAgentCompanionActivity();
-        window.setTimeout(emitCurrentAgentCompanionActivity, 250);
-      });
-    });
-  }, []);
+  }, [aiExperienceSettings]);
 
   useEffect(() => {
     if (!isTauriRuntime()) return;
@@ -266,23 +252,6 @@ function App() {
     };
   }, []);
 
-  // Observe AI initialization state
-  useEffect(() => {
-    if (aiError) {
-      log.error('AI initialization failed', aiError);
-    } else if (aiInitialized) {
-      log.debug('AI client initialized successfully');
-    } else if (!aiInitializing && !currentConfig) {
-      log.warn('AI not initialized: waiting for model config');
-    } else if (!aiInitializing && currentConfig && !currentConfig.apiKey) {
-      log.warn('AI not initialized: missing API key');
-    } else if (!aiInitializing && currentConfig && !currentConfig.modelName) {
-      log.warn('AI not initialized: missing model name');
-    } else if (!aiInitializing && currentConfig && !currentConfig.baseUrl) {
-      log.warn('AI not initialized: missing base URL');
-    }
-  }, [aiInitialized, aiInitializing, aiError, currentConfig]);
-
   // Block browser-native Ctrl+F (find bar) and Ctrl+R (hard reload).
   // On macOS the equivalent modifiers are Cmd+F / Cmd+R.
   useEffect(() => {
@@ -317,6 +286,9 @@ function App() {
 
             {/* Confirm dialog */}
             <ConfirmDialogRenderer />
+
+            {/* Invalid persisted config never blocks the shell; users decide when to rebuild it. */}
+            <ConfigRecoveryPrompt />
 
             {/* Announcement / feature-demo / tips system */}
             <AnnouncementProvider />

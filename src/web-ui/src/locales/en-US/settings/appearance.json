@@ -12,6 +12,8 @@
     "confirmDelete": "Are you sure you want to delete theme \"{{name}}\"?",
     "languageRowHint": "Choose one language pack as the active UI language.",
     "themeRowHint": "Choose the interface color theme.",
+    "themeLoading": "Loading theme settings...",
+    "themeLoadFailed": "Failed to load theme settings.",
     "systemTheme": "Match system",
     "systemThemeDescription": "Use light or dark theme based on your OS appearance. Updates when the system switches.",
     "presets": {
@@ -42,6 +44,8 @@
     },
     "fontSize": {
       "title": "Font Size",
+      "loading": "Loading font settings...",
+      "loadFailed": "Failed to load font settings.",
       "uiSizeLabel": "UI Font",
       "uiSizeHint": "Controls font size across navigation, panels, settings, and all other UI elements.",
       "levels": {
@@ -53,18 +57,14 @@
         "custom": "Custom"
       },
       "customPxLabel": "Custom size (12-20 px)",
-      "customPxPlaceholder": "14",
-      "customPxOutOfRange": "Please enter an integer between 12 and 20",
       "resetButton": "Reset to Default",
       "previewText": "Sparo OS is an AI-driven programming environment. The quick brown fox jumps over the lazy dog.",
       "flowChatLabel": "Chat area",
-      "flowChatHint": "When off, chat uses UI +1 px and tracks UI presets. When on, pick a size (12-20 px) from the list below.",
+      "flowChatHint": "When off, chat follows the UI font size. When on, pick an independent size (12-20 px).",
       "flowChatCustomToggle": "Custom chat font size",
-      "flowChatPxOption": "{{n}} px",
       "markdownEditorLabel": "Markdown editor",
       "markdownEditorHint": "When off, Markdown editing and preview follow the UI font size. When on, pick a reading and editing size (12-20 px).",
-      "markdownEditorCustomToggle": "Custom Markdown editor font size",
-      "markdownEditorPxOption": "{{n}} px"
+      "markdownEditorCustomToggle": "Custom Markdown editor font size"
     }
   }
 }

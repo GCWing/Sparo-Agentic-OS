@@ -15,95 +15,37 @@ import {
 } from './types';
 import { appRuntime } from '@/infrastructure/app-runtime';
 import { createLogger } from '@/shared/utils/logger';
+import { sanitizeForLog } from './sanitizeForLog';
 
 const log = createLogger('ApiClient');
-const SENSITIVE_KEY_PATTERNS = [
-  'api_key',
-  'apikey',
-  'token',
-  'secret',
-  'password',
-  'authorization'
-];
-const LARGE_PAYLOAD_KEY_PATTERNS = [
-  'pcm16base64',
-  'pcm16_base64',
-];
 
-function isSensitiveKey(key: string): boolean {
-  const normalized = key.toLowerCase();
-  return SENSITIVE_KEY_PATTERNS.some(pattern => normalized.includes(pattern));
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  if (error && typeof error === 'object') {
+    const candidate = error as Record<string, unknown>;
+    if (typeof candidate.code === 'string') {
+      return candidate.code;
+    }
+    if (typeof candidate.message === 'string') {
+      return candidate.message;
+    }
+  }
+  return 'Unknown error';
 }
 
-function isLargePayloadKey(key: string): boolean {
-  const normalized = key.toLowerCase();
-  return LARGE_PAYLOAD_KEY_PATTERNS.some(pattern => normalized.includes(pattern));
-}
-
-function maskSensitiveValue(value: unknown): string {
-  if (typeof value !== 'string') {
-    return '***';
-  }
-  if (value.length <= 8) {
-    return '***';
-  }
-  return `${value.slice(0, 4)}***${value.slice(-4)}`;
-}
-
-function summarizeLargePayloadValue(value: unknown): string {
-  if (typeof value !== 'string') {
-    return '[redacted payload]';
-  }
-  return `[redacted payload: ${value.length} chars]`;
-}
-
-function sanitizeForLog(value: unknown, parentKey?: string): unknown {
-  if (value === null || value === undefined) {
-    return value;
-  }
-
-  if (Array.isArray(value)) {
-    return value.map(item => sanitizeForLog(item, parentKey));
-  }
-
-  if (typeof value !== 'object') {
-    if (parentKey && isSensitiveKey(parentKey)) {
-      return maskSensitiveValue(value);
+function errorCodeForLog(error: unknown, fallback = 'client.operation_failed'): string {
+  if (error && typeof error === 'object') {
+    const code = (error as Record<string, unknown>).code;
+    if (typeof code === 'string' && code.trim()) {
+      return code;
     }
-    if (parentKey && isLargePayloadKey(parentKey)) {
-      return summarizeLargePayloadValue(value);
-    }
-    return value;
   }
-
-  const obj = value as Record<string, unknown>;
-  const sanitized: Record<string, unknown> = {};
-
-  for (const [key, rawVal] of Object.entries(obj)) {
-    if (isSensitiveKey(key)) {
-      sanitized[key] = maskSensitiveValue(rawVal);
-      continue;
-    }
-    if (isLargePayloadKey(key)) {
-      sanitized[key] = summarizeLargePayloadValue(rawVal);
-      continue;
-    }
-
-    // For HTTP header maps, mask sensitive header values by header name.
-    if ((key === 'headers' || key === 'custom_headers') && rawVal && typeof rawVal === 'object') {
-      const headerObj = rawVal as Record<string, unknown>;
-      const maskedHeaders: Record<string, unknown> = {};
-      for (const [hKey, hVal] of Object.entries(headerObj)) {
-        maskedHeaders[hKey] = isSensitiveKey(hKey) ? maskSensitiveValue(hVal) : hVal;
-      }
-      sanitized[key] = maskedHeaders;
-      continue;
-    }
-
-    sanitized[key] = sanitizeForLog(rawVal, key);
-  }
-
-  return sanitized;
+  return fallback;
 }
 
 export class ApiClient implements IApiClient {
@@ -173,7 +115,7 @@ export class ApiClient implements IApiClient {
     try {
       return this.adapter.listen<T>(event, callback);
     } catch (error) {
-      log.error('Failed to listen to event', { event, error });
+      log.error('Failed to listen to event', { event, code: errorCodeForLog(error) });
       
       return () => {};
     }
@@ -186,7 +128,7 @@ export class ApiClient implements IApiClient {
       }
       return this.adapter.listen<T>(event, callback);
     } catch (error) {
-      log.error('Failed to listen to event', { event, error });
+      log.error('Failed to listen to event', { event, code: errorCodeForLog(error) });
       return () => {};
     }
   }
@@ -312,7 +254,7 @@ export class ApiClient implements IApiClient {
           requestId: request.id,
           retryCount: request.retryCount,
           config: sanitizeForLog(request.config),
-          error
+          code: errorCodeForLog(error)
         });
       }
 
@@ -332,29 +274,28 @@ export class ApiClient implements IApiClient {
         timestamp: new Date()
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const publicErrorMessage = errorMessage(error);
       
       
-      const isExpectedError = errorMessage.includes('not found') || 
-                             errorMessage.includes('Config path') ||
-                             errorMessage.includes('Configuration error');
+      const isExpectedError = publicErrorMessage.includes('not found') ||
+                             publicErrorMessage.includes('Config path') ||
+                             publicErrorMessage.includes('Configuration error');
       
       
       if (isExpectedError && this.config.enableLogging) {
         log.debug('Command returned expected result', {
           command: config.command,
-          message: errorMessage
+          code: errorCodeForLog(error, 'command.expected_failure')
         });
       } else {
         log.error('Command failed', {
           command: config.command,
           args: sanitizeForLog(config.args),
-          error: errorMessage,
-          rawError: error
+          code: errorCodeForLog(error, 'command.failed')
         });
       }
       
-      throw this.createApiError('COMMAND_FAILED', errorMessage, error);
+      throw this.createApiError('COMMAND_FAILED', publicErrorMessage, error);
     }
   }
 
@@ -447,8 +388,7 @@ export class ApiClient implements IApiClient {
     
     if (originalError) {
       apiError.details = {
-        originalError: originalError.message || originalError,
-        stack: originalError.stack
+        originalErrorCode: errorCodeForLog(originalError, code)
       };
     }
 
@@ -540,7 +480,11 @@ export function createLoggingMiddleware(): ApiMiddleware {
       return response;
     } catch (error) {
       const duration = Date.now() - startTime;
-      middlewareLog.error('Request failed', { type: request.type, duration, error });
+      middlewareLog.error('Request failed', {
+        type: request.type,
+        duration,
+        code: errorCodeForLog(error),
+      });
       throw error;
     }
   };

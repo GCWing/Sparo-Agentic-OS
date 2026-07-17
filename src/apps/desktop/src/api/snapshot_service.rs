@@ -3,7 +3,7 @@
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use sparo_core::agentic::coordination::{
-    DialogScheduler, SessionControlActor, TurnCancellationReason,
+    ConversationCoordinator, DialogScheduler, SessionControlActor, TurnCancellationReason,
 };
 use sparo_core::infrastructure::try_get_path_manager_arc;
 use sparo_core::service::snapshot::{
@@ -12,6 +12,16 @@ use sparo_core::service::snapshot::{
 };
 use std::{path::PathBuf, sync::Arc, time::Duration};
 use tauri::{AppHandle, Emitter, State};
+
+async fn ensure_public_snapshot_mutation(
+    coordinator: &ConversationCoordinator,
+    session_id: &str,
+) -> Result<(), String> {
+    coordinator
+        .ensure_session_accepts_public_mutation(session_id)
+        .await
+        .map_err(|_| "settings.lifecycle_owned".to_string())
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SnapshotInitRequest {
@@ -250,8 +260,10 @@ async fn ensure_snapshot_manager_ready(
 #[tauri::command]
 pub async fn record_file_change(
     app_handle: AppHandle,
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
     request: RecordFileChangeRequest,
 ) -> Result<String, String> {
+    ensure_public_snapshot_mutation(coordinator.inner().as_ref(), &request.session_id).await?;
     let manager = ensure_snapshot_manager_ready(&request.workspace_path).await?;
 
     let operation_type = match request.operation_type.as_str() {
@@ -294,8 +306,10 @@ pub async fn record_file_change(
 #[tauri::command]
 pub async fn rollback_session(
     app_handle: AppHandle,
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
     request: RollbackSessionRequest,
 ) -> Result<Vec<String>, String> {
+    ensure_public_snapshot_mutation(coordinator.inner().as_ref(), &request.session_id).await?;
     let manager = ensure_snapshot_manager_ready(&request.workspace_path).await?;
 
     let restored_files = manager
@@ -323,9 +337,11 @@ pub async fn rollback_session(
 #[tauri::command]
 pub async fn rollback_to_turn(
     app_handle: AppHandle,
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
     scheduler: State<'_, Arc<DialogScheduler>>,
     request: RollbackTurnRequest,
 ) -> Result<Vec<String>, String> {
+    ensure_public_snapshot_mutation(coordinator.inner().as_ref(), &request.session_id).await?;
     {
         use sparo_core::agentic::coordination::get_global_coordinator;
 
@@ -439,8 +455,10 @@ pub async fn rollback_to_turn(
 #[tauri::command]
 pub async fn accept_session(
     app_handle: AppHandle,
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
     request: AcceptSessionRequest,
 ) -> Result<serde_json::Value, String> {
+    ensure_public_snapshot_mutation(coordinator.inner().as_ref(), &request.session_id).await?;
     let manager = ensure_snapshot_manager_ready(&request.workspace_path).await?;
 
     manager
@@ -464,8 +482,10 @@ pub async fn accept_session(
 #[tauri::command]
 pub async fn accept_file(
     app_handle: AppHandle,
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
     request: AcceptFileRequest,
 ) -> Result<serde_json::Value, String> {
+    ensure_public_snapshot_mutation(coordinator.inner().as_ref(), &request.session_id).await?;
     let manager = ensure_snapshot_manager_ready(&request.workspace_path).await?;
 
     manager
@@ -490,8 +510,10 @@ pub async fn accept_file(
 #[tauri::command]
 pub async fn reject_file(
     app_handle: AppHandle,
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
     request: AcceptFileRequest,
 ) -> Result<serde_json::Value, String> {
+    ensure_public_snapshot_mutation(coordinator.inner().as_ref(), &request.session_id).await?;
     let manager = ensure_snapshot_manager_ready(&request.workspace_path).await?;
 
     let restored_files = manager
@@ -703,8 +725,10 @@ pub async fn get_session_operations(
 #[tauri::command]
 pub async fn accept_operation(
     app_handle: AppHandle,
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
     request: GetOperationSummaryRequest,
 ) -> Result<serde_json::Value, String> {
+    ensure_public_snapshot_mutation(coordinator.inner().as_ref(), &request.sessionId).await?;
     let manager = ensure_snapshot_manager_ready(&request.workspace_path).await?;
 
     let summary = manager
@@ -739,8 +763,10 @@ pub async fn accept_operation(
 #[tauri::command]
 pub async fn reject_operation(
     app_handle: AppHandle,
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
     request: GetOperationSummaryRequest,
 ) -> Result<serde_json::Value, String> {
+    ensure_public_snapshot_mutation(coordinator.inner().as_ref(), &request.sessionId).await?;
     let manager = ensure_snapshot_manager_ready(&request.workspace_path).await?;
 
     let summary = manager

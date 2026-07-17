@@ -2,6 +2,7 @@ import type { PreviewCategory } from '@/design-system/types';
 import { useState } from 'react';
 import {
   ActionListRow,
+  Alert,
   AppWindow,
   AppWindowBody,
   AppWindowFooter,
@@ -24,6 +25,7 @@ import {
   ItemCardTitle,
   ItemCardTop,
   ListDetail,
+  LoadingSkeleton,
   NavigationList,
   NavigationListItem,
   Panel,
@@ -73,6 +75,138 @@ function AppWindowPreview() {
           <Button size="small" variant="secondary" onClick={() => setOpen(false)}>Close</Button>
         </AppWindowFooter>
       </AppWindow>
+    </div>
+  );
+}
+
+const settingsPreviewModelOptions = [
+  { label: 'GPT-5.3 Codex', value: 'gpt-5.3-codex' },
+  { label: 'Fast local model', value: 'local-fast' },
+];
+
+function SettingsPagePreview() {
+  return (
+    <div className="recipe-preview-stack">
+      <SettingsPage width="default" aria-label="Default settings page">
+        <SettingsSection
+          data-setting-section="models.defaults"
+          title="Model defaults"
+          description="Horizontal fields keep dense desktop settings scannable."
+          actions={<StatusPill tone="success">Synced</StatusPill>}
+        >
+          <FormSection>
+            <FormField
+              data-setting-id="models.default"
+              orientation="horizontal"
+              controlWidth="wide"
+              label="Default model"
+              description="Used for new coding sessions."
+            >
+              <Select value="gpt-5.3-codex" options={settingsPreviewModelOptions} />
+            </FormField>
+            <FormField
+              data-setting-id="models.reasoningEffort"
+              orientation="horizontal"
+              controlWidth="balanced"
+              label="Reasoning effort"
+            >
+              <TextField value="medium" readOnly />
+            </FormField>
+            <FormField
+              data-setting-id="agent.proactive"
+              orientation="horizontal"
+              controlWidth="compact"
+              label="Planner mode"
+            >
+              <Switch label="Ask before broad changes" checked readOnly />
+            </FormField>
+            <FormActions>
+              <Button variant="ghost">Reset</Button>
+              <Button variant="primary">Save</Button>
+            </FormActions>
+          </FormSection>
+        </SettingsSection>
+      </SettingsPage>
+
+      <SettingsPage width="wide" lang="zh-CN" aria-label="长文本和中文设置页">
+        <SettingsSection
+          data-setting-section="permissions.tool-execution"
+          title="智能能力与工具执行权限"
+          description="长标签、自然语言说明和没有自然断点的标识符都必须保持可读，不能挤压右侧控件。"
+          actions={<StatusPill tone="warning">需要确认</StatusPill>}
+        >
+          <FormSection>
+            <FormField
+              data-setting-id="permissions.workspace.longPolicyIdentifier"
+              orientation="horizontal"
+              controlWidth="wide"
+              label="涉及工作区文件写入与桌面自动化操作时始终要求明确确认"
+              description="workspace-write-confirmation-policy-with-an-extremely-long-unbroken-identifier"
+            >
+              <Select
+                value="ask"
+                options={[
+                  { label: '始终询问并显示具体影响范围', value: 'ask' },
+                  { label: '仅在高风险操作时询问', value: 'risky' },
+                ]}
+              />
+            </FormField>
+          </FormSection>
+        </SettingsSection>
+      </SettingsPage>
+
+      <div className="recipe-preview-narrow" data-preview-state="narrow">
+        <SettingsPage width="full" aria-label="Narrow settings page">
+          <SettingsSection
+            data-setting-section="appearance.interface"
+            title="Appearance"
+            description="Horizontal fields stack automatically when their form container becomes narrow."
+          >
+            <FormSection>
+              <FormField
+                data-setting-id="appearance.interfaceScale"
+                orientation="horizontal"
+                controlWidth="balanced"
+                label="Interface scale"
+                description="Keeps controls reachable without horizontal overflow."
+              >
+                <Select
+                  value="comfortable"
+                  options={[{ label: 'Comfortable', value: 'comfortable' }]}
+                />
+              </FormField>
+            </FormSection>
+          </SettingsSection>
+        </SettingsPage>
+      </div>
+
+      <SettingsPage width="narrow" aria-label="Loading and error settings states">
+        <SettingsSection
+          data-setting-section="catalog.loading"
+          title="Catalog-backed settings"
+          actions={<StatusPill tone="info">Loading</StatusPill>}
+        >
+          <LoadingSkeleton lines={3} aria-label="Loading setting definitions" />
+        </SettingsSection>
+        <SettingsSection
+          data-setting-section="provider.validation"
+          title="Provider validation"
+          actions={<StatusPill tone="error">Error</StatusPill>}
+        >
+          <FormSection>
+            <Alert type="error" message="The provider endpoint could not be validated." />
+            <FormField
+              data-setting-id="provider.baseUrl"
+              orientation="horizontal"
+              controlWidth="wide"
+              label="Base URL"
+              error="Enter a valid HTTPS endpoint before saving."
+            >
+              <TextField value="invalid-endpoint" error readOnly />
+            </FormField>
+          </FormSection>
+        </SettingsSection>
+      </SettingsPage>
     </div>
   );
 }
@@ -203,30 +337,7 @@ export const patternPreviewCategories: PreviewCategory[] = [
         name: 'Settings page',
         description: 'Standard configuration layout for settings, preferences, and provider setup.',
         category: 'ds-patterns',
-        render: () => (
-          <SettingsPage>
-            <SettingsSection title="Model defaults" description="Reusable form layout for preference pages.">
-              <FormSection>
-                <FormField label="Default model" description="Used for new coding sessions.">
-                  <Select
-                    value="gpt-5.3-codex"
-                    options={[{ label: 'GPT-5.3 Codex', value: 'gpt-5.3-codex' }]}
-                  />
-                </FormField>
-                <FormField label="Reasoning effort">
-                  <TextField placeholder="medium" />
-                </FormField>
-                <FormField label="Planner mode">
-                  <Switch label="Ask before making broad changes" checked readOnly />
-                </FormField>
-                <FormActions>
-                  <Button variant="ghost">Reset</Button>
-                  <Button variant="primary">Save</Button>
-                </FormActions>
-              </FormSection>
-            </SettingsSection>
-          </SettingsPage>
-        ),
+        render: () => <SettingsPagePreview />,
         ai: {
           recipe: 'recipes/settings-page.recipe.md',
           useWhen: ['The UI saves durable settings or provider configuration'],

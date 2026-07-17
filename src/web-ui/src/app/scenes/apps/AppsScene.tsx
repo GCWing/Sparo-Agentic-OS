@@ -13,23 +13,24 @@ import {
   PinOff,
   Plus,
   RefreshCw,
-  ShieldCheck,
   Sparkles,
+  Trash2,
   X,
 } from 'lucide-react';
 import { ManagementList, ManageViewToggle, type ManageViewMode } from './components/ManagementList';
 import { ComponentCenter } from './components/ComponentCenter';
 import { AppCenterModeNav } from './components/AppCenterModeNav';
+import { CapabilityReviewDialog } from './components/CapabilityReviewDialog';
 import { CardExpandPanel, CardPrimaryAction, CardStackLink, WorkCardBack, WorkCardFrame, WorkStack } from './components/WorkStack';
 import type { AppCenterMode } from './components/types';
 import { useTranslation } from 'react-i18next';
 import {
   Badge,
   Button,
+  confirmDanger,
+  DataList,
+  DataListItem,
   DotMatrixLoader,
-  Dialog,
-  DialogBody,
-  DialogFooter,
   EmptyState,
   IconButton,
   ItemCard,
@@ -415,6 +416,7 @@ export const AppsScene: React.FC = () => {
   const [stoppingAppId, setStoppingAppId] = useState<string | null>(null);
   const [closingWorkId, setClosingWorkId] = useState<string | null>(null);
   const [managingAppId, setManagingAppId] = useState<string | null>(null);
+  const [deletingDraftId, setDeletingDraftId] = useState<string | null>(null);
   const [flippedAppId, setFlippedAppId] = useState<string | null>(null);
   const [manageViewMode, setManageViewMode] = useState<ManageViewMode>('cards');
   const [workLaunchApp, setWorkLaunchApp] = useState<ProductAppCatalogEntry | null>(null);
@@ -1049,7 +1051,9 @@ export const AppsScene: React.FC = () => {
       });
       setPendingCapabilityApproval(null);
       await loadCatalog({ force: true });
-      notificationService.success(t('productSystem.manage.installedToast', { name: app.name }));
+      notificationService.success(t(app.updateAvailable === true
+        ? 'productSystem.manage.updatedToast'
+        : 'productSystem.manage.installedToast', { name: app.name }));
     } catch (error) {
       notificationService.error(error instanceof Error ? error.message : String(error));
     } finally {
@@ -1173,6 +1177,39 @@ export const AppsScene: React.FC = () => {
     await openAppBuilderSession({ app: variant.app, draft, scope: workAppScope });
   }, [intelligentCatalog, t, workAppScope]);
 
+  const handleDeleteDraft = useCallback(async (draft: AppDraftRecord, appName: string) => {
+    const confirmed = await confirmDanger(
+      t('productSystem.manage.drafts.deleteDialog.title'),
+      t('productSystem.manage.drafts.deleteDialog.message', { name: appName }),
+      {
+        confirmText: t('productSystem.manage.drafts.deleteDialog.confirm'),
+        cancelText: t('productSystem.actions.cancel'),
+      },
+    );
+    if (!confirmed) return;
+
+    setDeletingDraftId(draft.draftId);
+    try {
+      await intelligentAppAPI.deleteDraft(draft.draftId);
+      setIntelligentCatalog((current) => current ? {
+        ...current,
+        drafts: current.drafts.filter((candidate) => candidate.draftId !== draft.draftId),
+      } : current);
+      notificationService.success(
+        t('productSystem.manage.drafts.messages.deleted', { name: appName }),
+        { duration: 2200 },
+      );
+    } catch (error) {
+      log.error('Failed to delete Intelligent App Draft', { draftId: draft.draftId, error });
+      notificationService.error(t('productSystem.manage.drafts.messages.deleteFailed', {
+        name: appName,
+        error: errorToMessage(error),
+      }));
+    } finally {
+      setDeletingDraftId(null);
+    }
+  }, [t]);
+
   const workspaceLaunchDialog = (
     <NewWorkDialog
       open={Boolean(workLaunchApp)}
@@ -1182,33 +1219,26 @@ export const AppsScene: React.FC = () => {
   );
 
   const capabilityApprovalDialog = (
-    <Dialog
+    <CapabilityReviewDialog
       open={Boolean(pendingCapabilityApproval)}
-      onOpenChange={(open) => { if (!open) setPendingCapabilityApproval(null); }}
       title={t('productSystem.capabilities.title')}
-      size="medium"
-    >
-      <DialogBody>
-        <p>{t('productSystem.capabilities.description', {
-          name: pendingCapabilityApproval?.app.name ?? '',
-        })}</p>
-        <ul>
-          {pendingCapabilityApproval?.review.capabilities.map((capability) => (
-            <li key={capability}>{capability}</li>
-          ))}
-        </ul>
-        <p>{t('productSystem.capabilities.scopeNote')}</p>
-      </DialogBody>
-      <DialogFooter>
-        <Button variant="secondary" onClick={() => setPendingCapabilityApproval(null)}>
-          {t('productSystem.actions.cancel')}
-        </Button>
-        <Button variant="primary" onClick={() => void handleApproveCapabilities()}>
-          <ShieldCheck size={14} aria-hidden />
-          {t('productSystem.capabilities.approveAndActivate')}
-        </Button>
-      </DialogFooter>
-    </Dialog>
+      description={t('productSystem.capabilities.description', {
+        name: pendingCapabilityApproval?.app.name ?? '',
+      })}
+      scopeNote={t('productSystem.capabilities.scopeNote')}
+      capabilities={pendingCapabilityApproval?.review.capabilities ?? []}
+      approveText={t('productSystem.capabilities.approveAndActivate')}
+      cancelText={t('productSystem.actions.cancel')}
+      closeText={t('productSystem.actions.close')}
+      translationPrefix="productSystem.capabilities"
+      t={t}
+      approving={Boolean(
+        pendingCapabilityApproval
+          && managingAppId === pendingCapabilityApproval.app.id,
+      )}
+      onClose={() => setPendingCapabilityApproval(null)}
+      onApprove={() => void handleApproveCapabilities()}
+    />
   );
 
   const appDetailDialog = selectedAppId && (selectedApp || selectedNativeApp) ? (() => {
@@ -1614,6 +1644,8 @@ export const AppsScene: React.FC = () => {
                 onSetEnabled={(app, enabled) => void handleSetProductAppEnabled(app, enabled)}
                 onUninstall={(app) => void handleUninstallProductApp(app)}
                 onOpenDraft={(draft) => void handleOpenDraft(draft)}
+                onDeleteDraft={(draft, appName) => void handleDeleteDraft(draft, appName)}
+                deletingDraftId={deletingDraftId}
                 t={t}
               />
             </section>
@@ -1777,6 +1809,8 @@ function AppManagementMainContent({
   onSetEnabled,
   onUninstall,
   onOpenDraft,
+  onDeleteDraft,
+  deletingDraftId,
   t,
 }: {
   apps: ProductAppCatalogEntry[];
@@ -1798,6 +1832,8 @@ function AppManagementMainContent({
   onSetEnabled: (app: ProductAppCatalogEntry, enabled: boolean) => void;
   onUninstall: (app: ProductAppCatalogEntry) => void;
   onOpenDraft: (draft: AppDraftRecord) => void;
+  onDeleteDraft: (draft: AppDraftRecord, appName: string) => void;
+  deletingDraftId: string | null;
   t: (key: string, options?: Record<string, unknown>) => string;
 }) {
   const drafts = catalog?.drafts ?? [];
@@ -1883,18 +1919,43 @@ function AppManagementMainContent({
 
             {activeSection === 'drafts' ? (
               drafts.length ? (
-                <div className="apps-scene__draft-list">
+                <DataList className="apps-scene__draft-list">
                   {[...drafts].sort((left, right) => right.updatedAtMs - left.updatedAtMs).map((draft) => {
                     const app = catalog?.slots.flatMap((slot) => slot.variants).find((variant) => variant.app.appId === draft.appId)?.app;
+                    const appName = app?.displayName ?? draft.appId;
+                    const deleting = deletingDraftId === draft.draftId;
                     return (
-                      <button key={draft.draftId} type="button" onClick={() => onOpenDraft(draft)}>
+                      <DataListItem
+                        key={draft.draftId}
+                        className="apps-scene__draft-row"
+                        interactive={!deleting}
+                        onClick={deleting ? undefined : () => onOpenDraft(draft)}
+                        aria-label={t('productSystem.manage.drafts.actions.open', { name: appName })}
+                        aria-disabled={deleting || undefined}
+                      >
                         <span className="apps-scene__draft-icon"><FilePenLine size={18} aria-hidden /></span>
-                        <span><strong>{app?.displayName ?? draft.appId}</strong><small>{t('productSystem.manage.drafts.updated', { time: new Date(draft.updatedAtMs).toLocaleString() })}</small></span>
-                        <ArrowUpRight size={15} aria-hidden />
-                      </button>
+                        <span className="apps-scene__draft-copy"><strong>{appName}</strong><small>{t('productSystem.manage.drafts.updated', { time: new Date(draft.updatedAtMs).toLocaleString() })}</small></span>
+                        <span className="apps-scene__draft-actions">
+                          <ArrowUpRight size={15} aria-hidden />
+                          <IconButton
+                            variant="ghost"
+                            size="small"
+                            aria-label={t('productSystem.manage.drafts.actions.delete', { name: appName })}
+                            tooltip={t('productSystem.manage.drafts.actions.delete', { name: appName })}
+                            isLoading={deleting}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onDeleteDraft(draft, appName);
+                            }}
+                            onKeyDown={(event) => event.stopPropagation()}
+                          >
+                            <Trash2 size={15} aria-hidden />
+                          </IconButton>
+                        </span>
+                      </DataListItem>
                     );
                   })}
-                </div>
+                </DataList>
               ) : <EmptyState imageSize="small" title={t('productSystem.manage.drafts.emptyTitle')} description={t('productSystem.manage.drafts.emptyDescription')} />
             ) : null}
 

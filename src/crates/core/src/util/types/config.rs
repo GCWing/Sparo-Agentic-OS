@@ -7,8 +7,6 @@ impl TryFrom<AIModelConfig> for AIConfig {
     type Error = String;
 
     fn try_from(other: AIModelConfig) -> Result<Self, Self::Error> {
-        let reasoning_mode = other.effective_reasoning_mode();
-
         let custom_request_body = if let Some(body_str) = &other.custom_request_body {
             match serde_json::from_str::<serde_json::Value>(body_str) {
                 Ok(value) => Some(value),
@@ -39,11 +37,11 @@ impl TryFrom<AIModelConfig> for AIConfig {
             api_key: other.api_key.clone(),
             model: other.model_name.clone(),
             format: other.provider.clone(),
-            context_window: other.context_window.unwrap_or(128128),
+            context_window: other.context_window,
             max_tokens: other.max_tokens,
             temperature: other.temperature,
             top_p: other.top_p,
-            reasoning_mode,
+            reasoning_mode: other.reasoning_mode,
             inline_think_in_text: other.inline_think_in_text,
             custom_headers: other.custom_headers,
             custom_headers_mode: other.custom_headers_mode,
@@ -138,7 +136,7 @@ mod tests {
             base_url: "https://example.com/v1".to_string(),
             request_url: Some("https://example.com/v1/chat/completions".to_string()),
             api_key: "key".to_string(),
-            context_window: Some(128000),
+            context_window: 128000,
             max_tokens: Some(4096),
             temperature: None,
             top_p: None,
@@ -147,8 +145,7 @@ mod tests {
             capabilities: vec![],
             recommended_for: vec![],
             metadata: None,
-            enable_thinking_process: false,
-            reasoning_mode: None,
+            reasoning_mode: ReasoningMode::Default,
             inline_think_in_text: false,
             custom_headers: None,
             custom_headers_mode: None,
@@ -162,15 +159,15 @@ mod tests {
     }
 
     #[test]
-    fn compatibility_false_thinking_maps_to_default_mode() {
+    fn preserves_default_reasoning_mode() {
         let config = AIConfig::try_from(base_model_config()).expect("conversion should succeed");
         assert_eq!(config.reasoning_mode, ReasoningMode::Default);
     }
 
     #[test]
-    fn compatibility_true_thinking_maps_to_enabled_mode() {
+    fn preserves_enabled_reasoning_mode() {
         let mut model = base_model_config();
-        model.enable_thinking_process = true;
+        model.reasoning_mode = ReasoningMode::Enabled;
 
         let config = AIConfig::try_from(model).expect("conversion should succeed");
         assert_eq!(config.reasoning_mode, ReasoningMode::Enabled);

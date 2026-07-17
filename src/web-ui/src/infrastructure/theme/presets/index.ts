@@ -13,29 +13,7 @@ import { sparoChinaStyleTheme } from './china-style-theme';
 import { sparoChinaNightTheme } from './china-night-theme';
 import { sparoCyberTheme } from './cyber-theme';
 import { slateTheme } from './slate-theme';
-import { ThemeConfig, ThemeId, SYSTEM_THEME_ID, ThemeSelectionId } from '../types';
-
-/** Historical explicit theme ids that now resolve to builtin theme ids. */
-export const LEGACY_THEME_ID_ALIASES: Partial<Record<ThemeId, ThemeId>> = {
-  'sparo-light': 'light',
-  'sparo-dark': 'dark',
-  'sparo-slate': 'slate',
-  'sparo-midnight': 'slate',
-};
-
-export function resolveThemeId(id: ThemeId): ThemeId {
-  return LEGACY_THEME_ID_ALIASES[id] ?? id;
-}
-
-export function resolveThemeSelectionId(id: ThemeSelectionId | null): ThemeSelectionId | null {
-  if (id == null) {
-    return null;
-  }
-  if (id === SYSTEM_THEME_ID) {
-    return SYSTEM_THEME_ID;
-  }
-  return resolveThemeId(id) as ThemeSelectionId;
-}
+import { ThemeConfig, ThemeId } from '../types';
 
 /** Default light / dark builtin themes used when following system appearance. */
 export const DEFAULT_LIGHT_THEME_ID: ThemeId = 'light';

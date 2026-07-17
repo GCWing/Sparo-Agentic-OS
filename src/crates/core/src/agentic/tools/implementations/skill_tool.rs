@@ -87,7 +87,10 @@ Important:
             .collect()
     }
 
-    async fn build_description_for_context(&self, context: Option<&ToolUseContext>) -> String {
+    async fn build_description_for_context(
+        &self,
+        context: Option<&ToolUseContext>,
+    ) -> CoreResult<String> {
         let registry = get_skill_registry();
         let mut available_skills = match context {
             Some(ctx) if ctx.is_remote() => {
@@ -117,7 +120,7 @@ Important:
                 Some(agent_type) => {
                     if let Some(profile) = get_agent_registry()
                         .get_agent_capability_profile(agent_type, ctx.workspace_root())
-                        .await
+                        .await?
                     {
                         let allowed: std::collections::HashSet<String> =
                             profile.skills.effective.into_iter().collect();
@@ -167,7 +170,7 @@ Important:
             available_skills = suites;
         }
 
-        self.render_description(available_skills.join("\n"))
+        Ok(self.render_description(available_skills.join("\n")))
     }
 }
 
@@ -178,14 +181,14 @@ impl Tool for SkillTool {
     }
 
     async fn description(&self) -> CoreResult<String> {
-        Ok(self.build_description_for_context(None).await)
+        self.build_description_for_context(None).await
     }
 
     async fn description_with_context(
         &self,
         context: Option<&ToolUseContext>,
     ) -> CoreResult<String> {
-        let mut s = self.build_description_for_context(context).await;
+        let mut s = self.build_description_for_context(context).await?;
         if context.map(|c| c.is_remote()).unwrap_or(false)
             && context.and_then(|c| c.ws_fs()).is_none()
         {
@@ -336,7 +339,7 @@ impl Tool for SkillTool {
         if let Some(agent_type) = context.agent_type.as_deref() {
             if let Some(profile) = get_agent_registry()
                 .get_agent_capability_profile(agent_type, context.workspace_root())
-                .await
+                .await?
             {
                 let allowed: std::collections::HashSet<String> =
                     profile.skills.effective.into_iter().collect();

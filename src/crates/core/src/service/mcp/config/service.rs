@@ -3,8 +3,10 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
 use crate::error::{CoreError, CoreResult};
-use crate::service::config::ConfigService;
+use crate::service::config::catalog::SETTING_MCP_SERVERS;
+use crate::service::config::{ConfigPatchOperation, ConfigService};
 use crate::service::mcp::server::MCPServerConfig;
+use sparo_events::{ConfigChangeSource, ConfigChangeSourceKind};
 
 use super::ConfigLocation;
 
@@ -16,6 +18,28 @@ pub struct MCPConfigService {
 impl MCPConfigService {
     const AUTHORIZATION_KEYS: [&'static str; 3] =
         ["Authorization", "authorization", "AUTHORIZATION"];
+
+    pub(super) async fn commit_user_servers(
+        &self,
+        value: serde_json::Value,
+        surface: &'static str,
+    ) -> CoreResult<()> {
+        self.config_service
+            .commit_operations(
+                ConfigChangeSource {
+                    kind: ConfigChangeSourceKind::Manual,
+                    surface: Some(surface.to_string()),
+                    request_id: None,
+                },
+                vec![ConfigPatchOperation::Set {
+                    setting_id: SETTING_MCP_SERVERS.to_string(),
+                    value,
+                }],
+                true,
+            )
+            .await
+            .map(|_| ())
+    }
 
     fn config_signature(config: &MCPServerConfig) -> String {
         let env: BTreeMap<_, _> = config.env.clone().into_iter().collect();
@@ -93,24 +117,21 @@ impl MCPConfigService {
         &self,
         servers: &[serde_json::Value],
         location: ConfigLocation,
-    ) -> Vec<MCPServerConfig> {
+    ) -> CoreResult<Vec<MCPServerConfig>> {
         servers
             .iter()
-            .filter_map(
-                |value| match serde_json::from_value::<MCPServerConfig>(value.clone()) {
-                    Ok(mut config) => {
-                        config.location = location;
-                        Some(config)
-                    }
-                    Err(e) => {
-                        warn!(
-                            "Failed to parse MCP config item at {:?} scope: {}",
-                            location, e
-                        );
-                        None
-                    }
-                },
-            )
+            .enumerate()
+            .map(|(index, value)| {
+                let mut config =
+                    serde_json::from_value::<MCPServerConfig>(value.clone()).map_err(|error| {
+                        CoreError::validation(format!(
+                            "Invalid MCP config item at {:?} scope index {}: {}",
+                            location, index, error
+                        ))
+                    })?;
+                config.location = location;
+                Ok(config)
+            })
             .collect()
     }
 
@@ -179,21 +200,9 @@ impl MCPConfigService {
     /// Loads all MCP server configurations.
     pub async fn load_all_configs(&self) -> CoreResult<Vec<MCPServerConfig>> {
         let builtin_configs = self.load_builtin_configs().await?;
-        let user_configs = match self.load_user_configs().await {
-            Ok(user_configs) => user_configs,
-            Err(e) => {
-                warn!("Failed to load user-level MCP configs: {}", e);
-                Vec::new()
-            }
-        };
+        let user_configs = self.load_user_configs().await?;
 
-        let project_configs = match self.load_project_configs().await {
-            Ok(project_configs) => project_configs,
-            Err(e) => {
-                warn!("Failed to load project-level MCP configs: {}", e);
-                Vec::new()
-            }
-        };
+        let project_configs = self.load_project_configs().await?;
 
         let mut configs = Vec::new();
         let mut signature_index = HashMap::new();
@@ -229,59 +238,32 @@ impl MCPConfigService {
     /// Loads user-level configuration (supports Cursor format `{ "mcpServers": { "id": {..} } }`
     /// and array format `[{..}]`).
     async fn load_user_configs(&self) -> CoreResult<Vec<MCPServerConfig>> {
-        match self
+        let config_value = self
             .config_service
             .get_config::<serde_json::Value>(Some("mcp_servers"))
-            .await
-        {
-            Ok(config_value) => {
-                if config_value
-                    .get("mcpServers")
-                    .and_then(|v| v.as_object())
-                    .is_some()
-                {
-                    return super::cursor_format::parse_cursor_format(&config_value);
-                }
-
-                if let Some(servers) = config_value.as_array() {
-                    return Ok(self.parse_config_array(servers, ConfigLocation::User));
-                }
-
-                warn!("Invalid MCP config format, returning empty list");
-                Ok(Vec::new())
-            }
-            Err(_) => Ok(Vec::new()),
+            .await?;
+        if config_value.is_null() {
+            return Ok(Vec::new());
         }
+        if config_value
+            .get("mcpServers")
+            .and_then(|value| value.as_object())
+            .is_some()
+        {
+            return super::cursor_format::parse_cursor_format(&config_value);
+        }
+        if let Some(servers) = config_value.as_array() {
+            return self.parse_config_array(servers, ConfigLocation::User);
+        }
+
+        Err(CoreError::validation(
+            "Invalid MCP configuration: expected null, an array, or an object containing 'mcpServers'",
+        ))
     }
 
     /// Loads project-level configuration.
     async fn load_project_configs(&self) -> CoreResult<Vec<MCPServerConfig>> {
-        match self
-            .config_service
-            .get_config::<serde_json::Value>(Some("project.mcp_servers"))
-            .await
-        {
-            Ok(config_value) => {
-                if config_value
-                    .get("mcpServers")
-                    .and_then(|v| v.as_object())
-                    .is_some()
-                {
-                    let mut configs = super::cursor_format::parse_cursor_format(&config_value)?;
-                    for config in &mut configs {
-                        config.location = ConfigLocation::Project;
-                    }
-                    return Ok(configs);
-                }
-
-                if let Some(servers) = config_value.as_array() {
-                    Ok(self.parse_config_array(servers, ConfigLocation::Project))
-                } else {
-                    Ok(Vec::new())
-                }
-            }
-            Err(_) => Ok(Vec::new()),
-        }
+        Ok(Vec::new())
     }
 
     /// Gets a single server configuration.
@@ -355,8 +337,7 @@ impl MCPConfigService {
         let current_value = self
             .config_service
             .get_config::<serde_json::Value>(Some("mcp_servers"))
-            .await
-            .unwrap_or_else(|_| serde_json::json!({ "mcpServers": {} }));
+            .await?;
 
         let mut mcp_servers =
             if let Some(obj) = current_value.get("mcpServers").and_then(|v| v.as_object()) {
@@ -373,9 +354,7 @@ impl MCPConfigService {
             "mcpServers": mcp_servers
         });
 
-        self.config_service
-            .set_config("mcp_servers", new_value)
-            .await?;
+        self.commit_user_servers(new_value, "mcp-config").await?;
         info!(
             "Saved user-level MCP server config (Cursor format): {}",
             config.id
@@ -384,23 +363,10 @@ impl MCPConfigService {
     }
 
     /// Saves project-level configuration.
-    async fn save_project_config(&self, config: &MCPServerConfig) -> CoreResult<()> {
-        let mut configs = self.load_project_configs().await.unwrap_or_default();
-
-        if let Some(existing) = configs.iter_mut().find(|c| c.id == config.id) {
-            *existing = config.clone();
-        } else {
-            configs.push(config.clone());
-        }
-
-        let value = serde_json::to_value(&configs).map_err(|e| {
-            CoreError::serialization(format!("Failed to serialize MCP config: {}", e))
-        })?;
-
-        self.config_service
-            .set_config("project.mcp_servers", value)
-            .await?;
-        Ok(())
+    async fn save_project_config(&self, _config: &MCPServerConfig) -> CoreResult<()> {
+        Err(CoreError::validation(
+            "Project-scoped MCP configuration is unavailable until workspace config scope is enabled",
+        ))
     }
 
     /// Deletes a server configuration.
@@ -408,8 +374,7 @@ impl MCPConfigService {
         let current_value = self
             .config_service
             .get_config::<serde_json::Value>(Some("mcp_servers"))
-            .await
-            .unwrap_or_else(|_| serde_json::json!({ "mcpServers": {} }));
+            .await?;
 
         let mut mcp_servers =
             if let Some(obj) = current_value.get("mcpServers").and_then(|v| v.as_object()) {
@@ -432,9 +397,7 @@ impl MCPConfigService {
             "mcpServers": mcp_servers
         });
 
-        self.config_service
-            .set_config("mcp_servers", new_value)
-            .await?;
+        self.commit_user_servers(new_value, "mcp-config").await?;
         info!("Deleted MCP server config: {}", server_id);
         Ok(())
     }

@@ -456,14 +456,6 @@ pub async fn set_agent_skill_disabled(
         set_user_agent_skill_state(&agent_id, &skill_key, !disabled, default_enabled)
             .await
             .map_err(|e| format!("Failed to update user skill override: {}", e))?;
-        if let Err(e) = sparo_core::service::config::reload_global_config().await {
-            log::warn!(
-                "Failed to reload global config after user skill override change: agent_id={}, skill_key={}, error={}",
-                agent_id,
-                skill_key,
-                e
-            );
-        }
         return Ok(format!(
             "Agent {}' skill '{}' updated successfully",
             agent_id, skill_key
@@ -522,14 +514,6 @@ pub async fn set_agent_skill_suite_disabled(
             )
             .await
             .map_err(|e| format!("Failed to update user skill suite override: {}", e))?;
-            if let Err(e) = sparo_core::service::config::reload_global_config().await {
-                log::warn!(
-                    "Failed to reload global config after user skill suite override change: agent_id={}, suite_key={}, error={}",
-                    request.agent_id,
-                    suite.id,
-                    e
-                );
-            }
         }
         SkillLocation::Project => {
             let workspace_root = workspace_root.ok_or_else(|| {
@@ -642,14 +626,6 @@ pub async fn replace_agent_skill_selection(
             disabled_project_suites,
         )
         .await?;
-    }
-
-    if let Err(e) = sparo_core::service::config::reload_global_config().await {
-        log::warn!(
-            "Failed to reload global config after batch skill update: agent_id={}, error={}",
-            request.agent_id,
-            e
-        );
     }
 
     Ok(format!(

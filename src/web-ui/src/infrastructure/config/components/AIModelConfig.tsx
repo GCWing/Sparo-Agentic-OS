@@ -12,8 +12,18 @@ import {
   CustomRequestBodyMode
 } from '../types';
 import { configManager } from '../services/ConfigManager';
-import { PROVIDER_TEMPLATES, getModelDisplayName, getProviderDisplayName, getProviderTemplateId } from '../services/modelConfigs';
-import { DEFAULT_REASONING_MODE, getEffectiveReasoningMode, supportsAnthropicAdaptive, supportsAnthropicReasoning, supportsAnthropicThinkingBudget, supportsResponsesReasoning } from '../utils/reasoning';
+import { ConfigConfirmationRejectedError } from '../transaction/ConfigTransactionClient';
+import {
+  PROVIDER_TEMPLATES,
+  getModelDisplayName,
+  getProviderDisplayName,
+  getProviderTemplateId,
+  patchAIModelSnapshot,
+  sanitizeAIModelSnapshot,
+  type AIModelSnapshotEntry,
+  type AIModelSnapshotWriteEntry,
+} from '../services/modelConfigs';
+import { DEFAULT_REASONING_MODE, supportsAnthropicAdaptive, supportsAnthropicReasoning, supportsAnthropicThinkingBudget, supportsResponsesReasoning } from '../utils/reasoning';
 import { aiApi, systemAPI } from '@/infrastructure/api';
 import type { DiscoveredCliCredential } from '@/infrastructure/api/service-api/AIApi';
 import { useNotification } from '@/shared/notification-system';
@@ -21,9 +31,18 @@ import { ConfigPageHeader, ConfigPageLayout, ConfigPageContent, ConfigPageSectio
 import DefaultModelConfig from './DefaultModelConfig';
 import { createLogger } from '@/shared/utils/logger';
 import { translateConnectionTestMessage } from '@/shared/utils/aiConnectionTestMessages';
+import type { CustomSettingsProjectionProps } from '../customSettingsProjection';
 import './AIModelConfig.scss';
 
 const log = createLogger('AIModelConfig');
+const NEW_MODEL_CONTEXT_WINDOW = 200_000;
+
+class AIModelDraftConflictError extends Error {
+  constructor() {
+    super('AI model configuration changed after editing started');
+    this.name = 'AIModelDraftConflictError';
+  }
+}
 
 interface RemoteModelOption {
   id: string;
@@ -64,9 +83,9 @@ function createModelDraft(
     configId: overrides?.configId ?? baseConfig?.id,
     modelName: trimmedModelName,
     category: overrides?.category ?? baseConfig?.category ?? 'general_chat',
-    contextWindow: overrides?.contextWindow ?? baseConfig?.context_window ?? 200000,
+    contextWindow: overrides?.contextWindow ?? baseConfig?.context_window ?? NEW_MODEL_CONTEXT_WINDOW,
     maxTokens: overrides?.maxTokens ?? baseConfig?.max_tokens ?? 32000,
-    reasoningMode: overrides?.reasoningMode ?? getEffectiveReasoningMode(baseConfig),
+    reasoningMode: overrides?.reasoningMode ?? baseConfig?.reasoning_mode ?? DEFAULT_REASONING_MODE,
     reasoningEffort: overrides?.reasoningEffort ?? baseConfig?.reasoning_effort,
     thinkingBudgetTokens: overrides?.thinkingBudgetTokens ?? baseConfig?.thinking_budget_tokens,
   };
@@ -263,7 +282,12 @@ function previewRequestUrl(baseUrl: string, provider: string): string {
   return resolveRequestUrl(baseUrl, provider);
 }
 
-const AIModelConfig: React.FC = () => {
+type AIModelConfigProps = CustomSettingsProjectionProps;
+
+const AIModelConfig: React.FC<AIModelConfigProps> = ({
+  snapshotRevision,
+  onDirtySettingIdsChange,
+}) => {
   const { t } = useTranslation('settings/ai-model');
   const { t: tDefault } = useTranslation('settings/default-model');
   const { t: tComponents } = useTranslation('components');
@@ -278,6 +302,7 @@ const AIModelConfig: React.FC = () => {
   const [expandedProviderGroups, setExpandedProviderGroups] = useState<Set<string>>(new Set());
   /** Group pending removal after ConfirmDialog (all models under that provider name). */
   const [providerDeleteTarget, setProviderDeleteTarget] = useState<ProviderGroup | null>(null);
+  const [modelDeleteTarget, setModelDeleteTarget] = useState<AIModelConfigType | null>(null);
   const notification = useNotification();
   
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
@@ -305,6 +330,54 @@ const AIModelConfig: React.FC = () => {
   const [isDiscoveringCli, setIsDiscoveringCli] = useState(false);
   const lastRemoteFetchSignatureRef = React.useRef<string | null>(null);
   const activeRemoteFetchSignatureRef = React.useRef<string | null>(null);
+  const savedProxyFingerprintRef = React.useRef(JSON.stringify(proxyConfig));
+  const savedStreamIdleTimeoutRef = React.useRef(streamIdleTimeoutInput);
+  const modelLoadSequenceRef = React.useRef(0);
+  const editingModelBaselineRef = React.useRef<Map<string, string>>(new Map());
+  const [editingBaseline, setEditingBaseline] = useState<string | null>(null);
+  const reportedDirtySignatureRef = React.useRef('');
+  const onDirtySettingIdsChangeRef = React.useRef(onDirtySettingIdsChange);
+
+  const editingFingerprint = JSON.stringify({ editingConfig, selectedModelDrafts });
+  const hasEditingDraftChanges = isEditing
+    && editingBaseline !== null
+    && editingFingerprint !== editingBaseline;
+  const hasProxyDraftChanges = JSON.stringify(proxyConfig) !== savedProxyFingerprintRef.current;
+  const hasStreamIdleTimeoutDraftChanges = streamIdleTimeoutInput !== savedStreamIdleTimeoutRef.current;
+  const dirtySettingIds = useMemo(() => [
+    ...(hasEditingDraftChanges ? ['core.ai.models'] : []),
+    ...(hasProxyDraftChanges ? ['core.ai.proxy'] : []),
+    ...(hasStreamIdleTimeoutDraftChanges ? ['core.ai.stream_idle_timeout_secs'] : []),
+  ], [
+    hasEditingDraftChanges,
+    hasProxyDraftChanges,
+    hasStreamIdleTimeoutDraftChanges,
+  ]);
+  const dirtySettingIdsSignature = dirtySettingIds.join('\0');
+
+  useEffect(() => {
+    if (isEditing && editingBaseline === null) {
+      setEditingBaseline(editingFingerprint);
+    } else if (!isEditing && editingBaseline !== null) {
+      setEditingBaseline(null);
+    }
+  }, [editingBaseline, editingFingerprint, isEditing]);
+
+  useEffect(() => {
+    onDirtySettingIdsChangeRef.current = onDirtySettingIdsChange;
+  }, [onDirtySettingIdsChange]);
+
+  useEffect(() => {
+    if (reportedDirtySignatureRef.current === dirtySettingIdsSignature) {
+      return;
+    }
+    reportedDirtySignatureRef.current = dirtySettingIdsSignature;
+    onDirtySettingIdsChangeRef.current(dirtySettingIds);
+  }, [dirtySettingIds, dirtySettingIdsSignature]);
+
+  useEffect(() => () => {
+    onDirtySettingIdsChangeRef.current([]);
+  }, []);
 
   const requestFormatOptions = useMemo(
     () => [
@@ -414,28 +487,56 @@ const AIModelConfig: React.FC = () => {
   }, [getCustomRequestBodyTrimHint, t]);
 
   
-  const loadConfig = useCallback(async () => {
+  const loadModels = useCallback(async () => {
+    const sequence = ++modelLoadSequenceRef.current;
     try {
-      const [models, proxy, streamIdleTimeoutSecs] = await Promise.all([
-        configManager.getConfig<AIModelConfigType[]>('ai.models'),
-        configManager.getConfig<ProxyConfig>('ai.proxy'),
-        configManager.getConfig<number | null>('ai.stream_idle_timeout_secs'),
-      ]);
-      setAiModels(models);
-      if (proxy) {
-        setProxyConfig(proxy);
+      const modelSnapshot = await configManager.getSetting<AIModelSnapshotEntry[]>('core.ai.models');
+      if (sequence === modelLoadSequenceRef.current) {
+        setAiModels(sanitizeAIModelSnapshot(modelSnapshot));
       }
-      setStreamIdleTimeoutInput(
-        streamIdleTimeoutSecs != null ? String(streamIdleTimeoutSecs) : ''
-      );
     } catch (error) {
-      log.error('Failed to load AI config', error);
+      log.error('Failed to load AI model snapshot', { error });
     }
   }, []);
 
   useEffect(() => {
-    loadConfig();
-  }, [loadConfig]);
+    void loadModels();
+  }, [loadModels, snapshotRevision]);
+
+  useEffect(() => {
+    if (hasProxyDraftChanges) {
+      return;
+    }
+    let cancelled = false;
+    void configManager.getSetting<ProxyConfig>('core.ai.proxy').then((proxy) => {
+      if (cancelled || !proxy) return;
+      savedProxyFingerprintRef.current = JSON.stringify(proxy);
+      setProxyConfig(proxy);
+    }).catch((error) => {
+      log.error('Failed to load AI proxy config', { error });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [hasProxyDraftChanges, snapshotRevision]);
+
+  useEffect(() => {
+    if (hasStreamIdleTimeoutDraftChanges) {
+      return;
+    }
+    let cancelled = false;
+    void configManager.getSetting<number | null>('core.ai.stream_idle_timeout_secs').then((value) => {
+      if (cancelled) return;
+      const next = value != null ? String(value) : '';
+      savedStreamIdleTimeoutRef.current = next;
+      setStreamIdleTimeoutInput(next);
+    }).catch((error) => {
+      log.error('Failed to load AI stream idle timeout', { error });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [hasStreamIdleTimeoutDraftChanges, snapshotRevision]);
 
   const refreshDiscoveredCli = useCallback(async () => {
     setIsDiscoveringCli(true);
@@ -501,12 +602,34 @@ const AIModelConfig: React.FC = () => {
       .sort((a, b) => a.model_name.localeCompare(b.model_name));
   };
 
+  const captureEditingModelBaseline = (models: readonly AIModelConfigType[]) => {
+    editingModelBaselineRef.current = new Map(
+      models
+        .filter((model): model is AIModelConfigType & { id: string } => Boolean(model.id))
+        .map((model) => [model.id, JSON.stringify(model)]),
+    );
+  };
+
+  const assertEditingModelBaselineIsCurrent = (latestModels: readonly AIModelConfigType[]) => {
+    const latestById = new Map(
+      latestModels
+        .filter((model): model is AIModelConfigType & { id: string } => Boolean(model.id))
+        .map((model) => [model.id, model]),
+    );
+    for (const [id, fingerprint] of editingModelBaselineRef.current) {
+      const latest = latestById.get(id);
+      if (!latest || JSON.stringify(latest) !== fingerprint) {
+        throw new AIModelDraftConflictError();
+      }
+    }
+  };
+
   const createDraftsFromConfigs = (configs: AIModelConfigType[]) => (
     configs.map(config => createModelDraft(config.model_name, config, {
       configId: config.id,
-      contextWindow: config.context_window || 200000,
+      contextWindow: config.context_window,
       maxTokens: config.max_tokens || 32000,
-      reasoningMode: getEffectiveReasoningMode(config),
+      reasoningMode: config.reasoning_mode,
       reasoningEffort: config.reasoning_effort,
       thinkingBudgetTokens: config.thinking_budget_tokens,
     }))
@@ -682,7 +805,7 @@ const AIModelConfig: React.FC = () => {
 
     // CLI-backed auth (Codex/Gemini) resolves the bearer token at request time
     // from `~/.codex` or `~/.gemini`, so we must NOT gate discovery on the
-    // user pasting an API key. Only the legacy `api_key` mode requires it.
+    // user pasting an API key. Only inline `api_key` authentication requires it.
     const requiresApiKey = resolvedAuth.type === 'api_key';
     if (!resolvedBaseUrl || !resolvedProvider || (requiresApiKey && !resolvedApiKey)) {
       return null;
@@ -696,7 +819,7 @@ const AIModelConfig: React.FC = () => {
       base_url: resolvedBaseUrl,
       request_url: config.request_url || resolveRequestUrl(resolvedBaseUrl, resolvedProvider, resolvedModelName),
       model_name: resolvedModelName,
-      context_window: config.context_window || 200000,
+      context_window: config.context_window ?? NEW_MODEL_CONTEXT_WINDOW,
       max_tokens: config.max_tokens || 32000,
       temperature: config.temperature,
       top_p: config.top_p,
@@ -705,7 +828,7 @@ const AIModelConfig: React.FC = () => {
       capabilities: config.capabilities || ['text_chat'],
       recommended_for: config.recommended_for || [],
       metadata: config.metadata || {},
-      reasoning_mode: config.reasoning_mode ?? getEffectiveReasoningMode(config),
+      reasoning_mode: config.reasoning_mode ?? DEFAULT_REASONING_MODE,
       inline_think_in_text: config.inline_think_in_text ?? true,
       reasoning_effort: config.reasoning_effort,
       thinking_budget_tokens: config.thinking_budget_tokens,
@@ -794,6 +917,7 @@ const AIModelConfig: React.FC = () => {
 
   
   const handleCreateNew = () => {
+    editingModelBaselineRef.current.clear();
     resetRemoteModelDiscovery();
     setSelectedModelDrafts([]);
     setManualModelInput('');
@@ -803,6 +927,7 @@ const AIModelConfig: React.FC = () => {
   };
 
   const handleImportFromCli = useCallback((cred: DiscoveredCliCredential) => {
+    editingModelBaselineRef.current.clear();
     resetRemoteModelDiscovery();
     setManualModelInput('');
     setShowApiKey(false);
@@ -818,7 +943,7 @@ const AIModelConfig: React.FC = () => {
       api_key: '',
       model_name: '',
       enabled: true,
-      context_window: 200000,
+      context_window: NEW_MODEL_CONTEXT_WINDOW,
       max_tokens: 32000,
       category: 'general_chat',
       capabilities: ['text_chat', 'function_calling'],
@@ -855,6 +980,7 @@ const AIModelConfig: React.FC = () => {
     // Dynamically get translated name
     const providerName = t(`providers.${template.id}.name`);
     const configuredProviderModels = getConfiguredModelsForProvider(providerName);
+    captureEditingModelBaseline(configuredProviderModels);
     const primaryConfiguredModel = configuredProviderModels[0];
     const defaultModel = primaryConfiguredModel?.model_name || template.models[0] || '';
     
@@ -866,11 +992,12 @@ const AIModelConfig: React.FC = () => {
         primaryConfiguredModel?.provider || template.format,
         defaultModel
       ),
-      api_key: primaryConfiguredModel?.api_key || '',
+      api_key: '',
+      api_key_configured: primaryConfiguredModel?.api_key_configured,
       model_name: defaultModel,
       provider: primaryConfiguredModel?.provider || template.format,
       enabled: true,
-      context_window: 200000,
+      context_window: NEW_MODEL_CONTEXT_WINDOW,
       max_tokens: 32000,
       category: 'general_chat',
       capabilities: ['text_chat', 'function_calling'],
@@ -882,7 +1009,7 @@ const AIModelConfig: React.FC = () => {
       configuredProviderModels.length > 0
         ? createDraftsFromConfigs(configuredProviderModels)
         : (defaultModel ? [createModelDraft(defaultModel, {
-            context_window: 200000,
+            context_window: NEW_MODEL_CONTEXT_WINDOW,
             max_tokens: 32000,
             reasoning_mode: DEFAULT_REASONING_MODE,
           })] : [])
@@ -894,6 +1021,7 @@ const AIModelConfig: React.FC = () => {
 
   
   const handleSelectCustom = () => {
+    editingModelBaselineRef.current.clear();
     resetRemoteModelDiscovery();
     setManualModelInput('');
     setShowApiKey(false);
@@ -906,7 +1034,7 @@ const AIModelConfig: React.FC = () => {
       model_name: '',
       provider: 'openai',  
       enabled: true,
-      context_window: 200000,
+      context_window: NEW_MODEL_CONTEXT_WINDOW,
       max_tokens: 32000,  
       
       category: 'general_chat',
@@ -928,17 +1056,19 @@ const AIModelConfig: React.FC = () => {
 
     const providerName = getProviderDisplayName(config);
     const configuredProviderModels = getConfiguredModelsForProvider(providerName);
+    captureEditingModelBaseline(configuredProviderModels);
     const providerTemplateId = getProviderTemplateId(config);
     setSelectedProviderId(providerTemplateId || null);
     setEditingConfig({
       name: providerName,
       base_url: config.base_url,
       request_url: resolveRequestUrl(config.base_url, config.provider || 'openai'),
-      api_key: config.api_key || '',
+      api_key: '',
+      api_key_configured: config.api_key_configured,
       model_name: '',
       provider: config.provider,
       enabled: true,
-      context_window: config.context_window || 200000,
+      context_window: config.context_window,
       max_tokens: config.max_tokens || 32000,
       category: config.category || 'general_chat',
       capabilities: config.capabilities || getCapabilitiesByCategory(config.category || 'general_chat'),
@@ -963,15 +1093,16 @@ const AIModelConfig: React.FC = () => {
   };
 
   const handleEdit = (config: AIModelConfigType) => {
+    captureEditingModelBaseline([config]);
     resetRemoteModelDiscovery();
     setManualModelInput('');
     setShowApiKey(false);
     setEditingConfig({ ...config, name: getProviderDisplayName(config) });
     setSelectedModelDrafts([
       createModelDraft(config.model_name, config, {
-        contextWindow: config.context_window || 200000,
+        contextWindow: config.context_window,
         maxTokens: config.max_tokens || 32000,
-        reasoningMode: getEffectiveReasoningMode(config),
+        reasoningMode: config.reasoning_mode,
         reasoningEffort: config.reasoning_effort,
         thinkingBudgetTokens: config.thinking_budget_tokens,
       })
@@ -1007,12 +1138,6 @@ const AIModelConfig: React.FC = () => {
         notification.warning(t('messages.fillRequired'));
         return;
       }
-      const configuredProviderModels = getConfiguredModelsForProvider(providerName);
-      const configuredProviderModelIds = new Set(
-        configuredProviderModels
-          .map(model => model.id)
-          .filter((id): id is string => !!id)
-      );
       const draftsToSave = dedupeSelectedModelDraftsByModelName(selectedModelDrafts);
       const configsToSave: AIModelConfigType[] = draftsToSave.map((draft, index) => {
         return {
@@ -1047,44 +1172,45 @@ const AIModelConfig: React.FC = () => {
         };
       });
 
-      if (editingConfig.id && configsToSave[0]) {
-        const dupKey = modelNameLookupKey(configsToSave[0].model_name);
-        const nameConflict = aiModels.some(
-          m =>
-            m.id !== editingConfig.id &&
-            getProviderDisplayName(m) === providerName &&
-            modelNameLookupKey(m.model_name) === dupKey
-        );
-        if (nameConflict) {
-          notification.warning(t('messages.duplicateModelNameUnderProvider'));
-          return;
-        }
-      }
+      const replacedIds = new Set(editingModelBaselineRef.current.keys());
+      await configManager.updateSetting<AIModelSnapshotEntry[], AIModelSnapshotWriteEntry[]>(
+        'core.ai.models',
+        (currentValue) => {
+          const latestModels = sanitizeAIModelSnapshot(currentValue);
+          assertEditingModelBaselineIsCurrent(latestModels);
 
-      let updatedModels: AIModelConfigType[];
-      if (editingConfig.id) {
-        updatedModels = aiModels.map(m => m.id === editingConfig.id ? configsToSave[0] : m);
-      } else {
-        updatedModels = [
-          ...aiModels.filter(model => !configuredProviderModelIds.has(model.id || '')),
-          ...configsToSave,
-        ];
-      }
+          const replacementIds = new Set(
+            configsToSave.map((model) => model.id).filter((id): id is string => Boolean(id)),
+          );
+          const duplicate = configsToSave.some((candidate) => latestModels.some((existing) => (
+            !replacedIds.has(existing.id || '')
+            && !replacementIds.has(existing.id || '')
+            && getProviderDisplayName(existing) === providerName
+            && modelNameLookupKey(existing.model_name) === modelNameLookupKey(candidate.model_name)
+          )));
+          if (duplicate) {
+            throw new Error('ai.model_name_conflict');
+          }
 
-      
-      await configManager.setConfig('ai.models', updatedModels);
-      setAiModels(updatedModels);
+          return patchAIModelSnapshot(currentValue, configsToSave, replacedIds);
+        },
+      );
 
       // Auto-set as primary model if no primary model is configured and this is a new model
       if (!editingConfig.id) {
         try {
-          const currentDefaultModels = await configManager.getConfig<Record<string, unknown>>('ai.default_models') || {};
-          const primaryModelExists = currentDefaultModels.primary && updatedModels.some(m => m.id === currentDefaultModels.primary);
-          if (!primaryModelExists) {
-            await configManager.setConfig('ai.default_models', {
-              ...currentDefaultModels,
-              primary: configsToSave[0]?.id,
-            });
+          let primaryWasAssigned = false;
+          await configManager.updateSetting<Record<string, unknown>>(
+            'core.ai.default_models',
+            (currentDefaultModels = {}) => {
+              if (currentDefaultModels.primary) {
+                return currentDefaultModels;
+              }
+              primaryWasAssigned = true;
+              return { ...currentDefaultModels, primary: configsToSave[0]?.id };
+            },
+          );
+          if (primaryWasAssigned) {
             log.info('Auto-set primary model for first configured model', { modelId: configsToSave[0]?.id });
             notification.success(t('messages.autoSetPrimary'));
           }
@@ -1106,6 +1232,7 @@ const AIModelConfig: React.FC = () => {
       
       setIsEditing(false);
       setEditingConfig(null);
+      editingModelBaselineRef.current.clear();
       setCreationMode(null);
       setSelectedProviderId(null);
       
@@ -1123,7 +1250,7 @@ const AIModelConfig: React.FC = () => {
           setTestResults(prev => ({ ...prev, [configId]: null }));
 
           try {
-            const result = await aiApi.testAIConfigConnection(config);
+            const result = await aiApi.testSavedModelConnection(configId);
             const baseMessage = result.success ? t('messages.testSuccess') : t('messages.testFailed');
             let message = baseMessage + (result.response_time_ms ? ` (${result.response_time_ms}ms)` : '');
             const localizedMessage = translateConnectionTestMessage(result.message_code, t);
@@ -1158,18 +1285,38 @@ const AIModelConfig: React.FC = () => {
         })();
       });
     } catch (error) {
+      if (error instanceof ConfigConfirmationRejectedError) {
+        return;
+      }
+      if (error instanceof AIModelDraftConflictError) {
+        notification.warning(t('messages.changedExternally'));
+        return;
+      }
+      if (error instanceof Error && error.message === 'ai.model_name_conflict') {
+        notification.warning(t('messages.duplicateModelNameUnderProvider'));
+        return;
+      }
       log.error('Failed to save config', error);
       notification.error(t('messages.saveFailed'));
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const confirmDeleteModel = async () => {
+    const id = modelDeleteTarget?.id;
+    if (!id) return;
     try {
-      const updatedModels = aiModels.filter(m => m.id !== id);
-      await configManager.setConfig('ai.models', updatedModels);
-      setAiModels(updatedModels);
+      await configManager.updateSetting<AIModelSnapshotEntry[], AIModelSnapshotWriteEntry[]>(
+        'core.ai.models',
+        (currentValue) => patchAIModelSnapshot(currentValue, [], new Set([id])),
+        {
+          confirmed: true,
+        },
+      );
     } catch (error) {
       log.error('Failed to delete config', { configId: id, error });
+      notification.error(t('messages.deleteFailed'));
+    } finally {
+      setModelDeleteTarget(null);
     }
   };
 
@@ -1201,15 +1348,18 @@ const AIModelConfig: React.FC = () => {
     const group = providerDeleteTarget;
     if (!group) return;
 
-    const modelsInGroup = new Set(group.models);
     const removeIds = new Set(
       group.models.map(m => m.id).filter((id): id is string => Boolean(id)),
     );
 
     try {
-      const updatedModels = aiModels.filter(m => !modelsInGroup.has(m));
-      await configManager.setConfig('ai.models', updatedModels);
-      setAiModels(updatedModels);
+      await configManager.updateSetting<AIModelSnapshotEntry[], AIModelSnapshotWriteEntry[]>(
+        'core.ai.models',
+        (currentValue) => patchAIModelSnapshot(currentValue, [], removeIds),
+        {
+          confirmed: true,
+        },
+      );
       setExpandedProviderGroups(prev => {
         const next = new Set(prev);
         next.delete(group.providerName);
@@ -1253,7 +1403,7 @@ const AIModelConfig: React.FC = () => {
 
     try {
       
-      const result = await aiApi.testAIConfigConnection(config);
+      const result = await aiApi.testSavedModelConnection(configId);
       
       
       const baseMessage = result.success ? t('messages.testSuccess') : t('messages.testFailed');
@@ -1290,12 +1440,20 @@ const AIModelConfig: React.FC = () => {
     if (!config.id) return;
 
     try {
-      const updatedModels = aiModels.map(model =>
-        model.id === config.id ? { ...model, enabled } : model
+      await configManager.updateSetting<AIModelSnapshotEntry[], AIModelSnapshotWriteEntry[]>(
+        'core.ai.models',
+        (currentValue) => {
+          const latest = sanitizeAIModelSnapshot(currentValue)
+            .find((model) => model.id === config.id);
+          return latest
+            ? patchAIModelSnapshot(currentValue, [{ ...latest, enabled }])
+            : (currentValue ?? []);
+        },
       );
-      await configManager.setConfig('ai.models', updatedModels);
-      setAiModels(updatedModels);
     } catch (error) {
+      if (error instanceof ConfigConfirmationRejectedError) {
+        return;
+      }
       log.error('Failed to toggle model status', { configId: config.id, enabled, error });
       notification.error(t('messages.saveFailed'));
     }
@@ -1305,9 +1463,13 @@ const AIModelConfig: React.FC = () => {
   const handleSaveProxy = async () => {
     setIsProxySaving(true);
     try {
-      await configManager.setConfig('ai.proxy', proxyConfig);
+      await configManager.setSetting('core.ai.proxy', proxyConfig);
+      savedProxyFingerprintRef.current = JSON.stringify(proxyConfig);
       notification.success(t('proxy.saveSuccess'));
     } catch (error) {
+      if (error instanceof ConfigConfirmationRejectedError) {
+        return;
+      }
       log.error('Failed to save proxy config', error);
       notification.error(t('messages.saveFailed'));
     } finally {
@@ -1323,13 +1485,16 @@ const AIModelConfig: React.FC = () => {
 
     setIsStreamIdleTimeoutSaving(true);
     try {
-      await configManager.setConfig(
-        'ai.stream_idle_timeout_secs',
+      await configManager.setSetting(
+        'core.ai.stream_idle_timeout_secs',
         parsedStreamIdleTimeout ?? null
       );
       setStreamIdleTimeoutInput(
         parsedStreamIdleTimeout != null ? String(parsedStreamIdleTimeout) : ''
       );
+      savedStreamIdleTimeoutRef.current = parsedStreamIdleTimeout != null
+        ? String(parsedStreamIdleTimeout)
+        : '';
       notification.success(t('streamIdleTimeout.saveSuccess'));
     } catch (error) {
       log.error('Failed to save stream idle timeout', error);
@@ -1346,6 +1511,7 @@ const AIModelConfig: React.FC = () => {
     setShowApiKey(false);
     setIsEditing(false);
     setEditingConfig(null);
+    editingModelBaselineRef.current.clear();
     setCreationMode(null);
     setSelectedProviderId(null);
   };
@@ -2269,7 +2435,7 @@ const AIModelConfig: React.FC = () => {
             </div>
             <div className="ai-model-config__details-item">
               <span className="ai-model-config__details-label">{t('details.contextWindow')}</span>
-              <span className="ai-model-config__details-value">{config.context_window?.toLocaleString() || '128,000'}</span>
+              <span className="ai-model-config__details-value">{config.context_window.toLocaleString()}</span>
             </div>
             <div className="ai-model-config__details-item">
               <span className="ai-model-config__details-label">{t('details.maxOutput')}</span>
@@ -2335,7 +2501,7 @@ const AIModelConfig: React.FC = () => {
         <IconButton
           variant="danger"
           size="small"
-          onClick={() => void handleDelete(config.id!)}
+          onClick={() => setModelDeleteTarget(config)}
           tooltip={t('actions.delete')}
         >
           <Trash2 size={14} />
@@ -2641,6 +2807,21 @@ const AIModelConfig: React.FC = () => {
       >
         {renderEditingForm()}
       </Dialog>
+
+      <ConfirmDialog
+        open={!!modelDeleteTarget}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setModelDeleteTarget(null);
+          }
+        }}
+        onConfirm={() => void confirmDeleteModel()}
+        title={t('actions.delete')}
+        message={t('confirmDelete')}
+        confirmText={t('actions.delete')}
+        cancelText={t('actions.cancel')}
+        confirmDanger
+      />
 
       <ConfirmDialog
         open={!!providerDeleteTarget}

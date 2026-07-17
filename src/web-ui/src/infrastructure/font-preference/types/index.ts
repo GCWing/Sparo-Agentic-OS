@@ -4,28 +4,27 @@ export type FontSizeLevel = 'compact' | 'small' | 'default' | 'medium' | 'large'
 export interface UiFontSizePreference {
   level: FontSizeLevel;
   /** Only used when level === 'custom'. Range: 12–20. */
-  customPx?: number;
+  customPx: number | null;
 }
 
-export type FlowChatFontMode = 'sync' | 'lift' | 'independent';
+export type FlowChatFontMode = 'sync' | 'independent';
 export type MarkdownEditorFontMode = 'sync' | 'independent';
 
 /**
  * Flow chat typographic scale vs global UI:
  * - `sync`: same tokens as UI
- * - `lift`: UI baseline + 1px (cap 20), default
  * - `independent`: custom baseline px
  */
 export interface FlowChatFontSizePreference {
   mode: FlowChatFontMode;
   /** When `mode === 'independent'`, baseline px (12–20) for the flow-chat token ladder. */
-  basePx?: number;
+  basePx: number | null;
 }
 
 export interface MarkdownEditorFontSizePreference {
   mode: MarkdownEditorFontMode;
   /** When `mode === 'independent'`, readable body text px (12-20) for Markdown editor surfaces. */
-  basePx?: number;
+  basePx: number | null;
 }
 
 export interface FontPreference {
@@ -89,43 +88,34 @@ export const UI_FONT_SIZE_PRESETS: FontSizeLevelPresets = {
 
 export function resolveFontSizeTokens(uiSize: UiFontSizePreference): FontSizeTokens {
   if (uiSize.level === 'custom') {
-    return deriveFontSizeTokens(uiSize.customPx ?? 14);
+    if (uiSize.customPx === null) {
+      throw new Error('Custom UI font size is missing from the authoritative preference');
+    }
+    return deriveFontSizeTokens(uiSize.customPx);
   }
   return UI_FONT_SIZE_PRESETS[uiSize.level];
 }
 
 export function resolveFlowChatFontSizeTokens(pref: FontPreference): FontSizeTokens {
   if (pref.flowChat.mode === 'independent') {
-    return deriveFontSizeTokens(pref.flowChat.basePx ?? 14);
-  }
-  if (pref.flowChat.mode === 'lift') {
-    /*
-     * "lift" used to add +1 to the UI baseline, which made every flow-chat font level
-     * one step bigger than the surrounding UI. The user prefers the chat one notch
-     * smaller, so we now leave the baseline as-is (effectively the same scale as `sync`,
-     * but kept as a separate mode for compatibility with stored preferences).
-     */
-    const ui = resolveFontSizeTokens(pref.uiSize);
-    const uiBase = parseInt(ui.base, 10);
-    const bumped = Number.isNaN(uiBase) ? 14 : Math.min(20, uiBase);
-    return deriveFontSizeTokens(bumped);
+    if (pref.flowChat.basePx === null) {
+      throw new Error('Independent flow-chat font size is missing from the authoritative preference');
+    }
+    return deriveFontSizeTokens(pref.flowChat.basePx);
   }
   return resolveFontSizeTokens(pref.uiSize);
 }
 
 export function resolveMarkdownEditorFontSizeTokens(pref: FontPreference): FontSizeTokens {
   if (pref.markdownEditor.mode === 'independent') {
-    const bodyPx = Math.max(12, Math.min(20, pref.markdownEditor.basePx ?? 14));
+    if (pref.markdownEditor.basePx === null) {
+      throw new Error('Independent Markdown font size is missing from the authoritative preference');
+    }
+    const bodyPx = Math.max(12, Math.min(20, pref.markdownEditor.basePx));
     return deriveFontSizeTokens(bodyPx + 1);
   }
   return resolveFontSizeTokens(pref.uiSize);
 }
-
-export const DEFAULT_FONT_PREFERENCE: FontPreference = {
-  uiSize: { level: 'default' },
-  flowChat: { mode: 'lift' },
-  markdownEditor: { mode: 'sync' },
-};
 
 // ---- Events ----
 

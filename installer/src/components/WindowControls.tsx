@@ -1,14 +1,10 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
-interface WindowControlsProps {
-  dark?: boolean;
-}
-
 /**
  * Window controls — Sparo style.
  * 32x32 transparent buttons with SVG icons, subtle hover bg.
  */
-export function WindowControls({ dark }: WindowControlsProps) {
+export function WindowControls() {
   const handleMinimize = () => {
     getCurrentWindow().minimize();
   };
@@ -18,16 +14,12 @@ export function WindowControls({ dark }: WindowControlsProps) {
   };
 
   return (
-    <div
-      className="window-controls"
-      style={dark ? { '--ctrl-color': 'rgba(255,255,255,0.6)' } as React.CSSProperties : undefined}
-    >
+    <div className="window-controls">
       <button
         className="window-controls__btn"
         onClick={handleMinimize}
         aria-label="Minimize"
         title="Minimize"
-        style={dark ? { color: 'rgba(255,255,255,0.5)' } : undefined}
       >
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
           <line x1="3" y1="7" x2="11" y2="7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -38,7 +30,6 @@ export function WindowControls({ dark }: WindowControlsProps) {
         onClick={handleClose}
         aria-label="Close"
         title="Close"
-        style={dark ? { color: 'rgba(255,255,255,0.5)' } : undefined}
       >
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
           <line x1="3" y1="3" x2="11" y2="11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />

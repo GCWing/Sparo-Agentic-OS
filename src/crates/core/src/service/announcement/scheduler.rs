@@ -5,7 +5,6 @@
 //! ordered list of cards that should be presented in this session.
 
 use super::registry::local_cards;
-use super::remote::RemoteFetcher;
 use super::state_store::AnnouncementStateStore;
 use super::tips_pool::builtin_tips;
 use super::types::{AnnouncementCard, AnnouncementState, TriggerCondition};
@@ -20,7 +19,6 @@ pub type AnnouncementSchedulerRef = Arc<AnnouncementScheduler>;
 
 pub struct AnnouncementScheduler {
     store: AnnouncementStateStore,
-    remote_fetcher: RemoteFetcher,
     state: RwLock<AnnouncementState>,
     current_version: String,
 }
@@ -29,12 +27,10 @@ impl AnnouncementScheduler {
     /// Create a new scheduler and load persisted state from disk.
     pub async fn new(path_manager: &Arc<PathManager>) -> CoreResult<Self> {
         let store = AnnouncementStateStore::new(path_manager);
-        let remote_fetcher = RemoteFetcher::new(path_manager);
         let state = store.load().await?;
         let current_version = env!("CARGO_PKG_VERSION").to_string();
         Ok(Self {
             store,
-            remote_fetcher,
             state: RwLock::new(state),
             current_version,
         })
@@ -68,17 +64,10 @@ impl AnnouncementScheduler {
         self.store.save(&state).await?;
         drop(state);
 
-        // Kick off remote fetch in the background (does not block card delivery).
-        let remote_fetcher = self.remote_fetcher.clone();
-        tokio::spawn(async move {
-            remote_fetcher.fetch_if_stale().await;
-        });
-
         // Merge all card sources.
         let mut all_cards: Vec<AnnouncementCard> = Vec::new();
         all_cards.extend(local_cards(locale));
         all_cards.extend(builtin_tips(locale));
-        all_cards.extend(self.remote_fetcher.cached_cards().await);
 
         debug!(
             "Announcement scheduler: {} total cards before filtering",
@@ -111,7 +100,6 @@ impl AnnouncementScheduler {
         let all: Vec<AnnouncementCard> = local_cards(locale)
             .into_iter()
             .chain(builtin_tips(locale))
-            .chain(self.remote_fetcher.cached_cards().await)
             .collect();
         all.into_iter().find(|c| c.id == id)
     }

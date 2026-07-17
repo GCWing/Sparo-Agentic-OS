@@ -2,9 +2,19 @@ import React, { forwardRef } from 'react';
 import { Panel, PanelBody, PanelHeader, type PanelHeaderProps } from '../Panel';
 import './SettingsPage.scss';
 
-export const SettingsPage = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ children, className = '', ...props }, ref) => (
-    <div ref={ref} className={['ds-settings-page', className].filter(Boolean).join(' ')} {...props}>
+export type SettingsPageWidth = 'narrow' | 'default' | 'wide' | 'full';
+
+export interface SettingsPageProps extends React.HTMLAttributes<HTMLDivElement> {
+  width?: SettingsPageWidth;
+}
+
+export const SettingsPage = forwardRef<HTMLDivElement, SettingsPageProps>(
+  ({ children, width = 'default', className = '', ...props }, ref) => (
+    <div
+      ref={ref}
+      className={['ds-settings-page', `ds-settings-page--width-${width}`, className].filter(Boolean).join(' ')}
+      {...props}
+    >
       {children}
     </div>
   )

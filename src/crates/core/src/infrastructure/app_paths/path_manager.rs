@@ -537,11 +537,17 @@ impl PathManager {
 
     /// Ensure directory exists
     pub async fn ensure_dir(&self, path: &Path) -> CoreResult<()> {
-        if !path.exists() {
-            tokio::fs::create_dir_all(path).await.map_err(|e| {
-                CoreError::service(format!("Failed to create directory {:?}: {}", path, e))
-            })?;
+        if let Err(error) = tokio::fs::create_dir_all(path).await {
+            if matches!(tokio::fs::metadata(path).await, Ok(metadata) if metadata.is_dir()) {
+                return Ok(());
+            }
+
+            return Err(CoreError::service(format!(
+                "Failed to create directory {:?}: {}",
+                path, error
+            )));
         }
+
         Ok(())
     }
 
@@ -670,6 +676,9 @@ pub fn try_get_path_manager_arc() -> CoreResult<Arc<PathManager>> {
 mod tests {
     use super::PathManager;
     use std::path::Path;
+    use std::sync::Arc;
+    use tempfile::tempdir;
+    use tokio::sync::Barrier;
 
     #[test]
     fn workspace_runtime_root_uses_stable_workspace_id() {
@@ -755,5 +764,53 @@ mod tests {
                 .join("remotion-video-agent")
                 .join("1.0.0")
         );
+    }
+
+    #[tokio::test]
+    async fn ensure_dir_allows_concurrent_creation() {
+        const TASK_COUNT: usize = 16;
+
+        let temp_dir = tempdir().expect("temporary directory should be created");
+        let manager = Arc::new(PathManager::with_user_root_for_tests(
+            temp_dir.path().to_path_buf(),
+        ));
+        let target = temp_dir.path().join("shared").join("nested");
+        let barrier = Arc::new(Barrier::new(TASK_COUNT));
+        let mut tasks = Vec::with_capacity(TASK_COUNT);
+
+        for _ in 0..TASK_COUNT {
+            let manager = Arc::clone(&manager);
+            let target = target.clone();
+            let barrier = Arc::clone(&barrier);
+            tasks.push(tokio::spawn(async move {
+                barrier.wait().await;
+                manager.ensure_dir(&target).await
+            }));
+        }
+
+        for task in tasks {
+            task.await
+                .expect("directory creation task should complete")
+                .expect("concurrent directory creation should succeed");
+        }
+        assert!(target.is_dir());
+    }
+
+    #[tokio::test]
+    async fn ensure_dir_rejects_file_at_target_path() {
+        let temp_dir = tempdir().expect("temporary directory should be created");
+        let manager = PathManager::with_user_root_for_tests(temp_dir.path().to_path_buf());
+        let target = temp_dir.path().join("not-a-directory");
+        tokio::fs::write(&target, b"file")
+            .await
+            .expect("target file should be created");
+
+        let error = manager
+            .ensure_dir(&target)
+            .await
+            .expect_err("file conflict should fail directory creation");
+
+        assert!(target.is_file());
+        assert!(error.to_string().contains("Failed to create directory"));
     }
 }

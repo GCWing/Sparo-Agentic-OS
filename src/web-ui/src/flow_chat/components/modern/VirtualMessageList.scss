@@ -47,12 +47,6 @@
     background: var(--ds-chat-surface); /* FlowChat background. */
   }
   
-  .empty-state {
-    text-align: center;
-    color: var(--ds-chat-text-muted);
-    padding: 2rem;
-  }
-  
   // Reserve space for the floating FlowChatHeader.
   // Header bar (min 40px) + border (1px) + blur area (16px) + extra gap (4px) = 61px.
   .message-list-header {

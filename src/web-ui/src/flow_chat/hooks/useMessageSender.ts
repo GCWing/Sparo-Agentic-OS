@@ -50,6 +50,17 @@ function normalizeModelSelection(
   return matchedModel ? value : 'primary';
 }
 
+export interface MessageSendContext {
+  metadata?: Record<string, unknown>;
+  triggerSource?: TriggerSource;
+  systemReminderOverride?: string;
+}
+
+export type ResolveMessageSendContext = (input: {
+  message: string;
+  sessionId: string;
+}) => MessageSendContext | undefined | Promise<MessageSendContext | undefined>;
+
 interface UseMessageSenderProps {
   /** Current session ID */
   currentSessionId?: string;
@@ -61,6 +72,8 @@ interface UseMessageSenderProps {
   onExitTemplateMode?: () => void;
   /** Selected agent type (mode) */
   currentAgentType?: string;
+  /** Surface-owned metadata/context resolved immediately before each turn starts. */
+  resolveSendContext?: ResolveMessageSendContext;
 }
 
 interface UseMessageSenderReturn {
@@ -86,6 +99,7 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
     onSuccess,
     onExitTemplateMode,
     currentAgentType,
+    resolveSendContext,
   } = props;
 
   const sendMessage = useCallback(async (
@@ -117,9 +131,9 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
       if (!sessionId) {
         const { configManager } = await import('@/infrastructure/config/services/ConfigManager');
         const [agentModels, allModels, defaultModels] = await Promise.all([
-          configManager.getConfig<Record<string, string>>('ai.agent_models') || {},
-          configManager.getConfig<AIModelConfig[]>('ai.models') || [],
-          configManager.getConfig<DefaultModelsConfig>('ai.default_models') || {},
+          configManager.getSetting<Record<string, string>>('core.ai.agent_models') || {},
+          configManager.getSetting<AIModelConfig[]>('core.ai.models') || [],
+          configManager.getSetting<DefaultModelsConfig>('core.ai.default_models') || {},
         ]);
         const agentType = currentAgentType || 'Runno';
         const modelId = normalizeModelSelection(agentModels[agentType], allModels, defaultModels);
@@ -244,12 +258,22 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
               .map(spreadsheetFocusMetadata),
           }
         : undefined;
-      const messageMetadata = spreadsheetFocusMessageMetadata
+      const baseMessageMetadata = spreadsheetFocusMessageMetadata
         ? {
             ...(options?.metadata ?? {}),
             spreadsheetFocus: spreadsheetFocusMessageMetadata,
           }
         : options?.metadata;
+      const resolvedSendContext = await resolveSendContext?.({
+        message: trimmedMessage,
+        sessionId,
+      });
+      const messageMetadata = resolvedSendContext?.metadata
+        ? {
+            ...(baseMessageMetadata ?? {}),
+            ...resolvedSendContext.metadata,
+          }
+        : baseMessageMetadata;
 
       await flowChatManager.sendMessage(
         fullMessage,
@@ -260,8 +284,9 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
         {
           ...imageContextsForBackend,
           metadata: messageMetadata,
-          triggerSource: options?.triggerSource,
-          systemReminderOverride: options?.systemReminderOverride,
+          triggerSource: resolvedSendContext?.triggerSource ?? options?.triggerSource,
+          systemReminderOverride:
+            resolvedSendContext?.systemReminderOverride ?? options?.systemReminderOverride,
           localDialogTurnId: options?.localDialogTurnId,
         }
       );
@@ -284,7 +309,14 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
       });
       throw error;
     }
-  }, [currentSessionId, contexts, onSuccess, onExitTemplateMode, currentAgentType]);
+  }, [
+    currentSessionId,
+    contexts,
+    onSuccess,
+    onExitTemplateMode,
+    currentAgentType,
+    resolveSendContext,
+  ]);
 
   return {
     sendMessage,

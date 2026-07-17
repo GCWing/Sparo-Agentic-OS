@@ -16,7 +16,8 @@ import { useTranslation } from 'react-i18next';
 import { SessionFilesBadge } from './SessionFilesBadge';
 import { FlowChatSidecarActions } from './FlowChatSidecarActions';
 import GoalHeaderControl from '../goal/GoalHeaderControl';
-import { aiExperienceConfigService, type AIExperienceSettings } from '@/infrastructure/config/services/AIExperienceConfigService';
+import { useAIExperienceSettings } from '@/infrastructure/config/hooks';
+import { aiExperienceConfigService } from '@/infrastructure/config/services/AIExperienceConfigService';
 import { createLogger } from '@/shared/utils/logger';
 import type { FlowChatSidecarActionViewModel } from './useSessionSidecarActions';
 import './FlowChatHeader.scss';
@@ -114,9 +115,7 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
 }) => {
   const { t } = useTranslation('flow-chat');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [aiExperienceSettings, setAiExperienceSettings] = useState<AIExperienceSettings>(() =>
-    aiExperienceConfigService.getSettings()
-  );
+  const { settings: aiExperienceSettings } = useAIExperienceSettings();
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const sessionMoreMenuAnchorRef = useRef<HTMLDivElement | null>(null);
   const [sessionMoreMenuOpen, setSessionMoreMenuOpen] = useState(false);
@@ -126,29 +125,13 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
     t('flowChatHeader.timeline', {
       defaultValue: 'Timeline',
     });
-  const keepThinkingItemEnabled = aiExperienceSettings.show_completed_thinking_item;
+  const keepThinkingItemEnabled = aiExperienceSettings?.show_completed_thinking_item === true;
   const thinkingItemToggleTooltip = keepThinkingItemEnabled
     ? t('flowChatHeader.hideCompletedThinkingItems', { defaultValue: 'Hide completed thinking items' })
     : t('flowChatHeader.showCompletedThinkingItems', { defaultValue: 'Show completed thinking items' });
   const hasTimelineNavigation =
     showTimelineControl && (forceTimelineEnabled || (turns.length > 0 && !!onJumpToTurn));
   const moreMenuLabel = t('flowChatHeader.moreMenu', { defaultValue: 'More' });
-
-  useEffect(() => {
-    let cancelled = false;
-    aiExperienceConfigService.getSettingsAsync().then(settings => {
-      if (!cancelled) {
-        setAiExperienceSettings(settings);
-      }
-    });
-
-    const unsubscribe = aiExperienceConfigService.addChangeListener(setAiExperienceSettings);
-
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
-  }, []);
 
   // When collapsing the turn list with an active query, reopen the header search bar.
   const prevTimelineOpenRef = useRef(timelineOpen);
@@ -213,23 +196,23 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
   };
 
   const handleToggleCompletedThinkingItems = useCallback(async () => {
-    const nextSettings: AIExperienceSettings = {
+    if (!aiExperienceSettings) return;
+    const nextSettings = {
       ...aiExperienceSettings,
       show_completed_thinking_item: !keepThinkingItemEnabled,
     };
-    setAiExperienceSettings(nextSettings);
     try {
       await aiExperienceConfigService.saveSettings(nextSettings);
     } catch (error) {
-      log.error('Failed to toggle completed thinking items', error);
-      setAiExperienceSettings(aiExperienceSettings);
+      log.error('Failed to toggle completed thinking items', { error });
     }
   }, [aiExperienceSettings, keepThinkingItemEnabled]);
 
   const agenticOsSessionMenuItems = useMemo((): DropdownMenuEntry[] => {
     if (!onResetHistory) return [];
-    return [
-      {
+    const entries: DropdownMenuEntry[] = [];
+    if (aiExperienceSettings) {
+      entries.push({
         type: 'item',
         id: 'thinking-settings',
         label: t('flowChatHeader.showCompletedThinkingInConversation', {
@@ -239,17 +222,19 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
         onClick: () => {
           void handleToggleCompletedThinkingItems();
         },
-      },
-      { type: 'separator', id: 'agentic-os-session-menu-sep' },
-      {
-        type: 'item',
-        id: 'reset-session',
-        label: t('flowChatHeader.resetSession', { defaultValue: 'Reset session' }),
-        onClick: onResetHistory,
-      },
-    ];
+      });
+      entries.push({ type: 'separator', id: 'agentic-os-session-menu-sep' });
+    }
+    entries.push({
+      type: 'item',
+      id: 'reset-session',
+      label: t('flowChatHeader.resetSession', { defaultValue: 'Reset session' }),
+      onClick: onResetHistory,
+    });
+    return entries;
   }, [
     onResetHistory,
+    aiExperienceSettings,
     keepThinkingItemEnabled,
     t,
     handleToggleCompletedThinkingItems,
@@ -342,7 +327,7 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
             </IconButton>
           </div>
         ) : null}
-        {!timelineOpen && !isSearchOpen && !onResetHistory ? (
+        {!timelineOpen && !isSearchOpen && !onResetHistory && aiExperienceSettings ? (
           <IconButton
             className="flowchat-header__thinking-toggle"
             variant="ghost"

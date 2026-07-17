@@ -20,17 +20,18 @@ import {
 } from '@/infrastructure/api';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
+import { useAIExperienceSettings } from '../hooks';
 import {
   aiExperienceConfigService,
-  DEFAULT_VOICE_INPUT_SETTINGS,
   type AIExperienceSettings,
-  type VoiceInputSettings,
 } from '../services/AIExperienceConfigService';
+import type { VoiceInputSettings } from '../types';
 import {
   ConfigPageContent,
   ConfigPageHeader,
   ConfigPageLayout,
   ConfigPageLoading,
+  ConfigPageMessage,
   ConfigPageRow,
   ConfigPageSection,
 } from './common';
@@ -89,15 +90,17 @@ function statusBadgeVariant(state: SpeechModelInstallState): BadgeVariant {
 
 const VoiceInputConfig: React.FC = () => {
   const { t } = useTranslation('settings/voice-input');
-  const [settings, setSettings] = useState<AIExperienceSettings>(() =>
-    aiExperienceConfigService.getSettings()
-  );
+  const {
+    settings,
+    isLoading: settingsLoading,
+    error: settingsError,
+  } = useAIExperienceSettings();
   const [models, setModels] = useState<SpeechModelStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const cancelDownloadRequestedRef = useRef(false);
 
-  const voiceInput = settings.voice_input ?? DEFAULT_VOICE_INPUT_SETTINGS;
+  const voiceInput = settings?.voice_input;
   const model = useMemo(
     () => models.find(item => item.modelId === LOCAL_SENSEVOICE_SMALL_INT8_MODEL_ID) ?? models[0],
     [models],
@@ -108,11 +111,7 @@ const VoiceInputConfig: React.FC = () => {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [loadedSettings, modelResponse] = await Promise.all([
-        aiExperienceConfigService.getSettingsAsync(),
-        speechAPI.listModels(),
-      ]);
-      setSettings(loadedSettings);
+      const modelResponse = await speechAPI.listModels();
       setModels(modelResponse.models);
     } catch (error) {
       log.error('Failed to load voice input settings', { error });
@@ -142,21 +141,22 @@ const VoiceInputConfig: React.FC = () => {
   }, [loadData]);
 
   const updateVoiceInput = useCallback(async (patch: Partial<VoiceInputSettings>) => {
+    if (!settings) {
+      notificationService.error(t('messages.loadFailed'));
+      return;
+    }
     const nextSettings: AIExperienceSettings = {
       ...settings,
       voice_input: {
-        ...DEFAULT_VOICE_INPUT_SETTINGS,
-        ...(settings.voice_input ?? {}),
+        ...settings.voice_input,
         ...patch,
       },
     };
-    setSettings(nextSettings);
     try {
       await aiExperienceConfigService.saveSettings(nextSettings);
       notificationService.success(t('messages.saveSuccess'));
     } catch (error) {
       log.error('Failed to save voice input settings', { error });
-      setSettings(settings);
       notificationService.error(t('messages.saveFailed'));
     }
   }, [settings, t]);
@@ -264,12 +264,23 @@ const VoiceInputConfig: React.FC = () => {
     }
   }, [model, t, updateModelStatus]);
 
-  if (loading) {
+  if (loading || settingsLoading) {
     return (
       <ConfigPageLayout className="voice-input-config">
         <ConfigPageHeader title={t('title')} description={t('subtitle')} />
         <ConfigPageContent>
           <ConfigPageLoading text={t('loading')} />
+        </ConfigPageContent>
+      </ConfigPageLayout>
+    );
+  }
+
+  if (settingsError || !settings || !voiceInput) {
+    return (
+      <ConfigPageLayout className="voice-input-config">
+        <ConfigPageHeader title={t('title')} description={t('subtitle')} />
+        <ConfigPageContent>
+          <ConfigPageMessage message={{ type: 'error', text: t('messages.loadFailed') }} />
         </ConfigPageContent>
       </ConfigPageLayout>
     );

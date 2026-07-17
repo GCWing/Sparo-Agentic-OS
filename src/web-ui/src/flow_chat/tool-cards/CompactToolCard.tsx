@@ -136,6 +136,21 @@ export const CompactToolCardHeader: React.FC<CompactToolCardHeaderProps> = ({
   extra,
   rightIcon,
 }) => {
+  const statusIconClassName = `compact-card-status-icon${expandable ? ' compact-card-status-icon--expandable' : ''}`;
+  const statusIconContent = statusIcon ? (
+    <>
+      <span className="compact-card-status-icon__main">{statusIcon}</span>
+      {expandable && (
+        <span
+          className={`compact-card-status-icon__expand-hint${isExpanded ? ' compact-card-status-icon__expand-hint--open' : ''}`}
+          aria-hidden
+        >
+          <ChevronDown size={12} strokeWidth={1.75} />
+        </span>
+      )}
+    </>
+  ) : null;
+
   return (
     <>
       {icon ? (
@@ -149,17 +164,24 @@ export const CompactToolCardHeader: React.FC<CompactToolCardHeaderProps> = ({
           showDivider={showDivider}
         />
       ) : statusIcon ? (
-        <span className={`compact-card-status-icon${expandable ? ' compact-card-status-icon--expandable' : ''}`}>
-          <span className="compact-card-status-icon__main">{statusIcon}</span>
-          {expandable && (
-            <span
-              className={`compact-card-status-icon__expand-hint${isExpanded ? ' compact-card-status-icon__expand-hint--open' : ''}`}
-              aria-hidden
-            >
-              <ChevronDown size={12} strokeWidth={1.75} />
-            </span>
-          )}
-        </span>
+        expandable && onAffordanceClick ? (
+          <button
+            type="button"
+            className={statusIconClassName}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onAffordanceClick(event);
+            }}
+            aria-label={affordanceLabel ?? 'Expand details'}
+            aria-expanded={isExpanded}
+            aria-controls={affordanceControlsId}
+          >
+            {statusIconContent}
+          </button>
+        ) : (
+          <span className={statusIconClassName}>{statusIconContent}</span>
+        )
       ) : null}
       {action && <span className="compact-card-action">{action}</span>}
       {content && <span className="compact-card-content">{content}</span>}

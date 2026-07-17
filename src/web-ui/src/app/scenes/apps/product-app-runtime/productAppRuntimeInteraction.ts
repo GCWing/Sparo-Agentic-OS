@@ -9,6 +9,8 @@ import type {
 import type {
   ProductAppRuntimePanelType,
   ProductAppRuntimeSessionMetadata,
+  ProductAppRuntimeSidecarIcon,
+  ProductAppRuntimeTabSidecarMetadata,
   ProductAppRuntimeTabMetadata,
 } from '@/shared/types/session-history';
 import {
@@ -20,6 +22,14 @@ import type { ProductAppRuntimeContext } from '@/shared/types/product-app-runtim
 import { resolveProductAppHostSurfaceMeta } from './productAppRuntimeHostMeta';
 
 const DEFAULT_ENTITY_ID = 'default';
+const SIDECAR_ICONS = new Set<ProductAppRuntimeSidecarIcon>([
+  'activity',
+  'app-window',
+  'file-text',
+  'palette',
+  'play',
+  'settings',
+]);
 
 export type ProductAppRuntimeProfileId = 'product-app-runtime';
 
@@ -82,6 +92,34 @@ function fallbackTitleForTab(_type: ProductAppRuntimePanelType, appName: string,
   return routeLabel(route) || appName;
 }
 
+function normalizeInteractionTabSidecar(
+  sidecar: ProductAppHostSurfaceInteractionTab['sidecar']
+): ProductAppRuntimeTabSidecarMetadata | undefined {
+  if (!sidecar || typeof sidecar !== 'object') return undefined;
+  const actionId = typeof sidecar.actionId === 'string'
+    ? sidecar.actionId.trim() || undefined
+    : undefined;
+  const icon = typeof sidecar.icon === 'string' && SIDECAR_ICONS.has(sidecar.icon as ProductAppRuntimeSidecarIcon)
+    ? sidecar.icon as ProductAppRuntimeSidecarIcon
+    : undefined;
+  const order = typeof sidecar.order === 'number' && Number.isFinite(sidecar.order)
+    ? sidecar.order
+    : undefined;
+  const availability = sidecar.availability === 'enabled' ||
+    sidecar.availability === 'disabled' ||
+    sidecar.availability === 'hidden'
+    ? sidecar.availability
+    : undefined;
+  const targetGroup = sidecar.targetGroup === 'primary' || sidecar.targetGroup === 'secondary'
+    ? sidecar.targetGroup
+    : undefined;
+
+  if (!actionId && !icon && order === undefined && !availability && !targetGroup) {
+    return undefined;
+  }
+  return { actionId, icon, order, availability, targetGroup };
+}
+
 function resolveRuntimeChatMetadata(
   app: ProductAppHostSurface | ProductAppHostSurfaceMeta
 ): ProductAppHostSurfaceInteractionChat | undefined {
@@ -90,6 +128,8 @@ function resolveRuntimeChatMetadata(
 
   const backendId = chat.backendId?.trim();
   const declaredAgentComponentId = chat.agentComponentId?.trim();
+  const agentType = chat.agentType?.trim();
+  const backendAgentType = chat.backendAgentType?.trim();
   const backend = backendId
     ? app.backends?.find((candidate) => candidate.id === backendId)
     : undefined;
@@ -101,6 +141,8 @@ function resolveRuntimeChatMetadata(
     ...chat,
     backendId: backendId || chat.backendId,
     agentComponentId: declaredAgentComponentId || derivedAgentComponentId || chat.agentComponentId,
+    agentType: agentType || undefined,
+    backendAgentType: backendAgentType || agentType || undefined,
   };
 }
 
@@ -128,6 +170,7 @@ function normalizeInteractionTab(
     route,
     default: tab.default === true,
     developerOnly: tab.developerOnly === true,
+    sidecar: normalizeInteractionTabSidecar(tab.sidecar),
     data: tab.data,
   };
 }
@@ -179,7 +222,7 @@ export function buildProductAppRuntimeMetadata(
     scope,
     workspacePath: workspacePathFromAppScope(scope) ?? null,
     runtimeContext: options.runtimeContext ?? null,
-    chat: resolveRuntimeChatMetadata(app) as Record<string, unknown> | undefined,
+    chat: resolveRuntimeChatMetadata(app),
     tabs,
   };
 }

@@ -8,7 +8,7 @@
 //!      saved theme — `tauri.conf.json` hardcodes a dark fallback, which
 //!      causes a black flash on light-theme cold-starts the moment the
 //!      window is shown but before the webview has painted its first
-//!      frame. Reading the persisted theme and calling
+//!      frame. Resolving the authoritative startup snapshot and calling
 //!      `set_background_color` before `show_main_window` collapses that
 //!      gap into a single same-color frame.
 //!   2. Inject the theme bootstrap script before any UI scripts execute.
@@ -23,31 +23,39 @@ use tauri::{AppHandle, Manager};
 
 use crate::theme::ThemeConfig;
 
-/// Parse a `#RRGGBB` / `#RGB` hex color into 8-bit RGB. Returns `None` for
-/// anything we can't handle (e.g. `rgba(...)`), letting the caller fall back
-/// to the Tauri config default.
-fn parse_hex_color(input: &str) -> Option<(u8, u8, u8)> {
-    let raw = input.trim().trim_start_matches('#');
-    match raw.len() {
-        6 => {
-            let r = u8::from_str_radix(&raw[0..2], 16).ok()?;
-            let g = u8::from_str_radix(&raw[2..4], 16).ok()?;
-            let b = u8::from_str_radix(&raw[4..6], 16).ok()?;
-            Some((r, g, b))
-        }
-        3 => {
-            let r = u8::from_str_radix(&raw[0..1], 16).ok()?;
-            let g = u8::from_str_radix(&raw[1..2], 16).ok()?;
-            let b = u8::from_str_radix(&raw[2..3], 16).ok()?;
-            Some((r * 17, g * 17, b * 17))
-        }
-        _ => None,
-    }
+/// Apply the startup theme to the declarative main-window config before Tauri
+/// creates the webview. This covers the earliest native compositor frame; the
+/// later `configure` call still reconciles against the authoritative service.
+pub fn apply_startup_theme_to_context<R: tauri::Runtime>(
+    context: &mut tauri::Context<R>,
+    theme: &ThemeConfig,
+) -> Result<(), String> {
+    let Some((r, g, b)) = theme.bg_primary_rgb() else {
+        return Err(format!(
+            "Theme bg_primary is not a hex color: {}",
+            theme.bg_primary
+        ));
+    };
+    let Some(window_config) = context
+        .config_mut()
+        .app
+        .windows
+        .iter_mut()
+        .find(|window| window.label == WINDOW_MAIN)
+    else {
+        return Err(format!(
+            "Main window '{}' not declared in tauri.conf.json",
+            WINDOW_MAIN
+        ));
+    };
+
+    window_config.background_color = Some(tauri::utils::config::Color(r, g, b, 255));
+    Ok(())
 }
 
 /// Apply theme init script and platform decoration tweaks to the declarative
-/// main window. Called from `setup()` once.
-pub fn configure(app: &AppHandle) -> Result<(), String> {
+/// main window. Called once after the authoritative config service is ready.
+pub fn configure(app: &AppHandle, theme: &ThemeConfig) -> Result<(), String> {
     let Some(window) = app.get_webview_window(WINDOW_MAIN) else {
         return Err(format!(
             "Main window '{}' not declared in tauri.conf.json",
@@ -55,12 +63,10 @@ pub fn configure(app: &AppHandle) -> Result<(), String> {
         ));
     };
 
-    let theme = ThemeConfig::load_from_config();
-
     // Override the native window background so the system compositor can't
     // flash the hardcoded `tauri.conf.json` color (dark) during the brief
     // window-shown / first-paint gap on light-theme cold starts.
-    if let Some((r, g, b)) = parse_hex_color(&theme.bg_primary) {
+    if let Some((r, g, b)) = theme.bg_primary_rgb() {
         if let Err(e) = window.set_background_color(Some(tauri::window::Color(r, g, b, 255))) {
             warn!("Failed to set main window background color: {}", e);
         }

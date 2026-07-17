@@ -7,7 +7,7 @@
 import type { AppScope } from './app-scope';
 import type { ProductAppRuntimeContext } from './product-app-runtime';
 
-export type SessionKind = 'normal' | 'btw';
+export type SessionKind = 'normal' | 'btw' | 'internal';
 export type PersistedSessionKind = 'standard' | 'subagent';
 export type SessionStorageScope = 'workspace' | 'agentic_os';
 
@@ -28,6 +28,22 @@ export type TriggerSource =
 
 export type ProductAppRuntimePanelType = 'product-app-runtime';
 
+export type ProductAppRuntimeSidecarIcon =
+  | 'activity'
+  | 'app-window'
+  | 'file-text'
+  | 'palette'
+  | 'play'
+  | 'settings';
+
+export interface ProductAppRuntimeTabSidecarMetadata {
+  actionId?: string;
+  icon?: ProductAppRuntimeSidecarIcon;
+  order?: number;
+  availability?: 'enabled' | 'disabled' | 'hidden';
+  targetGroup?: 'primary' | 'secondary';
+}
+
 export interface ProductAppRuntimeTabMetadata {
   id: string;
   type: ProductAppRuntimePanelType;
@@ -35,7 +51,22 @@ export interface ProductAppRuntimeTabMetadata {
   route?: string;
   default?: boolean;
   developerOnly?: boolean;
+  sidecar?: ProductAppRuntimeTabSidecarMetadata;
   data?: Record<string, unknown>;
+}
+
+export interface ProductAppRuntimeChatMetadata {
+  backendId?: string;
+  /** Logical Product App component identity. */
+  agentComponentId?: string;
+  /** Registered Agent type used to execute the conversation. */
+  agentType?: string;
+  /** Registered Agent type used by Product App backend actions. */
+  backendAgentType?: string;
+  sessionPolicy?: string;
+  memoryScope?: string;
+  initialPromptKey?: string;
+  allowUserPrompt?: boolean;
 }
 
 export interface ProductAppRuntimeSessionMetadata {
@@ -53,7 +84,7 @@ export interface ProductAppRuntimeSessionMetadata {
   scope: AppScope;
   workspacePath?: string | null;
   runtimeContext?: ProductAppRuntimeContext | null;
-  chat?: Record<string, unknown>;
+  chat?: ProductAppRuntimeChatMetadata;
   tabs: ProductAppRuntimeTabMetadata[];
 }
 

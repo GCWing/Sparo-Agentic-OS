@@ -492,6 +492,21 @@ export class FlowChatManager {
     return deleteChatSessionModule(this.context, sessionId);
   }
 
+  /**
+   * Detach a session that was already removed by its owning backend lifecycle.
+   * Unlike deleteChatSession, this never sends a second persistence delete.
+   */
+  detachLocalSession(sessionId: string): string[] {
+    const removedSessionIds = this.context.flowChatStore.removeSession(sessionId);
+    removedSessionIds.forEach((removedSessionId) => {
+      stateMachineManager.delete(removedSessionId);
+      this.context.processingManager.clearSessionStatus(removedSessionId);
+      cleanupSaveState(this.context, removedSessionId);
+      cleanupSessionBuffers(this.context, removedSessionId);
+    });
+    return removedSessionIds;
+  }
+
   async renameChatSessionTitle(sessionId: string, title: string): Promise<string> {
     return renameChatSessionTitleModule(this.context, sessionId, title);
   }

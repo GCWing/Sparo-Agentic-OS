@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { useTranslation } from 'react-i18next';
 import { listen } from '@tauri-apps/api/event';
 import { cursorPosition, getCurrentWindow } from '@tauri-apps/api/window';
-import { aiExperienceConfigService, type AgentCompanionPetSelection, type AIExperienceSettings } from '@/infrastructure/config/services/AIExperienceConfigService';
+import { useAIExperienceSettings } from '@/infrastructure/config/hooks';
 import { Button } from '@/design-system';
 import type { ChatInputPetMood } from '@/flow_chat/utils/chatInputPetMood';
 import type { AgentCompanionActivityPayload, AgentCompanionTaskStatus } from '@/flow_chat/utils/agentCompanionActivity';
@@ -66,9 +66,8 @@ function advanceTypewriterOutput(visible: string, target: string): string {
 
 export const AgentCompanionDesktopPet: React.FC = () => {
   const { t } = useTranslation('flow-chat');
-  const [pet, setPet] = useState<AgentCompanionPetSelection | null>(
-    () => aiExperienceConfigService.getSettings().agent_companion_pet ?? null,
-  );
+  const { settings } = useAIExperienceSettings();
+  const pet = settings?.agent_companion_pet ?? null;
   const [mood, setMood] = useState<ChatInputPetMood>('rest');
   const [tasks, setTasks] = useState<AgentCompanionTaskStatus[]>([]);
   const [typedOutputBySessionId, setTypedOutputBySessionId] = useState<Record<string, TypewriterOutputState>>({});
@@ -108,24 +107,6 @@ export const AgentCompanionDesktopPet: React.FC = () => {
     document.documentElement.classList.add('sparo-agent-companion-window-root');
     document.body.classList.add('sparo-agent-companion-window-body');
 
-    const applySettings = (settings: AIExperienceSettings) => {
-      setPet(settings.agent_companion_pet ?? null);
-      setPetFrameSize(null);
-    };
-
-    void aiExperienceConfigService.getSettingsAsync().then(settings => {
-      applySettings(settings);
-    });
-
-    let removeTauriListener: (() => void) | null = null;
-    void listen<AIExperienceSettings>('agent-companion://settings-updated', event => {
-      applySettings(event.payload);
-    }).then(unlisten => {
-      removeTauriListener = unlisten;
-    }).catch(error => {
-      log.warn('Failed to listen for Agent companion settings updates', error);
-    });
-
     let removeActivityListener: (() => void) | null = null;
     void listen<AgentCompanionActivityPayload>('agent-companion://activity-updated', event => {
       const emittedAt = event.payload.emittedAt ?? 0;
@@ -147,12 +128,15 @@ export const AgentCompanionDesktopPet: React.FC = () => {
     });
 
     return () => {
-      removeTauriListener?.();
       removeActivityListener?.();
       document.documentElement.classList.remove('sparo-agent-companion-window-root');
       document.body.classList.remove('sparo-agent-companion-window-body');
     };
   }, []);
+
+  useEffect(() => {
+    setPetFrameSize(null);
+  }, [pet?.packagePath]);
 
   useEffect(() => {
     setTypedOutputBySessionId(previous => {

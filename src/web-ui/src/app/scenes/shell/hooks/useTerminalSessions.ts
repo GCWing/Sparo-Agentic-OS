@@ -31,7 +31,7 @@ interface UseTerminalSessionsReturn {
 
 async function getDefaultShellType(): Promise<string | undefined> {
   try {
-    const config = await configManager.getConfig<TerminalConfig>('terminal');
+    const config = await configManager.getSetting<TerminalConfig>('core.terminal');
     return config?.default_shell || undefined;
   } catch {
     return undefined;

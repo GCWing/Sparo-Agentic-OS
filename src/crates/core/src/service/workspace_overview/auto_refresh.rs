@@ -16,6 +16,7 @@ use crate::agentic::coordination::ConversationCoordinator;
 use crate::agentic::memory::routing::build_global_workspace_overviews_context;
 use crate::agentic::tools::{ToolPathPolicy, ToolRuntimeRestrictions};
 use crate::error::CoreResult;
+use crate::service::config::{is_primary_ai_model_configured, PRIMARY_AI_MODEL_REQUIRED_REASON};
 use crate::service::workspace::{get_global_workspace_service, WorkspaceInfo, WorkspaceKind};
 use chrono::{Local, TimeZone};
 use log::{error, info, warn};
@@ -33,6 +34,7 @@ const AUTO_REFRESH_INTERVAL_DAYS: i64 = 1;
 // const INITIAL_EMPTY_OVERVIEW_DELAY_MS: i64 = 10 * 60 * 1_000;
 const INITIAL_EMPTY_OVERVIEW_DELAY_MS: i64 = 10 * 1_000; // debug purpose
 const WORKSPACE_SERVICE_UNAVAILABLE_RETRY_MS: u64 = 10_000;
+const AI_MODEL_READINESS_RETRY_MS: u64 = 60_000;
 const AUTO_RETRY_DELAY_MS: i64 = 30 * 60 * 1_000;
 const MAX_AUTO_FAILED_ATTEMPTS_PER_DAY: u32 = 3;
 static GLOBAL_WORKSPACE_OVERVIEW_AUTO_REFRESH_SERVICE: OnceLock<
@@ -103,6 +105,16 @@ impl WorkspaceOverviewAutoRefreshService {
                 turn_id: None,
                 target_count: None,
                 reason: Some("A workspace overview refresh is already active".to_string()),
+            });
+        }
+
+        if !is_primary_ai_model_configured().await {
+            return Ok(WorkspaceOverviewRefreshRunSummary {
+                started: false,
+                trigger: trigger_label(&WorkspaceOverviewRefreshTrigger::Manual).to_string(),
+                turn_id: None,
+                target_count: None,
+                reason: Some(PRIMARY_AI_MODEL_REQUIRED_REASON.to_string()),
             });
         }
 
@@ -322,6 +334,10 @@ impl WorkspaceOverviewAutoRefreshService {
             if state.active_auto_turn_id.is_some() {
                 return Ok(None);
             }
+        }
+
+        if !is_primary_ai_model_configured().await {
+            return Ok(Some(Duration::from_millis(AI_MODEL_READINESS_RETRY_MS)));
         }
 
         let targets = match collect_refresh_targets().await? {

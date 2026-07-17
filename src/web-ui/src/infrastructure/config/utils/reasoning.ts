@@ -1,12 +1,6 @@
-import type { AIModelConfig, ReasoningMode } from '../types';
+import type { ReasoningMode } from '../types';
 
 export const DEFAULT_REASONING_MODE: ReasoningMode = 'default';
-
-export function getEffectiveReasoningMode(
-  config?: Pick<AIModelConfig, 'reasoning_mode'> | null
-): ReasoningMode {
-  return config?.reasoning_mode ?? DEFAULT_REASONING_MODE;
-}
 
 export function isReasoningVisiblyEnabled(mode: ReasoningMode): boolean {
   return mode === 'enabled' || mode === 'adaptive';

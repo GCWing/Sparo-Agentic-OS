@@ -41,14 +41,17 @@ pub use catalog::{
     AppComponentRef, AppDataDeletionPolicy, AppDataLifecyclePolicy, AppDataMigrationPolicy,
     AppDataRetentionPolicy, AppDataSharePolicy, AppDefinition, AppI18n, AppIconSpec,
     AppInstallScope, AppInteractionModel, AppLocalizedMetadata, AppManagementAction,
-    AppSurfaceMode, AppTruthSource, AppWorkMultiplicity, CapabilityRef, ComponentDefinition,
-    ComponentKind, ComponentLock, ComponentLockEntry, ComponentOwnerApp, ComponentPackageSource,
-    ComponentSource, ComponentVisibility, NativeAppManagementAction, NativeAppManagementOrigin,
-    NativeAppManagementPolicy, PermissionSpec, ProductAppCatalogEntry, ProductAppCatalogIssue,
-    ProductAppCatalogIssueSource, ProductAppCatalogSourceKind, ProductAppCatalogSourceRef,
-    ProductAppLaunch, ProductAppLaunchKind, ProductAppLaunchScopeRequirement,
-    ProductAppLibrarySource, ProductAppManagementOrigin, ProductAppManagementPolicy,
-    ProductAppUninstallPolicy, SurfaceRef, WorkObjectKind, WorkObjectScope,
+    AppRuntimeInteraction, AppRuntimeInteractionSidecar, AppRuntimeInteractionTab,
+    AppRuntimeInteractionText, AppRuntimeSidecarAvailability, AppRuntimeSidecarIcon,
+    AppRuntimeSidecarTargetGroup, AppSurfaceMode, AppTruthSource, AppWorkMultiplicity,
+    CapabilityRef, ComponentDefinition, ComponentKind, ComponentLock, ComponentLockEntry,
+    ComponentOwnerApp, ComponentPackageSource, ComponentSource, ComponentVisibility,
+    NativeAppManagementAction, NativeAppManagementOrigin, NativeAppManagementPolicy,
+    PermissionSpec, ProductAppCatalogEntry, ProductAppCatalogIssue, ProductAppCatalogIssueSource,
+    ProductAppCatalogSourceKind, ProductAppCatalogSourceRef, ProductAppLaunch,
+    ProductAppLaunchKind, ProductAppLaunchScopeRequirement, ProductAppLibrarySource,
+    ProductAppManagementOrigin, ProductAppManagementPolicy, ProductAppUninstallPolicy, SurfaceRef,
+    WorkObjectKind, WorkObjectScope,
 };
 pub use draft_package::{
     materialize_fork_draft_contract, rebind_draft_package_identity, validate_release_evaluation,
@@ -90,9 +93,10 @@ pub use revision_store::{
     AppVariantProjection, AppVariantState, ArchivedApp, CreateDraftRequest,
     CreateIntelligentAppRequest, CreatedApp, DraftRebaseContext, DraftRecord, ForkReleaseRequest,
     PublishDraftRequest, ReleaseMetadata, ReleaseProvenanceKind, ReleaseRecord, ReleaseRuntimeSpec,
-    ResolvedDraft, ResolvedRelease, SystemReleaseActivationOutcome,
+    ResolvedDraft, ResolvedRelease, SystemReleaseInitializationOutcome,
 };
 pub use runtime_storage::ProductAppRuntimeStorage;
+pub(crate) use state_io::{atomic_write_json, recover_atomic_json};
 pub use surfaces::{
     AppSurfaces, ProductAppRuntimeIssueSeverity, ProductAppRuntimeLogLevel, ProductAppRuntimeState,
 };

@@ -55,11 +55,12 @@ pub async fn initialize_agentic_runtime(
 
     let context_store = Arc::new(SessionContextStore::new());
     let context_compressor = Arc::new(ContextCompressor::new(Default::default()));
-    let session_manager = Arc::new(SessionManager::new(
+    let session_manager = SessionManager::new(
         context_store,
         persistence_manager.clone(),
         Default::default(),
-    ));
+    );
+    session_manager.register_model_config_apply_adapter()?;
 
     if options.register_agent_components {
         if let Err(e) =

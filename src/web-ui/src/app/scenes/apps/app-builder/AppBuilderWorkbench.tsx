@@ -6,7 +6,6 @@ import {
   ChevronUp,
   RefreshCw,
   Rocket,
-  ShieldCheck,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -32,6 +31,7 @@ import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
 import { notificationService } from '@/shared/notification-system';
 import { normalizeAppScope, systemAppScope, type AppScope } from '@/shared/types/app-scope';
 import ProductAppRuntimeIframeHost from '../product-app-runtime/ProductAppRuntimeIframeHost';
+import { CapabilityReviewDialog } from '../components/CapabilityReviewDialog';
 import { openAppBuilderSession } from './openAppBuilderSession';
 import './AppBuilderWorkbench.scss';
 
@@ -452,27 +452,21 @@ export const AppBuilderWorkbench: React.FC<AppBuilderWorkbenchProps> = ({
         </DialogFooter>
       </Dialog>
 
-      <Dialog
+      <CapabilityReviewDialog
         open={Boolean(review)}
-        onOpenChange={(open) => { if (!open) setReview(null); }}
         title={t('draftWorkbench.capabilities.title')}
-        size="medium"
-      >
-        <DialogBody>
-          <p>{t('draftWorkbench.capabilities.description')}</p>
-          <ul>{review?.capabilities.map((capability) => <li key={capability}>{capability}</li>)}</ul>
-          <p>{t('draftWorkbench.capabilities.scopeNote')}</p>
-        </DialogBody>
-        <DialogFooter>
-          <Button variant="secondary" onClick={() => setReview(null)} disabled={activating}>
-            {t('draftWorkbench.actions.cancel')}
-          </Button>
-          <Button variant="primary" onClick={() => void approveAndActivate()} disabled={activating}>
-            {activating ? <DotMatrixLoader size="tiny" /> : <ShieldCheck size={14} aria-hidden />}
-            {t('draftWorkbench.capabilities.approveAndActivate')}
-          </Button>
-        </DialogFooter>
-      </Dialog>
+        description={t('draftWorkbench.capabilities.description')}
+        scopeNote={t('draftWorkbench.capabilities.scopeNote')}
+        capabilities={review?.capabilities ?? []}
+        approveText={t('draftWorkbench.capabilities.approveAndActivate')}
+        cancelText={t('draftWorkbench.actions.cancel')}
+        closeText={t('draftWorkbench.actions.close')}
+        translationPrefix="draftWorkbench.capabilities"
+        t={t}
+        approving={activating}
+        onClose={() => setReview(null)}
+        onApprove={() => void approveAndActivate()}
+      />
     </div>
   );
 };

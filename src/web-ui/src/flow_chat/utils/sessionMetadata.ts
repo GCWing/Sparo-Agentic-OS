@@ -45,7 +45,7 @@ function normalizeTurnIndex(value: unknown): number | undefined {
 }
 
 export function normalizeSessionKind(value: unknown): SessionKind {
-  return value === 'btw' ? value : 'normal';
+  return value === 'btw' || value === 'internal' ? value : 'normal';
 }
 
 export function normalizeSessionRelationship(

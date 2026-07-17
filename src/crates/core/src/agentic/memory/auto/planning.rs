@@ -4,7 +4,11 @@ use crate::agentic::core::{Session, SessionKind, SessionState};
 use crate::agentic::memory::store::{
     memory_store_dir_path_for_target, MemoryScope, MemoryStoreTarget,
 };
-use crate::service::config::{get_global_config_service, types::AutoMemoryScopeConfig};
+use crate::error::CoreResult;
+use crate::service::config::{
+    get_global_config_service,
+    types::{AutoMemoryConfig, AutoMemoryScopeConfig},
+};
 use std::path::Path;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -29,7 +33,7 @@ pub fn decide_auto_memory_post_turn_action(
     session_kind: SessionKind,
     turn_wrote_memory: Option<bool>,
 ) -> AutoMemoryPostTurnAction {
-    if matches!(session_kind, SessionKind::Subagent) {
+    if !matches!(session_kind, SessionKind::Standard) {
         return AutoMemoryPostTurnAction::Skip;
     }
 
@@ -47,6 +51,10 @@ pub fn resolve_auto_memory_scope(agent_type: &str, workspace_path: &Path) -> Mem
 }
 
 pub fn resolve_session_auto_memory_scope(session: &Session) -> Option<MemoryScope> {
+    if !matches!(session.kind, SessionKind::Standard) {
+        return None;
+    }
+
     session
         .config
         .workspace_path
@@ -84,7 +92,7 @@ fn build_auto_memory_store_key(target: MemoryStoreTarget<'_>) -> String {
 }
 
 pub fn session_can_consider_auto_memory(session: &Session) -> bool {
-    !matches!(session.kind, SessionKind::Subagent)
+    matches!(session.kind, SessionKind::Standard)
         && !matches!(session.state, SessionState::Processing { .. })
 }
 
@@ -117,45 +125,45 @@ pub fn queue_action_from_schedule_decision(
     }
 }
 
-pub async fn auto_memory_runtime_config() -> crate::service::config::types::AutoMemoryConfig {
-    if let Ok(config_service) = get_global_config_service().await {
-        match config_service
-            .get_config::<crate::service::config::types::AutoMemoryConfig>(Some("ai.auto_memory"))
-            .await
-        {
-            Ok(config) => return config,
-            Err(_) => return crate::service::config::types::AutoMemoryConfig::default(),
-        }
-    }
-
-    crate::service::config::types::AutoMemoryConfig::default()
+pub async fn auto_memory_runtime_config() -> CoreResult<AutoMemoryConfig> {
+    get_global_config_service()
+        .await?
+        .get_config::<AutoMemoryConfig>(Some("ai.auto_memory"))
+        .await
 }
 
-pub async fn auto_memory_scope_runtime_config(scope: MemoryScope) -> AutoMemoryScopeConfig {
-    let config = auto_memory_runtime_config().await;
-    auto_memory_scope_config(&config, scope).clone()
+pub async fn auto_memory_scope_runtime_config(
+    scope: MemoryScope,
+) -> CoreResult<AutoMemoryScopeConfig> {
+    let config = auto_memory_runtime_config().await?;
+    Ok(auto_memory_scope_config(&config, scope).clone())
 }
 
 pub async fn resolve_auto_memory_runtime_context(
     session: &Session,
-) -> Option<ResolvedAutoMemoryRuntimeContext> {
-    let resolved_context = resolve_local_auto_memory_context(session)?;
-    let scope_config = auto_memory_scope_runtime_config(resolved_context.scope).await;
+) -> CoreResult<Option<ResolvedAutoMemoryRuntimeContext>> {
+    let Some(resolved_context) = resolve_local_auto_memory_context(session) else {
+        return Ok(None);
+    };
+    let scope_config = auto_memory_scope_runtime_config(resolved_context.scope).await?;
     let policy = auto_memory_throttle_policy(&scope_config);
 
-    Some(ResolvedAutoMemoryRuntimeContext {
+    Ok(Some(ResolvedAutoMemoryRuntimeContext {
         scope_config,
         policy,
-    })
+    }))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{decide_auto_memory_post_turn_action, AutoMemoryPostTurnAction};
-    use crate::agentic::core::SessionKind;
+    use super::{
+        decide_auto_memory_post_turn_action, resolve_session_auto_memory_scope,
+        session_can_consider_auto_memory, AutoMemoryPostTurnAction,
+    };
+    use crate::agentic::core::{Session, SessionConfig, SessionKind};
 
     #[test]
-    fn auto_memory_post_turn_skips_for_subagent_sessions() {
+    fn auto_memory_post_turn_skips_for_non_standard_sessions() {
         assert_eq!(
             decide_auto_memory_post_turn_action(SessionKind::Subagent, Some(false)),
             AutoMemoryPostTurnAction::Skip
@@ -168,6 +176,26 @@ mod tests {
             decide_auto_memory_post_turn_action(SessionKind::Subagent, None),
             AutoMemoryPostTurnAction::Skip
         );
+        assert_eq!(
+            decide_auto_memory_post_turn_action(SessionKind::Internal, Some(false)),
+            AutoMemoryPostTurnAction::Skip
+        );
+    }
+
+    #[test]
+    fn internal_session_never_resolves_or_schedules_auto_memory() {
+        let mut session = Session::new(
+            "Settings".to_string(),
+            "SettingsAgent".to_string(),
+            SessionConfig {
+                workspace_path: Some("agentic-os".to_string()),
+                ..SessionConfig::default()
+            },
+        );
+        session.kind = SessionKind::Internal;
+
+        assert!(resolve_session_auto_memory_scope(&session).is_none());
+        assert!(!session_can_consider_auto_memory(&session));
     }
 
     #[test]

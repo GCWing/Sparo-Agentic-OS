@@ -16,6 +16,146 @@
   animation: wp-fadeIn 0.35s ease-out;
 }
 
+.welcome-panel--settings {
+  padding-block: clamp(24px, 5vh, 56px);
+}
+
+.welcome-panel--settings .welcome-panel__content {
+  max-width: 600px;
+  gap: 0;
+}
+
+.welcome-panel--settings .welcome-panel__greeting {
+  gap: 0;
+}
+
+.welcome-panel--settings .welcome-panel__heading {
+  max-width: 560px;
+  font-size: clamp(28px, 3vw, 32px);
+  line-height: 1.18;
+  letter-spacing: -0.025em;
+}
+
+.welcome-panel--settings .welcome-panel__tagline {
+  max-width: 560px;
+  margin-top: var(--ds-space-2, 8px);
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-sm, 13px);
+  line-height: 1.6;
+}
+
+.welcome-panel--settings .welcome-panel__divider,
+.welcome-panel--settings .welcome-panel__narrative {
+  display: none;
+}
+
+.welcome-panel__settings-prompts {
+  width: 100%;
+  margin-top: var(--ds-space-7, 28px);
+}
+
+.welcome-panel__settings-prompts-head {
+  display: flex;
+  align-items: baseline;
+}
+
+.welcome-panel__settings-prompts-title {
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-xs, 12px);
+  font-weight: var(--ds-font-weight-semibold, 600);
+  letter-spacing: 0.02em;
+}
+
+.welcome-panel__settings-prompts-list {
+  display: grid;
+  margin-top: var(--ds-space-2, 8px);
+}
+
+.welcome-panel__settings-prompt {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20px;
+  align-items: center;
+  justify-content: stretch;
+  gap: var(--ds-space-4, 16px);
+  width: 100%;
+  height: auto;
+  min-height: 56px;
+  padding: var(--ds-space-3, 12px) var(--ds-space-1, 4px);
+  border: 0;
+  border-top: 1px solid var(--ds-color-border-subtle);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  text-align: left;
+  white-space: normal;
+  transition:
+    background var(--ds-motion-fast) var(--ds-easing-standard);
+}
+
+.welcome-panel__settings-prompt:last-child {
+  border-bottom: 1px solid var(--ds-color-border-subtle);
+}
+
+.welcome-panel__settings-prompt:hover:not(:disabled) {
+  background: var(--ds-color-element-subtle, var(--element-bg-subtle));
+}
+
+.welcome-panel__settings-prompt-copy {
+  display: grid;
+  grid-template-columns: minmax(132px, 0.8fr) minmax(0, 1.2fr);
+  align-items: baseline;
+  gap: var(--ds-space-4, 16px);
+  min-width: 0;
+}
+
+.welcome-panel__settings-prompt-title {
+  color: var(--ds-color-text-primary);
+  font-size: var(--ds-font-size-sm, 13px);
+  font-weight: var(--ds-font-weight-semibold, 600);
+  line-height: 1.35;
+}
+
+.welcome-panel__settings-prompt-description {
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-xs, 12px);
+  line-height: 1.45;
+}
+
+.welcome-panel__settings-prompt-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: var(--ds-color-text-muted);
+  transition:
+    color var(--ds-motion-fast) var(--ds-easing-standard),
+    transform var(--ds-motion-fast) var(--ds-easing-standard);
+}
+
+.welcome-panel__settings-prompt:hover:not(:disabled)
+  .welcome-panel__settings-prompt-arrow {
+  color: var(--ds-color-accent-500, var(--ds-chat-accent));
+  transform: translateX(2px);
+}
+
+/* Embedded Settings can be narrow even while the desktop viewport remains wide. */
+@container flow-chat-session (max-width: 560px) {
+  .welcome-panel--settings {
+    padding-inline: var(--ds-space-4, 16px);
+  }
+
+  .welcome-panel__settings-prompt {
+    min-height: 64px;
+    padding-inline: var(--ds-space-2, 8px);
+  }
+
+  .welcome-panel__settings-prompt-copy {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}
+
 .welcome-panel__content {
   display: flex;
   flex-direction: column;

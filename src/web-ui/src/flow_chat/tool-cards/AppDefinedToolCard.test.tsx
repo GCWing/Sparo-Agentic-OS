@@ -89,7 +89,7 @@ function tool(overrides: Partial<FlowToolItem> = {}): FlowToolItem {
 }
 
 describe('AppDefinedToolCard', () => {
-  it('renders manifest identity, family styling, icon, and completed copy', () => {
+  it('renders manifest identity and completed copy in the system compact status line', () => {
     const html = renderToStaticMarkup(
       <AppDefinedToolCard
         config={config([{ label: 'Workbook', inputPath: ['workbookId'] }])}
@@ -110,7 +110,9 @@ describe('AppDefinedToolCard', () => {
     );
 
     expect(html).toContain('app-defined-tool-card--excel-live');
-    expect(html).toContain('lucide-info');
+    expect(html).toContain('compact-card-status-icon--expandable');
+    expect(html).not.toContain('tool-card-icon-slot');
+    expect(html).not.toContain('lucide-info');
     expect(html).toContain('Workbook Meta:');
     expect(html).toContain('Workbook meta loaded');
   });
@@ -259,7 +261,7 @@ describe('AppDefinedToolCard', () => {
       <AppDefinedToolCard config={config()} toolItem={tool()} />,
     );
 
-    expect(html).not.toContain('tool-card-icon-slot--expandable');
+    expect(html).not.toContain('compact-card-status-icon--expandable');
   });
 
   it('falls back to a bounded structured result when the manifest has no fields', () => {
@@ -282,7 +284,7 @@ describe('AppDefinedToolCard', () => {
       />,
     );
 
-    expect(html).toContain('tool-card-icon-slot--expandable');
+    expect(html).toContain('compact-card-status-icon--expandable');
   });
 
   it.each([0, false])('keeps scalar result %s available through disclosure', (output) => {
@@ -305,7 +307,7 @@ describe('AppDefinedToolCard', () => {
       />,
     );
 
-    expect(html).toContain('tool-card-icon-slot--expandable');
+    expect(html).toContain('compact-card-status-icon--expandable');
   });
 
   it('supports non-bridge Agent Component result envelopes', () => {
@@ -333,7 +335,7 @@ describe('AppDefinedToolCard', () => {
     );
 
     expect(html).toContain('Probe returned no changes');
-    expect(html).toContain('tool-card-icon-slot--expandable');
+    expect(html).toContain('compact-card-status-icon--expandable');
   });
 
   it('keeps Excel family cards compact even if a future manifest asks for detail mode', () => {

@@ -18,7 +18,8 @@
 
 import { useRef, useState, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
-import { useActiveSessionState } from '../../hooks/useActiveSessionState';
+import { useSessionStateMachine } from '../../hooks/useSessionStateMachine';
+import { SessionExecutionState } from '../../state-machine/types';
 import { VirtualItemRenderer } from './VirtualItemRenderer';
 import { ScrollToLatestBar } from '../ScrollToLatestBar';
 import { ProcessingIndicator } from './ProcessingIndicator';
@@ -30,12 +31,14 @@ import {
   type FlowViewportTurnNavigationRequest,
 } from '../../scroll/viewport/FlowViewportNavigationBroker';
 import { useVirtuosoVisibleTurnTracker } from '../../scroll/adapters/useVirtuosoVisibleTurnTracker';
-import { useVirtualItems, useActiveSession } from '../../store/modernFlowChatStore';
+import type { VirtualItem } from '../../store/modernFlowChatStore';
+import type { Session } from '../../types/flow-chat';
 import { useChatInputState } from '../../store/chatInputStateStore';
 import { computeFlowChatInputStackFooterPx } from '../../utils/flowChatScrollLayout';
 import { projectStreamingOutput } from '../../projections/streamingOutputProjection';
 import { projectProcessingAffordance } from '../../projections/processingAffordanceProjection';
 import { useStableProcessingAffordance } from './useStableProcessingAffordance';
+import { FallbackWelcomePanel } from '../FallbackWelcomePanel';
 import './VirtualMessageList.scss';
 
 /**
@@ -49,6 +52,10 @@ export interface VirtualMessageListRef {
 }
 
 export interface VirtualMessageListProps {
+  /** Session owned by the containing FlowChat surface. */
+  session: Session | null;
+  /** Projection for the same scoped session. */
+  virtualItems: VirtualItem[];
   /**
    * When true, dock the right-edge scroll milestone dots to the timeline
    * sidebar's left border instead of letting the sidebar cover them.
@@ -57,10 +64,8 @@ export interface VirtualMessageListProps {
 }
 
 export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessageListProps>(
-  ({ timelineSidebarOpen = false }, ref) => {
+  ({ session: activeSession, virtualItems, timelineSidebarOpen = false }, ref) => {
   const virtuosoRef = useRef<VirtuosoHandle>(null);
-  const virtualItems = useVirtualItems();
-  const activeSession = useActiveSession();
   const navigationRequest = useFlowViewportTurnNavigationRequest(activeSession?.sessionId);
 
   const [scrollerElement, setScrollerElement] = useState<HTMLElement | null>(null);
@@ -71,9 +76,9 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
   const inputHeight = useChatInputState(state => state.inputHeight);
   const inputStackFooterPx = computeFlowChatInputStackFooterPx(inputHeight, isInputActive);
 
-  const activeSessionState = useActiveSessionState();
-  const isProcessing = activeSessionState.isProcessing;
-  const processingPhase = activeSessionState.processingPhase;
+  const sessionState = useSessionStateMachine(activeSession?.sessionId ?? null);
+  const isProcessing = sessionState?.currentState === SessionExecutionState.PROCESSING;
+  const processingPhase = sessionState?.context.processingPhase ?? null;
 
   const userMessageItems = useMemo(() => {
     return virtualItems
@@ -207,9 +212,7 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
   if (virtualItems.length === 0) {
     return (
       <div className="virtual-message-list virtual-message-list--empty">
-        <div className="empty-state">
-          <p>No messages yet</p>
-        </div>
+        <FallbackWelcomePanel />
       </div>
     );
   }
@@ -249,6 +252,7 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef, VirtualMessa
       />
 
       <ScrollAnchor
+        virtualItems={virtualItems}
         onAnchorNavigate={(turnId) => {
           commands.navigateToTurn(turnId, { behavior: 'smooth' });
         }}

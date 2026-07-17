@@ -11,12 +11,21 @@ export * from './types';
 // Services
 export * from './services/ConfigManager';
 export * from './services/modelConfigs';
+export * from './customSettingsProjection';
 
 // Components
 export { default as AIModelConfig } from './components/AIModelConfig';
 
 // Default instance
 export { configManager } from './services/ConfigManager';
+
+// Authoritative catalog, revisioned snapshot, and transaction clients
+export * from './catalog';
+export * from './snapshot';
+export * from './transaction';
+export * from './hooks';
+export * from './renderers';
+export * from './startup';
 
 // Re-export common types
 export type {
@@ -26,7 +35,9 @@ export type {
 } from '../../shared/types';
 
 // Configuration infrastructure lifecycle
-import { configManager } from './services/ConfigManager';
+import { configCatalogStore } from './catalog';
+import { configSnapshotStore } from './snapshot';
+import { configStartupStatusStore } from './startup';
 import { globalEventBus } from '../event-bus';
 import { createLogger } from '@/shared/utils/logger';
 
@@ -36,8 +47,13 @@ export async function initializeConfigInfrastructure(): Promise<void> {
   log.info('Initializing configuration infrastructure');
   
   try {
-    // Reload configuration
-    await configManager.reload();
+    // Startup mode is authoritative for every settings projection and write
+    // client, so resolve it before starting snapshot/catalog consumers.
+    await configStartupStatusStore.load();
+    await Promise.all([
+      configCatalogStore.load(),
+      configSnapshotStore.start(),
+    ]);
     
     globalEventBus.emit('infrastructure:config:ready');
     log.info('Configuration infrastructure initialized');
@@ -57,7 +73,6 @@ export const ConfigInfrastructureMetadata = {
     'configuration-management',
     'theme-switching',
     'ai-model-configuration',
-    'editor-settings',
-    'import-export'
+    'editor-settings'
   ]
 } as const;

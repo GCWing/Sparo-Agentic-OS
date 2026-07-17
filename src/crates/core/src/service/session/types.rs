@@ -5,6 +5,9 @@ use serde::{de::Error as DeError, Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 
 pub const SESSION_STORAGE_SCHEMA_VERSION: u32 = 2;
+/// Trusted creator marker for the hidden SettingsAgent conversation owned by one app process.
+/// These sessions are reclaimed by desktop startup/exit lifecycle handling, not the generic TTL.
+pub const SETTINGS_FLOW_RUNTIME_SESSION_CREATOR: &str = "settings-flow-runtime";
 
 /// Session metadata
 #[derive(Debug, Clone, Serialize)]
@@ -647,8 +650,12 @@ impl SessionMetadata {
         matches!(self.session_kind, SessionKind::Subagent)
     }
 
+    pub fn is_internal(&self) -> bool {
+        matches!(self.session_kind, SessionKind::Internal)
+    }
+
     pub fn is_standard(&self) -> bool {
-        !self.is_subagent()
+        matches!(self.session_kind, SessionKind::Standard)
     }
 
     pub fn is_legacy_leaked_subagent_candidate(&self) -> bool {
@@ -663,7 +670,27 @@ impl SessionMetadata {
     }
 
     pub fn should_hide_from_user_lists(&self) -> bool {
-        self.is_subagent() || self.is_legacy_leaked_subagent_candidate()
+        self.is_subagent() || self.is_internal() || self.is_legacy_leaked_subagent_candidate()
+    }
+
+    pub fn should_delete_during_hidden_session_maintenance(&self) -> bool {
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        self.should_delete_during_hidden_session_maintenance_at(now_ms)
+    }
+
+    pub fn should_delete_during_hidden_session_maintenance_at(&self, now_ms: u64) -> bool {
+        const INTERNAL_SESSION_TTL_MILLIS: u64 = 60 * 60 * 1_000;
+        let is_application_lifecycle_session = self.is_internal()
+            && self.created_by.as_deref() == Some(SETTINGS_FLOW_RUNTIME_SESSION_CREATOR);
+
+        self.is_subagent()
+            || self.is_legacy_leaked_subagent_candidate()
+            || (self.is_internal()
+                && !is_application_lifecycle_session
+                && now_ms.saturating_sub(self.last_active_at) >= INTERNAL_SESSION_TTL_MILLIS)
     }
 }
 
@@ -735,7 +762,10 @@ impl DialogTurnData {
 
 #[cfg(test)]
 mod tests {
-    use super::{DialogTurnData, DialogTurnKind, SessionMetadata, UserMessageData};
+    use super::{
+        DialogTurnData, DialogTurnKind, SessionMetadata, UserMessageData,
+        SETTINGS_FLOW_RUNTIME_SESSION_CREATOR,
+    };
     use crate::agentic::core::SessionKind;
 
     #[test]
@@ -790,6 +820,48 @@ mod tests {
 
         assert!(metadata.is_subagent());
         assert!(!metadata.is_standard());
+    }
+
+    #[test]
+    fn session_metadata_hides_unmanaged_internal_sessions_and_expires_them_after_one_hour() {
+        let mut metadata = SessionMetadata::new(
+            "settings-agent-1".to_string(),
+            "Settings".to_string(),
+            "SettingsAgent".to_string(),
+            "primary".to_string(),
+        );
+        metadata.session_kind = SessionKind::Internal;
+
+        assert!(metadata.is_internal());
+        assert!(!metadata.is_standard());
+        assert!(metadata.should_hide_from_user_lists());
+        assert!(
+            !metadata.should_delete_during_hidden_session_maintenance_at(
+                metadata.last_active_at + 60 * 60 * 1_000 - 1
+            )
+        );
+        assert!(metadata.should_delete_during_hidden_session_maintenance_at(
+            metadata.last_active_at + 60 * 60 * 1_000
+        ));
+    }
+
+    #[test]
+    fn session_metadata_preserves_application_lifecycle_sessions_beyond_internal_ttl() {
+        let mut metadata = SessionMetadata::new(
+            "settings-agent-lifecycle".to_string(),
+            "Settings".to_string(),
+            "SettingsAgent".to_string(),
+            "primary".to_string(),
+        );
+        metadata.session_kind = SessionKind::Internal;
+        metadata.created_by = Some(SETTINGS_FLOW_RUNTIME_SESSION_CREATOR.to_string());
+
+        assert!(metadata.should_hide_from_user_lists());
+        assert!(
+            !metadata.should_delete_during_hidden_session_maintenance_at(
+                metadata.last_active_at + 24 * 60 * 60 * 1_000
+            )
+        );
     }
 
     #[test]

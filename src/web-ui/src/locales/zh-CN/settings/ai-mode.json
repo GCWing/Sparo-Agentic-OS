@@ -1,0 +1,53 @@
+{
+  "modeLabel": "设置模式",
+  "manualMode": "手动",
+  "aiMode": "AI",
+  "session": {
+    "title": "AI 设置",
+    "loading": "正在准备设置助手…",
+    "loadError": "无法打开 AI 设置会话。",
+    "retry": "重试",
+    "newConversation": "新对话",
+    "resetting": "正在新建…",
+    "resetBusy": "请先停止当前任务，再开始新对话",
+    "resetError": "无法开始新对话，当前会话仍然保留。",
+    "resetAttachError": "新对话已开始，但暂时无法加载会话记录。请重新打开设置后重试。",
+    "sendErrors": {
+      "title": "无法完成设置请求",
+      "secureInputRequired": "这项修改需要敏感值，请在手动设置中直接输入。",
+      "requestInvalid": "无法校验这次请求，请换一种说法后重试。",
+      "revisionConflict": "这些设置已在别处发生变化，请核对最新值后重试。",
+      "manualDraftConflict": "手动设置中有尚未保存的修改，请先保存或放弃这些修改。",
+      "recoveryReadOnly": "设置当前处于只读恢复模式，请先重建默认配置。",
+      "fallback": "暂时无法处理这次设置请求，请重试。"
+    },
+    "resetDialog": {
+      "title": "开始新对话？",
+      "message": "这会清除本次 AI 设置对话和未确认的方案，但不会撤销已经应用的设置。",
+      "confirm": "开始新对话",
+      "cancel": "保留当前对话"
+    }
+  },
+  "confirmation": {
+    "title": "确认本次设置变更",
+    "description": "本次变更涉及受保护设置。继续前请核对系统生成的权威计划。",
+    "confirm": "确认并应用",
+    "reject": "保留当前设置"
+  },
+  "secret": {
+    "configured": "已配置",
+    "unconfigured": "未配置",
+    "placeholder": "输入新的替换值",
+    "update": "更新"
+  },
+  "values": {
+    "notSet": "未设置"
+  },
+  "errors": {
+    "catalog": "无法加载设置。",
+    "submit": "无法启动本次请求。",
+    "conflict": "这些设置已在别处发生变化，现已加载最新值。",
+    "manualConflict": "此设置已在别处发生变化。可保留当前草稿，或按 Esc 使用最新值。",
+    "invalidJson": "请先输入有效的 JSON，再保存此设置。"
+  }
+}

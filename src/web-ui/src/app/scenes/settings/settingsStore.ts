@@ -1,31 +1,73 @@
-/**
- * settingsStore — Zustand store for the Settings scene.
- *
- * Shared between SettingsNav (left sidebar) and SettingsScene (content area)
- * so both always reflect the same active tab without prop-drilling.
- */
-
 import { create } from 'zustand';
-import type { ConfigTab } from './settingsConfig';
-import { DEFAULT_SETTINGS_TAB, SETTINGS_CATEGORIES } from './settingsConfig';
+import { persist } from 'zustand/middleware';
+
+export type SettingsMode = 'manual' | 'ai';
+
+export interface SettingsLocation {
+  tabId: string;
+  sectionId?: string;
+  fieldId?: string;
+}
 
 interface SettingsState {
-  activeTab: ConfigTab;
-  setActiveTab: (tab: ConfigTab) => void;
-  /** Debounced from SettingsNav search input; used for filtering index. */
+  mode: SettingsMode;
+  activeTab: string;
   searchQuery: string;
+  manualTarget: SettingsLocation | null;
+  dirtySettings: Readonly<Record<string, number>>;
+  setMode: (mode: SettingsMode) => void;
+  setActiveTab: (tabId: string) => void;
   setSearchQuery: (query: string) => void;
+  openManualLocation: (location: SettingsLocation) => void;
+  clearManualTarget: () => void;
+  markSettingDirty: (settingId: string, baseRevision: number) => void;
+  clearSettingDirty: (settingId: string) => void;
 }
 
-export const useSettingsStore = create<SettingsState>((set) => ({
-  activeTab: DEFAULT_SETTINGS_TAB,
-  searchQuery: '',
+export const useSettingsStore = create<SettingsState>()(
+  persist(
+    (set) => ({
+      mode: 'manual',
+      activeTab: 'basics',
+      searchQuery: '',
+      manualTarget: null,
+      dirtySettings: {},
 
-  setActiveTab: (tab) => set({ activeTab: tab }),
-  setSearchQuery: (query) => set({ searchQuery: query }),
-}));
-
-/** Resolve the category id for a given tab (for initial scroll / highlight) */
-export function getCategoryForTab(tab: ConfigTab): string | undefined {
-  return SETTINGS_CATEGORIES.find(cat => cat.tabs.some(t => t.id === tab))?.id;
-}
+      setMode: (mode) => set({ mode }),
+      setActiveTab: (activeTab) => set({
+        mode: 'manual',
+        activeTab,
+        manualTarget: { tabId: activeTab },
+      }),
+      setSearchQuery: (searchQuery) => set({ searchQuery }),
+      openManualLocation: (manualTarget) => set({
+        mode: 'manual',
+        activeTab: manualTarget.tabId,
+        manualTarget,
+        searchQuery: '',
+      }),
+      clearManualTarget: () => set({ manualTarget: null }),
+      markSettingDirty: (settingId, baseRevision) => set((state) => ({
+        dirtySettings: {
+          ...state.dirtySettings,
+          [settingId]: baseRevision,
+        },
+      })),
+      clearSettingDirty: (settingId) => set((state) => {
+        if (!(settingId in state.dirtySettings)) {
+          return state;
+        }
+        const dirtySettings = { ...state.dirtySettings };
+        delete dirtySettings[settingId];
+        return { dirtySettings };
+      }),
+    }),
+    {
+      name: 'sparo-settings-scene',
+      partialize: (state) => ({
+        mode: state.mode,
+        activeTab: state.activeTab,
+      }),
+    },
+  ),
+);

@@ -273,6 +273,151 @@
       "high": "High"
     }
   },
+  "settingsCatalog": {
+    "summaryLine": "{{action}}: {{summary}}",
+    "actions": {
+      "query": "Find settings",
+      "get": "Read setting",
+      "unknown": "Check settings"
+    },
+    "status": {
+      "searching": "Finding settings related to the request…",
+      "reading": "Reading this setting…",
+      "matched": "Found {{count}} setting(s) related to the request",
+      "readOne": "Read this setting",
+      "readOneNamed": "Read the “{{name}}” setting",
+      "failed": "Could not find related settings",
+      "cancelled": "Stopped finding settings"
+    },
+    "results": {
+      "listLabel": "Settings found",
+      "currentValue": "Current value",
+      "unnamed": "Unnamed setting",
+      "otherLocation": "Other settings",
+      "configured": "Configured",
+      "notConfigured": "Not configured",
+      "defaultValue": "Using default",
+      "notSet": "Not set",
+      "enabled": "On",
+      "disabled": "Off",
+      "itemCount": "{{count}} item(s)"
+    }
+  },
+  "settingsChange": {
+    "title": "Settings change",
+    "status": {
+      "plan": {
+        "running": "Checking the related settings...",
+        "confirming": "Reviewing {{count}} proposed change(s)",
+        "completed": "Prepared {{count}} setting change(s)",
+        "failed": "Could not prepare the settings change",
+        "cancelled": "Settings check cancelled"
+      },
+      "apply": {
+        "running": "Applying {{count}} setting change(s)...",
+        "confirming": "Will apply {{count}} change(s)",
+        "completed": "Applied {{count}} setting(s)",
+        "failed": "Could not apply the settings change",
+        "cancelled": "Settings change cancelled"
+      },
+      "undo": {
+        "running": "Restoring {{count}} setting change(s)...",
+        "confirming": "{{count}} setting change(s) will be restored",
+        "completed": "Restored {{count}} setting change(s)",
+        "failed": "Could not restore the settings",
+        "cancelled": "Settings restore cancelled"
+      },
+      "unknown": {
+        "running": "Preparing the settings change...",
+        "confirming": "Settings change is waiting for confirmation",
+        "completed": "Settings change completed",
+        "failed": "Settings change failed",
+        "cancelled": "Settings change cancelled"
+      },
+      "result": {
+        "applying": "Settings saved and still taking effect",
+        "partial": "Some settings could not take effect",
+        "restartRequired": "Applied {{count}} change(s); {{restartCount}} require a restart",
+        "rolledBack": "Rolled back {{count}} setting change(s)",
+        "undone": "Undid {{count}} setting change(s)"
+      }
+    },
+    "actions": {
+      "viewManual": "View in manual settings",
+      "cancel": "Cancel",
+      "undo": "Undo",
+      "undoing": "Undoing…",
+      "confirm": {
+        "plan": "Confirm",
+        "apply": "Apply changes",
+        "undo": "Restore settings",
+        "unknown": "Confirm"
+      }
+    },
+    "values": {
+      "enabled": "On",
+      "disabled": "Off",
+      "notSet": "Not set",
+      "empty": "Empty",
+      "updated": "Updated"
+    },
+    "comparison": {
+      "before": "Current",
+      "after": "After change"
+    },
+    "sectionFallback": "Other settings",
+    "sectionChangeCount": "{{count}} change(s)",
+    "secret": {
+      "configured": "Configured",
+      "unconfigured": "Not configured",
+      "willUpdate": "Will be updated"
+    },
+    "risks": {
+      "safe": "Low risk",
+      "elevated": "Confirmation required",
+      "destructive": "Not permitted"
+    },
+    "effects": {
+      "reactive": "Takes effect now",
+      "adapter": "Takes effect now",
+      "restartRequired": "Takes effect after restart",
+      "manualOnly": "Complete manually",
+      "mixed": "Mixed activation"
+    },
+    "receipts": {
+      "pending": "Taking effect",
+      "applied": "In effect",
+      "restartRequired": "Takes effect after restart",
+      "failed": "Could not take effect",
+      "superseded": "Replaced by a newer change",
+      "rolledBack": "Rolled back"
+    },
+    "warningCount": "{{count}} item(s) need attention",
+    "previewUnavailable": "The verified change preview is no longer available. Cancel this action and ask the assistant to prepare it again.",
+    "partialNotice": "The configuration was saved, but one or more runtime components could not apply it. Review the affected items before retrying.",
+    "errors": {
+      "config": {
+        "manual_draft_conflict": "A related field has an unsaved manual edit. Save or discard it, then try again.",
+        "revision_conflict": "The settings changed after this preview was prepared. Ask the assistant to check them again.",
+        "catalog_changed": "The settings catalog changed. Ask the assistant to prepare a new preview.",
+        "plan_expired": "This change preview expired. Ask the assistant to prepare it again.",
+        "confirmation_required": "This change still requires confirmation.",
+        "idempotency_conflict": "This settings request conflicts with an earlier request. Please try again.",
+        "undo_conflict": "These settings changed after the original update and cannot be restored safely.",
+        "undo_token_invalid": "This settings change can no longer be restored.",
+        "commit_unknown": "The original settings change is no longer available.",
+        "apply_retry_failed": "The settings could not be applied to the running app.",
+        "scope_unsupported": "This settings scope is not supported.",
+        "setting_unavailable": "One of these settings is no longer available.",
+        "setting_managed": "One of these settings is managed elsewhere and cannot be changed here.",
+        "recovery_read_only": "Settings are temporarily read-only while configuration recovery is active.",
+        "operation_failed": "The settings operation failed. No unverified details were applied."
+      },
+      "ai": {
+        "model_not_configured": "Configure and enable a primary AI model before using AI settings."
+      }
+    }
+  },
   "getFileDiff": {
     "diffFile": "Diff",
     "gettingDiff": "Getting diff",

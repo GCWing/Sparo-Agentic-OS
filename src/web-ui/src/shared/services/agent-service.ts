@@ -643,7 +643,7 @@ export class AgentService {
       sessionId,
       toolId: toolUseId,
       action,
-      updatedInput: updatedInput || null
+      ...(updatedInput === undefined ? {} : { updatedInput }),
     };
     
     return toolAPI.confirmToolExecution(requestPayload);

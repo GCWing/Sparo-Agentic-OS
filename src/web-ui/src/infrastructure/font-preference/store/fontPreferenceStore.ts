@@ -6,14 +6,13 @@ import {
   FontSizeLevel,
   FlowChatFontMode,
   MarkdownEditorFontMode,
-  DEFAULT_FONT_PREFERENCE,
 } from '../types';
 import { fontPreferenceService } from '../core/FontPreferenceService';
 
 const log = createLogger('FontPreferenceStore');
 
 interface FontPreferenceState {
-  preference: FontPreference;
+  preference: FontPreference | null;
   initialized: boolean;
   loading: boolean;
   error: string | null;
@@ -25,31 +24,62 @@ interface FontPreferenceState {
   reset: () => Promise<void>;
 }
 
+let subscriptionsRegistered = false;
+
 export const useFontPreferenceStore = create<FontPreferenceState>((set, get) => ({
-  preference: { ...DEFAULT_FONT_PREFERENCE },
+  preference: null,
   initialized: false,
   loading: false,
   error: null,
 
   initialize: async () => {
-    if (get().initialized || get().loading) return;
+    if (get().loading || (get().initialized && !get().error)) return;
     set({ loading: true, error: null });
     try {
-      // Subscribe to service events so store stays in sync
-      fontPreferenceService.on('font:after-change', (event) => {
-        set({ preference: event.preference });
-      });
+      if (!subscriptionsRegistered) {
+        subscriptionsRegistered = true;
+        fontPreferenceService.on('font:after-change', (event) => {
+          set({
+            preference: event.preference,
+            initialized: true,
+            error: null,
+          });
+        });
+        fontPreferenceService.onStatusChange((error) => {
+          if (error) {
+            set({
+              preference: null,
+              initialized: false,
+              loading: false,
+              error: error.message,
+            });
+            return;
+          }
+          const preference = fontPreferenceService.getPreference();
+          set({
+            preference,
+            initialized: preference !== null,
+            error: null,
+          });
+        });
+      }
 
       await fontPreferenceService.initialize();
 
+      const preference = fontPreferenceService.getPreference();
+      if (!preference) {
+        throw new Error('Font preference did not produce an authoritative projection');
+      }
       set({
-        preference: fontPreferenceService.getPreference(),
+        preference,
         initialized: true,
         loading: false,
       });
     } catch (error) {
       log.error('Failed to initialize font preference', error);
       set({
+        preference: null,
+        initialized: false,
         loading: false,
         error: error instanceof Error ? error.message : 'Failed to initialize font preference',
       });

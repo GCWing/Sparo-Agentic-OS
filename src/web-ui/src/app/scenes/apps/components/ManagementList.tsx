@@ -7,10 +7,14 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import {
+  Alert,
   Button,
   ConfirmDialog,
   DataList,
   DataListItem,
+  Dialog,
+  DialogBody,
+  DialogFooter,
   DropdownMenu,
   EmptyState,
   IconButton,
@@ -27,51 +31,6 @@ import type {
 } from '@/infrastructure/api/service-api/AppCatalogAPI';
 import { AppIcon } from '../AppIcon';
 import './ManagementList.scss';
-
-function shortDigest(value?: string | null): string {
-  if (!value) return '-';
-  const prefix = value.startsWith('sha256:') ? 'sha256:' : '';
-  const body = prefix ? value.slice(prefix.length) : value;
-  return `${prefix}${body.slice(0, 12)}`;
-}
-
-function formatPublishedAt(value?: number | null): string | null {
-  if (!value) return null;
-  return new Date(value).toLocaleString();
-}
-
-function updatePreview(app: ProductAppCatalogEntry, t: ManagementListProps['t']): string {
-  const lines: string[] = [];
-  const releaseTitle = app.catalogReleaseLabel || app.catalogReleaseId;
-  if (releaseTitle) {
-    lines.push(`${t('productSystem.manage.updatePreviewRelease')}: ${releaseTitle}`);
-  }
-  if (app.catalogReleaseId) {
-    lines.push(`${t('productSystem.manage.updatePreviewReleaseId')}: ${app.catalogReleaseId}`);
-  }
-  const publishedAt = formatPublishedAt(app.catalogPublishedAtMs);
-  if (publishedAt) {
-    lines.push(`${t('productSystem.manage.updatePreviewPublished')}: ${publishedAt}`);
-  }
-
-  lines.push(
-    `${t('productSystem.manage.updatePreviewNotes')}:\n${app.catalogReleaseNotes?.trim()
-      || t('productSystem.manage.updatePreviewNoNotes')}`,
-  );
-
-  if (app.installedComponentLockDigest || app.availableComponentLockDigest) {
-    lines.push(`${t('productSystem.manage.updatePreviewComponentLock')}: ${
-      shortDigest(app.installedComponentLockDigest)
-    } -> ${shortDigest(app.availableComponentLockDigest)}`);
-  }
-  if (app.installedPackageDigest || app.availablePackageDigest) {
-    lines.push(`${t('productSystem.manage.updatePreviewPackage')}: ${
-      shortDigest(app.installedPackageDigest)
-    } -> ${shortDigest(app.availablePackageDigest)}`);
-  }
-
-  return lines.join('\n\n');
-}
 
 function appHasManagementAction(app: ProductAppCatalogEntry, action: AppManagementAction): boolean {
   return app.management?.actions?.includes(action) === true;
@@ -158,6 +117,135 @@ interface ManagementListProps {
   onUninstall: (app: ProductAppCatalogEntry) => void;
   onOpenDetails: (app: ProductAppCatalogEntry) => void;
   t: (key: string, options?: Record<string, unknown>) => string;
+}
+
+function versionTokens(version: string): string[] {
+  return version.split(/([.\-+_])/).filter(Boolean);
+}
+
+function VersionDiffValue({
+  value,
+  compareTo,
+  variant,
+}: {
+  value: string;
+  compareTo: string;
+  variant: 'current' | 'available';
+}) {
+  const parts = versionTokens(value);
+  const comparison = versionTokens(compareTo);
+
+  return (
+    <strong
+      className={`management-update-dialog__version-value management-update-dialog__version-value--${variant}`}
+      aria-label={value}
+    >
+      {parts.map((part, index) => {
+        const isSeparator = /^[.\-+_]$/.test(part);
+        const changed = !isSeparator && part !== comparison[index];
+        return (
+          <span
+            key={`${part}-${index}`}
+            className={changed ? 'is-changed' : undefined}
+            aria-hidden="true"
+          >
+            {part}
+          </span>
+        );
+      })}
+    </strong>
+  );
+}
+
+function ProductAppUpdateDialog({
+  app,
+  onCancel,
+  onConfirm,
+  t,
+}: {
+  app: ProductAppCatalogEntry | null;
+  onCancel: () => void;
+  onConfirm: () => void;
+  t: ManagementListProps['t'];
+}) {
+  const confirmButtonRef = useRef<HTMLButtonElement>(null);
+
+  return (
+    <Dialog
+      open={app !== null}
+      onOpenChange={(open) => { if (!open) onCancel(); }}
+      title={t('productSystem.manage.updateTitle')}
+      size="medium"
+      role="alertdialog"
+      initialFocusRef={confirmButtonRef}
+      closeLabel={t('productSystem.manage.updateCloseLabel')}
+    >
+      <DialogBody className="management-update-dialog__body">
+        {app ? (
+          <div className="management-update-dialog">
+            <div className="management-update-dialog__identity">
+              <span className="management-update-dialog__app-icon" aria-hidden>
+                <AppIcon app={app} size={44} />
+              </span>
+              <div className="management-update-dialog__app-copy">
+                <h3>{app.name}</h3>
+                {app.description ? <p>{app.description}</p> : null}
+              </div>
+            </div>
+
+            <div
+              className="management-update-dialog__version-flow"
+              role="group"
+              aria-label={t('productSystem.manage.updatePreviewVersion')}
+            >
+              <div className="management-update-dialog__version-point">
+                <span>{t('productSystem.manage.updateCurrentVersion')}</span>
+                <VersionDiffValue
+                  value={app.version}
+                  compareTo={app.availableVersion ?? app.version}
+                  variant="current"
+                />
+              </div>
+              <span className="management-update-dialog__version-transition" aria-hidden />
+              <div className="management-update-dialog__version-point management-update-dialog__version-point--available">
+                <span>{t('productSystem.manage.updateTargetVersion')}</span>
+                <VersionDiffValue
+                  value={app.availableVersion ?? app.version}
+                  compareTo={app.version}
+                  variant="available"
+                />
+              </div>
+            </div>
+
+            <section className="management-update-dialog__notes" aria-labelledby="management-update-notes-title">
+              <h4 id="management-update-notes-title">
+                {t('productSystem.manage.updatePreviewNotes')}
+              </h4>
+              <p>
+                {app.catalogReleaseNotes?.trim()
+                  || t('productSystem.manage.updatePreviewNoNotes')}
+              </p>
+            </section>
+
+            <Alert
+              type="info"
+              showIcon
+              message={t('productSystem.manage.updateMessage', { name: app.name })}
+              className="management-update-dialog__impact"
+            />
+          </div>
+        ) : null}
+      </DialogBody>
+      <DialogFooter>
+        <Button variant="secondary" size="small" onClick={onCancel}>
+          {t('productSystem.actions.cancel')}
+        </Button>
+        <Button ref={confirmButtonRef} variant="primary" size="small" onClick={onConfirm}>
+          {t('productSystem.manage.updateConfirm')}
+        </Button>
+      </DialogFooter>
+    </Dialog>
+  );
 }
 
 function useManagementMoreMenu({
@@ -305,7 +393,9 @@ function ManagementRow({
             ) : null}
             {hasUpdate ? (
               <Tag size="small" color="blue">
-                {t('productSystem.manage.updateAvailable')}
+                {app.availableVersion
+                  ? t('productSystem.manage.updateAvailableVersion', { version: app.availableVersion })
+                  : t('productSystem.manage.updateAvailable')}
               </Tag>
             ) : null}
             {hasIssue ? (
@@ -473,7 +563,9 @@ function ManagementCard({
         <span className="management-list__card-meta">{buildCardMeta(app)}</span>
         {hasUpdate ? (
           <Tag size="small" color="blue" className="management-list__card-tag">
-            {t('productSystem.manage.updateAvailable')}
+            {app.availableVersion
+              ? t('productSystem.manage.updateAvailableVersion', { version: app.availableVersion })
+              : t('productSystem.manage.updateAvailable')}
           </Tag>
         ) : null}
         {hasIssue ? (
@@ -571,20 +663,11 @@ export const ManagementList: React.FC<ManagementListProps> = ({
 
   return (
     <>
-      <ConfirmDialog
-        open={updateTarget !== null}
-        onOpenChange={(open) => { if (!open) setUpdateTarget(null); }}
+      <ProductAppUpdateDialog
+        app={updateTarget}
         onConfirm={handleUpdateConfirm}
         onCancel={() => setUpdateTarget(null)}
-        type="warning"
-        title={updateTarget ? t('productSystem.manage.updateTitle') : ''}
-        message={updateTarget ? t('productSystem.manage.updateMessage', {
-          name: updateTarget.name,
-        }) : ''}
-        preview={updateTarget ? updatePreview(updateTarget, t) : undefined}
-        previewMaxHeight={260}
-        confirmText={t('productSystem.manage.updateConfirm')}
-        cancelText={t('productSystem.actions.cancel')}
+        t={t}
       />
       <ConfirmDialog
         open={uninstallTarget !== null}

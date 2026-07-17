@@ -2827,6 +2827,7 @@ async fn resolve_agent_runtime_binding(
     let profile = get_agent_registry()
         .get_agent_capability_profile(agent_type, workspace_root)
         .await
+        .map_err(|error| error.to_string())?
         .ok_or_else(|| format!("agent://{agent_type} does not resolve to a registered agent"))?;
     Ok(AgentRuntimeBindingEvidence {
         agent_type: profile.agent_id,

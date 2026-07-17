@@ -6,11 +6,7 @@ import {
   speechAPI,
   type SpeechInputSession,
 } from '@/infrastructure/api';
-import {
-  aiExperienceConfigService,
-  DEFAULT_VOICE_INPUT_SETTINGS,
-  type VoiceInputSettings,
-} from '@/infrastructure/config/services/AIExperienceConfigService';
+import { useAIExperienceSettings } from '@/infrastructure/config/hooks';
 import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
 import { useSettingsStore } from '@/app/scenes/settings/settingsStore';
 import { notificationService } from '@/shared/notification-system';
@@ -82,9 +78,8 @@ export function useComposerVoiceInput({
   submitText,
 }: UseComposerVoiceInputOptions): ComposerVoiceInputController {
   const { t } = useTranslation('flow-chat');
-  const [settings, setSettings] = useState<VoiceInputSettings>(
-    aiExperienceConfigService.getSettings().voice_input ?? DEFAULT_VOICE_INPUT_SETTINGS,
-  );
+  const { settings: aiExperienceSettings } = useAIExperienceSettings();
+  const settings = aiExperienceSettings?.voice_input ?? null;
   const [modelInstalled, setModelInstalled] = useState<boolean | null>(null);
   const [phase, setPhase] = useState<VoiceInputPhase>('idle');
   const [completionMode, setCompletionMode] = useState<VoiceInputCompletionMode | null>(null);
@@ -108,11 +103,7 @@ export function useComposerVoiceInput({
 
   const refreshCapability = useCallback(async () => {
     try {
-      const [loadedSettings, modelResponse] = await Promise.all([
-        aiExperienceConfigService.getSettingsAsync(),
-        speechAPI.listModels(),
-      ]);
-      setSettings(loadedSettings.voice_input ?? DEFAULT_VOICE_INPUT_SETTINGS);
+      const modelResponse = await speechAPI.listModels();
       setModelInstalled(
         modelResponse.models.some(model =>
           model.modelId === LOCAL_SENSEVOICE_SMALL_INT8_MODEL_ID &&
@@ -127,9 +118,6 @@ export function useComposerVoiceInput({
 
   useEffect(() => {
     void refreshCapability();
-    const removeSettingsListener = aiExperienceConfigService.addChangeListener(nextSettings => {
-      setSettings(nextSettings.voice_input ?? DEFAULT_VOICE_INPUT_SETTINGS);
-    });
     const removeModelListener = speechAPI.onModelStatusChanged(status => {
       if (status.modelId === LOCAL_SENSEVOICE_SMALL_INT8_MODEL_ID) {
         setModelInstalled(status.state === 'installed');
@@ -137,7 +125,6 @@ export function useComposerVoiceInput({
     });
 
     return () => {
-      removeSettingsListener();
       removeModelListener();
     };
   }, [refreshCapability]);
@@ -384,7 +371,7 @@ export function useComposerVoiceInput({
   }, [activateInput, attachSession, focusInputSoon, insertText, submitText, t]);
 
   const startRecording = useCallback(async () => {
-    if (!settings.enabled) {
+    if (!settings?.enabled) {
       notificationService.info(t('input.voiceInput.disabled'));
       return;
     }
@@ -567,19 +554,19 @@ export function useComposerVoiceInput({
 
   const disabled = phase === 'recording'
     ? false
-    : !settings.enabled || !isMediaCaptureSupported() || phase === 'preparing' || phase === 'transcribing';
+    : !settings?.enabled || !isMediaCaptureSupported() || phase === 'preparing' || phase === 'transcribing';
   const tooltip = useMemo(() => {
-    if (!settings.enabled) return t('input.voiceInput.disabled');
+    if (!settings?.enabled) return t('input.voiceInput.disabled');
     if (!isMediaCaptureSupported()) return t('input.voiceInput.unsupported');
     if (modelInstalled === false) return t('input.voiceInput.modelMissing');
     if (phase === 'preparing') return t('input.voiceInput.preparing');
     if (phase === 'recording') return t('input.voiceInput.stop');
     if (phase === 'transcribing') return t('input.voiceInput.transcribing');
     return t('input.voiceInput.start');
-  }, [modelInstalled, phase, settings.enabled, t]);
+  }, [modelInstalled, phase, settings?.enabled, t]);
 
   return {
-    enabled: settings.enabled,
+    enabled: settings?.enabled === true,
     disabled,
     phase,
     completionMode,

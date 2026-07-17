@@ -74,20 +74,24 @@ impl SessionWorkspaceMaintenanceService {
             .persistence_manager
             .list_session_metadata_including_internal(workspace_path)
             .await?;
-        let hidden_session_ids = all_metadata
+        let hidden_sessions = all_metadata
             .iter()
             .filter(|metadata| metadata.should_hide_from_user_lists())
+            .count();
+        let deletable_session_ids = all_metadata
+            .iter()
+            .filter(|metadata| metadata.should_delete_during_hidden_session_maintenance())
             .map(|metadata| metadata.session_id.clone())
             .collect::<Vec<_>>();
 
         let mut report = SessionWorkspaceMaintenanceReport {
             scanned_sessions: all_metadata.len(),
-            hidden_sessions: hidden_session_ids.len(),
+            hidden_sessions,
             deleted_sessions: 0,
             skipped: false,
         };
 
-        for session_id in hidden_session_ids {
+        for session_id in deletable_session_ids {
             self.persistence_manager
                 .delete_session(workspace_path, &session_id)
                 .await?;
@@ -114,7 +118,7 @@ mod tests {
     use crate::agentic::core::SessionKind;
     use crate::agentic::persistence::PersistenceManager;
     use crate::infrastructure::PathManager;
-    use crate::service::session::SessionMetadata;
+    use crate::service::session::{SessionMetadata, SETTINGS_FLOW_RUNTIME_SESSION_CREATOR};
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
     use uuid::Uuid;
@@ -181,7 +185,41 @@ mod tests {
         );
         subagent_hidden.session_kind = SessionKind::Subagent;
 
-        for metadata in [&visible, &legacy_hidden, &subagent_hidden] {
+        let mut durable_internal = SessionMetadata::new(
+            Uuid::new_v4().to_string(),
+            "Settings".to_string(),
+            "SettingsAgent".to_string(),
+            "primary".to_string(),
+        );
+        durable_internal.session_kind = SessionKind::Internal;
+
+        let mut expired_internal = SessionMetadata::new(
+            Uuid::new_v4().to_string(),
+            "Expired Settings".to_string(),
+            "SettingsAgent".to_string(),
+            "primary".to_string(),
+        );
+        expired_internal.session_kind = SessionKind::Internal;
+        expired_internal.last_active_at = 0;
+
+        let mut lifecycle_internal = SessionMetadata::new(
+            Uuid::new_v4().to_string(),
+            "Lifecycle Settings".to_string(),
+            "SettingsAgent".to_string(),
+            "primary".to_string(),
+        );
+        lifecycle_internal.session_kind = SessionKind::Internal;
+        lifecycle_internal.created_by = Some(SETTINGS_FLOW_RUNTIME_SESSION_CREATOR.to_string());
+        lifecycle_internal.last_active_at = 0;
+
+        for metadata in [
+            &visible,
+            &legacy_hidden,
+            &subagent_hidden,
+            &durable_internal,
+            &expired_internal,
+            &lifecycle_internal,
+        ] {
             persistence_manager
                 .save_session_metadata(workspace.path(), metadata)
                 .await
@@ -193,17 +231,25 @@ mod tests {
             .await
             .expect("maintenance should succeed");
 
-        assert_eq!(first_report.scanned_sessions, 3);
-        assert_eq!(first_report.hidden_sessions, 2);
-        assert_eq!(first_report.deleted_sessions, 2);
+        assert_eq!(first_report.scanned_sessions, 6);
+        assert_eq!(first_report.hidden_sessions, 5);
+        assert_eq!(first_report.deleted_sessions, 3);
         assert!(!first_report.skipped);
 
         let raw_after_cleanup = persistence_manager
             .list_session_metadata_including_internal(workspace.path())
             .await
             .expect("raw metadata should load");
-        assert_eq!(raw_after_cleanup.len(), 1);
-        assert_eq!(raw_after_cleanup[0].session_id, visible.session_id);
+        assert_eq!(raw_after_cleanup.len(), 3);
+        assert!(raw_after_cleanup
+            .iter()
+            .any(|metadata| metadata.session_id == visible.session_id));
+        assert!(raw_after_cleanup
+            .iter()
+            .any(|metadata| metadata.session_id == durable_internal.session_id));
+        assert!(raw_after_cleanup
+            .iter()
+            .any(|metadata| metadata.session_id == lifecycle_internal.session_id));
 
         let visible_after_cleanup = persistence_manager
             .list_session_metadata(workspace.path())

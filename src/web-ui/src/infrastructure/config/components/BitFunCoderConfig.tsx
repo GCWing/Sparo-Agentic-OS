@@ -12,16 +12,32 @@ import {
   Switch,
   Textarea,
 } from '@/design-system';
-import { ConfigPageContent, ConfigPageHeader, ConfigPageLayout, ConfigPageLoading, ConfigPageRow, ConfigPageSection } from './common';
+import {
+  ConfigPageContent,
+  ConfigPageHeader,
+  ConfigPageLayout,
+  ConfigPageLoading,
+  ConfigPageMessage,
+  ConfigPageRow,
+  ConfigPageSection,
+} from './common';
 import { LANGUAGE_TEMPLATE_LABELS } from '../types';
+import type { CustomSettingsProjectionProps } from '../customSettingsProjection';
 import { useSessionSettingsConfig } from './useSessionSettingsConfig';
 import './DebugConfig.scss';
 
-const BitFunCoderConfig: React.FC = () => {
+type BitFunCoderConfigProps = CustomSettingsProjectionProps;
+
+const BitFunCoderConfig: React.FC<BitFunCoderConfigProps> = ({
+  snapshotRevision,
+  onDirtySettingIdsChange,
+}) => {
   const { t: tApps } = useTranslation('scenes/apps');
+  const { t: tCommon } = useTranslation('common');
   const {
-    isLoading,
     debugConfig,
+    debugConfigLoading,
+    debugConfigError,
     debugHasChanges,
     debugSaving,
     expandedTemplates,
@@ -37,11 +53,16 @@ const BitFunCoderConfig: React.FC = () => {
     toggleTemplateEnabled,
     toggleTemplateExpand,
     handleSelectLogPath,
+    loadDebugConfig,
     setIsTemplatesModalOpen,
     tDebug,
-  } = useSessionSettingsConfig({ loadDesktopStatus: false });
+  } = useSessionSettingsConfig({
+    loadDesktopStatus: false,
+    snapshotRevision,
+    onDebugDirtySettingIdsChange: onDirtySettingIdsChange,
+  });
 
-  if (isLoading) {
+  if (debugConfigLoading) {
     return (
       <ConfigPageLayout className="sparo-debug-config">
         <ConfigPageHeader
@@ -50,6 +71,23 @@ const BitFunCoderConfig: React.FC = () => {
         />
         <ConfigPageContent className="sparo-debug-config__content">
           <ConfigPageLoading text={tDebug('messages.loading')} />
+        </ConfigPageContent>
+      </ConfigPageLayout>
+    );
+  }
+
+  if (debugConfigError || !debugConfig) {
+    return (
+      <ConfigPageLayout className="sparo-debug-config">
+        <ConfigPageHeader
+          title={tApps('apps.bitfunCoder.name')}
+          description={tApps('apps.bitfunCoder.description')}
+        />
+        <ConfigPageContent className="sparo-debug-config__content">
+          <ConfigPageMessage message={{ type: 'error', text: tDebug('messages.loadFailed') }} />
+          <Button variant="secondary" size="small" onClick={() => void loadDebugConfig()}>
+            {tCommon('actions.retry')}
+          </Button>
         </ConfigPageContent>
       </ConfigPageLayout>
     );
@@ -186,7 +224,7 @@ const BitFunCoderConfig: React.FC = () => {
                         />
                       </div>
                       <span className="sparo-debug-config__template-name">
-                        {template.display_name || LANGUAGE_TEMPLATE_LABELS[language] || language}
+                        {LANGUAGE_TEMPLATE_LABELS[language] || template.display_name || language}
                       </span>
                     </div>
                     <ChevronDown

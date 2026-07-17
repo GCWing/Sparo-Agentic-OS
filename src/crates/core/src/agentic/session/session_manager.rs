@@ -18,20 +18,20 @@ use crate::agentic::tools::restrictions::is_local_path_within_root;
 use crate::error::{CoreError, CoreResult};
 use crate::infrastructure::ai::get_global_ai_client_factory;
 use crate::service::config::{
-    get_app_language_code, get_global_config_service, short_model_user_language_instruction,
-    subscribe_config_updates, ConfigUpdateEvent,
+    get_app_language_code, get_global_config_service, register_config_apply_adapter,
+    short_model_user_language_instruction, ConfigApply, ConfigApplyAdapterCriticality,
+    ConfigApplyAdapterRegistration, ConfigApplyPathPattern, CONFIG_APPLY_CONSUMER_AI_MODEL_RUNTIME,
 };
 use crate::service::session::{
     DialogTurnData, DialogTurnKind, ModelRoundData, SessionMetadata, TextItemData, ToolResultData,
-    TurnStatus, UserMessageData,
+    TurnStatus, UserMessageData, SETTINGS_FLOW_RUNTIME_SESSION_CREATOR,
 };
 use crate::util::sanitize_plain_model_output;
 use dashmap::DashMap;
 use log::{debug, error, info, warn};
 use serde_json::{json, Value};
-use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::{Duration, SystemTime};
 use tokio::time;
 
@@ -116,8 +116,9 @@ pub struct SessionManager {
     /// `install_coordinator` after the surrounding stack is built. Used to
     /// emit lifecycle events (model migration) without going through a
     /// global. Weak because the coordinator owns the `Arc<Self>`.
-    coordinator:
+    coordinator: Arc<
         std::sync::OnceLock<std::sync::Weak<crate::agentic::coordination::ConversationCoordinator>>,
+    >,
 
     /// Weak handle to the cron service; set by `install_cron_service`.
     /// Used to delete cron jobs when a session is deleted. Weak because
@@ -130,6 +131,10 @@ pub struct SessionManager {
     /// `install_workspace_registry`. Used to look up a session's
     /// `SnapshotManager` for cleanup on deletion.
     workspace_registry: std::sync::OnceLock<std::sync::Weak<crate::runtime::WorkspaceRegistry>>,
+
+    /// Keeps the AI model runtime apply adapter registered for exactly this
+    /// manager's lifetime.
+    config_apply_registration: OnceLock<ConfigApplyAdapterRegistration>,
 }
 
 impl SessionManager {
@@ -464,26 +469,26 @@ impl SessionManager {
         context_store: Arc<SessionContextStore>,
         persistence_manager: Arc<PersistenceManager>,
         config: SessionManagerConfig,
-    ) -> Self {
+    ) -> Arc<Self> {
         let enable_persistence = config.enable_persistence;
 
-        let manager = Self {
+        let manager = Arc::new(Self {
             sessions: Arc::new(DashMap::new()),
             session_workspace_index: Arc::new(DashMap::new()),
             context_store,
             persistence_manager,
             config,
-            coordinator: std::sync::OnceLock::new(),
+            coordinator: Arc::new(std::sync::OnceLock::new()),
             cron_service: std::sync::OnceLock::new(),
             workspace_registry: std::sync::OnceLock::new(),
-        };
+            config_apply_registration: OnceLock::new(),
+        });
 
         // Start background tasks
         if enable_persistence {
             manager.spawn_auto_save_task();
         }
         manager.spawn_cleanup_task();
-        manager.spawn_model_reconciliation_listener();
 
         manager
     }
@@ -544,26 +549,25 @@ impl SessionManager {
         model_id: &str,
     ) -> bool {
         let trimmed = model_id.trim();
-        if trimmed.is_empty() || trimmed == "default" || trimmed == "primary" || trimmed == "fast" {
+        if Self::is_dynamic_model_selector(trimmed) {
             return true;
         }
         ai_config.is_model_reference_active(trimmed)
     }
 
-    /// Reset every active session whose bound model id is in
-    /// `invalidated_model_ids` back to `"primary"`. Persists the change and emits
+    fn is_dynamic_model_selector(model_id: &str) -> bool {
+        model_id.is_empty() || matches!(model_id, "default" | "primary" | "fast")
+    }
+
+    /// Reset every active session whose bound model is no longer usable in the
+    /// latest authoritative AI config back to `"primary"`. Persists the change and emits
     /// `AgenticEvent::SessionModelAutoMigrated` for every migrated session so
     /// the UI can refresh its model selector and surface a notice.
-    async fn migrate_sessions_off_invalidated_models(
+    async fn migrate_sessions_off_unavailable_models(
         &self,
-        invalidated_model_ids: &[String],
+        ai_config: &crate::service::config::types::AIConfig,
         reason: &'static str,
-    ) {
-        if invalidated_model_ids.is_empty() {
-            return;
-        }
-        let invalid: HashSet<&str> = invalidated_model_ids.iter().map(String::as_str).collect();
-
+    ) -> CoreResult<()> {
         // Snapshot affected sessions first to avoid holding DashMap iterators
         // across async writes.
         let affected: Vec<(String, String)> = self
@@ -572,7 +576,7 @@ impl SessionManager {
             .filter_map(|entry| {
                 let session = entry.value();
                 let current = session.config.model_id.as_deref()?.trim().to_string();
-                if invalid.contains(current.as_str()) {
+                if !Self::is_session_model_id_usable(ai_config, &current) {
                     Some((session.session_id.clone(), current))
                 } else {
                     None
@@ -581,15 +585,17 @@ impl SessionManager {
             .collect();
 
         if affected.is_empty() {
-            return;
+            return Ok(());
         }
 
+        let mut failures = Vec::new();
         for (session_id, previous_model_id) in affected {
             if let Err(e) = self.update_session_model_id(&session_id, "primary").await {
                 warn!(
                     "Failed to auto-migrate session model after reconcile: session_id={}, previous={}, error={}",
                     session_id, previous_model_id, e
                 );
+                failures.push(format!("{session_id}: {e}"));
                 continue;
             }
             info!(
@@ -608,81 +614,63 @@ impl SessionManager {
                     .await;
             }
         }
-    }
-
-    /// Best-effort: drop cached AI clients for invalidated models so the next
-    /// request rebuilds against the reconciled config.
-    async fn invalidate_ai_clients_for_models(invalidated_model_ids: &[String]) {
-        if invalidated_model_ids.is_empty() {
-            return;
-        }
-        if let Ok(factory) = get_global_ai_client_factory().await {
-            for model_id in invalidated_model_ids {
-                factory.invalidate_model(model_id);
-            }
+        if failures.is_empty() {
+            Ok(())
+        } else {
+            Err(CoreError::config(format!(
+                "Failed to migrate sessions after model config change: {}",
+                failures.join("; ")
+            )))
         }
     }
 
-    fn spawn_model_reconciliation_listener(&self) {
-        let sessions = self.sessions.clone();
-        let session_workspace_index = self.session_workspace_index.clone();
-        let context_store = self.context_store.clone();
-        let persistence_manager = self.persistence_manager.clone();
-        let manager_config = self.config.clone();
+    async fn invalidate_ai_model_runtime_cache(&self) -> CoreResult<()> {
+        let factory = get_global_ai_client_factory().await?;
+        factory.invalidate_cache();
+        Ok(())
+    }
 
-        tokio::spawn(async move {
-            let Some(mut receiver) = subscribe_config_updates() else {
-                debug!(
-                    "SessionManager: config update subscription unavailable; skipping model reconciliation listener"
-                );
-                return;
-            };
-
-            // Re-build a thin handle that mirrors `self` for the listener loop.
-            // We can't move `self` into a 'static task, so we recreate the
-            // surface area we need from the cloned shared fields above.
-            // The runtime back-references (coordinator/cron) are intentionally
-            // unwired here: the listener only reads sessions and does not
-            // emit lifecycle events or delete cron jobs.
-            let manager = Self {
-                sessions,
-                session_workspace_index,
-                context_store,
-                persistence_manager,
-                config: manager_config,
-                coordinator: std::sync::OnceLock::new(),
-                cron_service: std::sync::OnceLock::new(),
-                workspace_registry: std::sync::OnceLock::new(),
-            };
-
-            loop {
-                match receiver.recv().await {
-                    Ok(ConfigUpdateEvent::ModelsReconciled {
-                        invalidated_model_ids,
-                        ..
-                    }) => {
-                        Self::invalidate_ai_clients_for_models(&invalidated_model_ids).await;
-                        manager
-                            .migrate_sessions_off_invalidated_models(
-                                &invalidated_model_ids,
-                                "model_reconciled",
-                            )
-                            .await;
-                    }
-                    Ok(_) => {}
-                    Err(tokio::sync::broadcast::error::RecvError::Closed) => {
-                        debug!("SessionManager model reconciliation listener: channel closed");
-                        break;
-                    }
-                    Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
-                        warn!(
-                            "SessionManager model reconciliation listener lagged by {} events; continuing",
-                            n
-                        );
-                    }
+    pub(crate) fn register_model_config_apply_adapter(self: &Arc<Self>) -> CoreResult<()> {
+        let manager = Arc::downgrade(self);
+        let apply: ConfigApply = Arc::new(move |context| {
+            let manager = manager.clone();
+            Box::pin(async move {
+                let manager = manager
+                    .upgrade()
+                    .ok_or_else(|| CoreError::config("Session manager is no longer available"))?;
+                manager.invalidate_ai_model_runtime_cache().await?;
+                let models_changed = context.changes.iter().any(|change| {
+                    change.path == "ai.models" || change.path.starts_with("ai.models.")
+                });
+                if models_changed {
+                    manager
+                        .migrate_sessions_off_unavailable_models(
+                            &context.snapshot.ai,
+                            "model_config_applied",
+                        )
+                        .await?;
                 }
-            }
+                Ok(())
+            })
         });
+
+        let registration = register_config_apply_adapter(
+            CONFIG_APPLY_CONSUMER_AI_MODEL_RUNTIME,
+            vec![
+                ConfigApplyPathPattern::prefix("ai.models"),
+                ConfigApplyPathPattern::prefix("ai.default_models"),
+                ConfigApplyPathPattern::prefix("ai.agent_models"),
+                ConfigApplyPathPattern::prefix("ai.func_agent_models"),
+                ConfigApplyPathPattern::prefix("ai.proxy"),
+                ConfigApplyPathPattern::exact("ai.stream_idle_timeout_secs"),
+            ],
+            ConfigApplyAdapterCriticality::Critical,
+            None,
+            apply,
+        )?;
+        self.config_apply_registration
+            .set(registration)
+            .map_err(|_| CoreError::config("AI model runtime apply adapter is already installed"))
     }
 
     // ============ Session CRUD ============
@@ -796,9 +784,18 @@ impl SessionManager {
                 .get(&session_id)
                 .map(|session| session.clone());
             if let Some(session) = session_to_persist.as_ref() {
-                self.persistence_manager
+                if let Err(error) = self
+                    .persistence_manager
                     .save_session(&session_storage_path, session)
-                    .await?;
+                    .await
+                {
+                    // Creation is atomic from the caller's perspective. A persistence error must
+                    // not leave a loaded ghost session that consumes capacity or can later be used.
+                    self.context_store.delete_session(&session_id);
+                    self.sessions.remove(&session_id);
+                    self.session_workspace_index.remove(&session_id);
+                    return Err(error);
+                }
             }
         }
 
@@ -1501,7 +1498,15 @@ impl SessionManager {
 
     /// Delete session (cascade delete all resources)
     pub async fn delete_session(&self, workspace_path: &Path, session_id: &str) -> CoreResult<()> {
-        // 1. Clean up snapshot system resources (including physical snapshot files)
+        // 1. Delete durable data before mutating in-memory state. Persistence deletion is the
+        // only fatal step below, so a failure leaves the loaded session usable and retryable.
+        if self.config.enable_persistence {
+            self.persistence_manager
+                .delete_session(workspace_path, session_id)
+                .await?;
+        }
+
+        // 2. Clean up snapshot system resources (including physical snapshot files)
         let snapshot_manager_opt = self
             .upgrade_workspace_registry()
             .and_then(|registry| registry.by_path(workspace_path))
@@ -1519,14 +1524,8 @@ impl SessionManager {
             }
         }
 
+        // Durable deletion succeeded, so it is now safe to discard loaded conversation context.
         self.context_store.delete_session(session_id);
-
-        // 2. Delete persisted data
-        if self.config.enable_persistence {
-            self.persistence_manager
-                .delete_session(workspace_path, session_id)
-                .await?;
-        }
 
         if let Some(cron) = self.upgrade_cron_service() {
             match cron.delete_jobs_for_session(session_id).await {
@@ -1564,10 +1563,51 @@ impl SessionManager {
 
         // 4. Remove from memory
         self.sessions.remove(session_id);
+        self.session_workspace_index.remove(session_id);
 
         info!("Session deletion completed: session_id={}", session_id);
 
         Ok(())
+    }
+
+    /// Delete every persisted internal session owned by one system agent and ID namespace.
+    ///
+    /// Application-lifecycle features use this at process startup to remove any working
+    /// state left behind by an unclean shutdown. Matching both the internal kind and the
+    /// agent identity prevents a broad prefix sweep from touching user-visible sessions.
+    pub(crate) async fn delete_internal_sessions_by_agent_and_prefix(
+        &self,
+        workspace_path: &Path,
+        agent_type: &str,
+        session_id_prefix: &str,
+    ) -> CoreResult<usize> {
+        let mut session_ids = self
+            .persistence_manager
+            .list_session_metadata_including_internal(workspace_path)
+            .await?
+            .into_iter()
+            .filter(|metadata| {
+                matches!(metadata.session_kind, SessionKind::Internal)
+                    && metadata.agent_type == agent_type
+                    && metadata.session_id.starts_with(session_id_prefix)
+            })
+            .map(|metadata| metadata.session_id)
+            .collect::<std::collections::HashSet<_>>();
+
+        session_ids.extend(self.sessions.iter().filter_map(|entry| {
+            let session = entry.value();
+            (matches!(session.kind, SessionKind::Internal)
+                && session.agent_type == agent_type
+                && session.session_id.starts_with(session_id_prefix))
+            .then(|| session.session_id.clone())
+        }));
+
+        let mut deleted = 0;
+        for session_id in session_ids {
+            self.delete_session(workspace_path, &session_id).await?;
+            deleted += 1;
+        }
+        Ok(deleted)
     }
 
     /// Restore session (from persistent storage)
@@ -1576,10 +1616,14 @@ impl SessionManager {
         workspace_path: &Path,
         session_id: &str,
     ) -> CoreResult<Session> {
-        // Check if session is already in memory
-        let session_already_in_memory = self.sessions.contains_key(session_id);
-
-        let session_storage_path = {
+        let session_storage_path = if workspace_path
+            == self
+                .persistence_manager
+                .path_manager()
+                .agentic_os_runtime_root()
+        {
+            workspace_path.to_path_buf()
+        } else {
             let ws = workspace_path.to_string_lossy().to_string();
             let tmp_config = SessionConfig {
                 workspace_path: Some(ws),
@@ -1590,16 +1634,108 @@ impl SessionManager {
                 .unwrap_or_else(|| workspace_path.to_path_buf())
         };
 
-        if self
+        self.restore_session_from_storage_path(&session_storage_path, session_id, None)
+            .await
+    }
+
+    /// Restore a durable internal session from the Agentic OS session scope.
+    ///
+    /// This deliberately bypasses the user-facing hidden-session guard only for
+    /// `SessionKind::Internal`; subagent and visible sessions cannot use this path.
+    pub(crate) async fn restore_internal_agentic_os_session(
+        &self,
+        session_id: &str,
+    ) -> CoreResult<Session> {
+        if let Some(session) = self.sessions.get(session_id) {
+            if !matches!(session.kind, SessionKind::Internal)
+                || !matches!(
+                    session.config.storage_scope,
+                    Some(crate::agentic::core::SessionStorageScope::AgenticOs)
+                )
+            {
+                return Err(CoreError::Validation(format!(
+                    "Internal restore rejected loaded session boundary: {}",
+                    session_id
+                )));
+            }
+            return Ok(session.clone());
+        }
+
+        let session_storage_path = self
             .persistence_manager
-            .load_session_metadata(&session_storage_path, session_id)
-            .await?
-            .is_some_and(|metadata| metadata.should_hide_from_user_lists())
-        {
-            return Err(CoreError::NotFound(format!(
-                "Session not found: {}",
+            .path_manager()
+            .agentic_os_runtime_root();
+        let session = self
+            .restore_session_from_storage_path(
+                &session_storage_path,
+                session_id,
+                Some(SessionKind::Internal),
+            )
+            .await?;
+
+        if !matches!(
+            session.config.storage_scope,
+            Some(crate::agentic::core::SessionStorageScope::AgenticOs)
+        ) {
+            self.sessions.remove(session_id);
+            self.context_store.delete_session(session_id);
+            self.session_workspace_index.remove(session_id);
+            return Err(CoreError::Validation(format!(
+                "Internal session has invalid storage scope: {}",
                 session_id
             )));
+        }
+
+        Ok(session)
+    }
+
+    async fn restore_session_from_storage_path(
+        &self,
+        session_storage_path: &Path,
+        session_id: &str,
+        allowed_hidden_kind: Option<SessionKind>,
+    ) -> CoreResult<Session> {
+        // Check if session is already in memory
+        let session_already_in_memory = self.sessions.contains_key(session_id);
+
+        if let Some(metadata) = self
+            .persistence_manager
+            .load_session_metadata(session_storage_path, session_id)
+            .await?
+        {
+            match allowed_hidden_kind {
+                Some(expected_kind) if metadata.session_kind != expected_kind => {
+                    return Err(CoreError::Validation(format!(
+                        "Internal restore rejected session kind for {}: expected {:?}, found {:?}",
+                        session_id, expected_kind, metadata.session_kind
+                    )));
+                }
+                Some(SessionKind::Internal)
+                    if metadata.should_delete_during_hidden_session_maintenance() =>
+                {
+                    self.persistence_manager
+                        .delete_session(session_storage_path, session_id)
+                        .await?;
+                    self.context_store.delete_session(session_id);
+                    self.sessions.remove(session_id);
+                    self.session_workspace_index.remove(session_id);
+                    info!(
+                        "Deleted expired internal session before restore: session_id={}",
+                        session_id
+                    );
+                    return Err(CoreError::NotFound(format!(
+                        "Session not found: {}",
+                        session_id
+                    )));
+                }
+                None if metadata.should_hide_from_user_lists() => {
+                    return Err(CoreError::NotFound(format!(
+                        "Session not found: {}",
+                        session_id
+                    )));
+                }
+                _ => {}
+            }
         }
 
         // 1. Load session from storage
@@ -1614,17 +1750,15 @@ impl SessionManager {
         // will resolve the selector via default_models / agent mapping.
         if let Some(persisted_model_id) = session.config.model_id.as_deref() {
             let trimmed = persisted_model_id.trim();
-            let needs_migration = if trimmed.is_empty() {
+            let needs_migration = if Self::is_dynamic_model_selector(trimmed) {
                 false
-            } else if let Ok(ai_config) = get_global_config_service()
-                .await
-                .map_err(|e| CoreError::config(e.to_string()))?
-                .get_config::<crate::service::config::types::AIConfig>(Some("ai"))
-                .await
-            {
-                !Self::is_session_model_id_usable(&ai_config, trimmed)
             } else {
-                false
+                let ai_config = get_global_config_service()
+                    .await
+                    .map_err(|e| CoreError::config(e.to_string()))?
+                    .get_config::<crate::service::config::types::AIConfig>(Some("ai"))
+                    .await?;
+                !Self::is_session_model_id_usable(&ai_config, trimmed)
             };
 
             if needs_migration {
@@ -1771,7 +1905,7 @@ impl SessionManager {
         self.sessions
             .insert(session_id.to_string(), session.clone());
         self.session_workspace_index
-            .insert(session_id.to_string(), session_storage_path.clone());
+            .insert(session_id.to_string(), session_storage_path.to_path_buf());
 
         Ok(session)
     }
@@ -1873,7 +2007,7 @@ impl SessionManager {
                         state: session.state.clone(),
                     }
                 })
-                .filter(|summary| !matches!(summary.kind, SessionKind::Subagent))
+                .filter(|summary| matches!(summary.kind, SessionKind::Standard))
                 .collect();
             Ok(summaries)
         }
@@ -2586,8 +2720,8 @@ impl SessionManager {
         use crate::util::types::Message;
 
         // Match agent `LANGUAGE_PREFERENCE`: use `app.language`, not I18nService (see `app_language` module).
-        let lang_code = get_app_language_code().await;
-        let language_instruction = short_model_user_language_instruction(lang_code.as_str());
+        let lang_code = get_app_language_code().await?;
+        let language_instruction = short_model_user_language_instruction(lang_code.as_str())?;
 
         // Construct system prompt
         let system_prompt = format!(
@@ -2758,6 +2892,7 @@ impl SessionManager {
         let persistence = self.persistence_manager.clone();
         let enable_persistence = self.config.enable_persistence;
         let context_store = self.context_store.clone();
+        let session_workspace_index = self.session_workspace_index.clone();
 
         tokio::spawn(async move {
             let mut ticker = time::interval(Duration::from_secs(60));
@@ -2770,6 +2905,18 @@ impl SessionManager {
 
                 for entry in sessions.iter() {
                     let session = entry.value();
+                    if matches!(&session.state, SessionState::Processing { .. }) {
+                        continue;
+                    }
+                    if matches!(session.kind, SessionKind::Internal)
+                        && session.created_by.as_deref()
+                            == Some(SETTINGS_FLOW_RUNTIME_SESSION_CREATOR)
+                    {
+                        // This conversation belongs to the whole desktop process, not the
+                        // generic internal-session idle window. Reset and process shutdown
+                        // own its deletion explicitly.
+                        continue;
+                    }
                     if let Ok(idle_duration) = now.duration_since(session.last_activity_at) {
                         if idle_duration > timeout {
                             expired_sessions.push(session.session_id.clone());
@@ -2780,7 +2927,28 @@ impl SessionManager {
                 for session_id in expired_sessions {
                     debug!("Cleaning up expired session: session_id={}", session_id);
 
-                    // Save before deleting
+                    // Internal sessions deliberately retain only a short-lived
+                    // continuation window. Once idle, delete their durable state
+                    // instead of turning them into permanent hidden history.
+                    let internal_config = sessions.get(&session_id).and_then(|session| {
+                        matches!(session.kind, SessionKind::Internal)
+                            .then(|| session.config.clone())
+                    });
+                    if let Some(config) = internal_config {
+                        if let Some(workspace_path) =
+                            Self::effective_workspace_path_from_config(&config).await
+                        {
+                            let _ = persistence
+                                .delete_session(&workspace_path, &session_id)
+                                .await;
+                        }
+                        context_store.delete_session(&session_id);
+                        sessions.remove(&session_id);
+                        session_workspace_index.remove(&session_id);
+                        continue;
+                    }
+
+                    // Save ordinary persisted sessions before unloading them.
                     if enable_persistence {
                         if let Some(session) = sessions.get(&session_id) {
                             if !Self::should_persist_session(&session) {
@@ -2809,17 +2977,18 @@ impl SessionManager {
 #[cfg(test)]
 mod tests {
     use super::{merge_json_value, SessionManager, SessionManagerConfig};
-    use crate::agentic::core::SessionConfig;
+    use crate::agentic::core::{Session, SessionConfig, SessionKind, SessionStorageScope};
     use crate::agentic::memory::store::MemoryScope;
     use crate::agentic::memory::{
         AutoMemoryReadyReason, AutoMemoryScheduleDecision, AutoMemoryThrottlePolicy,
     };
     use crate::agentic::persistence::PersistenceManager;
     use crate::agentic::session::SessionContextStore;
+    use crate::error::CoreError;
     use crate::infrastructure::PathManager;
     use crate::service::session::{
         DialogTurnData, DialogTurnKind, ModelRoundData, ToolCallData, ToolItemData, TurnStatus,
-        UserMessageData,
+        UserMessageData, SETTINGS_FLOW_RUNTIME_SESSION_CREATOR,
     };
     use serde_json::json;
     use std::path::{Path, PathBuf};
@@ -2859,7 +3028,7 @@ mod tests {
 
     fn build_test_session_manager(
         workspace: &TestWorkspace,
-    ) -> (Arc<PersistenceManager>, SessionManager) {
+    ) -> (Arc<PersistenceManager>, Arc<SessionManager>) {
         let persistence_manager = Arc::new(
             PersistenceManager::new(workspace.path_manager()).expect("persistence manager"),
         );
@@ -3089,6 +3258,150 @@ mod tests {
         let title = SessionManager::fallback_session_title("   ", 20);
 
         assert_eq!(title, "New Session");
+    }
+
+    #[tokio::test]
+    async fn internal_agentic_os_session_is_durable_hidden_and_restorable_internally() {
+        let workspace = TestWorkspace::new();
+        let (persistence_manager, manager) = build_test_session_manager(&workspace);
+        let runtime_root = persistence_manager.path_manager().agentic_os_runtime_root();
+        let session_id = format!("settings-agent-{}", Uuid::new_v4());
+        let mut internal_session = Session::new_with_id(
+            session_id.clone(),
+            "Settings".to_string(),
+            "SettingsAgent".to_string(),
+            SessionConfig {
+                workspace_path: Some(runtime_root.to_string_lossy().into_owned()),
+                storage_scope: Some(SessionStorageScope::AgenticOs),
+                ..SessionConfig::default()
+            },
+        );
+        internal_session.kind = SessionKind::Internal;
+        internal_session.created_by = Some(SETTINGS_FLOW_RUNTIME_SESSION_CREATOR.to_string());
+        internal_session.last_activity_at = std::time::UNIX_EPOCH;
+
+        persistence_manager
+            .save_session(&runtime_root, &internal_session)
+            .await
+            .expect("internal session should persist");
+
+        let visible_sessions = manager
+            .list_sessions(&runtime_root)
+            .await
+            .expect("visible sessions should list");
+        assert!(visible_sessions.is_empty());
+
+        let public_restore = manager.restore_session(&runtime_root, &session_id).await;
+        assert!(matches!(public_restore, Err(CoreError::NotFound(_))));
+
+        let restored = manager
+            .restore_internal_agentic_os_session(&session_id)
+            .await
+            .expect("internal restore should succeed");
+        assert_eq!(restored.kind, SessionKind::Internal);
+        assert_eq!(restored.agent_type, "SettingsAgent");
+        assert_eq!(
+            restored.config.storage_scope,
+            Some(SessionStorageScope::AgenticOs)
+        );
+    }
+
+    #[tokio::test]
+    async fn internal_session_sweep_requires_kind_agent_and_prefix_to_match() {
+        let workspace = TestWorkspace::new();
+        let (persistence_manager, manager) = build_test_session_manager(&workspace);
+        let runtime_root = persistence_manager.path_manager().agentic_os_runtime_root();
+        let config = SessionConfig {
+            workspace_path: Some(runtime_root.to_string_lossy().into_owned()),
+            storage_scope: Some(SessionStorageScope::AgenticOs),
+            ..SessionConfig::default()
+        };
+
+        let mut matching = Session::new_with_id(
+            "settings-agent-matching".to_string(),
+            "Settings".to_string(),
+            "SettingsAgent".to_string(),
+            config.clone(),
+        );
+        matching.kind = SessionKind::Internal;
+        let same_prefix_visible = Session::new_with_id(
+            "settings-agent-visible".to_string(),
+            "Visible".to_string(),
+            "SettingsAgent".to_string(),
+            config.clone(),
+        );
+        let mut other_internal_agent = Session::new_with_id(
+            "settings-agent-other".to_string(),
+            "Other".to_string(),
+            "OtherAgent".to_string(),
+            config,
+        );
+        other_internal_agent.kind = SessionKind::Internal;
+
+        for session in [&matching, &same_prefix_visible, &other_internal_agent] {
+            persistence_manager
+                .save_session(&runtime_root, session)
+                .await
+                .expect("session should persist");
+        }
+
+        let deleted = manager
+            .delete_internal_sessions_by_agent_and_prefix(
+                &runtime_root,
+                "SettingsAgent",
+                "settings-agent-",
+            )
+            .await
+            .expect("sweep should succeed");
+        assert_eq!(deleted, 1);
+
+        let remaining = persistence_manager
+            .list_session_metadata_including_internal(&runtime_root)
+            .await
+            .expect("metadata should list");
+        let remaining_ids = remaining
+            .into_iter()
+            .map(|metadata| metadata.session_id)
+            .collect::<std::collections::HashSet<_>>();
+        assert!(!remaining_ids.contains("settings-agent-matching"));
+        assert!(remaining_ids.contains("settings-agent-visible"));
+        assert!(remaining_ids.contains("settings-agent-other"));
+    }
+
+    #[tokio::test]
+    async fn expired_internal_agentic_os_session_is_deleted_instead_of_restored() {
+        let workspace = TestWorkspace::new();
+        let (persistence_manager, manager) = build_test_session_manager(&workspace);
+        let runtime_root = persistence_manager.path_manager().agentic_os_runtime_root();
+        let session_id = format!("settings-agent-{}", Uuid::new_v4());
+        let mut internal_session = Session::new_with_id(
+            session_id.clone(),
+            "Settings".to_string(),
+            "SettingsAgent".to_string(),
+            SessionConfig {
+                workspace_path: Some(runtime_root.to_string_lossy().into_owned()),
+                storage_scope: Some(SessionStorageScope::AgenticOs),
+                ..SessionConfig::default()
+            },
+        );
+        internal_session.kind = SessionKind::Internal;
+        internal_session.last_activity_at = std::time::UNIX_EPOCH;
+
+        persistence_manager
+            .save_session(&runtime_root, &internal_session)
+            .await
+            .expect("expired internal session should persist for restore testing");
+
+        let restore = manager
+            .restore_internal_agentic_os_session(&session_id)
+            .await;
+        assert!(matches!(restore, Err(CoreError::NotFound(_))));
+        assert!(manager.get_session(&session_id).is_none());
+        assert!(persistence_manager
+            .load_session_metadata(&runtime_root, &session_id)
+            .await
+            .expect("metadata lookup should succeed")
+            .is_none());
     }
 
     #[tokio::test]

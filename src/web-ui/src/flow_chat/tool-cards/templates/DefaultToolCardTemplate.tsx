@@ -25,7 +25,6 @@ export interface DefaultToolCardTemplateProps {
   action?: React.ReactNode;
   summary: React.ReactNode;
   extra?: React.ReactNode;
-  icon?: React.ReactNode;
   statusIcon?: React.ReactNode;
   primaryAction?: DefaultToolCardPrimaryAction;
   expandedContent?: React.ReactNode;
@@ -45,7 +44,6 @@ export const DefaultToolCardTemplate: React.FC<DefaultToolCardTemplateProps> = (
   action,
   summary,
   extra,
-  icon,
   statusIcon,
   primaryAction,
   expandedContent,
@@ -151,7 +149,6 @@ export const DefaultToolCardTemplate: React.FC<DefaultToolCardTemplateProps> = (
         expandedContentId={templateExpandable ? detailsId : undefined}
         header={(
           <ToolCompactHeaderLayout
-            icon={icon}
             statusIcon={resolvedStatusIcon}
             expandable={templateExpandable}
             isExpanded={isExpanded}
@@ -161,7 +158,6 @@ export const DefaultToolCardTemplate: React.FC<DefaultToolCardTemplateProps> = (
             action={action}
             content={summaryNode}
             extra={extraNode}
-            rightIcon={icon ? resolvedStatusIcon : undefined}
           />
         )}
         expandedContent={isExpanded ? expandedContent : undefined}

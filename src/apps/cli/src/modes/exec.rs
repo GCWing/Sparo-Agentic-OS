@@ -88,6 +88,7 @@ impl ExecMode {
         output_patch: Option<String>,
         json_output: bool,
         timeout_secs: Option<u64>,
+        skip_tool_confirmation: bool,
     ) -> Self {
         // Use the real CoreAgentAdapter
         let agent = Arc::new(CoreAgentAdapter::new(
@@ -95,6 +96,7 @@ impl ExecMode {
             agentic_system.coordinator.clone(),
             agentic_system.event_queue.clone(),
             workspace_path.clone(),
+            skip_tool_confirmation,
         )) as Arc<dyn Agent>;
 
         Self {

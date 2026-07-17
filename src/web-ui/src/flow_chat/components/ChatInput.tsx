@@ -23,7 +23,10 @@ import {
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { inputReducer, initialInputState } from '../reducers/inputReducer';
 import { agentReducer, initialAgentState } from '../reducers/agentReducer';
-import { useMessageSender } from '../hooks/useMessageSender';
+import {
+  useMessageSender,
+  type ResolveMessageSendContext,
+} from '../hooks/useMessageSender';
 import { CHAT_INPUT_CONFIG } from '../constants/chatInputConfig';
 import { useInputHistoryStore } from '../store/inputHistoryStore';
 import { useSessionTurnQueueStore } from '../store/sessionTurnQueueStore';
@@ -88,6 +91,8 @@ import './ChatInput.scss';
 export interface ChatInputProps {
   className?: string;
   targetSessionId?: string | null;
+  active?: boolean;
+  resolveSendContext?: ResolveMessageSendContext;
   onSendMessage?: (message: string) => void;
   onDispatchComposerAppAction?: (action: {
     providerId: string;
@@ -138,6 +143,8 @@ function formatContextPercent(percent: number): string {
 export const ChatInput: React.FC<ChatInputProps> = ({
   className = '',
   targetSessionId,
+  active = true,
+  resolveSendContext,
   onSendMessage,
   onDispatchComposerAppAction,
 }) => {
@@ -366,6 +373,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     onSuccess: onSendMessage,
     // Composer agent is authoritative, synced from the session descriptor.
     currentAgentType: modeState.current,
+    resolveSendContext,
   });
 
   const {
@@ -447,6 +455,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   });
 
   const createTextFragment = useCallback((text: string): TextFragmentContext | null => {
+    if (profile.composer?.allowContextInput === false) return null;
     const charCount = Array.from(text).length;
     if (charCount <= CHAT_INPUT_CONFIG.largePaste.thresholdChars) return null;
     const context: TextFragmentContext = {
@@ -462,7 +471,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     };
     addContext(context);
     return context;
-  }, [addContext]);
+  }, [addContext, profile.composer?.allowContextInput]);
   const currentComposerSnapshot = useMemo(
     () => createComposerContextSnapshot(composerDocument, contexts),
     [composerDocument, contexts],
@@ -527,7 +536,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   useComposerAgentSync({
     activeSessionDescriptor,
     dispatchMode,
+    explicitTargetSessionId: targetSessionId,
     effectiveTargetSessionId,
+    allowGlobalAgentSync: profile.composer?.agentSwitching?.mode !== 'disabled',
   });
 
   useComposerQueuedInputRestore({
@@ -622,6 +633,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     setInputTarget: setComposerTarget,
     addContext,
     restoreComposerSnapshot,
+    enabled: active,
+    allowContextInput: profile.composer?.allowContextInput !== false,
+    targetSessionId: effectiveTargetSessionId,
     t,
   });
 
@@ -644,10 +658,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       activateComposerInput();
       focusRichTextInputSoon();
     },
-    { priority: 10, description: 'keyboard.shortcuts.chat.activateInput' },
+    {
+      priority: 10,
+      description: 'keyboard.shortcuts.chat.activateInput',
+      enabled: active,
+    },
   );
 
   useEffect(() => {
+    if (!active) return;
     const handleGlobalActivate = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.repeat) return;
       if (!shortcutManager.matchesShortcutId('chat.activateInput', { key: ' ', scope: 'chat' }, event)) {
@@ -664,7 +683,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
     window.addEventListener('keydown', handleGlobalActivate, true);
     return () => window.removeEventListener('keydown', handleGlobalActivate, true);
-  }, [activateComposerInput, focusRichTextInputSoon, playAwakeningMotion]);
+  }, [active, activateComposerInput, focusRichTextInputSoon, playAwakeningMotion]);
 
   const {
     handleCancelGeneration,
@@ -921,7 +940,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         commandOptions={commandOptions}
         mcpPromptCommandsLoading={mcpPromptCommandsLoading}
         labels={{
-          placeholder: t('input.placeholder'),
+          placeholder: profile.composer?.placeholderKey
+            ? tChatInput(profile.composer.placeholderKey)
+            : t('input.placeholder'),
           spaceToActivate: (
             <Trans
               t={t}
@@ -1011,12 +1032,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       )}
       sendAction={(
         <>
-          <ModelSelector
-            currentAgent={modeState.current}
-            sessionId={effectiveTargetSessionId || undefined}
-          />
+          {profile.composer?.showModelSelector !== false ? (
+            <ModelSelector
+              currentAgent={modeState.current}
+              sessionId={effectiveTargetSessionId || undefined}
+            />
+          ) : null}
 
-          <ComposerVoiceInputButton controller={voiceInputController} />
+          {profile.composer?.showVoiceInput !== false ? (
+            <ComposerVoiceInputButton controller={voiceInputController} />
+          ) : null}
 
           {voiceInputController.phase === 'idle' ? (
             <ComposerSendAction
@@ -1072,11 +1097,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       targetSwitcher={null}
       editorArea={editorArea}
       actions={actions}
-      workspaceMeta={workspaceMeta}
+      workspaceMeta={profile.composer?.showWorkspaceMeta === false ? undefined : workspaceMeta}
       onOpenWorkspaceFiles={handleOpenWorkspaceFiles}
-      contextUsageMeta={contextUsageMeta}
+      contextUsageMeta={
+        profile.composer?.showContextUsage === false ? undefined : contextUsageMeta
+      }
       contextUsagePercent={contextUsagePercent}
-      contextBudgetSnapshot={tokenUsage.snapshot}
+      contextBudgetSnapshot={
+        profile.composer?.showContextUsage === false ? undefined : tokenUsage.snapshot
+      }
+      allowContextInput={profile.composer?.allowContextInput !== false}
       onActivate={handleActivate}
       onContextAdded={handleDropContextAdded}
     />

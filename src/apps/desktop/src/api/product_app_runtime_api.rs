@@ -18,7 +18,8 @@ use crate::api::product_app_runtime_host_adapter::{
     HostAdapterCoreBackendBinding, HostAdapterCoreBackendKind, HostAdapterCoreBackendMemoryScope,
     HostAdapterCoreBackendSessionPolicy, HostAdapterCoreIframePermissions,
     HostAdapterCoreInteraction, HostAdapterCoreInteractionChat, HostAdapterCoreInteractionMode,
-    HostAdapterCoreInteractionTab, HostAdapterCoreManager, HostAdapterCoreNetPermissions,
+    HostAdapterCoreInteractionTab, HostAdapterCoreInteractionTabSidecar,
+    HostAdapterCoreInteractionText, HostAdapterCoreManager, HostAdapterCoreNetPermissions,
     HostAdapterCorePermissions, HostAdapterCoreSurface, HostAdapterCoreSurfaceMeta,
     HostAdapterGetRequest, HostAdapterInstallResult, HostAdapterPptTurnTextRequest,
     HostAdapterPptTurnTextResponse, HostAdapterRecompileRequest, HostAdapterRecompileResult,
@@ -29,6 +30,7 @@ use crate::api::product_app_runtime_host_adapter::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sparo_core::agentic::agents::{get_agent_registry, AgentCategory};
 use sparo_core::agentic::coordination::{ConversationCoordinator, DialogScheduler};
 use sparo_core::agentic_os::work::{
     default_work_store, RuntimeInstanceRef, WorkAppIntent, WorkAppRef, WorkId, WorkKind,
@@ -36,12 +38,12 @@ use sparo_core::agentic_os::work::{
 };
 use sparo_core::app_platform::{
     private_component_source_dir, register_private_product_app_runtime_components, AppComponentRef,
-    AppDefinition, AppIconSpec, AppSurfaceMode, AppTruthSource, ComponentDefinition, ComponentKind,
-    ProductAppEvolutionStore, ProductAppRuntimeIssueSeverity, ProductAppRuntimeLogLevel,
-    ProductAppRuntimeState, ResolvedProductApp,
+    AppDefinition, AppIconSpec, AppRuntimeInteractionText, AppSurfaceMode, AppTruthSource,
+    ComponentDefinition, ComponentKind, ProductAppEvolutionStore, ProductAppRuntimeIssueSeverity,
+    ProductAppRuntimeLogLevel, ProductAppRuntimeState, ResolvedProductApp,
 };
 use sparo_core::bridge_component::BridgeComponentRunResult;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::sync::Arc;
 use tauri::{AppHandle, State};
 
@@ -329,6 +331,8 @@ pub struct ProductAppRuntimeBackendRunRequest {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProductAppRuntimeCancelStalePptRunsRequest {
+    pub app_id: String,
+    pub runtime_context: ProductAppRuntimeContext,
     pub workspace_path: Option<String>,
 }
 
@@ -343,6 +347,8 @@ pub struct ProductAppRuntimeCancelStalePptRunsResponse {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProductAppRuntimePptTurnTextRequest {
+    pub app_id: String,
+    pub runtime_context: ProductAppRuntimeContext,
     pub session_id: String,
     pub turn_id: String,
     #[serde(default)]
@@ -467,24 +473,28 @@ enum ProductAppRuntimeInteractionMode {
 struct ProductAppRuntimeInteractionChat {
     backend_id: Option<String>,
     agent_component_id: Option<String>,
+    agent_type: Option<String>,
+    backend_agent_type: Option<String>,
     session_policy: Option<ProductAppRuntimeBackendSessionPolicy>,
     memory_scope: Option<ProductAppRuntimeBackendMemoryScope>,
     initial_prompt_key: Option<String>,
     allow_user_prompt: bool,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 struct ProductAppRuntimeInteractionTab {
     id: String,
     tab_type: String,
     route: Option<String>,
+    title: Option<HostAdapterCoreInteractionText>,
     title_key: Option<String>,
     default: bool,
     developer_only: bool,
+    sidecar: Option<HostAdapterCoreInteractionTabSidecar>,
     data: Value,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 struct ProductAppRuntimeInteraction {
     mode: ProductAppRuntimeInteractionMode,
     profile: Option<String>,
@@ -1108,6 +1118,8 @@ fn cancel_stale_ppt_runs_request_from_product_app_runtime(
     request: ProductAppRuntimeCancelStalePptRunsRequest,
 ) -> HostAdapterCancelStalePptRunsRequest {
     HostAdapterCancelStalePptRunsRequest {
+        app_id: request.app_id,
+        runtime_context: request.runtime_context,
         workspace_path: request.workspace_path,
     }
 }
@@ -1126,6 +1138,8 @@ fn ppt_turn_text_request_from_product_app_runtime(
     request: ProductAppRuntimePptTurnTextRequest,
 ) -> HostAdapterPptTurnTextRequest {
     HostAdapterPptTurnTextRequest {
+        app_id: request.app_id,
+        runtime_context: request.runtime_context,
         session_id: request.session_id,
         turn_id: request.turn_id,
         workspace_path: request.workspace_path,
@@ -1802,7 +1816,11 @@ async fn resolve_product_app_host_surface_id(
                 product_app_surface_host_permissions(product_app_surface),
                 host_adapter_backends_from_product_app_runtime(backends),
                 Some(host_adapter_interaction_from_product_app_runtime(
-                    build_product_app_runtime_interaction(&app.app, product_app_surface),
+                    build_product_app_runtime_interaction(
+                        &app.app,
+                        product_app_surface,
+                        &app.components,
+                    )?,
                 )),
                 None,
             )
@@ -1996,44 +2014,164 @@ fn push_unique(items: &mut Vec<String>, value: &str) {
 fn build_product_app_runtime_interaction(
     app: &AppDefinition,
     product_app_surface: &ComponentDefinition,
-) -> ProductAppRuntimeInteraction {
+    components: &[ComponentDefinition],
+) -> Result<ProductAppRuntimeInteraction, String> {
     match app.primary_surface_mode {
-        Some(AppSurfaceMode::SidecarLinked) => ProductAppRuntimeInteraction {
-            mode: ProductAppRuntimeInteractionMode::Composite,
-            profile: Some("product-app-runtime".to_string()),
-            chat: build_product_app_runtime_chat(product_app_surface),
-            tabs: vec![ProductAppRuntimeInteractionTab {
+        Some(AppSurfaceMode::SidecarLinked) => {
+            let declared_tabs = app
+                .runtime_interaction
+                .as_ref()
+                .map(|interaction| interaction.tabs.as_slice())
+                .unwrap_or_default();
+            let declared_default_count = declared_tabs.iter().filter(|tab| tab.default).count();
+            if declared_default_count > 1 {
+                return Err(
+                    "runtimeInteraction.tabs may declare at most one default tab".to_string(),
+                );
+            }
+
+            let mut tab_ids = HashSet::from(["primary".to_string()]);
+            let mut sidecar_action_ids = HashSet::new();
+            let mut tabs = vec![ProductAppRuntimeInteractionTab {
                 id: "primary".to_string(),
                 tab_type: "product-app-runtime".to_string(),
                 route: Some(default_product_app_runtime_route(app).to_string()),
+                title: None,
                 title_key: None,
-                default: true,
+                default: declared_default_count == 0,
                 developer_only: false,
+                sidecar: None,
                 data: serde_json::Value::Null,
-            }],
-        },
+            }];
+
+            for declared in declared_tabs {
+                let id = declared.id.trim();
+                if id.is_empty() {
+                    return Err("runtimeInteraction tab id cannot be empty".to_string());
+                }
+                if !tab_ids.insert(id.to_string()) {
+                    return Err(format!("Duplicate runtimeInteraction tab id: {id}"));
+                }
+                if declared.tab_type != "product-app-runtime" {
+                    return Err(format!(
+                        "Unsupported runtimeInteraction tab type '{}' for tab '{}'",
+                        declared.tab_type, id
+                    ));
+                }
+                let route = declared
+                    .route
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|route| !route.is_empty())
+                    .ok_or_else(|| format!("runtimeInteraction tab '{id}' requires route"))?;
+                if !route.starts_with('/') {
+                    return Err(format!(
+                        "runtimeInteraction tab '{id}' route must start with '/'"
+                    ));
+                }
+
+                let sidecar = declared.sidecar.as_ref().map(|sidecar| {
+                    let action_id = sidecar
+                        .action_id
+                        .as_deref()
+                        .map(str::trim)
+                        .filter(|value| !value.is_empty())
+                        .map(ToOwned::to_owned);
+                    HostAdapterCoreInteractionTabSidecar {
+                        action_id,
+                        icon: sidecar.icon.map(|icon| icon.as_str().to_string()),
+                        order: sidecar.order,
+                        availability: sidecar
+                            .availability
+                            .map(|availability| availability.as_str().to_string()),
+                        target_group: sidecar.target_group.map(|group| group.as_str().to_string()),
+                    }
+                });
+                if let Some(action_id) = sidecar
+                    .as_ref()
+                    .and_then(|sidecar| sidecar.action_id.as_deref())
+                {
+                    if !sidecar_action_ids.insert(action_id.to_string()) {
+                        return Err(format!(
+                            "Duplicate runtimeInteraction sidecar actionId: {action_id}"
+                        ));
+                    }
+                }
+
+                let title = declared.title.as_ref().map(|title| match title {
+                    AppRuntimeInteractionText::Plain(value) => {
+                        HostAdapterCoreInteractionText::Plain(value.clone())
+                    }
+                    AppRuntimeInteractionText::Localized(values) => {
+                        HostAdapterCoreInteractionText::Localized(
+                            values.clone().into_iter().collect(),
+                        )
+                    }
+                });
+                tabs.push(ProductAppRuntimeInteractionTab {
+                    id: id.to_string(),
+                    tab_type: declared.tab_type.clone(),
+                    route: Some(route.to_string()),
+                    title,
+                    title_key: declared.title_key.clone(),
+                    default: declared.default,
+                    developer_only: declared.developer_only,
+                    sidecar,
+                    data: declared.data.clone(),
+                });
+            }
+
+            Ok(ProductAppRuntimeInteraction {
+                mode: ProductAppRuntimeInteractionMode::Composite,
+                profile: Some("product-app-runtime".to_string()),
+                chat: build_product_app_runtime_chat(product_app_surface, components),
+                tabs,
+            })
+        }
         Some(AppSurfaceMode::ChatPrimary)
         | Some(AppSurfaceMode::ImmersivePrimary)
         | Some(AppSurfaceMode::EmbeddedObject)
-        | None => ProductAppRuntimeInteraction {
+        | None => Ok(ProductAppRuntimeInteraction {
             mode: ProductAppRuntimeInteractionMode::Standalone,
             profile: Some("product-app-runtime".to_string()),
             chat: None,
             tabs: Vec::new(),
-        },
+        }),
     }
 }
 
 fn build_product_app_runtime_chat(
     product_app_surface: &ComponentDefinition,
+    components: &[ComponentDefinition],
 ) -> Option<ProductAppRuntimeInteractionChat> {
     let dependency = product_app_surface
         .dependencies
         .iter()
         .find(|dependency| dependency.kind == ComponentKind::Agent)?;
+    let backend_agent_type = components
+        .iter()
+        .find(|component| {
+            component.kind == ComponentKind::Agent && component.id == dependency.component_id
+        })
+        .and_then(|component| component.implementation_ref.as_deref())
+        .and_then(|implementation_ref| implementation_ref.strip_prefix("agent://"))
+        .map(str::trim)
+        .filter(|agent_type| !agent_type.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| dependency.component_id.clone());
+    let agent_type = if matches!(
+        get_agent_registry().get_agent_category(&backend_agent_type, None),
+        Some(AgentCategory::Hidden)
+    ) {
+        "Runno".to_string()
+    } else {
+        backend_agent_type.clone()
+    };
     Some(ProductAppRuntimeInteractionChat {
         backend_id: Some(backend_binding_id(dependency)),
         agent_component_id: Some(dependency.component_id.clone()),
+        agent_type: Some(agent_type),
+        backend_agent_type: Some(backend_agent_type),
         session_policy: Some(ProductAppRuntimeBackendSessionPolicy::PerEntity),
         memory_scope: Some(ProductAppRuntimeBackendMemoryScope::AppInstance),
         initial_prompt_key: None,
@@ -2143,6 +2281,8 @@ fn host_adapter_interaction_chat_from_product_app_runtime(
     HostAdapterCoreInteractionChat {
         backend_id: chat.backend_id,
         agent_component_id: chat.agent_component_id,
+        agent_type: chat.agent_type,
+        backend_agent_type: chat.backend_agent_type,
         session_policy: chat
             .session_policy
             .map(host_adapter_backend_session_policy_from_product_app_runtime),
@@ -2161,10 +2301,11 @@ fn host_adapter_interaction_tab_from_product_app_runtime(
         id: tab.id,
         tab_type: tab.tab_type,
         route: tab.route,
-        title: None,
+        title: tab.title,
         title_key: tab.title_key,
         default: tab.default,
         developer_only: tab.developer_only,
+        sidecar: tab.sidecar,
         data: tab.data,
     }
 }
@@ -2189,7 +2330,9 @@ mod tests {
     use super::*;
     use sparo_core::app_platform::{
         AppCatalogVisibility, AppDataLifecyclePolicy, AppIconSpec, AppInstallScope,
-        AppInteractionModel, AppPermissionSummary, AppSurfaceMode, AppTruthSource,
+        AppInteractionModel, AppPermissionSummary, AppRuntimeInteraction,
+        AppRuntimeInteractionSidecar, AppRuntimeInteractionTab, AppRuntimeInteractionText,
+        AppRuntimeSidecarIcon, AppRuntimeSidecarTargetGroup, AppSurfaceMode, AppTruthSource,
         AppWorkMultiplicity, CapabilityRef, ComponentLock, ComponentOwnerApp,
         ComponentPackageSource, ComponentSource, ComponentVisibility, ProductAppCatalogEntry,
         SurfaceRef,
@@ -2202,6 +2345,7 @@ mod tests {
             app_id: "sample-app".to_string(),
             release_id: "release-sample-4".to_string(),
             config_revision: "config-2".to_string(),
+            data_schema_version: "1".to_string(),
             runtime_instance_id: None,
             product_app_surface_id: None,
             surface_id: None,
@@ -2240,6 +2384,7 @@ mod tests {
             authors: Vec::new(),
             i18n: Default::default(),
             interaction_model: AppInteractionModel::InteractiveWorkspace,
+            runtime_interaction: None,
             work_multiplicity: AppWorkMultiplicity::Multiple,
             work_object_kinds: Vec::new(),
             data_lifecycle: Some(AppDataLifecyclePolicy::default()),
@@ -2481,7 +2626,12 @@ mod tests {
     fn sidecar_product_apps_use_composite_runtime_interaction() {
         let mut app = test_app();
         app.truth_source = Some(AppTruthSource::RuntimeFact);
-        let interaction = build_product_app_runtime_interaction(&app, &test_surface());
+        let interaction = build_product_app_runtime_interaction(
+            &app,
+            &test_surface(),
+            &[test_surface(), test_agent_component()],
+        )
+        .expect("runtime interaction");
 
         assert_eq!(
             interaction.mode,
@@ -2502,7 +2652,90 @@ mod tests {
                 .and_then(|chat| chat.agent_component_id.as_deref()),
             Some("sample-agent")
         );
+        assert_eq!(
+            interaction
+                .chat
+                .as_ref()
+                .and_then(|chat| chat.agent_type.as_deref()),
+            Some("Runno")
+        );
+        assert_eq!(
+            interaction
+                .chat
+                .as_ref()
+                .and_then(|chat| chat.backend_agent_type.as_deref()),
+            Some("Runno")
+        );
         assert_eq!(interaction.tabs.len(), 1);
         assert_eq!(interaction.tabs[0].route.as_deref(), Some("/preview"));
+    }
+
+    #[test]
+    fn app_declared_manuscript_tab_is_appended_with_explicit_sidecar_metadata() {
+        let mut app = test_app();
+        app.runtime_interaction = Some(AppRuntimeInteraction {
+            tabs: vec![AppRuntimeInteractionTab {
+                id: "manuscript".to_string(),
+                tab_type: "product-app-runtime".to_string(),
+                title: Some(AppRuntimeInteractionText::Localized(
+                    [
+                        ("zh-CN".to_string(), "文本稿".to_string()),
+                        ("en-US".to_string(), "Manuscript".to_string()),
+                    ]
+                    .into_iter()
+                    .collect(),
+                )),
+                title_key: None,
+                route: Some("/manuscript".to_string()),
+                default: false,
+                developer_only: false,
+                sidecar: Some(AppRuntimeInteractionSidecar {
+                    action_id: Some("ppt-manuscript".to_string()),
+                    icon: Some(AppRuntimeSidecarIcon::FileText),
+                    order: Some(10),
+                    availability: None,
+                    target_group: Some(AppRuntimeSidecarTargetGroup::Primary),
+                }),
+                data: serde_json::json!({
+                    "documentId": "manuscript",
+                    "viewMode": "edit-preview"
+                }),
+            }],
+        });
+
+        let interaction = build_product_app_runtime_interaction(
+            &app,
+            &test_surface(),
+            &[test_surface(), test_agent_component()],
+        )
+        .expect("declared interaction tabs");
+
+        assert_eq!(interaction.tabs.len(), 2);
+        assert!(interaction.tabs[0].default);
+        let manuscript = &interaction.tabs[1];
+        assert_eq!(manuscript.id, "manuscript");
+        assert_eq!(manuscript.route.as_deref(), Some("/manuscript"));
+        assert!(!manuscript.default);
+        let sidecar = manuscript.sidecar.as_ref().expect("sidecar metadata");
+        assert_eq!(sidecar.action_id.as_deref(), Some("ppt-manuscript"));
+        assert_eq!(sidecar.icon.as_deref(), Some("file-text"));
+        assert_eq!(sidecar.target_group.as_deref(), Some("primary"));
+    }
+
+    #[test]
+    fn hidden_backend_agent_is_not_used_as_the_visible_chat_shell() {
+        let mut hidden_agent = test_agent_component();
+        hidden_agent.implementation_ref = Some("agent://PptLiveAgent".to_string());
+
+        let interaction = build_product_app_runtime_interaction(
+            &test_app(),
+            &test_surface(),
+            &[test_surface(), hidden_agent],
+        )
+        .expect("runtime interaction");
+        let chat = interaction.chat.expect("chat binding");
+
+        assert_eq!(chat.agent_type.as_deref(), Some("Runno"));
+        assert_eq!(chat.backend_agent_type.as_deref(), Some("PptLiveAgent"));
     }
 }

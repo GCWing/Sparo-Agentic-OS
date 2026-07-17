@@ -2,16 +2,17 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useTranslation } from 'react-i18next';
 import { aiExperienceConfigService, type AIExperienceSettings } from '../services/AIExperienceConfigService';
+import { useAIExperienceSettings } from '../hooks';
 import { configManager } from '../services/ConfigManager';
 import { getCompactModelDisplayName } from '../services/modelConfigs';
+import {
+  getDebugSettingId,
+  mergeDebugSettingsProjection,
+} from '../services/DebugSettingsProjection';
 import { systemAPI } from '@/infrastructure/api/service-api/SystemAPI';
 import { notificationService } from '@/shared/notification-system';
 import type { AIModelConfig, DebugModeConfig, DefaultModels, LanguageDebugTemplate } from '../types';
-import {
-  DEFAULT_DEBUG_MODE_CONFIG,
-  ALL_LANGUAGES,
-  DEFAULT_LANGUAGE_TEMPLATES,
-} from '../types';
+import { ALL_LANGUAGES } from '../types';
 import { createLogger } from '@/shared/utils/logger';
 
 const log = createLogger('SessionSettingsConfig');
@@ -19,7 +20,7 @@ const log = createLogger('SessionSettingsConfig');
 export const IS_TAURI_DESKTOP = typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || '__TAURI__' in window);
 export const AGENT_SESSION_TITLE = 'session-title-func-agent';
 export const AGENT_DAILY_LETTER = 'DailyLetterWriter';
-const BITFUN_CODER_DEBUG_CONFIG_PATH = 'product_apps.apps.builtin-bitfun-coder.debug';
+const BITFUN_CODER_DEBUG_SETTING_NAMESPACE = 'core.product_apps.bitfun_coder.debug';
 const DEFAULT_GOAL_MAX_CONTINUATION_TURNS = 100;
 const MIN_GOAL_MAX_CONTINUATION_TURNS = 1;
 const MAX_GOAL_MAX_CONTINUATION_TURNS = 1000;
@@ -40,24 +41,48 @@ type BrowserControlLaunchResponse = {
 
 type UseSessionSettingsConfigOptions = {
   loadDesktopStatus?: boolean;
+  snapshotRevision?: number | null;
+  onDebugDirtySettingIdsChange?: (settingIds: readonly string[]) => void;
 };
 
-async function loadBitFunCoderDebugConfig(): Promise<DebugModeConfig | null> {
-  return configManager
-    .getConfig<DebugModeConfig>(BITFUN_CODER_DEBUG_CONFIG_PATH)
-    .catch(() => null);
+async function loadBitFunCoderDebugConfig(): Promise<DebugModeConfig> {
+  const config = await configManager.getSetting<DebugModeConfig | undefined>(
+    BITFUN_CODER_DEBUG_SETTING_NAMESPACE,
+  );
+  if (
+    !config
+    || typeof config.log_path !== 'string'
+    || typeof config.ingest_port !== 'number'
+    || !Array.isArray(config.enabled_languages)
+    || config.language_templates === null
+    || typeof config.language_templates !== 'object'
+    || Array.isArray(config.language_templates)
+  ) {
+    throw new Error('BitFun Coder debug settings are missing from the Catalog projection');
+  }
+  return config;
 }
 
 export function useSessionSettingsConfig(options: UseSessionSettingsConfigOptions = {}) {
-  const { loadDesktopStatus = true } = options;
+  const {
+    loadDesktopStatus = true,
+    snapshotRevision,
+    onDebugDirtySettingIdsChange,
+  } = options;
   const { t } = useTranslation('settings/personalization');
   const { t: tTools } = useTranslation('settings/agentic-tools');
   const { t: tDebug } = useTranslation('settings/debug');
   const { t: tPermissions } = useTranslation('settings/permissions');
   const isMountedRef = useRef(true);
+  const onDebugDirtySettingIdsChangeRef = useRef(onDebugDirtySettingIdsChange);
+  const lastDebugSnapshotRevisionRef = useRef(snapshotRevision);
+  const {
+    settings,
+    isLoading: settingsLoading,
+    error: settingsError,
+  } = useAIExperienceSettings();
 
   const [isLoading, setIsLoading] = useState(true);
-  const [settings, setSettings] = useState<AIExperienceSettings | null>(null);
   const [models, setModels] = useState<AIModelConfig[]>([]);
   const [defaultModels, setDefaultModels] = useState<DefaultModels>({ primary: null, fast: null });
   const [agentModels, setAgentModels] = useState<Record<string, string>>({});
@@ -81,11 +106,37 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
   const [browserRestartPrompt, setBrowserRestartPrompt] = useState<BrowserControlLaunchResponse | null>(null);
   const [platform, setPlatform] = useState<string>('');
 
-  const [debugConfig, setDebugConfig] = useState<DebugModeConfig>(DEFAULT_DEBUG_MODE_CONFIG);
-  const [debugHasChanges, setDebugHasChanges] = useState(false);
+  const [debugConfig, setDebugConfig] = useState<DebugModeConfig | null>(null);
+  const [debugConfigLoading, setDebugConfigLoading] = useState(true);
+  const [debugConfigError, setDebugConfigError] = useState<Error | null>(null);
+  const [debugDirtySettingIds, setDebugDirtySettingIds] = useState<ReadonlySet<string>>(new Set());
+  const debugDirtySettingIdsRef = useRef<ReadonlySet<string>>(new Set());
   const [debugSaving, setDebugSaving] = useState(false);
   const [expandedTemplates, setExpandedTemplates] = useState<Set<string>>(new Set());
   const [isTemplatesModalOpen, setIsTemplatesModalOpen] = useState(false);
+
+  useEffect(() => {
+    onDebugDirtySettingIdsChangeRef.current = onDebugDirtySettingIdsChange;
+  }, [onDebugDirtySettingIdsChange]);
+
+  useEffect(() => {
+    onDebugDirtySettingIdsChangeRef.current?.([...debugDirtySettingIds]);
+  }, [debugDirtySettingIds]);
+
+  useEffect(() => () => onDebugDirtySettingIdsChangeRef.current?.([]), []);
+
+  const replaceDebugDirtySettingIds = useCallback((next: ReadonlySet<string>) => {
+    debugDirtySettingIdsRef.current = next;
+    setDebugDirtySettingIds(next);
+  }, []);
+
+  const markDebugFieldsDirty = useCallback((fields: readonly (keyof DebugModeConfig)[]) => {
+    const next = new Set(debugDirtySettingIdsRef.current);
+    for (const field of fields) {
+      next.add(getDebugSettingId(field));
+    }
+    replaceDebugDirtySettingIds(next);
+  }, [replaceDebugDirtySettingIds]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -131,11 +182,55 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
     }
   }, []);
 
+  const loadDebugConfig = useCallback(async (): Promise<DebugModeConfig | null> => {
+    setDebugConfigLoading(true);
+    setDebugConfigError(null);
+    try {
+      const nextConfig = await loadBitFunCoderDebugConfig();
+      if (!isMountedRef.current) return null;
+      setDebugConfig(nextConfig);
+      replaceDebugDirtySettingIds(new Set());
+      return nextConfig;
+    } catch (error) {
+      log.error('Failed to load BitFun Coder debug config', { error });
+      if (!isMountedRef.current) return null;
+      setDebugConfig(null);
+      setDebugConfigError(error instanceof Error ? error : new Error(String(error)));
+      return null;
+    } finally {
+      if (isMountedRef.current) setDebugConfigLoading(false);
+    }
+  }, [replaceDebugDirtySettingIds]);
+
+  useEffect(() => {
+    if (
+      snapshotRevision === null
+      || snapshotRevision === undefined
+      || snapshotRevision === lastDebugSnapshotRevisionRef.current
+    ) {
+      return;
+    }
+    lastDebugSnapshotRevisionRef.current = snapshotRevision;
+    let cancelled = false;
+    void loadBitFunCoderDebugConfig().then((committed) => {
+      if (cancelled || !isMountedRef.current) {
+        return;
+      }
+      setDebugConfig((current) => current
+        ? mergeDebugSettingsProjection(current, committed, debugDirtySettingIdsRef.current)
+        : committed);
+    }).catch((error) => {
+      log.error('Failed to reconcile committed BitFun Coder debug config', { error });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [snapshotRevision]);
+
   const loadAllData = useCallback(async () => {
     setIsLoading(true);
     try {
       const [
-        loadedSettings,
         allModels,
         defaultModelsData,
         agentModelsData,
@@ -144,24 +239,20 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
         execTimeout,
         confirmTimeout,
         goalMaxContinuationTurnsConfig,
-        debugConfigData,
         computerUseCfg,
       ] = await Promise.all([
-        aiExperienceConfigService.getSettingsAsync(),
-        configManager.getConfig<AIModelConfig[]>('ai.models') || [],
-        configManager.getConfig<Partial<DefaultModels>>('ai.default_models') || {},
-        configManager.getConfig<Record<string, string>>('ai.agent_models') || {},
-        configManager.getConfig<Record<string, string>>('ai.func_agent_models') || {},
-        configManager.getConfig<boolean>('ai.skip_tool_confirmation'),
-        configManager.getConfig<number | null>('ai.tool_execution_timeout_secs'),
-        configManager.getConfig<number | null>('ai.tool_confirmation_timeout_secs'),
-        configManager.getConfig<number | null>('ai.goal_mode.max_continuation_turns'),
-        loadBitFunCoderDebugConfig(),
-        configManager.getConfig<boolean>('ai.computer_use_enabled'),
+        configManager.getSetting<AIModelConfig[]>('core.ai.models') || [],
+        configManager.getSetting<Partial<DefaultModels>>('core.ai.default_models') || {},
+        configManager.getSetting<Record<string, string>>('core.ai.agent_models') || {},
+        configManager.getSetting<Record<string, string>>('core.ai.func_agent_models') || {},
+        configManager.getSetting<boolean>('core.ai.skip_tool_confirmation'),
+        configManager.getSetting<number | null>('core.ai.tool_execution_timeout_secs'),
+        configManager.getSetting<number | null>('core.ai.tool_confirmation_timeout_secs'),
+        configManager.getSetting<number | null>('core.ai.goal_mode.max_continuation_turns'),
+        configManager.getSetting<boolean>('core.ai.computer_use_enabled'),
       ]);
 
       if (!isMountedRef.current) return;
-      setSettings(loadedSettings);
       setModels(allModels as AIModelConfig[]);
       setDefaultModels({
         primary: defaultModelsData?.primary || null,
@@ -173,7 +264,6 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
       setExecutionTimeout(execTimeout != null ? String(execTimeout) : '');
       setConfirmationTimeout(confirmTimeout != null ? String(confirmTimeout) : '');
       setGoalMaxContinuationTurns(goalMaxContinuationTurnsConfig ?? DEFAULT_GOAL_MAX_CONTINUATION_TURNS);
-      if (debugConfigData) setDebugConfig(debugConfigData);
 
       if (IS_TAURI_DESKTOP && loadDesktopStatus) {
         void (async () => {
@@ -194,31 +284,30 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
       }
     } catch (error) {
       log.error('Failed to load session settings data', error);
-      const fallbackSettings = await aiExperienceConfigService.getSettingsAsync();
-      if (isMountedRef.current) setSettings(fallbackSettings);
     } finally {
       if (isMountedRef.current) setIsLoading(false);
     }
   }, [loadDesktopStatus, refreshBrowserControlStatus, refreshComputerUseStatus]);
 
   useEffect(() => {
-    loadAllData();
-  }, [loadAllData]);
+    void loadAllData();
+    void loadDebugConfig();
+  }, [loadAllData, loadDebugConfig]);
 
   const updateSetting = async <K extends keyof AIExperienceSettings>(
     key: K,
     value: AIExperienceSettings[K]
   ) => {
-    if (!settings) return;
+    if (!settings) {
+      throw settingsError ?? new Error('AI experience settings are unavailable');
+    }
     const newSettings = { ...settings, [key]: value };
-    setSettings(newSettings);
     try {
       await aiExperienceConfigService.saveSettings(newSettings);
       notificationService.success(t('messages.saveSuccess'), { duration: 2000 });
     } catch (error) {
       log.error('Failed to save personalization settings', error);
       notificationService.error(t('messages.saveFailed'));
-      setSettings(settings);
     }
   };
 
@@ -230,9 +319,9 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
 
   const handleAgentModelChange = async (agentKey: string, featureTitleKey: string, modelId: string) => {
     try {
-      const current = await configManager.getConfig<Record<string, string>>('ai.func_agent_models') || {};
+      const current = await configManager.getSetting<Record<string, string>>('core.ai.func_agent_models') || {};
       const updated = { ...current, [agentKey]: modelId };
-      await configManager.setConfig('ai.func_agent_models', updated);
+      await configManager.setSetting('core.ai.func_agent_models', updated);
       setFuncAgentModels(updated);
 
       let modelDesc = '';
@@ -256,9 +345,9 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
 
   const handleBuiltinAgentModelChange = async (agentKey: string, featureTitleKey: string, modelId: string) => {
     try {
-      const current = await configManager.getConfig<Record<string, string>>('ai.agent_models') || {};
+      const current = await configManager.getSetting<Record<string, string>>('core.ai.agent_models') || {};
       const updated = { ...current, [agentKey]: modelId };
-      await configManager.setConfig('ai.agent_models', updated);
+      await configManager.setSetting('core.ai.agent_models', updated);
       setAgentModels(updated);
 
       let modelDesc = '';
@@ -284,13 +373,11 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
     setSkipToolConfirmation(checked);
     setToolExecConfigLoading(true);
     try {
-      await configManager.setConfig('ai.skip_tool_confirmation', checked);
+      await configManager.setSetting('core.ai.skip_tool_confirmation', checked);
       notificationService.success(
         checked ? tTools('messages.autoExecuteEnabled') : tTools('messages.autoExecuteDisabled'),
         { duration: 2000 }
       );
-      const { globalEventBus } = await import('@/infrastructure/event-bus');
-      globalEventBus.emit('agent:config:updated');
     } catch (error) {
       log.error('Failed to save skip_tool_confirmation', error);
       notificationService.error(
@@ -306,9 +393,7 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
     setComputerUseBusy(true);
     setComputerUseEnabled(checked);
     try {
-      await configManager.setConfig('ai.computer_use_enabled', checked);
-      const { globalEventBus } = await import('@/infrastructure/event-bus');
-      globalEventBus.emit('agent:config:updated');
+      await configManager.setSetting('core.ai.computer_use_enabled', checked);
       notificationService.success(t('messages.saveSuccess'), { duration: 2000 });
       await refreshComputerUseStatus();
     } catch (error) {
@@ -398,8 +483,8 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
   };
 
   const handleToolTimeoutChange = async (type: 'execution' | 'confirmation', value: string) => {
-    const configKey =
-      type === 'execution' ? 'ai.tool_execution_timeout_secs' : 'ai.tool_confirmation_timeout_secs';
+    const settingId =
+      type === 'execution' ? 'core.ai.tool_execution_timeout_secs' : 'core.ai.tool_confirmation_timeout_secs';
     const trimmedValue = value.trim();
     if (trimmedValue !== '') {
       const numValue = parseInt(trimmedValue, 10);
@@ -409,7 +494,7 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
     else setConfirmationTimeout(trimmedValue);
     const numValue = trimmedValue === '' ? null : parseInt(trimmedValue, 10);
     try {
-      await configManager.setConfig(configKey, numValue);
+      await configManager.setSetting(settingId, numValue);
     } catch (error) {
       log.error('Failed to save tool timeout config', { type, error });
       notificationService.error(tTools('messages.saveFailed'));
@@ -424,9 +509,7 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
     setGoalMaxContinuationTurns(nextValue);
     setToolExecConfigLoading(true);
     try {
-      await configManager.setConfig('ai.goal_mode.max_continuation_turns', nextValue);
-      const { globalEventBus } = await import('@/infrastructure/event-bus');
-      globalEventBus.emit('agent:config:updated');
+      await configManager.setSetting('core.ai.goal_mode.max_continuation_turns', nextValue);
     } catch (error) {
       log.error('Failed to save goal continuation budget config', error);
       notificationService.error(tTools('messages.saveFailed'));
@@ -436,46 +519,49 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
   };
 
   const updateDebugConfig = useCallback((updates: Partial<DebugModeConfig>) => {
-    setDebugConfig(prev => ({ ...prev, ...updates }));
-    setDebugHasChanges(true);
-  }, []);
+    setDebugConfig(prev => prev ? { ...prev, ...updates } : prev);
+    markDebugFieldsDirty(Object.keys(updates) as (keyof DebugModeConfig)[]);
+  }, [markDebugFieldsDirty]);
 
-  const saveDebugConfig = async () => {
+  const saveDebugConfig = async (): Promise<boolean> => {
+    if (!debugConfig) {
+      notificationService.error(tDebug('messages.loadFailed'));
+      return false;
+    }
     try {
       setDebugSaving(true);
-      await configManager.setConfig(BITFUN_CODER_DEBUG_CONFIG_PATH, debugConfig);
-      setDebugHasChanges(false);
+      await configManager.setSetting(BITFUN_CODER_DEBUG_SETTING_NAMESPACE, debugConfig);
+      replaceDebugDirtySettingIds(new Set());
       notificationService.success(tDebug('messages.saveSuccess'), { duration: 2000 });
+      return true;
     } catch (error) {
       log.error('Failed to save debug config', error);
       notificationService.error(tDebug('messages.saveFailed'));
+      return false;
     } finally {
       setDebugSaving(false);
     }
   };
 
-  const cancelDebugChanges = async () => {
-    const data = await loadBitFunCoderDebugConfig();
-    setDebugConfig(data ?? DEFAULT_DEBUG_MODE_CONFIG);
-    setDebugHasChanges(false);
+  const cancelDebugChanges = async (): Promise<boolean> => {
+    return (await loadDebugConfig()) !== null;
   };
 
   const handleModalSave = async () => {
-    await saveDebugConfig();
-    setIsTemplatesModalOpen(false);
+    if (await saveDebugConfig()) setIsTemplatesModalOpen(false);
   };
 
   const handleModalCancel = async () => {
-    await cancelDebugChanges();
-    setIsTemplatesModalOpen(false);
+    if (await cancelDebugChanges()) setIsTemplatesModalOpen(false);
   };
 
   const resetDebugTemplates = async () => {
     try {
-      await configManager.resetConfig(BITFUN_CODER_DEBUG_CONFIG_PATH);
-      const data = await loadBitFunCoderDebugConfig();
-      setDebugConfig(data ?? DEFAULT_DEBUG_MODE_CONFIG);
-      setDebugHasChanges(false);
+      await configManager.resetSetting(BITFUN_CODER_DEBUG_SETTING_NAMESPACE);
+      const nextConfig = await loadDebugConfig();
+      if (!nextConfig) {
+        throw new Error('Failed to reload the reset BitFun Coder debug config');
+      }
       notificationService.success(tDebug('messages.resetSuccess'), { duration: 2000 });
     } catch (error) {
       log.error('Failed to reset debug config', error);
@@ -484,17 +570,18 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
   };
 
   const updateTemplate = useCallback((language: string, updates: Partial<LanguageDebugTemplate>) => {
-    setDebugConfig(prev => ({
+    setDebugConfig(prev => prev ? ({
       ...prev,
       language_templates: {
         ...prev.language_templates,
         [language]: { ...prev.language_templates[language], ...updates },
       },
-    }));
-    setDebugHasChanges(true);
-  }, []);
+    }) : prev);
+    markDebugFieldsDirty(['language_templates']);
+  }, [markDebugFieldsDirty]);
 
   const toggleTemplateEnabled = useCallback(async (language: string, currentEnabled: boolean) => {
+    if (!debugConfig) return;
     const newEnabled = !currentEnabled;
     const newConfig = {
       ...debugConfig,
@@ -505,7 +592,8 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
     };
     setDebugConfig(newConfig);
     try {
-      await configManager.setConfig(BITFUN_CODER_DEBUG_CONFIG_PATH, newConfig);
+      await configManager.setSetting(BITFUN_CODER_DEBUG_SETTING_NAMESPACE, newConfig);
+      replaceDebugDirtySettingIds(new Set());
       const templateName = debugConfig.language_templates[language]?.display_name || language;
       notificationService.success(
         newEnabled
@@ -518,7 +606,7 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
       setDebugConfig(debugConfig);
       notificationService.error(tDebug('messages.saveFailed'));
     }
-  }, [debugConfig, tDebug]);
+  }, [debugConfig, replaceDebugDirtySettingIds, tDebug]);
 
   const toggleTemplateExpand = useCallback((language: string) => {
     setExpandedTemplates(prev => {
@@ -548,17 +636,22 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
   };
 
   const getTemplateEntries = useCallback((): [string, LanguageDebugTemplate][] => {
-    const entries: [string, LanguageDebugTemplate][] = [];
-    for (const lang of ALL_LANGUAGES) {
-      const template = debugConfig.language_templates?.[lang] ?? DEFAULT_LANGUAGE_TEMPLATES[lang];
-      if (template) entries.push([lang, template]);
-    }
-    return entries;
-  }, [debugConfig.language_templates]);
+    if (!debugConfig) return [];
+    const languageOrder = new Map<string, number>(
+      ALL_LANGUAGES.map((language, index) => [language, index]),
+    );
+    return Object.entries(debugConfig.language_templates).sort(([left], [right]) => {
+      const leftOrder = languageOrder.get(left) ?? Number.MAX_SAFE_INTEGER;
+      const rightOrder = languageOrder.get(right) ?? Number.MAX_SAFE_INTEGER;
+      return leftOrder - rightOrder || left.localeCompare(right);
+    });
+  }, [debugConfig]);
 
   return {
     isLoading,
     settings,
+    settingsLoading,
+    settingsError,
     enabledModels: models.filter((m: AIModelConfig) => m.enabled),
     primaryModelName: getModelName(defaultModels.primary) || t('model.notConfigured'),
     fastModelName: getModelName(defaultModels.fast) || t('model.fastUsesPrimary'),
@@ -581,7 +674,9 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
     browserRestartPrompt,
     platform,
     debugConfig,
-    debugHasChanges,
+    debugConfigLoading,
+    debugConfigError,
+    debugHasChanges: debugDirtySettingIds.size > 0,
     debugSaving,
     expandedTemplates,
     isTemplatesModalOpen,
@@ -598,6 +693,7 @@ export function useSessionSettingsConfig(options: UseSessionSettingsConfigOption
     handleBrowserControlRestart,
     handleBrowserControlCreateLauncher,
     setBrowserRestartPrompt,
+    loadDebugConfig,
     handleToolTimeoutChange,
     handleGoalMaxContinuationTurnsChange,
     updateDebugConfig,

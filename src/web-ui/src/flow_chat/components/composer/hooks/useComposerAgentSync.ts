@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import type { Dispatch } from 'react';
-import { globalEventBus } from '@/infrastructure/event-bus';
+import { configManager } from '@/infrastructure/config/services/ConfigManager';
 import { createLogger } from '@/shared/utils/logger';
 import type { AgentAction } from '../../../reducers/agentReducer';
 import type { SessionDescriptor } from '../../../domain/sessionDescriptor';
@@ -10,7 +10,9 @@ const log = createLogger('ComposerAgentSync');
 interface UseComposerAgentSyncParams {
   activeSessionDescriptor?: SessionDescriptor;
   dispatchMode: Dispatch<AgentAction>;
+  explicitTargetSessionId?: string | null;
   effectiveTargetSessionId?: string | null;
+  allowGlobalAgentSync?: boolean;
 }
 
 function persistLastMode(mode: string) {
@@ -24,12 +26,16 @@ function persistLastMode(mode: string) {
 export function useComposerAgentSync({
   activeSessionDescriptor,
   dispatchMode,
+  explicitTargetSessionId,
   effectiveTargetSessionId,
+  allowGlobalAgentSync = true,
 }: UseComposerAgentSyncParams) {
   const activeAgentId = activeSessionDescriptor?.agentPolicy.activeAgentId;
   const activeProfileId = activeSessionDescriptor?.profileId;
 
   useEffect(() => {
+    if (!allowGlobalAgentSync) return;
+
     const fetchAvailableAgents = async () => {
       try {
         const { agentAPI } = await import('@/infrastructure/api/service-api/AgentAPI');
@@ -42,22 +48,23 @@ export function useComposerAgentSync({
 
     fetchAvailableAgents();
 
-    const handleAgentConfigUpdated = () => {
-      fetchAvailableAgents();
-    };
-
-    globalEventBus.on('agent:config:updated', handleAgentConfigUpdated);
-
-    return () => {
-      globalEventBus.off('agent:config:updated', handleAgentConfigUpdated);
-    };
-  }, [dispatchMode]);
+    return configManager.watch('core.ai.agent_capability_configs', () => {
+      void fetchAvailableAgents();
+    });
+  }, [allowGlobalAgentSync, dispatchMode]);
 
   useEffect(() => {
+    if (!allowGlobalAgentSync) return;
+
     const handleSessionSwitched = (event: Event) => {
       const customEvent = event as CustomEvent<{ sessionId: string; descriptor?: SessionDescriptor }>;
       const { sessionId, descriptor } = customEvent.detail || {};
       const agentId = descriptor?.agentPolicy.activeAgentId;
+      const pinnedSessionId = explicitTargetSessionId ?? effectiveTargetSessionId;
+
+      if (pinnedSessionId && sessionId !== pinnedSessionId) {
+        return;
+      }
 
       if (sessionId && agentId) {
         log.debug('Session switched, syncing active agent', { sessionId, agentId });
@@ -71,7 +78,7 @@ export function useComposerAgentSync({
     return () => {
       window.removeEventListener('sparo:session-switched', handleSessionSwitched);
     };
-  }, [dispatchMode]);
+  }, [allowGlobalAgentSync, dispatchMode, effectiveTargetSessionId, explicitTargetSessionId]);
 
   useEffect(() => {
     const nextMode = activeAgentId;
@@ -83,7 +90,15 @@ export function useComposerAgentSync({
         profileId: activeProfileId,
       });
       dispatchMode({ type: 'SET_CURRENT_AGENT', payload: nextMode });
-      persistLastMode(nextMode);
+      if (allowGlobalAgentSync) {
+        persistLastMode(nextMode);
+      }
     }
-  }, [activeAgentId, activeProfileId, dispatchMode, effectiveTargetSessionId]);
+  }, [
+    activeAgentId,
+    activeProfileId,
+    allowGlobalAgentSync,
+    dispatchMode,
+    effectiveTargetSessionId,
+  ]);
 }

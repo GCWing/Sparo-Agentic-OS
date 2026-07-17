@@ -4,7 +4,7 @@
 
 use fluent_bundle::concurrent::FluentBundle as ConcurrentFluentBundle;
 use fluent_bundle::{FluentArgs, FluentResource, FluentValue as FV};
-use log::{debug, info, warn};
+use log::{info, warn};
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock};
 use tokio::sync::RwLock;
@@ -63,32 +63,15 @@ impl I18nService {
         self.load_all_bundles().await?;
 
         if let Some(ref config_service) = self.config_service {
-            // Prefer `app.language` (desktop source of truth), then legacy `i18n.currentLanguage`.
-            let mut resolved: Option<LocaleId> = None;
-            if let Ok(app_lang) = config_service
+            let app_lang = config_service
                 .get_config::<String>(Some("app.language"))
-                .await
-            {
-                resolved = LocaleId::from_str(&app_lang);
-            }
-            if resolved.is_none() {
-                if let Ok(locale) = config_service
-                    .get_config::<LocaleId>(Some("i18n.currentLanguage"))
-                    .await
-                {
-                    resolved = Some(locale);
-                }
-            }
-            match resolved {
-                Some(locale) => {
-                    let mut current = self.current_locale.write().await;
-                    *current = locale;
-                    info!("Loaded locale from config: {}", current.as_str());
-                }
-                None => {
-                    debug!("Locale config not found, using default");
-                }
-            }
+                .await?;
+            let locale = LocaleId::from_str(&app_lang).ok_or_else(|| {
+                CoreError::validation(format!("Unsupported app language: {app_lang}"))
+            })?;
+            let mut current = self.current_locale.write().await;
+            *current = locale;
+            info!("Loaded locale from config: {}", current.as_str());
         }
 
         *initialized = true;
@@ -138,12 +121,6 @@ impl I18nService {
             *current = locale.clone();
             old
         };
-
-        if let Some(ref config_service) = self.config_service {
-            config_service
-                .set_config("i18n.currentLanguage", &locale)
-                .await?;
-        }
 
         info!(
             "Locale changed: {} -> {}",

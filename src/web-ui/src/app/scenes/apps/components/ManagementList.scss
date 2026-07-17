@@ -137,7 +137,7 @@
   text-decoration: none;
 
   &:hover {
-    color: var(--ds-color-accent);
+    color: var(--ds-color-accent-500);
   }
 
   &:focus-visible {
@@ -154,7 +154,7 @@
 }
 
 .management-list__update-button {
-  color: var(--ds-color-accent);
+  color: var(--ds-color-accent-500);
 }
 
 .management-list__view-toggle {
@@ -280,6 +280,157 @@
   width: 100%;
 }
 
+.management-update-dialog__body {
+  overflow: auto;
+}
+
+.management-update-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-5);
+  padding: var(--ds-space-5);
+}
+
+.management-update-dialog__identity {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-3);
+  min-width: 0;
+}
+
+.management-update-dialog__app-icon {
+  display: inline-flex;
+  flex: 0 0 48px;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+}
+
+.management-update-dialog__app-copy {
+  min-width: 0;
+
+  h3,
+  p {
+    margin: 0;
+  }
+
+  h3 {
+    overflow: hidden;
+    color: var(--ds-color-text-primary);
+    font-size: var(--ds-font-size-md);
+    font-weight: var(--ds-font-weight-semibold);
+    line-height: var(--ds-line-height-tight);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  p {
+    display: -webkit-box;
+    margin-top: var(--ds-space-1);
+    overflow: hidden;
+    color: var(--ds-color-text-secondary);
+    font-size: var(--ds-font-size-xs);
+    line-height: var(--ds-line-height-base);
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+}
+
+.management-update-dialog__version-flow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(40px, 0.45fr) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--ds-space-3);
+}
+
+.management-update-dialog__version-point {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--ds-space-1);
+  justify-content: center;
+  padding-block: var(--ds-space-2);
+
+  > span {
+    color: var(--ds-color-text-muted);
+    font-size: var(--ds-font-size-xs);
+  }
+
+  &--available {
+    align-items: flex-end;
+    text-align: end;
+  }
+}
+
+.management-update-dialog__version-transition {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    var(--ds-color-border-base) 0%,
+    var(--ds-color-accent-500) 100%
+  );
+  opacity: 0.72;
+}
+
+.management-update-dialog__version-value {
+  display: block;
+  overflow: hidden;
+  color: var(--ds-color-text-primary);
+  font-size: var(--ds-font-size-lg);
+  font-weight: var(--ds-font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  .is-changed {
+    color: inherit;
+  }
+
+  &--current {
+    color: var(--ds-color-text-secondary);
+
+    .is-changed {
+      color: var(--ds-color-text-muted);
+    }
+  }
+
+  &--available {
+    color: var(--ds-color-text-primary);
+    font-size: var(--ds-font-size-lg);
+    font-weight: var(--ds-font-weight-semibold);
+
+    .is-changed {
+      color: var(--ds-color-accent-500);
+    }
+  }
+}
+
+.management-update-dialog__notes {
+  min-width: 0;
+
+  h4 {
+    margin: 0 0 var(--ds-space-2);
+    color: var(--ds-color-text-primary);
+    font-size: var(--ds-font-size-sm);
+    font-weight: var(--ds-font-weight-semibold);
+  }
+}
+
+.management-update-dialog__notes p {
+  margin: 0;
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-sm);
+  line-height: var(--ds-line-height-relaxed);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.management-update-dialog__impact {
+  width: 100%;
+}
+
 @media (max-width: 640px) {
   .management-list__description {
     display: none;
@@ -287,5 +438,32 @@
 
   .management-list__card-grid {
     grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+  }
+
+  .management-update-dialog {
+    gap: var(--ds-space-4);
+    padding: var(--ds-space-4);
+  }
+
+  .management-update-dialog__version-flow {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+    gap: var(--ds-space-2);
+  }
+
+  .management-update-dialog__version-point--available {
+    align-items: flex-start;
+    text-align: start;
+  }
+
+  .management-update-dialog__version-transition {
+    width: 1px;
+    height: 20px;
+    margin-inline-start: var(--ds-space-2);
+    background: linear-gradient(
+      180deg,
+      var(--ds-color-border-base) 0%,
+      var(--ds-color-accent-500) 100%
+    );
   }
 }

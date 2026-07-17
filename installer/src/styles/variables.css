@@ -10,7 +10,7 @@
   --border: rgba(15, 23, 42, 0.12);
   --hairline-soft: rgba(15, 23, 42, 0.08);
 
-  /* Primary CTA (ink-style fill + contrast fg — not the same as text --ink on dark themes) */
+  /* Primary CTA */
   --ignite-bg: var(--ink);
   --ignite-fg: #ffffff;
   --ignite-hover-bg: var(--graphite);

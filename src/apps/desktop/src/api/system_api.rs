@@ -35,15 +35,14 @@ pub async fn get_system_info() -> Result<SystemInfoResponse, String> {
 pub async fn get_main_window_close_intent() -> Result<MainWindowCloseIntentResponse, String> {
     use sparo_core::service::config::{get_global_config_service, GlobalConfig};
 
-    let close_to_tray = if let Ok(service) = get_global_config_service().await {
-        service
-            .get_config::<GlobalConfig>(None)
-            .await
-            .map(|config| config.app.tray.close_to_tray)
-            .unwrap_or(true)
-    } else {
-        true
-    };
+    let service = get_global_config_service()
+        .await
+        .map_err(|error| error.to_string())?;
+    let close_to_tray = service
+        .get_config::<GlobalConfig>(None)
+        .await
+        .map(|config| config.app.tray.close_to_tray)
+        .map_err(|error| error.to_string())?;
     let will_exit = crate::wants_exit() || !close_to_tray;
 
     Ok(MainWindowCloseIntentResponse {
@@ -171,7 +170,7 @@ pub async fn set_macos_edit_menu_mode(
             .config_service
             .get_config::<String>(Some("app.language"))
             .await
-            .unwrap_or_else(|_| "zh-CN".to_string());
+            .map_err(|error| error.to_string())?;
         let menubar_mode = if state.workspace_path.read().await.is_some() {
             crate::macos_menubar::MenubarMode::Workspace
         } else {

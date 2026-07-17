@@ -10,4 +10,7 @@ pub mod types;
 pub use execution_engine::*;
 pub use round_executor::*;
 pub use stream_processor::*;
-pub use types::{ExecutionContext, ExecutionResult, FinishReason, RoundContext, RoundResult};
+pub use types::{
+    ExecutionContext, ExecutionResult, FinishReason, RoundContext, RoundResult,
+    ToolConfirmationPolicy,
+};

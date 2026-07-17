@@ -122,7 +122,9 @@ pub async fn initialize_agentic(
         SUBSCRIBER_KEY_HOST_AUTO_SCAN.to_string(),
         host_auto_scan_subscriber,
     );
-    host_auto_scan_service.start();
+    host_auto_scan_service
+        .start()
+        .map_err(|e| anyhow::anyhow!("Failed to start host auto scan service: {}", e))?;
 
     let workspace_overview_auto_refresh_service =
         sparo_core::service::WorkspaceOverviewAutoRefreshService::new(coordinator.clone())

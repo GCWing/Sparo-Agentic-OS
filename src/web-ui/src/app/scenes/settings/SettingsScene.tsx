@@ -1,75 +1,115 @@
-/**
- * SettingsScene - self-contained settings page with internal left-right layout.
- *
- * Previous design: SettingsNav was injected into the outer navigation via nav-registry.
- * New design: SettingsNav is embedded directly inside this scene, forming a
- * standalone left-right layout that does not depend on the outer navigation shell.
- *
- * Layout: SettingsNav (220px) beside the active settings content.
- */
-
-import React, { lazy, Suspense } from 'react';
-import { useSettingsStore } from './settingsStore';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Alert, Button } from '@/design-system';
+import {
+  configStartupStatusStore,
+  isConfigReadOnlyRecovery,
+  useConfigStartupStatus,
+} from '@/infrastructure/config';
 import SettingsNav from './SettingsNav';
+import { SettingsAIMode } from './SettingsAIMode';
+import { SettingsManualMode } from './SettingsManualMode';
+import { SettingsModeSwitch } from './SettingsModeSwitch';
+import { SettingsConfirmationHost } from './SettingsConfirmationHost';
+import { useSettingsStore } from './settingsStore';
 import './SettingsScene.scss';
-import AIModelConfig from '../../../infrastructure/config/components/AIModelConfig';
-import AIUsageConfig from '../../../infrastructure/config/components/AIUsageConfig';
-import PersonalizationConfig from '../../../infrastructure/config/components/PersonalizationConfig';
-import VoiceInputConfig from '../../../infrastructure/config/components/VoiceInputConfig';
-import BitFunCoderConfig from '../../../infrastructure/config/components/BitFunCoderConfig';
-import PermissionsConfig from '../../../infrastructure/config/components/PermissionsConfig';
-import MemoryConfig from '../../../infrastructure/config/components/MemoryConfig';
-import EditorConfig from '../../../infrastructure/config/components/EditorConfig';
-import AppearanceConfig from '../../../infrastructure/config/components/AppearanceConfig';
-import BasicsConfig from '../../../infrastructure/config/components/BasicsConfig';
-import DataStorageConfig from '../../../infrastructure/config/components/DataStorageConfig';
 
-const KeyboardShortcutsTab = lazy(() => import('./components/KeyboardShortcutsTab'));
+export default function SettingsScene() {
+  const { t } = useTranslation('settings/config-center');
+  const mode = useSettingsStore((state) => state.mode);
+  const startupStatus = useConfigStartupStatus();
+  const readOnlyRecovery = isConfigReadOnlyRecovery(startupStatus.value);
+  const [rebuilding, setRebuilding] = useState(false);
 
-const SettingsScene: React.FC = () => {
-  const activeTab = useSettingsStore(s => s.activeTab);
-
-  let Content: React.ComponentType | null = null;
-
-  if (activeTab === 'keyboard') {
-    Content = () => (
-      <Suspense fallback={null}>
-        <KeyboardShortcutsTab />
-      </Suspense>
-    );
-  } else {
-    switch (activeTab) {
-      case 'appearance':       Content = AppearanceConfig; break;
-      case 'basics':           Content = BasicsConfig;     break;
-      case 'models':           Content = AIModelConfig;    break;
-      case 'aiUsage':          Content = AIUsageConfig;    break;
-      case 'dataStorage':      Content = DataStorageConfig; break;
-      case 'personalization':  Content = PersonalizationConfig; break;
-      case 'voiceInput':       Content = VoiceInputConfig; break;
-      case 'bitfunCoder':      Content = BitFunCoderConfig; break;
-      case 'permissions':      Content = PermissionsConfig; break;
-      case 'memory':           Content = MemoryConfig; break;
-      case 'editor':           Content = EditorConfig;     break;
+  const rebuildDefaults = async () => {
+    setRebuilding(true);
+    try {
+      await configStartupStatusStore.rebuildDefaults();
+    } catch {
+      // The store records the failure and recovery mode remains active.
+    } finally {
+      setRebuilding(false);
     }
-  }
+  };
 
   return (
-    <div className="sparo-settings-scene">
-      {/* Left: settings navigation (embedded, not injected via nav-registry) */}
-      <div className="sparo-settings-scene__nav">
-        <SettingsNav />
-      </div>
-
-      {/* Right: active settings content */}
-      <div className="sparo-settings-scene__content">
-        {Content && (
-          <div key={activeTab} className="sparo-settings-scene__content-wrapper">
-            <Content />
+    <SettingsConfirmationHost>
+      <div className={`sparo-settings-scene sparo-settings-scene--${mode}`}>
+        {readOnlyRecovery ? (
+          <div className="sparo-settings-scene__recovery">
+            <div className="sparo-settings-scene__recovery-alert">
+              <Alert
+                type="warning"
+                title={t('recovery.title')}
+                message={t('recovery.message')}
+                description={t('recovery.description')}
+              />
+              <Button
+                variant="danger"
+                size="small"
+                isLoading={rebuilding}
+                loadingLabel={t('recovery.rebuilding')}
+                onClick={() => void rebuildDefaults()}
+              >
+                {t('recovery.action')}
+              </Button>
+            </div>
           </div>
-        )}
-      </div>
-    </div>
-  );
-};
+        ) : null}
 
-export default SettingsScene;
+        <div className="sparo-settings-scene__body">
+          <aside className="sparo-settings-scene__nav">
+            <div className="sparo-settings-scene__mode-switch">
+              <SettingsModeSwitch />
+            </div>
+            <div className="sparo-settings-scene__nav-stack">
+              <div
+                ref={(element) => {
+                  element?.toggleAttribute('inert', mode !== 'manual');
+                }}
+                className={[
+                  'sparo-settings-scene__nav-panel',
+                  'sparo-settings-scene__nav-panel--manual',
+                  mode === 'manual' && 'is-active',
+                ].filter(Boolean).join(' ')}
+                aria-hidden={mode !== 'manual'}
+              >
+                <SettingsNav />
+              </div>
+            </div>
+          </aside>
+          <main className="sparo-settings-scene__content">
+            <div className="sparo-settings-scene__content-stack">
+              <section
+                ref={(element) => {
+                  element?.toggleAttribute('inert', mode !== 'manual');
+                }}
+                className={[
+                  'sparo-settings-scene__content-panel',
+                  'sparo-settings-scene__content-panel--manual',
+                  mode === 'manual' && 'is-active',
+                ].filter(Boolean).join(' ')}
+                aria-hidden={mode !== 'manual'}
+              >
+                <SettingsManualMode disabled={readOnlyRecovery} />
+              </section>
+              <section
+                ref={(element) => {
+                  element?.toggleAttribute('inert', mode !== 'ai');
+                }}
+                className={[
+                  'sparo-settings-scene__content-panel',
+                  'sparo-settings-scene__content-panel--ai',
+                  mode === 'ai' && 'is-active',
+                ].filter(Boolean).join(' ')}
+                aria-hidden={mode !== 'ai'}
+              >
+                <SettingsAIMode active={mode === 'ai'} disabled={readOnlyRecovery} />
+              </section>
+            </div>
+          </main>
+        </div>
+      </div>
+    </SettingsConfirmationHost>
+  );
+}

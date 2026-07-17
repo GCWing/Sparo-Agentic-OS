@@ -1732,10 +1732,7 @@ function getModelDisplayName(model: RemoteModelConfig | null): string {
 
 function isReasoningEnabled(model: RemoteModelConfig | null): boolean {
   if (!model) return false;
-  if (model.reasoning_mode) {
-    return model.reasoning_mode === 'enabled' || model.reasoning_mode === 'adaptive';
-  }
-  return !!model.enable_thinking_process;
+  return model.reasoning_mode === 'enabled' || model.reasoning_mode === 'adaptive';
 }
 
 function getSelectedModelInfo(

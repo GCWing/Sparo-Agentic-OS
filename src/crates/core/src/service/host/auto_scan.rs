@@ -4,17 +4,19 @@ use super::state::{
     HostScanTrigger,
 };
 use crate::agentic::coordination::ConversationCoordinator;
-use crate::error::CoreResult;
+use crate::error::{CoreError, CoreResult};
 use crate::service::config::types::AppHostScanConfig;
 use crate::service::config::{
-    get_global_config_service, subscribe_config_updates, ConfigUpdateEvent,
+    get_global_config_service, is_primary_ai_model_configured, register_config_apply_adapter,
+    ConfigApply, ConfigApplyAdapterCriticality, ConfigApplyAdapterRegistration,
+    ConfigApplyPathPattern, CONFIG_APPLY_CONSUMER_HOST_AUTO_SCAN, PRIMARY_AI_MODEL_REQUIRED_REASON,
 };
 use chrono::{Local, TimeZone};
 use log::{debug, error, info, warn};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use tokio::sync::{Mutex, Notify};
 use tokio::time::Duration;
 use uuid::Uuid;
@@ -22,6 +24,7 @@ use uuid::Uuid;
 const INITIAL_EMPTY_OVERVIEW_DELAY_MS: i64 = 5 * 60 * 1_000;
 // const INITIAL_EMPTY_OVERVIEW_DELAY_MS: i64 = 10 * 1_000; // debug purpose
 const AUTO_RETRY_DELAY_MS: i64 = 30 * 60 * 1_000;
+const AI_MODEL_READINESS_RETRY_MS: u64 = 60_000;
 const MAX_AUTO_FAILED_ATTEMPTS_PER_DAY: u32 = 3;
 
 #[derive(Debug, Clone)]
@@ -46,6 +49,7 @@ pub struct HostAutoScanService {
     tracked_turns: Mutex<HashMap<String, TrackedHostScanTurn>>,
     wake_notify: Notify,
     started: AtomicBool,
+    config_apply_registration: OnceLock<ConfigApplyAdapterRegistration>,
 }
 
 impl HostAutoScanService {
@@ -65,12 +69,17 @@ impl HostAutoScanService {
             tracked_turns: Mutex::new(HashMap::new()),
             wake_notify: Notify::new(),
             started: AtomicBool::new(false),
+            config_apply_registration: OnceLock::new(),
         }))
     }
 
-    pub fn start(self: &Arc<Self>) {
+    pub fn start(self: &Arc<Self>) -> CoreResult<()> {
         if self.started.swap(true, Ordering::SeqCst) {
-            return;
+            return Ok(());
+        }
+        if let Err(error) = self.register_config_apply_adapter() {
+            self.started.store(false, Ordering::SeqCst);
+            return Err(error);
         }
 
         info!(
@@ -85,10 +94,7 @@ impl HostAutoScanService {
             service.run_loop().await;
         });
 
-        let service = Arc::clone(self);
-        tokio::spawn(async move {
-            service.run_config_listener().await;
-        });
+        Ok(())
     }
 
     pub async fn run_now(&self) -> CoreResult<HostScanRunSummary> {
@@ -98,6 +104,15 @@ impl HostAutoScanService {
                 trigger: trigger_label(&HostScanTrigger::Manual).to_string(),
                 turn_id: None,
                 reason: Some("A host scan is already active".to_string()),
+            });
+        }
+
+        if !is_primary_ai_model_configured().await {
+            return Ok(HostScanRunSummary {
+                started: false,
+                trigger: trigger_label(&HostScanTrigger::Manual).to_string(),
+                turn_id: None,
+                reason: Some(PRIMARY_AI_MODEL_REQUIRED_REASON.to_string()),
             });
         }
 
@@ -301,31 +316,35 @@ impl HostAutoScanService {
         }
     }
 
-    async fn run_config_listener(self: Arc<Self>) {
-        let Some(mut receiver) = subscribe_config_updates() else {
-            warn!("Config update subscription unavailable for host auto scan service");
-            return;
-        };
+    fn register_config_apply_adapter(self: &Arc<Self>) -> CoreResult<()> {
+        let service = Arc::downgrade(self);
+        let apply: ConfigApply = Arc::new(move |context| {
+            let service = service.clone();
+            Box::pin(async move {
+                let service = service.upgrade().ok_or_else(|| {
+                    CoreError::config("Host auto scan service is no longer available")
+                })?;
+                debug!(
+                    "Applying host auto scan config: commit_id={}, revision={}, change_count={}",
+                    context.commit_id,
+                    context.revision,
+                    context.changes.len()
+                );
+                service.wake_notify.notify_one();
+                Ok(())
+            })
+        });
 
-        loop {
-            match receiver.recv().await {
-                Ok(ConfigUpdateEvent::ConfigReloaded) => {
-                    debug!("Host auto scan service woke up due to config reload");
-                    self.wake_notify.notify_one();
-                }
-                Ok(_) => {}
-                Err(tokio::sync::broadcast::error::RecvError::Closed) => {
-                    warn!("Host auto scan config listener channel closed");
-                    break;
-                }
-                Err(tokio::sync::broadcast::error::RecvError::Lagged(count)) => {
-                    warn!(
-                        "Host auto scan config listener lagged by {} messages",
-                        count
-                    );
-                }
-            }
-        }
+        let registration = register_config_apply_adapter(
+            CONFIG_APPLY_CONSUMER_HOST_AUTO_SCAN,
+            vec![ConfigApplyPathPattern::prefix("app.host_scan")],
+            ConfigApplyAdapterCriticality::NonCritical,
+            None,
+            apply,
+        )?;
+        self.config_apply_registration
+            .set(registration)
+            .map_err(|_| CoreError::config("Host auto scan apply adapter is already installed"))
     }
 
     async fn reconcile_startup_state(&self) -> CoreResult<()> {
@@ -378,9 +397,13 @@ impl HostAutoScanService {
     }
 
     async fn reconcile_and_maybe_start_auto_scan(&self) -> CoreResult<Option<Duration>> {
-        let config = load_host_scan_config().await;
+        let config = load_host_scan_config().await?;
         if !config.auto_scan_enabled {
             return Ok(None);
+        }
+
+        if !is_primary_ai_model_configured().await {
+            return Ok(Some(Duration::from_millis(AI_MODEL_READINESS_RETRY_MS)));
         }
 
         if !self.tracked_turns.lock().await.is_empty() {
@@ -839,15 +862,11 @@ fn now_ms() -> i64 {
     chrono::Utc::now().timestamp_millis()
 }
 
-async fn load_host_scan_config() -> AppHostScanConfig {
-    let Ok(config_service) = get_global_config_service().await else {
-        return AppHostScanConfig::default();
-    };
-
+async fn load_host_scan_config() -> CoreResult<AppHostScanConfig> {
+    let config_service = get_global_config_service().await?;
     config_service
         .get_config::<AppHostScanConfig>(Some("app.host_scan"))
         .await
-        .unwrap_or_default()
 }
 
 fn duration_until_ms(now_ms: i64, target_ms: i64) -> Duration {

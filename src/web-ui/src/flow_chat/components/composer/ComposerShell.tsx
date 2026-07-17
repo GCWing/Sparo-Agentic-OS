@@ -30,10 +30,11 @@ interface ComposerShellProps {
   targetSwitcher: React.ReactNode;
   editorArea: React.ReactNode;
   actions: React.ReactNode;
-  workspaceMeta: string;
-  contextUsageMeta: string;
+  workspaceMeta?: string;
+  contextUsageMeta?: string;
   contextUsagePercent: number;
   contextBudgetSnapshot?: ContextBudgetSnapshot;
+  allowContextInput?: boolean;
   onActivate?: (event: React.MouseEvent) => void;
   onOpenWorkspaceFiles?: () => void;
   onContextAdded: (context: ContextItem) => void;
@@ -113,6 +114,7 @@ export function ComposerShell({
   contextUsageMeta,
   contextUsagePercent,
   contextBudgetSnapshot,
+  allowContextInput = true,
   onActivate,
   onOpenWorkspaceFiles,
   onContextAdded,
@@ -123,7 +125,7 @@ export function ComposerShell({
   const contextRingStyle = {
     '--sparo-chat-input-context-percent': `${contextUsagePercent}%`,
   } as React.CSSProperties;
-  const workspaceMetaLabel = formatWorkspaceMetaLabel(workspaceMeta);
+  const workspaceMetaLabel = workspaceMeta ? formatWorkspaceMetaLabel(workspaceMeta) : '';
   const contextSegments = useMemo(
     () => aggregateSegments(contextBudgetSnapshot?.segments || []),
     [contextBudgetSnapshot?.segments]
@@ -131,9 +133,9 @@ export function ComposerShell({
 
   return (
     <ContextDropZone
-      acceptedTypes={['file', 'directory', 'image', 'code-snippet']}
+      acceptedTypes={allowContextInput ? ['file', 'directory', 'image', 'code-snippet'] : []}
       className="sparo-chat-input-drop-zone"
-      onContextAdded={onContextAdded}
+      onContextAdded={allowContextInput ? onContextAdded : undefined}
     >
       <div
         ref={containerRef}
@@ -246,29 +248,35 @@ export function ComposerShell({
             {editorArea}
             {actions}
           </div>
-          <div className="sparo-chat-input__meta" onClick={event => event.stopPropagation()}>
-            <button
-              type="button"
-              className="sparo-chat-input__meta-workspace"
-              title={workspaceMeta}
-              onClick={onOpenWorkspaceFiles}
-            >
-              {workspaceMetaLabel}
-            </button>
-            <button
-              type="button"
-              className="sparo-chat-input__meta-context"
-              onClick={() => setIsContextDetailsOpen(open => !open)}
-              aria-expanded={isContextDetailsOpen}
-            >
-              <span
-                className="sparo-chat-input__context-ring"
-                style={contextRingStyle}
-                aria-hidden="true"
-              />
-              {contextUsageMeta}
-            </button>
-          </div>
+          {workspaceMeta || contextUsageMeta ? (
+            <div className="sparo-chat-input__meta" onClick={event => event.stopPropagation()}>
+              {workspaceMeta ? (
+                <button
+                  type="button"
+                  className="sparo-chat-input__meta-workspace"
+                  title={workspaceMeta}
+                  onClick={onOpenWorkspaceFiles}
+                >
+                  {workspaceMetaLabel}
+                </button>
+              ) : null}
+              {contextUsageMeta ? (
+                <button
+                  type="button"
+                  className="sparo-chat-input__meta-context"
+                  onClick={() => setIsContextDetailsOpen(open => !open)}
+                  aria-expanded={isContextDetailsOpen}
+                >
+                  <span
+                    className="sparo-chat-input__context-ring"
+                    style={contextRingStyle}
+                    aria-hidden="true"
+                  />
+                  {contextUsageMeta}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </div>
     </ContextDropZone>

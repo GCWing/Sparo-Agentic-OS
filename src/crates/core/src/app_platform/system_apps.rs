@@ -1,9 +1,9 @@
 //! System Intelligent App release seeding.
 //!
 //! Bundled Product Apps are release inputs, never mutable installations. Seeding
-//! resolves each package into an immutable release. Startup may advance an
-//! enabled, untouched official selection to the bundled release, but never
-//! replaces a user fork or re-enables a disabled slot.
+//! resolves each package into an immutable release. Startup initializes an
+//! empty slot from the newest bundled release, but never changes an existing
+//! selection. Newer bundled releases remain available until the user updates.
 
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
@@ -25,7 +25,7 @@ use super::resolver::ProductAppResolver;
 use super::revision_store::{
     ActivateReleaseRequest, AppActivationScope, AppOwner, AppRevisionStore,
     ImportReleaseFromPackageRequest, ReleaseMetadata, ReleaseProvenanceKind, ReleaseRecord,
-    ReleaseRuntimeSpec, SystemReleaseActivationOutcome,
+    ReleaseRuntimeSpec, SystemReleaseInitializationOutcome,
 };
 
 const APP_JSON: &str = "app.json";
@@ -39,7 +39,6 @@ pub struct SystemAppSeedResult {
     pub releases_added: usize,
     pub releases_reused: usize,
     pub activations_created: usize,
-    pub activations_advanced: usize,
     pub activations_preserved: usize,
 }
 
@@ -199,11 +198,10 @@ pub async fn seed_system_app_releases(
 
     let scope = AppActivationScope::System;
     let mut activations_created = 0;
-    let mut activations_advanced = 0;
     let mut activations_preserved = 0;
     for release in newest_by_slot.into_values() {
         let (_, outcome) = revision_store
-            .activate_system_release(ActivateReleaseRequest {
+            .initialize_system_release(ActivateReleaseRequest {
                 scope: scope.clone(),
                 slot_id: release.slot_id,
                 app_id: release.app_id,
@@ -211,9 +209,8 @@ pub async fn seed_system_app_releases(
             })
             .await?;
         match outcome {
-            SystemReleaseActivationOutcome::Created => activations_created += 1,
-            SystemReleaseActivationOutcome::Advanced => activations_advanced += 1,
-            SystemReleaseActivationOutcome::Preserved => activations_preserved += 1,
+            SystemReleaseInitializationOutcome::Created => activations_created += 1,
+            SystemReleaseInitializationOutcome::Preserved => activations_preserved += 1,
         }
     }
 
@@ -223,7 +220,6 @@ pub async fn seed_system_app_releases(
         releases_added,
         releases_reused,
         activations_created,
-        activations_advanced,
         activations_preserved,
     })
 }
@@ -1095,7 +1091,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn system_seed_advances_official_release_but_preserves_user_fork_and_disable() {
+    async fn system_seed_exposes_new_official_release_but_preserves_existing_selection() {
         let temp = TempDir::new().expect("temp dir");
         let path_manager = test_path_manager(&temp);
         let store = AppRevisionStore::open(path_manager.app_root())
@@ -1183,20 +1179,16 @@ mod tests {
         let official_activation = store
             .get_active(&AppActivationScope::System, "runno")
             .await
-            .expect("advanced official activation");
-        assert_ne!(
+            .expect("preserved official activation");
+        assert_eq!(
             official_activation.active_release_id,
             legacy_release.release_id
         );
         assert_eq!(
             official_activation.previous_release_id.as_deref(),
-            Some(legacy_release.release_id.as_str())
+            Some(official_release.release_id.as_str())
         );
-        assert_eq!(first.activations_advanced, 1);
-        assert_eq!(
-            official_activation.active_release_id,
-            official_release.release_id
-        );
+        assert!(first.activations_preserved >= 1);
         let fork = store
             .fork_release(ForkReleaseRequest {
                 source_release_id: official_release.release_id.clone(),
@@ -1252,7 +1244,6 @@ mod tests {
         assert_eq!(selected_fork.active_release_id, fork_release.release_id);
         assert!(selected_fork.enabled);
         assert_eq!(second.releases_added, 0);
-        assert_eq!(second.activations_advanced, 0);
         assert!(second.activations_preserved >= 1);
 
         store
@@ -1268,7 +1259,6 @@ mod tests {
             .expect("preserved activation");
         assert!(!runno.enabled, "seed must preserve user routing decisions");
         assert_eq!(runno.selected_app_id, fork.app.app_id);
-        assert_eq!(third.activations_advanced, 0);
         assert!(third.activations_preserved >= 1);
     }
 }

@@ -4,8 +4,15 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NumberField, Select, Button, ConfirmDialog, Switch } from '@/design-system';
 import { configManager } from '../services/ConfigManager';
+import {
+  getEditorSettingId,
+  mergeEditorSettingsProjection,
+  parseEditorSettingsProjection,
+  type EditorSettingsDraftPath,
+  type EditorSettingsProjection,
+} from '../services/EditorSettingsProjection';
+import type { CustomSettingsProjectionProps } from '../customSettingsProjection';
 import { globalEventBus } from '@/infrastructure/event-bus';
-import { DEFAULT_EDITOR_CONFIG, type EditorConfig as EditorConfigType, type EditorConfigPartial } from '@/tools/editor/config';
 import {
   ConfigPageLayout,
   ConfigPageHeader,
@@ -23,7 +30,7 @@ const log = createLogger('EditorConfig');
 
 const AUTO_SAVE_DELAY = 500;
 
-export type EditorConfigProps = Record<string, never>;
+export type EditorConfigProps = CustomSettingsProjectionProps;
 
 
 const fontFamilyOptions = [
@@ -34,25 +41,6 @@ const fontFamilyOptions = [
 ];
 
 
-
-
-const cursorStyleOptions = [
-  { label: 'line', value: 'line', labelKey: 'appearance.cursorStyles.line' },
-  { label: 'line-thin', value: 'line-thin', labelKey: 'appearance.cursorStyles.lineThin' },
-  { label: 'block', value: 'block', labelKey: 'appearance.cursorStyles.block' },
-  { label: 'block-outline', value: 'block-outline', labelKey: 'appearance.cursorStyles.blockOutline' },
-  { label: 'underline', value: 'underline', labelKey: 'appearance.cursorStyles.underline' },
-  { label: 'underline-thin', value: 'underline-thin', labelKey: 'appearance.cursorStyles.underlineThin' },
-];
-
-
-const cursorBlinkingOptions = [
-  { label: 'blink', value: 'blink', labelKey: 'appearance.cursorBlinkings.blink' },
-  { label: 'smooth', value: 'smooth', labelKey: 'appearance.cursorBlinkings.smooth' },
-  { label: 'phase', value: 'phase', labelKey: 'appearance.cursorBlinkings.phase' },
-  { label: 'expand', value: 'expand', labelKey: 'appearance.cursorBlinkings.expand' },
-  { label: 'solid', value: 'solid', labelKey: 'appearance.cursorBlinkings.solid' },
-];
 
 
 const wordWrapOptions = [
@@ -84,29 +72,11 @@ const minimapSizeOptions = [
 ];
 
 
-const renderWhitespaceOptions = [
-  { label: 'none', value: 'none', labelKey: 'display.whitespaceOptions.none' },
-  { label: 'boundary', value: 'boundary', labelKey: 'display.whitespaceOptions.boundary' },
-  { label: 'selection', value: 'selection', labelKey: 'display.whitespaceOptions.selection' },
-  { label: 'trailing', value: 'trailing', labelKey: 'display.whitespaceOptions.trailing' },
-  { label: 'all', value: 'all', labelKey: 'display.whitespaceOptions.all' },
-];
-
-
-const renderLineHighlightOptions = [
-  { label: 'none', value: 'none', labelKey: 'display.lineHighlightOptions.none' },
-  { label: 'gutter', value: 'gutter', labelKey: 'display.lineHighlightOptions.gutter' },
-  { label: 'line', value: 'line', labelKey: 'display.lineHighlightOptions.line' },
-  { label: 'all', value: 'all', labelKey: 'display.lineHighlightOptions.all' },
-];
-
- 
 function getPrimaryFont(fontFamily: string): string {
   
   const fonts = fontFamily.split(',').map(f => f.trim().replace(/^['"]|['"]$/g, ''));
   
-  const primary = fonts[0] || 'Fira Code';
-  return primary;
+  return fonts[0] ?? '';
 }
 
  
@@ -117,159 +87,115 @@ function buildFontFamily(primaryFont: string): string {
   return fonts.map(f => f.includes(' ') && !f.startsWith("'") ? `'${f}'` : f).join(', ');
 }
 
- 
-function convertToSnakeCase(config: EditorConfigPartial): Record<string, any> {
-  const result: Record<string, any> = {};
-  
-  if (config.fontSize !== undefined) result.font_size = config.fontSize;
-  if (config.fontFamily !== undefined) result.font_family = config.fontFamily;
-  if (config.fontWeight !== undefined) result.font_weight = config.fontWeight;
-  if (config.lineHeight !== undefined) result.line_height = config.lineHeight;
-  if (config.tabSize !== undefined) result.tab_size = config.tabSize;
-  if (config.insertSpaces !== undefined) result.insert_spaces = config.insertSpaces;
-  if (config.wordWrap !== undefined) result.word_wrap = config.wordWrap;
-  if (config.lineNumbers !== undefined) result.line_numbers = config.lineNumbers;
-  if (config.theme !== undefined) result.theme = config.theme;
-  if (config.autoSave !== undefined) result.auto_save = config.autoSave;
-  if (config.autoSaveDelay !== undefined) result.auto_save_delay = config.autoSaveDelay;
-  if (config.formatOnSave !== undefined) result.format_on_save = config.formatOnSave;
-  if (config.formatOnPaste !== undefined) result.format_on_paste = config.formatOnPaste;
-  if (config.trimAutoWhitespace !== undefined) result.trim_auto_whitespace = config.trimAutoWhitespace;
-  if (config.renderWhitespace !== undefined) result.render_whitespace = config.renderWhitespace;
-  if (config.renderLineHighlight !== undefined) result.render_line_highlight = config.renderLineHighlight;
-  if (config.cursorStyle !== undefined) result.cursor_style = config.cursorStyle;
-  if (config.cursorBlinking !== undefined) result.cursor_blinking = config.cursorBlinking;
-  if (config.scrollBeyondLastLine !== undefined) result.scroll_beyond_last_line = config.scrollBeyondLastLine;
-  if (config.smoothScrolling !== undefined) result.smooth_scrolling = config.smoothScrolling;
-  if (config.semanticHighlighting !== undefined) result.semantic_highlighting = config.semanticHighlighting;
-  if (config.bracketPairColorization !== undefined) result.bracket_pair_colorization = config.bracketPairColorization;
-  
-  if (config.minimap) {
-    result.minimap = {
-      enabled: config.minimap.enabled,
-      side: config.minimap.side,
-      size: config.minimap.size,
-    };
-  }
-  
-  return result;
-}
-
- 
-function convertToCamelCase(config: Record<string, any>): EditorConfigPartial {
-  const result: EditorConfigPartial = {};
-  
-  if (config.font_size !== undefined) result.fontSize = config.font_size;
-  if (config.font_family !== undefined) result.fontFamily = config.font_family;
-  if (config.font_weight !== undefined) result.fontWeight = config.font_weight;
-  if (config.line_height !== undefined) result.lineHeight = config.line_height;
-  if (config.tab_size !== undefined) result.tabSize = config.tab_size;
-  if (config.insert_spaces !== undefined) result.insertSpaces = config.insert_spaces;
-  if (config.word_wrap !== undefined) result.wordWrap = config.word_wrap;
-  if (config.line_numbers !== undefined) result.lineNumbers = config.line_numbers;
-  if (config.theme !== undefined) result.theme = config.theme;
-  if (config.auto_save !== undefined) result.autoSave = config.auto_save;
-  if (config.auto_save_delay !== undefined) result.autoSaveDelay = config.auto_save_delay;
-  if (config.format_on_save !== undefined) result.formatOnSave = config.format_on_save;
-  if (config.format_on_paste !== undefined) result.formatOnPaste = config.format_on_paste;
-  if (config.trim_auto_whitespace !== undefined) result.trimAutoWhitespace = config.trim_auto_whitespace;
-  if (config.render_whitespace !== undefined) result.renderWhitespace = config.render_whitespace;
-  if (config.render_line_highlight !== undefined) result.renderLineHighlight = config.render_line_highlight;
-  if (config.cursor_style !== undefined) result.cursorStyle = config.cursor_style;
-  if (config.cursor_blinking !== undefined) result.cursorBlinking = config.cursor_blinking;
-  if (config.scroll_beyond_last_line !== undefined) result.scrollBeyondLastLine = config.scroll_beyond_last_line;
-  if (config.smooth_scrolling !== undefined) result.smoothScrolling = config.smooth_scrolling;
-  if (config.semantic_highlighting !== undefined) result.semanticHighlighting = config.semantic_highlighting;
-  if (config.bracket_pair_colorization !== undefined) result.bracketPairColorization = config.bracket_pair_colorization;
-  
-  if (config.minimap) {
-    result.minimap = {
-      enabled: config.minimap.enabled,
-      side: config.minimap.side,
-      size: config.minimap.size,
-    };
-  }
-  
-  return result;
-}
-
-const EditorConfig: React.FC<EditorConfigProps> = () => {
+const EditorConfig: React.FC<EditorConfigProps> = ({
+  snapshotRevision,
+  onDirtySettingIdsChange,
+}) => {
   const { t } = useTranslation('settings/editor');
+  const { t: tCommon } = useTranslation('common');
   
   
-  const fontWeightOptionsTranslated = [
-    { label: t('appearance.fontWeightNormal'), value: 'normal' },
-    { label: t('appearance.fontWeightBold'), value: 'bold' },
-  ];
-  
-  
-  const cursorStyleOptionsTranslated = cursorStyleOptions.map(o => ({ ...o, label: t(o.labelKey) }));
-  const cursorBlinkingOptionsTranslated = cursorBlinkingOptions.map(o => ({ ...o, label: t(o.labelKey) }));
   const wordWrapOptionsTranslated = wordWrapOptions.map(o => ({ ...o, label: t(o.labelKey) }));
   const lineNumbersOptionsTranslated = lineNumbersOptions.map(o => ({ ...o, label: t(o.labelKey) }));
   const minimapSideOptionsTranslated = minimapSideOptions.map(o => ({ ...o, label: t(o.labelKey) }));
   const minimapSizeOptionsTranslated = minimapSizeOptions.map(o => ({ ...o, label: t(o.labelKey) }));
-  const renderWhitespaceOptionsTranslated = renderWhitespaceOptions.map(o => ({ ...o, label: t(o.labelKey) }));
-  const renderLineHighlightOptionsTranslated = renderLineHighlightOptions.map(o => ({ ...o, label: t(o.labelKey) }));
   
   
-  const [config, setConfig] = useState<EditorConfigType>({ ...DEFAULT_EDITOR_CONFIG });
+  const [config, setConfig] = useState<EditorSettingsProjection | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<Error | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error' | 'warning'; text: string } | null>(null);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   
   
-  const isInitialLoadRef = useRef(true);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const configRef = useRef<EditorConfigType>(config);
-  
-  
+  const pendingSaveConfigRef = useRef<EditorSettingsProjection | null>(null);
+  const saveGenerationRef = useRef(0);
+  const dirtySettingIdsRef = useRef<ReadonlySet<string>>(new Set());
+  const onDirtySettingIdsChangeRef = useRef(onDirtySettingIdsChange);
+  const lastSnapshotRevisionRef = useRef(snapshotRevision);
+  const isMountedRef = useRef(true);
+
   useEffect(() => {
-    configRef.current = config;
-  }, [config]);
+    onDirtySettingIdsChangeRef.current = onDirtySettingIdsChange;
+  }, [onDirtySettingIdsChange]);
+
+  const replaceDirtySettingIds = useCallback((next: ReadonlySet<string>) => {
+    dirtySettingIdsRef.current = next;
+    onDirtySettingIdsChangeRef.current([...next]);
+  }, []);
+
+  const markSettingDirty = useCallback((settingId: string) => {
+    if (dirtySettingIdsRef.current.has(settingId)) {
+      return;
+    }
+    replaceDirtySettingIds(new Set([...dirtySettingIdsRef.current, settingId]));
+  }, [replaceDirtySettingIds]);
+
+  const clearAllDirtySettings = useCallback(() => {
+    if (dirtySettingIdsRef.current.size > 0) {
+      replaceDirtySettingIds(new Set());
+    }
+  }, [replaceDirtySettingIds]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+      onDirtySettingIdsChangeRef.current([]);
+    };
+  }, []);
 
   
-  const loadConfig = useCallback(async () => {
+  const loadConfig = useCallback(async (): Promise<EditorSettingsProjection | null> => {
     try {
       setIsLoading(true);
-      isInitialLoadRef.current = true;
-      const backendConfig = await configManager.getConfig<Record<string, any>>('editor');
-      if (backendConfig) {
-        const camelCaseConfig = convertToCamelCase(backendConfig);
-        setConfig({ ...DEFAULT_EDITOR_CONFIG, ...camelCaseConfig });
-      }
-      
-      setTimeout(() => {
-        isInitialLoadRef.current = false;
-      }, 100);
+      setLoadError(null);
+      setStatusMessage(null);
+      const nextConfig = parseEditorSettingsProjection(
+        await configManager.getSetting<unknown>('core.editor'),
+      );
+      if (!isMountedRef.current) return null;
+      pendingSaveConfigRef.current = null;
+      saveGenerationRef.current += 1;
+      setConfig(nextConfig);
+      clearAllDirtySettings();
+      return nextConfig;
     } catch (error) {
-      log.error('Failed to load config', error);
-      setStatusMessage({ 
-        type: 'error', 
-        text: t('messages.loadFailed') 
-      });
+      log.error('Failed to load editor config', { error });
+      if (!isMountedRef.current) return null;
+      setConfig(null);
+      setLoadError(error instanceof Error ? error : new Error(String(error)));
+      return null;
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) setIsLoading(false);
     }
-  }, [t]);
+  }, [clearAllDirtySettings]);
 
   useEffect(() => {
-    loadConfig();
+    void loadConfig();
   }, [loadConfig]);
 
   
-  const doSave = useCallback(async (configToSave: EditorConfigType) => {
+  const doSave = useCallback(async (
+    configToSave: EditorSettingsProjection,
+    generation: number,
+  ) => {
     try {
       setIsSaving(true);
       setStatusMessage(null);
 
-      
-      const snakeCaseConfig = convertToSnakeCase(configToSave);
-      await configManager.setConfig('editor', snakeCaseConfig);
+      await configManager.setSetting('core.editor', configToSave);
 
-      
-      globalEventBus.emit('editor:config:changed', snakeCaseConfig);
+      globalEventBus.emit('editor:config:changed', configToSave);
+      if (generation === saveGenerationRef.current) {
+        pendingSaveConfigRef.current = null;
+        clearAllDirtySettings();
+      }
 
       setStatusMessage({ 
         type: 'success', 
@@ -285,62 +211,134 @@ const EditorConfig: React.FC<EditorConfigProps> = () => {
         text: `${t('messages.saveFailed')}: ` + (error instanceof Error ? error.message : String(error))
       });
     } finally {
-      setIsSaving(false);
+      if (isMountedRef.current) {
+        setIsSaving(false);
+      }
     }
-  }, [t]);
+  }, [clearAllDirtySettings, t]);
 
-  
-  useEffect(() => {
-    
-    if (isInitialLoadRef.current || isLoading) {
-      return;
-    }
-
-    
+  const scheduleSave = useCallback((nextConfig: EditorSettingsProjection) => {
+    const generation = ++saveGenerationRef.current;
+    pendingSaveConfigRef.current = nextConfig;
     if (autoSaveTimerRef.current) {
       clearTimeout(autoSaveTimerRef.current);
     }
-
-    
     autoSaveTimerRef.current = setTimeout(() => {
-      doSave(configRef.current);
-    }, AUTO_SAVE_DELAY);
-
-    
-    return () => {
-      if (autoSaveTimerRef.current) {
-        clearTimeout(autoSaveTimerRef.current);
+      const pendingConfig = pendingSaveConfigRef.current;
+      if (pendingConfig) {
+        void doSave(pendingConfig, generation);
       }
+    }, AUTO_SAVE_DELAY);
+  }, [doSave]);
+
+  useEffect(() => {
+    if (snapshotRevision === null || snapshotRevision === lastSnapshotRevisionRef.current) {
+      return;
+    }
+    lastSnapshotRevisionRef.current = snapshotRevision;
+    let cancelled = false;
+    void configManager.getSetting<unknown>('core.editor').then((value) => {
+      if (cancelled || !isMountedRef.current) {
+        return;
+      }
+      const committed = parseEditorSettingsProjection(value);
+      setConfig((current) => {
+        if (!current) {
+          return committed;
+        }
+        const merged = mergeEditorSettingsProjection(
+          current,
+          committed,
+          dirtySettingIdsRef.current,
+        );
+        if (dirtySettingIdsRef.current.size > 0) {
+          pendingSaveConfigRef.current = merged;
+        }
+        return merged;
+      });
+    }).catch((error) => {
+      log.error('Failed to reconcile committed editor config', { error });
+    });
+    return () => {
+      cancelled = true;
     };
-  }, [config, isLoading, doSave]);
+  }, [snapshotRevision]);
 
   const resetConfig = useCallback(async () => {
-    setConfig({ ...DEFAULT_EDITOR_CONFIG });
-    setStatusMessage({
-      type: 'warning',
-      text: t('messages.resetDone')
-    });
-  }, [t]);
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+    saveGenerationRef.current += 1;
+    pendingSaveConfigRef.current = null;
+    setResetConfirmOpen(false);
+    setIsSaving(true);
+    setIsLoading(true);
+    setLoadError(null);
+    setStatusMessage(null);
+    let resetApplied = false;
+    try {
+      await configManager.resetSetting('core.editor');
+      resetApplied = true;
+      const nextConfig = parseEditorSettingsProjection(
+        await configManager.getSetting<unknown>('core.editor'),
+      );
+      if (!isMountedRef.current) return;
+      setConfig(nextConfig);
+      globalEventBus.emit('editor:config:changed', nextConfig);
+      clearAllDirtySettings();
+      setStatusMessage({
+        type: 'warning',
+        text: t('messages.resetDone'),
+      });
+    } catch (error) {
+      log.error('Failed to reset editor config', { error });
+      if (!isMountedRef.current) return;
+      if (resetApplied) {
+        setConfig(null);
+        setLoadError(error instanceof Error ? error : new Error(String(error)));
+      } else {
+        setStatusMessage({ type: 'error', text: t('messages.resetFailed') });
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setIsSaving(false);
+        setIsLoading(false);
+      }
+    }
+  }, [clearAllDirtySettings, t]);
 
-  const updateConfig = useCallback(<K extends keyof EditorConfigType>(
+  const updateConfig = useCallback(<K extends Exclude<keyof EditorSettingsProjection, 'minimap'>>(
     key: K,
-    value: EditorConfigType[K]
+    value: EditorSettingsProjection[K]
   ) => {
-    setConfig(prev => ({ ...prev, [key]: value }));
+    if (!config) {
+      return;
+    }
+    const nextConfig = { ...config, [key]: value };
+    setConfig(nextConfig);
+    markSettingDirty(getEditorSettingId(key as EditorSettingsDraftPath));
+    scheduleSave(nextConfig);
     if (statusMessage?.type === 'success') {
       setStatusMessage(null);
     }
-  }, [statusMessage]);
+  }, [config, markSettingDirty, scheduleSave, statusMessage]);
 
-  const updateMinimapConfig = useCallback((key: keyof EditorConfigType['minimap'], value: any) => {
-    setConfig(prev => ({
-      ...prev,
-      minimap: {
-        ...prev.minimap,
-        [key]: value
-      }
-    }));
-  }, []);
+  const updateMinimapConfig = useCallback(<K extends keyof EditorSettingsProjection['minimap']>(
+    key: K,
+    value: EditorSettingsProjection['minimap'][K],
+  ) => {
+    if (!config) {
+      return;
+    }
+    const nextConfig = {
+      ...config,
+      minimap: { ...config.minimap, [key]: value },
+    };
+    setConfig(nextConfig);
+    markSettingDirty(getEditorSettingId(`minimap.${key}` as EditorSettingsDraftPath));
+    scheduleSave(nextConfig);
+  }, [config, markSettingDirty, scheduleSave]);
 
   if (isLoading) {
     return (
@@ -351,6 +349,20 @@ const EditorConfig: React.FC<EditorConfigProps> = () => {
         />
         <ConfigPageContent>
           <ConfigPageLoading text={t('messages.loading')} />
+        </ConfigPageContent>
+      </ConfigPageLayout>
+    );
+  }
+
+  if (loadError || !config) {
+    return (
+      <ConfigPageLayout className="sparo-editor-config">
+        <ConfigPageHeader title={t('title')} description={t('subtitle')} />
+        <ConfigPageContent className="sparo-editor-config__content">
+          <ConfigPageMessage message={{ type: 'error', text: t('messages.loadFailed') }} />
+          <Button variant="secondary" size="small" onClick={() => void loadConfig()}>
+            {tCommon('actions.retry')}
+          </Button>
         </ConfigPageContent>
       </ConfigPageLayout>
     );
@@ -370,25 +382,16 @@ const EditorConfig: React.FC<EditorConfigProps> = () => {
           <ConfigPageRow label={t('appearance.font')} align="center">
             <Select
               options={fontFamilyOptions}
-              value={getPrimaryFont(config.fontFamily)}
-              onChange={(v) => updateConfig('fontFamily', buildFontFamily(v as string))}
+              value={getPrimaryFont(config.font_family)}
+              onChange={(v) => updateConfig('font_family', buildFontFamily(v as string))}
               placeholder={t('appearance.font')}
-              size="small"
-            />
-          </ConfigPageRow>
-          <ConfigPageRow label={t('appearance.fontWeight')} align="center">
-            <Select
-              options={fontWeightOptionsTranslated}
-              value={config.fontWeight}
-              onChange={(v) => updateConfig('fontWeight', v as typeof config.fontWeight)}
-              placeholder={t('appearance.fontWeight')}
               size="small"
             />
           </ConfigPageRow>
           <ConfigPageRow label={t('appearance.fontSize')} align="center">
             <NumberField
-              value={config.fontSize}
-              onChange={(v) => updateConfig('fontSize', v)}
+              value={config.font_size}
+              onChange={(v) => updateConfig('font_size', v)}
               min={10}
               max={32}
               step={1}
@@ -398,28 +401,12 @@ const EditorConfig: React.FC<EditorConfigProps> = () => {
           </ConfigPageRow>
           <ConfigPageRow label={t('appearance.lineHeight')} align="center">
             <NumberField
-              value={config.lineHeight}
-              onChange={(v) => updateConfig('lineHeight', v)}
+              value={config.line_height}
+              onChange={(v) => updateConfig('line_height', v)}
               min={1.0}
               max={3.0}
               step={0.1}
               precision={1}
-              size="small"
-            />
-          </ConfigPageRow>
-          <ConfigPageRow label={t('appearance.cursorStyle')} align="center">
-            <Select
-              options={cursorStyleOptionsTranslated}
-              value={config.cursorStyle}
-              onChange={(v) => updateConfig('cursorStyle', v as typeof config.cursorStyle)}
-              size="small"
-            />
-          </ConfigPageRow>
-          <ConfigPageRow label={t('appearance.cursorBlinking')} align="center">
-            <Select
-              options={cursorBlinkingOptionsTranslated}
-              value={config.cursorBlinking}
-              onChange={(v) => updateConfig('cursorBlinking', v as typeof config.cursorBlinking)}
               size="small"
             />
           </ConfigPageRow>
@@ -430,8 +417,8 @@ const EditorConfig: React.FC<EditorConfigProps> = () => {
         >
           <ConfigPageRow label={t('behavior.tabSize')} align="center">
             <NumberField
-              value={config.tabSize}
-              onChange={(v) => updateConfig('tabSize', v)}
+              value={config.tab_size}
+              onChange={(v) => updateConfig('tab_size', v)}
               min={1}
               max={8}
               size="small"
@@ -439,38 +426,24 @@ const EditorConfig: React.FC<EditorConfigProps> = () => {
           </ConfigPageRow>
           <ConfigPageRow label={t('behavior.insertSpaces')} description={t('behavior.insertSpacesDesc')} align="center">
             <Switch
-              checked={config.insertSpaces}
-              onChange={(e) => updateConfig('insertSpaces', e.target.checked)}
+              checked={config.insert_spaces}
+              onChange={(e) => updateConfig('insert_spaces', e.target.checked)}
               size="small"
             />
           </ConfigPageRow>
           <ConfigPageRow label={t('behavior.wordWrap')} align="center">
             <Select
               options={wordWrapOptionsTranslated}
-              value={config.wordWrap}
-              onChange={(v) => updateConfig('wordWrap', v as typeof config.wordWrap)}
+              value={config.word_wrap}
+              onChange={(v) => updateConfig('word_wrap', v as string)}
               size="small"
             />
           </ConfigPageRow>
           <ConfigPageRow label={t('behavior.lineNumbers')} align="center">
             <Select
               options={lineNumbersOptionsTranslated}
-              value={config.lineNumbers}
-              onChange={(v) => updateConfig('lineNumbers', v as typeof config.lineNumbers)}
-              size="small"
-            />
-          </ConfigPageRow>
-          <ConfigPageRow label={t('behavior.smoothScrolling')} description={t('behavior.smoothScrollingDesc')} align="center">
-            <Switch
-              checked={config.smoothScrolling}
-              onChange={(e) => updateConfig('smoothScrolling', e.target.checked)}
-              size="small"
-            />
-          </ConfigPageRow>
-          <ConfigPageRow label={t('behavior.scrollBeyondLastLine')} description={t('behavior.scrollBeyondLastLineDesc')} align="center">
-            <Switch
-              checked={config.scrollBeyondLastLine}
-              onChange={(e) => updateConfig('scrollBeyondLastLine', e.target.checked)}
+              value={config.line_numbers}
+              onChange={(v) => updateConfig('line_numbers', v as string)}
               size="small"
             />
           </ConfigPageRow>
@@ -506,59 +479,29 @@ const EditorConfig: React.FC<EditorConfigProps> = () => {
               </ConfigPageRow>
             </>
           )}
-          <ConfigPageRow label={t('display.whitespace')} align="center">
-            <Select
-              options={renderWhitespaceOptionsTranslated}
-              value={config.renderWhitespace}
-              onChange={(v) => updateConfig('renderWhitespace', v as typeof config.renderWhitespace)}
-              size="small"
-            />
-          </ConfigPageRow>
-          <ConfigPageRow label={t('display.lineHighlight')} align="center">
-            <Select
-              options={renderLineHighlightOptionsTranslated}
-              value={config.renderLineHighlight}
-              onChange={(v) => updateConfig('renderLineHighlight', v as typeof config.renderLineHighlight)}
-              size="small"
-            />
-          </ConfigPageRow>
         </ConfigPageSection>
 
         <ConfigPageSection
           title={t('sections.advanced.title')}
         >
-          <ConfigPageRow label={t('advanced.semanticHighlighting')} description={t('advanced.semanticHighlightingDesc')} align="center">
-            <Switch
-              checked={config.semanticHighlighting}
-              onChange={(e) => updateConfig('semanticHighlighting', e.target.checked)}
-              size="small"
-            />
-          </ConfigPageRow>
-          <ConfigPageRow label={t('advanced.bracketPairColorization')} description={t('advanced.bracketPairColorizationDesc')} align="center">
-            <Switch
-              checked={config.bracketPairColorization}
-              onChange={(e) => updateConfig('bracketPairColorization', e.target.checked)}
-              size="small"
-            />
-          </ConfigPageRow>
           <ConfigPageRow label={t('advanced.formatOnSave')} description={t('advanced.formatOnSaveDesc')} align="center">
             <Switch
-              checked={config.formatOnSave}
-              onChange={(e) => updateConfig('formatOnSave', e.target.checked)}
+              checked={config.format_on_save}
+              onChange={(e) => updateConfig('format_on_save', e.target.checked)}
               size="small"
             />
           </ConfigPageRow>
           <ConfigPageRow label={t('advanced.formatOnPaste')} description={t('advanced.formatOnPasteDesc')} align="center">
             <Switch
-              checked={config.formatOnPaste}
-              onChange={(e) => updateConfig('formatOnPaste', e.target.checked)}
+              checked={config.format_on_paste}
+              onChange={(e) => updateConfig('format_on_paste', e.target.checked)}
               size="small"
             />
           </ConfigPageRow>
           <ConfigPageRow label={t('advanced.trimAutoWhitespace')} description={t('advanced.trimAutoWhitespaceDesc')} align="center">
             <Switch
-              checked={config.trimAutoWhitespace}
-              onChange={(e) => updateConfig('trimAutoWhitespace', e.target.checked)}
+              checked={config.trim_auto_whitespace}
+              onChange={(e) => updateConfig('trim_auto_whitespace', e.target.checked)}
               size="small"
             />
           </ConfigPageRow>

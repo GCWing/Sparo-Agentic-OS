@@ -55,17 +55,14 @@ impl GoalService {
         self.store.clone()
     }
 
-    async fn configured_goal_budgets(&self) -> GoalBudgets {
+    async fn configured_goal_budgets(&self) -> CoreResult<GoalBudgets> {
         let mut budgets = GoalBudgets::default();
-        if let Ok(config_service) = crate::service::config::get_global_config_service().await {
-            if let Ok(goal_mode_config) = config_service
-                .get_config::<crate::service::config::types::GoalModeConfig>(Some("ai.goal_mode"))
-                .await
-            {
-                budgets.max_continuation_turns = goal_mode_config.max_continuation_turns.max(1);
-            }
-        }
-        budgets
+        let goal_mode_config = crate::service::config::get_global_config_service()
+            .await?
+            .get_config::<crate::service::config::types::GoalModeConfig>(Some("ai.goal_mode"))
+            .await?;
+        budgets.max_continuation_turns = goal_mode_config.max_continuation_turns;
+        Ok(budgets)
     }
 
     pub(super) async fn lock_session(&self, session_id: &str) -> OwnedMutexGuard<()> {
@@ -373,7 +370,7 @@ impl GoalService {
                 interrupted_attempts: 0,
                 updated_at_ms: Some(now),
             },
-            budgets: self.configured_goal_budgets().await,
+            budgets: self.configured_goal_budgets().await?,
             latest_extraction: Some(extraction_summary_from_run(run)),
             latest_judgment: None,
             pending_user_question: None,
@@ -1329,7 +1326,7 @@ impl GoalService {
                 Some(&run.trigger_turn_id),
             )
             .await?;
-        let configured_budgets = self.configured_goal_budgets().await;
+        let configured_budgets = self.configured_goal_budgets().await?;
 
         let mut previous_objective_for_event: Option<String> = None;
         let current_goal = self.store.load_current(workspace_path, session_id).await?;

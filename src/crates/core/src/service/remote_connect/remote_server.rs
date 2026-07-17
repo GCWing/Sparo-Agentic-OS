@@ -142,9 +142,7 @@ pub struct RemoteModelConfig {
     pub context_window: Option<u32>,
     pub enabled: bool,
     pub capabilities: Vec<String>,
-    pub enable_thinking_process: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reasoning_mode: Option<String>,
+    pub reasoning_mode: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reasoning_effort: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -177,26 +175,22 @@ async fn load_remote_model_catalog(
         .map_err(|e| format!("Failed to load global config: {e}"))?;
     let ai_config: AIConfig = global_config.ai;
 
-    let models: Vec<RemoteModelConfig> =
-        ai_config
-            .models
-            .into_iter()
-            .map(|model| {
-                let reasoning_mode = model.effective_reasoning_mode();
-
-                RemoteModelConfig {
-                    id: model.id,
-                    name: model.name,
-                    provider: model.provider,
-                    base_url: model.base_url,
-                    model_name: model.model_name,
-                    context_window: model.context_window,
-                    enabled: model.enabled,
-                    capabilities: model
-                        .capabilities
-                        .into_iter()
-                        .map(|capability| {
-                            match capability {
+    let models: Vec<RemoteModelConfig> = ai_config
+        .models
+        .into_iter()
+        .map(|model| RemoteModelConfig {
+            id: model.id,
+            name: model.name,
+            provider: model.provider,
+            base_url: model.base_url,
+            model_name: model.model_name,
+            context_window: Some(model.context_window),
+            enabled: model.enabled,
+            capabilities: model
+                .capabilities
+                .into_iter()
+                .map(|capability| {
+                    match capability {
                         crate::service::config::types::ModelCapability::TextChat => "text_chat",
                         crate::service::config::types::ModelCapability::ImageUnderstanding => {
                             "image_understanding"
@@ -217,23 +211,19 @@ async fn load_remote_model_catalog(
                         }
                     }
                     .to_string()
-                        })
-                        .collect(),
-                    enable_thinking_process: model.enable_thinking_process,
-                    reasoning_mode: Some(
-                        match reasoning_mode {
-                            crate::service::config::types::ReasoningMode::Default => "default",
-                            crate::service::config::types::ReasoningMode::Enabled => "enabled",
-                            crate::service::config::types::ReasoningMode::Disabled => "disabled",
-                            crate::service::config::types::ReasoningMode::Adaptive => "adaptive",
-                        }
-                        .to_string(),
-                    ),
-                    reasoning_effort: model.reasoning_effort,
-                    thinking_budget_tokens: model.thinking_budget_tokens,
-                }
-            })
-            .collect();
+                })
+                .collect(),
+            reasoning_mode: match model.reasoning_mode {
+                crate::service::config::types::ReasoningMode::Default => "default",
+                crate::service::config::types::ReasoningMode::Enabled => "enabled",
+                crate::service::config::types::ReasoningMode::Disabled => "disabled",
+                crate::service::config::types::ReasoningMode::Adaptive => "adaptive",
+            }
+            .to_string(),
+            reasoning_effort: model.reasoning_effort,
+            thinking_budget_tokens: model.thinking_budget_tokens,
+        })
+        .collect();
 
     let session_model_id = if let Some(session_id) = session_id {
         resolve_session_model_id(session_id).await
@@ -2100,7 +2090,10 @@ impl RemoteServer {
 
         let tracker = self.ensure_tracker(session_id);
         let current_version = tracker.version();
-        let current_model_catalog = load_remote_model_catalog(Some(session_id)).await.ok();
+        let current_model_catalog = match load_remote_model_catalog(Some(session_id)).await {
+            Ok(catalog) => Some(catalog),
+            Err(message) => return RemoteResponse::Error { message },
+        };
         let current_model_catalog_version = current_model_catalog
             .as_ref()
             .map(|catalog| catalog.version)
@@ -2679,39 +2672,31 @@ impl RemoteServer {
                     };
                 }
 
-                let normalized_model_id =
-                    if matches!(requested_model_id, "default" | "primary" | "fast") {
-                        if requested_model_id == "default" {
-                            "primary".to_string()
-                        } else {
-                            requested_model_id.to_string()
-                        }
-                    } else {
-                        let Ok(config_service) = get_global_config_service().await else {
+                let normalized_model_id = if matches!(requested_model_id, "primary" | "fast") {
+                    requested_model_id.to_string()
+                } else {
+                    let Ok(config_service) = get_global_config_service().await else {
+                        return RemoteResponse::Error {
+                            message: "Config service not available".to_string(),
+                        };
+                    };
+                    let ai_config: AIConfig = match config_service.get_config(Some("ai")).await {
+                        Ok(config) => config,
+                        Err(e) => {
                             return RemoteResponse::Error {
-                                message: "Config service not available".to_string(),
-                            };
-                        };
-                        let ai_config: AIConfig = match config_service.get_config(Some("ai")).await
-                        {
-                            Ok(config) => config,
-                            Err(e) => {
-                                return RemoteResponse::Error {
-                                    message: format!("Failed to load AI config: {e}"),
-                                }
-                            }
-                        };
-                        match ai_config.resolve_model_reference(requested_model_id) {
-                            Some(resolved) => resolved,
-                            None => {
-                                return RemoteResponse::Error {
-                                    message: format!(
-                                        "Unknown model selection: {requested_model_id}"
-                                    ),
-                                }
+                                message: format!("Failed to load AI config: {e}"),
                             }
                         }
                     };
+                    match ai_config.resolve_model_reference(requested_model_id) {
+                        Some(resolved) => resolved,
+                        None => {
+                            return RemoteResponse::Error {
+                                message: format!("Unknown model selection: {requested_model_id}"),
+                            }
+                        }
+                    }
+                };
 
                 if coordinator
                     .get_session_manager()
@@ -2738,8 +2723,7 @@ impl RemoteServer {
                 }
 
                 match coordinator
-                    .get_session_manager()
-                    .update_session_model_id(session_id, &normalized_model_id)
+                    .update_session_model(session_id, &normalized_model_id)
                     .await
                 {
                     Ok(()) => RemoteResponse::SessionModelUpdated {

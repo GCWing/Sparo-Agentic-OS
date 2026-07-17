@@ -17,6 +17,7 @@ export interface DialogProps {
   size?: DialogSize;
   placement?: DialogPlacement;
   contentInset?: boolean;
+  showDividers?: boolean;
   contentClassName?: string;
   className?: string;
   overlayClassName?: string;
@@ -100,6 +101,7 @@ export function Dialog({
   size = 'medium',
   placement = 'center',
   contentInset = false,
+  showDividers = true,
   contentClassName,
   className,
   overlayClassName,
@@ -159,6 +161,7 @@ export function Dialog({
           'ds-dialog',
           `ds-dialog--${size}`,
           contentInset && 'ds-dialog--content-inset',
+          !showDividers && 'ds-dialog--without-dividers',
           showCloseButton && 'ds-dialog--with-close',
           className
         )}

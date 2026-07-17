@@ -3,7 +3,7 @@
 //! Executes a single model round: calls AI, processes streaming responses, executes tools
 
 use super::stream_processor::StreamProcessor;
-use super::types::{FinishReason, RoundContext, RoundResult};
+use super::types::{FinishReason, RoundContext, RoundResult, ToolConfirmationPolicy};
 use crate::agentic::core::Message;
 use crate::agentic::events::{AgenticEvent, EventPriority, EventQueue};
 use crate::agentic::tools::computer_use_host::ComputerUseHostRef;
@@ -38,6 +38,17 @@ impl RoundExecutor {
     const MAX_RETRIES_WITHOUT_OUTPUT: usize = 4;
     const RETRY_BASE_DELAY_MS: u64 = 500;
     const RETRY_MAX_DELAY_MS: u64 = 15_000;
+
+    fn should_confirm_permissioned_tool(
+        policy: ToolConfirmationPolicy,
+        global_skip_requested: bool,
+        context_skip_requested: bool,
+        allows_confirmation_bypass: bool,
+    ) -> bool {
+        !allows_confirmation_bypass
+            || matches!(policy, ToolConfirmationPolicy::EnforceForPermissionedTools)
+            || !(global_skip_requested || context_skip_requested)
+    }
 
     pub fn new(
         stream_processor: Arc<StreamProcessor>,
@@ -399,26 +410,14 @@ impl RoundExecutor {
 
             // Read tool execution related configuration from global config
             let (needs_confirmation, tool_execution_timeout, tool_confirmation_timeout) = {
-                let config_service = GlobalConfigManager::get_service().await.ok();
-
-                // Timeout and skip confirmation settings
-                let (exec_timeout, confirm_timeout, skip_confirmation) =
-                    if let Some(ref service) = config_service {
-                        let ai_config: crate::service::config::types::AIConfig =
-                            service.get_config(Some("ai")).await.unwrap_or_default();
-
-                        if ai_config.skip_tool_confirmation {
-                            debug!("Global config skips tool confirmation");
-                        }
-
-                        (
-                            ai_config.tool_execution_timeout_secs,
-                            ai_config.tool_confirmation_timeout_secs,
-                            ai_config.skip_tool_confirmation,
-                        )
-                    } else {
-                        (None, None, false) // Default: no timeout, requires confirmation
-                    };
+                let config_service = GlobalConfigManager::get_service().await?;
+                let ai_config: crate::service::config::types::AIConfig =
+                    config_service.get_config(Some("ai")).await?;
+                let (exec_timeout, confirm_timeout, skip_confirmation) = (
+                    ai_config.tool_execution_timeout_secs,
+                    ai_config.tool_confirmation_timeout_secs,
+                    ai_config.skip_tool_confirmation,
+                );
 
                 let skip_from_context = context
                     .context_vars
@@ -426,25 +425,37 @@ impl RoundExecutor {
                     .map(|v| v == "true")
                     .unwrap_or(false);
 
-                let needs_confirm = if skip_confirmation || skip_from_context {
-                    false
-                } else {
-                    // Otherwise judge based on tool's needs_permissions()
-                    let registry = get_global_tool_registry();
-                    let tool_registry = registry.read().await;
-                    let mut requires_permission = false;
+                if skip_confirmation {
+                    if matches!(
+                        context.tool_confirmation_policy,
+                        ToolConfirmationPolicy::EnforceForPermissionedTools
+                    ) {
+                        debug!("Runtime confirmation policy overrides global skip preference");
+                    } else {
+                        debug!("Global config requests skippable tool confirmation bypass");
+                    }
+                }
 
-                    for tool_call in &stream_result.tool_calls {
-                        if let Some(tool) = tool_registry.get_tool(&tool_call.tool_name) {
-                            if tool.needs_permissions(Some(&tool_call.arguments)) {
-                                requires_permission = true;
-                                break;
-                            }
+                let registry = get_global_tool_registry();
+                let tool_registry = registry.read().await;
+                let mut needs_confirm = false;
+
+                for tool_call in &stream_result.tool_calls {
+                    if let Some(tool) = tool_registry.get_tool(&tool_call.tool_name) {
+                        let input = Some(&tool_call.arguments);
+                        if tool.needs_permissions(input)
+                            && Self::should_confirm_permissioned_tool(
+                                context.tool_confirmation_policy,
+                                skip_confirmation,
+                                skip_from_context,
+                                tool.allows_confirmation_bypass(input),
+                            )
+                        {
+                            needs_confirm = true;
+                            break;
                         }
                     }
-
-                    requires_permission
-                };
+                }
 
                 (needs_confirm, exec_timeout, confirm_timeout)
             };
@@ -653,7 +664,43 @@ impl RoundExecutor {
 
 #[cfg(test)]
 mod tests {
-    use super::RoundExecutor;
+    use super::{RoundExecutor, ToolConfirmationPolicy};
+
+    #[test]
+    fn enforced_permission_confirmation_ignores_all_skip_preferences() {
+        assert!(RoundExecutor::should_confirm_permissioned_tool(
+            ToolConfirmationPolicy::EnforceForPermissionedTools,
+            true,
+            true,
+            true,
+        ));
+    }
+
+    #[test]
+    fn configurable_permission_confirmation_respects_skip_preferences() {
+        assert!(!RoundExecutor::should_confirm_permissioned_tool(
+            ToolConfirmationPolicy::UserConfigurable,
+            true,
+            false,
+            true,
+        ));
+        assert!(RoundExecutor::should_confirm_permissioned_tool(
+            ToolConfirmationPolicy::UserConfigurable,
+            false,
+            false,
+            true,
+        ));
+    }
+
+    #[test]
+    fn mandatory_tool_confirmation_ignores_user_skip_preferences() {
+        assert!(RoundExecutor::should_confirm_permissioned_tool(
+            ToolConfirmationPolicy::UserConfigurable,
+            true,
+            true,
+            false,
+        ));
+    }
 
     #[test]
     fn retries_transient_stream_transport_error() {

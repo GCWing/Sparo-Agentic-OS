@@ -1,7 +1,25 @@
 .ds-settings-page {
+  --ds-settings-page-max-width: 44rem;
+
+  align-content: start;
   display: grid;
   gap: var(--ds-space-4, 16px);
+  margin-inline: auto;
+  max-width: var(--ds-settings-page-max-width);
   min-width: 0;
+  width: 100%;
+
+  &--width-narrow {
+    --ds-settings-page-max-width: 34rem;
+  }
+
+  &--width-wide {
+    --ds-settings-page-max-width: 60rem;
+  }
+
+  &--width-full {
+    --ds-settings-page-max-width: none;
+  }
 }
 
 .ds-settings-section {

@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
+  type FontPreference,
   deriveFontSizeTokens,
   resolveFontSizeTokens,
   resolveFlowChatFontSizeTokens,
-  DEFAULT_FONT_PREFERENCE,
   PRESET_UI_BASE_PX,
 } from './index';
+
+const SYNC_PREFERENCE: FontPreference = {
+  uiSize: { level: 'default', customPx: null },
+  flowChat: { mode: 'sync', basePx: null },
+  markdownEditor: { mode: 'sync', basePx: null },
+};
 
 describe('deriveFontSizeTokens', () => {
   it('returns correct token ladder for default base (14px)', () => {
@@ -31,7 +37,7 @@ describe('deriveFontSizeTokens', () => {
 
 describe('resolveFontSizeTokens', () => {
   it('returns preset tokens for named levels', () => {
-    const tokens = resolveFontSizeTokens({ level: 'default' });
+    const tokens = resolveFontSizeTokens({ level: 'default', customPx: null });
     expect(tokens.base).toBe(`${PRESET_UI_BASE_PX.default}px`);
   });
 
@@ -40,29 +46,33 @@ describe('resolveFontSizeTokens', () => {
     expect(tokens.base).toBe('16px');
   });
 
-  it('falls back to 14px when custom has no customPx', () => {
-    const tokens = resolveFontSizeTokens({ level: 'custom' });
-    expect(tokens.base).toBe('14px');
+  it('rejects a custom level without an accepted customPx', () => {
+    expect(() => resolveFontSizeTokens({ level: 'custom', customPx: null }))
+      .toThrow('Custom UI font size is missing');
   });
 });
 
 describe('resolveFlowChatFontSizeTokens', () => {
-  it('lift mode now matches UI base (previously +1)', () => {
-    const pref = { ...DEFAULT_FONT_PREFERENCE, flowChat: { mode: 'lift' as const } };
-    const uiBase = PRESET_UI_BASE_PX[pref.uiSize.level as Exclude<typeof pref.uiSize.level, 'custom'>];
-    const tokens = resolveFlowChatFontSizeTokens(pref);
-    expect(tokens.base).toBe(`${Math.min(20, uiBase)}px`);
-  });
-
   it('sync mode matches UI tokens exactly', () => {
-    const pref = { uiSize: { level: 'default' as const }, flowChat: { mode: 'sync' as const } };
-    const tokens = resolveFlowChatFontSizeTokens(pref);
+    const tokens = resolveFlowChatFontSizeTokens(SYNC_PREFERENCE);
     expect(tokens.base).toBe(`${PRESET_UI_BASE_PX.default}px`);
   });
 
   it('independent mode uses custom basePx', () => {
-    const pref = { uiSize: { level: 'default' as const }, flowChat: { mode: 'independent' as const, basePx: 18 } };
+    const pref: FontPreference = {
+      ...SYNC_PREFERENCE,
+      flowChat: { mode: 'independent', basePx: 18 },
+    };
     const tokens = resolveFlowChatFontSizeTokens(pref);
     expect(tokens.base).toBe('18px');
+  });
+
+  it('rejects independent mode without an accepted basePx', () => {
+    const pref: FontPreference = {
+      ...SYNC_PREFERENCE,
+      flowChat: { mode: 'independent', basePx: null },
+    };
+    expect(() => resolveFlowChatFontSizeTokens(pref))
+      .toThrow('Independent flow-chat font size is missing');
   });
 });

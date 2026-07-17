@@ -339,6 +339,12 @@ pub struct TestAIConfigConnectionRequest {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TestSavedAIModelConnectionRequest {
+    pub model_id: String,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct ListAIModelsByConfigRequest {
     pub config: sparo_core::service::config::types::AIModelConfig,
 }
@@ -674,18 +680,22 @@ async fn clear_active_workspace_context(state: &State<'_, AppState>, app: &AppHa
 
     #[cfg(target_os = "macos")]
     {
-        let language = state
+        match state
             .config_service
             .get_config::<String>(Some("app.language"))
             .await
-            .unwrap_or_else(|_| "zh-CN".to_string());
-        let edit_mode = *state.macos_edit_menu_mode.read().await;
-        let _ = crate::macos_menubar::set_macos_menubar_with_mode(
-            app,
-            &language,
-            crate::macos_menubar::MenubarMode::Startup,
-            edit_mode,
-        );
+        {
+            Ok(language) => {
+                let edit_mode = *state.macos_edit_menu_mode.read().await;
+                let _ = crate::macos_menubar::set_macos_menubar_with_mode(
+                    app,
+                    &language,
+                    crate::macos_menubar::MenubarMode::Startup,
+                    edit_mode,
+                );
+            }
+            Err(error) => warn!("Failed to load macOS menu language: {}", error),
+        }
     }
 }
 
@@ -693,7 +703,7 @@ async fn apply_active_workspace_context(
     state: &State<'_, AppState>,
     app: &AppHandle,
     workspace_info: &sparo_core::service::workspace::manager::WorkspaceInfo,
-) {
+) -> Result<(), String> {
     #[cfg(not(target_os = "macos"))]
     let _ = app;
 
@@ -717,23 +727,29 @@ async fn apply_active_workspace_context(
     state
         .agent_registry
         .load_custom_subagents(&workspace_info.root_path)
-        .await;
+        .await
+        .map_err(|error| format!("Failed to load custom subagents: {error}"))?;
 
     #[cfg(target_os = "macos")]
     {
-        let language = state
+        match state
             .config_service
             .get_config::<String>(Some("app.language"))
             .await
-            .unwrap_or_else(|_| "zh-CN".to_string());
-        let edit_mode = *state.macos_edit_menu_mode.read().await;
-        let _ = crate::macos_menubar::set_macos_menubar_with_mode(
-            app,
-            &language,
-            crate::macos_menubar::MenubarMode::Workspace,
-            edit_mode,
-        );
+        {
+            Ok(language) => {
+                let edit_mode = *state.macos_edit_menu_mode.read().await;
+                let _ = crate::macos_menubar::set_macos_menubar_with_mode(
+                    app,
+                    &language,
+                    crate::macos_menubar::MenubarMode::Workspace,
+                    edit_mode,
+                );
+            }
+            Err(error) => warn!("Failed to load macOS menu language: {}", error),
+        }
     }
+    Ok(())
 }
 
 #[tauri::command]
@@ -742,7 +758,7 @@ pub async fn initialize_global_state(
     app: tauri::AppHandle,
 ) -> Result<String, String> {
     if let Some(workspace_info) = state.workspace_service.get_last_used_workspace().await {
-        apply_active_workspace_context(&state, &app, &workspace_info).await;
+        apply_active_workspace_context(&state, &app, &workspace_info).await?;
 
         info!(
             "Global state initialized with last-used workspace: workspace_id={}, path={}",
@@ -855,23 +871,22 @@ async fn create_transient_ai_client_for_config(
     )
 }
 
-#[tauri::command]
-pub async fn test_ai_config_connection(
-    state: State<'_, AppState>,
-    request: TestAIConfigConnectionRequest,
+async fn run_ai_config_connection_test(
+    state: &State<'_, AppState>,
+    model_config: sparo_core::service::config::types::AIModelConfig,
 ) -> Result<sparo_core::util::types::ConnectionTestResult, String> {
-    let model_name = request.config.name.clone();
-    let supports_image_input = request.config.capabilities.iter().any(|cap| {
+    let model_name = model_config.name.clone();
+    let supports_image_input = model_config.capabilities.iter().any(|cap| {
         matches!(
             cap,
             sparo_core::service::config::types::ModelCapability::ImageUnderstanding
         )
     }) || matches!(
-        request.config.category,
+        model_config.category,
         sparo_core::service::config::types::ModelCategory::Multimodal
     );
 
-    let ai_client = create_transient_ai_client_for_config(&state, request.config)
+    let ai_client = create_transient_ai_client_for_config(state, model_config)
         .await
         .map_err(|e| {
             error!("Failed to create AI client during test: {}", e);
@@ -948,6 +963,31 @@ pub async fn test_ai_config_connection(
             Err(format!("Connection test failed: {}", e))
         }
     }
+}
+
+#[tauri::command]
+pub async fn test_ai_config_connection(
+    state: State<'_, AppState>,
+    request: TestAIConfigConnectionRequest,
+) -> Result<sparo_core::util::types::ConnectionTestResult, String> {
+    run_ai_config_connection_test(&state, request.config).await
+}
+
+#[tauri::command]
+pub async fn test_saved_ai_model_connection(
+    state: State<'_, AppState>,
+    request: TestSavedAIModelConnectionRequest,
+) -> Result<sparo_core::util::types::ConnectionTestResult, String> {
+    let model = state
+        .config_service
+        .get_ai_models()
+        .await
+        .map_err(|error| format!("Failed to load AI model configuration: {error}"))?
+        .into_iter()
+        .find(|model| model.id == request.model_id)
+        .ok_or_else(|| format!("AI model '{}' does not exist", request.model_id))?;
+
+    run_ai_config_connection_test(&state, model).await
 }
 
 #[tauri::command]
@@ -1040,60 +1080,6 @@ context:
 }
 
 #[tauri::command]
-pub async fn set_agent_model(
-    state: State<'_, AppState>,
-    agent_name: String,
-    model_id: String,
-) -> Result<String, String> {
-    let config_service = &state.config_service;
-    let global_config: sparo_core::service::config::GlobalConfig = config_service
-        .get_config(None)
-        .await
-        .map_err(|e| e.to_string())?;
-
-    if !global_config.ai.models.iter().any(|m| m.id == model_id) {
-        return Err(format!("Model does not exist: {}", model_id));
-    }
-
-    let path = format!("ai.agent_models.{}", agent_name);
-    config_service
-        .set_config(&path, model_id.clone())
-        .await
-        .map_err(|e| e.to_string())?;
-
-    state.ai_client_factory.invalidate_cache();
-
-    info!("Agent model set: agent={}, model={}", agent_name, model_id);
-    Ok(format!(
-        "Agent '{}' model has been set to: {}",
-        agent_name, model_id
-    ))
-}
-
-#[tauri::command]
-pub async fn get_agent_models(
-    state: State<'_, AppState>,
-) -> Result<std::collections::HashMap<String, String>, String> {
-    let config_service = &state.config_service;
-    let global_config: sparo_core::service::config::GlobalConfig = config_service
-        .get_config(None)
-        .await
-        .map_err(|e| e.to_string())?;
-
-    Ok(global_config.ai.agent_models)
-}
-
-#[tauri::command]
-pub async fn refresh_model_client(
-    state: State<'_, AppState>,
-    model_id: String,
-) -> Result<String, String> {
-    state.ai_client_factory.invalidate_model(&model_id);
-
-    Ok(format!("Model '{}' has been refreshed", model_id))
-}
-
-#[tauri::command]
 pub async fn get_app_state(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
     let health = state.get_health_status().await;
     let stats = state.get_statistics().await;
@@ -1132,7 +1118,7 @@ pub async fn open_workspace(
         .await
     {
         Ok(workspace_info) => {
-            apply_active_workspace_context(&state, &app, &workspace_info).await;
+            apply_active_workspace_context(&state, &app, &workspace_info).await?;
 
             info!(
                 "Workspace opened: name={}, path={}",
@@ -1161,7 +1147,7 @@ pub async fn close_workspace(
     {
         Ok(_) => {
             if let Some(workspace_info) = state.workspace_service.get_last_used_workspace().await {
-                apply_active_workspace_context(&state, &app, &workspace_info).await;
+                apply_active_workspace_context(&state, &app, &workspace_info).await?;
             } else {
                 clear_active_workspace_context(&state, &app).await;
             }
@@ -1194,7 +1180,7 @@ pub async fn remember_workspace(
                 .await
                 .ok_or_else(|| "Last-used workspace not found after remember".to_string())?;
 
-            apply_active_workspace_context(&state, &app, &workspace_info).await;
+            apply_active_workspace_context(&state, &app, &workspace_info).await?;
 
             info!(
                 "Last-used workspace changed: workspace_id={}, path={}",
@@ -1279,7 +1265,7 @@ pub async fn cleanup_invalid_workspaces(
     match state.workspace_service.cleanup_invalid_workspaces().await {
         Ok(removed_count) => {
             if let Some(workspace_info) = state.workspace_service.get_last_used_workspace().await {
-                apply_active_workspace_context(&state, &app, &workspace_info).await;
+                apply_active_workspace_context(&state, &app, &workspace_info).await?;
             } else {
                 clear_active_workspace_context(&state, &app).await;
             }
@@ -3094,61 +3080,6 @@ pub async fn cancel_search(
     }
 
     Ok(())
-}
-
-#[tauri::command]
-pub async fn reload_global_config() -> Result<String, String> {
-    match sparo_core::service::config::reload_global_config().await {
-        Ok(_) => {
-            info!("Global config reloaded");
-            Ok("Configuration reloaded successfully".to_string())
-        }
-        Err(e) => {
-            error!("Failed to reload global config: {}", e);
-            Err(format!("Failed to reload configuration: {}", e))
-        }
-    }
-}
-
-#[tauri::command]
-pub async fn get_global_config_status() -> Result<bool, String> {
-    Ok(sparo_core::service::config::GlobalConfigManager::is_initialized())
-}
-
-#[tauri::command]
-pub async fn subscribe_config_updates() -> Result<(), String> {
-    if let Some(mut receiver) = sparo_core::service::config::subscribe_config_updates() {
-        tokio::spawn(async move {
-            while let Ok(event) = receiver.recv().await {
-                debug!("Config update event: {:?}", event);
-            }
-        });
-        Ok(())
-    } else {
-        Err("Config update subscription not available".to_string())
-    }
-}
-
-#[tauri::command]
-pub async fn get_model_configs(
-    state: State<'_, AppState>,
-) -> Result<Vec<serde_json::Value>, String> {
-    let config_service = &state.config_service;
-
-    match config_service.get_ai_models().await {
-        Ok(models) => {
-            let model_configs: Vec<serde_json::Value> = models
-                .into_iter()
-                .map(|model| serde_json::to_value(model).unwrap_or_default())
-                .collect();
-
-            Ok(model_configs)
-        }
-        Err(e) => {
-            error!("Failed to get AI model configs: {}", e);
-            Err(format!("Failed to get model configurations: {}", e))
-        }
-    }
 }
 
 #[derive(Debug, Deserialize)]

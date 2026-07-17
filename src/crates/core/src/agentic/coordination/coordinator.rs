@@ -6,7 +6,7 @@ use super::{
     scheduler::DialogSubmissionPolicy,
     turn_outcome::{SessionControlActor, TurnCancellationReason, TurnOutcome},
 };
-use crate::agentic::agents::get_agent_registry;
+use crate::agentic::agents::{get_agent_registry, AgentCategory, PptLiveAgent, SettingsAgent};
 use crate::agentic::app_builder_context::AppBuilderExecutionContext;
 use crate::agentic::core::{
     has_prompt_markup, Message, MessageContent, ProcessingPhase, PromptEnvelope, Session,
@@ -15,7 +15,9 @@ use crate::agentic::core::{
 use crate::agentic::events::{
     AgenticEvent, EventPriority, EventQueue, EventRouter, EventSubscriber, SessionSurfaceMode,
 };
-use crate::agentic::execution::{ContextCompactionOutcome, ExecutionContext, ExecutionEngine};
+use crate::agentic::execution::{
+    ContextCompactionOutcome, ExecutionContext, ExecutionEngine, ToolConfirmationPolicy,
+};
 use crate::agentic::fork_agent::{
     ForkAgentContextSnapshot, ForkAgentExecutionRequest, ForkAgentExecutionResult,
 };
@@ -50,10 +52,12 @@ use crate::service::global_milestone::prompt::global_milestone_allowed_tools;
 use crate::service::host::{
     build_host_scan_user_prompt, default_host_scan_session_name, host_scan_allowed_tools,
 };
+use crate::service::session::SETTINGS_FLOW_RUNTIME_SESSION_CREATOR;
 use crate::service::workspace::{get_global_workspace_service, WorkspaceCreateOptions};
 use crate::service::workspace_overview::prompt::workspace_overview_refresh_allowed_tools;
 use chrono::TimeZone;
 use log::{debug, error, info, warn};
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -61,7 +65,7 @@ use std::sync::OnceLock;
 use std::sync::Weak;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::fs;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Mutex};
 use tokio::time::{sleep, Duration, Instant};
 use tokio_util::sync::CancellationToken;
 
@@ -70,6 +74,26 @@ const CONTEXT_COMPRESSION_TOOL_NAME: &str = "ContextCompression";
 const AUTO_MEMORY_FORK_MAX_TURNS: usize = 5;
 const SESSION_SUMMARY_FORK_MAX_TURNS: usize = 4;
 const DAILY_LETTER_WRITER_AGENT_TYPE: &str = "DailyLetterWriter";
+const SETTINGS_AGENT_SESSION_NAME: &str = "Settings";
+const SETTINGS_AGENT_SESSION_ID_PREFIX: &str = "settings-agent-";
+const SETTINGS_AGENT_REQUEST_ID_MAX_BYTES: usize = 128;
+const SETTINGS_AGENT_PROMPT_MAX_BYTES: usize = 64 * 1024;
+const SETTINGS_AGENT_MODEL_ID: &str = "primary";
+const PPT_LIVE_BACKEND_CREATOR_PREFIX: &str = "product-app-runtime:";
+const PPT_LIVE_BACKEND_CREATOR_MARKER: &str = ":backend:ppt:";
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingsAgentTurnHandle {
+    pub session_id: String,
+    pub turn_id: String,
+}
+
+#[derive(Debug, Default)]
+struct SettingsAgentLifecycleState {
+    initialized: bool,
+    active_session_id: Option<String>,
+}
 
 fn current_time_ms() -> i64 {
     SystemTime::now()
@@ -173,11 +197,20 @@ struct HiddenSubagentExecutionRequest {
     enable_tools_override: Option<bool>,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+enum HiddenAgentAccess {
+    #[default]
+    Deny,
+    InternalRuntime,
+}
+
 #[derive(Debug, Clone, Default)]
 struct DialogExecutionSettings {
     tool_allowlist_override: Option<Vec<String>>,
     runtime_tool_restrictions: ToolRuntimeRestrictions,
     surface_mode: SessionSurfaceMode,
+    hidden_agent_access: HiddenAgentAccess,
+    tool_confirmation_policy: ToolConfirmationPolicy,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -221,6 +254,7 @@ fn surface_mode_for_session(session: &Session) -> SessionSurfaceMode {
     match session.kind {
         SessionKind::Subagent => SessionSurfaceMode::ParentRoutedSubagent,
         SessionKind::Standard => SessionSurfaceMode::UserVisible,
+        SessionKind::Internal => SessionSurfaceMode::InternalBackground,
     }
 }
 
@@ -249,9 +283,158 @@ pub struct ConversationCoordinator {
     scheduler_handle: OnceLock<Weak<crate::agentic::coordination::DialogScheduler>>,
     cron_handle: OnceLock<Weak<crate::service::cron::CronService>>,
     host_auto_scan_handle: OnceLock<Weak<crate::service::host::HostAutoScanService>>,
+    /// One application-lifecycle SettingsAgent session shared by every desktop window.
+    /// The mutex serializes startup cleanup, lazy creation, reset, and shutdown cleanup.
+    settings_agent_lifecycle: Mutex<SettingsAgentLifecycleState>,
 }
 
 impl ConversationCoordinator {
+    fn ppt_live_agent_execution_settings(phase: Option<&str>) -> DialogExecutionSettings {
+        let mut allowed_tools = get_agent_registry()
+            .get_agent(PptLiveAgent::ID, None)
+            .map(|agent| agent.default_tools())
+            .unwrap_or_default();
+        if phase == Some("slides") {
+            allowed_tools.retain(|tool| tool == "Skill");
+        }
+        let runtime_tool_restrictions = ToolRuntimeRestrictions {
+            allowed_tool_names: allowed_tools.iter().cloned().collect(),
+            ..ToolRuntimeRestrictions::default()
+        };
+
+        DialogExecutionSettings {
+            tool_allowlist_override: Some(allowed_tools),
+            runtime_tool_restrictions,
+            surface_mode: SessionSurfaceMode::InternalBackground,
+            hidden_agent_access: HiddenAgentAccess::InternalRuntime,
+            tool_confirmation_policy: ToolConfirmationPolicy::UserConfigurable,
+        }
+    }
+
+    fn validate_ppt_live_backend_creator(created_by: &str) -> CoreResult<()> {
+        if created_by.starts_with(PPT_LIVE_BACKEND_CREATOR_PREFIX)
+            && created_by.contains(PPT_LIVE_BACKEND_CREATOR_MARKER)
+            && created_by.contains(":run:")
+        {
+            return Ok(());
+        }
+        Err(CoreError::Validation(
+            "PptLiveAgent rejected an unauthorized Product App backend owner".to_string(),
+        ))
+    }
+
+    fn settings_agent_execution_settings() -> DialogExecutionSettings {
+        let allowed_tools = vec![
+            SettingsAgent::CATALOG_TOOL.to_string(),
+            SettingsAgent::CHANGE_TOOL.to_string(),
+        ];
+        let runtime_tool_restrictions = ToolRuntimeRestrictions {
+            allowed_tool_names: allowed_tools.iter().cloned().collect(),
+            ..ToolRuntimeRestrictions::default()
+        };
+
+        DialogExecutionSettings {
+            tool_allowlist_override: Some(allowed_tools),
+            runtime_tool_restrictions,
+            surface_mode: SessionSurfaceMode::UserVisible,
+            hidden_agent_access: HiddenAgentAccess::InternalRuntime,
+            tool_confirmation_policy: ToolConfirmationPolicy::EnforceForPermissionedTools,
+        }
+    }
+
+    fn ensure_agent_access(
+        agent_type: &str,
+        workspace_path: Option<&str>,
+        hidden_agent_access: HiddenAgentAccess,
+    ) -> CoreResult<()> {
+        let workspace_root = workspace_path.map(Path::new);
+        let category = get_agent_registry().get_agent_category(agent_type, workspace_root);
+        if matches!(category, Some(AgentCategory::Hidden))
+            && !matches!(hidden_agent_access, HiddenAgentAccess::InternalRuntime)
+        {
+            return Err(CoreError::Validation(format!(
+                "Hidden agent '{}' is restricted to an internal runtime entry point",
+                agent_type
+            )));
+        }
+        Ok(())
+    }
+
+    fn hidden_agent_execution_settings() -> DialogExecutionSettings {
+        DialogExecutionSettings {
+            hidden_agent_access: HiddenAgentAccess::InternalRuntime,
+            ..DialogExecutionSettings::default()
+        }
+    }
+
+    fn new_settings_agent_session_id() -> String {
+        let nonce = uuid::Uuid::new_v4();
+        let digest = Sha256::digest(nonce.as_bytes());
+        let digest_hex = hex::encode(digest);
+        format!("{}{}", SETTINGS_AGENT_SESSION_ID_PREFIX, &digest_hex[..24])
+    }
+
+    fn settings_agent_turn_id(request_id: &str) -> CoreResult<String> {
+        let request_id = request_id.trim();
+        if request_id.is_empty() {
+            return Err(CoreError::Validation("request_id is required".to_string()));
+        }
+        if request_id.len() > SETTINGS_AGENT_REQUEST_ID_MAX_BYTES {
+            return Err(CoreError::Validation(format!(
+                "request_id exceeds {} bytes",
+                SETTINGS_AGENT_REQUEST_ID_MAX_BYTES
+            )));
+        }
+        if !request_id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
+        {
+            return Err(CoreError::Validation(
+                "request_id must use only ASCII letters, numbers, '-', '_', or '.'".to_string(),
+            ));
+        }
+
+        Ok(request_id.to_string())
+    }
+
+    fn validate_settings_agent_session(session: &Session, expected_id: &str) -> CoreResult<()> {
+        let valid_session_id = expected_id
+            .strip_prefix(SETTINGS_AGENT_SESSION_ID_PREFIX)
+            .is_some_and(|hash| {
+                hash.len() == 24
+                    && hash
+                        .bytes()
+                        .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+            });
+        if !valid_session_id
+            || session.session_id != expected_id
+            || !matches!(session.kind, SessionKind::Internal)
+            || session.agent_type != SettingsAgent::ID
+            || session.created_by.as_deref() != Some(SETTINGS_FLOW_RUNTIME_SESSION_CREATOR)
+            || !matches!(
+                session.config.storage_scope,
+                Some(SessionStorageScope::AgenticOs)
+            )
+            || session.config.model_id.as_deref() != Some(SETTINGS_AGENT_MODEL_ID)
+        {
+            return Err(CoreError::Validation(format!(
+                "Invalid SettingsAgent session boundary: {}",
+                expected_id
+            )));
+        }
+
+        Ok(())
+    }
+
+    fn loaded_settings_agent_session(&self, session_id: &str) -> CoreResult<Session> {
+        let session = self
+            .session_manager
+            .get_session(session_id)
+            .ok_or_else(|| CoreError::NotFound(format!("Session not found: {}", session_id)))?;
+        Self::validate_settings_agent_session(&session, session_id)?;
+        Ok(session)
+    }
+
     fn host_scan_execution_settings() -> DialogExecutionSettings {
         let tool_allowlist_override = Some(host_scan_allowed_tools());
         let runtime_tool_restrictions = ToolRuntimeRestrictions {
@@ -267,6 +450,8 @@ impl ConversationCoordinator {
             tool_allowlist_override,
             runtime_tool_restrictions,
             surface_mode: SessionSurfaceMode::InternalBackground,
+            hidden_agent_access: HiddenAgentAccess::InternalRuntime,
+            ..DialogExecutionSettings::default()
         }
     }
 
@@ -278,6 +463,8 @@ impl ConversationCoordinator {
             tool_allowlist_override,
             runtime_tool_restrictions,
             surface_mode: SessionSurfaceMode::InternalBackground,
+            hidden_agent_access: HiddenAgentAccess::InternalRuntime,
+            ..DialogExecutionSettings::default()
         }
     }
 
@@ -289,6 +476,8 @@ impl ConversationCoordinator {
             tool_allowlist_override,
             runtime_tool_restrictions,
             surface_mode: SessionSurfaceMode::InternalBackground,
+            hidden_agent_access: HiddenAgentAccess::InternalRuntime,
+            ..DialogExecutionSettings::default()
         }
     }
 
@@ -300,6 +489,8 @@ impl ConversationCoordinator {
             tool_allowlist_override,
             runtime_tool_restrictions,
             surface_mode: SessionSurfaceMode::InternalBackground,
+            hidden_agent_access: HiddenAgentAccess::InternalRuntime,
+            ..DialogExecutionSettings::default()
         }
     }
 
@@ -568,6 +759,7 @@ impl ConversationCoordinator {
             scheduler_handle: OnceLock::new(),
             cron_handle: OnceLock::new(),
             host_auto_scan_handle: OnceLock::new(),
+            settings_agent_lifecycle: Mutex::new(SettingsAgentLifecycleState::default()),
         }
     }
 
@@ -721,6 +913,8 @@ impl ConversationCoordinator {
     }
 
     pub async fn update_session_model(&self, session_id: &str, model_id: &str) -> CoreResult<()> {
+        self.ensure_session_accepts_public_mutation(session_id)
+            .await?;
         let normalized_model_id = model_id.trim();
         let normalized_model_id = if normalized_model_id.is_empty() {
             "primary"
@@ -745,6 +939,8 @@ impl ConversationCoordinator {
         session_id: &str,
         workspace_path: &str,
     ) -> CoreResult<()> {
+        self.ensure_session_accepts_public_mutation(session_id)
+            .await?;
         let normalized_workspace_path = workspace_path.trim();
         if normalized_workspace_path.is_empty() {
             return Err(CoreError::validation(
@@ -792,10 +988,15 @@ impl ConversationCoordinator {
         workspace_path: String,
         created_by: Option<String>,
     ) -> CoreResult<Session> {
+        if let Some(session_id) = session_id.as_deref() {
+            self.ensure_session_accepts_public_mutation(session_id)
+                .await?;
+        }
         // Persist the workspace binding inside the session config so execution can
         // consistently restore the correct workspace regardless of the entry point.
         config.workspace_path = Some(workspace_path.clone());
         let agent_type = Self::normalize_agent_type(&agent_type);
+        Self::ensure_agent_access(&agent_type, Some(&workspace_path), HiddenAgentAccess::Deny)?;
         let session = self
             .session_manager
             .create_session_with_id_and_creator(
@@ -824,6 +1025,82 @@ impl ConversationCoordinator {
         })
         .await;
         Ok(session)
+    }
+
+    /// Create one isolated internal session for a validated PPT Live backend action.
+    ///
+    /// This is intentionally narrower than the public session APIs: it fixes the
+    /// agent identity, hidden-agent access, session kind, and creator contract,
+    /// and it never emits a user-visible `SessionCreated` event.
+    pub async fn create_ppt_live_backend_session(
+        &self,
+        session_name: String,
+        mut config: SessionConfig,
+        workspace_path: String,
+        created_by: String,
+    ) -> CoreResult<Session> {
+        Self::validate_ppt_live_backend_creator(&created_by)?;
+        Self::ensure_agent_access(
+            PptLiveAgent::ID,
+            Some(&workspace_path),
+            HiddenAgentAccess::InternalRuntime,
+        )?;
+        config.workspace_path = Some(workspace_path);
+        config.storage_scope = Some(SessionStorageScope::AgenticOs);
+        self.session_manager
+            .create_session_with_id_and_details(
+                None,
+                session_name,
+                PptLiveAgent::ID.to_string(),
+                config,
+                Some(created_by),
+                SessionKind::Internal,
+            )
+            .await
+    }
+
+    /// Start a turn in an isolated PPT Live backend session with a fixed tool allowlist.
+    pub async fn start_ppt_live_backend_turn(
+        &self,
+        session_id: &str,
+        turn_id: &str,
+        prompt: String,
+        phase: Option<&str>,
+    ) -> CoreResult<()> {
+        let session = self
+            .session_manager
+            .get_session(session_id)
+            .ok_or_else(|| CoreError::NotFound(format!("Session not found: {session_id}")))?;
+        if !matches!(session.kind, SessionKind::Internal) || session.agent_type != PptLiveAgent::ID
+        {
+            return Err(CoreError::Validation(
+                "PptLiveAgent backend turn rejected an invalid internal session".to_string(),
+            ));
+        }
+        Self::validate_ppt_live_backend_creator(session.created_by.as_deref().unwrap_or_default())?;
+
+        self.start_dialog_turn_internal(
+            session.session_id.clone(),
+            prompt.clone(),
+            Some(prompt),
+            None,
+            Some(turn_id.to_string()),
+            PptLiveAgent::ID.to_string(),
+            None,
+            session.config.workspace_path.clone(),
+            DialogSubmissionPolicy::for_source(DialogTriggerSource::DesktopApi)
+                .with_persist_agent_type(false)
+                .with_skip_tool_confirmation(true),
+            Some(serde_json::json!({
+                "kind": "product_app_backend",
+                "backendId": "ppt",
+                "actionRunId": turn_id,
+                "phase": phase,
+            })),
+            Self::ppt_live_agent_execution_settings(phase),
+            true,
+        )
+        .await
     }
 
     /// Ensure the completed/failed/cancelled turn is persisted to the workspace
@@ -1035,7 +1312,7 @@ impl ConversationCoordinator {
         if let Some(workspace) = workspace {
             agent_registry
                 .load_custom_subagents(workspace.root_path())
-                .await;
+                .await?;
         }
         let current_agent = agent_registry
             .get_agent(agent_type, workspace.map(|binding| binding.root_path()))
@@ -1122,6 +1399,8 @@ impl ConversationCoordinator {
         submission_policy: DialogSubmissionPolicy,
         extra_user_message_metadata: Option<serde_json::Value>,
     ) -> CoreResult<()> {
+        self.ensure_session_accepts_public_mutation(&session_id)
+            .await?;
         self.start_dialog_turn_internal(
             session_id,
             user_input,
@@ -1153,6 +1432,8 @@ impl ConversationCoordinator {
         submission_policy: DialogSubmissionPolicy,
         extra_user_message_metadata: Option<serde_json::Value>,
     ) -> CoreResult<()> {
+        self.ensure_session_accepts_public_mutation(&session_id)
+            .await?;
         self.start_dialog_turn_internal(
             session_id,
             user_input,
@@ -1172,6 +1453,8 @@ impl ConversationCoordinator {
 
     /// Compact the active session context as a persisted maintenance turn.
     pub async fn compact_session_manually(&self, session_id: String) -> CoreResult<()> {
+        self.ensure_session_accepts_public_mutation(&session_id)
+            .await?;
         let session = self
             .session_manager
             .get_session(&session_id)
@@ -1233,7 +1516,6 @@ impl ConversationCoordinator {
                 user_message_metadata.clone(),
             )
             .await?;
-
         self.emit_event(AgenticEvent::DialogTurnStarted {
             session_id: session_id.clone(),
             turn_id: turn_id.clone(),
@@ -1372,6 +1654,7 @@ impl ConversationCoordinator {
         execution_settings: DialogExecutionSettings,
         suppress_session_title_generation: bool,
     ) -> CoreResult<()> {
+        let turn_surface_mode = execution_settings.surface_mode;
         // Get latest session, restoring from persistence on demand so every entry
         // point can use the same start_dialog_turn flow.
         let session = match self.session_manager.get_session(&session_id) {
@@ -1417,6 +1700,11 @@ impl ConversationCoordinator {
             "Runno".to_string()
         };
         let effective_agent_type = Self::normalize_agent_type(&provisional_agent_type);
+        Self::ensure_agent_access(
+            &effective_agent_type,
+            session.config.workspace_path.as_deref(),
+            execution_settings.hidden_agent_access,
+        )?;
 
         Self::track_session_workspace_activity_best_effort(&session.config, "dialog_started").await;
 
@@ -1534,26 +1822,31 @@ impl ConversationCoordinator {
                 "Starting session history restore: session_id={}",
                 session_id
             );
-            match self
-                .session_manager
-                .restore_session(
-                    Path::new(
-                        session
-                            .config
-                            .workspace_path
-                            .as_deref()
-                            .or(workspace_path.as_deref())
-                            .ok_or_else(|| {
-                                CoreError::Validation(format!(
-                                    "workspace_path is required when restoring session: {}",
-                                    session_id
-                                ))
-                            })?,
-                    ),
-                    &session_id,
-                )
-                .await
-            {
+            let restore_result = if matches!(session.kind, SessionKind::Internal) {
+                self.session_manager
+                    .restore_internal_agentic_os_session(&session_id)
+                    .await
+            } else {
+                self.session_manager
+                    .restore_session(
+                        Path::new(
+                            session
+                                .config
+                                .workspace_path
+                                .as_deref()
+                                .or(workspace_path.as_deref())
+                                .ok_or_else(|| {
+                                    CoreError::Validation(format!(
+                                        "workspace_path is required when restoring session: {}",
+                                        session_id
+                                    ))
+                                })?,
+                        ),
+                        &session_id,
+                    )
+                    .await
+            };
+            match restore_result {
                 Ok(_) => {
                     let restored_messages = self
                         .session_manager
@@ -1708,7 +2001,7 @@ impl ConversationCoordinator {
                 None
             },
             user_message_metadata: user_message_metadata.clone(),
-            surface_mode: execution_settings.surface_mode,
+            surface_mode: turn_surface_mode,
             subagent_parent_info: None,
         })
         .await;
@@ -1774,12 +2067,13 @@ impl ConversationCoordinator {
             dialog_turn_id: turn_id.clone(),
             turn_index,
             agent_type: effective_agent_type.clone(),
-            surface_mode: execution_settings.surface_mode,
+            surface_mode: turn_surface_mode,
             workspace: session_workspace,
             context: context_vars,
             tool_allowlist_override: execution_settings.tool_allowlist_override,
             subagent_parent_info: None,
             skip_tool_confirmation: submission_policy.skip_tool_confirmation,
+            tool_confirmation_policy: execution_settings.tool_confirmation_policy,
             runtime_tool_restrictions: execution_settings.runtime_tool_restrictions,
             app_builder,
             workspace_services,
@@ -1800,7 +2094,16 @@ impl ConversationCoordinator {
                 .map(|session| session.session_name)
                 .unwrap_or_default();
             tokio::spawn(async move {
-                let allow_ai = is_ai_session_title_generation_enabled().await;
+                let allow_ai = match is_ai_session_title_generation_enabled().await {
+                    Ok(enabled) => enabled,
+                    Err(error) => {
+                        warn!(
+                            "Failed to read session title generation setting: session_id={}, error={}",
+                            sid, error
+                        );
+                        return;
+                    }
+                };
                 let resolved = sm.resolve_session_title(&msg, Some(20), allow_ai).await;
 
                 match sm
@@ -1837,6 +2140,7 @@ impl ConversationCoordinator {
         let turn_id_clone = turn_id.clone();
         let user_input_for_workspace = wrapped_user_input.clone();
         let session_storage_path_for_finalize = session_storage_path.clone();
+        let is_settings_agent_turn = effective_agent_type == SettingsAgent::ID;
         let effective_agent_type_clone = effective_agent_type.clone();
         let user_message_metadata_clone = user_message_metadata;
         let scheduler_notify_tx = self.scheduler_notify_tx.get().cloned();
@@ -1845,6 +2149,12 @@ impl ConversationCoordinator {
         let coordinator_for_spawn = self.self_arc();
 
         tokio::spawn(async move {
+            let _settings_constraint_guard = is_settings_agent_turn.then(|| {
+                crate::agentic::tools::implementations::settings_tools::dirty_settings_constraint_guard(
+                    &session_id_clone,
+                    &turn_id_clone,
+                )
+            });
             // Note: Don't check cancellation here as cancel token hasn't been created yet
             // Cancel token is created in execute_dialog_turn -> execute_round
             // execute_dialog_turn has proper cancellation checks internally
@@ -1972,7 +2282,7 @@ impl ConversationCoordinator {
                                 AgenticEvent::DialogTurnCancelled {
                                     session_id: session_id_clone.clone(),
                                     turn_id: turn_id_clone.clone(),
-                                    surface_mode: SessionSurfaceMode::UserVisible,
+                                    surface_mode: turn_surface_mode,
                                     subagent_parent_info: None,
                                 },
                                 Some(EventPriority::Critical),
@@ -2021,7 +2331,7 @@ impl ConversationCoordinator {
                                     session_id: session_id_clone.clone(),
                                     turn_id: turn_id_clone.clone(),
                                     error: error_text.clone(),
-                                    surface_mode: SessionSurfaceMode::UserVisible,
+                                    surface_mode: turn_surface_mode,
                                     subagent_parent_info: None,
                                 },
                                 Some(EventPriority::Critical),
@@ -2107,8 +2417,16 @@ impl ConversationCoordinator {
             return AutoMemoryQueueAction::Skip;
         }
 
-        let Some(auto_memory_context) = resolve_auto_memory_runtime_context(&session).await else {
-            return AutoMemoryQueueAction::Skip;
+        let auto_memory_context = match resolve_auto_memory_runtime_context(&session).await {
+            Ok(Some(context)) => context,
+            Ok(None) => return AutoMemoryQueueAction::Skip,
+            Err(error) => {
+                warn!(
+                    "Skipping auto memory scheduling because runtime config is unavailable: session_id={}, error={}",
+                    session_id, error
+                );
+                return AutoMemoryQueueAction::Skip;
+            }
         };
 
         if !auto_memory_context.scope_config.enabled {
@@ -2191,6 +2509,8 @@ impl ConversationCoordinator {
         session_id: &str,
         cancel_token: &CancellationToken,
     ) -> CoreResult<bool> {
+        self.ensure_session_accepts_public_mutation(session_id)
+            .await?;
         if cancel_token.is_cancelled() {
             return Err(CoreError::Cancelled(
                 "Auto memory task has been cancelled".to_string(),
@@ -2553,8 +2873,50 @@ impl ConversationCoordinator {
         Ok(Some(current_turn_id))
     }
 
-    /// Delete session
+    fn validate_generic_session_mutation(
+        lifecycle: &SettingsAgentLifecycleState,
+        session_id: &str,
+    ) -> CoreResult<()> {
+        if lifecycle.active_session_id.as_deref() == Some(session_id) {
+            return Err(CoreError::Validation(
+                "settings.lifecycle_owned".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    fn validate_unbound_tool_interaction(
+        lifecycle: &SettingsAgentLifecycleState,
+        owner_session_id: &str,
+    ) -> CoreResult<()> {
+        Self::validate_generic_session_mutation(lifecycle, owner_session_id)
+    }
+
+    /// Enforce raw lifecycle ownership before any generic session mutation.
+    ///
+    /// This deliberately compares the active identity directly instead of validating/loading the
+    /// session first: corruption or partial persistence failure must fail closed, never turn a
+    /// system-owned session into a generic mutable session.
+    pub async fn ensure_session_accepts_public_mutation(&self, session_id: &str) -> CoreResult<()> {
+        let lifecycle = self.settings_agent_lifecycle.lock().await;
+        Self::validate_generic_session_mutation(&lifecycle, session_id)
+    }
+
+    /// Delete a session through the public ownership boundary.
+    /// Application-lifecycle SettingsAgent state is owned by reset/shutdown and cannot be
+    /// invalidated through the generic session API.
     pub async fn delete_session(&self, workspace_path: &Path, session_id: &str) -> CoreResult<()> {
+        self.ensure_session_accepts_public_mutation(session_id)
+            .await?;
+        self.delete_session_internal(workspace_path, session_id)
+            .await
+    }
+
+    async fn delete_session_internal(
+        &self,
+        workspace_path: &Path,
+        session_id: &str,
+    ) -> CoreResult<()> {
         self.auto_memory_manager.cancel_session(session_id);
         self.session_manager
             .delete_session(workspace_path, session_id)
@@ -2582,6 +2944,8 @@ impl ConversationCoordinator {
         workspace_path: &Path,
         session_id: &str,
     ) -> CoreResult<Session> {
+        self.ensure_session_accepts_public_mutation(session_id)
+            .await?;
         let session = self
             .session_manager
             .restore_session(workspace_path, session_id)
@@ -2644,14 +3008,48 @@ impl ConversationCoordinator {
         tool_id: &str,
         updated_input: Option<serde_json::Value>,
     ) -> CoreResult<()> {
+        let owner_session_id = self.tool_pipeline.tool_session_id(tool_id)?;
+        {
+            let lifecycle = self.settings_agent_lifecycle.lock().await;
+            Self::validate_unbound_tool_interaction(&lifecycle, &owner_session_id)?;
+        }
         self.tool_pipeline
             .confirm_tool(tool_id, updated_input)
             .await
     }
 
+    /// Confirm tool execution only when the pending task belongs to `session_id`.
+    pub async fn confirm_tool_for_session(
+        &self,
+        session_id: &str,
+        tool_id: &str,
+        updated_input: Option<serde_json::Value>,
+    ) -> CoreResult<()> {
+        self.tool_pipeline
+            .confirm_tool_for_session(session_id, tool_id, updated_input)
+            .await
+    }
+
     /// Reject tool execution
     pub async fn reject_tool(&self, tool_id: &str, reason: String) -> CoreResult<()> {
+        let owner_session_id = self.tool_pipeline.tool_session_id(tool_id)?;
+        {
+            let lifecycle = self.settings_agent_lifecycle.lock().await;
+            Self::validate_unbound_tool_interaction(&lifecycle, &owner_session_id)?;
+        }
         self.tool_pipeline.reject_tool(tool_id, reason).await
+    }
+
+    /// Reject tool execution only when the pending task belongs to `session_id`.
+    pub async fn reject_tool_for_session(
+        &self,
+        session_id: &str,
+        tool_id: &str,
+        reason: String,
+    ) -> CoreResult<()> {
+        self.tool_pipeline
+            .reject_tool_for_session(session_id, tool_id, reason)
+            .await
     }
 
     /// Cancel tool execution
@@ -2675,6 +3073,8 @@ impl ConversationCoordinator {
         session_id: &str,
         patch: serde_json::Value,
     ) -> CoreResult<Option<serde_json::Value>> {
+        self.ensure_session_accepts_public_mutation(session_id)
+            .await?;
         self.session_manager
             .merge_session_custom_metadata(session_id, patch)
             .await
@@ -2808,6 +3208,7 @@ impl ConversationCoordinator {
             // tool confirmation to prevent them from blocking indefinitely on a
             // confirmation channel that nobody will ever respond to.
             skip_tool_confirmation: true,
+            tool_confirmation_policy: ToolConfirmationPolicy::UserConfigurable,
             runtime_tool_restrictions,
             app_builder,
             workspace_services: subagent_services,
@@ -2920,6 +3321,283 @@ impl ConversationCoordinator {
         Ok(child_session)
     }
 
+    async fn cleanup_stale_settings_agent_sessions(&self) -> CoreResult<usize> {
+        let workspace_path = get_path_manager_arc().agentic_os_runtime_root();
+        self.session_manager
+            .delete_internal_sessions_by_agent_and_prefix(
+                &workspace_path,
+                SettingsAgent::ID,
+                SETTINGS_AGENT_SESSION_ID_PREFIX,
+            )
+            .await
+    }
+
+    async fn create_settings_agent_session(&self) -> CoreResult<Session> {
+        let session_id = Self::new_settings_agent_session_id();
+        let workspace_path = get_path_manager_arc()
+            .agentic_os_runtime_root()
+            .to_string_lossy()
+            .into_owned();
+        let session = self
+            .session_manager
+            .create_session_with_id_and_details(
+                Some(session_id.clone()),
+                SETTINGS_AGENT_SESSION_NAME.to_string(),
+                SettingsAgent::ID.to_string(),
+                SessionConfig {
+                    workspace_path: Some(workspace_path),
+                    storage_scope: Some(SessionStorageScope::AgenticOs),
+                    model_id: Some(SETTINGS_AGENT_MODEL_ID.to_string()),
+                    ..SessionConfig::default()
+                },
+                Some(SETTINGS_FLOW_RUNTIME_SESSION_CREATOR.to_string()),
+                SessionKind::Internal,
+            )
+            .await?;
+        Self::validate_settings_agent_session(&session, &session_id)?;
+        Ok(session)
+    }
+
+    /// Remove application-lifecycle SettingsAgent working state left by a previous process.
+    /// This is safe to call during boot and is also performed by the lazy ensure path.
+    pub async fn initialize_settings_agent_lifecycle(&self) -> CoreResult<usize> {
+        let mut lifecycle = self.settings_agent_lifecycle.lock().await;
+        if lifecycle.initialized {
+            return Ok(0);
+        }
+        let deleted = self.cleanup_stale_settings_agent_sessions().await?;
+        lifecycle.initialized = true;
+        Ok(deleted)
+    }
+
+    /// Ensure the single SettingsAgent session owned by this application process.
+    pub async fn ensure_settings_agent_session(&self) -> CoreResult<Session> {
+        let mut lifecycle = self.settings_agent_lifecycle.lock().await;
+        if let Some(session_id) = lifecycle.active_session_id.clone() {
+            if let Ok(session) = self.loaded_settings_agent_session(&session_id) {
+                self.session_manager.touch_session(&session_id);
+                return Ok(session);
+            }
+            lifecycle.active_session_id = None;
+        }
+        if !lifecycle.initialized {
+            self.cleanup_stale_settings_agent_sessions().await?;
+            lifecycle.initialized = true;
+        }
+
+        let session = self.create_settings_agent_session().await?;
+        lifecycle.active_session_id = Some(session.session_id.clone());
+        Ok(session)
+    }
+
+    /// Return whether `session_id` is the currently authorized settings session.
+    pub async fn is_active_settings_agent_session(&self, session_id: &str) -> bool {
+        let lifecycle = self.settings_agent_lifecycle.lock().await;
+        lifecycle.active_session_id.as_deref() == Some(session_id)
+            && self.loaded_settings_agent_session(session_id).is_ok()
+    }
+
+    /// Replace the current SettingsAgent conversation without changing committed settings.
+    pub async fn reset_settings_agent_session(&self, session_id: &str) -> CoreResult<Session> {
+        let mut lifecycle = self.settings_agent_lifecycle.lock().await;
+        if lifecycle.active_session_id.as_deref() != Some(session_id) {
+            return Err(CoreError::Validation(
+                "SettingsAgent reset rejected a stale session identity".to_string(),
+            ));
+        }
+        let session = self.loaded_settings_agent_session(session_id)?;
+        if matches!(session.state, SessionState::Processing { .. }) {
+            return Err(CoreError::Validation(
+                "SettingsAgent session must be stopped before reset".to_string(),
+            ));
+        }
+
+        let workspace_path = get_path_manager_arc().agentic_os_runtime_root();
+        let rollback_workspace_path = workspace_path.clone();
+        Self::replace_settings_agent_session_transaction(
+            &mut lifecycle,
+            session_id,
+            || self.create_settings_agent_session(),
+            |current_session_id| async move {
+                self.delete_session_internal(&workspace_path, &current_session_id)
+                    .await
+            },
+            |replacement_session_id| async move {
+                self.delete_session_internal(&rollback_workspace_path, &replacement_session_id)
+                    .await
+            },
+        )
+        .await
+    }
+
+    /// Replace the active lifecycle session without ever pointing at a deleted session.
+    ///
+    /// The replacement is created first and the active identity is committed only after the
+    /// previous session has been deleted. If deletion fails, the replacement is rolled back on
+    /// a best-effort basis while the previous identity remains active and recoverable by `ensure`.
+    async fn replace_settings_agent_session_transaction<
+        Create,
+        CreateFuture,
+        Delete,
+        DeleteFuture,
+        Rollback,
+        RollbackFuture,
+    >(
+        lifecycle: &mut SettingsAgentLifecycleState,
+        current_session_id: &str,
+        create_replacement: Create,
+        delete_current: Delete,
+        rollback_replacement: Rollback,
+    ) -> CoreResult<Session>
+    where
+        Create: FnOnce() -> CreateFuture,
+        CreateFuture: std::future::Future<Output = CoreResult<Session>>,
+        Delete: FnOnce(String) -> DeleteFuture,
+        DeleteFuture: std::future::Future<Output = CoreResult<()>>,
+        Rollback: FnOnce(String) -> RollbackFuture,
+        RollbackFuture: std::future::Future<Output = CoreResult<()>>,
+    {
+        if lifecycle.active_session_id.as_deref() != Some(current_session_id) {
+            return Err(CoreError::Validation(
+                "SettingsAgent reset rejected a stale session identity".to_string(),
+            ));
+        }
+
+        let replacement = create_replacement().await?;
+        let replacement_session_id = replacement.session_id.clone();
+        if let Err(delete_error) = delete_current(current_session_id.to_string()).await {
+            if let Err(rollback_error) = rollback_replacement(replacement_session_id.clone()).await
+            {
+                warn!(
+                    "Failed to roll back replacement SettingsAgent session: session_id={}, error={}",
+                    replacement_session_id, rollback_error
+                );
+            }
+            return Err(delete_error);
+        }
+
+        lifecycle.active_session_id = Some(replacement_session_id);
+        Ok(replacement)
+    }
+
+    /// Cancel and delete the application-lifecycle SettingsAgent session before process exit.
+    pub async fn shutdown_settings_agent_session(&self) -> CoreResult<()> {
+        let mut lifecycle = self.settings_agent_lifecycle.lock().await;
+        let Some(session_id) = lifecycle.active_session_id.take() else {
+            return Ok(());
+        };
+        let _ = self
+            .cancel_active_turn_for_session(&session_id, Duration::from_secs(2))
+            .await;
+        let workspace_path = get_path_manager_arc().agentic_os_runtime_root();
+        self.delete_session_internal(&workspace_path, &session_id)
+            .await
+    }
+
+    /// Privileged standard-FlowChat entry point for the active settings session.
+    ///
+    /// The caller supplies only user intent and optional UI concurrency context. Agent,
+    /// model, tools, visibility, and persistence ownership are enforced by this method.
+    pub async fn start_settings_agent_turn_in_session(
+        &self,
+        session_id: &str,
+        requested_turn_id: Option<&str>,
+        prompt: &str,
+        expected_revision: Option<u64>,
+        dirty_setting_ids: Vec<String>,
+    ) -> CoreResult<SettingsAgentTurnHandle> {
+        if prompt.trim().is_empty() {
+            return Err(CoreError::Validation("prompt is required".to_string()));
+        }
+        if prompt.len() > SETTINGS_AGENT_PROMPT_MAX_BYTES {
+            return Err(CoreError::Validation(format!(
+                "prompt exceeds {} bytes",
+                SETTINGS_AGENT_PROMPT_MAX_BYTES
+            )));
+        }
+
+        let lifecycle = self.settings_agent_lifecycle.lock().await;
+        if lifecycle.active_session_id.as_deref() != Some(session_id) {
+            return Err(CoreError::Validation(
+                "SettingsAgent turn rejected an unauthorized session".to_string(),
+            ));
+        }
+        let session = self.loaded_settings_agent_session(session_id)?;
+        let generated_turn_id = format!("settings-{}", uuid::Uuid::new_v4().simple());
+        let turn_id =
+            Self::settings_agent_turn_id(requested_turn_id.unwrap_or(generated_turn_id.as_str()))?;
+        let handle = SettingsAgentTurnHandle {
+            session_id: session.session_id.clone(),
+            turn_id: turn_id.clone(),
+        };
+
+        if session
+            .dialog_turn_ids
+            .iter()
+            .any(|existing_turn_id| existing_turn_id == &turn_id)
+        {
+            return Ok(handle);
+        }
+
+        // Reject stale intent before invoking the model. The transaction layer
+        // repeats the revision check when it plans and commits the concrete patch.
+        let snapshot = crate::service::config::get_global_config_service()
+            .await?
+            .get_snapshot()
+            .await?;
+        if let Some(expected_revision) = expected_revision {
+            if snapshot.revision != expected_revision {
+                return Err(CoreError::Validation(format!(
+                    "config.revision_conflict: expected {}, current {}",
+                    expected_revision, snapshot.revision
+                )));
+            }
+        }
+        let authoritative_revision = snapshot.revision;
+
+        crate::agentic::tools::implementations::settings_tools::register_dirty_settings_constraint(
+            &session.session_id,
+            &turn_id,
+            dirty_setting_ids.clone(),
+        )?;
+
+        let start_result = self
+            .start_dialog_turn_internal(
+                session.session_id.clone(),
+                prompt.to_string(),
+                Some(prompt.to_string()),
+                None,
+                Some(turn_id.clone()),
+                SettingsAgent::ID.to_string(),
+                None,
+                session.config.workspace_path.clone(),
+                DialogSubmissionPolicy::for_source(DialogTriggerSource::DesktopUi)
+                    .with_skip_tool_confirmation(false)
+                    .with_persist_agent_type(false),
+                Some(serde_json::json!({
+                    "kind": "settings_agent",
+                    "requestId": turn_id,
+                    "settingsContext": {
+                        "expectedRevision": authoritative_revision,
+                        "dirtySettingIds": dirty_setting_ids,
+                        "scope": "user"
+                    }
+                })),
+                Self::settings_agent_execution_settings(),
+                true,
+            )
+            .await;
+        if let Err(error) = start_result {
+            crate::agentic::tools::implementations::settings_tools::clear_dirty_settings_constraint(
+                &session.session_id,
+                &turn_id,
+            );
+            return Err(error);
+        }
+
+        Ok(handle)
+    }
+
     pub async fn start_hidden_btw_turn(
         &self,
         request_id: &str,
@@ -2929,6 +3607,8 @@ impl ConversationCoordinator {
         question: &str,
         model_id: Option<&str>,
     ) -> CoreResult<String> {
+        self.ensure_session_accepts_public_mutation(child_session_id)
+            .await?;
         if request_id.trim().is_empty() {
             return Err(CoreError::Validation("request_id is required".to_string()));
         }
@@ -2977,7 +3657,7 @@ impl ConversationCoordinator {
             DialogSubmissionPolicy::for_source(DialogTriggerSource::DesktopApi)
                 .with_skip_tool_confirmation(true),
             user_message_metadata,
-            DialogExecutionSettings::default(),
+            Self::hidden_agent_execution_settings(),
             true,
         )
         .await?;
@@ -3547,7 +4227,9 @@ impl ConversationCoordinator {
         user_message: &str,
         max_length: Option<usize>,
     ) -> CoreResult<String> {
-        let allow_ai = is_ai_session_title_generation_enabled().await;
+        self.ensure_session_accepts_public_mutation(session_id)
+            .await?;
+        let allow_ai = is_ai_session_title_generation_enabled().await?;
         let resolved = self
             .session_manager
             .resolve_session_title(user_message, max_length, allow_ai)
@@ -3573,6 +4255,8 @@ impl ConversationCoordinator {
     }
 
     pub async fn update_session_title(&self, session_id: &str, title: &str) -> CoreResult<String> {
+        self.ensure_session_accepts_public_mutation(session_id)
+            .await?;
         let normalized = title.trim().to_string();
         if normalized.is_empty() {
             return Err(CoreError::validation(
@@ -3697,6 +4381,8 @@ impl ConversationCoordinator {
         parent_dialog_turn_id: Option<&str>,
         parent_turn_index: Option<usize>,
     ) -> CoreResult<()> {
+        self.ensure_session_accepts_public_mutation(child_session_id)
+            .await?;
         self.session_manager
             .persist_btw_turn(
                 workspace_path,
@@ -3739,19 +4425,17 @@ pub fn get_global_coordinator() -> Option<Arc<ConversationCoordinator>> {
     GLOBAL_COORDINATOR.get().cloned()
 }
 
-async fn is_ai_session_title_generation_enabled() -> bool {
-    match crate::service::config::get_global_config_service().await {
-        Ok(service) => service
-            .get_config::<bool>(Some("app.ai_experience.enable_session_title_generation"))
-            .await
-            .unwrap_or(true),
-        Err(_) => true,
-    }
+async fn is_ai_session_title_generation_enabled() -> CoreResult<bool> {
+    crate::service::config::get_global_config_service()
+        .await?
+        .get_config::<bool>(Some("app.ai_experience.enable_session_title_generation"))
+        .await
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicBool, Ordering};
     use tokio::time::{sleep, Duration};
 
     #[tokio::test]
@@ -3820,5 +4504,248 @@ mod tests {
         .await;
 
         assert!(!notified);
+    }
+
+    #[test]
+    fn settings_agent_session_id_is_random_and_opaque() {
+        let first = ConversationCoordinator::new_settings_agent_session_id();
+        let second = ConversationCoordinator::new_settings_agent_session_id();
+
+        assert_ne!(first, second);
+        assert!(first.starts_with(SETTINGS_AGENT_SESSION_ID_PREFIX));
+        assert_eq!(first.len(), SETTINGS_AGENT_SESSION_ID_PREFIX.len() + 24);
+    }
+
+    #[test]
+    fn generic_mutation_guard_rejects_the_raw_active_settings_identity() {
+        let lifecycle = SettingsAgentLifecycleState {
+            initialized: true,
+            active_session_id: Some("active-settings-session".to_string()),
+        };
+
+        assert!(ConversationCoordinator::validate_generic_session_mutation(
+            &lifecycle,
+            "active-settings-session"
+        )
+        .is_err());
+        assert!(ConversationCoordinator::validate_generic_session_mutation(
+            &lifecycle,
+            "ordinary-session"
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn unbound_tool_interaction_rejects_the_active_settings_owner() {
+        let lifecycle = SettingsAgentLifecycleState {
+            initialized: true,
+            active_session_id: Some("active-settings-session".to_string()),
+        };
+
+        assert!(ConversationCoordinator::validate_unbound_tool_interaction(
+            &lifecycle,
+            "active-settings-session"
+        )
+        .is_err());
+        assert!(ConversationCoordinator::validate_unbound_tool_interaction(
+            &lifecycle,
+            "ordinary-session"
+        )
+        .is_ok());
+    }
+
+    #[tokio::test]
+    async fn settings_agent_reset_keeps_current_session_when_replacement_creation_fails() {
+        let mut lifecycle = SettingsAgentLifecycleState {
+            initialized: true,
+            active_session_id: Some("current-session".to_string()),
+        };
+        let delete_called = Arc::new(AtomicBool::new(false));
+        let delete_called_for_closure = delete_called.clone();
+
+        let result = ConversationCoordinator::replace_settings_agent_session_transaction(
+            &mut lifecycle,
+            "current-session",
+            || async {
+                Err::<Session, CoreError>(CoreError::Validation(
+                    "replacement creation failed".to_string(),
+                ))
+            },
+            move |_| async move {
+                delete_called_for_closure.store(true, Ordering::SeqCst);
+                Ok(())
+            },
+            |_| async { Ok(()) },
+        )
+        .await;
+
+        assert!(result.is_err());
+        assert!(!delete_called.load(Ordering::SeqCst));
+        assert_eq!(
+            lifecycle.active_session_id.as_deref(),
+            Some("current-session")
+        );
+    }
+
+    #[tokio::test]
+    async fn settings_agent_reset_rolls_back_replacement_when_current_delete_fails() {
+        let mut lifecycle = SettingsAgentLifecycleState {
+            initialized: true,
+            active_session_id: Some("current-session".to_string()),
+        };
+        let rolled_back_session_id = Arc::new(Mutex::new(None::<String>));
+        let rolled_back_for_closure = rolled_back_session_id.clone();
+        let replacement = Session::new_with_id(
+            "replacement-session".to_string(),
+            SETTINGS_AGENT_SESSION_NAME.to_string(),
+            SettingsAgent::ID.to_string(),
+            SessionConfig::default(),
+        );
+
+        let result = ConversationCoordinator::replace_settings_agent_session_transaction(
+            &mut lifecycle,
+            "current-session",
+            || async { Ok(replacement) },
+            |_| async { Err(CoreError::Validation("current deletion failed".to_string())) },
+            move |session_id| async move {
+                *rolled_back_for_closure.lock().await = Some(session_id);
+                Ok(())
+            },
+        )
+        .await;
+
+        assert!(result.is_err());
+        assert_eq!(
+            lifecycle.active_session_id.as_deref(),
+            Some("current-session")
+        );
+        assert_eq!(
+            rolled_back_session_id.lock().await.as_deref(),
+            Some("replacement-session")
+        );
+    }
+
+    #[test]
+    fn settings_agent_turn_id_accepts_only_safe_request_ids() {
+        assert_eq!(
+            ConversationCoordinator::settings_agent_turn_id("request_01.test")
+                .expect("safe request id"),
+            "request_01.test"
+        );
+        assert!(ConversationCoordinator::settings_agent_turn_id("../request").is_err());
+        assert!(ConversationCoordinator::settings_agent_turn_id("request 01").is_err());
+    }
+
+    #[test]
+    fn settings_agent_execution_boundary_allows_exactly_two_tools() {
+        let settings = ConversationCoordinator::settings_agent_execution_settings();
+        let allowed_tools = settings
+            .tool_allowlist_override
+            .expect("settings allowlist should be explicit");
+
+        assert_eq!(
+            allowed_tools,
+            vec![
+                SettingsAgent::CATALOG_TOOL.to_string(),
+                SettingsAgent::CHANGE_TOOL.to_string()
+            ]
+        );
+        assert_eq!(
+            settings.runtime_tool_restrictions.allowed_tool_names,
+            allowed_tools.into_iter().collect()
+        );
+        assert_eq!(settings.surface_mode, SessionSurfaceMode::UserVisible);
+        assert_eq!(
+            settings.hidden_agent_access,
+            HiddenAgentAccess::InternalRuntime
+        );
+        assert_eq!(
+            settings.tool_confirmation_policy,
+            ToolConfirmationPolicy::EnforceForPermissionedTools
+        );
+        assert!(
+            !DialogSubmissionPolicy::for_source(DialogTriggerSource::DesktopApi)
+                .skip_tool_confirmation
+        );
+    }
+
+    #[test]
+    fn ppt_live_backend_boundary_uses_the_agent_allowlist() {
+        let settings = ConversationCoordinator::ppt_live_agent_execution_settings(Some("plan"));
+        let allowed_tools = settings
+            .tool_allowlist_override
+            .expect("PPT Live allowlist should be explicit");
+
+        assert_eq!(
+            allowed_tools,
+            vec![
+                "Skill".to_string(),
+                "WebSearch".to_string(),
+                "WebFetch".to_string(),
+            ]
+        );
+        assert_eq!(
+            settings.runtime_tool_restrictions.allowed_tool_names,
+            allowed_tools.into_iter().collect()
+        );
+        assert_eq!(
+            settings.surface_mode,
+            SessionSurfaceMode::InternalBackground
+        );
+        assert_eq!(
+            settings.hidden_agent_access,
+            HiddenAgentAccess::InternalRuntime
+        );
+    }
+
+    #[test]
+    fn ppt_live_render_phase_cannot_research() {
+        let settings = ConversationCoordinator::ppt_live_agent_execution_settings(Some("slides"));
+        assert_eq!(
+            settings.tool_allowlist_override,
+            Some(vec!["Skill".to_string()])
+        );
+        assert_eq!(
+            settings.runtime_tool_restrictions.allowed_tool_names,
+            ["Skill".to_string()].into_iter().collect()
+        );
+    }
+
+    #[test]
+    fn ppt_live_backend_creator_must_be_a_scoped_action_run() {
+        assert!(ConversationCoordinator::validate_ppt_live_backend_creator(
+            "product-app-runtime:work-1:runtime-1:backend:ppt:deck-1:run:run-1"
+        )
+        .is_ok());
+        assert!(ConversationCoordinator::validate_ppt_live_backend_creator(
+            "product-app-runtime:work-1:runtime-1:backend:ppt"
+        )
+        .is_err());
+        assert!(ConversationCoordinator::validate_ppt_live_backend_creator(
+            "product-app-runtime:work-1:runtime-1:backend:other:run:run-1"
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn public_agent_access_rejects_hidden_agents() {
+        assert!(ConversationCoordinator::ensure_agent_access(
+            SettingsAgent::ID,
+            None,
+            HiddenAgentAccess::Deny,
+        )
+        .is_err());
+        assert!(ConversationCoordinator::ensure_agent_access(
+            SettingsAgent::ID,
+            None,
+            HiddenAgentAccess::InternalRuntime,
+        )
+        .is_ok());
+        assert!(ConversationCoordinator::ensure_agent_access(
+            "Runno",
+            None,
+            HiddenAgentAccess::Deny,
+        )
+        .is_ok());
     }
 }

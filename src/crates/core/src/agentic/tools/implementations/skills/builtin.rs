@@ -139,6 +139,24 @@ pub fn builtin_skill_suite_key(dir_name: &str) -> Option<String> {
     builtin_skill_suite_keys().get(dir_name).cloned()
 }
 
+/// Read one UTF-8 resource from a Sparo-managed built-in skill without exposing
+/// a general filesystem capability to an agent.
+pub fn builtin_skill_resource_text(skill_id: &str, relative_path: &str) -> Option<&'static str> {
+    if relative_path.is_empty()
+        || Path::new(relative_path).is_absolute()
+        || Path::new(relative_path)
+            .components()
+            .any(|component| matches!(component, std::path::Component::ParentDir))
+    {
+        return None;
+    }
+    let suite_key = builtin_skill_suite_key(skill_id)?;
+    let resource_path = format!("{suite_key}/skills/{skill_id}/{relative_path}");
+    BUILTIN_SKILL_SUITES_DIR
+        .get_file(resource_path)
+        .and_then(|file| file.contents_utf8())
+}
+
 pub fn is_builtin_suite_key(suite_key: &str) -> bool {
     builtin_skill_suite_manifest_map().contains_key(suite_key)
 }
@@ -345,7 +363,7 @@ async fn desired_file_content(
 
 #[cfg(test)]
 mod tests {
-    use super::builtin_skill_suite_key;
+    use super::{builtin_skill_resource_text, builtin_skill_suite_key};
     use super::{prune_stale_files, sync_dir, BUILTIN_SKILL_SUITES_DIR};
 
     #[tokio::test]
@@ -429,5 +447,14 @@ mod tests {
         );
         assert_eq!(builtin_skill_suite_key("find-skills"), None);
         assert_eq!(builtin_skill_suite_key("writing-skills"), None);
+    }
+
+    #[test]
+    fn builtin_skill_resources_are_read_without_general_filesystem_access() {
+        let preset =
+            builtin_skill_resource_text("ppt-design", "references/style-presets/insight-report.md")
+                .expect("embedded PPT style preset");
+        assert!(!preset.trim().is_empty());
+        assert!(builtin_skill_resource_text("ppt-design", "../SKILL.md").is_none());
     }
 }

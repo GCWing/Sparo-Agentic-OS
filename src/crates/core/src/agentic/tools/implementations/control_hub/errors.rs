@@ -37,7 +37,7 @@ pub enum ErrorCode {
     WrongTab,
     /// Backend reported an internal error not classified above.
     Internal,
-    /// Frontend (SelfControl / app domain) reported an error during execution.
+    /// Frontend app-domain execution reported an error.
     FrontendError,
     /// The action requires a session / handle (e.g. `terminal_session_id`,
     /// `tab_handle`) that the caller did not provide.
@@ -102,7 +102,7 @@ impl ErrorCode {
 
     /// Parse a wire-format error code (e.g. `"NOT_FOUND"`) back into the
     /// enum. Used by `ControlHub` to recover the structured code from
-    /// frontend (SelfControl) errors that arrive as `[CODE] message` strings.
+    /// frontend app-domain errors that arrive as `[CODE] message` strings.
     /// Case-insensitive; unknown codes return `None`.
     #[allow(clippy::should_implement_trait)] // we want an Option, not a Result
     pub fn from_str(s: &str) -> Option<Self> {

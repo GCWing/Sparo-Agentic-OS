@@ -139,7 +139,7 @@ export const DiffEditor: React.FC<DiffEditorProps> = ({
   useEffect(() => {
     const loadEditorConfig = async () => {
       try {
-        const config = await configManager.getConfig<EditorConfigType>('editor');
+        const config = await configManager.getSetting<EditorConfigType>('core.editor');
         if (config) {
           setEditorConfig(prev => ({
             ...prev,

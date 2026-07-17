@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 interface LanguageSelectProps {
-  onSelect: (lang: string) => void;
+  onContinue: () => void;
 }
 
 const LANGUAGES = [
@@ -9,7 +9,7 @@ const LANGUAGES = [
   { code: 'zh', label: 'Chinese', native: '简体中文' },
 ];
 
-export function LanguageSelect({ onSelect }: LanguageSelectProps) {
+export function LanguageSelect({ onContinue }: LanguageSelectProps) {
   const { t, i18n } = useTranslation();
   const [selected, setSelected] = useState<string>(() => {
     const nav = typeof navigator !== 'undefined' ? navigator.language : '';
@@ -22,7 +22,7 @@ export function LanguageSelect({ onSelect }: LanguageSelectProps) {
   };
 
   const handleContinue = () => {
-    if (selected) onSelect(selected);
+    if (selected) onContinue();
   };
 
   return (

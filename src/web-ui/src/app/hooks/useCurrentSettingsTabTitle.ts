@@ -1,24 +1,34 @@
-/**
- * useCurrentSettingsTabTitle — returns translated active settings tab label.
- */
-
-import { useMemo } from 'react';
+import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
+import { configCatalogStore } from '@/infrastructure/config';
 import { useSettingsStore } from '../scenes/settings/settingsStore';
-import { SETTINGS_CATEGORIES } from '../scenes/settings/settingsConfig';
 
-export function useCurrentSettingsTabTitle(): string {
-  const { t } = useTranslation('settings');
-  const activeTab = useSettingsStore((state) => state.activeTab);
-
-  return useMemo(() => {
-    for (const category of SETTINGS_CATEGORIES) {
-      const tab = category.tabs.find((item) => item.id === activeTab);
-      if (tab) {
-        return t(tab.labelKey, activeTab);
-      }
-    }
-    return '';
-  }, [activeTab, t]);
+function humanizeId(value: string): string {
+  return value
+    .replace(/[-_.]+/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+export function useCurrentSettingsTabTitle(): string {
+  const { t } = useTranslation('settings/config-center');
+  const activeTab = useSettingsStore((state) => state.activeTab);
+  const catalogState = useSyncExternalStore(
+    configCatalogStore.subscribe,
+    configCatalogStore.getState,
+    configCatalogStore.getState,
+  );
+
+  useEffect(() => {
+    void configCatalogStore.load().catch(() => undefined);
+  }, []);
+
+  return useMemo(() => {
+    const exists = catalogState.catalog?.settings.some(
+      (descriptor) => descriptor.presentation.tabId === activeTab,
+    );
+    if (!exists) {
+      return '';
+    }
+    return t(`tabs.${activeTab}`, { defaultValue: humanizeId(activeTab) });
+  }, [activeTab, catalogState.catalog, t]);
+}

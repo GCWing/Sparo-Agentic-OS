@@ -1,4 +1,5 @@
 {
+  "settingsPlaceholder": "Describe how you want Sparo to work",
   "addBoostTooltip": "Add agent, image, or skill",
   "boostStartBtw": "Start side question",
   "boostAddContext": "Reference file or folder",
@@ -118,6 +119,11 @@
   "selectWorkspaceTitle": "Select workspace directory",
   "switchWorkspaceFailed": "Failed to switch workspace: {{error}}",
   "switchAgent": "Switch agent",
+  "modelRequired": {
+    "title": "Set up an AI model",
+    "message": "This session is ready, but an enabled primary AI model is required before you can send a message.",
+    "action": "Open model settings"
+  },
   "osHandoff": {
     "deciding": "Agentic OS is choosing a path",
     "creating_work": "Creating Work",

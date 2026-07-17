@@ -16,9 +16,14 @@ import { StandardFlowChatContainer } from './StandardFlowChatContainer';
 import type { LineRange } from '@/shared/markdown';
 import type { FlowChatConfig } from '../../types/flow-chat';
 
-interface ModernFlowChatContainerProps {
+export type FlowChatPresentation = 'default' | 'embedded';
+
+export interface ModernFlowChatContainerProps {
   className?: string;
   sessionId?: string | null;
+  active?: boolean;
+  presentation?: FlowChatPresentation;
+  mutationsDisabled?: boolean;
   workspacePath?: string | null;
   config?: Partial<FlowChatConfig>;
   onFileViewRequest?: (filePath: string, fileName: string, lineRange?: LineRange) => void;

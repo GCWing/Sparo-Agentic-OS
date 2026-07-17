@@ -1,14 +1,20 @@
 //! Tauri transport adapter
 //!
 //! Uses Tauri's app.emit() system to send events to frontend
-//! Maintains compatibility with current implementation
 
 #[cfg(feature = "tauri-adapter")]
 use crate::traits::{TextChunk, ToolEventPayload, TransportAdapter};
+#[cfg(feature = "tauri-adapter")]
 use async_trait::async_trait;
+#[cfg(feature = "tauri-adapter")]
 use log::warn;
+#[cfg(feature = "tauri-adapter")]
 use serde_json::json;
-use sparo_events::{agentic::SessionSurfaceMode, AgenticEvent};
+#[cfg(feature = "tauri-adapter")]
+use sparo_events::agentic::SessionSurfaceMode;
+#[cfg(feature = "tauri-adapter")]
+use sparo_events::AgenticEvent;
+#[cfg(feature = "tauri-adapter")]
 use std::fmt;
 
 #[cfg(feature = "tauri-adapter")]

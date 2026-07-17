@@ -82,7 +82,7 @@ export class ToolAPI {
         const confirmRequest = {
           sessionId: request.sessionId,
           toolId: request.toolId,
-          updatedInput: request.updatedInput || null
+          ...(request.updatedInput === undefined ? {} : { updatedInput: request.updatedInput }),
         };
         
         const result = await api.invoke('confirm_tool_execution', { request: confirmRequest });

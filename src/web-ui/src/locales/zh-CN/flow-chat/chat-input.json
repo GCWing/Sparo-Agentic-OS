@@ -1,4 +1,5 @@
 {
+  "settingsPlaceholder": "描述你希望 Sparo 怎样工作",
   "addBoostTooltip": "附加 Agent、图片或 Skill",
   "boostStartBtw": "发起侧问",
   "boostAddContext": "引用文件或文件夹",
@@ -118,6 +119,11 @@
   "selectWorkspaceTitle": "选择工作区目录",
   "switchWorkspaceFailed": "切换工作区失败：{{error}}",
   "switchAgent": "切换 Agent",
+  "modelRequired": {
+    "title": "请先配置 AI 模型",
+    "message": "会话已可正常使用，但发送消息前需要配置并启用一个主模型。",
+    "action": "打开模型设置"
+  },
   "osHandoff": {
     "deciding": "Agentic OS 正在判断处理方式",
     "creating_work": "正在创建 Work",

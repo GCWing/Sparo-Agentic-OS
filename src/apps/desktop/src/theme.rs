@@ -5,9 +5,9 @@
 //! context-menu IDs lives in `crate::window::companion_window`.
 
 use dark_light::Mode;
-use log::{debug, warn};
-use sparo_core::infrastructure::try_get_path_manager_arc;
+use serde_json::Value;
 use sparo_core::service::config::types::GlobalConfig;
+use std::{fs, path::Path};
 
 // Re-export window commands so the `tauri::generate_handler!` invocation in
 // `lib.rs` keeps its compact import surface.
@@ -30,25 +30,10 @@ pub struct ThemeConfig {
     pub accent_color: String,
 }
 
-impl Default for ThemeConfig {
-    fn default() -> Self {
-        Self::get_builtin_theme("light").unwrap_or_else(|| Self {
-            id: "light".to_string(),
-            bg_primary: "#F8FAFC".to_string(),
-            bg_secondary: "#FFFFFF".to_string(),
-            bg_scene: "#FFFFFF".to_string(),
-            is_light: true,
-            text_primary: "#0F172A".to_string(),
-            text_muted: "#5B6B8C".to_string(),
-            accent_color: "#B7372F".to_string(),
-        })
-    }
-}
-
 impl ThemeConfig {
     pub fn get_builtin_theme(theme_id: &str) -> Option<Self> {
         match theme_id {
-            "slate" | "sparo-slate" => Some(Self {
+            "slate" => Some(Self {
                 id: theme_id.to_string(),
                 bg_primary: "#14161a".to_string(),
                 bg_secondary: "#22262c".to_string(),
@@ -58,7 +43,7 @@ impl ThemeConfig {
                 text_muted: "rgba(255, 255, 255, 0.4)".to_string(),
                 accent_color: "#B7372F".to_string(),
             }),
-            "dark" | "sparo-dark" => Some(Self {
+            "dark" => Some(Self {
                 id: theme_id.to_string(),
                 bg_primary: "#0e0e10".to_string(),
                 bg_secondary: "#1c1c1f".to_string(),
@@ -112,65 +97,78 @@ impl ThemeConfig {
         }
     }
 
-    /// Read the current theme id from the on-disk config. Uses synchronous
-    /// IO because this runs once during boot before the async runtime is busy;
-    /// the file is in the application config dir (always local) so this is
-    /// O(few KB) and not a bottleneck.
-    pub fn load_from_config() -> Self {
-        let default = Self::default();
-        let path_manager = match try_get_path_manager_arc() {
-            Ok(pm) => pm,
-            Err(e) => {
-                debug!("Failed to create PathManager, using default theme: {}", e);
-                return default;
-            }
-        };
-        let config_file = path_manager.app_config_file();
-        if !config_file.exists() {
-            return default;
-        }
-        let config_content = match std::fs::read_to_string(&config_file) {
-            Ok(content) => content,
-            Err(e) => {
-                debug!("Failed to read config file, using default theme: {}", e);
-                return default;
-            }
-        };
-        let global_config: GlobalConfig = match serde_json::from_str(&config_content) {
-            Ok(config) => config,
-            Err(e) => {
-                debug!("Failed to parse config file, using default theme: {}", e);
-                return default;
-            }
-        };
-        let theme_id = global_config
-            .themes
-            .as_ref()
-            .map(|t| t.current.as_str())
-            .unwrap_or("light");
-        let resolved_id = Self::resolve_builtin_theme_id(theme_id);
-        match Self::get_builtin_theme(resolved_id) {
-            Some(config) => config,
-            None => {
-                warn!("Unknown theme ID: {}, using default theme", theme_id);
-                default
+    pub fn from_startup_config_file(config_path: &Path) -> Self {
+        match Self::try_from_startup_config_file(config_path) {
+            Ok(theme) => theme,
+            Err(error) => {
+                log::warn!(
+                    "Failed to resolve startup theme from persisted config; using system fallback: {}",
+                    error
+                );
+                Self::system_fallback()
             }
         }
     }
 
+    fn try_from_startup_config_file(config_path: &Path) -> Result<Self, String> {
+        if !config_path.exists() {
+            return Ok(Self::system_fallback());
+        }
+
+        let content = fs::read_to_string(config_path)
+            .map_err(|error| format!("Failed to read config file: {error}"))?;
+        let config: Value = serde_json::from_str(&content)
+            .map_err(|error| format!("Failed to parse config file as JSON: {error}"))?;
+        Self::from_startup_config_value(&config)
+    }
+
+    fn from_startup_config_value(config: &Value) -> Result<Self, String> {
+        let theme_id = config
+            .pointer("/themes/current")
+            .and_then(Value::as_str)
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or("system");
+        Self::from_theme_selection(
+            theme_id,
+            config
+                .pointer("/themes/custom")
+                .and_then(Value::as_array)
+                .map(Vec::as_slice),
+        )
+    }
+
+    /// Resolve the native bootstrap theme from the authoritative typed config.
+    pub fn from_global_config(global_config: &GlobalConfig) -> Result<Self, String> {
+        let theme_id = global_config.themes.current.as_str();
+        Self::from_theme_selection(theme_id, global_config.themes.custom.as_deref())
+    }
+
+    fn from_theme_selection(
+        theme_id: &str,
+        custom_themes: Option<&[serde_json::Value]>,
+    ) -> Result<Self, String> {
+        let resolved_id = Self::resolve_builtin_theme_id(theme_id);
+        if let Some(config) = Self::get_builtin_theme(resolved_id) {
+            return Ok(config);
+        }
+
+        let custom_theme = custom_themes
+            .and_then(|themes| {
+                themes.iter().find(|theme| {
+                    theme.get("id").and_then(serde_json::Value::as_str) == Some(theme_id)
+                })
+            })
+            .ok_or_else(|| format!("Configured theme '{theme_id}' is not available"))?;
+        Self::from_custom_theme(custom_theme)
+    }
+
+    fn system_fallback() -> Self {
+        Self::get_builtin_theme(Self::resolve_builtin_theme_id("system"))
+            .or_else(|| Self::get_builtin_theme("light"))
+            .expect("builtin light theme must be available")
+    }
+
     fn resolve_builtin_theme_id(theme_id: &str) -> &str {
-        if theme_id == "sparo-light" || theme_id == "sparo-light" {
-            return "light";
-        }
-        if theme_id == "sparo-dark" {
-            return "dark";
-        }
-        if theme_id == "sparo-slate" {
-            return "slate";
-        }
-        if theme_id == "sparo-midnight" {
-            return "slate";
-        }
         if theme_id == "system" {
             return match dark_light::detect() {
                 Mode::Dark => "dark",
@@ -180,8 +178,95 @@ impl ThemeConfig {
         theme_id
     }
 
+    fn from_custom_theme(theme: &serde_json::Value) -> Result<Self, String> {
+        fn required_string(theme: &serde_json::Value, pointer: &str) -> Result<String, String> {
+            theme
+                .pointer(pointer)
+                .and_then(serde_json::Value::as_str)
+                .filter(|value| !value.trim().is_empty())
+                .map(str::to_string)
+                .ok_or_else(|| format!("Custom theme is missing string value at '{pointer}'"))
+        }
+
+        let id = required_string(theme, "/id")?;
+        let theme_type = required_string(theme, "/type")?;
+        if !matches!(theme_type.as_str(), "light" | "dark") {
+            return Err(format!(
+                "Custom theme '{id}' has unsupported type '{theme_type}'"
+            ));
+        }
+
+        Ok(Self {
+            id,
+            bg_primary: required_string(theme, "/colors/background/primary")?,
+            bg_secondary: required_string(theme, "/colors/background/secondary")?,
+            bg_scene: required_string(theme, "/colors/background/scene")?,
+            is_light: theme_type == "light",
+            text_primary: required_string(theme, "/colors/text/primary")?,
+            text_muted: required_string(theme, "/colors/text/muted")?,
+            accent_color: required_string(theme, "/colors/accent/500")?,
+        })
+    }
+
+    pub fn bg_primary_rgb(&self) -> Option<(u8, u8, u8)> {
+        parse_hex_rgb(&self.bg_primary)
+    }
+
+    fn theme_type(&self) -> &'static str {
+        if self.is_light {
+            "light"
+        } else {
+            "dark"
+        }
+    }
+
+    pub fn generate_startup_bootstrap_script(&self) -> String {
+        let payload = serde_json::json!({
+            "id": self.id,
+            "type": self.theme_type(),
+            "bg": self.bg_primary,
+        });
+        let payload = serde_json::to_string(&payload)
+            .expect("startup theme bootstrap payload must be JSON serializable");
+
+        format!(
+            r#"
+            (function() {{
+                try {{
+                    var params = new URLSearchParams(window.location.search);
+                    if (params.get('sparoWindow') === 'agent-companion') return;
+                }} catch (_) {{}}
+
+                var theme = {payload};
+                window.__SPARO_STARTUP_THEME__ = theme;
+                try {{
+                    window.localStorage.setItem('sparo:theme-bootstrap', JSON.stringify(theme));
+                }} catch (_) {{}}
+
+                function applyStartupTheme() {{
+                    var root = document.documentElement;
+                    if (!root) return;
+                    root.setAttribute('data-theme', theme.id);
+                    root.setAttribute('data-theme-type', theme.type);
+                    root.style.setProperty('--color-bg-primary', theme.bg);
+                    root.style.backgroundColor = theme.bg;
+                    if (document.body) {{
+                        document.body.style.backgroundColor = theme.bg;
+                    }}
+                }}
+
+                applyStartupTheme();
+                if (document.readyState === 'loading') {{
+                    document.addEventListener('DOMContentLoaded', applyStartupTheme);
+                }}
+            }})();
+            "#,
+            payload = payload,
+        )
+    }
+
     pub fn generate_init_script(&self) -> String {
-        let theme_type = if self.is_light { "light" } else { "dark" };
+        let theme_type = self.theme_type();
         format!(
             r#"
             (function() {{
@@ -220,5 +305,83 @@ impl ThemeConfig {
             bg_scene = self.bg_scene,
             text_primary = self.text_primary,
         )
+    }
+}
+
+pub fn parse_hex_rgb(input: &str) -> Option<(u8, u8, u8)> {
+    let raw = input.trim().trim_start_matches('#');
+    match raw.len() {
+        6 => {
+            let r = u8::from_str_radix(&raw[0..2], 16).ok()?;
+            let g = u8::from_str_radix(&raw[2..4], 16).ok()?;
+            let b = u8::from_str_radix(&raw[4..6], 16).ok()?;
+            Some((r, g, b))
+        }
+        3 => {
+            let r = u8::from_str_radix(&raw[0..1], 16).ok()?;
+            let g = u8::from_str_radix(&raw[1..2], 16).ok()?;
+            let b = u8::from_str_radix(&raw[2..3], 16).ok()?;
+            Some((r * 17, g * 17, b * 17))
+        }
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{parse_hex_rgb, ThemeConfig};
+    use serde_json::json;
+
+    #[test]
+    fn startup_config_uses_builtin_light_theme() {
+        let theme = ThemeConfig::from_startup_config_value(&json!({
+            "themes": {
+                "current": "light"
+            }
+        }))
+        .expect("light theme should resolve");
+
+        assert_eq!(theme.id, "light");
+        assert_eq!(theme.bg_primary, "#F8FAFC");
+        assert!(theme.is_light);
+    }
+
+    #[test]
+    fn startup_config_uses_custom_theme_background() {
+        let theme = ThemeConfig::from_startup_config_value(&json!({
+            "themes": {
+                "current": "custom-startup",
+                "custom": [{
+                    "id": "custom-startup",
+                    "type": "light",
+                    "colors": {
+                        "background": {
+                            "primary": "#abc123",
+                            "secondary": "#ffffff",
+                            "scene": "#fefefe"
+                        },
+                        "text": {
+                            "primary": "#111111",
+                            "muted": "#555555"
+                        },
+                        "accent": {
+                            "500": "#B7372F"
+                        }
+                    }
+                }]
+            }
+        }))
+        .expect("custom theme should resolve");
+
+        assert_eq!(theme.id, "custom-startup");
+        assert_eq!(theme.bg_primary, "#abc123");
+        assert_eq!(theme.bg_primary_rgb(), Some((0xab, 0xc1, 0x23)));
+    }
+
+    #[test]
+    fn hex_rgb_supports_short_and_long_forms() {
+        assert_eq!(parse_hex_rgb("#abc"), Some((0xaa, 0xbb, 0xcc)));
+        assert_eq!(parse_hex_rgb("F8FAFC"), Some((0xf8, 0xfa, 0xfc)));
+        assert_eq!(parse_hex_rgb("rgba(0, 0, 0, 0.5)"), None);
     }
 }

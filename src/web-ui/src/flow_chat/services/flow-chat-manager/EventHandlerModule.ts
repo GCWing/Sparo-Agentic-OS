@@ -37,7 +37,12 @@ import { requestWorkRefresh } from '@/app/agentic-os/work/data/workStore';
 import type { FlowChatContext, DialogTurn, ModelRound, FlowToolItem } from './types';
 import { isDialogTurnTerminal } from '../../runtime/statusModel';
 import { finalizeFlowTurn } from '../../runtime/finalizers';
-import { descriptorFromAgentType } from '../../domain/sessionDescriptor';
+import {
+  descriptorFromAgentType,
+  descriptorFromBackendSessionCreated,
+} from '../../domain/sessionDescriptor';
+import { isLocalBackendSessionCreationPending } from './SessionModule';
+import { canTrackUnreadCompletion } from '../../domain/unreadCompletion';
 import { 
   debouncedSaveDialogTurn, 
   immediateSaveDialogTurn, 
@@ -90,6 +95,10 @@ export function isAppWindowFocused(): boolean {
 }
 
 function shouldMarkUnreadCompletion(sessionId: string): boolean {
+  const session = FlowChatStore.getInstance().getState().sessions.get(sessionId);
+  if (!canTrackUnreadCompletion(session)) {
+    return false;
+  }
   const focusedSessionId = selectFocusedSessionId(useWorkspaceSurfaceStore.getState());
   return sessionId !== focusedSessionId || !isAppWindowFocused();
 }
@@ -497,16 +506,24 @@ async function handleMcpInteractionRequest(rawEvent: unknown): Promise<void> {
 function handleSessionCreated(context: FlowChatContext, event: any): void {
   const { sessionId, sessionName, agentType } = event;
 
+  if (isLocalBackendSessionCreationPending(sessionId)) {
+    log.debug('Ignoring locally managed session-created echo', { sessionId, agentType });
+    return;
+  }
+
   const store = FlowChatStore.getInstance();
-  const descriptor = descriptorFromAgentType(agentType || 'Runno');
   const workspacePath = resolveExternalSessionWorkspacePath(context, event);
   const existing = store.getState().sessions.get(sessionId);
+  const descriptor = descriptorFromBackendSessionCreated(
+    agentType || 'Runno',
+    existing?.descriptor,
+  );
   if (existing) {
     store.reconcileSessionDescriptor(
       sessionId,
       descriptor,
       workspacePath,
-      descriptor.storageScope,
+      existing.storageScope ?? descriptor.storageScope,
     );
     return;
   }

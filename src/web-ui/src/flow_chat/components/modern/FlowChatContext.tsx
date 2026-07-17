@@ -17,6 +17,7 @@ export interface FlowChatStaticContextValue {
   // Tool actions
   onToolConfirm?: (toolId: string, updatedInput?: any) => Promise<void>;
   onToolReject?: (toolId: string) => Promise<void>;
+  mutationsDisabled?: boolean;
 
   // Session info
   sessionId?: string;

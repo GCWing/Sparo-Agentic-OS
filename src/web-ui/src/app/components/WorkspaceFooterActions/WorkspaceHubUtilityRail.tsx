@@ -107,7 +107,9 @@ export const WorkspaceHubUtilityRail: React.FC<WorkspaceHubUtilityRailProps> = (
   const themeControlRef = useRef<HTMLDivElement>(null);
   const languageControlRef = useRef<HTMLDivElement>(null);
 
-  const activeThemeChoice = themeId === SYSTEM_THEME_ID ? SYSTEM_THEME_ID : (themeId || themeType);
+  const activeThemeChoice = themeId === SYSTEM_THEME_ID
+    ? SYSTEM_THEME_ID
+    : (themeId ?? themeType ?? undefined);
   const themeOptions = useMemo(() => {
     const previewFor = (id: string) => {
       const candidate = themeService.getTheme(id) ?? builtinThemes.find((item) => item.id === id);
@@ -300,7 +302,7 @@ export const WorkspaceHubUtilityRail: React.FC<WorkspaceHubUtilityRailProps> = (
                 stretch
                 value={activeThemeChoice}
                 options={themeOptions}
-                disabled={themeLoading}
+                disabled={themeLoading || activeThemeChoice === undefined}
                 ariaLabel={t('nav.menuPanel.hub.controls.theme')}
                 aria-busy={themeLoading || undefined}
                 onChange={handleThemeChange}

@@ -252,6 +252,18 @@ pub async fn resolve_app_draft(
 }
 
 #[tauri::command]
+pub async fn delete_app_draft(
+    state: State<'_, AppState>,
+    request: DraftIdRequest,
+) -> Result<DraftRecord, String> {
+    state
+        .app_revision_store
+        .delete_draft(&request.draft_id)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 pub async fn resolve_intelligent_app_draft_preview(
     state: State<'_, AppState>,
     request: ResolveDraftPreviewRequest,

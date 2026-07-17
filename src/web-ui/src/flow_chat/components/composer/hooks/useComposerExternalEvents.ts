@@ -31,6 +31,9 @@ interface UseComposerExternalEventsParams {
   setInputTarget: (target: ChatInputTarget) => void;
   addContext: (context: ContextItem) => void;
   restoreComposerSnapshot: (snapshot: ComposerContextSnapshot) => void;
+  enabled?: boolean;
+  allowContextInput?: boolean;
+  targetSessionId?: string | null;
   t: TFunction<'flow-chat'>;
 }
 
@@ -45,6 +48,9 @@ export function useComposerExternalEvents({
   setInputTarget,
   addContext,
   restoreComposerSnapshot,
+  enabled = true,
+  allowContextInput = true,
+  targetSessionId,
   t,
 }: UseComposerExternalEventsParams) {
   const applyRequestedTarget = useCallback((target?: ChatInputEventTarget) => {
@@ -53,9 +59,11 @@ export function useComposerExternalEvents({
   }, [setInputTarget]);
 
   useEffect(() => {
+    if (!enabled) return;
     const handleFillInput = (event: Event) => {
       const customEvent = event as CustomEvent<{
         message: string;
+        sessionId?: string;
         target?: ChatInputEventTarget;
         composerContext?: unknown;
         onlyIfEmpty?: boolean;
@@ -63,6 +71,12 @@ export function useComposerExternalEvents({
       const message = customEvent.detail?.message;
 
       if (message) {
+        if (
+          customEvent.detail?.sessionId
+          && customEvent.detail.sessionId !== targetSessionId
+        ) {
+          return;
+        }
         if (customEvent.detail?.onlyIfEmpty && inputValueRef.current.trim()) return;
         applyRequestedTarget(customEvent.detail?.target);
         const snapshot = customEvent.detail?.composerContext;
@@ -79,9 +93,19 @@ export function useComposerExternalEvents({
     return () => {
       window.removeEventListener('fill-chat-input', handleFillInput);
     };
-  }, [activateInput, applyRequestedTarget, editorRef, inputValueRef, restoreComposerSnapshot, setInputValue]);
+  }, [
+    activateInput,
+    applyRequestedTarget,
+    editorRef,
+    enabled,
+    inputValueRef,
+    restoreComposerSnapshot,
+    setInputValue,
+    targetSessionId,
+  ]);
 
   useEffect(() => {
+    if (!enabled) return;
     const handleAppendInput = (event: Event) => {
       const customEvent = event as CustomEvent<{ text: string; target?: ChatInputEventTarget }>;
       const text = customEvent.detail?.text?.trim();
@@ -106,9 +130,10 @@ export function useComposerExternalEvents({
     return () => {
       window.removeEventListener('append-chat-input', handleAppendInput);
     };
-  }, [activateInput, applyRequestedTarget, editorRef, inputValueRef, setInputValue]);
+  }, [activateInput, applyRequestedTarget, editorRef, enabled, inputValueRef, setInputValue]);
 
   useEffect(() => {
+    if (!enabled) return;
     const handleFillChatInput = (data: { content: string; onlyIfEmpty?: boolean }) => {
       if (data.onlyIfEmpty && inputValueRef.current.trim().length > 0) {
         return;
@@ -122,9 +147,10 @@ export function useComposerExternalEvents({
     return () => {
       globalEventBus.off('fill-chat-input', handleFillChatInput);
     };
-  }, [activateInput, editorRef, inputValueRef, setInputValue]);
+  }, [activateInput, editorRef, enabled, inputValueRef, setInputValue]);
 
   useEffect(() => {
+    if (!enabled || !allowContextInput) return;
     const handleMcpAppMessage = async (event: McpAppMessageEvent) => {
       const { requestId, params } = event;
 
@@ -188,9 +214,19 @@ export function useComposerExternalEvents({
     return () => {
       globalEventBus.off('mcp-app:message', handleMcpAppMessage);
     };
-  }, [activateInput, addContext, currentImageCount, editorRef, inputValue, setInputValue]);
+  }, [
+    activateInput,
+    addContext,
+    allowContextInput,
+    currentImageCount,
+    editorRef,
+    enabled,
+    inputValue,
+    setInputValue,
+  ]);
 
   useEffect(() => {
+    if (!enabled || !allowContextInput) return;
     const handleInsertContextTag = (event: Event) => {
       const customEvent = event as CustomEvent<{ context: ContextItem }>;
       const context = customEvent.detail?.context;
@@ -223,9 +259,10 @@ export function useComposerExternalEvents({
     return () => {
       window.removeEventListener('insert-context-tag', handleInsertContextTag);
     };
-  }, [activateInput, addContext, editorRef, isActive]);
+  }, [activateInput, addContext, allowContextInput, editorRef, enabled, isActive]);
 
   useEffect(() => {
+    if (!enabled || !allowContextInput) return;
     const handleImagePaste = async (event: Event) => {
       const customEvent = event as CustomEvent<{ file: File }>;
       const file = customEvent.detail?.file;
@@ -263,5 +300,14 @@ export function useComposerExternalEvents({
         inputElement.removeEventListener('imagePaste', handleImagePaste);
       }
     };
-  }, [activateInput, addContext, currentImageCount, editorRef, isActive, t]);
+  }, [
+    activateInput,
+    addContext,
+    allowContextInput,
+    currentImageCount,
+    editorRef,
+    enabled,
+    isActive,
+    t,
+  ]);
 }

@@ -6,7 +6,7 @@ A fully custom, branded installer for Sparo OS — built with **Tauri 2 + React*
 
 Instead of relying on the generic NSIS wizard UI from Tauri's built-in bundler, this project provides:
 
-- **100% custom UI** — React-based, with smooth animations, dark theme, and brand consistency
+- **100% custom UI** — React-based, with smooth animations and brand consistency
 - **Modern experience** — Similar to Discord, Figma, and VS Code installers
 - **Full control** — Custom installation logic, right-click context menu, PATH integration
 - **Cross-platform potential** — Same codebase can target Windows, macOS, and Linux
@@ -33,13 +33,10 @@ installer/
 │   ├── pages/
 │   │   ├── LanguageSelect.tsx # First screen language picker
 │   │   ├── Options.tsx        # Path picker + install options
-│   │   ├── Progress.tsx       # Install progress + confirm
-│   │   ├── ModelSetup.tsx     # Optional model provider setup
-│   │   └── ThemeSetup.tsx     # Theme preview + finish
+│   │   ├── Progress.tsx       # Install progress + launch
+│   │   └── Uninstall.tsx      # Uninstall flow
 │   ├── components/
-│   │   ├── WindowControls.tsx # Custom titlebar
-│   │   ├── Checkbox.tsx       # Styled checkbox
-│   │   └── ProgressBar.tsx    # Animated progress bar
+│   │   └── WindowControls.tsx # Custom titlebar
 │   ├── hooks/
 │   │   └── useInstaller.ts    # Core installer state machine
 │   ├── styles/
@@ -61,11 +58,14 @@ installer/
 ## Installation Flow
 
 ```
-Language Select → Options → Progress → Model Setup → Theme Setup
-       │             │          │            │              │
-   choose UI      path +     run real    optional AI     save theme,
-    language      options    install      model config    launch/close
+Language Select → Options → Progress
+       │             │          │
+   installer UI   path +     install and
+    language      options    launch Sparo OS
 ```
+
+The installer owns only installation, uninstallation, and launching. Sparo OS owns all
+first-run settings, including application language, theme, models, and credentials.
 
 ## Development
 

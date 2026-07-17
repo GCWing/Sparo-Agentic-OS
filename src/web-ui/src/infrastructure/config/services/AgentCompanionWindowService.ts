@@ -22,10 +22,6 @@ export async function syncAgentCompanionDesktopWindow(
     try {
       const { invoke } = await import('@tauri-apps/api/core');
       await invoke(command);
-      if (command === 'show_agent_companion_desktop_pet') {
-        const { emit } = await import('@tauri-apps/api/event');
-        await emit('agent-companion://settings-updated', settings);
-      }
     } catch (error) {
       log.error('Failed to sync Agent companion desktop window', { command, error });
     }

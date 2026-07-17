@@ -62,7 +62,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
   useEffect(() => {
     const load = async () => {
       try {
-        const raw = await configManager.getConfig('app.keybindings');
+        const raw = await configManager.getSetting('core.app.keybindings');
         const overrides = parseStoredKeybindings(raw);
         if (Object.keys(overrides).length > 0) {
           shortcutManager.loadUserOverrides(overrides);
@@ -74,8 +74,8 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
 
     void load();
 
-    const unsubscribe = configManager.onConfigChange((path) => {
-      if (path === 'app.keybindings') void load();
+    const unsubscribe = configManager.onSettingChange((settingId) => {
+      if (settingId === 'core.app.keybindings') void load();
     });
 
     return () => unsubscribe();

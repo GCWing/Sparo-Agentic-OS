@@ -1,249 +1,69 @@
 {
   "lang": {
     "title": "语言",
-    "subtitle": "选择您的首选语言",
-    "slogan": "点亮每个人的 AI 火种",
-    "continue": "开始连接系统"
+    "subtitle": "选择安装器语言",
+    "slogan": "让每个人都能点燃 AI",
+    "continue": "接通你的系统"
   },
   "errors": {
     "install": {
       "failed": "安装失败"
     },
     "installPath": {
-      "notAbsolute": "安装路径必须是绝对路径（例如 C:\\…）。",
-      "filesystemRoot": "不能安装到磁盘根目录，请选择磁盘下的某个文件夹。",
-      "pathNotDirectory": "所选路径已存在但不是文件夹。",
-      "directoryMustBeEmptyOrSparo": "安装目录必须为空，或已包含 Sparo OS 安装。",
-      "inspectDirectoryFailed": "无法读取安装目录，请检查权限后重试。",
-      "directoryNotWritable": "安装目录不可写入。请更换路径，或以管理员身份运行安装器（见下方说明）。",
-      "parentNotWritable": "上级目录不可写入。系统目录（如 Program Files）通常需要管理员权限（见下方说明）。",
-      "adminHint": "若需安装到受保护位置（例如 C:\\Program Files），请关闭本安装器，在安装程序上右键选择「以管理员身份运行」后重新安装。也可安装到当前用户目录（例如 %LOCALAPPDATA%\\Programs），一般无需管理员权限。"
+      "notAbsolute": "安装路径必须是绝对路径。",
+      "filesystemRoot": "请选择磁盘内的文件夹，不要直接选择磁盘根目录。",
+      "pathNotDirectory": "所选路径已存在，但不是文件夹。",
+      "directoryMustBeEmptyOrSparo": "安装文件夹必须为空，或已经包含 Sparo OS。",
+      "inspectDirectoryFailed": "无法检查安装文件夹，请确认权限后重试。",
+      "directoryNotWritable": "安装文件夹不可写。",
+      "parentNotWritable": "上级文件夹不可写。",
+      "adminHint": "请选择其他位置，或以管理员身份运行安装器。"
     }
   },
   "options": {
-    "title": "选项",
-    "subtitle": "确认安装位置与偏好设置",
-    "quickSetup": "快速设置",
-    "appLanguage": "应用语言",
-    "theme": "主题",
-    "themeDark": "暗色",
-    "themeSlate": "石板灰",
-    "changeLanguage": "切换语言",
+    "title": "安装",
+    "subtitle": "选择 Sparo OS 的安装位置与系统集成。",
     "pathLabel": "安装路径",
-    "pathPlaceholder": "选择目录...",
+    "pathPlaceholder": "选择安装文件夹",
     "browse": "浏览",
-    "required": "所需空间",
-    "available": "可用空间",
-    "insufficientSpace": "磁盘空间不足",
-    "optionsLabel": "安装选项",
     "desktopShortcut": "创建桌面快捷方式",
     "startMenu": "添加到开始菜单",
-    "contextMenu": "添加右键菜单",
-    "addToPath": "添加到系统 PATH",
-    "launchAfterInstall": "安装后启动 Sparo OS",
-    "back": "返回",
-    "install": "开始安装",
-    "installing": "正在接通…",
-    "nextModel": "下一步：配置模型"
-  },
-  "model": {
-    "title": "模型",
-    "subtitle": "安装完成，继续配置模型与主题",
-    "installDone": "安装完成",
-    "provider": "服务商",
-    "config": "连接信息",
-    "modelName": "模型名称（如 deepseek-chat）",
-    "apiKey": "API Key",
-    "back": "返回",
-    "skip": "稍后配置",
-    "tuneLater": "稍后再点",
-    "testLive": "Live",
-    "nextTheme": "下一步：主题",
-    "description": "配置和管理 AI 模型提供商",
-    "providerLabel": "选择模型提供商",
-    "selectProvider": "或选择预设提供商",
-    "customProvider": "自定义配置",
-    "getApiKey": "获取 API Key",
-    "modelNamePlaceholder": "输入自定义模型名称...",
-    "baseUrlPlaceholder": "示例：https://open.bigmodel.cn/api/paas/v4/chat/completions",
-    "presetEndpoints": "选择预设 API 地址",
-    "customRequestBodyPlaceholder": "例如：\n{\n  \"temperature\": 0.8,\n  \"top_p\": 0.9\n}",
-    "jsonValid": "JSON格式有效",
-    "jsonInvalid": "JSON格式错误，请检查语法",
-    "skipSslVerify": "跳过SSL证书验证",
-    "customHeadersModeMerge": "合并",
-    "customHeadersModeReplace": "替换",
-    "addHeader": "添加字段",
-    "headerKey": "key",
-    "headerValue": "value",
-    "advancedShow": "Show advanced settings",
-    "advancedHide": "Hide advanced settings",
-    "simpleHint": "选择服务商，粘贴 API Key，挑选模型，完成。",
-    "providers": {
-      "opensparo": {
-        "name": "Sparo 模型平台",
-        "description": "Sparo OS 大模型平台"
-      },
-      "gemini": {
-        "name": "Google Gemini",
-        "description": "Google Gemini 系列模型"
-      },
-      "anthropic": {
-        "name": "Anthropic Claude",
-        "description": "Anthropic Claude 系列模型"
-      },
-      "minimax": {
-        "name": "MiniMax",
-        "description": "MiniMax 系列模型",
-        "urlOptions": {
-          "default": "Anthropic格式-默认",
-          "openai": "OpenAI兼容格式"
-        }
-      },
-      "moonshot": {
-        "name": "月之暗面",
-        "description": "月之暗面 Kimi 系列模型"
-      },
-      "deepseek": {
-        "name": "DeepSeek",
-        "description": "DeepSeek 系列模型"
-      },
-      "zhipu": {
-        "name": "智谱AI",
-        "description": "智谱AI GLM 系列模型",
-        "urlOptions": {
-          "default": "OpenAI格式-默认",
-          "anthropic": "Anthropic格式",
-          "codingPlan": "OpenAI格式-CodingPlan"
-        }
-      },
-      "qwen": {
-        "name": "通义千问",
-        "description": "阿里云百炼大模型平台",
-        "urlOptions": {
-          "default": "OpenAI格式-默认",
-          "codingPlan": "OpenAI格式-Coding Plan",
-          "codingPlanAnthropic": "Anthropic格式-Coding Plan"
-        }
-      },
-      "volcengine": {
-        "name": "火山引擎",
-        "description": "字节跳动火山引擎大模型平台"
-      },
-      "siliconflow": {
-        "name": "硅基流动",
-        "description": "硅基流动大模型平台",
-        "urlOptions": {
-          "default": "OpenAI格式-默认",
-          "anthropic": "Anthropic格式"
-        }
-      },
-      "nvidia": {
-        "name": "NVIDIA",
-        "description": "NVIDIA NIM 大模型平台"
-      },
-      "openrouter": {
-        "name": "OpenRouter",
-        "description": "OpenRouter 大模型平台"
-      }
-    },
-    "modelNameSelectPlaceholder": "选择模型",
-    "customModel": "按 Enter 使用",
-    "testConnection": "测试连接",
-    "testing": "测试中...",
-    "testSuccess": "测试成功",
-    "testFailed": "测试失败",
-    "modelSearchPlaceholder": "搜索或输入模型名称...",
-    "modelNoResults": "没有匹配的模型",
-    "fillApiKeyBeforeFetch": "请先填写 API Key 再获取模型列表",
-    "fetchingModels": "正在拉取模型列表...",
-    "fetchFailedFallback": "拉取模型列表失败，已回退到常用预设模型",
-    "fetchEmptyFallback": "供应商未返回可用模型，已回退到常用预设模型",
-    "usingPresetModels": "当前显示的是常用预设模型",
-    "addCustomModel": "添加自定义模型",
-    "form": {
-      "baseUrl": "API地址",
-      "apiKey": "API密钥",
-      "apiKeyPlaceholder": "输入您的 API Key",
-      "provider": "请求格式",
-      "providerPlaceholder": "选择请求格式",
-      "modelSelection": "选择模型",
-      "modelName": "模型名称",
-      "resolvedUrlLabel": "实际请求地址：",
-      "resolvedUrlCaption": "预览"
-    },
-    "formats": {
-      "openaiCompatible": "OpenAI 兼容",
-      "responsesApi": "OpenAI Responses API",
-      "claudeApi": "Claude API",
-      "geminiApi": "Gemini GenerateContent API"
-    },
-    "showSecret": "显示",
-    "hideSecret": "隐藏"
+    "contextMenu": "添加文件夹右键菜单",
+    "addToPath": "将 Sparo OS 添加到 PATH",
+    "optionsLabel": "系统集成",
+    "available": "可用",
+    "required": "需要",
+    "insufficientSpace": "磁盘空间不足，无法完成安装。",
+    "changeLanguage": "更改语言",
+    "install": "安装 Sparo OS",
+    "installing": "正在安装"
   },
   "progress": {
-    "title": "正在为你接通系统",
-    "connectingSystem": "正在为你接通系统",
-    "installing": "正在安装...",
-    "prepare": "准备中",
-    "extract": "解压中",
-    "registry": "注册中",
-    "shortcuts": "快捷方式",
-    "contextMenu": "右键菜单",
-    "path": "更新 PATH",
-    "config": "应用偏好",
-    "finishing": "收尾",
-    "ignited": "火种已点燃",
-    "starting": "稍候…",
+    "connectingSystem": "正在接通你的系统",
+    "prepare": "正在准备",
+    "extract": "正在解压文件",
+    "registry": "正在注册应用",
+    "shortcuts": "正在创建快捷方式",
+    "contextMenu": "正在添加右键菜单",
+    "path": "正在更新 PATH",
+    "finishing": "正在完成",
+    "ignited": "Sparo OS 已就绪",
+    "starting": "正在开始",
     "failed": "安装失败",
     "finishAndLaunch": "启动 Sparo OS",
-    "continueConfigure": "进行基础配置",
-    "launchFailed": "应用未能启动。可稍后重试，或选择「进行基础配置」完成剩余步骤。"
-  },
-  "themeSetup": {
-    "title": "点亮，开始",
-    "subtitle": "选择首次启动主题，然后开始使用",
-    "heroTitle": "点亮，开始",
-    "heroSubtitle": "Sparo OS 已就绪",
-    "colorScheme": "配色",
-    "launch": "启动 Sparo OS",
-    "closeLater": "稍后启动",
-    "followSystem": "跟随系统",
-    "skip": "跳过主题并启动",
-    "themeNames": {
-      "dark": "暗色",
-      "light": "亮色",
-      "sparo-china-style": "墨韵",
-      "sparo-china-night": "墨夜",
-      "sparo-cyber": "赛博",
-      "slate": "石板灰"
-    }
-  },
-  "complete": {
-    "title": "完成",
-    "heading": "安装完成",
-    "ready": "Sparo OS 已准备就绪。",
-    "autoLaunch": "将自动启动应用。",
-    "launchFinish": "启动 Sparo OS",
-    "finish": "完成"
+    "launchFailed": "Sparo OS 未能启动，你可以在此页面重试。"
   },
   "uninstall": {
     "title": "卸载 Sparo OS",
-    "subtitle": "将移除 Sparo OS 及其集成项（快捷方式、右键菜单、PATH）。",
-    "orbitRetracted": "轨道已收回",
-    "farewell": "期待你下一次点燃。",
-    "retracting": "轨道收回中…",
-    "installPath": "安装目录",
-    "inlineHint": "将清理集成与安装目录",
-    "pathUnknown": "未检测到安装目录",
-    "confirm": "开始卸载",
-    "uninstalling": "正在卸载...",
-    "completed": "卸载已完成，可关闭窗口。",
+    "subtitle": "这将移除 Sparo OS 及其快捷方式、右键菜单和 PATH 集成。",
+    "orbitRetracted": "卸载完成",
+    "farewell": "期待与你再次点燃。",
+    "retracting": "正在卸载 Sparo OS",
+    "installPath": "安装文件夹",
+    "pathUnknown": "未检测到安装文件夹",
+    "confirm": "卸载",
+    "uninstalling": "正在卸载",
     "cancel": "取消",
     "close": "关闭"
-  },
-  "titlebar": {
-    "default": "Sparo OS",
-    "brand": "· Sparo OS Installer"
   }
 }

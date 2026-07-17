@@ -32,6 +32,7 @@ export const I18N_NAMESPACES = [
   'settings/agents',
   'settings/ai-features',
   'settings/ai-model',
+  'settings/ai-mode',
   'settings/ai-usage',
   'settings/appearance',
   'settings/basics',

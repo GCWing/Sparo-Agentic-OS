@@ -167,7 +167,7 @@ const ShellNav: React.FC<ShellNavProps> = ({ workspacePath }) => {
     try {
       const [shells, terminalConfig] = await Promise.all([
         getTerminalService().getAvailableShells(),
-        configManager.getConfig<TerminalConfig>('terminal'),
+        configManager.getSetting<TerminalConfig>('core.terminal'),
       ]);
       setAvailableShells(shells.filter((shell) => shell.available));
       setDefaultShellType(terminalConfig?.default_shell || '');

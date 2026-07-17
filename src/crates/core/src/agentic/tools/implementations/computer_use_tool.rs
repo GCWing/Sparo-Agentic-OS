@@ -5,7 +5,7 @@ use super::computer_use_input::{
     use_screen_coordinates,
 };
 use super::computer_use_locate::execute_computer_use_locate;
-use crate::agentic::tools::computer_use_capability::computer_use_desktop_available;
+use crate::agentic::tools::computer_use_capability::computer_use_tool_enabled;
 use crate::agentic::tools::computer_use_host::{
     ComputerScreenshot, ComputerUseHost, ComputerUseNavigateQuadrant,
     ComputerUseScreenshotRefinement, OcrRegionNative, ScreenshotCropCenter, UiElementLocateQuery,
@@ -15,7 +15,6 @@ use crate::agentic::tools::computer_use_host::{
 use crate::agentic::tools::computer_use_optimizer::hash_screenshot_bytes;
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
 use crate::error::{CoreError, CoreResult};
-use crate::service::config::global::GlobalConfigManager;
 use crate::util::types::ToolImageAttachment;
 use async_trait::async_trait;
 use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
@@ -1399,16 +1398,12 @@ impl Tool for ComputerUseTool {
         true
     }
 
+    fn allows_confirmation_bypass(&self, _input: Option<&Value>) -> bool {
+        false
+    }
+
     async fn is_enabled(&self) -> bool {
-        if !computer_use_desktop_available() {
-            return false;
-        }
-        let Ok(service) = GlobalConfigManager::get_service().await else {
-            return false;
-        };
-        let ai: crate::service::config::types::AIConfig =
-            service.get_config(Some("ai")).await.unwrap_or_default();
-        ai.computer_use_enabled
+        computer_use_tool_enabled().await
     }
 
     async fn call_impl(

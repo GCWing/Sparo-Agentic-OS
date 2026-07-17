@@ -7,7 +7,7 @@ export interface GlobalConfig {
   terminal: TerminalConfig;
   workspace: WorkspaceConfig;
   ai: AIConfig;
-  product_apps?: ProductAppsConfig;
+  product_apps: ProductAppsConfig;
   version: string;
   last_modified: number;
 }
@@ -24,7 +24,6 @@ export interface AppConfig {
   sidebar: SidebarConfig;
   right_panel: RightPanelConfig;
   notifications: NotificationConfig;
-  session_config: AppSessionConfig;
   host_scan: AppHostScanConfig;
   ai_experience: AIExperienceConfig;
 }
@@ -34,9 +33,6 @@ export type BackendLogLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'o
 export interface AppLoggingConfig {
   level: BackendLogLevel;
 }
-
-// Reserved; legacy `default_mode` in saved JSON is ignored by the app.
-export type AppSessionConfig = Record<string, never>;
 
 export interface AppHostScanConfig {
   auto_scan_enabled: boolean;
@@ -75,9 +71,6 @@ export interface AIExperienceConfig {
   /** Whether to show the pixel Agent companion in the collapsed chat input. */
   enable_agent_companion: boolean;
 
-  /** Where to show the Agent companion. */
-  agent_companion_display_mode: 'desktop';
-
   /** Optional Petdex-compatible companion package selected by the user. */
   agent_companion_pet?: AgentCompanionPetSelection | null;
 
@@ -88,7 +81,7 @@ export interface AIExperienceConfig {
   show_completed_thinking_item: boolean;
 
   /** Local voice input settings for the composer. */
-  voice_input?: VoiceInputSettings;
+  voice_input: VoiceInputSettings;
 }
 
 export interface VoiceInputSettings {
@@ -167,11 +160,13 @@ export interface AIModelConfig {
   name: string;
   provider: string;
   api_key?: string;
+  /** Derived from a redacted snapshot; never persisted as config data. */
+  api_key_configured?: boolean;
   base_url: string;
   /** Computed actual request URL, derived from base_url + provider format. Stored on save. */
   request_url?: string;
   model_name: string;
-  context_window?: number;
+  context_window: number;
   max_tokens?: number;
   temperature?: number;
   top_p?: number;
@@ -187,7 +182,7 @@ export interface AIModelConfig {
   capabilities: ModelCapability[];
   recommended_for?: string[];
   metadata?: Record<string, any>;
-  reasoning_mode?: ReasoningMode;
+  reasoning_mode: ReasoningMode;
   /** Parse `<think>...</think>` text chunks into streaming reasoning content. */
   inline_think_in_text?: boolean;
   /** Provider-specific reasoning effort. */
@@ -228,7 +223,6 @@ export interface AIConfig {
   agent_capability_configs: Record<string, StoredAgentCapabilityConfigItem>;
   subagent_configs: Record<string, SubAgentConfigItem>;
   proxy: ProxyConfig;
-  debug_mode_config: DebugModeConfig;
   request_timeout: number;
   max_retries: number;
   temperature: number;
@@ -283,52 +277,11 @@ export interface StoredAgentCapabilityConfigItem {
   enabled_subagents?: string[];
 }
 
-export interface AgentCapabilityConfigItem {
-  agent_id: string;
-  enabled_tools: string[];
-  enabled: boolean;
-  default_tools: string[];
-  disabled_user_skills?: string[];
-  enabled_user_skills?: string[];
-  disabled_user_skill_suites?: string[];
-  enabled_user_skill_suites?: string[];
-  enabled_subagents?: string[];
-  default_subagents?: string[];
-}
-
 export interface AgentCapabilitySelection {
   defaults: string[];
   added: string[];
   removed: string[];
   effective: string[];
-}
-
-export type AgentKind = 'agent' | 'agentComponent' | 'subagent' | 'hidden';
-
-export type AgentCapabilityMutabilityState = 'writable' | 'readonly' | 'unsupported';
-
-export interface AgentCapabilityFieldMutability {
-  state: AgentCapabilityMutabilityState;
-  reason?: string | null;
-}
-
-export interface AgentCapabilityMutability {
-  enabled: AgentCapabilityFieldMutability;
-  model: AgentCapabilityFieldMutability;
-  tools: AgentCapabilityFieldMutability;
-  skills: AgentCapabilityFieldMutability;
-  subagents: AgentCapabilityFieldMutability;
-}
-
-export interface AgentCapabilityProfile {
-  agentId: string;
-  agentKind: AgentKind;
-  enabled: boolean;
-  model?: string | null;
-  tools: AgentCapabilitySelection;
-  skills: AgentCapabilitySelection;
-  subagents: AgentCapabilitySelection;
-  mutability: AgentCapabilityMutability;
 }
 
 export interface SubAgentConfigItem {
@@ -430,13 +383,6 @@ export interface LanguageDebugTemplate {
   notes: string[];
 }
 
-export const DEFAULT_DEBUG_MODE_CONFIG: DebugModeConfig = {
-  log_path: '.sparo_os/debug.log',
-  ingest_port: 7242,
-  enabled_languages: [],
-  language_templates: {}
-};
-
 export const LANGUAGE_TEMPLATE_LABELS: Record<string, string> = {
   javascript: t('settings/debug:languageLabels.javascript'),
   python: t('settings/debug:languageLabels.python'),
@@ -446,100 +392,6 @@ export const LANGUAGE_TEMPLATE_LABELS: Record<string, string> = {
 };
 
 export const ALL_LANGUAGES = ['javascript', 'python', 'rust', 'go', 'java'] as const;
-
-export const DEFAULT_LANGUAGE_TEMPLATES: Record<string, LanguageDebugTemplate> = {
-  javascript: {
-    language: 'javascript',
-    display_name: t('settings/debug:languageLabels.javascript'),
-    enabled: false,
-    instrumentation_template: `fetch('http://127.0.0.1:{PORT}/ingest/{SESSION_ID}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'{LOCATION}',message:'{MESSAGE}',data:{DATA},timestamp:Date.now(),sessionId:'{SESSION_ID}',hypothesisId:'{HYPOTHESIS_ID}',runId:'{RUN_ID}'})}).catch(()=>{});`,
-    region_start: '// #region agent log',
-    region_end: '// #endregion',
-    notes: [
-      t('settings/debug:templates.noteItems.javascript.postToIngest'),
-      t('settings/debug:templates.noteItems.javascript.replaceData'),
-    ],
-  },
-  python: {
-    language: 'python',
-    display_name: t('settings/debug:languageLabels.python'),
-    enabled: false,
-    instrumentation_template: `import json, time, os
-with open(os.path.join(os.getcwd(), '{LOG_PATH}'), 'a', encoding='utf-8') as _f:
-    _f.write(json.dumps({"location": "{LOCATION}", "message": "{MESSAGE}", "data": {DATA}, "timestamp": int(time.time()*1000), "sessionId": "{SESSION_ID}", "hypothesisId": "{HYPOTHESIS_ID}", "runId": "{RUN_ID}"}, ensure_ascii=False) + '\\n')`,
-    region_start: '# region agent log',
-    region_end: '# endregion',
-    notes: [
-      t('settings/debug:templates.noteItems.python.appendNdjson'),
-      t('settings/debug:templates.noteItems.python.ensureAscii'),
-      t('settings/debug:templates.noteItems.python.replaceData'),
-      t('settings/debug:templates.noteItems.python.importOnce'),
-    ],
-  },
-  rust: {
-    language: 'rust',
-    display_name: t('settings/debug:languageLabels.rust'),
-    enabled: false,
-    instrumentation_template: `{
-    use std::fs::OpenOptions;
-    use std::io::Write;
-    use std::time::{SystemTime, UNIX_EPOCH};
-    if let Ok(mut _f) = OpenOptions::new().create(true).append(true).open("{LOG_PATH}") {
-        let _ts = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
-        let _ = writeln!(_f, r#"{{"location":"{LOCATION}","message":"{MESSAGE}","data":{},"timestamp":{},"sessionId":"{SESSION_ID}","hypothesisId":"{HYPOTHESIS_ID}","runId":"{RUN_ID}"}}"#, serde_json::json!({DATA}), _ts);
-    }
-}`,
-    region_start: '// #region agent log',
-    region_end: '// #endregion',
-    notes: [
-      t('settings/debug:templates.noteItems.rust.appendNdjson'),
-      t('settings/debug:templates.noteItems.rust.requireSerdeJson'),
-      t('settings/debug:templates.noteItems.rust.replaceData'),
-      t('settings/debug:templates.noteItems.rust.syncOnly'),
-    ],
-  },
-  go: {
-    language: 'go',
-    display_name: t('settings/debug:languageLabels.go'),
-    enabled: false,
-    instrumentation_template: `func() {
-	f, err := os.OpenFile("{LOG_PATH}", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err == nil {
-		defer f.Close()
-		data, _ := json.Marshal(map[string]interface{}{"location": "{LOCATION}", "message": "{MESSAGE}", "data": {DATA}, "timestamp": time.Now().UnixMilli(), "sessionId": "{SESSION_ID}", "hypothesisId": "{HYPOTHESIS_ID}", "runId": "{RUN_ID}"})
-		f.Write(append(data, '\\n'))
-	}
-}()`,
-    region_start: '// #region agent log',
-    region_end: '// #endregion',
-    notes: [
-      t('settings/debug:templates.noteItems.go.iife'),
-      t('settings/debug:templates.noteItems.go.appendNdjson'),
-      t('settings/debug:templates.noteItems.go.imports'),
-      t('settings/debug:templates.noteItems.go.replaceData'),
-    ],
-  },
-  java: {
-    language: 'java',
-    display_name: t('settings/debug:languageLabels.java'),
-    enabled: false,
-    instrumentation_template: `try {
-    java.nio.file.Files.writeString(
-        java.nio.file.Path.of("{LOG_PATH}"),
-        String.format("{\\"location\\":\\"{LOCATION}\\",\\"message\\":\\"{MESSAGE}\\",\\"data\\":%s,\\"timestamp\\":%d,\\"sessionId\\":\\"{SESSION_ID}\\",\\"hypothesisId\\":\\"{HYPOTHESIS_ID}\\",\\"runId\\":\\"{RUN_ID}\\"}%n",
-            new com.google.gson.Gson().toJson({DATA}), System.currentTimeMillis()),
-        java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
-} catch (Exception _e) { /* debug log */ }`,
-    region_start: '// #region agent log',
-    region_end: '// #endregion',
-    notes: [
-      t('settings/debug:templates.noteItems.java.appendNdjson'),
-      t('settings/debug:templates.noteItems.java.requireGson'),
-      t('settings/debug:templates.noteItems.java.replaceData'),
-      t('settings/debug:templates.noteItems.java.writeString'),
-    ],
-  },
-};
 
 export type SkillPackageKind = 'skill' | 'suite';
 
@@ -613,86 +465,26 @@ export interface WorkspaceConfig {
 }
 
 export interface IConfigManager {
-  getConfig<T = any>(path?: string): Promise<T>;
-  setConfig<T = any>(path: string, value: T): Promise<void>;
-  resetConfig(path?: string): Promise<void>;
-  validateConfig(): Promise<ConfigValidationResult>;
-  exportConfig(): Promise<ConfigExport>;
-  importConfig(config: ConfigExport): Promise<void>;
-  onConfigChange(callback: (path: string, oldValue: any, newValue: any) => void): () => void;
-  refreshCache(): Promise<void>;
-  clearCache(): void;
+  getSetting<T = any>(settingId: string): Promise<T>;
+  setSetting<T = any>(
+    settingId: string,
+    value: T,
+    options?: ConfigManagerWriteOptions,
+  ): Promise<void>;
+  updateSetting<TCurrent = any, TNext = TCurrent>(
+    settingId: string,
+    updater: (current: TCurrent | undefined) => TNext,
+    options?: ConfigManagerWriteOptions,
+  ): Promise<void>;
+  resetSetting(settingId: string, options?: ConfigManagerWriteOptions): Promise<void>;
+  watch(settingId: string, callback: () => void): () => void;
+  onSettingChange(
+    callback: (settingId: string, oldValue: any, newValue: any) => void,
+  ): () => void;
 }
 
-export interface ConfigValidationResult {
-  valid: boolean;
-  errors: ConfigValidationError[];
-  warnings: ConfigValidationWarning[];
-}
-
-export interface ConfigValidationError {
-  path: string;
-  message: string;
-  code: string;
-}
-
-export interface ConfigValidationWarning {
-  path: string;
-  message: string;
-  code: string;
-}
-
-export interface ConfigExport {
-  config: GlobalConfig;
-  metadata: {
-    version: string;
-    exported_at: number;
-    exported_by: string;
-  };
-}
-
-export interface ConfigChangeEvent {
-  path: string;
-  old_value: any;
-  new_value: any;
-  timestamp: number;
-}
-
-export interface UseConfigReturn<T = any> {
-  data: T | null;
-  loading: boolean;
-  error: string | null;
-  setConfig: (value: T) => Promise<void>;
-  resetConfig: () => Promise<void>;
-  refreshConfig: () => Promise<void>;
-}
-
-export type ConfigPath =
-  | 'app'
-  | 'app.language'
-  | 'app.auto_update'
-  | 'app.telemetry'
-  | 'app.session_config'
-  | 'app.sidebar'
-  | 'app.sidebar.width'
-  | 'app.sidebar.collapsed'
-  | 'editor'
-  | 'editor.font_size'
-  | 'editor.theme'
-  | 'terminal'
-  | 'terminal.default_shell'
-  | 'workspace'
-  | 'ai'
-  | 'ai.default_model'
-  | 'ai.models'
-  | 'agents'
-  | string;
-
-export interface ConfigPanelProps {
-  section?: keyof GlobalConfig;
-  onClose?: () => void;
-  onSave?: (config: Partial<GlobalConfig>) => void;
-  readOnly?: boolean;
+export interface ConfigManagerWriteOptions {
+  confirmed?: boolean;
 }
 
 export interface RuntimeLoggingInfo {
@@ -711,5 +503,3 @@ export interface DefaultModels {
   image_generation?: string | null;
   speech_recognition?: string | null;
 }
-
-export type OptionalCapabilityModels = Record<string, never>;

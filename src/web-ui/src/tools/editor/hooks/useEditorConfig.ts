@@ -56,7 +56,7 @@ export function useEditorConfig(options: UseEditorConfigOptions = {}): UseEditor
 
     const syncConfig = async (): Promise<void> => {
       const { configManager } = await import('@/infrastructure/config/services/ConfigManager');
-      const config = await configManager.getConfig<Record<string, unknown> | null>('editor');
+      const config = await configManager.getSetting<Record<string, unknown> | null>('core.editor');
 
       if (config) {
         setPersistedConfig(convertSnakeToCamel(config));
@@ -67,7 +67,7 @@ export function useEditorConfig(options: UseEditorConfigOptions = {}): UseEditor
       try {
         const { configManager } = await import('@/infrastructure/config/services/ConfigManager');
         await syncConfig();
-        unsubscribe = configManager.watch('editor', () => {
+        unsubscribe = configManager.watch('core.editor', () => {
           void syncConfig();
         });
       } catch (error) {

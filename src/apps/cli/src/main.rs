@@ -334,37 +334,30 @@ enum AgentsAction {
 
 #[derive(Subcommand)]
 enum ConfigAction {
-    /// Show configuration
+    /// Show the shared global configuration summary
     Show {
-        /// Dot-path within the shared global configuration
+        /// Output structured summary JSON
         #[arg(long)]
-        path: Option<String>,
+        json: bool,
+    },
+    /// Discover settings from the authoritative Config Catalog
+    Catalog {
+        /// Optional query matched against setting IDs, labels, aliases, and tags
+        query: Option<String>,
 
         /// Output raw JSON
         #[arg(long)]
         json: bool,
-
-        /// Include secrets such as API keys and proxy passwords
-        #[arg(long)]
-        include_secrets: bool,
     },
-    /// Get a shared global configuration value by dot-path
+    /// Get one shared global configuration value by stable Catalog setting ID
     Get {
-        /// Dot-path within the shared global configuration
-        path: Option<String>,
-
-        /// Output raw JSON
-        #[arg(long)]
-        json: bool,
-
-        /// Include secrets such as API keys and proxy passwords
-        #[arg(long)]
-        include_secrets: bool,
+        /// Stable Catalog setting ID
+        setting_id: String,
     },
-    /// Set a shared global configuration value by dot-path
+    /// Set one shared global configuration value by stable Catalog setting ID
     Set {
-        /// Dot-path within the shared global configuration
-        path: String,
+        /// Stable Catalog setting ID
+        setting_id: String,
 
         /// JSON value; bare text is treated as a string
         value: String,
@@ -372,6 +365,10 @@ enum ConfigAction {
         /// Output raw JSON
         #[arg(long)]
         json: bool,
+
+        /// Explicitly confirm elevated-risk changes
+        #[arg(long)]
+        yes: bool,
     },
     /// Edit CLI-local presentation preferences
     Edit,
@@ -380,25 +377,21 @@ enum ConfigAction {
         #[command(subcommand)]
         action: PrefsAction,
     },
-    /// Reset shared global configuration or a dot-path within it
+    /// Reset one shared global configuration setting by stable Catalog setting ID
     Reset {
-        /// Dot-path within the shared global configuration
-        path: Option<String>,
+        /// Stable Catalog setting ID
+        setting_id: String,
 
         /// Output raw JSON
         #[arg(long)]
         json: bool,
+
+        /// Explicitly confirm elevated-risk changes
+        #[arg(long)]
+        yes: bool,
     },
     /// Export shared global configuration as JSON
-    Export {
-        /// Include secrets such as API keys and proxy passwords
-        #[arg(long)]
-        include_secrets: bool,
-
-        /// Output raw JSON
-        #[arg(long)]
-        json: bool,
-    },
+    Export,
     /// Import shared global configuration from a JSON file
     Import {
         /// Exported configuration JSON file
@@ -407,15 +400,13 @@ enum ConfigAction {
         /// Output raw JSON
         #[arg(long)]
         json: bool,
+
+        /// Explicitly confirm elevated-risk changes in the import
+        #[arg(long)]
+        yes: bool,
     },
     /// Validate shared global configuration
     Validate {
-        /// Output raw JSON
-        #[arg(long)]
-        json: bool,
-    },
-    /// Reload shared global configuration from disk
-    Reload {
         /// Output raw JSON
         #[arg(long)]
         json: bool,
@@ -1152,10 +1143,6 @@ fn cli_timeout(timeout_secs: u64) -> Option<u64> {
     }
 }
 
-fn interactive_tui_skip_tool_confirmation(config: &CliConfig) -> bool {
-    !config.behavior.confirm_dangerous
-}
-
 fn exec_skip_tool_confirmation(confirm: bool) -> bool {
     !confirm
 }
@@ -1171,51 +1158,11 @@ async fn initialize_cli_process_runtime() -> Result<sparo_core::runtime::Process
     sparo_core::runtime::initialize_process_runtime(sparo_core::runtime::ProcessRuntimeOptions {
         initialize_i18n: false,
         initialize_token_usage: false,
+        config_startup_failure_policy:
+            sparo_core::service::config::ConfigStartupFailurePolicy::Strict,
     })
     .await
     .context("Failed to initialize CLI process runtime")
-}
-
-async fn set_tool_confirmation_skip(
-    config_service: &std::sync::Arc<sparo_core::service::config::ConfigService>,
-    skip_confirmation: bool,
-    mode: &str,
-) -> bool {
-    let ai_config: sparo_core::service::config::types::AIConfig = config_service
-        .get_config(Some("ai"))
-        .await
-        .unwrap_or_default();
-    let original_skip_confirmation = ai_config.skip_tool_confirmation;
-
-    if let Err(error) = config_service
-        .set_config("ai.skip_tool_confirmation", skip_confirmation)
-        .await
-    {
-        tracing::warn!(
-            "Failed to set tool confirmation toggle for {} mode, continuing: {}",
-            mode,
-            error
-        );
-    }
-
-    original_skip_confirmation
-}
-
-async fn restore_tool_confirmation_skip(
-    config_service: &std::sync::Arc<sparo_core::service::config::ConfigService>,
-    original_skip_confirmation: bool,
-    mode: &str,
-) {
-    if let Err(error) = config_service
-        .set_config("ai.skip_tool_confirmation", original_skip_confirmation)
-        .await
-    {
-        tracing::warn!(
-            "Failed to restore tool confirmation toggle after {} mode: {}",
-            mode,
-            error
-        );
-    }
 }
 
 type CliTerminal = ratatui::Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout>>;
@@ -1340,6 +1287,7 @@ fn command_requests_json(command: &Option<Commands>) -> bool {
             | Some(Commands::Memory { json: true, .. })
             | Some(Commands::Config {
                 action: ConfigAction::Show { json: true, .. }
+                    | ConfigAction::Catalog { json: true, .. }
                     | ConfigAction::Get { .. }
                     | ConfigAction::Set { json: true, .. }
                     | ConfigAction::Prefs {
@@ -1347,10 +1295,9 @@ fn command_requests_json(command: &Option<Commands>) -> bool {
                             | PrefsAction::Set { json: true, .. },
                     }
                     | ConfigAction::Reset { json: true, .. }
-                    | ConfigAction::Export { .. }
+                    | ConfigAction::Export
                     | ConfigAction::Import { json: true, .. }
                     | ConfigAction::Validate { json: true }
-                    | ConfigAction::Reload { json: true }
                     | ConfigAction::Health { json: true },
             })
             | Some(Commands::Tool {
@@ -1727,7 +1674,7 @@ async fn run_cli() -> Result<()> {
             let workspace_path = resolve_tui_workspace_path(workspace.as_deref());
             tracing::info!("CLI workspace: {:?}", workspace_path);
 
-            let process_runtime = match initialize_cli_process_runtime().await {
+            let _process_runtime = match initialize_cli_process_runtime().await {
                 Ok(runtime) => runtime,
                 Err(error) => {
                     restore_terminal_if_present(&mut startup_terminal);
@@ -1736,26 +1683,12 @@ async fn run_cli() -> Result<()> {
             };
             tracing::info!("CLI process runtime initialized");
 
-            let config_service = process_runtime.config_service.clone();
-            let original_skip_confirmation = set_tool_confirmation_skip(
-                &config_service,
-                interactive_tui_skip_tool_confirmation(&config),
-                "chat",
-            )
-            .await;
-
             let agentic_system = match agent::agentic_system::init_agentic_system()
                 .await
                 .context("Failed to initialize agentic system")
             {
                 Ok(system) => system,
                 Err(error) => {
-                    restore_tool_confirmation_skip(
-                        &config_service,
-                        original_skip_confirmation,
-                        "chat",
-                    )
-                    .await;
                     restore_terminal_if_present(&mut startup_terminal);
                     return Err(error);
                 }
@@ -1767,12 +1700,6 @@ async fn run_cli() -> Result<()> {
                     &mut startup_terminal,
                     "System initialized, starting chat interface...",
                 ) {
-                    restore_tool_confirmation_skip(
-                        &config_service,
-                        original_skip_confirmation,
-                        "chat",
-                    )
-                    .await;
                     return Err(error);
                 }
             } else {
@@ -1789,12 +1716,7 @@ async fn run_cli() -> Result<()> {
             );
             chat_mode.set_initial_context_messages(startup_context_messages);
             chat_mode.set_initial_input(startup_initial_message);
-            let chat_result = chat_mode.run(startup_terminal);
-
-            restore_tool_confirmation_skip(&config_service, original_skip_confirmation, "chat")
-                .await;
-
-            chat_result?;
+            chat_mode.run(startup_terminal)?;
         }
 
         Some(Commands::Exec {
@@ -1812,16 +1734,8 @@ async fn run_cli() -> Result<()> {
                     .or_else(|| std::env::current_dir().ok());
             tracing::info!("CLI workspace: {:?}", workspace_path_resolved);
 
-            let process_runtime = initialize_cli_process_runtime().await?;
+            let _process_runtime = initialize_cli_process_runtime().await?;
             tracing::info!("CLI process runtime initialized");
-
-            let config_service = process_runtime.config_service.clone();
-            let original_skip_confirmation = set_tool_confirmation_skip(
-                &config_service,
-                exec_skip_tool_confirmation(confirm),
-                "exec",
-            )
-            .await;
 
             let run_result = async {
                 let agentic_system = agent::agentic_system::init_agentic_system()
@@ -1837,13 +1751,11 @@ async fn run_cli() -> Result<()> {
                     output_patch,
                     json,
                     cli_timeout(timeout_secs),
+                    exec_skip_tool_confirmation(confirm),
                 );
                 exec_mode.run().await
             }
             .await;
-
-            restore_tool_confirmation_skip(&config_service, original_skip_confirmation, "exec")
-                .await;
 
             run_result?;
         }
@@ -1996,7 +1908,7 @@ async fn run_cli() -> Result<()> {
                 let workspace_path = resolve_tui_workspace_path(launch.workspace.as_deref());
                 tracing::info!("CLI workspace: {:?}", workspace_path);
 
-                let process_runtime = match initialize_cli_process_runtime().await {
+                let _process_runtime = match initialize_cli_process_runtime().await {
                     Ok(runtime) => runtime,
                     Err(error) => {
                         restore_terminal_if_present(&mut terminal);
@@ -2005,26 +1917,12 @@ async fn run_cli() -> Result<()> {
                 };
                 tracing::info!("CLI process runtime initialized");
 
-                let config_service = process_runtime.config_service.clone();
-                let original_skip_confirmation = set_tool_confirmation_skip(
-                    &config_service,
-                    interactive_tui_skip_tool_confirmation(&config),
-                    "home-chat",
-                )
-                .await;
-
                 let agentic_system = match agent::agentic_system::init_agentic_system()
                     .await
                     .context("Failed to initialize agentic system")
                 {
                     Ok(system) => system,
                     Err(error) => {
-                        restore_tool_confirmation_skip(
-                            &config_service,
-                            original_skip_confirmation,
-                            "home-chat",
-                        )
-                        .await;
                         restore_terminal_if_present(&mut terminal);
                         return Err(error);
                     }
@@ -2035,12 +1933,6 @@ async fn run_cli() -> Result<()> {
                     &mut terminal,
                     "System initialized, starting chat interface...",
                 ) {
-                    restore_tool_confirmation_skip(
-                        &config_service,
-                        original_skip_confirmation,
-                        "home-chat",
-                    )
-                    .await;
                     return Err(error);
                 }
 
@@ -2053,15 +1945,7 @@ async fn run_cli() -> Result<()> {
                 );
                 chat_mode.set_initial_context_messages(launch.context_messages);
                 chat_mode.set_initial_input(launch.initial_message);
-                let exit_reason = chat_mode.run(terminal.take());
-
-                restore_tool_confirmation_skip(
-                    &config_service,
-                    original_skip_confirmation,
-                    "home-chat",
-                )
-                .await;
-                let exit_reason = exit_reason?;
+                let exit_reason = chat_mode.run(terminal.take())?;
 
                 match exit_reason {
                     ChatExitReason::Quit => {
@@ -2140,12 +2024,8 @@ async fn handle_batch_tasks(
         return Ok(());
     }
 
-    let process_runtime = initialize_cli_process_runtime().await?;
+    let _process_runtime = initialize_cli_process_runtime().await?;
     tracing::info!("CLI process runtime initialized");
-
-    let config_service = process_runtime.config_service.clone();
-    let original_skip_confirmation =
-        set_tool_confirmation_skip(&config_service, true, "batch").await;
 
     let run_result = async {
         let agentic_system = agent::agentic_system::init_agentic_system()
@@ -2177,6 +2057,7 @@ async fn handle_batch_tasks(
                 task.output_patch(),
                 json,
                 timeout_secs,
+                true,
             );
             exec_mode.suppress_output(json);
             match exec_mode.run().await {
@@ -2234,7 +2115,6 @@ async fn handle_batch_tasks(
     }
     .await;
 
-    restore_tool_confirmation_skip(&config_service, original_skip_confirmation, "batch").await;
     run_result
 }
 
@@ -2248,7 +2128,7 @@ async fn resume_session_in_tui(
     use sparo_core::command::session as session_command;
 
     println!("Loading session {}...", id);
-    let process_runtime = initialize_cli_process_runtime().await?;
+    let _process_runtime = initialize_cli_process_runtime().await?;
     let detail = session_command::show_session(session_command::ShowSessionRequest {
         session_id: id,
         workspace_path: workspace.clone(),
@@ -2259,12 +2139,6 @@ async fn resume_session_in_tui(
     let workspace_path = resolve_tui_workspace_path(workspace.as_deref());
     let agent = detail.metadata.agent_type.clone();
     let session_id = detail.metadata.session_id.clone();
-
-    let config_service = process_runtime.config_service.clone();
-    let skip_tool_confirmation = interactive_tui_skip_tool_confirmation(&config);
-    let original_skip_confirmation =
-        set_tool_confirmation_skip(&config_service, skip_tool_confirmation, "sessions-resume")
-            .await;
 
     let run_result = async {
         let agentic_system = agent::agentic_system::init_agentic_system()
@@ -2281,13 +2155,6 @@ async fn resume_session_in_tui(
         chat_mode.set_initial_input(initial_message);
         chat_mode.run(None).map(|_| ())
     }
-    .await;
-
-    restore_tool_confirmation_skip(
-        &config_service,
-        original_skip_confirmation,
-        "sessions-resume",
-    )
     .await;
 
     run_result
@@ -2360,13 +2227,8 @@ async fn resume_task_without_session_in_tui(
     launch: TaskTuiLaunchContext,
 ) -> Result<()> {
     println!("Loading task {}...", launch.title);
-    let process_runtime = initialize_cli_process_runtime().await?;
+    let _process_runtime = initialize_cli_process_runtime().await?;
     let workspace_path = resolve_tui_workspace_path(launch.workspace.as_deref());
-
-    let config_service = process_runtime.config_service.clone();
-    let skip_tool_confirmation = interactive_tui_skip_tool_confirmation(&config);
-    let original_skip_confirmation =
-        set_tool_confirmation_skip(&config_service, skip_tool_confirmation, "tasks-resume").await;
 
     let run_result = async {
         let agentic_system = agent::agentic_system::init_agentic_system()
@@ -2379,9 +2241,6 @@ async fn resume_task_without_session_in_tui(
         chat_mode.run(None).map(|_| ())
     }
     .await;
-
-    restore_tool_confirmation_skip(&config_service, original_skip_confirmation, "tasks-resume")
-        .await;
 
     run_result
 }
@@ -2503,7 +2362,8 @@ async fn handle_agents_action(action: AgentsAction, json: bool) -> Result<()> {
                 .context("Failed to initialize agentic system")?;
             let agents = sparo_core::agentic::agents::get_agent_registry()
                 .list_agents_info()
-                .await;
+                .await
+                .context("Failed to read agent capability configuration")?;
 
             if json {
                 print_json(agents)?;
@@ -3285,11 +3145,6 @@ fn session_export_human_lines(
     ]
 }
 
-async fn build_command_context() -> Result<sparo_core::command::CommandContext> {
-    let runtime = initialize_cli_process_runtime().await?;
-    Ok(runtime.command_context())
-}
-
 fn parse_config_value(value: &str) -> serde_json::Value {
     serde_json::from_str(value).unwrap_or_else(|_| serde_json::Value::String(value.to_string()))
 }
@@ -3364,42 +3219,31 @@ fn cli_prefs_get_human_output(config: &CliConfig, path: Option<&str>) -> Result<
 }
 
 fn shared_config_summary_lines(value: &serde_json::Value) -> Vec<String> {
-    let models = value
-        .pointer("/ai/models")
-        .and_then(|value| value.as_array())
-        .map(Vec::as_slice)
-        .unwrap_or(&[]);
-    let enabled_models = models
-        .iter()
-        .filter(|model| {
-            model
-                .get("enabled")
-                .and_then(|value| value.as_bool())
-                .unwrap_or(false)
-        })
-        .count();
+    let configured_models = value
+        .pointer("/models/configured")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(0);
+    let enabled_models = value
+        .pointer("/models/enabled")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(0);
     let agent_model_count = value
-        .pointer("/ai/agent_models")
-        .and_then(|value| value.as_object())
-        .map(serde_json::Map::len)
+        .get("agentModelMappings")
+        .and_then(serde_json::Value::as_u64)
         .unwrap_or(0);
     let app_language = value
-        .pointer("/app/language")
-        .and_then(|value| value.as_str())
+        .get("appLanguage")
+        .and_then(serde_json::Value::as_str)
         .unwrap_or("unknown");
 
     let mut default_models = Vec::new();
     if let Some(defaults) = value
-        .pointer("/ai/default_models")
-        .and_then(|value| value.as_object())
+        .get("defaultModels")
+        .and_then(serde_json::Value::as_object)
     {
-        for key in ["primary", "fast", "search", "image_generation"] {
-            match defaults.get(key) {
-                Some(serde_json::Value::String(model)) if !model.is_empty() => {
-                    default_models.push(format!("{}={}", key, model));
-                }
-                Some(serde_json::Value::Null) | None => {}
-                Some(value) => default_models.push(format!("{}={}", key, value)),
+        for (slot, model) in defaults {
+            if let Some(model) = model.as_str().filter(|model| !model.is_empty()) {
+                default_models.push(format!("{}={}", slot, model));
             }
         }
     }
@@ -3412,17 +3256,34 @@ fn shared_config_summary_lines(value: &serde_json::Value) -> Vec<String> {
 
     vec![
         "Shared Global Configuration Summary".to_string(),
-        "  Path: <root>".to_string(),
+        format!(
+            "  Revision: {}",
+            value
+                .get("revision")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0)
+        ),
+        format!(
+            "  Catalog: {} ({} settings)",
+            value
+                .get("catalogVersion")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("unknown"),
+            value
+                .get("publishedSettingCount")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0)
+        ),
         format!(
             "  Models: {} configured, {} enabled",
-            models.len(),
-            enabled_models
+            configured_models, enabled_models
         ),
         format!("  Default models: {}", default_models),
         format!("  Agent model mappings: {}", agent_model_count),
         format!("  App language: {}", app_language),
-        format!("  Full shared config: sparo config show --json"),
-        format!("  Read one shared path: sparo config get <path>"),
+        "  Full shared config: sparo config export".to_string(),
+        "  Discover setting IDs: sparo config catalog".to_string(),
+        "  Read one setting: sparo config get <setting-id>".to_string(),
     ]
 }
 
@@ -3507,14 +3368,6 @@ fn config_health_human_lines(value: &serde_json::Value) -> Vec<String> {
                 .unwrap_or("unavailable")
         ),
         format!(
-            "Providers: {}",
-            value
-                .get("total_providers")
-                .and_then(|value| value.as_u64())
-                .map(|value| value.to_string())
-                .unwrap_or_else(|| "unknown".to_string())
-        ),
-        format!(
             "Config directory: {}",
             value
                 .get("config_directory")
@@ -3586,120 +3439,77 @@ fn cli_prefs_set_human_output(
     ))
 }
 
-fn ai_cache_line(invalidated_ai_cache: bool) -> &'static str {
-    if invalidated_ai_cache {
-        "AI client cache: invalidated"
-    } else {
-        "AI client cache: unchanged"
+fn config_commit_status_label(
+    status: sparo_core::service::config::ConfigCommitStatus,
+) -> &'static str {
+    use sparo_core::service::config::ConfigCommitStatus;
+
+    match status {
+        ConfigCommitStatus::Applying => "applying",
+        ConfigCommitStatus::Applied => "applied",
+        ConfigCommitStatus::Partial => "partial",
+        ConfigCommitStatus::RolledBack => "rolled back",
     }
 }
 
 fn config_set_human_lines(
-    path: &str,
-    value: &str,
-    message: &str,
-    invalidated_ai_cache: bool,
+    setting_id: &str,
+    commit: &sparo_core::service::config::PublishedConfigCommit,
 ) -> Vec<String> {
     vec![
         "Shared Global Configuration Updated".to_string(),
-        format!("Status: {}", message),
-        format!("Path: {}", path),
-        format!("Value: {}", value),
-        ai_cache_line(invalidated_ai_cache).to_string(),
+        format!("Status: {}", config_commit_status_label(commit.status)),
+        format!("Commit ID: {}", commit.commit_id),
+        format!("Revision: {}", commit.revision),
+        format!("Setting ID: {}", setting_id),
         String::new(),
         "Next actions:".to_string(),
-        format!("  Inspect value: sparo config get {}", path),
+        format!("  Inspect value: sparo config get {}", setting_id),
         "  Validate config: sparo config validate".to_string(),
         "  Open in chat: sparo chat".to_string(),
-        format!(
-            "  Machine output: sparo config set {} {} --json",
-            path,
-            shell_arg(value)
-        ),
+        "  Use --json on future changes for machine-readable output".to_string(),
     ]
 }
 
 fn config_reset_human_lines(
-    path: Option<&str>,
-    message: &str,
-    invalidated_ai_cache: bool,
+    setting_id: &str,
+    commit: &sparo_core::service::config::PublishedConfigCommit,
 ) -> Vec<String> {
-    let target = path.unwrap_or("all shared configuration");
-    let inspect_action = path
-        .map(|path| format!("  Inspect value: sparo config get {}", path))
-        .unwrap_or_else(|| "  Inspect config: sparo config show".to_string());
-    let machine_action = path
-        .map(|path| format!("  Machine output: sparo config reset {} --json", path))
-        .unwrap_or_else(|| "  Machine output: sparo config reset --json".to_string());
-
     vec![
         "Shared Global Configuration Reset".to_string(),
-        format!("Status: {}", message),
-        format!("Target: {}", target),
-        ai_cache_line(invalidated_ai_cache).to_string(),
+        format!("Status: {}", config_commit_status_label(commit.status)),
+        format!("Commit ID: {}", commit.commit_id),
+        format!("Revision: {}", commit.revision),
+        format!("Setting ID: {}", setting_id),
         String::new(),
         "Next actions:".to_string(),
-        inspect_action,
+        format!("  Inspect value: sparo config get {}", setting_id),
         "  Validate config: sparo config validate".to_string(),
         "  Run health: sparo config health".to_string(),
-        machine_action,
-    ]
-}
-
-fn config_reload_human_lines(message: &str) -> Vec<String> {
-    vec![
-        "Shared Global Configuration Reloaded".to_string(),
-        format!("Status: {}", message),
-        String::new(),
-        "Next actions:".to_string(),
-        "  Validate config: sparo config validate".to_string(),
-        "  Inspect config: sparo config show".to_string(),
-        "  Machine output: sparo config reload --json".to_string(),
+        format!("  Machine output: sparo config reset {} --json", setting_id),
     ]
 }
 
 fn config_import_human_lines(
     file: &str,
-    response: &sparo_core::command::config::ImportConfigResponse,
+    commit: Option<&sparo_core::service::config::PublishedConfigCommit>,
 ) -> Vec<String> {
     let mut lines = vec![
         "Shared Global Configuration Imported".to_string(),
         format!(
             "Status: {}",
-            if response.result.success {
-                "success"
+            if commit.is_some() {
+                "applied"
             } else {
-                "failed"
+                "no changes"
             }
         ),
         format!("File: {}", file),
-        ai_cache_line(response.invalidated_ai_cache).to_string(),
     ];
 
-    if !response.result.errors.is_empty() {
-        lines.push(format!("Errors: {}", response.result.errors.len()));
-        for error in response.result.errors.iter().take(3) {
-            lines.push(format!("  - {}", error));
-        }
-        if response.result.errors.len() > 3 {
-            lines.push(format!(
-                "  ... {} more",
-                response.result.errors.len().saturating_sub(3)
-            ));
-        }
-    }
-
-    if !response.result.warnings.is_empty() {
-        lines.push(format!("Warnings: {}", response.result.warnings.len()));
-        for warning in response.result.warnings.iter().take(3) {
-            lines.push(format!("  - {}", warning));
-        }
-        if response.result.warnings.len() > 3 {
-            lines.push(format!(
-                "  ... {} more",
-                response.result.warnings.len().saturating_sub(3)
-            ));
-        }
+    if let Some(commit) = commit {
+        lines.push(format!("Commit ID: {}", commit.commit_id));
+        lines.push(format!("Revision: {}", commit.revision));
     }
 
     lines.extend([
@@ -3843,102 +3653,170 @@ fn redact_config_value(value: &mut serde_json::Value) {
     }
 }
 
-fn printable_config_value<T: serde::Serialize>(
-    value: T,
-    include_secrets: bool,
-) -> Result<serde_json::Value> {
+fn printable_config_value<T: serde::Serialize>(value: T) -> Result<serde_json::Value> {
     let mut value = serde_json::to_value(value)?;
-    if !include_secrets {
-        redact_config_value(&mut value);
-    }
+    redact_config_value(&mut value);
     Ok(value)
 }
 
-async fn read_shared_config_value(path: Option<String>) -> Result<serde_json::Value> {
-    use sparo_core::command::config as command_config;
-
-    match build_command_context().await {
-        Ok(ctx) => command_config::get_config(
-            &ctx,
-            command_config::GetConfigRequest { path: path.clone() },
-        )
-        .await
-        .map_err(Into::into),
-        Err(error) if cli_error_kind(&error) == "runtime_directory_error" => {
-            read_shared_config_file_value(path).with_context(|| {
-                format!(
-                    "Failed to read shared config directly after runtime initialization failed: {}",
-                    error
-                )
-            })
-        }
-        Err(error) => Err(error),
+async fn read_shared_config_value(setting_id: &str) -> Result<serde_json::Value> {
+    let runtime = initialize_cli_process_runtime().await?;
+    let (catalog, snapshot) = runtime
+        .config_service
+        .describe_published_catalog_with_snapshot(None)
+        .await?;
+    catalog.find(setting_id).ok_or_else(|| {
+        anyhow::anyhow!("Unknown published configuration setting ID '{setting_id}'")
+    })?;
+    let stored = snapshot.values.get(setting_id).ok_or_else(|| {
+        anyhow::anyhow!("Authoritative snapshot is missing Catalog setting '{setting_id}'")
+    })?;
+    match stored {
+        sparo_events::ConfigStoredValue::Value { value } => Ok(value.clone()),
+        sparo_events::ConfigStoredValue::Secret {
+            configured,
+            provider,
+            masked_suffix,
+        } => Ok(serde_json::json!({
+            "configured": configured,
+            "provider": provider,
+            "maskedSuffix": masked_suffix,
+        })),
     }
 }
 
-fn read_shared_config_file_value(path: Option<String>) -> Result<serde_json::Value> {
-    let config_file = shared_config_file_path()?;
-    read_shared_config_value_from_path(&config_file, path.as_deref())
+async fn read_shared_config_summary() -> Result<serde_json::Value> {
+    let runtime = initialize_cli_process_runtime().await?;
+    let (catalog, snapshot) = runtime
+        .config_service
+        .describe_published_catalog_with_snapshot(None)
+        .await?;
+
+    let published_value = |setting_id: &str| {
+        snapshot
+            .values
+            .get(setting_id)
+            .and_then(|stored| match stored {
+                sparo_events::ConfigStoredValue::Value { value } => Some(value),
+                sparo_events::ConfigStoredValue::Secret { .. } => None,
+            })
+    };
+
+    let models = published_value("core.ai.models")
+        .and_then(serde_json::Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
+    let enabled_models = models
+        .iter()
+        .filter(|model| model.get("enabled").and_then(serde_json::Value::as_bool) == Some(true))
+        .count();
+    let agent_model_mappings = published_value("core.ai.agent_models")
+        .and_then(serde_json::Value::as_object)
+        .map(serde_json::Map::len)
+        .unwrap_or(0);
+    let app_language = published_value("core.app.language")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string);
+
+    let mut default_models = serde_json::Map::new();
+    for (slot, setting_id) in [
+        ("primary", "core.ai.default_models.primary"),
+        ("fast", "core.ai.default_models.fast"),
+        ("search", "core.ai.default_models.search"),
+        (
+            "imageUnderstanding",
+            "core.ai.default_models.image_understanding",
+        ),
+        ("imageGeneration", "core.ai.default_models.image_generation"),
+        (
+            "speechRecognition",
+            "core.ai.default_models.speech_recognition",
+        ),
+    ] {
+        if let Some(model) = published_value(setting_id)
+            .and_then(serde_json::Value::as_str)
+            .filter(|model| !model.is_empty())
+        {
+            default_models.insert(
+                slot.to_string(),
+                serde_json::Value::String(model.to_string()),
+            );
+        }
+    }
+
+    Ok(serde_json::json!({
+        "revision": snapshot.revision,
+        "catalogVersion": catalog.version,
+        "publishedSettingCount": catalog.settings.len(),
+        "models": {
+            "configured": models.len(),
+            "enabled": enabled_models,
+        },
+        "defaultModels": default_models,
+        "agentModelMappings": agent_model_mappings,
+        "appLanguage": app_language,
+    }))
+}
+
+async fn commit_cli_config_operation(
+    setting_id: &str,
+    confirmed: bool,
+    operation: impl FnOnce(String) -> sparo_core::service::config::ConfigPatchOperation,
+) -> Result<sparo_core::service::config::PublishedConfigCommit> {
+    use sparo_core::service::config::{CommitConfigPlanRequest, ConfigPatch};
+    use sparo_events::{ConfigChangeSource, ConfigChangeSourceKind, ConfigScope};
+
+    let setting_id = setting_id.trim();
+    if setting_id.is_empty() {
+        anyhow::bail!("A non-empty Catalog setting ID is required");
+    }
+
+    let runtime = initialize_cli_process_runtime().await?;
+    let service = runtime.config_service;
+    let (catalog, snapshot) = service
+        .describe_published_catalog_with_snapshot(None)
+        .await?;
+    let descriptor = catalog
+        .find(setting_id)
+        .ok_or_else(|| anyhow::anyhow!("Unknown configuration setting ID '{setting_id}'"))?;
+    let request_id = uuid::Uuid::new_v4().to_string();
+    let idempotency_key = format!("cli-config-{request_id}");
+    let plan = service
+        .plan_product_surface_patch(ConfigPatch {
+            request_id: request_id.clone(),
+            idempotency_key: idempotency_key.clone(),
+            expected_revision: snapshot.revision,
+            source: ConfigChangeSource {
+                kind: ConfigChangeSourceKind::Cli,
+                surface: Some("cli".to_string()),
+                request_id: Some(request_id),
+            },
+            scope: ConfigScope::user(),
+            operations: vec![operation(descriptor.id.clone())],
+        })
+        .await?;
+    if plan.requires_confirmation && !confirmed {
+        anyhow::bail!(
+            "Setting '{}' requires explicit confirmation; rerun with --yes",
+            descriptor.id
+        );
+    }
+    service
+        .commit_plan(CommitConfigPlanRequest {
+            plan_id: plan.plan_id,
+            expected_revision: snapshot.revision,
+            idempotency_key,
+            confirmed,
+        })
+        .await
+        .map(|commit| commit.published())
+        .map_err(Into::into)
 }
 
 fn shared_config_file_path() -> Result<std::path::PathBuf> {
     Ok(CliConfig::config_dir_path()?
         .join("config")
         .join("app.json"))
-}
-
-fn read_shared_config_value_from_path(
-    config_file: &std::path::Path,
-    path: Option<&str>,
-) -> Result<serde_json::Value> {
-    let value = match config_file.try_exists() {
-        Ok(true) => {
-            let raw = std::fs::read_to_string(config_file).with_context(|| {
-                format!(
-                    "Failed to read shared config file: {}",
-                    config_file.display()
-                )
-            })?;
-            serde_json::from_str::<serde_json::Value>(strip_utf8_bom(&raw)).with_context(|| {
-                format!(
-                    "Failed to parse shared config file as JSON: {}",
-                    config_file.display()
-                )
-            })?
-        }
-        Ok(false) | Err(_) => {
-            serde_json::to_value(sparo_core::service::config::GlobalConfig::default())?
-        }
-    };
-
-    if let Some(path) = path {
-        get_json_path(&value, path)
-            .cloned()
-            .ok_or_else(|| anyhow::anyhow!("Unknown shared config path: {}", path))
-    } else {
-        Ok(value)
-    }
-}
-
-fn fallback_shared_config_export(include_secrets: bool) -> Result<serde_json::Value> {
-    let config = read_shared_config_file_value(None)?;
-    let export = serde_json::json!({
-        "config": config,
-        "export_timestamp": chrono::Utc::now().to_rfc3339(),
-        "version": env!("CARGO_PKG_VERSION"),
-    });
-    printable_config_value(export, include_secrets)
-}
-
-fn fallback_shared_config_validation() -> Result<serde_json::Value> {
-    read_shared_config_file_value(None)?;
-    Ok(serde_json::json!({
-        "valid": true,
-        "errors": [],
-        "warnings": [
-            "Validated by direct shared config file read because the global config service is unavailable."
-        ],
-    }))
 }
 
 fn fallback_shared_config_health(error: &anyhow::Error) -> Result<serde_json::Value> {
@@ -3949,7 +3827,6 @@ fn fallback_shared_config_health(error: &anyhow::Error) -> Result<serde_json::Va
         .unwrap_or_else(|| config_file.to_string_lossy().to_string());
     Ok(serde_json::json!({
         "healthy": false,
-        "total_providers": 0,
         "config_directory": config_directory,
         "warnings": [error.to_string()],
         "message": "Global configuration service is unavailable; run `sparo health` for path diagnostics.",
@@ -4054,71 +3931,83 @@ fn parse_loose_value(value: &str) -> serde_json::Value {
 }
 
 async fn handle_config_action(action: ConfigAction, config: &CliConfig) -> Result<()> {
-    use sparo_core::command::config as command_config;
-
     match action {
-        ConfigAction::Show {
-            path,
-            json,
-            include_secrets,
-        } => {
-            let value = read_shared_config_value(path.clone()).await?;
-            let value = printable_config_value(value, include_secrets)?;
+        ConfigAction::Show { json } => {
+            let value = read_shared_config_summary().await?;
+            let value = printable_config_value(value)?;
 
             if json {
                 print_json(value)?;
             } else {
-                if let Some(path) = path {
-                    println!("Shared Global Configuration\n");
-                    println!("Path: {}", path);
-                    print_json(value)?;
+                for line in shared_config_summary_lines(&value) {
+                    println!("{}", line);
+                }
+                println!();
+                println!("CLI Preferences");
+                for line in cli_presentation_preference_lines(config) {
+                    println!("{}", line);
+                }
+                println!("{}", cli_config_path_line(&CliConfig::config_path()?));
+            }
+        }
+
+        ConfigAction::Catalog { query, json } => {
+            let runtime = initialize_cli_process_runtime().await?;
+            let catalog = runtime
+                .config_service
+                .describe_published_catalog(query.as_deref())
+                .await?;
+            if json {
+                print_json(catalog)?;
+            } else {
+                println!("Config Catalog {}", catalog.version);
+                let visible_settings = catalog
+                    .settings
+                    .into_iter()
+                    .filter(|setting| !setting.presentation.hidden)
+                    .collect::<Vec<_>>();
+                if visible_settings.is_empty() {
+                    println!("No settings matched the query.");
                 } else {
-                    for line in shared_config_summary_lines(&value) {
-                        println!("{}", line);
+                    for setting in visible_settings {
+                        println!(
+                            "{}\t{}\t{:?}",
+                            setting.id, setting.presentation.title_key, setting.policy.risk
+                        );
                     }
-                    println!();
-                    println!("CLI Preferences");
-                    for line in cli_presentation_preference_lines(config) {
-                        println!("{}", line);
-                    }
-                    println!("{}", cli_config_path_line(&CliConfig::config_path()?));
                 }
             }
         }
 
-        ConfigAction::Get {
-            path,
-            json: _,
-            include_secrets,
-        } => {
-            let value = read_shared_config_value(path).await?;
-            let value = printable_config_value(value, include_secrets)?;
+        ConfigAction::Get { setting_id } => {
+            let value = read_shared_config_value(&setting_id).await?;
+            let value = printable_config_value(value)?;
             print_json(value)?;
         }
 
-        ConfigAction::Set { path, value, json } => {
-            let ctx = build_command_context().await?;
-            let response = command_config::set_config(
-                &ctx,
-                command_config::SetConfigRequest {
-                    path: path.clone(),
-                    value: parse_config_value(&value),
-                },
-            )
+        ConfigAction::Set {
+            setting_id,
+            value,
+            json,
+            yes,
+        } => {
+            let parsed_value = parse_config_value(&value);
+            let response = commit_cli_config_operation(&setting_id, yes, |setting_id| {
+                sparo_core::service::config::ConfigPatchOperation::Set {
+                    setting_id,
+                    value: parsed_value,
+                }
+            })
             .await?;
             if json {
                 print_json(serde_json::json!({
-                    "path": path,
-                    "message": response.message,
-                    "invalidated_ai_cache": response.invalidated_ai_cache,
+                    "settingId": setting_id,
+                    "commitId": response.commit_id,
+                    "revision": response.revision,
+                    "status": response.status,
                 }))?;
             } else {
-                for line in config_set_human_lines(
-                    &path,
-                    &value,
-                    &response.message,
-                    response.invalidated_ai_cache,
-                ) {
+                for line in config_set_human_lines(&setting_id, &response) {
                     println!("{}", line);
                 }
             }
@@ -4135,73 +4024,64 @@ async fn handle_config_action(action: ConfigAction, config: &CliConfig) -> Resul
             handle_prefs_action(action, config)?;
         }
 
-        ConfigAction::Reset { path, json } => {
-            let ctx = build_command_context().await?;
-            let response = command_config::reset_config(
-                &ctx,
-                command_config::ResetConfigRequest { path: path.clone() },
-            )
+        ConfigAction::Reset {
+            setting_id,
+            json,
+            yes,
+        } => {
+            let response = commit_cli_config_operation(&setting_id, yes, |setting_id| {
+                sparo_core::service::config::ConfigPatchOperation::Reset { setting_id }
+            })
             .await?;
             if json {
                 print_json(serde_json::json!({
-                    "path": path,
-                    "message": response.message,
-                    "invalidated_ai_cache": response.invalidated_ai_cache,
+                    "settingId": setting_id,
+                    "commitId": response.commit_id,
+                    "revision": response.revision,
+                    "status": response.status,
                 }))?;
             } else {
-                for line in config_reset_human_lines(
-                    path.as_deref(),
-                    &response.message,
-                    response.invalidated_ai_cache,
-                ) {
+                for line in config_reset_human_lines(&setting_id, &response) {
                     println!("{}", line);
                 }
             }
         }
 
-        ConfigAction::Export {
-            include_secrets,
-            json: _,
-        } => {
-            let value = match build_command_context().await {
-                Ok(ctx) => printable_config_value(
-                    command_config::export_config(&ctx).await?,
-                    include_secrets,
-                )?,
-                Err(error) if cli_error_kind(&error) == "runtime_directory_error" => {
-                    fallback_shared_config_export(include_secrets)?
-                }
-                Err(error) => return Err(error),
-            };
+        ConfigAction::Export => {
+            let runtime = initialize_cli_process_runtime().await?;
+            let value = printable_config_value(runtime.config_service.export_config().await?)?;
             print_json(value)?;
         }
 
-        ConfigAction::Import { file, json } => {
-            let ctx = build_command_context().await?;
+        ConfigAction::Import { file, json, yes } => {
+            let runtime = initialize_cli_process_runtime().await?;
             let raw = std::fs::read_to_string(&file)
                 .with_context(|| format!("Failed to read config export file: {}", file))?;
             let config = serde_json::from_str(strip_utf8_bom(&raw))
                 .with_context(|| format!("Invalid config export JSON: {}", file))?;
-            let response =
-                command_config::import_config(&ctx, command_config::ImportConfigRequest { config })
-                    .await?;
+            let snapshot = runtime.config_service.get_snapshot().await?;
+            let response = runtime
+                .config_service
+                .import_config(
+                    config,
+                    snapshot.revision,
+                    format!("cli-config-import-{}", uuid::Uuid::new_v4()),
+                    yes,
+                )
+                .await?;
+            let response = response.map(|commit| commit.published());
             if json {
                 print_json(response)?;
             } else {
-                for line in config_import_human_lines(&file, &response) {
+                for line in config_import_human_lines(&file, response.as_ref()) {
                     println!("{}", line);
                 }
             }
         }
 
         ConfigAction::Validate { json } => {
-            let value = match build_command_context().await {
-                Ok(ctx) => command_config::validate_config(&ctx).await?,
-                Err(error) if cli_error_kind(&error) == "runtime_directory_error" => {
-                    fallback_shared_config_validation()?
-                }
-                Err(error) => return Err(error),
-            };
+            let runtime = initialize_cli_process_runtime().await?;
+            let value = serde_json::to_value(runtime.config_service.validate_config().await?)?;
             if json {
                 print_json(value)?;
             } else {
@@ -4211,23 +4091,9 @@ async fn handle_config_action(action: ConfigAction, config: &CliConfig) -> Resul
             }
         }
 
-        ConfigAction::Reload { json } => {
-            let ctx = build_command_context().await?;
-            let message = command_config::reload_config(&ctx).await?;
-            if json {
-                print_json(serde_json::json!({ "message": message }))?;
-            } else {
-                for line in config_reload_human_lines(&message) {
-                    println!("{}", line);
-                }
-            }
-        }
-
         ConfigAction::Health { json } => {
-            let status = match build_command_context().await {
-                Ok(ctx) => serde_json::to_value(
-                    command_config::get_global_config_health_status(&ctx).await?,
-                )?,
+            let status = match initialize_cli_process_runtime().await {
+                Ok(runtime) => serde_json::to_value(runtime.config_service.health_check().await?)?,
                 Err(error) if cli_error_kind(&error) == "runtime_directory_error" => {
                     fallback_shared_config_health(&error)?
                 }
@@ -5269,6 +5135,29 @@ mod tests {
     use super::*;
     use clap::CommandFactory;
 
+    fn test_config_commit(
+        status: sparo_core::service::config::ConfigCommitStatus,
+    ) -> sparo_core::service::config::PublishedConfigCommit {
+        sparo_core::service::config::ConfigCommit {
+            commit_id: "cfg-commit-test".to_string(),
+            revision: 42,
+            status,
+            scope: sparo_events::ConfigScope::user(),
+            source: sparo_events::ConfigChangeSource {
+                kind: sparo_events::ConfigChangeSourceKind::Cli,
+                surface: Some("cli".to_string()),
+                request_id: Some("request-test".to_string()),
+            },
+            changes: Vec::new(),
+            apply_receipts: Vec::new(),
+            affected_sections: Vec::new(),
+            restart_required: Vec::new(),
+            undo_token: None,
+            committed_at: chrono::Utc::now(),
+        }
+        .published()
+    }
+
     #[test]
     fn config_redaction_masks_nested_secret_fields() {
         let mut value = serde_json::json!({
@@ -5297,44 +5186,6 @@ mod tests {
         );
         assert_eq!(value["ai"]["proxy"]["password"], "<redacted>");
         assert_eq!(value["ai"]["models"][0]["name"], "demo");
-    }
-
-    #[test]
-    fn read_shared_config_value_from_path_reads_dot_path() {
-        let temp_root = std::env::temp_dir().join(format!(
-            "sparo-cli-shared-config-test-{}",
-            uuid::Uuid::new_v4()
-        ));
-        std::fs::create_dir_all(&temp_root).expect("create temp shared config root");
-        let config_file = temp_root.join("app.json");
-        std::fs::write(
-            &config_file,
-            r#"{"ai":{"default_models":{"primary":"gpt-demo"}}}"#,
-        )
-        .expect("write shared config");
-
-        let value =
-            read_shared_config_value_from_path(&config_file, Some("ai.default_models.primary"))
-                .expect("read shared config dot path");
-
-        assert_eq!(value, serde_json::json!("gpt-demo"));
-
-        std::fs::remove_dir_all(temp_root).expect("remove temp shared config root");
-    }
-
-    #[test]
-    fn read_shared_config_value_from_path_uses_default_when_missing() {
-        let missing = std::env::temp_dir()
-            .join(format!(
-                "sparo-cli-missing-shared-config-{}",
-                uuid::Uuid::new_v4()
-            ))
-            .join("app.json");
-
-        let value = read_shared_config_value_from_path(&missing, Some("ai.default_models"))
-            .expect("read default shared config dot path");
-
-        assert!(value.is_object());
     }
 
     #[test]
@@ -5481,38 +5332,41 @@ mod tests {
         })));
         assert!(command_requests_json(&Some(Commands::Config {
             action: ConfigAction::Get {
-                path: Some("ai".to_string()),
-                json: false,
-                include_secrets: false,
+                setting_id: "core.ai.models".to_string(),
             },
         })));
         assert!(command_requests_json(&Some(Commands::Config {
-            action: ConfigAction::Show {
-                path: None,
+            action: ConfigAction::Export,
+        })));
+        assert!(command_requests_json(&Some(Commands::Config {
+            action: ConfigAction::Show { json: true },
+        })));
+        assert!(command_requests_json(&Some(Commands::Config {
+            action: ConfigAction::Catalog {
+                query: None,
                 json: true,
-                include_secrets: false,
             },
         })));
         assert!(command_requests_json(&Some(Commands::Config {
             action: ConfigAction::Set {
-                path: "ai.default_models.primary".to_string(),
+                setting_id: "core.ai.default_models.primary".to_string(),
                 value: "demo".to_string(),
                 json: true,
+                yes: false,
             },
         })));
         assert!(command_requests_json(&Some(Commands::Config {
             action: ConfigAction::Reset {
-                path: Some("ai.default_models.primary".to_string()),
+                setting_id: "core.ai.default_models.primary".to_string(),
                 json: true,
+                yes: false,
             },
-        })));
-        assert!(command_requests_json(&Some(Commands::Config {
-            action: ConfigAction::Reload { json: true },
         })));
         assert!(command_requests_json(&Some(Commands::Config {
             action: ConfigAction::Import {
                 file: "config-export.json".to_string(),
                 json: true,
+                yes: false,
             },
         })));
         assert!(command_requests_json(&Some(Commands::Config {
@@ -5590,17 +5444,14 @@ mod tests {
             workspace: None,
         })));
         assert!(!command_requests_json(&Some(Commands::Config {
-            action: ConfigAction::Show {
-                path: None,
-                json: false,
-                include_secrets: false,
-            },
+            action: ConfigAction::Show { json: false },
         })));
         assert!(!command_requests_json(&Some(Commands::Config {
             action: ConfigAction::Set {
-                path: "ai.default_models.primary".to_string(),
+                setting_id: "core.ai.default_models.primary".to_string(),
                 value: "demo".to_string(),
                 json: false,
+                yes: false,
             },
         })));
         assert!(!command_requests_json(&Some(Commands::Config {
@@ -5610,6 +5461,7 @@ mod tests {
             action: ConfigAction::Import {
                 file: "config-export.json".to_string(),
                 json: false,
+                yes: false,
             },
         })));
         assert!(!command_requests_json(&Some(Commands::Config {
@@ -6338,10 +6190,6 @@ mod tests {
 
     #[test]
     fn command_modes_choose_blocking_confirmation_only_for_interactive_surfaces() {
-        let mut config = CliConfig::default();
-        assert!(!interactive_tui_skip_tool_confirmation(&config));
-        config.behavior.confirm_dangerous = false;
-        assert!(interactive_tui_skip_tool_confirmation(&config));
         assert!(exec_skip_tool_confirmation(false));
         assert!(!exec_skip_tool_confirmation(true));
     }
@@ -7199,34 +7047,31 @@ mod tests {
     #[test]
     fn shared_config_summary_keeps_default_config_show_scannable() {
         let value = serde_json::json!({
-            "ai": {
-                "models": [
-                    { "id": "primary-model", "name": "Primary", "enabled": true },
-                    { "id": "disabled-model", "name": "Disabled", "enabled": false }
-                ],
-                "default_models": {
-                    "primary": "primary-model",
-                    "fast": "fast-model",
-                    "search": null
-                },
-                "agent_models": {
-                    "Runno": "primary",
-                    "bitfun-plan": "fast"
-                }
+            "revision": 12,
+            "catalogVersion": "sha256:catalog",
+            "publishedSettingCount": 42,
+            "models": {
+                "configured": 2,
+                "enabled": 1
             },
-            "app": {
-                "language": "zh-CN"
-            }
+            "defaultModels": {
+                "primary": "primary-model",
+                "fast": "fast-model"
+            },
+            "agentModelMappings": 2,
+            "appLanguage": "zh-CN"
         });
 
         let output = shared_config_summary_lines(&value).join("\n");
 
         assert!(output.contains("Shared Global Configuration Summary"));
+        assert!(output.contains("Revision: 12"));
+        assert!(output.contains("Catalog: sha256:catalog (42 settings)"));
         assert!(output.contains("Models: 2 configured, 1 enabled"));
         assert!(output.contains("Default models: primary=primary-model, fast=fast-model"));
         assert!(output.contains("Agent model mappings: 2"));
         assert!(output.contains("App language: zh-CN"));
-        assert!(output.contains("sparo config show --json"));
+        assert!(output.contains("sparo config export"));
         assert!(!output.contains("\"models\""));
         assert!(!output.contains("\"api_key\""));
     }
@@ -7257,9 +7102,8 @@ mod tests {
         let value = serde_json::json!({
             "healthy": false,
             "message": "Configuration system is unavailable",
-            "total_providers": 0,
             "config_directory": "C:\\Users\\example\\sparo_os\\config",
-            "warnings": ["Failed to load provider"]
+            "warnings": ["Failed to load configuration service"]
         });
 
         let output = config_health_human_lines(&value).join("\n");
@@ -7267,9 +7111,8 @@ mod tests {
         assert!(output.contains("Shared Global Configuration Health"));
         assert!(output.contains("Status: needs attention"));
         assert!(output.contains("Message: Configuration system is unavailable"));
-        assert!(output.contains("Providers: 0"));
         assert!(output.contains("Config directory: C:\\Users\\example\\sparo_os\\config"));
-        assert!(output.contains("  - Failed to load provider"));
+        assert!(output.contains("  - Failed to load configuration service"));
         assert!(output.contains("Run CLI health: sparo health"));
         assert!(output.contains("Validate config: sparo config validate"));
         assert!(output.contains("Machine output: sparo config health --json"));
@@ -7292,84 +7135,70 @@ mod tests {
     }
 
     #[test]
-    fn config_set_human_lines_include_impact_and_next_actions() {
-        let output = config_set_human_lines(
-            "ai.default_models.primary",
-            "gpt-demo",
-            "Configuration set successfully",
-            true,
-        )
-        .join("\n");
+    fn config_set_human_lines_include_commit_and_next_actions() {
+        let commit = test_config_commit(sparo_core::service::config::ConfigCommitStatus::Applying);
+        let output = config_set_human_lines("core.ai.default_models.primary", &commit).join("\n");
 
         assert!(output.contains("Shared Global Configuration Updated"));
-        assert!(output.contains("Status: Configuration set successfully"));
-        assert!(output.contains("Path: ai.default_models.primary"));
-        assert!(output.contains("Value: gpt-demo"));
-        assert!(output.contains("AI client cache: invalidated"));
-        assert!(output.contains("Inspect value: sparo config get ai.default_models.primary"));
+        assert!(output.contains("Status: applying"));
+        assert!(output.contains("Commit ID: cfg-commit-test"));
+        assert!(output.contains("Revision: 42"));
+        assert!(output.contains("Setting ID: core.ai.default_models.primary"));
+        assert!(!output.contains("gpt-demo"));
+        assert!(!output.contains("Value:"));
+        assert!(output.contains("Inspect value: sparo config get core.ai.default_models.primary"));
         assert!(output.contains("Validate config: sparo config validate"));
-        assert!(output.contains(
-            "Machine output: sparo config set ai.default_models.primary gpt-demo --json"
-        ));
+        assert!(output.contains("Use --json on future changes for machine-readable output"));
     }
 
     #[test]
-    fn config_reset_human_lines_handle_path_and_full_reset() {
-        let path_output = config_reset_human_lines(
-            Some("ai.default_models.primary"),
-            "Configuration 'ai.default_models.primary' reset successfully",
-            true,
-        )
-        .join("\n");
+    fn config_reset_human_lines_require_one_setting_id_and_include_commit() {
+        let commit = test_config_commit(sparo_core::service::config::ConfigCommitStatus::Applied);
+        let output = config_reset_human_lines("core.ai.default_models.primary", &commit).join("\n");
 
-        assert!(path_output.contains("Shared Global Configuration Reset"));
-        assert!(path_output.contains("Target: ai.default_models.primary"));
-        assert!(path_output.contains("AI client cache: invalidated"));
-        assert!(path_output.contains("Inspect value: sparo config get ai.default_models.primary"));
-        assert!(path_output
-            .contains("Machine output: sparo config reset ai.default_models.primary --json"));
-
-        let full_output =
-            config_reset_human_lines(None, "All configurations reset successfully", false)
-                .join("\n");
-
-        assert!(full_output.contains("Target: all shared configuration"));
-        assert!(full_output.contains("AI client cache: unchanged"));
-        assert!(full_output.contains("Inspect config: sparo config show"));
-        assert!(full_output.contains("Machine output: sparo config reset --json"));
+        assert!(output.contains("Shared Global Configuration Reset"));
+        assert!(output.contains("Status: applied"));
+        assert!(output.contains("Commit ID: cfg-commit-test"));
+        assert!(output.contains("Revision: 42"));
+        assert!(output.contains("Setting ID: core.ai.default_models.primary"));
+        assert!(output.contains("Inspect value: sparo config get core.ai.default_models.primary"));
+        assert!(output
+            .contains("Machine output: sparo config reset core.ai.default_models.primary --json"));
     }
 
     #[test]
-    fn config_reload_human_lines_include_validation_actions() {
-        let output = config_reload_human_lines("Configuration reloaded successfully").join("\n");
-
-        assert!(output.contains("Shared Global Configuration Reloaded"));
-        assert!(output.contains("Status: Configuration reloaded successfully"));
-        assert!(output.contains("Validate config: sparo config validate"));
-        assert!(output.contains("Inspect config: sparo config show"));
-        assert!(output.contains("Machine output: sparo config reload --json"));
+    fn config_reset_setting_id_is_required_by_clap() {
+        let error = Cli::try_parse_from(["sparo", "config", "reset"])
+            .err()
+            .expect("reset without a setting ID must be rejected");
+        assert_eq!(
+            error.kind(),
+            clap::error::ErrorKind::MissingRequiredArgument
+        );
     }
 
     #[test]
-    fn config_import_human_lines_summarize_result_and_keep_json_available() {
-        let response = sparo_core::command::config::ImportConfigResponse {
-            result: sparo_core::service::config::ConfigImportResult {
-                success: false,
-                errors: vec!["Missing model".to_string()],
-                warnings: vec!["Provider disabled".to_string()],
-            },
-            invalidated_ai_cache: true,
-        };
+    fn config_show_does_not_duplicate_single_setting_lookup() {
+        let error = Cli::try_parse_from([
+            "sparo",
+            "config",
+            "show",
+            "--setting-id",
+            "core.ai.default_models.primary",
+        ])
+        .err()
+        .expect("single-setting lookup belongs to `config get`");
+        assert_eq!(error.kind(), clap::error::ErrorKind::UnknownArgument);
+    }
 
-        let output = config_import_human_lines("C:\\Users\\example\\config export.json", &response)
-            .join("\n");
+    #[test]
+    fn config_import_human_lines_report_only_successful_outcomes() {
+        let output =
+            config_import_human_lines("C:\\Users\\example\\config export.json", None).join("\n");
 
         assert!(output.contains("Shared Global Configuration Imported"));
-        assert!(output.contains("Status: failed"));
+        assert!(output.contains("Status: no changes"));
         assert!(output.contains("File: C:\\Users\\example\\config export.json"));
-        assert!(output.contains("AI client cache: invalidated"));
-        assert!(output.contains("Errors: 1"));
-        assert!(output.contains("Warnings: 1"));
         assert!(output.contains("Validate config: sparo config validate"));
         assert!(output.contains(
             "Machine output: sparo config import \"C:\\Users\\example\\config export.json\" --json"
