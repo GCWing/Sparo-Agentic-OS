@@ -3,8 +3,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Switch } from '@/design-system';
-import { ConfigPageHeader, ConfigPageLayout, ConfigPageContent, ConfigPageSection, ConfigPageRow, ConfigPageLoading } from './common';
+import { ConfigPageHeader, ConfigPageLayout, ConfigPageContent, ConfigPageSection, ConfigPageRow, ConfigPageLoading, ConfigPageMessage } from './common';
 import { aiExperienceConfigService, type AIExperienceSettings } from '../services/AIExperienceConfigService';
+import { useAIExperienceSettings } from '../hooks';
 import { configManager } from '../services/ConfigManager';
 import { getCompactModelDisplayName } from '../services/modelConfigs';
 import { useNotification, notificationService } from '@/shared/notification-system';
@@ -35,9 +36,11 @@ const AIFeaturesConfig: React.FC = () => {
   const notification = useNotification();
   
   
-  const [settings, setSettings] = useState<AIExperienceSettings>(() =>
-    aiExperienceConfigService.getSettings()
-  );
+  const {
+    settings,
+    isLoading: settingsLoading,
+    error: settingsError,
+  } = useAIExperienceSettings();
   const [isLoading, setIsLoading] = useState(true);
   
   
@@ -50,18 +53,15 @@ const AIFeaturesConfig: React.FC = () => {
     try {
       
       const [
-        loadedSettings,
         allModels,
         defaultModelsData,
         funcAgentModelsData
       ] = await Promise.all([
-        aiExperienceConfigService.getSettingsAsync(),
-        configManager.getConfig<AIModelConfig[]>('ai.models') || [],
-        configManager.getConfig<Partial<DefaultModels>>('ai.default_models') || {},
-        configManager.getConfig<Record<string, string>>('ai.func_agent_models') || {}
+        configManager.getSetting<AIModelConfig[]>('core.ai.models') || [],
+        configManager.getSetting<Partial<DefaultModels>>('core.ai.default_models') || {},
+        configManager.getSetting<Record<string, string>>('core.ai.func_agent_models') || {}
       ]);
 
-      setSettings(loadedSettings);
       setModels(allModels);
       setDefaultModels({
         primary: defaultModelsData?.primary || null,
@@ -70,7 +70,6 @@ const AIFeaturesConfig: React.FC = () => {
       setFuncAgentModels(funcAgentModelsData);
     } catch (error) {
       log.error('Failed to load data', error);
-      setSettings(aiExperienceConfigService.getSettings());
     } finally {
       setIsLoading(false);
     }
@@ -91,11 +90,11 @@ const AIFeaturesConfig: React.FC = () => {
     key: K,
     value: AIExperienceSettings[K]
   ) => {
-    
+    if (!settings) {
+      notification.error(t('messages.updateFailed'));
+      return;
+    }
     const newSettings = { ...settings, [key]: value };
-    setSettings(newSettings);
-
-    
     try {
       await aiExperienceConfigService.saveSettings(newSettings);
       notification.success(t('messages.saveSuccess'));
@@ -103,7 +102,6 @@ const AIFeaturesConfig: React.FC = () => {
       log.error('Failed to save AI features settings', error);
       notification.error(`${t('messages.saveFailed')}: ` + (error instanceof Error ? error.message : String(error)));
       
-      setSettings(settings);
     }
   };
 
@@ -118,13 +116,13 @@ const AIFeaturesConfig: React.FC = () => {
     modelId: string
   ) => {
     try {
-      const currentFuncAgentModels = await configManager.getConfig<Record<string, string>>('ai.func_agent_models') || {};
+      const currentFuncAgentModels = await configManager.getSetting<Record<string, string>>('core.ai.func_agent_models') || {};
 
       const updatedFuncAgentModels = {
         ...currentFuncAgentModels,
         [agentName]: modelId,
       };
-      await configManager.setConfig('ai.func_agent_models', updatedFuncAgentModels);
+      await configManager.setSetting('core.ai.func_agent_models', updatedFuncAgentModels);
 
       setFuncAgentModels(updatedFuncAgentModels);
 
@@ -154,7 +152,7 @@ const AIFeaturesConfig: React.FC = () => {
   const primaryModelName = getModelName(defaultModels.primary) || t('model.notConfigured');
   const fastModelName = getModelName(defaultModels.fast) || t('model.fastUsesPrimary');
 
-  if (isLoading) {
+  if (isLoading || settingsLoading) {
     return (
       <ConfigPageLayout className="sparo-func-agent-config">
         <ConfigPageHeader
@@ -162,6 +160,17 @@ const AIFeaturesConfig: React.FC = () => {
         />
         <ConfigPageContent className="sparo-func-agent-config__content">
           <ConfigPageLoading text={t('loading.text')} />
+        </ConfigPageContent>
+      </ConfigPageLayout>
+    );
+  }
+
+  if (settingsError || !settings) {
+    return (
+      <ConfigPageLayout className="sparo-func-agent-config">
+        <ConfigPageHeader title={t('title')} />
+        <ConfigPageContent className="sparo-func-agent-config__content">
+          <ConfigPageMessage message={{ type: 'error', text: t('messages.updateFailed') }} />
         </ConfigPageContent>
       </ConfigPageLayout>
     );

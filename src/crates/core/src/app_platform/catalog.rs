@@ -15,6 +15,119 @@ pub enum AppInteractionModel {
     InteractiveWorkspace,
 }
 
+/// App-owned additions to the host-derived Product App runtime interaction.
+///
+/// The host remains authoritative for the profile, chat binding, primary tab,
+/// and backend routing. Apps may only declare additional runtime tabs.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppRuntimeInteraction {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tabs: Vec<AppRuntimeInteractionTab>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AppRuntimeInteractionText {
+    Plain(String),
+    Localized(BTreeMap<String, String>),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum AppRuntimeSidecarIcon {
+    Activity,
+    AppWindow,
+    FileText,
+    Palette,
+    Play,
+    Settings,
+}
+
+impl AppRuntimeSidecarIcon {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Activity => "activity",
+            Self::AppWindow => "app-window",
+            Self::FileText => "file-text",
+            Self::Palette => "palette",
+            Self::Play => "play",
+            Self::Settings => "settings",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AppRuntimeSidecarAvailability {
+    Enabled,
+    Disabled,
+    Hidden,
+}
+
+impl AppRuntimeSidecarAvailability {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Enabled => "enabled",
+            Self::Disabled => "disabled",
+            Self::Hidden => "hidden",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AppRuntimeSidecarTargetGroup {
+    Primary,
+    Secondary,
+}
+
+impl AppRuntimeSidecarTargetGroup {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Primary => "primary",
+            Self::Secondary => "secondary",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppRuntimeInteractionSidecar {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub action_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<AppRuntimeSidecarIcon>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub order: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub availability: Option<AppRuntimeSidecarAvailability>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_group: Option<AppRuntimeSidecarTargetGroup>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppRuntimeInteractionTab {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub tab_type: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<AppRuntimeInteractionText>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title_key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub route: Option<String>,
+    #[serde(default)]
+    pub default: bool,
+    #[serde(default)]
+    pub developer_only: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sidecar: Option<AppRuntimeInteractionSidecar>,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    pub data: Value,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AppWorkMultiplicity {
@@ -572,6 +685,8 @@ pub struct AppDefinition {
     #[serde(default, skip_serializing_if = "AppI18n::is_empty")]
     pub i18n: AppI18n,
     pub interaction_model: AppInteractionModel,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime_interaction: Option<AppRuntimeInteraction>,
     #[serde(default)]
     pub work_multiplicity: AppWorkMultiplicity,
     #[serde(default)]
@@ -835,6 +950,7 @@ mod permission_contract_tests {
             authors: Vec::new(),
             i18n: AppI18n::default(),
             interaction_model: AppInteractionModel::Conversation,
+            runtime_interaction: None,
             work_multiplicity: AppWorkMultiplicity::Multiple,
             work_object_kinds: Vec::new(),
             data_lifecycle: None,

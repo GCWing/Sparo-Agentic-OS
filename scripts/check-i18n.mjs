@@ -4,6 +4,16 @@ import path from 'node:path';
 const rootDir = process.cwd();
 const localesRoot = path.join(rootDir, 'src', 'web-ui', 'src', 'locales');
 const constantsPath = path.join(rootDir, 'src', 'web-ui', 'src', 'infrastructure', 'i18n', 'constants.ts');
+const configCatalogPath = path.join(
+  rootDir,
+  'src',
+  'crates',
+  'core',
+  'src',
+  'service',
+  'config',
+  'catalog.rs',
+);
 
 function listLocaleDirs(baseDir) {
   return fs.readdirSync(baseDir)
@@ -77,6 +87,75 @@ function parseDeclaredNamespaces(filePath) {
   return Array.from(arrayMatch[1].matchAll(/'([^']+)'/g), (match) => match[1]).sort();
 }
 
+function extractRustConstArrayBody(source, constantName, filePath) {
+  const signatureIndex = source.indexOf(`const ${constantName}`);
+  if (signatureIndex < 0) {
+    throw new Error(`Failed to find ${constantName} in ${filePath}`);
+  }
+
+  const assignmentIndex = source.indexOf('=', signatureIndex);
+  const bodyStart = source.indexOf('[', assignmentIndex);
+  if (bodyStart < 0) {
+    throw new Error(`Failed to parse ${constantName} in ${filePath}`);
+  }
+
+  let depth = 0;
+  for (let index = bodyStart; index < source.length; index += 1) {
+    if (source[index] === '[') {
+      depth += 1;
+    } else if (source[index] === ']') {
+      depth -= 1;
+      if (depth === 0) {
+        return source.slice(bodyStart + 1, index);
+      }
+    }
+  }
+
+  throw new Error(`Unterminated ${constantName} array in ${filePath}`);
+}
+
+function parseFormalPublishedSettingKeys(filePath) {
+  const source = fs.readFileSync(filePath, 'utf8');
+  const body = extractRustConstArrayBody(source, 'STABLE_SETTING_DECLARATIONS', filePath);
+  const publicPresentationPattern = /public_setting!\(\s*"[^"\r\n]+"\s*=>\s*[^,]+,\s*\(\s*"[^"\r\n]+"\s*,\s*"[^"\r\n]+"\s*,\s*"[^"\r\n]+"\s*,\s*"[^"\r\n]+"\s*\)\s*,\s*\(\s*"([^"\r\n]+:[^"\r\n]+)"\s*,\s*"([^"\r\n]+:[^"\r\n]+)"\s*\)/g;
+  const keys = new Set();
+
+  for (const match of body.matchAll(publicPresentationPattern)) {
+    keys.add(match[1]);
+    keys.add(match[2]);
+  }
+
+  if (keys.size === 0) {
+    throw new Error(`No formal published setting i18n keys found in ${filePath}`);
+  }
+
+  return Array.from(keys).sort();
+}
+
+function resolveTranslation(localeId, translationKey) {
+  const separatorIndex = translationKey.indexOf(':');
+  if (separatorIndex <= 0 || separatorIndex === translationKey.length - 1) {
+    throw new Error(`Invalid namespaced translation key: ${translationKey}`);
+  }
+
+  const namespace = translationKey.slice(0, separatorIndex);
+  const nestedKey = translationKey.slice(separatorIndex + 1);
+  const localePath = path.join(localesRoot, localeId, `${namespace}.json`);
+  if (!fs.existsSync(localePath)) {
+    return undefined;
+  }
+
+  let value = parseJsonFile(localePath);
+  for (const segment of nestedKey.split('.')) {
+    if (!isPlainObject(value) || !(segment in value)) {
+      return undefined;
+    }
+    value = value[segment];
+  }
+
+  return typeof value === 'string' && value.trim() ? value : undefined;
+}
+
 function main() {
   if (!fs.existsSync(localesRoot)) {
     throw new Error(`Locales directory not found: ${localesRoot}`);
@@ -99,6 +178,7 @@ function main() {
   const referenceFiles = localeFiles.get(referenceLocale) ?? [];
   const referenceNamespaces = referenceFiles.map((file) => file.replace(/\.json$/, '')).sort();
   const declaredNamespaces = parseDeclaredNamespaces(constantsPath);
+  const formalPublishedSettingKeys = parseFormalPublishedSettingKeys(configCatalogPath);
 
   const missingDeclaredNamespaces = diffSets(referenceNamespaces, declaredNamespaces);
   const extraDeclaredNamespaces = diffSets(declaredNamespaces, referenceNamespaces);
@@ -145,6 +225,23 @@ function main() {
     }
   }
 
+  for (const localeId of ['en-US', 'zh-CN']) {
+    if (!localeIds.includes(localeId)) {
+      issues.push(`Required published-settings locale is missing: ${localeId}`);
+      continue;
+    }
+    const missingPublishedKeys = formalPublishedSettingKeys.filter(
+      (translationKey) => resolveTranslation(localeId, translationKey) === undefined,
+    );
+    if (missingPublishedKeys.length > 0) {
+      issues.push(
+        `${localeId} is missing formal published setting copy:\n${missingPublishedKeys
+          .map((translationKey) => `  - ${translationKey}`)
+          .join('\n')}`,
+      );
+    }
+  }
+
   if (issues.length > 0) {
     console.error('i18n consistency check failed.\n');
     console.error(issues.join('\n\n'));
@@ -152,7 +249,9 @@ function main() {
     return;
   }
 
-  console.log(`i18n consistency check passed for ${localeIds.length} locales and ${referenceFiles.length} namespace files.`);
+  console.log(
+    `i18n consistency check passed for ${localeIds.length} locales, ${referenceFiles.length} namespace files, and ${formalPublishedSettingKeys.length} formal published setting keys.`,
+  );
 }
 
 main();

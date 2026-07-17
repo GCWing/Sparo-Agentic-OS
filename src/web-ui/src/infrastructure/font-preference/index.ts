@@ -13,6 +13,4 @@ export { FontPreferencePanel } from './components/FontPreferencePanel';
 // React hooks
 export {
   useFontPreference,
-  useUiFontSize,
-  useFontSizeLevelLabel,
 } from './hooks/useFontPreference';

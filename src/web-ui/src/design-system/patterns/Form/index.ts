@@ -1,2 +1,2 @@
 export { FormActions, FormField, FormSection } from './Form';
-export type { FormFieldProps } from './Form';
+export type { FormFieldControlWidth, FormFieldOrientation, FormFieldProps } from './Form';

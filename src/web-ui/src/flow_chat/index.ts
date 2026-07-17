@@ -6,6 +6,8 @@ export { ModernFlowChatContainer as FlowChatContainer } from './components/moder
 
 // Other components
 export { ChatInput } from './components/ChatInput';
+export { FlowChatSessionSurface } from './components/FlowChatSessionSurface';
+export type { FlowChatSessionSurfaceProps } from './components/FlowChatSessionSurface';
 export { CurrentSessionTitle } from './components/CurrentSessionTitle';
 export { ScrollToLatestBar } from './components/ScrollToLatestBar';
 

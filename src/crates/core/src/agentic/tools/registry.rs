@@ -95,6 +95,8 @@ impl ToolRegistry {
         self.register_tool(Arc::new(GoalTool::new()));
         self.register_tool(Arc::new(WorkTool::new()));
         self.register_tool(Arc::new(CapabilityRegistryTool::new()));
+        self.register_tool(Arc::new(SettingsCatalogTool::new()));
+        self.register_tool(Arc::new(SettingsChangeTool::new()));
 
         // AgentSession-level handoff remains available outside OSAgent Work management.
         self.register_tool(Arc::new(AgentHandoffTool::new()));
@@ -264,6 +266,13 @@ mod tests {
     }
 
     #[test]
+    fn registry_includes_settings_agent_tools() {
+        let registry = create_tool_registry();
+        assert!(registry.get_tool("SettingsCatalog").is_some());
+        assert!(registry.get_tool("SettingsChange").is_some());
+    }
+
+    #[test]
     fn registry_includes_file_workbench_tools() {
         let registry = create_tool_registry();
         assert!(registry.get_tool("FileContextRead").is_some());
@@ -304,9 +313,13 @@ mod tests {
             registry.get_tool("ControlHub").is_some(),
             "ControlHub must remain registered for browser/terminal/meta control"
         );
+        let computer_use = registry
+            .get_tool("ComputerUse")
+            .expect("ComputerUse must be registered as the dedicated desktop automation tool");
+        assert!(computer_use.needs_permissions(None));
         assert!(
-            registry.get_tool("ComputerUse").is_some(),
-            "ComputerUse must be registered as the dedicated desktop automation tool"
+            !computer_use.allows_confirmation_bypass(None),
+            "ComputerUse confirmation must survive the global skip preference"
         );
     }
 

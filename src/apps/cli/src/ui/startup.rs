@@ -112,6 +112,8 @@ impl StartupPage {
             sparo_core::runtime::ProcessRuntimeOptions {
                 initialize_i18n: false,
                 initialize_token_usage: false,
+                config_startup_failure_policy:
+                    sparo_core::service::config::ConfigStartupFailurePolicy::Strict,
             },
         )
         .await
@@ -1651,7 +1653,7 @@ fn startup_composer_block(theme: &Theme, hints: &[(&'static str, &'static str)])
 
 fn live_agents_reference_message() -> String {
     let registry = sparo_core::agentic::agents::get_agent_registry();
-    let agents = if let Ok(handle) = tokio::runtime::Handle::try_current() {
+    let agents_result = if let Ok(handle) = tokio::runtime::Handle::try_current() {
         tokio::task::block_in_place(|| handle.block_on(registry.list_agents_info()))
     } else {
         match tokio::runtime::Builder::new_current_thread()
@@ -1665,6 +1667,16 @@ fn live_agents_reference_message() -> String {
                     error
                 );
             }
+        }
+    };
+
+    let agents = match agents_result {
+        Ok(agents) => agents,
+        Err(error) => {
+            return format!(
+                "Available Agents:\nFailed to read agent capability configuration: {}\n\nUse:\n- sparo agents list to inspect the live agent registry",
+                error
+            );
         }
     };
 
@@ -2026,6 +2038,7 @@ mod tests {
                 child_count: 1,
                 last_active_at: chrono::Utc::now().timestamp_millis().max(0) as u64,
             }],
+            works: Vec::new(),
             tasks: Vec::new(),
             apps: vec![AgenticOsAppRow {
                 id: "app-1".to_string(),

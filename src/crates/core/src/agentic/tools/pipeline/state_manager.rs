@@ -205,7 +205,7 @@ impl ToolStateManager {
             } => ToolEventData::Failed {
                 tool_id: task.tool_call.tool_id.clone(),
                 tool_name: task.tool_call.tool_name.clone(),
-                error: error.clone(),
+                error: super::published_tool_error_for_agent(&task.context.agent_type, error),
             },
 
             ToolExecutionState::Cancelled { reason } => ToolEventData::Cancelled {

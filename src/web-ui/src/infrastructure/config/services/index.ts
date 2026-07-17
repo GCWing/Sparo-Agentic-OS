@@ -3,7 +3,6 @@
 
 
 export {
-  modelConfigManager,
   getAllTemplates,
   getFormatDisplayName,
   PROVIDER_TEMPLATES
@@ -11,9 +10,9 @@ export {
 
 
 export {
-  AIExperienceConfigService,
-  aiExperienceConfigService
+  aiExperienceConfigService,
 } from './AIExperienceConfigService';
+export { BUILTIN_SPARKY_COMPANION_PET } from './AgentCompanionPetService';
 
 
 
@@ -25,7 +24,6 @@ export type {
 } from '../../../shared/types';
 
 export type {
-  AgentCompanionDisplayMode,
   AgentCompanionPetSelection,
   AIExperienceSettings,
 } from './AIExperienceConfigService';

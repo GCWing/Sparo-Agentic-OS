@@ -20,8 +20,8 @@ pub use delegates::{
 };
 pub use internal::{
     CodeReviewAgent, DailyLetterWriterAgent, FilerAgent, GenerateDocAgent, GlobalDailyReportAgent,
-    GlobalMemoryConsolidatorAgent, GlobalMilestoneAgent, HostScanAgent, InitAgent,
-    WorkspaceMemoryConsolidatorAgent, WorkspaceOverviewRefresherAgent,
+    GlobalMemoryConsolidatorAgent, GlobalMilestoneAgent, HostScanAgent, InitAgent, PptLiveAgent,
+    SettingsAgent, WorkspaceMemoryConsolidatorAgent, WorkspaceOverviewRefresherAgent,
 };
 pub use os_native::{AppBuilderAgent, OsAgent, RunnoAgent};
 pub use product_app_backends::build_ppt_live_private_prompt;

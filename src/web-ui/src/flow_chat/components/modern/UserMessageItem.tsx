@@ -44,6 +44,7 @@ import {
 } from '../../domain/composerContextRegistry';
 import { incrementFlowChatCounter } from '../../performance/flowChatPerf';
 import { invalidateFlowLayout } from '../../scroll/FlowLayoutMutationEvents';
+import { useSessionProfile } from '@/app/session-profiles';
 import './UserMessageItem.scss';
 
 const log = createLogger('UserMessageItem');
@@ -176,6 +177,10 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
     const { t, i18n } = useTranslation('flow-chat');
     const { sessionId } = useFlowChatStaticContext();
     const { searchQuery } = useFlowChatViewContext();
+    const { profile } = useSessionProfile();
+    const showEditAction = profile.messageActions?.showUserEdit !== false;
+    const showRecoveryAction = profile.messageActions?.showUserRecovery !== false;
+    const showRollbackAction = profile.messageActions?.showUserRollback !== false;
     const [copied, setCopied] = useState(false);
     const [expanded, setExpanded] = useState(false);
     const [isRollingBack, setIsRollingBack] = useState(false);
@@ -654,7 +659,7 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
             >
               {copied ? <Check size={14} /> : <Copy size={14} />}
             </IconButton>
-            {!isFollowUp && (
+            {!isFollowUp && showEditAction && (
               <IconButton
                 className="user-message-item__edit-action"
                 size="small"
@@ -667,35 +672,36 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
                 <Pencil size={14} />
               </IconButton>
             )}
-            {!isFollowUp && (isFailed ? (
-                <IconButton
-                  className="user-message-item__copy-action"
-                  size="small"
-                  variant="ghost"
-                  onClick={handleFillToInput}
-                  aria-label={t('message.fillToInput')}
-                  tooltip={t('message.fillToInput')}
-                >
-                  <ArrowDownToLine size={14} />
-                </IconButton>
-              ) : (
-                <IconButton
-                  className="user-message-item__rollback-action"
-                  size="small"
-                  variant="ghost"
-                  onClick={handleRollback}
-                  disabled={!canRollback}
-                  isLoading={isRollingBack}
-                  aria-label={canRollback ? t('message.rollbackTo', { index: turnIndex + 1 }) : t('message.cannotRollback')}
-                  tooltip={canRollback ? t('message.rollbackTo', { index: turnIndex + 1 }) : t('message.cannotRollback')}
-                >
-                  {isRollingBack ? (
-                    <DotMatrixLoader size="tiny" />
-                  ) : (
-                    <RotateCcw size={14} />
-                  )}
-                </IconButton>
-              ))}
+            {!isFollowUp && isFailed && showRecoveryAction ? (
+              <IconButton
+                className="user-message-item__copy-action"
+                size="small"
+                variant="ghost"
+                onClick={handleFillToInput}
+                aria-label={t('message.fillToInput')}
+                tooltip={t('message.fillToInput')}
+              >
+                <ArrowDownToLine size={14} />
+              </IconButton>
+            ) : null}
+            {!isFollowUp && !isFailed && showRollbackAction ? (
+              <IconButton
+                className="user-message-item__rollback-action"
+                size="small"
+                variant="ghost"
+                onClick={handleRollback}
+                disabled={!canRollback}
+                isLoading={isRollingBack}
+                aria-label={canRollback ? t('message.rollbackTo', { index: turnIndex + 1 }) : t('message.cannotRollback')}
+                tooltip={canRollback ? t('message.rollbackTo', { index: turnIndex + 1 }) : t('message.cannotRollback')}
+              >
+                {isRollingBack ? (
+                  <DotMatrixLoader size="tiny" />
+                ) : (
+                  <RotateCcw size={14} />
+                )}
+              </IconButton>
+            ) : null}
           </div>
         </div>
 

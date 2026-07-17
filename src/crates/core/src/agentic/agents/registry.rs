@@ -3,8 +3,8 @@ use super::{
     CodeReviewAgent, ComputerUseAgent, CoworkAgent, DailyLetterWriterAgent, DeepResearchAgent,
     DesignAgent, DesignReviewAgent, ExploreAgent, FileFinderAgent, FilerAgent, GenerateDocAgent,
     GlobalDailyReportAgent, GlobalMemoryConsolidatorAgent, GlobalMilestoneAgent, HostScanAgent,
-    InitAgent, OsAgent, OutcomeReviewAgent, RunnoAgent, WorkspaceMemoryConsolidatorAgent,
-    WorkspaceOverviewRefresherAgent,
+    InitAgent, OsAgent, OutcomeReviewAgent, PptLiveAgent, RunnoAgent, SettingsAgent,
+    WorkspaceMemoryConsolidatorAgent, WorkspaceOverviewRefresherAgent,
 };
 use crate::agent_component::AgentComponentAgent;
 use crate::agentic::agents::custom_subagents::{
@@ -203,26 +203,16 @@ fn default_model_id_for_builtin_agent(_agent_type: &str) -> &'static str {
     "primary"
 }
 
-async fn get_agent_capability_configs() -> HashMap<String, AgentCapabilityConfig> {
-    if let Ok(config_service) = GlobalConfigManager::get_service().await {
-        config_service
-            .get_config(Some("ai.agent_capability_configs"))
-            .await
-            .unwrap_or_default()
-    } else {
-        HashMap::new()
-    }
+async fn get_agent_capability_configs() -> CoreResult<HashMap<String, AgentCapabilityConfig>> {
+    let config_service = GlobalConfigManager::get_service().await?;
+    config_service
+        .get_config(Some("ai.agent_capability_configs"))
+        .await
 }
 
-async fn get_subagent_configs() -> HashMap<String, SubAgentConfig> {
-    if let Ok(config_service) = GlobalConfigManager::get_service().await {
-        config_service
-            .get_config(Some("ai.subagent_configs"))
-            .await
-            .unwrap_or_default()
-    } else {
-        HashMap::new()
-    }
+async fn get_subagent_configs() -> CoreResult<HashMap<String, SubAgentConfig>> {
+    let config_service = GlobalConfigManager::get_service().await?;
+    config_service.get_config(Some("ai.subagent_configs")).await
 }
 
 fn merge_dynamic_mcp_tools(
@@ -411,6 +401,8 @@ impl AgentRegistry {
             Arc::new(GlobalMilestoneAgent::new()),
             Arc::new(HostScanAgent::new()),
             Arc::new(InitAgent::new()),
+            Arc::new(PptLiveAgent::new()),
+            Arc::new(SettingsAgent::new()),
             Arc::new(WorkspaceMemoryConsolidatorAgent::new()),
             Arc::new(GlobalMemoryConsolidatorAgent::new()),
             Arc::new(WorkspaceOverviewRefresherAgent::new()),
@@ -513,11 +505,11 @@ impl AgentRegistry {
         &self,
         agent_type: &str,
         workspace_root: Option<&Path>,
-    ) -> Vec<String> {
+    ) -> CoreResult<Vec<String>> {
         self.get_agent_capability_profile(agent_type, workspace_root)
-            .await
+            .await?
             .map(|profile| profile.tools.effective)
-            .unwrap_or_default()
+            .ok_or_else(|| CoreError::agent(format!("Agent not found: {agent_type}")))
     }
 
     fn build_selection(defaults: Vec<String>, effective: Vec<String>) -> AgentCapabilitySelection {
@@ -645,6 +637,15 @@ impl AgentRegistry {
         let valid_keys: HashSet<String> =
             all_skills.iter().map(|skill| skill.key.clone()).collect();
 
+        if agent_type == PptLiveAgent::ID {
+            let managed_ppt_design = all_skills
+                .into_iter()
+                .filter(|skill| skill.is_builtin && skill.dir_name == "ppt-design")
+                .map(|skill| skill.key)
+                .collect::<Vec<_>>();
+            return Self::build_selection(managed_ppt_design.clone(), managed_ppt_design);
+        }
+
         if entry.category == AgentCategory::AgentComponent {
             let defaults = entry
                 .agent
@@ -692,15 +693,17 @@ impl AgentRegistry {
         &self,
         agent_type: &str,
         workspace_root: Option<&Path>,
-    ) -> Option<AgentCapabilityProfile> {
-        let entry = self.find_agent_entry(agent_type, workspace_root)?;
-        let agent_capability_configs = get_agent_capability_configs().await;
+    ) -> CoreResult<Option<AgentCapabilityProfile>> {
+        let Some(entry) = self.find_agent_entry(agent_type, workspace_root) else {
+            return Ok(None);
+        };
+        let agent_capability_configs = get_agent_capability_configs().await?;
         let agent_capability_config = agent_capability_configs.get(agent_type).cloned();
         let enabled = Self::enabled_for_entry(agent_type, &entry, agent_capability_config.as_ref());
-        let model = self
-            .get_model_id_for_agent(agent_type, workspace_root)
-            .await
-            .ok();
+        let model = Some(
+            self.get_model_id_for_agent(agent_type, workspace_root)
+                .await?,
+        );
 
         let registered_tool_names = get_all_registered_tool_names().await;
         let valid_tools: HashSet<String> = registered_tool_names.iter().cloned().collect();
@@ -724,7 +727,7 @@ impl AgentRegistry {
 
         let available_subagents = self
             .get_subagents_info(workspace_root)
-            .await
+            .await?
             .into_iter()
             .filter(|agent| agent.enabled)
             .collect::<Vec<_>>();
@@ -747,7 +750,7 @@ impl AgentRegistry {
             &valid_subagents,
         );
 
-        Some(AgentCapabilityProfile {
+        Ok(Some(AgentCapabilityProfile {
             agent_id: agent_type.to_string(),
             agent_kind: Self::agent_kind_for_category(entry.category),
             enabled,
@@ -756,14 +759,14 @@ impl AgentRegistry {
             skills,
             subagents: Self::build_selection(default_subagents, effective_subagents),
             mutability: Self::mutability_for_entry(&entry),
-        })
+        }))
     }
 
     /// get all launchable agent information (including enabled status, used for frontend agent picker etc.)
     /// Standalone session types (e.g. OSAgent/Agentic OS) are excluded — they are independent
     /// session categories created from the nav, not switchable agents within a session.
-    pub async fn list_agents_info(&self) -> Vec<AgentInfo> {
-        let agent_capability_configs = get_agent_capability_configs().await;
+    pub async fn list_agents_info(&self) -> CoreResult<Vec<AgentInfo>> {
+        let agent_capability_configs = get_agent_capability_configs().await?;
         let map = self.read_agents();
         let mut result: Vec<AgentInfo> = map
             .values()
@@ -800,7 +803,7 @@ impl AgentRegistry {
             };
             order(&a.id).cmp(&order(&b.id))
         });
-        result
+        Ok(result)
     }
 
     /// check if a subagent is readonly (used for TaskTool.is_concurrency_safe etc.)
@@ -825,16 +828,19 @@ impl AgentRegistry {
     /// get all subagent information (including source and enabled status, used for TaskTool, frontend subagent list etc.)
     /// - built-in subagent: read enabled status from global configuration ai.subagent_configs
     /// - custom subagent: read enabled and model configuration from custom_config cache
-    pub async fn get_subagents_info(&self, workspace_root: Option<&Path>) -> Vec<AgentInfo> {
+    pub async fn get_subagents_info(
+        &self,
+        workspace_root: Option<&Path>,
+    ) -> CoreResult<Vec<AgentInfo>> {
         if let Some(workspace_root) = workspace_root {
             let is_project_cache_loaded =
                 self.read_project_subagents().contains_key(workspace_root);
             if !is_project_cache_loaded {
-                self.load_custom_subagents(workspace_root).await;
+                self.load_custom_subagents(workspace_root).await?;
             }
         }
 
-        let subagent_configs = get_subagent_configs().await;
+        let subagent_configs = get_subagent_configs().await?;
         let map = self.read_agents();
         let mut result: Vec<AgentInfo> = map
             .values()
@@ -860,7 +866,7 @@ impl AgentRegistry {
                 result.extend(project_entries.values().map(AgentInfo::from_agent_entry));
             }
         }
-        result
+        Ok(result)
     }
 
     /// Get subagents currently callable from the given parent agent.
@@ -868,10 +874,10 @@ impl AgentRegistry {
         &self,
         parent_agent_type: Option<&str>,
         workspace_root: Option<&Path>,
-    ) -> Vec<AgentInfo> {
+    ) -> CoreResult<Vec<AgentInfo>> {
         let subagents = self
             .get_subagents_info(workspace_root)
-            .await
+            .await?
             .into_iter()
             .filter(|agent| agent.enabled)
             .collect::<Vec<_>>();
@@ -880,20 +886,19 @@ impl AgentRegistry {
             .map(str::trim)
             .filter(|value| !value.is_empty())
         else {
-            return subagents;
+            return Ok(subagents);
         };
 
-        let enabled = self
+        let profile = self
             .get_agent_capability_profile(parent_agent_type, workspace_root)
-            .await
-            .map(|profile| profile.subagents.effective)
-            .unwrap_or_else(|| subagents.iter().map(|agent| agent.id.clone()).collect());
-        let enabled_set: HashSet<String> = enabled.into_iter().collect();
+            .await?
+            .ok_or_else(|| CoreError::agent(format!("Agent not found: {parent_agent_type}")))?;
+        let enabled_set: HashSet<String> = profile.subagents.effective.into_iter().collect();
 
-        subagents
+        Ok(subagents
             .into_iter()
             .filter(|agent| enabled_set.contains(&agent.id))
-            .collect()
+            .collect())
     }
 
     /// Get Agent Component implementation profiles registered in memory.
@@ -910,10 +915,10 @@ impl AgentRegistry {
     }
 
     /// load custom subagent: clear project/user source subagents, reload from workspace and register
-    pub async fn load_custom_subagents(&self, workspace_root: &Path) {
+    pub async fn load_custom_subagents(&self, workspace_root: &Path) -> CoreResult<()> {
         // get valid tools and models list for verification
         let valid_tools = get_all_registered_tool_names().await;
-        let valid_models = Self::get_valid_model_ids().await;
+        let valid_models = Self::get_valid_model_ids().await?;
 
         let custom = CustomSubagentLoader::load_custom_subagents(workspace_root);
         let mut map = self.write_agents();
@@ -922,11 +927,16 @@ impl AgentRegistry {
                 && entry.subagent_source == Some(SubAgentSource::User))
         });
         let mut project_entries = HashMap::new();
-        for mut sub in custom {
+        for sub in custom {
             let id = sub.id().to_string();
             let source = SubAgentSource::from_custom_kind(sub.kind);
-            // validate and correct tools and model
-            Self::validate_custom_subagent(&mut sub, &valid_tools, &valid_models);
+            if let Err(error) = Self::validate_custom_subagent(&sub, &valid_tools, &valid_models) {
+                warn!(
+                    "Invalid custom subagent skipped: id={}, source={:?}, error={}",
+                    id, source, error
+                );
+                continue;
+            }
             // create CustomSubagentConfig cache configuration information
             let custom_config = CustomSubagentConfig {
                 enabled: sub.enabled,
@@ -966,60 +976,53 @@ impl AgentRegistry {
         drop(map);
         self.write_project_subagents()
             .insert(workspace_root.to_path_buf(), project_entries);
+        Ok(())
     }
 
     /// get valid model ID list: ai.models id + "primary" + "fast"
-    async fn get_valid_model_ids() -> Vec<String> {
-        let mut valid_models: Vec<String> =
-            if let Ok(config_service) = GlobalConfigManager::get_service().await {
-                config_service
-                    .get_ai_models()
-                    .await
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(|m| m.id)
-                    .collect()
-            } else {
-                Vec::new()
-            };
+    async fn get_valid_model_ids() -> CoreResult<Vec<String>> {
+        let mut valid_models: Vec<String> = GlobalConfigManager::get_service()
+            .await?
+            .get_ai_models()
+            .await?
+            .into_iter()
+            .map(|model| model.id)
+            .collect();
         valid_models.push("primary".to_string());
         valid_models.push("fast".to_string());
-        valid_models
+        Ok(valid_models)
     }
 
-    /// validate and correct CustomSubagent's tools and model
-    /// - tools: filter out invalid tools, record warning log
-    /// - model: if invalid, set to "primary", record warning log
+    /// Reject custom subagents whose tool or model references cannot be resolved.
     fn validate_custom_subagent(
-        subagent: &mut CustomSubagent,
+        subagent: &CustomSubagent,
         valid_tools: &[String],
         valid_models: &[String],
-    ) {
+    ) -> CoreResult<()> {
         let agent_id = subagent.name.clone();
 
-        // validate tools: filter out invalid tools
-        let original_tools = subagent.tools.clone();
         let valid_tools_set: std::collections::HashSet<&str> =
             valid_tools.iter().map(|s| s.as_str()).collect();
-        let (valid, invalid): (Vec<_>, Vec<_>) = original_tools
-            .into_iter()
-            .partition(|t| valid_tools_set.contains(t.as_str()));
+        let invalid = subagent
+            .tools
+            .iter()
+            .filter(|tool| !valid_tools_set.contains(tool.as_str()))
+            .cloned()
+            .collect::<Vec<_>>();
         if !invalid.is_empty() {
-            warn!(
-                "[Subagent {}] Invalid tools filtered out: {:?}",
-                agent_id, invalid
-            );
+            return Err(CoreError::validation(format!(
+                "Subagent '{agent_id}' references unknown tools: {}",
+                invalid.join(", ")
+            )));
         }
-        subagent.tools = valid;
 
-        // validate model: if invalid, set to "primary"
         if !valid_models.contains(&subagent.model) {
-            warn!(
-                "[Subagent {}] Invalid model '{}', reset to 'primary'",
-                agent_id, subagent.model
-            );
-            subagent.model = "primary".to_string();
+            return Err(CoreError::validation(format!(
+                "Subagent '{agent_id}' references unknown model '{}'",
+                subagent.model
+            )));
         }
+        Ok(())
     }
 
     /// clear all custom subagents (project/user source), only keep built-in subagents. called when closing workspace.
@@ -1150,7 +1153,7 @@ impl AgentRegistry {
         workspace_root: Option<&Path>,
     ) -> CoreResult<CustomSubagentDetail> {
         if let Some(root) = workspace_root {
-            self.load_custom_subagents(root).await;
+            self.load_custom_subagents(root).await?;
         }
         self.get_custom_subagent_detail_inner(agent_id, workspace_root)
     }
@@ -1217,7 +1220,7 @@ impl AgentRegistry {
         readonly: Option<bool>,
     ) -> CoreResult<()> {
         if let Some(root) = workspace_root {
-            self.load_custom_subagents(root).await;
+            self.load_custom_subagents(root).await?;
         }
         let entry = self
             .find_agent_entry(agent_id, workspace_root)
@@ -1264,8 +1267,8 @@ impl AgentRegistry {
         new_subagent.model = old.model.clone();
 
         let valid_tools = get_all_registered_tool_names().await;
-        let valid_models = Self::get_valid_model_ids().await;
-        Self::validate_custom_subagent(&mut new_subagent, &valid_tools, &valid_models);
+        let valid_models = Self::get_valid_model_ids().await?;
+        Self::validate_custom_subagent(&new_subagent, &valid_tools, &valid_models)?;
 
         new_subagent.save_to_file(None, None)?;
 
@@ -1440,22 +1443,15 @@ impl AgentRegistry {
         }
 
         // built-in subagent/agent: read from global configuration
-        if let Ok(config_service) = GlobalConfigManager::get_service().await {
-            let global_config: GlobalConfig = config_service.get_config(None).await?;
+        let config_service = GlobalConfigManager::get_service().await?;
+        let global_config: GlobalConfig = config_service.get_config(None).await?;
 
-            // check agent_models configuration
-            if let Some(model_id) = global_config.ai.agent_models.get(agent_type) {
-                if !model_id.is_empty() {
-                    return Ok(model_id.clone());
-                }
+        // check agent_models configuration
+        if let Some(model_id) = global_config.ai.agent_models.get(agent_type) {
+            if !model_id.is_empty() {
+                return Ok(model_id.clone());
             }
-        } else {
-            // config service not available
-            error!(
-                "[AgentRegistry] Config service not available, cannot get model config for Agent '{}'",
-                agent_type
-            )
-        };
+        }
 
         let default_model_id = default_model_id_for_builtin_agent(agent_type);
         warn!(
@@ -1486,7 +1482,35 @@ pub fn get_agent_registry() -> Arc<AgentRegistry> {
 
 #[cfg(test)]
 mod tests {
-    use super::{default_model_id_for_builtin_agent, merge_dynamic_mcp_tools, AgentRegistry};
+    use super::{
+        default_model_id_for_builtin_agent, merge_dynamic_mcp_tools, AgentCategory, AgentRegistry,
+    };
+    use crate::infrastructure::app_paths::PathManager;
+    use crate::service::config::{ConfigManagerSettings, ConfigService, GlobalConfigManager};
+    use std::sync::Arc;
+
+    static TEST_GLOBAL_CONFIG: tokio::sync::OnceCell<tempfile::TempDir> =
+        tokio::sync::OnceCell::const_new();
+
+    async fn initialize_test_global_config() {
+        TEST_GLOBAL_CONFIG
+            .get_or_init(|| async {
+                let temp = tempfile::tempdir().expect("test config tempdir");
+                let path_manager = Arc::new(PathManager::with_user_root_for_tests(
+                    temp.path().join("user-root"),
+                ));
+                let config_service = ConfigService::with_settings(ConfigManagerSettings {
+                    path_manager: Some(path_manager),
+                    ..ConfigManagerSettings::default()
+                })
+                .await
+                .expect("test config service should initialize");
+                GlobalConfigManager::install_service_for_tests(Arc::new(config_service))
+                    .expect("test global config service should install");
+                temp
+            })
+            .await;
+    }
 
     #[test]
     fn builtin_agents_default_to_primary_model_selector() {
@@ -1507,14 +1531,21 @@ mod tests {
 
     #[tokio::test]
     async fn computer_use_is_builtin_subagent_not_mode() {
+        initialize_test_global_config().await;
         let registry = AgentRegistry::new();
-        let modes = registry.list_agents_info().await;
+        let modes = registry
+            .list_agents_info()
+            .await
+            .expect("agent settings should load");
         assert!(
             !modes.iter().any(|agent| agent.id == "ComputerUse"),
             "ComputerUse should be delegated through Task as a built-in sub-agent, not exposed as a top-level agent"
         );
 
-        let subagents = registry.get_subagents_info(None).await;
+        let subagents = registry
+            .get_subagents_info(None)
+            .await
+            .expect("subagent settings should load");
         let computer_use = subagents
             .iter()
             .find(|agent| agent.id == "ComputerUse")
@@ -1529,14 +1560,21 @@ mod tests {
 
     #[tokio::test]
     async fn outcome_review_is_builtin_readonly_subagent() {
+        initialize_test_global_config().await;
         let registry = AgentRegistry::new();
-        let modes = registry.list_agents_info().await;
+        let modes = registry
+            .list_agents_info()
+            .await
+            .expect("agent settings should load");
         assert!(
             !modes.iter().any(|agent| agent.id == "OutcomeReview"),
             "OutcomeReview should be delegated as a built-in sub-agent, not exposed as a top-level agent"
         );
 
-        let subagents = registry.get_subagents_info(None).await;
+        let subagents = registry
+            .get_subagents_info(None)
+            .await
+            .expect("subagent settings should load");
         let outcome_review = subagents
             .iter()
             .find(|agent| agent.id == "OutcomeReview")
@@ -1547,6 +1585,66 @@ mod tests {
             .contains(&"submit_outcome_review".to_string()));
         assert!(!outcome_review.default_tools.contains(&"Write".to_string()));
         assert!(!outcome_review.default_tools.contains(&"Work".to_string()));
+    }
+
+    #[tokio::test]
+    async fn settings_agent_is_hidden_and_strictly_tool_scoped() {
+        initialize_test_global_config().await;
+        let registry = AgentRegistry::new();
+
+        assert_eq!(
+            registry.get_agent_category("SettingsAgent", None),
+            Some(AgentCategory::Hidden)
+        );
+        assert!(!registry
+            .list_agents_info()
+            .await
+            .expect("agent settings should load")
+            .iter()
+            .any(|agent| agent.id == "SettingsAgent"));
+        assert!(!registry
+            .get_subagents_info(None)
+            .await
+            .expect("subagent settings should load")
+            .iter()
+            .any(|agent| agent.id == "SettingsAgent"));
+
+        let agent = registry
+            .get_agent("SettingsAgent", None)
+            .expect("SettingsAgent should remain executable by core services");
+        assert_eq!(
+            agent.default_tools(),
+            vec!["SettingsCatalog".to_string(), "SettingsChange".to_string()]
+        );
+    }
+
+    #[tokio::test]
+    async fn ppt_live_agent_is_hidden_but_executable() {
+        initialize_test_global_config().await;
+        let registry = AgentRegistry::new();
+
+        assert_eq!(
+            registry.get_agent_category("PptLiveAgent", None),
+            Some(AgentCategory::Hidden)
+        );
+        assert!(!registry
+            .list_agents_info()
+            .await
+            .expect("agent settings should load")
+            .iter()
+            .any(|agent| agent.id == "PptLiveAgent"));
+
+        let agent = registry
+            .get_agent("PptLiveAgent", None)
+            .expect("PptLiveAgent should remain executable by Product App services");
+        assert_eq!(
+            agent.default_tools(),
+            vec![
+                "Skill".to_string(),
+                "WebSearch".to_string(),
+                "WebFetch".to_string(),
+            ]
+        );
     }
 
     #[test]
@@ -1576,5 +1674,29 @@ mod tests {
                 "mcp__github__list_issues".to_string(),
             ]
         );
+    }
+
+    #[tokio::test]
+    async fn missing_agent_tools_returns_an_explicit_error() {
+        let registry = AgentRegistry::new();
+
+        let error = registry
+            .get_agent_tools("missing-agent", None)
+            .await
+            .expect_err("missing agents must not resolve to an empty tool list");
+
+        assert!(error.to_string().contains("Agent not found: missing-agent"));
+    }
+
+    #[tokio::test]
+    async fn missing_agent_capability_profile_remains_optional() {
+        let registry = AgentRegistry::new();
+
+        let profile = registry
+            .get_agent_capability_profile("missing-agent", None)
+            .await
+            .expect("registry lookup itself should succeed");
+
+        assert!(profile.is_none());
     }
 }

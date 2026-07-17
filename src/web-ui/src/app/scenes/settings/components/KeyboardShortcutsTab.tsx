@@ -6,7 +6,7 @@
  * - Search filter by action name or key combination
  * - Click-to-record new key binding (capture mode)
  * - Real-time conflict detection (highlighted in red)
- * - Apply saves to configManager at path 'app.keybindings'
+ * - Apply saves to configManager at path 'core.app.keybindings'
  * - Reset button restores all defaults
  */
 
@@ -24,6 +24,7 @@ import {
 } from '@/infrastructure/services/ShortcutManager';
 import { configManager } from '@/infrastructure/config';
 import type { ShortcutConfig, ShortcutScope } from '@/shared/types/shortcut';
+import type { CustomSettingsComponentProps } from '../customSettingsRegistration';
 import {
   ALL_SHORTCUTS,
   SCOPE_ORDER,
@@ -243,7 +244,10 @@ function shortcutDisplayName(
   return reg.id.replace(/[._]/g, ' ');
 }
 
-const KeyboardShortcutsTab: React.FC = () => {
+const KeyboardShortcutsTab: React.FC<CustomSettingsComponentProps> = ({
+  snapshotRevision,
+  onDirtySettingIdsChange,
+}) => {
   const { t } = useI18n('settings/keyboard');
 
   const [registrations, setRegistrations] = useState<ShortcutRegistration[]>([]);
@@ -255,17 +259,44 @@ const KeyboardShortcutsTab: React.FC = () => {
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
 
   const recordingRef = useRef<string | null>(null);
+  const onDirtySettingIdsChangeRef = useRef(onDirtySettingIdsChange);
+  const appliedSnapshotRevisionRef = useRef(snapshotRevision);
+  const keybindingLoadSequenceRef = useRef(0);
   recordingRef.current = recordingId;
+
+  useEffect(() => {
+    onDirtySettingIdsChangeRef.current = onDirtySettingIdsChange;
+  }, [onDirtySettingIdsChange]);
+
+  useEffect(() => () => {
+    keybindingLoadSequenceRef.current += 1;
+    onDirtySettingIdsChangeRef.current([]);
+  }, []);
 
   // Live registrations from ShortcutManager (effects may register after first paint).
   const refreshRegistrations = useCallback(() => {
     setRegistrations(shortcutManager.getAllRegistrations());
   }, []);
 
+  const reconcileCommittedKeybindings = useCallback(async () => {
+    const sequence = ++keybindingLoadSequenceRef.current;
+    try {
+      const value = await configManager.getSetting('core.app.keybindings');
+      if (sequence !== keybindingLoadSequenceRef.current) {
+        return;
+      }
+      shortcutManager.loadUserOverrides(parseStoredKeybindings(value));
+      refreshRegistrations();
+    } catch (error) {
+      log.error('Failed to reconcile committed keybindings', { error });
+    }
+  }, [refreshRegistrations]);
+
   useEffect(() => {
     refreshRegistrations();
+    void reconcileCommittedKeybindings();
     return shortcutManager.subscribeRegistrationChanges(refreshRegistrations);
-  }, [refreshRegistrations]);
+  }, [reconcileCommittedKeybindings, refreshRegistrations]);
 
   /** Full list for the UI: catalog + live, so every scope shows even before hooks register. */
   const displayRegistrations = useMemo(() => mergeCatalogWithLive(registrations), [registrations]);
@@ -349,7 +380,7 @@ const KeyboardShortcutsTab: React.FC = () => {
       // 1. Read existing stored overrides so previous sessions' changes are not lost
       let existingOverrides: KeybindingOverrides = {};
       try {
-        const raw = await configManager.getConfig('app.keybindings');
+        const raw = await configManager.getSetting('core.app.keybindings');
         existingOverrides = parseStoredKeybindings(raw);
       } catch {
         // First use — no stored overrides yet
@@ -377,7 +408,7 @@ const KeyboardShortcutsTab: React.FC = () => {
       }
 
       // 5. Persist with versioned format + sync in-memory state
-      await configManager.setConfig('app.keybindings', buildStoredKeybindings(merged));
+      await configManager.setSetting('core.app.keybindings', buildStoredKeybindings(merged));
       shortcutManager.loadUserOverrides(merged);
       setPendingChanges({});
       refreshRegistrations();
@@ -394,7 +425,7 @@ const KeyboardShortcutsTab: React.FC = () => {
     setSaving(true);
     setSaveError(null);
     try {
-      await configManager.setConfig('app.keybindings', buildStoredKeybindings({}));
+      await configManager.setSetting('core.app.keybindings', buildStoredKeybindings({}));
       shortcutManager.loadUserOverrides({});
       setPendingChanges({});
       refreshRegistrations();
@@ -489,6 +520,24 @@ const KeyboardShortcutsTab: React.FC = () => {
     return JSON.stringify(effective) !== JSON.stringify(catalog.config);
   });
   const canReset = hasPendingChanges || hasCustomKeybindings;
+
+  useEffect(() => {
+    onDirtySettingIdsChangeRef.current(
+      hasPendingChanges ? ['core.app.keybindings'] : [],
+    );
+  }, [hasPendingChanges]);
+
+  useEffect(() => {
+    if (
+      snapshotRevision === null
+      || snapshotRevision === appliedSnapshotRevisionRef.current
+      || hasPendingChanges
+    ) {
+      return;
+    }
+    appliedSnapshotRevisionRef.current = snapshotRevision;
+    void reconcileCommittedKeybindings();
+  }, [hasPendingChanges, reconcileCommittedKeybindings, snapshotRevision]);
 
   return (
     <ConfigPageLayout>

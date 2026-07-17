@@ -218,7 +218,7 @@ impl Tool for CodeReviewTool {
     }
 
     async fn description(&self) -> CoreResult<String> {
-        let lang = get_app_language_code().await;
+        let lang = get_app_language_code().await?;
         Ok(Self::description_for_language(lang.as_str()))
     }
 
@@ -227,8 +227,13 @@ impl Tool for CodeReviewTool {
     }
 
     async fn input_schema_for_model(&self) -> Value {
-        let lang = get_app_language_code().await;
-        Self::input_schema_value_for_language(lang.as_str())
+        match get_app_language_code().await {
+            Ok(lang) => Self::input_schema_value_for_language(lang.as_str()),
+            Err(error) => {
+                warn!("Failed to load code review schema language: {}", error);
+                Self::input_schema_value()
+            }
+        }
     }
 
     async fn input_schema_for_model_with_context(

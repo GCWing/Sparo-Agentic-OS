@@ -43,17 +43,28 @@ const agentOptions = [
 ];
 
 function DialogPreview() {
-  const [open, setOpen] = useState(false);
+  const [variant, setVariant] = useState<'default' | 'without-dividers' | null>(null);
   return (
     <div className="recipe-preview-stack">
-      <Button size="small" onClick={() => setOpen(true)}>Open dialog</Button>
-      <Dialog open={open} onOpenChange={setOpen} title="Confirm workspace action" size="small">
+      <div style={{ display: 'flex', gap: 'var(--ds-space-2)', flexWrap: 'wrap' }}>
+        <Button size="small" onClick={() => setVariant('default')}>Open dialog</Button>
+        <Button size="small" variant="secondary" onClick={() => setVariant('without-dividers')}>
+          Open undivided dialog
+        </Button>
+      </div>
+      <Dialog
+        open={variant !== null}
+        onOpenChange={(open) => { if (!open) setVariant(null); }}
+        title="Confirm workspace action"
+        size="small"
+        showDividers={variant !== 'without-dividers'}
+      >
         <DialogBody>
           This dialog traps focus, supports Escape, restores focus, and exposes a labelled dialog surface.
         </DialogBody>
         <DialogFooter>
-          <Button variant="secondary" size="small" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button variant="primary" size="small" onClick={() => setOpen(false)}>Confirm</Button>
+          <Button variant="secondary" size="small" onClick={() => setVariant(null)}>Cancel</Button>
+          <Button variant="primary" size="small" onClick={() => setVariant(null)}>Confirm</Button>
         </DialogFooter>
       </Dialog>
     </div>
@@ -176,6 +187,25 @@ function StatefulNumberField() {
   );
 }
 
+function StatefulNullableNumberField() {
+  const [value, setValue] = useState<number | null>(null);
+  return (
+    <NumberField
+      id="preview-nullable-number-field"
+      label="空闲超时"
+      value={value}
+      nullable
+      min={0}
+      unit="秒"
+      placeholder="未设置"
+      hint="留空表示使用系统默认值。"
+      increaseAriaLabel="增加空闲超时"
+      decreaseAriaLabel="减少空闲超时"
+      onChange={setValue}
+    />
+  );
+}
+
 function StatefulSqueezeSegmentedControl() {
   const [value, setValue] = useState('custom');
   return (
@@ -187,6 +217,22 @@ function StatefulSqueezeSegmentedControl() {
         { value: 'flagship', label: '旗舰', detail: 'gpt-5-codex' },
         { value: 'fast', label: '快速', detail: 'gpt-5-mini' },
         { value: 'custom', label: '其他', detail: 'deepseek-v4-flash', trailing: <ChevronDown size={12} /> },
+      ]}
+    />
+  );
+}
+
+function StatefulModeSwitch() {
+  const [value, setValue] = useState('manual');
+  return (
+    <ModeSwitch
+      appearance="slider"
+      ariaLabel="Settings mode"
+      value={value}
+      onChange={setValue}
+      options={[
+        { value: 'manual', label: 'Manual' },
+        { value: 'ai', label: 'AI' },
       ]}
     />
   );
@@ -412,13 +458,14 @@ export const primitivePreviewCategories: PreviewCategory[] = [
             <SearchField shape="pill" inputAriaLabel="Search preview examples pill" placeholder="Search preview examples" />
             <Textarea label="Release note" hint="Keep it short and actionable." showCount maxLength={140} />
             <StatefulNumberField />
+            <StatefulNullableNumberField />
           </div>
         ),
         ai: {
           useWhen: ['A workflow needs text entry, numeric tuning, or local search'],
           composeWith: ['FormField', 'SettingsSection', 'SearchToolbar'],
           avoid: ['Unlabelled inputs', 'Hint text not connected with aria-describedby'],
-          states: ['default', 'error', 'disabled', 'long text', 'narrow', 'i18n'],
+          states: ['default', 'empty', 'error', 'disabled', 'long text', 'narrow', 'i18n'],
         },
       },
       {
@@ -485,6 +532,7 @@ export const primitivePreviewCategories: PreviewCategory[] = [
                 { value: 'manage', label: 'Manage' },
               ]}
             />
+            <StatefulModeSwitch />
             <StatefulSqueezeSegmentedControl />
             <Pagination page={4} pageCount={12} />
             <div style={{ maxWidth: 190 }}>

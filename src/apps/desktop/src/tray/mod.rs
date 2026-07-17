@@ -14,8 +14,8 @@
 //! Flow:
 //!  1. `init_tray` builds a static "skeleton" menu synchronously and attaches
 //!     it to the `TrayIconBuilder` via `.menu()`.
-//!  2. `request_menu_refresh` spawns a background task that fetches sessions
-//!     and calls `tray.set_menu()` with the enriched menu.
+//!  2. Stage-C publishes the configuration service into `AppContainer`, then
+//!     `request_menu_refresh` builds and attaches the enriched menu.
 //!  3. After every menu-event action we call `request_menu_refresh` so the
 //!     next open always shows fresh data.
 
@@ -26,12 +26,11 @@ pub mod status;
 
 use icon::{load_icon, IconState};
 use log::{error, warn};
-use sparo_core::agentic::coordination::ConversationCoordinator;
 use sparo_core::infrastructure::constants::{
     EVENT_TRAY_NEW_SESSION, EVENT_TRAY_RESTORE_SESSION, WINDOW_MAIN,
 };
-use sparo_core::service::config::{get_global_config_service, GlobalConfig};
-use std::sync::Arc;
+use sparo_core::service::config::{ConfigService, GlobalConfig};
+use std::sync::{Arc, Mutex, OnceLock};
 use tauri::{
     menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -69,55 +68,84 @@ const EN: TrayStrings = TrayStrings {
     quit: "Quit Sparo OS",
 };
 
-async fn strings() -> &'static TrayStrings {
-    if let Ok(svc) = get_global_config_service().await {
-        if let Ok(cfg) = svc.get_config::<GlobalConfig>(None).await {
-            if cfg.app.language.starts_with("zh") {
-                return &ZH;
-            }
-        }
+fn strings(config: &GlobalConfig) -> &'static TrayStrings {
+    if config.app.language.starts_with("zh") {
+        &ZH
+    } else {
+        &EN
     }
-    &EN
 }
 
 fn desktop_pet_should_show(config: &GlobalConfig) -> bool {
     config.app.ai_experience.enable_agent_companion
 }
 
-async fn load_global_config() -> Option<GlobalConfig> {
-    let service = get_global_config_service().await.ok()?;
-    service.get_config::<GlobalConfig>(None).await.ok()
+fn config_service(app: &AppHandle) -> Option<Arc<ConfigService>> {
+    app.try_state::<Arc<crate::bootstrap::AppContainer>>()
+        .and_then(|container| container.config_service())
+}
+
+#[derive(Debug, Default)]
+struct MenuRefreshState {
+    requested_generation: u64,
+    worker_running: bool,
+}
+
+impl MenuRefreshState {
+    /// Registers a refresh and returns whether the caller must start the sole
+    /// background worker. A running worker observes the newest generation.
+    fn request(&mut self) -> bool {
+        self.requested_generation = self.requested_generation.wrapping_add(1);
+        if self.worker_running {
+            false
+        } else {
+            self.worker_running = true;
+            true
+        }
+    }
+
+    fn current_generation(&self) -> u64 {
+        self.requested_generation
+    }
+
+    fn is_current(&self, generation: u64) -> bool {
+        generation == self.requested_generation
+    }
+
+    fn finish(&mut self, generation: u64) -> bool {
+        if !self.is_current(generation) {
+            return false;
+        }
+        self.worker_running = false;
+        true
+    }
+}
+
+static MENU_REFRESH_STATE: OnceLock<Mutex<MenuRefreshState>> = OnceLock::new();
+
+fn menu_refresh_state() -> &'static Mutex<MenuRefreshState> {
+    MENU_REFRESH_STATE.get_or_init(|| Mutex::new(MenuRefreshState::default()))
+}
+
+fn lock_menu_refresh_state() -> std::sync::MutexGuard<'static, MenuRefreshState> {
+    menu_refresh_state()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+async fn load_global_config(service: &ConfigService) -> Result<GlobalConfig, String> {
+    service
+        .get_config::<GlobalConfig>(None)
+        .await
+        .map_err(|error| error.to_string())
 }
 
 async fn tray_toggle_desktop_pet(app: &AppHandle) -> Result<(), String> {
-    let service = get_global_config_service()
+    let service = config_service(app)
+        .ok_or_else(|| "Configuration service is not ready for tray actions".to_string())?;
+    let config = load_global_config(&service).await?;
+    crate::window::companion_window::set_enabled(app.clone(), !desktop_pet_should_show(&config))
         .await
-        .map_err(|error| error.to_string())?;
-    let mut config = service
-        .get_config::<GlobalConfig>(None)
-        .await
-        .map_err(|error| error.to_string())?;
-
-    let desktop_on = desktop_pet_should_show(&config);
-    if desktop_on {
-        config.app.ai_experience.enable_agent_companion = false;
-    } else {
-        config.app.ai_experience.enable_agent_companion = true;
-        config.app.ai_experience.agent_companion_display_mode = "desktop".to_string();
-    }
-
-    service
-        .set_config("app.ai_experience", &config.app.ai_experience)
-        .await
-        .map_err(|error| error.to_string())?;
-
-    if desktop_pet_should_show(&config) {
-        crate::window::companion_window::show_agent_companion_desktop_pet(app.clone()).await?;
-    } else {
-        crate::window::companion_window::hide_agent_companion_desktop_pet(app.clone()).await?;
-    }
-
-    Ok(())
 }
 
 // ─────────────────────────────────────────────── Initialisation ───
@@ -166,7 +194,6 @@ pub fn init_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             Box::new(e) as Box<dyn std::error::Error>
         })?;
 
-    request_menu_refresh(app);
     Ok(())
 }
 
@@ -181,7 +208,7 @@ fn build_skeleton_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>, tauri::Error
         app,
         "toggle_desktop_pet",
         s.desktop_pet,
-        true,
+        false,
         false,
         None::<&str>,
     )?;
@@ -205,8 +232,12 @@ fn build_skeleton_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>, tauri::Error
 
 /// Async full menu: locale-aware labels, dynamic window-visibility toggle,
 /// and the current session list.
-async fn build_full_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>, tauri::Error> {
-    let s = strings().await;
+async fn build_full_menu(
+    app: &AppHandle,
+    service: &ConfigService,
+) -> Result<Menu<tauri::Wry>, String> {
+    let config = load_global_config(service).await?;
+    let s = strings(&config);
 
     let main_visible = app
         .get_webview_window(WINDOW_MAIN)
@@ -218,13 +249,10 @@ async fn build_full_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>, tauri::Err
     } else {
         s.show_window
     };
-    let pet_checked = load_global_config()
-        .await
-        .as_ref()
-        .map(desktop_pet_should_show)
-        .unwrap_or(false);
+    let pet_checked = desktop_pet_should_show(&config);
 
-    let toggle = MenuItem::with_id(app, "toggle_main", toggle_label, true, None::<&str>)?;
+    let toggle = MenuItem::with_id(app, "toggle_main", toggle_label, true, None::<&str>)
+        .map_err(|error| error.to_string())?;
     let pet = CheckMenuItem::with_id(
         app,
         "toggle_desktop_pet",
@@ -232,14 +260,17 @@ async fn build_full_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>, tauri::Err
         true,
         pet_checked,
         None::<&str>,
-    )?;
-    let new_ses = MenuItem::with_id(app, "new_session", s.new_session, true, None::<&str>)?;
-    let sep1 = PredefinedMenuItem::separator(app)?;
+    )
+    .map_err(|error| error.to_string())?;
+    let new_ses = MenuItem::with_id(app, "new_session", s.new_session, true, None::<&str>)
+        .map_err(|error| error.to_string())?;
+    let sep1 = PredefinedMenuItem::separator(app).map_err(|error| error.to_string())?;
     let recent = build_sessions_submenu(app, s).await;
-    let sep2 = PredefinedMenuItem::separator(app)?;
-    let recovery = build_recovery_submenu(app)?;
-    let sep3 = PredefinedMenuItem::separator(app)?;
-    let quit = MenuItem::with_id(app, "quit", s.quit, true, None::<&str>)?;
+    let sep2 = PredefinedMenuItem::separator(app).map_err(|error| error.to_string())?;
+    let recovery = build_recovery_submenu(app).map_err(|error| error.to_string())?;
+    let sep3 = PredefinedMenuItem::separator(app).map_err(|error| error.to_string())?;
+    let quit = MenuItem::with_id(app, "quit", s.quit, true, None::<&str>)
+        .map_err(|error| error.to_string())?;
 
     Menu::with_items(
         app,
@@ -247,6 +278,7 @@ async fn build_full_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>, tauri::Err
             &toggle, &pet, &new_ses, &sep1, &recent, &sep2, &recovery, &sep3, &quit,
         ],
     )
+    .map_err(|error| error.to_string())
 }
 
 fn build_recovery_submenu(app: &AppHandle) -> Result<Submenu<tauri::Wry>, tauri::Error> {
@@ -277,22 +309,19 @@ fn build_recovery_submenu(app: &AppHandle) -> Result<Submenu<tauri::Wry>, tauri:
 }
 
 async fn build_sessions_submenu(app: &AppHandle, s: &TrayStrings) -> Submenu<tauri::Wry> {
-    let workspace = app
-        .try_state::<crate::api::app_state::AppState>()
-        .map(|st| st.workspace_path.clone());
-    let sessions = if let Some(workspace_arc) = workspace {
-        let path = workspace_arc.read().await.clone();
-        if let Some(path) = path {
-            if let Some(coordinator) = app.try_state::<Arc<ConversationCoordinator>>() {
-                coordinator.list_sessions(&path).await.unwrap_or_default()
-            } else {
-                vec![]
+    let (app_state, coordinator) = app
+        .try_state::<Arc<crate::bootstrap::AppContainer>>()
+        .map(|container| (container.app_state(), container.coordinator()))
+        .unwrap_or_default();
+    let sessions = match (app_state, coordinator) {
+        (Some(app_state), Some(coordinator)) => {
+            let workspace_path = app_state.workspace_path.read().await.clone();
+            match workspace_path {
+                Some(path) => coordinator.list_sessions(&path).await.unwrap_or_default(),
+                None => Vec::new(),
             }
-        } else {
-            vec![]
         }
-    } else {
-        vec![]
+        _ => Vec::new(),
     };
 
     let mut items: Vec<Box<dyn tauri::menu::IsMenuItem<tauri::Wry>>> = Vec::new();
@@ -336,18 +365,45 @@ async fn build_sessions_submenu(app: &AppHandle, s: &TrayStrings) -> Submenu<tau
 /// Rebuild the full menu asynchronously and attach it to the tray icon so
 /// it is ready for the *next* right-click.
 pub fn request_menu_refresh(app: &AppHandle) {
+    let Some(config_service) = config_service(app) else {
+        return;
+    };
+
+    let should_start_worker = lock_menu_refresh_state().request();
+    if !should_start_worker {
+        return;
+    }
+
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
-        match build_full_menu(&app).await {
-            Ok(menu) => {
-                let tray_id = tauri::tray::TrayIconId::new("sparo-main");
-                if let Some(tray) = app.tray_by_id(&tray_id) {
-                    if let Err(e) = tray.set_menu(Some(menu)) {
-                        warn!("Failed to update tray menu: {}", e);
+        loop {
+            let generation = lock_menu_refresh_state().current_generation();
+            let result = build_full_menu(&app, &config_service).await;
+
+            // Keep the generation check and synchronous menu publication under
+            // the same lock. A newer request therefore cannot be registered
+            // between validation and `set_menu`, so stale async results never
+            // overwrite the menu requested by a newer generation.
+            let mut refresh = lock_menu_refresh_state();
+            if !refresh.is_current(generation) {
+                continue;
+            }
+
+            match result {
+                Ok(menu) => {
+                    let tray_id = tauri::tray::TrayIconId::new("sparo-main");
+                    if let Some(tray) = app.tray_by_id(&tray_id) {
+                        if let Err(error) = tray.set_menu(Some(menu)) {
+                            warn!("Failed to update tray menu: {}", error);
+                        }
                     }
                 }
+                Err(error) => error!("Failed to build tray menu: {}", error),
             }
-            Err(e) => error!("Failed to build tray menu: {}", e),
+
+            let finished = refresh.finish(generation);
+            debug_assert!(finished, "current tray refresh generation must finish");
+            return;
         }
     });
 }
@@ -373,6 +429,9 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
                 }
                 request_menu_refresh(&app_handle);
             });
+            // The async action owns its single post-completion refresh. Do not
+            // publish the pre-commit pet state from the common tail below.
+            return;
         }
         "runtime_reload_ui" => {
             if let Err(error) = crate::frontend_runtime_watchdog::reload_ui(app) {
@@ -399,8 +458,7 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
             if let Some(w) = app.get_webview_window(WINDOW_MAIN) {
                 let _ = w.close();
             } else {
-                sparo_core::util::process_manager::cleanup_all_processes();
-                app.exit(0);
+                crate::request_clean_exit(app.clone());
             }
         }
         id if id.starts_with("session:") => {
@@ -415,4 +473,28 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
         _ => {}
     }
     request_menu_refresh(app);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::MenuRefreshState;
+
+    #[test]
+    fn menu_refresh_requests_are_single_flight_and_coalesced_by_generation() {
+        let mut refresh = MenuRefreshState::default();
+
+        assert!(refresh.request());
+        let first_generation = refresh.current_generation();
+        assert!(!refresh.request());
+        let latest_generation = refresh.current_generation();
+
+        assert_ne!(first_generation, latest_generation);
+        assert!(!refresh.is_current(first_generation));
+        assert!(!refresh.finish(first_generation));
+        assert!(refresh.worker_running);
+
+        assert!(refresh.finish(latest_generation));
+        assert!(!refresh.worker_running);
+        assert!(refresh.request());
+    }
 }

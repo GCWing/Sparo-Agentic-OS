@@ -250,6 +250,7 @@ mod tests {
             authors: Vec::new(),
             i18n: Default::default(),
             interaction_model: AppInteractionModel::Conversation,
+            runtime_interaction: None,
             work_multiplicity: AppWorkMultiplicity::Multiple,
             work_object_kinds: vec![],
             data_lifecycle: None,

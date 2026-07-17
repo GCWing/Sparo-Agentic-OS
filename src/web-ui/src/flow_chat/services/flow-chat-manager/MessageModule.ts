@@ -29,10 +29,28 @@ import { canHydrateSession, isSessionHydrating } from '../../domain/sessionLoadP
 import { useSessionTurnQueueStore } from '../../store/sessionTurnQueueStore';
 import type { Session } from '../../types/flow-chat';
 import { useWorkspaceSurfaceStore, selectFocusedSessionId } from '@/app/navigation/workspaceSurfaceStore';
+import { i18nService } from '@/infrastructure/i18n';
+import { resolveProfile } from '@/app/session-profiles';
+import { settingsFlowSendErrorMessageKey } from '../../domain/settingsFlowSendError';
 
 const log = createLogger('MessageModule');
+export const MODEL_CONFIGURATION_REQUIRED_CODE = 'ai.model_not_configured';
+
+export class ModelConfigurationRequiredError extends Error {
+  readonly code = MODEL_CONFIGURATION_REQUIRED_CODE;
+
+  constructor(readonly selector: string) {
+    super(`${MODEL_CONFIGURATION_REQUIRED_CODE}: no enabled model resolves selector '${selector}'`);
+    this.name = 'ModelConfigurationRequiredError';
+  }
+}
 
 const ONE_SHOT_AGENT_TYPES_FOR_SESSION = new Set(['Init']);
+
+function isMissingBackendSessionError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  return /session\s+(?:does not exist|not found)|session metadata not found/i.test(message);
+}
 
 function resolveDialogAgentType(session: Session, requestedAgentType?: string): string {
   const sessionAgentType = getBackendAgentType(session.descriptor).trim() || 'Runno';
@@ -135,37 +153,53 @@ function normalizeModelSelection(
   defaultModels: DefaultModelsConfig,
 ): string {
   const value = modelId?.trim();
-  if (!value || value === 'default') return 'primary';
+  const selector = !value || value === 'default' ? 'primary' : value;
+  const isEnabledModel = (id: string | null | undefined): boolean =>
+    Boolean(id && models.some(model => model.enabled && model.id === id));
 
-  if (value === 'primary' || value === 'fast') {
-    const resolvedDefaultId = value === 'primary' ? defaultModels.primary : defaultModels.fast;
-    const matchedModel = models.find(model => model.id === resolvedDefaultId);
-    return matchedModel ? value : 'primary';
+  if (selector === 'primary') {
+    if (isEnabledModel(defaultModels.primary)) return 'primary';
+    throw new ModelConfigurationRequiredError(selector);
   }
 
-  const matchedModel = models.find(model =>
-    model.id === value || model.name === value || model.model_name === value,
+  if (selector === 'fast') {
+    if (defaultModels.fast) {
+      if (isEnabledModel(defaultModels.fast)) return 'fast';
+      throw new ModelConfigurationRequiredError(selector);
+    }
+    if (isEnabledModel(defaultModels.primary)) return 'primary';
+    throw new ModelConfigurationRequiredError(selector);
+  }
+
+  if (isEnabledModel(selector)) return selector;
+  throw new ModelConfigurationRequiredError(selector);
+}
+
+async function resolveAgentModelSelection(agentType: string): Promise<string> {
+  const [agentModels, allModels, defaultModels] = await Promise.all([
+    configManager.getSetting<Record<string, string>>('core.ai.agent_models'),
+    configManager.getSetting<AIModelConfig[]>('core.ai.models'),
+    configManager.getSetting<DefaultModelsConfig>('core.ai.default_models'),
+  ]);
+
+  return normalizeModelSelection(
+    (agentModels ?? {})[agentType],
+    allModels ?? [],
+    defaultModels ?? {},
   );
-  return matchedModel ? value : 'primary';
 }
 
 async function syncSessionModelSelection(
   context: FlowChatContext,
   sessionId: string,
   agentType: string,
+  desiredModelId: string,
 ): Promise<void> {
   const session = context.flowChatStore.getState().sessions.get(sessionId);
   if (!session) {
     throw new Error(`Session does not exist: ${sessionId}`);
   }
 
-  const [agentModels, allModels, defaultModels] = await Promise.all([
-    configManager.getConfig<Record<string, string>>('ai.agent_models') || {},
-    configManager.getConfig<AIModelConfig[]>('ai.models') || [],
-    configManager.getConfig<DefaultModelsConfig>('ai.default_models') || {},
-  ]);
-
-  const desiredModelId = normalizeModelSelection(agentModels[agentType], allModels, defaultModels);
   const currentModelId = (session.config.modelName || 'primary').trim() || 'primary';
   if (desiredModelId === currentModelId) {
     return;
@@ -228,8 +262,13 @@ export async function sendMessage(
     const refreshedSession = context.flowChatStore.getState().sessions.get(sessionId) ?? session;
     const requestedAgentType = agentType?.trim();
     const currentAgentType = resolveDialogAgentType(refreshedSession, requestedAgentType);
+    const sessionProfile = resolveProfile(refreshedSession.descriptor.profileId);
+    const runtimeOwnsModel = sessionProfile.capabilities.modelSelection === 'runtime-owned';
     const persistAgentType =
       options?.persistAgentType ?? !ONE_SHOT_AGENT_TYPES_FOR_SESSION.has(currentAgentType);
+    const desiredModelId = runtimeOwnsModel
+      ? 'primary'
+      : await resolveAgentModelSelection(currentAgentType);
 
     if (
       requestedAgentType &&
@@ -259,7 +298,7 @@ export async function sendMessage(
         childSessionId: sessionId,
         question: message,
         childSessionName: refreshedSession.title,
-        modelId: refreshedSession.config.modelName,
+        modelId: desiredModelId,
       });
       return;
     }
@@ -271,7 +310,9 @@ export async function sendMessage(
       throw new Error(`Session lost before starting dialog turn: ${sessionId}`);
     }
 
-    const isFirstMessage = readySession.dialogTurns.length === 0 && readySession.titleStatus !== 'generated';
+    const isFirstMessage = sessionProfile.capabilities.autoTitle !== false
+      && readySession.dialogTurns.length === 0
+      && readySession.titleStatus !== 'generated';
     const dialogTurnId =
       options?.localDialogTurnId?.trim() ||
       `dialog_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -317,7 +358,9 @@ export async function sendMessage(
       throw new Error('Session history is still restoring, please retry once loading finishes');
     }
 
-    await syncSessionModelSelection(context, sessionId, currentAgentType);
+    if (!runtimeOwnsModel) {
+      await syncSessionModelSelection(context, sessionId, currentAgentType, desiredModelId);
+    }
 
     const updatedSession = context.flowChatStore.getState().sessions.get(sessionId);
     if (!updatedSession) {
@@ -342,7 +385,7 @@ export async function sendMessage(
         imageContexts: options?.imageContexts,
       });
     } catch (error: any) {
-      if (error?.message?.includes('Session does not exist') || error?.message?.includes('Not found')) {
+      if (isMissingBackendSessionError(error)) {
         log.warn('Backend session still not found, retrying creation', {
           sessionId: sessionId,
           dialogTurnsCount: updatedSession.dialogTurns.length
@@ -431,10 +474,42 @@ export async function sendMessage(
       acknowledgeFlowViewportTurnNavigation(sessionId, createdNavigationRequestId);
     }
     
-    notificationService.error(errorMessage, {
-      title: isBusyRejection ? 'Message was not queued' : 'Thinking process error',
-      duration: 5000
-    });
+    const modelConfigurationRequired =
+      error instanceof ModelConfigurationRequiredError ||
+      errorMessage.includes(MODEL_CONFIGURATION_REQUIRED_CODE);
+    const isSettingsProfile = currentSession?.descriptor.profileId === 'settings';
+
+    if (modelConfigurationRequired) {
+      notificationService.warning(
+        i18nService.t('flow-chat/chat-input:modelRequired.message'),
+        {
+          title: i18nService.t('flow-chat/chat-input:modelRequired.title'),
+          duration: 0,
+          actions: [{
+            label: i18nService.t('flow-chat/chat-input:modelRequired.action'),
+            variant: 'primary',
+            onClick: () => {
+              void import('@/shared/services/ide-control/api').then(({ quickActions }) => {
+                quickActions.openSettings('models');
+              });
+            },
+          }],
+        },
+      );
+    } else if (isSettingsProfile) {
+      notificationService.error(
+        i18nService.t(settingsFlowSendErrorMessageKey(error)),
+        {
+          title: i18nService.t('settings/ai-mode:session.sendErrors.title'),
+          duration: 5000,
+        },
+      );
+    } else {
+      notificationService.error(errorMessage, {
+        title: isBusyRejection ? 'Message was not queued' : 'Thinking process error',
+        duration: 5000
+      });
+    }
     
     throw error;
   }

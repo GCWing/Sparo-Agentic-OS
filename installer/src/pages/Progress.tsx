@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { InstallErrorPanel } from '../components/InstallErrorPanel';
 import type { InstallProgress } from '../types/installer';
 
 interface ProgressProps {
   progress: InstallProgress;
   error: string | null;
-  canConfirmProgress: boolean;
-  onConfirmProgress: () => void;
   onFinishAndLaunch: () => Promise<void>;
   onRetry: () => Promise<void>;
   onBackToOptions: () => void;
@@ -19,22 +18,20 @@ const STEP_LABEL_KEYS: Record<string, string> = {
   shortcuts:    'progress.shortcuts',
   context_menu: 'progress.contextMenu',
   path:         'progress.path',
-  config:       'progress.config',
   complete:     'progress.finishing',
 };
 
 export function ProgressPage({
   progress,
   error,
-  canConfirmProgress,
-  onConfirmProgress,
   onFinishAndLaunch,
   onRetry,
   onBackToOptions,
 }: ProgressProps) {
   const { t } = useTranslation();
   const [launchBusy, setLaunchBusy] = useState(false);
-  const isCompleted = canConfirmProgress || progress.percent >= 100;
+  const [launchError, setLaunchError] = useState<string | null>(null);
+  const isCompleted = progress.percent >= 100;
 
   // Delay visual "ignited" state until after the bar's fill transition finishes (~400ms)
   // so the bar is visually full before the hero text switches.
@@ -46,7 +43,7 @@ export function ProgressPage({
     }
   }, [isCompleted, visualCompleted]);
 
-  // No auto-advance; user continues manually via footer button.
+  // Installation completes on this page. The main application owns first-run configuration.
 
   const stepLabelKey = STEP_LABEL_KEYS[progress.step] ?? 'progress.starting';
   const stepLabel = t(stepLabelKey, { defaultValue: progress.step || t('progress.starting') });
@@ -71,16 +68,7 @@ export function ProgressPage({
             }}>
               {t('progress.failed')}
             </div>
-            <div style={{
-              fontSize: 13,
-              color: 'var(--print)',
-              textDecoration: 'underline',
-              textUnderlineOffset: '3px',
-              maxWidth: 440,
-              lineHeight: 1.6,
-            }}>
-              {error}
-            </div>
+            <InstallErrorPanel message={error} variant="bare" />
           </div>
         </div>
         <div className="page-footer page-footer--split">
@@ -153,24 +141,29 @@ export function ProgressPage({
                 <div className="progress-page__cta-actions">
                   <button
                     type="button"
-                    className="btn btn-ghost progress-page__cta-secondary"
+                    className="btn btn--ignite progress-page__cta-primary"
                     disabled={launchBusy}
                     onClick={() => {
+                      setLaunchError(null);
                       setLaunchBusy(true);
-                      void onFinishAndLaunch().finally(() => setLaunchBusy(false));
+                      void onFinishAndLaunch()
+                        .catch((launchFailure: unknown) => {
+                          const message = launchFailure instanceof Error
+                            ? launchFailure.message
+                            : String(launchFailure);
+                          setLaunchError(message || t('progress.launchFailed'));
+                        })
+                        .finally(() => setLaunchBusy(false));
                     }}
                   >
                     {t('progress.finishAndLaunch')}
                   </button>
-                  <button
-                    type="button"
-                    className="btn btn--ignite progress-page__cta-primary"
-                    disabled={launchBusy}
-                    onClick={onConfirmProgress}
-                  >
-                    {t('progress.continueConfigure')}
-                  </button>
                 </div>
+                {launchError && (
+                  <div className="progress-page__launch-error" role="alert">
+                    {launchError}
+                  </div>
+                )}
               </div>
             </div>
           </div>

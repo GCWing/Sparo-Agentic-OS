@@ -21,7 +21,8 @@
       "activate": "设为当前使用版本",
       "continueEditing": "基于此 Release 继续编辑",
       "retry": "重试",
-      "cancel": "取消"
+      "cancel": "取消",
+      "close": "关闭"
     },
     "empty": {
       "title": "没有绑定应用草稿",
@@ -64,7 +65,58 @@
       "title": "审查应用能力",
       "description": "此 Release 请求以下系统能力，请在激活前逐项确认。",
       "scopeNote": "授权仅绑定到当前应用和能力指纹；能力变化后必须重新审查。",
-      "approveAndActivate": "授权并激活"
+        "approveAndActivate": "授权并激活",
+        "count": "{{count}} 项",
+        "columns": {
+          "capability": "能力用途",
+          "permission": "允许操作",
+          "usedBy": "使用方"
+        },
+        "permissionLabels": {
+          "ai": "使用 AI 能力",
+          "modelInvoke": "调用配置的模型",
+          "sessionRead": "读取当前会话",
+          "toolInvoke": "调用应用工具",
+          "componentRun": "运行应用组件",
+          "filesystem": "访问文件系统",
+          "network": "访问网络",
+          "appData": "访问应用数据目录",
+          "networkAny": "访问外部网络"
+        },
+        "sources": {
+        "app": "应用",
+        "system": "系统"
+      },
+      "groups": {
+        "ai": {
+          "title": "AI 与模型",
+          "description": "使用应用智能体并调用当前配置的模型。"
+        },
+        "files": {
+          "title": "应用文件",
+          "description": "访问应用自身的数据目录。"
+        },
+        "network": {
+          "title": "网络访问",
+          "description": "访问用户提供的来源或外部资源。"
+        },
+        "session": {
+          "title": "会话上下文",
+          "description": "读取当前工作会话的必要上下文。"
+        },
+        "tools": {
+          "title": "工具调用",
+          "description": "调用应用声明的工具能力。"
+        },
+        "runtime": {
+          "title": "组件运行",
+          "description": "启动并协调应用内组件。"
+        },
+        "other": {
+          "title": "其他能力",
+          "description": "应用声明的其他系统能力。"
+        }
+      }
     },
     "messages": {
       "validationStarted": "验证已交给 App Builder",

@@ -214,10 +214,10 @@ export class MemoryLibraryAPI {
       workspaceEnabled,
       workspaceEvery,
     ] = await Promise.all([
-      configManager.getConfig<boolean>('ai.auto_memory.global.enabled'),
-      configManager.getConfig<number>('ai.auto_memory.global.extract_every_eligible_turns'),
-      configManager.getConfig<boolean>('ai.auto_memory.workspace.enabled'),
-      configManager.getConfig<number>('ai.auto_memory.workspace.extract_every_eligible_turns'),
+      configManager.getSetting<boolean>('core.ai.auto_memory.global.enabled'),
+      configManager.getSetting<number>('core.ai.auto_memory.global.extract_every_eligible_turns'),
+      configManager.getSetting<boolean>('core.ai.auto_memory.workspace.enabled'),
+      configManager.getSetting<number>('core.ai.auto_memory.workspace.extract_every_eligible_turns'),
     ]);
 
     return {

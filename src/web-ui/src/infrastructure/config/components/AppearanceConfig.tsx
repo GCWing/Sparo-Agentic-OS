@@ -1,16 +1,19 @@
 import React, { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SunMoon } from 'lucide-react';
-import { Select } from '@/design-system';
+import { Button, Select } from '@/design-system';
 import { FontPreferencePanel } from '@/infrastructure/font-preference';
 import { useTheme, ThemeMetadata, ThemeConfig as ThemeConfigType, SYSTEM_THEME_ID } from '@/infrastructure/theme';
 import { themeService } from '@/infrastructure/theme/core/ThemeService';
 import { useLanguageSelector } from '@/infrastructure/i18n';
 import type { LocaleId } from '@/infrastructure/i18n/types';
+import type { CustomSettingsProjectionProps } from '../customSettingsProjection';
 import {
   ConfigPageContent,
   ConfigPageHeader,
   ConfigPageLayout,
+  ConfigPageLoading,
+  ConfigPageMessage,
   ConfigPageRow,
   ConfigPageSection,
 } from './common';
@@ -24,10 +27,25 @@ interface ThemeCarouselItem {
   systemThemes?: [ThemeConfigType, ThemeConfigType] | null;
 }
 
-function AppearanceBasicsSection() {
+function includesSettingNamespace(
+  settingIds: readonly string[] | undefined,
+  namespace: string,
+): boolean {
+  return settingIds === undefined || settingIds.some(
+    (settingId) => settingId === namespace || settingId.startsWith(`${namespace}.`),
+  );
+}
+
+function AppearanceBasicsSection({ settingIds }: Pick<
+  CustomSettingsProjectionProps,
+  'settingIds'
+>) {
   const { t } = useTranslation('settings/appearance');
-  const { themeId, themes, setTheme, loading } = useTheme();
+  const { t: tCommon } = useTranslation('common');
+  const { themeId, themes, setTheme, loading, error, retry } = useTheme();
   const { currentLanguage, supportedLocales, selectLanguage, isChanging } = useLanguageSelector();
+  const showLanguage = includesSettingNamespace(settingIds, 'core.app.language');
+  const showThemes = includesSettingNamespace(settingIds, 'core.themes');
 
   const getThemeDisplayName = useCallback((theme: ThemeMetadata) => {
     const i18nKey = `appearance.presets.${theme.id}`;
@@ -45,7 +63,10 @@ function AppearanceBasicsSection() {
 
   const themeCarouselItems: ThemeCarouselItem[] = useMemo(
     () => {
-      const resolvedTheme = themeService.getTheme(themeService.getResolvedThemeId()) ?? null;
+      const resolvedThemeId = themeService.getResolvedThemeId();
+      const resolvedTheme = resolvedThemeId
+        ? themeService.getTheme(resolvedThemeId) ?? null
+        : null;
       const lightPreview = themeService.getTheme('light') ?? resolvedTheme;
       const darkPreview = themeService.getTheme('dark') ?? resolvedTheme;
 
@@ -69,11 +90,12 @@ function AppearanceBasicsSection() {
     [themes, t, getThemeDisplayDescription, getThemeDisplayName]
   );
 
-  const selectedThemeIndex = Math.max(
-    0,
-    themeCarouselItems.findIndex((item) => item.value === (themeId ?? SYSTEM_THEME_ID))
-  );
-  const selectedTheme = themeCarouselItems[selectedThemeIndex] ?? themeCarouselItems[0];
+  const selectedThemeIndex = themeId
+    ? themeCarouselItems.findIndex((item) => item.value === themeId)
+    : -1;
+  const selectedTheme = selectedThemeIndex >= 0
+    ? themeCarouselItems[selectedThemeIndex]
+    : null;
 
   const handleThemeJump = useCallback((value: string) => {
     if (loading || value === themeId) return;
@@ -84,28 +106,44 @@ function AppearanceBasicsSection() {
     <div className="theme-config">
       <div className="theme-config__content">
         <ConfigPageSection title={t('appearance.title')}>
-          <ConfigPageRow
-            label={t('appearance.language')}
-            description={t('appearance.languageRowHint', {
-              defaultValue: 'Choose one language pack as the active UI language.',
-            })}
-            align="center"
-          >
-            <div className="theme-config__language-select">
-              <Select
-                value={currentLanguage}
-                onChange={(value) =>
-                  selectLanguage(String(Array.isArray(value) ? value[0] ?? '' : value) as LocaleId)
-                }
-                options={supportedLocales.map((locale) => ({
-                  value: locale.id,
-                  label: locale.nativeName,
-                }))}
-                disabled={isChanging}
-                placeholder={t('appearance.language')}
-              />
+          {showLanguage ? (
+            <ConfigPageRow
+              label={t('appearance.language')}
+              description={t('appearance.languageRowHint', {
+                defaultValue: 'Choose one language pack as the active UI language.',
+              })}
+              align="center"
+            >
+              <div className="theme-config__language-select">
+                <Select
+                  value={currentLanguage}
+                  onChange={(value) =>
+                    selectLanguage(String(Array.isArray(value) ? value[0] ?? '' : value) as LocaleId)
+                  }
+                  options={supportedLocales.map((locale) => ({
+                    value: locale.id,
+                    label: locale.nativeName,
+                  }))}
+                  disabled={isChanging}
+                  placeholder={t('appearance.language')}
+                />
+              </div>
+            </ConfigPageRow>
+          ) : null}
+          {showThemes ? loading ? (
+            <ConfigPageLoading text={t('appearance.themeLoading')} />
+          ) : error || !themeId || !selectedTheme ? (
+            <div className="theme-config__theme-carousel-row">
+              <div className="theme-config__theme-picker">
+                <ConfigPageMessage
+                  message={{ type: 'error', text: t('appearance.themeLoadFailed') }}
+                />
+                <Button variant="secondary" size="small" onClick={() => void retry()}>
+                  {tCommon('actions.retry')}
+                </Button>
+              </div>
             </div>
-          </ConfigPageRow>
+          ) : (
           <div className="theme-config__theme-carousel-row">
             <div className="theme-config__theme-picker">
               <div
@@ -201,6 +239,7 @@ function AppearanceBasicsSection() {
               </div>
             </div>
           </div>
+          ) : null}
         </ConfigPageSection>
       </div>
     </div>
@@ -470,15 +509,21 @@ function ThemePreviewThumbnail({ theme }: ThemePreviewThumbnailProps) {
   );
 }
 
-const AppearanceConfig: React.FC = () => {
+const AppearanceConfig: React.FC<CustomSettingsProjectionProps> = ({ settingIds }) => {
   const { t } = useTranslation('settings/appearance');
+  const isScopedProjection = settingIds !== undefined;
+  const showBasics = includesSettingNamespace(settingIds, 'core.app.language')
+    || includesSettingNamespace(settingIds, 'core.themes');
+  const showFont = includesSettingNamespace(settingIds, 'core.font');
 
   return (
     <ConfigPageLayout className="sparo-appearance-config">
-      <ConfigPageHeader title={t('title')} description={t('subtitle')} />
+      {!isScopedProjection ? (
+        <ConfigPageHeader title={t('title')} description={t('subtitle')} />
+      ) : null}
       <ConfigPageContent className="sparo-basics-config__content">
-        <AppearanceBasicsSection />
-        <FontPreferencePanel />
+        {showBasics ? <AppearanceBasicsSection settingIds={settingIds} /> : null}
+        {showFont ? <FontPreferencePanel settingIds={settingIds} /> : null}
       </ConfigPageContent>
     </ConfigPageLayout>
   );

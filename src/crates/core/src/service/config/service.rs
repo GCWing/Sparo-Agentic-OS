@@ -2,10 +2,17 @@
 //!
 //! Provides comprehensive configuration management functionality.
 
-use super::manager::{ConfigManager, ConfigManagerSettings, ConfigStatistics};
+use super::manager::{ConfigManager, ConfigManagerSettings, ConfigStartupStatus, ConfigStatistics};
 use super::types::*;
+use super::{
+    CommitConfigPlanRequest, ConfigApplyStatusReceiver, ConfigCommit, ConfigCommitReceiver,
+    ConfigCommitStatus, ConfigPatch, ConfigPatchOperation, ConfigPlan, ConfigRollbackReceiver,
+    ConfigSnapshot, PublishedConfigCatalog, SettingMutability, UndoConfigCommitRequest,
+};
 use crate::error::*;
+use crate::service::speech::LOCAL_SENSEVOICE_SMALL_INT8_MODEL_REF;
 use log::{info, warn};
+use sparo_events::{ConfigApplyStatusEvent, ConfigChangeSource, ConfigScope};
 use std::collections::HashSet;
 
 use serde::{Deserialize, Serialize};
@@ -19,25 +26,16 @@ pub struct ConfigService {
 
 /// Configuration import/export format.
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ConfigExport {
     pub config: GlobalConfig,
     pub export_timestamp: String,
-    pub version: String,
-}
-
-/// Configuration import result.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ConfigImportResult {
-    pub success: bool,
-    pub errors: Vec<String>,
-    pub warnings: Vec<String>,
 }
 
 /// Configuration health status.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ConfigHealthStatus {
     pub healthy: bool,
-    pub total_providers: usize,
     pub config_directory: std::path::PathBuf,
     pub warnings: Vec<String>,
     pub message: String,
@@ -52,22 +50,11 @@ impl ConfigService {
     }
 
     /// Creates a configuration service with custom settings.
-    ///
-    /// Runs an initial [`Self::reconcile_models`] pass so any pre-existing
-    /// persisted config that points at a now-disabled / missing model (e.g.
-    /// from before this guard was introduced) is cleaned up on startup.
     pub async fn with_settings(settings: ConfigManagerSettings) -> CoreResult<Self> {
         let manager = ConfigManager::new(settings).await?;
-
-        let service = Self {
+        Ok(Self {
             manager: Arc::new(RwLock::new(manager)),
-        };
-
-        if let Err(e) = service.reconcile_models("startup").await {
-            warn!("Model reconcile at startup failed: {}", e);
-        }
-
-        Ok(service)
+        })
     }
 
     /// Gets a configuration value (supports dot-paths).
@@ -86,71 +73,246 @@ impl ConfigService {
         }
     }
 
-    /// Sets a configuration value (supports dot-paths).
-    ///
-    /// When the path touches AI models / default model slots / agent-model
-    /// mappings, runs [`Self::reconcile_models`] afterwards so the config can
-    /// never end up referencing a disabled or deleted model.
-    pub async fn set_config<T>(&self, path: &str, value: T) -> CoreResult<()>
-    where
-        T: serde::Serialize,
-    {
-        {
-            let mut manager = self.manager.write().await;
-            manager.set(path, value).await?;
-        }
-
-        if Self::path_touches_models(path) {
-            if let Err(e) = self.reconcile_models("set_config").await {
-                warn!(
-                    "Model reconcile after set_config failed: path={}, error={}",
-                    path, e
-                );
-            }
-        }
-
-        Ok(())
+    /// Returns the current revisioned, redacted snapshot.
+    pub async fn get_snapshot(&self) -> CoreResult<ConfigSnapshot> {
+        let manager = self.manager.read().await;
+        manager.get_snapshot()
     }
 
-    fn path_touches_models(path: &str) -> bool {
-        path == "ai"
-            || path.starts_with("ai.models")
-            || path.starts_with("ai.default_models")
-            || path.starts_with("ai.agent_models")
-            || path.starts_with("ai.func_agent_models")
+    /// Returns a redacted description of how persisted configuration started.
+    pub async fn get_startup_status(&self) -> ConfigStartupStatus {
+        let manager = self.manager.read().await;
+        manager.startup_status().clone()
     }
 
-    /// Resets configuration.
-    ///
-    /// When the reset target touches AI models (or is a global reset),
-    /// triggers [`Self::reconcile_models`] so default-slot / agent-model
-    /// references can never linger pointing at a now-missing model.
-    pub async fn reset_config(&self, path: Option<&str>) -> CoreResult<()> {
-        {
-            let mut manager = self.manager.write().await;
-            manager.reset(path).await?;
+    /// Discards an unusable persisted configuration and writes current defaults.
+    pub async fn rebuild_default_config(&self) -> CoreResult<ConfigStartupStatus> {
+        let mut manager = self.manager.write().await;
+        manager.rebuild_default_config().await
+    }
+
+    /// Refreshes commits written by another Sparo process after the global
+    /// watcher observes a changed atomic-file metadata marker.
+    pub(crate) async fn refresh_external_changes(&self) -> CoreResult<usize> {
+        let mut manager = self.manager.write().await;
+        manager.refresh_external_changes().await
+    }
+
+    pub(crate) async fn persisted_file_marker(
+        &self,
+    ) -> CoreResult<super::atomic_store::FileMarker> {
+        let manager = self.manager.read().await;
+        manager.persisted_file_marker().await
+    }
+
+    /// Returns a storage-free Catalog safe for product-surface clients.
+    pub async fn describe_published_catalog(
+        &self,
+        query: Option<&str>,
+    ) -> CoreResult<PublishedConfigCatalog> {
+        let manager = self.manager.read().await;
+        Ok(manager.catalog().published(query))
+    }
+
+    /// Returns a storage-free Catalog and snapshot from one authoritative read lock.
+    pub async fn describe_published_catalog_with_snapshot(
+        &self,
+        query: Option<&str>,
+    ) -> CoreResult<(PublishedConfigCatalog, ConfigSnapshot)> {
+        let manager = self.manager.read().await;
+        Ok((manager.catalog().published(query), manager.get_snapshot()?))
+    }
+
+    /// Validates a catalog-backed patch and returns an immutable short-lived plan.
+    pub async fn plan_patch(&self, patch: ConfigPatch) -> CoreResult<ConfigPlan> {
+        let mut manager = self.manager.write().await;
+        manager.plan_patch(patch).await
+    }
+
+    /// Plans a generic product-surface patch only for settings published by
+    /// the active Catalog and writable through that generic boundary. Managed
+    /// settings remain writable solely through their canonical domain APIs.
+    pub async fn plan_product_surface_patch(&self, patch: ConfigPatch) -> CoreResult<ConfigPlan> {
+        let mut manager = self.manager.write().await;
+        let catalog = manager.catalog().published(None);
+        validate_product_surface_operations(&catalog, &patch.operations)?;
+        manager.plan_patch(patch).await
+    }
+
+    /// Atomically commits a validated plan.
+    pub async fn commit_plan(&self, request: CommitConfigPlanRequest) -> CoreResult<ConfigCommit> {
+        let mut manager = self.manager.write().await;
+        manager.commit_plan(request).await
+    }
+
+    /// Commits an already intentional internal action through the same catalog,
+    /// planning, validation, persistence, and apply pipeline as external clients.
+    /// Interactive callers that need a confirmation preview should use
+    /// [`Self::plan_patch`] and [`Self::commit_plan`] separately.
+    pub async fn commit_operations(
+        &self,
+        source: ConfigChangeSource,
+        operations: Vec<ConfigPatchOperation>,
+        confirmed: bool,
+    ) -> CoreResult<ConfigCommit> {
+        let mut manager = self.manager.write().await;
+        Self::commit_operations_locked(&mut manager, source, operations, confirmed).await
+    }
+
+    async fn commit_operations_locked(
+        manager: &mut ConfigManager,
+        source: ConfigChangeSource,
+        operations: Vec<ConfigPatchOperation>,
+        confirmed: bool,
+    ) -> CoreResult<ConfigCommit> {
+        if operations.is_empty() {
+            return Err(CoreError::validation(
+                "config.operations_empty: at least one operation is required",
+            ));
         }
 
-        let needs_reconcile = match path {
-            None => true,
-            Some(p) => Self::path_touches_models(p),
+        manager.refresh_external_changes().await?;
+        let expected_revision = manager.get_snapshot()?.revision;
+        let request_id = format!("config-operation-{}", uuid::Uuid::new_v4());
+        let plan = manager
+            .plan_patch(ConfigPatch {
+                request_id: request_id.clone(),
+                idempotency_key: format!("{request_id}:plan"),
+                expected_revision,
+                source,
+                scope: ConfigScope::user(),
+                operations,
+            })
+            .await?;
+
+        manager
+            .commit_plan(CommitConfigPlanRequest {
+                plan_id: plan.plan_id,
+                expected_revision,
+                idempotency_key: format!("{request_id}:commit"),
+                confirmed,
+            })
+            .await
+    }
+
+    /// Creates a conflict-checked compensating commit.
+    pub async fn undo_commit(
+        &self,
+        request: UndoConfigCommitRequest,
+        source: ConfigChangeSource,
+    ) -> CoreResult<ConfigCommit> {
+        let mut manager = self.manager.write().await;
+        manager.undo_commit(request, source).await
+    }
+
+    pub async fn get_commit(&self, commit_id: &str) -> CoreResult<ConfigCommit> {
+        let manager = self.manager.read().await;
+        manager.get_commit(commit_id)
+    }
+
+    pub async fn list_recent_commits(&self, limit: usize) -> Vec<ConfigCommit> {
+        let manager = self.manager.read().await;
+        manager.list_recent_commits(limit)
+    }
+
+    pub async fn retry_apply(
+        &self,
+        request: super::transaction::RetryConfigApplyRequest,
+    ) -> CoreResult<ConfigCommit> {
+        let outcome = {
+            let mut manager = self.manager.write().await;
+            manager.prepare_apply_retry(request).await?
         };
-        if needs_reconcile {
-            if let Err(e) = self.reconcile_models("reset_config").await {
-                warn!(
-                    "Model reconcile after reset_config failed: path={:?}, error={}",
-                    path, e
-                );
+        match outcome {
+            super::manager::RetryApplyOutcome::Replay(commit) => Ok(commit),
+            super::manager::RetryApplyOutcome::Dispatch {
+                commit,
+                snapshot,
+                prepared,
+            } => {
+                super::global::GlobalConfigManager::dispatch_retry(&commit, snapshot, prepared);
+                Ok(commit)
             }
         }
+    }
 
-        Ok(())
+    pub(crate) async fn resume_pending_applies(&self, consumer: &str) -> CoreResult<()> {
+        loop {
+            let recovery = {
+                let manager = self.manager.read().await;
+                manager.prepare_pending_applies(consumer).await?
+            };
+            let mut reclassify_after_rollback = false;
+            for event in recovery.terminal_events {
+                let commit =
+                    super::global::GlobalConfigManager::publish_apply_status(event).await?;
+                if commit.status == ConfigCommitStatus::RolledBack {
+                    reclassify_after_rollback = true;
+                    break;
+                }
+            }
+            if reclassify_after_rollback {
+                continue;
+            }
+            for dispatch in recovery.dispatches {
+                super::global::GlobalConfigManager::dispatch_retry(
+                    &dispatch.commit,
+                    dispatch.snapshot,
+                    dispatch.prepared,
+                );
+            }
+            return Ok(());
+        }
+    }
+
+    /// Subscribes to commits without introducing a second event channel.
+    pub fn subscribe_commits(&self) -> ConfigCommitReceiver {
+        super::global::GlobalConfigManager::subscribe_commits()
+    }
+
+    /// Subscribes to terminal runtime application acknowledgements.
+    pub fn subscribe_apply_statuses(&self) -> ConfigApplyStatusReceiver {
+        super::global::GlobalConfigManager::subscribe_apply_statuses()
+    }
+
+    pub fn subscribe_rollbacks(&self) -> ConfigRollbackReceiver {
+        super::global::GlobalConfigManager::subscribe_rollbacks()
+    }
+
+    pub(crate) async fn record_apply_status(
+        &self,
+        event: &ConfigApplyStatusEvent,
+    ) -> CoreResult<ConfigCommit> {
+        let mut manager = self.manager.write().await;
+        manager.record_apply_status(event).await
+    }
+
+    pub(crate) async fn expire_pending_apply_receipt(
+        &self,
+        commit_id: &str,
+        revision: u64,
+        consumer: &str,
+        receipt_attempt: u32,
+    ) -> CoreResult<(Option<ConfigApplyStatusEvent>, ConfigCommit)> {
+        let mut manager = self.manager.write().await;
+        manager
+            .expire_pending_apply_receipt(commit_id, revision, consumer, receipt_attempt)
+            .await
+    }
+
+    pub(crate) async fn rollback_failed_commit(
+        &self,
+        commit_id: &str,
+        revision: u64,
+    ) -> CoreResult<(ConfigCommit, String)> {
+        let mut manager = self.manager.write().await;
+        manager.rollback_failed_commit(commit_id, revision).await
     }
 
     /// Validates configuration.
     pub async fn validate_config(&self) -> CoreResult<ConfigValidationResult> {
         let manager = self.manager.read().await;
-        manager.validate_config().await
+        Ok(manager.validate_config())
     }
 
     /// Exports configuration.
@@ -162,38 +324,26 @@ impl ConfigService {
         Ok(ConfigExport {
             config,
             export_timestamp: chrono::Utc::now().to_rfc3339(),
-            version: env!("CARGO_PKG_VERSION").to_string(),
         })
     }
 
-    /// Imports configuration. Triggers a model reconcile pass on success so an
-    /// imported config that references missing / disabled models is brought
-    /// back into a self-consistent state.
-    pub async fn import_config(&self, export: ConfigExport) -> CoreResult<ConfigImportResult> {
-        let import_result = {
-            let mut manager = self.manager.write().await;
-            manager
-                .import_config(serde_json::to_value(export.config)?)
-                .await
-        };
-
-        match import_result {
-            Ok(_) => {
-                if let Err(e) = self.reconcile_models("import_config").await {
-                    warn!("Model reconcile after import_config failed: {}", e);
-                }
-                Ok(ConfigImportResult {
-                    success: true,
-                    errors: Vec::new(),
-                    warnings: Vec::new(),
-                })
-            }
-            Err(e) => Ok(ConfigImportResult {
-                success: false,
-                errors: vec![e.to_string()],
-                warnings: Vec::new(),
-            }),
-        }
+    /// Imports configuration as one validated, model-consistent commit.
+    pub async fn import_config(
+        &self,
+        export: ConfigExport,
+        expected_revision: u64,
+        idempotency_key: String,
+        confirmed: bool,
+    ) -> CoreResult<Option<ConfigCommit>> {
+        let mut manager = self.manager.write().await;
+        manager
+            .import_config(
+                serde_json::to_value(export.config)?,
+                expected_revision,
+                idempotency_key,
+                confirmed,
+            )
+            .await
     }
 
     /// Returns configuration statistics.
@@ -206,7 +356,7 @@ impl ConfigService {
     pub async fn health_check(&self) -> CoreResult<ConfigHealthStatus> {
         let manager = self.manager.read().await;
         let stats = manager.get_statistics();
-        let validation_result = manager.validate_config().await?;
+        let validation_result = manager.validate_config();
 
         let mut warnings = Vec::new();
 
@@ -226,7 +376,6 @@ impl ConfigService {
         if !stats.config_directory.exists() {
             return Ok(ConfigHealthStatus {
                 healthy: false,
-                total_providers: stats.providers_count,
                 config_directory: stats.config_directory,
                 warnings,
                 message: "Configuration directory does not exist".to_string(),
@@ -238,7 +387,6 @@ impl ConfigService {
 
         Ok(ConfigHealthStatus {
             healthy,
-            total_providers: stats.providers_count,
             config_directory: stats.config_directory,
             warnings,
             message: if healthy {
@@ -250,308 +398,555 @@ impl ConfigService {
         })
     }
 
-    /// Reloads configuration.
-    pub async fn reload(&self) -> CoreResult<()> {
-        let settings = ConfigManagerSettings::default();
-        let new_manager = ConfigManager::new(settings).await?;
-
-        {
-            let mut manager = self.manager.write().await;
-            *manager = new_manager;
-        }
-
-        info!("Configuration reloaded");
-
-        if let Err(e) = self.reconcile_models("reload").await {
-            warn!("Model reconcile after reload failed: {}", e);
-        }
-        Ok(())
-    }
-
-    /// Creates a configuration backup.
-    pub async fn create_backup(&self) -> CoreResult<std::path::PathBuf> {
-        let manager = self.manager.read().await;
-        manager.create_backup().await
-    }
-
-    /// Registers a configuration provider.
-    pub async fn register_provider(&self, provider: Box<dyn ConfigProvider>) {
-        let mut manager = self.manager.write().await;
-        manager.register_provider(provider);
-    }
-
     /// Returns all AI model configurations.
     pub async fn get_ai_models(&self) -> CoreResult<Vec<AIModelConfig>> {
         let config: GlobalConfig = self.get_config(None).await?;
         Ok(config.ai.models)
     }
 
-    /// Adds an AI model configuration.
-    pub async fn add_ai_model(&self, model: AIModelConfig) -> CoreResult<()> {
-        let mut config: GlobalConfig = self.get_config(None).await?;
-        config.ai.models.push(model);
-        self.set_config("ai.models", &config.ai.models).await
-    }
-
-    /// Updates an AI model configuration.
-    pub async fn update_ai_model(&self, model_id: &str, model: AIModelConfig) -> CoreResult<()> {
-        let mut config: GlobalConfig = self.get_config(None).await?;
-
-        if let Some(existing_model) = config.ai.models.iter_mut().find(|m| m.id == model_id) {
-            *existing_model = model;
-            self.set_config("ai.models", &config.ai.models).await
-        } else {
-            Err(CoreError::config(format!(
-                "AI model '{}' not found",
-                model_id
-            )))
-        }
-    }
-
-    /// Deletes an AI model configuration.
-    pub async fn delete_ai_model(&self, model_id: &str) -> CoreResult<()> {
-        let mut config: GlobalConfig = self.get_config(None).await?;
-
-        let original_len = config.ai.models.len();
-        config.ai.models.retain(|m| m.id != model_id);
-
-        if config.ai.models.len() == original_len {
-            return Err(CoreError::config(format!(
-                "AI model '{}' not found",
-                model_id
-            )));
-        }
-
-        // Persist the list deletion. The follow-up reconcile pass triggered by
-        // `set_config` (and explicitly by `update_ai_model`) is responsible for
-        // cleaning every other place the deleted id might still be referenced
-        // (default slots, agent / func-agent mappings).
-        self.set_config("ai.models", &config.ai.models).await
-    }
-
-    /// Bring `ai.default_models`, `ai.agent_models`, and `ai.func_agent_models`
-    /// back into a consistent state with `ai.models`.
-    ///
-    /// This is the single integrity guard the rest of the system relies on:
-    /// - any agent / func-agent mapping pointing at a model that no longer
-    ///   exists or that became disabled is dropped;
-    /// - `default_models.primary` / `.fast` are repointed to the first enabled
-    ///   model when their current target is missing or disabled (or cleared
-    ///   when no enabled model exists at all);
-    /// - on every change, a [`ConfigUpdateEvent::ModelsReconciled`] is
-    ///   broadcast so [`SessionManager`](crate::agentic::session::SessionManager)
-    ///   and the AI client cache can react in lockstep.
-    ///
-    /// `caller` is logged for diagnostics (e.g. `set_config`, `update_ai_model`).
-    pub async fn reconcile_models(&self, caller: &str) -> CoreResult<ReconcileModelsReport> {
-        let mut config = {
-            let manager = self.manager.read().await;
-            manager.get_config().clone()
-        };
-
-        let enabled_ids: HashSet<String> = config
+    /// Reports whether a selector resolves to an enabled model in the current
+    /// authoritative configuration. An empty selector means `primary`.
+    pub async fn has_usable_ai_model(&self, model_selector: Option<&str>) -> bool {
+        let manager = self.manager.read().await;
+        let selector = model_selector
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("primary");
+        manager
+            .get_config()
             .ai
-            .models
-            .iter()
-            .filter(|m| m.enabled)
-            .map(|m| m.id.clone())
-            .collect();
-        let known_ids: HashSet<String> = config.ai.models.iter().map(|m| m.id.clone()).collect();
-
-        // Precompute lookup tables so the closures below do not need to
-        // borrow `config.ai` (which would conflict with the later mutations
-        // of `config.ai.agent_models` / `config.ai.default_models`).
-        let mut active_refs: HashSet<String> = HashSet::new();
-        let mut any_ref_to_id: std::collections::HashMap<String, String> =
-            std::collections::HashMap::new();
-        for m in &config.ai.models {
-            any_ref_to_id
-                .entry(m.id.clone())
-                .or_insert_with(|| m.id.clone());
-            any_ref_to_id
-                .entry(m.name.clone())
-                .or_insert_with(|| m.id.clone());
-            any_ref_to_id
-                .entry(m.model_name.clone())
-                .or_insert_with(|| m.id.clone());
-            if m.enabled {
-                active_refs.insert(m.id.clone());
-                active_refs.insert(m.name.clone());
-                active_refs.insert(m.model_name.clone());
-            }
-        }
-        let is_active = |reference: &str| -> bool {
-            // Special selectors are always considered active; their actual
-            // resolution happens at runtime against the (already reconciled)
-            // default slots.
-            matches!(reference, "primary" | "fast") || active_refs.contains(reference)
-        };
-
-        let classify_invalid = |reference: &str, invalidated: &mut HashSet<String>| -> bool {
-            if is_active(reference) {
-                return false;
-            }
-            // Resolve back to the canonical id (if the reference is by
-            // name / model_name pointing at a now-disabled model) so we
-            // can report a stable identifier.
-            let canonical = any_ref_to_id
-                .get(reference)
-                .cloned()
-                .unwrap_or_else(|| reference.to_string());
-            invalidated.insert(canonical);
-            true
-        };
-
-        let mut invalidated: HashSet<String> = HashSet::new();
-        let mut agent_models_changed = false;
-        let mut default_models_changed = false;
-
-        // 1. agent_models
-        let agent_keys_to_remove: Vec<String> = config
-            .ai
-            .agent_models
-            .iter()
-            .filter_map(|(agent, model_ref)| {
-                if classify_invalid(model_ref, &mut invalidated) {
-                    Some(agent.clone())
-                } else {
-                    None
-                }
-            })
-            .collect();
-        for agent in agent_keys_to_remove {
-            warn!(
-                "Reconcile ({caller}): clearing ai.agent_models[{agent}] because target model is missing or disabled"
-            );
-            config.ai.agent_models.remove(&agent);
-            agent_models_changed = true;
-        }
-
-        // 2. func_agent_models
-        let func_keys_to_remove: Vec<String> = config
-            .ai
-            .func_agent_models
-            .iter()
-            .filter_map(|(agent, model_ref)| {
-                if classify_invalid(model_ref, &mut invalidated) {
-                    Some(agent.clone())
-                } else {
-                    None
-                }
-            })
-            .collect();
-        for agent in func_keys_to_remove {
-            warn!(
-                "Reconcile ({caller}): clearing ai.func_agent_models[{agent}] because target model is missing or disabled"
-            );
-            config.ai.func_agent_models.remove(&agent);
-            agent_models_changed = true;
-        }
-
-        // 3. default_models.primary / .fast
-        let fallback_id = config.ai.first_enabled_model_id();
-        let mut repoint_default_slot = |slot: &mut Option<String>, slot_name: &str| {
-            let needs_fix = match slot.as_deref() {
-                Some("") => true,
-                Some(value) => !is_active(value),
-                None => false,
-            };
-            if !needs_fix {
-                return;
-            }
-
-            if let Some(current) = slot.as_deref() {
-                classify_invalid(current, &mut invalidated);
-            }
-
-            match fallback_id.as_ref() {
-                Some(new_id) => {
-                    info!(
-                        "Reconcile ({caller}): default_models.{slot_name} repointed: {:?} -> {}",
-                        slot, new_id
-                    );
-                    *slot = Some(new_id.clone());
-                }
-                None => {
-                    info!(
-                        "Reconcile ({caller}): default_models.{slot_name} cleared (no enabled model available); previous={:?}",
-                        slot
-                    );
-                    *slot = None;
-                }
-            }
-            default_models_changed = true;
-        };
-
-        repoint_default_slot(&mut config.ai.default_models.primary, "primary");
-        repoint_default_slot(&mut config.ai.default_models.fast, "fast");
-
-        // Ensure `invalidated` doesn't contain a still-existing-and-enabled id
-        // (defensive: classify_invalid only inserts for inactive refs, but a
-        // callsite could have re-resolved via name).
-        invalidated.retain(|id| !enabled_ids.contains(id));
-
-        // Persist any changes. We deliberately use the inner manager (and not
-        // `self.set_config`) to avoid triggering a recursive reconcile pass.
-        if agent_models_changed {
-            let mut manager = self.manager.write().await;
-            manager
-                .set("ai.agent_models", &config.ai.agent_models)
-                .await?;
-            manager
-                .set("ai.func_agent_models", &config.ai.func_agent_models)
-                .await?;
-        }
-        if default_models_changed {
-            let mut manager = self.manager.write().await;
-            manager
-                .set("ai.default_models", &config.ai.default_models)
-                .await?;
-        }
-
-        let _ = known_ids; // currently unused, kept for future diagnostics
-
-        let report = ReconcileModelsReport {
-            invalidated_model_ids: invalidated.into_iter().collect(),
-            default_models_changed,
-            agent_models_changed,
-        };
-
-        if report.is_noop() {
-            log::debug!("Reconcile ({caller}): no changes");
-        } else {
-            info!(
-                "Reconcile ({caller}): invalidated={:?}, default_changed={}, agent_changed={}",
-                report.invalidated_model_ids,
-                report.default_models_changed,
-                report.agent_models_changed
-            );
-            super::global::GlobalConfigManager::broadcast_update(
-                super::global::ConfigUpdateEvent::ModelsReconciled {
-                    invalidated_model_ids: report.invalidated_model_ids.clone(),
-                    default_models_changed: report.default_models_changed,
-                    agent_models_changed: report.agent_models_changed,
-                },
-            )
-            .await;
-        }
-
-        Ok(report)
+            .resolve_model_selection(selector)
+            .is_some()
     }
 }
 
-/// Outcome of [`ConfigService::reconcile_models`].
+fn validate_product_surface_operations(
+    catalog: &PublishedConfigCatalog,
+    operations: &[ConfigPatchOperation],
+) -> CoreResult<()> {
+    for operation in operations {
+        let setting_id = operation.setting_id();
+        let descriptor = catalog.find(setting_id).ok_or_else(|| {
+            CoreError::validation(format!(
+                "config.setting_unavailable: setting '{setting_id}' is not published"
+            ))
+        })?;
+        if descriptor.policy.mutability != SettingMutability::Writable {
+            return Err(CoreError::validation(format!(
+                "config.setting_managed: setting '{setting_id}' requires its dedicated domain API"
+            )));
+        }
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone, Default)]
-pub struct ReconcileModelsReport {
+pub(crate) struct ReconcileModelsReport {
     pub invalidated_model_ids: Vec<String>,
     pub default_models_changed: bool,
     pub agent_models_changed: bool,
 }
 
 impl ReconcileModelsReport {
-    pub fn is_noop(&self) -> bool {
+    pub(crate) fn is_noop(&self) -> bool {
         self.invalidated_model_ids.is_empty()
             && !self.default_models_changed
             && !self.agent_models_changed
+    }
+}
+
+/// Normalizes all model references in one in-memory candidate.
+///
+/// Callers must include the resulting differences in the same atomic commit as
+/// the triggering model change. This function never performs persistence or
+/// publishes an event on its own.
+pub(crate) fn reconcile_model_references(
+    config: &mut GlobalConfig,
+    caller: &str,
+) -> ReconcileModelsReport {
+    let enabled_ids: HashSet<String> = config
+        .ai
+        .models
+        .iter()
+        .filter(|model| model.enabled)
+        .map(|model| model.id.clone())
+        .collect();
+    let is_active = |reference: &str| {
+        matches!(reference, "primary" | "fast") || enabled_ids.contains(reference)
+    };
+    let classify_invalid = |reference: &str, invalidated: &mut HashSet<String>| {
+        if is_active(reference) {
+            return false;
+        }
+        invalidated.insert(reference.to_string());
+        true
+    };
+
+    let mut invalidated = HashSet::new();
+    let agent_keys_to_remove = config
+        .ai
+        .agent_models
+        .iter()
+        .filter_map(|(agent, model_ref)| {
+            classify_invalid(model_ref, &mut invalidated).then(|| agent.clone())
+        })
+        .collect::<Vec<_>>();
+    for agent in &agent_keys_to_remove {
+        warn!(
+            "Reconcile ({caller}): clearing ai.agent_models[{agent}] because target model is missing or disabled"
+        );
+        config.ai.agent_models.remove(agent);
+    }
+
+    let func_keys_to_remove = config
+        .ai
+        .func_agent_models
+        .iter()
+        .filter_map(|(agent, model_ref)| {
+            classify_invalid(model_ref, &mut invalidated).then(|| agent.clone())
+        })
+        .collect::<Vec<_>>();
+    for agent in &func_keys_to_remove {
+        warn!(
+            "Reconcile ({caller}): clearing ai.func_agent_models[{agent}] because target model is missing or disabled"
+        );
+        config.ai.func_agent_models.remove(agent);
+    }
+
+    let replacement_id = config.ai.first_enabled_model_id();
+    let mut default_models_changed = false;
+    let mut repoint_default_slot = |slot: &mut Option<String>,
+                                    slot_name: &str,
+                                    accepts_local_speech: bool| {
+        let needs_fix = match slot.as_deref() {
+            Some("") => true,
+            Some(value) => {
+                !is_active(value)
+                    && !(accepts_local_speech && value == LOCAL_SENSEVOICE_SMALL_INT8_MODEL_REF)
+            }
+            None => false,
+        };
+        if !needs_fix {
+            return;
+        }
+        if let Some(current) = slot.as_deref() {
+            classify_invalid(current, &mut invalidated);
+        }
+        match replacement_id.as_ref() {
+            Some(new_id) => {
+                info!(
+                    "Reconcile ({caller}): default_models.{slot_name} repointed: {:?} -> {}",
+                    slot, new_id
+                );
+                *slot = Some(new_id.clone());
+            }
+            None => {
+                info!(
+                    "Reconcile ({caller}): default_models.{slot_name} cleared (no enabled model available); previous={:?}",
+                    slot
+                );
+                *slot = None;
+            }
+        }
+        default_models_changed = true;
+    };
+    repoint_default_slot(&mut config.ai.default_models.primary, "primary", false);
+    repoint_default_slot(&mut config.ai.default_models.fast, "fast", false);
+    repoint_default_slot(&mut config.ai.default_models.search, "search", false);
+    repoint_default_slot(
+        &mut config.ai.default_models.image_understanding,
+        "image_understanding",
+        false,
+    );
+    repoint_default_slot(
+        &mut config.ai.default_models.image_generation,
+        "image_generation",
+        false,
+    );
+    repoint_default_slot(
+        &mut config.ai.default_models.speech_recognition,
+        "speech_recognition",
+        true,
+    );
+    invalidated.retain(|id| !enabled_ids.contains(id));
+
+    let report = ReconcileModelsReport {
+        invalidated_model_ids: invalidated.into_iter().collect(),
+        default_models_changed,
+        agent_models_changed: !agent_keys_to_remove.is_empty() || !func_keys_to_remove.is_empty(),
+    };
+    if !report.is_noop() {
+        info!(
+            "Reconcile ({caller}): invalidated={:?}, default_changed={}, agent_changed={}",
+            report.invalidated_model_ids,
+            report.default_models_changed,
+            report.agent_models_changed
+        );
+    }
+    report
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::infrastructure::PathManager;
+    use crate::service::config::catalog::{
+        ConfigCatalog, SETTING_AI_AGENT_CAPABILITY_CONFIGS, SETTING_APP_LANGUAGE,
+        SETTING_MCP_SERVERS,
+    };
+    use sparo_events::ConfigChangeSourceKind;
+    use std::sync::Arc;
+
+    #[test]
+    fn speech_recognition_reconcile_preserves_reserved_local_model_reference() {
+        let mut config = GlobalConfig::default();
+        config.ai.default_models.speech_recognition =
+            Some(LOCAL_SENSEVOICE_SMALL_INT8_MODEL_REF.to_string());
+
+        let report = reconcile_model_references(&mut config, "speech-test");
+
+        assert_eq!(
+            config.ai.default_models.speech_recognition.as_deref(),
+            Some(LOCAL_SENSEVOICE_SMALL_INT8_MODEL_REF)
+        );
+        assert!(report.is_noop());
+        assert!(!report
+            .invalidated_model_ids
+            .iter()
+            .any(|id| id == LOCAL_SENSEVOICE_SMALL_INT8_MODEL_REF));
+    }
+
+    #[test]
+    fn generic_product_surface_patch_rejects_managed_and_internal_settings() {
+        let value = serde_json::to_value(GlobalConfig::default()).expect("global config");
+        let catalog = ConfigCatalog::build(&value, &value)
+            .expect("catalog")
+            .published(None);
+
+        validate_product_surface_operations(
+            &catalog,
+            &[ConfigPatchOperation::Reset {
+                setting_id: SETTING_APP_LANGUAGE.to_string(),
+            }],
+        )
+        .expect("ordinary published setting is writable");
+
+        let managed = validate_product_surface_operations(
+            &catalog,
+            &[ConfigPatchOperation::Reset {
+                setting_id: SETTING_AI_AGENT_CAPABILITY_CONFIGS.to_string(),
+            }],
+        )
+        .expect_err("managed capability config requires its canonical API");
+        assert!(managed.to_string().contains("config.setting_managed"));
+
+        let internal = validate_product_surface_operations(
+            &catalog,
+            &[ConfigPatchOperation::Reset {
+                setting_id: SETTING_MCP_SERVERS.to_string(),
+            }],
+        )
+        .expect_err("internal MCP storage is not a generic product setting");
+        assert!(internal.to_string().contains("config.setting_unavailable"));
+    }
+
+    #[test]
+    fn model_reference_reconcile_updates_one_candidate() {
+        let active = AIModelConfig {
+            id: "active-id".to_string(),
+            name: "Active".to_string(),
+            model_name: "active-model".to_string(),
+            enabled: true,
+            ..AIModelConfig::default()
+        };
+        let disabled = AIModelConfig {
+            id: "disabled-id".to_string(),
+            name: "Disabled".to_string(),
+            model_name: "disabled-model".to_string(),
+            enabled: false,
+            ..AIModelConfig::default()
+        };
+        let mut config = GlobalConfig::default();
+        config.ai.models = vec![active, disabled];
+        config.ai.default_models.primary = Some("disabled-id".to_string());
+        config.ai.default_models.fast = Some("disabled-model".to_string());
+        config
+            .ai
+            .agent_models
+            .insert("CodeAgent".to_string(), "Disabled".to_string());
+        config
+            .ai
+            .func_agent_models
+            .insert("ReviewAgent".to_string(), "missing-id".to_string());
+
+        let report = reconcile_model_references(&mut config, "test");
+
+        assert_eq!(
+            config.ai.default_models.primary.as_deref(),
+            Some("active-id")
+        );
+        assert_eq!(config.ai.default_models.fast.as_deref(), Some("active-id"));
+        assert!(config.ai.agent_models.is_empty());
+        assert!(config.ai.func_agent_models.is_empty());
+        assert!(report.default_models_changed);
+        assert!(report.agent_models_changed);
+        assert!(report
+            .invalidated_model_ids
+            .iter()
+            .any(|id| id == "disabled-id"));
+        assert!(report
+            .invalidated_model_ids
+            .iter()
+            .any(|id| id == "missing-id"));
+    }
+
+    #[tokio::test]
+    async fn resident_service_refreshes_and_announces_an_external_commit() {
+        let _apply_test_guard = super::super::apply::acquire_config_apply_test_lock().await;
+        let temp = tempfile::tempdir().expect("tempdir");
+        let path_manager = Arc::new(PathManager::with_user_root_for_tests(
+            temp.path().join("user-root"),
+        ));
+        let resident = ConfigService::with_settings(ConfigManagerSettings {
+            path_manager: Some(path_manager.clone()),
+            ..ConfigManagerSettings::default()
+        })
+        .await
+        .expect("resident service");
+        let writer = ConfigService::with_settings(ConfigManagerSettings {
+            path_manager: Some(path_manager.clone()),
+            ..ConfigManagerSettings::default()
+        })
+        .await
+        .expect("writer service");
+        let initial = resident.get_snapshot().await.expect("initial snapshot");
+        let current: GlobalConfig = writer.get_config(None).await.expect("writer config");
+        let next_language = if current.app.language == "zh-CN" {
+            "en-US"
+        } else {
+            "zh-CN"
+        };
+        let mut events = super::super::global::GlobalConfigManager::subscribe_commits();
+
+        let committed = writer
+            .commit_operations(
+                ConfigChangeSource {
+                    kind: ConfigChangeSourceKind::Manual,
+                    surface: Some("external-config-refresh-test".to_string()),
+                    request_id: None,
+                },
+                vec![ConfigPatchOperation::Set {
+                    setting_id: "core.app.language".to_string(),
+                    value: serde_json::Value::String(next_language.to_string()),
+                }],
+                true,
+            )
+            .await
+            .expect("external writer commit");
+        assert_eq!(committed.revision, initial.revision + 1);
+        receive_commit(&mut events, &committed.commit_id).await;
+        let persisted_after_origin = tokio::fs::read(path_manager.app_config_file())
+            .await
+            .expect("origin config bytes");
+        let origin_receipts = committed.apply_receipts.clone();
+        let (apply_sender, mut apply_receiver) = tokio::sync::mpsc::unbounded_channel();
+        let apply: super::super::apply::ConfigApply = Arc::new(move |context| {
+            apply_sender.send(context).expect("capture external apply");
+            Box::pin(async { Ok(()) })
+        });
+        let _registration = super::super::apply::register_config_apply_adapter(
+            "resident-external-i18n-test",
+            vec![super::super::apply::ConfigApplyPathPattern::exact(
+                "app.language",
+            )],
+            super::super::apply::ConfigApplyAdapterCriticality::NonCritical,
+            None,
+            apply,
+        )
+        .expect("register resident adapter");
+
+        assert_eq!(
+            resident.refresh_external_changes().await.expect("refresh"),
+            1
+        );
+        let apply_context =
+            tokio::time::timeout(std::time::Duration::from_secs(2), apply_receiver.recv())
+                .await
+                .expect("resident apply timeout")
+                .expect("resident apply context");
+        assert_eq!(
+            apply_context.origin,
+            super::super::apply::ConfigApplyOrigin::ExternalReconciliation
+        );
+        assert_eq!(apply_context.revision, committed.revision);
+        assert_eq!(apply_context.snapshot.app.language, next_language);
+        assert_eq!(apply_context.changes.len(), 1);
+        assert_eq!(apply_context.changes[0].path, "app.language");
+        let local_apply = wait_for_external_apply_state(
+            "resident-external-i18n-test",
+            super::super::apply::ExternalConfigApplyStatus::Applied,
+        )
+        .await;
+        assert_eq!(local_apply.revision, committed.revision);
+        assert!(local_apply.failure_code.is_none());
+        let external_event = receive_commit(&mut events, &committed.commit_id).await;
+        assert_eq!(external_event.revision, committed.revision);
+        let refreshed = resident.get_snapshot().await.expect("refreshed snapshot");
+        assert_eq!(refreshed.revision, committed.revision);
+        let refreshed_config: GlobalConfig = resident
+            .get_config(None)
+            .await
+            .expect("refreshed resident config");
+        assert_eq!(refreshed_config.app.language, next_language);
+        assert_eq!(
+            resident
+                .refresh_external_changes()
+                .await
+                .expect("no-op poll"),
+            0
+        );
+        assert!(apply_receiver.try_recv().is_err());
+        let persisted_after_reconciliation = tokio::fs::read(path_manager.app_config_file())
+            .await
+            .expect("reconciled config bytes");
+        assert_eq!(persisted_after_reconciliation, persisted_after_origin);
+        let refreshed_commit = resident
+            .get_commit(&committed.commit_id)
+            .await
+            .expect("refreshed commit");
+        assert_eq!(refreshed_commit.apply_receipts, origin_receipts);
+    }
+
+    #[tokio::test]
+    async fn resident_external_apply_failure_is_process_local_and_does_not_rewrite_receipts() {
+        let _apply_test_guard = super::super::apply::acquire_config_apply_test_lock().await;
+        let temp = tempfile::tempdir().expect("tempdir");
+        let path_manager = Arc::new(PathManager::with_user_root_for_tests(
+            temp.path().join("user-root"),
+        ));
+        let resident = ConfigService::with_settings(ConfigManagerSettings {
+            path_manager: Some(path_manager.clone()),
+            ..ConfigManagerSettings::default()
+        })
+        .await
+        .expect("resident service");
+        let writer = ConfigService::with_settings(ConfigManagerSettings {
+            path_manager: Some(path_manager.clone()),
+            ..ConfigManagerSettings::default()
+        })
+        .await
+        .expect("writer service");
+        let current: GlobalConfig = writer.get_config(None).await.expect("writer config");
+        let next_language = if current.app.language == "zh-CN" {
+            "en-US"
+        } else {
+            "zh-CN"
+        };
+        let committed = writer
+            .commit_operations(
+                ConfigChangeSource {
+                    kind: ConfigChangeSourceKind::Manual,
+                    surface: Some("external-config-failure-test".to_string()),
+                    request_id: None,
+                },
+                vec![ConfigPatchOperation::Set {
+                    setting_id: "core.app.language".to_string(),
+                    value: serde_json::Value::String(next_language.to_string()),
+                }],
+                true,
+            )
+            .await
+            .expect("external writer commit");
+        let persisted_after_origin = tokio::fs::read(path_manager.app_config_file())
+            .await
+            .expect("origin config bytes");
+        let origin_receipts = committed.apply_receipts.clone();
+        let apply: super::super::apply::ConfigApply = Arc::new(|context| {
+            assert_eq!(
+                context.origin,
+                super::super::apply::ConfigApplyOrigin::ExternalReconciliation
+            );
+            Box::pin(async { Err(CoreError::service("resident adapter unavailable")) })
+        });
+        let _registration = super::super::apply::register_config_apply_adapter(
+            "resident-external-failure-test",
+            vec![super::super::apply::ConfigApplyPathPattern::exact(
+                "app.language",
+            )],
+            super::super::apply::ConfigApplyAdapterCriticality::NonCritical,
+            None,
+            apply,
+        )
+        .expect("register failing resident adapter");
+
+        assert_eq!(
+            resident.refresh_external_changes().await.expect("refresh"),
+            1
+        );
+        let local_apply = wait_for_external_apply_state(
+            "resident-external-failure-test",
+            super::super::apply::ExternalConfigApplyStatus::Failed,
+        )
+        .await;
+        assert_eq!(local_apply.revision, committed.revision);
+        assert_eq!(
+            local_apply.failure_code.as_deref(),
+            Some("config.external_apply_failed")
+        );
+        assert_eq!(
+            tokio::fs::read(path_manager.app_config_file())
+                .await
+                .expect("config after failed reconciliation"),
+            persisted_after_origin
+        );
+        assert_eq!(
+            resident
+                .get_commit(&committed.commit_id)
+                .await
+                .expect("refreshed commit")
+                .apply_receipts,
+            origin_receipts
+        );
+        assert_eq!(
+            resident
+                .refresh_external_changes()
+                .await
+                .expect("settled refresh"),
+            0
+        );
+    }
+
+    async fn wait_for_external_apply_state(
+        consumer: &str,
+        expected: super::super::apply::ExternalConfigApplyStatus,
+    ) -> super::super::apply::ExternalConfigApplyState {
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            loop {
+                if let Some(state) = super::super::apply::external_config_apply_state(consumer) {
+                    if state.status == expected {
+                        return state;
+                    }
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("external apply state")
+    }
+
+    async fn receive_commit(
+        receiver: &mut super::super::global::ConfigCommitReceiver,
+        commit_id: &str,
+    ) -> sparo_events::ConfigCommittedEvent {
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            loop {
+                let event = receiver.recv().await.expect("config commit event");
+                if event.commit_id == commit_id {
+                    return event;
+                }
+            }
+        })
+        .await
+        .expect("matching config commit event")
     }
 }

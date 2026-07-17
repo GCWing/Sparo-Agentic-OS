@@ -479,7 +479,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
     const loadEditorConfig = async () => {
       try {
-        const config = await configManager.getConfig<EditorConfigType>('editor');
+        const config = await configManager.getSetting<EditorConfigType>('core.editor');
         if (config) {
           applyConfig(config);
         }
@@ -559,7 +559,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           createLineHeight = c.line_height ? Math.round(createFontSize * c.line_height) : 0;
         };
         try {
-          const preloadConfig = await configManager.getConfig<EditorConfigType>('editor');
+          const preloadConfig = await configManager.getSetting<EditorConfigType>('core.editor');
           if (preloadConfig) applyFontConfig(preloadConfig);
           else if (latestEditorConfigRef.current) applyFontConfig(latestEditorConfigRef.current);
         } catch (_) {}
@@ -746,7 +746,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           });
         };
         try {
-          const latestConfig = await configManager.getConfig<EditorConfigType>('editor');
+          const latestConfig = await configManager.getSetting<EditorConfigType>('core.editor');
           if (latestConfig) applyOptionsFromConfig(latestConfig);
           else if (latestEditorConfigRef.current) applyOptionsFromConfig(latestEditorConfigRef.current);
         } catch (_) {}
@@ -757,7 +757,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           if (isUnmountedRef.current || !editorRef.current) return;
           (async () => {
             try {
-              const cfg = await configManager.getConfig<EditorConfigType>('editor') || latestEditorConfigRef.current;
+              const cfg = await configManager.getSetting<EditorConfigType>('core.editor') || latestEditorConfigRef.current;
               if (cfg && editorRef.current) {
                 applyOptionsFromConfig(cfg);
               }
@@ -1221,9 +1221,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       editor.updateOptions({ tabSize, insertSpaces });
     }
     // Async persistence, don't block UI update, don't trigger applyConfig override
-    configManager.getConfig<EditorConfigType>('editor').then((config) => {
+    configManager.getSetting<EditorConfigType>('core.editor').then((config) => {
       const fullMerged = { ...(config || {}), ...merged };
-      return configManager.setConfig('editor', fullMerged);
+      return configManager.setSetting('core.editor', fullMerged);
     }).catch((err) => {
       log.warn('Failed to persist indent config', err);
     });

@@ -298,12 +298,16 @@ async function initializeBeforeRender(): Promise<void> {
 
 /** Rest of startup runs after the shell is visible so refresh latency stays reasonable. */
 async function initializeAfterRender(): Promise<void> {
-  const { fontPreferenceService } = await import('./infrastructure/font-preference');
-  await fontPreferenceService.initialize();
-  log.info('Font preference initialized at startup');
+  try {
+    const { fontPreferenceService } = await import('./infrastructure/font-preference');
+    await fontPreferenceService.initialize();
+    log.info('Font preference initialized at startup');
+  } catch (error) {
+    log.error('Font preference initialization failed', { error });
+  }
 
   const { configManager } = await import('./infrastructure/config');
-  await configManager.getConfig('editor');
+  await configManager.getSetting('core.editor');
   log.info('Editor configuration preloaded');
 
   const initResults = await Promise.allSettled([

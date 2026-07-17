@@ -1,4 +1,6 @@
 .ds-form-section {
+  container-name: ds-form-section;
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   gap: var(--ds-space-4, 16px);
@@ -8,11 +10,39 @@
 .ds-form-field {
   display: grid;
   gap: var(--ds-space-2, 8px);
+  grid-template-areas:
+    'copy'
+    'control'
+    'error';
   min-width: 0;
+
+  &--control-compact {
+    --ds-form-field-columns: minmax(0, 7fr) minmax(0, 3fr);
+  }
+
+  &--control-balanced {
+    --ds-form-field-columns: minmax(0, 2fr) minmax(0, 3fr);
+  }
+
+  &--control-wide {
+    --ds-form-field-columns: minmax(0, 1fr) minmax(0, 4fr);
+  }
+
+  &--horizontal {
+    align-items: start;
+    column-gap: var(--ds-space-4, 16px);
+    grid-template-areas:
+      'copy control'
+      '. error';
+    grid-template-columns: var(--ds-form-field-columns);
+    row-gap: var(--ds-space-2, 8px);
+  }
 
   &__copy {
     display: grid;
     gap: var(--ds-space-1, 4px);
+    grid-area: copy;
+    min-width: 0;
   }
 
   &__label {
@@ -33,11 +63,23 @@
   }
 
   &__control {
+    grid-area: control;
     min-width: 0;
   }
 
   &__error {
     font-size: var(--ds-font-size-xs, 12px);
+    grid-area: error;
+  }
+}
+
+@container ds-form-section (max-width: 520px) {
+  .ds-form-field--horizontal {
+    grid-template-areas:
+      'copy'
+      'control'
+      'error';
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

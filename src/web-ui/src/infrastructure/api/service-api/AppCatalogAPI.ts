@@ -272,6 +272,7 @@ export interface ProductAppCatalogEntry extends AppDefinition {
   componentLockDigest: string;
   packageDigest?: string | null;
   updateAvailable?: boolean;
+  availableVersion?: string | null;
   installedComponentLockDigest?: string | null;
   availableComponentLockDigest?: string | null;
   installedPackageDigest?: string | null;
@@ -593,6 +594,7 @@ function projectLifecycleEntry(
     upstreamUpdateAvailable: variant.upstreamUpdateAvailable,
     upstreamLatestReleaseId: variant.upstreamLatestReleaseId ?? null,
     version: installedRelease?.version ?? release.version,
+    availableVersion: release.version,
     name: variant.app.displayName,
     description: variant.app.description ?? '',
     interactionModel: isInteractive ? 'interactiveWorkspace' : 'conversation',

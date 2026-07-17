@@ -43,8 +43,8 @@ export const useDialogCompletionNotify = () => {
       }
 
       try {
-        const enabled = await configManager.getConfig<boolean>(
-          'app.notifications.dialog_completion_notify'
+        const enabled = await configManager.getSetting<boolean>(
+          'core.app.notifications.dialog_completion_notify'
         );
         if (enabled === false) {
           return;

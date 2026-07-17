@@ -2,6 +2,8 @@
 
 use crate::api::AppState;
 use log::warn;
+use sparo_core::service::config::catalog::SETTING_AI_DEFAULT_SPEECH_RECOGNITION;
+use sparo_core::service::config::ConfigPatchOperation;
 use sparo_core::service::config::DefaultModelsConfig;
 use sparo_core::service::{
     SpeechAppendAudioChunkRequest, SpeechAppendAudioChunkResponse, SpeechCancelInputSessionRequest,
@@ -10,6 +12,7 @@ use sparo_core::service::{
     SpeechModelProgressEvent, SpeechModelStatus, SpeechStartInputSessionRequest,
     SpeechTranscriptionResult, SpeechVerifyModelRequest, LOCAL_SENSEVOICE_SMALL_INT8_MODEL_REF,
 };
+use sparo_events::{ConfigChangeSource, ConfigChangeSourceKind};
 use tauri::{AppHandle, Emitter, State};
 
 pub const EVENT_SPEECH_MODEL_PROGRESS: &str = "speech://model-download-progress";
@@ -150,22 +153,39 @@ fn emit_status(app: &AppHandle, status: &SpeechModelStatus) {
 }
 
 async fn sync_default_speech_model_after_install(state: &State<'_, AppState>) {
-    let Ok(mut defaults) = state
+    let defaults = match state
         .config_service
         .get_config::<DefaultModelsConfig>(Some("ai.default_models"))
         .await
-    else {
-        return;
+    {
+        Ok(defaults) => defaults,
+        Err(error) => {
+            warn!(
+                "Skipping default speech model synchronization because configuration is unavailable: error={}",
+                error
+            );
+            return;
+        }
     };
 
     if defaults.speech_recognition.is_some() {
         return;
     }
 
-    defaults.speech_recognition = Some(LOCAL_SENSEVOICE_SMALL_INT8_MODEL_REF.to_string());
     if let Err(e) = state
         .config_service
-        .set_config("ai.default_models", &defaults)
+        .commit_operations(
+            ConfigChangeSource {
+                kind: ConfigChangeSourceKind::System,
+                surface: Some("speech-model-install".to_string()),
+                request_id: None,
+            },
+            vec![ConfigPatchOperation::Set {
+                setting_id: SETTING_AI_DEFAULT_SPEECH_RECOGNITION.to_string(),
+                value: serde_json::json!(LOCAL_SENSEVOICE_SMALL_INT8_MODEL_REF),
+            }],
+            true,
+        )
         .await
     {
         warn!("Failed to set default speech recognition model: {}", e);
@@ -173,22 +193,38 @@ async fn sync_default_speech_model_after_install(state: &State<'_, AppState>) {
 }
 
 async fn clear_default_speech_model_if_local(state: &State<'_, AppState>) {
-    let Ok(mut defaults) = state
+    let defaults = match state
         .config_service
         .get_config::<DefaultModelsConfig>(Some("ai.default_models"))
         .await
-    else {
-        return;
+    {
+        Ok(defaults) => defaults,
+        Err(error) => {
+            warn!(
+                "Skipping default speech model cleanup because configuration is unavailable: error={}",
+                error
+            );
+            return;
+        }
     };
 
     if defaults.speech_recognition.as_deref() != Some(LOCAL_SENSEVOICE_SMALL_INT8_MODEL_REF) {
         return;
     }
 
-    defaults.speech_recognition = None;
     if let Err(e) = state
         .config_service
-        .set_config("ai.default_models", &defaults)
+        .commit_operations(
+            ConfigChangeSource {
+                kind: ConfigChangeSourceKind::System,
+                surface: Some("speech-model-delete".to_string()),
+                request_id: None,
+            },
+            vec![ConfigPatchOperation::Reset {
+                setting_id: SETTING_AI_DEFAULT_SPEECH_RECOGNITION.to_string(),
+            }],
+            true,
+        )
         .await
     {
         warn!("Failed to clear default speech recognition model: {}", e);

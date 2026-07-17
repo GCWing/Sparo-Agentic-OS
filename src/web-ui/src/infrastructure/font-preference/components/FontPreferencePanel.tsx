@@ -8,64 +8,159 @@ import {
   SegmentedControl,
   Switch,
 } from '@/design-system';
-import { ConfigPageRow, ConfigPageSection } from '@/infrastructure/config/components/common';
+import {
+  ConfigPageLoading,
+  ConfigPageMessage,
+  ConfigPageRow,
+  ConfigPageSection,
+} from '@/infrastructure/config/components/common';
 import { useFontPreference } from '../hooks/useFontPreference';
-import { FontSizeLevel, PRESET_UI_BASE_PX, UI_FONT_SIZE_PRESETS } from '../types';
+import {
+  type FontPreference,
+  type FontSizeLevel,
+  PRESET_UI_BASE_PX,
+  UI_FONT_SIZE_PRESETS,
+} from '../types';
 import './FontPreferencePanel.scss';
 
 const UI_LEVELS: Array<Exclude<FontSizeLevel, 'custom'>> = ['compact', 'small', 'default', 'medium', 'large'];
 const FONT_SIZE_MIN_PX = 12;
 const FONT_SIZE_MAX_PX = 20;
-const DEFAULT_CUSTOM_FONT_PX = 14;
-
-function clampFontPx(value: string, fallback: number): number {
-  const parsed = parseInt(value, 10);
-  if (Number.isNaN(parsed)) return fallback;
-  return Math.max(FONT_SIZE_MIN_PX, Math.min(FONT_SIZE_MAX_PX, parsed));
+function clampFontPx(value: number): number {
+  return Math.max(FONT_SIZE_MIN_PX, Math.min(FONT_SIZE_MAX_PX, Math.round(value)));
 }
 
-export function FontPreferencePanel() {
+function resolveUiBasePx(preference: FontPreference): number {
+  if (preference.uiSize.level !== 'custom') {
+    return PRESET_UI_BASE_PX[preference.uiSize.level];
+  }
+  if (preference.uiSize.customPx === null) {
+    throw new Error('Custom UI font size is missing from the accepted font snapshot');
+  }
+  return preference.uiSize.customPx;
+}
+
+export interface FontPreferencePanelProps {
+  /** Undefined renders the complete manual font section. */
+  settingIds?: readonly string[];
+}
+
+function includesFontSetting(
+  settingIds: readonly string[] | undefined,
+  namespace: string,
+): boolean {
+  return settingIds === undefined || settingIds.some(
+    (settingId) => settingId === namespace || settingId.startsWith(`${namespace}.`),
+  );
+}
+
+export function FontPreferencePanel({ settingIds }: FontPreferencePanelProps = {}) {
   const { t } = useTranslation('settings/appearance');
-  const { preference, setUiSize, setFlowChatFont, setMarkdownEditorFont, reset } = useFontPreference();
+  const { t: tCommon } = useTranslation('common');
+  const fontPreference = useFontPreference();
+  const showUiSize = includesFontSetting(settingIds, 'core.font.ui_size');
+  const showFlowChat = includesFontSetting(settingIds, 'core.font.flow_chat');
+  const showMarkdownEditor = includesFontSetting(settingIds, 'core.font.markdown_editor');
 
-  const { level, customPx } = preference.uiSize;
-  const [customInput, setCustomInput] = useState<string>(String(customPx ?? 14));
-  const [fcBaseInput, setFcBaseInput] = useState<string>(String(preference.flowChat.basePx ?? 14));
-  const [mdBaseInput, setMdBaseInput] = useState<string>(String(preference.markdownEditor.basePx ?? 14));
+  if (!showUiSize && !showFlowChat && !showMarkdownEditor) {
+    return null;
+  }
+
+  if (fontPreference.loading || (!fontPreference.initialized && !fontPreference.error)) {
+    return (
+      <ConfigPageSection title={t('appearance.fontSize.title')}>
+        <ConfigPageLoading text={t('appearance.fontSize.loading')} />
+      </ConfigPageSection>
+    );
+  }
+
+  if (fontPreference.error || !fontPreference.preference) {
+    return (
+      <ConfigPageSection title={t('appearance.fontSize.title')}>
+        <ConfigPageMessage
+          message={{ type: 'error', text: t('appearance.fontSize.loadFailed') }}
+        />
+        <Button variant="secondary" size="small" onClick={() => void fontPreference.retry()}>
+          {tCommon('actions.retry')}
+        </Button>
+      </ConfigPageSection>
+    );
+  }
+
+  return (
+    <FontPreferenceControls
+      preference={fontPreference.preference}
+      setUiSize={fontPreference.setUiSize}
+      setFlowChatFont={fontPreference.setFlowChatFont}
+      setMarkdownEditorFont={fontPreference.setMarkdownEditorFont}
+      reset={fontPreference.reset}
+      showUiSize={showUiSize}
+      showFlowChat={showFlowChat}
+      showMarkdownEditor={showMarkdownEditor}
+      showReset={settingIds === undefined}
+    />
+  );
+}
+
+interface FontPreferenceControlsProps {
+  preference: FontPreference;
+  setUiSize: ReturnType<typeof useFontPreference>['setUiSize'];
+  setFlowChatFont: ReturnType<typeof useFontPreference>['setFlowChatFont'];
+  setMarkdownEditorFont: ReturnType<typeof useFontPreference>['setMarkdownEditorFont'];
+  reset: ReturnType<typeof useFontPreference>['reset'];
+  showUiSize: boolean;
+  showFlowChat: boolean;
+  showMarkdownEditor: boolean;
+  showReset: boolean;
+}
+
+function FontPreferenceControls({
+  preference,
+  setUiSize,
+  setFlowChatFont,
+  setMarkdownEditorFont,
+  reset,
+  showUiSize,
+  showFlowChat,
+  showMarkdownEditor,
+  showReset,
+}: FontPreferenceControlsProps) {
+  const { t } = useTranslation('settings/appearance');
+
+  const { level } = preference.uiSize;
+  const authoritativeUiBasePx = resolveUiBasePx(preference);
+  const [customInput, setCustomInput] = useState<number>(authoritativeUiBasePx);
+  const [fcBaseInput, setFcBaseInput] = useState<number>(
+    preference.flowChat.basePx ?? authoritativeUiBasePx,
+  );
+  const [mdBaseInput, setMdBaseInput] = useState<number>(
+    preference.markdownEditor.basePx ?? authoritativeUiBasePx,
+  );
 
   useEffect(() => {
-    if (preference.flowChat.mode === 'independent') {
-      setFcBaseInput(String(preference.flowChat.basePx ?? 14));
-    }
-  }, [preference.flowChat.mode, preference.flowChat.basePx]);
+    setCustomInput(authoritativeUiBasePx);
+  }, [authoritativeUiBasePx]);
 
   useEffect(() => {
-    if (preference.markdownEditor.mode === 'independent') {
-      setMdBaseInput(String(preference.markdownEditor.basePx ?? 14));
-    }
-  }, [preference.markdownEditor.mode, preference.markdownEditor.basePx]);
+    setFcBaseInput(preference.flowChat.basePx ?? authoritativeUiBasePx);
+  }, [authoritativeUiBasePx, preference.flowChat.basePx]);
 
-  /** Legacy "sync" mode removed from UI: normalize to lift (UI +1). */
   useEffect(() => {
-    if (preference.flowChat.mode === 'sync') {
-      void setFlowChatFont('lift');
-    }
-  }, [preference.flowChat.mode, setFlowChatFont]);
+    setMdBaseInput(preference.markdownEditor.basePx ?? authoritativeUiBasePx);
+  }, [authoritativeUiBasePx, preference.markdownEditor.basePx]);
 
   /** Baseline px currently applied in the UI (preset level or custom). */
   const getEffectiveUiBasePx = useCallback((): number => {
     if (level === 'custom') {
-      const n = parseInt(customInput, 10);
-      if (!isNaN(n) && n >= 12 && n <= 20) return n;
-      return customPx ?? 14;
+      return clampFontPx(customInput);
     }
     return PRESET_UI_BASE_PX[level];
-  }, [level, customInput, customPx]);
+  }, [customInput, level]);
 
   const handleLevelClick = useCallback(async (l: FontSizeLevel) => {
     if (l === 'custom') {
       const px = getEffectiveUiBasePx();
-      setCustomInput(String(px));
+      setCustomInput(px);
       await setUiSize('custom', px);
     } else {
       await setUiSize(l);
@@ -73,37 +168,25 @@ export function FontPreferencePanel() {
   }, [getEffectiveUiBasePx, setUiSize]);
 
   const handleCustomPxChange = (next: number) => {
-    setCustomInput(String(next));
-    void setUiSize('custom', next);
+    const clamped = clampFontPx(next);
+    setCustomInput(clamped);
+    void setUiSize('custom', clamped);
   };
 
   const handleReset = async () => {
     await reset();
-    setCustomInput('14');
-    setFcBaseInput('14');
-    setMdBaseInput('14');
   };
 
   const previewBasePx = level === 'custom'
-    ? (parseInt(customInput, 10) || 14)
-    : parseInt(UI_FONT_SIZE_PRESETS[level].base, 10);
+    ? customInput
+    : PRESET_UI_BASE_PX[level];
 
-  const customLevelLabelPx = (() => {
-    if (level !== 'custom') return 14;
-    const n = parseInt(customInput, 10);
-    return !isNaN(n) && n >= 12 && n <= 20 ? n : 14;
-  })();
+  const customLevelLabelPx = customInput;
 
   const fcIndependent = preference.flowChat.mode === 'independent';
   const mdIndependent = preference.markdownEditor.mode === 'independent';
-  const flowChatPxValue = (() => {
-    const n = parseInt(fcBaseInput, 10);
-    return n >= 12 && n <= 20 ? n : 14;
-  })();
-  const markdownEditorPxValue = (() => {
-    const n = parseInt(mdBaseInput, 10);
-    return n >= 12 && n <= 20 ? n : 14;
-  })();
+  const flowChatPxValue = clampFontPx(fcBaseInput);
+  const markdownEditorPxValue = clampFontPx(mdBaseInput);
 
   const uiLevelOptions = useMemo(
     () =>
@@ -123,24 +206,24 @@ export function FontPreferencePanel() {
 
   const handleFlowChatCustomToggle = (enabled: boolean) => {
     if (enabled) {
-      const v = clampFontPx(fcBaseInput, DEFAULT_CUSTOM_FONT_PX);
-      setFcBaseInput(String(v));
+      const v = clampFontPx(fcBaseInput);
+      setFcBaseInput(v);
       void setFlowChatFont('independent', v);
     } else {
-      void setFlowChatFont('lift');
+      void setFlowChatFont('sync');
     }
   };
 
   const handleFlowChatPxChange = useCallback((next: number) => {
-    const clamped = Math.max(FONT_SIZE_MIN_PX, Math.min(FONT_SIZE_MAX_PX, next));
-    setFcBaseInput(String(clamped));
+    const clamped = clampFontPx(next);
+    setFcBaseInput(clamped);
     void setFlowChatFont('independent', clamped);
   }, [setFlowChatFont]);
 
   const handleMarkdownEditorCustomToggle = (enabled: boolean) => {
     if (enabled) {
-      const v = clampFontPx(mdBaseInput, DEFAULT_CUSTOM_FONT_PX);
-      setMdBaseInput(String(v));
+      const v = clampFontPx(mdBaseInput);
+      setMdBaseInput(v);
       void setMarkdownEditorFont('independent', v);
     } else {
       void setMarkdownEditorFont('sync');
@@ -148,8 +231,8 @@ export function FontPreferencePanel() {
   };
 
   const handleMarkdownEditorPxChange = useCallback((next: number) => {
-    const clamped = Math.max(FONT_SIZE_MIN_PX, Math.min(FONT_SIZE_MAX_PX, next));
-    setMdBaseInput(String(clamped));
+    const clamped = clampFontPx(next);
+    setMdBaseInput(clamped);
     void setMarkdownEditorFont('independent', clamped);
   }, [setMarkdownEditorFont]);
 
@@ -212,104 +295,107 @@ export function FontPreferencePanel() {
     <ConfigPageSection
       title={t('appearance.fontSize.title')}
     >
-      {/* UI Font Size */}
-      <ConfigPageRow
-        className="font-pref-panel__row--ui"
-        label={t('appearance.fontSize.uiSizeLabel')}
-        description={t('appearance.fontSize.uiSizeHint')}
-        align="start"
-        multiline
-      >
-        <div className="font-pref-panel__ui-size">
-          <div className="font-pref-panel__ui-segment-block">
-            <div className="font-pref-panel__level-controls">
-              <SegmentedControl
-                className="font-pref-panel__level-segments"
-                size="small"
-                value={level}
-                onChange={(next) => void handleLevelClick(next as FontSizeLevel)}
-                ariaLabel={t('appearance.fontSize.uiSizeLabel')}
-                options={uiLevelOptions}
-              />
-              {level === 'custom' && (
-                <NumberField
-                  className="font-pref-panel__custom-number"
-                  value={customLevelLabelPx}
-                  min={12}
-                  max={20}
-                  step={1}
-                  unit="px"
+      {showUiSize ? (
+        <ConfigPageRow
+          className="font-pref-panel__row--ui"
+          label={t('appearance.fontSize.uiSizeLabel')}
+          description={t('appearance.fontSize.uiSizeHint')}
+          align="start"
+          multiline
+        >
+          <div className="font-pref-panel__ui-size">
+            <div className="font-pref-panel__ui-segment-block">
+              <div className="font-pref-panel__level-controls">
+                <SegmentedControl
+                  className="font-pref-panel__level-segments"
                   size="small"
-                  variant="stepper"
-                  onChange={handleCustomPxChange}
-                  label={t('appearance.fontSize.customPxLabel')}
-                  increaseAriaLabel="+1"
-                  decreaseAriaLabel="-1"
+                  value={level}
+                  onChange={(next) => void handleLevelClick(next as FontSizeLevel)}
+                  ariaLabel={t('appearance.fontSize.uiSizeLabel')}
+                  options={uiLevelOptions}
                 />
-              )}
+                {level === 'custom' && (
+                  <NumberField
+                    className="font-pref-panel__custom-number"
+                    value={customLevelLabelPx}
+                    min={12}
+                    max={20}
+                    step={1}
+                    unit="px"
+                    size="small"
+                    variant="stepper"
+                    onChange={handleCustomPxChange}
+                    label={t('appearance.fontSize.customPxLabel')}
+                    increaseAriaLabel="+1"
+                    decreaseAriaLabel="-1"
+                  />
+                )}
+              </div>
+            </div>
+
+            <div
+              className="font-pref-panel__preview"
+              style={{ fontSize: `${previewBasePx}px` }}
+              aria-label="Font size preview"
+            >
+              {t('appearance.fontSize.previewText')}
             </div>
           </div>
+        </ConfigPageRow>
+      ) : null}
 
-          {/* Live preview */}
-          <div
-            className="font-pref-panel__preview"
-            style={{ fontSize: `${previewBasePx}px` }}
-            aria-label="Font size preview"
-          >
-            {t('appearance.fontSize.previewText')}
-          </div>
-        </div>
-      </ConfigPageRow>
-
-      {/* Flow chat font scale */}
-      <ConfigPageRow
-        className="font-pref-panel__row--flow-chat"
-        label={t('appearance.fontSize.flowChatLabel')}
-        description={t('appearance.fontSize.flowChatHint')}
-        align="center"
-      >
-        <div className="font-pref-panel__flow-chat">
-          {renderExpandableFontControl({
-            enabled: fcIndependent,
-            value: flowChatPxValue,
-            toggleLabel: t('appearance.fontSize.flowChatCustomToggle'),
-            inputLabel: t('appearance.fontSize.customPxLabel'),
-            onToggle: handleFlowChatCustomToggle,
-            onValueChange: handleFlowChatPxChange,
-          })}
-        </div>
-      </ConfigPageRow>
-
-      {/* Markdown editor font scale */}
-      <ConfigPageRow
-        className="font-pref-panel__row--markdown-editor"
-        label={t('appearance.fontSize.markdownEditorLabel')}
-        description={t('appearance.fontSize.markdownEditorHint')}
-        align="center"
-      >
-        <div className="font-pref-panel__flow-chat">
-          {renderExpandableFontControl({
-            enabled: mdIndependent,
-            value: markdownEditorPxValue,
-            toggleLabel: t('appearance.fontSize.markdownEditorCustomToggle'),
-            inputLabel: t('appearance.fontSize.customPxLabel'),
-            onToggle: handleMarkdownEditorCustomToggle,
-            onValueChange: handleMarkdownEditorPxChange,
-          })}
-        </div>
-      </ConfigPageRow>
-
-      {/* Reset */}
-      <ConfigPageRow label="" align="center">
-        <Button
-          variant="secondary"
-          size="small"
-          className="font-pref-panel__reset-action"
-          onClick={() => void handleReset()}
+      {showFlowChat ? (
+        <ConfigPageRow
+          className="font-pref-panel__row--flow-chat"
+          label={t('appearance.fontSize.flowChatLabel')}
+          description={t('appearance.fontSize.flowChatHint')}
+          align="center"
         >
-          {t('appearance.fontSize.resetButton')}
-        </Button>
-      </ConfigPageRow>
+          <div className="font-pref-panel__flow-chat">
+            {renderExpandableFontControl({
+              enabled: fcIndependent,
+              value: flowChatPxValue,
+              toggleLabel: t('appearance.fontSize.flowChatCustomToggle'),
+              inputLabel: t('appearance.fontSize.customPxLabel'),
+              onToggle: handleFlowChatCustomToggle,
+              onValueChange: handleFlowChatPxChange,
+            })}
+          </div>
+        </ConfigPageRow>
+      ) : null}
+
+      {showMarkdownEditor ? (
+        <ConfigPageRow
+          className="font-pref-panel__row--markdown-editor"
+          label={t('appearance.fontSize.markdownEditorLabel')}
+          description={t('appearance.fontSize.markdownEditorHint')}
+          align="center"
+        >
+          <div className="font-pref-panel__flow-chat">
+            {renderExpandableFontControl({
+              enabled: mdIndependent,
+              value: markdownEditorPxValue,
+              toggleLabel: t('appearance.fontSize.markdownEditorCustomToggle'),
+              inputLabel: t('appearance.fontSize.customPxLabel'),
+              onToggle: handleMarkdownEditorCustomToggle,
+              onValueChange: handleMarkdownEditorPxChange,
+            })}
+          </div>
+        </ConfigPageRow>
+      ) : null}
+
+      {showReset ? (
+        <ConfigPageRow label="" align="center">
+          <Button
+            variant="secondary"
+            size="small"
+            className="font-pref-panel__reset-action"
+            onClick={() => void handleReset()}
+          >
+            {t('appearance.fontSize.resetButton')}
+          </Button>
+        </ConfigPageRow>
+      ) : null}
     </ConfigPageSection>
   );
 }

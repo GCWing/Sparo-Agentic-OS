@@ -203,6 +203,22 @@
   }
 }
 
+button.compact-card-status-icon {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  appearance: none;
+
+  &:focus-visible {
+    border-radius: var(--ds-radius-xs);
+    outline: 2px solid var(--ds-chat-accent);
+    outline-offset: 2px;
+  }
+}
+
 .compact-card-status-icon__main {
   display: flex;
   align-items: center;

@@ -9,6 +9,7 @@ import {
   FolderOpen,
   FolderPlus,
   ChevronDown,
+  ChevronRight,
   Check,
   Orbit,
   AppWindow,
@@ -39,6 +40,7 @@ import './WelcomePanel.css';
 const log = createLogger('WelcomePanel');
 
 type AppBuilderPromptId = 'starter' | 'dashboard' | 'polish' | 'debug';
+type SettingsPromptId = 'largerText' | 'fewerConfirmations' | 'debugLogging';
 
 interface AppBuilderPrompt {
   id: AppBuilderPromptId;
@@ -50,6 +52,12 @@ const APP_BUILDER_PROMPTS: AppBuilderPrompt[] = [
   { id: 'dashboard', icon: Gauge },
   { id: 'polish', icon: Palette },
   { id: 'debug', icon: Bug },
+];
+
+const SETTINGS_PROMPTS: readonly SettingsPromptId[] = [
+  'largerText',
+  'fewerConfirmations',
+  'debugLogging',
 ];
 
 interface WelcomePanelProps {
@@ -142,7 +150,8 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
     return { title: t('welcome.greetingNight'), subtitle: t(`welcome.subtitleNight${s}`) };
   }, [t, welcome.keySuffix]);
 
-  const tagline = greeting.subtitle;
+  const heading = welcome.headingKey ? t(welcome.headingKey) : greeting.title;
+  const tagline = welcome.taglineKey ? t(welcome.taglineKey) : greeting.subtitle;
   const aiPartnerKey = welcome.aiPartnerKey;
 
   const selectedWorkspaceTarget = useMemo<WelcomeWorkspaceTarget | null>(() => {
@@ -292,7 +301,8 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
     onQuickAction?.(cmd);
   }, [onQuickAction]);
 
-  const showHeadingPartner = welcome.headingMode !== 'greeting-only';
+  const showHeadingPartner = !welcome.headingKey && welcome.headingMode !== 'greeting-only';
+  const isSettingsWelcome = welcome.promptPanel === 'settings';
   const noWorkspaceHintKey = welcome.workspaceCopy === 'runno'
     ? 'welcome.noWorkspaceHintRunno'
     : 'welcome.noWorkspaceHint';
@@ -318,7 +328,13 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
         : 'welcome.project';
 
   return (
-    <div className={`welcome-panel ${className}`}>
+    <div
+      className={[
+        'welcome-panel',
+        isSettingsWelcome && 'welcome-panel--settings',
+        className,
+      ].filter(Boolean).join(' ')}
+    >
       <div className="welcome-panel__content">
         {/* Greeting */}
         <div className="welcome-panel__greeting">
@@ -331,7 +347,7 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
                   <span className="welcome-panel__heading-icon" aria-hidden>
                     <Orbit size={30} strokeWidth={2} />
                   </span>
-                  {greeting.title}
+                  {heading}
                 </>
               ) : welcome.headingIcon === 'app-builder' ? (
                 <>
@@ -339,17 +355,17 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
                     <AppBuilderGlyph size={28} strokeWidth={1.5} />
                   </span>
                   {showHeadingPartner ? (
-                    <>{greeting.title}，{t(aiPartnerKey)}</>
+                    <>{heading}，{t(aiPartnerKey)}</>
                   ) : (
-                    greeting.title
+                    heading
                   )}
                 </>
               ) : (
                 <>
                   {showHeadingPartner ? (
-                    <>{greeting.title}，{t(aiPartnerKey)}</>
+                    <>{heading}，{t(aiPartnerKey)}</>
                   ) : (
-                    greeting.title
+                    heading
                   )}
                 </>
               )}
@@ -533,6 +549,42 @@ export const WelcomePanel: React.FC<WelcomePanelProps> = ({
                   </Button>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {welcome.promptPanel === 'settings' && (
+          <div className="welcome-panel__settings-prompts">
+            <div className="welcome-panel__settings-prompts-head">
+              <span className="welcome-panel__settings-prompts-title">
+                {t('welcome.settingsPrompts.title')}
+              </span>
+            </div>
+            <div className="welcome-panel__settings-prompts-list">
+              {SETTINGS_PROMPTS.map((promptId) => (
+                <Button
+                  key={promptId}
+                  type="button"
+                  variant="ghost"
+                  size="small"
+                  className="welcome-panel__settings-prompt"
+                  onClick={() => handleQuickActionClick(
+                    t(`welcome.settingsPrompts.items.${promptId}.prompt`),
+                  )}
+                >
+                  <span className="welcome-panel__settings-prompt-copy">
+                    <span className="welcome-panel__settings-prompt-title">
+                      {t(`welcome.settingsPrompts.items.${promptId}.title`)}
+                    </span>
+                    <span className="welcome-panel__settings-prompt-description">
+                      {t(`welcome.settingsPrompts.items.${promptId}.description`)}
+                    </span>
+                  </span>
+                  <span className="welcome-panel__settings-prompt-arrow" aria-hidden>
+                    <ChevronRight size={16} />
+                  </span>
+                </Button>
+              ))}
             </div>
           </div>
         )}

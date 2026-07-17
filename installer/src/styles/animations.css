@@ -15,10 +15,6 @@
   to   { opacity: 1; }
 }
 
-@keyframes scaleIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
 @keyframes spin {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
@@ -28,37 +24,6 @@
 @keyframes orbitSpinSlow {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
-}
-
-@keyframes orbitSpinReverse {
-  from { transform: rotate(360deg); }
-  to   { transform: rotate(0deg); }
-}
-
-/* Satellite live-pulse (orbit-pulse) */
-@keyframes orbitPulse {
-  0%, 100% { opacity: 0.6; transform: scale(1); }
-  50%       { opacity: 1;   transform: scale(1.15); }
-}
-
-/* Ignition node ripple — used once at Act 2 complete */
-@keyframes ignitionPulse {
-  0%   { box-shadow: 0 0 0 0   rgba(183, 55, 47, 0.5); }
-  70%  { box-shadow: 0 0 0 14px rgba(183, 55, 47, 0); }
-  100% { box-shadow: 0 0 0 0   rgba(183, 55, 47, 0); }
-}
-
-/* Central node breathing during install */
-@keyframes nodeBreath {
-  0%, 100% { opacity: 0.55; transform: scale(1); }
-  50%       { opacity: 1;   transform: scale(1.25); }
-}
-
-/* Orbit track color flash on ignition */
-@keyframes orbitFlash {
-  0%   { opacity: 1; }
-  40%  { opacity: 0.7; }
-  100% { opacity: 1; }
 }
 
 /* Progress bar "ignition" glow — fires once when install completes */
@@ -73,14 +38,6 @@
   from { opacity: 0; transform: scale(0.94); }
   to   { opacity: 1; transform: scale(1); }
 }
-
-/* Stagger children */
-.stagger-children > * { opacity: 0; animation: fadeIn 0.4s ease forwards; }
-.stagger-children > *:nth-child(1) { animation-delay:   0ms; }
-.stagger-children > *:nth-child(2) { animation-delay:  60ms; }
-.stagger-children > *:nth-child(3) { animation-delay: 120ms; }
-.stagger-children > *:nth-child(4) { animation-delay: 180ms; }
-.stagger-children > *:nth-child(5) { animation-delay: 240ms; }
 
 /* --- Reduced-motion overrides --- */
 @media (prefers-reduced-motion: reduce) {

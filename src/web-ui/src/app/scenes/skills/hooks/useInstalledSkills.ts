@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useTranslation } from 'react-i18next';
 import { configAPI } from '@/infrastructure/api';
+import { agentAPI } from '@/infrastructure/api/service-api/AgentAPI';
 import type {
   AgentSkillInfo,
   SkillInfo,
@@ -83,10 +84,10 @@ export function useInstalledSkills({
 
   useEffect(() => {
     let cancelled = false;
-    void configAPI.getAgentCapabilityConfigs()
-      .then((configs) => {
+    void agentAPI.listAgents()
+      .then((agents) => {
         if (cancelled) return;
-        const ids = Object.keys(configs).sort((left, right) => left.localeCompare(right));
+        const ids = agents.map(agent => agent.id).sort((left, right) => left.localeCompare(right));
         setAgentIds(ids);
         setSelectedAgentId(current => (
           current && ids.includes(current)

@@ -5,12 +5,12 @@ import type { SessionMetadata } from '@/shared/types/session-history';
 import { FlowChatStore } from './FlowChatStore';
 
 const mocks = vi.hoisted(() => ({
-  getConfig: vi.fn(),
+  getSetting: vi.fn(),
 }));
 
 vi.mock('@/infrastructure/config/services/ConfigManager', () => ({
   configManager: {
-    getConfig: mocks.getConfig,
+    getSetting: mocks.getSetting,
   },
 }));
 
@@ -35,14 +35,14 @@ function createMetadata(index: number): SessionMetadata {
 describe('FlowChatStore metadata hydration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.getConfig.mockImplementation(async (path: string) => {
-      if (path === 'ai.models') {
+    mocks.getSetting.mockImplementation(async (path: string) => {
+      if (path === 'core.ai.models') {
         return [
           { id: 'primary-model', name: 'Primary Model', context_window: 128128 },
           { id: 'fast-model', name: 'Fast Model', context_window: 64000 },
         ];
       }
-      if (path === 'ai.default_models') {
+      if (path === 'core.ai.default_models') {
         return { primary: 'primary-model' };
       }
       return undefined;
@@ -72,8 +72,19 @@ describe('FlowChatStore metadata hydration', () => {
 
     expect(inserted).toBe(100);
     expect(notificationCount).toBe(1);
-    expect(mocks.getConfig).toHaveBeenCalledTimes(2);
+    expect(mocks.getSetting).toHaveBeenCalledTimes(2);
     expect(store.getState().sessions.get('bulk-session-0')?.maxContextTokens).toBe(64000);
     expect(store.getState().sessions.get('bulk-session-1')?.maxContextTokens).toBe(128128);
+  });
+
+  it('clears local history warm state when a managed session is detached', () => {
+    const store = FlowChatStore.getInstance();
+    store.createSession('managed-session', { storageScope: 'agentic_os' });
+    store.markSessionHistoryWarmed('managed-session');
+
+    store.removeSession('managed-session');
+
+    expect(store.hasSessionHistoryWarmed('managed-session')).toBe(false);
+    expect(store.getState().sessions.has('managed-session')).toBe(false);
   });
 });

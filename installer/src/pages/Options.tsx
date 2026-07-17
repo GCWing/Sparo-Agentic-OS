@@ -2,7 +2,8 @@ import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
-import { IgniteButton } from '../components/brand/IgniteButton';
+import { IgniteButton } from '../components/brand';
+import { InstallErrorPanel } from '../components/InstallErrorPanel';
 import type { InstallOptions, DiskSpaceInfo, InstallPathValidation } from '../types/installer';
 
 interface OptionsProps {
@@ -152,18 +153,7 @@ export function Options({
               </button>
             </div>
             {pathError ? (
-              <div
-                style={{
-                  marginTop: 6,
-                  fontSize: 11,
-                  color: 'var(--print)',
-                  textDecoration: 'underline',
-                  textUnderlineOffset: '2px',
-                  lineHeight: 1.5,
-                }}
-              >
-                {pathError}
-              </div>
+              <InstallErrorPanel message={pathError} />
             ) : diskSpace ? (
               <div
                 style={{

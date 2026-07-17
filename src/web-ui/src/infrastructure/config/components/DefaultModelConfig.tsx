@@ -10,7 +10,7 @@ import { Select, CubeLoading, type SelectOption } from '@/design-system';
 import { notificationService } from '@/shared/notification-system';
 import { configManager } from '../services/ConfigManager';
 import { getProviderDisplayName } from '../services/modelConfigs';
-import { getEffectiveReasoningMode, isReasoningVisiblyEnabled } from '../utils/reasoning';
+import { isReasoningVisiblyEnabled } from '../utils/reasoning';
 import type {
   AIModelConfig,
   DefaultModels,
@@ -48,8 +48,8 @@ export const DefaultModelConfig: React.FC = () => {
       setLoading(true);
 
       const [allModels, defaultModelsConfig] = await Promise.all([
-        configManager.getConfig<AIModelConfig[]>('ai.models') || [],
-        configManager.getConfig<any>('ai.default_models') || {},
+        configManager.getSetting<AIModelConfig[]>('core.ai.models') || [],
+        configManager.getSetting<any>('core.ai.default_models') || {},
       ]);
 
       setModels(allModels);
@@ -69,10 +69,10 @@ export const DefaultModelConfig: React.FC = () => {
   useEffect(() => {
     void loadData();
 
-    const unsubscribeModels = configManager.watch('ai.models', () => {
+    const unsubscribeModels = configManager.watch('core.ai.models', () => {
       void loadData();
     });
-    const unsubscribeDefaultModels = configManager.watch('ai.default_models', () => {
+    const unsubscribeDefaultModels = configManager.watch('core.ai.default_models', () => {
       void loadData();
     });
 
@@ -113,7 +113,7 @@ export const DefaultModelConfig: React.FC = () => {
     label: model.model_name,
     value: model.id!,
     meta: buildModelMeta(model),
-    enableThinking: isReasoningVisiblyEnabled(getEffectiveReasoningMode(model)),
+    enableThinking: isReasoningVisiblyEnabled(model.reasoning_mode),
   }), [buildModelMeta]);
 
   const renderModelOption = useCallback((option: SelectOption) => {
@@ -160,10 +160,10 @@ export const DefaultModelConfig: React.FC = () => {
   const handleDefaultModelChange = async (slot: 'primary' | 'fast', modelId: string | number) => {
     const modelIdStr = modelId ? String(modelId) : null;
     try {
-      const currentConfig = await configManager.getConfig<any>('ai.default_models') || {};
+      const currentConfig = await configManager.getSetting<any>('core.ai.default_models') || {};
 
       
-      await configManager.setConfig('ai.default_models', {
+      await configManager.setSetting('core.ai.default_models', {
         ...currentConfig,
         [slot]: modelIdStr,
       });
@@ -215,7 +215,7 @@ export const DefaultModelConfig: React.FC = () => {
         description={t('core.primary.description')}
         align="center"
       >
-        <div data-self-control-target="primary-model-select">
+        <div>
           <Select
             value={defaultModels.primary || ''}
             onChange={(value) => handleDefaultModelChange('primary', normalizeSelectValue(value))}
@@ -235,7 +235,7 @@ export const DefaultModelConfig: React.FC = () => {
         description={t('core.fast.description')}
         align="center"
       >
-        <div data-self-control-target="fast-model-select">
+        <div>
           <Select
             value={defaultModels.fast || ''}
             onChange={(value) => handleDefaultModelChange('fast', normalizeSelectValue(value))}

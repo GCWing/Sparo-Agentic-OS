@@ -21,7 +21,8 @@
       "activate": "Use this Release",
       "continueEditing": "Continue from this Release",
       "retry": "Retry",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "close": "Close"
     },
     "empty": {
       "title": "No App Draft is bound",
@@ -64,7 +65,58 @@
       "title": "Review app capabilities",
       "description": "This Release requests the capabilities below. Review them before activation.",
       "scopeNote": "Approval is bound to this app and capability fingerprint. Capability changes require a new review.",
-      "approveAndActivate": "Approve and activate"
+        "approveAndActivate": "Approve and activate",
+        "count": "{{count}} items",
+        "columns": {
+          "capability": "Capability",
+          "permission": "Allowed action",
+          "usedBy": "Used by"
+        },
+        "permissionLabels": {
+          "ai": "Use AI capabilities",
+          "modelInvoke": "Invoke the configured model",
+          "sessionRead": "Read the current session",
+          "toolInvoke": "Invoke application tools",
+          "componentRun": "Run application components",
+          "filesystem": "Access the file system",
+          "network": "Access the network",
+          "appData": "Access application data",
+          "networkAny": "Access external networks"
+        },
+        "sources": {
+        "app": "App",
+        "system": "System"
+      },
+      "groups": {
+        "ai": {
+          "title": "AI and models",
+          "description": "Use the app agent and invoke the configured model."
+        },
+        "files": {
+          "title": "App files",
+          "description": "Access the app's own data directory."
+        },
+        "network": {
+          "title": "Network access",
+          "description": "Access user-provided sources or external resources."
+        },
+        "session": {
+          "title": "Session context",
+          "description": "Read the context required from the current work session."
+        },
+        "tools": {
+          "title": "Tool invocation",
+          "description": "Invoke capabilities declared by the app."
+        },
+        "runtime": {
+          "title": "Component runtime",
+          "description": "Start and coordinate components within the app."
+        },
+        "other": {
+          "title": "Other capabilities",
+          "description": "Other system capabilities declared by the app."
+        }
+      }
     },
     "messages": {
       "validationStarted": "Validation was sent to App Builder",

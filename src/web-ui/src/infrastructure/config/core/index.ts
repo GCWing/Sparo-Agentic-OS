@@ -3,7 +3,6 @@
 
 
 export {
-  modelConfigManager,
   getAllTemplates,
   getFormatDisplayName,
   PROVIDER_TEMPLATES

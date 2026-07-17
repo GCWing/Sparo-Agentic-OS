@@ -1,11 +1,139 @@
-import { ModelConfig, ProviderTemplate, ApiFormat } from '../../../shared/types';
-import { configManager } from './ConfigManager';
+import { ProviderTemplate, ApiFormat } from '../../../shared/types';
 import { i18nService } from '@/infrastructure/i18n';
-import { createLogger } from '@/shared/utils/logger';
 import { extractProviderSegmentFromBaseUrl, matchProviderCatalogItemByBaseUrl } from './providerCatalog';
+import type { AIModelConfig } from '../types';
 
-const log = createLogger('ModelConfigManager');
 const t = (key: string, options?: Record<string, unknown>) => i18nService.t(key, options);
+
+export interface RedactedModelSecret {
+  configured: boolean;
+  provider?: string;
+  maskedSuffix?: string;
+}
+
+export type AIModelSnapshotEntry = Omit<AIModelConfig, 'api_key' | 'api_key_configured'> & {
+  api_key?: RedactedModelSecret;
+};
+
+export type AIModelSnapshotWriteEntry = Omit<AIModelConfig, 'api_key' | 'api_key_configured'> & {
+  api_key?: RedactedModelSecret | string;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+export function isRedactedModelSecret(value: unknown): value is RedactedModelSecret {
+  return isRecord(value) && typeof value.configured === 'boolean';
+}
+
+/**
+ * Converts the backend's redacted model snapshot into UI-safe metadata. Even
+ * if a faulty transport returns a string, the value is discarded immediately
+ * and only its configured state is retained.
+ */
+export function sanitizeAIModelSnapshot(value: unknown): AIModelConfig[] {
+  if (!Array.isArray(value)) {
+    throw new Error('AI model snapshot must be an array');
+  }
+
+  return value.map((entry, index) => {
+      if (!isRecord(entry)) {
+        throw new Error(`AI model snapshot entry ${index} must be an object`);
+      }
+      if (
+        typeof entry.id !== 'string'
+        || !entry.id.trim()
+        || typeof entry.context_window !== 'number'
+        || !Number.isFinite(entry.context_window)
+        || entry.context_window <= 0
+      ) {
+        throw new Error(`AI model snapshot entry ${index} has an invalid identity or context window`);
+      }
+      const { api_key: apiKey, api_key_configured: _ignored, ...metadata } = entry;
+      return {
+        ...metadata,
+        api_key_configured: isRedactedModelSecret(apiKey)
+          ? apiKey.configured
+          : typeof apiKey === 'string' && apiKey.trim().length > 0,
+      } as unknown as AIModelConfig;
+    });
+}
+
+/**
+ * Builds a transaction value without replacing an existing secret with an
+ * empty UI field. The redacted marker is intentionally forwarded so the
+ * backend can preserve the current secret by stable model id.
+ */
+export function prepareAIModelWrite(
+  next: AIModelConfig,
+  current?: AIModelSnapshotEntry,
+): AIModelSnapshotWriteEntry {
+  const {
+    api_key: draftApiKey,
+    api_key_configured: _configured,
+    ...metadata
+  } = next;
+  const explicitApiKey = draftApiKey?.trim();
+  if (explicitApiKey) {
+    return { ...metadata, api_key: explicitApiKey };
+  }
+  if (isRedactedModelSecret(current?.api_key)) {
+    return { ...metadata, api_key: { ...current.api_key } };
+  }
+  return { ...metadata, api_key: '' };
+}
+
+/**
+ * Applies model-level mutations to the latest revisioned snapshot. Entries not
+ * named by the mutation are retained verbatim, including models committed by
+ * another surface after this component rendered.
+ */
+export function patchAIModelSnapshot(
+  currentValue: unknown,
+  upserts: readonly AIModelConfig[],
+  removeIds: ReadonlySet<string> = new Set(),
+): AIModelSnapshotWriteEntry[] {
+  const currentEntries = Array.isArray(currentValue)
+    ? currentValue.filter(isRecord) as unknown as AIModelSnapshotEntry[]
+    : [];
+  const currentById = new Map(
+    currentEntries
+      .filter((entry) => typeof entry.id === 'string' && entry.id.length > 0)
+      .map((entry) => [entry.id as string, entry]),
+  );
+  const upsertsById = new Map<string, AIModelConfig>();
+  for (const upsert of upserts) {
+    const id = upsert.id?.trim();
+    if (!id) {
+      throw new Error('AI model writes require a stable model id');
+    }
+    upsertsById.set(id, { ...upsert, id });
+  }
+
+  const result: AIModelSnapshotWriteEntry[] = [];
+  const appliedIds = new Set<string>();
+  for (const current of currentEntries) {
+    const id = typeof current.id === 'string' ? current.id : '';
+    const replacement = id ? upsertsById.get(id) : undefined;
+    if (replacement) {
+      result.push(prepareAIModelWrite(replacement, current));
+      appliedIds.add(id);
+      continue;
+    }
+    if (id && removeIds.has(id)) {
+      continue;
+    }
+    result.push(current);
+  }
+
+  for (const [id, upsert] of upsertsById) {
+    if (!appliedIds.has(id)) {
+      result.push(prepareAIModelWrite(upsert, currentById.get(id)));
+    }
+  }
+  return result;
+}
 
 type ProviderConfigLike = {
   name?: string;
@@ -223,205 +351,6 @@ export const PROVIDER_TEMPLATES: Record<string, ProviderTemplate> = {
   }
 };
 
-type ConfigChangeListener = (configs: ModelConfig[]) => void;
-
-class ModelConfigManager {
-  private configs: ModelConfig[] = [];
-  private listeners: Set<ConfigChangeListener> = new Set();
-
-  constructor() {
-    this.loadConfigs();
-  }
-
-  // Listener management
-  addListener(listener: ConfigChangeListener): () => void {
-    this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
-  }
-
-  // Notify listeners
-  private notifyListeners(): void {
-    const configsCopy = [...this.configs];
-    
-    this.listeners.forEach(listener => {
-      try {
-        listener(configsCopy);
-      } catch (error) {
-        log.error('Error in config change listener', error);
-      }
-    });
-  }
-
-  // New architecture: load via the unified config manager.
-  private loadConfigs(): void {
-    // Start with an empty set, then sync async.
-    this.configs = [];
-    
-    // Async load the real config.
-    this.syncFromConfigManager().catch(error => {
-      log.error('Failed to load configs', error);
-      this.configs = [];
-      this.notifyListeners();
-    });
-  }
-
-  // New architecture: sync from the unified config manager.
-  private async syncFromConfigManager(): Promise<void> {
-    try {
-      // Fetch AI model configuration from the unified config manager.
-      const aiModels = await configManager.getConfig<any[]>('ai.models');
-      
-      if (aiModels && aiModels.length > 0) {
-        // Convert backend shape -> frontend shape.
-        this.configs = aiModels.map(model => ({
-          id: model.id,
-          name: model.name,
-          baseUrl: model.base_url,
-          apiKey: model.api_key,
-          modelName: model.model_name,
-          format: model.provider as ApiFormat,
-          description: model.description || t('settings/ai-model:messages.defaultDescription', { name: model.name }),
-          isBuiltIn: false,
-          contextWindow: model.context_window,
-          maxTokens: model.max_tokens
-        }));
-      } else {
-        // No config available from backend.
-        this.configs = [];
-      }
-      
-      this.notifyListeners();
-    } catch (error) {
-      log.error('Failed to load configs from backend', error);
-      this.configs = [];
-      this.notifyListeners();
-    }
-  }
-
-  // New architecture: persist via the unified config manager.
-  private async saveConfigs(): Promise<void> {
-    try {
-      // Convert to backend shape.
-      const backendConfigs = this.configs.map(config => ({
-        id: config.id,
-        name: config.name,
-        model_name: config.modelName,
-        provider: config.format,
-        base_url: config.baseUrl,
-        api_key: config.apiKey || '',
-        enabled: true,
-        description: config.description,
-        context_window: config.contextWindow,
-        max_tokens: config.maxTokens
-      }));
-      
-      // Save to the unified config system.
-      await configManager.setConfig('ai.models', backendConfigs);
-      
-      this.notifyListeners();
-    } catch (error) {
-      log.error('Failed to save configs', error);
-      throw error;
-    }
-  }
-
-  // Reload configuration (public).
-  async reload(): Promise<void> {
-    await this.syncFromConfigManager();
-  }
-
-  // Read operations
-  getAllConfigs(): ModelConfig[] {
-    return [...this.configs];
-  }
-
-  getConfigById(id: string): ModelConfig | undefined {
-    return this.configs.find(config => config.id === id);
-  }
-
-  // Write operations
-  addConfig(config: Omit<ModelConfig, 'id'>): ModelConfig {
-    const newConfig: ModelConfig = {
-      ...config,
-      id: this.generateId(),
-    };
-    this.configs.push(newConfig);
-    
-    // Persist async.
-    this.saveConfigs().catch(error => {
-      log.error('Failed to save new config', error);
-    });
-    
-    return newConfig;
-  }
-
-  updateConfig(id: string, updates: Partial<ModelConfig>): boolean {
-    const index = this.configs.findIndex(config => config.id === id);
-    if (index === -1) return false;
-
-    this.configs[index] = { ...this.configs[index], ...updates };
-    
-    // Persist async.
-    this.saveConfigs().catch(error => {
-      log.error('Failed to update config', { configId: id, error });
-    });
-    
-    return true;
-  }
-
-  deleteConfig(id: string): boolean {
-    const index = this.configs.findIndex(config => config.id === id);
-    if (index === -1) return false;
-
-    this.configs.splice(index, 1);
-    
-    this.saveConfigs().catch(error => {
-      log.error('Failed to delete config', { configId: id, error });
-    });
-    
-    return true;
-  }
-
-  cloneConfig(id: string): ModelConfig | null {
-    const config = this.getConfigById(id);
-    if (!config) return null;
-
-    const cloned = this.addConfig({
-      ...config,
-      name: t('settings/ai-model:messages.cloneName', { name: config.name }),
-      isBuiltIn: false
-    });
-    return cloned;
-  }
-
-  private generateId(): string {
-    return `config_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  }
-
-  createFromTemplate(providerId: string, modelName: string): ModelConfig | null {
-    const template = PROVIDER_TEMPLATES[providerId];
-    if (!template) return null;
-
-    return this.addConfig({
-      name: template.name,
-      baseUrl: template.baseUrl,
-      modelName,
-      format: template.format,
-      description: t('settings/ai-model:messages.templateDescription', { description: template.description, modelName }),
-      isBuiltIn: false
-    });
-  }
-
-  resetToDefault(): void {
-    this.configs = [];
-    this.saveConfigs().catch(error => {
-      log.error('Failed to reset configs', error);
-    });
-  }
-}
-
 export const getAllTemplates = (): ProviderTemplate[] => {
   return Object.values(PROVIDER_TEMPLATES);
 };
@@ -440,9 +369,3 @@ export const getFormatDisplayName = (format: ApiFormat): string => {
       return format;
   }
 };
-
-export const modelConfigManager = new ModelConfigManager();
-
-if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-  (window as any).modelConfigManager = modelConfigManager;
-}

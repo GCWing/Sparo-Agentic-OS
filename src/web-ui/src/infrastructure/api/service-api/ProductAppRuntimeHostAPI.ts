@@ -90,10 +90,30 @@ export type ProductAppHostSurfaceInteractionText = string | Record<string, strin
 export interface ProductAppHostSurfaceInteractionChat {
   backendId?: string;
   agentComponentId?: string;
+  /** Registered Agent type resolved from the component implementationRef. */
+  agentType?: string;
+  /** Agent used by app-owned backend actions when it differs from the visible chat shell. */
+  backendAgentType?: string;
   sessionPolicy?: ProductAppHostSurfaceBackendSessionPolicy;
   memoryScope?: ProductAppHostSurfaceBackendMemoryScope;
   initialPromptKey?: string;
   allowUserPrompt?: boolean;
+}
+
+export type ProductAppHostSurfaceSidecarIcon =
+  | 'activity'
+  | 'app-window'
+  | 'file-text'
+  | 'palette'
+  | 'play'
+  | 'settings';
+
+export interface ProductAppHostSurfaceInteractionTabSidecar {
+  actionId?: string;
+  icon?: ProductAppHostSurfaceSidecarIcon;
+  order?: number;
+  availability?: 'enabled' | 'disabled' | 'hidden';
+  targetGroup?: 'primary' | 'secondary';
 }
 
 export interface ProductAppHostSurfaceInteractionTab {
@@ -104,6 +124,7 @@ export interface ProductAppHostSurfaceInteractionTab {
   route?: string;
   default?: boolean;
   developerOnly?: boolean;
+  sidecar?: ProductAppHostSurfaceInteractionTabSidecar;
   data?: Record<string, unknown>;
 }
 
@@ -686,31 +707,43 @@ export class ProductAppRuntimeHostAPI {
     }
   }
 
-  async cancelStalePptRuns(workspacePath?: string): Promise<{
+  async cancelStalePptRuns(
+    appId: string,
+    runtimeContext: ProductAppRuntimeContext,
+    workspacePath?: string,
+  ): Promise<{
     cancelledSessions: number;
     cancelledTurns: number;
     clearedQueues: number;
   }> {
     try {
       return await api.invoke('product_app_runtime_cancel_stale_ppt_runs', {
-        request: { workspacePath },
+        request: { appId, runtimeContext, workspacePath },
       });
     } catch (error) {
-      throw createTauriCommandError('product_app_runtime_cancel_stale_ppt_runs', error, { workspacePath });
+      throw createTauriCommandError('product_app_runtime_cancel_stale_ppt_runs', error, {
+        appId,
+        runtimeContext,
+        workspacePath,
+      });
     }
   }
 
   async getPptTurnAssistantText(
+    appId: string,
+    runtimeContext: ProductAppRuntimeContext,
     sessionId: string,
     turnId: string,
     workspacePath?: string,
   ): Promise<{ text: string }> {
     try {
       return await api.invoke('product_app_runtime_ppt_turn_assistant_text', {
-        request: { sessionId, turnId, workspacePath },
+        request: { appId, runtimeContext, sessionId, turnId, workspacePath },
       });
     } catch (error) {
       throw createTauriCommandError('product_app_runtime_ppt_turn_assistant_text', error, {
+        appId,
+        runtimeContext,
         sessionId,
         turnId,
         workspacePath,

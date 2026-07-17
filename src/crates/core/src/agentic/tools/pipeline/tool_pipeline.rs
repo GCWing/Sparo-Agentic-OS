@@ -27,9 +27,12 @@ struct ToolBatch {
     is_concurrent: bool,
 }
 
-/// Convert framework::ToolResult to core::ToolResult
+/// Convert framework::ToolResult to core::ToolResult.
 ///
-/// Ensure always has result_for_assistant, avoid tool message content being empty
+/// `None` is a meaningful assistant-result policy for completed tools: the
+/// model message layer serializes the structured result verbatim. Only tools
+/// that intentionally provide a lossy or specialized assistant view should
+/// set `result_for_assistant`.
 fn convert_tool_result(
     framework_result: FrameworkToolResult,
     tool_id: &str,
@@ -40,23 +43,15 @@ fn convert_tool_result(
             data,
             result_for_assistant,
             image_attachments,
-        } => {
-            // If the tool does not provide result_for_assistant, generate default friendly description
-            let assistant_text = result_for_assistant.or_else(|| {
-                // Generate natural language description based on data
-                generate_default_assistant_text(tool_name, &data)
-            });
-
-            ModelToolResult {
-                tool_id: tool_id.to_string(),
-                tool_name: tool_name.to_string(),
-                result: data,
-                result_for_assistant: assistant_text,
-                is_error: false,
-                duration_ms: None,
-                image_attachments,
-            }
-        }
+        } => ModelToolResult {
+            tool_id: tool_id.to_string(),
+            tool_name: tool_name.to_string(),
+            result: data,
+            result_for_assistant,
+            is_error: false,
+            duration_ms: None,
+            image_attachments,
+        },
         FrameworkToolResult::Progress { content, .. } => {
             // Progress message also generates friendly text
             let assistant_text = generate_default_assistant_text(tool_name, &content);
@@ -85,6 +80,171 @@ fn convert_tool_result(
                 image_attachments: None,
             }
         }
+    }
+}
+
+fn failed_tool_execution_result(
+    tool_id: String,
+    tool_name: String,
+    published_error: String,
+) -> ToolExecutionResult {
+    ToolExecutionResult {
+        tool_id: tool_id.clone(),
+        tool_name: tool_name.clone(),
+        result: ModelToolResult {
+            tool_id,
+            tool_name,
+            result: serde_json::json!({
+                "error": published_error,
+                "message": format!("Tool execution failed: {}", published_error)
+            }),
+            result_for_assistant: Some(format!("Tool execution failed: {}", published_error)),
+            is_error: true,
+            duration_ms: None,
+            image_attachments: None,
+        },
+        execution_time_ms: 0,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{convert_tool_result, failed_tool_execution_result, ToolPipeline};
+    use crate::agentic::core::{Message, ToolCall};
+    use crate::agentic::events::{EventQueue, EventQueueConfig, SessionSurfaceMode};
+    use crate::agentic::tools::framework::ToolResult as FrameworkToolResult;
+    use crate::agentic::tools::pipeline::{
+        ToolExecutionContext, ToolExecutionOptions, ToolStateManager, ToolTask,
+    };
+    use crate::agentic::tools::registry::ToolRegistry;
+    use crate::agentic::tools::ToolRuntimeRestrictions;
+    use crate::util::types::Message as AIMessage;
+    use serde_json::json;
+    use std::collections::HashMap;
+    use std::sync::Arc;
+    use tokio::sync::RwLock;
+
+    #[test]
+    fn settings_agent_structured_result_reaches_the_model_without_lossy_summary() {
+        let data = json!({
+            "revision": 4,
+            "settings": [{
+                "descriptor": { "id": "core.font.ui_size.level" },
+                "current": { "kind": "value", "value": "default" }
+            }]
+        });
+        let converted = convert_tool_result(
+            FrameworkToolResult::ok(data.clone(), None),
+            "tool-call-1",
+            "SettingsCatalog",
+        );
+
+        assert_eq!(converted.result, data);
+        assert!(converted.result_for_assistant.is_none());
+
+        let model_message = AIMessage::from(Message::tool_result(converted));
+        let expected_content = data.to_string();
+        assert_eq!(
+            model_message.content.as_deref(),
+            Some(expected_content.as_str())
+        );
+    }
+
+    #[test]
+    fn explicit_assistant_result_remains_authoritative() {
+        let converted = convert_tool_result(
+            FrameworkToolResult::ok(
+                json!({ "privateDisplayData": true }),
+                Some("Purpose-built assistant result".to_string()),
+            ),
+            "tool-call-2",
+            "PurposeBuiltTool",
+        );
+
+        let model_message = AIMessage::from(Message::tool_result(converted));
+        assert_eq!(
+            model_message.content.as_deref(),
+            Some("Purpose-built assistant result")
+        );
+    }
+
+    #[test]
+    fn failed_settings_tool_model_result_contains_only_the_published_error() {
+        let sensitive = "config.revision_conflict at C:\\private\\app.json: token=secret";
+        let published = super::super::published_tool_error_for_agent("SettingsAgent", sensitive);
+        let result = failed_tool_execution_result(
+            "tool-1".to_string(),
+            "SettingsChange".to_string(),
+            published,
+        );
+        let serialized = serde_json::to_string(&result.result.result)
+            .expect("failed tool result should serialize");
+
+        assert!(serialized.contains("config.revision_conflict"));
+        assert!(!serialized.contains("private"));
+        assert!(!serialized.contains("secret"));
+        assert!(result
+            .result
+            .result_for_assistant
+            .as_deref()
+            .is_some_and(|message| !message.contains("private") && !message.contains("secret")));
+    }
+
+    #[tokio::test]
+    async fn session_bound_confirmation_rejects_cross_session_tool_ids() {
+        let state_manager = Arc::new(ToolStateManager::new(Arc::new(EventQueue::new(
+            EventQueueConfig::default(),
+        ))));
+        let pipeline = ToolPipeline::new(
+            Arc::new(RwLock::new(ToolRegistry::new())),
+            state_manager.clone(),
+            None,
+        );
+        let task = ToolTask::new(
+            ToolCall {
+                tool_id: "tool-1".to_string(),
+                tool_name: "SettingsChange".to_string(),
+                arguments: json!({}),
+                is_error: false,
+            },
+            ToolExecutionContext {
+                session_id: "owner-session".to_string(),
+                dialog_turn_id: "turn-1".to_string(),
+                surface_mode: SessionSurfaceMode::UserVisible,
+                agent_type: "SettingsAgent".to_string(),
+                workspace: None,
+                context_vars: HashMap::new(),
+                subagent_parent_info: None,
+                allowed_tools: vec!["SettingsChange".to_string()],
+                runtime_tool_restrictions: ToolRuntimeRestrictions::default(),
+                app_builder: None,
+                workspace_services: None,
+                workspace_mount: None,
+                agentic: None,
+            },
+            ToolExecutionOptions::default(),
+        );
+        state_manager.create_task(task).await;
+
+        assert_eq!(
+            pipeline
+                .tool_session_id("tool-1")
+                .expect("tool owner should resolve"),
+            "owner-session"
+        );
+
+        assert!(pipeline
+            .confirm_tool_for_session("other-session", "tool-1", None)
+            .await
+            .is_err());
+        assert!(pipeline
+            .reject_tool_for_session(
+                "other-session",
+                "tool-1",
+                "rejected by another session".to_string(),
+            )
+            .await
+            .is_err());
     }
 }
 
@@ -215,6 +375,18 @@ pub struct ToolPipeline {
 }
 
 impl ToolPipeline {
+    /// Resolve the owning session for a pending tool interaction.
+    ///
+    /// Public adapters that do not carry a session id use this to apply their
+    /// own ownership policy before delegating to the legacy unbound
+    /// confirm/reject entry points.
+    pub fn tool_session_id(&self, tool_id: &str) -> CoreResult<String> {
+        self.state_manager
+            .get_task(tool_id)
+            .map(|task| task.context.session_id)
+            .ok_or_else(|| CoreError::NotFound(format!("Tool task not found: {}", tool_id)))
+    }
+
     pub fn new(
         tool_registry: Arc<TokioRwLock<ToolRegistry>>,
         state_manager: Arc<ToolStateManager>,
@@ -357,36 +529,32 @@ impl ToolPipeline {
             match result {
                 Ok(r) => all_results.push(r),
                 Err(e) => {
-                    error!("Tool execution failed: error={}", e);
-
                     let task_id = &task_ids[idx];
-                    let (tool_id, tool_name) =
+                    let (tool_id, tool_name, published_error, public_only) =
                         if let Some(task) = self.state_manager.get_task(task_id) {
                             (
                                 task.tool_call.tool_id.clone(),
                                 task.tool_call.tool_name.clone(),
+                                super::published_tool_error_for_agent(
+                                    &task.context.agent_type,
+                                    &e.to_string(),
+                                ),
+                                super::tool_error_requires_publication(&task.context.agent_type),
                             )
                         } else {
                             warn!("Task not found in state manager: {}", task_id);
-                            (task_id.clone(), "unknown".to_string())
+                            (task_id.clone(), "unknown".to_string(), e.to_string(), false)
                         };
-                    let error_result = ToolExecutionResult {
-                        tool_id: tool_id.clone(),
-                        tool_name: tool_name.clone(),
-                        result: ModelToolResult {
-                            tool_id,
-                            tool_name,
-                            result: serde_json::json!({
-                                "error": e.to_string(),
-                                "message": format!("Tool execution failed: {}", e)
-                            }),
-                            result_for_assistant: Some(format!("Tool execution failed: {}", e)),
-                            is_error: true,
-                            duration_ms: None,
-                            image_attachments: None,
-                        },
-                        execution_time_ms: 0,
-                    };
+                    if public_only {
+                        error!(
+                            "Settings tool execution failed: tool_name={}, error_code={}",
+                            tool_name, published_error
+                        );
+                    } else {
+                        error!("Tool execution failed: error={}", e);
+                    }
+                    let error_result =
+                        failed_tool_execution_result(tool_id, tool_name, published_error);
                     all_results.push(error_result);
                 }
             }
@@ -406,35 +574,31 @@ impl ToolPipeline {
             match self.execute_single_tool(task_id.clone()).await {
                 Ok(result) => results.push(result),
                 Err(e) => {
-                    error!("Tool execution failed: error={}", e);
-
-                    let (tool_id, tool_name) =
+                    let (tool_id, tool_name, published_error, public_only) =
                         if let Some(task) = self.state_manager.get_task(&task_id) {
                             (
                                 task.tool_call.tool_id.clone(),
                                 task.tool_call.tool_name.clone(),
+                                super::published_tool_error_for_agent(
+                                    &task.context.agent_type,
+                                    &e.to_string(),
+                                ),
+                                super::tool_error_requires_publication(&task.context.agent_type),
                             )
                         } else {
                             warn!("Task not found in state manager: {}", task_id);
-                            (task_id.clone(), "unknown".to_string())
+                            (task_id.clone(), "unknown".to_string(), e.to_string(), false)
                         };
-                    let error_result = ToolExecutionResult {
-                        tool_id: tool_id.clone(),
-                        tool_name: tool_name.clone(),
-                        result: ModelToolResult {
-                            tool_id,
-                            tool_name,
-                            result: serde_json::json!({
-                                "error": e.to_string(),
-                                "message": format!("Tool execution failed: {}", e)
-                            }),
-                            result_for_assistant: Some(format!("Tool execution failed: {}", e)),
-                            is_error: true,
-                            duration_ms: None,
-                            image_attachments: None,
-                        },
-                        execution_time_ms: 0,
-                    };
+                    if public_only {
+                        error!(
+                            "Settings tool execution failed: tool_name={}, error_code={}",
+                            tool_name, published_error
+                        );
+                    } else {
+                        error!("Tool execution failed: error={}", e);
+                    }
+                    let error_result =
+                        failed_tool_execution_result(tool_id, tool_name, published_error);
                     results.push(error_result);
                 }
             }
@@ -450,7 +614,7 @@ impl ToolPipeline {
         debug!("Starting tool execution: tool_id={}", tool_id);
 
         // Get task
-        let task = self
+        let mut task = self
             .state_manager
             .get_task(&tool_id)
             .ok_or_else(|| CoreError::NotFound(format!("Tool task not found: {}", tool_id)))?;
@@ -571,11 +735,13 @@ impl ToolPipeline {
 
             self.confirmation_channels.insert(tool_id.clone(), tx);
 
+            let confirmation_payload = tool.confirmation_payload(&tool_args);
+
             self.state_manager
                 .update_state(
                     &tool_id,
                     ToolExecutionState::AwaitingConfirmation {
-                        params: tool_args.clone(),
+                        params: confirmation_payload,
                         timeout_at,
                     },
                 )
@@ -604,6 +770,9 @@ impl ToolPipeline {
             match confirmation_result {
                 Some(Ok(ConfirmationResponse::Confirmed)) => {
                     debug!("Tool confirmed: tool_name={}", tool_name);
+                    task.context
+                        .context_vars
+                        .insert("tool_confirmation_granted".to_string(), "true".to_string());
                 }
                 Some(Ok(ConfirmationResponse::Rejected(reason))) => {
                     self.state_manager
@@ -746,7 +915,12 @@ impl ToolPipeline {
                     return Err(e);
                 }
 
-                let error_msg = e.to_string();
+                let internal_error = e.to_string();
+                let error_msg = super::published_tool_error_for_agent(
+                    &task.context.agent_type,
+                    &internal_error,
+                );
+                let public_only = super::tool_error_requires_publication(&task.context.agent_type);
                 let is_retryable = task.options.max_retries > 0;
 
                 self.state_manager
@@ -759,9 +933,20 @@ impl ToolPipeline {
                     )
                     .await;
 
-                error!("Tool failed: tool_name={}, error={}", tool_name, error_msg);
+                if public_only {
+                    error!(
+                        "Settings tool failed: tool_name={}, error_code={}",
+                        tool_name, error_msg
+                    );
+                    Err(CoreError::Tool(error_msg))
+                } else {
+                    error!(
+                        "Tool failed: tool_name={}, error={}",
+                        tool_name, internal_error
+                    );
 
-                Err(e)
+                    Err(e)
+                }
             }
         }
     }
@@ -797,10 +982,23 @@ impl ToolPipeline {
                         return Err(e);
                     }
 
-                    debug!(
-                        "Retrying tool execution: attempt={}/{}, error={}",
-                        attempts, max_attempts, e
-                    );
+                    let public_only =
+                        super::tool_error_requires_publication(&task.context.agent_type);
+                    if public_only {
+                        let error_code = super::published_tool_error_for_agent(
+                            &task.context.agent_type,
+                            &e.to_string(),
+                        );
+                        debug!(
+                            "Retrying settings tool execution: attempt={}/{}, error_code={}",
+                            attempts, max_attempts, error_code
+                        );
+                    } else {
+                        debug!(
+                            "Retrying tool execution: attempt={}/{}, error={}",
+                            attempts, max_attempts, e
+                        );
+                    }
 
                     // Wait for a period of time and retry
                     tokio::time::sleep(Duration::from_millis(100 * attempts as u64)).await;
@@ -895,6 +1093,18 @@ impl ToolPipeline {
                             serde_json::json!(flag),
                         );
                     }
+                }
+
+                if task
+                    .context
+                    .context_vars
+                    .get("tool_confirmation_granted")
+                    .is_some_and(|value| value == "true")
+                {
+                    map.insert(
+                        "tool_confirmation_granted".to_string(),
+                        serde_json::Value::Bool(true),
+                    );
                 }
 
                 map
@@ -1176,6 +1386,27 @@ impl ToolPipeline {
         }
     }
 
+    /// Confirm a tool only when it belongs to the expected session.
+    pub async fn confirm_tool_for_session(
+        &self,
+        session_id: &str,
+        tool_id: &str,
+        updated_input: Option<serde_json::Value>,
+    ) -> CoreResult<()> {
+        let task = self
+            .state_manager
+            .get_task(tool_id)
+            .ok_or_else(|| CoreError::NotFound(format!("Tool task not found: {}", tool_id)))?;
+        if task.context.session_id != session_id {
+            return Err(CoreError::Validation(format!(
+                "Tool task does not belong to session: {}",
+                session_id
+            )));
+        }
+
+        self.confirm_tool(tool_id, updated_input).await
+    }
+
     /// Reject tool execution
     pub async fn reject_tool(&self, tool_id: &str, reason: String) -> CoreResult<()> {
         let task = self
@@ -1212,5 +1443,26 @@ impl ToolPipeline {
 
             Ok(())
         }
+    }
+
+    /// Reject a tool only when it belongs to the expected session.
+    pub async fn reject_tool_for_session(
+        &self,
+        session_id: &str,
+        tool_id: &str,
+        reason: String,
+    ) -> CoreResult<()> {
+        let task = self
+            .state_manager
+            .get_task(tool_id)
+            .ok_or_else(|| CoreError::NotFound(format!("Tool task not found: {}", tool_id)))?;
+        if task.context.session_id != session_id {
+            return Err(CoreError::Validation(format!(
+                "Tool task does not belong to session: {}",
+                session_id
+            )));
+        }
+
+        self.reject_tool(tool_id, reason).await
     }
 }

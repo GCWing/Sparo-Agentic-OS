@@ -2,23 +2,13 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 interface IgniteButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   loading?: boolean;
-  dark?: boolean;
-  secondary?: boolean;
   children: ReactNode;
 }
 
-/**
- * VI §12.8 primary button: ink bg + white text + print-red leading dot.
- * On dark surfaces (Act 4), use dark=true for white-bg variant.
- * secondary=true renders hairline-border variant.
- */
-export function IgniteButton({ loading, dark, secondary, children, style, ...rest }: IgniteButtonProps) {
-  const cls = secondary
-    ? (dark ? 'btn btn--dark-secondary' : 'btn')
-    : (dark ? 'btn btn--dark-primary' : 'btn btn--ignite');
-
+/** Primary installer action: ink background with a print-red leading dot. */
+export function IgniteButton({ loading, children, style, ...rest }: IgniteButtonProps) {
   return (
-    <button type="button" className={cls} style={{ justifyContent: 'center', ...style }} {...rest}>
+    <button type="button" className="btn btn--ignite" style={{ justifyContent: 'center', ...style }} {...rest}>
       {loading && (
         <span
           style={{

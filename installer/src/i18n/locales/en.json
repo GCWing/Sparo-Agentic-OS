@@ -1,7 +1,7 @@
 {
   "lang": {
     "title": "Language",
-    "subtitle": "Select your preferred language",
+    "subtitle": "Select the installer language",
     "slogan": "Ignite AI for Everyone",
     "continue": "Connect your system"
   },
@@ -10,240 +10,60 @@
       "failed": "Installation failed"
     },
     "installPath": {
-      "notAbsolute": "The installation path must be an absolute path (for example C:\\…).",
-      "filesystemRoot": "Cannot install to a drive root. Choose a folder inside the drive.",
+      "notAbsolute": "The installation path must be absolute.",
+      "filesystemRoot": "Choose a folder inside the drive instead of the drive root.",
       "pathNotDirectory": "The selected path exists but is not a folder.",
-      "directoryMustBeEmptyOrSparo": "The installation folder must be empty, or already contain a Sparo OS installation.",
-      "inspectDirectoryFailed": "Could not read the installation folder. Check permissions and try again.",
-      "directoryNotWritable": "The installation folder is not writable. Choose another location or run the installer as administrator (see below).",
-      "parentNotWritable": "The parent folder is not writable. System folders such as Program Files often require administrator rights (see below).",
-      "adminHint": "To install under protected locations (for example C:\\Program Files), close this installer, right‑click the installer executable, choose \"Run as administrator\", then try again. Alternatively install under your user profile, for example %LOCALAPPDATA%\\Programs, which does not require elevation."
+      "directoryMustBeEmptyOrSparo": "The installation folder must be empty or contain an existing Sparo OS installation.",
+      "inspectDirectoryFailed": "Could not inspect the installation folder. Check its permissions and try again.",
+      "directoryNotWritable": "The installation folder is not writable.",
+      "parentNotWritable": "The parent folder is not writable.",
+      "adminHint": "Choose another location or run the installer as administrator."
     }
   },
   "options": {
-    "title": "Options",
-    "subtitle": "Review install location and preferences",
-    "quickSetup": "Quick setup",
-    "appLanguage": "App language",
-    "theme": "Theme",
-    "themeDark": "Dark",
-    "themeSlate": "Slate",
-    "changeLanguage": "Change language",
-    "pathLabel": "Installation Path",
-    "pathPlaceholder": "Select directory...",
+    "title": "Installation",
+    "subtitle": "Choose where Sparo OS lives and which system integrations to enable.",
+    "pathLabel": "Installation path",
+    "pathPlaceholder": "Choose an installation folder",
     "browse": "Browse",
-    "required": "Required",
+    "desktopShortcut": "Create a desktop shortcut",
+    "startMenu": "Add to the Start menu",
+    "contextMenu": "Add the folder context menu",
+    "addToPath": "Add Sparo OS to PATH",
+    "optionsLabel": "Integrations",
     "available": "Available",
-    "insufficientSpace": "Insufficient space",
-    "optionsLabel": "Options",
-    "desktopShortcut": "Create desktop shortcut",
-    "startMenu": "Add to Start Menu",
-    "contextMenu": "Add right-click context menu",
-    "addToPath": "Add to system PATH",
-    "launchAfterInstall": "Launch Sparo OS after setup",
-    "back": "Back",
-    "install": "Start installation",
-    "installing": "Connecting…",
-    "nextModel": "Next: Configure model"
-  },
-  "model": {
-    "title": "Model",
-    "subtitle": "Installation complete. Continue with model and theme setup",
-    "installDone": "Installation complete",
-    "provider": "Provider",
-    "config": "Connection",
-    "modelName": "Model name (e.g. deepseek-chat)",
-    "apiKey": "API key",
-    "back": "Back",
-    "skip": "Skip for now",
-    "tuneLater": "Tune later",
-    "testLive": "Live",
-    "nextTheme": "Next: Theme",
-    "description": "Configure and manage AI model providers",
-    "providerLabel": "Select Model Provider",
-    "selectProvider": "or select a preset provider",
-    "customProvider": "Custom Configuration",
-    "getApiKey": "Get API Key",
-    "modelNamePlaceholder": "Enter model name...",
-    "baseUrlPlaceholder": "e.g., https://open.bigmodel.cn/api/paas/v4/chat/completions",
-    "presetEndpoints": "Choose a preset API endpoint",
-    "customRequestBodyPlaceholder": "Example:\n{\n  \"temperature\": 0.8,\n  \"top_p\": 0.9\n}",
-    "jsonValid": "JSON format is valid",
-    "jsonInvalid": "Invalid JSON format, please check syntax",
-    "skipSslVerify": "Skip SSL Certificate Verification",
-    "customHeadersModeMerge": "Merge",
-    "customHeadersModeReplace": "Replace",
-    "addHeader": "Add Field",
-    "headerKey": "key",
-    "headerValue": "value",
-    "advancedShow": "Show advanced settings",
-    "advancedHide": "Hide advanced settings",
-    "simpleHint": "Choose a provider, paste your API key, pick a model — done.",
-    "providers": {
-      "opensparo": {
-        "name": "Sparo Model Platform",
-        "description": "Sparo OS model platform"
-      },
-      "gemini": {
-        "name": "Google Gemini",
-        "description": "Google Gemini series models"
-      },
-      "anthropic": {
-        "name": "Anthropic Claude",
-        "description": "Anthropic Claude series models"
-      },
-      "minimax": {
-        "name": "MiniMax",
-        "description": "MiniMax series models",
-        "urlOptions": {
-          "default": "Anthropic Format - Default",
-          "openai": "OpenAI Compatible Format"
-        }
-      },
-      "moonshot": {
-        "name": "Moonshot AI",
-        "description": "Moonshot Kimi series models"
-      },
-      "deepseek": {
-        "name": "DeepSeek",
-        "description": "DeepSeek series models"
-      },
-      "zhipu": {
-        "name": "Zhipu AI",
-        "description": "Zhipu AI GLM series models",
-        "urlOptions": {
-          "default": "OpenAI Format - Default",
-          "anthropic": "Anthropic Format",
-          "codingPlan": "OpenAI Format - CodingPlan"
-        }
-      },
-      "qwen": {
-        "name": "Qwen",
-        "description": "Alibaba Cloud Bailian Model Platform",
-        "urlOptions": {
-          "default": "OpenAI Format - Default",
-          "codingPlan": "OpenAI Format - Coding Plan",
-          "codingPlanAnthropic": "Anthropic Format - Coding Plan"
-        }
-      },
-      "volcengine": {
-        "name": "Volcano Engine",
-        "description": "ByteDance Volcano Engine Model Platform"
-      },
-      "siliconflow": {
-        "name": "SiliconFlow",
-        "description": "SiliconFlow Model Platform",
-        "urlOptions": {
-          "default": "OpenAI Format - Default",
-          "anthropic": "Anthropic Format"
-        }
-      },
-      "nvidia": {
-        "name": "NVIDIA",
-        "description": "NVIDIA NIM Model Platform"
-      },
-      "openrouter": {
-        "name": "OpenRouter",
-        "description": "OpenRouter Model Platform"
-      }
-    },
-    "modelNameSelectPlaceholder": "Select model",
-    "customModel": "Press Enter to use",
-    "testConnection": "Test Connection",
-    "testing": "Testing...",
-    "testSuccess": "Test successful",
-    "testFailed": "Test failed",
-    "modelSearchPlaceholder": "Search or enter model name...",
-    "modelNoResults": "No matching models",
-    "fillApiKeyBeforeFetch": "Enter the API key before fetching models",
-    "fetchingModels": "Fetching model list...",
-    "fetchFailedFallback": "Failed to fetch model list, fell back to common preset models",
-    "fetchEmptyFallback": "Provider returned no models, fell back to common preset models",
-    "usingPresetModels": "Currently showing common preset models",
-    "addCustomModel": "Add Custom Model",
-    "form": {
-      "baseUrl": "API URL",
-      "apiKey": "API Key",
-      "apiKeyPlaceholder": "Enter your API Key",
-      "provider": "Request Format",
-      "providerPlaceholder": "Select request format",
-      "modelSelection": "Select Models",
-      "modelName": "Model Name",
-      "resolvedUrlLabel": "Request URL: ",
-      "resolvedUrlCaption": "Preview"
-    },
-    "formats": {
-      "openaiCompatible": "OpenAI Compatible",
-      "responsesApi": "OpenAI Responses API",
-      "claudeApi": "Claude API",
-      "geminiApi": "Gemini GenerateContent API"
-    },
-    "showSecret": "Show",
-    "hideSecret": "Hide"
+    "required": "Required",
+    "insufficientSpace": "Not enough disk space for the installation.",
+    "changeLanguage": "Change language",
+    "install": "Install Sparo OS",
+    "installing": "Installing"
   },
   "progress": {
-    "title": "Connecting your system",
     "connectingSystem": "Connecting your system",
-    "installing": "Installing...",
     "prepare": "Preparing",
-    "extract": "Unpacking",
-    "registry": "Registering",
-    "shortcuts": "Shortcuts",
-    "contextMenu": "Context menu",
+    "extract": "Extracting files",
+    "registry": "Registering application",
+    "shortcuts": "Creating shortcuts",
+    "contextMenu": "Adding context menu",
     "path": "Updating PATH",
-    "config": "Preferences",
     "finishing": "Finishing",
-    "ignited": "All set",
-    "starting": "One moment…",
+    "ignited": "Sparo OS is ready",
+    "starting": "Starting",
     "failed": "Installation failed",
     "finishAndLaunch": "Launch Sparo OS",
-    "continueConfigure": "Continue basic setup",
-    "launchFailed": "The app did not start. Try again, or choose Continue basic setup below to finish the remaining steps."
-  },
-  "themeSetup": {
-    "title": "Launch Sparo OS",
-    "subtitle": "Choose your startup theme, then launch",
-    "heroTitle": "Launch Sparo OS",
-    "heroSubtitle": "Sparo OS is ready.",
-    "colorScheme": "Color scheme",
-    "launch": "Launch Sparo OS",
-    "closeLater": "Launch later",
-    "followSystem": "Match system",
-    "skip": "Skip theme and launch",
-    "themeNames": {
-      "dark": "Dark",
-      "light": "Light",
-      "sparo-china-style": "Ink Charm",
-      "sparo-china-night": "Ink Night",
-      "sparo-cyber": "Cyber",
-      "slate": "Slate"
-    }
-  },
-  "complete": {
-    "title": "Complete",
-    "heading": "Installation Complete",
-    "ready": "Sparo OS is ready to use.",
-    "autoLaunch": " It will launch automatically.",
-    "launchFinish": "Launch Sparo OS",
-    "finish": "Finish"
+    "launchFailed": "Sparo OS could not be launched. You can try again from this screen."
   },
   "uninstall": {
     "title": "Uninstall Sparo OS",
-    "subtitle": "This removes Sparo OS and related integrations (shortcuts, context menu, PATH).",
-    "orbitRetracted": "Orbit retracted.",
-    "farewell": "Ignite again anytime.",
-    "retracting": "Retracting orbit…",
-    "installPath": "Install path",
-    "inlineHint": "Will remove integration and install directory",
-    "pathUnknown": "Install path not detected",
-    "confirm": "Start uninstall",
-    "uninstalling": "Uninstalling...",
-    "completed": "Uninstall completed. You can close this window.",
+    "subtitle": "This removes Sparo OS and its shortcuts, context-menu entry, and PATH integration.",
+    "orbitRetracted": "Uninstall complete",
+    "farewell": "We hope to ignite with you again.",
+    "retracting": "Uninstalling Sparo OS",
+    "installPath": "Installation folder",
+    "pathUnknown": "Installation folder not detected",
+    "confirm": "Uninstall",
+    "uninstalling": "Uninstalling",
     "cancel": "Cancel",
     "close": "Close"
-  },
-  "titlebar": {
-    "default": "Sparo OS",
-    "brand": "· Sparo OS Installer"
   }
 }

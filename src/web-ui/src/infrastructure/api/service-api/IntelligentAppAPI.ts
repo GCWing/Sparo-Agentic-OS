@@ -276,6 +276,15 @@ export class IntelligentAppAPI {
     }
   }
 
+  async deleteDraft(draftId: string): Promise<AppDraftRecord> {
+    const request = { draftId };
+    try {
+      return await api.invoke<AppDraftRecord>('delete_app_draft', { request });
+    } catch (error) {
+      throw commandError('delete_app_draft', error, request);
+    }
+  }
+
   async resolveDraftPreview(request: {
     draftId: string;
     theme?: string;

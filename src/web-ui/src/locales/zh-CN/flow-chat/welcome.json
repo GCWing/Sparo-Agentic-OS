@@ -40,6 +40,39 @@
   "subtitleEveningAppBuilder": "把白天的产品想法收束成一个可再次打开的应用包",
   "subtitleNightAppBuilder": "灵感正在线，给它一个能长期演进的产品边界",
   "narrativeAppBuilder": "描述你想创建的 Product App：谁会打开它、它管理什么工作对象、需要哪种交互模型，以及 AI 应如何协作。我会把应用身份和内部组件分清楚。",
+  "aiPartnerSettings": "设置助手",
+  "settingsHeading": "想调整什么设置？",
+  "settingsTagline": "描述你的目标，我会先检查相关设置，再告诉你将发生什么变化。",
+  "subtitleMorningSettings": "说出想达到的效果，我来找到并调整相关设置。",
+  "subtitleAfternoonSettings": "不必翻找菜单，直接描述你希望 Sparo 怎样工作。",
+  "subtitleEveningSettings": "一起把使用习惯调整到更顺手的状态。",
+  "subtitleNightSettings": "用一句话说明需求，我会先核对再修改。",
+  "narrativeSettings": "我会读取当前设置、解释变更，并在需要时请你确认。",
+  "fallback": {
+    "heading": "开始一段新对话",
+    "tagline": "在下方输入你的想法、问题或需求。",
+    "narrative": "对话开始后，消息与执行过程会显示在这里。"
+  },
+  "settingsPrompts": {
+    "title": "常用调整",
+    "items": {
+      "largerText": {
+        "title": "调大界面字号",
+        "description": "让界面和编辑器文字更容易阅读",
+        "prompt": "把界面和编辑器的字号调大一些，并保持整体布局协调。"
+      },
+      "fewerConfirmations": {
+        "title": "减少低风险确认",
+        "description": "降低打断，同时保留高风险保护",
+        "prompt": "减少低风险操作的确认，但涉及高风险电脑操作时仍然需要我确认。"
+      },
+      "debugLogging": {
+        "title": "启用 Debug 日志",
+        "description": "把运行日志级别调整为 debug",
+        "prompt": "把应用的日志级别改为 debug。"
+      }
+    }
+  },
   "appBuilderPrompts": {
     "title": "想创建什么样的 Product App？",
     "items": {

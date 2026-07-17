@@ -115,13 +115,12 @@ impl AppState {
                 ))
             })?;
         log::info!(
-            "Initialized system Intelligent App releases: components_added={}, components_reused={}, releases_added={}, releases_reused={}, activations_created={}, activations_advanced={}, activations_preserved={}",
+            "Initialized system Intelligent App releases: components_added={}, components_reused={}, releases_added={}, releases_reused={}, activations_created={}, activations_preserved={}",
             seed_result.components_added,
             seed_result.components_reused,
             seed_result.releases_added,
             seed_result.releases_reused,
             seed_result.activations_created,
-            seed_result.activations_advanced,
             seed_result.activations_preserved,
         );
         let speech_service = Arc::new(speech::SpeechService::new(path_manager.as_ref().clone()));

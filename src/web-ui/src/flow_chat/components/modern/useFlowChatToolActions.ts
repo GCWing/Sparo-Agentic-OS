@@ -69,8 +69,13 @@ function runToolActionSingleFlight(toolId: string, action: () => Promise<void>):
   return pending;
 }
 
-export function useFlowChatToolActions() {
+export function useFlowChatToolActions({
+  mutationsDisabled = false,
+}: {
+  mutationsDisabled?: boolean;
+} = {}) {
   const handleToolConfirm = useCallback(async (toolId: string, updatedInput?: any) => {
+    if (mutationsDisabled) return;
     try {
       await runToolActionSingleFlight(toolId, async () => {
         const initial = resolveToolContext(toolId);
@@ -90,7 +95,9 @@ export function useFlowChatToolActions() {
           return;
         }
 
-        const finalInput = updatedInput ?? current.toolItem.toolCall?.input;
+        const effectiveInput = updatedInput === undefined
+          ? current.toolItem.toolCall?.input
+          : updatedInput;
         const previousState = {
           userConfirmed: current.toolItem.userConfirmed,
           status: current.toolItem.status,
@@ -101,7 +108,7 @@ export function useFlowChatToolActions() {
           status: 'confirmed',
           toolCall: {
             ...current.toolItem.toolCall,
-            input: finalInput,
+            input: effectiveInput,
           },
         } as any);
         const optimisticItem = resolveToolContext(toolId).toolItem;
@@ -112,7 +119,7 @@ export function useFlowChatToolActions() {
             current.ownerSessionId,
             toolId,
             'confirm',
-            finalInput,
+            updatedInput,
           );
         } catch (error) {
           if (resolveToolContext(toolId).toolItem === optimisticItem) {
@@ -130,9 +137,10 @@ export function useFlowChatToolActions() {
       log.error('Tool confirmation failed', error);
       notificationService.error(`Tool confirmation failed: ${error}`);
     }
-  }, []);
+  }, [mutationsDisabled]);
 
   const handleToolReject = useCallback(async (toolId: string) => {
+    if (mutationsDisabled) return;
     try {
       await runToolActionSingleFlight(toolId, async () => {
         const initial = resolveToolContext(toolId);
@@ -185,7 +193,7 @@ export function useFlowChatToolActions() {
       log.error('Tool rejection failed', error);
       notificationService.error(`Tool rejection failed: ${error}`);
     }
-  }, []);
+  }, [mutationsDisabled]);
 
   return {
     handleToolConfirm,

@@ -11,16 +11,32 @@ export const FormSection = forwardRef<HTMLElement, React.HTMLAttributes<HTMLElem
 
 FormSection.displayName = 'FormSection';
 
+export type FormFieldOrientation = 'vertical' | 'horizontal';
+export type FormFieldControlWidth = 'compact' | 'balanced' | 'wide';
+
 export interface FormFieldProps extends React.HTMLAttributes<HTMLDivElement> {
   label?: React.ReactNode;
   description?: React.ReactNode;
   error?: React.ReactNode;
   required?: boolean;
   controlId?: string;
+  orientation?: FormFieldOrientation;
+  controlWidth?: FormFieldControlWidth;
 }
 
 export const FormField = forwardRef<HTMLDivElement, FormFieldProps>(
-  ({ label, description, error, required = false, controlId, children, className = '', ...props }, ref) => {
+  ({
+    label,
+    description,
+    error,
+    required = false,
+    controlId,
+    orientation = 'vertical',
+    controlWidth = 'compact',
+    children,
+    className = '',
+    ...props
+  }, ref) => {
     const generatedId = useId();
     const id = controlId ?? generatedId;
     const descriptionId = description ? `${id}-description` : undefined;
@@ -38,7 +54,17 @@ export const FormField = forwardRef<HTMLDivElement, FormFieldProps>(
       : children;
 
     return (
-      <div ref={ref} className={['ds-form-field', error && 'ds-form-field--error', className].filter(Boolean).join(' ')} {...props}>
+      <div
+        ref={ref}
+        className={[
+          'ds-form-field',
+          `ds-form-field--${orientation}`,
+          `ds-form-field--control-${controlWidth}`,
+          error && 'ds-form-field--error',
+          className,
+        ].filter(Boolean).join(' ')}
+        {...props}
+      >
         {(label || description) && (
           <div className="ds-form-field__copy">
             {label && (

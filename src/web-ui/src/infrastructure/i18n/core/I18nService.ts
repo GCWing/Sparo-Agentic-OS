@@ -21,11 +21,12 @@ import {
   isLocaleSupported,
 } from '../presets';
 import { useI18nStore } from '../store/i18nStore';
-import { i18nAPI } from '@/infrastructure/api/service-api/I18nAPI';
+import { configManager } from '@/infrastructure/config/services/ConfigManager';
 
 import { createLogger } from '@/shared/utils/logger';
 
 const log = createLogger('I18nService');
+const APP_LANGUAGE_SETTING_ID = 'core.app.language';
 
 type TranslationNamespaceResource = Record<string, unknown>;
 type TranslationResources = Record<string, TranslationNamespaceResource>;
@@ -120,6 +121,8 @@ export class I18nService {
   private listeners: Map<I18nEventType, Set<I18nEventListener>> = new Map();
   private hooks: I18nHooks = {};
   private initialized: boolean = false;
+  private configWatchCleanup: (() => void) | null = null;
+  private configRefreshSeq: number = 0;
   // Monotonic counter to detect mid-flight locale changes and avoid racey overrides.
   private localeChangeSeq: number = 0;
 
@@ -179,32 +182,57 @@ export class I18nService {
 
       const seqAtInitEnd = this.localeChangeSeq;
       const localeAtInitEnd = this.currentLocaleId;
-      this.loadAndApplyBackendLocale(seqAtInitEnd, localeAtInitEnd);
+      this.ensureConfigWatch();
+      void this.refreshLocaleFromConfig(seqAtInitEnd, localeAtInitEnd);
     } catch (error) {
       log.error('Initialization failed', error);
       
       this.initialized = true;
       const store = useI18nStore.getState();
       store.setInitialized(true);
+      this.ensureConfigWatch();
     }
   }
 
-  private async loadAndApplyBackendLocale(seqAtInitEnd: number, localeAtInitEnd: LocaleId): Promise<void> {
+  private async refreshLocaleFromConfig(
+    expectedLocaleChangeSeq?: number,
+    expectedLocale?: LocaleId,
+  ): Promise<void> {
+    const refreshSeq = ++this.configRefreshSeq;
     try {
       const savedLocale = await this.loadCurrentLocale();
-      if (!savedLocale || savedLocale === this.currentLocaleId) {
+      if (
+        refreshSeq !== this.configRefreshSeq
+        || !savedLocale
+        || savedLocale === this.currentLocaleId
+      ) {
         return;
       }
 
       // If the user changed language after initialization, do not override it with a stale backend value.
-      if (this.localeChangeSeq !== seqAtInitEnd || this.currentLocaleId !== localeAtInitEnd) {
+      if (
+        expectedLocaleChangeSeq !== undefined
+        && (
+          this.localeChangeSeq !== expectedLocaleChangeSeq
+          || this.currentLocaleId !== expectedLocale
+        )
+      ) {
         return;
       }
 
-      await this.changeLanguage(savedLocale);
+      await this.changeLanguage(savedLocale, { persist: false });
     } catch (error) {
-      log.debug('Failed to load backend locale (ignored)', error);
+      log.error('Failed to apply authoritative locale', { error });
     }
+  }
+
+  private ensureConfigWatch(): void {
+    if (this.configWatchCleanup) {
+      return;
+    }
+    this.configWatchCleanup = configManager.watch(APP_LANGUAGE_SETTING_ID, () => {
+      void this.refreshLocaleFromConfig();
+    });
   }
 
    
@@ -216,7 +244,7 @@ export class I18nService {
       });
 
       const locale = await Promise.race([
-        i18nAPI.getCurrentLanguage(),
+        configManager.getSetting<string>(APP_LANGUAGE_SETTING_ID),
         timeoutPromise,
       ]);
 
@@ -233,9 +261,9 @@ export class I18nService {
    
   private async saveCurrentLocale(locale: LocaleId): Promise<void> {
     try {
-      await i18nAPI.setLanguage(locale);
+      await configManager.setSetting(APP_LANGUAGE_SETTING_ID, locale);
     } catch (error) {
-      log.warn('Failed to save locale config', error);
+      log.warn('Failed to save locale config', { locale, error });
     }
   }
 
@@ -267,7 +295,10 @@ export class I18nService {
   }
 
    
-  async changeLanguage(locale: LocaleId): Promise<void> {
+  async changeLanguage(
+    locale: LocaleId,
+    options: { persist?: boolean } = {},
+  ): Promise<void> {
     if (!isLocaleSupported(locale)) {
       log.error('Unsupported locale', { locale });
       throw new Error(`Unsupported locale: ${locale}`);
@@ -302,7 +333,9 @@ export class I18nService {
       store.setCurrentLanguage(locale);
 
       
-      await this.saveCurrentLocale(locale);
+      if (options.persist ?? true) {
+        await this.saveCurrentLocale(locale);
+      }
 
       
       if (this.hooks.afterChange) {

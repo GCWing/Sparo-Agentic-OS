@@ -16,10 +16,8 @@ import {
 import {
   builtinThemes,
   getSystemPreferredDefaultThemeId,
-  resolveThemeId,
-  resolveThemeSelectionId,
 } from '../presets';
-import { configAPI } from '@/infrastructure/api';
+import { configManager } from '@/infrastructure/config/services/ConfigManager';
 import { monacoThemeSync } from '../integrations/MonacoThemeSync';
 import { createLogger } from '@/shared/utils/logger';
 import {
@@ -30,18 +28,56 @@ import {
 } from '@/design-system';
 
 const log = createLogger('ThemeService');
+const THEMES_SETTING_NAMESPACE = 'core.themes';
+
+interface StoredThemesConfig {
+  current: ThemeSelectionId;
+  custom: ThemeConfig[] | null;
+}
+
+type ThemeStatusListener = (error: Error | null) => void;
+
+function parseStoredThemesConfig(raw: unknown): StoredThemesConfig {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new Error('Theme settings are missing from the Catalog projection');
+  }
+  const record = raw as Record<string, unknown>;
+  if (typeof record.current !== 'string' || record.current.trim() === '') {
+    throw new Error('Theme settings are missing themes.current');
+  }
+  if (record.custom !== null && !Array.isArray(record.custom)) {
+    throw new Error('Theme settings contain an invalid themes.custom value');
+  }
+  if (Array.isArray(record.custom)) {
+    record.custom.forEach((theme, index) => {
+      if (theme === null || typeof theme !== 'object' || Array.isArray(theme)) {
+        throw new Error(`Theme settings contain an invalid custom theme at index ${index}`);
+      }
+    });
+  }
+  return {
+    current: record.current,
+    custom: record.custom as ThemeConfig[] | null,
+  };
+}
 
 
  
 export class ThemeService {
   private themes: Map<ThemeId, ThemeConfig> = new Map();
   /** User choice from settings (including follow-system). */
-  private themeSelection: ThemeSelectionId = SYSTEM_THEME_ID;
+  private themeSelection: ThemeSelectionId | null = null;
   /** Currently applied built-in or custom theme (never `system`). */
-  private resolvedThemeId: ThemeId = getSystemPreferredDefaultThemeId();
+  private resolvedThemeId: ThemeId | null = null;
   private systemThemeCleanup: (() => void) | null = null;
   private listeners: Map<ThemeEventType, Set<ThemeEventListener>> = new Map();
+  private statusListeners = new Set<ThemeStatusListener>();
   private hooks: ThemeHooks = {};
+  private configWatchCleanup: (() => void) | null = null;
+  private configRefreshSeq = 0;
+  private configRefreshTail: Promise<void> = Promise.resolve();
+  private initializing = false;
+  private refreshRequestedDuringInitialization = false;
   
   constructor() {
     this.initializeBuiltinThemes();
@@ -59,92 +95,181 @@ export class ThemeService {
   
    
   async initialize(): Promise<void> {
+    this.initializing = true;
+    this.ensureConfigWatch();
     try {
-      const saved = resolveThemeSelectionId(await this.loadThemeSelection());
-
-      if (saved === SYSTEM_THEME_ID) {
-        await this.applyTheme(SYSTEM_THEME_ID, { persist: false });
-      } else if (saved && this.themes.has(saved)) {
-        await this.applyTheme(saved, { persist: false });
-      } else {
-        const preInjectedThemeId = document.documentElement.getAttribute('data-theme');
-        const normalizedPre = preInjectedThemeId
-          ? resolveThemeId(preInjectedThemeId as ThemeId)
-          : null;
-        if (normalizedPre && this.themes.has(normalizedPre)) {
-          await this.applyTheme(normalizedPre, { persist: false });
-        } else {
-          await this.applyTheme(SYSTEM_THEME_ID, { persist: false });
-        }
-      }
-
-      this.loadUserThemes().catch(() => {
-        
-      });
+      const storedConfig = await this.loadStoredThemesConfig();
+      await this.applyAuthoritativeConfig(storedConfig);
+      this.publishStatus(null);
     } catch (error) {
-      log.error('Theme system initialization failed', error);
-      
-      await this.applyTheme(SYSTEM_THEME_ID, { persist: false });
-    }
-  }
-  
-   
-  private async loadUserThemes(): Promise<void> {
-    try {
-      // Read the whole themes section so missing optional `custom` does not surface
-      // as an expected backend error during startup.
-      const themesConfig = await configAPI.getConfig('themes', {
-        skipRetryOnNotFound: true,
-      }) as { custom?: ThemeConfig[] } | undefined;
-      const themes = themesConfig?.custom;
-      
-      if (Array.isArray(themes) && themes.length > 0) {
-        themes.forEach(theme => {
-          this.themes.set(theme.id, theme);
-        });
-        log.info('Loaded user themes', { count: themes.length });
+      const normalizedError = error instanceof Error ? error : new Error(String(error));
+      log.error('Theme system initialization failed', { error: normalizedError });
+      this.publishStatus(normalizedError);
+      throw normalizedError;
+    } finally {
+      this.initializing = false;
+      if (this.refreshRequestedDuringInitialization) {
+        this.refreshRequestedDuringInitialization = false;
+        await this.queueAuthoritativeRefresh();
       }
-    } catch (_error) {
-      
     }
   }
   
-   
-  private async loadThemeSelection(): Promise<ThemeSelectionId | null> {
-    try {
-      
-      const raw = await configAPI.getConfig('themes.current', {
-        skipRetryOnNotFound: true
-      }) as string | undefined;
-      
-      if (raw === SYSTEM_THEME_ID) {
-        return SYSTEM_THEME_ID;
+  private async loadStoredThemesConfig(): Promise<StoredThemesConfig> {
+    return parseStoredThemesConfig(
+      await configManager.getSetting<unknown>(THEMES_SETTING_NAMESPACE),
+    );
+  }
+
+  private buildThemeMap(config: StoredThemesConfig): Map<ThemeId, ThemeConfig> {
+    const themes = new Map<ThemeId, ThemeConfig>(
+      builtinThemes.map((theme) => [theme.id, theme]),
+    );
+    for (const theme of config.custom ?? []) {
+      const validation = this.validateTheme(theme);
+      if (!validation.valid || theme.id === SYSTEM_THEME_ID || themes.has(theme.id)) {
+        throw new Error(`Invalid or duplicate custom theme id: ${theme.id || '<missing>'}`);
       }
-      return raw || null;
-    } catch (_error) {
-      return null;
+      themes.set(theme.id, theme);
+    }
+    if (config.current !== SYSTEM_THEME_ID && !themes.has(config.current)) {
+      throw new Error(`Unknown current theme id: ${config.current}`);
+    }
+    return themes;
+  }
+
+  private async applyAuthoritativeConfig(config: StoredThemesConfig): Promise<void> {
+    const nextThemes = this.buildThemeMap(config);
+    const previousSelectedTheme = this.themeSelection === null
+      || this.themeSelection === SYSTEM_THEME_ID
+      ? null
+      : this.themes.get(this.themeSelection);
+    const previousSelectedThemeJson = previousSelectedTheme
+      ? JSON.stringify(previousSelectedTheme)
+      : null;
+    const nextSelectedTheme = config.current === SYSTEM_THEME_ID
+      ? null
+      : nextThemes.get(config.current);
+    const selectedThemeChanged = config.current !== SYSTEM_THEME_ID
+      && JSON.stringify(nextSelectedTheme) !== previousSelectedThemeJson;
+
+    this.themes = nextThemes;
+    if (
+      this.resolvedThemeId === null
+      || config.current !== this.themeSelection
+      || selectedThemeChanged
+    ) {
+      await this.applyTheme(config.current, { persist: false });
+    }
+
+    const userThemeCount = config.custom?.length ?? 0;
+    if (userThemeCount > 0) {
+      log.info('Loaded user themes', { count: userThemeCount });
+    }
+  }
+
+  private ensureConfigWatch(): void {
+    if (this.configWatchCleanup) {
+      return;
+    }
+    this.configWatchCleanup = configManager.watch(THEMES_SETTING_NAMESPACE, () => {
+      if (this.initializing) {
+        this.refreshRequestedDuringInitialization = true;
+        return;
+      }
+      void this.queueAuthoritativeRefresh();
+    });
+  }
+
+  private queueAuthoritativeRefresh(): Promise<void> {
+    const refreshSeq = ++this.configRefreshSeq;
+    const refresh = async () => {
+      if (refreshSeq !== this.configRefreshSeq) {
+        return;
+      }
+      await this.refreshFromAuthoritativeConfig(refreshSeq);
+    };
+    const scheduled = this.configRefreshTail.then(refresh, refresh);
+    this.configRefreshTail = scheduled.catch(() => undefined);
+    return scheduled;
+  }
+
+  private async refreshFromAuthoritativeConfig(refreshSeq: number): Promise<void> {
+    try {
+      const storedConfig = await this.loadStoredThemesConfig();
+      if (refreshSeq !== this.configRefreshSeq) {
+        return;
+      }
+      await this.applyAuthoritativeConfig(storedConfig);
+      this.publishStatus(null);
+    } catch (error) {
+      const normalizedError = error instanceof Error ? error : new Error(String(error));
+      log.error('Failed to refresh authoritative theme configuration', { error: normalizedError });
+      this.publishStatus(normalizedError);
+    }
+  }
+
+  private async synchronizeAfterWrite(): Promise<void> {
+    try {
+      const storedConfig = await this.loadStoredThemesConfig();
+      await this.applyAuthoritativeConfig(storedConfig);
+      this.publishStatus(null);
+    } catch (error) {
+      const normalizedError = error instanceof Error ? error : new Error(String(error));
+      this.publishStatus(normalizedError);
+      throw normalizedError;
+    }
+  }
+
+  private requireAuthoritativeState(): void {
+    if (this.themeSelection === null || this.resolvedThemeId === null) {
+      throw new Error('Theme service has not loaded an authoritative configuration');
     }
   }
   
   
   
    
-  registerTheme(theme: ThemeConfig): void {
+  async registerTheme(theme: ThemeConfig): Promise<void> {
+    this.requireAuthoritativeState();
     if (theme.id === SYSTEM_THEME_ID) {
       log.error('Reserved theme id', { id: theme.id });
       throw new Error(`Theme id "${SYSTEM_THEME_ID}" is reserved`);
     }
     if (this.themes.has(theme.id)) {
-      log.warn('Theme already exists, will override', { id: theme.id });
+      throw new Error(`Theme ${theme.id} already exists`);
     }
-    
-    this.themes.set(theme.id, theme);
-    this.emitEvent('theme:register', theme.id, theme);
-    log.info('Theme registered', { id: theme.id, name: theme.name });
+    const validation = this.validateTheme(theme);
+    if (!validation.valid) {
+      throw new Error(`Theme ${theme.id} is invalid`);
+    }
+
+    await configManager.updateSetting<unknown, StoredThemesConfig>(
+      THEMES_SETTING_NAMESPACE,
+      (raw) => {
+        const current = parseStoredThemesConfig(raw);
+        const currentThemes = this.buildThemeMap(current);
+        if (currentThemes.has(theme.id)) {
+          throw new Error(`Theme ${theme.id} already exists`);
+        }
+        return {
+          current: current.current,
+          custom: [...(current.custom ?? []), theme],
+        };
+      },
+    );
+    await this.synchronizeAfterWrite();
+    const acceptedTheme = this.themes.get(theme.id);
+    if (!acceptedTheme) {
+      throw new Error(`Accepted theme snapshot does not contain ${theme.id}`);
+    }
+    this.emitEvent('theme:register', acceptedTheme.id, acceptedTheme);
+    log.info('Theme registered', { id: acceptedTheme.id, name: acceptedTheme.name });
   }
   
    
-  unregisterTheme(themeId: ThemeId): boolean {
+  async unregisterTheme(themeId: ThemeId): Promise<boolean> {
+    this.requireAuthoritativeState();
     const theme = this.themes.get(themeId);
     if (!theme) {
       log.warn('Theme not found', { id: themeId });
@@ -159,17 +284,29 @@ export class ThemeService {
     }
     
     
-    if (this.themeSelection === themeId) {
-      void this.applyTheme(SYSTEM_THEME_ID);
+    await configManager.updateSetting<unknown, StoredThemesConfig>(
+      THEMES_SETTING_NAMESPACE,
+      (raw) => {
+        const current = parseStoredThemesConfig(raw);
+        const currentThemes = this.buildThemeMap(current);
+        const acceptedTheme = currentThemes.get(themeId);
+        if (!acceptedTheme || builtinThemes.some((builtin) => builtin.id === themeId)) {
+          throw new Error(`Custom theme ${themeId} does not exist in the accepted snapshot`);
+        }
+        const nextUserThemes = (current.custom ?? [])
+          .filter((candidate) => candidate.id !== themeId);
+        return {
+          current: current.current === themeId ? SYSTEM_THEME_ID : current.current,
+          custom: nextUserThemes.length > 0 ? nextUserThemes : null,
+        };
+      },
+    );
+    await this.synchronizeAfterWrite();
+    if (this.themes.has(themeId)) {
+      throw new Error(`Accepted theme snapshot still contains ${themeId}`);
     }
-    
-    this.themes.delete(themeId);
     this.emitEvent('theme:unregister', themeId, theme);
     log.info('Theme unregistered', { id: themeId, name: theme.name });
-    
-    
-    this.saveUserThemes();
-    
     return true;
   }
   
@@ -180,17 +317,21 @@ export class ThemeService {
   
    
   getCurrentTheme(): ThemeConfig {
-    return this.themes.get(this.resolvedThemeId) || builtinThemes[0];
+    const theme = this.resolvedThemeId ? this.themes.get(this.resolvedThemeId) : null;
+    if (!theme) {
+      throw new Error('Theme service has no authoritative current theme');
+    }
+    return theme;
   }
   
    
   /** User selection for UI (may be `system`). */
-  getCurrentThemeId(): ThemeSelectionId {
+  getCurrentThemeId(): ThemeSelectionId | null {
     return this.themeSelection;
   }
 
   /** Actually applied theme id (never `system`). */
-  getResolvedThemeId(): ThemeId {
+  getResolvedThemeId(): ThemeId | null {
     return this.resolvedThemeId;
   }
   
@@ -246,7 +387,9 @@ export class ThemeService {
       throw new Error(`Theme ${resolvedId} not found`);
     }
 
-    const oldTheme = this.getCurrentTheme();
+    const oldTheme = this.resolvedThemeId
+      ? this.themes.get(this.resolvedThemeId)
+      : undefined;
 
     try {
       if (this.hooks.beforeChange) {
@@ -281,29 +424,26 @@ export class ThemeService {
     options: { persist?: boolean } = {}
   ): Promise<void> {
     const persist = options.persist ?? true;
-    if (themeId !== SYSTEM_THEME_ID) {
-      themeId = resolveThemeId(themeId as ThemeId);
-    }
     if (themeId !== SYSTEM_THEME_ID && !this.themes.has(themeId)) {
       log.error('Theme not found', { id: themeId });
       throw new Error(`Theme ${themeId} not found`);
     }
 
-    this.detachSystemThemeListener();
+    if (persist) {
+      this.requireAuthoritativeState();
+      await this.saveThemeSelection(themeId);
+      await this.synchronizeAfterWrite();
+      return;
+    }
 
+    this.detachSystemThemeListener();
     if (themeId === SYSTEM_THEME_ID) {
       this.themeSelection = SYSTEM_THEME_ID;
-      if (persist) {
-        await this.saveThemeSelection(SYSTEM_THEME_ID);
-      }
       this.attachSystemThemeListener();
       const resolved = getSystemPreferredDefaultThemeId();
       await this.applyResolvedTheme(resolved);
     } else {
       this.themeSelection = themeId;
-      if (persist) {
-        await this.saveThemeSelection(themeId);
-      }
       await this.applyResolvedTheme(themeId);
     }
   }
@@ -352,23 +492,7 @@ export class ThemeService {
   
    
   private async saveThemeSelection(selection: ThemeSelectionId): Promise<void> {
-    try {
-      await configAPI.setConfig('themes.current', selection);
-    } catch (error) {
-      log.warn('Failed to save current theme ID', error);
-    }
-  }
-  
-   
-  private async saveUserThemes(): Promise<void> {
-    try {
-      const userThemes = Array.from(this.themes.values()).filter(
-        theme => !builtinThemes.some(t => t.id === theme.id)
-      );
-      await configAPI.setConfig('themes.custom', userThemes);
-    } catch (error) {
-      log.warn('Failed to save user themes', error);
-    }
+    await configManager.setSetting('core.themes.current', selection);
   }
   
   
@@ -427,6 +551,23 @@ export class ThemeService {
       errors,
       warnings,
     };
+  }
+
+  onStatusChange(listener: ThemeStatusListener): () => void {
+    this.statusListeners.add(listener);
+    return () => {
+      this.statusListeners.delete(listener);
+    };
+  }
+
+  private publishStatus(error: Error | null): void {
+    for (const listener of this.statusListeners) {
+      try {
+        listener(error);
+      } catch (listenerError) {
+        log.error('Theme status listener execution failed', { error: listenerError });
+      }
+    }
   }
   
   

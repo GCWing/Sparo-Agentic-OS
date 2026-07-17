@@ -211,12 +211,14 @@ impl ChatMode {
         session_id: Option<String>,
         agentic_system: &AgenticSystem,
     ) -> Self {
+        let skip_tool_confirmation = !config.behavior.confirm_dangerous;
         let agent = Arc::new(CoreAgentAdapter::new_with_session(
             agent_name.clone(),
             agentic_system.coordinator.clone(),
             agentic_system.event_queue.clone(),
             workspace_path.clone(),
             session_id.clone(),
+            skip_tool_confirmation,
         )) as Arc<dyn Agent>;
 
         Self {
@@ -1411,7 +1413,7 @@ impl ChatMode {
                 }
             }
             CommandAction::ShowAgents => {
-                chat_view.add_message("system".to_string(), live_agents_message());
+                chat_view.add_message("system".to_string(), live_agents_message()?);
             }
             CommandAction::ShowHistory => {
                 chat_view.add_message(
@@ -1527,12 +1529,12 @@ fn session_history_summary(session: &Session) -> String {
     )
 }
 
-fn live_agents_message() -> String {
+fn live_agents_message() -> Result<String> {
     let handle = tokio::runtime::Handle::current();
     let agents = tokio::task::block_in_place(|| {
         handle.block_on(sparo_core::agentic::agents::get_agent_registry().list_agents_info())
-    });
-    agents_registry_message(&agents)
+    })?;
+    Ok(agents_registry_message(&agents))
 }
 
 fn session_export_guidance(session: &Session, persisted_session_id: Option<&str>) -> String {
@@ -1675,6 +1677,7 @@ mod tests {
                 child_count: 1,
                 last_active_at: 1_700_000_000_000,
             }],
+            works: Vec::new(),
             tasks: vec![AgenticOsTaskRow {
                 title: "Fix bug".to_string(),
                 agent: "bitfun-debug".to_string(),

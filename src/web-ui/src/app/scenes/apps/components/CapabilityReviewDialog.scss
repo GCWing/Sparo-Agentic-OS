@@ -1,0 +1,151 @@
+.capability-review-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4);
+  padding: var(--ds-space-2) var(--ds-space-5) var(--ds-space-3);
+  overflow: hidden;
+}
+
+.capability-review-dialog__intro,
+.capability-review-dialog__scope-note {
+  margin: 0;
+  font-size: var(--ds-font-size-sm);
+  line-height: var(--ds-line-height-relaxed);
+}
+
+.capability-review-dialog__intro {
+  color: var(--ds-color-text-secondary);
+}
+
+.capability-review-dialog__table-region {
+  max-height: min(46vh, 360px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--ds-color-border-base);
+    border-radius: var(--ds-radius-full);
+  }
+}
+
+.capability-review-dialog__table {
+  width: 100%;
+  min-width: 520px;
+  border-collapse: collapse;
+  table-layout: fixed;
+
+  th,
+  td {
+    padding: var(--ds-space-3);
+    border-bottom: 1px solid var(--ds-color-border-subtle);
+    text-align: start;
+    vertical-align: top;
+  }
+
+  thead th {
+    position: sticky;
+    top: 0;
+    z-index: var(--ds-z-sticky);
+    padding-block: var(--ds-space-2);
+    color: var(--ds-color-text-muted);
+    font-size: var(--ds-font-size-xs);
+    font-weight: var(--ds-font-weight-medium);
+    background: var(--ds-color-bg-elevated);
+    border-bottom-color: var(--ds-color-border-base);
+  }
+
+  thead th:nth-child(1),
+  thead th:nth-child(2) {
+    width: 31%;
+  }
+
+  thead th:nth-child(3) {
+    width: 38%;
+  }
+
+  tbody th {
+    font-weight: inherit;
+  }
+
+  tbody tr:last-child > * {
+    border-bottom: 0;
+  }
+
+  code {
+    display: block;
+    margin-top: 2px;
+    padding: 0;
+    color: var(--ds-color-text-muted);
+    font-family: var(--ds-font-family-mono);
+    font-size: var(--ds-font-size-xs);
+    line-height: var(--ds-line-height-base);
+    overflow-wrap: anywhere;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+  }
+}
+
+.capability-review-dialog__capability-name,
+.capability-review-dialog__permission-name,
+.capability-review-dialog__owners {
+  display: block;
+  color: var(--ds-color-text-primary);
+  font-size: var(--ds-font-size-sm);
+  line-height: var(--ds-line-height-base);
+  overflow-wrap: anywhere;
+}
+
+.capability-review-dialog__capability-name {
+  font-weight: var(--ds-font-weight-semibold);
+}
+
+.capability-review-dialog__capability-description {
+  display: block;
+  margin-top: 2px;
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-size-xs);
+  line-height: var(--ds-line-height-base);
+}
+
+.capability-review-dialog__permission-name {
+  color: var(--ds-color-text-secondary);
+  font-weight: var(--ds-font-weight-medium);
+}
+
+.capability-review-dialog__owners {
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-size-xs);
+}
+
+.capability-review-dialog__scope-note {
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-size-xs);
+}
+
+.capability-review-dialog__footer {
+  padding: var(--ds-space-3) var(--ds-space-5) var(--ds-space-5);
+}
+
+@media (max-width: 640px) {
+  .capability-review-dialog__body {
+    padding-inline: var(--ds-space-4);
+  }
+
+  .capability-review-dialog__table-region {
+    max-height: min(48vh, 300px);
+  }
+
+  .capability-review-dialog__footer {
+    padding-inline: var(--ds-space-4);
+  }
+}

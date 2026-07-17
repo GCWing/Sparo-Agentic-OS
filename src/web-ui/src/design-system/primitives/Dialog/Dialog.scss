@@ -90,6 +90,11 @@
     padding-inline-end: calc(var(--ds-space-3, 12px) + 30px);
   }
 
+  &--without-dividers &__header,
+  &--without-dividers &__footer {
+    border: 0;
+  }
+
   &__title-group {
     display: flex;
     min-width: 0;

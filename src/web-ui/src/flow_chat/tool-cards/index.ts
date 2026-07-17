@@ -16,6 +16,8 @@ const TOOL_REGISTRY_ALIASES: Record<string, string> = {
   session_history: 'SessionHistory',
   AgentDispatch: 'AgentHandoff',
   agent_dispatch: 'AgentHandoff',
+  settings_catalog: 'SettingsCatalog',
+  settings_change: 'SettingsChange',
 };
 
 function resolveToolRegistryKey(raw: string): string {
@@ -59,6 +61,12 @@ const WorkToolCard = lazy(() => import('./WorkToolCard').then(module => ({ defau
 const OutcomeReviewToolCard = lazy(() => import('./OutcomeReviewToolCard').then(module => ({ default: module.OutcomeReviewToolCard })));
 const MemoryToolCard = lazy(() => import('./MemoryToolCard').then(module => ({ default: module.MemoryToolCard })));
 const GoalToolCard = lazy(() => import('./GoalToolCard').then(module => ({ default: module.GoalToolCard })));
+const SettingsCatalogCard = lazy(() =>
+  import('./SettingsCatalogCard').then(module => ({ default: module.SettingsCatalogCard })),
+);
+const SettingsChangePreviewCard = lazy(() =>
+  import('./SettingsChangePreviewCard').then(module => ({ default: module.SettingsChangePreviewCard })),
+);
 
 const TaskToolDisplay = lazy(() =>
   import('./TaskToolDisplay').then(module => ({ default: module.TaskToolDisplay })),
@@ -133,6 +141,28 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     description: 'Create a preview-only file operation plan',
     displayMode: 'standard',
     primaryColor: 'var(--ds-tool-family-explore-fg)'
+  },
+  'SettingsChange': {
+    toolName: 'SettingsChange',
+    displayName: 'Settings change',
+    icon: '',
+    requiresConfirmation: false,
+    resultDisplayType: 'detailed',
+    description: 'Preview and apply a validated settings transaction',
+    displayMode: 'detailed',
+    primaryColor: 'var(--ds-status-surface-info-fg)',
+    inlineInterruptionNote: true,
+  },
+  'SettingsCatalog': {
+    toolName: 'SettingsCatalog',
+    displayName: 'Settings catalog',
+    icon: '',
+    requiresConfirmation: false,
+    resultDisplayType: 'summary',
+    description: 'Locate trusted settings and read their current redacted values',
+    displayMode: 'compact',
+    primaryColor: 'var(--ds-color-text-muted)',
+    inlineInterruptionNote: true,
   },
   'LS': {
     toolName: 'LS',
@@ -720,6 +750,8 @@ const EXACT_TOOL_UI_REGISTRY: Record<string, ToolUiRegistryEntry> = {
   GenerativeUI: { component: GenerativeWidgetToolCard, template: 'custom' },
   DesignArtifact: { component: DesignArtifactIndexCard, template: 'custom' },
   DesignTokens: { component: DesignTokensProposalCard, template: 'custom' },
+  SettingsCatalog: { component: SettingsCatalogCard, template: 'custom', family: 'settings' },
+  SettingsChange: { component: SettingsChangePreviewCard, template: 'custom', family: 'settings' },
 
   // Preview/stream family: shared lifecycle shape, specialized body renderers.
   Write: { component: FileOperationToolCard, template: 'previewStream', family: 'file-operation' },

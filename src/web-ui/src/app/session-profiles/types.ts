@@ -36,6 +36,7 @@ export type SessionSidecarActionAvailability = 'enabled' | 'disabled' | 'hidden'
 export type SessionSidecarIconId =
   | 'activity'
   | 'app-window'
+  | 'file-text'
   | 'palette'
   | 'play'
   | 'settings';
@@ -110,6 +111,27 @@ export interface SessionComposerPolicy {
   readonly builtIns?: Partial<Record<SessionComposerBuiltinActionId, SessionComposerActionAvailability>>;
   /** Optional app/profile provider ids resolved after built-in providers. */
   readonly providers?: readonly SessionComposerActionProviderId[];
+  /** Optional placeholder key from the flow-chat/chat-input namespace. */
+  readonly placeholderKey?: string;
+  /** Profile-level composer chrome. Missing values preserve standard FlowChat behavior. */
+  readonly showModelSelector?: boolean;
+  readonly showVoiceInput?: boolean;
+  readonly showWorkspaceMeta?: boolean;
+  readonly showContextUsage?: boolean;
+  readonly allowContextInput?: boolean;
+}
+
+/**
+ * Per-profile visibility for actions attached to persisted chat messages.
+ * Copy remains universally available; these switches cover actions that
+ * mutate conversation history or branch/export it into another surface.
+ */
+export interface SessionMessageActionPolicy {
+  readonly showUserEdit?: boolean;
+  readonly showUserRecovery?: boolean;
+  readonly showUserRollback?: boolean;
+  readonly showAssistantFork?: boolean;
+  readonly showAssistantExport?: boolean;
 }
 
 export interface SessionAgentContextHint {
@@ -169,11 +191,17 @@ export interface SessionProfile {
    */
   readonly composer?: SessionComposerPolicy;
 
+  readonly messageActions?: SessionMessageActionPolicy;
+
   readonly capabilities: {
     /** Whether the standard FlowChat welcome panel is shown. */
     showWelcomePanel: boolean;
     /** Whether the Agentic OS-specific model-round UI is rendered. */
     showAgenticOsModelRoundUI: boolean;
+    /** Whether the first user message may replace the session title. */
+    autoTitle?: boolean;
+    /** Runtime-owned model selection is authoritative and must not be synchronized by FlowChat. */
+    modelSelection?: 'session-managed' | 'runtime-owned';
   };
 
   readonly workspaceScope: {

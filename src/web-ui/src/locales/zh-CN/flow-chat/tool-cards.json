@@ -273,6 +273,151 @@
       "high": "高"
     }
   },
+  "settingsCatalog": {
+    "summaryLine": "{{action}}：{{summary}}",
+    "actions": {
+      "query": "查找设置",
+      "get": "读取设置",
+      "unknown": "检查设置"
+    },
+    "status": {
+      "searching": "正在查找与请求相关的设置…",
+      "reading": "正在读取这项设置…",
+      "matched": "找到 {{count}} 项与请求相关的设置",
+      "readOne": "已读取这项设置",
+      "readOneNamed": "已读取“{{name}}”设置",
+      "failed": "未能找到相关设置",
+      "cancelled": "已停止查找设置"
+    },
+    "results": {
+      "listLabel": "找到的设置",
+      "currentValue": "当前值",
+      "unnamed": "未命名设置",
+      "otherLocation": "其他设置",
+      "configured": "已配置",
+      "notConfigured": "未配置",
+      "defaultValue": "使用默认值",
+      "notSet": "未设置",
+      "enabled": "已开启",
+      "disabled": "已关闭",
+      "itemCount": "{{count}} 项"
+    }
+  },
+  "settingsChange": {
+    "title": "设置变更",
+    "status": {
+      "plan": {
+        "running": "正在检查相关设置…",
+        "confirming": "正在检查 {{count}} 项设置变更",
+        "completed": "已生成 {{count}} 项设置变更方案",
+        "failed": "无法生成设置变更方案",
+        "cancelled": "已取消检查设置"
+      },
+      "apply": {
+        "running": "正在应用 {{count}} 项设置变更…",
+        "confirming": "将应用 {{count}} 项变更",
+        "completed": "已应用 {{count}} 项设置",
+        "failed": "设置变更未能应用",
+        "cancelled": "已取消设置变更"
+      },
+      "undo": {
+        "running": "正在恢复 {{count}} 项设置…",
+        "confirming": "将恢复 {{count}} 项设置",
+        "completed": "已恢复 {{count}} 项设置",
+        "failed": "设置未能恢复",
+        "cancelled": "已取消恢复设置"
+      },
+      "unknown": {
+        "running": "正在准备设置变更…",
+        "confirming": "设置变更等待确认",
+        "completed": "设置变更已完成",
+        "failed": "设置变更失败",
+        "cancelled": "已取消设置变更"
+      },
+      "result": {
+        "applying": "设置已保存，仍在生效中",
+        "partial": "部分设置未能生效",
+        "restartRequired": "已应用 {{count}} 项变更，其中 {{restartCount}} 项需要重启",
+        "rolledBack": "已回滚 {{count}} 项设置变更",
+        "undone": "已撤销 {{count}} 项设置"
+      }
+    },
+    "actions": {
+      "viewManual": "在手动设置中查看",
+      "cancel": "取消",
+      "undo": "撤销",
+      "undoing": "正在撤销…",
+      "confirm": {
+        "plan": "确认",
+        "apply": "确认应用",
+        "undo": "确认恢复",
+        "unknown": "确认"
+      }
+    },
+    "values": {
+      "enabled": "开启",
+      "disabled": "关闭",
+      "notSet": "未设置",
+      "empty": "空值",
+      "updated": "已更新"
+    },
+    "comparison": {
+      "before": "当前",
+      "after": "变更后"
+    },
+    "sectionFallback": "其他设置",
+    "sectionChangeCount": "{{count}} 项变更",
+    "secret": {
+      "configured": "已设置",
+      "unconfigured": "未设置",
+      "willUpdate": "将更新"
+    },
+    "risks": {
+      "safe": "低风险",
+      "elevated": "需要确认",
+      "destructive": "不允许修改"
+    },
+    "effects": {
+      "reactive": "立即生效",
+      "adapter": "立即生效",
+      "restartRequired": "重启后生效",
+      "manualOnly": "需要手动完成",
+      "mixed": "生效方式不同"
+    },
+    "receipts": {
+      "pending": "正在生效",
+      "applied": "已生效",
+      "restartRequired": "重启后生效",
+      "failed": "未能生效",
+      "superseded": "已被更新的设置替代",
+      "rolledBack": "已回滚"
+    },
+    "warningCount": "有 {{count}} 项需要留意",
+    "previewUnavailable": "经过校验的变更预览已不可用。请取消本次操作，让助手重新检查设置。",
+    "partialNotice": "配置已经保存，但一个或多个运行时组件未能应用。请检查受影响的设置后再重试。",
+    "errors": {
+      "config": {
+        "manual_draft_conflict": "相关字段存在未保存的手动编辑。请先保存或放弃编辑，然后重试。",
+        "revision_conflict": "生成预览后设置又发生了变化。请让助手重新检查。",
+        "catalog_changed": "设置目录已经变化。请让助手重新生成预览。",
+        "plan_expired": "这份变更预览已经过期。请让助手重新生成。",
+        "confirmation_required": "这项变更仍需要确认。",
+        "idempotency_conflict": "本次设置请求与之前的请求冲突，请重试。",
+        "undo_conflict": "原始变更之后相关设置又发生了变化，无法安全恢复。",
+        "undo_token_invalid": "这项设置变更已经无法恢复。",
+        "commit_unknown": "找不到原始设置变更记录。",
+        "apply_retry_failed": "设置未能应用到当前运行的应用。",
+        "scope_unsupported": "当前不支持这个设置作用域。",
+        "setting_unavailable": "其中一项设置已经不可用。",
+        "setting_managed": "其中一项设置由其他位置管理，无法在这里修改。",
+        "recovery_read_only": "配置恢复期间设置暂时为只读。",
+        "operation_failed": "设置操作失败，没有应用未经确认的内容。"
+      },
+      "ai": {
+        "model_not_configured": "请先配置并启用主 AI 模型，再使用 AI 设置。"
+      }
+    }
+  },
   "getFileDiff": {
     "diffFile": "文件差异",
     "gettingDiff": "获取差异",

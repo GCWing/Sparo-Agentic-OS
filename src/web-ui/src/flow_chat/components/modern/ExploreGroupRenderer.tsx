@@ -15,7 +15,7 @@ import { ModelThinkingDisplay } from '../../tool-cards/ModelThinkingDisplay';
 import { useFlowLayoutMutationContract } from '../../scroll/useFlowLayoutMutationContract';
 import { useNestedFlowScrollController } from '../../scroll/adapters/useNestedFlowScrollController';
 import { useFlowChatStaticContext, useFlowChatViewContext } from './FlowChatContext';
-import { aiExperienceConfigService } from '@/infrastructure/config/services/AIExperienceConfigService';
+import { useAIExperienceSettings } from '@/infrastructure/config/hooks';
 import './ExploreRegion.scss';
 
 export interface ExploreGroupRendererProps {
@@ -29,13 +29,9 @@ export const ExploreGroupRenderer: React.FC<ExploreGroupRendererProps> = React.m
 }) => {
   const { t } = useTranslation('flow-chat');
   const [scrollState, setScrollState] = useState({ hasScroll: false, atTop: true, atBottom: true });
-  const [thinkingDisplaySettings, setThinkingDisplaySettings] = useState(() => {
-    const settings = aiExperienceConfigService.getSettings();
-    return {
-      showThinkingProcess: settings.show_thinking_process,
-      showCompletedThinkingItem: settings.show_completed_thinking_item,
-    };
-  });
+  const { settings } = useAIExperienceSettings();
+  const showThinkingProcess = settings?.show_thinking_process === true;
+  const showCompletedThinkingItem = settings?.show_completed_thinking_item === true;
   
   const {
     exploreGroupStates, 
@@ -74,29 +70,6 @@ export const ExploreGroupRenderer: React.FC<ExploreGroupRendererProps> = React.m
       ?? null
     ),
   });
-
-  useEffect(() => {
-    let cancelled = false;
-    aiExperienceConfigService.getSettingsAsync().then(settings => {
-      if (cancelled) return;
-      setThinkingDisplaySettings({
-        showThinkingProcess: settings.show_thinking_process,
-        showCompletedThinkingItem: settings.show_completed_thinking_item,
-      });
-    });
-
-    const unsubscribe = aiExperienceConfigService.addChangeListener(settings => {
-      setThinkingDisplaySettings({
-        showThinkingProcess: settings.show_thinking_process,
-        showCompletedThinkingItem: settings.show_completed_thinking_item,
-      });
-    });
-
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
-  }, []);
 
   const checkScrollState = useCallback(() => {
     const el = containerRef.current;
@@ -174,8 +147,8 @@ export const ExploreGroupRenderer: React.FC<ExploreGroupRendererProps> = React.m
     const parts: string[] = [];
     if (
       thinkingCount > 0 &&
-      thinkingDisplaySettings.showThinkingProcess &&
-      thinkingDisplaySettings.showCompletedThinkingItem
+      showThinkingProcess &&
+      showCompletedThinkingItem
     ) {
       parts.push(t('exploreRegion.thinkingCount', { count: thinkingCount }));
     }
@@ -198,7 +171,7 @@ export const ExploreGroupRenderer: React.FC<ExploreGroupRendererProps> = React.m
     }
     
     return parts.join(t('exploreRegion.separator'));
-  }, [stats, allItems.length, t, thinkingDisplaySettings]);
+  }, [allItems.length, showCompletedThinkingItem, showThinkingProcess, stats, t]);
   
   const handleToggle = useCallback(() => {
     if (isCollapsed) {
@@ -270,6 +243,7 @@ const ExploreItemRenderer = React.memo<ExploreItemRendererProps>(({ item, isLast
     onFileViewRequest,
     onTabOpen,
     sessionId,
+    mutationsDisabled,
   } = useFlowChatStaticContext();
   
   const handleConfirm = useCallback(async (toolId: string, updatedInput?: any) => {
@@ -315,6 +289,7 @@ const ExploreItemRenderer = React.memo<ExploreItemRendererProps>(({ item, isLast
       return (
         <FlowToolCard
           toolItem={item as FlowToolItem}
+          mutationsDisabled={mutationsDisabled}
           onConfirm={handleConfirm}
           onReject={handleReject}
           onOpenInEditor={handleOpenInEditor}

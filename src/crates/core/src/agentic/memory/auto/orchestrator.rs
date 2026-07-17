@@ -22,7 +22,7 @@ async fn inspect_turn_wrote_auto_memory(
     session_kind: SessionKind,
     auto_memory_context: Option<&ResolvedAutoMemoryContext>,
 ) -> Option<bool> {
-    if matches!(session_kind, SessionKind::Subagent) {
+    if !matches!(session_kind, SessionKind::Standard) {
         return None;
     }
 
@@ -192,7 +192,19 @@ async fn note_auto_memory_eligible_turn_after_completed_turn(
     auto_memory_context: ResolvedAutoMemoryContext,
     now_ms: i64,
 ) -> Option<AutoMemoryCompletedTurnFollowup> {
-    let scope_config = auto_memory_scope_runtime_config(auto_memory_context.scope).await;
+    let scope_config = match auto_memory_scope_runtime_config(auto_memory_context.scope).await {
+        Ok(config) => config,
+        Err(error) => {
+            warn!(
+                "Skipping auto memory eligible-turn tracking because runtime config is unavailable: session_id={}, turn_id={}, scope={}, error={}",
+                session_id,
+                turn_id,
+                auto_memory_context.scope.as_label(),
+                error
+            );
+            return None;
+        }
+    };
     let policy = auto_memory_throttle_policy(&scope_config);
     match session_manager
         .note_auto_memory_eligible_turn(session_id, policy, now_ms)

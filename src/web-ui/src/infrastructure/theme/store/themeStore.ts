@@ -25,8 +25,10 @@ interface ThemeState {
   exportTheme: (themeId: ThemeId) => any;
 }
 
+let subscriptionsRegistered = false;
+
  
-export const useThemeStore = create<ThemeState>((set) => ({
+export const useThemeStore = create<ThemeState>((set, get) => ({
   
   currentTheme: null,
   currentThemeId: null,
@@ -36,28 +38,44 @@ export const useThemeStore = create<ThemeState>((set) => ({
   
   
   initialize: async () => {
+    if (get().loading || (get().currentTheme && !get().error)) return;
     set({ loading: true, error: null });
     
     try {
-      
-      themeService.on('theme:after-change', () => {
-        set({
-          currentTheme: themeService.getCurrentTheme(),
-          currentThemeId: themeService.getCurrentThemeId(),
+      if (!subscriptionsRegistered) {
+        subscriptionsRegistered = true;
+        themeService.on('theme:after-change', () => {
+          set({
+            currentTheme: themeService.getCurrentTheme(),
+            currentThemeId: themeService.getCurrentThemeId(),
+            error: null,
+          });
         });
-      });
-      
-      themeService.on('theme:register', () => {
-        const themes = themeService.getThemeList();
-        set({ themes });
-      });
-      
-      themeService.on('theme:unregister', () => {
-        const themes = themeService.getThemeList();
-        set({ themes });
-      });
-      
-      
+        themeService.on('theme:register', () => {
+          set({ themes: themeService.getThemeList() });
+        });
+        themeService.on('theme:unregister', () => {
+          set({ themes: themeService.getThemeList() });
+        });
+        themeService.onStatusChange((error) => {
+          if (error) {
+            set({
+              currentTheme: null,
+              currentThemeId: null,
+              loading: false,
+              error: error.message,
+            });
+            return;
+          }
+          set({
+            currentTheme: themeService.getCurrentTheme(),
+            currentThemeId: themeService.getCurrentThemeId(),
+            themes: themeService.getThemeList(),
+            error: null,
+          });
+        });
+      }
+
       await themeService.initialize();
       
       
@@ -108,7 +126,7 @@ export const useThemeStore = create<ThemeState>((set) => ({
     set({ loading: true, error: null });
     
     try {
-      themeService.registerTheme(theme);
+      await themeService.registerTheme(theme);
       const themes = themeService.getThemeList();
       
       set({
@@ -129,7 +147,7 @@ export const useThemeStore = create<ThemeState>((set) => ({
     set({ loading: true, error: null });
     
     try {
-      const success = themeService.unregisterTheme(themeId);
+      const success = await themeService.unregisterTheme(themeId);
       
       if (success) {
         const themes = themeService.getThemeList();

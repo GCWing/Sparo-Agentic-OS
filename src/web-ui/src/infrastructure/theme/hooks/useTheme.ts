@@ -3,7 +3,7 @@
 import { useEffect, useMemo } from 'react';
 import { useThemeStore } from '../store/themeStore';
 import { themeService } from '../core/ThemeService';
-import { ThemeType, SYSTEM_THEME_ID } from '../types';
+import { SYSTEM_THEME_ID } from '../types';
 export function useTheme() {
   const {
     currentTheme,
@@ -18,16 +18,16 @@ export function useTheme() {
   
   
   useEffect(() => {
-    if (!currentTheme && !loading) {
-      initialize();
+    if (!currentTheme && !loading && !error) {
+      void initialize();
     }
-  }, [currentTheme, loading, initialize]);
+  }, [currentTheme, error, loading, initialize]);
   
   return {
     
     theme: currentTheme,
     themeId: currentThemeId,
-    themeType: currentTheme?.type || 'dark' as ThemeType,
+    themeType: currentTheme?.type ?? null,
     themes,
     loading,
     error,
@@ -35,6 +35,7 @@ export function useTheme() {
     
     setTheme,
     refreshThemes,
+    retry: initialize,
     
     
     isDark: currentTheme?.type === 'dark',

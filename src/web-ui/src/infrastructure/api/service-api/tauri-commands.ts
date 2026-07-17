@@ -34,25 +34,6 @@ export interface WriteFileRequest {
 
 
 
-export interface GetConfigRequest {
-  path?: string;
-}
-
-export interface SetConfigRequest {
-  path: string;
-  value: any;
-}
-
-export interface ResetConfigRequest {
-  path?: string;
-}
-
-export interface ImportConfigRequest {
-  configData: any;
-}
-
-
-
 export interface GetModelInfoRequest {
   modelId: string;
 }

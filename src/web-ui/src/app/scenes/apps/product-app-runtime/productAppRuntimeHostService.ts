@@ -6,6 +6,7 @@ import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import {
   getBackendAgentType,
+  getProductAppRuntimeAgentType,
   getProductAppRuntimeSessionDescriptor,
   type SessionDescriptor,
 } from '@/flow_chat/domain/sessionDescriptor';
@@ -45,14 +46,9 @@ function navigationIsCurrent(options: OpenProductAppRuntimeOptions): boolean {
   return options.isNavigationCurrent?.() !== false;
 }
 
-function agentComponentIdFromRuntimeMetadata(metadata: ProductAppRuntimeSessionMetadata): string | null {
-  const value = metadata.chat?.agentComponentId;
-  return typeof value === 'string' && value.trim() ? value.trim() : null;
-}
-
 function productAppRuntimeDescriptor(metadata?: ProductAppRuntimeSessionMetadata): SessionDescriptor {
   return getProductAppRuntimeSessionDescriptor(
-    metadata ? agentComponentIdFromRuntimeMetadata(metadata) : undefined,
+    getProductAppRuntimeAgentType(metadata),
   );
 }
 

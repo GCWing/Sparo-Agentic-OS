@@ -40,6 +40,39 @@
   "subtitleEveningAppBuilder": "Turn today's product idea into an app package you can open again",
   "subtitleNightAppBuilder": "The idea is awake. Let's give it a product boundary that lasts",
   "narrativeAppBuilder": "Describe the Product App you want: who opens it, what work object it manages, which interaction model it needs, and how AI should help. I will keep the app identity separate from its components.",
+  "aiPartnerSettings": "Settings assistant",
+  "settingsHeading": "What would you like to adjust?",
+  "settingsTagline": "Describe your goal. I will check the relevant settings and explain what will change first.",
+  "subtitleMorningSettings": "Describe the outcome you want and I'll find the relevant settings.",
+  "subtitleAfternoonSettings": "Skip the menus and tell me how you want Sparo to work.",
+  "subtitleEveningSettings": "Let's tune Sparo to fit the way you work.",
+  "subtitleNightSettings": "Describe the change in one line; I'll review it before applying it.",
+  "narrativeSettings": "I will read the current settings, explain the change, and ask before protected actions.",
+  "fallback": {
+    "heading": "Start a new conversation",
+    "tagline": "Share an idea, question, or request below.",
+    "narrative": "Messages and progress will appear here once the conversation begins."
+  },
+  "settingsPrompts": {
+    "title": "Common adjustments",
+    "items": {
+      "largerText": {
+        "title": "Increase text size",
+        "description": "Make interface and editor text easier to read",
+        "prompt": "Make the interface and editor text larger while keeping the overall layout balanced."
+      },
+      "fewerConfirmations": {
+        "title": "Reduce low-risk prompts",
+        "description": "Reduce interruptions while keeping high-risk safeguards",
+        "prompt": "Reduce confirmation for low-risk actions, but keep confirmation for high-risk computer actions."
+      },
+      "debugLogging": {
+        "title": "Enable debug logging",
+        "description": "Change the runtime log level to debug",
+        "prompt": "Change the application log level to debug."
+      }
+    }
+  },
   "appBuilderPrompts": {
     "title": "What Product App do you want to create?",
     "items": {

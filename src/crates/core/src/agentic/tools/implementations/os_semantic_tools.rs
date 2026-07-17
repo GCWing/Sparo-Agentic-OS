@@ -96,7 +96,7 @@ impl Tool for CapabilityRegistryTool {
             CapabilityRegistryAction::List => {
                 let capabilities = registry
                     .list_agents_info()
-                    .await
+                    .await?
                     .into_iter()
                     .map(|info| {
                         let guidance = capability_guidance(&info.id);
@@ -129,7 +129,7 @@ impl Tool for CapabilityRegistryTool {
                     .ok_or_else(|| CoreError::validation("capability_id is required"))?;
                 let profile = registry
                     .get_agent_capability_profile(capability_id, workspace_root)
-                    .await
+                    .await?
                     .ok_or_else(|| {
                         CoreError::NotFound(format!("Capability not found: {}", capability_id))
                     })?;

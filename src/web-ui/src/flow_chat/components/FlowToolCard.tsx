@@ -32,6 +32,7 @@ interface FlowToolCardProps {
   onExpand?: (toolId: string) => void;
   sessionId?: string;
   className?: string;
+  mutationsDisabled?: boolean;
 }
 
 function ToolCardLayoutInvalidation({ toolId, toolName }: { toolId: string; toolName: string }): null {
@@ -56,6 +57,7 @@ export const FlowToolCard: React.FC<FlowToolCardProps> = React.memo(({
   onExpand,
   sessionId,
   className = '',
+  mutationsDisabled = false,
 }) => {
   const { t } = useTranslation('flow-chat');
   const toolCardRegistryRevision = React.useSyncExternalStore(
@@ -86,6 +88,7 @@ export const FlowToolCard: React.FC<FlowToolCardProps> = React.memo(({
       : null;
 
   const handleConfirm = React.useCallback((updatedInput?: any) => {
+    if (mutationsDisabled) return;
     log.debug('handleConfirm called', {
       toolId: toolItem.id,
       toolName: toolItem.toolName,
@@ -93,11 +96,12 @@ export const FlowToolCard: React.FC<FlowToolCardProps> = React.memo(({
       updatedInputKeys: updatedInput ? Object.keys(updatedInput) : []
     });
     onConfirm?.(toolItem.id, updatedInput);
-  }, [toolItem.id, toolItem.toolName, onConfirm]);
+  }, [mutationsDisabled, toolItem.id, toolItem.toolName, onConfirm]);
 
   const handleReject = React.useCallback(() => {
+    if (mutationsDisabled) return;
     onReject?.(toolItem.id);
-  }, [toolItem.id, onReject]);
+  }, [mutationsDisabled, toolItem.id, onReject]);
 
   const handleExpand = React.useCallback(() => {
     onExpand?.(toolItem.id);
@@ -134,6 +138,7 @@ export const FlowToolCard: React.FC<FlowToolCardProps> = React.memo(({
             <CardComponent
               toolItem={toolItem}
               config={config}
+              mutationsDisabled={mutationsDisabled}
               onConfirm={onConfirm ? handleConfirm : undefined}
               onReject={onReject ? handleReject : undefined}
               onOpenInEditor={onOpenInEditor}
@@ -165,6 +170,7 @@ export const FlowToolCard: React.FC<FlowToolCardProps> = React.memo(({
     prevProps.toolItem.interruptionReason === nextProps.toolItem.interruptionReason &&
     prevProps.toolItem.terminalSessionId === nextProps.toolItem.terminalSessionId &&
     prevProps.toolItem.userConfirmed === nextProps.toolItem.userConfirmed &&
+    prevProps.mutationsDisabled === nextProps.mutationsDisabled &&
     prevProps.toolItem.runtime === nextProps.toolItem.runtime &&
     prevProgress === nextProgress &&
     prevParamsBuffer === nextParamsBuffer &&

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  descriptorFromBackendSessionCreated,
   descriptorFromAgentType,
+  getProductAppRuntimeSessionDescriptor,
   normalizeSessionDescriptor,
   SESSION_DESCRIPTORS,
   type SessionDescriptor,
@@ -52,5 +54,41 @@ describe('sessionDescriptor', () => {
     expect(descriptor.agentPolicy.defaultAgentId).toBe('Runno');
     expect(descriptor.agentPolicy.activeAgentId).toBe('Runno');
     expect(descriptor.agentPolicy.switchableAgentIds).toEqual(['Runno']);
+  });
+
+  it('keeps the Product App profile separate from its execution agent', () => {
+    const descriptor = getProductAppRuntimeSessionDescriptor('Runno');
+
+    expect(descriptor.hostKind).toBe('product-app-runtime');
+    expect(descriptor.profileId).toBe('product-app-runtime');
+    expect(descriptor.identityId).toBe('product-app-runtime');
+    expect(descriptor.agentPolicy).toEqual({
+      defaultAgentId: 'Runno',
+      activeAgentId: 'Runno',
+      switchableAgentIds: ['Runno'],
+    });
+  });
+
+  it('does not downgrade an existing Product App descriptor from backend session events', () => {
+    const existing = getProductAppRuntimeSessionDescriptor('Runno');
+    const descriptor = descriptorFromBackendSessionCreated('Runno', existing);
+
+    expect(descriptor.profileId).toBe('product-app-runtime');
+    expect(descriptor.hostKind).toBe('product-app-runtime');
+    expect(descriptor.agentPolicy.activeAgentId).toBe('Runno');
+  });
+
+  it('maps the hidden settings agent to its system settings profile', () => {
+    const descriptor = descriptorFromAgentType('SettingsAgent');
+
+    expect(descriptor.hostKind).toBe('system-settings');
+    expect(descriptor.profileId).toBe('settings');
+    expect(descriptor.identityId).toBe('settings');
+    expect(descriptor.storageScope).toBe('agentic_os');
+    expect(descriptor.agentPolicy).toEqual({
+      defaultAgentId: 'SettingsAgent',
+      activeAgentId: 'SettingsAgent',
+      switchableAgentIds: ['SettingsAgent'],
+    });
   });
 });

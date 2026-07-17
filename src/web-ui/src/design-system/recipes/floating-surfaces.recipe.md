@@ -54,4 +54,6 @@ Use `AppWindow` for an in-app popup window that carries substantial content, mul
 
 `AppWindow` receives focus when opened, supports Escape, and restores focus when closed, but it does not trap focus. Use `Dialog` only when a compact confirmation, short input flow, or focused decision must be modal.
 
+`Dialog` shows header and footer dividers by default. Use `showDividers={false}` when a compact review surface needs one continuous reading flow and spacing already provides clear separation between its title, content, and actions.
+
 Do not locally restyle `.ds-app-window` or `.ds-dialog` surface properties.

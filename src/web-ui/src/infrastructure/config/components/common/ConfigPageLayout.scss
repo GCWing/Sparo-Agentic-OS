@@ -46,6 +46,18 @@
   gap: var(--config-page-section-gap);
 }
 
+.sparo-config-page-content:has(
+  > .sparo-config-page-content__inner > .sparo-config-page-loading:only-child
+) {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.sparo-config-page-content__inner:has(> .sparo-config-page-loading:only-child) {
+  flex: 1;
+}
+
 .sparo-config-page-section {
   display: flex;
   flex-direction: column;

@@ -11,17 +11,17 @@ import {
 } from '@/design-system';
 import { isTauriRuntime } from '@/infrastructure/runtime';
 import {
-  DEFAULT_AGENT_COMPANION_PET,
   type AgentCompanionPetSelection,
 } from '../services/AIExperienceConfigService';
 import {
+  BUILTIN_SPARKY_COMPANION_PET,
   deleteAgentCompanionPetPackage,
   importAgentCompanionPetPackage,
   listAgentCompanionPets,
   releaseAgentCompanionPetPreviewBlobs,
   type AgentCompanionPetPackage,
 } from '../services/AgentCompanionPetService';
-import { ConfigPageContent, ConfigPageHeader, ConfigPageLayout, ConfigPageLoading, ConfigPageRow, ConfigPageSection } from './common';
+import { ConfigPageContent, ConfigPageHeader, ConfigPageLayout, ConfigPageLoading, ConfigPageMessage, ConfigPageRow, ConfigPageSection } from './common';
 import { ModelSelectionRadio } from './ModelSelectionRadio';
 import { AGENT_DAILY_LETTER, AGENT_SESSION_TITLE, useSessionSettingsConfig } from './useSessionSettingsConfig';
 import './AIFeaturesConfig.scss';
@@ -36,6 +36,8 @@ const PersonalizationConfig: React.FC = () => {
   const {
     isLoading,
     settings,
+    settingsLoading,
+    settingsError,
     enabledModels,
     primaryModelName,
     fastModelName,
@@ -62,7 +64,7 @@ const PersonalizationConfig: React.FC = () => {
   const selectedCompanionPet = settings?.agent_companion_pet
     ? companionPets.find(pet => pet.packagePath === settings.agent_companion_pet?.packagePath)
       ?? settings.agent_companion_pet
-    : DEFAULT_AGENT_COMPANION_PET;
+    : null;
 
   const toPetSelection = (pet: AgentCompanionPetSelection): AgentCompanionPetSelection => ({
     id: pet.id,
@@ -93,7 +95,7 @@ const PersonalizationConfig: React.FC = () => {
   const handleCompanionPetChange = async (value: string | number | (string | number)[]) => {
     const selectedValue = Array.isArray(value) ? value[0] : value;
     if (selectedValue === '__default__') {
-      await updateSetting('agent_companion_pet', toPetSelection(DEFAULT_AGENT_COMPANION_PET));
+      await updateSetting('agent_companion_pet', toPetSelection(BUILTIN_SPARKY_COMPANION_PET));
       return;
     }
 
@@ -130,19 +132,30 @@ const PersonalizationConfig: React.FC = () => {
         selectedCompanionPet.packagePath,
         selectedCompanionPet.spritesheetPath,
       );
-      await updateSetting('agent_companion_pet', toPetSelection(DEFAULT_AGENT_COMPANION_PET));
+      await updateSetting('agent_companion_pet', toPetSelection(BUILTIN_SPARKY_COMPANION_PET));
       await refreshCompanionPets();
     } finally {
       setCompanionPetDeletingPath(null);
     }
   };
 
-  if (isLoading || !settings) {
+  if (isLoading || settingsLoading) {
     return (
       <ConfigPageLayout className="sparo-func-agent-config">
         <ConfigPageHeader title={t('title')} description={t('subtitle')} />
         <ConfigPageContent className="sparo-func-agent-config__content">
           <ConfigPageLoading text={t('loading.text')} />
+        </ConfigPageContent>
+      </ConfigPageLayout>
+    );
+  }
+
+  if (settingsError || !settings) {
+    return (
+      <ConfigPageLayout className="sparo-func-agent-config">
+        <ConfigPageHeader title={t('title')} description={t('subtitle')} />
+        <ConfigPageContent className="sparo-func-agent-config__content">
+          <ConfigPageMessage message={{ type: 'error', text: t('messages.updateFailed') }} />
         </ConfigPageContent>
       </ConfigPageLayout>
     );
@@ -256,7 +269,7 @@ const PersonalizationConfig: React.FC = () => {
             <div className="sparo-func-agent-config__row-control sparo-func-agent-config__row-control--model">
               <Select
                 size="small"
-                value={settings.agent_companion_pet?.packagePath ?? DEFAULT_AGENT_COMPANION_PET.packagePath}
+                value={settings.agent_companion_pet?.packagePath ?? ''}
                 options={companionPetOptions}
                 loading={companionPetsLoading}
                 onChange={handleCompanionPetChange}

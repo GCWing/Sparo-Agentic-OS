@@ -7,8 +7,6 @@ import type {
   InstallOptions,
   InstallProgress,
   DiskSpaceInfo,
-  ModelConfig,
-  ConnectionTestResult,
   LaunchContext,
   InstallPathValidation,
 } from '../types/installer';
@@ -16,29 +14,21 @@ import { DEFAULT_OPTIONS } from '../types/installer';
 
 export interface UseInstallerReturn {
   step: InstallStep;
-  goTo: (step: InstallStep) => void;
   next: () => void;
   back: () => void;
   options: InstallOptions;
   setOptions: React.Dispatch<React.SetStateAction<InstallOptions>>;
   progress: InstallProgress;
   isInstalling: boolean;
-  installationCompleted: boolean;
   error: string | null;
   diskSpace: DiskSpaceInfo | null;
   install: () => Promise<void>;
-  canConfirmProgress: boolean;
-  confirmProgress: () => void;
   exitAndLaunch: () => Promise<void>;
   retryInstall: () => Promise<void>;
   backToOptions: () => void;
-  saveModelConfig: () => Promise<void>;
-  testModelConnection: (modelConfig: ModelConfig) => Promise<ConnectionTestResult>;
-  launchApp: () => Promise<void>;
   closeInstaller: () => void;
   refreshDiskSpace: (path: string) => Promise<void>;
   clearInstallError: () => void;
-  isUninstallMode: boolean;
   isUninstalling: boolean;
   uninstallCompleted: boolean;
   uninstallError: string | null;
@@ -46,19 +36,13 @@ export interface UseInstallerReturn {
   startUninstall: () => Promise<void>;
 }
 
-const STEPS: InstallStep[] = ['lang', 'options', 'progress', 'model', 'theme'];
+const STEPS: InstallStep[] = ['lang', 'options', 'progress'];
 
-function resolveUiLanguage(appLanguage?: string | null): 'zh' | 'en' {
-  if (appLanguage === 'zh-CN') return 'zh';
-  if (appLanguage === 'en-US') return 'en';
+function resolveUiLanguage(): 'zh' | 'en' {
   if (typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('zh')) {
     return 'zh';
   }
   return 'en';
-}
-
-function mapUiLanguageToAppLanguage(uiLanguage: 'zh' | 'en'): 'zh-CN' | 'en-US' {
-  return uiLanguage === 'zh' ? 'zh-CN' : 'en-US';
 }
 
 export function useInstaller(): UseInstallerReturn {
@@ -70,11 +54,8 @@ export function useInstaller(): UseInstallerReturn {
     message: '',
   });
   const [isInstalling, setIsInstalling] = useState(false);
-  const [installationCompleted, setInstallationCompleted] = useState(false);
-  const [canConfirmProgress, setCanConfirmProgress] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [diskSpace, setDiskSpace] = useState<DiskSpaceInfo | null>(null);
-  const [isUninstallMode, setIsUninstallMode] = useState(false);
   const [isUninstalling, setIsUninstalling] = useState(false);
   const [uninstallCompleted, setUninstallCompleted] = useState(false);
   const [uninstallError, setUninstallError] = useState<string | null>(null);
@@ -83,18 +64,13 @@ export function useInstaller(): UseInstallerReturn {
   useEffect(() => {
     let mounted = true;
     (async () => {
+      await i18n.changeLanguage(resolveUiLanguage());
+      if (!mounted) return;
+
       try {
         const context = await invoke<LaunchContext>('get_launch_context');
         if (!mounted) return;
-        const uiLanguage = resolveUiLanguage(context.appLanguage ?? null);
-        await i18n.changeLanguage(uiLanguage);
-        if (!mounted) return;
-        setOptions((prev) => ({
-          ...prev,
-          appLanguage: mapUiLanguageToAppLanguage(uiLanguage),
-        }));
         if (context.mode === 'uninstall') {
-          setIsUninstallMode(true);
           setStep('uninstall');
           const uninstallPath = context.uninstallPath;
           if (uninstallPath) {
@@ -129,8 +105,6 @@ export function useInstaller(): UseInstallerReturn {
     setError(null);
   }, []);
 
-  const goTo = useCallback((s: InstallStep) => setStep(s), []);
-
   const next = useCallback(() => {
     const idx = STEPS.indexOf(step);
     if (idx < STEPS.length - 1) setStep(STEPS[idx + 1]);
@@ -160,8 +134,6 @@ export function useInstaller(): UseInstallerReturn {
   const install = useCallback(async () => {
     setError(null);
     setIsInstalling(true);
-    setInstallationCompleted(false);
-    setCanConfirmProgress(false);
     try {
       const validated = await invoke<InstallPathValidation>('validate_install_path', {
         path: options.installPath,
@@ -176,8 +148,7 @@ export function useInstaller(): UseInstallerReturn {
       setStep('progress');
       setProgress({ step: 'prepare', percent: 0, message: '' });
       await invoke('start_installation', { options: effectiveOptions });
-      setInstallationCompleted(true);
-      setStep('model');
+      setStep('progress');
     } catch (err: any) {
       const raw = typeof err === 'string' ? err : err?.message;
       setError((raw && String(raw).trim()) ? String(raw) : i18n.t('errors.install.failed'));
@@ -185,12 +156,6 @@ export function useInstaller(): UseInstallerReturn {
       setIsInstalling(false);
     }
   }, [options]);
-
-  const confirmProgress = useCallback(() => {
-    if (!canConfirmProgress) return;
-    setCanConfirmProgress(false);
-    setStep('model');
-  }, [canConfirmProgress]);
 
   const exitAndLaunch = useCallback(async () => {
     try {
@@ -201,8 +166,7 @@ export function useInstaller(): UseInstallerReturn {
       const msg = raw && String(raw).trim()
         ? String(raw)
         : i18n.t('progress.launchFailed');
-      setError(msg);
-      throw err;
+      throw new Error(msg);
     }
   }, [options.installPath]);
 
@@ -214,22 +178,8 @@ export function useInstaller(): UseInstallerReturn {
   const backToOptions = useCallback(() => {
     if (isInstalling) return;
     setError(null);
-    setCanConfirmProgress(false);
     setStep('options');
   }, [isInstalling]);
-
-  const saveModelConfig = useCallback(async () => {
-    if (!options.modelConfig) return;
-    await invoke('set_model_config', { modelConfig: options.modelConfig });
-  }, [options.modelConfig]);
-
-  const testModelConnection = useCallback(async (modelConfig: ModelConfig) => {
-    return invoke<ConnectionTestResult>('test_model_config_connection', { modelConfig });
-  }, []);
-
-  const launchApp = useCallback(async () => {
-    await invoke('launch_application', { installPath: options.installPath });
-  }, [options.installPath]);
 
   const closeInstaller = useCallback(() => {
     invoke('close_installer');
@@ -257,11 +207,11 @@ export function useInstaller(): UseInstallerReturn {
   }, [closeInstaller, isUninstalling, options.installPath]);
 
   return {
-    step, goTo, next, back,
+    step, next, back,
     options, setOptions,
-    progress, isInstalling, installationCompleted, error, diskSpace,
-    install, canConfirmProgress, confirmProgress, exitAndLaunch, retryInstall, backToOptions,
-    saveModelConfig, testModelConnection, launchApp, closeInstaller, refreshDiskSpace, clearInstallError,
-    isUninstallMode, isUninstalling, uninstallCompleted, uninstallError, uninstallProgress, startUninstall,
+    progress, isInstalling, error, diskSpace,
+    install, exitAndLaunch, retryInstall, backToOptions,
+    closeInstaller, refreshDiskSpace, clearInstallError,
+    isUninstalling, uninstallCompleted, uninstallError, uninstallProgress, startUninstall,
   };
 }

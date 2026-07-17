@@ -13,12 +13,12 @@ use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use sparo_core::agent_component::AgentComponentManager;
-use sparo_core::agentic::agents::build_ppt_live_private_prompt;
+use sparo_core::agentic::agents::{build_ppt_live_private_prompt, PptLiveAgent};
 use sparo_core::agentic::coordination::{
     ConversationCoordinator, DialogScheduler, DialogSubmissionPolicy, DialogSubmitOutcome,
     DialogTriggerSource, SessionControlActor, TurnCancellationReason,
 };
-use sparo_core::agentic::core::{SessionConfig, SessionState, SessionStorageScope};
+use sparo_core::agentic::core::{SessionConfig, SessionKind, SessionState, SessionStorageScope};
 use sparo_core::agentic_os::work::{
     default_work_store, ArtifactRef, ArtifactRuntimeProvenance, WorkId, WorkRuntimeIssue,
     WorkRuntimeIssueSeverity, WorkRuntimeLog, WorkRuntimeLogLevel, WorkRuntimeRun,
@@ -45,6 +45,7 @@ use sparo_core::product_app_runtime_host::{
     ProductAppRuntimeHostSurfaceMeta,
 };
 use sparo_core::service::config::types::GlobalConfig;
+use sparo_core::service::ppt_deck::{ManuscriptCommitRequest, PptDeckService};
 use sparo_core::util::types::Message;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -305,6 +306,8 @@ pub struct ProductAppRuntimeHostBackendRunRequest {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProductAppRuntimeHostPptTurnTextRequest {
+    pub app_id: String,
+    pub runtime_context: ProductAppRuntimeContext,
     pub session_id: String,
     pub turn_id: String,
     #[serde(default)]
@@ -340,6 +343,8 @@ const PRODUCT_APP_RUNTIME_WORKER_RESTARTED_EVENT: &str = "product-app-runtime-wo
 const PRODUCT_APP_RUNTIME_WORKER_STOPPED_EVENT: &str = "product-app-runtime-worker-stopped";
 const PRODUCT_APP_RUNTIME_ISSUE_EVENT: &str = "product-app-runtime-issue";
 const PRODUCT_APP_RUNTIME_ISSUES_CLEARED_EVENT: &str = "product-app-runtime-issues-cleared";
+const PRODUCT_APP_RUNTIME_MANUSCRIPT_COMMITTED_EVENT: &str =
+    "product-app-runtime-manuscript-committed";
 
 async fn emit_product_app_runtime_host_event(event_name: &str, payload: Value) {
     let _ = emit_global_event(BackendEvent::Custom {
@@ -913,9 +918,47 @@ pub async fn product_app_runtime_host_worker_call(
 ) -> Result<Value, String> {
     let runtime_owner =
         validate_product_app_runtime_context(&request.app_id, &request.runtime_context).await?;
+    validate_manuscript_method_access(&runtime_owner.context.app_id, &request.method)?;
     let runtime_storage = ProductAppRuntimeStorage::new(Arc::clone(
         state.product_app_runtime_host_manager.path_manager(),
     ));
+    if request.method == "deck.manuscript.get" {
+        validate_manuscript_document_id(&request.params)?;
+        let service = PptDeckService::new(runtime_storage.clone());
+        let document = service
+            .read_manuscript(runtime_owner.work_id(), runtime_owner.runtime_instance_id())
+            .await
+            .map_err(|error| error.to_string())?;
+        return serde_json::to_value(document).map_err(|error| error.to_string());
+    }
+    if request.method == "deck.manuscript.commit" {
+        validate_manuscript_document_id(&request.params)?;
+        let commit_request: ManuscriptCommitRequest =
+            serde_json::from_value(request.params.clone())
+                .map_err(|error| format!("Invalid deck.manuscript.commit request: {error}"))?;
+        let service = PptDeckService::new(runtime_storage.clone());
+        let result = service
+            .commit_manuscript(
+                runtime_owner.work_id(),
+                runtime_owner.runtime_instance_id(),
+                commit_request,
+            )
+            .await
+            .map_err(|error| error.to_string())?;
+        emit_product_app_runtime_host_event(
+            PRODUCT_APP_RUNTIME_MANUSCRIPT_COMMITTED_EVENT,
+            json!({
+                "appId": request.app_id,
+                "runtimeOwnerId": runtime_owner.owner_id(),
+                "workId": runtime_owner.context.work_id,
+                "runtimeInstanceId": runtime_owner.context.runtime_instance_id,
+                "document": &result.document,
+                "replayed": result.replayed,
+            }),
+        )
+        .await;
+        return serde_json::to_value(result).map_err(|error| error.to_string());
+    }
     if request.method == "storage.probe" {
         return runtime_storage
             .probe_storage_scope(runtime_owner.work_id(), runtime_owner.runtime_instance_id())
@@ -1054,6 +1097,20 @@ pub async fn product_app_runtime_host_worker_call(
         .await;
     }
     Ok(result)
+}
+
+fn validate_manuscript_document_id(params: &Value) -> Result<(), String> {
+    match params.get("documentId").and_then(Value::as_str) {
+        None | Some("manuscript") => Ok(()),
+        Some(_) => Err("Only the managed 'manuscript' document is available".to_string()),
+    }
+}
+
+fn validate_manuscript_method_access(product_app_id: &str, method: &str) -> Result<(), String> {
+    if method.starts_with("deck.manuscript.") && product_app_id != "builtin-ppt-live" {
+        return Err("Managed presentation manuscripts are only available to PPT Live".to_string());
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -1886,14 +1943,8 @@ pub async fn product_app_runtime_host_ai_list_models(
         .await
         .map_err(|e| e.to_string())?;
 
-    let primary_id = global_config
-        .ai
-        .resolve_model_selection("primary")
-        .unwrap_or_default();
-    let fast_id = global_config
-        .ai
-        .resolve_model_selection("fast")
-        .unwrap_or_default();
+    let primary_id = global_config.ai.resolve_model_selection("primary");
+    let fast_id = global_config.ai.resolve_model_selection("fast");
 
     let allowed = ai_perms.allowed_models.as_deref().unwrap_or(&[]);
 
@@ -1907,12 +1958,11 @@ pub async fn product_app_runtime_host_ai_list_models(
                 // No restriction  - allow all
                 true
             } else {
-                // Allow if model id/name matches any entry in allowed list,
-                // or if "primary"/"fast" is in allowed and this model is the resolved target.
+                // Allow exact stable model ids or the explicit primary/fast selectors.
                 allowed.iter().any(|a| match a.as_str() {
-                    "primary" => m.id == primary_id,
-                    "fast" => m.id == fast_id,
-                    other => m.id == other || m.name == other,
+                    "primary" => primary_id.as_deref() == Some(m.id.as_str()),
+                    "fast" => fast_id.as_deref() == Some(m.id.as_str()),
+                    other => m.id == other,
                 })
             }
         })
@@ -1920,7 +1970,7 @@ pub async fn product_app_runtime_host_ai_list_models(
             id: m.id.clone(),
             name: m.name.clone(),
             provider: m.provider.clone(),
-            is_default: m.id == primary_id,
+            is_default: primary_id.as_deref() == Some(m.id.as_str()),
         })
         .collect();
 
@@ -1930,9 +1980,25 @@ pub async fn product_app_runtime_host_ai_list_models(
 #[cfg(test)]
 mod tests {
     use super::{
-        is_ppt_live_private_session, ProductAppRuntimeContext, ValidatedProductAppRuntimeContext,
-        WorkId,
+        is_ppt_live_private_session, is_ppt_live_private_session_for_runtime,
+        validate_manuscript_method_access, ProductAppRuntimeContext,
+        ValidatedProductAppRuntimeContext, WorkId,
     };
+    use sparo_core::agentic::agents::PptLiveAgent;
+    use sparo_core::agentic::core::SessionKind;
+
+    #[test]
+    fn managed_manuscript_methods_reject_non_ppt_raw_worker_calls() {
+        for method in [
+            "deck.manuscript.get",
+            "deck.manuscript.commit",
+            "deck.manuscript.futureOperation",
+        ] {
+            assert!(validate_manuscript_method_access("builtin-ppt-live", method).is_ok());
+            assert!(validate_manuscript_method_access("other-product-app", method).is_err());
+        }
+        assert!(validate_manuscript_method_access("other-product-app", "storage.get").is_ok());
+    }
 
     #[test]
     fn ppt_live_private_cleanup_matches_product_runtime_owner() {
@@ -1952,6 +2018,42 @@ mod tests {
     }
 
     #[test]
+    fn ppt_live_private_session_access_is_scoped_to_the_exact_runtime_owner() {
+        let owner = "product-app-runtime:work-1:runtime-1";
+        let created_by = "product-app-runtime:work-1:runtime-1:backend:ppt:deck:run:run-1";
+        assert!(is_ppt_live_private_session_for_runtime(
+            PptLiveAgent::ID,
+            &SessionKind::Internal,
+            Some(created_by),
+            owner,
+        ));
+        assert!(!is_ppt_live_private_session_for_runtime(
+            PptLiveAgent::ID,
+            &SessionKind::Internal,
+            Some(created_by),
+            "product-app-runtime:work-2:runtime-2",
+        ));
+    }
+
+    #[test]
+    fn ppt_live_private_session_access_rejects_wrong_agent_or_session_kind() {
+        let owner = "product-app-runtime:work-1:runtime-1";
+        let created_by = "product-app-runtime:work-1:runtime-1:backend:ppt:run:run-1";
+        assert!(!is_ppt_live_private_session_for_runtime(
+            "Runno",
+            &SessionKind::Internal,
+            Some(created_by),
+            owner,
+        ));
+        assert!(!is_ppt_live_private_session_for_runtime(
+            PptLiveAgent::ID,
+            &SessionKind::Standard,
+            Some(created_by),
+            owner,
+        ));
+    }
+
+    #[test]
     fn product_runtime_storage_scope_uses_work_runtime_instance() {
         let runtime_owner = ValidatedProductAppRuntimeContext {
             context: ProductAppRuntimeContext {
@@ -1961,6 +2063,7 @@ mod tests {
                 app_id: "product-app".to_string(),
                 release_id: "release-product-app-20260711".to_string(),
                 config_revision: "config-7".to_string(),
+                data_schema_version: "1".to_string(),
                 product_app_surface_id: "product-app-private-surface".to_string(),
                 surface_id: "main".to_string(),
                 host_surface_id: "shared-surface-host".to_string(),
@@ -2065,9 +2168,49 @@ fn is_ppt_live_private_session(created_by: Option<&str>) -> bool {
             .is_some_and(|tail| tail.iter().any(|segment| *segment == "run"))
 }
 
+fn is_ppt_live_private_session_for_runtime(
+    agent_type: &str,
+    kind: &SessionKind,
+    created_by: Option<&str>,
+    runtime_owner_id: &str,
+) -> bool {
+    if agent_type != PptLiveAgent::ID || kind != &SessionKind::Internal {
+        return false;
+    }
+    let Some(created_by) = created_by else {
+        return false;
+    };
+    let expected_prefix = format!("{}:backend:ppt:", runtime_owner_id);
+    let Some(backend_tail) = created_by.strip_prefix(&expected_prefix) else {
+        return false;
+    };
+    let segments = backend_tail.split(':').collect::<Vec<_>>();
+    segments
+        .iter()
+        .position(|segment| *segment == "run")
+        .and_then(|run_index| segments.get(run_index + 1))
+        .is_some_and(|run_id| !run_id.trim().is_empty())
+}
+
+fn matches_ppt_live_cleanup_scope(
+    agent_type: &str,
+    kind: &SessionKind,
+    created_by: Option<&str>,
+    runtime_owner_id: Option<&str>,
+) -> bool {
+    match runtime_owner_id {
+        Some(runtime_owner_id) => {
+            is_ppt_live_private_session_for_runtime(agent_type, kind, created_by, runtime_owner_id)
+        }
+        None => is_ppt_live_private_session(created_by),
+    }
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProductAppRuntimeHostCancelStalePptRunsRequest {
+    pub app_id: String,
+    pub runtime_context: ProductAppRuntimeContext,
     pub workspace_path: Option<String>,
 }
 
@@ -2129,12 +2272,18 @@ pub async fn cancel_stale_ppt_live_private_runs_internal(
     coordinator: &ConversationCoordinator,
     scheduler: &DialogScheduler,
     workspace_path: &Path,
+    runtime_owner_id: Option<&str>,
 ) -> Result<ProductAppRuntimeHostCancelStalePptRunsResponse, String> {
     let effective_path = workspace_path.to_path_buf();
     let mut session_ids = HashSet::new();
 
     for session in coordinator.get_session_manager().list_loaded_sessions() {
-        if is_ppt_live_private_session(session.created_by.as_deref()) {
+        if matches_ppt_live_cleanup_scope(
+            &session.agent_type,
+            &session.kind,
+            session.created_by.as_deref(),
+            runtime_owner_id,
+        ) {
             session_ids.insert(session.session_id);
         }
     }
@@ -2144,7 +2293,12 @@ pub async fn cancel_stale_ppt_live_private_runs_internal(
         .await
         .map_err(|e| format!("Failed to list sessions for PPT Live cleanup: {}", e))?;
     for summary in summaries {
-        if is_ppt_live_private_session(summary.created_by.as_deref()) {
+        if matches_ppt_live_cleanup_scope(
+            &summary.agent_type,
+            &summary.kind,
+            summary.created_by.as_deref(),
+            runtime_owner_id,
+        ) {
             session_ids.insert(summary.session_id);
         }
     }
@@ -2204,6 +2358,11 @@ pub async fn product_app_runtime_host_cancel_stale_ppt_runs(
     state: State<'_, AppState>,
     request: ProductAppRuntimeHostCancelStalePptRunsRequest,
 ) -> Result<ProductAppRuntimeHostCancelStalePptRunsResponse, String> {
+    let runtime_owner =
+        validate_product_app_runtime_context(&request.app_id, &request.runtime_context).await?;
+    if runtime_owner.context.app_id != "builtin-ppt-live" {
+        return Err("PPT Live backend cleanup is only available to builtin-ppt-live".to_string());
+    }
     let workspace_path = request.workspace_path.clone().unwrap_or_else(|| {
         state
             .workspace_service
@@ -2216,6 +2375,7 @@ pub async fn product_app_runtime_host_cancel_stale_ppt_runs(
         coordinator.as_ref(),
         scheduler.as_ref(),
         Path::new(&workspace_path),
+        Some(runtime_owner.owner_id()),
     )
     .await
 }
@@ -2239,6 +2399,11 @@ pub async fn product_app_runtime_host_ppt_turn_assistant_text(
     use sparo_core::agentic::persistence::PersistenceManager;
     use sparo_core::infrastructure::PathManager;
 
+    let runtime_owner =
+        validate_product_app_runtime_context(&request.app_id, &request.runtime_context).await?;
+    if runtime_owner.context.app_id != "builtin-ppt-live" {
+        return Err("PPT Live turn output is only available to builtin-ppt-live".to_string());
+    }
     let session_id = request.session_id.trim();
     let turn_id = request.turn_id.trim();
     if session_id.is_empty() || turn_id.is_empty() {
@@ -2268,6 +2433,14 @@ pub async fn product_app_runtime_host_ppt_turn_assistant_text(
         .await
         .map_err(|e| format!("Failed to load PPT Live session metadata: {}", e))?
         .ok_or_else(|| format!("PPT Live session metadata not found: {}", session_id))?;
+    if !is_ppt_live_private_session_for_runtime(
+        &metadata.agent_type,
+        &metadata.session_kind,
+        metadata.created_by.as_deref(),
+        runtime_owner.owner_id(),
+    ) {
+        return Err("PPT Live session does not belong to this runtime instance".to_string());
+    }
 
     for turn_index in (0..metadata.turn_count).rev() {
         let Some(turn) = persistence
@@ -2292,11 +2465,11 @@ pub async fn product_app_runtime_host_ppt_turn_assistant_text(
 
 async fn submit_ppt_live_private_backend(
     coordinator: State<'_, Arc<ConversationCoordinator>>,
-    scheduler: State<'_, Arc<DialogScheduler>>,
     state: State<'_, AppState>,
     app: ProductAppRuntimeHostSurface,
     runtime_owner: ValidatedProductAppRuntimeContext,
     backend_id: &str,
+    backend_component_id: &str,
     action_name: &str,
     request: ProductAppRuntimeHostBackendCallRequest,
 ) -> Result<ProductAppRuntimeHostBackendCallResponse, String> {
@@ -2329,50 +2502,40 @@ async fn submit_ppt_live_private_backend(
         ..Default::default()
     };
     let session = coordinator
-        .create_session_with_workspace_and_creator(
-            None,
+        .create_ppt_live_backend_session(
             "PPT Live Run".to_string(),
-            "Runno".to_string(),
             config,
             workspace_path.clone(),
-            Some(owner),
+            owner,
         )
         .await
         .map_err(|e| format!("Failed to create PPT Live backend session: {}", e))?;
+    let phase = request
+        .input
+        .get("phase")
+        .and_then(Value::as_str)
+        .map(str::to_string);
     let prompt = build_ppt_live_private_prompt(&request.input);
-    let outcome = scheduler
-        .submit(
-            session.session_id.clone(),
+    coordinator
+        .start_ppt_live_backend_turn(
+            &session.session_id,
+            &action_run_id,
             prompt,
-            Some("PPT Live generation".to_string()),
-            Some(action_run_id.clone()),
-            "Runno".to_string(),
-            None,
-            session.config.workspace_path.clone(),
-            DialogSubmissionPolicy::for_source(DialogTriggerSource::DesktopApi)
-                .with_persist_agent_type(false)
-                .with_skip_tool_confirmation(true),
-            None,
-            None,
+            phase.as_deref(),
         )
         .await
         .map_err(|e| format!("Failed to start PPT Live generation: {}", e))?;
-    let status = match &outcome {
-        DialogSubmitOutcome::Started { .. } => "started",
-        DialogSubmitOutcome::Queued { .. } => "queued",
-    }
-    .to_string();
 
     Ok(ProductAppRuntimeHostBackendCallResponse {
         session_id: session.session_id,
         turn_id: action_run_id.clone(),
         action_run_id,
-        status,
+        status: "started".to_string(),
         backend_id: backend_id.to_string(),
         action: action_name.to_string(),
-        agent_type: "Runno".to_string(),
+        agent_type: PptLiveAgent::ID.to_string(),
         backend_kind: "agentComponent".to_string(),
-        backend_component_id: backend_id.to_string(),
+        backend_component_id: backend_component_id.to_string(),
         bridge_result: None,
     })
 }
@@ -2394,19 +2557,6 @@ pub async fn product_app_runtime_host_backend_call(
     let (backend_id_raw, action_name_raw) = parse_backend_target(&request.target)?;
     let backend_id = backend_id_raw.to_string();
     let action_name = action_name_raw.to_string();
-    if is_ppt_live_private_backend(&runtime_owner.context.app_id, &backend_id, &action_name) {
-        return submit_ppt_live_private_backend(
-            coordinator,
-            scheduler,
-            state,
-            app,
-            runtime_owner,
-            &backend_id,
-            &action_name,
-            request,
-        )
-        .await;
-    }
     let binding = app
         .backends
         .iter()
@@ -2422,6 +2572,20 @@ pub async fn product_app_runtime_host_backend_call(
                 action_name, backend_id
             )
         })?;
+    if is_ppt_live_private_backend(&runtime_owner.context.app_id, &backend_id, &action_name) {
+        let backend_component_id = binding.component_id.clone();
+        return submit_ppt_live_private_backend(
+            coordinator,
+            state,
+            app,
+            runtime_owner,
+            &backend_id,
+            &backend_component_id,
+            &action_name,
+            request,
+        )
+        .await;
+    }
 
     let action_run_id = request
         .idempotency_key

@@ -10,6 +10,8 @@ pub enum SessionKind {
     #[default]
     Standard,
     Subagent,
+    /// Durable implementation-owned session that is never exposed in user session lists.
+    Internal,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]

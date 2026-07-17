@@ -6,6 +6,7 @@ use crate::api::session_storage_path::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sparo_core::agentic::coordination::ConversationCoordinator;
 use sparo_core::agentic::persistence::{
     PersistenceManager, SessionBranchRequest, SessionBranchResult,
 };
@@ -23,7 +24,6 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use tauri::State;
-use tokio::fs;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ListPersistedSessionsRequest {
@@ -184,52 +184,50 @@ fn store_context_budget_snapshot(cache_key: String, snapshot: &ContextBudgetSnap
     }
 }
 
-fn legacy_os_agent_workspace_roots(path_manager: &PathManager) -> Vec<PathBuf> {
-    let _ = path_manager;
-    Vec::new()
+fn validate_public_persistence_metadata(
+    existing: Option<&SessionMetadata>,
+    proposed: Option<&SessionMetadata>,
+) -> Result<(), String> {
+    if existing.is_some_and(SessionMetadata::should_hide_from_user_lists)
+        || proposed.is_some_and(SessionMetadata::should_hide_from_user_lists)
+    {
+        return Err("session.system_owned".to_string());
+    }
+    Ok(())
 }
 
-fn resolve_configured_model_id(ai_config: &AIConfig, selector: &str) -> String {
-    if selector.is_empty() || selector == "primary" || selector == "default" {
-        return ai_config
-            .default_models
-            .primary
-            .clone()
-            .or_else(|| {
-                ai_config
-                    .models
-                    .iter()
-                    .find(|m| m.enabled)
-                    .map(|m| m.id.clone())
-            })
-            .unwrap_or_else(|| "primary".to_string());
-    }
-    if selector == "fast" {
-        return ai_config
-            .default_models
-            .fast
-            .clone()
-            .or_else(|| ai_config.default_models.primary.clone())
-            .unwrap_or_else(|| selector.to_string());
-    }
-    selector.to_string()
+async fn ensure_public_persistence_mutation(
+    coordinator: &ConversationCoordinator,
+    manager: &PersistenceManager,
+    workspace_path: &Path,
+    session_id: &str,
+    proposed: Option<&SessionMetadata>,
+) -> Result<(), String> {
+    coordinator
+        .ensure_session_accepts_public_mutation(session_id)
+        .await
+        .map_err(|_| "settings.lifecycle_owned".to_string())?;
+    let existing = manager
+        .load_session_metadata(workspace_path, session_id)
+        .await
+        .map_err(|_| "session.ownership_check_failed".to_string())?;
+    validate_public_persistence_metadata(existing.as_ref(), proposed)
 }
 
 fn resolve_model_config_for_budget<'a>(
     ai_config: &'a AIConfig,
     selector: &str,
 ) -> Option<&'a sparo_core::service::config::types::AIModelConfig> {
-    let resolved_model_id = resolve_configured_model_id(ai_config, selector);
+    let selector = if selector.trim().is_empty() {
+        "primary"
+    } else {
+        selector.trim()
+    };
+    let resolved_model_id = ai_config.resolve_model_selection(selector)?;
     ai_config
         .models
         .iter()
-        .find(|m| {
-            m.id == resolved_model_id
-                || m.name == resolved_model_id
-                || m.model_name == resolved_model_id
-        })
-        .or_else(|| ai_config.models.iter().find(|m| m.enabled))
-        .or_else(|| ai_config.models.first())
+        .find(|model| model.id == resolved_model_id)
 }
 
 fn normalize_context_budget_agent_type(agent_type: &str) -> String {
@@ -254,7 +252,7 @@ async fn build_tool_definitions_for_budget(
     workspace: Option<&WorkspaceBinding>,
     agent_type: &str,
     primary_supports_image_understanding: bool,
-) -> Vec<ToolDefinition> {
+) -> Result<Vec<ToolDefinition>, String> {
     let all_tools = get_all_registered_tools().await;
     let mut tool_opts_custom = HashMap::new();
     tool_opts_custom.insert(
@@ -289,7 +287,12 @@ async fn build_tool_definitions_for_budget(
         let description = tool
             .description_with_context(Some(&description_context))
             .await
-            .unwrap_or_else(|_| format!("Tool: {}", tool.name()));
+            .map_err(|error| {
+                format!(
+                    "Failed to build description for tool '{}': {error}",
+                    tool.name()
+                )
+            })?;
         let parameters = tool
             .input_schema_for_model_with_context(Some(&description_context))
             .await;
@@ -322,104 +325,7 @@ async fn build_tool_definitions_for_budget(
     .map(|(k, v)| (k.to_string(), v))
     .collect();
     tool_definitions.sort_by_key(|tool| tool_ordering.get(&tool.name).unwrap_or(&100));
-    tool_definitions
-}
-
-async fn copy_dir_recursive(source: &Path, target: &Path) -> Result<(), String> {
-    let mut pending = vec![(source.to_path_buf(), target.to_path_buf())];
-    while let Some((current_source, current_target)) = pending.pop() {
-        fs::create_dir_all(&current_target).await.map_err(|e| {
-            format!(
-                "Failed to create target directory {}: {}",
-                current_target.display(),
-                e
-            )
-        })?;
-        let mut entries = fs::read_dir(&current_source).await.map_err(|e| {
-            format!(
-                "Failed to read directory {}: {}",
-                current_source.display(),
-                e
-            )
-        })?;
-        while let Some(entry) = entries.next_entry().await.map_err(|e| {
-            format!(
-                "Failed to read directory entry in {}: {}",
-                current_source.display(),
-                e
-            )
-        })? {
-            let source_path = entry.path();
-            let target_path = current_target.join(entry.file_name());
-            let file_type = entry
-                .file_type()
-                .await
-                .map_err(|e| format!("Failed to stat {}: {}", source_path.display(), e))?;
-            if file_type.is_dir() {
-                pending.push((source_path, target_path));
-            } else {
-                if let Some(parent) = target_path.parent() {
-                    fs::create_dir_all(parent).await.map_err(|e| {
-                        format!(
-                            "Failed to create parent directory {}: {}",
-                            parent.display(),
-                            e
-                        )
-                    })?;
-                }
-                fs::copy(&source_path, &target_path).await.map_err(|e| {
-                    format!(
-                        "Failed to copy {} to {}: {}",
-                        source_path.display(),
-                        target_path.display(),
-                        e
-                    )
-                })?;
-            }
-        }
-    }
-    Ok(())
-}
-
-async fn migrate_legacy_os_agent_sessions_if_needed(
-    manager: &PersistenceManager,
-    path_manager: &PathManager,
-    agentic_os_root: &Path,
-) -> Result<(), String> {
-    let existing = manager
-        .list_session_metadata(agentic_os_root)
-        .await
-        .map_err(|e| format!("Failed to inspect Agentic OS sessions: {}", e))?;
-    if !existing.is_empty() {
-        return Ok(());
-    }
-
-    let target_sessions_dir = path_manager.agentic_os_runtime_root().join("sessions");
-    fs::create_dir_all(&target_sessions_dir)
-        .await
-        .map_err(|e| format!("Failed to create Agentic OS sessions dir: {}", e))?;
-
-    for legacy_root in legacy_os_agent_workspace_roots(path_manager) {
-        let legacy_metadata = match manager.list_session_metadata(&legacy_root).await {
-            Ok(value) => value,
-            Err(_) => continue,
-        };
-        // Keep the old persisted agent_type literal so existing sessions migrate into Agentic OS.
-        for metadata in legacy_metadata
-            .into_iter()
-            .filter(|item| item.agent_type.eq_ignore_ascii_case("dispatcher"))
-        {
-            let source_dir = path_manager
-                .workspace_sessions_dir(&legacy_root)
-                .join(&metadata.session_id);
-            let target_dir = target_sessions_dir.join(&metadata.session_id);
-            if target_dir.exists() || !source_dir.exists() {
-                continue;
-            }
-            copy_dir_recursive(&source_dir, &target_dir).await?;
-        }
-    }
-    Ok(())
+    Ok(tool_definitions)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -447,17 +353,6 @@ pub async fn list_persisted_sessions(
     .await;
     let manager = PersistenceManager::new(path_manager.inner().clone())
         .map_err(|e| format!("Failed to create persistence manager: {}", e))?;
-    if matches!(
-        request.storage_scope,
-        Some(SessionStorageScopeDto::AgenticOs)
-    ) {
-        migrate_legacy_os_agent_sessions_if_needed(
-            &manager,
-            path_manager.inner().as_ref(),
-            &workspace_path,
-        )
-        .await?;
-    }
 
     manager
         .list_session_metadata(&workspace_path)
@@ -479,17 +374,6 @@ pub async fn load_session_turns(
     .await;
     let manager = PersistenceManager::new(path_manager.inner().clone())
         .map_err(|e| format!("Failed to create persistence manager: {}", e))?;
-    if matches!(
-        request.storage_scope,
-        Some(SessionStorageScopeDto::AgenticOs)
-    ) {
-        migrate_legacy_os_agent_sessions_if_needed(
-            &manager,
-            path_manager.inner().as_ref(),
-            &workspace_path,
-        )
-        .await?;
-    }
 
     let turns = if let Some(limit) = request.limit {
         manager
@@ -514,18 +398,13 @@ pub async fn get_context_budget(
         .config_service
         .get_config(Some("ai"))
         .await
-        .unwrap_or_default();
+        .map_err(|error| format!("Failed to read AI settings: {error}"))?;
     let selector = request.model_id.as_deref().unwrap_or("primary");
-    let model_config = resolve_model_config_for_budget(&ai_config, selector);
-    let model_name = model_config
-        .map(|model| model.model_name.clone())
-        .unwrap_or_else(|| "primary".to_string());
-    let provider = model_config
-        .map(|model| model.provider.clone())
-        .unwrap_or_else(|| "unknown".to_string());
-    let context_window = model_config
-        .and_then(|model| model.context_window)
-        .unwrap_or(128128) as usize;
+    let model_config = resolve_model_config_for_budget(&ai_config, selector)
+        .ok_or_else(|| format!("Configured model selector is invalid: {selector}"))?;
+    let model_name = model_config.model_name.clone();
+    let provider = model_config.provider.clone();
+    let context_window = model_config.context_window as usize;
 
     let workspace_path = request
         .workspace_path
@@ -569,12 +448,11 @@ pub async fn get_context_budget(
         )
         .ok_or_else(|| format!("Agent not found: {}", agent_type))?;
 
-    let primary_supports_image_understanding = model_config.is_some_and(|m| {
-        m.capabilities
-            .iter()
-            .any(|cap| matches!(cap, ModelCapability::ImageUnderstanding))
-            || matches!(m.category, ModelCategory::Multimodal)
-    });
+    let primary_supports_image_understanding = model_config
+        .capabilities
+        .iter()
+        .any(|cap| matches!(cap, ModelCapability::ImageUnderstanding))
+        || matches!(model_config.category, ModelCategory::Multimodal);
 
     let prompt_context = workspace.as_ref().map(|binding| {
         PromptBuilderContext::new(binding.root_path_string(), Some(model_name.clone()))
@@ -601,14 +479,15 @@ pub async fn get_context_budget(
             &agent_type,
             workspace.as_ref().map(|binding| binding.root_path()),
         )
-        .await;
+        .await
+        .map_err(|error| format!("Failed to read agent tool configuration: {error}"))?;
     let tool_definitions = build_tool_definitions_for_budget(
         &agent_allowed_tools,
         workspace.as_ref(),
         &agent_type,
         primary_supports_image_understanding,
     )
-    .await;
+    .await?;
 
     let snapshot = ContextStatsEstimator::static_snapshot(
         request.session_id,
@@ -629,6 +508,7 @@ pub async fn save_session_turn(
     request: SaveSessionTurnRequest,
     app_state: State<'_, AppState>,
     path_manager: State<'_, Arc<PathManager>>,
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
 ) -> Result<(), String> {
     let workspace_path = desktop_effective_session_storage_path(
         &app_state,
@@ -638,17 +518,14 @@ pub async fn save_session_turn(
     .await;
     let manager = PersistenceManager::new(path_manager.inner().clone())
         .map_err(|e| format!("Failed to create persistence manager: {}", e))?;
-    if matches!(
-        request.storage_scope,
-        Some(SessionStorageScopeDto::AgenticOs)
-    ) {
-        migrate_legacy_os_agent_sessions_if_needed(
-            &manager,
-            path_manager.inner().as_ref(),
-            &workspace_path,
-        )
-        .await?;
-    }
+    ensure_public_persistence_mutation(
+        coordinator.inner().as_ref(),
+        &manager,
+        &workspace_path,
+        &request.turn_data.session_id,
+        None,
+    )
+    .await?;
 
     manager
         .save_dialog_turn(&workspace_path, &request.turn_data)
@@ -661,6 +538,7 @@ pub async fn save_session_metadata(
     request: SaveSessionMetadataRequest,
     app_state: State<'_, AppState>,
     path_manager: State<'_, Arc<PathManager>>,
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
 ) -> Result<(), String> {
     let workspace_path = desktop_effective_session_storage_path(
         &app_state,
@@ -670,6 +548,14 @@ pub async fn save_session_metadata(
     .await;
     let manager = PersistenceManager::new(path_manager.inner().clone())
         .map_err(|e| format!("Failed to create persistence manager: {}", e))?;
+    ensure_public_persistence_mutation(
+        coordinator.inner().as_ref(),
+        &manager,
+        &workspace_path,
+        &request.metadata.session_id,
+        Some(&request.metadata),
+    )
+    .await?;
 
     manager
         .save_session_metadata(&workspace_path, &request.metadata)
@@ -712,6 +598,7 @@ pub async fn delete_persisted_session(
     request: DeletePersistedSessionRequest,
     app_state: State<'_, AppState>,
     path_manager: State<'_, Arc<PathManager>>,
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
 ) -> Result<(), String> {
     let workspace_path = desktop_effective_session_storage_path(
         &app_state,
@@ -721,6 +608,14 @@ pub async fn delete_persisted_session(
     .await;
     let manager = PersistenceManager::new(path_manager.inner().clone())
         .map_err(|e| format!("Failed to create persistence manager: {}", e))?;
+    ensure_public_persistence_mutation(
+        coordinator.inner().as_ref(),
+        &manager,
+        &workspace_path,
+        &request.session_id,
+        None,
+    )
+    .await?;
 
     manager
         .delete_session(&workspace_path, &request.session_id)
@@ -733,6 +628,7 @@ pub async fn touch_session_activity(
     request: TouchSessionActivityRequest,
     app_state: State<'_, AppState>,
     path_manager: State<'_, Arc<PathManager>>,
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
 ) -> Result<(), String> {
     let workspace_path = desktop_effective_session_storage_path(
         &app_state,
@@ -742,6 +638,14 @@ pub async fn touch_session_activity(
     .await;
     let manager = PersistenceManager::new(path_manager.inner().clone())
         .map_err(|e| format!("Failed to create persistence manager: {}", e))?;
+    ensure_public_persistence_mutation(
+        coordinator.inner().as_ref(),
+        &manager,
+        &workspace_path,
+        &request.session_id,
+        None,
+    )
+    .await?;
 
     manager
         .touch_session(&workspace_path, &request.session_id)
@@ -777,6 +681,7 @@ pub async fn fork_session(
     request: ForkSessionRequest,
     app_state: State<'_, AppState>,
     path_manager: State<'_, Arc<PathManager>>,
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
 ) -> Result<ForkSessionResponse, String> {
     let workspace_path = desktop_effective_session_storage_path(
         &app_state,
@@ -786,17 +691,14 @@ pub async fn fork_session(
     .await;
     let manager = PersistenceManager::new(path_manager.inner().clone())
         .map_err(|e| format!("Failed to create persistence manager: {}", e))?;
-    if matches!(
-        request.storage_scope,
-        Some(SessionStorageScopeDto::AgenticOs)
-    ) {
-        migrate_legacy_os_agent_sessions_if_needed(
-            &manager,
-            path_manager.inner().as_ref(),
-            &workspace_path,
-        )
-        .await?;
-    }
+    ensure_public_persistence_mutation(
+        coordinator.inner().as_ref(),
+        &manager,
+        &workspace_path,
+        &request.source_session_id,
+        None,
+    )
+    .await?;
 
     manager
         .branch_session(
@@ -808,4 +710,35 @@ pub async fn fork_session(
         )
         .await
         .map_err(|e| format!("Failed to fork session: {}", e))
+}
+
+#[cfg(test)]
+mod ownership_tests {
+    use super::validate_public_persistence_metadata;
+    use sparo_core::agentic::core::SessionKind;
+    use sparo_core::service::session::SessionMetadata;
+
+    fn metadata(session_id: &str) -> SessionMetadata {
+        SessionMetadata::new(
+            session_id.to_string(),
+            "Session".to_string(),
+            "Runno".to_string(),
+            "primary".to_string(),
+        )
+    }
+
+    #[test]
+    fn public_persistence_mutation_rejects_existing_or_proposed_system_sessions() {
+        let visible = metadata("visible");
+        assert!(validate_public_persistence_metadata(Some(&visible), Some(&visible)).is_ok());
+
+        let mut internal = metadata("internal");
+        internal.session_kind = SessionKind::Internal;
+        assert!(validate_public_persistence_metadata(Some(&internal), None).is_err());
+        assert!(validate_public_persistence_metadata(None, Some(&internal)).is_err());
+
+        let mut subagent = metadata("subagent");
+        subagent.session_kind = SessionKind::Subagent;
+        assert!(validate_public_persistence_metadata(Some(&subagent), None).is_err());
+    }
 }

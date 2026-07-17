@@ -27,7 +27,7 @@ vi.mock('@/infrastructure/api/service-api/SessionAPI', () => ({
 
 vi.mock('@/infrastructure/config/services/ConfigManager', () => ({
   configManager: {
-    getConfig: vi.fn(async () => ({})),
+    getSetting: vi.fn(async () => ({})),
   },
 }));
 

@@ -5,7 +5,7 @@
     "global": {
       "sectionTitle": "Global memory",
       "enabled": "Enable global auto memory",
-      "enabledDesc": "",
+      "enabledDesc": "Automatically extract durable knowledge into global agentic_os memory.",
       "extractEveryEligibleTurns": "How often to update global memory",
       "extractEveryEligibleTurnsDesc": "Update agentic_os memory once every N eligible conversations.",
       "minExtractIntervalMinutes": "Minimum time between updates",
@@ -16,7 +16,7 @@
     "workspace": {
       "sectionTitle": "Workspace memory",
       "enabled": "Enable workspace auto memory",
-      "enabledDesc": "",
+      "enabledDesc": "Automatically extract durable knowledge into this workspace's memory.",
       "extractEveryEligibleTurns": "How often to update workspace memory",
       "extractEveryEligibleTurnsDesc": "Update workspace memory once every N eligible conversations.",
       "minExtractIntervalMinutes": "Minimum time between updates",
@@ -35,7 +35,8 @@
   "actions": {
     "disableAll": "Disable",
     "enableAll": "Enable",
-    "resetAll": "Reset"
+    "resetAll": "Reset",
+    "retry": "Retry"
   },
   "resetDialog": {
     "title": "Reset memory settings?",

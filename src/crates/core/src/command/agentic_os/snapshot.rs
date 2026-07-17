@@ -100,7 +100,7 @@ pub async fn get_snapshot(
     ctx: &CommandContext,
     request: AgenticOsSnapshotRequest,
 ) -> CommandResult<AgenticOsSnapshot> {
-    let model = load_default_model(ctx).await;
+    let model = load_default_model(ctx).await?;
     get_snapshot_with_model(request, model).await
 }
 
@@ -146,39 +146,21 @@ async fn get_snapshot_with_model(
     Ok(snapshot)
 }
 
-async fn load_default_model(ctx: &CommandContext) -> String {
+async fn load_default_model(ctx: &CommandContext) -> CommandResult<String> {
     let ai: AIConfig = ctx
         .config_service()
         .get_config(Some("ai"))
         .await
-        .unwrap_or_default();
-    let model_ref = ai
-        .default_models
-        .primary
-        .or_else(|| ai.models.iter().find(|m| m.enabled).map(|m| m.id.clone()));
-
-    model_ref
-        .as_deref()
-        .and_then(|model_ref| {
-            ai.models
-                .iter()
-                .find(|model| {
-                    model.id == model_ref
-                        || model.name == model_ref
-                        || model.model_name == model_ref
-                })
-                .map(|model| {
-                    if !model.model_name.trim().is_empty() {
-                        model.model_name.clone()
-                    } else if !model.name.trim().is_empty() {
-                        model.name.clone()
-                    } else {
-                        model.id.clone()
-                    }
-                })
-        })
-        .or(model_ref)
-        .unwrap_or_else(|| "primary".to_string())
+        .map_err(CommandError::config)?;
+    let Some(model_id) = ai.default_models.primary.as_deref() else {
+        return Ok(String::new());
+    };
+    let model = ai
+        .models
+        .iter()
+        .find(|model| model.enabled && model.id == model_id)
+        .ok_or_else(|| CommandError::config(format!("Primary model id is invalid: {model_id}")))?;
+    Ok(model.model_name.clone())
 }
 
 async fn load_workspaces() -> Vec<AgenticOsWorkspaceRow> {

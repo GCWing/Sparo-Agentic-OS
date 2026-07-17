@@ -70,8 +70,7 @@ pub async fn load_user_agent_skill_overrides(
     let config_service = GlobalConfigManager::get_service().await?;
     let stored_configs: HashMap<String, AgentCapabilityConfig> = config_service
         .get_config(Some("ai.agent_capability_configs"))
-        .await
-        .unwrap_or_default();
+        .await?;
 
     let config = stored_configs.get(agent_id);
     Ok(normalize_user_overrides(

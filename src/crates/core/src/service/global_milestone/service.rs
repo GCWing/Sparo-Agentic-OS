@@ -11,6 +11,7 @@ use crate::agentic::memory::store::MEMORY_MILESTONES_FILE;
 use crate::agentic::tools::{ToolPathPolicy, ToolRuntimeRestrictions};
 use crate::error::CoreResult;
 use crate::infrastructure::get_path_manager_arc;
+use crate::service::config::{is_primary_ai_model_configured, PRIMARY_AI_MODEL_REQUIRED_REASON};
 use chrono::{Datelike, Duration as ChronoDuration, Local, LocalResult, TimeZone};
 use log::{info, warn};
 use serde::Serialize;
@@ -267,6 +268,17 @@ impl GlobalMilestoneService {
                     reason: Some("Auto run is not due yet".to_string()),
                 });
             }
+        }
+
+        if !is_primary_ai_model_configured().await {
+            return Ok(GlobalMilestoneRunSummary {
+                started: false,
+                trigger: trigger_label(&trigger).to_string(),
+                source_start_date: None,
+                source_end_date: None,
+                turn_id: None,
+                reason: Some(PRIMARY_AI_MODEL_REQUIRED_REASON.to_string()),
+            });
         }
 
         let pending = match self.next_pending_run().await? {

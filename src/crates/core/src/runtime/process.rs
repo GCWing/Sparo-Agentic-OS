@@ -5,7 +5,10 @@ use std::sync::Arc;
 use crate::command::CommandContext;
 use crate::infrastructure::ai::AIClientFactory;
 use crate::infrastructure::try_get_path_manager_arc;
-use crate::service::config::{get_global_config_service, initialize_global_config, ConfigService};
+use crate::service::config::{
+    get_global_config_service, initialize_global_config_with_settings, ConfigManagerSettings,
+    ConfigService, ConfigStartupFailurePolicy,
+};
 use crate::service::i18n::initialize_global_i18n_service;
 use crate::service::token_usage::TokenUsageService;
 
@@ -13,6 +16,7 @@ use crate::service::token_usage::TokenUsageService;
 pub struct ProcessRuntimeOptions {
     pub initialize_i18n: bool,
     pub initialize_token_usage: bool,
+    pub config_startup_failure_policy: ConfigStartupFailurePolicy,
 }
 
 impl Default for ProcessRuntimeOptions {
@@ -20,6 +24,7 @@ impl Default for ProcessRuntimeOptions {
         Self {
             initialize_i18n: true,
             initialize_token_usage: false,
+            config_startup_failure_policy: ConfigStartupFailurePolicy::Strict,
         }
     }
 }
@@ -34,16 +39,18 @@ pub struct ProcessRuntime {
 impl ProcessRuntime {
     pub fn command_context(&self) -> CommandContext {
         CommandContext::new(self.config_service.clone())
-            .with_ai_client_factory(self.ai_client_factory.clone())
     }
 }
 
 pub async fn initialize_process_runtime(
     options: ProcessRuntimeOptions,
 ) -> anyhow::Result<ProcessRuntime> {
-    initialize_global_config()
-        .await
-        .map_err(|e| anyhow::anyhow!("initialize_global_config: {}", e))?;
+    initialize_global_config_with_settings(ConfigManagerSettings {
+        startup_failure_policy: options.config_startup_failure_policy,
+        ..ConfigManagerSettings::default()
+    })
+    .await
+    .map_err(|e| anyhow::anyhow!("initialize_global_config: {}", e))?;
 
     let config_service = get_global_config_service()
         .await

@@ -1,7 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { readFile } from '@tauri-apps/plugin-fs';
 import {
-  DEFAULT_AGENT_COMPANION_PET,
   type AgentCompanionPetSelection,
 } from './AIExperienceConfigService';
 import { isTauriRuntime } from '@/infrastructure/runtime';
@@ -9,6 +8,16 @@ import { createLogger } from '@/shared/utils/logger';
 
 const log = createLogger('AgentCompanionPetService');
 const BUILTIN_PET_BASE = '/agent-companion-pets';
+
+export const BUILTIN_SPARKY_COMPANION_PET: AgentCompanionPetSelection = {
+  id: 'sparky',
+  displayName: 'Sparky',
+  description: 'A cute non-pixel Sparo-inspired desktop companion with warm red-orange energy and calm agentic focus.',
+  source: 'preset',
+  packagePath: `${BUILTIN_PET_BASE}/sparky`,
+  spritesheetPath: `${BUILTIN_PET_BASE}/sparky/spritesheet.webp`,
+  spritesheetMimeType: 'image/webp',
+};
 
 /** Cache absolute file paths to blob URLs so repeated previews do not re-read the same file. */
 const blobUrlCache = new Map<string, string>();
@@ -52,7 +61,7 @@ export function releaseAgentCompanionPetPreviewBlobs(
 }
 
 const BUILTIN_PETS: AgentCompanionPetSelection[] = [
-  DEFAULT_AGENT_COMPANION_PET,
+  BUILTIN_SPARKY_COMPANION_PET,
   {
     id: 'assistant',
     displayName: '助理',
@@ -124,7 +133,7 @@ export async function deleteAgentCompanionPetPackage(packagePath: string): Promi
 export async function resolveAgentCompanionPetSrc(
   pet: AgentCompanionPetSelection | null | undefined,
 ): Promise<string> {
-  if (!pet) return DEFAULT_AGENT_COMPANION_PET.spritesheetPath;
+  if (!pet) return '';
   if (pet.source === 'preset') return pet.spritesheetPath;
   if (!isTauriRuntime()) return '';
   return readFileAsBlobUrl(pet.spritesheetPath, pet.spritesheetMimeType);

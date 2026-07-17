@@ -1,10 +1,9 @@
 //! Mouse button click and wheel at the current pointer (Computer use).
 
-use crate::agentic::tools::computer_use_capability::computer_use_desktop_available;
+use crate::agentic::tools::computer_use_capability::computer_use_tool_enabled;
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
 use crate::agentic::tools::implementations::computer_use_tool::computer_use_execute_mouse_click_tool;
 use crate::error::{CoreError, CoreResult};
-use crate::service::config::global::GlobalConfigManager;
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
@@ -81,16 +80,12 @@ impl Tool for ComputerUseMouseClickTool {
         true
     }
 
+    fn allows_confirmation_bypass(&self, _input: Option<&Value>) -> bool {
+        false
+    }
+
     async fn is_enabled(&self) -> bool {
-        if !computer_use_desktop_available() {
-            return false;
-        }
-        let Ok(service) = GlobalConfigManager::get_service().await else {
-            return false;
-        };
-        let ai: crate::service::config::types::AIConfig =
-            service.get_config(Some("ai")).await.unwrap_or_default();
-        ai.computer_use_enabled
+        computer_use_tool_enabled().await
     }
 
     async fn call_impl(

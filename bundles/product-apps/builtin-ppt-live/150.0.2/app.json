@@ -1,0 +1,244 @@
+{
+  "id": "builtin-ppt-live",
+  "version": "150.0.2",
+  "name": "PPT Live",
+  "description": "A presentation creation workspace that turns a topic into structure, slides, and speaking flow, producing an editable deck.",
+  "authors": [
+    {
+      "name": "bobleer",
+      "url": "https://github.com/bobleer"
+    }
+  ],
+  "i18n": {
+    "locales": {
+      "en-US": {
+        "name": "PPT Live",
+        "description": "A presentation creation workspace that turns a topic into structure, slides, and speaking flow, producing an editable deck.",
+        "tags": [
+          "built-in",
+          "presentation",
+          "deck",
+          "export"
+        ]
+      },
+      "zh-CN": {
+        "name": "PPT Live",
+        "description": "专注演示稿创作，从主题到结构、页面和讲述节奏，生成可以继续编辑和展示的 PPT。",
+        "tags": [
+          "内置",
+          "演示文稿",
+          "幻灯片",
+          "导出"
+        ]
+      }
+    }
+  },
+  "interactionModel": "interactiveWorkspace",
+  "runtimeInteraction": {
+    "tabs": [
+      {
+        "id": "manuscript",
+        "type": "product-app-runtime",
+        "title": {
+          "zh-CN": "文本稿",
+          "en-US": "Manuscript"
+        },
+        "route": "/manuscript",
+        "default": false,
+        "sidecar": {
+          "actionId": "ppt-manuscript",
+          "icon": "file-text",
+          "order": 10,
+          "targetGroup": "primary"
+        },
+        "data": {
+          "documentId": "manuscript",
+          "viewMode": "edit-preview"
+        }
+      }
+    ]
+  },
+  "workMultiplicity": "multiple",
+  "workObjectKinds": [
+    {
+      "id": "deck",
+      "label": "Deck",
+      "scope": "asset",
+      "identitySchema": {
+        "type": "object",
+        "properties": {
+          "deckId": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        }
+      },
+      "contextSchema": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "slideCount": {
+            "type": "number"
+          },
+          "theme": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "slide",
+      "label": "Slide",
+      "scope": "asset",
+      "identitySchema": {
+        "type": "object",
+        "properties": {
+          "deckId": {
+            "type": "string"
+          },
+          "slideId": {
+            "type": "string"
+          },
+          "index": {
+            "type": "number"
+          }
+        }
+      },
+      "contextSchema": {
+        "type": "object",
+        "properties": {
+          "layout": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "selectedElement": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "id": "export",
+      "label": "Export",
+      "scope": "asset",
+      "identitySchema": {
+        "type": "object",
+        "properties": {
+          "artifactId": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        }
+      },
+      "contextSchema": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ],
+  "truthSource": "ownedObjectState",
+  "primarySurface": {
+    "componentId": "builtin-ppt-live-surface",
+    "surfaceId": "primary"
+  },
+  "primarySurfaceMode": "sidecarLinked",
+  "components": [
+    {
+      "componentId": "builtin-ppt-live-surface",
+      "kind": "surface",
+      "source": "private",
+      "role": "primarySurface",
+      "capabilities": [
+        "interactiveSurface"
+      ],
+      "usesCapabilities": [
+        "session.read",
+        "component.run"
+      ]
+    },
+    {
+      "componentId": "builtin-ppt-live-agent",
+      "kind": "agent",
+      "source": "private",
+      "role": "assistant",
+      "capabilities": [
+        "generateDeck",
+        "reviseSlide"
+      ],
+      "usesCapabilities": [
+        "session.read",
+        "model.invoke",
+        "tool.invoke"
+      ]
+    },
+    {
+      "componentId": "product-app-runtime-host",
+      "kind": "runtime",
+      "source": "shared",
+      "role": "runtimeHost",
+      "version": "^1.0.0",
+      "capabilities": [
+        "uiWorker"
+      ],
+      "usesCapabilities": [
+        "component.run"
+      ]
+    }
+  ],
+  "componentLockId": "",
+  "permissions": {
+    "fs": true,
+    "net": true,
+    "shell": false,
+    "gui": false,
+    "secrets": false,
+    "ai": true
+  },
+  "installScope": "system",
+  "catalogVisibility": "discoverable",
+  "enabled": true,
+  "icon": {
+    "kind": "packageAsset",
+    "path": "assets/icon.png"
+  },
+  "category": "productivity",
+  "tags": [
+    "built-in",
+    "presentation",
+    "deck",
+    "export"
+  ],
+  "launch": {
+    "kind": "applicationSurface",
+    "targetId": "builtin-ppt-live",
+    "scopeRequirement": "workspaceOptional",
+    "surfaceId": "primary"
+  },
+  "osCapabilities": [
+    "session.read",
+    "component.run",
+    "model.invoke",
+    "tool.invoke"
+  ],
+  "dataLifecycle": {
+    "retention": "externalSystem",
+    "deletion": "externalSystem",
+    "migration": "externalSystem",
+    "share": "externalReferenceOnly"
+  }
+}

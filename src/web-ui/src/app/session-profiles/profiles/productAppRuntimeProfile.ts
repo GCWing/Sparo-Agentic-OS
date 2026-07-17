@@ -37,7 +37,15 @@ function buildRuntimeTabDescriptor(
   binding: ProductAppRuntimeSessionMetadata,
   tab: ProductAppRuntimeTabMetadata
 ): TabAutoOpenDescriptor {
-  const duplicateCheckKey = `product-app-runtime:${sessionId}:${tab.id}`;
+  const runtimeContext = binding.runtimeContext;
+  const identityParts = [
+    sessionId,
+    runtimeContext?.workId,
+    runtimeContext?.runtimeInstanceId,
+  ].filter((value): value is string => Boolean(value));
+  const duplicateCheckKey = tab.sidecar?.actionId
+    ? `${tab.sidecar.actionId}:${identityParts.join(':')}`
+    : `product-app-runtime:${sessionId}:${tab.id}`;
   return {
     type: tab.type,
     title: tab.title,
@@ -63,6 +71,7 @@ function buildRuntimeTabDescriptor(
     },
     duplicateCheckKey,
     replaceExisting: true,
+    targetGroup: tab.sidecar?.targetGroup,
   };
 }
 
@@ -75,18 +84,13 @@ function buildDefaultRuntimeTabDescriptors(
 }
 
 function getRuntimeTabIcon(tab: ProductAppRuntimeTabMetadata): SessionSidecarIconId {
-  const hint = `${tab.id} ${tab.route ?? ''}`.toLowerCase();
-  if (hint.includes('diagnostic')) {
-    return 'activity';
-  }
-  if (hint.includes('preview') || hint.includes('play')) {
-    return 'play';
-  }
-
-  return 'play';
+  return tab.sidecar?.icon ?? 'play';
 }
 
 function getRuntimeActionId(tab: ProductAppRuntimeTabMetadata): string {
+  if (tab.sidecar?.actionId) {
+    return tab.sidecar.actionId;
+  }
   const safeId = tab.id.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
   return `product-app-runtime-${safeId || tab.type}`;
 }
@@ -122,7 +126,8 @@ function createProductAppRuntimeProfile(
         label: tab.title,
         defaultLabel: tab.title || binding.appName,
         icon: getRuntimeTabIcon(tab),
-        order: 10 + index,
+        order: tab.sidecar?.order ?? 10 + index,
+        availability: tab.sidecar?.availability,
         panel: buildRuntimeTabDescriptor(sessionId, binding, tab),
       }));
     },

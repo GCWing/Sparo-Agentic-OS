@@ -1033,7 +1033,7 @@ pub fn selected_panel_detail(overlay: &OverlayState) -> Option<String> {
         }),
         PanelKind::Settings => match selected {
             0 => Some(format!(
-                "Model settings\nCurrent model: {}\nInspect: sparo config show --path ai.default_models",
+                "Model settings\nCurrent model: {}\nInspect: sparo config get core.ai.default_models.primary",
                 snapshot.model
             )),
             1 => Some(format!(
@@ -1973,6 +1973,7 @@ mod tests {
                 child_count: 1,
                 last_active_at: 1_700_000_000_000,
             }],
+            works: Vec::new(),
             tasks: vec![AgenticOsTaskRow {
                 title: "Fix bug".to_string(),
                 agent: "bitfun-debug".to_string(),

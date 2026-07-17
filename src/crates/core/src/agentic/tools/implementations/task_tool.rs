@@ -119,22 +119,22 @@ assistant: "I'm going to use the Task tool to launch the greeting-responder agen
         &self,
         workspace_root: Option<&Path>,
         parent_agent_type: Option<&str>,
-    ) -> String {
+    ) -> CoreResult<String> {
         let agents = self
             .get_enabled_agents(workspace_root, parent_agent_type)
-            .await;
+            .await?;
         let agent_descriptions = self.format_agent_descriptions(&agents);
-        self.render_description(agent_descriptions)
+        Ok(self.render_description(agent_descriptions))
     }
 
     async fn get_enabled_agents(
         &self,
         workspace_root: Option<&Path>,
         parent_agent_type: Option<&str>,
-    ) -> Vec<AgentInfo> {
+    ) -> CoreResult<Vec<AgentInfo>> {
         let registry = get_agent_registry();
         if let Some(workspace_root) = workspace_root {
-            registry.load_custom_subagents(workspace_root).await;
+            registry.load_custom_subagents(workspace_root).await?;
         }
         registry
             .get_callable_subagents_for_agent(parent_agent_type, workspace_root)
@@ -145,12 +145,13 @@ assistant: "I'm going to use the Task tool to launch the greeting-responder agen
         &self,
         workspace_root: Option<&Path>,
         parent_agent_type: Option<&str>,
-    ) -> Vec<String> {
-        self.get_enabled_agents(workspace_root, parent_agent_type)
-            .await
+    ) -> CoreResult<Vec<String>> {
+        Ok(self
+            .get_enabled_agents(workspace_root, parent_agent_type)
+            .await?
             .into_iter()
             .map(|agent| agent.id)
-            .collect()
+            .collect())
     }
 }
 
@@ -161,19 +162,18 @@ impl Tool for TaskTool {
     }
 
     async fn description(&self) -> CoreResult<String> {
-        Ok(self.build_description(None, None).await)
+        self.build_description(None, None).await
     }
 
     async fn description_with_context(
         &self,
         context: Option<&ToolUseContext>,
     ) -> CoreResult<String> {
-        Ok(self
-            .build_description(
-                context.and_then(|ctx| ctx.workspace_root()),
-                context.and_then(|ctx| ctx.agent_type.as_deref()),
-            )
-            .await)
+        self.build_description(
+            context.and_then(|ctx| ctx.workspace_root()),
+            context.and_then(|ctx| ctx.agent_type.as_deref()),
+        )
+        .await
     }
 
     fn input_schema(&self) -> Value {
@@ -276,7 +276,7 @@ impl Tool for TaskTool {
         let workspace_root = context.workspace_root();
         let all_agent_types = self
             .get_agents_types(workspace_root, context.agent_type.as_deref())
-            .await;
+            .await?;
         if !all_agent_types.contains(&subagent_type) {
             return Err(CoreError::tool(format!(
                 "subagent_type {} is not valid, must be one of: {}",

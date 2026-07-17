@@ -588,7 +588,7 @@ impl MCPServerManager {
 
         let callback_state = OAuthCallbackAppState {
             callback_tx: Arc::new(Mutex::new(Some(callback_tx))),
-            preferred_language: get_app_language_code().await,
+            preferred_language: get_app_language_code().await?,
         };
         let router = Router::new()
             .route(&callback_path, get(handle_oauth_callback))

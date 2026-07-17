@@ -21,7 +21,10 @@ use crate::agentic_os::work::{default_work_store, WorkScope};
 use crate::error::{CoreError, CoreResult};
 use crate::infrastructure::events::{emit_global_event, BackendEvent};
 use crate::infrastructure::get_path_manager_arc;
-use crate::service::config::{get_app_language_code, get_global_config_service, GlobalConfig};
+use crate::service::config::{
+    get_app_language_code, get_global_config_service, is_primary_ai_model_configured, GlobalConfig,
+    PRIMARY_AI_MODEL_REQUIRED_REASON,
+};
 use crate::util::extract_json_from_ai_response;
 use chrono::{Datelike, Duration as ChronoDuration, Local, LocalResult, NaiveDate, TimeZone};
 use log::{info, warn};
@@ -328,13 +331,22 @@ impl DailyLetterService {
         let date = request.date.unwrap_or_else(today_local_date_key);
         validate_date_key(&date)?;
 
-        if !is_daily_letter_enabled().await {
+        if !is_daily_letter_enabled().await? {
             return Ok(DailyLetterRunSummary {
                 started: false,
                 trigger,
                 date: Some(date),
                 record: None,
                 reason: Some("Daily Letter is disabled in settings".to_string()),
+            });
+        }
+        if !is_primary_ai_model_configured().await {
+            return Ok(DailyLetterRunSummary {
+                started: false,
+                trigger,
+                date: Some(date),
+                record: None,
+                reason: Some(PRIMARY_AI_MODEL_REQUIRED_REASON.to_string()),
             });
         }
 
@@ -438,16 +450,12 @@ impl DailyLetterService {
     }
 }
 
-async fn is_daily_letter_enabled() -> bool {
-    match get_global_config_service().await {
-        Ok(config_service) => {
-            let config: CoreResult<GlobalConfig> = config_service.get_config(None).await;
-            config
-                .map(|config| config.app.ai_experience.enable_daily_letter)
-                .unwrap_or(true)
-        }
-        Err(_) => true,
-    }
+async fn is_daily_letter_enabled() -> CoreResult<bool> {
+    get_global_config_service()
+        .await?
+        .get_config::<GlobalConfig>(None)
+        .await
+        .map(|config| config.app.ai_experience.enable_daily_letter)
 }
 
 pub fn install_global_daily_letter_service(service: Arc<DailyLetterService>) -> Result<(), ()> {
@@ -476,7 +484,7 @@ async fn build_context_packet(
     scope: DailyLetterScope,
     workspace_path: Option<&Path>,
 ) -> CoreResult<DailyLetterContextPacket> {
-    let locale = get_app_language_code().await;
+    let locale = get_app_language_code().await?;
     let workspace = workspace_path.map(workspace_ref_for_path);
     let coverage = resolve_coverage_window(date, scope, workspace_path).await?;
 

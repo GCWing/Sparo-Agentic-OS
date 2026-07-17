@@ -7,14 +7,21 @@
  * - Supports 'primary' | 'fast' | specific model IDs
  */
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { ChevronDown, Check, Brain } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { configManager } from '@/infrastructure/config/services/ConfigManager';
+import { configSnapshotStore } from '@/infrastructure/config/snapshot/ConfigSnapshotStore';
 import { agentAPI } from '@/infrastructure/api/service-api/AgentAPI';
 import { getProviderDisplayName } from '@/infrastructure/config/services/modelConfigs';
-import { getEffectiveReasoningMode, isReasoningVisiblyEnabled } from '@/infrastructure/config/utils/reasoning';
-import { globalEventBus } from '@/infrastructure/event-bus';
+import { isReasoningVisiblyEnabled } from '@/infrastructure/config/utils/reasoning';
 import type { AIModelConfig } from '@/infrastructure/config/types';
 import { Button, PopupMenu, Tooltip } from '@/design-system';
 import { FlowChatStore } from '../store/FlowChatStore';
@@ -117,7 +124,7 @@ function buildPrimaryModelInfo(
       providerName: getProviderDisplayName(model),
       provider: model.provider,
       contextWindow: model.context_window,
-      enableThinking: isReasoningVisiblyEnabled(getEffectiveReasoningMode(model)),
+      enableThinking: isReasoningVisiblyEnabled(model.reasoning_mode),
       reasoningEffort: model.reasoning_effort,
     };
   }
@@ -141,6 +148,11 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   const [agentModels, setAgentModels] = useState<Record<string, string>>({}); // agent_id -> model_id
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const configSnapshotState = useSyncExternalStore(
+    configSnapshotStore.subscribe,
+    configSnapshotStore.getState,
+    configSnapshotStore.getState,
+  );
   const modelHover = useMovingHoverHighlight<HTMLDivElement>();
 
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -149,9 +161,9 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   const loadConfigData = useCallback(async () => {
     try {
       const [models, defaultModelsData, agentModelsData] = await Promise.all([
-        configManager.getConfig<AIModelConfig[]>('ai.models') || [],
-        configManager.getConfig<any>('ai.default_models') || {},
-        configManager.getConfig<Record<string, string>>('ai.agent_models') || {}
+        configManager.getSetting<AIModelConfig[]>('core.ai.models') || [],
+        configManager.getSetting<any>('core.ai.default_models') || {},
+        configManager.getSetting<Record<string, string>>('core.ai.agent_models') || {}
       ]);
 
       setAllModels(models);
@@ -167,27 +179,8 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   }, []);
   
   useEffect(() => {
-    loadConfigData();
-    
-    const handleConfigUpdate = () => {
-      log.debug('Configuration update detected, reloading');
-      loadConfigData();
-    };
-    
-    globalEventBus.on('agent:config:updated', handleConfigUpdate);
-    
-    const unsubscribe = configManager.onConfigChange((path) => {
-      if (path.startsWith('ai.')) {
-        log.debug('AI configuration changed', { path });
-        loadConfigData();
-      }
-    });
-    
-    return () => {
-      globalEventBus.off('agent:config:updated', handleConfigUpdate);
-      unsubscribe();
-    };
-  }, [loadConfigData]);
+    void loadConfigData();
+  }, [loadConfigData, configSnapshotState.snapshot?.revision]);
   
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -243,7 +236,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
         providerName: getProviderDisplayName(model),
         provider: model.provider,
         contextWindow: model.context_window,
-        enableThinking: isReasoningVisiblyEnabled(getEffectiveReasoningMode(model)),
+        enableThinking: isReasoningVisiblyEnabled(model.reasoning_mode),
         reasoningEffort: model.reasoning_effort,
       };
     }
@@ -258,7 +251,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
       providerName: getProviderDisplayName(model),
       provider: model.provider,
       contextWindow: model.context_window,
-      enableThinking: isReasoningVisiblyEnabled(getEffectiveReasoningMode(model)),
+      enableThinking: isReasoningVisiblyEnabled(model.reasoning_mode),
       reasoningEffort: model.reasoning_effort,
     };
   }, [getCurrentModelId, allModels, defaultModels, t]);
@@ -278,7 +271,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
         providerName: getProviderDisplayName(m),
         provider: m.provider,
         contextWindow: m.context_window,
-        enableThinking: isReasoningVisiblyEnabled(getEffectiveReasoningMode(m)),
+        enableThinking: isReasoningVisiblyEnabled(m.reasoning_mode),
         reasoningEffort: m.reasoning_effort,
       }));
   }, [allModels]);
@@ -294,14 +287,14 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
         await flowChatManager.ensureBackendSession(sessionId);
       }
 
-      const currentAgentModels = await configManager.getConfig<Record<string, string>>('ai.agent_models') || {};
+      const currentAgentModels = await configManager.getSetting<Record<string, string>>('core.ai.agent_models') || {};
 
       const updatedAgentModels = {
         ...currentAgentModels,
         [currentAgent]: modelId,
       };
 
-      await configManager.setConfig('ai.agent_models', updatedAgentModels);
+      await configManager.setSetting('core.ai.agent_models', updatedAgentModels);
       setAgentModels(updatedAgentModels);
 
       if (sessionId) {
@@ -315,8 +308,6 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
       }
 
       log.info('Agent model updated', { agent: currentAgent, modelId });
-
-      globalEventBus.emit('agent:config:updated');
 
       setDropdownOpen(false);
     } catch (error) {

@@ -16,7 +16,7 @@ import { useFlowLayoutMutationContract } from '../scroll/useFlowLayoutMutationCo
 import { useNestedFlowScrollController } from '../scroll/adapters/useNestedFlowScrollController';
 import type { MarkdownLayoutMutationDetail } from '@/shared/markdown';
 import { Markdown } from '@/shared/markdown/Markdown';
-import { aiExperienceConfigService } from '@/infrastructure/config/services/AIExperienceConfigService';
+import { useAIExperienceSettings } from '@/infrastructure/config/hooks';
 import { deriveThinkingBlockState } from '../runtime/statusModel';
 import './ModelThinkingDisplay.scss';
 
@@ -28,6 +28,9 @@ interface ModelThinkingDisplayProps {
 
 export const ModelThinkingDisplay: React.FC<ModelThinkingDisplayProps> = ({ thinkingItem, isLastItem = true }) => {
   const { t } = useTranslation('flow-chat');
+  const { settings } = useAIExperienceSettings();
+  const showThinkingProcess = settings?.show_thinking_process === true;
+  const showCompletedThinkingItem = settings?.show_completed_thinking_item === true;
   const { content } = thinkingItem;
   const wrapperRef = useRef<HTMLDivElement>(null);
   const thinkingState = deriveThinkingBlockState(thinkingItem);
@@ -40,13 +43,6 @@ export const ModelThinkingDisplay: React.FC<ModelThinkingDisplayProps> = ({ thin
   });
 
   const [isExpanded, setIsExpanded] = useState(isLastItem);
-  const [thinkingDisplaySettings, setThinkingDisplaySettings] = useState(() => {
-    const settings = aiExperienceConfigService.getSettings();
-    return {
-      showThinkingProcess: settings.show_thinking_process,
-      showCompletedThinkingItem: settings.show_completed_thinking_item,
-    };
-  });
   const userToggledRef = useRef(false);
   const { applyExpandedState, invalidateLayout } = useFlowLayoutMutationContract({
     toolId: thinkingItem.id,
@@ -64,29 +60,6 @@ export const ModelThinkingDisplay: React.FC<ModelThinkingDisplayProps> = ({ thin
       thinkingItemId: thinkingItem.id,
     });
   }, [invalidateLayout, thinkingItem.id]);
-
-  useEffect(() => {
-    let cancelled = false;
-    aiExperienceConfigService.getSettingsAsync().then(settings => {
-      if (cancelled) return;
-      setThinkingDisplaySettings({
-        showThinkingProcess: settings.show_thinking_process,
-        showCompletedThinkingItem: settings.show_completed_thinking_item,
-      });
-    });
-
-    const unsubscribe = aiExperienceConfigService.addChangeListener(settings => {
-      setThinkingDisplaySettings({
-        showThinkingProcess: settings.show_thinking_process,
-        showCompletedThinkingItem: settings.show_completed_thinking_item,
-      });
-    });
-
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
-  }, []);
 
   useEffect(() => {
     if (userToggledRef.current) return;
@@ -140,8 +113,8 @@ export const ModelThinkingDisplay: React.FC<ModelThinkingDisplayProps> = ({ thin
   const renderedContent = isActive ? displayContent : content;
 
   if (
-    !thinkingDisplaySettings.showThinkingProcess ||
-    (!isActive && !thinkingDisplaySettings.showCompletedThinkingItem)
+    !showThinkingProcess ||
+    (!isActive && !showCompletedThinkingItem)
   ) {
     return null;
   }

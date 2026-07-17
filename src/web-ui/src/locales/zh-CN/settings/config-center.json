@@ -5,6 +5,17 @@
   "searchNoResults": "没有匹配的配置",
   "searchClear": "清除搜索",
   "beta": "Beta",
+  "recovery": {
+    "title": "设置暂时只读",
+    "message": "已保存的配置无法安全加载，Sparo OS 已使用安全默认值继续启动。",
+    "description": "准备好后可重建当前默认配置。此操作会删除不可用配置及其保存的密钥，但不会影响会话、工作区、应用和其他数据。",
+    "promptTitle": "已保存的配置不可用",
+    "promptMessage": "Sparo OS 正在使用安全默认值运行。是否立即重建当前默认配置？不可用配置及其保存的密钥将被删除，其他应用数据保持不变。",
+    "action": "重建默认配置",
+    "rebuilding": "正在重建…",
+    "later": "稍后处理",
+    "failed": "默认配置重建失败。Sparo OS 仍在只读安全模式下正常运行；可稍后在设置中重试。"
+  },
   "tabDescriptions": {
     "appearance": "语言、主题与界面字体大小。",
     "basics": "日志、终端 Shell、开机启动与通知。",

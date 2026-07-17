@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import {
   Activity,
   AppWindow,
+  FileText,
   MoreHorizontal,
   Palette,
   Play,
@@ -25,6 +26,8 @@ function renderIcon(icon: SessionSidecarIconId): React.ReactNode {
       return <Activity size={14} />;
     case 'app-window':
       return <AppWindow size={14} />;
+    case 'file-text':
+      return <FileText size={14} />;
     case 'palette':
       return <Palette size={14} />;
     case 'play':

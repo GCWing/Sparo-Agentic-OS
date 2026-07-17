@@ -14,7 +14,7 @@ use crate::service::config::global::GlobalConfigManager;
 use crate::service::filesystem::get_formatted_directory_listing;
 use crate::service::host::build_host_overview_context;
 use crate::service::instructions::build_instruction_files_context;
-use log::{debug, warn};
+use log::warn;
 use std::path::Path;
 
 /// Placeholder constants
@@ -308,25 +308,19 @@ impl PromptBuilder {
     ///
     /// Reads `app.ai_experience.enable_visual_mode` from global config.
     /// Returns a prompt snippet when enabled, or empty string when disabled.
-    async fn get_visual_mode_instruction(&self) -> String {
-        let enabled = match GlobalConfigManager::get_service().await {
-            Ok(service) => service
-                .get_config::<bool>(Some("app.ai_experience.enable_visual_mode"))
-                .await
-                .unwrap_or(false),
-            Err(e) => {
-                debug!("Failed to read visual mode config: {}", e);
-                false
-            }
-        };
+    async fn get_visual_mode_instruction(&self) -> CoreResult<String> {
+        let service = GlobalConfigManager::get_service().await?;
+        let enabled = service
+            .get_config::<bool>(Some("app.ai_experience.enable_visual_mode"))
+            .await?;
 
         if enabled {
-            r"# Visualizing complex logic as you explain
+            Ok(r"# Visualizing complex logic as you explain
 Use Mermaid diagrams to visualize complex logic, workflows, architectures, and data flows whenever it helps clarify the explanation.
 Output Mermaid in fenced code blocks (```mermaid) so the UI can render them.
-".to_string()
+".to_string())
         } else {
-            String::new()
+            Ok(String::new())
         }
     }
 
@@ -336,7 +330,7 @@ Output Mermaid in fenced code blocks (```mermaid) so the UI can render them.
     /// Returns empty string if config cannot be read
     /// Returns error if language code is unsupported
     async fn get_language_preference(&self) -> CoreResult<String> {
-        let language_code = get_app_language_code().await;
+        let language_code = get_app_language_code().await?;
         Self::format_language_instruction(&language_code)
     }
 
@@ -409,7 +403,7 @@ Output Mermaid in fenced code blocks (```mermaid) so the UI can render them.
 
         // Replace {VISUAL_MODE}
         if result.contains(PLACEHOLDER_VISUAL_MODE) {
-            let visual_mode = self.get_visual_mode_instruction().await;
+            let visual_mode = self.get_visual_mode_instruction().await?;
             result = result.replace(PLACEHOLDER_VISUAL_MODE, &visual_mode);
         }
 

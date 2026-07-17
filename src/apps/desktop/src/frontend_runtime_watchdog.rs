@@ -164,6 +164,28 @@ impl WatchdogStore {
         self.auto_recovery_count += 1;
         self.last_auto_recovery_at = Some(checked_at);
     }
+
+    fn record_heartbeat(
+        &mut self,
+        mut request: FrontendRuntimeHeartbeatRequest,
+        received_at: i64,
+    ) -> bool {
+        if request.diagnostics.is_none() {
+            request.diagnostics = self
+                .last_heartbeat
+                .as_ref()
+                .and_then(|heartbeat| heartbeat.diagnostics.clone());
+        }
+        let recovered = matches!(
+            self.state,
+            FrontendRuntimeWatchdogState::Suspect | FrontendRuntimeWatchdogState::Frozen
+        );
+        self.last_received_at = Some(received_at);
+        self.last_heartbeat = Some(request);
+        self.state = FrontendRuntimeWatchdogState::Healthy;
+        self.auto_recovered_last_received_at = None;
+        recovered
+    }
 }
 
 static WATCHDOG: OnceLock<Mutex<WatchdogStore>> = OnceLock::new();
@@ -180,21 +202,14 @@ fn now_ms() -> i64 {
         .min(i64::MAX as u128) as i64
 }
 
-pub fn record_heartbeat(mut request: FrontendRuntimeHeartbeatRequest) -> Result<(), String> {
+/// Records a Web UI heartbeat and reports whether it recovered the watchdog
+/// from a suspect or frozen state. This process-level primitive intentionally
+/// has no dependency on workspace-scoped `AppState`.
+pub fn record_heartbeat(request: FrontendRuntimeHeartbeatRequest) -> Result<bool, String> {
     let mut guard = store()
         .lock()
         .map_err(|_| "Failed to record frontend runtime heartbeat".to_string())?;
-    if request.diagnostics.is_none() {
-        request.diagnostics = guard
-            .last_heartbeat
-            .as_ref()
-            .and_then(|heartbeat| heartbeat.diagnostics.clone());
-    }
-    guard.last_received_at = Some(now_ms());
-    guard.last_heartbeat = Some(request);
-    guard.state = FrontendRuntimeWatchdogState::Healthy;
-    guard.auto_recovered_last_received_at = None;
-    Ok(())
+    Ok(guard.record_heartbeat(request, now_ms()))
 }
 
 pub fn snapshot() -> FrontendRuntimeWatchdogSnapshot {
@@ -406,5 +421,53 @@ fn pipe_to_clipboard(command: &str, args: &[&str], text: &str) -> Result<(), Str
         Ok(())
     } else {
         Err(format!("Clipboard helper exited with status: {}", status))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn heartbeat(captured_at: i64) -> FrontendRuntimeHeartbeatRequest {
+        FrontendRuntimeHeartbeatRequest {
+            captured_at,
+            gate_open: true,
+            pressure: false,
+            visibility: "visible".to_string(),
+            lag_count: 0,
+            context: None,
+            diagnostics: None,
+        }
+    }
+
+    #[test]
+    fn heartbeat_recovers_unhealthy_process_state_without_app_state() {
+        for initial_state in [
+            FrontendRuntimeWatchdogState::Suspect,
+            FrontendRuntimeWatchdogState::Frozen,
+        ] {
+            let mut watchdog = WatchdogStore::new();
+            watchdog.state = initial_state;
+
+            assert!(watchdog.record_heartbeat(heartbeat(1_234), 1_235));
+            assert_eq!(watchdog.state, FrontendRuntimeWatchdogState::Healthy);
+            assert_eq!(watchdog.last_received_at, Some(1_235));
+            assert_eq!(
+                watchdog
+                    .last_heartbeat
+                    .as_ref()
+                    .expect("heartbeat should be recorded")
+                    .captured_at,
+                1_234
+            );
+        }
+    }
+
+    #[test]
+    fn first_heartbeat_does_not_report_runtime_recovery() {
+        let mut watchdog = WatchdogStore::new();
+
+        assert!(!watchdog.record_heartbeat(heartbeat(2_345), 2_346));
+        assert_eq!(watchdog.state, FrontendRuntimeWatchdogState::Healthy);
     }
 }

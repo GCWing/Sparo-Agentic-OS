@@ -15,7 +15,10 @@ import { api } from '@/infrastructure/api/service-api/ApiClient';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import { descriptorFromAgentType } from '@/flow_chat/domain/sessionDescriptor';
 import { useProductAppRuntimeStore } from './productAppRuntimeStore';
-import type { ProductAppHostSurface } from '@/infrastructure/api/service-api/ProductAppRuntimeHostAPI';
+import type {
+  ProductAppHostSurface,
+  ProductAppRuntimeHostBackendActionResult,
+} from '@/infrastructure/api/service-api/ProductAppRuntimeHostAPI';
 import {
   normalizeAppScope,
   type AppScope,
@@ -105,6 +108,12 @@ function productAppRuntimeOwnerId(context: ProductAppRuntimeContext): string {
   return `product-app-runtime:${context.workId}:${context.runtimeInstanceId}`;
 }
 
+function isTerminalAgenticEvent(eventName: string): boolean {
+  return eventName.endsWith('dialog-turn-completed')
+    || eventName.endsWith('dialog-turn-failed')
+    || eventName.endsWith('dialog-turn-cancelled');
+}
+
 export function useProductAppRuntimeBridge(
   iframeRef: RefObject<HTMLIFrameElement>,
   app: ProductAppHostSurface,
@@ -125,6 +134,20 @@ export function useProductAppRuntimeBridge(
   const spreadsheetFocusEnabledRef = useRef(options.spreadsheetFocusEnabled === true);
   spreadsheetFocusEnabledRef.current = options.spreadsheetFocusEnabled === true;
   const agenticSessionIdsRef = useRef<Set<string>>(new Set());
+  const pendingAgenticRunIdsRef = useRef<Set<string>>(new Set());
+  const earlyAgenticEventsRef = useRef<Map<string, Array<{
+    eventName: string;
+    payload: AgenticEventPayload;
+  }>>>(new Map());
+  const runtimeOwnerKey = options.runtimeContext
+    ? productAppRuntimeOwnerId(options.runtimeContext)
+    : 'product-app-runtime:none';
+
+  useEffect(() => () => {
+    agenticSessionIdsRef.current.clear();
+    pendingAgenticRunIdsRef.current.clear();
+    earlyAgenticEventsRef.current.clear();
+  }, [runtimeOwnerKey]);
 
   const appIdRef = useRef(app.id);
   useLayoutEffect(() => {
@@ -134,6 +157,7 @@ export function useProductAppRuntimeBridge(
   useLayoutEffect(() => {
     const handler = async (event: MessageEvent) => {
       if (!iframeRef.current || event.source !== iframeRef.current.contentWindow) return;
+      const sourceWindow = event.source as Window;
       const msg = event.data as JSONRPC & { method?: string };
       if (!msg?.method) return;
 
@@ -146,13 +170,17 @@ export function useProductAppRuntimeBridge(
         }
         return runtimeContext;
       };
-      const reply = (result: unknown) =>
-        iframeRef.current?.contentWindow?.postMessage({ jsonrpc: '2.0', id, result }, '*');
-      const replyError = (message: string) =>
-        iframeRef.current?.contentWindow?.postMessage(
+      const reply = (result: unknown) => {
+        if (iframeRef.current?.contentWindow !== sourceWindow) return;
+        sourceWindow.postMessage({ jsonrpc: '2.0', id, result }, '*');
+      };
+      const replyError = (message: string) => {
+        if (iframeRef.current?.contentWindow !== sourceWindow) return;
+        sourceWindow.postMessage(
           { jsonrpc: '2.0', id, error: { code: -32000, message } },
           '*',
         );
+      };
 
       if (method === 'sparo/request-theme') {
         const payload = buildProductAppRuntimeThemeVars(themeRef.current);
@@ -312,18 +340,46 @@ export function useProductAppRuntimeBridge(
         }
 
         if (method === 'backend.call') {
-          const result = await productAppRuntimeHostAPI.backendCall(
-            appId,
-            (params.target as string) ?? '',
-            params.input,
-            {
-              runtimeContext: requireRuntimeContext(),
-              entityId: params.entityId as string | undefined,
-              idempotencyKey: params.idempotencyKey as string | undefined,
-              workspacePath: workspacePathRef.current || undefined,
-            },
-          );
-          const isPrivatePptLiveRun = appId === 'builtin-ppt-live' && result.backendId === 'ppt';
+          const requestRuntimeContext = requireRuntimeContext();
+          const requestOwnerId = productAppRuntimeOwnerId(requestRuntimeContext);
+          const actionRunId = typeof params.idempotencyKey === 'string'
+            ? params.idempotencyKey.trim()
+            : '';
+          if (actionRunId) pendingAgenticRunIdsRef.current.add(actionRunId);
+          let result: ProductAppRuntimeHostBackendActionResult;
+          try {
+            result = await productAppRuntimeHostAPI.backendCall(
+              appId,
+              (params.target as string) ?? '',
+              params.input,
+              {
+                runtimeContext: requestRuntimeContext,
+                entityId: params.entityId as string | undefined,
+                idempotencyKey: actionRunId || undefined,
+                workspacePath: workspacePathRef.current || undefined,
+              },
+            );
+          } catch (error) {
+            if (actionRunId) earlyAgenticEventsRef.current.delete(actionRunId);
+            throw error;
+          } finally {
+            if (actionRunId) pendingAgenticRunIdsRef.current.delete(actionRunId);
+          }
+          const currentRuntimeContext = runtimeContextRef.current;
+          const stillOwnsRequest = iframeRef.current?.contentWindow === sourceWindow
+            && currentRuntimeContext != null
+            && productAppRuntimeOwnerId(currentRuntimeContext) === requestOwnerId;
+          if (!stillOwnsRequest) {
+            if (actionRunId) earlyAgenticEventsRef.current.delete(actionRunId);
+            if (result.sessionId && result.turnId) {
+              void api.invoke('cancel_dialog_turn', {
+                request: { sessionId: result.sessionId, dialogTurnId: result.turnId },
+              }).catch(() => undefined);
+            }
+            return;
+          }
+          const isPrivatePptLiveRun = requestRuntimeContext.appId === 'builtin-ppt-live'
+            && result.backendId === 'ppt';
           if (result.backendKind === 'agentComponent' && result.sessionId) {
             // Private PPT Live runs must still receive agentic stream events in the iframe,
             // but should not appear as external Flow Chat sessions.
@@ -337,6 +393,26 @@ export function useProductAppRuntimeBridge(
               );
             }
           }
+          if (actionRunId) {
+            const buffered = earlyAgenticEventsRef.current.get(actionRunId) || [];
+            earlyAgenticEventsRef.current.delete(actionRunId);
+            buffered.forEach(({ eventName, payload }) => {
+              sourceWindow.postMessage(
+                {
+                  type: 'sparo:event',
+                  event: 'backend:event',
+                  payload: {
+                    sourceEvent: eventName,
+                    ...payload,
+                  },
+                },
+                '*',
+              );
+              if (result.sessionId && isTerminalAgenticEvent(eventName)) {
+                agenticSessionIdsRef.current.delete(result.sessionId);
+              }
+            });
+          }
           reply(result);
           return;
         }
@@ -345,6 +421,10 @@ export function useProductAppRuntimeBridge(
           const turnId = typeof params.turnId === 'string' ? params.turnId : '';
           if (!sessionId || !turnId) {
             replyError('backend.cancel requires sessionId and turnId');
+            return;
+          }
+          if (!agenticSessionIdsRef.current.has(sessionId)) {
+            replyError('backend.cancel cannot target a session outside this runtime instance');
             return;
           }
           await api.invoke('cancel_dialog_turn', {
@@ -382,14 +462,28 @@ export function useProductAppRuntimeBridge(
           return;
         }
         if (method === 'backend.cancelStaleRuns') {
+          const requestRuntimeContext = requireRuntimeContext();
+          if (requestRuntimeContext.appId !== 'builtin-ppt-live') {
+            replyError('backend.cancelStaleRuns is only available to PPT Live');
+            return;
+          }
           const result = await productAppRuntimeHostAPI.cancelStalePptRuns(
+            appId,
+            requestRuntimeContext,
             workspacePathRef.current || undefined,
           );
           agenticSessionIdsRef.current.clear();
+          pendingAgenticRunIdsRef.current.clear();
+          earlyAgenticEventsRef.current.clear();
           reply(result);
           return;
         }
         if (method === 'backend.turnText') {
+          const requestRuntimeContext = requireRuntimeContext();
+          if (requestRuntimeContext.appId !== 'builtin-ppt-live') {
+            replyError('backend.turnText is only available to PPT Live');
+            return;
+          }
           const sessionId = typeof params.sessionId === 'string' ? params.sessionId : '';
           const turnId = typeof params.turnId === 'string' ? params.turnId : '';
           if (!sessionId || !turnId) {
@@ -397,6 +491,8 @@ export function useProductAppRuntimeBridge(
             return;
           }
           const result = await productAppRuntimeHostAPI.getPptTurnAssistantText(
+            appId,
+            requestRuntimeContext,
             sessionId,
             turnId,
             workspacePathRef.current || undefined,
@@ -530,6 +626,38 @@ export function useProductAppRuntimeBridge(
   }, [app.id, iframeRef, options.runtimeContext]);
 
   useEffect(() => {
+    const currentAppId = app.id;
+    const currentRuntimeContext = runtimeContextRef.current;
+    const currentRuntimeOwnerId = currentRuntimeContext
+      ? productAppRuntimeOwnerId(currentRuntimeContext)
+      : null;
+    const unlisten = api.listen<{
+      appId: string;
+      runtimeOwnerId: string;
+      workId: string;
+      runtimeInstanceId: string;
+      document: unknown;
+      replayed: boolean;
+    }>('product-app-runtime-manuscript-committed', (payload) => {
+      if (payload.appId !== currentAppId) return;
+      if (!currentRuntimeOwnerId || payload.runtimeOwnerId !== currentRuntimeOwnerId) return;
+      if (!iframeRef.current?.contentWindow) return;
+      iframeRef.current.contentWindow.postMessage(
+        {
+          type: 'sparo:event',
+          event: 'ppt.manuscript.committed',
+          payload,
+        },
+        '*',
+      );
+    });
+
+    return () => {
+      unlisten();
+    };
+  }, [app.id, iframeRef, options.runtimeContext]);
+
+  useEffect(() => {
     const currentRuntimeContext = runtimeContextRef.current;
     if (!currentRuntimeContext) return undefined;
     const currentRuntimeOwnerId = productAppRuntimeOwnerId(currentRuntimeContext);
@@ -616,7 +744,17 @@ export function useProductAppRuntimeBridge(
     const unlisteners = eventNames.map((eventName) =>
       api.listen<AgenticEventPayload>(eventName, (payload) => {
         const sessionId = payload.sessionId;
-        if (!sessionId || !agenticSessionIdsRef.current.has(sessionId)) return;
+        if (!sessionId || !agenticSessionIdsRef.current.has(sessionId)) {
+          const turnId = typeof payload.turnId === 'string' ? payload.turnId : '';
+          if (!turnId || !pendingAgenticRunIdsRef.current.has(turnId)) return;
+          const buffered = earlyAgenticEventsRef.current.get(turnId) || [];
+          // Bound the pre-registration buffer. Text streaming is persisted by
+          // the backend as a fallback; terminal events must remain in the tail.
+          buffered.push({ eventName, payload });
+          if (buffered.length > 2048) buffered.splice(0, buffered.length - 2048);
+          earlyAgenticEventsRef.current.set(turnId, buffered);
+          return;
+        }
         if (!iframeRef.current?.contentWindow) return;
         iframeRef.current.contentWindow.postMessage(
           {
@@ -629,6 +767,9 @@ export function useProductAppRuntimeBridge(
           },
           '*',
         );
+        if (isTerminalAgenticEvent(eventName)) {
+          agenticSessionIdsRef.current.delete(sessionId);
+        }
       }),
     );
 

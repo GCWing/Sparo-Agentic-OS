@@ -154,7 +154,7 @@ function BasicsLoggingSection() {
       setLoading(true);
 
       const [savedLevel, info] = await Promise.all([
-        configManager.getConfig<BackendLogLevel>('app.logging.level'),
+        configManager.getSetting<BackendLogLevel>('core.app.logging.level'),
         configAPI.getRuntimeLoggingInfo(),
       ]);
 
@@ -180,9 +180,7 @@ function BasicsLoggingSection() {
       setSaving(true);
 
       try {
-        await configManager.setConfig('app.logging.level', nextLevel);
-        configManager.clearCache();
-
+        await configManager.setSetting('core.app.logging.level', nextLevel);
         const info = await configAPI.getRuntimeLoggingInfo();
         setRuntimeInfo(info);
         showMessage('success', t('logging.messages.levelUpdated'));
@@ -283,7 +281,7 @@ function BasicsTerminalSection() {
       setLoading(true);
 
       const [terminalConfig, shells, systemInfo] = await Promise.all([
-        configManager.getConfig<TerminalSettings>('terminal'),
+        configManager.getSetting<TerminalSettings>('core.terminal'),
         getTerminalService().getAvailableShells(),
         systemAPI.getSystemInfo().catch(() => ({ platform: '' })),
       ]);
@@ -312,9 +310,7 @@ function BasicsTerminalSection() {
         setSaving(true);
         setDefaultShell(value);
 
-        await configManager.setConfig('terminal.default_shell', value);
-
-        configManager.clearCache();
+        await configManager.setSetting('core.terminal.default_shell', value);
 
         showMessage('success', t('terminal.messages.updated'));
       } catch (error) {
@@ -392,8 +388,8 @@ function BasicsNotificationsSection() {
     void (async () => {
       try {
         const [notify, tips] = await Promise.all([
-          configManager.getConfig<boolean>('app.notifications.dialog_completion_notify'),
-          configManager.getConfig<boolean>('app.notifications.enable_startup_tips'),
+          configManager.getSetting<boolean>('core.app.notifications.dialog_completion_notify'),
+          configManager.getSetting<boolean>('core.app.notifications.enable_startup_tips'),
         ]);
         setDialogNotify(notify !== false);
         setStartupTips(tips !== false);
@@ -407,7 +403,7 @@ function BasicsNotificationsSection() {
   const handleDialogNotifyToggle = async (checked: boolean) => {
     setSaving(true);
     try {
-      await configAPI.setConfig('app.notifications.dialog_completion_notify', checked);
+      await configManager.setSetting('core.app.notifications.dialog_completion_notify', checked);
       setDialogNotify(checked);
       setMessage({ type: 'success', text: t('notifications.messages.saveSuccess') });
     } catch {
@@ -420,7 +416,7 @@ function BasicsNotificationsSection() {
   const handleStartupTipsToggle = async (checked: boolean) => {
     setSaving(true);
     try {
-      await configAPI.setConfig('app.notifications.enable_startup_tips', checked);
+      await configManager.setSetting('core.app.notifications.enable_startup_tips', checked);
       setStartupTips(checked);
       setMessage({ type: 'success', text: t('notifications.messages.saveSuccess') });
     } catch {
@@ -473,7 +469,7 @@ function BasicsTraySection() {
     if (!isTauri) return;
     void (async () => {
       try {
-        const val = await configManager.getConfig<boolean>('app.tray.close_to_tray');
+        const val = await configManager.getSetting<boolean>('core.app.tray.close_to_tray');
         setCloseAction(val !== false ? 'tray' : 'quit');
       } catch {
         setCloseAction('tray');
@@ -484,7 +480,7 @@ function BasicsTraySection() {
   const handleChange = async (val: string) => {
     setSaving(true);
     try {
-      await configAPI.setConfig('app.tray.close_to_tray', val === 'tray');
+      await configManager.setSetting('core.app.tray.close_to_tray', val === 'tray');
       setCloseAction(val);
       setMessage({ type: 'success', text: t('tray.messages.saveSuccess') });
     } catch {

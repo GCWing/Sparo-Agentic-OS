@@ -34,8 +34,9 @@
         }
 
         /*
-         * Theme bootstrap: ThemeService mirrors the active theme's primary
-         * background + id + type to localStorage on every apply. Reading it
+         * Theme bootstrap: the desktop shell injects an authoritative startup
+         * theme before this page runs. ThemeService also mirrors the active
+         * theme's primary background + id + type to localStorage on every apply. Reading it
          * here — before paint, before React, before the Tauri config
          * round-trip — lets the splash and window chrome render in the
          * user's actual theme from frame zero, instead of flashing a
@@ -50,9 +51,10 @@
         var themeId = null;
         var themeType = m && m.matches ? 'dark' : 'light';
         try {
-          var cached = window.localStorage.getItem('sparo:theme-bootstrap');
+          var injected = window.__SPARO_STARTUP_THEME__;
+          var cached = injected || window.localStorage.getItem('sparo:theme-bootstrap');
           if (cached) {
-            var parsed = JSON.parse(cached);
+            var parsed = typeof cached === 'string' ? JSON.parse(cached) : cached;
             if (parsed && typeof parsed.bg === 'string') bg = parsed.bg;
             if (parsed && typeof parsed.id === 'string') themeId = parsed.id;
             if (parsed && typeof parsed.type === 'string') themeType = parsed.type;

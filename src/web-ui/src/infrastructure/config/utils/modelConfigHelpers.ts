@@ -8,7 +8,7 @@ const log = createLogger('ModelConfigHelper');
  
 export async function getDefaultPrimaryModel(): Promise<string | null> {
   try {
-    const defaultModels = await configManager.getConfig<any>('ai.default_models');
+    const defaultModels = await configManager.getSetting<any>('core.ai.default_models');
     const primaryModelId = defaultModels?.primary;
 
     if (!primaryModelId) {
@@ -17,7 +17,7 @@ export async function getDefaultPrimaryModel(): Promise<string | null> {
     }
 
     
-    const allModels = await configManager.getConfig<any[]>('ai.models') || [];
+    const allModels = await configManager.getSetting<any[]>('core.ai.models') || [];
     const targetModel = allModels.find(m => m.id === primaryModelId);
 
     if (!targetModel) {

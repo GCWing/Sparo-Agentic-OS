@@ -1,6 +1,8 @@
-//! User prompt builder for PPT Live backend runs via the Sparo Agent (`Runno`).
+//! User prompt builder for PPT Live backend runs via `PptLiveAgent`.
 
 use serde_json::Value;
+
+use crate::agentic::tools::implementations::skills::builtin::builtin_skill_resource_text;
 
 /// Build the user prompt for a PPT Live generation/edit run.
 ///
@@ -76,9 +78,10 @@ Input JSON:
         input_json = serde_json::to_string_pretty(input).unwrap_or_else(|_| "{}".to_string())
     );
     format!(
-        "{body}{}{}",
+        "{body}{}{}{}",
         build_ppt_live_operation_appendix(input),
-        build_ppt_live_style_appendix(input)
+        build_ppt_live_style_appendix(input),
+        build_ppt_live_manuscript_appendix(input)
     )
 }
 
@@ -89,7 +92,7 @@ fn build_ppt_live_plan_prompt(input: &Value) -> String {
         r##"Plan a PPT Live deck. This is the PLANNING phase of a staged pipeline: research the topic, lock the narrative, and write a per-slide brief. Slide HTML is produced later by separate render runs that follow your plan exactly, so the plan must be complete and self-sufficient.
 
 1. Call `Skill('ppt-design')` — the Sparo built-in PPT design skill — and follow its narrative, density, and design-system rules when planning. Never substitute any other presentation or PPT skill.
-2. Use any Sparo tools you need (WebFetch, WebSearch, Read, etc.) when the user's prompt requires external facts. All research happens NOW; render runs are forbidden from re-researching.
+2. Use WebFetch or WebSearch only when the user's prompt requires external facts. All research happens NOW; render runs are forbidden from re-researching.
 3. Finish with **only** one strict JSON object — no Markdown fences, no commentary, no tool calls in the final message.
 4. Do NOT generate any slide HTML in this phase.
 
@@ -120,6 +123,7 @@ Return JSON matching this shape:
   "slidePlans": [
     {{
       "slideNumber": 1,
+      "slideId": "stable slide identity; preserve this exact value in render output",
       "role": "cover|content|data|transition|closing",
       "narrativeStage": "hook|progression|climax|landing",
       "title": "concrete slide title",
@@ -141,6 +145,7 @@ Return JSON matching this shape:
 }}
 
 Plan rules:
+- Preserve every supplied `slideId`. If the input does not provide one, the host assigns it after planning and before rendering.
 - `slidePlans` must cover the full deck in final order; `slideNumber` is one-based and contiguous.
 - Every `contentBrief` must be concrete enough that a render run with no research access can produce an audience-ready slide from it. Put real numbers, names, and source notes into the briefs, not vague directions.
 - `design.layoutPrinciples` and `design.palette` are the consistency contract across parallel render runs — make them specific.
@@ -159,7 +164,11 @@ Input JSON:
 ```"##,
         input_json = serde_json::to_string_pretty(input).unwrap_or_else(|_| "{}".to_string())
     );
-    format!("{body}{}", build_ppt_live_style_appendix(input))
+    format!(
+        "{body}{}{}",
+        build_ppt_live_style_appendix(input),
+        build_ppt_live_manuscript_appendix(input)
+    )
 }
 
 /// Slides phase: render the assigned slides from a finished plan. No research,
@@ -193,6 +202,7 @@ Return JSON matching this shape:
   "slides": [
     {{
       "slideNumber": 1,
+      "slideId": "copy assignedSlides[].slideId exactly",
       "role": "cover|content|data|transition|closing",
       "narrativeStage": "hook|progression|climax|landing",
       "title": "concrete slide title",
@@ -214,6 +224,7 @@ Return JSON matching this shape:
 }}
 
 Render rules:
+- Copy each assigned slide's `slideId` exactly. It is the stable identity shared by the manuscript and visual track; never derive it from title or order.
 - Return exactly the slides listed in `assignedSlides`, in ascending `slideNumber` order, and no others. If `completedSlides` is present in the input, those slides are already done — never regenerate them.
 - Emit each slide's JSON object completely before starting the next one, so partial output remains recoverable.
 - Keep the HTML compact: no HTML comments, no unused CSS rules, minimal whitespace and indentation. The response is streamed over a connection that gets cut after several minutes, so wasted characters risk failing the whole batch. Density of CONTENT is good; padding of MARKUP is not.
@@ -287,23 +298,66 @@ fn build_ppt_live_style_appendix(input: &Value) -> String {
 - Choose the representation by content shape, judged per slide by which form communicates fastest: comparisons -> tables/matrices, rankings -> CSS horizontal bar charts, trends -> CSS column charts, composition -> `conic-gradient` pie/donut, strategy -> SWOT/2x2 grids, processes -> flow diagrams with CSS arrows, milestones -> timelines, single KPIs -> big-number callouts; qualitative reasoning or narrative stays as structured text. Do not write paragraphs where a visual is clearly faster, and do not force decorative charts onto purely qualitative content. Pure HTML/CSS only, label every bar/segment with its value, and pair each visual with a one-line takeaway.\n"
     );
 
-    // Inject style preset guidance if provided. The preset spec lives inside the
-    // ppt-design skill so the run stays anchored to the skill's quality system.
+    // Inline the exact Sparo-managed preset. PptLiveAgent intentionally has no
+    // general Read tool, so presentation knowledge must cross this trusted
+    // built-in resource boundary instead of an arbitrary filesystem path.
     if !style_preset.is_empty() {
-        style_rules.push_str(&format!(
-            "\n- Style preset: `{style_preset}`. After loading the ppt-design skill, `Read` its `references/style-presets/{style_preset}.md` (the path is relative to the skill directory reported by the Skill tool) and apply that file in full to every slides[].html: visual identity (palette, typography mood, decorative language, recommended layouts) plus any information-density, language, and page-structure rules the preset defines. When the preset's density or structure rules conflict with the generic density preference above, the preset wins.\n"
-        ));
+        let preset_path = format!("references/style-presets/{style_preset}.md");
+        if let Some(preset_content) = builtin_skill_resource_text("ppt-design", &preset_path) {
+            style_rules.push_str(&format!(
+                "\n- Style preset: `{style_preset}`. The authoritative Sparo-managed preset is embedded below. Apply it in full to content organization and every slide HTML; when it conflicts with the generic density preference above, the preset wins.\n\n<ppt_style_preset key=\"{style_preset}\">\n{preset_content}\n</ppt_style_preset>\n"
+            ));
+        } else {
+            style_rules.push_str(&format!(
+                "\n- Style preset: `{style_preset}` is unavailable in the Sparo-managed ppt-design resources. Keep the supplied palette and use the closest core design philosophy; do not attempt to read a workspace or user file.\n"
+            ));
+        }
         if let Some(p) = palette {
             if let Ok(palette_json) = serde_json::to_string(p) {
                 style_rules.push_str(&format!("- Style palette (matches the preset; use these exact colors for backgrounds, text, accents, and panels in every slide HTML): {palette_json}\n"));
             }
         }
         style_rules.push_str(
-            "- The preset does not suspend the ppt-design core rules: assertion-led titles, one core message per slide, anti-AI-slop rules, the 960pt x 540pt canvas, editable-PPTX constraints, and zero content overflow all still apply.\n- Pick the closest of the skill's five design philosophies as the structural grammar for layout, then skin it with the preset. If the preset file cannot be read, keep the palette above and fall back to that philosophy.\n",
+            "- The preset does not suspend the ppt-design core rules: assertion-led titles, one core message per slide, anti-AI-slop rules, the 960pt x 540pt canvas, editable-PPTX constraints, and zero content overflow all still apply.\n- Pick the closest of the skill's five design philosophies as the structural grammar for layout, then skin it with the preset.\n",
         );
     }
 
     style_rules
+}
+
+fn build_ppt_live_manuscript_appendix(input: &Value) -> String {
+    let Some(manuscript) = input.get("manuscript") else {
+        return String::new();
+    };
+    let has_content = manuscript
+        .get("content")
+        .and_then(Value::as_str)
+        .is_some_and(|content| !content.trim().is_empty());
+    if !has_content {
+        return String::new();
+    }
+    let authored = manuscript
+        .get("authored")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let authored_rule = if authored {
+        "- This is a user-authored manuscript, not a disposable scaffold. Derive the plan and visual output faithfully from it. Do not omit, silently rewrite, or reorder user-authored claims outside the requested scope."
+    } else {
+        "- This manuscript is an initial managed scaffold. The user instruction may expand it into a complete plan."
+    };
+
+    format!(
+        r#"
+
+## Canonical manuscript contract
+
+- `manuscript.content` is the canonical text track and the content truth source for this operation. `currentDeck` is only its current visual realization; whenever they differ, follow the manuscript.
+- Read the entire manuscript before planning or editing. Preserve every stable `ppt:slide id` exactly in the matching `slideId` output.
+- Apply the user instruction on top of the manuscript. Unaffected manuscript sections, verified facts, sources, speaker notes, and visual-expression descriptions must remain semantically unchanged.
+- Never infer that stale visual copy supersedes newer manuscript content. The host commits with `manuscript.revision` and `manuscript.contentHash` using compare-and-swap.
+{authored_rule}
+"#
+    )
 }
 
 fn ppt_live_has_current_deck(input: &Value) -> bool {
@@ -419,7 +473,7 @@ mod tests {
     }
 
     #[test]
-    fn prompt_with_style_preset_routes_through_skill_style_reference() {
+    fn prompt_with_style_preset_inlines_the_managed_skill_resource() {
         let prompt = build_ppt_live_private_prompt(&serde_json::json!({
             "operation": "auto",
             "style": {
@@ -431,10 +485,37 @@ mod tests {
             }
         }));
 
-        assert!(prompt.contains("references/style-presets/dark-neon.md"));
+        assert!(prompt.contains("<ppt_style_preset key=\"dark-neon\">"));
+        assert!(!prompt.contains("`Read` its"));
         assert!(prompt.contains("the preset wins"));
         assert!(prompt.contains("does not suspend the ppt-design core rules"));
         assert!(prompt.contains("#0a0a0a"));
+    }
+
+    #[test]
+    fn every_ppt_live_style_mode_has_an_embedded_managed_policy() {
+        for preset in [
+            "clean-business",
+            "insight-report",
+            "minimal-gallery",
+            "bold-editorial",
+            "yellow-magazine",
+            "pink-pop",
+            "creative-studio",
+            "retro-pop",
+            "dark-neon",
+            "pop-infographic",
+        ] {
+            let prompt = build_ppt_live_private_prompt(&serde_json::json!({
+                "operation": "auto",
+                "style": { "stylePreset": preset }
+            }));
+
+            assert!(
+                prompt.contains(&format!("<ppt_style_preset key=\"{preset}\">")),
+                "missing managed style policy for {preset}"
+            );
+        }
     }
 
     #[test]
@@ -445,6 +526,26 @@ mod tests {
         }));
 
         assert!(!prompt.contains("references/style-presets/"));
+    }
+
+    #[test]
+    fn prompt_treats_manuscript_as_the_content_truth_source() {
+        let prompt = build_ppt_live_private_prompt(&serde_json::json!({
+            "operation": "revise_slide",
+            "manuscript": {
+                "revision": 7,
+                "contentHash": "abc",
+                "authored": true,
+                "content": "# Deck\n\n<!-- ppt:slide id=\"stable-1\" revision=\"2\" -->\n### P01 | Decision\n"
+            },
+            "currentDeck": { "slides": [{ "id": "stable-1" }] }
+        }));
+
+        assert!(prompt.contains("Canonical manuscript contract"));
+        assert!(prompt.contains("content truth source"));
+        assert!(prompt.contains("current visual realization"));
+        assert!(prompt.contains("user-authored manuscript"));
+        assert!(prompt.contains("stable-1"));
     }
 
     #[test]
@@ -493,7 +594,7 @@ mod tests {
             "style": { "stylePreset": "dark-neon", "colorMode": "dark" }
         }));
 
-        assert!(prompt.contains("references/style-presets/dark-neon.md"));
+        assert!(prompt.contains("<ppt_style_preset key=\"dark-neon\">"));
         assert!(prompt.contains("Hard layout rules"));
     }
 

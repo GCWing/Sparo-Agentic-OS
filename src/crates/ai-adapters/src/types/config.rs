@@ -1,3 +1,4 @@
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 fn append_endpoint(base_url: &str, endpoint: &str) -> String {
@@ -63,7 +64,7 @@ pub fn resolve_request_url(base_url: &str, provider: &str, model_name: &str) -> 
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum ReasoningMode {
     #[default]
@@ -73,8 +74,8 @@ pub enum ReasoningMode {
     Adaptive,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(default)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
+#[serde(deny_unknown_fields)]
 pub struct ProxyConfig {
     pub enabled: bool,
     pub url: String,

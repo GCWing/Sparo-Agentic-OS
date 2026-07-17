@@ -16,6 +16,7 @@ import { designProfile } from './profiles/designProfile';
 import { deepResearchProfile } from './profiles/deepResearchProfile';
 import { appBuilderProfile } from './profiles/appBuilderProfile';
 import { productAppRuntimeProfile } from './profiles/productAppRuntimeProfile';
+import { settingsProfile } from './profiles/settingsProfile';
 import {
   SESSION_DESCRIPTORS,
   type SessionDescriptor,
@@ -28,6 +29,7 @@ import {
  */
 const PROFILES: readonly SessionProfile[] = [
   agenticOsProfile,
+  settingsProfile,
   runnoProfile,
   productAppRuntimeProfile,
   appBuilderProfile,
@@ -49,6 +51,7 @@ export type SessionDisplayMode =
   | 'deep-research'
   | 'agentic-os'
   | 'app-builder'
+  | 'settings'
   | 'productAppRuntime';
 
 export type SessionDefaultSurface = 'session' | 'agentic-os-home' | 'background';
@@ -65,11 +68,13 @@ export interface SessionTypeDefinition {
   readonly welcome: {
     readonly keySuffix: string;
     readonly aiPartnerKey: string;
+    readonly headingKey?: string;
+    readonly taglineKey?: string;
     readonly headingMode?: 'default' | 'greeting-only';
     readonly narrativeKey?: string;
     readonly headingIcon?: 'agentic-os' | 'app-builder';
     readonly workspaceCopy: 'default' | 'cowork' | 'design' | 'runno';
-    readonly promptPanel?: 'cowork' | 'app-builder';
+    readonly promptPanel?: 'cowork' | 'app-builder' | 'settings';
   };
 }
 
@@ -89,6 +94,25 @@ const SESSION_TYPE_DEFINITIONS: readonly SessionTypeDefinition[] = [
       narrativeKey: 'welcome.narrativeAgenticOs',
       headingIcon: 'agentic-os',
       workspaceCopy: 'default',
+    },
+  },
+  {
+    typeId: 'settings',
+    descriptorDefaults: SESSION_DESCRIPTORS.settings,
+    profile: settingsProfile,
+    lifecycle: {
+      displayMode: 'settings',
+      titleKey: 'settings/ai-mode:session.title',
+      defaultSurface: 'background',
+    },
+    welcome: {
+      keySuffix: 'Settings',
+      aiPartnerKey: 'welcome.aiPartnerSettings',
+      headingKey: 'welcome.settingsHeading',
+      taglineKey: 'welcome.settingsTagline',
+      narrativeKey: 'welcome.narrativeSettings',
+      workspaceCopy: 'default',
+      promptPanel: 'settings',
     },
   },
   {

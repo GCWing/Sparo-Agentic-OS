@@ -14,6 +14,17 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 
+/// Controls whether user/global "skip confirmation" preferences may bypass
+/// confirmation for tools that declare elevated permissions.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum ToolConfirmationPolicy {
+    /// Respect the normal global and per-turn skip-confirmation preferences.
+    #[default]
+    UserConfigurable,
+    /// Permissioned tools must enter the ToolPipeline confirmation lifecycle.
+    EnforceForPermissionedTools,
+}
+
 /// Execution context
 #[derive(Clone)]
 pub struct ExecutionContext {
@@ -27,6 +38,7 @@ pub struct ExecutionContext {
     pub tool_allowlist_override: Option<Vec<String>>,
     pub subagent_parent_info: Option<SubagentParentInfo>,
     pub skip_tool_confirmation: bool,
+    pub tool_confirmation_policy: ToolConfirmationPolicy,
     pub runtime_tool_restrictions: ToolRuntimeRestrictions,
     pub app_builder: Option<AppBuilderExecutionContext>,
     /// Workspace I/O services (filesystem + shell) injected into tools
@@ -55,6 +67,7 @@ pub struct RoundContext {
     pub model_name: String,
     pub agent_type: String,
     pub context_vars: HashMap<String, String>,
+    pub tool_confirmation_policy: ToolConfirmationPolicy,
     pub runtime_tool_restrictions: ToolRuntimeRestrictions,
     pub app_builder: Option<AppBuilderExecutionContext>,
     pub cancellation_token: CancellationToken,

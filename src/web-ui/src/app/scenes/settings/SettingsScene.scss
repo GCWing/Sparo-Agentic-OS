@@ -1,66 +1,331 @@
-/**
- * SettingsScene styles �?self-contained left-right layout.
- *
- * Left column:  .sparo-settings-scene__nav     (220px, fixed width)
- * Right column: .sparo-settings-scene__content (flex:1)
- */
-
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
 
-$_settings-nav-width: 220px;
-
-@keyframes settings-content-enter {
+@keyframes settings-highlight-enter {
   from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+    outline-color: transparent;
   }
 }
 
 .sparo-settings-scene {
+  --sparo-settings-rail-width: 220px;
+  --sparo-settings-top-control-row-height: 46px;
+
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   width: 100%;
   height: 100%;
+  min-width: 0;
   overflow: hidden;
+  color: var(--ds-color-text-primary);
+  background: var(--ds-color-bg-scene, var(--ds-color-bg-primary));
 
-  // ── Left: navigation sidebar ────────────────────────────
-
-  &__nav {
-    width: $_settings-nav-width;
-    flex-shrink: 0;
-    height: 100%;
-    overflow: hidden;
-    border-right: 1px solid var(--ds-color-border-subtle);
-    background: var(--ds-color-bg-scene, var(--ds-color-bg-primary));
+  &__recovery {
+    flex: 0 0 auto;
+    padding: var(--ds-space-3, 12px) var(--ds-space-4, 16px);
+    border-bottom: 1px solid var(--ds-color-border-subtle);
   }
 
-  // ── Right: content area ────────────────────────────────
+  &__recovery-alert {
+    display: flex;
+    align-items: center;
+    gap: var(--ds-space-3, 12px);
 
-  &__content {
+    .alert {
+      flex: 1;
+      min-width: 0;
+    }
+  }
+
+  &__body {
+    display: flex;
     flex: 1;
     min-width: 0;
-    height: 100%;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    background: var(--ds-color-bg-scene, var(--ds-color-bg-primary));
+    min-height: 0;
   }
 
-  &__content-wrapper {
-    flex: 1;
+  &__nav {
     display: flex;
     flex-direction: column;
+    width: var(--sparo-settings-rail-width);
+    flex: 0 0 var(--sparo-settings-rail-width);
+    min-height: 0;
     overflow: hidden;
-    animation: settings-content-enter 220ms cubic-bezier(0.25, 1, 0.5, 1) both;
+    border-right: 1px solid var(--ds-color-border-subtle);
+    transition: border-color var(--ds-motion-fast) var(--ds-easing-standard);
+  }
+
+  &__mode-switch {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    min-height: var(--sparo-settings-top-control-row-height);
+    box-sizing: border-box;
+    padding: var(--ds-space-2, 8px) var(--ds-space-2, 8px) var(--ds-space-1, 4px);
+  }
+
+  &__nav-stack {
+    display: grid;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  &__nav-panel {
+    display: flex;
+    grid-area: 1 / 1;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-8px);
+    transition:
+      opacity var(--ds-motion-fast) var(--ds-easing-standard),
+      transform var(--ds-motion-base) var(--ds-easing-decelerate);
+
+    &--ai:not(.is-active) {
+      transform: translateX(-12px);
+    }
+
+    &.is-active {
+      opacity: 1;
+      pointer-events: auto;
+      transform: none;
+    }
+  }
+
+  &__content {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    transition: padding-inline-end var(--ds-motion-base) var(--ds-easing-decelerate);
+  }
+
+  &__content-stack {
+    display: grid;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  &__content-panel {
+    display: flex;
+    grid-area: 1 / 1;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(6px);
+    transition:
+      opacity var(--ds-motion-fast) var(--ds-easing-standard),
+      transform var(--ds-motion-base) var(--ds-easing-decelerate);
+
+    &--manual:not(.is-active) {
+      transform: translateY(-6px);
+    }
+
+    &.is-active {
+      opacity: 1;
+      pointer-events: auto;
+      transform: none;
+    }
+
+    &--ai {
+      overflow: visible;
+    }
+  }
+}
+
+.sparo-settings-scene--ai .sparo-settings-scene__nav {
+  border-right-color: transparent;
+}
+
+/*
+ * Mirror the left rail on the right while AI mode is active. The embedded
+ * transcript/composer is therefore centered against the full Settings page,
+ * not merely the remaining main column.
+ */
+.sparo-settings-scene--ai .sparo-settings-scene__content {
+  padding-inline-end: var(--sparo-settings-rail-width);
+}
+
+.sparo-settings-manual-mode {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.sparo-settings-manual-mode__page {
+  padding: var(--ds-space-6, 24px) var(--ds-space-6, 24px) var(--ds-space-10, 40px);
+}
+
+.sparo-settings-manual-mode__header {
+  display: grid;
+  gap: var(--ds-space-2, 8px);
+  padding-bottom: var(--ds-space-4, 16px);
+  border-bottom: 1px solid var(--ds-color-border-subtle);
+
+  h1,
+  p {
+    margin: 0;
+  }
+
+  h1 {
+    font-size: var(--ds-font-size-xl, 20px);
+    font-weight: 650;
+    letter-spacing: -0.02em;
+  }
+
+  p {
+    max-width: 52rem;
+    color: var(--ds-color-text-secondary);
+    font-size: var(--ds-font-size-sm, 13px);
+    line-height: 1.6;
+  }
+}
+
+.sparo-settings-section-host {
+  display: grid;
+  gap: var(--ds-space-5, 20px);
+
+  &__fields {
+    display: grid;
+    gap: var(--ds-space-3, 12px);
+  }
+
+  &__field {
+    border-radius: var(--ds-radius-md, 8px);
+    outline: 1px solid transparent;
+    outline-offset: var(--ds-space-1, 4px);
+
+    &.is-highlighted {
+      outline-color: var(--ds-color-accent-500);
+      animation: settings-highlight-enter 420ms ease-out;
+    }
+  }
+}
+
+.sparo-settings-projection-host {
+  display: grid;
+  gap: var(--ds-space-6, 24px);
+  min-width: 0;
+
+  &__custom {
+    min-width: 0;
+    border-radius: var(--ds-radius-md, 8px);
+    outline: 1px solid transparent;
+    outline-offset: var(--ds-space-1, 4px);
+
+    &.is-highlighted {
+      outline-color: var(--ds-color-accent-500);
+      animation: settings-highlight-enter 420ms ease-out;
+    }
+  }
+
+  &__loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    padding: var(--ds-space-6, 24px);
+
+    .ds-loading-skeleton {
+      max-width: 600px;
+    }
+  }
+}
+
+.sparo-settings-manual-mode > .sparo-settings-projection-host,
+.sparo-settings-manual-mode > .sparo-settings-projection-host >
+  .sparo-settings-projection-host__custom {
+  height: 100%;
+}
+
+.sparo-settings-ai-mode {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: visible;
+  background: var(--ds-chat-surface);
+
+  &--centered {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--ds-space-3, 12px);
+    padding: var(--ds-space-6, 24px);
+    color: var(--ds-color-text-secondary);
+    font-size: var(--ds-font-size-sm, 13px);
+  }
+
+  &__toolbar {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: flex-end;
+    width: calc(100% + var(--sparo-settings-rail-width));
+    min-height: var(--sparo-settings-top-control-row-height);
+    box-sizing: border-box;
+    padding: var(--ds-space-2, 8px) var(--ds-space-3, 12px) var(--ds-space-1, 4px);
+  }
+
+  /*
+   * Keep the conversation balanced against the full Settings scene while the
+   * actual scroll viewport reaches through the mirrored rail to the far edge.
+   */
+  &__chat {
+    width: calc(100% + var(--sparo-settings-rail-width));
+
+    .virtual-message-list [data-virtuoso-scroller] {
+      box-sizing: border-box;
+      padding-inline-end: var(--sparo-settings-rail-width);
+    }
+
+    .welcome-panel {
+      width: calc(100% - var(--sparo-settings-rail-width));
+    }
+
+    .modern-flowchat-container__messages-inner:has(> .session-transcript-loading),
+    .modern-flowchat-container__messages-inner:has(> .session-transcript-error) {
+      width: calc(100% - var(--sparo-settings-rail-width));
+    }
+  }
+
+  &__reset-error {
+    flex: 0 0 auto;
+    margin: 0 var(--ds-space-4, 16px) var(--ds-space-2, 8px);
+  }
+}
+
+@media (max-width: 960px) {
+  .sparo-settings-scene {
+    --sparo-settings-rail-width: 190px;
+  }
+
+  .sparo-settings-manual-mode__page {
+    padding-inline: var(--ds-space-4, 16px);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sparo-settings-scene__content-wrapper {
+  .sparo-settings-scene__nav,
+  .sparo-settings-scene__nav-panel,
+  .sparo-settings-scene__content,
+  .sparo-settings-scene__content-panel {
+    transition: none;
+  }
+
+  .sparo-settings-section-host__field.is-highlighted,
+  .sparo-settings-projection-host__custom.is-highlighted {
     animation: none;
   }
 }

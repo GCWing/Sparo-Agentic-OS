@@ -34,22 +34,17 @@ impl BitFunDebugAgent {
         }
     }
 
-    async fn get_debug_config(&self) -> DebugModeConfig {
-        if let Ok(config_service) = GlobalConfigManager::get_service().await {
-            config_service
-                .get_config::<GlobalConfig>(None)
-                .await
-                .map(|config| {
-                    config
-                        .product_apps
-                        .bitfun_coder_debug_config()
-                        .unwrap_or(&config.ai.debug_mode_config)
-                        .clone()
-                })
-                .unwrap_or_default()
-        } else {
-            DebugModeConfig::default()
-        }
+    async fn get_debug_config(&self) -> CoreResult<DebugModeConfig> {
+        GlobalConfigManager::get_service()
+            .await?
+            .get_config::<GlobalConfig>(None)
+            .await?
+            .product_apps
+            .bitfun_coder_debug_config()
+            .cloned()
+            .ok_or_else(|| {
+                crate::error::CoreError::config("BitFun Coder debug configuration is missing")
+            })
     }
 
     async fn detect_project_info(&self, workspace_path: &str) -> ProjectInfo {
@@ -308,7 +303,7 @@ impl Agent for BitFunDebugAgent {
         let prompt_components = PromptBuilder::new(context.clone());
         let env_info = prompt_components.get_env_info();
 
-        let debug_config = self.get_debug_config().await;
+        let debug_config = self.get_debug_config().await?;
         let project_info = self.detect_project_info(workspace_path).await;
 
         debug!(

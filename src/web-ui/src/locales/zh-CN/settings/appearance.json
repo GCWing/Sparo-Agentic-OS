@@ -12,6 +12,8 @@
     "confirmDelete": "确定要删除主题 \"{{name}}\" 吗？",
     "languageRowHint": "选择一个语言包作为当前界面语言。",
     "themeRowHint": "选择界面配色主题。",
+    "themeLoading": "正在加载主题设置...",
+    "themeLoadFailed": "主题设置加载失败。",
     "systemTheme": "跟随系统",
     "systemThemeDescription": "根据系统浅色或深色外观自动切换主题，并随系统设置更新。",
     "presets": {
@@ -42,6 +44,8 @@
     },
     "fontSize": {
       "title": "字体大小",
+      "loading": "正在加载字体设置...",
+      "loadFailed": "字体设置加载失败。",
       "uiSizeLabel": "界面字体",
       "uiSizeHint": "控制导航、面板、设置与其他界面元素的字体大小。",
       "levels": {
@@ -53,18 +57,14 @@
         "custom": "自定义"
       },
       "customPxLabel": "自定义大小（12-20 px）",
-      "customPxPlaceholder": "14",
-      "customPxOutOfRange": "请输入 12 到 20 之间的整数",
       "resetButton": "恢复默认",
       "previewText": "Sparo OS 是一个由 AI 驱动的编程环境。The quick brown fox jumps over the lazy dog.",
       "flowChatLabel": "对话区域",
-      "flowChatHint": "关闭时，对话区域使用界面字体加 1 px，并跟随界面档位变化。开启后，可从下方列表选择 12-20 px。",
+      "flowChatHint": "关闭时，对话区域跟随界面字体大小。开启后，可设置 12-20 px 的独立字号。",
       "flowChatCustomToggle": "自定义对话字体大小",
-      "flowChatPxOption": "{{n}} px",
       "markdownEditorLabel": "Markdown 编辑器",
       "markdownEditorHint": "关闭时，Markdown 编辑与预览跟随界面字体大小。开启后，可选择 12-20 px 的阅读与编辑字号。",
-      "markdownEditorCustomToggle": "自定义 Markdown 编辑器字体大小",
-      "markdownEditorPxOption": "{{n}} px"
+      "markdownEditorCustomToggle": "自定义 Markdown 编辑器字体大小"
     }
   }
 }

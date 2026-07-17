@@ -18,7 +18,6 @@ export { useWorkspaceContext } from './contexts/WorkspaceContext';
 export * from './config';
 
 // Infrastructure hooks
-export * from './hooks/useAIInitialization';
 
 // Infrastructure lifecycle
 import { initializeConfigInfrastructure } from './config';

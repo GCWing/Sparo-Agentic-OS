@@ -12,9 +12,9 @@
 //! after Stage-D populates it; new code should depend on `State<Arc<AppContainer>>`
 //! instead.
 
-use arc_swap::{ArcSwap, ArcSwapOption};
+use arc_swap::ArcSwapOption;
 use sparo_transport::TauriTransportAdapter;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use super::boot::BootController;
 use crate::api::app_state::AppState;
@@ -23,14 +23,15 @@ use crate::api::app_state::AppState;
 pub struct AppContainer {
     pub boot: Arc<BootController>,
     pub transport: ArcSwapOption<TauriTransportAdapter>,
+    /// Process-wide configuration authority, published once Stage-C finishes.
+    /// Early shell surfaces keep using their dependency-free skeleton until
+    /// this handle becomes available.
+    config_service: OnceLock<Arc<sparo_core::service::config::ConfigService>>,
     pub app_state: ArcSwapOption<AppState>,
     /// `coordinator` and `scheduler` live here so non-AppState callers (tray
     /// menu, event subscribers) don't have to round-trip through Tauri State.
     pub coordinator: ArcSwapOption<sparo_core::agentic::coordination::ConversationCoordinator>,
     pub scheduler: ArcSwapOption<sparo_core::agentic::coordination::DialogScheduler>,
-    /// Cached startup log level so the runtime listener can recompute on
-    /// `ConfigReloaded` without re-reading the file from disk.
-    pub startup_log_level: ArcSwap<log::LevelFilter>,
     /// Multi-workspace mount registry. Kept alive for the entire process
     /// lifetime; mounts come and go as the user opens/closes workspaces.
     workspace_registry: Arc<sparo_core::runtime::WorkspaceRegistry>,
@@ -41,10 +42,10 @@ impl AppContainer {
         Arc::new(Self {
             boot,
             transport: ArcSwapOption::empty(),
+            config_service: OnceLock::new(),
             app_state: ArcSwapOption::empty(),
             coordinator: ArcSwapOption::empty(),
             scheduler: ArcSwapOption::empty(),
-            startup_log_level: ArcSwap::from_pointee(log::LevelFilter::Info),
             workspace_registry: sparo_core::runtime::WorkspaceRegistry::new(),
         })
     }
@@ -59,6 +60,19 @@ impl AppContainer {
 
     pub fn transport(&self) -> Option<Arc<TauriTransportAdapter>> {
         self.transport.load_full()
+    }
+
+    pub fn set_config_service(
+        &self,
+        config_service: Arc<sparo_core::service::config::ConfigService>,
+    ) -> Result<(), &'static str> {
+        self.config_service
+            .set(config_service)
+            .map_err(|_| "Configuration service is already published")
+    }
+
+    pub fn config_service(&self) -> Option<Arc<sparo_core::service::config::ConfigService>> {
+        self.config_service.get().cloned()
     }
 
     pub fn set_app_state(&self, state: Arc<AppState>) {

@@ -46,7 +46,6 @@ use api::daily_letter_api::*;
 use api::diff_api::*;
 use api::global_milestone_api::*;
 use api::host_scan_api::*;
-use api::i18n_api::*;
 use api::mcp_api::*;
 use api::memory_consolidation_api::*;
 use api::project_detection_api::*;
@@ -69,6 +68,11 @@ use bootstrap::{AppContainer, BootStage};
 /// Set this to true before triggering a close event to indicate the user
 /// actually wants to quit (vs just hiding the window to the tray).
 static WANTS_EXIT: AtomicBool = AtomicBool::new(false);
+static EXIT_CLEANUP_STARTED: AtomicBool = AtomicBool::new(false);
+
+fn exit_request_requires_cleanup(cleanup_started: bool) -> bool {
+    !cleanup_started
+}
 
 pub fn set_wants_exit() {
     WANTS_EXIT.store(true, Ordering::SeqCst);
@@ -76,6 +80,32 @@ pub fn set_wants_exit() {
 
 pub(crate) fn wants_exit() -> bool {
     WANTS_EXIT.load(Ordering::SeqCst)
+}
+
+/// Complete process-owned cleanup before terminating the Tauri event loop.
+pub(crate) fn request_clean_exit(app_handle: tauri::AppHandle) {
+    if EXIT_CLEANUP_STARTED
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
+    {
+        return;
+    }
+
+    tauri::async_runtime::spawn(async move {
+        if let Some(container) = app_handle.try_state::<Arc<AppContainer>>() {
+            if let Some(coordinator) = container.coordinator() {
+                if let Err(error) = coordinator.shutdown_settings_agent_session().await {
+                    log::error!(
+                        "Failed to clean SettingsAgent session during exit: {}",
+                        error
+                    );
+                }
+            }
+        }
+        sparo_core::util::process_manager::cleanup_all_processes();
+        api::remote_connect_api::cleanup_on_exit();
+        app_handle.exit(0);
+    });
 }
 
 /// Coordinator state still exposed via `.manage` for code paths that take a
@@ -126,14 +156,16 @@ pub fn run() {
 
     let boot = bootstrap::BootController::new();
     let container = AppContainer::new(boot.clone());
-    container.startup_log_level.store(Arc::new(startup_level));
 
     let path_manager = sparo_core::infrastructure::get_path_manager_arc();
+    let startup_theme =
+        theme::ThemeConfig::from_startup_config_file(&path_manager.app_config_file());
 
     let container_setup = container.clone();
     let container_close = container.clone();
 
-    let mut builder = tauri::Builder::default();
+    let mut builder = tauri::Builder::default()
+        .append_invoke_initialization_script(startup_theme.generate_startup_bootstrap_script());
     if !is_embedded_webdriver_mode() {
         builder = builder.plugin(tauri_plugin_single_instance::init(
             move |app, _args, _cwd| {
@@ -146,7 +178,17 @@ pub fn run() {
         ));
     }
 
-    let run_result = builder
+    let mut context = tauri::generate_context!();
+    if let Err(error) =
+        window::main_window::apply_startup_theme_to_context(&mut context, &startup_theme)
+    {
+        log::warn!(
+            "Failed to apply startup theme to main window config: {}",
+            error
+        );
+    }
+
+    let app = match builder
         .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(logging::build_log_plugin(log_targets))
         .plugin(tauri_plugin_opener::init())
@@ -185,10 +227,6 @@ pub fn run() {
             logging::register_runtime_log_state(startup_level, session_log_dir.clone());
 
             register_bundled_mobile_web(&app_handle);
-
-            if let Err(e) = window::main_window::configure(&app_handle) {
-                log::error!("Failed to configure main window: {}", e);
-            }
 
             if let Err(e) = tray::init_tray(&app_handle) {
                 log::warn!("Failed to initialize system tray: {}", e);
@@ -253,6 +291,8 @@ pub fn run() {
             api::agentic_api::confirm_tool_execution,
             api::agentic_api::reject_tool_execution,
             api::agentic_api::cancel_tool,
+            api::settings_agent_api::ensure_settings_flow_session,
+            api::settings_agent_api::reset_settings_flow_session,
             api::agentic_api::generate_session_title,
             api::agentic_api::list_agents,
             api::agentic_os_api::agentic_os_list_works,
@@ -297,6 +337,7 @@ pub fn run() {
             api::intelligent_app_api::create_app_draft,
             api::intelligent_app_api::create_app_rebase_draft,
             api::intelligent_app_api::resolve_app_draft,
+            api::intelligent_app_api::delete_app_draft,
             api::intelligent_app_api::resolve_intelligent_app_draft_preview,
             api::intelligent_app_api::close_intelligent_app_draft_preview,
             api::intelligent_app_api::publish_app_draft,
@@ -371,13 +412,11 @@ pub fn run() {
             get_statistics,
             test_ai_connection,
             test_ai_config_connection,
+            test_saved_ai_model_connection,
             list_ai_models_by_config,
             discover_cli_credentials,
             refresh_cli_credential,
             initialize_ai,
-            set_agent_model,
-            get_agent_models,
-            refresh_model_client,
             fix_mermaid_code,
             get_app_state,
             update_app_status,
@@ -433,18 +472,18 @@ pub fn run() {
             get_watched_paths,
             get_clipboard_files,
             paste_files,
-            get_config,
+            describe_config_catalog,
+            get_config_snapshot,
+            get_config_startup_status,
+            rebuild_default_config,
+            plan_config_patch,
+            commit_config_patch,
+            undo_config_commit,
+            get_config_commit,
+            retry_config_apply,
             computer_use_get_status,
             computer_use_request_permissions,
             computer_use_open_system_settings,
-            set_config,
-            reset_config,
-            export_config,
-            import_config,
-            validate_config,
-            reload_config,
-            sync_config_to_global,
-            get_global_config_health,
             get_runtime_logging_info,
             speech_list_models,
             speech_download_model,
@@ -455,18 +494,10 @@ pub fn run() {
             speech_append_audio_chunk,
             speech_finish_input_session,
             speech_cancel_input_session,
-            get_agent_capability_profile,
-            update_agent_capability_profile,
             get_runtime_capabilities,
             api::runtime_api::record_frontend_runtime_heartbeat,
             api::runtime_api::get_frontend_runtime_watchdog_snapshot,
             api::runtime_api::disable_frontend_runtime_safe_mode,
-            get_agent_capability_configs,
-            get_agent_capability_config,
-            set_agent_capability_config,
-            reset_agent_capability_config,
-            get_subagent_configs,
-            set_subagent_config,
             list_subagents,
             get_subagent_detail,
             delete_subagent,
@@ -555,10 +586,6 @@ pub fn run() {
             api::mcp_api::get_mcp_remote_oauth_session,
             api::mcp_api::cancel_mcp_remote_oauth,
             detect_project,
-            reload_global_config,
-            get_global_config_status,
-            subscribe_config_updates,
-            get_model_configs,
             get_recent_workspaces,
             remove_recent_workspace,
             cleanup_invalid_workspaces,
@@ -578,7 +605,6 @@ pub fn run() {
             run_memory_consolidation,
             list_workspace_overview_bindings,
             run_workspace_overview_refresh,
-            api::config_api::canonicalize_agent_capability_configs,
             api::terminal_api::terminal_get_shells,
             api::terminal_api::terminal_create,
             api::terminal_api::terminal_get,
@@ -600,11 +626,6 @@ pub fn run() {
             check_commands_exist,
             run_system_command,
             set_macos_edit_menu_mode,
-            i18n_get_current_language,
-            i18n_set_language,
-            i18n_get_supported_languages,
-            i18n_get_config,
-            i18n_set_config,
             // Remote Connect
             api::remote_connect_api::remote_connect_get_device_info,
             api::remote_connect_api::remote_connect_get_lan_ip,
@@ -627,7 +648,6 @@ pub fn run() {
             api::browser_control_api::browser_control_launch,
             api::browser_control_api::browser_control_restart_with_cdp,
             api::browser_control_api::browser_control_create_launcher,
-            api::self_control_api::submit_self_control_response,
             // Announcement / feature-demo / tips API
             api::announcement_api::get_pending_announcements,
             api::announcement_api::mark_announcement_seen,
@@ -636,18 +656,46 @@ pub fn run() {
             api::announcement_api::trigger_announcement,
             api::announcement_api::get_announcement_tips,
         ])
-        .run(tauri::generate_context!());
+        .build(context)
+    {
+        Ok(app) => app,
+        Err(error) => {
+            log::error!("Error while building tauri application: {}", error);
+            bootstrap::failure::show_native_error_dialog(
+                "Sparo OS failed to start",
+                &format!("Tauri application build failed:\n\n{}", error),
+            );
+            return;
+        }
+    };
 
-    if let Err(e) = run_result {
-        log::error!("Error while running tauri application: {}", e);
-        bootstrap::failure::show_native_error_dialog(
-            "Sparo OS failed to start",
-            &format!("Tauri application loop exited with error:\n\n{}", e),
-        );
-    }
+    // Covers predefined macOS Quit/Cmd+Q and any future direct exit request. The cleanup task
+    // finishes by calling `AppHandle::exit`; the single-flight flag lets that second request pass
+    // through instead of recursively starting cleanup.
+    app.run(|app_handle, event| {
+        if let tauri::RunEvent::ExitRequested { api, .. } = event {
+            let cleanup_started = EXIT_CLEANUP_STARTED.load(Ordering::SeqCst);
+            if exit_request_requires_cleanup(cleanup_started) {
+                api.prevent_exit();
+                set_wants_exit();
+                request_clean_exit(app_handle.clone());
+            }
+        }
+    });
 }
 
 // ─────────────────────────────────────────────── Stage C + D pipeline ───
+
+#[cfg(test)]
+mod lifecycle_tests {
+    use super::exit_request_requires_cleanup;
+
+    #[test]
+    fn exit_request_is_intercepted_only_until_cleanup_has_started() {
+        assert!(exit_request_requires_cleanup(false));
+        assert!(!exit_request_requires_cleanup(true));
+    }
+}
 
 fn spawn_boot_pipeline(
     container: Arc<AppContainer>,
@@ -658,17 +706,63 @@ fn spawn_boot_pipeline(
         let globals = match bootstrap::globals::initialize().await {
             Ok(g) => g,
             Err(e) => {
-                log::error!("Stage-C globals failed: {}", e);
+                // The backend log keeps the full anyhow context chain so the
+                // first actionable startup cause is visible. BootController
+                // continues to expose only the existing outer error text.
+                log::error!("Stage-C globals failed: {:#}", e);
                 container.boot.fail("globals", e);
                 return;
             }
         };
-        container.boot.transition(BootStage::GlobalReady);
 
-        // Now config is ready: wire runtime services that depend on it.
-        let startup_level = **container.startup_log_level.load();
-        spawn_runtime_log_level_listener(startup_level);
-        spawn_ingest_server_with_config_listener();
+        // Subscribe before publishing the service through AppContainer so no
+        // commit can be accepted by the Config API without a live Web UI
+        // event bridge.
+        spawn_config_commit_bridge(app_handle.clone(), globals.config_service.clone());
+
+        // Register all runtime consumers before the service becomes callable
+        // through AppContainer. Stage-C writes must never observe a partially
+        // wired apply pipeline.
+        if let Err(error) = initialize_runtime_config_apply_adapters(&app_handle) {
+            log::error!(
+                "Failed to initialize runtime config apply adapters: {}",
+                error
+            );
+            container.boot.fail("config_apply_adapters", error);
+            return;
+        }
+
+        if let Err(error) = container.set_config_service(globals.config_service.clone()) {
+            log::error!("Failed to publish configuration service: {}", error);
+            container.boot.fail("config_service_publish", error);
+            return;
+        }
+
+        let global_config = match globals.config_service.get_config(None).await {
+            Ok(config) => config,
+            Err(error) => {
+                log::error!("Failed to load authoritative startup config: {}", error);
+                container.boot.fail("startup_config", error.to_string());
+                return;
+            }
+        };
+        let startup_theme = match theme::ThemeConfig::from_global_config(&global_config) {
+            Ok(theme) => theme,
+            Err(error) => {
+                log::error!("Failed to resolve authoritative startup theme: {}", error);
+                container.boot.fail("startup_theme", error);
+                return;
+            }
+        };
+        if let Err(error) = window::main_window::configure(&app_handle, &startup_theme) {
+            log::error!("Failed to configure main window: {}", error);
+            container.boot.fail("main_window", error);
+            return;
+        }
+        container.boot.transition(BootStage::GlobalReady);
+        tray::request_menu_refresh(&app_handle);
+
+        spawn_ingest_server();
         wire_infrastructure_events(transport.clone()).await;
 
         // Stage D: agentic + AppState + event loop. We do agentic first because
@@ -687,6 +781,27 @@ fn spawn_boot_pipeline(
             };
         container.set_coordinator(agentic.coordinator.clone());
         container.set_scheduler(agentic.scheduler.clone());
+
+        match agentic
+            .coordinator
+            .initialize_settings_agent_lifecycle()
+            .await
+        {
+            Ok(removed) if removed > 0 => log::info!(
+                "Removed stale SettingsAgent application-lifecycle sessions: count={}",
+                removed
+            ),
+            Ok(_) => {}
+            Err(error) => {
+                // Settings lifecycle cleanup is intentionally non-fatal for desktop boot. The
+                // lazy ensure path keeps the lifecycle uninitialized and retries this sweep when
+                // AI settings is first opened.
+                log::warn!(
+                    "Failed to clean stale SettingsAgent sessions; lazy initialization will retry: error={}",
+                    error
+                );
+            }
+        }
 
         bootstrap::workspace::spawn_event_loop(
             agentic.event_queue.clone(),
@@ -743,8 +858,89 @@ fn spawn_boot_pipeline(
         container.boot.transition(BootStage::WorkspaceReady {
             path: workspace_path.map(|p| p.display().to_string()),
         });
+        tray::request_menu_refresh(&app_handle);
 
         log::info!("Sparo OS boot complete");
+    });
+}
+
+fn spawn_config_commit_bridge(
+    app_handle: tauri::AppHandle,
+    config_service: Arc<sparo_core::service::config::ConfigService>,
+) {
+    let mut commits = config_service.subscribe_commits();
+    let mut apply_statuses = config_service.subscribe_apply_statuses();
+    let mut rollbacks = config_service.subscribe_rollbacks();
+    tauri::async_runtime::spawn(async move {
+        loop {
+            tokio::select! {
+                result = commits.recv() => match result {
+                    Ok(event) => {
+                        if let Err(error) = app_handle.emit("config://committed", event.published()) {
+                            log::warn!(
+                                "Failed to emit config commit to Web UI: commit_id={}, error={}",
+                                event.commit_id,
+                                error
+                            );
+                        }
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+                        log::warn!("Config commit bridge lagged: skipped={}", skipped);
+                        match config_service.get_snapshot().await {
+                            Ok(snapshot) => {
+                                if let Err(error) = app_handle.emit("config://snapshot-refreshed", &snapshot) {
+                                    log::warn!(
+                                        "Failed to emit authoritative config snapshot to Web UI after bridge lag: revision={}, skipped={}, error={}",
+                                        snapshot.revision,
+                                        skipped,
+                                        error
+                                    );
+                                }
+                            }
+                            Err(error) => {
+                                log::error!(
+                                    "Failed to load authoritative config snapshot after bridge lag: skipped={}, error={}",
+                                    skipped,
+                                    error
+                                );
+                            }
+                        }
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                },
+                result = apply_statuses.recv() => match result {
+                    Ok(event) => {
+                        if let Err(error) = app_handle.emit("config://apply-status", event.published()) {
+                            log::warn!(
+                                "Failed to emit config apply status to Web UI: commit_id={}, consumer={}, error={}",
+                                event.commit_id,
+                                event.consumer,
+                                error
+                            );
+                        }
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+                        log::warn!("Config apply-status bridge lagged: skipped={}", skipped);
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                },
+                result = rollbacks.recv() => match result {
+                    Ok(event) => {
+                        if let Err(error) = app_handle.emit("config://rolled-back", event.published()) {
+                            log::warn!(
+                                "Failed to emit config rollback to Web UI: commit_id={}, error={}",
+                                event.original_commit_id,
+                                error
+                            );
+                        }
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+                        log::warn!("Config rollback bridge lagged: skipped={}", skipped);
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                },
+            }
+        }
     });
 }
 
@@ -753,11 +949,17 @@ fn macos_menubar_initial_setup(app_handle: tauri::AppHandle) {
     use tauri::Manager;
     tauri::async_runtime::spawn(async move {
         let app_state: tauri::State<'_, api::app_state::AppState> = app_handle.state();
-        let language = app_state
+        let language = match app_state
             .config_service
             .get_config::<String>(Some("app.language"))
             .await
-            .unwrap_or_else(|_| "zh-CN".to_string());
+        {
+            Ok(language) => language,
+            Err(error) => {
+                log::error!("Failed to load macOS menu language: {}", error);
+                return;
+            }
+        };
         let has_workspace = app_state.workspace_path.read().await.is_some();
         let mode = if has_workspace {
             crate::macos_menubar::MenubarMode::Workspace
@@ -794,36 +996,43 @@ fn handle_main_close(
     api: &tauri::CloseRequestApi,
     container: Arc<AppContainer>,
 ) {
-    static CLEANUP_DONE: AtomicBool = AtomicBool::new(false);
-
     if wants_exit() {
-        if CLEANUP_DONE
-            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-            .is_ok()
-        {
-            log::info!("Main window close requested with wants_exit, cleaning up");
-            sparo_core::util::process_manager::cleanup_all_processes();
-            api::remote_connect_api::cleanup_on_exit();
-            window.app_handle().exit(0);
-        } else {
-            api.prevent_close();
-        }
+        api.prevent_close();
+        log::info!("Main window close requested with wants_exit, cleaning up");
+        request_clean_exit(window.app_handle().clone());
         return;
     }
 
-    let _ = container;
+    let config_service = container.config_service();
     let app_handle = window.app_handle().clone();
     let window2 = window.clone();
     api.prevent_close();
     tauri::async_runtime::spawn(async move {
-        let close_to_tray = read_close_to_tray_pref().await;
-        if close_to_tray {
-            let _ = window2.hide();
-            log::info!("Main window hidden to tray");
-            maybe_show_tray_hint(&app_handle).await;
-        } else {
-            set_wants_exit();
-            let _ = window2.close();
+        let close_to_tray = match config_service.as_deref() {
+            Some(service) => read_close_to_tray_pref(service).await,
+            None => Err("config.service_unavailable".to_string()),
+        };
+        match close_to_tray {
+            Ok(true) => {
+                let _ = window2.hide();
+                log::info!("Main window hidden to tray");
+                if let Some(service) = config_service.as_deref() {
+                    if maybe_show_tray_hint(&app_handle, service).await.is_err() {
+                        log::warn!("Failed to show tray hint: failure_code=tray.hint_failed");
+                    }
+                }
+            }
+            Ok(false) => {
+                set_wants_exit();
+                let _ = window2.close();
+            }
+            Err(_) => {
+                log::error!(
+                    "Failed to read close-to-tray preference: failure_code=tray.config_unavailable"
+                );
+                set_wants_exit();
+                let _ = window2.close();
+            }
         }
     });
 }
@@ -865,228 +1074,290 @@ fn register_bundled_mobile_web(app: &tauri::AppHandle) {
 }
 
 /// Show a one-time OS notification telling the user the app is in the tray.
-async fn maybe_show_tray_hint(app: &tauri::AppHandle) {
-    use sparo_core::service::config::get_global_config_service;
-    const HINT_KEY: &str = "app.tray.hide_to_tray_hint_shown";
+async fn maybe_show_tray_hint(
+    app: &tauri::AppHandle,
+    config_service: &sparo_core::service::config::ConfigService,
+) -> Result<(), String> {
+    use sparo_core::service::config::GlobalConfig;
 
-    let already_shown = if let Ok(config_service) = get_global_config_service().await {
-        config_service
-            .get_config::<bool>(Some(HINT_KEY))
-            .await
-            .unwrap_or(false)
-    } else {
-        return;
-    };
+    let already_shown = config_service
+        .get_config::<GlobalConfig>(None)
+        .await
+        .map(|config| config.app.tray.hide_to_tray_hint_shown)
+        .map_err(|error| error.to_string())?;
 
     if already_shown {
-        return;
+        return Ok(());
     }
 
-    if let Ok(config_service) = get_global_config_service().await {
-        let _ = config_service.set_config(HINT_KEY, true).await;
-    }
+    config_service
+        .commit_operations(
+            sparo_events::ConfigChangeSource {
+                kind: sparo_events::ConfigChangeSourceKind::System,
+                surface: Some("tray-hint".to_string()),
+                request_id: None,
+            },
+            vec![sparo_core::service::config::ConfigPatchOperation::Set {
+                setting_id: sparo_core::service::config::catalog::SETTING_APP_TRAY_HINT_SHOWN
+                    .to_string(),
+                value: serde_json::json!(true),
+            }],
+            true,
+        )
+        .await
+        .map_err(|error| error.to_string())?;
 
-    let _ = app.emit(
+    app.emit(
         EVENT_SYSTEM_NOTIFICATION,
         serde_json::json!({
             "title": APP_PRODUCT_NAME,
             "body": "Sparo OS is still running in the system tray. Right-click the tray icon to open the menu."
         }),
-    );
+    )
+    .map_err(|error| error.to_string())?;
+    Ok(())
 }
 
-async fn read_close_to_tray_pref() -> bool {
-    use sparo_core::service::config::{get_global_config_service, GlobalConfig};
-    if let Ok(svc) = get_global_config_service().await {
-        svc.get_config::<GlobalConfig>(None)
-            .await
-            .map(|c| c.app.tray.close_to_tray)
-            .unwrap_or(true)
-    } else {
-        true
-    }
+async fn read_close_to_tray_pref(
+    service: &sparo_core::service::config::ConfigService,
+) -> Result<bool, String> {
+    use sparo_core::service::config::GlobalConfig;
+    service
+        .get_config::<GlobalConfig>(None)
+        .await
+        .map(|config| config.app.tray.close_to_tray)
+        .map_err(|error| error.to_string())
 }
 
-// ─────────────────────────────────────────────── Config listeners ───
+// ─────────────────────────────────────────────── Config apply adapters ───
 
-fn spawn_runtime_log_level_listener(default_level: log::LevelFilter) {
-    use sparo_core::service::config::{subscribe_config_updates, ConfigUpdateEvent};
-    tauri::async_runtime::spawn(async move {
-        if let Some(mut receiver) = subscribe_config_updates() {
-            loop {
-                match receiver.recv().await {
-                    Ok(ConfigUpdateEvent::LogLevelUpdated { new_level }) => {
-                        if let Some(level) = logging::parse_log_level(&new_level) {
-                            logging::apply_runtime_log_level(level, "config_update_event");
-                        } else {
-                            log::warn!(
-                                "Received invalid log level from config update event: {}",
-                                new_level
-                            );
-                        }
-                    }
-                    Ok(ConfigUpdateEvent::ConfigReloaded) => {
-                        let level = resolve_runtime_log_level(default_level).await;
-                        logging::apply_runtime_log_level(level, "config_reloaded");
-                    }
-                    Ok(_) => {}
-                    Err(tokio::sync::broadcast::error::RecvError::Closed) => {
-                        log::warn!("Log-level listener channel closed, stopping listener");
-                        break;
-                    }
-                    Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
-                        log::warn!("Log-level listener lagged by {} messages", n);
-                    }
-                }
-            }
-        }
-    });
-}
+static CONFIG_APPLY_ADAPTER_REGISTRATIONS: std::sync::OnceLock<
+    Vec<sparo_core::service::config::ConfigApplyAdapterRegistration>,
+> = std::sync::OnceLock::new();
 
-async fn resolve_runtime_log_level(default_level: log::LevelFilter) -> log::LevelFilter {
-    use sparo_core::service::config::get_global_config_service;
-    if let Ok(config_service) = get_global_config_service().await {
-        if let Ok(config_level) = config_service
-            .get_config::<String>(Some("app.logging.level"))
-            .await
-        {
-            if let Some(level) = logging::parse_log_level(&config_level) {
-                return level;
-            }
-            log::warn!(
-                "Invalid app.logging.level '{}', falling back to default={}",
-                config_level,
-                logging::level_to_str(default_level)
-            );
-        }
-    }
-    default_level
-}
-
-fn spawn_ingest_server_with_config_listener() {
+fn initialize_runtime_config_apply_adapters(
+    app_handle: &tauri::AppHandle,
+) -> sparo_core::CoreResult<()> {
     use sparo_core::infrastructure::debug_log::IngestServerManager;
     use sparo_core::service::config::{
-        get_global_config_service, subscribe_config_updates, ConfigUpdateEvent,
+        register_config_apply_adapter, ConfigApply, ConfigApplyAdapterCriticality,
+        ConfigApplyPathPattern, ConfigApplyPrepare, CONFIG_APPLY_CONSUMER_DEBUG_INGEST,
+        CONFIG_APPLY_CONSUMER_RUNTIME_I18N, CONFIG_APPLY_CONSUMER_RUNTIME_LOGGING,
     };
+
+    let logging_apply: ConfigApply = Arc::new(|context| {
+        Box::pin(async move {
+            let configured_level = &context.snapshot.app.logging.level;
+            let level = logging::parse_log_level(configured_level).ok_or_else(|| {
+                sparo_core::CoreError::validation(format!(
+                    "Unsupported runtime log level: '{configured_level}'"
+                ))
+            })?;
+            logging::apply_runtime_log_level(level, "config_apply_adapter");
+            Ok(())
+        })
+    });
+    let logging_registration = register_config_apply_adapter(
+        CONFIG_APPLY_CONSUMER_RUNTIME_LOGGING,
+        vec![ConfigApplyPathPattern::exact("app.logging.level")],
+        ConfigApplyAdapterCriticality::NonCritical,
+        None,
+        logging_apply,
+    )?;
+
+    let i18n_app_handle = app_handle.clone();
+    let i18n_apply: ConfigApply = Arc::new(move |context| {
+        let app_handle = i18n_app_handle.clone();
+        Box::pin(async move {
+            use sparo_core::service::i18n::{get_global_i18n_service, LocaleId};
+
+            let language = &context.snapshot.app.language;
+            let locale = LocaleId::from_str(language).ok_or_else(|| {
+                sparo_core::CoreError::validation(format!(
+                    "Unsupported runtime locale: '{language}'"
+                ))
+            })?;
+            let service = get_global_i18n_service().await.ok_or_else(|| {
+                sparo_core::CoreError::service("Global i18n service is not initialized")
+            })?;
+            service.set_locale(locale).await?;
+
+            if let Some(state) = app_handle.try_state::<api::app_state::AppState>() {
+                let mode = if state.workspace_path.read().await.is_some() {
+                    crate::macos_menubar::MenubarMode::Workspace
+                } else {
+                    crate::macos_menubar::MenubarMode::Startup
+                };
+                let edit_mode = *state.macos_edit_menu_mode.read().await;
+                crate::macos_menubar::set_macos_menubar_with_mode(
+                    &app_handle,
+                    language,
+                    mode,
+                    edit_mode,
+                )
+                .map_err(|error| {
+                    sparo_core::CoreError::service(format!(
+                        "Failed to refresh native menu for locale '{language}': {error}"
+                    ))
+                })?;
+            }
+
+            Ok(())
+        })
+    });
+    let i18n_registration = register_config_apply_adapter(
+        CONFIG_APPLY_CONSUMER_RUNTIME_I18N,
+        vec![ConfigApplyPathPattern::exact("app.language")],
+        ConfigApplyAdapterCriticality::NonCritical,
+        None,
+        i18n_apply,
+    )?;
+
+    let debug_prepare: ConfigApplyPrepare = Arc::new(|context| {
+        Box::pin(async move {
+            let debug_config = context
+                .candidate
+                .product_apps
+                .bitfun_coder_debug_config()
+                .ok_or_else(|| {
+                    sparo_core::CoreError::config(
+                        "BitFun Coder Product App debug config is unavailable",
+                    )
+                })?;
+            IngestServerManager::global()
+                .prepare_port(debug_config.ingest_port)
+                .await
+                .map_err(|error| {
+                    sparo_core::CoreError::validation(format!(
+                        "Debug ingest port preflight failed: {error}"
+                    ))
+                })
+        })
+    });
+    let debug_apply: ConfigApply = Arc::new(|context| {
+        Box::pin(async move {
+            let config = ingest_server_config_from_snapshot(&context.snapshot)?;
+            IngestServerManager::global()
+                .update_port(config.port, config.log_config.log_path)
+                .await
+                .map_err(|error| {
+                    sparo_core::CoreError::config(format!(
+                        "Failed to apply Debug Log Ingest Server config on port {}: {error}",
+                        config.port
+                    ))
+                })
+        })
+    });
+    let debug_registration = register_config_apply_adapter(
+        CONFIG_APPLY_CONSUMER_DEBUG_INGEST,
+        vec![ConfigApplyPathPattern::prefix(
+            "product_apps.apps.builtin-bitfun-coder.debug",
+        )],
+        ConfigApplyAdapterCriticality::NonCritical,
+        Some(debug_prepare),
+        debug_apply,
+    )?;
+
+    CONFIG_APPLY_ADAPTER_REGISTRATIONS
+        .set(vec![
+            logging_registration,
+            i18n_registration,
+            debug_registration,
+        ])
+        .map_err(|_| {
+            sparo_core::CoreError::service("Runtime config apply adapters are already initialized")
+        })
+}
+
+async fn resolve_ingest_server_config(
+) -> sparo_core::CoreResult<sparo_core::infrastructure::debug_log::IngestServerConfig> {
+    use sparo_core::service::config::get_global_config_service;
+
+    let config_service = get_global_config_service().await?;
+    let config = config_service
+        .get_config::<sparo_core::service::config::GlobalConfig>(None)
+        .await?;
+    ingest_server_config_from_snapshot(&config)
+}
+
+fn ingest_server_config_from_snapshot(
+    config: &sparo_core::service::config::GlobalConfig,
+) -> sparo_core::CoreResult<sparo_core::infrastructure::debug_log::IngestServerConfig> {
     use sparo_core::service::workspace::get_global_workspace_service;
 
+    let debug_config = config
+        .product_apps
+        .bitfun_coder_debug_config()
+        .ok_or_else(|| {
+            sparo_core::CoreError::config("BitFun Coder Product App debug config is unavailable")
+        })?;
+    let workspace_path = get_global_workspace_service()
+        .and_then(|service| service.try_get_last_used_workspace_path())
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+    Ok(
+        sparo_core::infrastructure::debug_log::IngestServerConfig::with_log_path(
+            debug_config.ingest_port,
+            workspace_path.join(&debug_config.log_path),
+        ),
+    )
+}
+
+fn spawn_ingest_server() {
+    use sparo_core::infrastructure::debug_log::IngestServerManager;
+    use sparo_core::service::config::get_global_config_service;
+
     tauri::async_runtime::spawn(async move {
-        let (initial_config, configured_port) = if let Ok(config_service) =
-            get_global_config_service().await
-        {
-            if let Ok(config) = config_service
-                .get_config::<sparo_core::service::config::GlobalConfig>(None)
-                .await
-            {
-                let debug_config = config
-                    .product_apps
-                    .bitfun_coder_debug_config()
-                    .unwrap_or(&config.ai.debug_mode_config)
-                    .clone();
-                let workspace_path = get_global_workspace_service()
-                    .and_then(|service| service.try_get_last_used_workspace_path())
-                    .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
-                (
-                    Some(
-                        sparo_core::infrastructure::debug_log::IngestServerConfig::from_debug_mode_config(
-                            debug_config.ingest_port,
-                            workspace_path.join(&debug_config.log_path),
-                        ),
-                    ),
-                    Some(debug_config.ingest_port),
-                )
-            } else {
-                (None, None)
+        let initial_config = match resolve_ingest_server_config().await {
+            Ok(config) => config,
+            Err(error) => {
+                log::error!(
+                    "Debug Log Ingest Server disabled because Product App config is unavailable: {}",
+                    error
+                );
+                return;
             }
-        } else {
-            (None, None)
         };
+        let configured_port = initial_config.port;
 
         let manager = IngestServerManager::global();
-        if let Err(e) = manager.start(initial_config).await {
+        if let Err(e) = manager.start(Some(initial_config)).await {
             log::error!("Failed to start Debug Log Ingest Server: {}", e);
+            return;
         }
 
         let actual_port = manager.get_actual_port().await;
-        if let Some(cfg_port) = configured_port {
-            if actual_port != cfg_port {
-                if let Ok(config_service) = get_global_config_service().await {
-                    if let Err(e) = config_service
-                        .set_config(
-                            "product_apps.apps.builtin-bitfun-coder.debug.ingest_port",
-                            actual_port,
-                        )
-                        .await
-                    {
-                        log::error!("Failed to sync actual port to config: {}", e);
-                    } else {
-                        log::info!(
-                            "Ingest Server port synced: actual_port={}, config_port={}",
-                            actual_port,
-                            cfg_port
-                        );
-                    }
-                }
+        if actual_port != configured_port {
+            let sync_result = async {
+                get_global_config_service()
+                    .await?
+                    .commit_operations(
+                        sparo_events::ConfigChangeSource {
+                            kind: sparo_events::ConfigChangeSourceKind::System,
+                            surface: Some("debug-ingest-startup".to_string()),
+                            request_id: None,
+                        },
+                        vec![sparo_core::service::config::ConfigPatchOperation::Set {
+                            setting_id:
+                                sparo_core::service::config::catalog::SETTING_DEBUG_INGEST_PORT
+                                    .to_string(),
+                            value: serde_json::json!(actual_port),
+                        }],
+                        true,
+                    )
+                    .await
+                    .map(|_| ())
             }
-        }
-
-        if let Some(mut receiver) = subscribe_config_updates() {
-            loop {
-                match receiver.recv().await {
-                    Ok(ConfigUpdateEvent::DebugModeConfigUpdated {
-                        new_port,
-                        new_log_path,
-                    }) => {
-                        let workspace_path = get_global_workspace_service()
-                            .and_then(|service| service.try_get_last_used_workspace_path())
-                            .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
-                        let full_log_path = workspace_path.join(&new_log_path);
-                        if let Err(e) = manager.update_port(new_port, full_log_path).await {
-                            log::error!(
-                                "Failed to update Ingest Server config: port={}, log_path={}, error={}",
-                                new_port,
-                                new_log_path,
-                                e
-                            );
-                        }
-                    }
-                    Ok(ConfigUpdateEvent::ConfigReloaded) => {
-                        if let Ok(config_service) = get_global_config_service().await {
-                            if let Ok(config) = config_service
-                                .get_config::<sparo_core::service::config::GlobalConfig>(None)
-                                .await
-                            {
-                                let debug_config = config
-                                    .product_apps
-                                    .bitfun_coder_debug_config()
-                                    .unwrap_or(&config.ai.debug_mode_config);
-                                let workspace_path = get_global_workspace_service()
-                                    .and_then(|service| service.try_get_last_used_workspace_path())
-                                    .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
-                                let full_log_path = workspace_path.join(&debug_config.log_path);
-                                if let Err(e) = manager
-                                    .update_port(debug_config.ingest_port, full_log_path)
-                                    .await
-                                {
-                                    log::error!(
-                                        "Failed to update Ingest Server after config reload: port={}, error={}",
-                                        debug_config.ingest_port,
-                                        e
-                                    );
-                                }
-                            }
-                        }
-                    }
-                    Ok(_) => {}
-                    Err(tokio::sync::broadcast::error::RecvError::Closed) => {
-                        log::warn!("Config update channel closed, stopping listener");
-                        break;
-                    }
-                    Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
-                        log::warn!("Config update listener lagged by {} messages", n);
-                    }
-                }
+            .await;
+            if let Err(error) = sync_result {
+                log::error!("Failed to sync actual ingest port to config: {}", error);
+                manager.stop().await;
+                return;
             }
+            log::info!(
+                "Ingest Server port synced: actual_port={}, config_port={}",
+                actual_port,
+                configured_port
+            );
         }
     });
 }

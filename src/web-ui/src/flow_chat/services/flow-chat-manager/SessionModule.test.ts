@@ -8,6 +8,8 @@ import type { FlowChatContext } from './types';
 import {
   createChatSession,
   ensureBackendSession,
+  getModelMaxTokens,
+  isLocalBackendSessionCreationPending,
   retryCreateBackendSession,
   retargetEmptyChatSessionWorkspace,
 } from './SessionModule';
@@ -25,6 +27,17 @@ const sessionApiMock = vi.hoisted(() => ({
 }));
 
 const openSessionMock = vi.hoisted(() => vi.fn(async () => {}));
+const configManagerMock = vi.hoisted(() => ({
+  getSetting: vi.fn(async (key: string) => {
+    if (key === 'core.ai.models') {
+      return [{ id: 'primary-model', enabled: true, context_window: 128_128 }];
+    }
+    if (key === 'core.ai.default_models') {
+      return { primary: 'primary-model' };
+    }
+    throw new Error(`Unexpected config key: ${key}`);
+  }),
+}));
 
 vi.mock('@/infrastructure/api/service-api/AgentAPI', () => ({
   agentAPI: agentApiMock,
@@ -35,12 +48,7 @@ vi.mock('@/infrastructure/api/service-api/SessionAPI', () => ({
 }));
 
 vi.mock('@/infrastructure/config/services/ConfigManager', () => ({
-  configManager: {
-    getConfig: vi.fn(async (key: string) => {
-      if (key === 'ai.models') return [];
-      return {};
-    }),
-  },
+  configManager: configManagerMock,
 }));
 
 vi.mock('@/infrastructure/services/business/workspaceManager', () => ({
@@ -93,6 +101,15 @@ describe('createChatSession workspace scope', () => {
     sessionApiMock.loadSessionMetadata.mockReset();
     sessionApiMock.saveSessionMetadata.mockReset();
     openSessionMock.mockReset();
+    configManagerMock.getSetting.mockImplementation(async (key: string) => {
+      if (key === 'core.ai.models') {
+        return [{ id: 'primary-model', enabled: true, context_window: 128_128 }];
+      }
+      if (key === 'core.ai.default_models') {
+        return { primary: 'primary-model' };
+      }
+      throw new Error(`Unexpected config key: ${key}`);
+    });
     vi.stubGlobal('window', {
       dispatchEvent: vi.fn(),
     });
@@ -105,6 +122,56 @@ describe('createChatSession workspace scope', () => {
         this.detail = init?.detail;
       }
     });
+  });
+
+  it('resolves context windows only from enabled stable model ids', async () => {
+    configManagerMock.getSetting.mockImplementation(async (key: string) => {
+      if (key === 'core.ai.models') {
+        return [
+          { id: 'primary-model', name: 'Display Name', enabled: true, context_window: 96_000 },
+          { id: 'disabled-model', enabled: false, context_window: 64_000 },
+        ];
+      }
+      return { primary: 'primary-model' };
+    });
+
+    await expect(getModelMaxTokens('primary')).resolves.toBe(96_000);
+    await expect(getModelMaxTokens('primary-model')).resolves.toBe(96_000);
+    await expect(getModelMaxTokens('Display Name')).rejects.toThrow('missing or disabled');
+    await expect(getModelMaxTokens('disabled-model')).rejects.toThrow('missing or disabled');
+  });
+
+  it('creates a session with the canonical context window when no model is configured', async () => {
+    const store = FlowChatStore.getInstance();
+    const context = createTestContext(store);
+    const sessionId = `zero-model-session-${Date.now()}`;
+    sessionIds.push(sessionId);
+    configManagerMock.getSetting.mockImplementation(async (key: string) => {
+      if (key === 'core.ai.models') return [];
+      if (key === 'core.ai.default_models') return {};
+      throw new Error(`Unexpected config key: ${key}`);
+    });
+    agentApiMock.createSession.mockResolvedValue({
+      sessionId,
+      sessionName: 'Zero model session',
+      agentType: 'Runno',
+    });
+
+    await createChatSession(
+      context,
+      {
+        storageScope: 'agentic_os',
+        sessionName: 'Zero model session',
+        navigate: false,
+      },
+    );
+
+    expect(agentApiMock.createSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        config: expect.objectContaining({ maxContextTokens: 128_128 }),
+      }),
+    );
+    expect(store.getState().sessions.get(sessionId)?.maxContextTokens).toBe(128_128);
   });
 
   afterEach(() => {
@@ -171,6 +238,37 @@ describe('createChatSession workspace scope', () => {
       expect.objectContaining({ sessionId }),
     );
     expect(store.getState().sessions.has(sessionId)).toBe(true);
+  });
+
+  it('marks caller-reserved backend creation so echoed events cannot reclassify the session', async () => {
+    const store = FlowChatStore.getInstance();
+    const context = createTestContext(store);
+    const sessionId = `pending-product-app-${Date.now()}`;
+    sessionIds.push(sessionId);
+    let resolveCreation!: (value: { sessionId: string; sessionName: string; agentType: string }) => void;
+    agentApiMock.createSession.mockImplementationOnce(() => (
+      new Promise(resolve => { resolveCreation = resolve; })
+    ));
+
+    const creation = createChatSession(
+      context,
+      {
+        storageScope: 'agentic_os',
+        sessionName: 'Pending Product App',
+        navigate: false,
+      },
+      getProductAppRuntimeSessionDescriptor('Runno'),
+      { sessionId },
+    );
+
+    await vi.waitFor(() => {
+      expect(isLocalBackendSessionCreationPending(sessionId)).toBe(true);
+    });
+    resolveCreation({ sessionId, sessionName: 'Pending Product App', agentType: 'Runno' });
+    await creation;
+
+    expect(isLocalBackendSessionCreationPending(sessionId)).toBe(false);
+    expect(store.getState().sessions.get(sessionId)?.descriptor.profileId).toBe('product-app-runtime');
   });
 
   it('retargets the current empty workspace session without opening target workspace history', async () => {

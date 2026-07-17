@@ -57,7 +57,7 @@ impl AIClientFactory {
     }
 
     /// Get a functional agent's AI client
-    /// Prefer func_agent_models, fall back to agent_models (legacy), then fast
+    /// Functional agents use their dedicated mapping, then the fast selector.
     pub async fn get_client_by_func_agent(&self, func_agent_name: &str) -> Result<Arc<AIClient>> {
         let global_config: crate::service::config::GlobalConfig =
             self.config_service.get_config(None).await?;
@@ -66,7 +66,6 @@ impl AIClientFactory {
             .ai
             .func_agent_models
             .get(func_agent_name)
-            .or_else(|| global_config.ai.agent_models.get(func_agent_name))
             .map(String::as_str)
             .unwrap_or("fast");
 
@@ -89,7 +88,7 @@ impl AIClientFactory {
                 || anyhow!("Fast model not configured or invalid, and primary model not configured or invalid"),
             )?,
             _ => Self::resolve_model_reference_in_config(&global_config, model_id)
-                .unwrap_or_else(|| model_id.to_string()),
+                .ok_or_else(|| anyhow!("Model id is missing or disabled: {model_id}"))?,
         };
 
         self.get_or_create_client(&resolved_model_id).await
@@ -119,28 +118,10 @@ impl AIClientFactory {
         cache.len()
     }
 
-    pub fn invalidate_model(&self, model_id: &str) {
-        let mut cache = match self.client_cache.write() {
-            Ok(cache) => cache,
-            Err(poisoned) => {
-                warn!("AI client cache write lock poisoned during invalidate_model, recovering");
-                poisoned.into_inner()
-            }
-        };
-        if cache.remove(model_id).is_some() {
-            debug!("Client cache cleared for model: {}", model_id);
-        }
-    }
-
     async fn get_or_create_client(&self, model_id: &str) -> Result<Arc<AIClient>> {
         let global_config: crate::service::config::GlobalConfig =
             self.config_service.get_config(None).await?;
-        let normalized_model_id = match model_id {
-            "primary" | "fast" => Self::resolve_model_selection_in_config(&global_config, model_id)
-                .unwrap_or_else(|| model_id.to_string()),
-            _ => Self::resolve_model_reference_in_config(&global_config, model_id)
-                .unwrap_or_else(|| model_id.to_string()),
-        };
+        let normalized_model_id = model_id.to_string();
 
         {
             let cache = match self.client_cache.read() {
@@ -162,11 +143,7 @@ impl AIClientFactory {
             .ai
             .models
             .iter()
-            .find(|m| {
-                m.id == normalized_model_id
-                    || m.name == normalized_model_id
-                    || m.model_name == normalized_model_id
-            })
+            .find(|model| model.id == normalized_model_id)
             .ok_or_else(|| anyhow!("Model configuration not found: {}", normalized_model_id))?;
 
         if !model_config.enabled {
@@ -348,7 +325,7 @@ mod tests {
     }
 
     #[test]
-    fn resolve_model_reference_supports_id_name_and_model_name() {
+    fn resolve_model_reference_accepts_only_stable_ids() {
         let mut config = GlobalConfig::default();
         config.ai.models = vec![build_model(
             "model-123",
@@ -362,11 +339,11 @@ mod tests {
         );
         assert_eq!(
             AIClientFactory::resolve_model_reference_in_config(&config, "Primary Chat"),
-            Some("model-123".to_string())
+            None
         );
         assert_eq!(
             AIClientFactory::resolve_model_reference_in_config(&config, "claude-sonnet-4.5"),
-            Some("model-123".to_string())
+            None
         );
     }
 
@@ -387,7 +364,7 @@ mod tests {
     }
 
     #[test]
-    fn resolve_fast_selection_falls_back_to_primary_when_fast_is_stale() {
+    fn resolve_fast_selection_rejects_a_stale_configured_id() {
         let mut config = GlobalConfig::default();
         config.ai.models = vec![build_model(
             "model-primary",
@@ -399,7 +376,7 @@ mod tests {
 
         assert_eq!(
             AIClientFactory::resolve_model_selection_in_config(&config, "fast"),
-            Some("model-primary".to_string())
+            None
         );
     }
 }

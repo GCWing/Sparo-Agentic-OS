@@ -1,6 +1,14 @@
-import type { SessionStorageScope } from '@/shared/types/session-history';
+import type {
+  ProductAppRuntimeSessionMetadata,
+  SessionStorageScope,
+} from '@/shared/types/session-history';
 
-export type SessionHostKind = 'system-agentic-os' | 'agent-component' | 'evolution-lab' | 'product-app-runtime';
+export type SessionHostKind =
+  | 'system-agentic-os'
+  | 'system-settings'
+  | 'agent-component'
+  | 'evolution-lab'
+  | 'product-app-runtime';
 
 export type SessionProfileId =
   | 'agentic-os'
@@ -10,6 +18,7 @@ export type SessionProfileId =
   | 'design'
   | 'deep-research'
   | 'app-builder'
+  | 'settings'
   | 'product-app-runtime';
 
 export type SessionIdentityId =
@@ -20,6 +29,7 @@ export type SessionIdentityId =
   | 'design'
   | 'deep-research'
   | 'app-builder'
+  | 'settings'
   | 'product-app-runtime';
 
 export interface SessionAgentPolicy {
@@ -106,6 +116,14 @@ export const SESSION_DESCRIPTORS = {
     agentPolicy: createPolicy('AppBuilder'),
     storageScope: 'agentic_os',
   },
+  settings: {
+    hostKind: 'system-settings',
+    profileId: 'settings',
+    identityId: 'settings',
+    labelKey: 'settings/ai-mode:session.title',
+    agentPolicy: createPolicy('SettingsAgent'),
+    storageScope: 'agentic_os',
+  },
   productAppRuntime: {
     hostKind: 'product-app-runtime',
     profileId: 'product-app-runtime',
@@ -162,15 +180,32 @@ export function getAgenticOsSessionDescriptor(): SessionDescriptor {
   return cloneDescriptor(SESSION_DESCRIPTORS.agenticOs);
 }
 
-export function getProductAppRuntimeSessionDescriptor(agentComponentId?: string | null): SessionDescriptor {
-  const normalizedAgentComponentId = agentComponentId?.trim();
-  if (!normalizedAgentComponentId) {
+export function getProductAppRuntimeAgentType(
+  metadata?: ProductAppRuntimeSessionMetadata | null,
+): string | undefined {
+  const agentType = metadata?.chat?.agentType?.trim();
+  return agentType || undefined;
+}
+
+export function getProductAppRuntimeSessionDescriptor(agentType?: string | null): SessionDescriptor {
+  const normalizedAgentType = agentType?.trim();
+  if (!normalizedAgentType) {
     return cloneDescriptor(SESSION_DESCRIPTORS.productAppRuntime);
   }
   return {
-    ...cloneDescriptor(SESSION_DESCRIPTORS.productAppRuntime, normalizedAgentComponentId),
-    agentPolicy: createPolicy(normalizedAgentComponentId),
+    ...cloneDescriptor(SESSION_DESCRIPTORS.productAppRuntime, normalizedAgentType),
+    agentPolicy: createPolicy(normalizedAgentType),
   };
+}
+
+export function descriptorFromBackendSessionCreated(
+  agentType?: string | null,
+  existingDescriptor?: SessionDescriptor | null,
+): SessionDescriptor {
+  if (existingDescriptor?.hostKind === 'product-app-runtime') {
+    return normalizeSessionDescriptor(existingDescriptor);
+  }
+  return descriptorFromAgentType(agentType);
 }
 
 export function descriptorFromAgentType(agentType?: string | null): SessionDescriptor {
@@ -190,6 +225,9 @@ export function descriptorFromAgentType(agentType?: string | null): SessionDescr
   if (normalized === 'runno') return cloneDescriptor(SESSION_DESCRIPTORS.runno);
   if (normalized === 'appbuilder' || normalized === 'app-builder' || normalized === 'app_builder') {
     return cloneDescriptor(SESSION_DESCRIPTORS.appBuilder);
+  }
+  if (normalized === 'settingsagent' || normalized === 'settings-agent' || normalized === 'settings_agent') {
+    return cloneDescriptor(SESSION_DESCRIPTORS.settings);
   }
   if (normalized === 'productappruntime' || normalized === 'product-app-runtime') {
     return cloneDescriptor(SESSION_DESCRIPTORS.productAppRuntime);

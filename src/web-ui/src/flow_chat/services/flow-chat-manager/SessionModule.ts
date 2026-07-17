@@ -21,10 +21,17 @@ import {
   type SessionDescriptor,
 } from '../../domain/sessionDescriptor';
 import { canHydrateSession } from '../../domain/sessionLoadPhase';
+import type { AIModelConfig } from '@/infrastructure/config/types';
+import { DEFAULT_CONTEXT_WINDOW } from '../../store/FlowChatStore';
 
 const log = createLogger('SessionModule');
 const pendingSessionCreations = new Map<string, Promise<string>>();
 const pendingBackendSessionRecreations = new Map<string, Promise<void>>();
+const pendingLocalBackendSessionCreations = new Set<string>();
+
+export function isLocalBackendSessionCreationPending(sessionId: string): boolean {
+  return pendingLocalBackendSessionCreations.has(sessionId);
+}
 
 export interface CreateChatSessionOptions {
   sessionId?: string;
@@ -141,33 +148,36 @@ function requireSessionWorkspacePath(
 /**
  * Get model's maximum token count
  */
-export async function getModelMaxTokens(modelName?: string): Promise<number> {
+export async function getModelMaxTokens(modelId?: string): Promise<number> {
+  const configManager = await import('@/infrastructure/config/services/ConfigManager').then(m => m.configManager);
+  const [models, defaultModels] = await Promise.all([
+    configManager.getSetting<AIModelConfig[]>('core.ai.models'),
+    configManager.getSetting<Record<string, string | undefined>>('core.ai.default_models'),
+  ]);
+  const requestedId = modelId?.trim();
+  const resolvedId = !requestedId || requestedId === 'primary'
+    ? defaultModels.primary
+    : requestedId;
+  if (!resolvedId) {
+    throw new Error('No primary AI model is configured');
+  }
+  const model = models.find(candidate => candidate.enabled && candidate.id === resolvedId);
+  if (!model) {
+    throw new Error(`Configured AI model is missing or disabled: ${resolvedId}`);
+  }
+  return model.context_window;
+}
+
+async function getSessionContextWindow(modelId?: string): Promise<number> {
   try {
-    const configManager = await import('@/infrastructure/config/services/ConfigManager').then(m => m.configManager);
-    const models = await configManager.getConfig<any[]>('ai.models') || [];
-    
-    if (modelName) {
-      const model = models.find(m => m.name === modelName || m.id === modelName);
-      if (model?.context_window) {
-        return model.context_window;
-      }
-    }
-    
-    const defaultModels = await configManager.getConfig<Record<string, string>>('ai.default_models');
-    const primaryModelId = defaultModels?.primary;
-    
-    if (primaryModelId) {
-      const primaryModel = models.find(m => m.id === primaryModelId);
-      if (primaryModel?.context_window) {
-        return primaryModel.context_window;
-      }
-    }
-    
-    log.debug('Model context_window config not found, using default', { modelName });
-    return 128128;
+    return await getModelMaxTokens(modelId);
   } catch (error) {
-    log.warn('Failed to get model max tokens', { modelName, error });
-    return 128128;
+    log.info('Creating session with the default context window because no usable model is configured', {
+      modelId: modelId?.trim() || 'primary',
+      defaultContextWindow: DEFAULT_CONTEXT_WINDOW,
+      reason: error instanceof Error ? error.message : String(error),
+    });
+    return DEFAULT_CONTEXT_WINDOW;
   }
 }
 
@@ -220,47 +230,56 @@ export async function createChatSession(
     };
 
     const createPromise = (async () => {
-      const maxContextTokens = await getModelMaxTokens(config.modelName);
+      const maxContextTokens = await getSessionContextWindow(config.modelName);
       const requestedSessionId = options.sessionId?.trim() || undefined;
-      const response = await agentAPI.createSession({
-        sessionId: requestedSessionId,
-        sessionName,
-        agentType,
-        workspacePath: workspacePath || undefined,
-        storageScope,
-        config: {
-          modelName: config.modelName || 'primary',
-          enableTools: true,
-          safeMode: true,
-          autoCompact: true,
-          maxContextTokens: maxContextTokens,
-          enableContextCompression: true,
+      if (requestedSessionId) {
+        pendingLocalBackendSessionCreations.add(requestedSessionId);
+      }
+      try {
+        const response = await agentAPI.createSession({
+          sessionId: requestedSessionId,
+          sessionName,
+          agentType,
+          workspacePath: workspacePath || undefined,
           storageScope,
+          config: {
+            modelName: config.modelName || 'primary',
+            enableTools: true,
+            safeMode: true,
+            autoCompact: true,
+            maxContextTokens: maxContextTokens,
+            enableContextCompression: true,
+            storageScope,
+          }
+        });
+
+        if (requestedSessionId && response.sessionId !== requestedSessionId) {
+          throw new Error('Backend returned an unexpected session id for optimistic navigation');
         }
-      });
 
-      if (requestedSessionId && response.sessionId !== requestedSessionId) {
-        throw new Error('Backend returned an unexpected session id for optimistic navigation');
+        context.flowChatStore.createSession(
+          response.sessionId,
+          mergedConfig,
+          undefined,
+          sessionName,
+          maxContextTokens,
+          descriptor,
+          workspacePath || undefined,
+          storageScope
+        );
+
+        const shouldNavigate = config.navigate !== false;
+        if (shouldNavigate) {
+          const { openSession: openSessionNav } = await import('@/app/navigation/navigationController');
+          await openSessionNav(response.sessionId);
+        }
+
+        return response.sessionId;
+      } finally {
+        if (requestedSessionId) {
+          pendingLocalBackendSessionCreations.delete(requestedSessionId);
+        }
       }
-
-      context.flowChatStore.createSession(
-        response.sessionId, 
-        mergedConfig, 
-        undefined,
-        sessionName,
-        maxContextTokens,
-        descriptor,
-        workspacePath || undefined,
-        storageScope
-      );
-
-      const shouldNavigate = config.navigate !== false;
-      if (shouldNavigate) {
-        const { openSession: openSessionNav } = await import('@/app/navigation/navigationController');
-        await openSessionNav(response.sessionId);
-      }
-
-      return response.sessionId;
     })();
 
     pendingSessionCreations.set(creationKey, createPromise);
@@ -591,19 +610,24 @@ async function ensureBackendSessionOnce(
     }
 
     log.debug('Coordinator session missing, creating backend session', { sessionId, error: e });
-    await agentAPI.createSession({
-      sessionId: sessionId,
-      sessionName: latestSession.title || `Session ${sessionId.slice(0, 8)}`,
-      agentType: getBackendAgentType(latestSession.descriptor),
-      workspacePath,
-      storageScope: latestSession.storageScope,
-      config: {
-        modelName: latestSession.config.modelName || 'primary',
-        enableTools: true,
-        safeMode: true,
+    pendingLocalBackendSessionCreations.add(sessionId);
+    try {
+      await agentAPI.createSession({
+        sessionId: sessionId,
+        sessionName: latestSession.title || `Session ${sessionId.slice(0, 8)}`,
+        agentType: getBackendAgentType(latestSession.descriptor),
+        workspacePath,
         storageScope: latestSession.storageScope,
-      }
-    });
+        config: {
+          modelName: latestSession.config.modelName || 'primary',
+          enableTools: true,
+          safeMode: true,
+          storageScope: latestSession.storageScope,
+        }
+      });
+    } finally {
+      pendingLocalBackendSessionCreations.delete(sessionId);
+    }
     markLiveIfMetadataOnly();
   }
 }
@@ -659,19 +683,24 @@ async function retryCreateBackendSessionOnce(
     session.storageScope
   );
   
-  await agentAPI.createSession({
-    sessionId: sessionId,
-    sessionName: session.title || `Session ${sessionId.slice(0, 8)}`,
-    agentType: getBackendAgentType(session.descriptor),
-    workspacePath,
-    storageScope: session.storageScope,
-    config: {
-      modelName: session.config.modelName || 'primary',
-      enableTools: true,
-      safeMode: true,
+  pendingLocalBackendSessionCreations.add(sessionId);
+  try {
+    await agentAPI.createSession({
+      sessionId: sessionId,
+      sessionName: session.title || `Session ${sessionId.slice(0, 8)}`,
+      agentType: getBackendAgentType(session.descriptor),
+      workspacePath,
       storageScope: session.storageScope,
-    }
-  });
+      config: {
+        modelName: session.config.modelName || 'primary',
+        enableTools: true,
+        safeMode: true,
+        storageScope: session.storageScope,
+      }
+    });
+  } finally {
+    pendingLocalBackendSessionCreations.delete(sessionId);
+  }
 }
 
 export async function retryCreateBackendSession(

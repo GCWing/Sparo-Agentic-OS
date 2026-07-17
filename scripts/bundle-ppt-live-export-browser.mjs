@@ -4,18 +4,79 @@
  * Output is committed under the app-private PPT Live surface source vendor directory.
  */
 import { spawnSync } from 'child_process';
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
-const BUNDLE_DIR = join(
+const PPT_LIVE_RELEASES_DIR = join(
   ROOT,
   'bundles',
   'product-apps',
   'builtin-ppt-live',
-  '150.0.0',
+);
+
+function parseSemver(value) {
+  const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/.exec(value);
+  if (!match) return null;
+  return {
+    value,
+    numbers: match.slice(1, 4).map(Number),
+    prerelease: match[4]?.split('.') ?? null,
+  };
+}
+
+function comparePrerelease(left, right) {
+  if (left === null && right === null) return 0;
+  if (left === null) return 1;
+  if (right === null) return -1;
+  const length = Math.max(left.length, right.length);
+  for (let index = 0; index < length; index += 1) {
+    const leftPart = left[index];
+    const rightPart = right[index];
+    if (leftPart === undefined) return -1;
+    if (rightPart === undefined) return 1;
+    if (leftPart === rightPart) continue;
+    const leftNumeric = /^\d+$/.test(leftPart);
+    const rightNumeric = /^\d+$/.test(rightPart);
+    if (leftNumeric && rightNumeric) return Number(leftPart) - Number(rightPart);
+    if (leftNumeric) return -1;
+    if (rightNumeric) return 1;
+    return leftPart.localeCompare(rightPart);
+  }
+  return 0;
+}
+
+function compareSemver(left, right) {
+  for (let index = 0; index < 3; index += 1) {
+    const difference = left.numbers[index] - right.numbers[index];
+    if (difference !== 0) return difference;
+  }
+  return comparePrerelease(left.prerelease, right.prerelease);
+}
+
+function latestPptLiveRelease() {
+  const releases = readdirSync(PPT_LIVE_RELEASES_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => parseSemver(entry.name))
+    .filter(Boolean)
+    .sort(compareSemver);
+  const latest = releases.at(-1);
+  if (!latest) {
+    throw new Error(`No semantic-versioned PPT Live release found under ${PPT_LIVE_RELEASES_DIR}`);
+  }
+  const releaseDir = join(PPT_LIVE_RELEASES_DIR, latest.value);
+  const manifest = JSON.parse(readFileSync(join(releaseDir, 'app.json'), 'utf8'));
+  if (manifest.id !== 'builtin-ppt-live' || manifest.version !== latest.value) {
+    throw new Error(`PPT Live release identity mismatch at ${releaseDir}`);
+  }
+  return { releaseDir, version: latest.value };
+}
+
+const PPT_LIVE_RELEASE = latestPptLiveRelease();
+const BUNDLE_DIR = join(
+  PPT_LIVE_RELEASE.releaseDir,
   'components',
   'surfaces',
   'builtin-ppt-live-surface',
@@ -75,6 +136,7 @@ function copyExportSources(targetSrc) {
 }
 
 function main() {
+  console.log(`[bundle-ppt-live-export] using builtin-ppt-live@${PPT_LIVE_RELEASE.version}`);
   rmSync(STAGING, { recursive: true, force: true });
   mkdirSync(STAGING, { recursive: true });
   const stagingSrc = join(STAGING, 'src');

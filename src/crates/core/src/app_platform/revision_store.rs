@@ -293,9 +293,8 @@ pub struct ActivationRecord {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SystemReleaseActivationOutcome {
+pub enum SystemReleaseInitializationOutcome {
     Created,
-    Advanced,
     Preserved,
 }
 
@@ -1103,7 +1102,7 @@ impl AppRevisionStore {
             .clone();
         next.drafts.remove(&draft.draft_id);
         self.commit_registry(next).await?;
-        remove_consumed_draft(&draft, &draft_path).await;
+        remove_draft_directory(&draft, &draft_path).await;
         Ok(published_release)
     }
 
@@ -1201,6 +1200,25 @@ impl AppRevisionStore {
         }
         validate_draft_manifest(&source_path, &draft).await?;
         Ok(ResolvedDraft { draft, source_path })
+    }
+
+    /// Permanently removes one mutable Draft without affecting its App identity or Releases.
+    pub async fn delete_draft(&self, draft_id: &str) -> CoreResult<DraftRecord> {
+        let _draft_lock = acquire_draft_lock(draft_id).await;
+        let _mutation = self.mutation_lock.lock().await;
+        let current = self.registry.read().await.clone();
+        let draft = current
+            .drafts
+            .get(draft_id)
+            .cloned()
+            .ok_or_else(|| CoreError::NotFound(format!("App draft {draft_id}")))?;
+        let draft_path = resolve_store_relative_path(&self.root, &draft.path)?;
+
+        let mut next = current;
+        next.drafts.remove(draft_id);
+        self.commit_registry(next).await?;
+        remove_draft_directory(&draft, &draft_path).await;
+        Ok(draft)
     }
 
     /// Records a successful Builder write or checkpoint without inspecting mutable source files.
@@ -1346,13 +1364,13 @@ impl AppRevisionStore {
         Ok(activation)
     }
 
-    /// Advances an untouched official system selection while preserving a
-    /// disabled slot or any user-selected fork. The decision and write share
-    /// one mutation lock, so startup cannot overwrite a concurrent selection.
-    pub(super) async fn activate_system_release(
+    /// Initializes an empty system slot from a bundled Release while preserving
+    /// every existing selection. Startup discovers updates; only an explicit
+    /// user activation may switch an installed slot to a newer Release.
+    pub(super) async fn initialize_system_release(
         &self,
         request: ActivateReleaseRequest,
-    ) -> CoreResult<(ActivationRecord, SystemReleaseActivationOutcome)> {
+    ) -> CoreResult<(ActivationRecord, SystemReleaseInitializationOutcome)> {
         let _mutation = self.mutation_lock.lock().await;
         request.scope.validate()?;
         validate_identifier("slotId", &request.slot_id)?;
@@ -1371,46 +1389,10 @@ impl AppRevisionStore {
 
         let key = activation_key(&request.scope, &request.slot_id);
         if let Some(existing) = current.activations.get(&key) {
-            if !existing.enabled
-                || existing.selected_app_id != request.app_id
-                || existing.active_release_id == request.release_id
-            {
-                return Ok((existing.clone(), SystemReleaseActivationOutcome::Preserved));
-            }
-            let active_release = current
-                .releases
-                .get(&existing.active_release_id)
-                .ok_or_else(|| {
-                    CoreError::NotFound(format!(
-                        "Active system app release {}",
-                        existing.active_release_id
-                    ))
-                })?;
-            let candidate_release = current
-                .releases
-                .get(&request.release_id)
-                .expect("activation target was validated");
-            let active_version =
-                Version::parse(&active_release.version).expect("validated release version");
-            let candidate_version =
-                Version::parse(&candidate_release.version).expect("validated release version");
-            if candidate_version <= active_version
-                || candidate_release.capability_fingerprint != active_release.capability_fingerprint
-            {
-                return Ok((existing.clone(), SystemReleaseActivationOutcome::Preserved));
-            }
-            let activation = ActivationRecord {
-                scope: request.scope,
-                slot_id: request.slot_id,
-                selected_app_id: request.app_id,
-                active_release_id: request.release_id,
-                previous_release_id: Some(existing.active_release_id.clone()),
-                enabled: true,
-            };
-            let mut next = current;
-            next.activations.insert(key, activation.clone());
-            self.commit_registry(next).await?;
-            return Ok((activation, SystemReleaseActivationOutcome::Advanced));
+            return Ok((
+                existing.clone(),
+                SystemReleaseInitializationOutcome::Preserved,
+            ));
         }
 
         let activation = ActivationRecord {
@@ -1424,7 +1406,7 @@ impl AppRevisionStore {
         let mut next = current;
         next.activations.insert(key, activation.clone());
         self.commit_registry(next).await?;
-        Ok((activation, SystemReleaseActivationOutcome::Created))
+        Ok((activation, SystemReleaseInitializationOutcome::Created))
     }
 
     pub async fn deactivate(
@@ -1675,7 +1657,7 @@ impl AppRevisionStore {
 
         for draft in &drafts {
             let path = resolve_store_relative_path(&self.root, &draft.path)?;
-            remove_consumed_draft(draft, &path).await;
+            remove_draft_directory(draft, &path).await;
         }
         Ok(ArchivedApp {
             app,
@@ -3334,10 +3316,10 @@ fn normalize_relative_path(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
 }
 
-async fn remove_consumed_draft(draft: &DraftRecord, draft_path: &Path) {
+async fn remove_draft_directory(draft: &DraftRecord, draft_path: &Path) {
     if let Err(error) = remove_tree_force(draft_path).await {
         log::warn!(
-            "Failed to remove consumed app draft directory: draft_id={}, path={}, error={}",
+            "Failed to remove app draft directory: draft_id={}, path={}, error={}",
             draft.draft_id,
             draft_path.display(),
             error
@@ -3662,7 +3644,7 @@ mod tests {
             .await
             .unwrap();
         let (preserved, outcome) = store
-            .activate_system_release(ActivateReleaseRequest {
+            .initialize_system_release(ActivateReleaseRequest {
                 scope: AppActivationScope::System,
                 slot_id: "writer".to_string(),
                 app_id: "system.writer".to_string(),
@@ -3670,7 +3652,7 @@ mod tests {
             })
             .await
             .unwrap();
-        assert_eq!(outcome, SystemReleaseActivationOutcome::Preserved);
+        assert_eq!(outcome, SystemReleaseInitializationOutcome::Preserved);
         assert!(!preserved.enabled);
         assert_eq!(preserved.selected_app_id, "user.writer");
 
@@ -4375,6 +4357,39 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn delete_draft_removes_mutable_source_but_preserves_app_identity() {
+        let root = test_root("delete-draft");
+        let store = AppRevisionStore::open(&root).await.unwrap();
+        let created = store
+            .create_intelligent_app(CreateIntelligentAppRequest {
+                app_id: Some("user.delete-draft".to_string()),
+                slot_id: Some("delete-draft".to_string()),
+                display_name: Some("Delete Draft".to_string()),
+                description: None,
+                owner: AppOwner::user("local"),
+            })
+            .await
+            .unwrap();
+        let resolved = store.resolve_draft(&created.draft.draft_id).await.unwrap();
+        fs::write(resolved.source_path.join("notes.txt"), b"unpublished")
+            .await
+            .unwrap();
+
+        let deleted = store.delete_draft(&created.draft.draft_id).await.unwrap();
+
+        assert_eq!(deleted, created.draft);
+        assert!(!resolved.source_path.exists());
+        assert!(store
+            .list_drafts(Some("user.delete-draft"))
+            .await
+            .is_empty());
+        assert!(store.resolve_draft(&deleted.draft_id).await.is_err());
+        assert!(store.get_app("user.delete-draft").await.is_some());
+
+        remove_tree_force(&root).await.unwrap();
+    }
+
+    #[tokio::test]
     async fn archive_removes_user_drafts_but_retains_release_history() {
         let root = test_root("archive");
         let store = AppRevisionStore::open(&root).await.unwrap();
@@ -4506,8 +4521,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn system_auto_update_requires_newer_version_and_unchanged_capabilities() {
-        let root = test_root("system-auto-update-policy");
+    async fn system_initialization_preserves_an_existing_release_selection() {
+        let root = test_root("system-initialization-policy");
         let store = AppRevisionStore::open(&root).await.unwrap();
         let first_package = root.join("system-v1");
         let second_package = root.join("system-v2");
@@ -4534,8 +4549,6 @@ mod tests {
             )
             .await
             .unwrap();
-        let mut expanded_metadata = system_metadata("2.0.0");
-        expanded_metadata.capability_fingerprint = digest("expanded-capabilities");
         let second = store
             .import_release_from_package(
                 &second_package,
@@ -4546,7 +4559,7 @@ mod tests {
                     description: None,
                     owner: AppOwner::system(),
                     parent_release_id: None,
-                    metadata: expanded_metadata,
+                    metadata: system_metadata("2.0.0"),
                 },
             )
             .await
@@ -4562,7 +4575,7 @@ mod tests {
             .unwrap();
 
         let (preserved, outcome) = store
-            .activate_system_release(ActivateReleaseRequest {
+            .initialize_system_release(ActivateReleaseRequest {
                 scope: AppActivationScope::System,
                 slot_id: "system-policy".to_string(),
                 app_id: "system.policy".to_string(),
@@ -4570,7 +4583,7 @@ mod tests {
             })
             .await
             .unwrap();
-        assert_eq!(outcome, SystemReleaseActivationOutcome::Preserved);
+        assert_eq!(outcome, SystemReleaseInitializationOutcome::Preserved);
         assert_eq!(preserved.active_release_id, first.release_id);
 
         remove_tree_force(&root).await.unwrap();

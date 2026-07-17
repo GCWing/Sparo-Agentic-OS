@@ -1503,6 +1503,7 @@ mod tests {
             authors: Vec::new(),
             i18n: Default::default(),
             interaction_model: AppInteractionModel::InteractiveWorkspace,
+            runtime_interaction: None,
             work_multiplicity: AppWorkMultiplicity::Multiple,
             work_object_kinds: vec![WorkObjectKind {
                 id: "composition".to_string(),

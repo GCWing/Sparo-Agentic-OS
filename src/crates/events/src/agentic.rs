@@ -612,6 +612,7 @@ impl ToolEventData {
 mod tests {
     use super::{
         AgenticEvent, AgenticEventDeliveryClass, AgenticEventEnvelope, AgenticEventPriority,
+        SessionSurfaceMode,
     };
     use std::cmp::Reverse;
     use std::collections::BinaryHeap;
@@ -626,6 +627,7 @@ mod tests {
                 round_id: "r".into(),
                 text: "second".into(),
                 subagent_parent_info: None,
+                surface_mode: SessionSurfaceMode::UserVisible,
             },
             AgenticEventPriority::Normal,
             2,
@@ -646,6 +648,7 @@ mod tests {
                 round_id: "r".into(),
                 text: "first".into(),
                 subagent_parent_info: None,
+                surface_mode: SessionSurfaceMode::UserVisible,
             },
             AgenticEventPriority::Normal,
             1,
@@ -668,6 +671,7 @@ mod tests {
             round_id: "r".into(),
             text: "hello".into(),
             subagent_parent_info: None,
+            surface_mode: SessionSurfaceMode::UserVisible,
         };
         let session_created = AgenticEvent::SessionCreated {
             session_id: "s".into(),

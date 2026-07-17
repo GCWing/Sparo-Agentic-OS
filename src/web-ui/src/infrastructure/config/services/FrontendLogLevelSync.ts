@@ -4,7 +4,7 @@ import type { BackendLogLevel } from '../types';
 import { configManager } from './ConfigManager';
 
 const log = createLogger('FrontendLogLevelSync');
-const LOGGING_LEVEL_PATH = 'app.logging.level';
+const LOGGING_LEVEL_SETTING_ID = 'core.app.logging.level';
 
 let initialized = false;
 
@@ -68,7 +68,7 @@ function applyFrontendLogLevel(level: string | null | undefined, source: string)
 
 async function resolveInitialLogLevel(): Promise<string | undefined> {
   const [savedLevelResult, runtimeInfoResult] = await Promise.allSettled([
-    configManager.getConfig<BackendLogLevel>(LOGGING_LEVEL_PATH),
+    configManager.getSetting<BackendLogLevel>(LOGGING_LEVEL_SETTING_ID),
     configAPI.getRuntimeLoggingInfo(),
   ]);
 
@@ -93,8 +93,8 @@ export async function initializeFrontendLogLevelSync(): Promise<void> {
 
   initialized = true;
 
-  configManager.onConfigChange((path, _oldValue, newValue) => {
-    if (path !== LOGGING_LEVEL_PATH) {
+  configManager.onSettingChange((settingId, _oldValue, newValue) => {
+    if (settingId !== LOGGING_LEVEL_SETTING_ID) {
       return;
     }
 

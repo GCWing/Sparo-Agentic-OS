@@ -13,6 +13,7 @@ import { VirtualMessageList } from './VirtualMessageList';
 import { FlowChatHeader } from './FlowChatHeader';
 import { FlowChatSelectionAddButton } from './FlowChatSelectionAddButton';
 import { WelcomePanel } from '../WelcomePanel';
+import { FallbackWelcomePanel } from '../FallbackWelcomePanel';
 import {
   SessionTranscriptError,
   SessionTranscriptLoading,
@@ -28,15 +29,23 @@ import {
 import { useFlowChatCore, type UseFlowChatCoreOptions } from './useFlowChatCore';
 import { useSessionSidecarActions } from './useSessionSidecarActions';
 import { getDefaultSessionDescriptor } from '../../domain/sessionDescriptor';
+import { useSessionProfile } from '@/app/session-profiles';
+import type { FlowChatPresentation } from './ModernFlowChatContainer';
+import { cancelFlowChatTask, getStopGenerationShortcutId } from './flowChatContainerActions';
 import './ModernFlowChatContainer.scss';
 
 type StandardFlowChatContainerProps = UseFlowChatCoreOptions & {
   className?: string;
+  active?: boolean;
+  presentation?: FlowChatPresentation;
 };
 
 export const StandardFlowChatContainer: React.FC<StandardFlowChatContainerProps> = ({
   className = '',
   sessionId,
+  active = true,
+  presentation = 'default',
+  mutationsDisabled = false,
   workspacePath,
   config,
   onFileViewRequest,
@@ -49,6 +58,7 @@ export const StandardFlowChatContainer: React.FC<StandardFlowChatContainerProps>
     sessionId,
     workspacePath,
     config,
+    mutationsDisabled,
     onFileViewRequest,
     onTabOpen,
     onOpenVisualization,
@@ -56,6 +66,7 @@ export const StandardFlowChatContainer: React.FC<StandardFlowChatContainerProps>
   });
 
   const {
+    session: scopedSession,
     virtualItems,
     activeSession,
     virtualListRef,
@@ -79,15 +90,23 @@ export const StandardFlowChatContainer: React.FC<StandardFlowChatContainerProps>
     [staticContextValue, viewContextValue],
   );
   const sidecarActions = useSessionSidecarActions();
+  const { profile } = useSessionProfile();
+  const embedded = presentation === 'embedded';
   const transcriptLoading = shouldShowSessionTranscriptLoading(sessionId, activeSession);
   const transcriptError = shouldShowSessionTranscriptError(sessionId, activeSession);
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
   useShortcut(
-    'chat.stopGeneration',
+    getStopGenerationShortcutId(presentation, sessionId),
     { key: 'Escape', scope: 'chat', allowInInput: true },
-    () => { void FlowChatManager.getInstance().cancelCurrentTask(); },
-    { priority: 20, description: 'keyboard.shortcuts.chat.stopGeneration' },
+    () => {
+      void cancelFlowChatTask(FlowChatManager.getInstance(), sessionId);
+    },
+    {
+      priority: 20,
+      description: 'keyboard.shortcuts.chat.stopGeneration',
+      enabled: active,
+    },
   );
 
   useShortcut(
@@ -104,7 +123,11 @@ export const StandardFlowChatContainer: React.FC<StandardFlowChatContainerProps>
         } catch { /* ignore */ }
       })();
     },
-    { priority: 10, description: 'keyboard.shortcuts.chat.newSession' },
+    {
+      priority: 10,
+      description: 'keyboard.shortcuts.chat.newSession',
+      enabled: active && !embedded,
+    },
   );
 
   useShortcut(
@@ -115,7 +138,11 @@ export const StandardFlowChatContainer: React.FC<StandardFlowChatContainerProps>
       const message = selected ? `/btw Explain this:\n\n${selected}` : '/btw ';
       window.dispatchEvent(new CustomEvent('fill-chat-input', { detail: { message } }));
     },
-    { priority: 20, description: 'keyboard.shortcuts.chat.btwFill' },
+    {
+      priority: 20,
+      description: 'keyboard.shortcuts.chat.btwFill',
+      enabled: active && !embedded,
+    },
   );
 
   useShortcut(
@@ -124,7 +151,11 @@ export const StandardFlowChatContainer: React.FC<StandardFlowChatContainerProps>
     () => {
       setSearchOpenRequest(prev => prev + 1);
     },
-    { priority: 15, description: 'keyboard.shortcuts.chat.search' },
+    {
+      priority: 15,
+      description: 'keyboard.shortcuts.chat.search',
+      enabled: active && !embedded,
+    },
   );
 
   return (
@@ -137,24 +168,27 @@ export const StandardFlowChatContainer: React.FC<StandardFlowChatContainerProps>
               .filter(Boolean)
               .join(' ')}
             data-shortcut-scope="chat"
+            data-presentation={presentation}
           >
-            <FlowChatSelectionAddButton containerRef={chatScopeRef} />
+            {!embedded ? <FlowChatSelectionAddButton containerRef={chatScopeRef} /> : null}
 
-            <FlowChatHeader
-              visible={!!activeSession}
-              sessionId={activeSession?.sessionId}
-              workspacePath={activeSession?.workspacePath ?? effectiveWorkspacePath ?? undefined}
-              searchQuery={searchQuery}
-              onSearchChange={onSearchChange}
-              searchMatchCount={searchMatches.length}
-              searchCurrentMatch={searchMatches.length > 0 ? searchCurrentMatchIndex + 1 : 0}
-              onSearchNext={handleSearchNext}
-              onSearchPrev={handleSearchPrev}
-              onSearchClose={clearSearch}
-              searchOpenRequest={searchOpenRequest}
-              showTimelineControl={false}
-              sidecarActions={sidecarActions}
-            />
+            {!embedded ? (
+              <FlowChatHeader
+                visible={!!activeSession}
+                sessionId={activeSession?.sessionId}
+                workspacePath={activeSession?.workspacePath ?? effectiveWorkspacePath ?? undefined}
+                searchQuery={searchQuery}
+                onSearchChange={onSearchChange}
+                searchMatchCount={searchMatches.length}
+                searchCurrentMatch={searchMatches.length > 0 ? searchCurrentMatchIndex + 1 : 0}
+                onSearchNext={handleSearchNext}
+                onSearchPrev={handleSearchPrev}
+                onSearchClose={clearSearch}
+                searchOpenRequest={searchOpenRequest}
+                showTimelineControl={false}
+                sidecarActions={sidecarActions}
+              />
+            ) : null}
 
             <div className="modern-flowchat-container__body">
               <div className="modern-flowchat-container__messages">
@@ -166,21 +200,32 @@ export const StandardFlowChatContainer: React.FC<StandardFlowChatContainerProps>
                       sessionId={activeSession.sessionId}
                     />
                   ) : virtualItems.length === 0 ? (
-                    <WelcomePanel
-                      key={activeSession?.sessionId ?? 'welcome'}
-                      sessionId={activeSession?.sessionId}
-                      workspacePath={activeSession?.workspacePath}
-                      preferredDescriptor={activeSession?.descriptor}
-                      onQuickAction={command => {
-                        window.dispatchEvent(
-                          new CustomEvent('fill-chat-input', { detail: { message: command } }),
-                        );
-                      }}
-                    />
+                    profile.capabilities.showWelcomePanel ? (
+                      <WelcomePanel
+                        key={activeSession?.sessionId ?? 'welcome'}
+                        sessionId={activeSession?.sessionId}
+                        workspacePath={activeSession?.workspacePath}
+                        preferredDescriptor={activeSession?.descriptor}
+                        onQuickAction={command => {
+                          window.dispatchEvent(
+                            new CustomEvent('fill-chat-input', {
+                              detail: {
+                                message: command,
+                                sessionId: activeSession?.sessionId,
+                              },
+                            }),
+                          );
+                        }}
+                      />
+                    ) : (
+                      <FallbackWelcomePanel />
+                    )
                   ) : (
                     <VirtualMessageList
                       key={activeSession?.sessionId ?? 'virtual-message-list'}
                       ref={virtualListRef}
+                      session={scopedSession}
+                      virtualItems={virtualItems}
                     />
                   )}
                 </div>

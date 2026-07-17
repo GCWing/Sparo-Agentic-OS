@@ -5,6 +5,17 @@
   "searchNoResults": "No matching settings",
   "searchClear": "Clear search",
   "beta": "Beta",
+  "recovery": {
+    "title": "Settings are temporarily read-only",
+    "message": "Sparo OS continued startup with safe defaults because the saved configuration could not be loaded safely.",
+    "description": "Rebuild the current defaults when you are ready. This deletes the unusable configuration and its saved secrets, but keeps sessions, workspaces, apps, and other data.",
+    "promptTitle": "Saved configuration is unusable",
+    "promptMessage": "Sparo OS is running with safe defaults. Rebuild the current default configuration now? The unusable configuration and its saved secrets will be deleted; all other application data stays intact.",
+    "action": "Rebuild defaults",
+    "rebuilding": "Rebuilding…",
+    "later": "Later",
+    "failed": "The default configuration could not be rebuilt. Sparo OS is still running safely in read-only mode; try again from Settings."
+  },
   "tabDescriptions": {
     "appearance": "Language, theme, and interface font size.",
     "basics": "Logging, terminal shell, launch at login, and notifications.",

@@ -5,10 +5,11 @@
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useVirtualItems, useVisibleTurnInfo } from '../../store/modernFlowChatStore';
+import { useVisibleTurnInfo, type VirtualItem } from '../../store/modernFlowChatStore';
 import './ScrollAnchor.scss';
 
 interface ScrollAnchorProps {
+  virtualItems: VirtualItem[];
   onAnchorNavigate: (turnId: string) => void;
   scrollerRef?: React.RefObject<HTMLElement | null>;
   dockToTimelineSidebar?: boolean;
@@ -60,12 +61,12 @@ const truncateBubbleLine = (line: string, forceEllipsis = false) => {
 
 
 export const ScrollAnchor: React.FC<ScrollAnchorProps> = ({
+  virtualItems,
   onAnchorNavigate,
   scrollerRef,
   dockToTimelineSidebar = false,
 }) => {
   const { t } = useTranslation('flow-chat');
-  const virtualItems = useVirtualItems();
   const visibleTurnInfo = useVisibleTurnInfo();
   const [hoveredAnchorId, setHoveredAnchorId] = useState<string | null>(null);
   const [isScrolling, setIsScrolling] = useState(false);

@@ -6,9 +6,11 @@ use std::sync::Arc;
 use tauri::{AppHandle, State};
 
 use crate::api::app_state::AppState;
+use crate::api::command_error::public_settings_agent_error;
 use crate::api::session_storage_path::{
     desktop_effective_session_storage_path, SessionStorageScopeDto,
 };
+use sparo_core::agentic::agents::SettingsAgent;
 use sparo_core::agentic::coordination::{
     ConversationCoordinator, DialogGuidedTurnSnapshot, DialogQueuePauseSnapshot,
     DialogQueuedTurnSnapshot, DialogScheduler, DialogSubmissionPolicy, DialogSubmitOutcome,
@@ -17,6 +19,11 @@ use sparo_core::agentic::coordination::{
 use sparo_core::agentic::core::*;
 use sparo_core::agentic::image_analysis::ImageContextData;
 use sparo_core::agentic::tools::image_context::get_image_context;
+
+fn published_settings_agent_error(error: &impl std::fmt::Display) -> String {
+    public_settings_agent_error(error).code().to_string()
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateSessionRequest {
@@ -95,6 +102,25 @@ pub struct StartDialogTurnRequest {
     pub persist_agent_type: Option<bool>,
     #[serde(default)]
     pub image_contexts: Option<Vec<ImageContextData>>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct SettingsFlowTurnContext {
+    #[serde(default)]
+    expected_revision: Option<u64>,
+    #[serde(default)]
+    dirty_setting_ids: Vec<String>,
+}
+
+fn settings_flow_turn_context(
+    metadata: Option<&serde_json::Value>,
+) -> Result<SettingsFlowTurnContext, String> {
+    let Some(context) = metadata.and_then(|value| value.get("settingsContext")) else {
+        return Ok(SettingsFlowTurnContext::default());
+    };
+    serde_json::from_value(context.clone())
+        .map_err(|error| format!("Invalid settingsContext metadata: {}", error))
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -484,7 +510,7 @@ pub async fn ensure_coordinator_session(
 #[tauri::command]
 pub async fn start_dialog_turn(
     _app: AppHandle,
-    _coordinator: State<'_, Arc<ConversationCoordinator>>,
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
     scheduler: State<'_, Arc<DialogScheduler>>,
     request: StartDialogTurnRequest,
 ) -> Result<StartDialogTurnResponse, String> {
@@ -501,6 +527,53 @@ pub async fn start_dialog_turn(
         persist_agent_type,
         image_contexts,
     } = request;
+
+    if coordinator
+        .is_active_settings_agent_session(&session_id)
+        .await
+    {
+        if agent_type != SettingsAgent::ID {
+            return Err(published_settings_agent_error(&"settings.request_invalid"));
+        }
+        if system_reminder_override.is_some()
+            || image_contexts
+                .as_ref()
+                .is_some_and(|images| !images.is_empty())
+        {
+            return Err(published_settings_agent_error(&"settings.request_invalid"));
+        }
+        if sparo_core::command::settings_agent::contains_sensitive_credential(&user_input) {
+            return Err(published_settings_agent_error(
+                &"settings.secure_input_required",
+            ));
+        }
+        let settings_context = settings_flow_turn_context(user_message_metadata.as_ref())
+            .map_err(|_| published_settings_agent_error(&"settings.request_invalid"))?;
+        if settings_context.dirty_setting_ids.len() > 4096
+            || settings_context
+                .dirty_setting_ids
+                .iter()
+                .any(|setting_id| setting_id.trim().is_empty() || setting_id.len() > 256)
+        {
+            return Err(published_settings_agent_error(&"settings.request_invalid"));
+        }
+        let handle = coordinator
+            .start_settings_agent_turn_in_session(
+                &session_id,
+                turn_id.as_deref(),
+                &user_input,
+                settings_context.expected_revision,
+                settings_context.dirty_setting_ids,
+            )
+            .await
+            .map_err(|error| published_settings_agent_error(&error))?;
+        return Ok(StartDialogTurnResponse {
+            success: true,
+            message: "Dialog turn started".to_string(),
+            status: "started".to_string(),
+            turn_id: handle.turn_id,
+        });
+    }
 
     let policy = DialogSubmissionPolicy::for_source(
         trigger_source
@@ -941,10 +1014,22 @@ pub async fn confirm_tool_execution(
     coordinator: State<'_, Arc<ConversationCoordinator>>,
     request: ConfirmToolRequest,
 ) -> Result<(), String> {
+    let is_settings_session = coordinator
+        .is_active_settings_agent_session(&request.session_id)
+        .await;
+    if is_settings_session && request.updated_input.is_some() {
+        return Err(published_settings_agent_error(&"settings.request_invalid"));
+    }
     coordinator
-        .confirm_tool(&request.tool_id, request.updated_input)
+        .confirm_tool_for_session(&request.session_id, &request.tool_id, request.updated_input)
         .await
-        .map_err(|e| format!("Confirm tool failed: {}", e))
+        .map_err(|error| {
+            if is_settings_session {
+                published_settings_agent_error(&error)
+            } else {
+                format!("Confirm tool failed: {}", error)
+            }
+        })
 }
 
 #[tauri::command]
@@ -952,14 +1037,27 @@ pub async fn reject_tool_execution(
     coordinator: State<'_, Arc<ConversationCoordinator>>,
     request: RejectToolRequest,
 ) -> Result<(), String> {
-    let reason = request
-        .reason
-        .unwrap_or_else(|| "User rejected".to_string());
+    let is_settings_session = coordinator
+        .is_active_settings_agent_session(&request.session_id)
+        .await;
+    let reason = if is_settings_session {
+        "Settings change rejected by user".to_string()
+    } else {
+        request
+            .reason
+            .unwrap_or_else(|| "User rejected".to_string())
+    };
 
     coordinator
-        .reject_tool(&request.tool_id, reason)
+        .reject_tool_for_session(&request.session_id, &request.tool_id, reason)
         .await
-        .map_err(|e| format!("Reject tool failed: {}", e))
+        .map_err(|error| {
+            if is_settings_session {
+                published_settings_agent_error(&error)
+            } else {
+                format!("Reject tool failed: {}", error)
+            }
+        })
 }
 
 #[tauri::command]
@@ -979,7 +1077,11 @@ pub async fn generate_session_title(
 
 #[tauri::command]
 pub async fn list_agents(state: State<'_, AppState>) -> Result<Vec<AgentInfoDTO>, String> {
-    let agent_infos = state.agent_registry.list_agents_info().await;
+    let agent_infos = state
+        .agent_registry
+        .list_agents_info()
+        .await
+        .map_err(|error| format!("Failed to read agent capability configuration: {error}"))?;
 
     let dtos: Vec<AgentInfoDTO> = agent_infos
         .into_iter()
@@ -1027,5 +1129,55 @@ fn system_time_to_unix_secs(time: std::time::SystemTime) -> u64 {
             warn!("Failed to convert SystemTime to unix timestamp: {}", err);
             0
         }
+    }
+}
+
+#[cfg(test)]
+mod settings_flow_tests {
+    use super::{published_settings_agent_error, settings_flow_turn_context};
+    use serde_json::json;
+
+    #[test]
+    fn settings_context_uses_only_revision_and_dirty_setting_ids() {
+        let metadata = json!({
+            "settingsContext": {
+                "expectedRevision": 8,
+                "dirtySettingIds": ["core.font.ui_size.level"]
+            },
+            "unrelated": "generic message metadata"
+        });
+        let context = settings_flow_turn_context(Some(&metadata)).expect("valid context");
+        assert_eq!(context.expected_revision, Some(8));
+        assert_eq!(
+            context.dirty_setting_ids,
+            vec!["core.font.ui_size.level".to_string()]
+        );
+    }
+
+    #[test]
+    fn settings_context_rejects_client_owned_capabilities() {
+        let metadata = json!({
+            "settingsContext": {
+                "expectedRevision": 8,
+                "dirtySettingIds": [],
+                "modelId": "untrusted-model"
+            }
+        });
+        assert!(settings_flow_turn_context(Some(&metadata)).is_err());
+    }
+
+    #[test]
+    fn settings_flow_error_boundary_never_publishes_internal_details() {
+        let published = published_settings_agent_error(
+            &"execution failed at C:\\private\\settings.json: token=secret",
+        );
+
+        assert_eq!(published, "config.operation_failed");
+        assert!(!published.contains("private"));
+        assert!(!published.contains("secret"));
+        assert_eq!(
+            published_settings_agent_error(&"settings.secure_input_required: token=secret"),
+            "settings.secure_input_required"
+        );
     }
 }

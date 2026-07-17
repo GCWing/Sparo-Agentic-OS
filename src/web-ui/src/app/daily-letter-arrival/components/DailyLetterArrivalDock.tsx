@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Mail, X } from 'lucide-react';
 import { Button, IconButton } from '@/design-system';
+import { useAIExperienceSettings } from '@/infrastructure/config/hooks';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import { createLogger } from '@/shared/utils/logger';
-import { aiExperienceConfigService } from '@/infrastructure/config/services/AIExperienceConfigService';
 import { useLastUsedWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { dailyLetterApi } from '@/app/scenes/daily-letter/dailyLetterApi';
 import { LetterPaper } from '@/app/scenes/daily-letter/LetterPaper';
@@ -25,6 +25,8 @@ function pendingReceiptCountOf(letter: { receiptCandidates: { status: string }[]
 const DailyLetterArrivalDock: React.FC = () => {
   const { t, formatDate } = useI18n('scenes/daily-letter');
   const { workspacePath } = useLastUsedWorkspace();
+  const { settings } = useAIExperienceSettings();
+  const enabled = settings?.enable_daily_letter === true;
 
   const phase = useDailyLetterArrivalStore((s) => s.phase);
   const letter = useDailyLetterArrivalStore((s) => s.letter);
@@ -37,19 +39,8 @@ const DailyLetterArrivalDock: React.FC = () => {
   const suspendAutoCollapse = useDailyLetterArrivalStore((s) => s.suspendAutoCollapse);
   const resumeAutoCollapse = useDailyLetterArrivalStore((s) => s.resumeAutoCollapse);
 
-  const [enabled, setEnabled] = useState(true);
   const [opening, setOpening] = useState(false);
   const openingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    void aiExperienceConfigService.getSettingsAsync().then((settings) => {
-      if (!cancelled) setEnabled(settings.enable_daily_letter);
-    });
-    return aiExperienceConfigService.addChangeListener((settings) => {
-      setEnabled(settings.enable_daily_letter);
-    });
-  }, []);
 
   useEffect(() => {
     if (!enabled) return undefined;

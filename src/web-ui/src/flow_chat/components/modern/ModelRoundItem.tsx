@@ -55,6 +55,7 @@ const FlowItemRenderer: React.FC<FlowItemRendererProps> = React.memo(({ item, is
     onFileViewRequest,
     onTabOpen,
     sessionId,
+    mutationsDisabled,
   } = useFlowChatStaticContext();
 
   switch (item.type) {
@@ -75,6 +76,7 @@ const FlowItemRenderer: React.FC<FlowItemRendererProps> = React.memo(({ item, is
         <div className="flowchat-flow-item" data-flow-item-id={item.id} data-flow-item-type="tool">
           <FlowToolCard
             toolItem={item as FlowToolItem}
+            mutationsDisabled={mutationsDisabled}
             onConfirm={async (toolId: string, updatedInput?: any) => {
               if (onToolConfirm) {
                 await onToolConfirm(toolId, updatedInput);
@@ -120,6 +122,8 @@ export const ModelRoundItem = React.memo<ModelRoundItemProps>(
     const copyButtonRef = useRef<HTMLButtonElement>(null);
     const { profile } = useSessionProfile();
     const showAgenticOsModelRoundUI = profile.capabilities.showAgenticOsModelRoundUI;
+    const showForkAction = profile.messageActions?.showAssistantFork !== false;
+    const showExportAction = profile.messageActions?.showAssistantExport !== false;
     
     useEffect(() => {
       if (!copied) return;
@@ -331,7 +335,7 @@ export const ModelRoundItem = React.memo<ModelRoundItemProps>(
         
         {isLastRound && hasContent && !round.isStreaming && (
           <div className="model-round-item__footer">
-            {!showAgenticOsModelRoundUI && (
+            {!showAgenticOsModelRoundUI && showForkAction && (
               <ForkSessionButton sessionId={sessionId} turnId={turnId} />
             )}
 
@@ -348,7 +352,7 @@ export const ModelRoundItem = React.memo<ModelRoundItemProps>(
               {copied ? <Check size={14} /> : <Copy size={14} />}
             </IconButton>
             
-            <ExportImageButton turnId={turnId} />
+            {showExportAction ? <ExportImageButton turnId={turnId} /> : null}
           </div>
         )}
       </div>

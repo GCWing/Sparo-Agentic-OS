@@ -52,6 +52,8 @@ pub(crate) use sparo_core::product_app_runtime_host::{
     ProductAppRuntimeHostInteractionChat as HostAdapterCoreInteractionChat,
     ProductAppRuntimeHostInteractionMode as HostAdapterCoreInteractionMode,
     ProductAppRuntimeHostInteractionTab as HostAdapterCoreInteractionTab,
+    ProductAppRuntimeHostInteractionTabSidecar as HostAdapterCoreInteractionTabSidecar,
+    ProductAppRuntimeHostInteractionText as HostAdapterCoreInteractionText,
     ProductAppRuntimeHostManager as HostAdapterCoreManager,
     ProductAppRuntimeHostNetPermissions as HostAdapterCoreNetPermissions,
     ProductAppRuntimeHostPermissions as HostAdapterCorePermissions,
@@ -223,8 +225,13 @@ pub(crate) async fn cancel_stale_ppt_runs_internal(
     scheduler: &DialogScheduler,
     workspace_path: &Path,
 ) -> Result<HostAdapterCancelStalePptRunsResponse, String> {
-    host_engine::cancel_stale_ppt_live_private_runs_internal(coordinator, scheduler, workspace_path)
-        .await
+    host_engine::cancel_stale_ppt_live_private_runs_internal(
+        coordinator,
+        scheduler,
+        workspace_path,
+        None,
+    )
+    .await
 }
 
 pub(crate) async fn ppt_turn_assistant_text(

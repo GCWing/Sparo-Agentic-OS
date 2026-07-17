@@ -16,7 +16,6 @@ const PermissionsConfig: React.FC = () => {
   const { t } = useTranslation('settings/permissions');
   const {
     isLoading,
-    settings,
     skipToolConfirmation,
     confirmationTimeout,
     executionTimeout,
@@ -45,7 +44,7 @@ const PermissionsConfig: React.FC = () => {
     tTools,
   } = useSessionSettingsConfig();
 
-  if (isLoading || !settings) {
+  if (isLoading) {
     return (
       <ConfigPageLayout className="sparo-func-agent-config">
         <ConfigPageHeader title={t('title')} description={t('subtitle')} />

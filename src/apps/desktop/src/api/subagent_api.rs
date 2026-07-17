@@ -8,7 +8,10 @@ use sparo_core::agentic::agents::{
     AgentCategory, AgentInfo, CustomSubagent, CustomSubagentConfig, CustomSubagentDetail,
     CustomSubagentKind, SubAgentSource,
 };
+use sparo_core::service::config::catalog::{SETTING_AI_AGENT_MODELS, SETTING_AI_SUBAGENT_CONFIGS};
 use sparo_core::service::config::types::SubAgentConfig;
+use sparo_core::service::config::{ConfigPatchOperation, ConfigService};
+use sparo_events::{ConfigChangeSource, ConfigChangeSourceKind};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -27,6 +30,26 @@ fn workspace_root_from_request(workspace_path: Option<&str>) -> Option<PathBuf> 
         .map(PathBuf::from)
 }
 
+async fn commit_subagent_settings(
+    config_service: &ConfigService,
+    operations: Vec<ConfigPatchOperation>,
+    surface: &'static str,
+) -> Result<(), String> {
+    config_service
+        .commit_operations(
+            ConfigChangeSource {
+                kind: ConfigChangeSourceKind::Manual,
+                surface: Some(surface.to_string()),
+                request_id: None,
+            },
+            operations,
+            true,
+        )
+        .await
+        .map(|_| ())
+        .map_err(|error| error.to_string())
+}
+
 #[tauri::command]
 pub async fn list_subagents(
     state: State<'_, AppState>,
@@ -36,7 +59,8 @@ pub async fn list_subagents(
     let list = state
         .agent_registry
         .get_subagents_info(workspace.as_deref())
-        .await;
+        .await
+        .map_err(|error| format!("Failed to read subagent configuration: {error}"))?;
 
     let result = match request.source {
         Some(source) => list
@@ -83,15 +107,17 @@ pub async fn get_agent_subagent_configs(
         .agent_registry
         .get_subagents_info(workspace.as_deref())
         .await
+        .map_err(|error| format!("Failed to read subagent configuration: {error}"))?
         .into_iter()
         .filter(|subagent| subagent.enabled)
         .collect::<Vec<_>>();
-    let effective_set: HashSet<String> = state
+    let profile = state
         .agent_registry
         .get_agent_capability_profile(&request.agent_id, workspace.as_deref())
         .await
-        .map(|profile| profile.subagents.effective.into_iter().collect())
-        .unwrap_or_default();
+        .map_err(|error| format!("Failed to read agent capability configuration: {error}"))?
+        .ok_or_else(|| format!("Agent not found: {}", request.agent_id))?;
+    let effective_set: HashSet<String> = profile.subagents.effective.into_iter().collect();
 
     Ok(subagents
         .into_iter()
@@ -116,6 +142,7 @@ pub async fn replace_agent_subagent_selection(
         .agent_registry
         .get_subagents_info(workspace.as_deref())
         .await
+        .map_err(|error| format!("Failed to read subagent configuration: {error}"))?
         .into_iter()
         .filter(|subagent| subagent.enabled)
         .collect::<Vec<_>>();
@@ -170,13 +197,6 @@ pub async fn replace_agent_subagent_selection(
     .await
     .map_err(|e| format!("Failed to update agent subagents: {}", e))?;
 
-    if let Err(e) = sparo_core::service::config::reload_global_config().await {
-        warn!(
-            "Failed to reload global config after agent subagent update: agent_id={}, error={}",
-            request.agent_id, e
-        );
-    }
-
     Ok(format!(
         "Agent {}' subagent selection updated successfully",
         request.agent_id
@@ -216,6 +236,36 @@ pub async fn delete_subagent(
 ) -> Result<(), String> {
     let subagent_id = request.subagent_id;
 
+    let config_service = &state.config_service;
+    let mut agent_models: HashMap<String, String> = config_service
+        .get_config(Some("ai.agent_models"))
+        .await
+        .map_err(|error| format!("Failed to read ai.agent_models: {error}"))?;
+    agent_models.remove(&subagent_id);
+
+    let mut subagent_configs: HashMap<String, SubAgentConfig> = config_service
+        .get_config(Some("ai.subagent_configs"))
+        .await
+        .map_err(|error| format!("Failed to read ai.subagent_configs: {error}"))?;
+    subagent_configs.remove(&subagent_id);
+
+    commit_subagent_settings(
+        config_service,
+        vec![
+            ConfigPatchOperation::Set {
+                setting_id: SETTING_AI_AGENT_MODELS.to_string(),
+                value: serde_json::to_value(agent_models).map_err(|error| error.to_string())?,
+            },
+            ConfigPatchOperation::Set {
+                setting_id: SETTING_AI_SUBAGENT_CONFIGS.to_string(),
+                value: serde_json::to_value(subagent_configs).map_err(|error| error.to_string())?,
+            },
+        ],
+        "subagent-delete",
+    )
+    .await
+    .map_err(|error| format!("Failed to clean up subagent settings: {error}"))?;
+
     let file_path = state
         .agent_registry
         .remove_subagent(&subagent_id)
@@ -225,44 +275,6 @@ pub async fn delete_subagent(
         if let Err(e) = std::fs::remove_file(path) {
             warn!("Failed to delete subagent file: path={}, error={}", path, e);
         }
-    }
-
-    let config_service = &state.config_service;
-    let mut agent_models: HashMap<String, String> = config_service
-        .get_config(Some("ai.agent_models"))
-        .await
-        .unwrap_or_default();
-    agent_models.remove(&subagent_id);
-    if let Err(e) = config_service
-        .set_config("ai.agent_models", &agent_models)
-        .await
-    {
-        warn!(
-            "Failed to clean up ai.agent_models: subagent_id={}, error={}",
-            subagent_id, e
-        );
-    }
-
-    let mut subagent_configs: HashMap<String, SubAgentConfig> = config_service
-        .get_config(Some("ai.subagent_configs"))
-        .await
-        .unwrap_or_default();
-    subagent_configs.remove(&subagent_id);
-    if let Err(e) = config_service
-        .set_config("ai.subagent_configs", &subagent_configs)
-        .await
-    {
-        warn!(
-            "Failed to clean up ai.subagent_configs: subagent_id={}, error={}",
-            subagent_id, e
-        );
-    }
-
-    if let Err(e) = sparo_core::service::config::reload_global_config().await {
-        warn!(
-            "Failed to reload global config after subagent deletion: subagent_id={}, error={}",
-            subagent_id, e
-        );
     }
 
     Ok(())
@@ -353,11 +365,16 @@ pub async fn create_subagent(
         return Err("Project-level Agent requires opening a workspace first".to_string());
     }
 
-    let modes = state.agent_registry.list_agents_info().await;
+    let modes = state
+        .agent_registry
+        .list_agents_info()
+        .await
+        .map_err(|error| format!("Failed to read agent capability configuration: {error}"))?;
     let subagents = state
         .agent_registry
         .get_subagents_info(workspace.as_deref())
-        .await;
+        .await
+        .map_err(|error| format!("Failed to read subagent configuration: {error}"))?;
     let existing: std::collections::HashSet<_> = modes
         .iter()
         .map(|m| m.id.as_str().to_lowercase())
@@ -445,7 +462,8 @@ pub async fn reload_subagents(
     state
         .agent_registry
         .load_custom_subagents(workspace_root.as_path())
-        .await;
+        .await
+        .map_err(|error| format!("Failed to reload custom subagents: {error}"))?;
     Ok(())
 }
 
@@ -486,35 +504,38 @@ pub async fn update_subagent_config(
         Ok(())
     } else {
         let config_service = &state.config_service;
+        let mut operations = Vec::new();
 
         if let Some(enabled) = request.enabled {
-            let config = SubAgentConfig { enabled };
-            let path = format!("ai.subagent_configs.{}", subagent_id);
-            let config_value = serde_json::to_value(&config)
-                .map_err(|e| format!("Failed to serialize subagent config: {}", e))?;
-            config_service
-                .set_config(&path, config_value)
+            let mut subagent_configs: HashMap<String, SubAgentConfig> = config_service
+                .get_config(Some("ai.subagent_configs"))
                 .await
-                .map_err(|e| format!("Failed to update enabled status: {}", e))?;
+                .map_err(|error| format!("Failed to read ai.subagent_configs: {error}"))?;
+            subagent_configs.insert(subagent_id.clone(), SubAgentConfig { enabled });
+            operations.push(ConfigPatchOperation::Set {
+                setting_id: SETTING_AI_SUBAGENT_CONFIGS.to_string(),
+                value: serde_json::to_value(subagent_configs)
+                    .map_err(|e| format!("Failed to serialize subagent config: {e}"))?,
+            });
         }
 
         if let Some(model) = request.model {
             let mut agent_models: HashMap<String, String> = config_service
                 .get_config(Some("ai.agent_models"))
                 .await
-                .unwrap_or_default();
+                .map_err(|error| format!("Failed to read ai.agent_models: {error}"))?;
             agent_models.insert(subagent_id.clone(), model);
-            config_service
-                .set_config("ai.agent_models", &agent_models)
-                .await
-                .map_err(|e| format!("Failed to update model configuration: {}", e))?;
+            operations.push(ConfigPatchOperation::Set {
+                setting_id: SETTING_AI_AGENT_MODELS.to_string(),
+                value: serde_json::to_value(agent_models)
+                    .map_err(|e| format!("Failed to serialize model configuration: {e}"))?,
+            });
         }
 
-        if let Err(e) = sparo_core::service::config::reload_global_config().await {
-            warn!(
-                "Failed to reload global config after subagent config update: subagent_id={}, error={}",
-                subagent_id, e
-            );
+        if !operations.is_empty() {
+            commit_subagent_settings(config_service, operations, "subagent-update")
+                .await
+                .map_err(|error| format!("Failed to update subagent settings: {error}"))?;
         }
 
         Ok(())
