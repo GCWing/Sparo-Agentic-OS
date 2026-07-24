@@ -1,18 +1,8 @@
- 
-
 export { darkTheme } from './dark-theme';
 export { lightTheme } from './light-theme';
-export { sparoChinaStyleTheme } from './china-style-theme';
-export { sparoChinaNightTheme } from './china-night-theme';
-export { sparoCyberTheme } from './cyber-theme';
-export { slateTheme } from './slate-theme';
 
 import { darkTheme } from './dark-theme';
 import { lightTheme } from './light-theme';
-import { sparoChinaStyleTheme } from './china-style-theme';
-import { sparoChinaNightTheme } from './china-night-theme';
-import { sparoCyberTheme } from './cyber-theme';
-import { slateTheme } from './slate-theme';
 import { ThemeConfig, ThemeId } from '../types';
 
 /** Default light / dark builtin themes used when following system appearance. */
@@ -35,16 +25,7 @@ export function getSystemPreferredDefaultThemeId(): ThemeId {
 /** Static fallback when system preference is unavailable (e.g. SSR). */
 export const DEFAULT_THEME_ID: ThemeId = DEFAULT_LIGHT_THEME_ID;
 
- 
 export const builtinThemes: ThemeConfig[] = [
   lightTheme,
-  slateTheme,
   darkTheme,
-  sparoChinaStyleTheme,
-  sparoChinaNightTheme,
-  sparoCyberTheme,
 ];
-
- 
-
-

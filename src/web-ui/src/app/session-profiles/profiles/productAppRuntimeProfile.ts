@@ -8,8 +8,6 @@ import type {
   TabAutoOpenDescriptor,
 } from '../types';
 
-const RUNTIME_EXCLUSIVE_TAB_TYPES = ['product-app-runtime'] as const;
-
 function getRuntimeBinding(extra?: Record<string, unknown>): ProductAppRuntimeSessionMetadata | null {
   const binding = extra?.productAppRuntime;
   if (!binding || typeof binding !== 'object') return null;
@@ -102,19 +100,12 @@ function createProductAppRuntimeProfile(
   return {
     id,
 
-    layout: {
-      showChat: true,
-      defaultAuxPane: 'visible',
-      chatCollapsible: true,
-    },
-
-    auxTabs: {
-      autoOpen(sessionId, extra) {
+    auxiliarySurface: {
+      defaultVisibility: 'visible',
+      initialize(sessionId, extra) {
         const binding = getRuntimeBinding(extra);
         return binding ? buildDefaultRuntimeTabDescriptors(sessionId, binding) : null;
       },
-
-      exclusiveTabTypes: RUNTIME_EXCLUSIVE_TAB_TYPES,
     },
 
     sidecarActions(sessionId, extra) {

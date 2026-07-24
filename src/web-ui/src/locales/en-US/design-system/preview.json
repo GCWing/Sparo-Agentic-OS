@@ -1,0 +1,188 @@
+{
+  "documentTitle": "Sparo OS Design System Preview",
+  "header": {
+    "designSystem": "Design system",
+    "previewTheme": "Preview theme",
+    "previewLanguage": "Language"
+  },
+  "themes": {
+    "lightDescription": "Light preview theme",
+    "darkDescription": "Dark preview theme",
+    "light": {
+      "name": "Light",
+      "description": "Clean light preview theme"
+    },
+    "slate": {
+      "name": "Slate",
+      "description": "Soft slate dark preview theme"
+    },
+    "dark": {
+      "name": "Dark",
+      "description": "High-contrast dark preview theme"
+    },
+    "sparo-china-style": {
+      "name": "Ink Charm",
+      "description": "Light theme inspired by Chinese ink"
+    },
+    "sparo-china-night": {
+      "name": "Ink Night",
+      "description": "Dark theme inspired by Chinese ink"
+    },
+    "sparo-cyber": {
+      "name": "Cyber",
+      "description": "High-energy cyber dark preview theme"
+    }
+  },
+  "sidebar": {
+    "library": "Library",
+    "expandNavigation": "Expand navigation",
+    "collapseNavigation": "Collapse navigation",
+    "searchPlaceholder": "Search components",
+    "searchAriaLabel": "Search design system components",
+    "navigationAriaLabel": "Design system library",
+    "categoryExamplesAriaLabel": "{{category}} components",
+    "shown": "{{count}} shown",
+    "searchShortcut": "Press / to search"
+  },
+  "empty": {
+    "noMatches": "No matches",
+    "searchSuggestion": "Try a component name or ID.",
+    "noPreview": "No preview found",
+    "previewSuggestion": "Try another component name or clear the search."
+  },
+  "focused": {
+    "tiers": {
+      "primitive": "Primitive",
+      "pattern": "Pattern",
+      "recipe": "Recipe"
+    },
+    "examplesAriaLabel": "Preview examples",
+    "previous": "Previous: {{name}}",
+    "next": "Next: {{name}}",
+    "usage": "Usage",
+    "usageGuidance": "Usage guidance",
+    "closeUsage": "Close usage guidance"
+  },
+  "guide": {
+    "recipe": "Recipe",
+    "useWhen": "Use when",
+    "composeWith": "Compose with",
+    "avoid": "Avoid",
+    "states": "States",
+    "notes": "{{count}} notes"
+  },
+  "catalog": {
+    "categories": {
+      "ds-primitives": {
+        "name": "Primitives",
+        "description": "Stable low-level controls. Use them inside patterns, not as feature-local UI frameworks."
+      },
+      "ds-patterns": {
+        "name": "Patterns",
+        "description": "Page and workflow structures that AI agents should prefer before reaching for primitives."
+      },
+      "ds-ai-entry": {
+        "name": "AI Entry Rules",
+        "description": "Start here before composing any product UI with the design system."
+      }
+    },
+    "examples": {
+      "ds-sparo-logo-mark": {
+        "name": "Sparo logo mark",
+        "description": "Vector brand mark with configurable size, stroke width, and currentColor inheritance."
+      },
+      "ds-sparo-system-icons": {
+        "name": "Sparo semantic icon families",
+        "description": "First-party system, work-type, navigation, search/filter, file-transfer, and edit/manage icons."
+      },
+      "ds-button-semantics": {
+        "name": "Button command semantics",
+        "description": "Variant, size, loading, disabled, and icon-only command rules."
+      },
+      "ds-floating-card": {
+        "name": "Floating card",
+        "description": "Large-radius non-modal surface with a pronounced two-stage elevation shadow and a standard dismiss command."
+      },
+      "ds-popup-menu": {
+        "name": "Popup menu",
+        "description": "Anchored menu baseline with the shared floating shadow and an intermediate corner radius."
+      },
+      "ds-form-controls": {
+        "name": "Form controls",
+        "description": "Text, select, switch, and checkbox primitives in realistic settings copy."
+      },
+      "ds-feedback": {
+        "name": "Feedback primitives",
+        "description": "Status badges and empty states for desktop workflow surfaces."
+      },
+      "ds-search-and-filters": {
+        "name": "Search affordances",
+        "description": "Search iconography and filter commands for compact desktop surfaces."
+      },
+      "ds-dialog-tabs-alerts": {
+        "name": "Dialogs, tabs, and alerts",
+        "description": "Keyboard-focused primitives with explicit roles, labels, and recovery states."
+      },
+      "ds-input-variants": {
+        "name": "Input variants",
+        "description": "Textarea, search, and number field states with labelled controls and descriptions."
+      },
+      "ds-segmented-pagination": {
+        "name": "Segmented control and pagination",
+        "description": "Navigation controls with selected, disabled, focused, narrow, and long-label states."
+      },
+      "ds-loading-status": {
+        "name": "Loading and status primitives",
+        "description": "Stable loading placeholders plus text-backed state indicators."
+      },
+      "ds-app-window": {
+        "name": "Application window",
+        "description": "Non-modal in-app popup window for substantial content without a backdrop."
+      },
+      "ds-scene-panel": {
+        "name": "Scene + Panel",
+        "description": "Default desktop scene composition with command grouping and bounded work areas."
+      },
+      "ds-list-detail": {
+        "name": "List detail workflow",
+        "description": "Selectable master list plus a focused detail or inspector surface."
+      },
+      "ds-settings-page": {
+        "name": "Settings page",
+        "description": "Standard configuration layout for settings, preferences, and provider setup."
+      },
+      "ds-item-card": {
+        "name": "Item cards",
+        "description": "Reusable card shell for tasks, apps, and other actionable catalog entries."
+      },
+      "ds-tool-card": {
+        "name": "Production tool cards",
+        "description": "Actual compact and expandable flow-chat cards used by registered Read and Bash tools."
+      },
+      "ds-navigation-empty-status": {
+        "name": "Navigation, empty, and status",
+        "description": "Supporting patterns for workspace navigation and resilient empty states."
+      },
+      "ds-action-list-row": {
+        "name": "Action list rows",
+        "description": "Reusable rows for selection, metadata, status, actions, loading, and errors."
+      },
+      "recipe-agent-session-workbench": {
+        "name": "Agent session workbench",
+        "description": "Real product scene for session triage, task continuation, and live agent activity."
+      },
+      "recipe-workspace-file-operations": {
+        "name": "Workspace file operations",
+        "description": "Compact navigation plus detail shell for file, diff, and workspace browsing tasks."
+      },
+      "recipe-model-settings": {
+        "name": "Model and permission settings",
+        "description": "Settings recipe for model defaults, workspace policies, and validation states."
+      },
+      "recipe-tool-execution": {
+        "name": "Tool execution cards",
+        "description": "Flow-chat execution shell for running, completed, and failed tool output."
+      }
+    }
+  }
+}

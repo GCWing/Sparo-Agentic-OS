@@ -18,6 +18,7 @@ import WorkspaceFooterActions from '../components/WorkspaceFooterActions/Workspa
 import { useWorkspaceSurfaceStore } from '../navigation/workspaceSurfaceStore';
 import { useProductAppRuntimeCatalogSync } from '../scenes/apps/product-app-runtime/useProductAppRuntimeCatalogSync';
 import { SessionProfileProvider } from '../session-profiles';
+import { AuxiliarySurfaceCoordinator } from '../auxiliary-surface';
 import './WorkspaceBody.scss';
 
 interface WorkspaceBodyProps {
@@ -50,6 +51,7 @@ const WorkspaceBody: React.FC<WorkspaceBodyProps> = ({
 
   return (
     <SessionProfileProvider>
+    <AuxiliarySurfaceCoordinator />
     <div
       className={`sparo-workspace-body${isEntering ? ' is-entering' : ''}${isExiting ? ' is-exiting' : ''} ${className}`}
     >

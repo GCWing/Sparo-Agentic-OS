@@ -15,6 +15,11 @@ import {
 import { PanelContent, TabData } from '@/app/components/panels/base/types';
 import type { LineRange } from '@/shared/markdown';
 import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
+import { appManager } from '@/app/services/AppManager';
+import {
+  toggleActiveAuxiliarySurface,
+  useAuxiliarySurfaceStore,
+} from '@/app/auxiliary-surface';
 
 const panelController = new PanelController();
 
@@ -131,17 +136,23 @@ export const ideControl = {
 
      
     toggleSidebar: async (side: 'left' | 'right'): Promise<void> => {
-      const eventName = side === 'left' ? 'toggle-left-panel' : 'toggle-right-panel';
-      window.dispatchEvent(new CustomEvent(eventName));
+      if (side === 'right') {
+        toggleActiveAuxiliarySurface();
+        return;
+      }
+      const layout = appManager.getState().layout;
+      appManager.updateLayout({ leftPanelCollapsed: !layout.leftPanelCollapsed });
     },
 
      
     resizePanel: async (panel: string, size: number): Promise<void> => {
-      window.dispatchEvent(
-        new CustomEvent('ide-resize-panel', {
-          detail: { panel, size },
-        })
-      );
+      if (panel === 'right' || panel === 'auxiliary') {
+        useAuxiliarySurfaceStore.getState().setWidth(size);
+        return;
+      }
+      if (panel === 'left') {
+        appManager.updateLayout({ leftPanelWidth: size });
+      }
     },
   },
 
@@ -155,7 +166,6 @@ export const ideControl = {
         title: content.title,
         data: content.data,
         metadata: content.metadata,
-        checkDuplicate: options?.checkDuplicate,
         duplicateCheckKey: options?.duplicateCheckKey,
         replaceExisting: options?.replaceExisting,
         mode: options?.mode || 'agent',

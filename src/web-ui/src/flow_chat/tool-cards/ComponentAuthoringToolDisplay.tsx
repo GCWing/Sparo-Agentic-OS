@@ -22,6 +22,7 @@ import { deriveToolRuntimeState } from '../runtime/statusModel';
 import { getToolViewState } from '../runtime/toolViewState';
 import { appScopeIdentity } from '@/shared/types/app-scope';
 import { resolveToolSessionAppScope } from './appBuilderToolScope';
+import { openActiveAuxiliaryItem } from '@/app/auxiliary-surface';
 import './ComponentAuthoringToolDisplay.scss';
 
 const EMPTY_TOOL_RESULT: Record<string, unknown> = {};
@@ -504,9 +505,7 @@ export const ComponentAuthoringToolDisplay: React.FC<ToolCardProps> = ({ toolIte
   const handleOpenBuilderPanel = useCallback(() => {
     if (!resolvedComponentId || !resolvedComponentKind) return;
     const duplicateCheckKey = `app-builder:component:${sessionId ?? `${resolvedComponentId}:${appScopeIdentity(appScope)}`}`;
-    window.dispatchEvent(new CustomEvent('expand-right-panel'));
-    window.dispatchEvent(new CustomEvent('agent-create-tab', {
-      detail: {
+    openActiveAuxiliaryItem({
         type: 'app-builder',
         title: t('toolCards.componentAuthoring.previewPanelTitle', { defaultValue: 'App Builder' }),
         data: {
@@ -530,11 +529,9 @@ export const ComponentAuthoringToolDisplay: React.FC<ToolCardProps> = ({ toolIte
           appScope,
           duplicateCheckKey,
         },
-        checkDuplicate: true,
         duplicateCheckKey,
         replaceExisting: true,
-      },
-    }));
+    });
     // Notify any mounted App Builder workbench to refresh its component facts.
     window.dispatchEvent(new CustomEvent('component-updated', {
       detail: { componentId: resolvedComponentId, componentKind: resolvedComponentKind, scope: appScope },

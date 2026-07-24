@@ -85,6 +85,7 @@ const WorkDock: React.FC = () => {
   const [expanded, setExpanded] = useState<boolean>(readExpandedFromStorage);
   const [pinned, setPinned] = useState<boolean>(readPinnedFromStorage);
   const [surfaceExpanded, setSurfaceExpanded] = useState(false);
+  const [hoverExpanded, setHoverExpanded] = useState(false);
   const [listFilterQuery, setListFilterQuery] = useState('');
   const [selectedListResultIndex, setSelectedListResultIndex] = useState(0);
   const [listResultCount, setListResultCount] = useState(0);
@@ -130,6 +131,7 @@ const WorkDock: React.FC = () => {
   }, []);
 
   const openWorkDock = useCallback(() => {
+    setHoverExpanded(false);
     if (activeSurface.kind === 'scene') {
       setSurfaceExpanded(true);
       return;
@@ -139,6 +141,7 @@ const WorkDock: React.FC = () => {
   }, [activeSurface.kind]);
 
   const closeWorkDock = useCallback(() => {
+    setHoverExpanded(false);
     if (activeSurface.kind === 'scene') {
       setSurfaceExpanded(false);
       return;
@@ -148,6 +151,7 @@ const WorkDock: React.FC = () => {
   }, [activeSurface.kind]);
 
   const toggleWorkDock = useCallback(() => {
+    setHoverExpanded(false);
     if (activeSurface.kind === 'scene') {
       setSurfaceExpanded((value) => !value);
       return;
@@ -174,6 +178,10 @@ const WorkDock: React.FC = () => {
   useEffect(() => {
     if (!surfaceExpanded) setListFilterQuery('');
   }, [surfaceExpanded]);
+
+  useEffect(() => {
+    if (!hoverExpanded) setListFilterQuery('');
+  }, [hoverExpanded]);
 
   useEffect(() => {
     setSelectedListResultIndex(0);
@@ -204,7 +212,7 @@ const WorkDock: React.FC = () => {
   const isSessionSurface = activeSurface.kind === 'agentic-os-home' || activeSurface.kind === 'session';
   const suppressInWorkCenter = activeSurface.kind === 'scene' && activeSurface.sceneId === 'work-center';
   const showExpandedPanel = !suppressInWorkCenter && (
-    isSessionSurface ? (expanded || newWorkDialogOpen) : surfaceExpanded
+    hoverExpanded || (isSessionSurface ? (expanded || newWorkDialogOpen) : surfaceExpanded)
   );
   const liftAboveSurface = activeSurface.kind === 'scene';
   const showCollapsedDock = isSessionSurface && !suppressInWorkCenter;
@@ -276,6 +284,9 @@ const WorkDock: React.FC = () => {
       aria-label={t('nav.workDock.label')}
       data-testid="work-dock"
       data-sparo-ignore-work-dock-outside
+      onMouseEnter={showRunningCollapsedDock ? () => setHoverExpanded(true) : undefined}
+      onMouseLeave={hoverExpanded ? () => setHoverExpanded(false) : undefined}
+      onFocus={showRunningCollapsedDock ? openWorkDock : undefined}
     >
       {showExpandedPanel ? (
         <>

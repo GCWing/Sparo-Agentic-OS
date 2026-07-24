@@ -125,7 +125,6 @@ export const ChildSessionPanel: React.FC<ChildSessionPanelProps> = ({
       title: tabInfo.title || 'New Tab',
       data: tabInfo.data,
       metadata: tabInfo.metadata,
-      checkDuplicate: !!tabInfo.metadata?.duplicateCheckKey,
       duplicateCheckKey: tabInfo.metadata?.duplicateCheckKey,
       replaceExisting: false,
       mode: 'agent',

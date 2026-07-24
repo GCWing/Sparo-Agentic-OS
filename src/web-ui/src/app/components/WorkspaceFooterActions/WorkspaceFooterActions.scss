@@ -353,7 +353,7 @@
 
   &:hover,
   &:focus-within {
-    background: var(--ds-color-element-soft, var(--element-bg-soft));
+    background: var(--ds-color-element-medium, var(--element-bg-medium));
   }
 
   &.is-selected,
@@ -536,6 +536,10 @@
     background: var(--ds-color-element-soft);
     border-color: transparent;
     transform: none;
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--ds-color-element-medium, var(--element-bg-medium));
   }
 
 }

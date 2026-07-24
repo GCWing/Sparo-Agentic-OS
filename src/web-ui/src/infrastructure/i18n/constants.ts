@@ -3,6 +3,7 @@ export const LOCALE_IDS = ['zh-CN', 'en-US'] as const;
 export const I18N_NAMESPACES = [
   'common',
   'components',
+  'design-system/preview',
   'errors',
   'flow-chat',
   'flow-chat/chat-input',

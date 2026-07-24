@@ -10,7 +10,7 @@
  * - The only local interaction guard is `interruptRequested`, used to prevent
  *   duplicate cancel clicks before the backend status catches up
  * - Live terminal output is rendered from store-managed progress logs
- * - Clicking "Open Terminal in right panel" opens the full Terminal tab
+ * - Clicking "Open Terminal" opens the full terminal in the auxiliary surface
  */
 
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';

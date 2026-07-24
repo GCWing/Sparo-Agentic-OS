@@ -12,6 +12,7 @@ import {
 import { deriveToolRuntimeState } from '../runtime/statusModel';
 import { getToolViewState } from '../runtime/toolViewState';
 import { resolveToolSessionAppScope } from './appBuilderToolScope';
+import { openActiveAuxiliaryItem } from '@/app/auxiliary-surface';
 import './CreateProductAppToolDisplay.scss';
 
 export const CreateProductAppDisplay: React.FC<ToolCardProps> = ({ toolItem, sessionId }) => {
@@ -46,8 +47,7 @@ export const CreateProductAppDisplay: React.FC<ToolCardProps> = ({ toolItem, ses
     if (!canOpenBuilder || !appId) return;
 
     const duplicateCheckKey = `app-builder:${sessionId ?? `${appId}:${appScopeIdentity(appScope)}`}`;
-    window.dispatchEvent(new CustomEvent('agent-create-tab', {
-      detail: {
+    openActiveAuxiliaryItem({
         type: 'app-builder',
         title: t('toolCards.appBuilder.builderTitle'),
         data: {
@@ -78,11 +78,9 @@ export const CreateProductAppDisplay: React.FC<ToolCardProps> = ({ toolItem, ses
             packagePath: path,
           },
         },
-        checkDuplicate: true,
         duplicateCheckKey,
         replaceExisting: true,
-      },
-    }));
+    });
   }, [appId, appScope, canOpenBuilder, componentLockDigest, launchKind, path, primarySurfaceId, primarySurfaceMode, sessionId, t, version]);
 
   const getErrorMessage = () => {

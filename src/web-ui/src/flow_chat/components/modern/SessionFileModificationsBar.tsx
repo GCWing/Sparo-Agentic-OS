@@ -245,25 +245,21 @@ export const SessionFileModificationsBar: React.FC<SessionFileModificationsBarPr
       }
       const fileName = filePath.split(/[/\\]/).pop() || filePath;
 
-      window.dispatchEvent(new CustomEvent('expand-right-panel'));
-
-      setTimeout(() => {
-        createDiffEditorTab(
-          filePath,
-          fileName,
-          diffData.originalContent || '',
-          diffData.modifiedContent || '',
-          false,
-          'agent',
-          lastUsedWorkspace?.rootPath,
-          undefined,
-          false,
-          {
-            titleKind: 'diff',
-            duplicateKeyPrefix: 'diff'
-          }
-        );
-      }, 250);
+      createDiffEditorTab(
+        filePath,
+        fileName,
+        diffData.originalContent || '',
+        diffData.modifiedContent || '',
+        false,
+        'agent',
+        lastUsedWorkspace?.rootPath,
+        undefined,
+        false,
+        {
+          titleKind: 'diff',
+          duplicateKeyPrefix: 'diff'
+        }
+      );
     } catch (error) {
       log.error('Failed to open diff', error);
     }

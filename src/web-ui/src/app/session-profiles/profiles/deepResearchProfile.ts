@@ -3,13 +3,9 @@ import type { SessionProfile } from '../types';
 export const deepResearchProfile: SessionProfile = {
   id: 'deep-research',
 
-  layout: {
-    showChat: true,
-    defaultAuxPane: 'collapsed',
-    chatCollapsible: true,
+  auxiliarySurface: {
+    defaultVisibility: 'collapsed',
   },
-
-  auxTabs: {},
 
   capabilities: {
     showWelcomePanel: true,

@@ -71,17 +71,11 @@ function buildPanel(sessionId: string, extra?: Record<string, unknown>) {
 export const appBuilderProfile: SessionProfile = {
   id: 'app-builder',
 
-  layout: {
-    showChat: true,
-    defaultAuxPane: 'visible',
-    chatCollapsible: true,
-  },
-
-  auxTabs: {
-    autoOpen(sessionId, extra) {
+  auxiliarySurface: {
+    defaultVisibility: 'visible',
+    initialize(sessionId, extra) {
       return buildPanel(sessionId, extra);
     },
-    exclusiveTabTypes: ['app-builder'],
   },
 
   sidecarActions(sessionId, extra) {

@@ -1,6 +1,6 @@
 /**
  * ContentCanvas main container component.
- * Core component for the right panel, aggregating submodules.
+ * Core canvas used by auxiliary and standalone workbench surfaces.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
@@ -8,7 +8,7 @@ import { EditorArea } from './editor-area';
 import { AnchorZone } from './anchor-zone';
 import { EmptyState } from './empty-state';
 import { useCanvasStore } from './stores';
-import { useTabLifecycle, useKeyboardShortcuts, usePanelTabCoordinator } from './hooks';
+import { useTabLifecycle, useKeyboardShortcuts } from './hooks';
 import type { AnchorPosition } from './types';
 import { openMainSession, selectActiveChildSessionTab } from '@/flow_chat/services/childSessionPanels';
 import './ContentCanvas.scss';
@@ -25,6 +25,8 @@ export interface ContentCanvasProps {
   onBeforeClose?: (content: any) => Promise<boolean>;
   /** Disable pop-out and panel-close controls (used in panel-view scene) */
   disablePopOut?: boolean;
+  /** Request that the owning host hide this canvas. */
+  onRequestClose?: () => void;
 }
 
 export const ContentCanvas: React.FC<ContentCanvasProps> = ({
@@ -33,6 +35,7 @@ export const ContentCanvas: React.FC<ContentCanvasProps> = ({
   isSceneActive = true,
   onInteraction,
   disablePopOut = false,
+  onRequestClose,
 }) => {
   // Store state
   const {
@@ -49,12 +52,6 @@ export const ContentCanvas: React.FC<ContentCanvasProps> = ({
   // Initialize hooks
   const { handleCloseWithDirtyCheck, handleCloseAllWithDirtyCheck } = useTabLifecycle({ mode });
   useKeyboardShortcuts({ enabled: true, handleCloseWithDirtyCheck });
-  // Panel/tab state coordinator (auto manage expand/collapse)
-  const { collapsePanel } = usePanelTabCoordinator({
-    autoCollapseOnEmpty: true,
-    autoExpandOnTabOpen: true,
-  });
-
   useEffect(() => {
     if (mode !== 'agent' || !activeChildSessionTab?.id || !activeChildSessionData?.parentSessionId) {
       lastSyncedChildSessionTabIdRef.current = null;
@@ -94,7 +91,7 @@ export const ContentCanvas: React.FC<ContentCanvasProps> = ({
   const renderContent = () => {
     // Show empty state when primary group has no visible tabs
     if (!hasPrimaryVisibleTabs) {
-      return <EmptyState onClose={disablePopOut ? undefined : collapsePanel} />;
+      return <EmptyState onClose={disablePopOut ? undefined : onRequestClose} />;
     }
 
     return (

@@ -9,6 +9,10 @@ import {
   type WorkspaceSurface,
 } from './workspaceSurfaceTypes';
 import { systemRuntimeScope } from '@/shared/types/runtime-scope';
+import {
+  forgetSessionAuxiliarySurfaces,
+  synchronizeAuxiliarySurface,
+} from '@/app/auxiliary-surface/navigationSync';
 
 export const WORKSPACE_SCENE_HISTORY_LIMIT = 5;
 
@@ -129,6 +133,7 @@ export const useWorkspaceSurfaceStore = create<WorkspaceSurfaceState>((set, get)
         : state.currentOsSessionId;
 
     if (isSameWorkspaceSurface(current, surface)) {
+      synchronizeAuxiliarySurface(surface, nextCurrentOsSessionId);
       set({
         sceneHistory: surface.kind === 'agentic-os-home' ? [] : state.sceneHistory,
         surfaceContext: nextSurfaceContext,
@@ -145,6 +150,7 @@ export const useWorkspaceSurfaceStore = create<WorkspaceSurfaceState>((set, get)
         : shouldCaptureCurrentScene(current, surface, historyMode)
           ? pushSceneHistory(state.sceneHistory, current, state.surfaceContext)
           : state.sceneHistory;
+    synchronizeAuxiliarySurface(surface, nextCurrentOsSessionId);
     set({
       activeSurface: surface,
       previousSurface: current,
@@ -170,6 +176,7 @@ export const useWorkspaceSurfaceStore = create<WorkspaceSurfaceState>((set, get)
     if (!entry) return false;
 
     const nextHistory = state.sceneHistory.filter((_, i) => i !== index);
+    synchronizeAuxiliarySurface(entry.surface, state.currentOsSessionId);
     set({
       activeSurface: entry.surface,
       previousSurface: state.activeSurface,
@@ -192,6 +199,7 @@ export const useWorkspaceSurfaceStore = create<WorkspaceSurfaceState>((set, get)
   forgetSessions: (sessionIds) => {
     if (sessionIds.length === 0) return;
     const removedSessionIds = new Set(sessionIds);
+    forgetSessionAuxiliarySurfaces(sessionIds);
 
     set((state) => {
       const activeSurface =
@@ -215,6 +223,8 @@ export const useWorkspaceSurfaceStore = create<WorkspaceSurfaceState>((set, get)
         currentOsSessionId: nextCurrentOsSessionId,
       };
     });
+    const next = get();
+    synchronizeAuxiliarySurface(next.activeSurface, next.currentOsSessionId);
     syncSceneNav(get().activeSurface);
   },
 

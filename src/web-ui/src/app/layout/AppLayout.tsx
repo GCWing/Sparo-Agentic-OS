@@ -60,7 +60,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
   const { handleMinimize, handleMaximize, handleClose, isMaximized } =
     useWindowControls();
 
-  const { state, switchLeftPanelTab, toggleLeftPanel, toggleRightPanel } = useApp();
+  const { state, switchLeftPanelTab, toggleLeftPanel } = useApp();
 
   // ── Load user keybinding overrides from config on startup ────────────────
   useEffect(() => {
@@ -384,14 +384,11 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
     const handleSwitchToFilesPanel = () => {
       switchLeftPanelTab('files');
       if (state.layout.leftPanelCollapsed) toggleLeftPanel();
-      if (state.layout.rightPanelCollapsed) {
-        setTimeout(() => toggleRightPanel(), 100);
-      }
     };
 
     window.addEventListener('switch-to-files-panel', handleSwitchToFilesPanel);
     return () => window.removeEventListener('switch-to-files-panel', handleSwitchToFilesPanel);
-  }, [state.layout.leftPanelCollapsed, state.layout.rightPanelCollapsed, switchLeftPanelTab, toggleLeftPanel, toggleRightPanel]);
+  }, [state.layout.leftPanelCollapsed, switchLeftPanelTab, toggleLeftPanel]);
 
   // Global drag-and-drop
   React.useEffect(() => {

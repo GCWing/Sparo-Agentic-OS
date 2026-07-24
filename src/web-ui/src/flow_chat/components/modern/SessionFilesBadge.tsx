@@ -302,26 +302,21 @@ export const SessionFilesBadge: React.FC<SessionFilesBadgeProps> = ({
       }
       const fileName = filePath.split(/[/\\]/).pop() || filePath;
 
-      // Expand the right panel.
-      window.dispatchEvent(new CustomEvent('expand-right-panel'));
-
-      setTimeout(() => {
-        createDiffEditorTab(
-          filePath,
-          fileName,
-          diffData.originalContent || '',
-          diffData.modifiedContent || '',
-          false,
-          'agent',
-          lastUsedWorkspace?.rootPath,
-          undefined,
-          false,
-          {
-            titleKind: 'diff',
-            duplicateKeyPrefix: 'diff'
-          }
-        );
-      }, 250);
+      createDiffEditorTab(
+        filePath,
+        fileName,
+        diffData.originalContent || '',
+        diffData.modifiedContent || '',
+        false,
+        'agent',
+        lastUsedWorkspace?.rootPath,
+        undefined,
+        false,
+        {
+          titleKind: 'diff',
+          duplicateKeyPrefix: 'diff'
+        }
+      );
 
       setIsExpanded(false);
     } catch (error) {

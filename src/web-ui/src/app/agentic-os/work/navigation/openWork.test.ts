@@ -9,6 +9,7 @@ import {
   cancelPendingSessionNavigation,
   commitPendingSessionNavigation,
 } from '@/app/navigation/navigationController';
+import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
 
 const navigationMock = vi.hoisted(() => ({
   epoch: 0,
@@ -100,6 +101,7 @@ describe('openWork navigation', () => {
   beforeEach(() => {
     resetWorkDockStore();
     navigationMock.epoch = 0;
+    useWorkspaceSurfaceStore.setState({ surfaceContext: null });
     vi.mocked(openWorkspaceScene).mockClear();
     vi.mocked(openMainSession).mockReset().mockResolvedValue('opened');
     vi.mocked(openProductAppRuntimeForWorkSurface).mockReset().mockResolvedValue(undefined);
@@ -201,6 +203,18 @@ describe('openWork navigation', () => {
     release();
     await Promise.all([first, second]);
     expect(cancelPendingSessionNavigation).toHaveBeenCalledWith(1);
+  });
+
+  it('does not reopen a Work that already owns the active surface', async () => {
+    useWorkspaceSurfaceStore.setState({
+      surfaceContext: { kind: 'work', workId: 'work-active' },
+    });
+
+    await openWork(appWork('work-active', [applicationSurface]));
+
+    expect(navigationMock.prepareProductAppWork).not.toHaveBeenCalled();
+    expect(openProductAppRuntimeForWorkSurface).not.toHaveBeenCalled();
+    expect(commitPendingSessionNavigation).not.toHaveBeenCalled();
   });
 
   it('invalidates an older Work preparation when a newer Work is selected', async () => {

@@ -4,13 +4,9 @@ import type { SessionProfile } from '../types';
 export const runnoProfile: SessionProfile = {
   id: 'runno',
 
-  layout: {
-    showChat: true,
-    defaultAuxPane: 'collapsed',
-    chatCollapsible: true,
+  auxiliarySurface: {
+    defaultVisibility: 'collapsed',
   },
-
-  auxTabs: {},
 
   composer: {
     visibility: {

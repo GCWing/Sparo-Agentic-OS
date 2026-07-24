@@ -11,16 +11,9 @@ import {
   AgentConfig,
   ChatSession,
   ChatMessage,
-  TabInfo,
   DEFAULT_LAYOUT_STATE,
   DEFAULT_AGENTS
 } from '../types';
-import {
-  loadPanelWidth,
-  savePanelWidth,
-  STORAGE_KEYS,
-  RIGHT_PANEL_CONFIG,
-} from '../layout/panelConfig';
 import { globalEventBus } from '../../infrastructure/event-bus';
 import { createLogger } from '@/shared/utils/logger';
 import { i18nService } from '@/infrastructure/i18n';
@@ -32,21 +25,13 @@ export class AppManager implements IAppManager {
   private listeners = new Set<(event: AppEvent) => void>();
 
   constructor() {
-    // Clear legacy panel state data (run once)
-    this.clearPersistedPanelState();
-    
     // Initialize state
-    const restoredRightWidth = loadPanelWidth(
-      STORAGE_KEYS.RIGHT_PANEL_LAST_WIDTH,
-      DEFAULT_LAYOUT_STATE.rightPanelWidth
-    );
     this.state = {
       layout: { 
         ...DEFAULT_LAYOUT_STATE,
         leftPanelWidth: typeof window !== 'undefined' && window.innerWidth > 0 
           ? Math.min(300, Math.floor(window.innerWidth * 0.15)) // Left 15%, max 300px
           : 280,
-        rightPanelWidth: restoredRightWidth,
       },
       currentAgent: DEFAULT_AGENTS[0],
       availableAgents: [...DEFAULT_AGENTS],
@@ -72,31 +57,7 @@ export class AppManager implements IAppManager {
   }
 
   updateLayout(layout: Partial<LayoutState>): void {
-    const prev = this.state.layout;
-    let newLayout = { ...prev, ...layout };
-
-    if (layout.rightPanelCollapsed === true && !prev.rightPanelCollapsed) {
-      savePanelWidth(STORAGE_KEYS.RIGHT_PANEL_LAST_WIDTH, prev.rightPanelWidth);
-    }
-    if (layout.rightPanelCollapsed === false && prev.rightPanelCollapsed) {
-      const w = newLayout.rightPanelWidth;
-      if (w < RIGHT_PANEL_CONFIG.COMPACT_WIDTH) {
-        newLayout = {
-          ...newLayout,
-          rightPanelWidth: loadPanelWidth(
-            STORAGE_KEYS.RIGHT_PANEL_LAST_WIDTH,
-            RIGHT_PANEL_CONFIG.COMFORTABLE_DEFAULT
-          ),
-        };
-      }
-    }
-    if (
-      typeof layout.rightPanelWidth === 'number' &&
-      !newLayout.rightPanelCollapsed
-    ) {
-      savePanelWidth(STORAGE_KEYS.RIGHT_PANEL_LAST_WIDTH, layout.rightPanelWidth);
-    }
-
+    const newLayout = { ...this.state.layout, ...layout };
     this.state = { ...this.state, layout: newLayout };
     this.notifyStateChange();
     
@@ -285,72 +246,6 @@ export class AppManager implements IAppManager {
     this.updateState({ extensions: updatedExtensions });
   }
 
-  // Tab management
-  openTab(tab: Omit<TabInfo, 'id'>): string {
-    const tabId = `tab_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const newTab: TabInfo = { ...tab, id: tabId };
-
-    const updatedTabs = [...this.state.layout.rightPanelTabs, newTab];
-    const newLayout = { 
-      ...this.state.layout, 
-      rightPanelTabs: updatedTabs,
-      rightPanelActiveTabId: tabId,
-      rightPanelCollapsed: false // Auto-expand right panel
-    };
-
-    this.updateState({ layout: newLayout });
-
-    this.emitEvent({
-      type: 'tab:opened',
-      payload: newTab
-    });
-
-    return tabId;
-  }
-
-  closeTab(tabId: string): void {
-    const updatedTabs = this.state.layout.rightPanelTabs.filter(t => t.id !== tabId);
-    
-    let newActiveTabId = this.state.layout.rightPanelActiveTabId;
-    if (newActiveTabId === tabId) {
-      newActiveTabId = updatedTabs.length > 0 ? updatedTabs[updatedTabs.length - 1].id : null;
-    }
-
-    const newLayout = { 
-      ...this.state.layout, 
-      rightPanelTabs: updatedTabs,
-      rightPanelActiveTabId: newActiveTabId,
-      rightPanelCollapsed: updatedTabs.length === 0 // Collapse when no tabs remain
-    };
-
-    this.updateState({ layout: newLayout });
-
-    this.emitEvent({
-      type: 'tab:closed',
-      payload: { tabId }
-    });
-  }
-
-  selectTab(tabId: string): void {
-    const tab = this.state.layout.rightPanelTabs.find(t => t.id === tabId);
-    if (!tab) {
-      throw new Error(`Tab not found: ${tabId}`);
-    }
-
-    const newLayout = { 
-      ...this.state.layout, 
-      rightPanelActiveTabId: tabId,
-      rightPanelCollapsed: false
-    };
-
-    this.updateState({ layout: newLayout });
-
-    this.emitEvent({
-      type: 'tab:selected',
-      payload: { tabId }
-    });
-  }
-
   // Error handling
   clearError(): void {
     this.updateState({ error: null });
@@ -382,22 +277,6 @@ export class AppManager implements IAppManager {
     globalEventBus.emit('app:state:changed', this.state);
   }
 
-  // Clear legacy panel state data
-  private clearPersistedPanelState(): void {
-    try {
-      // Clear AppManager persisted state
-      localStorage.removeItem('sparo-app-state');
-      
-      // Clear other potential panel state keys
-      localStorage.removeItem('Sparo-left-panel-width');
-      localStorage.removeItem('Sparo-left-panel-collapsed');
-      localStorage.removeItem('Sparo-right-panel-collapsed');
-      localStorage.removeItem('right-panel-collapsed');
-    } catch (error) {
-      log.warn('Failed to clear persisted panel state', error);
-    }
-  }
-  
   private setupEventListeners(): void {
     // Listen for global events
     globalEventBus.on('workspace:changed', () => {
@@ -419,12 +298,8 @@ export class AppManager implements IAppManager {
           const windowWidth = window.innerWidth;
           // Left 15%, max 300px
           const newLeftPanelWidth = Math.min(300, Math.max(200, Math.floor(windowWidth * 0.15)));
-          // Center 50%
-          const newCenterPanelWidth = Math.max(400, Math.floor(windowWidth * 0.50));
-          
           this.updateLayout({
             leftPanelWidth: newLeftPanelWidth,
-            centerPanelWidth: newCenterPanelWidth
           });
         }, 200);
       };

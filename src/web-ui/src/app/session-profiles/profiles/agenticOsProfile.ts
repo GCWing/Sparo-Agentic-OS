@@ -3,14 +3,8 @@ import type { SessionProfile } from '../types';
 export const agenticOsProfile: SessionProfile = {
   id: 'agentic-os',
 
-  layout: {
-    showChat: true,
-    defaultAuxPane: 'collapsed',
-    chatCollapsible: false,
-  },
-
-  auxTabs: {
-    // Agentic OS has no auto-opened tabs and no exclusive tab types.
+  auxiliarySurface: {
+    defaultVisibility: 'collapsed',
   },
 
   capabilities: {

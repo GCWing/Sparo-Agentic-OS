@@ -93,6 +93,17 @@ enum ConfigLoadOutcome {
     Loaded,
 }
 
+fn normalize_retired_theme_selection(config: &mut GlobalConfig) {
+    let replacement = match config.themes.current.as_str() {
+        "sparo-china-style" => Some("light"),
+        "slate" | "sparo-china-night" | "sparo-cyber" => Some("dark"),
+        _ => None,
+    };
+    if let Some(replacement) = replacement {
+        config.themes.current = replacement.to_string();
+    }
+}
+
 /// Configuration manager.
 pub struct ConfigManager {
     config_dir: PathBuf,
@@ -419,6 +430,7 @@ impl ConfigManager {
         let mut config: GlobalConfig = serde_json::from_value(config_value).map_err(|error| {
             CoreError::config(format!("Config does not match the current schema: {error}"))
         })?;
+        normalize_retired_theme_selection(&mut config);
         self.secret_store.resolve(&mut config).await?;
         Ok(config)
     }
@@ -2047,6 +2059,33 @@ pub struct ConfigStatistics {
 mod transaction_tests {
     use super::*;
     use std::sync::Arc;
+
+    #[test]
+    fn normalizes_retired_builtin_theme_selections() {
+        for (retired, expected) in [
+            ("sparo-china-style", "light"),
+            ("slate", "dark"),
+            ("sparo-china-night", "dark"),
+            ("sparo-cyber", "dark"),
+        ] {
+            let mut config = GlobalConfig::default();
+            config.themes.current = retired.to_string();
+
+            normalize_retired_theme_selection(&mut config);
+
+            assert_eq!(config.themes.current, expected);
+        }
+    }
+
+    #[test]
+    fn leaves_unknown_theme_selections_for_validation() {
+        let mut config = GlobalConfig::default();
+        config.themes.current = "unknown-theme".to_string();
+
+        normalize_retired_theme_selection(&mut config);
+
+        assert_eq!(config.themes.current, "unknown-theme");
+    }
 
     async fn isolated_manager() -> (tempfile::TempDir, ConfigManager) {
         let temp = tempfile::tempdir().expect("tempdir");

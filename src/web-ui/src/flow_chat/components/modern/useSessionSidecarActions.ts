@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCanvasStore } from '@/app/components/panels/content-canvas/stores';
-import { openSessionSidecarPanel, useSessionProfile } from '@/app/session-profiles';
+import { openActiveSessionSidecarPanel, useSessionProfile } from '@/app/session-profiles';
 import { useProductAppRuntimeStore } from '@/app/scenes/apps/product-app-runtime/productAppRuntimeStore';
 import type {
   SessionSidecarActionDescriptor,
@@ -102,7 +102,7 @@ export function useSessionSidecarActions(): FlowChatSidecarActionViewModel[] {
           disabled: action.availability === 'disabled',
           isOpen: Boolean(matchingTab),
           isActive,
-          onOpen: () => openSessionSidecarPanel(action.panel),
+          onOpen: () => openActiveSessionSidecarPanel(action.panel),
         };
       });
   }, [

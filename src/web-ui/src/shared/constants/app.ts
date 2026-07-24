@@ -15,7 +15,6 @@ export const STORAGE_KEYS = {
   LANGUAGE: 'sparo-language',
   LEFT_PANEL_WIDTH: 'sparo-left-panel-width',
   LEFT_PANEL_COLLAPSED: 'sparo-left-panel-collapsed',
-  RIGHT_PANEL_COLLAPSED: 'sparo-right-panel-collapsed',
   RECENT_WORKSPACES: 'sparo-recent-workspaces',
   USER_PREFERENCES: 'sparo-user-preferences',
   CHAT_HISTORY: 'sparo-chat-history',
@@ -30,7 +29,6 @@ export const PANEL_CONFIG = {
   RESIZE_DEBOUNCE: 100,
   
   DEFAULT_LEFT_PANEL_RATIO: 0.3,
-  DEFAULT_RIGHT_PANEL_RATIO: 0.7
 } as const;
 
 

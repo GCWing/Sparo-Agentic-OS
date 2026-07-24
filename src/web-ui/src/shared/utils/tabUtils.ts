@@ -3,10 +3,14 @@
 import { i18nService } from '@/infrastructure/i18n';
 import { fileTabManager } from '@/shared/services/FileTabManager';
 import type { FileTabOptions } from '@/shared/services/FileTabManager';
-import { enqueuePendingTab } from '@/shared/services/pendingTabQueue';
 import { resolveAndFocusOpenTarget } from '@/shared/services/sceneOpenTargetResolver';
 import type { OpenSource } from '@/shared/services/sceneOpenTargetResolver';
-import { TAB_EVENTS } from '@/app/components/panels/content-canvas/types';
+import { openProjectCanvasItem } from '@/app/components/panels/content-canvas/openCanvasItem';
+import type {
+  CanvasItemDescriptor,
+  PanelContentType,
+} from '@/app/components/panels/content-canvas/types';
+import { openActiveAuxiliaryItem } from '@/app/auxiliary-surface';
 import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
 import type { RuntimeScope } from '@/shared/types/runtime-scope';
 export type TabTargetMode = 'agent' | 'project';
@@ -16,24 +20,10 @@ export interface TabCreationOptions {
   title: string;
   data: any;
   metadata?: Record<string, any>;
-  checkDuplicate?: boolean;
   duplicateCheckKey?: string;
   replaceExisting?: boolean;
   /** Target canvas: agent (AuxPane), project (FileViewer), git (Git scene diff area) */
   mode?: TabTargetMode;
-}
-
-interface CreateTerminalTabOptions {
-  sceneJustOpened?: boolean;
-}
-
-function isRightPanelCollapsed(): boolean {
-  try {
-    const layoutState = (window as any).__SPARO_LAYOUT_STATE__;
-    return layoutState?.rightPanelCollapsed ?? false;
-  } catch {
-    return false;
-  }
 }
 
  
@@ -43,27 +33,24 @@ export function createTab(options: TabCreationOptions): void {
     title,
     data,
     metadata = {},
-    checkDuplicate = false,
     duplicateCheckKey,
     replaceExisting = false,
     mode = 'agent' 
   } = options;
 
-  const eventName = mode === 'project' ? 'project-create-tab' : 'agent-create-tab';
-
-  const createTabEvent = new CustomEvent(eventName, {
-    detail: {
-      type,
-      title,
-      data,
-      metadata,
-      checkDuplicate,
-      duplicateCheckKey,
-      replaceExisting
-    }
-  });
-
-  window.dispatchEvent(createTabEvent);
+  const item: CanvasItemDescriptor = {
+    type: type as PanelContentType,
+    title,
+    data,
+    metadata,
+    duplicateCheckKey,
+    replaceExisting,
+  };
+  if (mode === 'project') {
+    openProjectCanvasItem(item);
+  } else {
+    openActiveAuxiliaryItem(item);
+  }
 }
 
  
@@ -78,7 +65,6 @@ export function createFileViewerTab(
     title: fileName,
     data: content,
     metadata: { filePath, fileName },
-    checkDuplicate: true,
     duplicateCheckKey: filePath,
     replaceExisting: false,
     mode
@@ -115,7 +101,6 @@ export function createCodeEditorTab(
       jumpToColumn: options?.jumpToColumn
     },
     metadata: { filePath, fileName },
-    checkDuplicate: true,
     duplicateCheckKey: `code-editor:${filePath}`,
     replaceExisting: true,
     mode
@@ -161,7 +146,6 @@ export function createDiffEditorTab(
       revealLine,
     },
     metadata: { filePath, repositoryPath, duplicateCheckKey: duplicateKey },
-    checkDuplicate: true,
     duplicateCheckKey: duplicateKey,
     replaceExisting: replaceExisting ?? false,
     mode,
@@ -192,7 +176,6 @@ export function createMarkdownEditorTab(
       duplicateCheckKey: duplicateKey,
       timestamp
     },
-    checkDuplicate: !filePath, 
     duplicateCheckKey: duplicateKey,
     replaceExisting: false,
     mode
@@ -210,8 +193,7 @@ export function createConfigCenterTab(
 export function createTerminalTab(
   sessionId: string,
   sessionName: string,
-  mode: 'agent' | 'project' = 'agent',
-  options: CreateTerminalTabOptions = {}
+  mode: 'agent' | 'project' = 'agent'
 ): void {
   const title = sessionName.length > 20 
     ? `${sessionName.slice(0, 20)}...` 
@@ -226,29 +208,9 @@ export function createTerminalTab(
       sessionId,
       duplicateCheckKey: `terminal-${sessionId}`,
     },
-    checkDuplicate: true,
     duplicateCheckKey: `terminal-${sessionId}`,
     replaceExisting: false,
   };
-
-  if (mode === 'agent') {
-    window.dispatchEvent(new CustomEvent(TAB_EVENTS.EXPAND_RIGHT_PANEL));
-
-    if (options.sceneJustOpened) {
-      enqueuePendingTab('agent', detail);
-      return;
-    }
-
-    if (isRightPanelCollapsed()) {
-      window.setTimeout(() => {
-        window.dispatchEvent(new CustomEvent(TAB_EVENTS.AGENT_CREATE_TAB, { detail }));
-      }, 300);
-      return;
-    }
-
-    window.dispatchEvent(new CustomEvent(TAB_EVENTS.AGENT_CREATE_TAB, { detail }));
-    return;
-  }
 
   createTab({
     ...detail,
@@ -274,7 +236,7 @@ export function openFileInBestTarget(
   options: OpenFileInBestTargetOptions,
   context: OpenFileTargetContext = {}
 ): void {
-  const { mode, sceneJustOpened } = resolveAndFocusOpenTarget('file', {
+  const { mode } = resolveAndFocusOpenTarget('file', {
     source: context.source ?? 'default',
     scope: context.scope,
   });
@@ -282,6 +244,5 @@ export function openFileInBestTarget(
   fileTabManager.openFile({
     ...options,
     mode,
-    sceneJustOpened,
   });
 }

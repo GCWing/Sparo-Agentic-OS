@@ -962,7 +962,6 @@
   padding: 6px var(--work-dock-inline-pad);
   flex-shrink: 0;
   min-width: 0;
-  border-bottom: 1px solid var(--ds-color-border-subtle);
   box-sizing: border-box;
   overflow: hidden;
 }
@@ -1045,7 +1044,6 @@
   gap: var(--ds-space-1);
   padding: var(--ds-space-1) var(--work-dock-inline-pad);
   flex-shrink: 0;
-  border-top: 1px solid var(--ds-color-border-subtle);
 }
 
 .work-dock__list {

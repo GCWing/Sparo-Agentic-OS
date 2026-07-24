@@ -3,13 +3,9 @@ import type { SessionProfile } from '../types';
 export const designProfile: SessionProfile = {
   id: 'design',
 
-  layout: {
-    showChat: true,
-    defaultAuxPane: 'collapsed',
-    chatCollapsible: true,
+  auxiliarySurface: {
+    defaultVisibility: 'collapsed',
   },
-
-  auxTabs: {},
 
   sidecarActions(sessionId, extra) {
     const workspacePath = extra?.workspacePath as string | undefined;

@@ -15,7 +15,7 @@ import {
   SquareTerminal,
   type LucideIcon,
 } from 'lucide-react';
-import { openSessionSidecarPanel } from '@/app/session-profiles';
+import { openActiveSessionSidecarPanel } from '@/app/session-profiles';
 import { useAgentCanvasStore } from '@/app/components/panels/content-canvas/stores';
 import {
   spreadsheetFormulaResultsTrustworthy,
@@ -142,7 +142,7 @@ function openTextFragment(context: TextFragmentContext, options: OpenContextOpti
     ? `message-context:${context.id}`
     : `composer-context:${options.draftKey || 'draft'}:${context.id}`;
 
-  openSessionSidecarPanel({
+  openActiveSessionSidecarPanel({
     type: 'markdown-editor',
     title,
     duplicateCheckKey,
@@ -388,7 +388,7 @@ export function freezeComposerDraftContextEditors(
     if (context.type !== 'text-fragment') return;
     const duplicateCheckKey = `composer-context:${draftKey}:${context.id}`;
     if (!store.findTabByMetadata({ duplicateCheckKey })) return;
-    openSessionSidecarPanel({
+    openActiveSessionSidecarPanel({
       type: 'markdown-editor',
       title: `${i18nService.t('flow-chat:input.context.longTextTitle', { defaultValue: 'Long text' })} · ${context.charCount.toLocaleString()}`,
       duplicateCheckKey,
@@ -419,7 +419,7 @@ export function restoreComposerDraftContextEditors(
     const duplicateCheckKey = `composer-context:${draftKey}:${context.id}`;
     if (!store.findTabByMetadata({ duplicateCheckKey })) return;
     const title = i18nService.t('flow-chat:input.context.longTextTitle', { defaultValue: 'Long text' });
-    openSessionSidecarPanel({
+    openActiveSessionSidecarPanel({
       type: 'markdown-editor',
       title,
       duplicateCheckKey,

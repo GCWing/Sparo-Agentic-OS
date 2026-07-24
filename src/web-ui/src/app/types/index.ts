@@ -37,25 +37,7 @@ export type PanelType = 'sessions' | 'files' | 'terminal' | 'capabilities' | 'ag
 export interface LayoutState {
   leftPanelWidth: number;
   leftPanelCollapsed: boolean;
-  centerPanelWidth: number;
-  centerPanelCollapsed: boolean;
-  chatCollapsed: boolean;
-  rightPanelWidth: number; // Fixed right panel width
-  rightPanelCollapsed: boolean;
   leftPanelActiveTab: PanelType;
-  rightPanelTabs: TabInfo[];
-  rightPanelActiveTabId: string | null;
-}
-
-// Tab info
-export interface TabInfo {
-  id: string;
-  title: string;
-  type: 'file' | 'diff' | 'extension' | 'chat' | 'preview';
-  content?: any;
-  isClosable: boolean;
-  isDirty?: boolean;
-  metadata?: Record<string, any>;
 }
 
 // Chat types
@@ -114,9 +96,6 @@ export type AppEvent =
   | { type: 'chat:session:selected'; payload: ChatSession }
   | { type: 'extension:enabled'; payload: Extension }
   | { type: 'extension:disabled'; payload: Extension }
-  | { type: 'tab:opened'; payload: TabInfo }
-  | { type: 'tab:closed'; payload: { tabId: string } }
-  | { type: 'tab:selected'; payload: { tabId: string } }
   | { type: 'error:occurred'; payload: { error: string } };
 
 // App manager interface
@@ -137,11 +116,6 @@ export interface IAppManager {
   enableExtension(extensionId: string): Promise<void>;
   disableExtension(extensionId: string): Promise<void>;
   configureExtension(extensionId: string, config: Record<string, any>): Promise<void>;
-  
-  // Tab management
-  openTab(tab: Omit<TabInfo, 'id'>): string;
-  closeTab(tabId: string): void;
-  selectTab(tabId: string): void;
   
   // Event listeners
   addEventListener(listener: (event: AppEvent) => void): () => void;
@@ -184,13 +158,8 @@ export interface UseAppReturn {
   
   // Layout actions
   toggleLeftPanel: () => void;
-  toggleCenterPanel: () => void;
-  toggleRightPanel: () => void;
-  toggleChatPanel: () => void;
   switchLeftPanelTab: (tab: PanelType) => void;
   updateLeftPanelWidth: (width: number, options?: { persist?: boolean }) => void;
-  updateCenterPanelWidth: (width: number) => void;
-  updateRightPanelWidth: (width: number) => void;
   
   // Agent actions - selectAgent removed; backend decides agent selection
   updateAgentConfig: (agentId: string, config: Partial<AgentConfig>) => Promise<void>;
@@ -204,11 +173,6 @@ export interface UseAppReturn {
   enableExtension: (extensionId: string) => Promise<void>;
   disableExtension: (extensionId: string) => Promise<void>;
   
-  // Tab actions
-  openTab: (tab: Omit<TabInfo, 'id'>) => string;
-  closeTab: (tabId: string) => void;
-  selectTab: (tabId: string) => void;
-  
   // Utility
   clearError: () => void;
 }
@@ -221,18 +185,7 @@ export const DEFAULT_LAYOUT_STATE: LayoutState = {
     ? Math.min(400, Math.floor(window.innerWidth * 0.15)) // Left 15%, max 400px
     : 280,
   leftPanelCollapsed: false,
-  centerPanelWidth: typeof window !== 'undefined' 
-    ? Math.floor(window.innerWidth * 0.50) // Kept for compatibility
-    : 960,
-  centerPanelCollapsed: false,
-  chatCollapsed: false,
-  rightPanelWidth: typeof window !== 'undefined'
-    ? Math.max(540, Math.min(800, Math.floor(window.innerWidth * 0.35))) // Right 35%, min 540px (for config-tabs), max 800px
-    : 540,
-  rightPanelCollapsed: true,
   leftPanelActiveTab: 'sessions', // Default to sessions list
-  rightPanelTabs: [],
-  rightPanelActiveTabId: null
 };
 
 // Default agents

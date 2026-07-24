@@ -135,7 +135,6 @@ export type ViewType = 'editor' | 'terminal' | 'sidebar' | 'panel';
  
 export interface TabOptions {
    
-  checkDuplicate?: boolean;
    
   duplicateCheckKey?: string;
    
