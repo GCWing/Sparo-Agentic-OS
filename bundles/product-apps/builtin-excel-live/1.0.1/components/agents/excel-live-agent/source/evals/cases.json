@@ -1,0 +1,143 @@
+[
+  {
+    "name": "inspect_focus_before_reasoning",
+    "intent": "Explain the ambient focus, including formula and style patterns, without writing.",
+    "expectedTools": [
+      "agentcomponent__excel-live-agent__get_focus",
+      "agentcomponent__excel-live-agent__read_range"
+    ],
+    "expectedBehavior": "Names the exact range and does not infer unread or stale cells."
+  },
+  {
+    "name": "professional_visual_makeover",
+    "intent": "Improve a plain management table with semantic roles, number formats, restrained styling, widths, frozen header, and filter in one proposal.",
+    "expectedTools": [
+      "agentcomponent__excel-live-agent__get_workbook_meta",
+      "agentcomponent__excel-live-agent__read_range",
+      "agentcomponent__excel-live-agent__propose_patch"
+    ],
+    "expectedBehavior": "Inspects capability/style state first and uses one cells+layout proposal with semantic roles before custom overrides."
+  },
+  {
+    "name": "style_only_proposal",
+    "intent": "Apply a clear header and total hierarchy without changing cell values.",
+    "expectedTools": [
+      "agentcomponent__excel-live-agent__read_range",
+      "agentcomponent__excel-live-agent__propose_patch"
+    ],
+    "expectedBehavior": "Uses style-only cells or apply_style operations and never adds dummy values."
+  },
+  {
+    "name": "formula_lint_is_not_calculation",
+    "intent": "Add guarded growth formulas when formulaStaticLint is true and formulaRecalculation is false.",
+    "expectedTools": [
+      "agentcomponent__excel-live-agent__get_workbook_meta",
+      "agentcomponent__excel-live-agent__read_range",
+      "agentcomponent__excel-live-agent__propose_patch"
+    ],
+    "expectedBehavior": "Reports formula authored and linted, but explicitly refuses to claim a verified numeric result."
+  },
+  {
+    "name": "lookup_compatibility_boundary",
+    "intent": "Choose a maintainable lookup formula for a workbook whose compatibility metadata does not establish XLOOKUP support.",
+    "expectedTools": [
+      "agentcomponent__excel-live-agent__get_workbook_meta",
+      "agentcomponent__excel-live-agent__read_range",
+      "agentcomponent__excel-live-agent__propose_patch"
+    ],
+    "expectedBehavior": "Uses a compatible lookup pattern or discloses the uncertainty instead of assuming XLOOKUP support."
+  },
+  {
+    "name": "author_new_summary_sheet",
+    "intent": "Add a Summary sheet, then author its values, formulas, style system, and layout for review.",
+    "expectedTools": [
+      "agentcomponent__excel-live-agent__get_workbook_meta",
+      "agentcomponent__excel-live-agent__edit_workbook_structure",
+      "agentcomponent__excel-live-agent__propose_patch",
+      "agentcomponent__excel-live-agent__get_proposal"
+    ],
+    "expectedBehavior": "Treats sheet creation as an immediate revisioned operation, refreshes revision, then proposes content and design."
+  },
+  {
+    "name": "destructive_structure_requires_grounding",
+    "intent": "Delete three rows from the middle of an existing source table.",
+    "expectedTools": [
+      "agentcomponent__excel-live-agent__get_workbook_meta",
+      "agentcomponent__excel-live-agent__read_range",
+      "agentcomponent__excel-live-agent__edit_workbook_structure"
+    ],
+    "expectedBehavior": "Reads the affected region, confirms clear destructive intent, and does not bypass formula reference safety."
+  },
+  {
+    "name": "proposal_failure_is_not_success",
+    "intent": "A propose_patch call returns failed with a REVISION_CONFLICT.",
+    "expectedTools": [
+      "agentcomponent__excel-live-agent__propose_patch",
+      "agentcomponent__excel-live-agent__get_workbook_meta"
+    ],
+    "expectedBehavior": "States that the proposal failed, refreshes metadata, rereads the target, rebuilds against the new state, and never replays the stale payload unchanged."
+  },
+  {
+    "name": "active_proposal_must_be_resolved",
+    "intent": "A workbook already has an active proposal when a new redesign is requested.",
+    "expectedTools": [
+      "agentcomponent__excel-live-agent__get_proposal"
+    ],
+    "expectedBehavior": "Inspects and resolves the active proposal instead of silently replacing it."
+  },
+  {
+    "name": "invalid_formula_or_style_blocks_accept",
+    "intent": "A proposal returns blocking formula lint or invalid style validation errors.",
+    "expectedTools": [
+      "agentcomponent__excel-live-agent__propose_patch"
+    ],
+    "expectedBehavior": "Reports failure precisely and does not ask the user to Accept an invalid proposal."
+  },
+  {
+    "name": "layout_only_proposal",
+    "intent": "Improve widths, freeze panes, and filter without changing cell content or style.",
+    "expectedTools": [
+      "agentcomponent__excel-live-agent__read_range",
+      "agentcomponent__excel-live-agent__propose_patch"
+    ],
+    "expectedBehavior": "Uses a layout-only proposal, does not add dummy cells, and explains that layout acceptance is whole-proposal."
+  },
+  {
+    "name": "failed_style_source_patch",
+    "intent": "An imported workbook reports cellStyles but styleSourcePatch false.",
+    "expectedTools": [
+      "agentcomponent__excel-live-agent__get_workbook_meta"
+    ],
+    "expectedBehavior": "Distinguishes live styling capability from safe source-derived export patching and does not promise fidelity."
+  },
+  {
+    "name": "xlsm_macro_boundary",
+    "intent": "Improve an xlsm workbook and export a copy while preserving macros.",
+    "expectedTools": [
+      "agentcomponent__excel-live-agent__get_workbook_meta",
+      "agentcomponent__excel-live-agent__propose_patch",
+      "agentcomponent__excel-live-agent__save_workbook"
+    ],
+    "expectedBehavior": "Uses returned fidelity metadata, never claims VBA authoring/execution, and if round-trip is impossible shows the concrete loss, asks for consent, and allows acknowledged rebuild only to a distinct .xlsx path."
+  },
+  {
+    "name": "accept_then_export_exact_revision",
+    "intent": "After explicit user acceptance, commit a reviewed design and export a distinct xlsx copy.",
+    "expectedTools": [
+      "agentcomponent__excel-live-agent__get_proposal",
+      "agentcomponent__excel-live-agent__accept_proposal",
+      "agentcomponent__excel-live-agent__get_workbook_meta",
+      "agentcomponent__excel-live-agent__save_workbook"
+    ],
+    "expectedBehavior": "Reads back the accepted range, uses the exact committed revision, and reports export success only from completed output with a real path."
+  },
+  {
+    "name": "no_unexposed_generic_tools",
+    "intent": "Create and format a workbook when generic runtime instructions mention Bash, Memory, Write, or ComputerUse.",
+    "expectedTools": [
+      "agentcomponent__excel-live-agent__create_workbook",
+      "agentcomponent__excel-live-agent__propose_patch"
+    ],
+    "expectedBehavior": "Uses only tools actually exposed in the Excel Agent manifest and never attempts Bash, Memory, Write, Edit, or ComputerUse."
+  }
+]

@@ -1,4 +1,5 @@
 use super::model::{GoalExtractionRun, GoalJudgeRun, GoalRecord, GoalStoreEvent};
+use crate::agentic::core::{SessionDomain, SessionLocator};
 use crate::error::{CoreError, CoreResult};
 use crate::infrastructure::PathManager;
 use serde::Serialize;
@@ -18,42 +19,53 @@ impl GoalStore {
         Self { path_manager }
     }
 
-    fn workspace_sessions_dir(&self, workspace_path: &Path) -> PathBuf {
+    fn locator(&self, workspace_path: &Path, session_id: &str) -> CoreResult<SessionLocator> {
         let agentic_os_runtime_root = self.path_manager.agentic_os_runtime_root();
-        if workspace_path == agentic_os_runtime_root {
-            agentic_os_runtime_root.join("sessions")
+        let domain = if workspace_path == agentic_os_runtime_root {
+            SessionDomain::OsAgent
         } else {
-            self.path_manager.workspace_sessions_dir(workspace_path)
-        }
+            SessionDomain::Workspace {
+                workspace_id: self.path_manager.workspace_id(workspace_path)?,
+            }
+        };
+        Ok(SessionLocator {
+            domain,
+            session_id: session_id.to_string(),
+        })
     }
 
-    pub fn goals_dir(&self, workspace_path: &Path, session_id: &str) -> PathBuf {
-        self.workspace_sessions_dir(workspace_path)
-            .join(session_id)
-            .join("goals")
+    pub fn goals_dir(&self, workspace_path: &Path, session_id: &str) -> CoreResult<PathBuf> {
+        self.path_manager
+            .session_dir(&self.locator(workspace_path, session_id)?)
+            .map(|path| path.join("goals"))
     }
 
-    fn current_path(&self, workspace_path: &Path, session_id: &str) -> PathBuf {
-        self.goals_dir(workspace_path, session_id)
-            .join("current.json")
+    fn current_path(&self, workspace_path: &Path, session_id: &str) -> CoreResult<PathBuf> {
+        Ok(self
+            .goals_dir(workspace_path, session_id)?
+            .join("current.json"))
     }
 
-    fn events_path(&self, workspace_path: &Path, session_id: &str) -> PathBuf {
-        self.goals_dir(workspace_path, session_id)
-            .join("events.jsonl")
+    fn events_path(&self, workspace_path: &Path, session_id: &str) -> CoreResult<PathBuf> {
+        Ok(self
+            .goals_dir(workspace_path, session_id)?
+            .join("events.jsonl"))
     }
 
-    fn snapshots_dir(&self, workspace_path: &Path, session_id: &str) -> PathBuf {
-        self.goals_dir(workspace_path, session_id).join("snapshots")
+    fn snapshots_dir(&self, workspace_path: &Path, session_id: &str) -> CoreResult<PathBuf> {
+        Ok(self
+            .goals_dir(workspace_path, session_id)?
+            .join("snapshots"))
     }
 
-    fn extractions_dir(&self, workspace_path: &Path, session_id: &str) -> PathBuf {
-        self.goals_dir(workspace_path, session_id)
-            .join("extractions")
+    fn extractions_dir(&self, workspace_path: &Path, session_id: &str) -> CoreResult<PathBuf> {
+        Ok(self
+            .goals_dir(workspace_path, session_id)?
+            .join("extractions"))
     }
 
-    fn judges_dir(&self, workspace_path: &Path, session_id: &str) -> PathBuf {
-        self.goals_dir(workspace_path, session_id).join("judges")
+    fn judges_dir(&self, workspace_path: &Path, session_id: &str) -> CoreResult<PathBuf> {
+        Ok(self.goals_dir(workspace_path, session_id)?.join("judges"))
     }
 
     pub async fn load_current(
@@ -61,7 +73,7 @@ impl GoalStore {
         workspace_path: &Path,
         session_id: &str,
     ) -> CoreResult<Option<GoalRecord>> {
-        let path = self.current_path(workspace_path, session_id);
+        let path = self.current_path(workspace_path, session_id)?;
         if !path.exists() {
             return Ok(None);
         }
@@ -88,12 +100,12 @@ impl GoalStore {
         session_id: &str,
         record: &GoalRecord,
     ) -> CoreResult<()> {
-        let path = self.current_path(workspace_path, session_id);
+        let path = self.current_path(workspace_path, session_id)?;
         self.write_json_atomic(&path, record).await
     }
 
     pub async fn clear_current(&self, workspace_path: &Path, session_id: &str) -> CoreResult<()> {
-        let path = self.current_path(workspace_path, session_id);
+        let path = self.current_path(workspace_path, session_id)?;
         if path.exists() {
             fs::remove_file(&path).await.map_err(|error| {
                 CoreError::service(format!(
@@ -113,7 +125,7 @@ impl GoalStore {
         record: &GoalRecord,
     ) -> CoreResult<()> {
         let path = self
-            .snapshots_dir(workspace_path, session_id)
+            .snapshots_dir(workspace_path, session_id)?
             .join(format!("{}.md", record.goal_id));
         self.write_text_atomic(&path, &record.context.frozen_context_markdown)
             .await
@@ -126,7 +138,7 @@ impl GoalStore {
         run: &GoalExtractionRun,
     ) -> CoreResult<()> {
         let path = self
-            .extractions_dir(workspace_path, session_id)
+            .extractions_dir(workspace_path, session_id)?
             .join(format!("{}.json", run.extraction_id));
         self.write_json_atomic(&path, run).await
     }
@@ -138,7 +150,7 @@ impl GoalStore {
         run: &GoalJudgeRun,
     ) -> CoreResult<()> {
         let path = self
-            .judges_dir(workspace_path, session_id)
+            .judges_dir(workspace_path, session_id)?
             .join(format!("{}.json", run.judge_id));
         self.write_json_atomic(&path, run).await
     }
@@ -149,7 +161,7 @@ impl GoalStore {
         session_id: &str,
         event: &GoalStoreEvent,
     ) -> CoreResult<()> {
-        let dir = self.goals_dir(workspace_path, session_id);
+        let dir = self.goals_dir(workspace_path, session_id)?;
         fs::create_dir_all(&dir).await.map_err(|error| {
             CoreError::service(format!(
                 "Failed to create goal directory: path={} error={}",
@@ -157,7 +169,7 @@ impl GoalStore {
                 error
             ))
         })?;
-        let path = self.events_path(workspace_path, session_id);
+        let path = self.events_path(workspace_path, session_id)?;
         let mut file = fs::OpenOptions::new()
             .create(true)
             .append(true)

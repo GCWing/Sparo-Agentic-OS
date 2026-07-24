@@ -19,7 +19,9 @@ export type WorkspaceSurface =
   | { kind: 'session'; sessionId: string };
 
 function runtimeContextIdentity(context?: ProductAppRuntimeContext | null): string {
-  return context ? `${context.workId}:${context.runtimeInstanceId}` : '';
+  return context
+    ? `${context.workLocator.scope.kind}:${context.workLocator.workId}:${context.runtimeInstanceId}`
+    : '';
 }
 
 export function isSameWorkspaceSurface(a: WorkspaceSurface, b: WorkspaceSurface): boolean {
@@ -46,5 +48,5 @@ export function isSameWorkspaceSurface(a: WorkspaceSurface, b: WorkspaceSurface)
 }
 
 export function createAgenticOsHomeSurface(): Extract<WorkspaceSurface, { kind: 'agentic-os-home' }> {
-  return { kind: 'agentic-os-home', scope: systemRuntimeScope() };
+  return { kind: 'agentic-os-home', scope: systemRuntimeScope('os_agent') };
 }

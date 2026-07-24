@@ -16,6 +16,11 @@ export interface StorageStats {
   configSizeMb: number;
   dataSizeMb: number;
   stateSizeMb: number;
+  sessionsSizeMb: number;
+  worksSizeMb: number;
+  runsSizeMb: number;
+  appDataSizeMb: number;
+  servicesSizeMb: number;
   workspacesSizeMb: number;
   agenticOsSizeMb: number;
   appsSizeMb: number;

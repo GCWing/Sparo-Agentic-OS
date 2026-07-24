@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
 import { DefaultToolCardTemplate } from './templates';
 import { getToolViewState } from '../runtime/toolViewState';
+import { resolveSkillDisplayName } from './skillDisplayName';
 
 export const SkillDisplay: React.FC<ToolCardProps> = React.memo(({ toolItem }) => {
   const { t } = useTranslation('flow-chat');
@@ -16,16 +17,20 @@ export const SkillDisplay: React.FC<ToolCardProps> = React.memo(({ toolItem }) =
 
   const skillInfo = useMemo(() => {
     if (!toolResult?.result) return null;
-    const result = toolResult.result as Record<string, unknown>;
     return {
-      name: (result.skill_name || result.name || t('toolCards.skill.unknownSkill')) as string,
+      name: resolveSkillDisplayName(
+        toolResult.result,
+        toolCall?.input,
+        t('toolCards.skill.unknownSkill'),
+      ),
     };
-  }, [toolResult?.result, t]);
+  }, [toolCall?.input, toolResult?.result, t]);
 
-  const commandName =
-    (toolCall?.input?.command as string | undefined) ||
-    (toolCall?.input?.skill_name as string | undefined) ||
-    t('toolCards.skill.unknown');
+  const commandName = resolveSkillDisplayName(
+    null,
+    toolCall?.input,
+    t('toolCards.skill.unknown'),
+  );
 
   const displayName = isCompleted && skillInfo ? skillInfo.name : commandName;
 

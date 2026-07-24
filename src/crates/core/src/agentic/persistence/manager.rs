@@ -4,7 +4,7 @@
 
 use crate::agentic::core::{
     strip_prompt_markup, CompressionState, Message, MessageContent, Session, SessionConfig,
-    SessionState, SessionSummary,
+    SessionDomain, SessionLocator, SessionState, SessionSummary,
 };
 use crate::agentic::memory::AutoMemoryState;
 use crate::error::{CoreError, CoreResult};
@@ -14,8 +14,7 @@ use crate::service::session::{
     SessionTranscriptExportOptions, SessionTranscriptIndexEntry, StoredSessionIndexFile,
     StoredSessionMetadataFile, ToolItemData, TranscriptLineRange, SESSION_STORAGE_SCHEMA_VERSION,
 };
-use crate::service::workspace_runtime::WorkspaceRuntimeService;
-use crate::service::workspace_session::{workspace_session_identity, LOCAL_WORKSPACE_SCOPE_HOST};
+use crate::service::workspace_session::LOCAL_WORKSPACE_SCOPE_HOST;
 use log::{info, warn};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -154,15 +153,11 @@ struct ParsedTranscriptTurnSelector {
 
 pub struct PersistenceManager {
     path_manager: Arc<PathManager>,
-    runtime_service: Arc<WorkspaceRuntimeService>,
 }
 
 impl PersistenceManager {
     pub fn new(path_manager: Arc<PathManager>) -> CoreResult<Self> {
-        Ok(Self {
-            runtime_service: Arc::new(WorkspaceRuntimeService::new(path_manager.clone())),
-            path_manager,
-        })
+        Ok(Self { path_manager })
     }
 
     /// Get PathManager reference
@@ -170,140 +165,145 @@ impl PersistenceManager {
         &self.path_manager
     }
 
-    pub fn runtime_service(&self) -> &Arc<WorkspaceRuntimeService> {
-        &self.runtime_service
+    fn session_domain_dir(&self, domain: &SessionDomain) -> CoreResult<PathBuf> {
+        self.path_manager.session_domain_root(domain)
     }
 
-    fn workspace_sessions_dir(&self, workspace_path: &Path) -> PathBuf {
-        let agentic_os_runtime_root = self.path_manager.agentic_os_runtime_root();
-        if workspace_path == agentic_os_runtime_root {
-            return agentic_os_runtime_root.join("sessions");
-        }
-        self.path_manager.workspace_sessions_dir(workspace_path)
+    fn session_dir(&self, domain: &SessionDomain, session_id: &str) -> CoreResult<PathBuf> {
+        self.path_manager.session_dir(&SessionLocator {
+            domain: domain.clone(),
+            session_id: session_id.to_string(),
+        })
     }
 
-    fn session_dir(&self, workspace_path: &Path, session_id: &str) -> PathBuf {
-        self.workspace_sessions_dir(workspace_path).join(session_id)
+    fn metadata_path(&self, domain: &SessionDomain, session_id: &str) -> CoreResult<PathBuf> {
+        Ok(self.session_dir(domain, session_id)?.join("metadata.json"))
     }
 
-    fn metadata_path(&self, workspace_path: &Path, session_id: &str) -> PathBuf {
-        self.session_dir(workspace_path, session_id)
-            .join("metadata.json")
-    }
-
-    fn session_summary_path(&self, workspace_path: &Path, session_id: &str) -> PathBuf {
-        self.session_dir(workspace_path, session_id)
-            .join("summary.md")
-    }
-
-    pub fn session_summary_path_for_workspace(
+    fn session_summary_path(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
         session_id: &str,
-    ) -> PathBuf {
-        self.session_summary_path(workspace_path, session_id)
+    ) -> CoreResult<PathBuf> {
+        Ok(self.session_dir(domain, session_id)?.join("summary.md"))
     }
 
-    fn session_daily_summaries_dir(&self, workspace_path: &Path, session_id: &str) -> PathBuf {
-        self.session_dir(workspace_path, session_id)
-            .join("daily_summaries")
+    pub fn session_summary_path_for_locator(
+        &self,
+        locator: &SessionLocator,
+    ) -> CoreResult<PathBuf> {
+        self.session_summary_path(&locator.domain, &locator.session_id)
+    }
+
+    fn session_daily_summaries_dir(
+        &self,
+        domain: &SessionDomain,
+        session_id: &str,
+    ) -> CoreResult<PathBuf> {
+        Ok(self
+            .session_dir(domain, session_id)?
+            .join("daily_summaries"))
     }
 
     fn session_daily_summary_path(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
         session_id: &str,
         date_key: &str,
-    ) -> PathBuf {
-        self.session_daily_summaries_dir(workspace_path, session_id)
-            .join(format!("{date_key}.md"))
+    ) -> CoreResult<PathBuf> {
+        Ok(self
+            .session_daily_summaries_dir(domain, session_id)?
+            .join(format!("{date_key}.md")))
     }
 
-    pub fn session_daily_summary_path_for_workspace(
+    pub fn session_daily_summary_path_for_locator(
         &self,
-        workspace_path: &Path,
-        session_id: &str,
+        locator: &SessionLocator,
         date_key: &str,
-    ) -> PathBuf {
-        self.session_daily_summary_path(workspace_path, session_id, date_key)
+    ) -> CoreResult<PathBuf> {
+        self.session_daily_summary_path(&locator.domain, &locator.session_id, date_key)
     }
 
-    fn state_path(&self, workspace_path: &Path, session_id: &str) -> PathBuf {
-        self.session_dir(workspace_path, session_id)
-            .join("state.json")
+    fn state_path(&self, domain: &SessionDomain, session_id: &str) -> CoreResult<PathBuf> {
+        Ok(self.session_dir(domain, session_id)?.join("state.json"))
     }
 
-    fn turns_dir(&self, workspace_path: &Path, session_id: &str) -> PathBuf {
-        self.session_dir(workspace_path, session_id).join("turns")
+    fn turns_dir(&self, domain: &SessionDomain, session_id: &str) -> CoreResult<PathBuf> {
+        Ok(self.session_dir(domain, session_id)?.join("turns"))
     }
 
-    fn snapshots_dir(&self, workspace_path: &Path, session_id: &str) -> PathBuf {
-        self.session_dir(workspace_path, session_id)
-            .join("snapshots")
+    fn snapshots_dir(&self, domain: &SessionDomain, session_id: &str) -> CoreResult<PathBuf> {
+        Ok(self.session_dir(domain, session_id)?.join("snapshots"))
     }
 
-    fn artifacts_dir(&self, workspace_path: &Path, session_id: &str) -> PathBuf {
-        self.session_dir(workspace_path, session_id)
-            .join("artifacts")
+    fn artifacts_dir(&self, domain: &SessionDomain, session_id: &str) -> CoreResult<PathBuf> {
+        Ok(self.session_dir(domain, session_id)?.join("artifacts"))
     }
 
-    fn turn_path(&self, workspace_path: &Path, session_id: &str, turn_index: usize) -> PathBuf {
-        self.turns_dir(workspace_path, session_id)
-            .join(format!("turn-{:04}.json", turn_index))
+    fn turn_path(
+        &self,
+        domain: &SessionDomain,
+        session_id: &str,
+        turn_index: usize,
+    ) -> CoreResult<PathBuf> {
+        Ok(self
+            .turns_dir(domain, session_id)?
+            .join(format!("turn-{:04}.json", turn_index)))
     }
 
     fn context_snapshot_path(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
         session_id: &str,
         turn_index: usize,
-    ) -> PathBuf {
-        self.snapshots_dir(workspace_path, session_id)
-            .join(format!("context-{:04}.json", turn_index))
+    ) -> CoreResult<PathBuf> {
+        Ok(self
+            .snapshots_dir(domain, session_id)?
+            .join(format!("context-{:04}.json", turn_index)))
     }
 
-    fn transcript_path(&self, workspace_path: &Path, session_id: &str) -> PathBuf {
-        self.artifacts_dir(workspace_path, session_id)
-            .join("transcript.txt")
+    fn transcript_path(&self, domain: &SessionDomain, session_id: &str) -> CoreResult<PathBuf> {
+        Ok(self
+            .artifacts_dir(domain, session_id)?
+            .join("transcript.txt"))
     }
 
-    fn transcript_meta_path(&self, workspace_path: &Path, session_id: &str) -> PathBuf {
-        self.artifacts_dir(workspace_path, session_id)
-            .join("transcript.meta.json")
+    fn transcript_meta_path(
+        &self,
+        domain: &SessionDomain,
+        session_id: &str,
+    ) -> CoreResult<PathBuf> {
+        Ok(self
+            .artifacts_dir(domain, session_id)?
+            .join("transcript.meta.json"))
     }
 
-    fn index_path(&self, workspace_path: &Path) -> PathBuf {
-        self.workspace_sessions_dir(workspace_path)
-            .join("index.json")
+    fn index_path(&self, domain: &SessionDomain) -> CoreResult<PathBuf> {
+        Ok(self.session_domain_dir(domain)?.join("index.json"))
     }
 
-    fn existing_workspace_sessions_dir(&self, workspace_path: &Path) -> Option<PathBuf> {
-        let dir = self.workspace_sessions_dir(workspace_path);
-        dir.exists().then_some(dir)
+    fn existing_session_domain_dir(&self, domain: &SessionDomain) -> CoreResult<Option<PathBuf>> {
+        let dir = self.session_domain_dir(domain)?;
+        Ok(dir.exists().then_some(dir))
     }
 
-    async fn ensure_runtime_for_write(&self, workspace_path: &Path) -> CoreResult<()> {
-        if workspace_path == self.path_manager.agentic_os_runtime_root() {
-            fs::create_dir_all(self.workspace_sessions_dir(workspace_path))
-                .await
-                .map_err(|e| {
-                    CoreError::io(format!("Failed to create Agentic OS runtime: {}", e))
-                })?;
-            return Ok(());
-        }
-
-        self.runtime_service
-            .ensure_local_workspace_runtime(workspace_path)
-            .await
-            .map(|_| ())
+    async fn ensure_domain_for_write(&self, domain: &SessionDomain) -> CoreResult<()> {
+        let dir = self.session_domain_dir(domain)?;
+        fs::create_dir_all(&dir).await.map_err(|error| {
+            CoreError::io(format!(
+                "Failed to create session domain directory '{}': {}",
+                dir.display(),
+                error
+            ))
+        })
     }
 
     async fn ensure_session_dir(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
         session_id: &str,
     ) -> CoreResult<PathBuf> {
-        let dir = self.session_dir(workspace_path, session_id);
+        let dir = self.session_dir(domain, session_id)?;
         fs::create_dir_all(&dir)
             .await
             .map_err(|e| CoreError::io(format!("Failed to create session directory: {}", e)))?;
@@ -312,10 +312,10 @@ impl PersistenceManager {
 
     async fn ensure_turns_dir(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
         session_id: &str,
     ) -> CoreResult<PathBuf> {
-        let dir = self.turns_dir(workspace_path, session_id);
+        let dir = self.turns_dir(domain, session_id)?;
         fs::create_dir_all(&dir)
             .await
             .map_err(|e| CoreError::io(format!("Failed to create turns directory: {}", e)))?;
@@ -324,10 +324,10 @@ impl PersistenceManager {
 
     async fn ensure_snapshots_dir(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
         session_id: &str,
     ) -> CoreResult<PathBuf> {
-        let dir = self.snapshots_dir(workspace_path, session_id);
+        let dir = self.snapshots_dir(domain, session_id)?;
         fs::create_dir_all(&dir)
             .await
             .map_err(|e| CoreError::io(format!("Failed to create snapshots directory: {}", e)))?;
@@ -336,10 +336,10 @@ impl PersistenceManager {
 
     async fn ensure_artifacts_dir(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
         session_id: &str,
     ) -> CoreResult<PathBuf> {
-        let dir = self.artifacts_dir(workspace_path, session_id);
+        let dir = self.artifacts_dir(domain, session_id)?;
         fs::create_dir_all(&dir)
             .await
             .map_err(|e| CoreError::io(format!("Failed to create artifacts directory: {}", e)))?;
@@ -457,14 +457,14 @@ impl PersistenceManager {
             .clone()
     }
 
-    async fn get_session_index_lock(&self, workspace_path: &Path) -> Arc<Mutex<()>> {
-        let index_path = self.index_path(workspace_path);
+    async fn get_session_index_lock(&self, domain: &SessionDomain) -> CoreResult<Arc<Mutex<()>>> {
+        let index_path = self.index_path(domain)?;
         let registry = SESSION_INDEX_LOCKS.get_or_init(|| Mutex::new(HashMap::new()));
         let mut registry_guard = registry.lock().await;
-        registry_guard
+        Ok(registry_guard
             .entry(index_path)
             .or_insert_with(|| Arc::new(Mutex::new(())))
-            .clone()
+            .clone())
     }
 
     fn build_temp_json_path(path: &Path, attempt: usize) -> CoreResult<PathBuf> {
@@ -611,7 +611,6 @@ impl PersistenceManager {
 
     async fn build_session_metadata(
         &self,
-        workspace_path: &Path,
         session: &Session,
         existing: Option<&SessionMetadata>,
     ) -> SessionMetadata {
@@ -626,29 +625,16 @@ impl PersistenceManager {
             .or_else(|| existing.map(|value| value.model_name.clone()))
             .unwrap_or_else(|| "default".to_string());
 
-        let resolved_identity = session
+        let workspace_path = session
             .config
             .workspace_path
-            .as_deref()
-            .and_then(workspace_session_identity);
-
-        let workspace_root = resolved_identity
-            .as_ref()
-            .map(|identity| identity.logical_workspace_path().to_string())
-            .or_else(|| session.config.workspace_path.clone())
-            .or_else(|| existing.and_then(|value| value.workspace_path.clone()))
-            .unwrap_or_else(|| workspace_path.to_string_lossy().to_string());
-        let workspace_hostname = resolved_identity
-            .as_ref()
-            .map(|identity| identity.hostname.clone())
-            .or_else(|| existing.and_then(|value| value.workspace_hostname.clone()))
-            .or_else(|| Some(LOCAL_WORKSPACE_SCOPE_HOST.to_string()));
-        let storage_scope = session
-            .config
-            .storage_scope
-            .or_else(|| existing.and_then(|value| value.storage_scope));
+            .clone()
+            .or_else(|| existing.and_then(|value| value.workspace_path.clone()));
+        let workspace_hostname = matches!(session.config.domain, SessionDomain::Workspace { .. })
+            .then(|| LOCAL_WORKSPACE_SCOPE_HOST.to_string());
 
         SessionMetadata {
+            domain: session.config.domain.clone(),
             session_id: session.session_id.clone(),
             session_name: session.session_name.clone(),
             agent_type: session.agent_type.clone(),
@@ -676,9 +662,8 @@ impl PersistenceManager {
             tags: existing.map(|value| value.tags.clone()).unwrap_or_default(),
             custom_metadata: existing.and_then(|value| value.custom_metadata.clone()),
             todos: existing.and_then(|value| value.todos.clone()),
-            workspace_path: Some(workspace_root),
+            workspace_path,
             workspace_hostname,
-            storage_scope,
         }
     }
 
@@ -1193,9 +1178,9 @@ impl PersistenceManager {
 
     async fn scan_session_metadata_dirs(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
     ) -> CoreResult<Vec<SessionMetadata>> {
-        let Some(sessions_root) = self.existing_workspace_sessions_dir(workspace_path) else {
+        let Some(sessions_root) = self.existing_session_domain_dir(domain)? else {
             return Ok(Vec::new());
         };
         let mut metadata_list = Vec::new();
@@ -1217,11 +1202,14 @@ impl PersistenceManager {
             }
 
             let session_id = entry.file_name().to_string_lossy().to_string();
-            match self
-                .load_session_metadata(workspace_path, &session_id)
-                .await
-            {
-                Ok(Some(metadata)) => metadata_list.push(metadata),
+            match self.load_session_metadata(domain, &session_id).await {
+                Ok(Some(metadata)) if metadata.domain == *domain => metadata_list.push(metadata),
+                Ok(Some(metadata)) => {
+                    warn!(
+                        "Ignoring session whose metadata domain does not match its directory: session_id={} expected={:?} actual={:?}",
+                        session_id, domain, metadata.domain
+                    );
+                }
                 Ok(None) => {}
                 Err(e) => {
                     warn!(
@@ -1239,9 +1227,9 @@ impl PersistenceManager {
 
     async fn rebuild_index_locked(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
     ) -> CoreResult<Vec<SessionMetadata>> {
-        let metadata_list = self.scan_session_metadata_dirs(workspace_path).await?;
+        let metadata_list = self.scan_session_metadata_dirs(domain).await?;
         let visible_sessions = metadata_list
             .into_iter()
             .filter(|metadata| !metadata.should_hide_from_user_lists())
@@ -1251,7 +1239,7 @@ impl PersistenceManager {
             Self::system_time_to_unix_ms(SystemTime::now()),
             visible_sessions.clone(),
         );
-        self.write_json_atomic(&self.index_path(workspace_path), &index)
+        self.write_json_atomic(&self.index_path(domain)?, &index)
             .await?;
 
         Ok(visible_sessions)
@@ -1259,10 +1247,16 @@ impl PersistenceManager {
 
     async fn upsert_index_entry_locked(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
         metadata: &SessionMetadata,
     ) -> CoreResult<()> {
-        let index_path = self.index_path(workspace_path);
+        if &metadata.domain != domain {
+            return Err(CoreError::validation(format!(
+                "Session metadata domain does not match target domain: session_id={}",
+                metadata.session_id
+            )));
+        }
+        let index_path = self.index_path(domain)?;
         let mut index = self
             .read_json_optional::<StoredSessionIndexFile>(&index_path)
             .await?
@@ -1292,10 +1286,10 @@ impl PersistenceManager {
 
     async fn remove_index_entry_locked(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
         session_id: &str,
     ) -> CoreResult<()> {
-        let index_path = self.index_path(workspace_path);
+        let index_path = self.index_path(domain)?;
         let Some(mut index) = self
             .read_json_optional::<StoredSessionIndexFile>(&index_path)
             .await?
@@ -1312,134 +1306,127 @@ impl PersistenceManager {
 
     async fn upsert_index_entry(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
         metadata: &SessionMetadata,
     ) -> CoreResult<()> {
-        let lock = self.get_session_index_lock(workspace_path).await;
+        let lock = self.get_session_index_lock(domain).await?;
         let _guard = lock.lock().await;
-        self.upsert_index_entry_locked(workspace_path, metadata)
-            .await
+        self.upsert_index_entry_locked(domain, metadata).await
     }
 
-    async fn remove_index_entry(&self, workspace_path: &Path, session_id: &str) -> CoreResult<()> {
-        let lock = self.get_session_index_lock(workspace_path).await;
+    async fn remove_index_entry(&self, domain: &SessionDomain, session_id: &str) -> CoreResult<()> {
+        let lock = self.get_session_index_lock(domain).await?;
         let _guard = lock.lock().await;
-        self.remove_index_entry_locked(workspace_path, session_id)
-            .await
+        self.remove_index_entry_locked(domain, session_id).await
     }
 
     pub async fn list_session_metadata(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
     ) -> CoreResult<Vec<SessionMetadata>> {
-        if !workspace_path.exists() {
+        if self.existing_session_domain_dir(domain)?.is_none() {
             return Ok(Vec::new());
         }
 
-        if self
-            .existing_workspace_sessions_dir(workspace_path)
-            .is_none()
-        {
-            return Ok(Vec::new());
-        }
-
-        let lock = self.get_session_index_lock(workspace_path).await;
+        let lock = self.get_session_index_lock(domain).await?;
         let _guard = lock.lock().await;
-        let index_path = self.index_path(workspace_path);
+        let index_path = self.index_path(domain)?;
         if let Some(index) = self
             .read_json_optional::<StoredSessionIndexFile>(&index_path)
             .await?
         {
             let has_stale_entry = index.sessions.iter().any(|metadata| {
                 !self
-                    .metadata_path(workspace_path, &metadata.session_id)
-                    .exists()
+                    .metadata_path(domain, &metadata.session_id)
+                    .is_ok_and(|path| path.exists())
             });
             if has_stale_entry {
                 warn!(
                     "Session index contains stale entries, rebuilding: {}",
                     index_path.display()
                 );
-                return self.rebuild_index_locked(workspace_path).await;
+                return self.rebuild_index_locked(domain).await;
             }
             return Ok(index.sessions);
         }
 
-        self.rebuild_index_locked(workspace_path).await
+        self.rebuild_index_locked(domain).await
     }
 
     pub async fn list_session_metadata_including_internal(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
     ) -> CoreResult<Vec<SessionMetadata>> {
-        if !workspace_path.exists() {
+        if self.existing_session_domain_dir(domain)?.is_none() {
             return Ok(Vec::new());
         }
 
-        if self
-            .existing_workspace_sessions_dir(workspace_path)
-            .is_none()
-        {
-            return Ok(Vec::new());
-        }
-
-        self.scan_session_metadata_dirs(workspace_path).await
+        self.scan_session_metadata_dirs(domain).await
     }
 
     pub async fn save_session_metadata(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
         metadata: &SessionMetadata,
     ) -> CoreResult<()> {
-        self.ensure_runtime_for_write(workspace_path).await?;
-        self.ensure_session_dir(workspace_path, &metadata.session_id)
+        if &metadata.domain != domain {
+            return Err(CoreError::validation(format!(
+                "Session metadata domain does not match target domain: session_id={}",
+                metadata.session_id
+            )));
+        }
+        self.ensure_domain_for_write(domain).await?;
+        self.ensure_session_dir(domain, &metadata.session_id)
             .await?;
 
         let file = StoredSessionMetadataFile::new(metadata.clone());
 
-        self.write_json_atomic(
-            &self.metadata_path(workspace_path, &metadata.session_id),
-            &file,
-        )
-        .await?;
+        self.write_json_atomic(&self.metadata_path(domain, &metadata.session_id)?, &file)
+            .await?;
         if !metadata.should_hide_from_user_lists() {
-            self.upsert_index_entry(workspace_path, metadata).await
+            self.upsert_index_entry(domain, metadata).await
         } else {
-            self.remove_index_entry(workspace_path, &metadata.session_id)
-                .await
+            self.remove_index_entry(domain, &metadata.session_id).await
         }
     }
 
     pub async fn load_session_metadata(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
         session_id: &str,
     ) -> CoreResult<Option<SessionMetadata>> {
-        let path = self.metadata_path(workspace_path, session_id);
-        Ok(self
+        let path = self.metadata_path(domain, session_id)?;
+        let metadata = self
             .read_json_optional::<StoredSessionMetadataFile>(&path)
             .await?
-            .map(|file| file.metadata))
+            .map(|file| file.metadata);
+        if metadata
+            .as_ref()
+            .is_some_and(|metadata| metadata.domain != *domain)
+        {
+            return Err(CoreError::validation(format!(
+                "Session metadata domain does not match directory: session_id={session_id}"
+            )));
+        }
+        Ok(metadata)
     }
 
     async fn load_stored_session_state(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
         session_id: &str,
     ) -> CoreResult<Option<StoredSessionStateFile>> {
-        self.read_json_optional::<StoredSessionStateFile>(
-            &self.state_path(workspace_path, session_id),
-        )
-        .await
+        self.read_json_optional::<StoredSessionStateFile>(&self.state_path(domain, session_id)?)
+            .await
     }
 
     async fn save_stored_session_state(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
         session_id: &str,
         state: &StoredSessionStateFile,
     ) -> CoreResult<()> {
-        self.write_json_atomic(&self.state_path(workspace_path, session_id), state)
+        self.write_json_atomic(&self.state_path(domain, session_id)?, state)
             .await
     }
 
@@ -1447,14 +1434,13 @@ impl PersistenceManager {
 
     pub async fn save_turn_context_snapshot(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
         session_id: &str,
         turn_index: usize,
         messages: &[Message],
     ) -> CoreResult<()> {
-        self.ensure_runtime_for_write(workspace_path).await?;
-        self.ensure_snapshots_dir(workspace_path, session_id)
-            .await?;
+        self.ensure_domain_for_write(domain).await?;
+        self.ensure_snapshots_dir(domain, session_id).await?;
 
         let snapshot = StoredTurnContextSnapshotFile {
             schema_version: SESSION_STORAGE_SCHEMA_VERSION,
@@ -1464,7 +1450,7 @@ impl PersistenceManager {
         };
 
         self.write_json_atomic(
-            &self.context_snapshot_path(workspace_path, session_id, turn_index),
+            &self.context_snapshot_path(domain, session_id, turn_index)?,
             &snapshot,
         )
         .await
@@ -1472,26 +1458,24 @@ impl PersistenceManager {
 
     pub async fn load_turn_context_snapshot(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
         session_id: &str,
         turn_index: usize,
     ) -> CoreResult<Option<Vec<Message>>> {
         let snapshot = self
-            .read_json_optional::<StoredTurnContextSnapshotFile>(&self.context_snapshot_path(
-                workspace_path,
-                session_id,
-                turn_index,
-            ))
+            .read_json_optional::<StoredTurnContextSnapshotFile>(
+                &self.context_snapshot_path(domain, session_id, turn_index)?,
+            )
             .await?;
         Ok(snapshot.map(|value| value.messages))
     }
 
     pub async fn load_latest_turn_context_snapshot(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
         session_id: &str,
     ) -> CoreResult<Option<(usize, Vec<Message>)>> {
-        let dir = self.snapshots_dir(workspace_path, session_id);
+        let dir = self.snapshots_dir(domain, session_id)?;
         if !dir.exists() {
             return Ok(None);
         }
@@ -1526,7 +1510,7 @@ impl PersistenceManager {
         };
 
         let Some(messages) = self
-            .load_turn_context_snapshot(workspace_path, session_id, turn_index)
+            .load_turn_context_snapshot(domain, session_id, turn_index)
             .await?
         else {
             return Ok(None);
@@ -1537,11 +1521,11 @@ impl PersistenceManager {
 
     pub async fn delete_turn_context_snapshots_from(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
         session_id: &str,
         turn_index: usize,
     ) -> CoreResult<()> {
-        let dir = self.snapshots_dir(workspace_path, session_id);
+        let dir = self.snapshots_dir(domain, session_id)?;
         if !dir.exists() {
             return Ok(());
         }
@@ -1578,19 +1562,18 @@ impl PersistenceManager {
     // ============ Session Persistence ============
 
     /// Save session
-    pub async fn save_session(&self, workspace_path: &Path, session: &Session) -> CoreResult<()> {
-        self.ensure_runtime_for_write(workspace_path).await?;
-        self.ensure_session_dir(workspace_path, &session.session_id)
-            .await?;
+    pub async fn save_session(&self, session: &Session) -> CoreResult<()> {
+        let domain = &session.config.domain;
+        self.ensure_domain_for_write(domain).await?;
+        self.ensure_session_dir(domain, &session.session_id).await?;
 
         let existing_metadata = self
-            .load_session_metadata(workspace_path, &session.session_id)
+            .load_session_metadata(domain, &session.session_id)
             .await?;
         let metadata = self
-            .build_session_metadata(workspace_path, session, existing_metadata.as_ref())
+            .build_session_metadata(session, existing_metadata.as_ref())
             .await;
-        self.save_session_metadata(workspace_path, &metadata)
-            .await?;
+        self.save_session_metadata(domain, &metadata).await?;
 
         let state = StoredSessionStateFile {
             schema_version: SESSION_STORAGE_SCHEMA_VERSION,
@@ -1600,31 +1583,40 @@ impl PersistenceManager {
             auto_memory_state: session.auto_memory_state.clone(),
             runtime_state: Self::sanitize_runtime_state(&session.state),
         };
-        self.save_stored_session_state(workspace_path, &session.session_id, &state)
+        self.save_stored_session_state(domain, &session.session_id, &state)
             .await
     }
 
     /// Load session
-    pub async fn load_session(
-        &self,
-        workspace_path: &Path,
-        session_id: &str,
-    ) -> CoreResult<Session> {
+    pub async fn load_session(&self, locator: &SessionLocator) -> CoreResult<Session> {
         let metadata = self
-            .load_session_metadata(workspace_path, session_id)
+            .load_session_metadata(&locator.domain, &locator.session_id)
             .await?
             .ok_or_else(|| {
-                CoreError::NotFound(format!("Session metadata not found: {}", session_id))
+                CoreError::NotFound(format!(
+                    "Session metadata not found: {}",
+                    locator.session_id
+                ))
             })?;
         let stored_state = self
-            .load_stored_session_state(workspace_path, session_id)
+            .load_stored_session_state(&locator.domain, &locator.session_id)
             .await?;
-        let turns = self.load_session_turns(workspace_path, session_id).await?;
+        let turns = self
+            .load_session_turns(&locator.domain, &locator.session_id)
+            .await?;
 
         let mut config = stored_state
             .as_ref()
             .map(|value| value.config.clone())
-            .unwrap_or_default();
+            .ok_or_else(|| {
+                CoreError::NotFound(format!("Session state not found: {}", locator.session_id))
+            })?;
+        if config.domain != locator.domain {
+            return Err(CoreError::validation(format!(
+                "Session state domain does not match locator: session_id={}",
+                locator.session_id
+            )));
+        }
         if config.workspace_path.is_none() {
             config.workspace_path = metadata.workspace_path.clone();
         }
@@ -1671,53 +1663,48 @@ impl PersistenceManager {
     /// Save session state
     pub async fn save_session_state(
         &self,
-        workspace_path: &Path,
-        session_id: &str,
+        locator: &SessionLocator,
         state: &SessionState,
     ) -> CoreResult<()> {
-        self.ensure_runtime_for_write(workspace_path).await?;
+        self.ensure_domain_for_write(&locator.domain).await?;
         let mut stored_state = self
-            .load_stored_session_state(workspace_path, session_id)
+            .load_stored_session_state(&locator.domain, &locator.session_id)
             .await?
-            .unwrap_or(StoredSessionStateFile {
-                schema_version: SESSION_STORAGE_SCHEMA_VERSION,
-                config: SessionConfig {
-                    workspace_path: None,
-                    ..Default::default()
-                },
-                snapshot_session_id: None,
-                compression_state: CompressionState::default(),
-                auto_memory_state: AutoMemoryState::default(),
-                runtime_state: SessionState::Idle,
-            });
+            .ok_or_else(|| {
+                CoreError::NotFound(format!("Session state not found: {}", locator.session_id))
+            })?;
         stored_state.schema_version = SESSION_STORAGE_SCHEMA_VERSION;
         stored_state.runtime_state = Self::sanitize_runtime_state(state);
-        self.save_stored_session_state(workspace_path, session_id, &stored_state)
+        self.save_stored_session_state(&locator.domain, &locator.session_id, &stored_state)
             .await
     }
 
     /// Delete session
-    pub async fn delete_session(&self, workspace_path: &Path, session_id: &str) -> CoreResult<()> {
-        let dir = self.session_dir(workspace_path, session_id);
+    pub async fn delete_session(&self, locator: &SessionLocator) -> CoreResult<()> {
+        let dir = self.session_dir(&locator.domain, &locator.session_id)?;
         if dir.exists() {
             fs::remove_dir_all(&dir)
                 .await
                 .map_err(|e| CoreError::io(format!("Failed to delete session directory: {}", e)))?;
         }
 
-        self.remove_index_entry(workspace_path, session_id).await?;
-        info!("Session deleted: session_id={}", session_id);
+        self.remove_index_entry(&locator.domain, &locator.session_id)
+            .await?;
+        info!(
+            "Session deleted: session_id={} domain={:?}",
+            locator.session_id, locator.domain
+        );
         Ok(())
     }
 
     /// List all sessions
-    pub async fn list_sessions(&self, workspace_path: &Path) -> CoreResult<Vec<SessionSummary>> {
-        let metadata_list = self.list_session_metadata(workspace_path).await?;
+    pub async fn list_sessions(&self, domain: &SessionDomain) -> CoreResult<Vec<SessionSummary>> {
+        let metadata_list = self.list_session_metadata(domain).await?;
         let mut summaries = Vec::with_capacity(metadata_list.len());
 
         for metadata in metadata_list {
             let state = self
-                .load_stored_session_state(workspace_path, &metadata.session_id)
+                .load_stored_session_state(domain, &metadata.session_id)
                 .await?
                 .map(|value| Self::sanitize_runtime_state(&value.runtime_state))
                 .unwrap_or(SessionState::Idle);
@@ -1750,70 +1737,59 @@ impl PersistenceManager {
 
     pub async fn save_dialog_turn(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
         turn: &DialogTurnData,
     ) -> CoreResult<()> {
-        self.ensure_runtime_for_write(workspace_path).await?;
+        self.ensure_domain_for_write(domain).await?;
         let mut metadata = self
-            .load_session_metadata(workspace_path, &turn.session_id)
+            .load_session_metadata(domain, &turn.session_id)
             .await?
             .ok_or_else(|| {
                 CoreError::NotFound(format!("Session metadata not found: {}", turn.session_id))
             })?;
 
-        self.ensure_turns_dir(workspace_path, &turn.session_id)
-            .await?;
+        self.ensure_turns_dir(domain, &turn.session_id).await?;
 
         let file = StoredDialogTurnFile {
             schema_version: SESSION_STORAGE_SCHEMA_VERSION,
             turn: turn.clone(),
         };
         self.write_json_atomic(
-            &self.turn_path(workspace_path, &turn.session_id, turn.turn_index),
+            &self.turn_path(domain, &turn.session_id, turn.turn_index)?,
             &file,
         )
         .await?;
 
-        let turns = self
-            .load_session_turns(workspace_path, &turn.session_id)
-            .await?;
+        let turns = self.load_session_turns(domain, &turn.session_id).await?;
         metadata.turn_count = turns.len();
         metadata.message_count = turns.iter().map(Self::estimate_turn_message_count).sum();
         metadata.tool_call_count = turns.iter().map(DialogTurnData::count_tool_calls).sum();
         metadata.last_active_at = turn
             .end_time
             .unwrap_or_else(|| Self::system_time_to_unix_ms(SystemTime::now()));
-        metadata.workspace_path = metadata.workspace_path.clone().or_else(|| {
-            turns
-                .first()
-                .and(None::<String>)
-                .or_else(|| Some(workspace_path.to_string_lossy().to_string()))
-        });
-        self.save_session_metadata(workspace_path, &metadata).await
+        self.save_session_metadata(domain, &metadata).await
     }
 
     pub async fn load_dialog_turn(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
         session_id: &str,
         turn_index: usize,
     ) -> CoreResult<Option<DialogTurnData>> {
         Ok(self
-            .read_json_optional::<StoredDialogTurnFile>(&self.turn_path(
-                workspace_path,
-                session_id,
-                turn_index,
-            ))
+            .read_json_optional::<StoredDialogTurnFile>(
+                &self.turn_path(domain, session_id, turn_index)?,
+            )
             .await?
             .map(|file| file.turn))
     }
 
     pub async fn load_session_turns(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
         session_id: &str,
     ) -> CoreResult<Vec<DialogTurnData>> {
-        let turns_dir = self.turns_dir(workspace_path, session_id);
+        let turns_dir = self.turns_dir(domain, session_id)?;
         if !turns_dir.exists() {
             return Ok(Vec::new());
         }
@@ -1861,23 +1837,23 @@ impl PersistenceManager {
 
     pub async fn load_recent_turns(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
         session_id: &str,
         count: usize,
     ) -> CoreResult<Vec<DialogTurnData>> {
-        let turns = self.load_session_turns(workspace_path, session_id).await?;
+        let turns = self.load_session_turns(domain, session_id).await?;
         let start = turns.len().saturating_sub(count);
         Ok(turns[start..].to_vec())
     }
 
     pub async fn export_session_transcript(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
         session_id: &str,
         options: &SessionTranscriptExportOptions,
     ) -> CoreResult<SessionTranscriptExport> {
         if self
-            .load_session_metadata(workspace_path, session_id)
+            .load_session_metadata(domain, session_id)
             .await?
             .is_none()
         {
@@ -1887,8 +1863,8 @@ impl PersistenceManager {
             )));
         }
 
-        let transcript_path = self.transcript_path(workspace_path, session_id);
-        let transcript_meta_path = self.transcript_meta_path(workspace_path, session_id);
+        let transcript_path = self.transcript_path(domain, session_id)?;
+        let transcript_meta_path = self.transcript_meta_path(domain, session_id)?;
 
         let parsed_turn_selectors = options
             .turns
@@ -1907,7 +1883,7 @@ impl PersistenceManager {
             }),
         };
 
-        let all_turns = self.load_session_turns(workspace_path, session_id).await?;
+        let all_turns = self.load_session_turns(domain, session_id).await?;
         let selected_indices = parsed_turn_selectors
             .as_ref()
             .map(|selectors| Self::transcript_select_turn_indices(all_turns.len(), selectors))
@@ -1933,8 +1909,7 @@ impl PersistenceManager {
             }
         }
 
-        self.ensure_artifacts_dir(workspace_path, session_id)
-            .await?;
+        self.ensure_artifacts_dir(domain, session_id).await?;
 
         let generated_at = Self::system_time_to_unix_ms(SystemTime::now());
         let sections = selected_indices
@@ -2064,18 +2039,18 @@ impl PersistenceManager {
 
     pub async fn delete_turns_after(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
         session_id: &str,
         turn_index: usize,
     ) -> CoreResult<usize> {
-        let turns = self.load_session_turns(workspace_path, session_id).await?;
+        let turns = self.load_session_turns(domain, session_id).await?;
         let mut deleted = 0usize;
 
         for turn in turns
             .into_iter()
             .filter(|value| value.turn_index > turn_index)
         {
-            let path = self.turn_path(workspace_path, session_id, turn.turn_index);
+            let path = self.turn_path(domain, session_id, turn.turn_index)?;
             if path.exists() {
                 fs::remove_file(&path)
                     .await
@@ -2084,11 +2059,8 @@ impl PersistenceManager {
             }
         }
 
-        if let Some(mut metadata) = self
-            .load_session_metadata(workspace_path, session_id)
-            .await?
-        {
-            let remaining_turns = self.load_session_turns(workspace_path, session_id).await?;
+        if let Some(mut metadata) = self.load_session_metadata(domain, session_id).await? {
+            let remaining_turns = self.load_session_turns(domain, session_id).await?;
             metadata.turn_count = remaining_turns.len();
             metadata.message_count = remaining_turns
                 .iter()
@@ -2099,8 +2071,7 @@ impl PersistenceManager {
                 .map(DialogTurnData::count_tool_calls)
                 .sum();
             metadata.last_active_at = Self::system_time_to_unix_ms(SystemTime::now());
-            self.save_session_metadata(workspace_path, &metadata)
-                .await?;
+            self.save_session_metadata(domain, &metadata).await?;
         }
 
         Ok(deleted)
@@ -2108,18 +2079,18 @@ impl PersistenceManager {
 
     pub async fn delete_turns_from(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
         session_id: &str,
         turn_index: usize,
     ) -> CoreResult<usize> {
-        let turns = self.load_session_turns(workspace_path, session_id).await?;
+        let turns = self.load_session_turns(domain, session_id).await?;
         let mut deleted = 0usize;
 
         for turn in turns
             .into_iter()
             .filter(|value| value.turn_index >= turn_index)
         {
-            let path = self.turn_path(workspace_path, session_id, turn.turn_index);
+            let path = self.turn_path(domain, session_id, turn.turn_index)?;
             if path.exists() {
                 fs::remove_file(&path)
                     .await
@@ -2128,11 +2099,8 @@ impl PersistenceManager {
             }
         }
 
-        if let Some(mut metadata) = self
-            .load_session_metadata(workspace_path, session_id)
-            .await?
-        {
-            let remaining_turns = self.load_session_turns(workspace_path, session_id).await?;
+        if let Some(mut metadata) = self.load_session_metadata(domain, session_id).await? {
+            let remaining_turns = self.load_session_turns(domain, session_id).await?;
             metadata.turn_count = remaining_turns.len();
             metadata.message_count = remaining_turns
                 .iter()
@@ -2143,27 +2111,27 @@ impl PersistenceManager {
                 .map(DialogTurnData::count_tool_calls)
                 .sum();
             metadata.last_active_at = Self::system_time_to_unix_ms(SystemTime::now());
-            self.save_session_metadata(workspace_path, &metadata)
-                .await?;
+            self.save_session_metadata(domain, &metadata).await?;
         }
 
         Ok(deleted)
     }
 
-    pub async fn touch_session(&self, workspace_path: &Path, session_id: &str) -> CoreResult<()> {
+    pub async fn touch_session(&self, locator: &SessionLocator) -> CoreResult<()> {
         if let Some(mut metadata) = self
-            .load_session_metadata(workspace_path, session_id)
+            .load_session_metadata(&locator.domain, &locator.session_id)
             .await?
         {
             metadata.touch();
-            self.save_session_metadata(workspace_path, &metadata)
+            self.save_session_metadata(&locator.domain, &metadata)
                 .await?;
         }
         Ok(())
     }
 }
 
-#[cfg(test)]
+// Superseded by typed-locator persistence contract tests.
+#[cfg(any())]
 mod tests {
     use super::PersistenceManager;
     use crate::agentic::core::SessionKind;

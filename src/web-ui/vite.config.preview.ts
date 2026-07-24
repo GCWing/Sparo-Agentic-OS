@@ -13,6 +13,7 @@ export default defineConfig({
   // Path resolution
   resolve: {
     alias: {
+      "@sparo/icons": path.resolve(webUiRoot, "../packages/icons/src/index.ts"),
       "@": path.resolve(webUiRoot, "src"),
       "@/shared": path.resolve(webUiRoot, "src/shared"),
       "@/core": path.resolve(webUiRoot, "src/core"),

@@ -1,0 +1,16 @@
+{
+  "name": "inspect_presentation",
+  "description": "Inspect the runtime-owned authoringContract, current parsed Manuscript, canonical document revisions, Design Case, PresentationSystem, ordered visual-page revisions, ReviewCoverage, and deterministic RuleViolations. Pass slideId only when one committed page needs expanded detail.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": { "slideId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,127}$" } }
+  },
+  "runtime": "javascript",
+  "entry": "tools/inspect_presentation.js",
+  "readonly": true,
+  "permissions": {},
+  "timeoutMs": 30000,
+  "maxOutputBytes": 240000,
+  "ui": { "card": { "kind": "appDefined", "family": "ppt-live", "template": "compact", "displayMode": "compact", "resultDisplayType": "detailed", "displayName": "Inspect presentation", "icon": "Presentation", "title": "Inspect presentation", "summary": { "preparing": "Opening presentation", "running": "Reading production state", "completed": "Presentation inspected", "failed": "Inspection failed" }, "locales": { "zh-CN": { "displayName": "检查演示文稿", "title": "检查演示文稿", "summary": { "preparing": "正在打开演示文稿", "running": "正在读取制作状态", "completed": "演示文稿检查完成", "failed": "检查失败" }, "fields": [ { "label": "标题" }, { "label": "文稿修订" }, { "label": "设计样稿" }, { "label": "规则违规" } ] } }, "fields": [ { "label": "Title", "resultPath": ["bridge", "output", "deck", "title"] }, { "label": "Manuscript", "resultPath": ["bridge", "output", "manuscript", "revision"] }, { "label": "Design Case", "resultPath": ["bridge", "output", "designCase", "status"] }, { "label": "Rule violations", "resultPath": ["bridge", "output", "ruleViolations"], "format": "json" } ] } }
+}

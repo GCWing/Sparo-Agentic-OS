@@ -20,7 +20,11 @@ describe('buildAppBuilderWorkRequest', () => {
   it('makes the mutable Draft the Work subject and App Builder its executor', () => {
     const request = buildAppBuilderWorkRequest(
       { app, draft },
-      { kind: 'workspace', workspacePath: 'D:/workspace/project' },
+      {
+        kind: 'workspace',
+        workspaceId: 'ws_project',
+        workspacePath: 'D:/workspace/project',
+      },
     );
 
     expect(request.component).toEqual({
@@ -28,7 +32,8 @@ describe('buildAppBuilderWorkRequest', () => {
       componentKind: 'product_app_draft',
     });
     expect(request.intent).toBe('develop');
-    expect(request.scope).toEqual({ kind: 'workspace', workspacePath: 'D:/workspace/project' });
+    expect(request.scope).toEqual({ kind: 'workspace', workspaceId: 'ws_project' });
+    expect(request.workspacePath).toBe('D:/workspace/project');
     expect(request.primarySurfacePolicy).toBe('work_session');
     expect(request.assignment).toEqual({ kind: 'agent', agentType: 'AppBuilder' });
     expect(request.appRefs).toEqual([{

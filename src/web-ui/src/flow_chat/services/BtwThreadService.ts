@@ -32,7 +32,7 @@ function buildChildSessionName(question: string): string {
 
 async function loadSessionMetadataWithRetry(
   sessionId: string,
-  workspacePath: string,
+  domain: import('@/shared/types/session-history').SessionDomain,
   opts?: { retries?: number; delayMs?: number }
 ): Promise<import('@/shared/types/session-history').SessionMetadata | null> {
   const retries = opts?.retries ?? 10;
@@ -40,7 +40,7 @@ async function loadSessionMetadataWithRetry(
 
   for (let i = 0; i < retries; i++) {
     try {
-      const meta = await sessionAPI.loadSessionMetadata(sessionId, workspacePath);
+      const meta = await sessionAPI.loadSessionMetadata({ session_id: sessionId, domain });
       if (meta) return meta;
     } catch (e) {
       log.debug('loadSessionMetadata retry failed', { sessionId, attempt: i + 1, e });
@@ -104,6 +104,9 @@ export async function createBtwChildSession(params: {
   const { parentDialogTurnId, parentTurnIndex } = getParentInterruptionContext(parentSessionId);
 
   const parentSession = flowChatStore.getState().sessions.get(parentSessionId);
+  if (!parentSession) {
+    throw new Error(`Parent session not found: ${parentSessionId}`);
+  }
   const workspacePath = params.workspacePath || parentSession?.workspacePath;
   if (!workspacePath) {
     throw new Error(`Workspace path is required for BTW child session: ${parentSessionId}`);
@@ -117,6 +120,7 @@ export async function createBtwChildSession(params: {
     sessionName: childSessionName,
     agentType,
     workspacePath,
+    domain: parentSession.domain,
     config: {
       modelName,
       enableTools: params.enableTools ?? false,
@@ -143,7 +147,7 @@ export async function createBtwChildSession(params: {
       },
       isTransient: false,
     },
-    parentSession?.storageScope
+    parentSession.domain,
   );
   flowChatStore.updateSessionRelationship(childSessionId, {
     parentSessionId,
@@ -170,17 +174,13 @@ export async function createBtwChildSession(params: {
 
   const meta = await loadSessionMetadataWithRetry(
     childSessionId,
-    workspacePath,
+    parentSession.domain,
   );
   if (meta) {
     const childSession = flowChatStore.getState().sessions.get(childSessionId);
 
     if (childSession) {
-      await sessionAPI.saveSessionMetadata(
-        buildSessionMetadata(childSession, meta),
-        workspacePath,
-        parentSession?.storageScope
-      );
+      await sessionAPI.saveSessionMetadata(buildSessionMetadata(childSession, meta));
     }
   }
 
@@ -221,7 +221,7 @@ export function createTransientBtwSession(params: {
       },
       isTransient: true,
     },
-    parentSession.storageScope
+    parentSession.domain,
   );
   flowChatStore.updateSessionModelName(childSessionId, inheritedModelId);
 

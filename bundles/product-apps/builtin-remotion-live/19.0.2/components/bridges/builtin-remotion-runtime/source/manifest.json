@@ -1,0 +1,403 @@
+{
+  "schemaVersion": 1,
+  "id": "builtin-remotion-runtime",
+  "name": "Sparo Video Engine",
+  "description": "Project analysis, authoritative Remotion Player preview hosting, still generation, export orchestration, asset indexing, and diagnostics for Remotion Live.",
+  "kind": "daemon",
+  "runtime": {
+    "language": "javascript",
+    "entry": "worker.js",
+    "idleTimeoutMs": 120000
+  },
+  "surfaces": {
+    "launchableApp": false,
+    "agent": true,
+    "tool": true,
+    "productAppRuntimeBackend": true
+  },
+  "permissions": {
+    "fs": [
+      "{workspace}",
+      "{app}"
+    ],
+    "net": [],
+    "shell": [
+      "node",
+      "git",
+      "npm",
+      "npx",
+      "pnpm",
+      "yarn",
+      "bunx",
+      "remotion"
+    ],
+    "gui": [],
+    "secrets": []
+  },
+  "capabilities": [
+    {
+      "id": "sparo.videoEngine",
+      "title": "Sparo Video Engine",
+      "description": "Analyze Remotion project source, host the authoritative Remotion Player runtime, render stills/exports through the project toolchain, and report diagnostics.",
+      "category": "videoEngine",
+      "actions": [
+        "detectProject",
+        "compileProject",
+        "getCompositionManifest",
+        "getFrameDescriptor",
+        "ensurePlayerPreviewHost",
+        "getPlayerPreviewHostStatus",
+        "stopPlayerPreviewHost",
+        "renderStill",
+        "startExport",
+        "getExportStatus",
+        "cancelExport",
+        "indexAssets",
+        "readDiagnostics"
+      ],
+      "streaming": false,
+      "cancelable": true,
+      "resumable": true,
+      "usableBy": [
+        "agentComponent",
+        "productAppRuntime",
+        "management"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["workspacePath"],
+        "properties": {
+          "workspacePath": { "type": "string", "minLength": 1 },
+          "entryPoint": { "type": "string", "minLength": 1 }
+        }
+      },
+      "outputSchema": {
+        "type": "object"
+      }
+    }
+  ],
+  "actions": [
+    {
+      "name": "detectProject",
+      "description": "Detect whether the workspace contains a Remotion project and locate entry/composition source files.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["workspacePath"],
+        "properties": {
+          "workspacePath": { "type": "string", "minLength": 1 },
+          "entryPoint": { "type": "string", "minLength": 1 }
+        }
+      },
+      "outputSchema": {
+        "type": "object"
+      },
+      "streaming": false,
+      "cancelable": false,
+      "resumable": false
+    },
+    {
+      "name": "compileProject",
+      "description": "Materialize a fresh schema-v3 project snapshot by bundling the registered Root and resolving calculateMetadata through the project renderer.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["workspacePath"],
+        "properties": {
+          "workspacePath": { "type": "string", "minLength": 1 },
+          "entryPoint": { "type": "string", "minLength": 1 },
+          "inputProps": { "type": "object" },
+          "force": { "type": "boolean" }
+        }
+      },
+      "outputSchema": {
+        "type": "object"
+      },
+      "streaming": false,
+      "cancelable": false,
+      "resumable": true
+    },
+    {
+      "name": "getCompositionManifest",
+      "description": "Read the current source-and-input-scoped resolved snapshot; use compileProject to refresh calculateMetadata explicitly.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["workspacePath"],
+        "properties": {
+          "workspacePath": { "type": "string", "minLength": 1 },
+          "entryPoint": { "type": "string", "minLength": 1 },
+          "inputProps": { "type": "object" },
+          "force": { "type": "boolean" }
+        }
+      },
+      "outputSchema": {
+        "type": "object"
+      },
+      "streaming": false,
+      "cancelable": false,
+      "resumable": true
+    },
+    {
+      "name": "getFrameDescriptor",
+      "description": "Read the non-visual composition descriptor at an integer frame. Committed visual context is owned by the open Player surface.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["workspacePath", "compositionId", "frame", "expectedProjectRevision", "expectedDescriptorRevision"],
+        "properties": {
+          "workspacePath": { "type": "string", "minLength": 1 },
+          "entryPoint": { "type": "string", "minLength": 1 },
+          "compositionId": { "type": "string", "minLength": 1 },
+          "frame": { "type": "integer", "minimum": 0 },
+          "expectedProjectRevision": { "type": "string", "minLength": 1 },
+          "expectedDescriptorRevision": { "type": "string", "minLength": 1 },
+          "inputProps": { "type": "object" }
+        }
+      },
+      "outputSchema": {
+        "type": "object"
+      },
+      "streaming": false,
+      "cancelable": false,
+      "resumable": true
+    },
+    {
+      "name": "ensurePlayerPreviewHost",
+      "description": "Build, start, or reuse the workspace's Remotion Player preview host for interactive playback.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["workspacePath", "compositionId", "expectedProjectRevision", "expectedDescriptorRevision"],
+        "properties": {
+          "workspacePath": { "type": "string", "minLength": 1 },
+          "entryPoint": { "type": "string", "minLength": 1 },
+          "compositionId": { "type": "string", "minLength": 1 },
+          "frame": { "type": "integer", "minimum": 0 },
+          "expectedProjectRevision": { "type": "string", "minLength": 1 },
+          "expectedDescriptorRevision": { "type": "string", "minLength": 1 },
+          "inputProps": { "type": "object" },
+          "force": { "type": "boolean" },
+          "port": { "type": "integer", "minimum": 1024, "maximum": 65535 },
+          "waitMs": { "type": "integer", "minimum": 0, "maximum": 120000 }
+        }
+      },
+      "outputSchema": {
+        "type": "object"
+      },
+      "streaming": false,
+      "cancelable": true,
+      "resumable": true
+    },
+    {
+      "name": "getPlayerPreviewHostStatus",
+      "description": "Read the current Remotion Player preview host status and recent logs.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["workspacePath"],
+        "properties": {
+          "workspacePath": { "type": "string", "minLength": 1 }
+        }
+      },
+      "outputSchema": {
+        "type": "object"
+      },
+      "streaming": false,
+      "cancelable": false,
+      "resumable": true
+    },
+    {
+      "name": "stopPlayerPreviewHost",
+      "description": "Stop the Remotion Player preview host for the workspace.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["workspacePath"],
+        "properties": {
+          "workspacePath": { "type": "string", "minLength": 1 }
+        }
+      },
+      "outputSchema": {
+        "type": "object"
+      },
+      "streaming": false,
+      "cancelable": false,
+      "resumable": true
+    },
+    {
+      "name": "renderStill",
+      "description": "Render the current frame through the workspace's Remotion toolchain to a local image still.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["workspacePath", "compositionId", "frame", "expectedProjectRevision", "expectedDescriptorRevision"],
+        "properties": {
+          "workspacePath": { "type": "string", "minLength": 1 },
+          "entryPoint": { "type": "string", "minLength": 1 },
+          "compositionId": { "type": "string", "minLength": 1 },
+          "frame": { "type": "integer", "minimum": 0 },
+          "scale": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+          "expectedProjectRevision": { "type": "string", "minLength": 1 },
+          "expectedDescriptorRevision": { "type": "string", "minLength": 1 },
+          "inputProps": { "type": "object" },
+          "force": { "type": "boolean" }
+        }
+      },
+      "outputSchema": {
+        "type": "object"
+      },
+      "streaming": false,
+      "cancelable": false,
+      "resumable": false
+    },
+    {
+      "name": "startExport",
+      "description": "Start an isolated asynchronous Remotion render job with durable progress reporting.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["workspacePath", "compositionId", "expectedProjectRevision", "expectedDescriptorRevision"],
+        "properties": {
+          "workspacePath": { "type": "string", "minLength": 1 },
+          "entryPoint": { "type": "string", "minLength": 1 },
+          "compositionId": { "type": "string", "minLength": 1 },
+          "frameRange": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 0 },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "scale": { "type": "number", "exclusiveMinimum": 0, "maximum": 4 },
+          "codec": { "type": "string", "enum": ["h264", "h265", "vp8", "vp9", "prores", "gif"] },
+          "outputName": { "type": "string" },
+          "expectedProjectRevision": { "type": "string", "minLength": 1 },
+          "expectedDescriptorRevision": { "type": "string", "minLength": 1 },
+          "inputProps": { "type": "object" }
+        }
+      },
+      "outputSchema": {
+        "type": "object"
+      },
+      "streaming": false,
+      "cancelable": true,
+      "resumable": true
+    },
+    {
+      "name": "getExportStatus",
+      "description": "Read native export run status.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["workspacePath", "runId"],
+        "properties": {
+          "workspacePath": { "type": "string", "minLength": 1 },
+          "runId": { "type": "string", "minLength": 1 }
+        }
+      },
+      "outputSchema": {
+        "type": "object"
+      },
+      "streaming": false,
+      "cancelable": false,
+      "resumable": true
+    },
+    {
+      "name": "cancelExport",
+      "description": "Request renderer-native export cancellation with isolated process-tree termination fallback.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["workspacePath", "runId"],
+        "properties": {
+          "workspacePath": { "type": "string", "minLength": 1 },
+          "runId": { "type": "string", "minLength": 1 }
+        }
+      },
+      "outputSchema": {
+        "type": "object"
+      },
+      "streaming": false,
+      "cancelable": false,
+      "resumable": true
+    },
+    {
+      "name": "indexAssets",
+      "description": "Index project media, font, caption, and data assets.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["workspacePath"],
+        "properties": {
+          "workspacePath": { "type": "string", "minLength": 1 },
+          "entryPoint": { "type": "string", "minLength": 1 }
+        }
+      },
+      "outputSchema": {
+        "type": "object"
+      },
+      "streaming": false,
+      "cancelable": false,
+      "resumable": true
+    },
+    {
+      "name": "readDiagnostics",
+      "description": "Read project diagnostics and source control changes.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["workspacePath"],
+        "properties": {
+          "workspacePath": { "type": "string", "minLength": 1 },
+          "entryPoint": { "type": "string", "minLength": 1 }
+        }
+      },
+      "outputSchema": {
+        "type": "object"
+      },
+      "streaming": false,
+      "cancelable": false,
+      "resumable": true
+    }
+  ],
+  "tools": [
+    {
+      "name": "SparoVideoEngine",
+      "description": "Analyze Remotion projects, host the authoritative Remotion Player preview, and render stills/exports through the workspace Remotion toolchain.",
+      "capabilityId": "sparo.videoEngine",
+      "action": "compileProject",
+      "actions": [
+        "detectProject",
+        "compileProject",
+        "getCompositionManifest",
+        "getFrameDescriptor",
+        "ensurePlayerPreviewHost",
+        "getPlayerPreviewHostStatus",
+        "stopPlayerPreviewHost",
+        "renderStill",
+        "startExport",
+        "getExportStatus",
+        "cancelExport",
+        "indexAssets",
+        "readDiagnostics"
+      ],
+      "readonly": false,
+      "needsPermissions": true,
+      "inputSchema": {
+        "type": "object"
+      },
+      "ui": {
+        "card": {
+          "kind": "appDefined",
+          "displayName": "Sparo Video Engine",
+          "icon": "Film",
+          "resultDisplayType": "detailed",
+          "displayMode": "compact",
+          "family": "bridge-component",
+          "title": "Sparo Video Engine"
+        }
+      }
+    }
+  ]
+}

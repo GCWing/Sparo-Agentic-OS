@@ -1,26 +1,179 @@
+@use '@/design-system/foundation/tokens/tokens.scss' as *;
+
 .notification-container {
+  --notification-stack-peek: 22px;
+  --notification-stack-gap: 10px;
+  --notification-expanded-card-shadow:
+    0 0 0 1px color-mix(
+      in srgb,
+      var(--ds-color-border-base, var(--border-base, #{$border-base})) 42%,
+      transparent
+    ),
+    0 4px 12px -8px color-mix(
+      in srgb,
+      var(
+        --ds-shadow-color-floating,
+        color-mix(in srgb, currentColor 24%, transparent)
+      ) 48%,
+      transparent
+    );
+
   position: fixed;
   right: -8px;
   left: auto;
   bottom: 36px;
-  z-index: var(--ds-z-notification);
+  z-index: $ds-z-notification;
   display: flex;
-  flex-direction: column-reverse;
+  flex-direction: column;
   align-items: flex-end;
-  gap: 10px;
+  gap: 0;
   padding: 24px;
-  pointer-events: none;
+  pointer-events: auto;
+  isolation: isolate;
+  max-height: calc(100vh - 72px);
+  overflow: visible;
+  transition: gap 220ms cubic-bezier(0.16, 1, 0.3, 1);
 
-  > * {
+  &__item {
+    --notification-layer-shadow-strength: 52%;
+
+    position: relative;
+    display: flex;
+    justify-content: flex-end;
     pointer-events: auto;
     flex-shrink: 0;
+    max-height: calc(100vh - 72px);
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    transform-origin: top center;
+    transition:
+      max-height 260ms cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 160ms ease,
+      transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
+
+    &:not(:last-child) {
+      max-height: var(--notification-stack-peek);
+      overflow: visible;
+
+      &::before {
+        content: '';
+        position: absolute;
+        inset: 0 0 auto;
+        height: var(--notification-front-height, 72px);
+        border-radius: var(--ds-radius-2xl, #{$size-radius-2xl});
+        background: var(--ds-color-bg-elevated, var(--color-bg-elevated, #{$color-bg-elevated}));
+        box-shadow: 0 0 0 1px color-mix(
+            in srgb,
+            var(--ds-color-border-base, var(--border-base, #{$border-base})) 42%,
+            transparent
+          ),
+          0 12px 24px -12px color-mix(
+            in srgb,
+            var(
+              --ds-shadow-color-floating,
+              color-mix(in srgb, currentColor 24%, transparent)
+            ) var(--notification-layer-shadow-strength),
+            transparent
+          );
+        pointer-events: none;
+        transition: opacity 120ms ease;
+      }
+
+      > .notification-item,
+      > .progress-notification,
+      > .loading-notification {
+        visibility: hidden;
+      }
+    }
+
+    &:nth-last-child(2) {
+      --notification-layer-shadow-strength: 82%;
+
+      transform: scale(0.9);
+    }
+
+    &:nth-last-child(3) {
+      opacity: 0.84;
+      transform: scale(0.8);
+    }
+
+    &:not(:nth-last-child(-n + 3)) {
+      max-height: 0;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateX(-15px) scale(0.93);
+    }
+
+    > .notification-item,
+    > .progress-notification,
+    > .loading-notification {
+      width: 320px;
+      min-width: 320px;
+      max-width: 320px;
+    }
   }
 
-  max-height: calc(100vh - 72px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  &--preview-light {
+    --color-bg-elevated: color-mix(
+      in srgb,
+      var(--color-bg-primary) 94%,
+      currentColor
+    );
+    --border-base: color-mix(in srgb, currentColor 18%, transparent);
+    --ds-color-bg-elevated: var(--color-bg-elevated);
+    --ds-color-border-base: var(--border-base);
+    --ds-shadow-color-floating: color-mix(in srgb, currentColor 24%, transparent);
+    --ds-shadow-floating: 0 14px 30px -14px var(--ds-shadow-color-floating);
+
+    color: inherit;
+
+    .ds-floating-card,
+    .notification-item__title,
+    .progress-notification__title,
+    .loading-notification__title,
+    .ds-floating-card__dismiss.icon-btn {
+      color: inherit;
+    }
+
+    .notification-item__message,
+    .progress-notification__message,
+    .loading-notification__message {
+      color: color-mix(in srgb, currentColor 68%, transparent);
+    }
+  }
+
+  &--expanded,
+  &:focus-within {
+    gap: var(--notification-stack-gap);
+
+    .notification-container__item {
+      max-height: calc(100vh - 72px);
+      overflow: visible;
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(0) scale(1);
+
+      &::before {
+        opacity: 0;
+      }
+
+      > .notification-item,
+      > .progress-notification,
+      > .loading-notification {
+        visibility: visible;
+        box-shadow: var(--notification-expanded-card-shadow);
+      }
+    }
+  }
+
+  &--scrollable.notification-container--expanded,
+  &--scrollable:focus-within {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
 
   scrollbar-width: none;
+
   &::-webkit-scrollbar {
     display: none;
   }
@@ -41,5 +194,42 @@
       min-width: unset;
       max-width: calc(100vw - 48px);
     }
+  }
+}
+
+@media (hover: none) {
+  .notification-container {
+    gap: var(--notification-stack-gap);
+
+    &__item {
+      max-height: calc(100vh - 72px);
+      overflow: visible;
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(0) scale(1);
+
+      &::before {
+        opacity: 0;
+      }
+
+      > .notification-item,
+      > .progress-notification,
+      > .loading-notification {
+        visibility: visible;
+        box-shadow: var(--notification-expanded-card-shadow);
+      }
+    }
+
+    &--scrollable {
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notification-container,
+  .notification-container__item {
+    transition: none;
   }
 }

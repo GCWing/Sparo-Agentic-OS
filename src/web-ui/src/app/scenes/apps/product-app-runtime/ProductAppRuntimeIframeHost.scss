@@ -1,0 +1,42 @@
+.product-app-runtime-iframe-host {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--ds-color-bg-app);
+}
+
+.product-app-runtime-iframe-host__frame {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  display: block;
+}
+
+.product-app-runtime-hosted-views {
+  position: absolute;
+  inset: 0;
+  z-index: var(--ds-z-raised);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.product-app-runtime-hosted-view {
+  position: absolute;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  pointer-events: auto;
+  background: var(--ds-color-bg-surface);
+}
+
+.product-app-runtime-hosted-view > .sparo-markdown-editor {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}

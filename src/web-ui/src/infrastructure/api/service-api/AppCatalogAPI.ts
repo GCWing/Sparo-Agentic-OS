@@ -8,9 +8,10 @@ import {
   type IntelligentAppOwnerKind,
 } from './IntelligentAppAPI';
 import { bridgeComponentAPI } from './BridgeComponentAPI';
+import type { ProductAppWorkMultiplicity } from '@/shared/types/app-manifest';
 
 export type AppInteractionModel = 'conversation' | 'interactiveWorkspace';
-export type AppWorkMultiplicity = 'multiple' | 'singleton';
+export type AppWorkMultiplicity = ProductAppWorkMultiplicity;
 export type AppTruthSource = 'ownedObjectState' | 'runtimeFact';
 export type AppSurfaceMode = 'chatPrimary' | 'sidecarLinked' | 'immersivePrimary' | 'embeddedObject';
 export type AppInstallScope = 'system' | 'workspace' | 'project';
@@ -266,7 +267,6 @@ export interface ProductAppCatalogEntry extends AppDefinition {
   derivedFromReleaseId?: string | null;
   activeRef?: ActiveAppRef | null;
   releases?: AppReleaseRecord[];
-  previousReleaseId?: string | null;
   upstreamUpdateAvailable?: boolean;
   upstreamLatestReleaseId?: string | null;
   componentLockDigest: string;
@@ -495,6 +495,14 @@ function trimmed(value: string | null | undefined): string | undefined {
   return next || undefined;
 }
 
+type AppCatalogChangeListener = () => void;
+const appCatalogChangeListeners = new Set<AppCatalogChangeListener>();
+
+export function subscribeAppCatalogChanges(listener: AppCatalogChangeListener): () => void {
+  appCatalogChangeListeners.add(listener);
+  return () => appCatalogChangeListeners.delete(listener);
+}
+
 export function resolveCatalogAppMeta(
   app: CatalogAppMetadataSource,
   locale?: string,
@@ -538,6 +546,7 @@ export interface CatalogCacheOptions {
 function invalidateAppCatalogCache() {
   // Lifecycle catalog is authoritative and loaded on demand; there is no
   // second mutable installation cache to invalidate.
+  for (const listener of appCatalogChangeListeners) listener();
 }
 
 function projectLifecycleEntry(
@@ -590,7 +599,6 @@ function projectLifecycleEntry(
     derivedFromReleaseId: variant.app.derivedFrom?.releaseId ?? null,
     activeRef,
     releases: variant.releases,
-    previousReleaseId: isSelected ? activation?.previousReleaseId ?? null : null,
     upstreamUpdateAvailable: variant.upstreamUpdateAvailable,
     upstreamLatestReleaseId: variant.upstreamLatestReleaseId ?? null,
     version: installedRelease?.version ?? release.version,

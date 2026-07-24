@@ -146,7 +146,11 @@ enum Commands {
 
     /// Session management
     Sessions {
-        /// Workspace path whose persisted sessions should be managed (defaults to CLI preference workspace.default_path when set)
+        /// Session domain to inspect; no cross-domain fallback is performed
+        #[arg(long, value_enum)]
+        domain: CliSessionDomain,
+
+        /// Workspace path used to resolve --domain workspace
         #[arg(short, long, global = true)]
         workspace: Option<String>,
 
@@ -274,6 +278,13 @@ enum SessionAction {
         #[arg(short, long)]
         message: Option<String>,
     },
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum CliSessionDomain {
+    OsAgent,
+    Global,
+    Workspace,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -846,46 +857,44 @@ fn health_summary(checks: &serde_json::Value) -> serde_json::Value {
 fn cli_health_value() -> Result<serde_json::Value> {
     let config_dir = CliConfig::config_dir_path()?;
     let current_workspace = std::env::current_dir().ok();
-    let (agentic_os_memory_path, workspace_sessions_path, workspace_memory_path) =
-        match sparo_core::infrastructure::try_get_path_manager_arc() {
-            Ok(path_manager) => {
-                let workspace_sessions_path = current_workspace
-                    .as_deref()
-                    .map(|workspace| path_manager.workspace_sessions_dir(workspace))
-                    .unwrap_or_else(|| {
-                        config_dir
-                            .join("workspaces")
-                            .join("unknown")
-                            .join("sessions")
-                    });
-                let workspace_memory_path = current_workspace
-                    .as_deref()
-                    .map(|workspace| path_manager.workspace_memory_dir(workspace))
-                    .unwrap_or_else(|| {
-                        config_dir.join("workspaces").join("unknown").join("memory")
-                    });
-                (
-                    path_manager.agentic_os_memory_dir(),
-                    workspace_sessions_path,
-                    workspace_memory_path,
-                )
-            }
-            Err(_) => (
-                config_dir.join("agentic_os").join("memory"),
-                config_dir
-                    .join("workspaces")
-                    .join("unknown")
-                    .join("sessions"),
-                config_dir.join("workspaces").join("unknown").join("memory"),
-            ),
+    let path_manager = sparo_core::infrastructure::try_get_path_manager_arc()
+        .map_err(|error| anyhow::anyhow!("Failed to initialize storage paths: {error}"))?;
+    let registered_workspace = current_workspace
+        .as_deref()
+        .filter(|path| path.join(".sparo_os").join("workspace.json").is_file());
+    let (workspace_sessions_path, workspace_memory_path) =
+        if let Some(workspace) = registered_workspace {
+            let workspace_id = path_manager.workspace_id(workspace)?;
+            let domain = sparo_core::agentic::SessionDomain::Workspace { workspace_id };
+            (
+                path_manager.session_domain_root(&domain)?,
+                path_manager.workspace_memory_dir(workspace)?,
+            )
+        } else {
+            (
+                path_manager.sessions_root().join("workspaces"),
+                path_manager.workspaces_runtime_root(),
+            )
         };
+    let agentic_os_memory_path = path_manager.agentic_os_memory_dir();
     let checks = serde_json::json!({
         "app_root": directory_health(&config_dir),
         "cli_config_file": cli_config_file_health(&CliConfig::config_path()?),
         "config": directory_health(&config_dir.join("config")),
         "global_config_file": global_config_file_health(&config_dir.join("config").join("app.json")),
         "workspaces": directory_health(&config_dir.join("workspaces")),
+        "sessions": directory_health(&path_manager.sessions_root()),
+        "os_agent_sessions": directory_health(
+            &path_manager.session_domain_root(&sparo_core::agentic::SessionDomain::OsAgent)?
+        ),
+        "global_sessions": directory_health(
+            &path_manager.session_domain_root(&sparo_core::agentic::SessionDomain::Global)?
+        ),
         "workspace_sessions": directory_health(&workspace_sessions_path),
+        "works": directory_health(&path_manager.works_root()),
+        "runs": directory_health(&path_manager.runs_root()),
+        "app_data": directory_health(&path_manager.app_data_root()),
+        "services": directory_health(&path_manager.services_root()),
         "agentic_os_memory": directory_health(&agentic_os_memory_path),
         "workspace_memory": directory_health(&workspace_memory_path),
         "apps": directory_health(&config_dir.join("apps")),
@@ -1783,6 +1792,7 @@ async fn run_cli() -> Result<()> {
 
         Some(Commands::Sessions {
             action: SessionAction::Resume { id, message },
+            domain,
             workspace,
             json,
         }) => {
@@ -1790,16 +1800,20 @@ async fn run_cli() -> Result<()> {
                 anyhow::bail!("sessions resume is interactive and does not support --json");
             }
             let workspace = effective_workspace_hint(&config, workspace.as_deref());
-            resume_session_in_tui(config, workspace, id, message, Vec::new()).await?;
+            let session_domain = resolve_cli_session_domain(domain, workspace.as_deref())?;
+            resume_session_in_tui(config, workspace, session_domain, id, message, Vec::new())
+                .await?;
         }
 
         Some(Commands::Sessions {
             action,
+            domain,
             workspace,
             json,
         }) => {
             let workspace = effective_workspace_hint(&config, workspace.as_deref());
-            handle_session_action(action, workspace, json).await?;
+            let session_domain = resolve_cli_session_domain(domain, workspace.as_deref())?;
+            handle_session_action(action, workspace, session_domain, json).await?;
         }
 
         Some(Commands::Tasks {
@@ -1814,9 +1828,12 @@ async fn run_cli() -> Result<()> {
             let task = resolve_task(workspace.clone(), &id).await?;
             if let Some(session_id) = task.session_id.clone() {
                 let resume = task_session_resume_context(&task, workspace, session_id, message);
+                let session_domain =
+                    resolve_workspace_or_global_session_domain(resume.workspace.as_deref())?;
                 resume_session_in_tui(
                     config,
                     resume.workspace,
+                    session_domain,
                     resume.session_id,
                     resume.initial_message,
                     resume.context_messages,
@@ -2118,9 +2135,42 @@ async fn handle_batch_tasks(
     run_result
 }
 
+fn resolve_cli_session_domain(
+    domain: CliSessionDomain,
+    workspace: Option<&str>,
+) -> Result<sparo_core::agentic::core::SessionDomain> {
+    match domain {
+        CliSessionDomain::OsAgent => Ok(sparo_core::agentic::core::SessionDomain::OsAgent),
+        CliSessionDomain::Global => Ok(sparo_core::agentic::core::SessionDomain::Global),
+        CliSessionDomain::Workspace => resolve_workspace_session_domain(workspace),
+    }
+}
+
+fn resolve_workspace_or_global_session_domain(
+    workspace: Option<&str>,
+) -> Result<sparo_core::agentic::core::SessionDomain> {
+    match workspace.map(str::trim).filter(|value| !value.is_empty()) {
+        Some(_) => resolve_workspace_session_domain(workspace),
+        None => Ok(sparo_core::agentic::core::SessionDomain::Global),
+    }
+}
+
+fn resolve_workspace_session_domain(
+    workspace: Option<&str>,
+) -> Result<sparo_core::agentic::core::SessionDomain> {
+    let workspace = workspace
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| anyhow::anyhow!("--workspace is required for --domain workspace"))?;
+    let path_manager = sparo_core::infrastructure::try_get_path_manager_arc()?;
+    let workspace_id = path_manager.workspace_id(std::path::Path::new(workspace))?;
+    Ok(sparo_core::agentic::core::SessionDomain::Workspace { workspace_id })
+}
+
 async fn resume_session_in_tui(
     config: CliConfig,
     workspace: Option<String>,
+    domain: sparo_core::agentic::core::SessionDomain,
     id: String,
     initial_message: Option<String>,
     context_messages: Vec<String>,
@@ -2130,8 +2180,10 @@ async fn resume_session_in_tui(
     println!("Loading session {}...", id);
     let _process_runtime = initialize_cli_process_runtime().await?;
     let detail = session_command::show_session(session_command::ShowSessionRequest {
-        session_id: id,
-        workspace_path: workspace.clone(),
+        locator: sparo_core::agentic::core::SessionLocator {
+            domain,
+            session_id: id,
+        },
     })
     .await?;
 
@@ -2324,9 +2376,13 @@ async fn handle_tasks_action(
                 .clone()
                 .ok_or_else(|| anyhow::anyhow!("Task has no persisted session id: {}", id))?;
             use sparo_core::command::session as session_command;
+            let task_workspace = task.workspace.or(workspace);
+            let domain = resolve_workspace_or_global_session_domain(task_workspace.as_deref())?;
             let detail = session_command::show_session(session_command::ShowSessionRequest {
-                session_id: session_id.clone(),
-                workspace_path: task.workspace.or(workspace),
+                locator: sparo_core::agentic::core::SessionLocator {
+                    domain,
+                    session_id: session_id.clone(),
+                },
             })
             .await?;
             let exported = match format {
@@ -2855,6 +2911,7 @@ fn write_export_file(output: &str, content: &str) -> Result<()> {
 async fn handle_session_action(
     action: SessionAction,
     workspace_path: Option<String>,
+    domain: sparo_core::agentic::core::SessionDomain,
     json: bool,
 ) -> Result<()> {
     use sparo_core::command::session as session_command;
@@ -2864,7 +2921,7 @@ async fn handle_session_action(
             let workspace_for_output = workspace_path.clone();
             let sessions =
                 session_command::list_sessions(session_command::SessionWorkspaceRequest {
-                    workspace_path,
+                    domain: domain.clone(),
                 })
                 .await?;
 
@@ -2879,18 +2936,20 @@ async fn handle_session_action(
         }
 
         SessionAction::Last => {
-            show_session_details("last".to_string(), workspace_path, json).await?;
+            show_session_details("last".to_string(), domain, json).await?;
         }
 
         SessionAction::Show { id } => {
-            show_session_details(id, workspace_path, json).await?;
+            show_session_details(id, domain, json).await?;
         }
 
         SessionAction::Delete { id } => {
             let workspace_for_output = workspace_path.clone();
             let response = session_command::delete_session(session_command::DeleteSessionRequest {
-                session_id: id.clone(),
-                workspace_path,
+                locator: sparo_core::agentic::core::SessionLocator {
+                    domain: domain.clone(),
+                    session_id: id.clone(),
+                },
             })
             .await?;
             if json {
@@ -2906,8 +2965,10 @@ async fn handle_session_action(
 
         SessionAction::Export { id, output, format } => {
             let detail = session_command::show_session(session_command::ShowSessionRequest {
-                session_id: id.clone(),
-                workspace_path,
+                locator: sparo_core::agentic::core::SessionLocator {
+                    domain: domain.clone(),
+                    session_id: id.clone(),
+                },
             })
             .await?;
 
@@ -2945,14 +3006,16 @@ async fn handle_session_action(
 
 async fn show_session_details(
     id: String,
-    workspace_path: Option<String>,
+    domain: sparo_core::agentic::core::SessionDomain,
     json: bool,
 ) -> Result<()> {
     use sparo_core::command::session as session_command;
 
     let detail = session_command::show_session(session_command::ShowSessionRequest {
-        session_id: id,
-        workspace_path,
+        locator: sparo_core::agentic::core::SessionLocator {
+            domain,
+            session_id: id,
+        },
     })
     .await?;
 
@@ -4229,11 +4292,13 @@ async fn handle_apps_action(action: AppsAction, json: bool) -> Result<()> {
 
 fn apps_list_human_lines(catalog: &CliIntelligentAppCatalog) -> Vec<String> {
     if catalog.slots.is_empty() {
-        return vec![
+        let mut lines = vec![
             "No Intelligent Apps are available.".to_string(),
             "Create or fork one in Sparo Desktop Apps Center / App Builder.".to_string(),
             "Machine output: sparo apps list --json".to_string(),
         ];
+        append_intelligent_app_sync_issues(&mut lines, catalog);
+        return lines;
     }
 
     let variant_count = catalog
@@ -4302,8 +4367,29 @@ fn apps_list_human_lines(catalog: &CliIntelligentAppCatalog) -> Vec<String> {
         );
         lines.push("  Machine output: sparo apps list --json".to_string());
     }
+    append_intelligent_app_sync_issues(&mut lines, catalog);
 
     lines
+}
+
+fn append_intelligent_app_sync_issues(lines: &mut Vec<String>, catalog: &CliIntelligentAppCatalog) {
+    if catalog.issues.is_empty() {
+        return;
+    }
+    lines.push(String::new());
+    lines.push(format!(
+        "System App synchronization issues ({})",
+        catalog.issues.len()
+    ));
+    for issue in &catalog.issues {
+        lines.push(format!(
+            "  - {}@{} | {} | {}",
+            issue.app_id.as_deref().unwrap_or("system-components"),
+            issue.version.as_deref().unwrap_or("current"),
+            issue.source,
+            issue.message
+        ));
+    }
 }
 
 fn app_human_detail_lines(details: &CliIntelligentAppDetails) -> Vec<String> {
@@ -4340,10 +4426,6 @@ fn app_human_detail_lines(details: &CliIntelligentAppDetails) -> Vec<String> {
         lines.push(format!(
             "  Active release: {}",
             activation.active_release_id
-        ));
-        lines.push(format!(
-            "  Previous release: {}",
-            activation.previous_release_id.as_deref().unwrap_or("none")
         ));
     } else {
         lines.push("Activation: not configured".to_string());
@@ -4754,8 +4836,7 @@ fn memory_list_human_lines(
     if memories.is_empty() {
         return vec![
             "No memory files are available in this snapshot.".to_string(),
-            "Add notes under .sparo_os/memory; run `sparo health` if memory is missing."
-                .to_string(),
+            "Add durable context through chat or the Memory surface; run `sparo health` if memory is unavailable.".to_string(),
             "Discuss context in chat with `sparo chat`.".to_string(),
         ];
     }
@@ -5528,6 +5609,7 @@ mod tests {
             json: false,
         })));
         assert!(can_use_default_config_silently(&Some(Commands::Sessions {
+            domain: CliSessionDomain::OsAgent,
             action: SessionAction::Export {
                 id: "last".to_string(),
                 output: None,
@@ -5551,6 +5633,7 @@ mod tests {
         })));
         assert!(!can_use_default_config_silently(&Some(
             Commands::Sessions {
+                domain: CliSessionDomain::OsAgent,
                 action: SessionAction::Delete {
                     id: "session-1".to_string(),
                 },
@@ -5612,6 +5695,7 @@ mod tests {
         ));
         assert!(!requires_valid_cli_config(
             &Some(Commands::Sessions {
+                domain: CliSessionDomain::OsAgent,
                 action: SessionAction::List,
                 workspace: None,
                 json: false,
@@ -5906,7 +5990,8 @@ mod tests {
 
     #[test]
     fn last_shortcuts_parse_to_recent_session_and_task_actions() {
-        let cli = Cli::try_parse_from(["sparo", "sessions", "last"]).unwrap();
+        let cli =
+            Cli::try_parse_from(["sparo", "sessions", "--domain", "os-agent", "last"]).unwrap();
         match cli.command {
             Some(Commands::Sessions {
                 action: SessionAction::Last,
@@ -6254,7 +6339,18 @@ mod tests {
             .as_object()
             .expect("health checks should be an object");
 
-        assert!(checks.contains_key("workspace_sessions"));
+        for key in [
+            "sessions",
+            "os_agent_sessions",
+            "global_sessions",
+            "workspace_sessions",
+            "works",
+            "runs",
+            "app_data",
+            "services",
+        ] {
+            assert!(checks.contains_key(key), "missing health check: {key}");
+        }
     }
 
     #[test]
@@ -6747,6 +6843,9 @@ mod tests {
 
     fn sample_session_metadata() -> sparo_core::service::session::SessionMetadata {
         sparo_core::service::session::SessionMetadata {
+            domain: sparo_core::agentic::core::SessionDomain::Workspace {
+                workspace_id: "ws_test".to_string(),
+            },
             session_id: "session-1".to_string(),
             session_name: "Review CLI sessions".to_string(),
             agent_type: "bitfun-debug".to_string(),
@@ -6766,7 +6865,6 @@ mod tests {
             todos: None,
             workspace_path: Some("D:\\workspace\\my project".to_string()),
             workspace_hostname: None,
-            storage_scope: None,
         }
     }
 
@@ -7324,7 +7422,6 @@ mod tests {
             slot_id: app.slot_id.clone(),
             selected_app_id: app.app_id.clone(),
             active_release_id: "release_runno_1".to_string(),
-            previous_release_id: None,
             enabled: true,
         };
         CliIntelligentAppCatalog {
@@ -7343,6 +7440,7 @@ mod tests {
                 }],
             }],
             drafts: Vec::new(),
+            issues: Vec::new(),
         }
     }
 
@@ -7400,6 +7498,7 @@ mod tests {
         let catalog = CliIntelligentAppCatalog {
             slots: Vec::new(),
             drafts: Vec::new(),
+            issues: Vec::new(),
         };
         let output = apps_list_human_lines(&catalog).join("\n");
 
@@ -7700,7 +7799,7 @@ mod tests {
         let memories = vec![sparo_core::command::agentic_os::AgenticOsMemoryRow {
             scope: "PROJECT".to_string(),
             file: "notes.md".to_string(),
-            target: "D:\\workspace\\my project\\.sparo_os\\memory".to_string(),
+            target: "C:\\SparoData\\workspaces\\ws_test\\memory".to_string(),
         }];
 
         let output =
@@ -7722,7 +7821,8 @@ mod tests {
         let output = memory_list_human_lines(&[], None).join("\n");
 
         assert!(output.contains("No memory files are available in this snapshot."));
-        assert!(output.contains(".sparo_os/memory"));
+        assert!(!output.contains(".sparo_os/memory"));
+        assert!(output.contains("Memory surface"));
         assert!(output.contains("sparo health"));
         assert!(output.contains("sparo chat"));
     }

@@ -68,6 +68,7 @@ fn tool_context(workspace_path: Option<String>) -> CommandResult<ToolUseContext>
         tool_call_id: Some(uuid::Uuid::new_v4().to_string()),
         agent_type: Some("cli".to_string()),
         session_id: Some(format!("cli-tool-{}", uuid::Uuid::new_v4())),
+        session_domain: None,
         dialog_turn_id: None,
         workspace: Some(workspace),
         custom_data: HashMap::new(),

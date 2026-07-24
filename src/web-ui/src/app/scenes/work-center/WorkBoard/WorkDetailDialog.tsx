@@ -48,6 +48,7 @@ import type {
   WorkSurfaceRef,
 } from '@/app/agentic-os/work/domain/workTypes';
 import { agenticOsWorkApi } from '@/app/agentic-os/work/data/workApi';
+import { WorkIcon } from '@/app/agentic-os/work/presentation/WorkIcon';
 import type {
   BackgroundProcess,
   BackgroundProcessKind,
@@ -200,10 +201,12 @@ function getWorkWorkspaceLabel(
   workspaces: WorkspaceInfo[],
   t: WorkCenterTranslator
 ): string {
-  if (work.scope.kind === 'system') return t('detail.globalWorkspace');
-  const workspacePath = work.scope.workspacePath;
-  const workspace = workspaces.find((item) => item.rootPath === workspacePath);
-  return workspace ? getWorkspaceDisplayName(workspace) : workspacePath;
+  if (work.scope.kind === 'global') return t('detail.globalWorkspace');
+  const workspaceId = work.scope.workspaceId;
+  const workspace = workspaces.find((item) => item.id === workspaceId);
+  return workspace
+    ? getWorkspaceDisplayName(workspace)
+    : work.workspacePath ?? workspaceId;
 }
 
 function getAssignmentLabel(work: WorkRecord, t: WorkCenterTranslator): string {
@@ -614,7 +617,7 @@ const WorkDetailDialog: React.FC<WorkDetailDialogProps> = ({
 
     let cancelled = false;
     setExecutionGraphLoading(true);
-    void agenticOsWorkApi.getWorkExecutionGraph(work.id)
+    void agenticOsWorkApi.getWorkExecutionGraph({ scope: work.scope, workId: work.id })
       .then((graph) => {
         if (!cancelled) setExecutionGraphSnapshot({ revision, graph });
       })
@@ -782,10 +785,18 @@ const WorkDetailDialog: React.FC<WorkDetailDialogProps> = ({
         <span className="work-detail-dialog__status-dot" aria-hidden="true" />
         {displayStatusLabel}
       </span>
-      {work?.systemManaged ? <span>{t('rail.system')}</span> : null}
+      {work?.systemManaged ? (
+        <span className="work-detail-dialog__kind">
+          <WorkIcon work={work} size={17} />
+          {t('kind.system')}
+        </span>
+      ) : null}
       {!work?.systemManaged && work ? (
         <>
-          <span>{t(`kind.${kindKey(work.kind)}`)}</span>
+          <span className="work-detail-dialog__kind">
+            <WorkIcon work={work} size={17} />
+            {t(`kind.${kindKey(work.kind)}`)}
+          </span>
           <span>{t('detail.updatedAt', { time: formatTime(work.updatedAt) })}</span>
         </>
       ) : null}

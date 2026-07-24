@@ -9,6 +9,7 @@ import React, {
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
 } from 'react';
 import type { ProductAppRehearsalPlan } from '@/shared/types/app-manifest';
 import type { ProductAppRuntimeSessionMetadata } from '@/shared/types/session-history';
@@ -33,8 +34,19 @@ import {
 import { api } from '@/infrastructure/api/service-api/ApiClient';
 import { useExcelLiveLaunchStore } from '@/app/agentic-os/excel-live/excelLiveLaunchStore';
 import { useExcelLiveFocusStore } from '@/app/agentic-os/excel-live/excelLiveFocusStore';
+import { MarkdownEditor } from '@/tools/markdown';
+import {
+  areHostedViewsEqual,
+  normalizeHostedView,
+  normalizeHostedViewId,
+  normalizeHostedViewUpdate,
+  type ProductAppRuntimeHostedView,
+  type ProductAppRuntimeHostedViewBridge,
+} from './productAppRuntimeHostedViews';
+import './ProductAppRuntimeIframeHost.scss';
 
 const EXCEL_LIVE_APP_ID = 'builtin-excel-live';
+const MAX_HOSTED_VIEWS = 8;
 
 function iframeFeaturePolicy(app: ProductAppHostSurface): string | undefined {
   const features: string[] = [];
@@ -380,6 +392,8 @@ const ProductAppRuntimeIframeHost: React.FC<ProductAppRuntimeIframeHostProps> = 
   userPathRehearsalPlan = null,
 }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const hostedViewsRef = useRef<Record<string, ProductAppRuntimeHostedView>>({});
+  const [hostedViews, setHostedViews] = useState<Record<string, ProductAppRuntimeHostedView>>({});
   const previewLoadedRef = useRef(false);
   const iframeLoadedRef = useRef(false);
   const { theme } = useTheme();
@@ -400,12 +414,61 @@ const ProductAppRuntimeIframeHost: React.FC<ProductAppRuntimeIframeHostProps> = 
   const effectiveRuntimeContext = runtimeContext ?? productAppRuntime?.runtimeContext ?? null;
   const productAppId = productAppRuntime?.appId ?? effectiveRuntimeContext?.appId ?? app.id;
   const isExcelLive = productAppId === EXCEL_LIVE_APP_ID;
+  const replaceHostedViews = useCallback((next: Record<string, ProductAppRuntimeHostedView>) => {
+    hostedViewsRef.current = next;
+    setHostedViews(next);
+  }, []);
+  const hostedViewBridge = useMemo<ProductAppRuntimeHostedViewBridge>(() => ({
+    mount(value) {
+      const view = normalizeHostedView(value);
+      const current = hostedViewsRef.current;
+      if (current[view.viewId]) throw new Error(`hosted view already exists: ${view.viewId}`);
+      if (Object.keys(current).length >= MAX_HOSTED_VIEWS) {
+        throw new Error(`a Product App surface can host at most ${MAX_HOSTED_VIEWS} views`);
+      }
+      replaceHostedViews({ ...current, [view.viewId]: view });
+      return { viewId: view.viewId };
+    },
+    update(value) {
+      const record = value && typeof value === 'object' && !Array.isArray(value)
+        ? value as Record<string, unknown>
+        : {};
+      const viewId = normalizeHostedViewId(record.viewId);
+      const current = hostedViewsRef.current[viewId];
+      if (!current) throw new Error(`hosted view does not exist: ${viewId}`);
+      const view = normalizeHostedViewUpdate(value, current);
+      if (areHostedViewsEqual(current, view)) return { viewId };
+      replaceHostedViews({ ...hostedViewsRef.current, [viewId]: view });
+      return { viewId };
+    },
+    unmount(value) {
+      const viewId = normalizeHostedViewId(value);
+      const current = hostedViewsRef.current;
+      if (!current[viewId]) return;
+      const next = { ...current };
+      delete next[viewId];
+      replaceHostedViews(next);
+    },
+  }), [replaceHostedViews]);
   useProductAppRuntimeBridge(iframeRef, app, {
     scope: effectiveScope,
     runtimeContext: effectiveRuntimeContext,
     sessionId,
     spreadsheetFocusEnabled: isExcelLive,
+    hostedViews: hostedViewBridge,
   });
+
+  useEffect(() => {
+    replaceHostedViews({});
+  }, [app.compiled_html, effectiveRuntimeContext?.runtimeInstanceId, replaceHostedViews]);
+
+  const postHostedViewEvent = useCallback((event: 'hostedView:change' | 'hostedView:save', payload: unknown) => {
+    iframeRef.current?.contentWindow?.postMessage({
+      type: 'sparo:event',
+      event,
+      payload,
+    }, '*');
+  }, []);
 
   const pushElementInspectorState = useCallback(() => {
     const target = iframeRef.current?.contentWindow;
@@ -736,29 +799,64 @@ const ProductAppRuntimeIframeHost: React.FC<ProductAppRuntimeIframeHostProps> = 
   ]);
 
   return (
-    <iframe
-      ref={iframeRef}
-      srcDoc={app.compiled_html}
-      data-app-id={app.id}
-      data-product-app-id={effectiveRuntimeContext?.appId ?? productAppRuntime?.appId ?? app.id}
-      data-route={normalizedRoute}
-      onLoad={handlePreviewLoad}
-      sandbox="allow-scripts allow-forms allow-modals allow-popups allow-downloads"
-      allow={iframeFeaturePolicy(app)}
-      scrolling={locksViewportScroll ? 'no' : undefined}
-      style={{
-        width: '100%',
-        height: '100%',
-        minWidth: 0,
-        minHeight: 0,
-        border: 'none',
-        display: 'block',
-        overflow: locksViewportScroll ? 'hidden' : undefined,
-        overscrollBehavior: locksViewportScroll ? 'none' : undefined,
-        background: 'var(--ds-color-bg-app)',
-      }}
-      title={displayMeta.name}
-    />
+    <div className="product-app-runtime-iframe-host">
+      <iframe
+        ref={iframeRef}
+        className="product-app-runtime-iframe-host__frame"
+        srcDoc={app.compiled_html}
+        data-app-id={app.id}
+        data-product-app-id={effectiveRuntimeContext?.appId ?? productAppRuntime?.appId ?? app.id}
+        data-route={normalizedRoute}
+        onLoad={handlePreviewLoad}
+        sandbox="allow-scripts allow-forms allow-modals allow-popups allow-downloads"
+        allow={iframeFeaturePolicy(app)}
+        scrolling={locksViewportScroll ? 'no' : undefined}
+        style={{
+          overflow: locksViewportScroll ? 'hidden' : undefined,
+          overscrollBehavior: locksViewportScroll ? 'none' : undefined,
+          background: 'var(--ds-color-bg-app)',
+        }}
+        title={displayMeta.name}
+      />
+      {Object.keys(hostedViews).length > 0 && (
+        <div className="product-app-runtime-hosted-views">
+          {Object.values(hostedViews).map((view) => (
+            <div
+              key={view.viewId}
+              className="product-app-runtime-hosted-view"
+              role="region"
+              aria-label={view.options.fileName}
+              style={{
+                display: view.rect.visible ? 'block' : 'none',
+                left: view.rect.x,
+                top: view.rect.y,
+                width: view.rect.width,
+                height: view.rect.height,
+              }}
+            >
+              <MarkdownEditor
+                initialContent={view.options.content}
+                fileName={view.options.fileName}
+                readOnly={view.options.readOnly}
+                savedVersion={view.options.savedVersion}
+                isActiveTab={view.rect.visible}
+                modeToolbarHost={view.options.showToolbar ? undefined : null}
+                showOutline={view.options.showOutline}
+                onContentChange={(content, dirty) => postHostedViewEvent('hostedView:change', {
+                  viewId: view.viewId,
+                  content,
+                  dirty,
+                })}
+                onSave={(content) => postHostedViewEvent('hostedView:save', {
+                  viewId: view.viewId,
+                  content,
+                })}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 };
 

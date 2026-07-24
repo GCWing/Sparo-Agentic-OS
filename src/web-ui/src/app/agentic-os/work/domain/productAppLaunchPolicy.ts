@@ -154,10 +154,10 @@ export function resolveProductAppWorkScope(
   }
 
   if (!policy.requiresWorkspace && !productAppSupportsMultipleWorks(app)) {
-    return { kind: 'system' };
+    return { kind: 'global' };
   }
 
   return workspace
-    ? { kind: 'workspace', workspacePath: workspace.rootPath }
-    : { kind: 'system' };
+    ? { kind: 'workspace', workspaceId: workspace.id }
+    : { kind: 'global' };
 }

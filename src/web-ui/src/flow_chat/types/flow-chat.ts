@@ -6,8 +6,8 @@
 import type {
   DialogTurnKind,
   SessionCustomMetadata,
+  SessionDomain,
   SessionKind,
-  SessionStorageScope,
   TriggerSource,
 } from '@/shared/types/session-history';
 import type { ExecutionNodeActivity, ExecutionNodeStatus, ToolRuntimeState } from '../runtime/statusModel';
@@ -332,8 +332,8 @@ export interface Session {
   /** Stable backend id — always set for new sessions; do not infer workspace from path alone. */
   workspaceId?: string;
 
-  /** Persistence namespace for this session. Identity comes from descriptor, not storage scope. */
-  storageScope?: SessionStorageScope;
+  /** Durable persistence domain. Together with id this forms the session identity. */
+  domain: SessionDomain;
 
   /** Durable app/session-specific metadata kept with the session history record. */
   customMetadata?: SessionCustomMetadata;
@@ -400,7 +400,7 @@ export interface SessionConfig {
   workspacePath?: string;
   /** Binds session to `WorkspaceInfo.id` (path alone is insufficient for remotes). */
   workspaceId?: string;
-  storageScope?: SessionStorageScope;
+  domain?: SessionDomain;
   /** Optional initial persisted title for product-owned sessions. */
   sessionName?: string;
   /** Optional key used to deduplicate session creation for app-scoped sessions. */
@@ -471,6 +471,18 @@ export interface AppDefinedToolCardField {
   format?: 'text' | 'json';
 }
 
+export interface AppDefinedToolCardLocalizedField {
+  label?: string;
+}
+
+export interface AppDefinedToolCardLocalization {
+  title?: string;
+  displayName?: string;
+  description?: string;
+  summary?: AppDefinedToolCardSummary;
+  fields?: AppDefinedToolCardLocalizedField[];
+}
+
 export interface AppDefinedToolCardSpec {
   kind?: 'appDefined' | string;
   title?: string;
@@ -479,6 +491,7 @@ export interface AppDefinedToolCardSpec {
   description?: string;
   summary?: AppDefinedToolCardSummary;
   fields?: AppDefinedToolCardField[];
+  locales?: Record<string, AppDefinedToolCardLocalization>;
   template?: 'compact' | 'detail' | 'custom';
   family?: string;
   displayMode?: ToolCardConfig['displayMode'];

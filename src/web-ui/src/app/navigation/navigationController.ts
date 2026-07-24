@@ -17,7 +17,6 @@ import {
 import type { Session } from '@/flow_chat/types/flow-chat';
 import { resolveSessionTypeDefinitionForDescriptor } from '@/app/session-profiles';
 import { sessionAPI } from '@/infrastructure/api/service-api/SessionAPI';
-import { workspaceManager } from '@/infrastructure/services/business/workspaceManager';
 import {
   projectRuntimeScopeFromWorkspacePath,
   runtimeScopeFromAppScope,
@@ -26,7 +25,7 @@ import {
 } from '@/shared/types/runtime-scope';
 import type { AppScope } from '@/shared/types/app-scope';
 import type { ProductAppRuntimeContext } from '@/shared/types/product-app-runtime';
-import type { SessionMetadata, SessionStorageScope } from '@/shared/types/session-history';
+import type { SessionMetadata } from '@/shared/types/session-history';
 import { createLogger } from '@/shared/utils/logger';
 
 const log = createLogger('NavigationController');
@@ -116,9 +115,9 @@ function resolveSceneScope(options: OpenWorkspaceSceneOptions): RuntimeScope {
     return runtimeScopeFromAppScope(options.appScope);
   }
   if (options.workspacePath === null) {
-    return systemRuntimeScope();
+    return systemRuntimeScope('os_agent');
   }
-  return projectRuntimeScopeFromWorkspacePath(options.workspacePath) ?? systemRuntimeScope();
+  return projectRuntimeScopeFromWorkspacePath(options.workspacePath) ?? systemRuntimeScope('os_agent');
 }
 
 function isTopLevelAgenticOsSession(session: Session): boolean {
@@ -166,8 +165,8 @@ function findLatestKnownEmptyAgenticOsSessionId(): string | null {
 
 async function resolveReusableEmptyAgenticOsSessionId(): Promise<string | null> {
   try {
-    const metadata = await sessionAPI.listSessions(undefined, 'agentic_os');
-    await flowChatStore.hydrateWorkspaceSessionsMetadata(metadata, '', 'agentic_os');
+    const metadata = await sessionAPI.listSessions({ kind: 'os_agent' });
+    await flowChatStore.hydrateWorkspaceSessionsMetadata(metadata, '');
 
     const latestMetadata = metadata
       .filter(isTopLevelAgenticOsMetadata)
@@ -190,52 +189,13 @@ async function resolveReusableEmptyAgenticOsSessionId(): Promise<string | null> 
   return findLatestKnownEmptyAgenticOsSessionId();
 }
 
-async function loadSessionMetadataAttempt(
-  sessionId: string,
-  workspacePath: string | undefined,
-  storageScope: SessionStorageScope
-): Promise<Session | null> {
-  try {
-    const metadata = await sessionAPI.loadSessionMetadata(sessionId, workspacePath, storageScope);
-    if (!metadata) {
-      return null;
-    }
-    await flowChatStore.hydrateWorkspaceSessionsMetadata(
-      [metadata],
-      metadata.workspacePath || workspacePath || '',
-      metadata.storageScope || storageScope,
-    );
-    return flowChatStore.getState().sessions.get(sessionId) ?? null;
-  } catch (error) {
-    log.debug('Session metadata load attempt failed', { sessionId, workspacePath, storageScope, error });
-    return null;
-  }
-}
-
 async function ensureSessionInStore(sessionId: string): Promise<Session | null> {
   const existing = flowChatStore.getState().sessions.get(sessionId);
   if (existing) {
     return existing;
   }
 
-  const agenticOsSession = await loadSessionMetadataAttempt(sessionId, undefined, 'agentic_os');
-  if (agenticOsSession) {
-    return agenticOsSession;
-  }
-
-  const openedWorkspaces = Array.from(workspaceManager.getState().openedWorkspaces.values());
-  for (const workspace of openedWorkspaces) {
-    const workspaceSession = await loadSessionMetadataAttempt(
-      sessionId,
-      workspace.rootPath,
-      'workspace',
-    );
-    if (workspaceSession) {
-      return workspaceSession;
-    }
-  }
-
-  log.warn('Session not found in store or on disk', { sessionId });
+  log.warn('Session not loaded in the active workspace context', { sessionId });
   return null;
 }
 
@@ -467,7 +427,7 @@ export async function openHome(options?: {
   const newSessionId = await (async () => {
     const { flowChatManager } = await import('@/flow_chat/services/FlowChatManager');
     return flowChatManager.createChatSession(
-      { storageScope: 'agentic_os', navigate: false },
+      { domain: { kind: 'os_agent' }, navigate: false },
       getAgenticOsSessionDescriptor(),
     );
   })();

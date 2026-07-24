@@ -5,8 +5,9 @@ import { createLogger } from '@/shared/utils/logger';
 import type {
   AgentSessionBindingMetadata,
   SessionCustomMetadata,
+  SessionDomain,
+  SessionLocator,
   SessionMetadata,
-  SessionStorageScope,
 } from '@/shared/types/session-history';
 import {
   appScopeIdentity,
@@ -14,6 +15,7 @@ import {
 } from '@/shared/types/app-scope';
 import {
   getBackendAgentType,
+  sessionDomainForDescriptor,
   type SessionDescriptor,
 } from '../domain/sessionDescriptor';
 import { flowChatStore } from '../store/FlowChatStore';
@@ -26,9 +28,9 @@ export interface OpenBoundAgentSessionRequest {
   descriptor: SessionDescriptor;
   binding: AgentSessionBindingMetadata;
   sessionName: string;
-  storageScope?: SessionStorageScope;
+  domain?: SessionDomain;
   existingSession?: {
-    sessionId: string;
+    locator: SessionLocator;
     workspacePath?: string | null;
   };
   customMetadata?: SessionCustomMetadata;
@@ -86,14 +88,11 @@ function findInMemoryBoundSessionId(binding: AgentSessionBindingMetadata): strin
 
 async function findPersistedBoundSessionId(
   binding: AgentSessionBindingMetadata,
-  storageScope: SessionStorageScope
+  domain: SessionDomain,
 ): Promise<string | null> {
   try {
     const boundWorkspacePath = workspacePathFromAppScope(binding.scope);
-    const workspacePath = storageScope === 'agentic_os'
-      ? undefined
-      : boundWorkspacePath || undefined;
-    const persisted = await sessionAPI.listSessions(workspacePath, storageScope);
+    const persisted = await sessionAPI.listSessions(domain);
     const match = persisted
       .filter(meta => bindingMatches(meta.customMetadata?.agentSessionBinding, binding))
       .sort(compareMetadataRecency)[0];
@@ -103,7 +102,6 @@ async function findPersistedBoundSessionId(
     await flowChatStore.hydrateWorkspaceSessionsMetadata(
       [match],
       match.workspacePath || boundWorkspacePath || '',
-      match.storageScope || storageScope,
     );
     return match.sessionId;
   } catch (error) {
@@ -119,31 +117,26 @@ async function findPersistedBoundSessionId(
 
 async function findExistingBoundSessionId(
   binding: AgentSessionBindingMetadata,
-  storageScope: SessionStorageScope
+  domain: SessionDomain,
 ): Promise<string | null> {
   return findInMemoryBoundSessionId(binding) ||
-    await findPersistedBoundSessionId(binding, storageScope);
+    await findPersistedBoundSessionId(binding, domain);
 }
 
 async function ensureExistingSessionLoaded(
-  sessionId: string,
+  locator: SessionLocator,
   workspacePath: string | null | undefined,
-  storageScope: SessionStorageScope,
 ): Promise<boolean> {
+  const sessionId = locator.session_id;
   if (flowChatStore.getState().sessions.has(sessionId)) return true;
 
   try {
-    const metadata = await sessionAPI.loadSessionMetadata(
-      sessionId,
-      workspacePath || undefined,
-      storageScope,
-    );
+    const metadata = await sessionAPI.loadSessionMetadata(locator);
     if (!metadata) return false;
 
     await flowChatStore.hydrateWorkspaceSessionsMetadata(
       [metadata],
       metadata.workspacePath || workspacePath || '',
-      metadata.storageScope || storageScope,
     );
     return flowChatStore.getState().sessions.has(sessionId);
   } catch (error) {
@@ -171,7 +164,7 @@ function mergeCustomMetadata(
 function updateBoundSessionMetadata(
   sessionId: string,
   request: OpenBoundAgentSessionRequest,
-  storageScope: SessionStorageScope,
+  domain: SessionDomain,
 ): Session | null {
   let updatedSession: Session | null = null;
   const backendAgentType = getBackendAgentType(request.descriptor);
@@ -200,13 +193,13 @@ function updateBoundSessionMetadata(
       title: request.sessionName || session.title,
       titleStatus: request.sessionName ? 'generated' : session.titleStatus,
       workspacePath: nextWorkspacePath,
-      storageScope,
+      domain,
       updatedAt: Date.now(),
       config: {
         ...session.config,
         agentType: backendAgentType,
         workspacePath: nextWorkspacePath,
-        storageScope,
+        domain,
         sessionName: request.sessionName || session.config.sessionName,
         customMetadata: nextConfigCustomMetadata,
       },
@@ -231,7 +224,13 @@ export async function openBoundAgentSession(
     ...request.binding,
     updatedAt: Date.now(),
   };
-  const storageScope = request.storageScope ?? request.descriptor.storageScope;
+  const workspaceId =
+    request.binding.scope.kind === 'workspace'
+      ? request.binding.scope.workspaceId
+      : undefined;
+  const domain =
+    request.domain ??
+    sessionDomainForDescriptor(request.descriptor, workspaceId);
   const normalizedRequest: OpenBoundAgentSessionRequest = {
     ...request,
     binding,
@@ -240,25 +239,24 @@ export async function openBoundAgentSession(
   let existingSessionId: string | null = null;
   if (request.existingSession) {
     const loaded = await ensureExistingSessionLoaded(
-      request.existingSession.sessionId,
+      request.existingSession.locator,
       request.existingSession.workspacePath,
-      storageScope,
     );
     if (!loaded) {
       log.error('Required bound agent session is unavailable', {
-        sessionId: request.existingSession.sessionId,
+        sessionId: request.existingSession.locator.session_id,
         agentType: binding.intent.agentType,
         subjectKind: binding.subject.kind,
         subjectId: binding.subject.id,
       });
       return null;
     }
-    existingSessionId = request.existingSession.sessionId;
+    existingSessionId = request.existingSession.locator.session_id;
   } else {
-    existingSessionId = await findExistingBoundSessionId(binding, storageScope);
+    existingSessionId = await findExistingBoundSessionId(binding, domain);
   }
   if (existingSessionId) {
-    const session = updateBoundSessionMetadata(existingSessionId, normalizedRequest, storageScope);
+    const session = updateBoundSessionMetadata(existingSessionId, normalizedRequest, domain);
     await flowChatManager.persistSessionMetadata(existingSessionId);
     await openWorkspaceSession(existingSessionId, { context: request.context });
     if (session) request.onOpened?.(session);
@@ -269,8 +267,9 @@ export async function openBoundAgentSession(
 
   const sessionId = await flowChatManager.createChatSession(
     {
-      storageScope,
+      domain,
       workspacePath: workspacePathFromAppScope(binding.scope),
+      workspaceId: workspaceId ?? undefined,
       sessionName: request.sessionName,
       creationDeduplicationKey: buildBoundAgentSessionKey(binding),
       customMetadata: mergeCustomMetadata(undefined, request.customMetadata, binding),
@@ -278,7 +277,7 @@ export async function openBoundAgentSession(
     request.descriptor,
   );
 
-  const session = updateBoundSessionMetadata(sessionId, normalizedRequest, storageScope);
+  const session = updateBoundSessionMetadata(sessionId, normalizedRequest, domain);
   await flowChatManager.persistSessionMetadata(sessionId);
   await openWorkspaceSession(sessionId, { context: request.context });
   if (session) request.onOpened?.(session);

@@ -180,10 +180,10 @@ async function main() {
 
   const prepTime = ((Date.now() - startTime) / 1000).toFixed(1);
 
-  // Step 3: Bundle PPT Live browser export runtime (desktop only)
+  // Step 3: Bundle the PPT Live Bridge export runtime (desktop only)
   if (mode === 'desktop') {
     printStep(3, 5, 'Bundle PPT Live export runtime');
-    const bundleResult = runInherit('node scripts/bundle-ppt-live-export-browser.mjs');
+    const bundleResult = runInherit('node scripts/bundle-ppt-live-export.mjs');
     if (!bundleResult.ok) {
       printError('Bundle PPT Live export runtime failed');
       process.exit(1);

@@ -1,0 +1,60 @@
+.ppt-live-tool-card {
+  min-width: 0;
+
+  .base-tool-card-wrapper {
+    border-color: color-mix(in srgb, var(--ds-status-surface-info-fg) 22%, var(--ds-chat-border-strong));
+    background:
+      linear-gradient(
+        110deg,
+        color-mix(in srgb, var(--ds-status-surface-info-fg) 5%, transparent),
+        transparent 42%
+      ),
+      var(--ds-chat-surface);
+  }
+
+  .tool-card-icon-main {
+    color: var(--ds-status-surface-info-fg);
+  }
+}
+
+.ppt-live-tool-card__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ppt-live-tool-card__brand {
+  padding: 2px 6px;
+  border: 1px solid color-mix(in srgb, var(--ds-status-surface-info-fg) 24%, transparent);
+  border-radius: var(--ds-radius-full);
+  color: var(--ds-status-surface-info-fg);
+  background: color-mix(in srgb, var(--ds-status-surface-info-fg) 8%, transparent);
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.ppt-live-tool-card__bridge-status {
+  color: var(--ds-chat-text-muted);
+  font-size: var(--flowchat-font-size-xs);
+  white-space: nowrap;
+}
+
+.ppt-live-tool-card__details {
+  min-width: 0;
+}
+
+.ppt-live-tool-card__json-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ppt-live-tool-card__json-label {
+  color: var(--tool-card-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}

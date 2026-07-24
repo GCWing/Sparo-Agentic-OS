@@ -173,6 +173,9 @@ pub async fn run_bridge_component_action(
             id: "bridge-management".to_string(),
             session_id: None,
             turn_id: None,
+            work_id: None,
+            work_title: None,
+            runtime_instance_id: None,
         },
     )
     .await

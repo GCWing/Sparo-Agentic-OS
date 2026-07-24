@@ -10,6 +10,7 @@ export interface AgentExecutionRequest {
   description?: string;
   model_name?: string;
   workspace_path?: string;
+  workspace_id: string;
   context?: Record<string, string>;
   safe_mode?: boolean;
   verbose?: boolean;

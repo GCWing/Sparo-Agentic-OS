@@ -1,0 +1,36 @@
+{
+  "name": "prepare_visual_assets",
+  "description": "Prepare the grounded workspace images and semantic authored SVG assets required by the whole frozen manuscript after Design Case approval.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["expectedManuscriptRevision", "expectedSystemRevision", "assets"],
+    "properties": {
+      "expectedManuscriptRevision": { "type": "integer", "minimum": 1 },
+      "expectedSystemRevision": { "type": "integer", "minimum": 0 },
+      "assets": { "type": "array", "maxItems": 40, "items": { "$ref": "#/$defs/asset" } }
+    },
+    "$defs": {
+      "asset": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["provider", "id", "title", "alt"],
+        "properties": {
+          "provider": { "type": "string", "enum": ["authored-svg", "workspace-image"] },
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,127}$" },
+          "title": { "type": "string", "minLength": 1, "maxLength": 240 },
+          "alt": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "svg": { "type": "string", "maxLength": 2000000 },
+          "sourcePath": { "type": "string", "maxLength": 2000 }
+        }
+      }
+    }
+  },
+  "runtime": "javascript",
+  "entry": "tools/prepare_visual_assets.js",
+  "readonly": false,
+  "permissions": {},
+  "timeoutMs": 120000,
+  "maxOutputBytes": 500000,
+  "ui": { "card": { "kind": "appDefined", "family": "ppt-live", "template": "compact", "displayMode": "compact", "resultDisplayType": "detailed", "displayName": "Prepare visual assets", "icon": "Images", "title": "Prepare visual assets", "summary": { "preparing": "Planning visual evidence", "running": "Preparing {{input.assets.length}} assets", "completed": "Visual assets ready", "failed": "Asset preparation failed" }, "locales": { "zh-CN": { "displayName": "准备视觉素材", "title": "准备视觉素材", "summary": { "preparing": "正在规划视觉证据", "running": "正在准备 {{input.assets.length}} 项素材", "completed": "视觉素材已就绪", "failed": "素材准备失败" }, "fields": [ { "label": "已准备" }, { "label": "素材" } ] } }, "fields": [ { "label": "Prepared", "resultPath": ["bridge", "output", "preparedCount"] }, { "label": "Assets", "resultPath": ["bridge", "output", "assets"], "format": "json" } ] } }
+}

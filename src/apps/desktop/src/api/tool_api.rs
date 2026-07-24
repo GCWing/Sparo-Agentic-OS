@@ -107,6 +107,7 @@ fn build_tool_context(
         tool_call_id: None,
         agent_type,
         session_id,
+        session_domain: None,
         dialog_turn_id,
         workspace: normalized_workspace_path
             .map(|path| WorkspaceBinding::new(None, PathBuf::from(path))),

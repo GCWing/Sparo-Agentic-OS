@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+use crate::agentic::core::{SessionLocator, SessionOwner};
+
 use super::assignment::WorkAssignmentRef;
 use super::execution_binding::WorkExecutionBinding;
 use super::execution_graph::{
@@ -10,17 +12,21 @@ use super::execution_graph::{
 use super::ids::WorkId;
 use super::lifecycle::{WorkLifecycle, WorkSummary};
 use super::subject::{
-    WorkAppRef, WorkAppRelation, WorkAppRelationRole, WorkComponentRef, WorkSubject,
+    WorkAppKind, WorkAppRef, WorkAppRelation, WorkAppRelationRole, WorkComponentRef, WorkSubject,
 };
 use super::surface::WorkSurfaceRef;
 use super::title::WorkTitleState;
-use super::types::{WorkKind, WorkScope, WorkStatus, WorkVisibility};
+use super::types::{WorkKind, WorkLocator, WorkScope, WorkStatus, WorkVisibility};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AgentSessionRef {
     pub session_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workspace_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub locator: Option<SessionLocator>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner: Option<SessionOwner>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -125,6 +131,8 @@ pub struct WorkRecord {
     pub subject: WorkSubject,
     pub app_refs: Vec<WorkAppRelation>,
     pub scope: WorkScope,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workspace_path: Option<String>,
     pub primary_surface: WorkSurfaceRef,
     pub surfaces: Vec<WorkSurfaceRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -138,17 +146,17 @@ pub struct WorkRecord {
     pub execution_bindings: Vec<WorkExecutionBinding>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub runtime_instances: Vec<RuntimeInstanceRef>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(skip)]
     pub runtime_runs: Vec<WorkRuntimeRun>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(skip)]
     pub runtime_issues: Vec<WorkRuntimeIssue>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(skip)]
     pub runtime_logs: Vec<WorkRuntimeLog>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(skip)]
     pub builder_preview_results: Vec<WorkBuilderPreviewResult>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(skip)]
     pub builder_validation_results: Vec<WorkBuilderValidationResult>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(skip)]
     pub builder_issues: Vec<WorkBuilderIssue>,
     pub artifact_refs: Vec<ArtifactRef>,
     pub memory_refs: Vec<MemoryRef>,
@@ -163,6 +171,13 @@ pub struct WorkRecord {
 }
 
 impl WorkRecord {
+    pub fn locator(&self) -> WorkLocator {
+        WorkLocator {
+            scope: self.scope.clone(),
+            work_id: self.id.clone(),
+        }
+    }
+
     pub fn new(
         id: WorkId,
         kind: WorkKind,
@@ -188,6 +203,7 @@ impl WorkRecord {
             app_refs: normalize_app_refs(&subject, app_refs),
             subject,
             scope,
+            workspace_path: None,
             primary_surface: primary_surface.clone(),
             surfaces: vec![primary_surface],
             assignment: None,
@@ -252,8 +268,13 @@ impl WorkRecord {
     }
 
     pub fn references_app(&self, app: &WorkAppRef) -> bool {
-        self.subject.app_ref() == Some(app)
-            || self.app_refs.iter().any(|relation| &relation.app == app)
+        self.subject
+            .app_ref()
+            .is_some_and(|candidate| same_app_identity(candidate, app))
+            || self
+                .app_refs
+                .iter()
+                .any(|relation| same_app_identity(&relation.app, app))
     }
 
     pub fn references_component(&self, component: &WorkComponentRef) -> bool {
@@ -262,6 +283,16 @@ impl WorkRecord {
                 && candidate.component_kind == component.component_kind
                 && (component.version.is_empty() || candidate.version == component.version)
         })
+    }
+}
+
+fn same_app_identity(left: &WorkAppRef, right: &WorkAppRef) -> bool {
+    match (&left.kind, &right.kind) {
+        (WorkAppKind::ProductApp, WorkAppKind::ProductApp) => {
+            left.slot_id == right.slot_id && left.app_id == right.app_id
+        }
+        (WorkAppKind::NativeApp, WorkAppKind::NativeApp) => left == right,
+        _ => false,
     }
 }
 

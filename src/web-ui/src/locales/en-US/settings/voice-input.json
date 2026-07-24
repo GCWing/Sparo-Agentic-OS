@@ -3,8 +3,16 @@
   "subtitle": "Manage local speech input and the SenseVoice Small INT8 model.",
   "loading": "Loading voice input settings...",
   "sections": {
-    "composer": "Composer",
+    "composer": "Message composer",
     "model": "Local model"
+  },
+  "languages": {
+    "auto": "Auto detect",
+    "zh": "Mandarin Chinese",
+    "yue": "Cantonese",
+    "en": "English",
+    "ja": "Japanese",
+    "ko": "Korean"
   },
   "composer": {
     "enabled": {

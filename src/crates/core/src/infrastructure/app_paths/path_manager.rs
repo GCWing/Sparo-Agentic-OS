@@ -2,19 +2,17 @@
 //!
 //! Provides unified management for all app storage paths, supporting user, project, and temporary levels
 
+use crate::agentic::core::{SessionDomain, SessionLocator};
 use crate::error::*;
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 /// Roaming/Local application data directory name (e.g. `%APPDATA%\\sparo_os` on Windows).
 pub const APP_CONFIG_DIR_NAME: &str = "sparo_os";
 /// Workspace- and home-level hidden directory (e.g. `<workspace>/.sparo_os`, `~/.sparo_os`).
 pub const APP_HIDDEN_DIR_NAME: &str = ".sparo_os";
-const LOCAL_WORKSPACE_SCOPE_HOST: &str = "localhost";
 
 /// Storage level
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -36,8 +34,6 @@ pub enum StorageLevel {
 pub struct PathManager {
     /// User-level application data root directory.
     user_root: PathBuf,
-    /// Cache of runtime ids keyed by the original and canonical workspace paths.
-    workspace_runtime_id_cache: Arc<Mutex<HashMap<PathBuf, String>>>,
 }
 
 impl PathManager {
@@ -45,10 +41,7 @@ impl PathManager {
     pub fn new() -> CoreResult<Self> {
         let user_root = Self::get_user_config_root()?;
 
-        Ok(Self {
-            user_root,
-            workspace_runtime_id_cache: Arc::new(Mutex::new(HashMap::new())),
-        })
+        Ok(Self { user_root })
     }
 
     /// Get user config root directory
@@ -279,13 +272,13 @@ impl PathManager {
         self.backups_dir().join("reset")
     }
 
-    pub fn user_cron_dir(&self) -> PathBuf {
-        self.user_state_dir().join("cron")
+    pub fn cron_service_dir(&self) -> PathBuf {
+        self.global_services_root().join("cron")
     }
 
-    /// Get scheduled jobs persistence file: <app-root>/state/cron/jobs.json
+    /// Get scheduled jobs persistence file: <app-root>/services/global/cron/jobs.json
     pub fn cron_jobs_file(&self) -> PathBuf {
-        self.user_cron_dir().join("jobs.json")
+        self.cron_service_dir().join("jobs.json")
     }
 
     /// Product App Runtime Host surfaces root: `<app-root>/apps/product_app_runtime_hosts/`.
@@ -343,6 +336,141 @@ impl PathManager {
         self.project_root(workspace_path).join("skill-suites")
     }
 
+    /// Authoritative root for every persisted conversation.
+    pub fn sessions_root(&self) -> PathBuf {
+        self.user_root.join("sessions")
+    }
+
+    /// Resolve the physical root of one session domain.
+    pub fn session_domain_root(&self, domain: &SessionDomain) -> CoreResult<PathBuf> {
+        match domain {
+            SessionDomain::OsAgent => Ok(self.sessions_root().join("os_agent")),
+            SessionDomain::Global => Ok(self.sessions_root().join("global")),
+            SessionDomain::Workspace { workspace_id } => {
+                validate_storage_segment("workspace_id", workspace_id)?;
+                Ok(self.sessions_root().join("workspaces").join(workspace_id))
+            }
+        }
+    }
+
+    /// Resolve the execution root independently from the persistence domain.
+    ///
+    /// `OsAgent` is global and always executes from the Agentic OS runtime root.
+    /// Other domains keep an explicit execution binding; workspace domains also
+    /// verify that the binding matches their stable workspace ID.
+    pub fn session_execution_root(
+        &self,
+        domain: &SessionDomain,
+        requested_workspace_path: Option<&Path>,
+    ) -> CoreResult<PathBuf> {
+        if matches!(domain, SessionDomain::OsAgent) {
+            return Ok(self.agentic_os_runtime_root());
+        }
+
+        let workspace_path = requested_workspace_path
+            .filter(|path| !path.as_os_str().is_empty())
+            .ok_or_else(|| {
+                CoreError::validation("workspace_path is required to create a session")
+            })?;
+
+        if let SessionDomain::Workspace { workspace_id } = domain {
+            let resolved_workspace_id = self.workspace_id(workspace_path)?;
+            if &resolved_workspace_id != workspace_id {
+                return Err(CoreError::validation(
+                    "domain.workspace_id does not match workspace_path",
+                ));
+            }
+        }
+
+        Ok(workspace_path.to_path_buf())
+    }
+
+    /// Resolve a session directory from its typed locator.
+    pub fn session_dir(&self, locator: &SessionLocator) -> CoreResult<PathBuf> {
+        validate_storage_segment("session_id", &locator.session_id)?;
+        Ok(self
+            .session_domain_root(&locator.domain)?
+            .join(&locator.session_id))
+    }
+
+    /// Authoritative root for platform Work records.
+    pub fn works_root(&self) -> PathBuf {
+        self.user_root.join("works")
+    }
+
+    pub fn global_works_dir(&self) -> PathBuf {
+        self.works_root().join("global")
+    }
+
+    pub fn workspace_works_dir(&self, workspace_id: &str) -> CoreResult<PathBuf> {
+        validate_storage_segment("workspace_id", workspace_id)?;
+        Ok(self.works_root().join("workspaces").join(workspace_id))
+    }
+
+    /// Authoritative root for execution records.
+    pub fn runs_root(&self) -> PathBuf {
+        self.user_root.join("runs")
+    }
+
+    pub fn global_runs_dir(&self) -> PathBuf {
+        self.runs_root().join("global")
+    }
+
+    pub fn workspace_runs_dir(&self, workspace_id: &str) -> CoreResult<PathBuf> {
+        validate_storage_segment("workspace_id", workspace_id)?;
+        Ok(self.runs_root().join("workspaces").join(workspace_id))
+    }
+
+    /// Authoritative root for private Intelligent App data.
+    pub fn app_data_root(&self) -> PathBuf {
+        self.user_root.join("app_data")
+    }
+
+    pub fn global_app_data_dir(&self, app_id: &str) -> CoreResult<PathBuf> {
+        validate_storage_segment("app_id", app_id)?;
+        Ok(self.app_data_root().join("global").join(app_id))
+    }
+
+    pub fn workspace_app_data_dir(&self, workspace_id: &str, app_id: &str) -> CoreResult<PathBuf> {
+        validate_storage_segment("workspace_id", workspace_id)?;
+        validate_storage_segment("app_id", app_id)?;
+        Ok(self
+            .app_data_root()
+            .join("workspaces")
+            .join(workspace_id)
+            .join(app_id))
+    }
+
+    /// Authoritative root for platform service state and maintenance jobs.
+    pub fn services_root(&self) -> PathBuf {
+        self.user_root.join("services")
+    }
+
+    pub fn global_services_root(&self) -> PathBuf {
+        self.services_root().join("global")
+    }
+
+    pub fn workspace_services_root(&self, workspace_id: &str) -> CoreResult<PathBuf> {
+        validate_storage_segment("workspace_id", workspace_id)?;
+        Ok(self.services_root().join("workspaces").join(workspace_id))
+    }
+
+    /// Resolve a global system-service data directory.
+    pub fn global_service_dir(&self, service_id: &str) -> CoreResult<PathBuf> {
+        validate_storage_segment("service_id", service_id)?;
+        Ok(self.global_services_root().join(service_id))
+    }
+
+    /// Resolve a workspace-scoped system-service data directory.
+    pub fn workspace_service_dir(
+        &self,
+        workspace_id: &str,
+        service_id: &str,
+    ) -> CoreResult<PathBuf> {
+        validate_storage_segment("service_id", service_id)?;
+        Ok(self.workspace_services_root(workspace_id)?.join(service_id))
+    }
+
     /// Get the shared workspace runtime root directory: <app-root>/workspaces/
     pub fn workspaces_runtime_root(&self) -> PathBuf {
         self.user_root.join("workspaces")
@@ -353,67 +481,46 @@ impl PathManager {
         self.user_root.join("agentic_os")
     }
 
-    /// Get the Agentic OS global memory directory: ~/.sparo_os/core/agentic_os/memory/
+    /// Get the Agentic OS global memory directory: <app-root>/agentic_os/memory/
     pub fn agentic_os_memory_dir(&self) -> PathBuf {
         self.agentic_os_runtime_root().join("memory")
     }
 
-    /// Get the Agentic OS workspace overview directory: ~/.sparo_os/core/agentic_os/workspaces_overview/
+    /// Get the Agentic OS workspace overview directory: <app-root>/agentic_os/workspaces_overview/
     pub fn agentic_os_workspaces_overview_dir(&self) -> PathBuf {
         self.agentic_os_runtime_root().join("workspaces_overview")
     }
 
-    /// Get the Agentic OS host runtime directory: ~/.sparo_os/core/agentic_os/host/
+    /// Get the Agentic OS host runtime directory: <app-root>/agentic_os/host/
     pub fn agentic_os_host_dir(&self) -> PathBuf {
         self.agentic_os_runtime_root().join("host")
     }
 
-    /// Get the Agentic OS host overview file path: ~/.sparo_os/core/agentic_os/host/host_overview.md
+    /// Get the Agentic OS host overview file path: <app-root>/agentic_os/host/host_overview.md
     pub fn agentic_os_host_overview_path(&self) -> PathBuf {
         self.agentic_os_host_dir().join("host_overview.md")
     }
 
-    /// Get the Agentic OS host scan state file path: ~/.sparo_os/core/agentic_os/host/state.json
+    /// Get the Agentic OS host scan state file path: <app-root>/agentic_os/host/state.json
     pub fn agentic_os_host_scan_state_path(&self) -> PathBuf {
         self.agentic_os_host_dir().join("state.json")
     }
 
-    /// Get the Agentic OS global daily reports directory: ~/.sparo_os/core/agentic_os/daily_reports/
-    pub fn agentic_os_daily_reports_dir(&self) -> PathBuf {
-        self.agentic_os_runtime_root().join("daily_reports")
-    }
-
-    /// Get the Agentic OS global daily reports state file path: ~/.sparo_os/core/agentic_os/daily_reports/state.json
-    pub fn agentic_os_daily_reports_state_path(&self) -> PathBuf {
-        self.agentic_os_daily_reports_dir().join("state.json")
-    }
-
-    /// Get the Agentic OS global milestone runtime directory: ~/.sparo_os/core/agentic_os/global_milestone/
-    pub fn agentic_os_global_milestone_dir(&self) -> PathBuf {
-        self.agentic_os_runtime_root().join("global_milestone")
-    }
-
-    /// Get the Agentic OS global milestone state file path: ~/.sparo_os/core/agentic_os/global_milestone/state.json
-    pub fn agentic_os_global_milestone_state_path(&self) -> PathBuf {
-        self.agentic_os_global_milestone_dir().join("state.json")
-    }
-
-    /// Get the Agentic OS Work runtime data root: <app-root>/agentic_os/work_runtimes/
-    pub fn agentic_os_work_runtimes_dir(&self) -> PathBuf {
-        self.agentic_os_runtime_root().join("work_runtimes")
-    }
-
-    /// Get data dir for a Work-owned Product App runtime instance.
-    pub fn agentic_os_work_runtime_dir(&self, work_id: &str, runtime_instance_id: &str) -> PathBuf {
-        self.agentic_os_work_runtimes_dir()
-            .join(work_id)
-            .join(runtime_instance_id)
-    }
-
     /// Get the runtime root for a workspace: <app-root>/workspaces/<workspace-id>/
-    pub fn workspace_runtime_root(&self, workspace_path: &Path) -> PathBuf {
-        self.workspaces_runtime_root()
-            .join(self.workspace_runtime_id(workspace_path))
+    pub fn workspace_runtime_root(&self, workspace_path: &Path) -> CoreResult<PathBuf> {
+        let workspace_id = self.workspace_id(workspace_path)?;
+        self.workspace_runtime_root_for_id(&workspace_id)
+    }
+
+    /// Resolve a workspace runtime root when a validated stable identity is already available.
+    pub fn workspace_runtime_root_for_id(&self, workspace_id: &str) -> CoreResult<PathBuf> {
+        validate_storage_segment("workspace_id", workspace_id)?;
+        if !workspace_id.starts_with("ws_") {
+            return Err(CoreError::validation(
+                "workspace_id must start with 'ws_'".to_string(),
+            ));
+        }
+        Ok(self.workspaces_runtime_root().join(workspace_id))
     }
 
     /// Get project internal config directory: {project}/.sparo_os/config/
@@ -438,30 +545,27 @@ impl PathManager {
     }
 
     /// Get workspace snapshots directory: <app-root>/workspaces/<workspace-id>/snapshots/
-    pub fn workspace_snapshots_dir(&self, workspace_path: &Path) -> PathBuf {
-        self.workspace_runtime_root(workspace_path)
-            .join("snapshots")
-    }
-
-    /// Get workspace sessions directory: <app-root>/workspaces/<workspace-id>/sessions/
-    pub fn workspace_sessions_dir(&self, workspace_path: &Path) -> PathBuf {
-        self.workspace_runtime_root(workspace_path).join("sessions")
+    pub fn workspace_snapshots_dir(&self, workspace_path: &Path) -> CoreResult<PathBuf> {
+        Ok(self
+            .workspace_runtime_root(workspace_path)?
+            .join("snapshots"))
     }
 
     /// Get workspace plans directory: <app-root>/workspaces/<workspace-id>/plans/
-    pub fn workspace_plans_dir(&self, workspace_path: &Path) -> PathBuf {
-        self.workspace_runtime_root(workspace_path).join("plans")
+    pub fn workspace_plans_dir(&self, workspace_path: &Path) -> CoreResult<PathBuf> {
+        Ok(self.workspace_runtime_root(workspace_path)?.join("plans"))
     }
 
     /// Get workspace memory directory: <app-root>/workspaces/<workspace-id>/memory/
-    pub fn workspace_memory_dir(&self, workspace_path: &Path) -> PathBuf {
-        self.workspace_runtime_root(workspace_path).join("memory")
+    pub fn workspace_memory_dir(&self, workspace_path: &Path) -> CoreResult<PathBuf> {
+        Ok(self.workspace_runtime_root(workspace_path)?.join("memory"))
     }
 
     /// Get workspace AI memories file: <app-root>/workspaces/<workspace-id>/ai_memories.json
-    pub fn workspace_ai_memories_file(&self, workspace_path: &Path) -> PathBuf {
-        self.workspace_runtime_root(workspace_path)
-            .join("ai_memories.json")
+    pub fn workspace_ai_memories_file(&self, workspace_path: &Path) -> CoreResult<PathBuf> {
+        Ok(self
+            .workspace_runtime_root(workspace_path)?
+            .join("ai_memories.json"))
     }
 
     /// Get the workspace-local design root directory: {project}/.design/
@@ -484,57 +588,6 @@ impl PathManager {
         self.workspace_design_root(workspace_path).join(artifact_id)
     }
 
-    pub fn workspace_runtime_id(&self, workspace_path: &Path) -> String {
-        let requested_path = workspace_path.to_path_buf();
-        if let Some(id) = self.cached_workspace_runtime_id(&requested_path) {
-            return id;
-        }
-
-        let canonical_path =
-            dunce::canonicalize(workspace_path).unwrap_or_else(|_| requested_path.clone());
-        if canonical_path != requested_path {
-            if let Some(id) = self.cached_workspace_runtime_id(&canonical_path) {
-                self.store_workspace_runtime_id(&requested_path, &id);
-                return id;
-            }
-        }
-
-        let canonical = canonical_path.to_string_lossy().to_string();
-        let id = Self::build_workspace_runtime_id(&canonical);
-
-        self.store_workspace_runtime_id(&canonical_path, &id);
-        if canonical_path != requested_path {
-            self.store_workspace_runtime_id(&requested_path, &id);
-        }
-
-        id
-    }
-
-    fn cached_workspace_runtime_id(&self, workspace_path: &Path) -> Option<String> {
-        self.workspace_runtime_id_cache
-            .lock()
-            .expect("workspace runtime id cache poisoned")
-            .get(workspace_path)
-            .cloned()
-    }
-
-    fn store_workspace_runtime_id(&self, workspace_path: &Path, id: &str) {
-        self.workspace_runtime_id_cache
-            .lock()
-            .expect("workspace runtime id cache poisoned")
-            .insert(workspace_path.to_path_buf(), id.to_string());
-    }
-
-    fn build_workspace_runtime_id(canonical: &str) -> String {
-        let normalized = canonical.replace('\\', "/");
-        let mut hasher = Sha256::new();
-        hasher.update(LOCAL_WORKSPACE_SCOPE_HOST.as_bytes());
-        hasher.update(b"\n");
-        hasher.update(normalized.as_bytes());
-        let hash = hex::encode(&hasher.finalize()[..16]);
-        format!("local_{hash}")
-    }
-
     /// Ensure directory exists
     pub async fn ensure_dir(&self, path: &Path) -> CoreResult<()> {
         if let Err(error) = tokio::fs::create_dir_all(path).await {
@@ -551,10 +604,71 @@ impl PathManager {
         Ok(())
     }
 
+    /// Read the stable user-facing Workspace ID from the project marker.
+    ///
+    /// Session, Work, Run and App Data routing must use this ID. Missing or
+    /// invalid markers are errors; storage code must not derive an identity
+    /// from the editable absolute path.
+    pub fn workspace_id(&self, workspace_path: &Path) -> CoreResult<String> {
+        let marker_path = self.project_root(workspace_path).join("workspace.json");
+        let content = std::fs::read_to_string(&marker_path).map_err(|error| {
+            CoreError::io(format!(
+                "Failed to read workspace identity '{}': {}",
+                marker_path.display(),
+                error
+            ))
+        })?;
+        let value: serde_json::Value = serde_json::from_str(&content)?;
+        let schema_version = value
+            .get("schemaVersion")
+            .and_then(serde_json::Value::as_u64);
+        let workspace_id = value
+            .get("workspaceId")
+            .and_then(serde_json::Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| {
+                CoreError::validation(format!(
+                    "Workspace identity is missing workspaceId: {}",
+                    marker_path.display()
+                ))
+            })?;
+        if schema_version != Some(1) {
+            return Err(CoreError::validation(format!(
+                "Unsupported workspace identity schema: {}",
+                marker_path.display()
+            )));
+        }
+        validate_storage_segment("workspace_id", workspace_id)?;
+        if !workspace_id.starts_with("ws_") {
+            return Err(CoreError::validation(format!(
+                "Workspace identity must start with 'ws_': {}",
+                marker_path.display()
+            )));
+        }
+        Ok(workspace_id.to_string())
+    }
+
     /// Initialize user-level directory structure
     pub async fn initialize_user_directories(&self) -> CoreResult<()> {
         let dirs = vec![
             self.app_root(),
+            self.sessions_root(),
+            self.sessions_root().join("os_agent"),
+            self.sessions_root().join("global"),
+            self.sessions_root().join("workspaces"),
+            self.works_root(),
+            self.global_works_dir(),
+            self.works_root().join("workspaces"),
+            self.runs_root(),
+            self.global_runs_dir(),
+            self.runs_root().join("workspaces"),
+            self.app_data_root(),
+            self.app_data_root().join("global"),
+            self.app_data_root().join("workspaces"),
+            self.services_root(),
+            self.global_services_root(),
+            self.services_root().join("workspaces"),
             self.workspaces_runtime_root(),
             self.user_config_dir(),
             self.user_agents_dir(),
@@ -564,7 +678,7 @@ impl PathManager {
             self.speech_models_dir(),
             self.speech_model_downloads_dir(),
             self.user_state_dir(),
-            self.user_cron_dir(),
+            self.cron_service_dir(),
             self.apps_dir(),
             self.system_components_dir(),
             self.browser_profiles_dir(),
@@ -613,7 +727,6 @@ impl Default for PathManager {
                 );
                 Self {
                     user_root: std::env::temp_dir().join(APP_CONFIG_DIR_NAME),
-                    workspace_runtime_id_cache: Arc::new(Mutex::new(HashMap::new())),
                 }
             }
         }
@@ -623,10 +736,7 @@ impl Default for PathManager {
 #[cfg(test)]
 impl PathManager {
     pub(crate) fn with_user_root_for_tests(user_root: PathBuf) -> Self {
-        Self {
-            user_root,
-            workspace_runtime_id_cache: Arc::new(Mutex::new(HashMap::new())),
-        }
+        Self { user_root }
     }
 }
 
@@ -675,27 +785,127 @@ pub fn try_get_path_manager_arc() -> CoreResult<Arc<PathManager>> {
 #[cfg(test)]
 mod tests {
     use super::PathManager;
+    use crate::agentic::core::SessionDomain;
+    use std::fs;
     use std::path::Path;
     use std::sync::Arc;
     use tempfile::tempdir;
     use tokio::sync::Barrier;
 
     #[test]
-    fn workspace_runtime_root_uses_stable_workspace_id() {
-        let pm = PathManager::default();
-        let runtime_root =
-            pm.workspace_runtime_root(Path::new(r"E:\Projects\Sparo\Sparo-Agentic-OS"));
-        let id = runtime_root
-            .file_name()
-            .and_then(|value| value.to_str())
-            .expect("runtime root should have terminal component");
+    fn stable_workspace_identity_routes_all_user_data_without_path_hashing() {
+        let temp = tempdir().expect("temp dir");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(workspace.join(".sparo_os")).expect("workspace marker dir");
+        fs::write(
+            workspace.join(".sparo_os").join("workspace.json"),
+            r#"{"schemaVersion":1,"workspaceId":"ws_contract"}"#,
+        )
+        .expect("workspace marker");
+        let pm = PathManager::with_user_root_for_tests(temp.path().join("user"));
 
-        assert!(id.starts_with("local_"));
-        assert_eq!(id.len(), 6 + 32);
         assert_eq!(
-            runtime_root.parent(),
-            Some(pm.workspaces_runtime_root().as_path())
+            pm.workspace_runtime_root(&workspace)
+                .expect("stable runtime root"),
+            pm.workspaces_runtime_root().join("ws_contract")
         );
+        assert_eq!(
+            pm.session_domain_root(&SessionDomain::Workspace {
+                workspace_id: "ws_contract".to_string(),
+            })
+            .expect("workspace session root"),
+            pm.sessions_root().join("workspaces").join("ws_contract")
+        );
+        assert_eq!(
+            pm.workspace_works_dir("ws_contract")
+                .expect("workspace Work root"),
+            pm.works_root().join("workspaces").join("ws_contract")
+        );
+        assert_eq!(
+            pm.workspace_runs_dir("ws_contract")
+                .expect("workspace Run root"),
+            pm.runs_root().join("workspaces").join("ws_contract")
+        );
+        assert_eq!(
+            pm.workspace_service_dir("ws_contract", "daily_letter")
+                .expect("workspace service root"),
+            pm.services_root()
+                .join("workspaces")
+                .join("ws_contract")
+                .join("daily_letter")
+        );
+        assert_eq!(
+            pm.global_service_dir("global_daily_report")
+                .expect("global service root"),
+            pm.services_root()
+                .join("global")
+                .join("global_daily_report")
+        );
+    }
+
+    #[test]
+    fn os_agent_and_global_sessions_have_disjoint_roots() {
+        let pm = PathManager::default();
+        let os_agent = pm
+            .session_domain_root(&SessionDomain::OsAgent)
+            .expect("OSAgent root");
+        let global = pm
+            .session_domain_root(&SessionDomain::Global)
+            .expect("Global root");
+
+        assert_eq!(os_agent, pm.sessions_root().join("os_agent"));
+        assert_eq!(global, pm.sessions_root().join("global"));
+        assert_ne!(os_agent, global);
+    }
+
+    #[test]
+    fn os_agent_execution_is_global_and_does_not_require_a_workspace() {
+        let temp = tempdir().expect("temp dir");
+        let pm = PathManager::with_user_root_for_tests(temp.path().join("user"));
+
+        assert_eq!(
+            pm.session_execution_root(&SessionDomain::OsAgent, None)
+                .expect("global execution root"),
+            pm.agentic_os_runtime_root()
+        );
+        assert_eq!(
+            pm.session_execution_root(
+                &SessionDomain::OsAgent,
+                Some(Path::new("D:/workspace/project")),
+            )
+            .expect("OS Agent ignores project bindings"),
+            pm.agentic_os_runtime_root()
+        );
+    }
+
+    #[test]
+    fn workspace_execution_requires_a_matching_stable_workspace() {
+        let temp = tempdir().expect("temp dir");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(workspace.join(".sparo_os")).expect("workspace marker dir");
+        fs::write(
+            workspace.join(".sparo_os").join("workspace.json"),
+            r#"{"schemaVersion":1,"workspaceId":"ws_contract"}"#,
+        )
+        .expect("workspace marker");
+        let pm = PathManager::with_user_root_for_tests(temp.path().join("user"));
+
+        let domain = SessionDomain::Workspace {
+            workspace_id: "ws_contract".to_string(),
+        };
+        assert!(pm.session_execution_root(&domain, None).is_err());
+        assert_eq!(
+            pm.session_execution_root(&domain, Some(&workspace))
+                .expect("matching workspace"),
+            workspace
+        );
+
+        let mismatched_domain = SessionDomain::Workspace {
+            workspace_id: "different_workspace".to_string(),
+        };
+        assert!(pm
+            .session_execution_root(&mismatched_domain, Some(&workspace))
+            .is_err());
     }
 
     #[test]
@@ -717,19 +927,6 @@ mod tests {
         assert_eq!(
             pm.agentic_os_host_scan_state_path(),
             pm.agentic_os_host_dir().join("state.json")
-        );
-    }
-
-    #[test]
-    fn work_runtime_dir_lives_under_agentic_os_runtime_root() {
-        let pm = PathManager::default();
-
-        assert_eq!(
-            pm.agentic_os_work_runtime_dir("work_1", "runtime_1"),
-            pm.agentic_os_runtime_root()
-                .join("work_runtimes")
-                .join("work_1")
-                .join("runtime_1")
         );
     }
 
@@ -813,4 +1010,19 @@ mod tests {
         assert!(target.is_file());
         assert!(error.to_string().contains("Failed to create directory"));
     }
+}
+
+fn validate_storage_segment(field: &str, value: &str) -> CoreResult<()> {
+    let value = value.trim();
+    if value.is_empty()
+        || value == "."
+        || value == ".."
+        || value.contains('/')
+        || value.contains('\\')
+    {
+        return Err(CoreError::validation(format!(
+            "{field} must be a non-empty storage identifier"
+        )));
+    }
+    Ok(())
 }

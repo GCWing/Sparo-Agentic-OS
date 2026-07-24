@@ -1,0 +1,32 @@
+{
+  "name": "start_export",
+  "description": "Start an asynchronous Remotion export job through the workspace renderer.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["compositionId", "expectedProjectRevision", "expectedDescriptorRevision"],
+    "properties": {
+      "workspacePath": { "type": "string" },
+      "entryPoint": { "type": "string" },
+      "compositionId": { "type": "string" },
+      "expectedProjectRevision": { "type": "string", "minLength": 1 },
+      "expectedDescriptorRevision": { "type": "string", "minLength": 1 },
+      "frameRange": {
+        "type": "array",
+        "items": { "type": "integer", "minimum": 0 },
+        "minItems": 2,
+        "maxItems": 2
+      },
+      "scale": { "type": "number", "exclusiveMinimum": 0, "maximum": 4 },
+      "codec": { "type": "string", "enum": ["h264", "h265", "vp8", "vp9", "prores", "gif"] },
+      "outputName": { "type": "string" },
+      "inputProps": { "type": "object" }
+    }
+  },
+  "runtime": "javascript",
+  "entry": "tools/start_export.js",
+  "readonly": false,
+  "permissions": {},
+  "timeoutMs": 90000,
+  "maxOutputBytes": 60000
+}

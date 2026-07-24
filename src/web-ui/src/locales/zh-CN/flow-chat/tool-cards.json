@@ -1055,6 +1055,35 @@
   "plannerButton": {
     "planner": "规划"
   },
+  "pptLive": {
+    "brand": "PPT Live"
+  },
+  "pptDesignCase": {
+    "title": "设计样稿",
+    "awaiting": "等待你的判断",
+    "approved": "已通过",
+    "revisionRequested": "已要求调整",
+    "preparing": "正在准备三张真实样页",
+    "failure": "未能记录设计样稿判断。",
+    "errorTitle": "设计样稿不可用",
+    "direction": "视觉方向",
+    "density": "信息密度",
+    "audienceFit": "受众适配",
+    "inferred": "已根据主题推断",
+    "previewAlt": "设计样稿预览：{{title}}",
+    "guidance": "请综合判断三张页面的配色、字体、密度、视觉语法与节奏。这个选择会应用到整套演示，而不是只修改当前页。",
+    "approveAction": "通过这个方向",
+    "adjustColor": "调整配色",
+    "adjustDensity": "调整密度",
+    "adjustLanguage": "更换视觉语言",
+    "feedbackPlaceholder": "描述一个适用于整套演示的系统性调整……",
+    "submitFeedback": "要求重新设计",
+    "revisionColorFeedback": "在保留论点和页面角色的前提下，为整套设计样稿换成更符合主题的配色方向。",
+    "revisionDensityFeedback": "为整套设计样稿调整信息密度和阅读节奏。",
+    "revisionLanguageFeedback": "为整套设计样稿更换视觉语言和构图语法。",
+    "approvedReceipt": "设计样稿已经通过，可以基于这套系统继续生成完整演示。",
+    "revisionReceipt": "已经要求系统性重做设计样稿；新样稿通过前不会继续生成完整演示。"
+  },
   "turnRollback": {
     "rollback": "回滚",
     "rollbackTooltip": "回滚到此轮"

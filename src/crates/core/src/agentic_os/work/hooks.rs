@@ -378,18 +378,20 @@ impl WorkLifecycleHookHandler for WorkSessionLifecycleHook {
                         continue;
                     }
 
-                    let workspace_path = item
+                    let locator_json = item
                         .resource
                         .metadata
-                        .get("workspace_path")
+                        .get("session_locator")
                         .cloned()
                         .ok_or_else(|| {
-                            CoreError::validation("workspace_path is required for session cleanup")
+                            CoreError::validation("session_locator is required for session cleanup")
                         })?;
-                    let result = context
-                        .runtime_bridge
-                        .delete_work_session(&workspace_path, &item.resource.id)
-                        .await;
+                    let locator = serde_json::from_str(&locator_json).map_err(|error| {
+                        CoreError::validation(format!(
+                            "Invalid session_locator for cleanup: {error}"
+                        ))
+                    })?;
+                    let result = context.runtime_bridge.delete_work_session(&locator).await;
                     reports.push(report_for_result(item, result));
                 }
                 Ok(WorkLifecycleHookOutcome::CleanupReport(reports))
@@ -428,8 +430,18 @@ impl WorkLifecycleHookHandler for ProductRuntimeStorageLifecycleHook {
                     .map(|instance| instance.id.as_str())
                     .collect::<Vec<_>>()
                     .join(",");
+                let app_ids = context
+                    .work
+                    .runtime_instances
+                    .iter()
+                    .map(|instance| instance.app_id.as_str())
+                    .collect::<BTreeSet<_>>()
+                    .into_iter()
+                    .collect::<Vec<_>>()
+                    .join(",");
                 let mut metadata = BTreeMap::new();
                 metadata.insert("runtime_instance_ids".to_string(), runtime_instance_ids);
+                metadata.insert("app_ids".to_string(), app_ids);
                 Ok(WorkLifecycleHookOutcome::CleanupPlan(vec![
                     WorkCleanupItem {
                         id: format!("product-runtime-storage:{}", context.work.id.as_str()),
@@ -547,6 +559,15 @@ fn owned_work_session_ids(work: &WorkRecord) -> Vec<String> {
     if let WorkSurfaceRef::WorkSession { session_id } = &work.primary_surface {
         ids.insert(session_id.clone());
     }
+    for session_ref in &work.session_refs {
+        if matches!(
+            session_ref.owner.as_ref(),
+            Some(crate::agentic::core::SessionOwner::ProductApp { work_id, .. })
+                if work_id == work.id.as_str()
+        ) {
+            ids.insert(session_ref.session_id.clone());
+        }
+    }
     ids.into_iter().collect()
 }
 
@@ -593,9 +614,21 @@ fn session_delete_item(
     ownership: WorkResourceOwnership,
     required: bool,
 ) -> CoreResult<WorkCleanupItem> {
-    let workspace_path = session_workspace_path(work, &session_id)?;
+    let locator = work
+        .session_refs
+        .iter()
+        .find(|reference| reference.session_id == session_id)
+        .and_then(|reference| reference.locator.clone())
+        .ok_or_else(|| {
+            CoreError::validation(format!(
+                "SessionLocator is required for Work-linked session cleanup: {session_id}"
+            ))
+        })?;
     let mut metadata = BTreeMap::new();
-    metadata.insert("workspace_path".to_string(), workspace_path);
+    metadata.insert(
+        "session_locator".to_string(),
+        serde_json::to_string(&locator)?,
+    );
     Ok(WorkCleanupItem {
         id: format!("{}:{}", item_prefix, session_id),
         handler_id: handler_id.to_string(),
@@ -610,54 +643,38 @@ fn session_delete_item(
     })
 }
 
-fn session_workspace_path(work: &WorkRecord, session_id: &str) -> CoreResult<String> {
-    if let Some(path) = work
-        .session_refs
-        .iter()
-        .find(|reference| reference.session_id == session_id)
-        .and_then(|reference| reference.workspace_path.clone())
-        .filter(|path| !path.trim().is_empty())
-    {
-        return Ok(path);
-    }
-
-    match &work.scope {
-        WorkScope::Workspace { workspace_path } => {
-            if workspace_path.trim().is_empty() {
-                return Err(CoreError::validation("workspace_path cannot be empty"));
-            }
-            Ok(workspace_path.clone())
-        }
-        WorkScope::System => {
-            let path_manager = try_get_path_manager_arc()?;
-            Ok(path_manager
-                .agentic_os_runtime_root()
-                .to_string_lossy()
-                .into_owned())
-        }
-    }
-}
-
 fn delete_work_runtime_storage(work: &WorkRecord) -> CoreResult<()> {
     let path_manager = try_get_path_manager_arc()?;
-    let root = path_manager.agentic_os_work_runtimes_dir();
-    let target = root.join(work.id.as_str());
-    if !target.exists() {
-        return Ok(());
+    let app_ids = work
+        .runtime_instances
+        .iter()
+        .map(|instance| instance.app_id.as_str())
+        .collect::<BTreeSet<_>>();
+    for app_id in app_ids {
+        let app_root = match &work.scope {
+            WorkScope::Global => path_manager.global_app_data_dir(app_id)?,
+            WorkScope::Workspace { workspace_id } => {
+                path_manager.workspace_app_data_dir(workspace_id, app_id)?
+            }
+        };
+        let target = app_root.join("works").join(work.id.as_str());
+        if !target.starts_with(&app_root) {
+            return Err(CoreError::validation(format!(
+                "Refusing to delete Product App data outside root: {}",
+                target.display()
+            )));
+        }
+        if target.exists() {
+            std::fs::remove_dir_all(&target).map_err(|error| {
+                CoreError::io(format!(
+                    "Failed to delete Product App data {}: {}",
+                    target.display(),
+                    error
+                ))
+            })?;
+        }
     }
-    if !target.starts_with(&root) {
-        return Err(CoreError::validation(format!(
-            "Refusing to delete Work runtime storage outside root: {}",
-            target.display()
-        )));
-    }
-    std::fs::remove_dir_all(&target).map_err(|error| {
-        CoreError::io(format!(
-            "Failed to delete Work runtime storage {}: {}",
-            target.display(),
-            error
-        ))
-    })
+    Ok(())
 }
 
 fn retain_item(

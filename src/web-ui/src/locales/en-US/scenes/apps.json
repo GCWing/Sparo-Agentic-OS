@@ -184,7 +184,6 @@
       "inspect": "Inspect",
       "customize": "Customize a copy",
       "edit": "Edit Draft",
-      "rollback": "Roll back activation",
       "syncUpstream": "Review upstream update"
     },
     "capabilities": {
@@ -245,7 +244,6 @@
       }
     },
     "messages": {
-      "rolledBack": "{{name}} now uses the previous Release.",
       "installBeforeLaunch": "Install {{name}} before launching it.",
       "noLaunch": "{{name}} has no launch target.",
       "launchFailed": "Failed to launch {{name}}: {{error}}",

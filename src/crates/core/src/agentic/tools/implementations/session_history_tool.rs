@@ -298,9 +298,12 @@ Examples:
         let workspace = self.resolve_workspace(&params.workspace)?;
         let session_id = self.resolve_session_id(&params.session_id)?;
         let manager = PersistenceManager::new(Arc::new(PathManager::new()?))?;
+        let domain = crate::agentic::core::SessionDomain::Workspace {
+            workspace_id: manager.path_manager().workspace_id(Path::new(&workspace))?,
+        };
         let transcript = manager
             .export_session_transcript(
-                Path::new(&workspace),
+                &domain,
                 &session_id,
                 &SessionTranscriptExportOptions {
                     tools: params.tools.unwrap_or(false),

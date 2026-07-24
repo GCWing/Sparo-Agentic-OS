@@ -7,9 +7,6 @@ use tauri::{AppHandle, State};
 
 use crate::api::app_state::AppState;
 use crate::api::command_error::public_settings_agent_error;
-use crate::api::session_storage_path::{
-    desktop_effective_session_storage_path, SessionStorageScopeDto,
-};
 use sparo_core::agentic::agents::SettingsAgent;
 use sparo_core::agentic::coordination::{
     ConversationCoordinator, DialogGuidedTurnSnapshot, DialogQueuePauseSnapshot,
@@ -31,15 +28,14 @@ pub struct CreateSessionRequest {
     pub session_name: String,
     pub agent_type: String,
     pub workspace_path: Option<String>,
-    #[serde(default)]
-    pub storage_scope: Option<SessionStorageScopeDto>,
+    pub domain: SessionDomain,
     pub config: Option<SessionConfigDTO>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionConfigDTO {
-    pub max_context_tokens: Option<usize>,
+    pub context_policy: Option<SessionContextPolicyDTO>,
     pub auto_compact: Option<bool>,
     pub enable_tools: Option<bool>,
     pub safe_mode: Option<bool>,
@@ -47,8 +43,30 @@ pub struct SessionConfigDTO {
     pub enable_context_compression: Option<bool>,
     pub compression_threshold: Option<f32>,
     pub model_name: Option<String>,
-    #[serde(default)]
-    pub storage_scope: Option<SessionStorageScopeDto>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "mode", rename_all = "camelCase")]
+pub enum SessionContextPolicyDTO {
+    FollowModel,
+    ExplicitCap {
+        #[serde(rename = "maxTokens")]
+        max_tokens: usize,
+    },
+}
+
+impl SessionContextPolicyDTO {
+    fn into_core(self) -> Result<SessionContextPolicy, String> {
+        match self {
+            Self::FollowModel => Ok(SessionContextPolicy::FollowModel),
+            Self::ExplicitCap { max_tokens } if max_tokens > 0 => {
+                Ok(SessionContextPolicy::ExplicitCap { max_tokens })
+            }
+            Self::ExplicitCap { .. } => {
+                Err("contextPolicy.maxTokens must be greater than zero".to_string())
+            }
+        }
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -69,11 +87,8 @@ pub struct UpdateSessionModelRequest {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateSessionTitleRequest {
-    pub session_id: String,
+    pub locator: SessionLocator,
     pub title: String,
-    pub workspace_path: Option<String>,
-    #[serde(default)]
-    pub storage_scope: Option<SessionStorageScopeDto>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -209,19 +224,13 @@ pub struct ResumeQueuedDialogTurnsResponse {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompactSessionRequest {
-    pub session_id: String,
-    pub workspace_path: Option<String>,
-    #[serde(default)]
-    pub storage_scope: Option<SessionStorageScopeDto>,
+    pub locator: SessionLocator,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EnsureCoordinatorSessionRequest {
-    pub session_id: String,
-    pub workspace_path: Option<String>,
-    #[serde(default)]
-    pub storage_scope: Option<SessionStorageScopeDto>,
+    pub locator: SessionLocator,
 }
 
 #[derive(Debug, Deserialize)]
@@ -264,27 +273,19 @@ pub struct CancelToolRequest {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DeleteSessionRequest {
-    pub session_id: String,
-    pub workspace_path: Option<String>,
-    #[serde(default)]
-    pub storage_scope: Option<SessionStorageScopeDto>,
+    pub locator: SessionLocator,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RestoreSessionRequest {
-    pub session_id: String,
-    pub workspace_path: Option<String>,
-    #[serde(default)]
-    pub storage_scope: Option<SessionStorageScopeDto>,
+    pub locator: SessionLocator,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ListSessionsRequest {
-    pub workspace_path: Option<String>,
-    #[serde(default)]
-    pub storage_scope: Option<SessionStorageScopeDto>,
+    pub domain: SessionDomain,
 }
 
 #[derive(Debug, Deserialize)]
@@ -314,63 +315,34 @@ pub struct GenerateSessionTitleRequest {
 #[tauri::command]
 pub async fn create_session(
     coordinator: State<'_, Arc<ConversationCoordinator>>,
-    app_state: State<'_, AppState>,
     request: CreateSessionRequest,
 ) -> Result<CreateSessionResponse, String> {
-    let storage_scope = request
-        .storage_scope
-        .or_else(|| request.config.as_ref().and_then(|c| c.storage_scope));
-    let resolved_workspace_path = request.workspace_path.clone().or_else(|| {
-        if matches!(storage_scope, Some(SessionStorageScopeDto::AgenticOs)) {
-            Some(
-                app_state
-                    .workspace_service
-                    .path_manager()
-                    .agentic_os_runtime_root()
-                    .to_string_lossy()
-                    .into_owned(),
-            )
-        } else {
-            None
-        }
-    });
-    let workspace_path = resolved_workspace_path
-        .clone()
-        .ok_or_else(|| "workspace_path is required to create a session".to_string())?;
-
-    let config = request
-        .config
-        .map(|c| SessionConfig {
-            max_context_tokens: c.max_context_tokens.unwrap_or(128128),
-            auto_compact: c.auto_compact.unwrap_or(true),
-            enable_tools: c.enable_tools.unwrap_or(true),
-            safe_mode: c.safe_mode.unwrap_or(true),
-            max_turns: c.max_turns.unwrap_or(200),
-            enable_context_compression: c.enable_context_compression.unwrap_or(true),
-            compression_threshold: c.compression_threshold.unwrap_or(0.8),
-            workspace_path: Some(workspace_path.clone()),
-            storage_scope: storage_scope.map(|scope| match scope {
-                SessionStorageScopeDto::Workspace => SessionStorageScope::Workspace,
-                SessionStorageScopeDto::AgenticOs => SessionStorageScope::AgenticOs,
-            }),
-            model_id: c.model_name,
-        })
-        .unwrap_or(SessionConfig {
-            workspace_path: Some(workspace_path.clone()),
-            storage_scope: storage_scope.map(|scope| match scope {
-                SessionStorageScopeDto::Workspace => SessionStorageScope::Workspace,
-                SessionStorageScopeDto::AgenticOs => SessionStorageScope::AgenticOs,
-            }),
-            ..Default::default()
-        });
+    let mut config = SessionConfig::new(request.domain);
+    config.workspace_path = request
+        .workspace_path
+        .map(|path| path.trim().to_string())
+        .filter(|path| !path.is_empty());
+    if let Some(c) = request.config {
+        config.context_policy = c
+            .context_policy
+            .map(SessionContextPolicyDTO::into_core)
+            .transpose()?
+            .unwrap_or_default();
+        config.auto_compact = c.auto_compact.unwrap_or(true);
+        config.enable_tools = c.enable_tools.unwrap_or(true);
+        config.safe_mode = c.safe_mode.unwrap_or(true);
+        config.max_turns = c.max_turns.unwrap_or(200);
+        config.enable_context_compression = c.enable_context_compression.unwrap_or(true);
+        config.compression_threshold = c.compression_threshold.unwrap_or(0.8);
+        config.model_id = c.model_name;
+    }
 
     let session = coordinator
-        .create_session_with_workspace(
+        .create_session_with_id(
             request.session_id,
             request.session_name.clone(),
             request.agent_type.clone(),
             config,
-            workspace_path,
         )
         .await
         .map_err(|e| format!("Failed to create session: {}", e))?;
@@ -396,10 +368,9 @@ pub async fn update_session_model(
 #[tauri::command]
 pub async fn update_session_title(
     coordinator: State<'_, Arc<ConversationCoordinator>>,
-    app_state: State<'_, AppState>,
     request: UpdateSessionTitleRequest,
 ) -> Result<String, String> {
-    let session_id = request.session_id.trim();
+    let session_id = request.locator.session_id.trim();
     if session_id.is_empty() {
         return Err("session_id is required".to_string());
     }
@@ -409,34 +380,8 @@ pub async fn update_session_title(
         .get_session(session_id)
         .is_none()
     {
-        let workspace_path = request
-            .workspace_path
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .or_else(|| {
-                if matches!(
-                    request.storage_scope,
-                    Some(SessionStorageScopeDto::AgenticOs)
-                ) {
-                    Some("")
-                } else {
-                    None
-                }
-            })
-            .ok_or_else(|| {
-                "workspace_path is required when the session is not loaded".to_string()
-            })?;
-
-        let effective = desktop_effective_session_storage_path(
-            &app_state,
-            Some(workspace_path),
-            request.storage_scope,
-        )
-        .await;
-
         coordinator
-            .restore_session(&effective, session_id)
+            .restore_session(&request.locator)
             .await
             .map_err(|e| format!("Failed to restore session before renaming: {}", e))?;
     }
@@ -473,10 +418,9 @@ pub async fn update_session_workspace(
 #[tauri::command]
 pub async fn ensure_coordinator_session(
     coordinator: State<'_, Arc<ConversationCoordinator>>,
-    app_state: State<'_, AppState>,
     request: EnsureCoordinatorSessionRequest,
 ) -> Result<(), String> {
-    let session_id = request.session_id.trim();
+    let session_id = request.locator.session_id.trim();
     if session_id.is_empty() {
         return Err("session_id is required".to_string());
     }
@@ -488,20 +432,8 @@ pub async fn ensure_coordinator_session(
         return Ok(());
     }
 
-    let wp = request.workspace_path.as_deref().unwrap_or("").trim();
-    if wp.is_empty()
-        && !matches!(
-            request.storage_scope,
-            Some(SessionStorageScopeDto::AgenticOs)
-        )
-    {
-        return Err("workspace_path is required when the session is not loaded".to_string());
-    }
-
-    let effective =
-        desktop_effective_session_storage_path(&app_state, Some(wp), request.storage_scope).await;
     coordinator
-        .restore_session(&effective, session_id)
+        .restore_session(&request.locator)
         .await
         .map(|_| ())
         .map_err(|e| e.to_string())
@@ -712,10 +644,9 @@ pub async fn resume_queued_dialog_turns(
 #[tauri::command]
 pub async fn compact_session(
     coordinator: State<'_, Arc<ConversationCoordinator>>,
-    app_state: State<'_, AppState>,
     request: CompactSessionRequest,
 ) -> Result<StartDialogTurnResponse, String> {
-    let session_id = request.session_id.trim();
+    let session_id = request.locator.session_id.trim();
     if session_id.is_empty() {
         return Err("session_id is required".to_string());
     }
@@ -725,32 +656,8 @@ pub async fn compact_session(
         .get_session(session_id)
         .is_none()
     {
-        let workspace_path = request
-            .workspace_path
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .or_else(|| {
-                if matches!(
-                    request.storage_scope,
-                    Some(SessionStorageScopeDto::AgenticOs)
-                ) {
-                    Some("")
-                } else {
-                    None
-                }
-            })
-            .ok_or_else(|| {
-                "workspace_path is required when the session is not loaded".to_string()
-            })?;
-        let effective = desktop_effective_session_storage_path(
-            &app_state,
-            Some(workspace_path),
-            request.storage_scope,
-        )
-        .await;
         coordinator
-            .restore_session(&effective, session_id)
+            .restore_session(&request.locator)
             .await
             .map_err(|e| format!("Failed to restore session before compacting: {}", e))?;
     }
@@ -942,17 +849,10 @@ pub async fn cancel_tool(
 #[tauri::command]
 pub async fn delete_session(
     coordinator: State<'_, Arc<ConversationCoordinator>>,
-    app_state: State<'_, AppState>,
     request: DeleteSessionRequest,
 ) -> Result<(), String> {
-    let effective_path = desktop_effective_session_storage_path(
-        &app_state,
-        request.workspace_path.as_deref(),
-        request.storage_scope,
-    )
-    .await;
     coordinator
-        .delete_session(&effective_path, &request.session_id)
+        .delete_session(&request.locator)
         .await
         .map_err(|e| format!("Failed to delete session: {}", e))
 }
@@ -960,17 +860,10 @@ pub async fn delete_session(
 #[tauri::command]
 pub async fn restore_session(
     coordinator: State<'_, Arc<ConversationCoordinator>>,
-    app_state: State<'_, AppState>,
     request: RestoreSessionRequest,
 ) -> Result<SessionResponse, String> {
-    let effective_path = desktop_effective_session_storage_path(
-        &app_state,
-        request.workspace_path.as_deref(),
-        request.storage_scope,
-    )
-    .await;
     let session = coordinator
-        .restore_session(&effective_path, &request.session_id)
+        .restore_session(&request.locator)
         .await
         .map_err(|e| format!("Failed to restore session: {}", e))?;
 
@@ -980,17 +873,10 @@ pub async fn restore_session(
 #[tauri::command]
 pub async fn list_sessions(
     coordinator: State<'_, Arc<ConversationCoordinator>>,
-    app_state: State<'_, AppState>,
     request: ListSessionsRequest,
 ) -> Result<Vec<SessionResponse>, String> {
-    let effective_path = desktop_effective_session_storage_path(
-        &app_state,
-        request.workspace_path.as_deref(),
-        request.storage_scope,
-    )
-    .await;
     let summaries = coordinator
-        .list_sessions(&effective_path)
+        .list_sessions(&request.domain)
         .await
         .map_err(|e| format!("Failed to list sessions: {}", e))?;
 
@@ -1134,8 +1020,11 @@ fn system_time_to_unix_secs(time: std::time::SystemTime) -> u64 {
 
 #[cfg(test)]
 mod settings_flow_tests {
-    use super::{published_settings_agent_error, settings_flow_turn_context};
+    use super::{
+        published_settings_agent_error, settings_flow_turn_context, SessionContextPolicyDTO,
+    };
     use serde_json::json;
+    use sparo_core::agentic::core::SessionContextPolicy;
 
     #[test]
     fn settings_context_uses_only_revision_and_dirty_setting_ids() {
@@ -1179,5 +1068,22 @@ mod settings_flow_tests {
             published_settings_agent_error(&"settings.secure_input_required: token=secret"),
             "settings.secure_input_required"
         );
+    }
+
+    #[test]
+    fn session_context_policy_dto_requires_an_explicit_nonzero_cap() {
+        assert_eq!(
+            SessionContextPolicyDTO::FollowModel.into_core().unwrap(),
+            SessionContextPolicy::FollowModel
+        );
+        assert_eq!(
+            SessionContextPolicyDTO::ExplicitCap { max_tokens: 64_000 }
+                .into_core()
+                .unwrap(),
+            SessionContextPolicy::ExplicitCap { max_tokens: 64_000 }
+        );
+        assert!(SessionContextPolicyDTO::ExplicitCap { max_tokens: 0 }
+            .into_core()
+            .is_err());
     }
 }

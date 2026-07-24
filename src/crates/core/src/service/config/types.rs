@@ -13,7 +13,7 @@ pub const CONFIG_SCHEMA_VERSION: &str = "1";
 
 /// Web UI font preferences (settings → basics). Keys match `FontPreference` in the frontend (camelCase).
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase", default)]
 pub struct FontPreferenceSnapshot {
     pub ui_size: UiFontSizeSnapshot,
     pub flow_chat: FlowChatFontSnapshot,
@@ -21,7 +21,7 @@ pub struct FontPreferenceSnapshot {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase", default)]
 pub struct UiFontSizeSnapshot {
     pub level: UiFontSizeLevel,
     pub custom_px: Option<u32>,
@@ -39,7 +39,7 @@ pub enum UiFontSizeLevel {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase", default)]
 pub struct FlowChatFontSnapshot {
     pub mode: FlowChatFontMode,
     pub base_px: Option<u32>,
@@ -53,7 +53,7 @@ pub enum FlowChatFontMode {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase", default)]
 pub struct MarkdownEditorFontSnapshot {
     pub mode: MarkdownEditorFontMode,
     pub base_px: Option<u32>,
@@ -69,30 +69,52 @@ pub enum MarkdownEditorFontMode {
 impl Default for FontPreferenceSnapshot {
     fn default() -> Self {
         Self {
-            ui_size: UiFontSizeSnapshot {
-                level: UiFontSizeLevel::Default,
-                custom_px: None,
-            },
-            flow_chat: FlowChatFontSnapshot {
-                mode: FlowChatFontMode::Sync,
-                base_px: None,
-            },
-            markdown_editor: MarkdownEditorFontSnapshot {
-                mode: MarkdownEditorFontMode::Sync,
-                base_px: None,
-            },
+            ui_size: UiFontSizeSnapshot::default(),
+            flow_chat: FlowChatFontSnapshot::default(),
+            markdown_editor: MarkdownEditorFontSnapshot::default(),
+        }
+    }
+}
+
+impl Default for UiFontSizeSnapshot {
+    fn default() -> Self {
+        Self {
+            level: UiFontSizeLevel::Default,
+            custom_px: None,
+        }
+    }
+}
+
+impl Default for FlowChatFontSnapshot {
+    fn default() -> Self {
+        Self {
+            mode: FlowChatFontMode::Sync,
+            base_px: None,
+        }
+    }
+}
+
+impl Default for MarkdownEditorFontSnapshot {
+    fn default() -> Self {
+        Self {
+            mode: MarkdownEditorFontMode::Sync,
+            base_px: None,
         }
     }
 }
 
 /// Global configuration structure - matches the frontend `GlobalConfig` exactly.
+///
+/// Persisted configuration objects intentionally default missing fields and
+/// ignore unknown fields. This keeps additive and subtractive field changes
+/// local to the affected setting while version and semantic validation remain
+/// authoritative for incompatible changes.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(default)]
 pub struct GlobalConfig {
     pub app: AppConfig,
     pub editor: EditorConfig,
     pub terminal: TerminalConfig,
-    pub workspace: WorkspaceConfig,
     pub ai: AIConfig,
     /// Product App-scoped configuration keyed by stable Product App id.
     pub product_apps: ProductAppsConfig,
@@ -120,7 +142,7 @@ pub struct GlobalConfig {
 
 /// Configuration owned by Product Apps.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(default)]
 pub struct ProductAppsConfig {
     /// App id -> app-specific configuration.
     pub apps: HashMap<String, ProductAppConfig>,
@@ -150,18 +172,10 @@ pub struct ProductAppConfig {
 
 /// App configuration.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(default)]
 pub struct AppConfig {
     pub language: String,
-    pub auto_update: bool,
-    pub telemetry: bool,
-    pub startup_behavior: String,
-    pub confirm_on_exit: bool,
-    pub restore_windows: bool,
-    pub zoom_level: f64,
     pub logging: AppLoggingConfig,
-    pub sidebar: SidebarConfig,
-    pub right_panel: RightPanelConfig,
     pub notifications: NotificationConfig,
     pub host_scan: AppHostScanConfig,
     pub ai_experience: AIExperienceConfig,
@@ -176,7 +190,7 @@ pub struct AppConfig {
 
 /// System-tray preferences.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(default)]
 pub struct AppTrayConfig {
     /// When `true` (default) the close button hides the window to the tray
     /// instead of quitting. Set to `false` to make close always quit.
@@ -197,7 +211,7 @@ impl Default for AppTrayConfig {
 
 /// App logging configuration.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(default)]
 pub struct AppLoggingConfig {
     /// Runtime backend log level.
     /// Allowed values: trace, debug, info, warn, error, off.
@@ -206,7 +220,7 @@ pub struct AppLoggingConfig {
 
 /// Host scan automation settings.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(default)]
 pub struct AppHostScanConfig {
     /// Whether automatic background host scan is enabled.
     pub auto_scan_enabled: bool,
@@ -216,7 +230,7 @@ pub struct AppHostScanConfig {
 
 /// AI experience configuration.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(default)]
 pub struct AIExperienceConfig {
     /// Whether Daily Letter generation is enabled.
     pub enable_daily_letter: bool,
@@ -239,7 +253,7 @@ pub struct AIExperienceConfig {
 
 /// Local voice input configuration.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(default)]
 pub struct VoiceInputConfig {
     /// Whether the composer should show the microphone action.
     pub enabled: bool,
@@ -250,8 +264,8 @@ pub struct VoiceInputConfig {
 }
 
 /// User-selected Agent companion package.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", default)]
 pub struct AgentCompanionPetSelection {
     pub id: String,
     pub display_name: String,
@@ -264,25 +278,8 @@ pub struct AgentCompanionPetSelection {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct SidebarConfig {
-    pub width: u32,
-    pub collapsed: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct RightPanelConfig {
-    pub width: u32,
-    pub collapsed: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(default)]
 pub struct NotificationConfig {
-    pub enabled: bool,
-    pub position: String,
-    pub duration: u32,
     /// Whether to show a toast notification when a dialog turn completes while the window is not focused.
     pub dialog_completion_notify: bool,
     /// Whether to show built-in tip cards on startup (can be disabled by the user).
@@ -291,7 +288,7 @@ pub struct NotificationConfig {
 
 /// Theme system configuration.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(default)]
 pub struct ThemesConfig {
     /// Currently active theme ID.
     pub current: String,
@@ -311,7 +308,7 @@ impl Default for ThemesConfig {
 
 /// Editor configuration.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(default)]
 pub struct EditorConfig {
     pub font_size: u32,
     pub font_family: String,
@@ -330,7 +327,7 @@ pub struct EditorConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(default)]
 pub struct MinimapConfig {
     pub enabled: bool,
     pub side: String,
@@ -339,7 +336,7 @@ pub struct MinimapConfig {
 
 /// Terminal configuration.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(default)]
 pub struct TerminalConfig {
     /// Empty string means "auto-detect".
     pub default_shell: String,
@@ -352,7 +349,7 @@ pub struct TerminalConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(default)]
 pub struct TerminalThemeConfig {
     pub background: String,
     pub foreground: String,
@@ -374,21 +371,6 @@ pub struct TerminalThemeConfig {
     pub bright_magenta: String,
     pub bright_cyan: String,
     pub bright_white: String,
-}
-
-/// Workspace configuration.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct WorkspaceConfig {
-    pub exclude_patterns: Vec<String>,
-    pub include_patterns: Vec<String>,
-    pub watch_ignore: Vec<String>,
-    /// Maximum file size in bytes.
-    pub max_file_size: u64,
-    pub encoding: String,
-    pub line_ending: String,
-    pub trim_trailing_whitespace: bool,
-    pub insert_final_newline: bool,
 }
 
 /// Model capability type (a model can have multiple capabilities).
@@ -439,7 +421,7 @@ pub use sparo_ai_adapters::types::ReasoningMode;
 
 /// Default model configuration.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(default)]
 #[derive(Default)]
 pub struct DefaultModelsConfig {
     /// Primary model ID (for complex tasks).
@@ -458,7 +440,7 @@ pub struct DefaultModelsConfig {
 
 /// AI configuration.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(default)]
 pub struct AIConfig {
     /// All configured models.
     pub models: Vec<AIModelConfig>,
@@ -509,7 +491,7 @@ pub struct AIConfig {
 
 /// Goal-mode runtime configuration.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(default)]
 pub struct GoalModeConfig {
     /// Maximum number of system-queued continuation turns for each goal.
     pub max_continuation_turns: u32,
@@ -517,7 +499,7 @@ pub struct GoalModeConfig {
 
 /// Global auto-memory configuration.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(default)]
 pub struct AutoMemoryConfig {
     /// Auto-memory settings for agentic_os global memory.
     pub global: AutoMemoryScopeConfig,
@@ -528,7 +510,7 @@ pub struct AutoMemoryConfig {
 
 /// Scope-specific auto-memory configuration.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(default)]
 pub struct AutoMemoryScopeConfig {
     /// Whether background auto-memory extraction is enabled.
     pub enabled: bool,
@@ -605,7 +587,7 @@ impl AIConfig {
 ///
 /// Model mapping has moved to `AIConfig.agent_models`, keyed by `agent_id`.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(default)]
 pub struct AgentCapabilityConfig {
     /// Mode ID (e.g. agentic, debug, requirement, ui-design).
     pub agent_id: String,
@@ -757,7 +739,7 @@ impl Default for AgentCapabilityConfigView {
 
 /// Debug-mode configuration.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(default)]
 pub struct DebugModeConfig {
     /// Custom log path (relative to the workspace; default: `.sparo_os/debug.log`).
     pub log_path: String,
@@ -935,7 +917,7 @@ with open(os.path.join(os.getcwd(), '{LOG_PATH}'), 'a', encoding='utf-8') as _f:
 
 /// Language debug template.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(default)]
 pub struct LanguageDebugTemplate {
     /// Language identifier (javascript, python, rust, go, java).
     pub language: String,
@@ -978,7 +960,7 @@ impl Default for LanguageDebugTemplate {
 
 /// SubAgent configuration (enabled/disabled per sub-agent).
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(default)]
 pub struct SubAgentConfig {
     /// Whether this SubAgent is enabled.
     pub enabled: bool,
@@ -991,7 +973,7 @@ impl Default for SubAgentConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(default)]
 pub struct AIModelConfig {
     pub id: String,
     pub name: String,
@@ -1110,7 +1092,6 @@ impl Default for GlobalConfig {
             app: AppConfig::default(),
             editor: EditorConfig::default(),
             terminal: TerminalConfig::default(),
-            workspace: WorkspaceConfig::default(),
             ai: AIConfig::default(),
             product_apps: ProductAppsConfig::default(),
             mcp_servers: None,
@@ -1150,28 +1131,8 @@ impl Default for AppConfig {
     fn default() -> Self {
         Self {
             language: "zh-CN".to_string(),
-            auto_update: true,
-            telemetry: false,
-            startup_behavior: "lastWorkspace".to_string(),
-            confirm_on_exit: true,
-            restore_windows: true,
-            zoom_level: 1.0,
             logging: AppLoggingConfig::default(),
-            sidebar: SidebarConfig {
-                width: 300,
-                collapsed: false,
-            },
-            right_panel: RightPanelConfig {
-                width: 400,
-                collapsed: true,
-            },
-            notifications: NotificationConfig {
-                enabled: true,
-                position: "topRight".to_string(),
-                duration: 5000,
-                dialog_completion_notify: true,
-                enable_startup_tips: true,
-            },
+            notifications: NotificationConfig::default(),
             host_scan: AppHostScanConfig::default(),
             ai_experience: AIExperienceConfig::default(),
             keybindings: None,
@@ -1300,31 +1261,6 @@ impl Default for TerminalThemeConfig {
     }
 }
 
-impl Default for WorkspaceConfig {
-    fn default() -> Self {
-        Self {
-            exclude_patterns: vec![
-                "**/node_modules/**".to_string(),
-                "**/target/**".to_string(),
-                "**/.git/**".to_string(),
-                "**/dist/**".to_string(),
-                "**/build/**".to_string(),
-            ],
-            include_patterns: vec!["**/*".to_string()],
-            watch_ignore: vec![
-                "**/node_modules/**".to_string(),
-                "**/target/**".to_string(),
-                "**/.git/**".to_string(),
-            ],
-            max_file_size: 50 * 1024 * 1024,
-            encoding: "utf8".to_string(),
-            line_ending: "auto".to_string(),
-            trim_trailing_whitespace: true,
-            insert_final_newline: true,
-        }
-    }
-}
-
 impl Default for AIConfig {
     fn default() -> Self {
         Self {
@@ -1427,30 +1363,9 @@ impl Default for AIModelConfig {
     }
 }
 
-impl Default for SidebarConfig {
-    fn default() -> Self {
-        Self {
-            width: 300,
-            collapsed: false,
-        }
-    }
-}
-
-impl Default for RightPanelConfig {
-    fn default() -> Self {
-        Self {
-            width: 400,
-            collapsed: true,
-        }
-    }
-}
-
 impl Default for NotificationConfig {
     fn default() -> Self {
         Self {
-            enabled: true,
-            position: "topRight".to_string(),
-            duration: 5000,
             dialog_completion_notify: true,
             enable_startup_tips: true,
         }
@@ -1470,8 +1385,8 @@ impl Default for MinimapConfig {
 #[cfg(test)]
 mod tests {
     use super::{
-        AIConfig, AIModelConfig, AgentCapabilityConfig, AgentCapabilityConfigView, GlobalConfig,
-        ReasoningMode, CONFIG_SCHEMA_VERSION,
+        AIConfig, AIModelConfig, AgentCapabilityConfig, AgentCapabilityConfigView, AuthConfig,
+        GlobalConfig, ReasoningMode, CONFIG_SCHEMA_VERSION,
     };
 
     #[test]
@@ -1504,17 +1419,86 @@ mod tests {
     }
 
     #[test]
-    fn rejects_missing_required_current_schema_field() {
-        let mut value = serde_json::to_value(GlobalConfig::default()).expect("serialize config");
+    fn persistent_config_defaults_missing_fields_and_ignores_removed_fields() {
+        let mut config = GlobalConfig::default();
+        config.ai.models.push(AIModelConfig {
+            id: "preserved-model".to_string(),
+            name: "Preserved model".to_string(),
+            enabled: true,
+            ..AIModelConfig::default()
+        });
+        config.ai.default_models.primary = Some("preserved-model".to_string());
+        let mut value = serde_json::to_value(config).expect("serialize config");
         value["app"]
             .as_object_mut()
             .expect("app object")
             .remove("logging");
+        value["themes"]["pointer"] = serde_json::json!({
+            "scale": 1.25,
+            "accent": "legacy"
+        });
+        value["ai"]["proxy"]["enabled"] = serde_json::json!(true);
+        value["ai"]["proxy"]
+            .as_object_mut()
+            .expect("proxy object")
+            .remove("url");
+        value["ai"]["proxy"]["legacy_mode"] = serde_json::json!("removed");
+        value["workspace"] = serde_json::json!({
+            "exclude_patterns": ["**/node_modules/**"],
+            "max_file_size": 52_428_800
+        });
+        value["app"]["auto_update"] = serde_json::json!(true);
+        value["app"]["telemetry"] = serde_json::json!(false);
+        value["app"]["startup_behavior"] = serde_json::json!("lastWorkspace");
+        value["app"]["confirm_on_exit"] = serde_json::json!(true);
+        value["app"]["restore_windows"] = serde_json::json!(true);
+        value["app"]["zoom_level"] = serde_json::json!(1.0);
+        value["app"]["sidebar"] = serde_json::json!({
+            "width": 300,
+            "collapsed": false
+        });
+        value["app"]["right_panel"] = serde_json::json!({
+            "width": 400,
+            "collapsed": true
+        });
+        value["app"]["notifications"]["enabled"] = serde_json::json!(true);
+        value["app"]["notifications"]["position"] = serde_json::json!("topRight");
+        value["app"]["notifications"]["duration"] = serde_json::json!(5000);
 
-        let error = serde_json::from_value::<GlobalConfig>(value)
-            .expect_err("missing current-schema field must fail");
+        let loaded =
+            serde_json::from_value::<GlobalConfig>(value).expect("field evolution stays readable");
+        let canonical = serde_json::to_value(&loaded).expect("serialize canonical config");
 
-        assert!(error.to_string().contains("logging"));
+        assert_eq!(loaded.app.logging.level, "debug");
+        assert_eq!(loaded.ai.models.len(), 1);
+        assert_eq!(loaded.ai.models[0].id, "preserved-model");
+        assert_eq!(
+            loaded.ai.default_models.primary.as_deref(),
+            Some("preserved-model")
+        );
+        assert!(loaded.ai.proxy.enabled);
+        assert!(loaded.ai.proxy.url.is_empty());
+        assert!(canonical["themes"].get("pointer").is_none());
+        assert!(canonical["ai"]["proxy"].get("legacy_mode").is_none());
+        assert!(canonical.get("workspace").is_none());
+        for field in [
+            "auto_update",
+            "telemetry",
+            "startup_behavior",
+            "confirm_on_exit",
+            "restore_windows",
+            "zoom_level",
+            "sidebar",
+            "right_panel",
+        ] {
+            assert!(canonical["app"].get(field).is_none(), "{field}");
+        }
+        for field in ["enabled", "position", "duration"] {
+            assert!(
+                canonical["app"]["notifications"].get(field).is_none(),
+                "{field}"
+            );
+        }
     }
 
     #[test]
@@ -1530,44 +1514,45 @@ mod tests {
     }
 
     #[test]
-    fn ai_model_schema_requires_current_fields_and_rejects_unknown_fields() {
+    fn ai_model_schema_matches_tolerant_persistence_contract() {
         let schema = serde_json::to_value(schemars::schema_for!(AIModelConfig))
             .expect("serialize model schema");
-        let required = schema["required"]
-            .as_array()
-            .expect("model required fields");
+        let required = schema.get("required").and_then(serde_json::Value::as_array);
 
-        assert!(required.contains(&serde_json::json!("reasoning_mode")));
-        assert!(required.contains(&serde_json::json!("inline_think_in_text")));
-        assert!(required.contains(&serde_json::json!("context_window")));
-        assert_eq!(schema["additionalProperties"], false);
+        assert!(required.map(Vec::is_empty).unwrap_or(true));
+        assert_ne!(
+            schema.get("additionalProperties"),
+            Some(&serde_json::json!(false))
+        );
     }
 
     #[test]
-    fn rejects_removed_thinking_flag() {
+    fn ignores_removed_thinking_flag() {
         let mut value = serde_json::to_value(AIModelConfig::default()).expect("serialize model");
         value.as_object_mut().expect("model object").insert(
             "enable_thinking_process".to_string(),
             serde_json::json!(true),
         );
 
-        let error = serde_json::from_value::<AIModelConfig>(value)
-            .expect_err("removed reasoning field must fail");
+        let loaded =
+            serde_json::from_value::<AIModelConfig>(value).expect("removed field is ignored");
+        let canonical = serde_json::to_value(loaded).expect("serialize canonical model");
 
-        assert!(error.to_string().contains("enable_thinking_process"));
+        assert!(canonical.get("enable_thinking_process").is_none());
     }
 
     #[test]
-    fn rejects_missing_reasoning_mode() {
+    fn defaults_missing_reasoning_mode() {
         let mut value = serde_json::to_value(AIModelConfig::default()).expect("serialize model");
         value
             .as_object_mut()
             .expect("model object")
             .remove("reasoning_mode");
 
-        let result = serde_json::from_value::<AIModelConfig>(value);
+        let loaded =
+            serde_json::from_value::<AIModelConfig>(value).expect("new field uses current default");
 
-        assert!(result.is_err());
+        assert_eq!(loaded.reasoning_mode, ReasoningMode::Default);
     }
 
     #[test]
@@ -1593,16 +1578,17 @@ mod tests {
     }
 
     #[test]
-    fn rejects_missing_inline_think_in_text() {
+    fn defaults_missing_inline_think_in_text() {
         let mut value =
             serde_json::to_value(AIModelConfig::default()).expect("serialize model config");
         value
             .as_object_mut()
             .expect("model config object")
             .remove("inline_think_in_text");
-        let result = serde_json::from_value::<AIModelConfig>(value);
+        let loaded =
+            serde_json::from_value::<AIModelConfig>(value).expect("new field uses current default");
 
-        assert!(result.is_err());
+        assert!(loaded.inline_think_in_text);
     }
 
     #[test]
@@ -1633,14 +1619,17 @@ mod tests {
     }
 
     #[test]
-    fn rejects_missing_goal_mode() {
+    fn defaults_missing_goal_mode() {
         let mut value = serde_json::to_value(AIConfig::default()).expect("serialize AI config");
         value
             .as_object_mut()
             .expect("AI config object")
             .remove("goal_mode");
 
-        assert!(serde_json::from_value::<AIConfig>(value).is_err());
+        let loaded =
+            serde_json::from_value::<AIConfig>(value).expect("new section uses current default");
+
+        assert_eq!(loaded.goal_mode.max_continuation_turns, 100);
     }
 
     #[test]
@@ -1673,9 +1662,23 @@ mod tests {
     }
 
     #[test]
-    fn rejects_missing_auto_memory_scopes() {
+    fn defaults_missing_auto_memory_scopes() {
         let value = serde_json::json!({});
 
-        assert!(serde_json::from_value::<super::AutoMemoryConfig>(value).is_err());
+        let loaded = serde_json::from_value::<super::AutoMemoryConfig>(value)
+            .expect("new scopes use current defaults");
+
+        assert_eq!(loaded.global.extract_every_eligible_turns, 10);
+        assert_eq!(loaded.workspace.extract_every_eligible_turns, 3);
+    }
+
+    #[test]
+    fn auth_discriminator_rejects_unknown_variants() {
+        let error = serde_json::from_value::<AuthConfig>(serde_json::json!({
+            "type": "removed_auth_source"
+        }))
+        .expect_err("security-sensitive tagged variants stay versioned");
+
+        assert!(error.to_string().contains("removed_auth_source"));
     }
 }

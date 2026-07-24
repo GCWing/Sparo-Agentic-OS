@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "id": "remotion-video-agent",
+  "name": "Remotion Video Agent",
+  "description": "A Remotion-native video development agent for inspecting compositions, revising React video code, refreshing committed preview context, rendering stills, and managing exports through the Sparo Video Engine.",
+  "icon": "film",
+  "category": "video",
+  "tags": [
+    "remotion",
+    "video",
+    "react",
+    "preview"
+  ],
+  "level": "user",
+  "model": "primary",
+  "readonly": false,
+  "enabled": true,
+  "tools": [
+    "LS",
+    "Glob",
+    "Grep",
+    "Read",
+    "Edit",
+    "Write",
+    "GetFileDiff",
+    "Bash",
+    "agentcomponent__remotion-video-agent__detect_project",
+    "agentcomponent__remotion-video-agent__get_composition_manifest",
+    "agentcomponent__remotion-video-agent__get_frame_descriptor",
+    "agentcomponent__remotion-video-agent__refresh_preview",
+    "agentcomponent__remotion-video-agent__render_still",
+    "agentcomponent__remotion-video-agent__start_export",
+    "agentcomponent__remotion-video-agent__get_export_status",
+    "agentcomponent__remotion-video-agent__cancel_export"
+  ],
+  "skills": [
+    "remotion-fundamentals",
+    "video-development-workflow",
+    "composition-architecture",
+    "motion-timing",
+    "visual-design",
+    "media-assets",
+    "selected-context",
+    "validation-export"
+  ],
+  "subagents": [],
+  "toolPolicies": {},
+  "bridgeCapabilities": [
+    {
+      "bridgeId": "builtin-remotion-runtime",
+      "capabilityId": "sparo.videoEngine",
+      "alias": "videoEngine",
+      "mode": "auto"
+    }
+  ],
+  "serviceActions": [
+    {
+      "name": "understandVideoProject",
+      "description": "Detect the Remotion project, read composition structure, and identify the likely source files to change.",
+      "toolPolicy": [
+        "agentcomponent__remotion-video-agent__detect_project",
+        "agentcomponent__remotion-video-agent__get_composition_manifest",
+        "Glob",
+        "Grep",
+        "Read"
+      ],
+      "bridgeCall": {
+        "bridgeId": "builtin-remotion-runtime",
+        "capabilityId": "sparo.videoEngine",
+        "action": "getCompositionManifest",
+        "mode": "auto"
+      }
+    },
+    {
+      "name": "reviseVideoComposition",
+      "description": "Make scoped React/Remotion source edits and keep preview semantics consistent with the selected composition or element.",
+      "toolPolicy": [
+        "Read",
+        "Edit",
+        "Write",
+        "GetFileDiff",
+        "agentcomponent__remotion-video-agent__get_frame_descriptor",
+        "agentcomponent__remotion-video-agent__refresh_preview"
+      ]
+    },
+    {
+      "name": "renderReviewArtifact",
+      "description": "Render a still or start, monitor, and cancel an export through the workspace Remotion toolchain.",
+      "toolPolicy": [
+        "agentcomponent__remotion-video-agent__render_still",
+        "agentcomponent__remotion-video-agent__start_export",
+        "agentcomponent__remotion-video-agent__get_export_status",
+        "agentcomponent__remotion-video-agent__cancel_export"
+      ]
+    }
+  ],
+  "examples": [
+    {
+      "title": "Refine the selected title",
+      "prompt": "In the currently open Remotion Live preview, adjust the selected title so it reads more clearly without changing the scene timing."
+    },
+    {
+      "title": "Add motion polish",
+      "prompt": "Make the current composition feel more polished with subtle entrance motion and verify the active frame still looks balanced."
+    },
+    {
+      "title": "Prepare an export",
+      "prompt": "Review the current composition, render a still for the key frame, then export the MP4 and monitor the job until it reaches a terminal state."
+    }
+  ]
+}

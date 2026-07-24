@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createLogger } from '@/shared/utils/logger';
+import { configManager } from '@/infrastructure/config/services/ConfigManager';
 import { FlowChatStore } from '../../../store/FlowChatStore';
 import type { ContextBudgetSnapshot, Session } from '../../../types/flow-chat';
 import { useFlowChatStoreSelector } from '../../../hooks/useFlowChatStoreSelector';
@@ -19,12 +20,29 @@ export function useComposerTokenUsage(effectiveTargetSessionId?: string | null) 
   const requestTimerRef = useRef<number | null>(null);
   const [tokenUsage, setTokenUsage] = useState({
     current: 0,
-    max: 128128,
+    max: 0,
     snapshot: undefined as ContextBudgetSnapshot | undefined,
   });
   const targetSession = useFlowChatStoreSelector(
     state => effectiveTargetSessionId ? state.sessions.get(effectiveTargetSessionId) : undefined,
   );
+
+  useEffect(() => {
+    const sessionId = effectiveTargetSessionId;
+    if (!sessionId) return;
+
+    const invalidate = () => {
+      FlowChatStore.getInstance().invalidateSessionContextBudget(sessionId);
+    };
+    const unwatch = [
+      configManager.watch('core.ai.models', invalidate),
+      configManager.watch('core.ai.default_models', invalidate),
+      configManager.watch('core.ai.agent_models', invalidate),
+    ];
+    return () => {
+      unwatch.forEach(dispose => dispose());
+    };
+  }, [effectiveTargetSessionId]);
 
   useEffect(() => {
     const store = FlowChatStore.getInstance();
@@ -33,7 +51,7 @@ export function useComposerTokenUsage(effectiveTargetSessionId?: string | null) 
     if (!targetSession) {
       setTokenUsage({
         current: 0,
-        max: 128128,
+        max: 0,
         snapshot: undefined,
       });
       return () => {
@@ -44,7 +62,7 @@ export function useComposerTokenUsage(effectiveTargetSessionId?: string | null) 
     const session = targetSession;
     setTokenUsage({
       current: session.currentContextBudget?.totals.inputTokens || session.currentTokenUsage?.totalTokens || 0,
-      max: session.currentContextBudget?.contextWindow || session.maxContextTokens || 128128,
+      max: session.currentContextBudget?.contextWindow ?? session.maxContextTokens ?? 0,
       snapshot: session.currentContextBudget,
     });
 
@@ -52,9 +70,7 @@ export function useComposerTokenUsage(effectiveTargetSessionId?: string | null) 
       const agentType = resolveBudgetAgentType(session);
       const modelName = session.config.modelName || 'primary';
       const workspacePath = session.workspacePath || session.config.workspacePath;
-      const storageScope = session.storageScope || session.config.storageScope;
-
-      if (storageScope !== 'agentic_os' && !workspacePath?.trim()) {
+      if (session.domain.kind === 'workspace' && !workspacePath?.trim()) {
         return () => {
           cancelled = true;
         };
@@ -71,7 +87,7 @@ export function useComposerTokenUsage(effectiveTargetSessionId?: string | null) 
             agentType,
             workspacePath,
             modelId: modelName,
-            storageScope,
+            domain: session.domain,
           })
           .then(snapshot => {
             log.debug('Loaded static context budget', {
@@ -91,7 +107,7 @@ export function useComposerTokenUsage(effectiveTargetSessionId?: string | null) 
               agentType,
               modelName,
               workspacePath,
-              storageScope,
+              domain: session.domain,
               error,
             });
           });

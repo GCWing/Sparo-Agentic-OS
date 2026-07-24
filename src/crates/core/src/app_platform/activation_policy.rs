@@ -1,6 +1,6 @@
 //! Authoritative activation authorization for immutable Intelligent App Releases.
 //!
-//! All cross-crate activation and rollback flows pass through this policy. The
+//! All cross-crate activation flows pass through this policy. The
 //! revision store only owns atomic registry mutation and deliberately exposes
 //! no raw activation primitive outside `app_platform`.
 
@@ -31,7 +31,7 @@ pub struct AppReleaseCapabilityReview {
     pub requires_approval: bool,
 }
 
-/// Single policy boundary for Release review, consent, activation, and rollback.
+/// Single policy boundary for Release review, consent, and activation.
 pub struct AppActivationPolicy<'a> {
     revision_store: &'a AppRevisionStore,
     path_manager: &'a PathManager,
@@ -156,69 +156,16 @@ impl<'a> AppActivationPolicy<'a> {
             .review_release_with_anchor(&request.scope, &request.app_id, &request.release_id)
             .await?;
         require_approval(&review)?;
-        self.revision_store
-            .activate_if_current(request, activation_anchor.as_ref())
-            .await
-    }
-
-    pub async fn rollback(
-        &self,
-        scope: &AppActivationScope,
-        slot_id: &str,
-    ) -> CoreResult<ActivationRecord> {
-        let current = self
-            .revision_store
-            .get_effective_activation(scope, slot_id)
-            .await
-            .ok_or_else(|| CoreError::NotFound(format!("App activation for slot {slot_id}")))?;
-        self.rollback_if_current(scope, slot_id, &current.active_release_id)
-            .await
-    }
-
-    /// Reviews the exact rollback target, then commits only if the active
-    /// Release still matches `expected_active_release_id`.
-    pub async fn rollback_if_current(
-        &self,
-        scope: &AppActivationScope,
-        slot_id: &str,
-        expected_active_release_id: &str,
-    ) -> CoreResult<ActivationRecord> {
+        let app_id = request.app_id.clone();
+        let release_id = request.release_id.clone();
         let activation = self
             .revision_store
-            .get_effective_activation(scope, slot_id)
-            .await
-            .ok_or_else(|| CoreError::NotFound(format!("App activation for slot {slot_id}")))?;
-        if activation.active_release_id != expected_active_release_id {
-            return Err(CoreError::validation(format!(
-                "App activation for slot {slot_id} changed before rollback: expected active Release {expected_active_release_id}, found {}",
-                activation.active_release_id
-            )));
-        }
-        let previous_release_id = activation.previous_release_id.as_deref().ok_or_else(|| {
-            CoreError::validation(format!(
-                "App activation for slot {slot_id} has no rollback Release"
-            ))
-        })?;
-        let previous_release = self
-            .revision_store
-            .list_releases(None)
-            .await
-            .into_iter()
-            .find(|release| release.release_id == previous_release_id)
-            .ok_or_else(|| {
-                CoreError::NotFound(format!("Rollback app release {previous_release_id}"))
-            })?;
-        let review = self
-            .review_release(
-                scope,
-                &previous_release.app_id,
-                &previous_release.release_id,
-            )
+            .activate_if_current(request, activation_anchor.as_ref())
             .await?;
-        require_approval(&review)?;
         self.revision_store
-            .rollback_activation_if_current(scope, slot_id, expected_active_release_id)
-            .await
+            .prune_app_releases_except(&app_id, &release_id)
+            .await?;
+        Ok(activation)
     }
 
     async fn system_release_implicitly_trusted(
@@ -235,27 +182,14 @@ impl<'a> AppActivationPolicy<'a> {
         let Some(activation) = activation else {
             return false;
         };
-        let trusted_release_ids = [
-            Some(activation.active_release_id.as_str()),
-            activation.previous_release_id.as_deref(),
-        ];
-        if trusted_release_ids
-            .iter()
-            .flatten()
-            .any(|trusted_release_id| *trusted_release_id == candidate.release_id)
-        {
+        if activation.active_release_id == candidate.release_id {
             return true;
         }
         self.revision_store
             .list_releases(Some(&app.app_id))
             .await
             .into_iter()
-            .filter(|release| {
-                trusted_release_ids
-                    .iter()
-                    .flatten()
-                    .any(|trusted_release_id| *trusted_release_id == release.release_id)
-            })
+            .filter(|release| release.release_id == activation.active_release_id)
             .any(|release| {
                 release.provenance == ReleaseProvenanceKind::System
                     && release.capability_fingerprint == candidate.capability_fingerprint
@@ -293,7 +227,7 @@ mod tests {
     use crate::infrastructure::PathManager;
 
     #[tokio::test]
-    async fn activation_and_rollback_require_the_exact_release_grant() {
+    async fn activation_requires_the_exact_release_grant() {
         let temp = tempfile::tempdir().expect("temp dir");
         let path_manager = PathManager::with_user_root_for_tests(temp.path().join("app-state"));
         let store = AppRevisionStore::open(path_manager.app_root())
@@ -404,36 +338,10 @@ mod tests {
             .await
             .expect("activate second release");
 
-        CapabilityGrantStore::new(&path_manager)
-            .revoke_app(&first.app.app_id)
+        let active = store
+            .get_active(&AppActivationScope::System, "runno")
             .await
-            .expect("revoke first release grant");
-        let error = policy
-            .rollback_if_current(
-                &AppActivationScope::System,
-                "runno",
-                &second_release.release_id,
-            )
-            .await
-            .expect_err("rollback target must be re-authorized");
-        assert!(error.to_string().contains("Capability approval required"));
-
-        policy
-            .approve_release(
-                &AppActivationScope::System,
-                &first.app.app_id,
-                &first_release.release_id,
-            )
-            .await
-            .expect("reapprove rollback target");
-        let rolled_back = policy
-            .rollback_if_current(
-                &AppActivationScope::System,
-                "runno",
-                &second_release.release_id,
-            )
-            .await
-            .expect("authorized rollback");
-        assert_eq!(rolled_back.active_release_id, first_release.release_id);
+            .expect("active release");
+        assert_eq!(active.active_release_id, second_release.release_id);
     }
 }

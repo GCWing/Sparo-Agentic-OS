@@ -18,11 +18,10 @@ import { sessionMatchesWorkspace } from '../../utils/workspaceScope';
 import {
   getBackendAgentType,
   getDefaultSessionDescriptor,
+  sessionDomainForDescriptor,
   type SessionDescriptor,
 } from '../../domain/sessionDescriptor';
 import { canHydrateSession } from '../../domain/sessionLoadPhase';
-import type { AIModelConfig } from '@/infrastructure/config/types';
-import { DEFAULT_CONTEXT_WINDOW } from '../../store/FlowChatStore';
 
 const log = createLogger('SessionModule');
 const pendingSessionCreations = new Map<string, Promise<string>>();
@@ -58,14 +57,14 @@ async function hydrateHistoricalSession(
     const workspacePath = requireSessionWorkspacePath(
       session.workspacePath,
       sessionId,
-      session.storageScope
+      session.domain,
     );
 
     await context.flowChatStore.loadSessionHistory(
       sessionId,
       workspacePath,
+      session.domain,
       undefined,
-      session.storageScope
     );
   })();
 
@@ -96,7 +95,7 @@ const resolveSessionWorkspacePath = (
   if (explicitWorkspacePath) {
     return explicitWorkspacePath;
   }
-  if (config?.storageScope === 'agentic_os') {
+  if (config?.domain?.kind !== 'workspace') {
     return null;
   }
   const fromFlowChat = context.workspaceContextPath?.trim();
@@ -134,51 +133,15 @@ const resolveSessionWorkspace = (
 function requireSessionWorkspacePath(
   workspacePath: string | undefined,
   sessionId: string,
-  storageScope?: import('@/shared/types/session-history').SessionStorageScope
+  domain: import('@/shared/types/session-history').SessionDomain,
 ): string {
-  if (storageScope === 'agentic_os') {
+  if (domain.kind !== 'workspace') {
     return workspacePath || '';
   }
   if (!workspacePath) {
     throw new Error(`Workspace path is required for session: ${sessionId}`);
   }
   return workspacePath;
-}
-
-/**
- * Get model's maximum token count
- */
-export async function getModelMaxTokens(modelId?: string): Promise<number> {
-  const configManager = await import('@/infrastructure/config/services/ConfigManager').then(m => m.configManager);
-  const [models, defaultModels] = await Promise.all([
-    configManager.getSetting<AIModelConfig[]>('core.ai.models'),
-    configManager.getSetting<Record<string, string | undefined>>('core.ai.default_models'),
-  ]);
-  const requestedId = modelId?.trim();
-  const resolvedId = !requestedId || requestedId === 'primary'
-    ? defaultModels.primary
-    : requestedId;
-  if (!resolvedId) {
-    throw new Error('No primary AI model is configured');
-  }
-  const model = models.find(candidate => candidate.enabled && candidate.id === resolvedId);
-  if (!model) {
-    throw new Error(`Configured AI model is missing or disabled: ${resolvedId}`);
-  }
-  return model.context_window;
-}
-
-async function getSessionContextWindow(modelId?: string): Promise<number> {
-  try {
-    return await getModelMaxTokens(modelId);
-  } catch (error) {
-    log.info('Creating session with the default context window because no usable model is configured', {
-      modelId: modelId?.trim() || 'primary',
-      defaultContextWindow: DEFAULT_CONTEXT_WINDOW,
-      reason: error instanceof Error ? error.message : String(error),
-    });
-    return DEFAULT_CONTEXT_WINDOW;
-  }
 }
 
 /**
@@ -193,10 +156,12 @@ export async function createChatSession(
   try {
     const workspacePath = resolveSessionWorkspacePath(context, config);
     const workspace = resolveSessionWorkspace(context, config);
-    const storageScope = config.storageScope ?? descriptor.storageScope;
+    const domain =
+      config.domain ??
+      sessionDomainForDescriptor(descriptor, workspace?.id ?? config.workspaceId);
     const sessionType = resolveSessionTypeDefinitionForDescriptor(descriptor);
 
-    if (!workspacePath && storageScope !== 'agentic_os') {
+    if (!workspacePath && domain.kind === 'workspace') {
       throw new Error('Workspace path is required to create a session');
     }
 
@@ -206,11 +171,9 @@ export async function createChatSession(
     const creationKey =
       config.creationDeduplicationKey?.trim()
         ? config.creationDeduplicationKey.trim()
-        : storageScope === 'agentic_os'
-        ? `${descriptor.hostKind}:${descriptor.identityId}`
-        : workspace?.id?.trim()
-        ? workspace.id
-        : workspacePath ?? 'agentic_os';
+        : `${domain.kind}:${
+            domain.kind === 'workspace' ? domain.workspace_id : descriptor.identityId
+          }`;
 
     const pendingCreation = pendingSessionCreations.get(creationKey);
     if (pendingCreation) {
@@ -227,10 +190,10 @@ export async function createChatSession(
     const mergedConfig: SessionConfig = {
       ...config,
       workspaceId: workspace?.id ?? config.workspaceId,
+      domain,
     };
 
     const createPromise = (async () => {
-      const maxContextTokens = await getSessionContextWindow(config.modelName);
       const requestedSessionId = options.sessionId?.trim() || undefined;
       if (requestedSessionId) {
         pendingLocalBackendSessionCreations.add(requestedSessionId);
@@ -241,15 +204,14 @@ export async function createChatSession(
           sessionName,
           agentType,
           workspacePath: workspacePath || undefined,
-          storageScope,
+          domain,
           config: {
             modelName: config.modelName || 'primary',
             enableTools: true,
             safeMode: true,
             autoCompact: true,
-            maxContextTokens: maxContextTokens,
+            contextPolicy: { mode: 'followModel' },
             enableContextCompression: true,
-            storageScope,
           }
         });
 
@@ -262,10 +224,9 @@ export async function createChatSession(
           mergedConfig,
           undefined,
           sessionName,
-          maxContextTokens,
+          undefined,
           descriptor,
           workspacePath || undefined,
-          storageScope
         );
 
         const shouldNavigate = config.navigate !== false;
@@ -315,8 +276,7 @@ export async function activateSessionData(
 
     touchSessionActivity(
       sessionId,
-      session?.workspacePath,
-      session?.storageScope
+      session?.domain,
     ).catch(error => {
       log.debug('Failed to touch session activity', { sessionId, error });
     });
@@ -410,49 +370,42 @@ export async function retargetEmptyChatSessionWorkspace(
   }
 
   const descriptor =
-    preferredDescriptor?.storageScope === 'workspace'
+    preferredDescriptor?.sessionDomainKind === 'workspace'
       ? preferredDescriptor
-      : session.descriptor.storageScope === 'workspace'
+      : session.descriptor.sessionDomainKind === 'workspace'
         ? session.descriptor
         : getDefaultSessionDescriptor();
 
-  if (session.storageScope === 'agentic_os' || descriptor.storageScope !== 'workspace') {
+  if (session.domain.kind !== 'workspace' || descriptor.sessionDomainKind !== 'workspace') {
     throw new Error('Only workspace-scoped sessions can be retargeted');
   }
 
-  const previousWorkspacePath = session.workspacePath;
-  const previousStorageScope = session.storageScope;
   const workspaceChanged = !sessionMatchesWorkspace(session, workspace);
 
   if (workspaceChanged) {
-    try {
-      await agentAPI.updateSessionWorkspace({ sessionId, workspacePath });
-    } catch (error: any) {
-      const message = typeof error?.message === 'string' ? error.message : String(error);
-      if (!message.includes('Session not found') && !message.includes('Not found')) {
-        throw error;
-      }
-    }
+    await agentAPI.deleteSession({
+      session_id: sessionId,
+      domain: session.domain,
+    });
+    await agentAPI.createSession({
+      sessionId,
+      sessionName: session.title || `Session ${sessionId.slice(0, 8)}`,
+      agentType: getBackendAgentType(descriptor),
+      workspacePath,
+      domain: { kind: 'workspace', workspace_id: workspace.id },
+      config: {
+        modelName: session.config.modelName || 'primary',
+        enableTools: true,
+        safeMode: true,
+      },
+    });
   }
 
   context.flowChatStore.retargetEmptySessionWorkspace(
     sessionId,
     workspace,
     descriptor,
-    'workspace'
   );
-
-  if (workspaceChanged && previousWorkspacePath) {
-    try {
-      await sessionAPI.deleteSession(sessionId, previousWorkspacePath, previousStorageScope);
-    } catch (error) {
-      log.debug('Failed to delete empty session metadata from previous workspace', {
-        sessionId,
-        workspacePath: previousWorkspacePath,
-        error,
-      });
-    }
-  }
 
   await ensureBackendSession(context, sessionId);
   await updateSessionMetadata(context, sessionId);
@@ -483,10 +436,8 @@ export async function renameChatSessionTitle(
   }
 
   const updatedTitle = await agentAPI.updateSessionTitle({
-    sessionId,
+    locator: { session_id: sessionId, domain: session.domain },
     title: trimmedTitle,
-    workspacePath: session.workspacePath,
-    storageScope: session.storageScope,
   });
 
   await context.flowChatStore.updateSessionTitle(sessionId, updatedTitle, 'generated');
@@ -506,14 +457,12 @@ export async function forkChatSession(
   const workspacePath = requireSessionWorkspacePath(
     sourceSession.workspacePath,
     sourceSessionId,
-    sourceSession.storageScope
+    sourceSession.domain,
   );
 
   const response = await sessionAPI.forkSession(
-    sourceSessionId,
+    { session_id: sourceSessionId, domain: sourceSession.domain },
     sourceTurnId,
-    workspacePath,
-    sourceSession.storageScope
   );
 
   const currentState = context.flowChatStore.getState();
@@ -524,14 +473,13 @@ export async function forkChatSession(
         ...sourceSession.config,
         workspacePath,
         workspaceId: sourceSession.workspaceId,
-        storageScope: sourceSession.storageScope,
+        domain: sourceSession.domain,
       },
       undefined,
       response.sessionName,
-      sourceSession.maxContextTokens,
+      undefined,
       sourceSession.descriptor,
       workspacePath,
-      sourceSession.storageScope
     );
   } else {
     context.flowChatStore.switchSession(response.sessionId);
@@ -540,8 +488,8 @@ export async function forkChatSession(
   await context.flowChatStore.loadSessionHistory(
     response.sessionId,
     workspacePath,
+    sourceSession.domain,
     undefined,
-    sourceSession.storageScope
   );
   context.flowChatStore.switchSession(response.sessionId);
 
@@ -577,7 +525,7 @@ async function ensureBackendSessionOnce(
   const workspacePath = requireSessionWorkspacePath(
     latestSession.workspacePath,
     sessionId,
-    latestSession.storageScope
+    latestSession.domain,
   );
 
   const isMetadataOnlySession = canHydrateSession(latestSession);
@@ -594,9 +542,7 @@ async function ensureBackendSessionOnce(
 
   try {
     await agentAPI.ensureCoordinatorSession({
-      sessionId,
-      workspacePath,
-      storageScope: latestSession.storageScope,
+      locator: { session_id: sessionId, domain: latestSession.domain },
     });
     markLiveIfMetadataOnly();
   } catch (e: any) {
@@ -617,12 +563,11 @@ async function ensureBackendSessionOnce(
         sessionName: latestSession.title || `Session ${sessionId.slice(0, 8)}`,
         agentType: getBackendAgentType(latestSession.descriptor),
         workspacePath,
-        storageScope: latestSession.storageScope,
+        domain: latestSession.domain,
         config: {
           modelName: latestSession.config.modelName || 'primary',
           enableTools: true,
           safeMode: true,
-          storageScope: latestSession.storageScope,
         }
       });
     } finally {
@@ -680,7 +625,7 @@ async function retryCreateBackendSessionOnce(
   const workspacePath = requireSessionWorkspacePath(
     session.workspacePath,
     sessionId,
-    session.storageScope
+    session.domain,
   );
   
   pendingLocalBackendSessionCreations.add(sessionId);
@@ -690,12 +635,11 @@ async function retryCreateBackendSessionOnce(
       sessionName: session.title || `Session ${sessionId.slice(0, 8)}`,
       agentType: getBackendAgentType(session.descriptor),
       workspacePath,
-      storageScope: session.storageScope,
+      domain: session.domain,
       config: {
         modelName: session.config.modelName || 'primary',
         enableTools: true,
         safeMode: true,
-        storageScope: session.storageScope,
       }
     });
   } finally {

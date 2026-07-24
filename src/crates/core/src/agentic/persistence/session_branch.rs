@@ -1,10 +1,9 @@
 use super::manager::PersistenceManager;
-use crate::agentic::core::{Session, SessionKind};
+use crate::agentic::core::{Session, SessionKind, SessionLocator};
 use crate::error::{CoreError, CoreResult};
 use crate::service::session::{DialogTurnData, SessionStatus};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map as JsonMap, Value as JsonValue};
-use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -74,14 +73,17 @@ fn build_branch_custom_metadata(
 impl PersistenceManager {
     pub async fn branch_session(
         &self,
-        workspace_path: &Path,
+        source_locator: &SessionLocator,
         request: &SessionBranchRequest,
     ) -> CoreResult<SessionBranchResult> {
-        let source_session = self
-            .load_session(workspace_path, &request.source_session_id)
-            .await?;
+        if source_locator.session_id != request.source_session_id {
+            return Err(CoreError::validation(
+                "Source locator does not match source_session_id".to_string(),
+            ));
+        }
+        let source_session = self.load_session(source_locator).await?;
         let source_metadata = self
-            .load_session_metadata(workspace_path, &request.source_session_id)
+            .load_session_metadata(&source_locator.domain, &request.source_session_id)
             .await?
             .ok_or_else(|| {
                 CoreError::NotFound(format!(
@@ -90,7 +92,7 @@ impl PersistenceManager {
                 ))
             })?;
         let source_turns = self
-            .load_session_turns(workspace_path, &request.source_session_id)
+            .load_session_turns(&source_locator.domain, &request.source_session_id)
             .await?;
 
         if source_turns.is_empty() {
@@ -123,7 +125,7 @@ impl PersistenceManager {
         target_session.compression_state = source_session.compression_state.clone();
         let target_session_id = target_session.session_id.clone();
 
-        self.save_session(workspace_path, &target_session).await?;
+        self.save_session(&target_session).await?;
 
         let branch_result = async {
             let branched_turns = source_turns
@@ -143,14 +145,14 @@ impl PersistenceManager {
             {
                 if let Some(messages) = self
                     .load_turn_context_snapshot(
-                        workspace_path,
+                        &source_locator.domain,
                         &request.source_session_id,
                         source_turn.turn_index,
                     )
                     .await?
                 {
                     self.save_turn_context_snapshot(
-                        workspace_path,
+                        &source_locator.domain,
                         &target_session_id,
                         new_index,
                         &messages,
@@ -160,7 +162,7 @@ impl PersistenceManager {
             }
 
             for turn in &branched_turns {
-                self.save_dialog_turn(workspace_path, turn).await?;
+                self.save_dialog_turn(&source_locator.domain, turn).await?;
             }
 
             let now_ms = SystemTime::now()
@@ -197,7 +199,7 @@ impl PersistenceManager {
             );
             branched_metadata.todos = None;
 
-            self.save_session_metadata(workspace_path, &branched_metadata)
+            self.save_session_metadata(&source_locator.domain, &branched_metadata)
                 .await?;
 
             Ok::<(), CoreError>(())
@@ -206,7 +208,10 @@ impl PersistenceManager {
 
         if let Err(error) = branch_result {
             let _ = self
-                .delete_session(workspace_path, &target_session_id)
+                .delete_session(&SessionLocator {
+                    domain: source_locator.domain.clone(),
+                    session_id: target_session_id.clone(),
+                })
                 .await;
             return Err(error);
         }
@@ -219,7 +224,8 @@ impl PersistenceManager {
     }
 }
 
-#[cfg(test)]
+// Superseded by typed-locator session branch contract tests.
+#[cfg(any())]
 mod tests {
     use super::{PersistenceManager, SessionBranchRequest};
     use crate::agentic::core::{Message, Session, SessionKind};

@@ -100,40 +100,45 @@ export function SecretSettingRenderer({
 
   const isDisabled = disabled || loading || isSubmitting;
   return (
-    <TextField
-      id={id}
-      type="password"
-      autoComplete="new-password"
+    <FormField
+      controlId={id}
       label={label}
       description={[description, status].filter(Boolean).join(' · ')}
-      value={draft}
-      placeholder={placeholder}
-      disabled={isDisabled}
-      error={Boolean(errorMessage)}
-      errorMessage={errorMessage}
-      suffix={(
-        <Button
-          variant="secondary"
-          size="small"
-          disabled={isDisabled || !draft}
-          onClick={() => void commit()}
-        >
-          {updateLabel}
-        </Button>
-      )}
-      onChange={(event) => {
-        const value = event.currentTarget.value;
-        setDraft(value);
-        updateDirty(Boolean(value));
-      }}
-      onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          void commit();
-        } else if (event.key === 'Escape') {
-          clearDraft();
-        }
-      }}
-    />
+      error={errorMessage}
+      orientation="horizontal"
+      controlWidth="balanced"
+    >
+      <TextField
+        type="password"
+        autoComplete="new-password"
+        value={draft}
+        placeholder={placeholder}
+        disabled={isDisabled}
+        error={Boolean(errorMessage)}
+        suffix={(
+          <Button
+            variant="secondary"
+            size="small"
+            disabled={isDisabled || !draft}
+            onClick={() => void commit()}
+          >
+            {updateLabel}
+          </Button>
+        )}
+        onChange={(event) => {
+          const value = event.currentTarget.value;
+          setDraft(value);
+          updateDirty(Boolean(value));
+        }}
+        onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            void commit();
+          } else if (event.key === 'Escape') {
+            clearDraft();
+          }
+        }}
+      />
+    </FormField>
   );
 }

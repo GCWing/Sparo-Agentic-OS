@@ -153,7 +153,11 @@ impl CronTool {
             .agentic()
             .map(|h| h.coordinator.clone())
             .ok_or_else(|| CoreError::tool("coordinator not initialized".to_string()))?;
-        let sessions = coordinator.list_sessions(Path::new(workspace)).await?;
+        let domain = crate::agentic::core::SessionDomain::Workspace {
+            workspace_id: crate::infrastructure::try_get_path_manager_arc()?
+                .workspace_id(Path::new(workspace))?,
+        };
+        let sessions = coordinator.list_sessions(&domain).await?;
         if sessions
             .iter()
             .any(|session| session.session_id == session_id)

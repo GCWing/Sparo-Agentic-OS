@@ -1,0 +1,59 @@
+{
+  "id": "builtin-ppt-runtime",
+  "kind": "bridge",
+  "name": "Sparo PPT Deck Engine",
+  "description": "Runtime-owned Manuscript revisions, AI-authored Design Case and VisualDocument pages, capability-aware semantic and visual review, and validated PowerPoint export.",
+  "packageSource": "appPrivate",
+  "ownerApp": {
+    "appId": "builtin-ppt-live",
+    "appVersion": "151.0.10"
+  },
+  "capabilities": [
+    {
+      "id": "sparo.pptDeck",
+      "title": "Sparo PPT Deck Engine",
+      "description": "Produce one presentation from an atomic manuscript through Design Case approval, ordered page visuals, whole-deck review, and export.",
+      "actions": [
+        "initializeWork",
+        "inspect",
+        "getDocument",
+        "commitPresentationDocument",
+        "commitPresentationManuscript",
+        "commitSpeakerScript",
+        "reviewPresentationManuscript",
+        "setPresentationSystem",
+        "getAsset",
+        "renderDesignCase",
+        "decideDesignCase",
+        "prepareVisualAssets",
+        "generateSlideVisual",
+        "editVisual",
+        "reviewDeck",
+        "undo",
+        "export"
+      ]
+    }
+  ],
+  "permissions": [
+    {
+      "kind": "fs",
+      "summary": "Reads and writes the human-visible presentation folder, assets, previews, and PowerPoint file in the current workspace.",
+      "scopes": ["{workspace}", "{app}"]
+    },
+    {
+      "kind": "shell",
+      "summary": "Starts the Node.js bridge worker that hosts the deck engine.",
+      "scopes": ["node"]
+    }
+  ],
+  "usedByApps": ["builtin-ppt-live"],
+  "visibility": "appDependency",
+  "dependencies": [],
+  "implementationRef": "app://builtin-ppt-live@151.0.10/bridges/builtin-ppt-runtime",
+  "usesCapabilities": [
+    "filesystem.read",
+    "filesystem.write",
+    "process.spawn",
+    "component.run"
+  ]
+}

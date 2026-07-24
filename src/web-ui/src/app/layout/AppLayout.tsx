@@ -32,6 +32,10 @@ import { appRuntime, runtimePolicy } from '@/infrastructure/app-runtime';
 import { descriptorFromAgentType, getDefaultSessionDescriptor } from '@/flow_chat/domain/sessionDescriptor';
 import { useWorkspaceSurfaceStore, selectFocusedSessionId } from '../navigation/workspaceSurfaceStore';
 import { commitStartupHome } from '../navigation/navigationController';
+import {
+  initializeFlowChatStartup,
+  shouldOpenDefaultAgenticOsAtStartup,
+} from './initializeFlowChatStartup';
 import './AppLayout.scss';
 
 const log = createLogger('AppLayout');
@@ -86,6 +90,10 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
 
   /** Once per app mount: after FlowChat init, focus Agentic OS instead of a workspace-scoped chat. */
   const startupAgenticOsSessionAppliedRef = useRef(false);
+  const startupPreferredModeRef = useRef<{
+    consumed: boolean;
+    value?: string;
+  }>({ consumed: false });
 
   // Dialog state (previously in TitleBar)
   const [showNewProjectDialog, setShowNewProjectDialog] = useState(false);
@@ -165,60 +173,79 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
   // Initialize FlowChatManager
   React.useEffect(() => {
     const initializeFlowChat = async () => {
-      if (!lastUsedWorkspace?.rootPath) return;
+      if (loading) return;
 
+      let shouldOpenDefaultAgenticOs = false;
       try {
-        const explicitPreferredMode =
-          sessionStorage.getItem('sparo:flowchat:preferredAgent') ||
-          undefined;
-        if (explicitPreferredMode) {
+        if (!startupPreferredModeRef.current.consumed) {
+          startupPreferredModeRef.current = {
+            consumed: true,
+            value:
+              sessionStorage.getItem('sparo:flowchat:preferredAgent') ||
+              undefined,
+          };
           sessionStorage.removeItem('sparo:flowchat:preferredAgent');
         }
+        const explicitPreferredMode = startupPreferredModeRef.current.value;
 
         const initializationPreferredDescriptor = explicitPreferredMode
           ? descriptorFromAgentType(explicitPreferredMode)
           : undefined;
-        consumeDeferredNewSessionWorkspace(lastUsedWorkspace.rootPath);
-
-        commitStartupHome();
+        if (lastUsedWorkspace?.rootPath) {
+          consumeDeferredNewSessionWorkspace(lastUsedWorkspace.rootPath);
+        }
 
         const flowChatManager = FlowChatManager.getInstance();
-        const initialization = await flowChatManager.initializeWorkspaceSessionState(
-          lastUsedWorkspace.rootPath,
-          {
+        shouldOpenDefaultAgenticOs = shouldOpenDefaultAgenticOsAtStartup({
+          alreadyApplied: startupAgenticOsSessionAppliedRef.current,
+          preferredMode: explicitPreferredMode,
+          hasWorkspace: Boolean(lastUsedWorkspace?.rootPath),
+        });
+        if (shouldOpenDefaultAgenticOs) {
+          startupAgenticOsSessionAppliedRef.current = true;
+        }
+
+        const { workspaceInitialization: initialization } =
+          await initializeFlowChatStartup({
+            manager: flowChatManager,
+            workspace: lastUsedWorkspace,
             preferredDescriptor: initializationPreferredDescriptor,
-            skipAutoSelectSession: true,
-            createDefaultSession: true,
-            defaultSessionConfig: {
-              workspaceId: lastUsedWorkspace.id,
-              workspacePath: lastUsedWorkspace.rootPath,
-              navigate: false,
-            },
-            defaultSessionDescriptor: initializationPreferredDescriptor ?? getDefaultSessionDescriptor(),
-          }
-        );
+            openDefaultAgenticOs: shouldOpenDefaultAgenticOs,
+            commitStartupHome,
+            openAgenticOsSession,
+          });
 
         const surfaceState = useWorkspaceSurfaceStore.getState();
         const workspaceScopedActiveId =
-          initialization.createdSessionId ||
+          initialization?.createdSessionId ||
           selectFocusedSessionId(surfaceState) ||
-          initialization.focusedSessionId;
+          initialization?.focusedSessionId;
 
         const pendingDescription = sessionStorage.getItem('pendingProjectDescription');
-        if (pendingDescription && pendingDescription.trim()) {
+        if (
+          lastUsedWorkspace?.rootPath &&
+          pendingDescription &&
+          pendingDescription.trim()
+        ) {
           sessionStorage.removeItem('pendingProjectDescription');
           const pendingTargetSessionId = workspaceScopedActiveId;
 
           setTimeout(async () => {
             try {
               const latestSurfaceState = useWorkspaceSurfaceStore.getState();
-              const targetSessionId =
+              let targetSessionId =
                 pendingTargetSessionId ||
                 selectFocusedSessionId(latestSurfaceState);
 
               if (!targetSessionId) {
-                log.error('Cannot find active session ID');
-                return;
+                targetSessionId = await flowChatManager.createChatSession(
+                  {
+                    workspaceId: lastUsedWorkspace.id,
+                    workspacePath: lastUsedWorkspace.rootPath,
+                    navigate: false,
+                  },
+                  initializationPreferredDescriptor ?? getDefaultSessionDescriptor(),
+                );
               }
 
               const fullMessage = t('appLayout.projectRequestMessage', { description: pendingDescription });
@@ -236,15 +263,6 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
           }, 500);
         }
 
-        if (!startupAgenticOsSessionAppliedRef.current && !explicitPreferredMode) {
-          try {
-            await openAgenticOsSession();
-            startupAgenticOsSessionAppliedRef.current = true;
-          } catch (agenticOsError) {
-            log.warn('Failed to open default Agentic OS session', agenticOsError);
-          }
-        }
-
         const pendingSettings = sessionStorage.getItem('pendingOpenSettings');
         if (pendingSettings) {
           sessionStorage.removeItem('pendingOpenSettings');
@@ -258,6 +276,12 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
           }, 500);
         }
       } catch (error) {
+        if (
+          shouldOpenDefaultAgenticOs &&
+          !selectFocusedSessionId(useWorkspaceSurfaceStore.getState())
+        ) {
+          startupAgenticOsSessionAppliedRef.current = false;
+        }
         log.error('FlowChatManager initialization failed', error);
         import('@/shared/notification-system').then(({ notificationService }) => {
           notificationService.error(t('appLayout.flowChatInitFailed'), { duration: 5000 });
@@ -267,6 +291,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
 
     initializeFlowChat();
   }, [
+    loading,
     lastUsedWorkspace,
     lastUsedWorkspace?.id,
     lastUsedWorkspace?.rootPath,
@@ -318,31 +343,6 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
       handle.cancel();
     };
   }, [loading, recentWorkspaces]);
-
-  React.useEffect(() => {
-    if (loading) {
-      return;
-    }
-    let cancelled = false;
-    const handle = appRuntime.scheduleTask('session-preload:agentic-os', async () => {
-      try {
-        const result = await FlowChatManager.getInstance().preloadAgenticOsSessions({
-          warmAgenticOsCount: STARTUP_AGENTIC_OS_HISTORY_WARMUP_LIMIT,
-        });
-        if (!cancelled) {
-          log.info('Agentic OS session preload completed', result);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          log.warn('Agentic OS session preload failed', error);
-        }
-      }
-    }, runtimePolicy.sessionPreloadAgentic);
-    return () => {
-      cancelled = true;
-      handle.cancel();
-    };
-  }, [loading]);
 
   // Save in-progress conversations on window close
   React.useEffect(() => {

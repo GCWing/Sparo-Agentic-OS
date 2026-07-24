@@ -298,13 +298,13 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
       setAgentModels(updatedAgentModels);
 
       if (sessionId) {
-        store.updateSessionModelName(sessionId, modelId);
         if (session && !session.isTransient) {
           await agentAPI.updateSessionModel({
             sessionId,
             modelName: modelId,
           });
         }
+        store.updateSessionModelName(sessionId, modelId);
       }
 
       log.info('Agent model updated', { agent: currentAgent, modelId });

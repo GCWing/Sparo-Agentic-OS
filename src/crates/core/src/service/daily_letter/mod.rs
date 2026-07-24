@@ -10,7 +10,8 @@ pub use service::{
 pub use types::{
     DailyLetterAgentOutput, DailyLetterAppOpportunity, DailyLetterApplyReceiptsRequest,
     DailyLetterAttemptStatus, DailyLetterContextPacket, DailyLetterGenerateRequest,
-    DailyLetterGetRequest, DailyLetterListRequest, DailyLetterPreview, DailyLetterReceiptAction,
+    DailyLetterGetRequest, DailyLetterHistoryEntry, DailyLetterHistoryReceipt,
+    DailyLetterListRequest, DailyLetterPreview, DailyLetterReceiptAction,
     DailyLetterReceiptCandidate, DailyLetterReceiptStatus, DailyLetterRecord,
     DailyLetterRecordStatus, DailyLetterRunSummary, DailyLetterScope, DailyLetterSealRequest,
     DailyLetterSourceFragment, DailyLetterSourceFragmentType, DailyLetterSourceStats,

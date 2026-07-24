@@ -5,7 +5,6 @@ export interface GlobalConfig {
   app: AppConfig;
   editor: EditorConfig;
   terminal: TerminalConfig;
-  workspace: WorkspaceConfig;
   ai: AIConfig;
   product_apps: ProductAppsConfig;
   version: string;
@@ -14,15 +13,7 @@ export interface GlobalConfig {
 
 export interface AppConfig {
   language: string;
-  auto_update: boolean;
-  telemetry: boolean;
-  startup_behavior: string;
-  confirm_on_exit: boolean;
-  restore_windows: boolean;
-  zoom_level: number;
   logging: AppLoggingConfig;
-  sidebar: SidebarConfig;
-  right_panel: RightPanelConfig;
   notifications: NotificationConfig;
   host_scan: AppHostScanConfig;
   ai_experience: AIExperienceConfig;
@@ -39,20 +30,7 @@ export interface AppHostScanConfig {
   auto_scan_interval_days: number;
 }
 
-export interface SidebarConfig {
-  width: number;
-  collapsed: boolean;
-}
-
-export interface RightPanelConfig {
-  width: number;
-  collapsed: boolean;
-}
-
 export interface NotificationConfig {
-  enabled: boolean;
-  position: string;
-  duration: number;
   /** Whether to show a toast when a dialog turn completes while the window is not focused. */
   dialog_completion_notify: boolean;
   /** Whether to show built-in tip cards on each startup. Defaults to true. */
@@ -451,17 +429,6 @@ export interface TerminalConfig {
   confirm_on_exit: boolean;
   startup_command: string;
   env_vars: Record<string, string>;
-}
-
-export interface WorkspaceConfig {
-  recent_workspaces: string[];
-  max_recent_workspaces: number;
-  auto_open_last_workspace: boolean;
-  workspace_settings: Record<string, any>;
-  exclude_patterns: string[];
-  include_patterns: string[];
-  file_associations: Record<string, string>;
-  search_exclude_patterns: string[];
 }
 
 export interface IConfigManager {

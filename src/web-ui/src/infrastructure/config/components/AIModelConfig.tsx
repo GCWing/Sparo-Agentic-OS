@@ -381,13 +381,13 @@ const AIModelConfig: React.FC<AIModelConfigProps> = ({
 
   const requestFormatOptions = useMemo(
     () => [
-      { label: 'OpenAI (chat/completions)', value: 'openai' },
-      { label: 'OpenAI (responses)', value: 'responses' },
-      { label: 'Anthropic (messages)', value: 'anthropic' },
-      { label: 'Gemini (generateContent)', value: 'gemini' },
-      { label: 'Gemini Code Assist (cloudcode-pa)', value: 'gemini-code-assist' },
+      { label: t('formats.openaiCompatible'), value: 'openai' },
+      { label: t('formats.responsesApi'), value: 'responses' },
+      { label: t('formats.claudeApi'), value: 'anthropic' },
+      { label: t('formats.geminiApi'), value: 'gemini' },
+      { label: t('formats.geminiCodeAssist'), value: 'gemini-code-assist' },
     ],
-    []
+    [t]
   );
   const requestFormatLabelMap = useMemo(
     () => Object.fromEntries(
@@ -398,24 +398,24 @@ const AIModelConfig: React.FC<AIModelConfigProps> = ({
 
   const responsesReasoningEffortOptions = useMemo(
     () => [
-      { label: 'None', value: 'none' },
-      { label: 'Minimal', value: 'minimal' },
-      { label: 'Low', value: 'low' },
-      { label: 'Medium', value: 'medium' },
-      { label: 'High', value: 'high' },
-      { label: 'Extra High', value: 'xhigh' },
+      { label: t('reasoningEffort.options.none'), value: 'none' },
+      { label: t('reasoningEffort.options.minimal'), value: 'minimal' },
+      { label: t('reasoningEffort.options.low'), value: 'low' },
+      { label: t('reasoningEffort.options.medium'), value: 'medium' },
+      { label: t('reasoningEffort.options.high'), value: 'high' },
+      { label: t('reasoningEffort.options.xhigh'), value: 'xhigh' },
     ],
-    []
+    [t]
   );
 
   const anthropicReasoningEffortOptions = useMemo(
     () => [
-      { label: 'Low', value: 'low' },
-      { label: 'Medium', value: 'medium' },
-      { label: 'High', value: 'high' },
-      { label: 'Max', value: 'max' },
+      { label: t('reasoningEffort.options.low'), value: 'low' },
+      { label: t('reasoningEffort.options.medium'), value: 'medium' },
+      { label: t('reasoningEffort.options.high'), value: 'high' },
+      { label: t('reasoningEffort.options.max'), value: 'max' },
     ],
-    []
+    [t]
   );
 
   const buildReasoningModeOptions = useCallback((provider?: string, modelName?: string, currentMode?: ReasoningMode): SelectOption[] => {

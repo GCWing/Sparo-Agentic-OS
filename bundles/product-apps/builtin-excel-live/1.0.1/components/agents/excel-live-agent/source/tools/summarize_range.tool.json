@@ -1,0 +1,73 @@
+{
+  "name": "summarize_range",
+  "description": "Profile a range with numeric/text/empty/formula counts, header evidence, and bounded sample rows before a large read or transformation. Defaults to ambient focus when a1 is omitted.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "workbookId"
+    ],
+    "properties": {
+      "workbookId": {
+        "type": "string"
+      },
+      "sheetId": {
+        "type": "string"
+      },
+      "a1": {
+        "type": "string"
+      },
+      "maxCells": {
+        "type": "integer",
+        "minimum": 1
+      }
+    }
+  },
+  "runtime": "javascript",
+  "entry": "tools/summarize_range.js",
+  "readonly": true,
+  "permissions": {},
+  "timeoutMs": 30000,
+  "maxOutputBytes": 120000,
+  "ui": {
+    "card": {
+      "kind": "appDefined",
+      "family": "excel-live",
+      "template": "compact",
+      "displayMode": "compact",
+      "resultDisplayType": "detailed",
+      "primaryColor": "var(--ds-tool-family-agent-component-fg)",
+      "displayName": "Summarize Range",
+      "icon": "BarChart",
+      "title": "Summarize Range",
+      "summary": {
+        "preparing": "Preparing summary",
+        "running": "Summarizing {{input.a1}}",
+        "completed": "Summary ready",
+        "failed": "Summarize failed"
+      },
+      "fields": [
+        {
+          "label": "Workbook",
+          "inputPath": [
+            "workbookId"
+          ]
+        },
+        {
+          "label": "Range",
+          "inputPath": [
+            "a1"
+          ]
+        },
+        {
+          "label": "Output",
+          "resultPath": [
+            "bridge",
+            "output"
+          ],
+          "format": "json"
+        }
+      ]
+    }
+  }
+}

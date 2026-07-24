@@ -1,0 +1,27 @@
+{
+  "name": "refresh_preview",
+  "description": "Start or refresh the authoritative Remotion Player preview for the current workspace.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["compositionId", "expectedProjectRevision", "expectedDescriptorRevision"],
+    "properties": {
+      "workspacePath": { "type": "string" },
+      "entryPoint": { "type": "string" },
+      "compositionId": { "type": "string" },
+      "expectedProjectRevision": { "type": "string", "minLength": 1 },
+      "expectedDescriptorRevision": { "type": "string", "minLength": 1 },
+      "frame": { "type": "integer" },
+      "force": { "type": "boolean" },
+      "port": { "type": "integer" },
+      "waitMs": { "type": "integer" },
+      "inputProps": { "type": "object" }
+    }
+  },
+  "runtime": "javascript",
+  "entry": "tools/refresh_preview.js",
+  "readonly": true,
+  "permissions": {},
+  "timeoutMs": 180000,
+  "maxOutputBytes": 60000
+}

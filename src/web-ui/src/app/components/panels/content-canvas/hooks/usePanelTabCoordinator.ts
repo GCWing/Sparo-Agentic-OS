@@ -23,8 +23,7 @@ import {
 import { useProductAppRuntimeStore } from '@/app/scenes/apps/product-app-runtime/productAppRuntimeStore';
 import { useWorkStore } from '@/app/agentic-os/work/data/workStore';
 import {
-  appScopeFromWorkspacePath,
-  systemAppScope,
+  appScopeFromWorkScope,
   type AppScope,
 } from '@/shared/types/app-scope';
 import { TAB_EVENTS } from '../types';
@@ -46,9 +45,7 @@ function workSessionScopeToAppScope(
     )
   );
   if (!work) return undefined;
-  return work.scope.kind === 'workspace'
-    ? appScopeFromWorkspacePath(work.scope.workspacePath) ?? systemAppScope()
-    : systemAppScope();
+  return appScopeFromWorkScope(work.scope, work.workspacePath);
 }
 
 interface UsePanelTabCoordinatorOptions {

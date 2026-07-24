@@ -1445,7 +1445,6 @@ impl DialogScheduler {
                         queued_turn.turn_id.clone(),
                         queued_turn.agent_type.clone(),
                         queued_turn.system_reminder_override.clone(),
-                        queued_turn.workspace_path.clone(),
                         queued_turn.policy,
                         extra_metadata,
                     )
@@ -1460,7 +1459,6 @@ impl DialogScheduler {
                         queued_turn.turn_id.clone(),
                         queued_turn.agent_type.clone(),
                         queued_turn.system_reminder_override.clone(),
-                        queued_turn.workspace_path.clone(),
                         queued_turn.policy,
                         extra_metadata,
                     )

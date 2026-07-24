@@ -8,6 +8,7 @@ use crate::agent_component::manifest::{
 use crate::agentic::agents::{Agent, PromptBuilder, PromptBuilderContext, RequestContextPolicy};
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
 use crate::agentic::tools::registry::{get_global_tool_registry, ToolRegistry};
+use crate::agentic::tools::user_input_manager::get_user_input_manager;
 use crate::bridge_component::{
     bridge_run_result_for_assistant, ensure_bridge_run_completed, BridgeComponentConsumer,
     BridgeComponentConsumerKind, BridgeComponentManager,
@@ -21,6 +22,7 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
+use tokio::time::{timeout, Duration};
 
 use super::js_runtime;
 
@@ -473,6 +475,7 @@ impl AgentComponentManager {
             tool_call_id: None,
             agent_type: Some("AppBuilder".to_string()),
             session_id: None,
+            session_domain: None,
             dialog_turn_id: None,
             workspace: workspace_root
                 .map(|root| crate::agentic::WorkspaceBinding::new(None, root.to_path_buf())),
@@ -860,18 +863,76 @@ impl AgentComponentRuntimeToolAdapter {
                 self.app_id, bridge_id, capability_id
             )));
         }
-        let payload = bridge_call
+        let mut payload = bridge_call
             .get("input")
             .cloned()
             .unwrap_or_else(|| json!({}));
-        let workspace_path = context
-            .workspace_root()
-            .map(|path| path.to_string_lossy().to_string());
+        let mut user_input = None;
+        if let Some(await_spec) = runtime_value
+            .get("awaitUserInput")
+            .or_else(|| runtime_value.get("await_user_input"))
+        {
+            let mode = await_spec.get("mode").and_then(Value::as_str).unwrap_or("");
+            if mode != "mergeIntoBridgeInput" {
+                return Err(CoreError::validation(
+                    "awaitUserInput.mode must be 'mergeIntoBridgeInput'",
+                ));
+            }
+            let tool_id = context.tool_call_id.clone().ok_or_else(|| {
+                CoreError::validation(
+                    "This interactive Agent Component tool requires a tool_call_id",
+                )
+            })?;
+            let timeout_ms = await_spec
+                .get("timeoutMs")
+                .or_else(|| await_spec.get("timeout_ms"))
+                .and_then(Value::as_u64)
+                .unwrap_or(600_000)
+                .clamp(1_000, 600_000);
+            let (tx, rx) = tokio::sync::oneshot::channel();
+            let manager = get_user_input_manager();
+            manager.register_channel(tool_id.clone(), tx);
+            info!(
+                "Agent Component tool waiting for user input: tool_name={}, tool_id={}",
+                self.manifest.name, tool_id
+            );
+            let response = match timeout(Duration::from_millis(timeout_ms), rx).await {
+                Ok(Ok(response)) => response,
+                Ok(Err(_)) => {
+                    return Err(CoreError::tool(format!(
+                        "Interactive Agent Component tool '{}' was cancelled",
+                        self.manifest.name
+                    )))
+                }
+                Err(_) => {
+                    manager.cancel(&tool_id);
+                    return Err(CoreError::tool(format!(
+                        "Interactive Agent Component tool '{}' timed out waiting for user input",
+                        self.manifest.name
+                    )));
+                }
+            };
+            payload = merge_bridge_input(payload, &response.answers)?;
+            user_input = Some(response.answers);
+        }
+        let workspace_path = Some(
+            context
+                .workspace_root()
+                .map(Path::to_path_buf)
+                .unwrap_or_else(|| get_path_manager_arc().agentic_os_runtime_root())
+                .to_string_lossy()
+                .to_string(),
+        );
         let consumer = BridgeComponentConsumer {
             kind: BridgeComponentConsumerKind::AgentComponent,
             id: self.app_id.clone(),
             session_id: context.session_id.clone(),
             turn_id: context.dialog_turn_id.clone(),
+            work_id: context.product_app_work_id().map(str::to_string),
+            work_title: None,
+            runtime_instance_id: context
+                .product_app_runtime_instance_id()
+                .map(str::to_string),
         };
         let result = if let Some(package_dir) = self.private_bridge_package_dirs.get(bridge_id) {
             BridgeComponentManager::start_run_from_package_dir(
@@ -919,6 +980,7 @@ impl AgentComponentRuntimeToolAdapter {
                 "component_id": self.app_id,
                 "tool": self.manifest.name,
                 "runtime": runtime_value,
+                "user_input": user_input,
                 "bridge": {
                     "run_id": result.run_id,
                     "bridge_id": result.component_id,
@@ -939,6 +1001,19 @@ impl AgentComponentRuntimeToolAdapter {
             capability.bridge_id == bridge_id && capability.capability_id == capability_id
         })
     }
+}
+
+fn merge_bridge_input(mut payload: Value, answers: &Value) -> CoreResult<Value> {
+    let payload_object = payload
+        .as_object_mut()
+        .ok_or_else(|| CoreError::validation("Interactive bridgeCall.input must be an object"))?;
+    let answer_object = answers
+        .as_object()
+        .ok_or_else(|| CoreError::validation("Interactive tool answers must be an object"))?;
+    for (key, value) in answer_object {
+        payload_object.insert(key.clone(), value.clone());
+    }
+    Ok(payload)
 }
 
 fn validate_js_input_subset(schema: &Value, input: &Value) -> CoreResult<()> {

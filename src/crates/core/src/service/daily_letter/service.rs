@@ -1,13 +1,14 @@
 use super::prompt::build_daily_letter_user_prompt;
 use super::store::{
-    daily_letter_markdown_path, daily_letter_record_id, daily_letter_root, get_daily_letter,
-    list_daily_letters, load_daily_letter_record, load_daily_letter_state, path_string,
-    resolve_request_scope, save_daily_letter_record, save_daily_letter_state,
+    daily_letter_markdown_path, daily_letter_record_id, get_daily_letter, list_daily_letters,
+    load_daily_letter_record, load_daily_letter_state, path_string, resolve_request_scope,
+    save_daily_letter_record, save_daily_letter_state,
 };
 use super::types::{
     DailyLetterAgentOutput, DailyLetterAppOpportunity, DailyLetterApplyReceiptsRequest,
     DailyLetterAttemptStatus, DailyLetterContextPacket, DailyLetterGenerateRequest,
-    DailyLetterGetRequest, DailyLetterListRequest, DailyLetterPreview, DailyLetterReceiptAction,
+    DailyLetterGetRequest, DailyLetterHistoryEntry, DailyLetterHistoryReceipt,
+    DailyLetterListRequest, DailyLetterPreview, DailyLetterReceiptAction,
     DailyLetterReceiptCandidate, DailyLetterReceiptStatus, DailyLetterRecord,
     DailyLetterRecordStatus, DailyLetterRunSummary, DailyLetterScope, DailyLetterSealRequest,
     DailyLetterSourceFragment, DailyLetterSourceFragmentType, DailyLetterSourceStats,
@@ -17,7 +18,7 @@ use crate::agentic::coordination::get_global_coordinator;
 use crate::agentic::memory::store::{
     ensure_memory_store_for_target, memory_journal_file_path_for_date, MemoryStoreTarget,
 };
-use crate::agentic_os::work::{default_work_store, WorkScope};
+use crate::agentic_os::work::default_work_store;
 use crate::error::{CoreError, CoreResult};
 use crate::infrastructure::events::{emit_global_event, BackendEvent};
 use crate::infrastructure::get_path_manager_arc;
@@ -47,6 +48,8 @@ const MAX_SESSION_SUMMARIES: usize = 12;
 const MAX_WORK_FRAGMENTS: usize = 8;
 const MAX_MEMORY_FRAGMENTS: usize = 4;
 const MAX_FRAGMENT_CHARS: usize = 2200;
+const MAX_CORRESPONDENCE_HISTORY_ENTRIES: usize = 7;
+const MAX_CORRESPONDENCE_BODY_CHARS: usize = 1600;
 const MAX_RECEIPT_CANDIDATES: usize = 5;
 const IDLE_OPPORTUNITY_DELAY_SECS: u64 = 75;
 const STALE_RUNNING_ATTEMPT_AFTER_MS: i64 = 20 * 60 * 1000;
@@ -388,7 +391,7 @@ impl DailyLetterService {
                 }
             }
             state.active_date = Some(date.clone());
-            state.active_record_id = Some(daily_letter_record_id(&date, scope, workspace_path));
+            state.active_record_id = Some(daily_letter_record_id(&date, scope, workspace_path)?);
             state.last_attempted_date = Some(date.clone());
             state.last_attempt_started_at_ms = Some(now_ms());
             state.last_attempt_finished_at_ms = None;
@@ -485,7 +488,7 @@ async fn build_context_packet(
     workspace_path: Option<&Path>,
 ) -> CoreResult<DailyLetterContextPacket> {
     let locale = get_app_language_code().await?;
-    let workspace = workspace_path.map(workspace_ref_for_path);
+    let workspace = workspace_path.map(workspace_ref_for_path).transpose()?;
     let coverage = resolve_coverage_window(date, scope, workspace_path).await?;
 
     let mut fragments = Vec::new();
@@ -496,6 +499,8 @@ async fn build_context_packet(
     fragments.extend(collect_git_fragments(&coverage, workspace_path).await?);
 
     let memory_context = collect_memory_context_fragments(scope, workspace_path).await?;
+    let correspondence_history =
+        collect_correspondence_history(date, scope, workspace_path).await?;
     let user_preferences = memory_context
         .iter()
         .filter(|fragment| fragment.title.contains("USER"))
@@ -538,6 +543,7 @@ async fn build_context_packet(
             .iter()
             .filter(|item| item.fragment_type == DailyLetterSourceFragmentType::Explicit)
             .count(),
+        correspondence_history_count: correspondence_history.len(),
         fragment_count: fragments.len() + memory_context.len(),
     };
 
@@ -555,6 +561,7 @@ async fn build_context_packet(
         fragments,
         memory_context,
         user_preferences,
+        correspondence_history,
     })
 }
 
@@ -608,7 +615,69 @@ async fn previous_daily_letter_record(
     Ok(previous.into_iter().next())
 }
 
-fn workspace_ref_for_path(path: &Path) -> DailyLetterWorkspaceRef {
+async fn collect_correspondence_history(
+    date: &str,
+    scope: DailyLetterScope,
+    workspace_path: Option<&Path>,
+) -> CoreResult<Vec<DailyLetterHistoryEntry>> {
+    let target_date = parse_date_key(date)?;
+    let records = list_daily_letters(DailyLetterListRequest {
+        scope: Some(scope),
+        workspace_path: workspace_path.map(|path| path.to_string_lossy().to_string()),
+        limit: None,
+    })
+    .await?;
+
+    let mut previous = records
+        .into_iter()
+        .filter(|record| {
+            parse_date_key(&record.date)
+                .map(|record_date| record_date < target_date)
+                .unwrap_or(false)
+        })
+        .collect::<Vec<_>>();
+    previous.sort_by(|left, right| {
+        right
+            .date
+            .cmp(&left.date)
+            .then_with(|| right.created_at_ms.cmp(&left.created_at_ms))
+    });
+
+    Ok(previous
+        .into_iter()
+        .take(MAX_CORRESPONDENCE_HISTORY_ENTRIES)
+        .map(|record| DailyLetterHistoryEntry {
+            date: record.date,
+            title: record.preview.title,
+            one_line: record.preview.one_line,
+            body_markdown: truncate_chars(
+                record.body_markdown.trim(),
+                MAX_CORRESPONDENCE_BODY_CHARS,
+            ),
+            receipts: record
+                .receipt_candidates
+                .into_iter()
+                .filter_map(|receipt| {
+                    let text = receipt
+                        .final_text
+                        .filter(|value| !value.trim().is_empty())
+                        .unwrap_or(receipt.text);
+                    let text = text.trim().to_string();
+                    if text.is_empty() {
+                        None
+                    } else {
+                        Some(DailyLetterHistoryReceipt {
+                            text,
+                            status: receipt.status,
+                        })
+                    }
+                })
+                .collect(),
+        })
+        .collect())
+}
+
+fn workspace_ref_for_path(path: &Path) -> CoreResult<DailyLetterWorkspaceRef> {
     let path_manager = get_path_manager_arc();
     let name = path
         .file_name()
@@ -616,11 +685,11 @@ fn workspace_ref_for_path(path: &Path) -> DailyLetterWorkspaceRef {
         .filter(|value| !value.trim().is_empty())
         .unwrap_or("Workspace")
         .to_string();
-    DailyLetterWorkspaceRef {
-        id: path_manager.workspace_runtime_id(path),
+    Ok(DailyLetterWorkspaceRef {
+        id: path_manager.workspace_id(path)?,
         name,
         path: path_string(path),
-    }
+    })
 }
 
 async fn collect_daily_report_fragments(
@@ -636,8 +705,7 @@ async fn collect_daily_report_fragments(
         .take(MAX_DAILY_REPORTS)
     {
         let year = date_key.split('-').next().unwrap_or("unknown");
-        let path = get_path_manager_arc()
-            .agentic_os_daily_reports_dir()
+        let path = crate::service::global_daily_report::state::global_daily_report_runtime_dir()?
             .join(year)
             .join(format!("{date_key}.md"));
         if !path.exists() {
@@ -666,7 +734,6 @@ async fn collect_exploration_target_fragments(
     scope: DailyLetterScope,
     workspace_path: Option<&Path>,
 ) -> CoreResult<Vec<DailyLetterSourceFragment>> {
-    let path_manager = get_path_manager_arc();
     let mut fragments = Vec::new();
 
     let session_roots = session_exploration_roots(scope, workspace_path).await?;
@@ -703,36 +770,7 @@ async fn collect_exploration_target_fragments(
         );
     }
 
-    if let Ok(letters_root) = daily_letter_root(scope, workspace_path) {
-        push_path_fragment(
-            &mut fragments,
-            "letters-archive".to_string(),
-            DailyLetterSourceFragmentType::Memory,
-            "Earlier daily letters".to_string(),
-            format!(
-                "Archive of previously sent daily letters as <year>/<date>.md. Skim the most recent few before writing so this letter continues one correspondence: pick up threads left open before {}, and avoid repeating a recent topic, angle, or gift shape.",
-                coverage.start_date
-            ),
-            letters_root,
-            0.8,
-        );
-    }
-
-    let explicit_root = match scope {
-        DailyLetterScope::AgenticOs => path_manager
-            .agentic_os_runtime_root()
-            .join("daily_letters")
-            .join("inbox"),
-        DailyLetterScope::Workspace => {
-            let Some(path) = workspace_path else {
-                return Ok(fragments);
-            };
-            path_manager
-                .project_root(path)
-                .join("daily_letters")
-                .join("inbox")
-        }
-    };
+    let explicit_root = super::store::daily_letter_root(scope, workspace_path)?.join("inbox");
     push_path_fragment(
         &mut fragments,
         "explicit-daily-letter-inbox".to_string(),
@@ -756,18 +794,18 @@ async fn session_exploration_roots(
     let path_manager = get_path_manager_arc();
     match scope {
         DailyLetterScope::AgenticOs => {
-            let mut roots = vec![path_manager.agentic_os_runtime_root().join("sessions")];
-            let workspaces_root = path_manager.workspaces_runtime_root();
-            if workspaces_root.exists() {
-                roots.push(workspaces_root);
-            }
-            Ok(roots)
+            Ok(vec![path_manager.session_domain_root(
+                &crate::agentic::core::SessionDomain::OsAgent,
+            )?])
         }
         DailyLetterScope::Workspace => {
-            let Some(path) = workspace_path else {
-                return Ok(Vec::new());
-            };
-            Ok(vec![path_manager.workspace_sessions_dir(path)])
+            let path = workspace_path.ok_or_else(|| {
+                CoreError::validation("workspace_path is required for Workspace Daily Letter")
+            })?;
+            let workspace_id = path_manager.workspace_id(path)?;
+            Ok(vec![path_manager.session_domain_root(
+                &crate::agentic::core::SessionDomain::Workspace { workspace_id },
+            )?])
         }
     }
 }
@@ -778,8 +816,27 @@ async fn command_exploration_roots(
 ) -> CoreResult<Vec<PathBuf>> {
     let path_manager = get_path_manager_arc();
     let mut roots = session_exploration_roots(scope, workspace_path).await?;
-    roots.push(path_manager.agentic_os_runtime_root().join("works"));
-    roots.push(path_manager.agentic_os_work_runtimes_dir());
+    match scope {
+        DailyLetterScope::AgenticOs => {
+            roots.push(path_manager.global_works_dir());
+            roots.push(path_manager.global_runs_dir());
+            roots.push(path_manager.app_data_root().join("global"));
+        }
+        DailyLetterScope::Workspace => {
+            let workspace_path = workspace_path.ok_or_else(|| {
+                CoreError::validation("workspace_path is required for Workspace Daily Letter")
+            })?;
+            let workspace_id = path_manager.workspace_id(workspace_path)?;
+            roots.push(path_manager.workspace_works_dir(&workspace_id)?);
+            roots.push(path_manager.workspace_runs_dir(&workspace_id)?);
+            roots.push(
+                path_manager
+                    .app_data_root()
+                    .join("workspaces")
+                    .join(workspace_id),
+            );
+        }
+    }
     Ok(roots)
 }
 
@@ -856,7 +913,7 @@ async fn collect_work_fragments(
         if fragments.len() >= MAX_WORK_FRAGMENTS {
             break;
         }
-        if !work_matches_scope(&work.scope, scope, workspace_path) {
+        if !work_matches_scope(&work, scope, workspace_path) {
             continue;
         }
         if !timestamp_in_coverage(coverage, work.updated_at)? {
@@ -894,7 +951,7 @@ async fn collect_work_fragments(
 }
 
 fn work_matches_scope(
-    scope: &WorkScope,
+    work: &crate::agentic_os::work::WorkRecord,
     target: DailyLetterScope,
     workspace_path: Option<&Path>,
 ) -> bool {
@@ -904,8 +961,8 @@ fn work_matches_scope(
             let Some(expected) = workspace_path else {
                 return false;
             };
-            scope
-                .workspace_path()
+            work.workspace_path
+                .as_deref()
                 .map(|value| paths_equal(Path::new(value), expected))
                 .unwrap_or(false)
         }
@@ -983,7 +1040,7 @@ async fn collect_memory_context_fragments(
             let Some(path) = workspace_path else {
                 return Ok(Vec::new());
             };
-            get_path_manager_arc().workspace_memory_dir(path)
+            get_path_manager_arc().workspace_memory_dir(path)?
         }
     };
     let file_names = match scope {
@@ -1031,7 +1088,7 @@ async fn generate_letter_with_ai(
         });
     let coordinator = get_global_coordinator()
         .ok_or_else(|| CoreError::service("Conversation coordinator is not initialized"))?;
-    let record_key = packet_record_key(packet);
+    let record_key = packet_record_key(packet)?;
     let mut last_error: Option<CoreError> = None;
 
     for attempt in 1..=MAX_DAILY_LETTER_AI_ATTEMPTS {
@@ -1136,7 +1193,7 @@ fn daily_letter_ai_retry_delay_ms(failed_attempt: usize) -> u64 {
     DAILY_LETTER_AI_RETRY_BASE_DELAY_MS * failed_attempt as u64
 }
 
-fn packet_record_key(packet: &DailyLetterContextPacket) -> String {
+fn packet_record_key(packet: &DailyLetterContextPacket) -> CoreResult<String> {
     daily_letter_record_id(
         &packet.date,
         packet.scope,
@@ -1152,10 +1209,11 @@ fn build_record_from_agent_output(
     output: DailyLetterAgentOutput,
 ) -> CoreResult<DailyLetterRecord> {
     let now = now_ms();
+    let (fallback_title, fallback_one_line, fallback_body) =
+        daily_letter_fallback_copy(&packet.locale);
     let valid_source_ids = packet
         .fragments
         .iter()
-        .chain(packet.memory_context.iter())
         .map(|fragment| fragment.id.as_str())
         .collect::<HashSet<_>>();
     let receipt_candidates = output
@@ -1192,24 +1250,18 @@ fn build_record_from_agent_output(
             &packet.date,
             packet.scope,
             packet.workspace.as_ref().map(|w| Path::new(&w.path)),
-        ),
+        )?,
         date: packet.date.clone(),
         scope: packet.scope,
         workspace: packet.workspace.clone(),
         status: DailyLetterRecordStatus::Ready,
         preview: DailyLetterPreview {
-            title: non_empty_or(
-                output.preview.title.trim(),
-                &format!("今日来信 · {}", packet.date),
-            ),
-            one_line: non_empty_or(output.preview.one_line.trim(), "今天的线索已经为你收好。"),
+            title: non_empty_or(output.preview.title.trim(), fallback_title),
+            one_line: non_empty_or(output.preview.one_line.trim(), fallback_one_line),
             receipt_count: receipt_candidates.len(),
             app_idea_count: usize::from(app_opportunity.is_some()),
         },
-        body_markdown: non_empty_or(
-            output.body_markdown.trim(),
-            "今天的上下文比较轻，我先把能确认的部分留在这里。",
-        ),
+        body_markdown: non_empty_or(output.body_markdown.trim(), fallback_body),
         receipt_candidates,
         app_opportunity,
         created_at_ms: now,
@@ -1218,6 +1270,22 @@ fn build_record_from_agent_output(
     record.status = next_record_status(&record);
     validate_daily_letter_record(&record)?;
     Ok(record)
+}
+
+fn daily_letter_fallback_copy(locale: &str) -> (&'static str, &'static str, &'static str) {
+    if locale.to_ascii_lowercase().starts_with("zh") {
+        (
+            "事实与猜测",
+            "一个让模糊问题变得更容易处理的小方法。",
+            "遇到一时说不清的问题，可以先分成两栏：已经确定的事实，以及仍在猜测的部分。它不会立刻给出答案，却常常能让真正的问题自己露出来。",
+        )
+    } else {
+        (
+            "Facts and guesses",
+            "A small way to make an unclear problem easier to hold.",
+            "When a problem is hard to name, try dividing it into two columns: what is already known and what is still a guess. It may not produce an answer immediately, but it often makes the real question easier to see.",
+        )
+    }
 }
 
 fn validate_daily_letter_record(record: &DailyLetterRecord) -> CoreResult<()> {
@@ -1290,7 +1358,7 @@ async fn append_receipt_memory(
         content: content.to_string(),
         session_id: format!("daily-letter:{record_id}"),
     };
-    let journal_path = memory_journal_file_path_for_date(target, now.date_naive());
+    let journal_path = memory_journal_file_path_for_date(target, now.date_naive())?;
     if let Some(parent) = journal_path.parent() {
         fs::create_dir_all(parent).await?;
     }
@@ -1318,21 +1386,16 @@ async fn collect_session_daily_summary_sources(
     let path_manager = get_path_manager_arc();
     let roots = match scope {
         DailyLetterScope::AgenticOs => {
-            let mut roots = vec![path_manager.agentic_os_runtime_root().join("sessions")];
-            let workspaces_root = path_manager.workspaces_runtime_root();
-            if workspaces_root.exists() {
-                let mut entries = fs::read_dir(workspaces_root).await?;
-                while let Some(entry) = entries.next_entry().await? {
-                    roots.push(entry.path().join("sessions"));
-                }
-            }
-            roots
+            vec![path_manager.session_domain_root(&crate::agentic::core::SessionDomain::OsAgent)?]
         }
         DailyLetterScope::Workspace => {
             let Some(path) = workspace_path else {
                 return Ok(Vec::new());
             };
-            vec![path_manager.workspace_sessions_dir(path)]
+            let workspace_id = path_manager.workspace_id(path)?;
+            vec![path_manager.session_domain_root(
+                &crate::agentic::core::SessionDomain::Workspace { workspace_id },
+            )?]
         }
     };
 
@@ -1583,10 +1646,8 @@ fn next_auto_wake_timestamp_ms() -> i64 {
     now_ms().saturating_add(duration.as_millis().min(i64::MAX as u128) as i64)
 }
 
-pub fn global_daily_letters_output_dir() -> PathBuf {
-    get_path_manager_arc()
-        .agentic_os_runtime_root()
-        .join("daily_letters")
+pub fn global_daily_letters_output_dir() -> CoreResult<PathBuf> {
+    get_path_manager_arc().global_service_dir("daily_letter")
 }
 
 pub fn global_daily_letter_markdown_path(date: &str) -> CoreResult<PathBuf> {

@@ -321,6 +321,18 @@ mod tests {
         )
         .expect("valid model list");
 
+        let mut omitted_optional_metadata = model.clone();
+        omitted_optional_metadata
+            .as_object_mut()
+            .expect("model object")
+            .remove("metadata");
+        validate_write(
+            descriptor,
+            &Value::Array(vec![omitted_optional_metadata]),
+            ConfigChangeSourceKind::Manual,
+        )
+        .expect("optional nested fields may remain omitted");
+
         let mut unknown_auth_field = model.clone();
         unknown_auth_field["auth"]
             .as_object_mut()

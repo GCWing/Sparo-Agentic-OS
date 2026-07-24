@@ -1,0 +1,253 @@
+{
+  "name": "set_presentation_system",
+  "description": "Atomically replace the complete PresentationSystem and immediately recompile every canonical VisualDocument page while preserving user overrides.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["expectedRevision", "expectedDeckRevision", "intent", "presentationSystem"],
+    "properties": {
+      "expectedRevision": { "type": "integer", "minimum": 0 },
+      "expectedDeckRevision": { "type": "integer", "minimum": 0 },
+      "intent": { "type": "string", "minLength": 1, "maxLength": 500 },
+      "presentationSystem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["schemaVersion", "systemId", "name", "rationale", "direction", "color", "typography", "layout", "shape", "media", "chart", "vector", "archetypes", "quality"],
+        "properties": {
+          "schemaVersion": { "const": 1 },
+          "systemId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,79}$" },
+          "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "rationale": { "type": "string", "minLength": 1, "maxLength": 600 },
+          "direction": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["keywords", "tone", "audienceFit", "avoid"],
+            "properties": {
+              "keywords": { "type": "array", "minItems": 2, "maxItems": 12, "items": { "type": "string", "minLength": 1, "maxLength": 240 } },
+              "tone": { "type": "string", "minLength": 1, "maxLength": 360 },
+              "audienceFit": { "type": "string", "minLength": 1, "maxLength": 360 },
+              "avoid": { "type": "array", "minItems": 2, "maxItems": 16, "items": { "type": "string", "minLength": 1, "maxLength": 240 } }
+            }
+          },
+          "color": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["canvas", "surface", "ink", "muted", "border", "primary", "accent", "positive", "caution", "negative", "dataSeries"],
+            "properties": {
+              "canvas": { "$ref": "#/$defs/colorToken" },
+              "surface": { "$ref": "#/$defs/colorToken" },
+              "ink": { "$ref": "#/$defs/colorToken" },
+              "muted": { "$ref": "#/$defs/colorToken" },
+              "border": { "$ref": "#/$defs/colorToken" },
+              "primary": { "$ref": "#/$defs/colorToken" },
+              "accent": { "$ref": "#/$defs/colorToken" },
+              "positive": { "$ref": "#/$defs/colorToken" },
+              "caution": { "$ref": "#/$defs/colorToken" },
+              "negative": { "$ref": "#/$defs/colorToken" },
+              "dataSeries": { "type": "array", "minItems": 3, "maxItems": 12, "items": { "$ref": "#/$defs/colorToken" } }
+            }
+          },
+          "typography": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["displayFamily", "bodyFamily", "monoFamily", "cjkFamily", "roles"],
+            "properties": {
+              "displayFamily": { "type": "string", "minLength": 1, "maxLength": 100 },
+              "bodyFamily": { "type": "string", "minLength": 1, "maxLength": 100 },
+              "monoFamily": { "type": "string", "minLength": 1, "maxLength": 100 },
+              "cjkFamily": { "type": "string", "minLength": 1, "maxLength": 100 },
+              "roles": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["cover", "title", "section", "body", "label", "metric", "caption", "source", "code"],
+                "properties": {
+                  "cover": { "$ref": "#/$defs/typeRole" },
+                  "title": { "$ref": "#/$defs/typeRole" },
+                  "section": { "$ref": "#/$defs/typeRole" },
+                  "body": { "$ref": "#/$defs/typeRole" },
+                  "label": { "$ref": "#/$defs/typeRole" },
+                  "metric": { "$ref": "#/$defs/typeRole" },
+                  "caption": { "$ref": "#/$defs/typeRole" },
+                  "source": { "$ref": "#/$defs/typeRole" },
+                  "code": { "$ref": "#/$defs/typeRole" }
+                }
+              }
+            }
+          },
+          "layout": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["canvas", "safeArea", "columns", "gutter", "spacingScale", "alignmentRules", "density"],
+            "properties": {
+              "canvas": { "const": "16:9" },
+              "safeArea": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["top", "right", "bottom", "left"],
+                "properties": {
+                  "top": { "type": "number", "minimum": 0, "maximum": 20 },
+                  "right": { "type": "number", "minimum": 0, "maximum": 20 },
+                  "bottom": { "type": "number", "minimum": 0, "maximum": 20 },
+                  "left": { "type": "number", "minimum": 0, "maximum": 20 }
+                }
+              },
+              "columns": { "type": "number", "minimum": 2, "maximum": 24 },
+              "gutter": { "type": "number", "minimum": 0, "maximum": 10 },
+              "spacingScale": { "type": "array", "minItems": 3, "maxItems": 12, "items": { "type": "number", "minimum": 0.25, "maximum": 30 } },
+              "alignmentRules": { "type": "array", "minItems": 1, "maxItems": 12, "items": { "type": "string", "minLength": 1, "maxLength": 240 } },
+              "density": { "type": "string", "enum": ["airy", "balanced", "dense"] }
+            }
+          },
+          "shape": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["radius", "strokeWidth", "borderToken", "shadow"],
+            "properties": {
+              "radius": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["none", "small", "medium"],
+                "properties": {
+                  "none": { "type": "number", "minimum": 0, "maximum": 100 },
+                  "small": { "type": "number", "minimum": 0, "maximum": 100 },
+                  "medium": { "type": "number", "minimum": 0, "maximum": 100 }
+                }
+              },
+              "strokeWidth": { "type": "number", "minimum": 0, "maximum": 12 },
+              "borderToken": { "type": "string", "minLength": 1, "maxLength": 40 },
+              "shadow": { "type": "string", "enum": ["none", "subtle"] }
+            }
+          },
+          "media": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["preferredTreatment", "fit", "captionStyle", "screenshotTreatment"],
+            "properties": {
+              "preferredTreatment": { "type": "string", "enum": ["full-bleed", "framed", "cutout", "documentary"] },
+              "fit": { "type": "string", "enum": ["cover", "contain"] },
+              "captionStyle": { "type": "string", "minLength": 1, "maxLength": 300 },
+              "screenshotTreatment": { "type": "string", "minLength": 1, "maxLength": 300 }
+            }
+          },
+          "chart": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["seriesTokens", "axisStyle", "gridStyle", "labelStyle", "highlightStrategy"],
+            "properties": {
+              "seriesTokens": { "type": "array", "minItems": 3, "maxItems": 12, "items": { "type": "string", "minLength": 1, "maxLength": 40 } },
+              "axisStyle": { "type": "string", "minLength": 1, "maxLength": 300 },
+              "gridStyle": { "type": "string", "minLength": 1, "maxLength": 300 },
+              "labelStyle": { "type": "string", "minLength": 1, "maxLength": 300 },
+              "highlightStrategy": { "type": "string", "minLength": 1, "maxLength": 300 }
+            }
+          },
+          "vector": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["strokeStyle", "iconStyle", "connectorStyle", "themeBinding"],
+            "properties": {
+              "strokeStyle": { "type": "string", "minLength": 1, "maxLength": 300 },
+              "iconStyle": { "type": "string", "minLength": 1, "maxLength": 300 },
+              "connectorStyle": { "type": "string", "minLength": 1, "maxLength": 300 },
+              "themeBinding": { "const": "semantic-tokens" }
+            }
+          },
+          "archetypes": { "type": "array", "minItems": 5, "maxItems": 20, "items": { "$ref": "#/$defs/archetype" } },
+          "quality": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["minBodySize", "minLabelSize", "maxBodyCharacters", "maxRepeatedComposition", "minContrastRatio", "requireEvidenceObject", "requireSourceForEvidence"],
+            "properties": {
+              "minBodySize": { "type": "number", "minimum": 12, "maximum": 32 },
+              "minLabelSize": { "type": "number", "minimum": 9, "maximum": 24 },
+              "maxBodyCharacters": { "type": "number", "minimum": 100, "maximum": 2000 },
+              "maxRepeatedComposition": { "type": "number", "minimum": 1, "maximum": 12 },
+              "minContrastRatio": { "type": "number", "minimum": 3, "maximum": 10 },
+              "requireEvidenceObject": { "type": "boolean" },
+              "requireSourceForEvidence": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "$defs": {
+      "colorToken": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["value", "purpose"],
+        "properties": {
+          "value": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+          "purpose": { "type": "string", "minLength": 1, "maxLength": 180 }
+        }
+      },
+      "typeRole": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["family", "size", "lineHeight", "weight"],
+        "properties": {
+          "family": { "type": "string", "enum": ["display", "body", "mono"] },
+          "size": { "type": "number", "minimum": 8, "maximum": 96 },
+          "lineHeight": { "type": "number", "minimum": 0.8, "maximum": 2 },
+          "weight": { "type": "number", "minimum": 100, "maximum": 900 }
+        }
+      },
+      "archetype": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "purpose", "composition"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,79}$" },
+          "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "purpose": { "type": "string", "minLength": 1, "maxLength": 240 },
+          "composition": { "type": "string", "minLength": 1, "maxLength": 360 }
+        }
+      }
+    }
+  },
+  "runtime": "javascript",
+  "entry": "tools/set_presentation_system.js",
+  "readonly": false,
+  "permissions": {},
+  "timeoutMs": 45000,
+  "maxOutputBytes": 180000,
+  "ui": {
+    "card": {
+      "kind": "appDefined",
+      "family": "ppt-live",
+      "template": "compact",
+      "displayMode": "compact",
+      "resultDisplayType": "detailed",
+      "displayName": "Set design system",
+      "icon": "Palette",
+      "title": "Set design system",
+      "summary": {
+        "preparing": "Preparing design system",
+        "running": "Applying {{input.presentationSystem.name}}",
+        "completed": "Design system committed",
+        "failed": "Design system failed"
+      },
+      "locales": {
+        "zh-CN": {
+          "displayName": "设置设计系统",
+          "title": "设置设计系统",
+          "summary": {
+            "preparing": "正在准备设计系统",
+            "running": "正在应用 {{input.presentationSystem.name}}",
+            "completed": "设计系统已提交",
+            "failed": "设计系统设置失败"
+          },
+          "fields": [
+            { "label": "设计系统" },
+            { "label": "设计方向" },
+            { "label": "修订" }
+          ]
+        }
+      },
+      "fields": [
+        { "label": "System", "inputPath": ["presentationSystem", "name"] },
+        { "label": "Direction", "inputPath": ["presentationSystem", "direction", "keywords"], "format": "json" },
+        { "label": "Revision", "resultPath": ["bridge", "output", "presentationSystem", "revision"] }
+      ]
+    }
+  }
+}

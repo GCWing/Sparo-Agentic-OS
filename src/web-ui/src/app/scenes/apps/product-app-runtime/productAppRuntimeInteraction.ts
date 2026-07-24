@@ -182,6 +182,7 @@ export function buildProductAppRuntimeMetadata(
       appId: string;
       displayName: string;
       releaseId: string;
+      workMultiplicity: ProductAppRuntimeSessionMetadata['workMultiplicity'];
     };
     entityId?: string | null;
     locale?: string | null;
@@ -219,10 +220,17 @@ export function buildProductAppRuntimeMetadata(
     configRevision: options.runtimeContext?.configRevision ?? null,
     sourceRevision: app.runtime?.source_revision,
     interactionTitle: resolveInteractionText(app.interaction?.title, options.locale),
+    workMultiplicity: intelligentApp.workMultiplicity,
     scope,
     workspacePath: workspacePathFromAppScope(scope) ?? null,
     runtimeContext: options.runtimeContext ?? null,
     chat: resolveRuntimeChatMetadata(app),
+    agentWorkspace: app.interaction?.agentWorkspace,
     tabs,
+    flowChatCards: app.interaction?.flowChatCards?.map(card => ({
+      id: card.id,
+      description: card.description,
+      ui: card.ui,
+    })),
   };
 }

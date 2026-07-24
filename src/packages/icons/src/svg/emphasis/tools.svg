@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" data-sparo-icon="tools" data-sparo-variant="emphasis">
+  <circle cx="24" cy="24" r="22" fill="var(--sparo-icon-background, #d9231b)" />
+  <g transform="translate(5.28 5.28) scale(0.78)" stroke="var(--sparo-icon-foreground, #fff)" stroke-width="var(--sparo-icon-stroke-width, 2.5641)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M29.4 12.6a10 10 0 0 0-12.8 12.8L6.4 35.6a4.6 4.6 0 0 0 6.6 6.6L23.2 32A10 10 0 0 0 36 19.2l-6 6-6-6 6-6Z" />
+  </g>
+</svg>

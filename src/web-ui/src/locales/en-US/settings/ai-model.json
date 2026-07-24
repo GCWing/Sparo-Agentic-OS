@@ -197,7 +197,16 @@
   "reasoningEffort": {
     "label": "Reasoning Effort",
     "hint": "Controls provider-specific reasoning depth for Responses API and supported Claude adaptive reasoning models",
-    "placeholder": "Use API default"
+    "placeholder": "Use API default",
+    "options": {
+      "none": "None",
+      "minimal": "Minimal",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "xhigh": "Extra high",
+      "max": "Maximum"
+    }
   },
   "details": {
     "basicInfo": "Basic Information",
@@ -244,7 +253,8 @@
     "openaiCompatible": "OpenAI Compatible",
     "responsesApi": "OpenAI Responses API",
     "claudeApi": "Claude API",
-    "geminiApi": "Gemini GenerateContent API"
+    "geminiApi": "Gemini GenerateContent API",
+    "geminiCodeAssist": "Gemini Code Assist"
   },
   "providerGroup": {
     "expandModels": "Expand model list for {{name}}",

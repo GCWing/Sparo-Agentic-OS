@@ -1,10 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Activity,
-  AppWindow,
-  ListChecks,
   Play,
-  Sparkles,
   XCircle,
 } from 'lucide-react';
 import { Badge, IconButton, type BadgeVariant } from '@/design-system';
@@ -13,6 +10,7 @@ import type { BackgroundProcess } from '@/app/agentic-os/background-process/doma
 import { getWorkRailSection } from '@/app/agentic-os/work/domain/workClassification';
 import { useWorkStore } from '@/app/agentic-os/work/data/workStore';
 import type { WorkProjection } from '@/app/agentic-os/work/projections/workProjection';
+import { WorkIcon } from '@/app/agentic-os/work/presentation/WorkIcon';
 import type { WorkspaceInfo } from '@/shared/types';
 import { getWorkspaceDisplayName } from '@/infrastructure/contexts/WorkspaceContext';
 import './RunningWorkProcessTable.scss';
@@ -59,12 +57,6 @@ function formatDuration(ms: number | null, emptyValue: string): string {
     return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   }
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
-}
-
-function processIcon(work: WorkProjection): React.ReactNode {
-  if (work.systemManaged) return <Sparkles size={14} />;
-  if (work.kind === 'app_workflow') return <AppWindow size={14} />;
-  return <ListChecks size={14} />;
 }
 
 function statusVariant(work: WorkProjection): BadgeVariant {
@@ -188,7 +180,7 @@ const RunningWorkProcessTable: React.FC<RunningWorkProcessTableProps> = ({
               >
                 <td className="rw-name-cell">
                   <span className="rw-name-cell__icon" aria-hidden="true">
-                    {processIcon(work)}
+                    <WorkIcon work={work} size={14} />
                   </span>
                   <span className="rw-name-cell__text">
                     <span className="rw-name-cell__title">{work.title}</span>

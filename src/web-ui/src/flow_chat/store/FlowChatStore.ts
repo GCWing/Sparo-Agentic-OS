@@ -18,7 +18,7 @@ import {
 } from '../types/flow-chat';
 import { createLogger } from '@/shared/utils/logger';
 import { i18nService } from '@/infrastructure/i18n/core/I18nService';
-import type { SessionKind, SessionStorageScope, SessionMetadata } from '@/shared/types/session-history';
+import type { SessionDomain, SessionKind, SessionMetadata } from '@/shared/types/session-history';
 import {
   deriveLastFinishedAtFromMetadata,
   deriveSessionRelationshipFromMetadata,
@@ -46,15 +46,13 @@ import {
   getDefaultSessionDescriptor,
   getProductAppRuntimeAgentType,
   getProductAppRuntimeSessionDescriptor,
-  isEvolutionLabSession,
-  isSystemAgenticOsSession,
   normalizeSessionDescriptor,
+  sessionDomainForDescriptor,
   withActiveAgentId,
   type SessionDescriptor,
 } from '../domain/sessionDescriptor';
 
 const log = createLogger('FlowChatStore');
-export const DEFAULT_CONTEXT_WINDOW = 128128;
 
 type ToolItemLocation = {
   sessionId: string;
@@ -81,7 +79,7 @@ function sameSessionDescriptor(left: SessionDescriptor, right: SessionDescriptor
     left.hostKind === right.hostKind &&
     left.profileId === right.profileId &&
     left.identityId === right.identityId &&
-    left.storageScope === right.storageScope &&
+    left.sessionDomainKind === right.sessionDomainKind &&
     left.agentPolicy.defaultAgentId === right.agentPolicy.defaultAgentId &&
     left.agentPolicy.activeAgentId === right.agentPolicy.activeAgentId &&
     left.agentPolicy.switchableAgentIds.length === right.agentPolicy.switchableAgentIds.length &&
@@ -89,68 +87,6 @@ function sameSessionDescriptor(left: SessionDescriptor, right: SessionDescriptor
       agentId === right.agentPolicy.switchableAgentIds[index]
     ))
   );
-}
-
-type ModelContextWindowConfig = {
-  id?: string;
-  name?: string;
-  context_window?: number;
-  contextWindow?: number;
-};
-
-function readModelContextWindow(model: ModelContextWindowConfig | undefined): number | undefined {
-  const value = model?.context_window ?? model?.contextWindow;
-  return typeof value === 'number' && Number.isFinite(value) && value > 0
-    ? value
-    : undefined;
-}
-
-async function createMetadataContextWindowResolver(
-  metadataList: SessionMetadata[],
-  existingSessions: Map<string, Session>,
-): Promise<(metadata: SessionMetadata) => number> {
-  const hasNewPersistedSession = metadataList.some(metadata => (
-    !existingSessions.has(metadata.sessionId) && !isLegacyPersistedBtwSession(metadata)
-  ));
-
-  if (!hasNewPersistedSession) {
-    return () => DEFAULT_CONTEXT_WINDOW;
-  }
-
-  try {
-    const { configManager } = await import('@/infrastructure/config/services/ConfigManager');
-    const models = await configManager.getSetting<ModelContextWindowConfig[]>('core.ai.models') || [];
-    const defaultModels = await configManager.getSetting<Record<string, string>>('core.ai.default_models') || {};
-    const contextWindowsByModel = new Map<string, number>();
-
-    for (const model of models) {
-      const contextWindow = readModelContextWindow(model);
-      if (!contextWindow) {
-        continue;
-      }
-      if (model.id) {
-        contextWindowsByModel.set(model.id, contextWindow);
-      }
-      if (model.name) {
-        contextWindowsByModel.set(model.name, contextWindow);
-      }
-    }
-
-    const defaultContextWindow = defaultModels.primary
-      ? contextWindowsByModel.get(defaultModels.primary) ?? DEFAULT_CONTEXT_WINDOW
-      : DEFAULT_CONTEXT_WINDOW;
-
-    return (metadata: SessionMetadata) => (
-      (metadata.modelName ? contextWindowsByModel.get(metadata.modelName) : undefined)
-      ?? defaultContextWindow
-    );
-  } catch (error) {
-    log.warn('Failed to get model context window sizes, using default', {
-      metadataCount: metadataList.length,
-      error,
-    });
-    return () => DEFAULT_CONTEXT_WINDOW;
-  }
 }
 
 export interface FlowChatSessionHeader {
@@ -166,7 +102,7 @@ export interface FlowChatSessionHeader {
   parentSessionId?: string;
   sessionKind?: SessionKind;
   workspacePath?: string;
-  storageScope?: SessionStorageScope;
+  domain: SessionDomain;
 }
 
 export interface FlowChatActiveTurnTail {
@@ -218,17 +154,6 @@ function recoverToolRuntime(
     startedAt: tool.startTime,
     endedAt: tool.endTime,
   };
-}
-
-/** Ensures system/evolution sessions delete from the global Agentic OS persistence namespace. */
-function resolveSessionDeleteStorageScope(session: Session): SessionStorageScope {
-  return (
-    session.storageScope ??
-    session.config?.storageScope ??
-    (isSystemAgenticOsSession(session.descriptor) || isEvolutionLabSession(session.descriptor)
-      ? 'agentic_os'
-      : 'workspace')
-  );
 }
 
 export class FlowChatStore {
@@ -305,7 +230,7 @@ export class FlowChatStore {
       parentSessionId: session.parentSessionId,
       sessionKind: session.sessionKind,
       workspacePath: session.workspacePath,
-      storageScope: session.storageScope,
+      domain: session.domain,
     };
   }
 
@@ -525,9 +450,11 @@ export class FlowChatStore {
     maxContextTokens?: number,
     descriptor: SessionDescriptor = getDefaultSessionDescriptor(),
     workspacePath?: string,
-    storageScope?: import('@/shared/types/session-history').SessionStorageScope
   ): void {
     const normalizedDescriptor = normalizeSessionDescriptor(descriptor);
+    const domain =
+      config.domain ??
+      sessionDomainForDescriptor(normalizedDescriptor, config.workspaceId);
     import('../state-machine').then(({ stateMachineManager }) => {
       stateMachineManager.getOrCreate(sessionId);
     });
@@ -549,11 +476,11 @@ export class FlowChatStore {
         lastFinishedAt: undefined,
         error: null,
         loadPhase: 'live',
-        maxContextTokens: maxContextTokens || 128128,
+        maxContextTokens,
         descriptor: normalizedDescriptor,
         workspacePath,
         workspaceId: config.workspaceId,
-        storageScope: storageScope ?? config.storageScope ?? normalizedDescriptor.storageScope,
+        domain,
         customMetadata: config.customMetadata,
         parentSessionId: relationship.parentSessionId,
         sessionKind: relationship.sessionKind,
@@ -588,9 +515,12 @@ export class FlowChatStore {
       isTransient?: boolean;
       customMetadata?: Session['customMetadata'];
     },
-    storageScope?: import('@/shared/types/session-history').SessionStorageScope
+    domain?: SessionDomain,
   ): void {
     const normalizedDescriptor = normalizeSessionDescriptor(descriptor);
+    const resolvedDomain =
+      domain ??
+      sessionDomainForDescriptor(normalizedDescriptor, undefined);
     import('../state-machine').then(({ stateMachineManager }) => {
       stateMachineManager.getOrCreate(sessionId);
     });
@@ -608,7 +538,6 @@ export class FlowChatStore {
         dialogTurns: [],
         status: 'idle',
         config: {
-          maxContextTokens: 128128,
           autoCompact: true,
           enableTools: true,
           agentType: getBackendAgentType(normalizedDescriptor),
@@ -617,11 +546,10 @@ export class FlowChatStore {
         lastActiveAt: Date.now(),
         lastFinishedAt: undefined,
         error: null,
-        maxContextTokens: 128128,
         descriptor: normalizedDescriptor,
         loadPhase: 'live',
         workspacePath,
-        storageScope: storageScope ?? normalizedDescriptor.storageScope,
+        domain: resolvedDomain,
         customMetadata: meta?.customMetadata,
         parentSessionId: relationship.parentSessionId,
         sessionKind: relationship.sessionKind,
@@ -671,7 +599,7 @@ export class FlowChatStore {
     sessionId: string,
     descriptor: SessionDescriptor,
     workspacePath?: string,
-    storageScope?: SessionStorageScope
+    domain?: SessionDomain,
   ): void {
     const normalizedDescriptor = normalizeSessionDescriptor(descriptor);
     this.setState(prev => {
@@ -680,13 +608,18 @@ export class FlowChatStore {
 
       const backendAgentType = getBackendAgentType(normalizedDescriptor);
       const nextWorkspacePath = workspacePath || session.workspacePath;
-      const nextStorageScope = storageScope ?? session.storageScope ?? normalizedDescriptor.storageScope;
+      const nextDomain =
+        domain ??
+        sessionDomainForDescriptor(normalizedDescriptor, session.workspaceId);
 
       if (
         sameSessionDescriptor(session.descriptor, normalizedDescriptor) &&
         session.config.agentType === backendAgentType &&
         session.workspacePath === nextWorkspacePath &&
-        session.storageScope === nextStorageScope
+        session.domain.kind === nextDomain.kind &&
+        (session.domain.kind !== 'workspace' ||
+          (nextDomain.kind === 'workspace' &&
+            session.domain.workspace_id === nextDomain.workspace_id))
       ) {
         return prev;
       }
@@ -699,7 +632,7 @@ export class FlowChatStore {
           agentType: backendAgentType,
         },
         workspacePath: nextWorkspacePath,
-        storageScope: nextStorageScope,
+        domain: nextDomain,
       };
 
       const newSessions = new Map(prev.sessions);
@@ -716,13 +649,13 @@ export class FlowChatStore {
     sessionId: string,
     workspace: Pick<WorkspaceInfo, 'id' | 'rootPath'>,
     descriptor: SessionDescriptor,
-    storageScope: SessionStorageScope = 'workspace'
   ): boolean {
     const workspacePath = workspace.rootPath.trim();
     if (!workspacePath) return false;
 
     const normalizedDescriptor = normalizeSessionDescriptor(descriptor);
     const backendAgentType = getBackendAgentType(normalizedDescriptor);
+    const domain = sessionDomainForDescriptor(normalizedDescriptor, workspace.id);
     let didUpdate = false;
 
     this.setState(prev => {
@@ -734,10 +667,10 @@ export class FlowChatStore {
         session.config.agentType === backendAgentType &&
         session.workspacePath === workspacePath &&
         session.workspaceId === workspace.id &&
-        session.storageScope === storageScope &&
+        session.domain.kind === 'workspace' &&
+        session.domain.workspace_id === workspace.id &&
         session.config.workspacePath === workspacePath &&
-        session.config.workspaceId === workspace.id &&
-        session.config.storageScope === storageScope
+        session.config.workspaceId === workspace.id
       ) {
         return prev;
       }
@@ -750,11 +683,11 @@ export class FlowChatStore {
           agentType: backendAgentType,
           workspacePath,
           workspaceId: workspace.id,
-          storageScope,
+          domain,
         },
         workspacePath,
         workspaceId: workspace.id,
-        storageScope,
+        domain,
         loadPhase: 'live',
         lastActiveAt: Date.now(),
       };
@@ -828,12 +761,34 @@ export class FlowChatStore {
           ...session.config,
           modelName: normalizedModelName,
         },
+        currentContextBudget: undefined,
+        maxContextTokens: undefined,
         lastActiveAt: Date.now(),
       };
 
       const newSessions = new Map(prev.sessions);
       newSessions.set(sessionId, updatedSession);
 
+      return {
+        ...prev,
+        sessions: newSessions,
+      };
+    });
+  }
+
+  public invalidateSessionContextBudget(sessionId: string): void {
+    this.setState(prev => {
+      const session = prev.sessions.get(sessionId);
+      if (!session || (!session.currentContextBudget && session.maxContextTokens === undefined)) {
+        return prev;
+      }
+
+      const newSessions = new Map(prev.sessions);
+      newSessions.set(sessionId, {
+        ...session,
+        currentContextBudget: undefined,
+        maxContextTokens: undefined,
+      });
       return {
         ...prev,
         sessions: newSessions,
@@ -1005,13 +960,10 @@ export class FlowChatStore {
         if (!sess) {
           throw new Error(`Session not found: ${id}`);
         }
-        const storageScope = resolveSessionDeleteStorageScope(sess);
-        const workspacePath = sess.workspacePath;
-        if (!workspacePath && storageScope !== 'agentic_os') {
-          throw new Error(`Workspace path not found for session ${id}`);
-        }
-
-        await agentAPI.deleteSession(id, workspacePath || undefined, storageScope);
+        await agentAPI.deleteSession({
+          session_id: id,
+          domain: sess.domain,
+        });
       })
     );
 
@@ -1757,7 +1709,7 @@ export class FlowChatStore {
       const updatedSession = {
         ...session,
         currentContextBudget: snapshot,
-        maxContextTokens: snapshot.contextWindow || session.maxContextTokens
+        maxContextTokens: snapshot.contextWindow
       };
 
       const newSessions = new Map(prev.sessions);
@@ -2123,8 +2075,7 @@ export class FlowChatStore {
 
       await sessionAPI.saveSessionTurn(
         turnData,
-        workspacePath,
-        session.storageScope
+        session.domain,
       );
     } catch (error) {
       log.error('Failed to save cancelled dialog turn', { sessionId, turnId, error });
@@ -2139,18 +2090,12 @@ export class FlowChatStore {
   public async hydrateWorkspaceSessionsMetadata(
     metadataList: SessionMetadata[],
     workspacePath: string,
-    storageScope?: import('@/shared/types/session-history').SessionStorageScope
   ): Promise<number> {
     if (metadataList.length === 0) {
       this.markWorkspaceMetadataPreloaded(workspacePath);
       return 0;
     }
 
-    const initialSessions = this.state.sessions;
-    const resolveMaxContextTokens = await createMetadataContextWindowResolver(
-      metadataList,
-      initialSessions
-    );
     const baseState = this.state;
     const nextSessions = new Map(baseState.sessions);
     let insertedCount = 0;
@@ -2168,7 +2113,22 @@ export class FlowChatStore {
             existingSession.lastActiveAt ??
             existingSession.lastFinishedAt ??
             existingSession.createdAt;
-        if (incomingUpdatedAt <= existingUpdatedAt) {
+        const incomingHasProductAppRuntime =
+          metadata.customMetadata?.productAppRuntime != null;
+        const existingHasProductAppRuntime =
+          existingSession.customMetadata?.productAppRuntime != null;
+        const existingIsProductAppRuntime =
+          existingSession.descriptor.hostKind === 'product-app-runtime';
+        const isAuthorityUpgrade =
+          incomingHasProductAppRuntime &&
+          (!existingHasProductAppRuntime || !existingIsProductAppRuntime);
+        const isAuthorityDowngrade =
+          !incomingHasProductAppRuntime &&
+          (existingHasProductAppRuntime || existingIsProductAppRuntime);
+        if (
+          isAuthorityDowngrade ||
+          (!isAuthorityUpgrade && incomingUpdatedAt <= existingUpdatedAt)
+        ) {
           continue;
         }
 
@@ -2185,12 +2145,15 @@ export class FlowChatStore {
             agentType: getBackendAgentType(descriptor),
           },
           title: metadata.sessionName,
-          lastActiveAt: metadata.lastActiveAt,
-          lastFinishedAt,
-          updatedAt: incomingUpdatedAt,
+          lastActiveAt: Math.max(
+            metadata.lastActiveAt ?? 0,
+            existingSession.lastActiveAt ?? 0,
+          ),
+          lastFinishedAt: lastFinishedAt ?? existingSession.lastFinishedAt,
+          updatedAt: Math.max(incomingUpdatedAt, existingUpdatedAt),
           todos: metadata.todos || existingSession.todos || [],
           workspacePath: metadata.workspacePath || existingSession.workspacePath || workspacePath,
-          storageScope: metadata.storageScope || existingSession.storageScope || storageScope || descriptor.storageScope,
+          domain: metadata.domain,
           customMetadata: metadata.customMetadata || existingSession.customMetadata,
           parentSessionId: relationship.parentSessionId,
           sessionKind: relationship.sessionKind,
@@ -2229,10 +2192,9 @@ export class FlowChatStore {
         error: null,
         loadPhase: 'metadata-only',
         todos: metadata.todos || [],
-        maxContextTokens: resolveMaxContextTokens(metadata),
         descriptor,
         workspacePath: metadata.workspacePath || workspacePath,
-        storageScope: metadata.storageScope || storageScope || descriptor.storageScope,
+        domain: metadata.domain,
         customMetadata: metadata.customMetadata,
         parentSessionId: relationship.parentSessionId,
         sessionKind: relationship.sessionKind,
@@ -2258,12 +2220,12 @@ export class FlowChatStore {
 
   public async initializeFromDisk(
     workspacePath: string,
-    storageScope?: import('@/shared/types/session-history').SessionStorageScope
+    domain: SessionDomain,
   ): Promise<void> {
     try {
       const { sessionAPI } = await import('@/infrastructure/api');
-      const sessions = await sessionAPI.listSessions(workspacePath, storageScope);
-      await this.hydrateWorkspaceSessionsMetadata(sessions, workspacePath, storageScope);
+      const sessions = await sessionAPI.listSessions(domain);
+      await this.hydrateWorkspaceSessionsMetadata(sessions, workspacePath);
     } catch (error) {
       log.error('Failed to load persisted sessions', error);
     }
@@ -2275,8 +2237,8 @@ export class FlowChatStore {
   public loadSessionHistory(
     sessionId: string,
     workspacePath: string,
+    domain: SessionDomain,
     limit?: number,
-    storageScope?: import('@/shared/types/session-history').SessionStorageScope
   ): Promise<void> {
     const existing = this.pendingSessionHistoryLoads.get(sessionId);
     if (existing) return existing;
@@ -2285,8 +2247,8 @@ export class FlowChatStore {
     pending = this.loadSessionHistoryOnce(
       sessionId,
       workspacePath,
+      domain,
       limit,
-      storageScope,
     ).finally(() => {
       if (this.pendingSessionHistoryLoads.get(sessionId) === pending) {
         this.pendingSessionHistoryLoads.delete(sessionId);
@@ -2302,9 +2264,9 @@ export class FlowChatStore {
 
   private async loadSessionHistoryOnce(
     sessionId: string,
-    workspacePath: string,
+    _workspacePath: string,
+    domain: SessionDomain,
     limit?: number,
-    storageScope?: import('@/shared/types/session-history').SessionStorageScope
   ): Promise<void> {
     const loadStartedAt = Date.now();
     this.setSessionLoadPhase(sessionId, 'hydrating');
@@ -2318,10 +2280,8 @@ export class FlowChatStore {
       // backend to rebuild its full execution context from the same turn files.
       const { sessionAPI } = await import('@/infrastructure/api');
       const turns = await sessionAPI.loadSessionTurns(
-        sessionId,
-        workspacePath,
+        { session_id: sessionId, domain },
         limit,
-        storageScope
       );
       
       const persistedDialogTurns = this.convertToDialogTurns(turns);
@@ -2340,7 +2300,6 @@ export class FlowChatStore {
           ...session,
           dialogTurns: hydratedDialogTurns,
           loadPhase: 'hydrated' as const,
-          storageScope: session.storageScope ?? storageScope,
         };
         
         const newSessions = new Map(prev.sessions);

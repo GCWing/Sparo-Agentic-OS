@@ -2,7 +2,7 @@ use super::util::normalize_path;
 use crate::agentic::coordination::{
     AgentSessionReplyRoute, DialogSubmissionPolicy, DialogTriggerSource,
 };
-use crate::agentic::core::{PromptEnvelope, SessionConfig};
+use crate::agentic::core::{PromptEnvelope, SessionConfig, SessionDomain};
 use crate::agentic::tools::framework::ToolUseContext;
 use crate::agentic::tools::workspace_paths::posix_style_path_is_absolute;
 use crate::agentic::SessionSummary;
@@ -187,8 +187,10 @@ pub async fn find_existing_session(
 ) -> CoreResult<SessionSummary> {
     validate_session_id(session_id).map_err(CoreError::tool)?;
 
-    let workspace_path = Path::new(workspace);
-    let sessions = coordinator.list_sessions(workspace_path).await?;
+    let domain = SessionDomain::Workspace {
+        workspace_id: try_get_path_manager_arc()?.workspace_id(Path::new(workspace))?,
+    };
+    let sessions = coordinator.list_sessions(&domain).await?;
 
     sessions
         .into_iter()
@@ -228,7 +230,10 @@ pub async fn handoff_to_agent_session(
                     agent_type.clone(),
                     SessionConfig {
                         workspace_path: Some(request.workspace.clone()),
-                        ..Default::default()
+                        ..SessionConfig::new(SessionDomain::Workspace {
+                            workspace_id: try_get_path_manager_arc()?
+                                .workspace_id(Path::new(&request.workspace))?,
+                        })
                     },
                     request.workspace.clone(),
                     created_by,

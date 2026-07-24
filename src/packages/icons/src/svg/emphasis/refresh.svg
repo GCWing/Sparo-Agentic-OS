@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" data-sparo-icon="refresh" data-sparo-variant="emphasis">
+  <circle cx="24" cy="24" r="22" fill="var(--sparo-icon-background, #d9231b)" />
+  <g transform="translate(5.28 5.28) scale(0.78)" stroke="var(--sparo-icon-foreground, #fff)" stroke-width="var(--sparo-icon-stroke-width, 2.5641)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 18a17 17 0 0 1 30-2" />
+      <path d="m39 9v7l-7-2" />
+      <path d="M39 30A17 17 0 0 1 9 32" />
+      <path d="m9 39v-7l7 2" />
+  </g>
+</svg>

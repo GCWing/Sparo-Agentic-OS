@@ -1,8 +1,9 @@
 //! Execution Engine Type Definitions
 
 use crate::agentic::app_builder_context::AppBuilderExecutionContext;
-use crate::agentic::core::Message;
+use crate::agentic::core::{Message, SessionDomain};
 use crate::agentic::events::SessionSurfaceMode;
+use crate::agentic::product_app_context::ProductAppExecutionContext;
 use crate::agentic::round_preempt::DialogRoundPreemptSource;
 use crate::agentic::tools::pipeline::SubagentParentInfo;
 use crate::agentic::tools::ToolRuntimeRestrictions;
@@ -29,6 +30,7 @@ pub enum ToolConfirmationPolicy {
 #[derive(Clone)]
 pub struct ExecutionContext {
     pub session_id: String,
+    pub session_domain: SessionDomain,
     pub dialog_turn_id: String,
     pub turn_index: usize,
     pub agent_type: String,
@@ -40,6 +42,8 @@ pub struct ExecutionContext {
     pub skip_tool_confirmation: bool,
     pub tool_confirmation_policy: ToolConfirmationPolicy,
     pub runtime_tool_restrictions: ToolRuntimeRestrictions,
+    /// Trusted durable Product App Work binding for this turn.
+    pub product_app: Option<ProductAppExecutionContext>,
     pub app_builder: Option<AppBuilderExecutionContext>,
     /// Workspace I/O services (filesystem + shell) injected into tools
     pub workspace_services: Option<WorkspaceServices>,
@@ -55,6 +59,7 @@ pub struct ExecutionContext {
 #[derive(Debug, Clone)]
 pub struct RoundContext {
     pub session_id: String,
+    pub session_domain: SessionDomain,
     pub subagent_parent_info: Option<SubagentParentInfo>,
     pub dialog_turn_id: String,
     pub round_id: String,

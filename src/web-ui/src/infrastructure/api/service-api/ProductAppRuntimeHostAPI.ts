@@ -128,12 +128,27 @@ export interface ProductAppHostSurfaceInteractionTab {
   data?: Record<string, unknown>;
 }
 
+export interface ProductAppHostSurfaceFlowChatCard {
+  id: string;
+  description?: string;
+  ui: Record<string, unknown>;
+}
+
+export interface ProductAppHostSurfaceAgentWorkspace {
+  managedRoot: string;
+  workspaceAccess: 'none' | 'readOnly' | 'readWrite';
+  documentRoots?: string[];
+  privateRoots?: string[];
+}
+
 export interface ProductAppHostSurfaceInteraction {
   mode: ProductAppHostSurfaceInteractionMode;
   profile?: ProductAppHostSurfaceInteractionProfile;
   title?: ProductAppHostSurfaceInteractionText;
   chat?: ProductAppHostSurfaceInteractionChat;
+  agentWorkspace?: ProductAppHostSurfaceAgentWorkspace;
   tabs?: ProductAppHostSurfaceInteractionTab[];
+  flowChatCards?: ProductAppHostSurfaceFlowChatCard[];
 }
 
 export interface ProductAppHostSurfaceRuntimeState {
@@ -628,6 +643,7 @@ export class ProductAppRuntimeHostAPI {
       entityId?: string;
       idempotencyKey?: string;
       workspacePath?: string;
+      sessionId?: string;
     },
   ): Promise<ProductAppRuntimeHostBackendActionResult> {
     try {
@@ -640,6 +656,7 @@ export class ProductAppRuntimeHostAPI {
           entityId: options.entityId,
           idempotencyKey: options.idempotencyKey,
           workspacePath: options.workspacePath,
+          sessionId: options.sessionId,
         },
       });
     } catch (error) {
@@ -687,69 +704,6 @@ export class ProductAppRuntimeHostAPI {
     }
   }
 
-  async renderSlidePage(request: {
-    html: string;
-    format?: string;
-    width?: number;
-    height?: number;
-  }): Promise<string> {
-    try {
-      return await api.invoke<string>('product_app_runtime_render_slide_page', {
-        request: {
-          html: request.html,
-          format: request.format ?? 'png',
-          width: request.width,
-          height: request.height,
-        },
-      });
-    } catch (error) {
-      throw createTauriCommandError('product_app_runtime_render_slide_page', error);
-    }
-  }
-
-  async cancelStalePptRuns(
-    appId: string,
-    runtimeContext: ProductAppRuntimeContext,
-    workspacePath?: string,
-  ): Promise<{
-    cancelledSessions: number;
-    cancelledTurns: number;
-    clearedQueues: number;
-  }> {
-    try {
-      return await api.invoke('product_app_runtime_cancel_stale_ppt_runs', {
-        request: { appId, runtimeContext, workspacePath },
-      });
-    } catch (error) {
-      throw createTauriCommandError('product_app_runtime_cancel_stale_ppt_runs', error, {
-        appId,
-        runtimeContext,
-        workspacePath,
-      });
-    }
-  }
-
-  async getPptTurnAssistantText(
-    appId: string,
-    runtimeContext: ProductAppRuntimeContext,
-    sessionId: string,
-    turnId: string,
-    workspacePath?: string,
-  ): Promise<{ text: string }> {
-    try {
-      return await api.invoke('product_app_runtime_ppt_turn_assistant_text', {
-        request: { appId, runtimeContext, sessionId, turnId, workspacePath },
-      });
-    } catch (error) {
-      throw createTauriCommandError('product_app_runtime_ppt_turn_assistant_text', error, {
-        appId,
-        runtimeContext,
-        sessionId,
-        turnId,
-        workspacePath,
-      });
-    }
-  }
 }
 
 export const productAppRuntimeHostAPI = new ProductAppRuntimeHostAPI();

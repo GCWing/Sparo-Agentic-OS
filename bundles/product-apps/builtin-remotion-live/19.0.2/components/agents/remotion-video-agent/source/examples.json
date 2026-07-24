@@ -1,0 +1,14 @@
+[
+  {
+    "title": "Refine the selected title",
+    "prompt": "In the currently open Remotion Live preview, adjust the selected title so it reads more clearly without changing the scene timing."
+  },
+  {
+    "title": "Add motion polish",
+    "prompt": "Make the current composition feel more polished with subtle entrance motion and verify the active frame still looks balanced."
+  },
+  {
+    "title": "Prepare an export",
+    "prompt": "Review the current composition, render a still for the key frame, then export the MP4 and monitor the job until it reaches a terminal state."
+  }
+]

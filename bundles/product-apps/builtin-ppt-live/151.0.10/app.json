@@ -1,0 +1,169 @@
+{
+  "id": "builtin-ppt-live",
+  "version": "151.0.10",
+  "name": "PPT Live",
+  "description": "An AI-native presentation studio that turns a minimal topic brief into one frozen manuscript, an approved three-page Design Case, a coherent editable VisualDocument, and a validated PowerPoint.",
+  "authors": [
+    {
+      "name": "Sparo OS",
+      "url": "https://github.com/Sparo-OS"
+    }
+  ],
+  "i18n": {
+    "locales": {
+      "en-US": {
+        "name": "PPT Live",
+        "description": "An AI-native presentation studio with a runtime-owned structured manuscript contract, canonical Markdown documents, a three-page Design Case confirmation, editable visual objects, whole-deck review, and validated PowerPoint export.",
+        "tags": ["built-in", "presentation", "design-system", "deck", "speaker-script"]
+      },
+      "zh-CN": {
+        "name": "PPT Live",
+        "description": "\u4ece\u6700\u5c0f\u4e3b\u9898\u8f93\u5165\u51fa\u53d1\uff0c\u4e00\u6b21\u6027\u63d0\u4ea4\u7ed3\u6784\u5316\u5b8c\u6574\u6587\u7a3f\uff0c\u7531 Runtime \u751f\u6210\u89c4\u8303 Markdown \u6587\u6863\uff0c\u901a\u8fc7\u4e09\u9875 Design Case \u786e\u8ba4\u89c6\u89c9\u65b9\u5411\uff0c\u518d\u9010\u9875\u751f\u6210\u53ef\u7f16\u8f91\u89c6\u89c9\u7a3f\u5e76\u5b8c\u6210\u6574\u5957\u5ba1\u7a3f\u4e0e PowerPoint \u5bfc\u51fa\u3002",
+        "tags": ["\u5185\u7f6e", "\u6f14\u793a\u6587\u7a3f", "\u8bbe\u8ba1\u7cfb\u7edf", "\u5e7b\u706f\u7247", "\u6f14\u8bb2\u7a3f"]
+      }
+    }
+  },
+  "interactionModel": "interactiveWorkspace",
+  "runtimeInteraction": {
+    "agentWorkspace": {
+      "managedRoot": "PPT",
+      "workspaceAccess": "readWrite",
+      "documentRoots": ["."],
+      "privateRoots": []
+    }
+  },
+  "workMultiplicity": "multiple",
+  "workObjectKinds": [
+    {
+      "id": "deck",
+      "label": "Deck",
+      "scope": "asset",
+      "identitySchema": {
+        "type": "object",
+        "properties": {
+          "deckId": { "type": "string" }
+        }
+      },
+      "contextSchema": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "slideCount": { "type": "number" },
+          "presentationSystem": { "type": "string" },
+          "presentationSystemRevision": { "type": "number" },
+          "revision": { "type": "number" }
+        }
+      }
+    },
+    {
+      "id": "slide",
+      "label": "Slide",
+      "scope": "asset",
+      "identitySchema": {
+        "type": "object",
+        "properties": {
+          "deckId": { "type": "string" },
+          "slideId": { "type": "string" }
+        }
+      },
+      "contextSchema": {
+        "type": "object",
+        "properties": {
+          "index": { "type": "number" },
+          "layout": { "type": "string" }
+        }
+      }
+    }
+  ],
+  "truthSource": "ownedObjectState",
+  "primarySurface": {
+    "componentId": "builtin-ppt-live-surface",
+    "surfaceId": "primary"
+  },
+  "primarySurfaceMode": "sidecarLinked",
+  "components": [
+    {
+      "componentId": "builtin-ppt-live-surface",
+      "kind": "surface",
+      "source": "private",
+      "role": "primarySurface",
+      "capabilities": ["interactiveSurface"],
+      "usesCapabilities": ["session.read", "component.run"]
+    },
+    {
+      "componentId": "builtin-ppt-live-agent",
+      "kind": "agent",
+      "source": "private",
+      "role": "assistant",
+      "capabilities": ["authorDeck", "reviseDeck", "exportDeck"],
+      "usesCapabilities": [
+        "filesystem.read",
+        "filesystem.write",
+        "workspace.inspect",
+        "workspace.modify",
+        "session.read",
+        "model.invoke",
+        "tool.invoke",
+        "component.run"
+      ]
+    },
+    {
+      "componentId": "builtin-ppt-runtime",
+      "kind": "bridge",
+      "source": "private",
+      "role": "deckEngine",
+      "capabilities": ["sparo.pptDeck"],
+      "usesCapabilities": ["filesystem.read", "filesystem.write", "process.spawn", "component.run"]
+    },
+    {
+      "componentId": "product-app-runtime-host",
+      "kind": "runtime",
+      "source": "shared",
+      "role": "runtimeHost",
+      "version": "^1.0.0",
+      "capabilities": ["uiWorker"],
+      "usesCapabilities": ["component.run"]
+    }
+  ],
+  "componentLockId": "",
+  "permissions": {
+    "fs": true,
+    "net": true,
+    "shell": true,
+    "gui": false,
+    "secrets": false,
+    "ai": true
+  },
+  "installScope": "system",
+  "catalogVisibility": "discoverable",
+  "enabled": true,
+  "icon": {
+    "kind": "packageAsset",
+    "path": "assets/icon.png"
+  },
+  "category": "productivity",
+  "tags": ["built-in", "presentation", "design-system", "deck", "speaker-script"],
+  "launch": {
+    "kind": "applicationSurface",
+    "targetId": "builtin-ppt-live",
+    "scopeRequirement": "workspaceRequired",
+    "surfaceId": "primary"
+  },
+  "osCapabilities": [
+    "session.read",
+    "component.run",
+    "filesystem.read",
+    "filesystem.write",
+    "workspace.inspect",
+    "workspace.modify",
+    "model.invoke",
+    "tool.invoke",
+    "process.spawn"
+  ],
+  "dataLifecycle": {
+    "retention": "externalSystem",
+    "deletion": "externalSystem",
+    "migration": "externalSystem",
+    "share": "externalReferenceOnly"
+  }
+}

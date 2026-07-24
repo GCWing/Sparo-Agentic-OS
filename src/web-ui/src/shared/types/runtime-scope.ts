@@ -1,7 +1,7 @@
 import type { WorkspaceInfo } from './global-state';
 import type { AppScope } from './app-scope';
 import { normalizeAppScope, systemAppScope } from './app-scope';
-import type { SessionStorageScope } from './session-history';
+import type { SessionDomain } from './session-history';
 
 export type RuntimeScope =
   | {
@@ -12,8 +12,8 @@ export type RuntimeScope =
     }
   | {
       kind: 'system';
-      storageScope: 'agentic_os';
-      label: 'Agentic OS';
+      domain: Extract<SessionDomain, { kind: 'os_agent' | 'global' }>;
+      label: string;
     }
   | {
       kind: 'external';
@@ -22,7 +22,7 @@ export type RuntimeScope =
     };
 
 export interface SessionScopeFields {
-  storageScope?: SessionStorageScope | null;
+  domain?: SessionDomain | null;
   workspacePath?: string | null;
   workspaceId?: string | null;
   title?: string | null;
@@ -37,11 +37,13 @@ export function normalizeRuntimePath(value?: string | null): string | null {
   return normalized || null;
 }
 
-export function systemRuntimeScope(): RuntimeScope {
+export function systemRuntimeScope(
+  domainKind: 'os_agent' | 'global',
+): RuntimeScope {
   return {
     kind: 'system',
-    storageScope: 'agentic_os',
-    label: 'Agentic OS',
+    domain: { kind: domainKind },
+    label: domainKind === 'os_agent' ? 'Agentic OS' : 'Global',
   };
 }
 
@@ -95,8 +97,8 @@ export function runtimeScopeFromSession(
   if (boundScope) {
     return runtimeScopeFromAppScope(boundScope);
   }
-  if (session.storageScope === 'agentic_os') {
-    return systemRuntimeScope();
+  if (session.domain?.kind === 'os_agent' || session.domain?.kind === 'global') {
+    return systemRuntimeScope(session.domain.kind);
   }
   const projectScope = projectRuntimeScopeFromWorkspacePath(
     session.workspacePath,
@@ -113,7 +115,7 @@ export function runtimeScopeFromSession(
 export function runtimeScopeFromAppScope(scope?: AppScope | null): RuntimeScope {
   const normalized = normalizeAppScope(scope);
   if (normalized.kind === 'system') {
-    return systemRuntimeScope();
+    return systemRuntimeScope('global');
   }
   return {
     kind: 'project',
@@ -161,7 +163,7 @@ export function runtimeScopeLabel(scope?: RuntimeScope | null): string {
 
 export function runtimeScopeIdentity(scope?: RuntimeScope | null): string {
   if (!scope) return 'none';
-  if (scope.kind === 'system') return 'system:agentic_os';
+  if (scope.kind === 'system') return `system:${scope.domain.kind}`;
   const path = (scope.kind === 'project' ? scope.workspacePath : scope.rootPath)
     .replace(/\\/g, '/')
     .toLowerCase();

@@ -1,4 +1,3 @@
-use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -8,7 +7,7 @@ use crate::agentic::coordination::{
     ConversationCoordinator, DialogScheduler, DialogSubmissionPolicy, DialogSubmitOutcome,
     DialogTriggerSource, SessionControlActor, TurnCancellationReason,
 };
-use crate::agentic::core::SessionConfig;
+use crate::agentic::core::{SessionConfig, SessionDomain, SessionLocator};
 use crate::error::{CoreError, CoreResult};
 
 use super::ids::WorkId;
@@ -19,11 +18,12 @@ pub struct CreateWorkSessionRequest {
     pub title: String,
     pub agent_type: String,
     pub workspace_path: String,
+    pub domain: SessionDomain,
 }
 
 #[derive(Debug, Clone)]
 pub struct CreateWorkSessionOutcome {
-    pub session_id: String,
+    pub locator: SessionLocator,
     pub session_name: String,
     pub agent_type: String,
 }
@@ -31,7 +31,7 @@ pub struct CreateWorkSessionOutcome {
 #[derive(Debug, Clone)]
 pub struct WorkSessionAdvanceRequest {
     pub work_id: WorkId,
-    pub session_id: String,
+    pub locator: SessionLocator,
     pub agent_type: String,
     pub workspace_path: String,
     pub instructions: String,
@@ -64,11 +64,7 @@ pub trait WorkRuntimeBridge: Send + Sync {
         Ok(())
     }
 
-    async fn delete_work_session(
-        &self,
-        _workspace_path: &str,
-        _session_id: &str,
-    ) -> CoreResult<()> {
+    async fn delete_work_session(&self, _locator: &SessionLocator) -> CoreResult<()> {
         Err(CoreError::service(
             "Work runtime bridge is required to delete Work-owned sessions",
         ))
@@ -128,7 +124,7 @@ impl WorkRuntimeBridge for AgenticWorkRuntimeBridge {
                 request.agent_type,
                 SessionConfig {
                     workspace_path: Some(request.workspace_path.clone()),
-                    ..Default::default()
+                    ..SessionConfig::new(request.domain)
                 },
                 request.workspace_path,
                 Some(format!("work-{}", request.work_id.as_str())),
@@ -136,7 +132,10 @@ impl WorkRuntimeBridge for AgenticWorkRuntimeBridge {
             .await?;
 
         Ok(CreateWorkSessionOutcome {
-            session_id: session.session_id,
+            locator: SessionLocator {
+                domain: session.config.domain.clone(),
+                session_id: session.session_id,
+            },
             session_name: session.session_name,
             agent_type: session.agent_type,
         })
@@ -153,7 +152,7 @@ impl WorkRuntimeBridge for AgenticWorkRuntimeBridge {
         let outcome = self
             .scheduler
             .submit(
-                request.session_id.clone(),
+                request.locator.session_id.clone(),
                 request.instructions.clone(),
                 Some(request.instructions),
                 None,
@@ -202,7 +201,8 @@ impl WorkRuntimeBridge for AgenticWorkRuntimeBridge {
         Ok(())
     }
 
-    async fn delete_work_session(&self, workspace_path: &str, session_id: &str) -> CoreResult<()> {
+    async fn delete_work_session(&self, locator: &SessionLocator) -> CoreResult<()> {
+        let session_id = locator.session_id.as_str();
         self.clear_work_session_queue(session_id).await?;
         self.scheduler
             .cancel_active_turn_for_session(
@@ -212,9 +212,7 @@ impl WorkRuntimeBridge for AgenticWorkRuntimeBridge {
                 Duration::from_millis(500),
             )
             .await?;
-        self.coordinator
-            .delete_session(Path::new(workspace_path), session_id)
-            .await?;
+        self.coordinator.delete_session(locator).await?;
         Ok(())
     }
 }

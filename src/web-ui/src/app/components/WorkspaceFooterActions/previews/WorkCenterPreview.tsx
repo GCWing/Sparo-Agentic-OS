@@ -16,10 +16,10 @@ import {
 } from '@/app/agentic-os/work/domain/workClassification';
 import type { WorkStatus } from '@/app/agentic-os/work/domain/workTypes';
 import type { WorkProjection } from '@/app/agentic-os/work/projections/workProjection';
+import { WorkIcon } from '@/app/agentic-os/work/presentation/WorkIcon';
 import { openWork } from '@/app/agentic-os/work/navigation/openWork';
 import {
   compareWorksForDock,
-  getWorkModeIcon,
   getWorkToneValue,
 } from '@/app/components/WorkList/workListSelection';
 import { createLogger } from '@/shared/utils/logger';
@@ -163,7 +163,6 @@ const WorkCenterPreview: React.FC<WorkspaceHubPreviewProps> = ({
       );
     }
 
-    const FocusIcon = getWorkModeIcon(focusWork);
     const focusTone = getPreviewTone(focusWork.status);
     const focusStatus = t(`nav.menuPanel.hub.preview.workCenter.workStatus.${focusWork.status}`);
 
@@ -182,7 +181,11 @@ const WorkCenterPreview: React.FC<WorkspaceHubPreviewProps> = ({
             className={`sparo-workspace-hub-work-preview__focus-icon is-${focusTone}`}
             aria-hidden="true"
           >
-            <FocusIcon size={20} color={getWorkToneValue(focusWork.status)} />
+            <WorkIcon
+              work={focusWork}
+              size={28}
+              color={getWorkToneValue(focusWork.status)}
+            />
           </span>
           <div className="sparo-workspace-hub-work-preview__focus-copy">
             <strong>{focusWork.title}</strong>
@@ -201,7 +204,6 @@ const WorkCenterPreview: React.FC<WorkspaceHubPreviewProps> = ({
         {secondaryWorks.length > 0 && (
           <div className="sparo-workspace-hub-work-preview__tiles">
             {secondaryWorks.map((work) => {
-              const WorkIcon = getWorkModeIcon(work);
               const tone = getPreviewTone(work.status);
               return (
                 <Button
@@ -215,7 +217,11 @@ const WorkCenterPreview: React.FC<WorkspaceHubPreviewProps> = ({
                   })}
                 >
                   <span className="sparo-workspace-hub-work-preview__tile-icon" aria-hidden="true">
-                    <WorkIcon size={16} color={getWorkToneValue(work.status)} />
+                    <WorkIcon
+                      work={work}
+                      size={22}
+                      color={getWorkToneValue(work.status)}
+                    />
                   </span>
                   <span className="sparo-workspace-hub-work-preview__tile-copy">
                     <strong>{work.title}</strong>

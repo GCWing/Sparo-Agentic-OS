@@ -35,8 +35,11 @@ export function sameProductAppRef(left: WorkAppRef, right: WorkAppRef): boolean 
 }
 
 export function sameAppRef(left: WorkAppRef, right: WorkAppRef): boolean {
-  return left.kind === right.kind
-    && left.slotId === right.slotId
+  if (left.kind !== right.kind) return false;
+  if (left.kind === 'product_app') {
+    return left.slotId === right.slotId && left.appId === right.appId;
+  }
+  return left.slotId === right.slotId
     && left.appId === right.appId
     && left.releaseId === right.releaseId
     && left.configRevision === right.configRevision

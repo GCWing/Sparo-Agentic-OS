@@ -366,6 +366,26 @@ pub struct ProductAppRuntimeHostInteractionTab {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ProductAppRuntimeHostFlowChatCard {
+    pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub ui: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProductAppRuntimeHostAgentWorkspace {
+    pub managed_root: String,
+    pub workspace_access: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub document_roots: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub private_roots: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProductAppRuntimeHostInteraction {
     pub mode: ProductAppRuntimeHostInteractionMode,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -374,8 +394,12 @@ pub struct ProductAppRuntimeHostInteraction {
     pub title: Option<ProductAppRuntimeHostInteractionText>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub chat: Option<ProductAppRuntimeHostInteractionChat>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_workspace: Option<ProductAppRuntimeHostAgentWorkspace>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tabs: Vec<ProductAppRuntimeHostInteractionTab>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub flow_chat_cards: Vec<ProductAppRuntimeHostFlowChatCard>,
 }
 
 /// AI context for iteration (stored in meta, not in compiled HTML).

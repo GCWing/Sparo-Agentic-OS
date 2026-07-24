@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PPT Live</title>
+    <link rel="stylesheet" href="./style.css">
+  </head>
+  <body>
+    <main id="pptLiveRoot" class="ppt-live" data-view="visual" data-design-open="false">
+      <header class="studio-header">
+        <div class="deck-identity">
+          <h1 id="deckTitle" class="deck-title" data-i18n="header.untitled">Untitled presentation</h1>
+          <span id="deckMeta" class="deck-meta" data-i18n="header.opening">Opening presentation</span>
+        </div>
+        <div class="header-actions">
+          <button id="manuscriptButton" class="header-command" type="button" aria-controls="documentView" aria-pressed="false">
+            <span data-i18n="actions.designManuscript">Design manuscript</span>
+          </button>
+          <button id="designButton" class="header-command header-command--design" type="button" aria-controls="systemView" aria-expanded="false">
+            <span data-i18n="actions.design">Design</span>
+            <small id="headerStyleName" data-i18n="presets.editorial-clarity.name">Editorial Clarity</small>
+          </button>
+          <button id="undoButton" class="icon-button" type="button" aria-label="Undo visual change" title="Undo visual change" disabled data-i18n-aria-label="actions.undo" data-i18n-title="actions.undo">
+            <span class="symbol" aria-hidden="true">&#8630;</span>
+          </button>
+          <button id="exportButton" class="header-command header-command--primary" type="button" aria-label="Export PowerPoint" title="Export PowerPoint" disabled data-i18n-aria-label="actions.export" data-i18n-title="actions.export">
+            <span data-i18n="actions.exportPptx">Export PPTX</span>
+          </button>
+        </div>
+      </header>
+
+      <div id="studioWorkspace" class="studio-workspace">
+        <section id="visualView" class="artifact-view visual-view is-empty">
+          <aside class="slide-rail" aria-label="Slides" data-i18n-aria-label="visual.slides">
+            <div id="slideThumbs" class="slide-thumbs"></div>
+          </aside>
+          <section class="canvas-shell" aria-label="Presentation preview" data-i18n-aria-label="visual.presentationPreview">
+            <section id="designCasePanel" class="design-case" hidden aria-live="polite">
+              <header class="design-case__heading">
+                <div>
+                  <span class="eyebrow" data-i18n="designCase.eyebrow">Design Case</span>
+                  <h2 data-i18n="designCase.title">Approve the visual direction before full production</h2>
+                  <p id="designCaseMeta"></p>
+                </div>
+                <span id="designCaseStatus" class="design-case__status"></span>
+              </header>
+              <div id="designCasePages" class="design-case__pages"></div>
+              <footer class="design-case__notice">
+                <span data-i18n="designCase.confirmInFlowChat">Confirm or revise this direction in the dedicated FlowChat Design Case card.</span>
+              </footer>
+            </section>
+            <div id="canvasStage" class="canvas-stage">
+              <article id="slideCanvas" class="slide-canvas is-empty" aria-label="Current slide" aria-live="polite" data-i18n-aria-label="visual.currentSlide"></article>
+            </div>
+            <footer class="canvas-controls">
+              <span id="slidePosition">0 / 0</span>
+              <span class="control-divider" aria-hidden="true"></span>
+              <button id="followGeneration" class="follow-generation is-active" type="button" aria-pressed="true" data-i18n="actions.followGeneration">Follow generation</button>
+              <span class="control-divider" aria-hidden="true"></span>
+              <button id="zoomOut" class="control-button" type="button" aria-label="Zoom out" title="Zoom out" data-i18n-aria-label="actions.zoomOut" data-i18n-title="actions.zoomOut">&minus;</button>
+              <span id="zoomValue">100%</span>
+              <button id="zoomIn" class="control-button" type="button" aria-label="Zoom in" title="Zoom in" data-i18n-aria-label="actions.zoomIn" data-i18n-title="actions.zoomIn">+</button>
+            </footer>
+          </section>
+          <aside id="visualInspector" class="visual-inspector" aria-label="Selected slide" hidden data-i18n-aria-label="visual.selectedSlide">
+            <div class="inspector-heading">
+              <span class="eyebrow" data-i18n="visual.visualOnly">Visual only</span>
+              <strong id="inspectorSlideLabel" data-i18n="visual.selectedSlide">Selected slide</strong>
+            </div>
+            <div class="inspector-slide-meta">
+              <span id="inspectorSlideStatus" data-i18n="status.previewReady">Preview ready</span>
+              <span id="inspectorSlideRecipe" data-i18n="visual.recipe">Recipe</span>
+            </div>
+          </aside>
+        </section>
+
+        <aside id="systemView" class="artifact-view system-view design-panel" aria-label="Presentation design" hidden data-i18n-aria-label="design.ariaLabel">
+          <header class="design-panel-heading">
+            <div>
+              <strong data-i18n="design.eyebrow">Design</strong>
+              <span><span data-i18n="design.currentScheme">Current</span> · <span id="currentStyleName" data-i18n="presets.editorial-clarity.name">Editorial Clarity</span></span>
+            </div>
+            <button id="closeDesign" class="icon-button icon-button--quiet" type="button" aria-label="Close design" title="Close" data-i18n-aria-label="actions.closeDesign" data-i18n-title="actions.close">&times;</button>
+          </header>
+          <div class="design-panel-scroll">
+            <section class="design-block">
+              <header class="design-block__heading">
+                <div>
+                  <strong data-i18n="design.schemes">Inferred design direction</strong>
+                  <p data-i18n="design.schemeHint">The approved Design Case governs the complete presentation.</p>
+                </div>
+              </header>
+              <div id="designSummary" class="design-summary"></div>
+            </section>
+
+            <section class="design-block design-color-block">
+              <header class="design-block__heading">
+                <div>
+                  <strong data-i18n="design.paletteTitle">Semantic colors</strong>
+                  <p data-i18n="design.paletteHint">Edit the shared tokens used by preview and PowerPoint export. Applying changes creates a new design revision and clears the current review.</p>
+                </div>
+              </header>
+              <div id="colorEditor" class="color-editor" aria-label="Semantic color editor" data-i18n-aria-label="design.paletteAriaLabel"></div>
+              <div class="color-editor__actions">
+                <button id="resetColors" class="command-button color-editor__reset" type="button" disabled data-i18n="design.resetColors">Reset</button>
+                <button id="applyColors" class="command-button color-editor__apply" type="button" disabled data-i18n="design.applyColors">Apply colors</button>
+              </div>
+            </section>
+
+            <section class="design-block design-ai-block">
+              <header class="design-block__heading">
+                <div>
+                  <strong data-i18n="design.aiTitle">Adjust with AI</strong>
+                  <p data-i18n="design.aiHint">Describe a systemic change. The Agent will invalidate and regenerate the Design Case before more pages are produced.</p>
+                </div>
+              </header>
+              <div class="design-suggestions" aria-label="Quick design directions" data-i18n-aria-label="design.suggestionsAriaLabel">
+                <button type="button" data-design-prompt-key="design.promptSimpler" data-i18n="design.suggestionSimpler">Simpler</button>
+                <button type="button" data-design-prompt-key="design.promptStronger" data-i18n="design.suggestionStronger">Stronger hierarchy</button>
+                <button type="button" data-design-prompt-key="design.promptCalmer" data-i18n="design.suggestionCalmer">Calmer</button>
+              </div>
+              <label class="design-prompt-label" for="designPrompt" data-i18n="design.promptLabel">What should change?</label>
+              <textarea id="designPrompt" class="design-prompt" rows="3" maxlength="240" placeholder="For example: use less decoration and make the data hierarchy clearer" data-i18n-placeholder="design.promptPlaceholder"></textarea>
+              <button id="changeSystem" class="command-button command-button--ai design-ai-submit" type="button" disabled data-i18n="actions.refineWithAi">Refine with AI</button>
+            </section>
+          </div>
+        </aside>
+
+        <section id="documentView" class="artifact-view document-view" hidden>
+          <header class="document-toolbar">
+            <div class="document-identity">
+              <button id="closeDocument" class="document-back" type="button" data-i18n-aria-label="actions.backToSlides" aria-label="Back to slides"><span aria-hidden="true">&#8592;</span></button>
+              <div>
+                <span id="documentEyebrow" class="eyebrow" data-i18n="documents.manuscript">Design manuscript</span>
+                <strong id="documentMeta" data-i18n="documents.initialRevision">Revision 1</strong>
+              </div>
+            </div>
+            <div class="document-actions">
+              <button id="saveDocument" class="icon-button" type="button" aria-label="Save document" title="Save" disabled data-i18n-aria-label="actions.saveDocument" data-i18n-title="actions.save"><span class="save-symbol" aria-hidden="true"></span></button>
+              <button id="syncDocument" class="command-button command-button--ai" type="button" disabled data-i18n="actions.updatePptWithAi">Update PPT with AI</button>
+            </div>
+          </header>
+          <div class="document-body">
+            <div id="documentEditorHost" class="document-editor-host" aria-label="Presentation document editor" data-i18n-aria-label="documents.editor"></div>
+          </div>
+        </section>
+      </div>
+
+      <footer id="speakerBar" class="speaker-bar">
+        <div class="speaker-context">
+          <span class="speaker-context__label" data-i18n="speaker.currentSlide">Current slide</span>
+          <strong id="speakerSlideTitle" data-i18n="speaker.noSlide">Select a slide to prepare its delivery</strong>
+        </div>
+        <span id="speakerSlideMeta" class="speaker-meta" data-i18n="speaker.separateDocument">Speaker script is edited as a substantial Markdown document</span>
+        <button id="speakerButton" class="speaker-action" type="button" aria-controls="documentView" aria-pressed="false">
+          <span id="speakerButtonLabel" data-i18n="actions.openSpeakerScript">Open speaker script</span>
+        </button>
+      </footer>
+
+      <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+      <div id="bootState" class="boot-state" aria-live="polite" data-i18n="boot.opening">Opening presentation&hellip;</div>
+    </main>
+    <script type="module" src="./ui.js"></script>
+  </body>
+</html>

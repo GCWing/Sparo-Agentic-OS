@@ -2,6 +2,7 @@ use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
 };
 use crate::agentic::tools::workspace_paths::is_sparo_runtime_uri;
+use crate::agentic::tools::ToolPathOperation;
 use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use serde_json::{json, Value};
@@ -344,6 +345,7 @@ Usage:
             .unwrap_or(self.default_max_lines_to_read as u64) as usize;
 
         let resolved = context.resolve_tool_path(file_path)?;
+        context.enforce_path_operation(ToolPathOperation::Read, &resolved)?;
 
         let read_file_result = if resolved.uses_remote_workspace_backend() {
             self.read_remote_window(&resolved.resolved_path, start_line, limit, context)

@@ -20,8 +20,9 @@ pub(crate) fn build_daily_letter_user_prompt(
     Ok(format!(
         "Write Daily Letter from this context packet.\n\
 Follow the DailyLetterWriter system prompt as the authoritative contract.\n\
-Use the packet as the evidence map. Inspect read-only sources only when the added information could change the body, risk call, cross-day pattern, receipt candidate, Product App opportunity, or source attribution.\n\
-Use the packet locale, date, and coverage window. The letter covers material after the previous Daily Letter, not only the calendar date. Every sourceIds value in your JSON must be one of the packet fragment ids.\n\
+Keep the packet roles separate: fragments are current-window evidence; memoryContext and userPreferences describe durable trajectory; correspondenceHistory contains previous letters for historical orientation and repetition control, not as self-validating evidence.\n\
+Inspect read-only sources only when the added information could change the chosen mode, body, receipt candidate, Product App opportunity, or source attribution. Never open the old letters archive: the recent correspondence needed for this run is already included in correspondenceHistory.\n\
+Use the packet locale, date, and coverage window. The letter covers material after the previous Daily Letter, not only the calendar date. Every sourceIds value in your JSON must be one of the current packet fragment ids.\n\
 Return only JSON.\n\n{}",
         json
     ))

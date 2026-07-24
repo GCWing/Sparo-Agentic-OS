@@ -1,5 +1,6 @@
 import {
-  appScopeFromWorkspacePath,
+  appScopeFromWorkspaceIdentity,
+  appScopeFromWorkScope,
   systemAppScope,
   type AppScope,
 } from '@/shared/types/app-scope';
@@ -15,14 +16,17 @@ export function resolveToolSessionAppScope(sessionId?: string | null): AppScope 
       )
     );
     if (work) {
-      return work.scope.kind === 'workspace'
-        ? appScopeFromWorkspacePath(work.scope.workspacePath) ?? systemAppScope()
-        : systemAppScope();
+      return appScopeFromWorkScope(work.scope, work.workspacePath);
     }
   }
 
-  const workspacePath = sessionId
-    ? flowChatStore.getState().sessions.get(sessionId)?.workspacePath
+  const session = sessionId
+    ? flowChatStore.getState().sessions.get(sessionId)
     : undefined;
-  return appScopeFromWorkspacePath(workspacePath) ?? systemAppScope();
+  if (!session?.workspacePath) return systemAppScope();
+  return appScopeFromWorkspaceIdentity({
+    workspaceId: session.workspaceId
+      ?? (session.domain.kind === 'workspace' ? session.domain.workspace_id : null),
+    workspacePath: session.workspacePath,
+  });
 }

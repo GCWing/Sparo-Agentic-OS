@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" data-sparo-icon="filter" data-sparo-variant="emphasis">
+  <circle cx="24" cy="24" r="22" fill="var(--sparo-icon-background, #d9231b)" />
+  <g transform="translate(5.28 5.28) scale(0.78)" stroke="var(--sparo-icon-foreground, #fff)" stroke-width="var(--sparo-icon-stroke-width, 2.5641)" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="7" y="9" width="34" height="7" rx="3.5" />
+      <rect x="13" y="21" width="22" height="7" rx="3.5" />
+      <rect x="19" y="33" width="10" height="7" rx="3.5" />
+  </g>
+</svg>

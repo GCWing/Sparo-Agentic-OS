@@ -1,6 +1,6 @@
 //! Persistent state store for the announcement system.
 //!
-//! Reads and writes `announcement-state.json` in the user config directory.
+//! Reads and writes announcement state in the global service data directory.
 
 use super::types::AnnouncementState;
 use crate::error::CoreResult;
@@ -17,8 +17,9 @@ pub struct AnnouncementStateStore {
 impl AnnouncementStateStore {
     pub fn new(path_manager: &Arc<PathManager>) -> Self {
         let state_file = path_manager
-            .user_config_dir()
-            .join("announcement-state.json");
+            .global_services_root()
+            .join("announcement")
+            .join("state.json");
         Self { state_file }
     }
 

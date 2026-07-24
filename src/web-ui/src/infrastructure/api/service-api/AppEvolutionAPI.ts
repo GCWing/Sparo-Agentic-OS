@@ -14,7 +14,6 @@ export type EvolutionProposalStatus =
   | 'active'
   | 'rejected'
   | 'failed'
-  | 'rolledBack'
   | 'archived';
 
 export interface EvolutionConsent {
@@ -40,7 +39,7 @@ export interface EvolutionSignal {
 export interface EvolutionEvaluation {
   passed: boolean;
   nonInferior: boolean;
-  rollbackVerified: boolean;
+  forwardRecoveryVerified: boolean;
   isolatedDataVerified: boolean;
   checks?: string[];
 }
@@ -123,14 +122,6 @@ export class AppEvolutionAPI {
     }
   }
 
-  async rollbackProposal(proposalId: string): Promise<EvolutionProposal> {
-    const request = { proposalId };
-    try {
-      return await api.invoke<EvolutionProposal>('rollback_app_evolution_proposal', { request });
-    } catch (error) {
-      throw createTauriCommandError('rollback_app_evolution_proposal', error, request);
-    }
-  }
 }
 
 export const appEvolutionAPI = new AppEvolutionAPI();

@@ -19,6 +19,7 @@ pub mod rehearsal;
 pub mod resolver;
 pub mod revision_store;
 pub mod runtime_storage;
+pub mod session_history;
 mod state_io;
 pub mod surfaces;
 pub mod system_apps;
@@ -41,17 +42,18 @@ pub use catalog::{
     AppComponentRef, AppDataDeletionPolicy, AppDataLifecyclePolicy, AppDataMigrationPolicy,
     AppDataRetentionPolicy, AppDataSharePolicy, AppDefinition, AppI18n, AppIconSpec,
     AppInstallScope, AppInteractionModel, AppLocalizedMetadata, AppManagementAction,
-    AppRuntimeInteraction, AppRuntimeInteractionSidecar, AppRuntimeInteractionTab,
-    AppRuntimeInteractionText, AppRuntimeSidecarAvailability, AppRuntimeSidecarIcon,
-    AppRuntimeSidecarTargetGroup, AppSurfaceMode, AppTruthSource, AppWorkMultiplicity,
-    CapabilityRef, ComponentDefinition, ComponentKind, ComponentLock, ComponentLockEntry,
-    ComponentOwnerApp, ComponentPackageSource, ComponentSource, ComponentVisibility,
-    NativeAppManagementAction, NativeAppManagementOrigin, NativeAppManagementPolicy,
-    PermissionSpec, ProductAppCatalogEntry, ProductAppCatalogIssue, ProductAppCatalogIssueSource,
-    ProductAppCatalogSourceKind, ProductAppCatalogSourceRef, ProductAppLaunch,
-    ProductAppLaunchKind, ProductAppLaunchScopeRequirement, ProductAppLibrarySource,
-    ProductAppManagementOrigin, ProductAppManagementPolicy, ProductAppUninstallPolicy, SurfaceRef,
-    WorkObjectKind, WorkObjectScope,
+    AppRuntimeAgentWorkspace, AppRuntimeFlowChatCard, AppRuntimeInteraction,
+    AppRuntimeInteractionSidecar, AppRuntimeInteractionTab, AppRuntimeInteractionText,
+    AppRuntimeSidecarAvailability, AppRuntimeSidecarIcon, AppRuntimeSidecarTargetGroup,
+    AppRuntimeWorkspaceAccess, AppSurfaceMode, AppTruthSource, AppWorkMultiplicity, CapabilityRef,
+    ComponentDefinition, ComponentKind, ComponentLock, ComponentLockEntry, ComponentOwnerApp,
+    ComponentPackageSource, ComponentSource, ComponentVisibility, NativeAppManagementAction,
+    NativeAppManagementOrigin, NativeAppManagementPolicy, PermissionSpec, ProductAppCatalogEntry,
+    ProductAppCatalogIssue, ProductAppCatalogIssueSource, ProductAppCatalogSourceKind,
+    ProductAppCatalogSourceRef, ProductAppLaunch, ProductAppLaunchKind,
+    ProductAppLaunchScopeRequirement, ProductAppLibrarySource, ProductAppManagementOrigin,
+    ProductAppManagementPolicy, ProductAppUninstallPolicy, SurfaceRef, WorkObjectKind,
+    WorkObjectScope,
 };
 pub use draft_package::{
     materialize_fork_draft_contract, rebind_draft_package_identity, validate_release_evaluation,
@@ -95,13 +97,14 @@ pub use revision_store::{
     PublishDraftRequest, ReleaseMetadata, ReleaseProvenanceKind, ReleaseRecord, ReleaseRuntimeSpec,
     ResolvedDraft, ResolvedRelease, SystemReleaseInitializationOutcome,
 };
-pub use runtime_storage::ProductAppRuntimeStorage;
-pub(crate) use state_io::{atomic_write_json, recover_atomic_json};
+pub use runtime_storage::{AppDataLocator, ProductAppRuntimeStorage};
+pub use session_history::{ProductAppSessionBinding, ProductAppSessionResolver};
 pub use surfaces::{
     AppSurfaces, ProductAppRuntimeIssueSeverity, ProductAppRuntimeLogLevel, ProductAppRuntimeState,
 };
 pub use system_apps::{
-    list_system_shared_components, seed_system_app_releases, SystemAppSeedResult,
+    list_system_shared_components, seed_system_app_releases, SystemAppSeedIssue,
+    SystemAppSeedResult,
 };
 pub use versioning::{
     compare_product_app_revisions, create_product_app_checkpoint,

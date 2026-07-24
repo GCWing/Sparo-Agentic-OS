@@ -3,9 +3,8 @@
 use crate::api::app_state::AppState;
 use serde::{Deserialize, Serialize};
 use sparo_core::app_platform::{
-    AppActivationPolicy, AppActivationScope, AppOwnerKind, EvolutionAutonomyLevel,
-    EvolutionConsent, EvolutionProposal, EvolutionProposalKind, ProductAppEvolutionState,
-    ProductAppEvolutionStore,
+    AppOwnerKind, EvolutionAutonomyLevel, EvolutionConsent, EvolutionProposal,
+    EvolutionProposalKind, ProductAppEvolutionState, ProductAppEvolutionStore,
 };
 use tauri::State;
 
@@ -29,12 +28,6 @@ pub struct ApproveAppEvolutionProposalRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppEvolutionProposalRequest {
-    pub proposal_id: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RollbackAppEvolutionProposalRequest {
     pub proposal_id: String,
 }
 
@@ -154,53 +147,6 @@ pub async fn reject_app_evolution_proposal(
 ) -> Result<EvolutionProposal, String> {
     evolution_store(&state)
         .reject_proposal(&request.proposal_id)
-        .await
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-pub async fn rollback_app_evolution_proposal(
-    state: State<'_, AppState>,
-    request: RollbackAppEvolutionProposalRequest,
-) -> Result<EvolutionProposal, String> {
-    let store = evolution_store(&state);
-    let proposal = store
-        .state()
-        .await
-        .map_err(|error| error.to_string())?
-        .proposals
-        .get(&request.proposal_id)
-        .cloned()
-        .ok_or_else(|| format!("Evolution proposal not found: {}", request.proposal_id))?;
-    let candidate_release_id = proposal.candidate_release_id.as_deref().ok_or_else(|| {
-        format!(
-            "Evolution proposal {} has no candidate Release to roll back",
-            request.proposal_id
-        )
-    })?;
-    let releases = state.app_revision_store.list_releases(None).await;
-    let candidate_release = releases
-        .iter()
-        .find(|release| release.release_id == candidate_release_id)
-        .ok_or_else(|| format!("Candidate Release not found: {candidate_release_id}"))?;
-    let candidate_app = state
-        .app_revision_store
-        .get_app(&candidate_release.app_id)
-        .await
-        .ok_or_else(|| format!("Candidate App not found: {}", candidate_release.app_id))?;
-    AppActivationPolicy::new(
-        state.app_revision_store.as_ref(),
-        state.workspace_service.path_manager(),
-    )
-    .rollback_if_current(
-        &AppActivationScope::System,
-        &candidate_app.slot_id,
-        candidate_release_id,
-    )
-    .await
-    .map_err(|error| error.to_string())?;
-    store
-        .rollback_proposal(&request.proposal_id)
         .await
         .map_err(|error| error.to_string())
 }

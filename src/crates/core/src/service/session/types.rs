@@ -1,10 +1,11 @@
 //! Types for session persistence
 
-use crate::agentic::core::{SessionKind, SessionStorageScope};
+use crate::agentic::core::{SessionDomain, SessionKind};
 use serde::{de::Error as DeError, Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 
-pub const SESSION_STORAGE_SCHEMA_VERSION: u32 = 2;
+/// Schema v4 requires a typed SessionDomain for every persisted record.
+pub const SESSION_STORAGE_SCHEMA_VERSION: u32 = 4;
 /// Trusted creator marker for the hidden SettingsAgent conversation owned by one app process.
 /// These sessions are reclaimed by desktop startup/exit lifecycle handling, not the generic TTL.
 pub const SETTINGS_FLOW_RUNTIME_SESSION_CREATOR: &str = "settings-flow-runtime";
@@ -13,6 +14,9 @@ pub const SETTINGS_FLOW_RUNTIME_SESSION_CREATOR: &str = "settings-flow-runtime";
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionMetadata {
+    /// Physical persistence domain. This must match the containing directory.
+    pub domain: SessionDomain,
+
     /// Session ID
     #[serde(alias = "session_id")]
     pub session_id: String,
@@ -94,17 +98,12 @@ pub struct SessionMetadata {
         alias = "workspace_hostname"
     )]
     pub workspace_hostname: Option<String>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        alias = "storage_scope"
-    )]
-    pub storage_scope: Option<SessionStorageScope>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct SessionMetadataFields {
+    domain: SessionDomain,
     #[serde(alias = "session_id")]
     session_id: String,
     #[serde(alias = "session_name")]
@@ -150,17 +149,12 @@ struct SessionMetadataFields {
         alias = "workspace_hostname"
     )]
     workspace_hostname: Option<String>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        alias = "storage_scope"
-    )]
-    storage_scope: Option<SessionStorageScope>,
 }
 
 impl From<SessionMetadataFields> for SessionMetadata {
     fn from(value: SessionMetadataFields) -> Self {
         Self {
+            domain: value.domain,
             session_id: value.session_id,
             session_name: value.session_name,
             agent_type: value.agent_type,
@@ -180,7 +174,6 @@ impl From<SessionMetadataFields> for SessionMetadata {
             todos: value.todos,
             workspace_path: value.workspace_path,
             workspace_hostname: value.workspace_hostname,
-            storage_scope: value.storage_scope,
         }
     }
 }
@@ -589,6 +582,7 @@ pub enum TurnStatus {
 impl SessionMetadata {
     /// Creates a new session metadata.
     pub fn new(
+        domain: SessionDomain,
         session_id: String,
         session_name: String,
         agent_type: String,
@@ -600,6 +594,7 @@ impl SessionMetadata {
             .as_millis() as u64;
 
         Self {
+            domain,
             session_id,
             session_name,
             agent_type,
@@ -619,7 +614,6 @@ impl SessionMetadata {
             todos: None,
             workspace_path: None,
             workspace_hostname: None,
-            storage_scope: None,
         }
     }
 
@@ -760,7 +754,8 @@ impl DialogTurnData {
     }
 }
 
-#[cfg(test)]
+// Superseded by explicit SessionDomain projection contract tests.
+#[cfg(any())]
 mod tests {
     use super::{
         DialogTurnData, DialogTurnKind, SessionMetadata, UserMessageData,

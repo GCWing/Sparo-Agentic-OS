@@ -45,6 +45,17 @@ const CENTERED_LAYOUT_STORAGE_KEY = 'sparo:markdown-editor:centered-layout';
 const CENTERED_LAYOUT_CHANGED_EVENT = 'sparo:markdown-editor:centered-layout-changed';
 const OUTLINE_STORAGE_KEY = 'sparo:markdown-editor:outline-enabled';
 
+function normalizeMarkdownDocument(raw: string): {
+  nextEditability: MarkdownEditabilityAnalysis;
+  nextContent: string;
+} {
+  const nextEditability = analyzeMarkdownEditability(raw);
+  const nextContent = nextEditability.mode === 'unsafe'
+    ? raw
+    : nextEditability.canonicalMarkdown;
+  return { nextEditability, nextContent };
+}
+
 function readCenteredLayoutPreference(): boolean {
   if (typeof window === 'undefined') {
     return false;
@@ -149,6 +160,7 @@ interface MarkdownEditorMoreMenuProps {
   onToggleCenteredLayout: () => void;
   outlineLabel: string;
   outlineEnabled: boolean;
+  showOutlineOption: boolean;
   onToggleOutline: () => void;
   modeToggleLabel: string;
   onToggleMode: () => void;
@@ -166,6 +178,7 @@ const MarkdownEditorMoreMenu: React.FC<MarkdownEditorMoreMenuProps> = ({
   onToggleCenteredLayout,
   outlineLabel,
   outlineEnabled,
+  showOutlineOption,
   onToggleOutline,
   modeToggleLabel,
   onToggleMode,
@@ -186,13 +199,13 @@ const MarkdownEditorMoreMenu: React.FC<MarkdownEditorMoreMenuProps> = ({
       checked: centeredLayoutEnabled,
       onClick: onToggleCenteredLayout,
     },
-    {
-      type: 'item',
+    ...(showOutlineOption ? [{
+      type: 'item' as const,
       id: 'outline',
       label: outlineLabel,
       checked: outlineEnabled,
       onClick: onToggleOutline,
-    },
+    }] : []),
     { type: 'separator', id: 'markdown-editor-more-layout-separator' },
     {
       type: 'item',
@@ -229,6 +242,7 @@ const MarkdownEditorMoreMenu: React.FC<MarkdownEditorMoreMenuProps> = ({
     onToggleOutline,
     outlineEnabled,
     outlineLabel,
+    showOutlineOption,
   ]);
 
   return (
@@ -276,6 +290,8 @@ export interface MarkdownEditorProps {
   onContentChange?: (content: string, hasChanges: boolean) => void;
   /** Save callback */
   onSave?: (content: string) => void;
+  /** Changes when a virtual document owner confirms that the current content was persisted. */
+  savedVersion?: string | number;
   /** Jump to line number (auto-jump after file opens) */
   jumpToLine?: number;
   /** Jump to column (auto-jump after file opens) */
@@ -290,6 +306,8 @@ export interface MarkdownEditorProps {
    * When an element is passed, the toolbar is portaled into it (e.g. nested panel headers).
    */
   modeToolbarHost?: HTMLElement | null;
+  /** Whether document outline navigation can be shown. */
+  showOutline?: boolean;
 }
 
 const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
@@ -301,24 +319,36 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
   className = '',
   onContentChange,
   onSave,
+  savedVersion,
   jumpToLine,
   jumpToColumn,
   isActiveTab = true,
   onFileMissingFromDiskChange,
   modeToolbarHost,
+  showOutline = true,
 }) => {
   const { t } = useI18n('tools');
   const { isLight } = useTheme();
-  const [content, setContent] = useState<string>(initialContent);
+  const virtualDocumentIdentity = fileName?.trim() || 'virtual-document';
+  const documentIdentity = filePath
+    ? `file:${filePath}`
+    : `virtual:${virtualDocumentIdentity}`;
+  const initialMarkdownRef = useRef<ReturnType<typeof normalizeMarkdownDocument> | null>(null);
+  if (initialMarkdownRef.current === null) {
+    initialMarkdownRef.current = normalizeMarkdownDocument(initialContent);
+  }
+  const initialMarkdown = initialMarkdownRef.current;
+  const [content, setContent] = useState<string>(initialMarkdown.nextContent);
   const [hasChanges, setHasChanges] = useState(false);
   const [viewMode, setViewMode] = useState<'preview' | 'markdown'>('preview');
   const [unsafeViewMode, setUnsafeViewMode] = useState<'source' | 'preview'>('source');
   const [centeredLayout, setCenteredLayout] = useState(readCenteredLayoutPreference);
   const [outlineEnabled, setOutlineEnabled] = useState(readOutlinePreference);
+  const effectiveOutlineEnabled = showOutline && outlineEnabled;
   const [exportInProgress, setExportInProgress] = useState<MarkdownExportFormat | null>(null);
   const [loading, setLoading] = useState(!!filePath);
   const [error, setError] = useState<string | null>(null);
-  const [editability, setEditability] = useState<MarkdownEditabilityAnalysis>(() => analyzeMarkdownEditability(initialContent));
+  const [editability, setEditability] = useState<MarkdownEditabilityAnalysis>(initialMarkdown.nextEditability);
   const editorRef = useRef<EditorInstance>(null);
   const isUnmountedRef = useRef(false);
   const diskVersionRef = useRef<DiskFileVersion | null>(null);
@@ -331,6 +361,14 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
   const unsafeViewModeRef = useRef(unsafeViewMode);
   unsafeViewModeRef.current = unsafeViewMode;
   const lastReportedMissingRef = useRef<boolean | undefined>(undefined);
+  const savedVersionRef = useRef(savedVersion);
+  const virtualDocumentSnapshotRef = useRef<{
+    identity: string;
+    rawContent: string;
+  } | null>(filePath ? null : {
+    identity: virtualDocumentIdentity,
+    rawContent: initialContent,
+  });
 
   const reportFileMissingFromDisk = useCallback(
     (missing: boolean) => {
@@ -399,13 +437,6 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
     });
   }, []);
 
-  const toNormalizedMarkdown = useCallback((raw: string) => {
-    const nextEditability = analyzeMarkdownEditability(raw);
-    const nextContent =
-      nextEditability.mode === 'unsafe' ? raw : nextEditability.canonicalMarkdown;
-    return { nextEditability, nextContent };
-  }, []);
-
   const basePath = React.useMemo(() => {
     if (!filePath) return undefined;
     const normalizedPath = filePath.replace(/\\/g, '/');
@@ -461,7 +492,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
   useEffect(() => {
     setViewMode('preview');
     setUnsafeViewMode('source');
-  }, [filePath, initialContent]);
+  }, [documentIdentity]);
 
   const fetchFileMetadata = useCallback(async () => {
     if (!filePath) {
@@ -502,7 +533,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
       }
 
       if (!isUnmountedRef.current) {
-        const { nextEditability, nextContent } = toNormalizedMarkdown(fileContent);
+        const { nextEditability, nextContent } = normalizeMarkdownDocument(fileContent);
 
         setEditability(nextEditability);
         setContent(nextContent);
@@ -535,7 +566,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
         setLoading(false);
       }
     }
-  }, [fetchFileMetadata, filePath, reportFileMissingFromDisk, t, toNormalizedMarkdown]);
+  }, [fetchFileMetadata, filePath, reportFileMissingFromDisk, t]);
 
   // Initial file load - only run once when filePath changes
   const loadFileContentCalledRef = useRef(false);
@@ -546,34 +577,55 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
   }, [filePath]);
   
   useEffect(() => {
-    if (filePath) {
-      if (!loadFileContentCalledRef.current) {
-        loadFileContentCalledRef.current = true;
-        loadFileContent();
-      }
-    } else if (initialContent !== undefined) {
-      // Virtual documents mirror edits back into their owning tab. When that
-      // controlled value is merely echoing the editor's current content,
-      // resetting the editing surface would destroy the active selection and
-      // make typing appear to flicker or revert.
-      if (initialContent === contentRef.current) return;
-      const nextEditability = analyzeMarkdownEditability(initialContent);
-      const nextContent = nextEditability.mode === 'unsafe'
-        ? initialContent
-        : nextEditability.canonicalMarkdown;
+    if (!filePath || loadFileContentCalledRef.current) return;
+    loadFileContentCalledRef.current = true;
+    void loadFileContent();
+  }, [filePath, loadFileContent]);
 
-      setEditability(nextEditability);
-      setContent(nextContent);
-      setHasChanges(false);
-      lastReportedDirtyRef.current = false;
-      setTimeout(() => {
-        editorRef.current?.setInitialContent?.(nextContent);
-      }, 0);
-      // NOTE: Do NOT call onContentChange here during initial load.
-      // Calling it triggers parent re-render which unmounts this component,
-      // causing an infinite loop.
+  useEffect(() => {
+    if (filePath) {
+      virtualDocumentSnapshotRef.current = null;
+      return;
     }
-  }, [filePath, initialContent, loadFileContent]);
+
+    const previousSnapshot = virtualDocumentSnapshotRef.current;
+    const sameDocument = previousSnapshot?.identity === virtualDocumentIdentity;
+
+    // An external raw snapshot is a version boundary, independent of the
+    // canonical Markdown used by the editor. Once a raw snapshot is recorded,
+    // internal normalization must not make that same snapshot look new again.
+    if (sameDocument && previousSnapshot.rawContent === initialContent) return;
+    virtualDocumentSnapshotRef.current = {
+      identity: virtualDocumentIdentity,
+      rawContent: initialContent,
+    };
+
+    // Virtual document owners mirror user edits back through initialContent.
+    // Treat an echo of the current editor value as acknowledgement, not as an
+    // external replacement that resets selection and dirty state.
+    if (sameDocument && initialContent === contentRef.current) return;
+
+    const { nextEditability, nextContent } = normalizeMarkdownDocument(initialContent);
+    contentRef.current = nextContent;
+    hasChangesRef.current = false;
+    setEditability(nextEditability);
+    setContent(nextContent);
+    setHasChanges(false);
+    lastReportedDirtyRef.current = false;
+    editorRef.current?.setInitialContent?.(nextContent);
+    // External snapshots establish a new baseline and must not be reported
+    // back to the owner as a user edit.
+  }, [filePath, initialContent, virtualDocumentIdentity]);
+
+  useEffect(() => {
+    if (savedVersionRef.current === savedVersion) return;
+    savedVersionRef.current = savedVersion;
+    editorRef.current?.markSaved?.();
+    setHasChanges(false);
+    hasChangesRef.current = false;
+    lastReportedDirtyRef.current = false;
+    onContentChangeRef.current?.(contentRef.current, false);
+  }, [savedVersion]);
 
   const checkMarkdownDisk = useCallback(async () => {
     if (!filePath || !isActiveTab || isUnmountedRef.current || isCheckingDiskRef.current) {
@@ -618,7 +670,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
         outcome = 'editor-changed-before-read';
         return;
       }
-      const { nextEditability, nextContent } = toNormalizedMarkdown(raw);
+      const { nextEditability, nextContent } = normalizeMarkdownDocument(raw);
       if (nextContent === contentRef.current) {
         diskVersionRef.current = currentVersion;
         outcome = 'content-match';
@@ -689,7 +741,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
       }
       isCheckingDiskRef.current = false;
     }
-  }, [fetchFileMetadata, filePath, isActiveTab, reportFileMissingFromDisk, t, toNormalizedMarkdown]);
+  }, [fetchFileMetadata, filePath, isActiveTab, reportFileMissingFromDisk, t]);
 
   const isUnsafeSplitUi = shouldUseDocumentSourcePreviewFallback(editability, !!filePath);
   const pollMarkdownDisk = !isUnsafeSplitUi || unsafeViewMode !== 'source';
@@ -744,7 +796,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
           });
           if (!overwrite) {
             const raw = await workspaceAPI.readFileContent(filePath);
-            const { nextEditability, nextContent } = toNormalizedMarkdown(raw);
+            const { nextEditability, nextContent } = normalizeMarkdownDocument(raw);
             if (!isUnmountedRef.current) {
               setEditability(nextEditability);
               setContent(nextContent);
@@ -810,7 +862,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
         setError(t('editor.common.saveFailedWithMessage', { message: errorMessage }));
       }
     }
-  }, [content, fetchFileMetadata, filePath, hasChanges, onSave, reportFileMissingFromDisk, t, toNormalizedMarkdown, workspacePath]);
+  }, [content, fetchFileMetadata, filePath, hasChanges, onSave, reportFileMissingFromDisk, t, workspacePath]);
 
   const handleContentChange = useCallback((newContent: string) => {
     contentRef.current = newContent;
@@ -930,7 +982,8 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
             centeredLayoutEnabled={centeredLayout}
             onToggleCenteredLayout={toggleCenteredLayout}
             outlineLabel={t('markdown.editor.documentSections')}
-            outlineEnabled={outlineEnabled}
+            outlineEnabled={effectiveOutlineEnabled}
+            showOutlineOption={showOutline}
             onToggleOutline={toggleOutline}
             modeToggleLabel={unsafeViewMode === 'source' ? t('markdown.editor.preview') : t('markdown.editor.source')}
             onToggleMode={() => setUnsafeViewMode((mode) => (mode === 'source' ? 'preview' : 'source'))}
@@ -1024,8 +1077,9 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
           centeredLayoutEnabled={centeredLayout}
           onToggleCenteredLayout={toggleCenteredLayout}
           outlineLabel={t('markdown.editor.documentSections')}
-          outlineEnabled={outlineEnabled}
-          onToggleOutline={toggleOutline}
+            outlineEnabled={effectiveOutlineEnabled}
+            showOutlineOption={showOutline}
+            onToggleOutline={toggleOutline}
           modeToggleLabel={viewMode === 'preview' ? t('markdown.editor.source') : t('markdown.editor.livePreview')}
           onToggleMode={() => setViewMode((mode) => (mode === 'preview' ? 'markdown' : 'preview'))}
           exportHtmlLabel={t('markdown.editor.exportHtml')}
@@ -1051,7 +1105,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
           emptyDocumentPlaceholder={viewMode === 'preview' ? previewPlaceholder : undefined}
           readonly={readOnly}
           toolbar={false}
-          outline={outlineEnabled}
+          outline={effectiveOutlineEnabled}
           filePath={filePath}
           workspacePath={workspacePath}
           basePath={basePath}

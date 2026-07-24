@@ -12,7 +12,10 @@ import {
 import { systemAppScope, type AppScope } from '@/shared/types/app-scope';
 import { buildAppBuilderWorkRequest } from './appBuilderWork';
 
-function getWorkSession(work: WorkRecord): { sessionId: string; workspacePath?: string | null } {
+function getWorkSession(work: WorkRecord): {
+  locator: NonNullable<WorkRecord['sessionRefs'][number]['locator']>;
+  workspacePath?: string | null;
+} {
   const surface = work.primarySurface.kind === 'work_session'
     ? work.primarySurface
     : work.surfaces.find((candidate) => candidate.kind === 'work_session');
@@ -20,8 +23,11 @@ function getWorkSession(work: WorkRecord): { sessionId: string; workspacePath?: 
     throw new Error(`App Builder Work has no WorkSession: ${work.id}`);
   }
   const sessionRef = work.sessionRefs.find((candidate) => candidate.sessionId === surface.sessionId);
+  if (!sessionRef?.locator) {
+    throw new Error(`App Builder WorkSession has no locator: ${surface.sessionId}`);
+  }
   return {
-    sessionId: surface.sessionId,
+    locator: sessionRef.locator,
     workspacePath: sessionRef?.workspacePath,
   };
 }
@@ -46,7 +52,7 @@ export async function openAppBuilderSession(
   const session = await openBoundAgentSession({
     descriptor: SESSION_DESCRIPTORS.appBuilder,
     sessionName: request.app.displayName,
-    storageScope: 'workspace',
+    domain: workSession.locator.domain,
     existingSession: workSession,
     context: { kind: 'work', workId: work.id },
     binding: {

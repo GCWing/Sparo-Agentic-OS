@@ -19,6 +19,11 @@ export interface RustModelConfig {
 
  
 export function convertToRustConfig(config: ModelConfig): RustModelConfig {
+  const contextWindow = config.contextWindow;
+  if (typeof contextWindow !== 'number' || !Number.isFinite(contextWindow) || contextWindow <= 0) {
+    throw new Error('Context window must be greater than zero');
+  }
+
   return {
     id: config.id,
     name: config.name,
@@ -26,7 +31,7 @@ export function convertToRustConfig(config: ModelConfig): RustModelConfig {
     format: config.format,
     base_url: config.baseUrl,          
     api_key: config.apiKey,            
-    context_window: config.contextWindow || 128128,  
+    context_window: contextWindow,
     max_tokens: config.maxTokens,      
   };
 }
@@ -41,6 +46,13 @@ export function validateModelConfig(config: ModelConfig, isNewConfig: boolean = 
   if (!config.modelName) errors.push('Missing model name');
   if (!config.format) errors.push('Missing API format');
   if (!config.baseUrl) errors.push('Missing API base URL');
+  if (
+    typeof config.contextWindow !== 'number'
+    || !Number.isFinite(config.contextWindow)
+    || config.contextWindow <= 0
+  ) {
+    errors.push('Context window must be greater than zero');
+  }
   
   return errors;
 }

@@ -11,7 +11,7 @@ pub(crate) async fn build_memory_manifest_for_target(
     target: MemoryStoreTarget<'_>,
 ) -> CoreResult<Option<String>> {
     ensure_memory_store_for_target(target).await?;
-    let memory_dir = memory_store_dir_path_for_target(target);
+    let memory_dir = memory_store_dir_path_for_target(target)?;
     let primary_files = memory_primary_files_for_scope(target.scope());
     let mut memory_files = primary_files
         .iter()

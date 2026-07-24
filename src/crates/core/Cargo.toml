@@ -140,6 +140,9 @@ tauri-support = ["tauri"]  # Optional tauri support
 [dev-dependencies]
 tempfile = "3"
 
+[build-dependencies]
+semver = { workspace = true }
+
 [[example]]
 name = "recompile_product_app_runtime_host"
 path = "examples/recompile_product_app_runtime_host.rs"

@@ -1,4 +1,4 @@
-import type { Session } from '../types/flow-chat';
+import type { SessionDomain } from '@/shared/types/session-history';
 import { isSystemAgenticOsSession, type SessionDescriptor } from './sessionDescriptor';
 
 type WorkspaceScopeKind = 'workspace' | 'global';
@@ -6,7 +6,7 @@ type WorkspaceScopeKind = 'workspace' | 'global';
 interface GoalSupportTarget {
   workspacePath?: string | null;
   workspaceScopeKind?: WorkspaceScopeKind;
-  storageScope?: Session['storageScope'] | SessionDescriptor['storageScope'] | null;
+  domain?: SessionDomain | null;
   descriptor?: SessionDescriptor | null;
   agentId?: string | null;
 }
@@ -24,8 +24,8 @@ export function supportsSessionGoal(target: GoalSupportTarget): boolean {
 
   const descriptor = target.descriptor;
   if (
-    target.storageScope === 'agentic_os' ||
-    descriptor?.storageScope === 'agentic_os' ||
+    target.domain?.kind !== 'workspace' ||
+    descriptor?.sessionDomainKind !== 'workspace' ||
     (descriptor ? isSystemAgenticOsSession(descriptor) : false)
   ) {
     return false;

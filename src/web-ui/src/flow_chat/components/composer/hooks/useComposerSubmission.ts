@@ -257,9 +257,10 @@ export function useComposerSubmission({
     try {
       const { agentAPI } = await import('@/infrastructure/api');
       await agentAPI.compactSession({
-        sessionId: effectiveTargetSessionId,
-        workspacePath: effectiveTargetSession.workspacePath,
-        storageScope: effectiveTargetSession.storageScope,
+        locator: {
+          session_id: effectiveTargetSessionId,
+          domain: effectiveTargetSession.domain,
+        },
       });
     } catch (error) {
       log.error('Failed to compact session', { error, sessionId: effectiveTargetSessionId });
@@ -338,7 +339,7 @@ export function useComposerSubmission({
     const goalWorkspacePath = effectiveTargetSession.workspacePath || workspacePath || '';
     const supportsGoal = supportsSessionGoal({
       workspacePath: goalWorkspacePath,
-      storageScope: effectiveTargetSession.storageScope,
+      domain: effectiveTargetSession.domain,
       descriptor: effectiveTargetSession.descriptor,
     });
     if (!supportsGoal) {

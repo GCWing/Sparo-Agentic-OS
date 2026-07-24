@@ -40,7 +40,7 @@ function buildRuntimeTabDescriptor(
   const runtimeContext = binding.runtimeContext;
   const identityParts = [
     sessionId,
-    runtimeContext?.workId,
+    runtimeContext?.workLocator.workId,
     runtimeContext?.runtimeInstanceId,
   ].filter((value): value is string => Boolean(value));
   const duplicateCheckKey = tab.sidecar?.actionId

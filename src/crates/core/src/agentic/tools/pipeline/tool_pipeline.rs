@@ -209,6 +209,7 @@ mod tests {
             },
             ToolExecutionContext {
                 session_id: "owner-session".to_string(),
+                session_domain: crate::agentic::core::SessionDomain::Global,
                 dialog_turn_id: "turn-1".to_string(),
                 surface_mode: SessionSurfaceMode::UserVisible,
                 agent_type: "SettingsAgent".to_string(),
@@ -1063,6 +1064,7 @@ impl ToolPipeline {
             tool_call_id: Some(task.tool_call.tool_id.clone()),
             agent_type: Some(task.context.agent_type.clone()),
             session_id: Some(task.context.session_id.clone()),
+            session_domain: Some(task.context.session_domain.clone()),
             dialog_turn_id: Some(task.context.dialog_turn_id.clone()),
             workspace: task.context.workspace.clone(),
             custom_data: {
@@ -1105,6 +1107,17 @@ impl ToolPipeline {
                         "tool_confirmation_granted".to_string(),
                         serde_json::Value::Bool(true),
                     );
+                }
+
+                for key in [
+                    crate::agentic::product_app_context::PRODUCT_APP_ID_CONTEXT_KEY,
+                    crate::agentic::product_app_context::PRODUCT_APP_WORK_ID_CONTEXT_KEY,
+                    crate::agentic::product_app_context::PRODUCT_APP_RUNTIME_INSTANCE_ID_CONTEXT_KEY,
+                    crate::agentic::product_app_context::PRODUCT_APP_SLOT_ID_CONTEXT_KEY,
+                ] {
+                    if let Some(value) = task.context.context_vars.get(key) {
+                        map.insert(key.to_string(), serde_json::json!(value));
+                    }
                 }
 
                 map

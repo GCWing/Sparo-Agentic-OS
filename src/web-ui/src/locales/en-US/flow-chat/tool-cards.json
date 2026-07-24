@@ -1055,6 +1055,35 @@
   "plannerButton": {
     "planner": "Planner"
   },
+  "pptLive": {
+    "brand": "PPT Live"
+  },
+  "pptDesignCase": {
+    "title": "Design Case",
+    "awaiting": "Your decision",
+    "approved": "Approved",
+    "revisionRequested": "Revision requested",
+    "preparing": "Preparing three real sample pages",
+    "failure": "The Design Case decision could not be recorded.",
+    "errorTitle": "Design Case unavailable",
+    "direction": "Visual direction",
+    "density": "Information density",
+    "audienceFit": "Audience fit",
+    "inferred": "Inferred from the topic",
+    "previewAlt": "Design Case preview: {{title}}",
+    "guidance": "Judge the system across all three pages: palette, typography, density, visual grammar, and rhythm. This decision applies to the whole deck.",
+    "approveAction": "Approve direction",
+    "adjustColor": "Adjust color",
+    "adjustDensity": "Adjust density",
+    "adjustLanguage": "Change visual language",
+    "feedbackPlaceholder": "Describe one systemic change for the whole deck...",
+    "submitFeedback": "Request revision",
+    "revisionColorFeedback": "Revise the whole Design Case with a more appropriate color direction while preserving the argument and page roles.",
+    "revisionDensityFeedback": "Revise the whole Design Case with a more appropriate information density and reading rhythm.",
+    "revisionLanguageFeedback": "Revise the whole Design Case with a different visual language and composition grammar.",
+    "approvedReceipt": "The Design Case is approved. Full visual production may now continue against this system.",
+    "revisionReceipt": "A systemic Design Case revision was requested. Full visual production remains blocked until a new case is approved."
+  },
   "turnRollback": {
     "rollback": "Rollback",
     "rollbackTooltip": "Rollback to this turn"

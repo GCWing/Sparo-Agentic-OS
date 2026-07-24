@@ -60,7 +60,7 @@
     "time": "时间",
     "agent": "智能体",
     "model": "模型",
-    "tokens": "Tokens"
+    "tokens": "Token 数"
   },
   "empty": "这个视图下暂时没有 AI 用量记录。"
 }

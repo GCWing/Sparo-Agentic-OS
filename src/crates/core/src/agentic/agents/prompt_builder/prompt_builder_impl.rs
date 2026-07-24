@@ -8,6 +8,7 @@ use crate::agentic::memory::store::{
     build_memory_files_context_for_target, build_memory_prompt_for_target, MemoryScope,
     MemoryStoreTarget,
 };
+use crate::agentic::product_app_context::ProductAppExecutionContext;
 use crate::error::{CoreError, CoreResult};
 use crate::service::config::get_app_language_code;
 use crate::service::config::global::GlobalConfigManager;
@@ -45,6 +46,8 @@ pub struct PromptBuilderContext {
     pub remote_project_layout: Option<String>,
     /// When `Some(false)`, system prompt append Computer use text-only guidance (no screenshot tool output).
     pub supports_image_understanding: Option<bool>,
+    /// Trusted, request-scoped Product App Work identity.
+    pub product_app: Option<ProductAppExecutionContext>,
 }
 
 impl PromptBuilderContext {
@@ -57,6 +60,7 @@ impl PromptBuilderContext {
             remote_execution: None,
             remote_project_layout: None,
             supports_image_understanding: None,
+            product_app: None,
         }
     }
 
@@ -72,6 +76,11 @@ impl PromptBuilderContext {
 
     pub fn with_supports_image_understanding(mut self, supports: bool) -> Self {
         self.supports_image_understanding = Some(supports);
+        self
+    }
+
+    pub fn with_product_app_context(mut self, context: ProductAppExecutionContext) -> Self {
+        self.product_app = Some(context);
         self
     }
 
@@ -207,6 +216,10 @@ impl PromptBuilder {
         policy: &RequestContextPolicy,
     ) -> Option<String> {
         let mut sections = Vec::new();
+
+        if let Some(product_app) = self.context.product_app.as_ref() {
+            sections.push(product_app.render_prompt_block());
+        }
 
         let workspace = Path::new(&self.context.workspace_path);
         if self.context.remote_execution.is_none()
@@ -382,7 +395,7 @@ Output Mermaid in fenced code blocks (```mermaid) so the UI can render them.
             let agent_memory = if self.context.remote_execution.is_some()
                 && matches!(self.context.memory_scope, MemoryScope::WorkspaceProject)
             {
-                "# Auto memory\nPersistent memory under `.sparo_os/` is stored on the **remote** host for this workspace. Use file tools with POSIX paths under the workspace root if you need to read it.\n\n"
+                "# Auto memory\nWorkspace memory is managed by the Sparo host under the registered Workspace ID. Do not infer or read a project-local `.sparo_os/memory` directory; use the injected memory context and memory APIs.\n\n"
                     .to_string()
             } else {
                 match build_memory_prompt_for_target(self.current_memory_target()).await {

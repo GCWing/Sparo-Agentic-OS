@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "screenshotId": { "type": ["string", "null"] },
+    "boundsPercent": { "type": "object" },
+    "hierarchyNode": { "type": ["object", "null"] },
+    "sourceHints": { "type": "object" }
+  }
+}

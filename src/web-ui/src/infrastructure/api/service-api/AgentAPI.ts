@@ -3,7 +3,7 @@
 import { api } from './ApiClient';
 import { createTauriCommandError } from '../errors/TauriCommandError';
 import type { ImageContextData as ImageInputContextData } from './ImageContextTypes';
-import type { SessionStorageScope, TriggerSource } from '@/shared/types/session-history';
+import type { SessionDomain, SessionLocator, TriggerSource } from '@/shared/types/session-history';
 
 
 
@@ -24,14 +24,15 @@ export interface SessionModelAutoMigratedEvent {
  
 export interface SessionConfig {
   modelName?: string;
-  maxContextTokens?: number;
+  contextPolicy?:
+    | { mode: 'followModel' }
+    | { mode: 'explicitCap'; maxTokens: number };
   autoCompact?: boolean;
   enableTools?: boolean;
   safeMode?: boolean;
   maxTurns?: number;
   enableContextCompression?: boolean;
   compressionThreshold?: number;
-  storageScope?: SessionStorageScope;
 }
 
  
@@ -40,7 +41,7 @@ export interface CreateSessionRequest {
   sessionName: string;
   agentType: string;
   workspacePath?: string;
-  storageScope?: SessionStorageScope;
+  domain: SessionDomain;
   config?: SessionConfig;
 }
 
@@ -198,9 +199,7 @@ export interface DialogTurnGuidanceFailedEvent {
 }
 
 export interface CompactSessionRequest {
-  sessionId: string;
-  workspacePath?: string;
-  storageScope?: SessionStorageScope;
+  locator: SessionLocator;
 }
 
  
@@ -219,10 +218,8 @@ export interface UpdateSessionModelRequest {
 }
 
 export interface UpdateSessionTitleRequest {
-  sessionId: string;
+  locator: SessionLocator;
   title: string;
-  workspacePath?: string;
-  storageScope?: SessionStorageScope;
 }
 
 export interface UpdateSessionWorkspaceRequest {
@@ -400,32 +397,22 @@ export class AgentAPI {
   }
 
    
-  async deleteSession(
-    sessionId: string,
-    workspacePath?: string,
-    storageScope?: SessionStorageScope
-  ): Promise<void> {
+  async deleteSession(locator: SessionLocator): Promise<void> {
     try {
-      await api.invoke<void>('delete_session', { 
-        request: { sessionId, workspacePath, storageScope } 
-      });
+      await api.invoke<void>('delete_session', { request: { locator } });
     } catch (error) {
-      throw createTauriCommandError('delete_session', error, { sessionId, workspacePath });
+      throw createTauriCommandError('delete_session', error, { locator });
     }
   }
 
    
-  async restoreSession(
-    sessionId: string,
-    workspacePath?: string,
-    storageScope?: SessionStorageScope
-  ): Promise<SessionInfo> {
+  async restoreSession(locator: SessionLocator): Promise<SessionInfo> {
     try {
       return await api.invoke<SessionInfo>('restore_session', {
-        request: { sessionId, workspacePath, storageScope },
+        request: { locator },
       });
     } catch (error) {
-      throw createTauriCommandError('restore_session', error, { sessionId, workspacePath });
+      throw createTauriCommandError('restore_session', error, { locator });
     }
   }
 
@@ -435,9 +422,7 @@ export class AgentAPI {
    * using the same workspace path resolution as restore_session.
    */
   async ensureCoordinatorSession(request: {
-    sessionId: string;
-    workspacePath?: string;
-    storageScope?: SessionStorageScope;
+    locator: SessionLocator;
   }): Promise<void> {
     try {
       await api.invoke<void>('ensure_coordinator_session', { request });
@@ -472,16 +457,13 @@ export class AgentAPI {
 
 
    
-  async listSessions(
-    workspacePath?: string,
-    storageScope?: SessionStorageScope
-  ): Promise<SessionInfo[]> {
+  async listSessions(domain: SessionDomain): Promise<SessionInfo[]> {
     try {
       return await api.invoke<SessionInfo[]>('list_sessions', {
-        request: { workspacePath, storageScope },
+        request: { domain },
       });
     } catch (error) {
-      throw createTauriCommandError('list_sessions', error, { workspacePath });
+      throw createTauriCommandError('list_sessions', error, { domain });
     }
   }
 

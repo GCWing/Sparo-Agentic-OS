@@ -179,7 +179,7 @@ impl MemoryConsolidationService {
         }
 
         let global_memory_dir =
-            memory_store_dir_path_for_target(MemoryStoreTarget::GlobalAgenticOs);
+            memory_store_dir_path_for_target(MemoryStoreTarget::GlobalAgenticOs)?;
         let global_soul_file = global_memory_dir.join(SOUL_FILE_NAME);
         let global_user_file = global_memory_dir.join(USER_FILE_NAME);
         let global_memory_file = global_memory_dir.join(MEMORY_CANONICAL_FILE);
@@ -255,7 +255,7 @@ impl MemoryConsolidationService {
         let mut workspace_roots = Vec::new();
         for workspace in candidate_workspaces {
             let workspace_root = workspace.root_path;
-            let memory_dir = path_manager.workspace_memory_dir(workspace_root.as_path());
+            let memory_dir = path_manager.workspace_memory_dir(workspace_root.as_path())?;
             let prior_state = {
                 let state = self.state.lock().await;
                 state.source_state(&workspace_root.to_string_lossy().replace('\\', "/"))
@@ -276,7 +276,7 @@ impl MemoryConsolidationService {
                 key: workspace_root.to_string_lossy().replace('\\', "/"),
                 kind: MemoryConsolidationSourceKind::Workspace,
                 workspace_root: Some(workspace_root.clone()),
-                memory_dir: path_manager.workspace_memory_dir(workspace_root.as_path()),
+                memory_dir: path_manager.workspace_memory_dir(workspace_root.as_path())?,
             });
         }
 
@@ -415,6 +415,7 @@ fn build_runtime_restrictions(
             write_roots: write_roots.clone(),
             edit_roots: write_roots,
             delete_roots: Vec::new(),
+            ..ToolPathPolicy::default()
         },
         disable_snapshot_tracking: true,
     }

@@ -311,7 +311,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const supportsGoalForComposer = supportsSessionGoal({
     workspacePath: effectiveWorkspacePath,
     workspaceScopeKind,
-    storageScope: effectiveTargetSession?.storageScope ?? effectiveTargetSession?.descriptor.storageScope,
+    domain: effectiveTargetSession?.domain,
     descriptor: effectiveTargetSession?.descriptor,
     agentId: currentAgent,
   });
@@ -387,7 +387,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     descriptor: activeSessionDescriptor,
     targetSessionId: effectiveTargetSessionId ?? null,
     workspacePath: effectiveWorkspacePath,
-    storageScope: effectiveTargetSession?.storageScope ?? activeSessionDescriptor?.storageScope,
+    domain: effectiveTargetSession?.domain,
     customMetadata: effectiveTargetSession?.customMetadata,
     availableAgents: modeState.available,
     currentAgent,
@@ -404,7 +404,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     currentSessionId,
     derivedState?.isProcessing,
     effectiveTargetSession?.customMetadata,
-    effectiveTargetSession?.storageScope,
+    effectiveTargetSession?.domain,
     effectiveTargetSessionId,
     effectiveWorkspacePath,
     inputState.isActive,

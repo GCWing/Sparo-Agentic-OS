@@ -1,0 +1,26 @@
+[
+  {
+    "title": "Inspect without changing",
+    "prompt": "Using the current selection, explain the table structure, formula patterns, number formats, missing values, and anything that could mislead a reader. Do not change the workbook."
+  },
+  {
+    "title": "Professional table makeover",
+    "prompt": "Redesign the focused data as a clear management table. Preserve the data, add a restrained semantic style system, suitable number formats, readable widths, a frozen header, and a useful filter. Propose the complete visual change for grid review."
+  },
+  {
+    "title": "Author a quarterly summary",
+    "prompt": "Create a quarterly sales summary sheet with clear inputs and outputs, guarded growth and total formulas, percentage and currency formats, a concise note, and a professional layout. Let me review it before accepting and exporting xlsx."
+  },
+  {
+    "title": "Engineer robust formulas",
+    "prompt": "Read the focused table and add maintainable conditional totals and lookup formulas using its real headers. Guard missing matches and zero denominators, statically validate the references, and clearly separate formula lint from recalculation."
+  },
+  {
+    "title": "Clean then verify",
+    "prompt": "Profile the focused data, propose a scoped cleanup for whitespace, types, blanks, and duplicates, preserve the original columns, and highlight any assumptions for Accept or Reject."
+  },
+  {
+    "title": "Safe structure change",
+    "prompt": "Inspect formulas first, then add a new Summary sheet without restructuring the source data. Build its content and design as one proposal and keep every committed change undoable."
+  }
+]

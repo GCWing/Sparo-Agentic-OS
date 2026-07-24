@@ -8,11 +8,11 @@ const test = require("node:test");
 
 const runtimeRoot = path.resolve(
   __dirname,
-  "../../bundles/product-apps/builtin-remotion-live/19.0.0/components/bridges/builtin-remotion-runtime/source/src",
+  "../../bundles/product-apps/builtin-remotion-live/19.0.2/components/bridges/builtin-remotion-runtime/source/src",
 );
 const surfaceRoot = path.resolve(
   __dirname,
-  "../../bundles/product-apps/builtin-remotion-live/19.0.0/components/surfaces/builtin-remotion-live-surface/source/src",
+  "../../bundles/product-apps/builtin-remotion-live/19.0.2/components/surfaces/builtin-remotion-live-surface/source/src",
 );
 const {
   computeInputPropsRevision,

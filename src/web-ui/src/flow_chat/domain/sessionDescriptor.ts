@@ -1,6 +1,6 @@
 import type {
   ProductAppRuntimeSessionMetadata,
-  SessionStorageScope,
+  SessionDomain,
 } from '@/shared/types/session-history';
 
 export type SessionHostKind =
@@ -44,7 +44,7 @@ export interface SessionDescriptor {
   identityId: SessionIdentityId;
   labelKey: string;
   agentPolicy: SessionAgentPolicy;
-  storageScope: SessionStorageScope;
+  sessionDomainKind: SessionDomain['kind'];
 }
 
 const BITFUN_CODER_AGENT_IDS = ['bitfun-coder', 'bitfun-plan', 'bitfun-debug', 'bitfun-team'] as const;
@@ -66,7 +66,7 @@ export const SESSION_DESCRIPTORS = {
     identityId: 'agentic-os',
     labelKey: 'apps.agenticOs.name',
     agentPolicy: createPolicy('OSAgent'),
-    storageScope: 'agentic_os',
+    sessionDomainKind: 'os_agent',
   },
   runno: {
     hostKind: 'agent-component',
@@ -74,7 +74,7 @@ export const SESSION_DESCRIPTORS = {
     identityId: 'runno',
     labelKey: 'apps.runno.name',
     agentPolicy: createPolicy('Runno'),
-    storageScope: 'workspace',
+    sessionDomainKind: 'workspace',
   },
   bitfunCoder: {
     hostKind: 'agent-component',
@@ -82,7 +82,7 @@ export const SESSION_DESCRIPTORS = {
     identityId: 'bitfun-coder',
     labelKey: 'apps.bitfunCoder.name',
     agentPolicy: createPolicy('bitfun-coder', BITFUN_CODER_AGENT_IDS),
-    storageScope: 'workspace',
+    sessionDomainKind: 'workspace',
   },
   cowork: {
     hostKind: 'agent-component',
@@ -90,7 +90,7 @@ export const SESSION_DESCRIPTORS = {
     identityId: 'cowork',
     labelKey: 'apps.cowork.name',
     agentPolicy: createPolicy('Cowork'),
-    storageScope: 'workspace',
+    sessionDomainKind: 'workspace',
   },
   design: {
     hostKind: 'agent-component',
@@ -98,7 +98,7 @@ export const SESSION_DESCRIPTORS = {
     identityId: 'design',
     labelKey: 'apps.design.name',
     agentPolicy: createPolicy('Design'),
-    storageScope: 'workspace',
+    sessionDomainKind: 'workspace',
   },
   deepResearch: {
     hostKind: 'agent-component',
@@ -106,7 +106,7 @@ export const SESSION_DESCRIPTORS = {
     identityId: 'deep-research',
     labelKey: 'apps.deepResearch.name',
     agentPolicy: createPolicy('DeepResearch'),
-    storageScope: 'workspace',
+    sessionDomainKind: 'workspace',
   },
   appBuilder: {
     hostKind: 'evolution-lab',
@@ -114,7 +114,7 @@ export const SESSION_DESCRIPTORS = {
     identityId: 'app-builder',
     labelKey: 'apps.appBuilder.name',
     agentPolicy: createPolicy('AppBuilder'),
-    storageScope: 'agentic_os',
+    sessionDomainKind: 'global',
   },
   settings: {
     hostKind: 'system-settings',
@@ -122,7 +122,7 @@ export const SESSION_DESCRIPTORS = {
     identityId: 'settings',
     labelKey: 'settings/ai-mode:session.title',
     agentPolicy: createPolicy('SettingsAgent'),
-    storageScope: 'agentic_os',
+    sessionDomainKind: 'global',
   },
   productAppRuntime: {
     hostKind: 'product-app-runtime',
@@ -130,7 +130,7 @@ export const SESSION_DESCRIPTORS = {
     identityId: 'product-app-runtime',
     labelKey: 'apps.productAppRuntime.name',
     agentPolicy: createPolicy('Runno'),
-    storageScope: 'agentic_os',
+    sessionDomainKind: 'workspace',
   },
 } satisfies Record<string, SessionDescriptor>;
 
@@ -169,7 +169,7 @@ export function normalizeSessionDescriptor(descriptor: SessionDescriptor): Sessi
   ) {
     return {
       ...cloneDescriptor(SESSION_DESCRIPTORS.bitfunCoder, descriptor.agentPolicy.activeAgentId),
-      storageScope: descriptor.storageScope,
+      sessionDomainKind: descriptor.sessionDomainKind,
     };
   }
 
@@ -201,14 +201,14 @@ export function getProductAppRuntimeSessionDescriptor(agentType?: string | null)
 export function descriptorFromBackendSessionCreated(
   agentType?: string | null,
   existingDescriptor?: SessionDescriptor | null,
-): SessionDescriptor {
+): SessionDescriptor | null {
   if (existingDescriptor?.hostKind === 'product-app-runtime') {
     return normalizeSessionDescriptor(existingDescriptor);
   }
-  return descriptorFromAgentType(agentType);
+  return descriptorFromKnownAgentType(agentType);
 }
 
-export function descriptorFromAgentType(agentType?: string | null): SessionDescriptor {
+function descriptorFromKnownAgentType(agentType?: string | null): SessionDescriptor | null {
   const rawAgentType = agentType?.trim();
   const normalized = rawAgentType?.toLowerCase();
   if (
@@ -244,11 +244,29 @@ export function descriptorFromAgentType(agentType?: string | null): SessionDescr
   if (normalized === 'bitfun-team') {
     return cloneDescriptor(SESSION_DESCRIPTORS.bitfunCoder, 'bitfun-team');
   }
-  return getDefaultSessionDescriptor();
+  return null;
+}
+
+export function descriptorFromAgentType(agentType?: string | null): SessionDescriptor {
+  return descriptorFromKnownAgentType(agentType) ?? getDefaultSessionDescriptor();
 }
 
 export function getBackendAgentType(descriptor?: SessionDescriptor | null): string {
   return descriptor?.agentPolicy.activeAgentId || descriptor?.agentPolicy.defaultAgentId || 'Runno';
+}
+
+export function sessionDomainForDescriptor(
+  descriptor: SessionDescriptor,
+  workspaceId?: string | null,
+): SessionDomain {
+  if (descriptor.sessionDomainKind === 'workspace') {
+    const normalizedWorkspaceId = workspaceId?.trim();
+    if (!normalizedWorkspaceId) {
+      throw new Error(`Workspace session ${descriptor.profileId} requires workspaceId`);
+    }
+    return { kind: 'workspace', workspace_id: normalizedWorkspaceId };
+  }
+  return { kind: descriptor.sessionDomainKind };
 }
 
 export function withActiveAgentId(

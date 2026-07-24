@@ -644,6 +644,7 @@ mod tests {
             tool_call_id: None,
             agent_type: None,
             session_id: None,
+            session_domain: None,
             dialog_turn_id: None,
             workspace: None,
             custom_data: std::collections::HashMap::new(),

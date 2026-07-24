@@ -3,7 +3,7 @@ use super::{
     CodeReviewAgent, ComputerUseAgent, CoworkAgent, DailyLetterWriterAgent, DeepResearchAgent,
     DesignAgent, DesignReviewAgent, ExploreAgent, FileFinderAgent, FilerAgent, GenerateDocAgent,
     GlobalDailyReportAgent, GlobalMemoryConsolidatorAgent, GlobalMilestoneAgent, HostScanAgent,
-    InitAgent, OsAgent, OutcomeReviewAgent, PptLiveAgent, RunnoAgent, SettingsAgent,
+    InitAgent, OsAgent, OutcomeReviewAgent, RunnoAgent, SettingsAgent,
     WorkspaceMemoryConsolidatorAgent, WorkspaceOverviewRefresherAgent,
 };
 use crate::agent_component::AgentComponentAgent;
@@ -401,7 +401,6 @@ impl AgentRegistry {
             Arc::new(GlobalMilestoneAgent::new()),
             Arc::new(HostScanAgent::new()),
             Arc::new(InitAgent::new()),
-            Arc::new(PptLiveAgent::new()),
             Arc::new(SettingsAgent::new()),
             Arc::new(WorkspaceMemoryConsolidatorAgent::new()),
             Arc::new(GlobalMemoryConsolidatorAgent::new()),
@@ -636,15 +635,6 @@ impl AgentRegistry {
         let all_skills = registry.get_all_skills_for_workspace(workspace_root).await;
         let valid_keys: HashSet<String> =
             all_skills.iter().map(|skill| skill.key.clone()).collect();
-
-        if agent_type == PptLiveAgent::ID {
-            let managed_ppt_design = all_skills
-                .into_iter()
-                .filter(|skill| skill.is_builtin && skill.dir_name == "ppt-design")
-                .map(|skill| skill.key)
-                .collect::<Vec<_>>();
-            return Self::build_selection(managed_ppt_design.clone(), managed_ppt_design);
-        }
 
         if entry.category == AgentCategory::AgentComponent {
             let defaults = entry
@@ -1615,35 +1605,6 @@ mod tests {
         assert_eq!(
             agent.default_tools(),
             vec!["SettingsCatalog".to_string(), "SettingsChange".to_string()]
-        );
-    }
-
-    #[tokio::test]
-    async fn ppt_live_agent_is_hidden_but_executable() {
-        initialize_test_global_config().await;
-        let registry = AgentRegistry::new();
-
-        assert_eq!(
-            registry.get_agent_category("PptLiveAgent", None),
-            Some(AgentCategory::Hidden)
-        );
-        assert!(!registry
-            .list_agents_info()
-            .await
-            .expect("agent settings should load")
-            .iter()
-            .any(|agent| agent.id == "PptLiveAgent"));
-
-        let agent = registry
-            .get_agent("PptLiveAgent", None)
-            .expect("PptLiveAgent should remain executable by Product App services");
-        assert_eq!(
-            agent.default_tools(),
-            vec![
-                "Skill".to_string(),
-                "WebSearch".to_string(),
-                "WebFetch".to_string(),
-            ]
         );
     }
 

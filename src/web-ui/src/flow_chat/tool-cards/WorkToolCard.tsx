@@ -139,10 +139,10 @@ function normalizeScope(rawValue: unknown): WorkScope {
   if (stringValue(raw, 'kind') === 'workspace') {
     return {
       kind: 'workspace',
-      workspacePath: stringValue(raw, 'workspacePath', 'workspace_path') ?? '',
+      workspaceId: stringValue(raw, 'workspaceId', 'workspace_id') ?? '',
     };
   }
-  return { kind: 'system' };
+  return { kind: 'global' };
 }
 
 function normalizeAppRef(rawValue: unknown): WorkAppRef | null {
@@ -315,11 +315,11 @@ function getExecutorLabel(work: WorkRecord | null, input: WorkToolInput): string
 
 function getWorkspaceLabel(work: WorkRecord | null, input: WorkToolInput): string | undefined {
   if (work?.scope.kind === 'workspace') {
-    return work.scope.workspacePath;
+    return work.workspacePath ?? work.scope.workspaceId;
   }
   const inputScope = normalizeScope(input.scope);
   if (inputScope.kind === 'workspace') {
-    return inputScope.workspacePath;
+    return inputScope.workspaceId;
   }
   return undefined;
 }
@@ -542,7 +542,7 @@ export const WorkToolCard: React.FC<ToolCardProps> = React.memo(({ toolItem }) =
                 const itemStatus = getStatusLabel(t, item.status);
                 const itemOwner = getExecutorLabel(item, inputData) ?? t('toolCards.work.ownerDefault');
                 const itemWorkspace = item.scope.kind === 'workspace'
-                  ? item.scope.workspacePath
+                  ? item.workspacePath ?? item.scope.workspaceId
                   : t('toolCards.work.globalWorkspace');
                 const itemSurface = getSurfaceLabel(t, item.primarySurface);
 

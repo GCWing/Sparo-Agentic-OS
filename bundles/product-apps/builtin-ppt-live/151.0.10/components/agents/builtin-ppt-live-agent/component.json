@@ -1,0 +1,65 @@
+{
+  "id": "builtin-ppt-live-agent",
+  "kind": "agent",
+  "name": "PPT Live Agent",
+  "description": "An autonomous presentation director that freezes one complete manuscript, obtains an explicit Design Case decision, generates ordered visual pages, reviews the whole deck, and validates PowerPoint export.",
+  "packageSource": "appPrivate",
+  "ownerApp": {
+    "appId": "builtin-ppt-live",
+    "appVersion": "151.0.10"
+  },
+  "capabilities": [
+    {
+      "id": "authorDeck",
+      "title": "Author deck",
+      "description": "Research evidence, commit the complete manuscript, establish PresentationSystem, confirm the Design Case, and generate the VisualDocument in frozen page order.",
+      "actions": ["inspectPresentation", "commitPresentationManuscript", "reviewPresentationManuscript", "setPresentationSystem", "renderDesignCase", "confirmDesignCase", "prepareVisualAssets", "generateSlideVisual", "editVisual", "reviewDeck"]
+    },
+    {
+      "id": "reviseDeck",
+      "title": "Revise deck",
+      "description": "Revise a systemic root cause or a direct visual override while keeping the manuscript, Design Case, system, pages, and review coherent.",
+      "actions": ["inspectPresentation", "commitPresentationManuscript", "reviewPresentationManuscript", "setPresentationSystem", "renderDesignCase", "confirmDesignCase", "prepareVisualAssets", "generateSlideVisual", "editVisual", "reviewDeck", "undoDeck"]
+    },
+    {
+      "id": "exportDeck",
+      "title": "Export deck",
+      "description": "Export the current committed presentation as a validated PowerPoint file.",
+      "actions": ["inspectPresentation", "reviewDeck", "exportDeck"]
+    }
+  ],
+  "permissions": [
+    {
+      "kind": "ai",
+      "summary": "Uses configured AI providers through Sparo OS.",
+      "scopes": ["system", "workspace"]
+    },
+    {
+      "kind": "fs",
+      "summary": "Reads grounded workspace sources and writes presentation documents through the declared Work boundary.",
+      "scopes": ["{workspace}"]
+    }
+  ],
+  "usedByApps": ["builtin-ppt-live"],
+  "visibility": "appDependency",
+  "dependencies": [
+    {
+      "componentId": "builtin-ppt-runtime",
+      "kind": "bridge",
+      "source": "private",
+      "role": "deckEngine",
+      "capabilities": ["sparo.pptDeck"]
+    }
+  ],
+  "implementationRef": "app://builtin-ppt-live@151.0.10/agents/builtin-ppt-live-agent",
+  "usesCapabilities": [
+    "filesystem.read",
+    "filesystem.write",
+    "workspace.inspect",
+    "workspace.modify",
+    "session.read",
+    "model.invoke",
+    "tool.invoke",
+    "component.run"
+  ]
+}

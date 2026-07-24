@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@monaco-editor/react": "^4.6.0",
+    "@sparo/icons": "workspace:*",
     "@tanstack/react-virtual": "^3.13.23",
     "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/plugin-autostart": "^2.0.0",

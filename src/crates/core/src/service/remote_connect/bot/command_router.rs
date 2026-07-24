@@ -117,6 +117,25 @@ fn now_secs() -> i64 {
         .unwrap_or(0)
 }
 
+fn bot_session_locator(
+    state: &BotChatState,
+    session_id: String,
+) -> Result<crate::agentic::core::SessionLocator, String> {
+    let workspace_path = state
+        .workspace_context_path
+        .as_deref()
+        .filter(|path| !path.is_empty())
+        .ok_or_else(|| "Workspace context is required for bot sessions".to_string())?;
+    let workspace_id = crate::infrastructure::try_get_path_manager_arc()
+        .map_err(|error| error.to_string())?
+        .workspace_id(std::path::Path::new(workspace_path))
+        .map_err(|error| error.to_string())?;
+    Ok(crate::agentic::core::SessionLocator {
+        domain: crate::agentic::core::SessionDomain::Workspace { workspace_id },
+        session_id,
+    })
+}
+
 // ── Pending action ─────────────────────────────────────────────────
 
 #[derive(Debug, Clone)]
@@ -233,7 +252,7 @@ pub type BotMessageSender =
     Arc<dyn Fn(String) -> Pin<Box<dyn Future<Output = ()> + Send>> + Send + Sync>;
 
 pub struct ForwardRequest {
-    pub session_id: String,
+    pub locator: crate::agentic::core::SessionLocator,
     pub content: String,
     pub agent_type: String,
     pub turn_id: String,
@@ -816,12 +835,16 @@ async fn count_workspace_sessions(workspace_path: &str) -> usize {
         Ok(pm) => std::sync::Arc::new(pm),
         Err(_) => return 0,
     };
+    let Ok(workspace_id) = pm.workspace_id(&wp) else {
+        return 0;
+    };
+    let domain = crate::agentic::core::SessionDomain::Workspace { workspace_id };
     let store = match PersistenceManager::new(pm) {
         Ok(store) => store,
         Err(_) => return 0,
     };
     store
-        .list_session_metadata(&wp)
+        .list_session_metadata(&domain)
         .await
         .map(|v| v.len())
         .unwrap_or(0)
@@ -872,6 +895,16 @@ async fn start_resume(
             );
         }
     };
+    let workspace_id = match pm.workspace_id(&ws_path) {
+        Ok(workspace_id) => workspace_id,
+        Err(error) => {
+            return result_from_menu(
+                state,
+                MenuView::plain(format!("{}{error}", s.session_create_failed_prefix)),
+            );
+        }
+    };
+    let domain = crate::agentic::core::SessionDomain::Workspace { workspace_id };
     let store = match PersistenceManager::new(pm) {
         Ok(store) => store,
         Err(e) => {
@@ -881,7 +914,7 @@ async fn start_resume(
             );
         }
     };
-    let all_meta = match store.list_session_metadata(&ws_path).await {
+    let all_meta = match store.list_session_metadata(&domain).await {
         Ok(m) => m,
         Err(e) => {
             return result_from_menu(
@@ -993,8 +1026,11 @@ async fn load_last_dialog_pair_from_turns(
 
     let wp = std::path::PathBuf::from(workspace_path?);
     let pm = std::sync::Arc::new(PathManager::new().ok()?);
+    let domain = crate::agentic::core::SessionDomain::Workspace {
+        workspace_id: pm.workspace_id(&wp).ok()?,
+    };
     let store = PersistenceManager::new(pm).ok()?;
-    let turns = store.load_session_turns(&wp, session_id).await.ok()?;
+    let turns = store.load_session_turns(&domain, session_id).await.ok()?;
     let turn = turns.last()?;
 
     let user_text = strip_user_message_tags(&turn.user_message.content);
@@ -1101,6 +1137,25 @@ async fn create_session(state: &mut BotChatState, agent_type: &str) -> HandleRes
         return result_from_menu(state, view);
     };
 
+    let path_manager = match crate::infrastructure::try_get_path_manager_arc() {
+        Ok(path_manager) => path_manager,
+        Err(error) => {
+            return result_from_menu(
+                state,
+                MenuView::plain(format!("{}{error}", s.session_create_failed_prefix)),
+            );
+        }
+    };
+    let workspace_id = match path_manager.workspace_id(std::path::Path::new(&workspace_path)) {
+        Ok(workspace_id) => workspace_id,
+        Err(error) => {
+            return result_from_menu(
+                state,
+                MenuView::plain(format!("{}{error}", s.session_create_failed_prefix)),
+            );
+        }
+    };
+    let domain = crate::agentic::core::SessionDomain::Workspace { workspace_id };
     match coordinator
         .create_session_with_workspace(
             None,
@@ -1108,7 +1163,7 @@ async fn create_session(state: &mut BotChatState, agent_type: &str) -> HandleRes
             agent_type.to_string(),
             SessionConfig {
                 workspace_path: Some(workspace_path.clone()),
-                ..Default::default()
+                ..SessionConfig::new(domain)
             },
             workspace_path.clone(),
         )
@@ -1149,8 +1204,17 @@ async fn handle_cancel_task(
             return result_from_menu(state, MenuView::plain(s.task_no_active));
         }
     };
+    let locator = match bot_session_locator(state, session_id) {
+        Ok(locator) => locator,
+        Err(error) => {
+            return result_from_menu(
+                state,
+                MenuView::plain(format!("{}{error}", s.task_cancel_failed_prefix)),
+            )
+        }
+    };
     let dispatcher = get_or_init_global_dispatcher();
-    match dispatcher.cancel_task(&session_id, requested_turn_id).await {
+    match dispatcher.cancel_task(&locator, requested_turn_id).await {
         Ok(_) => {
             state.clear_pending();
             result_from_menu(state, MenuView::plain(s.task_cancel_requested))
@@ -1590,6 +1654,10 @@ async fn handle_chat(
     }
 
     let session_id = state.current_session_id.clone().unwrap();
+    let locator = match bot_session_locator(state, session_id.clone()) {
+        Ok(locator) => locator,
+        Err(error) => return result_from_menu(state, MenuView::plain(error)),
+    };
     let turn_id = format!("turn_{}", uuid::Uuid::new_v4());
 
     // Pick the agent type from the actual session, otherwise every chat message would be forced through the
@@ -1612,7 +1680,7 @@ async fn handle_chat(
     let view = MenuView::default();
 
     let forward = ForwardRequest {
-        session_id,
+        locator,
         content: message.to_string(),
         agent_type,
         turn_id,
@@ -1639,14 +1707,14 @@ pub async fn execute_forwarded_turn(
     let s = strings_for(language);
 
     let dispatcher = get_or_init_global_dispatcher();
-    let tracker = dispatcher.ensure_tracker(&forward.session_id);
+    let tracker = dispatcher.ensure_tracker(&forward.locator.session_id);
     let mut event_rx = tracker.subscribe();
 
     let target_turn_id = forward.turn_id.clone();
 
     if let Err(e) = dispatcher
         .send_message(
-            &forward.session_id,
+            &forward.locator,
             forward.content,
             Some(&forward.agent_type),
             forward.image_contexts,
@@ -2064,9 +2132,17 @@ mod handle_chat_tests {
     /// context_token slot per send).
     #[tokio::test]
     async fn chat_message_forwards_silently_without_processing_menu() {
+        let workspace = tempfile::tempdir().expect("workspace");
+        std::fs::create_dir_all(workspace.path().join(".sparo_os"))
+            .expect("workspace marker directory");
+        std::fs::write(
+            workspace.path().join(".sparo_os").join("workspace.json"),
+            r#"{"schemaVersion":1,"workspaceId":"ws_bot_test"}"#,
+        )
+        .expect("workspace marker");
         let mut state = BotChatState::new("peer".into());
         state.paired = true;
-        state.workspace_context_path = Some("/tmp/project".into());
+        state.workspace_context_path = Some(workspace.path().to_string_lossy().to_string());
         state.current_session_id = Some("s1".into());
         let s = strings_for(BotLanguage::ZhCN);
         let result = handle_chat(&mut state, "hello sparo", vec![], s).await;

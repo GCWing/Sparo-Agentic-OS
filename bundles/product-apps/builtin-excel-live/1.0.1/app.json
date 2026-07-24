@@ -1,0 +1,265 @@
+{
+  "id": "builtin-excel-live",
+  "version": "1.0.1",
+  "name": "Excel Live",
+  "description": "A revisioned spreadsheet workbench where people and agents share grounded focus, review proposals on the grid, undo safely, and export source-preserving workbook copies.",
+  "authors": [
+    {
+      "name": "Sparo OS",
+      "url": "https://github.com/Sparo-OS"
+    }
+  ],
+  "i18n": {
+    "locales": {
+      "en-US": {
+        "name": "Excel Live",
+        "description": "A revisioned spreadsheet workbench where people and agents share grounded focus, review proposals on the grid, undo safely, and export source-preserving workbook copies.",
+        "tags": [
+          "built-in",
+          "spreadsheet",
+          "excel",
+          "workbook"
+        ]
+      },
+      "zh-CN": {
+        "name": "Excel Live",
+        "description": "带修订历史的表格工作台：人与 Agent 共享真实焦点，在网格上审核提案、可靠撤销，并导出保留源文件结构的工作簿副本。",
+        "tags": [
+          "内置",
+          "表格",
+          "Excel",
+          "工作簿"
+        ]
+      }
+    }
+  },
+  "interactionModel": "interactiveWorkspace",
+  "workMultiplicity": "multiple",
+  "workObjectKinds": [
+    {
+      "id": "workbook",
+      "label": "Workbook",
+      "scope": "asset",
+      "identitySchema": {
+        "type": "object",
+        "properties": {
+          "workbookId": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        }
+      },
+      "contextSchema": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "sheetCount": {
+            "type": "number"
+          },
+          "dirty": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "id": "spreadsheet-focus",
+      "label": "Spreadsheet Focus",
+      "scope": "runtime",
+      "identitySchema": {
+        "type": "object",
+        "required": [
+          "workbookId",
+          "sheetId",
+          "a1"
+        ],
+        "properties": {
+          "workbookId": {
+            "type": "string"
+          },
+          "sheetId": {
+            "type": "string"
+          },
+          "a1": {
+            "type": "string"
+          }
+        }
+      },
+      "contextSchema": {
+        "type": "object",
+        "properties": {
+          "selectionKind": {
+            "type": "string"
+          },
+          "rowCount": {
+            "type": "number"
+          },
+          "columnCount": {
+            "type": "number"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "inspect",
+              "edit",
+              "author"
+            ]
+          },
+          "revision": {
+            "type": [
+              "string",
+              "number"
+            ]
+          },
+          "cacheCoverage": {
+            "type": [
+              "number",
+              "object"
+            ]
+          },
+          "cacheComplete": {
+            "type": "boolean"
+          },
+          "formulaResultsFresh": {
+            "type": "boolean"
+          },
+          "calculationStatus": {
+            "type": "object"
+          },
+          "fidelity": {
+            "type": "object"
+          },
+          "capturedAt": {
+            "type": "number"
+          },
+          "previewTruncated": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  ],
+  "truthSource": "ownedObjectState",
+  "primarySurface": {
+    "componentId": "builtin-excel-live-surface",
+    "surfaceId": "primary"
+  },
+  "primarySurfaceMode": "sidecarLinked",
+  "components": [
+    {
+      "componentId": "builtin-excel-live-surface",
+      "kind": "surface",
+      "source": "private",
+      "role": "primarySurface",
+      "capabilities": [
+        "interactiveSurface"
+      ],
+      "usesCapabilities": [
+        "session.read",
+        "component.run"
+      ]
+    },
+    {
+      "componentId": "excel-live-agent",
+      "kind": "agent",
+      "source": "private",
+      "role": "assistant",
+      "capabilities": [
+        "inspectWorkbook",
+        "transformRange",
+        "authorWorkbook"
+      ],
+      "usesCapabilities": [
+        "filesystem.read",
+        "filesystem.write",
+        "workspace.inspect",
+        "workspace.modify",
+        "session.read",
+        "model.invoke",
+        "tool.invoke",
+        "component.run"
+      ]
+    },
+    {
+      "componentId": "builtin-excel-runtime",
+      "kind": "bridge",
+      "source": "private",
+      "role": "runtime",
+      "capabilities": [
+        "sparo.excelEngine"
+      ],
+      "usesCapabilities": [
+        "filesystem.read",
+        "filesystem.write",
+        "terminal.run",
+        "process.spawn",
+        "workspace.inspect",
+        "component.run"
+      ]
+    },
+    {
+      "componentId": "product-app-runtime-host",
+      "kind": "runtime",
+      "source": "shared",
+      "role": "runtimeHost",
+      "version": "^1.0.0",
+      "capabilities": [
+        "uiWorker"
+      ],
+      "usesCapabilities": [
+        "component.run"
+      ]
+    }
+  ],
+  "componentLockId": "",
+  "permissions": {
+    "fs": true,
+    "net": false,
+    "shell": true,
+    "gui": false,
+    "secrets": false,
+    "ai": true
+  },
+  "installScope": "system",
+  "catalogVisibility": "discoverable",
+  "enabled": true,
+  "icon": {
+    "kind": "packageAsset",
+    "path": "assets/icon.png"
+  },
+  "category": "productivity",
+  "tags": [
+    "built-in",
+    "spreadsheet",
+    "excel",
+    "workbook"
+  ],
+  "launch": {
+    "kind": "applicationSurface",
+    "targetId": "builtin-excel-live",
+    "scopeRequirement": "workspaceOptional",
+    "surfaceId": "primary"
+  },
+  "osCapabilities": [
+    "session.read",
+    "component.run",
+    "filesystem.read",
+    "filesystem.write",
+    "terminal.run",
+    "process.spawn",
+    "workspace.inspect",
+    "workspace.modify",
+    "model.invoke",
+    "tool.invoke"
+  ],
+  "dataLifecycle": {
+    "retention": "externalSystem",
+    "deletion": "externalSystem",
+    "migration": "externalSystem",
+    "share": "externalReferenceOnly"
+  }
+}

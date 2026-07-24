@@ -128,7 +128,7 @@ fn empty_panel_status(kind: PanelKind) -> &'static str {
             "No Apps item selected; run `sparo apps list` or use Sparo Desktop Apps Center / App Builder"
         }
         PanelKind::Memory => {
-            "No Memory item selected; run `sparo memory list` or add notes under .sparo_os/memory"
+            "No Memory item selected; run `sparo memory list` or add durable context through chat"
         }
         PanelKind::Workspaces => {
             "No Workspaces item selected; run `sparo workspaces use .` from a project"
@@ -603,9 +603,21 @@ impl ChatMode {
                 .as_ref()
                 .map(|path| path.to_string_lossy().to_string())
         });
+        let domain = match workspace_path.as_deref() {
+            Some(workspace_path) => {
+                let path_manager = sparo_core::infrastructure::try_get_path_manager_arc().ok()?;
+                let workspace_id = path_manager
+                    .workspace_id(std::path::Path::new(workspace_path))
+                    .ok()?;
+                sparo_core::agentic::core::SessionDomain::Workspace { workspace_id }
+            }
+            None => sparo_core::agentic::core::SessionDomain::Global,
+        };
         let request = sparo_core::command::session::ShowSessionRequest {
-            session_id: session_id.to_string(),
-            workspace_path,
+            locator: sparo_core::agentic::core::SessionLocator {
+                domain,
+                session_id: session_id.to_string(),
+            },
         };
         let Ok(handle) = tokio::runtime::Handle::try_current() else {
             return None;

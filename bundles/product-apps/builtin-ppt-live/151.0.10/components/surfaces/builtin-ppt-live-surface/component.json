@@ -1,0 +1,63 @@
+{
+  "id": "builtin-ppt-live-surface",
+  "kind": "surface",
+  "name": "PPT Live Studio",
+  "description": "The minimal topic intake, complete Markdown manuscript, dedicated Design Case decision, inferred PresentationSystem, editable canonical canvas, whole-deck review, undo, and validated export surface for PPT Live.",
+  "packageSource": "appPrivate",
+  "ownerApp": {
+    "appId": "builtin-ppt-live",
+    "appVersion": "151.0.10"
+  },
+  "capabilities": [
+    {
+      "id": "interactiveSurface",
+      "title": "Interactive surface",
+      "description": "Hosts the complete PPT Live presentation studio.",
+      "actions": [
+        "open",
+        "editManuscript",
+        "editSpeakerScript",
+        "confirmDesignCase",
+        "refinePresentationSystem",
+        "editVisual",
+        "undo",
+        "export"
+      ]
+    }
+  ],
+  "permissions": [
+    {
+      "kind": "fs",
+      "summary": "Reads and writes managed presentation documents and exports through the deck engine bridge.",
+      "scopes": ["{workspace}", "{appdata}"]
+    }
+  ],
+  "usedByApps": ["builtin-ppt-live"],
+  "visibility": "appDependency",
+  "dependencies": [
+    {
+      "componentId": "builtin-ppt-live-agent",
+      "kind": "agent",
+      "source": "private",
+      "role": "deckAgent",
+      "capabilities": ["authorDeck", "reviseDeck", "exportDeck"]
+    },
+    {
+      "componentId": "builtin-ppt-runtime",
+      "kind": "bridge",
+      "source": "private",
+      "role": "deckEngine",
+      "capabilities": ["sparo.pptDeck"]
+    },
+    {
+      "componentId": "product-app-runtime-host",
+      "kind": "runtime",
+      "source": "shared",
+      "role": "runtimeHost",
+      "version": "^1.0.0",
+      "capabilities": ["uiWorker"]
+    }
+  ],
+  "implementationRef": "app://builtin-ppt-live@151.0.10/surfaces/builtin-ppt-live-surface",
+  "usesCapabilities": ["session.read", "component.run"]
+}

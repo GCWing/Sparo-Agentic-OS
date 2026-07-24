@@ -80,4 +80,5 @@ describe('convertDialogTurnToBackendFormat', () => {
 
     expect(taskTool.executionProjection).toEqual(projection);
   });
+
 });

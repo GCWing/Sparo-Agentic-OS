@@ -11,11 +11,16 @@ fn main() {
     emit_rerun_if_changed(&bundles_root.join("components"));
     emit_rerun_if_changed(&bundles_root.join("bridge-components"));
 
-    if let Err(message) =
-        validate_product_app_bundles(&bundles_root.join("product-apps").join("builtin"))
-    {
+    let product_apps_root = bundles_root.join("product-apps");
+    let staged_product_apps = stage_latest_product_app_bundles(&product_apps_root)
+        .unwrap_or_else(|message| panic!("Product App bundle staging failed: {message}"));
+    if let Err(message) = validate_product_app_bundles(&staged_product_apps) {
         panic!("Product App bundle validation failed: {message}");
     }
+    println!(
+        "cargo:rustc-env=SPARO_EMBEDDED_PRODUCT_APPS_DIR={}",
+        staged_product_apps.display()
+    );
     if let Err(message) = validate_component_bundles(&bundles_root.join("components")) {
         panic!("Component bundle validation failed: {message}");
     }
@@ -33,6 +38,92 @@ fn main() {
     if let Err(e) = embed_announcement_content() {
         eprintln!("Warning: Failed to embed announcement content: {}", e);
     }
+}
+
+fn stage_latest_product_app_bundles(
+    apps_root: &std::path::Path,
+) -> Result<std::path::PathBuf, String> {
+    let out_dir = std::env::var("OUT_DIR").map_err(|error| error.to_string())?;
+    let destination_root = std::path::Path::new(&out_dir).join("current-product-apps");
+    if destination_root.exists() {
+        std::fs::remove_dir_all(&destination_root).map_err(|error| error.to_string())?;
+    }
+    std::fs::create_dir_all(&destination_root).map_err(|error| error.to_string())?;
+    if !apps_root.exists() {
+        return Ok(destination_root);
+    }
+
+    for app_entry in std::fs::read_dir(apps_root).map_err(|error| error.to_string())? {
+        let app_path = app_entry.map_err(|error| error.to_string())?.path();
+        if !app_path.is_dir() {
+            continue;
+        }
+        let mut latest: Option<(semver::Version, std::path::PathBuf)> = None;
+        for version_entry in std::fs::read_dir(&app_path).map_err(|error| error.to_string())? {
+            let version_path = version_entry.map_err(|error| error.to_string())?.path();
+            if !version_path.is_dir() {
+                continue;
+            }
+            let version_text = version_path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .ok_or_else(|| {
+                    format!(
+                        "invalid Product App version path '{}'",
+                        version_path.display()
+                    )
+                })?;
+            let version = semver::Version::parse(version_text).map_err(|error| {
+                format!(
+                    "invalid Product App version '{}' at '{}': {error}",
+                    version_text,
+                    version_path.display()
+                )
+            })?;
+            if latest
+                .as_ref()
+                .is_none_or(|(current, _)| version > *current)
+            {
+                latest = Some((version, version_path));
+            }
+        }
+        let Some((version, source)) = latest else {
+            continue;
+        };
+        let app_name = app_path
+            .file_name()
+            .ok_or_else(|| format!("invalid Product App path '{}'", app_path.display()))?;
+        let destination = destination_root.join(app_name).join(version.to_string());
+        copy_bundle_tree(&source, &destination)?;
+    }
+    Ok(destination_root)
+}
+
+fn copy_bundle_tree(source: &std::path::Path, destination: &std::path::Path) -> Result<(), String> {
+    std::fs::create_dir_all(destination).map_err(|error| error.to_string())?;
+    for entry in std::fs::read_dir(source).map_err(|error| error.to_string())? {
+        let entry = entry.map_err(|error| error.to_string())?;
+        let source_path = entry.path();
+        let destination_path = destination.join(entry.file_name());
+        let file_type = entry.file_type().map_err(|error| error.to_string())?;
+        if file_type.is_symlink() {
+            return Err(format!(
+                "Product App bundles must not contain symbolic links: '{}'",
+                source_path.display()
+            ));
+        }
+        if file_type.is_dir() {
+            copy_bundle_tree(&source_path, &destination_path)?;
+        } else if file_type.is_file() {
+            std::fs::copy(&source_path, &destination_path).map_err(|error| error.to_string())?;
+        } else {
+            return Err(format!(
+                "Product App bundle contains unsupported entry: '{}'",
+                source_path.display()
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn build_embedded_prompts() -> Result<(), Box<dyn std::error::Error>> {

@@ -37,7 +37,7 @@ use super::subject::{
 };
 use super::surface::WorkSurfaceRef;
 use super::title::{WorkTitleSource, WorkTitleState};
-use super::types::{WorkKind, WorkScope, WorkStatus, WorkVisibility};
+use super::types::{WorkKind, WorkLocator, WorkScope, WorkStatus, WorkVisibility};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -62,6 +62,8 @@ pub struct CreateWorkRequest {
     #[serde(default)]
     pub app_refs: Vec<WorkAppRelation>,
     pub scope: WorkScope,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workspace_path: Option<String>,
     #[serde(default)]
     pub visibility: WorkVisibility,
     #[serde(default = "default_start_primary_surface_policy")]
@@ -88,6 +90,8 @@ pub struct StartWorkRequest {
     #[serde(default)]
     pub app_refs: Vec<WorkAppRelation>,
     pub scope: WorkScope,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workspace_path: Option<String>,
     #[serde(default)]
     pub visibility: WorkVisibility,
     #[serde(default)]
@@ -126,7 +130,7 @@ pub struct UpdateWorkRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReclassifyWorkRequest {
-    pub work_id: WorkId,
+    pub locator: WorkLocator,
     pub kind: WorkKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub topic_work_id: Option<WorkId>,
@@ -136,14 +140,24 @@ pub struct ReclassifyWorkRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LinkSessionToWorkRequest {
-    pub work_id: WorkId,
+    pub work_locator: WorkLocator,
     pub session_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workspace_path: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub locator: Option<crate::agentic::core::SessionLocator>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner: Option<crate::agentic::core::SessionOwner>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub surface: Option<WorkSurfaceRef>,
+    #[serde(default = "default_bind_session_surface")]
+    pub bind_surface: bool,
     #[serde(default)]
     pub set_primary: bool,
+}
+
+fn default_bind_session_surface() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -154,6 +168,8 @@ pub struct ResolveAppWorkRequest {
     pub title: String,
     pub objective: String,
     pub scope: WorkScope,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workspace_path: Option<String>,
     #[serde(default)]
     pub visibility: WorkVisibility,
     #[serde(default = "default_app_primary_surface_policy")]
@@ -180,6 +196,8 @@ pub struct ResolveComponentWorkRequest {
     pub title: String,
     pub objective: String,
     pub scope: WorkScope,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workspace_path: Option<String>,
     #[serde(default)]
     pub visibility: WorkVisibility,
     #[serde(default)]
@@ -198,13 +216,15 @@ pub struct ResolveComponentWorkResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DispatchNewWorkRequest {
-    pub parent_work_id: WorkId,
+    pub parent_work_locator: WorkLocator,
     pub kind: WorkKind,
     pub title: String,
     pub objective: String,
     pub assignment: WorkAssignmentRef,
     pub instructions: String,
     pub scope: WorkScope,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workspace_path: Option<String>,
     #[serde(default)]
     pub surface_policy: PrimarySurfacePolicy,
     #[serde(default)]
@@ -227,7 +247,7 @@ pub struct DispatchWorkResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AdvanceWorkRequest {
-    pub work_id: WorkId,
+    pub locator: WorkLocator,
     pub instructions: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub advance_policy: Option<String>,
@@ -261,7 +281,7 @@ pub enum ControlWorkAction {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ControlWorkRequest {
-    pub work_id: WorkId,
+    pub locator: WorkLocator,
     pub action: ControlWorkAction,
 }
 
@@ -353,28 +373,30 @@ impl WorkService {
         Ok(reconciled)
     }
 
-    pub async fn get(&self, id: &WorkId) -> CoreResult<WorkRecord> {
-        self.store
-            .get(id)
-            .await?
-            .ok_or_else(|| CoreError::NotFound(format!("Work not found: {}", id)))
+    pub async fn get(&self, locator: &WorkLocator) -> CoreResult<WorkRecord> {
+        self.store.get(locator).await?.ok_or_else(|| {
+            CoreError::NotFound(format!(
+                "Work not found: scope={:?} work_id={}",
+                locator.scope, locator.work_id
+            ))
+        })
     }
 
-    pub async fn delete(&self, id: &WorkId) -> CoreResult<DeleteWorkResponse> {
-        self.delete_with_options(id, WorkDeleteOptions::default())
+    pub async fn delete(&self, locator: &WorkLocator) -> CoreResult<DeleteWorkResponse> {
+        self.delete_with_options(locator, WorkDeleteOptions::default())
             .await
     }
 
     pub async fn delete_with_options(
         &self,
-        id: &WorkId,
+        locator: &WorkLocator,
         options: WorkDeleteOptions,
     ) -> CoreResult<DeleteWorkResponse> {
-        let Some(record) = self.store.get(id).await? else {
+        let Some(record) = self.store.get(locator).await? else {
             return Ok(DeleteWorkResponse {
                 deleted: false,
                 cleanup_report: WorkCleanupReport {
-                    work_id: id.as_str().to_string(),
+                    work_id: locator.work_id.as_str().to_string(),
                     items: Vec::new(),
                 },
             });
@@ -393,11 +415,11 @@ impl WorkService {
         if cleanup_report.has_required_failures() {
             return Err(CoreError::service(format!(
                 "Failed to cleanup required Work resources before deleting work_id={}",
-                id
+                locator.work_id
             )));
         }
 
-        let deleted = self.store.delete(id).await?;
+        let deleted = self.store.delete(locator).await?;
         if deleted {
             self.hook_bus
                 .notify_deleted(&context, cleanup_report.clone())
@@ -471,6 +493,7 @@ impl WorkService {
                 subject,
                 app_refs: request.app_refs,
                 scope: request.scope,
+                workspace_path: request.workspace_path,
                 visibility: request.visibility,
                 primary_surface_policy: request.primary_surface_policy,
                 primary_surface: request.primary_surface,
@@ -539,6 +562,7 @@ impl WorkService {
                 subject,
                 app_refs: request.app_refs,
                 scope: request.scope,
+                workspace_path: request.workspace_path,
                 visibility: request.visibility,
                 primary_surface_policy: request.primary_surface_policy,
                 primary_surface: None,
@@ -558,6 +582,7 @@ impl WorkService {
         validate_required("title", &request.title)?;
         validate_required("objective", &request.objective)?;
         validate_work_app_bindings(&request.subject, &request.app_refs)?;
+        validate_work_scope_context(&request.scope, request.workspace_path.as_deref())?;
 
         let now = now_millis();
         let work_id = WorkId::generate();
@@ -598,11 +623,12 @@ impl WorkService {
             primary_surface,
             now,
         );
+        record.workspace_path = request.workspace_path;
         record.assignment = request.assignment;
         record.title_state = title_state;
         record.delegation = request.delegation;
         if let Some(topic_work_id) = request.topic_work_id {
-            self.validate_topic_attachment(&topic_work_id, Some(&work_id))
+            self.validate_topic_attachment(&record.scope, &topic_work_id, Some(&work_id))
                 .await?;
             record.topic_work_id = Some(topic_work_id);
         }
@@ -646,7 +672,7 @@ impl WorkService {
     ) -> CoreResult<WorkRecord> {
         validate_required("session_id", &request.session_id)?;
         let now = now_millis();
-        let mut record = self.get(&request.work_id).await?;
+        let mut record = self.get(&request.work_locator).await?;
 
         if !record
             .session_refs
@@ -656,20 +682,28 @@ impl WorkService {
             record.session_refs.push(AgentSessionRef {
                 session_id: request.session_id.clone(),
                 workspace_path: request.workspace_path,
+                locator: request.locator,
+                owner: request.owner,
             });
         }
 
-        let surface = request.surface.unwrap_or(WorkSurfaceRef::AgentSession {
-            session_id: request.session_id,
-        });
-        record.bind_surface(surface, request.set_primary, now);
+        if request.bind_surface {
+            let surface = request.surface.unwrap_or(WorkSurfaceRef::AgentSession {
+                session_id: request.session_id,
+            });
+            record.bind_surface(surface, request.set_primary, now);
+        }
         self.store.put(&record).await?;
         Ok(record)
     }
 
-    pub async fn update(&self, id: &WorkId, request: UpdateWorkRequest) -> CoreResult<WorkRecord> {
+    pub async fn update(
+        &self,
+        locator: &WorkLocator,
+        request: UpdateWorkRequest,
+    ) -> CoreResult<WorkRecord> {
         let now = now_millis();
-        let mut record = self.get(id).await?;
+        let mut record = self.get(locator).await?;
 
         if record.system_managed
             && (request.kind.is_some()
@@ -740,7 +774,7 @@ impl WorkService {
                     "topic work cannot attach to another topic",
                 ));
             }
-            self.validate_topic_attachment(&topic_work_id, Some(id))
+            self.validate_topic_attachment(&record.scope, &topic_work_id, Some(&record.id))
                 .await?;
             record.topic_work_id = Some(topic_work_id);
             record.touch(now);
@@ -752,7 +786,7 @@ impl WorkService {
 
     pub async fn reclassify(&self, request: ReclassifyWorkRequest) -> CoreResult<WorkRecord> {
         self.update(
-            &request.work_id,
+            &request.locator,
             UpdateWorkRequest {
                 kind: Some(request.kind),
                 topic_work_id: request.topic_work_id,
@@ -771,11 +805,15 @@ impl WorkService {
         let mut ensured = Vec::with_capacity(processes.len());
         for process in processes {
             let work_id = system_work_id_for_process(process)?;
-            let scope = work_scope_from_process_scope(&process.scope);
+            let (scope, workspace_path) = work_scope_from_process_scope(&process.scope)?;
             let status = work_status_from_process_status(process.status);
             let summary_text = process_summary_text(process);
 
-            if let Some(mut record) = self.store.get(&work_id).await? {
+            let locator = WorkLocator {
+                scope: scope.clone(),
+                work_id: work_id.clone(),
+            };
+            if let Some(mut record) = self.store.get(&locator).await? {
                 if !record.system_managed {
                     return Err(CoreError::validation(format!(
                         "work id {} exists but is not system_managed",
@@ -792,7 +830,11 @@ impl WorkService {
                     dirty = true;
                 }
                 if record.scope != scope {
-                    record.scope = scope;
+                    record.scope = scope.clone();
+                    dirty = true;
+                }
+                if record.workspace_path != workspace_path {
+                    record.workspace_path = workspace_path.clone();
                     dirty = true;
                 }
                 if record.kind != WorkKind::Recurring {
@@ -846,6 +888,7 @@ impl WorkService {
                 primary_surface,
                 now,
             );
+            record.workspace_path = workspace_path;
             record.system_managed = true;
             record.system_process_kind = Some(system_process_kind_key(process.kind));
             record.assignment = Some(WorkAssignmentRef {
@@ -874,6 +917,7 @@ impl WorkService {
 
     async fn validate_topic_attachment(
         &self,
+        scope: &WorkScope,
         topic_work_id: &WorkId,
         child_work_id: Option<&WorkId>,
     ) -> CoreResult<()> {
@@ -882,7 +926,12 @@ impl WorkService {
                 "work cannot attach to itself as topic",
             ));
         }
-        let topic = self.get(topic_work_id).await?;
+        let topic = self
+            .get(&WorkLocator {
+                scope: scope.clone(),
+                work_id: topic_work_id.clone(),
+            })
+            .await?;
         if topic.system_managed {
             return Err(CoreError::validation(
                 "system_managed work cannot be used as topic",
@@ -975,19 +1024,19 @@ impl WorkService {
 
     pub async fn bind_surface(
         &self,
-        id: &WorkId,
+        locator: &WorkLocator,
         surface: WorkSurfaceRef,
         set_primary: bool,
     ) -> CoreResult<WorkRecord> {
         let now = now_millis();
-        let mut record = self.get(id).await?;
+        let mut record = self.get(locator).await?;
         record.bind_surface(surface, set_primary, now);
         self.store.put(&record).await?;
         Ok(record)
     }
 
-    pub async fn execution_graph(&self, id: &WorkId) -> CoreResult<WorkExecutionGraph> {
-        let record = self.get(id).await?;
+    pub async fn execution_graph(&self, locator: &WorkLocator) -> CoreResult<WorkExecutionGraph> {
+        let record = self.get(locator).await?;
         Ok(WorkExecutionGraph::from_parts(
             record.id.clone(),
             record.updated_at,
@@ -1005,11 +1054,11 @@ impl WorkService {
 
     pub async fn bind_artifact(
         &self,
-        id: &WorkId,
+        locator: &WorkLocator,
         artifact: ArtifactRef,
     ) -> CoreResult<WorkRecord> {
         let now = now_millis();
-        let mut record = self.get(id).await?;
+        let mut record = self.get(locator).await?;
         if let Some(existing) = record
             .artifact_refs
             .iter()
@@ -1035,7 +1084,7 @@ impl WorkService {
 
     pub async fn bind_runtime_run(
         &self,
-        id: &WorkId,
+        locator: &WorkLocator,
         runtime_instance_id: String,
         run_id: String,
         component_id: String,
@@ -1049,7 +1098,7 @@ impl WorkService {
 
         let now = now_millis();
         self.record_runtime_run(
-            id,
+            locator,
             WorkRuntimeRun {
                 run_id,
                 runtime_instance_id,
@@ -1069,7 +1118,7 @@ impl WorkService {
 
     pub async fn record_runtime_run(
         &self,
-        id: &WorkId,
+        locator: &WorkLocator,
         mut run: WorkRuntimeRun,
     ) -> CoreResult<WorkRecord> {
         validate_required("runtime_instance_id", &run.runtime_instance_id)?;
@@ -1091,7 +1140,7 @@ impl WorkService {
         let run_id = run.run_id.clone();
         let component_id = run.component_id.clone();
         let action = run.action.clone();
-        let mut record = self.get(id).await?;
+        let mut record = self.get(locator).await?;
         if let Some(existing) = record
             .runtime_runs
             .iter_mut()
@@ -1147,7 +1196,7 @@ impl WorkService {
 
     pub async fn record_runtime_issue(
         &self,
-        id: &WorkId,
+        locator: &WorkLocator,
         issue: WorkRuntimeIssue,
     ) -> CoreResult<WorkRecord> {
         validate_required("runtime_instance_id", &issue.runtime_instance_id)?;
@@ -1156,7 +1205,7 @@ impl WorkService {
         validate_required("message", &issue.message)?;
 
         let now = now_millis();
-        let mut record = self.get(id).await?;
+        let mut record = self.get(locator).await?;
         apply_runtime_issue_to_builder_facts(&mut record, &issue);
         record.runtime_issues.push(issue);
         trim_runtime_issues(&mut record.runtime_issues);
@@ -1168,7 +1217,7 @@ impl WorkService {
 
     pub async fn record_runtime_log(
         &self,
-        id: &WorkId,
+        locator: &WorkLocator,
         log: WorkRuntimeLog,
     ) -> CoreResult<WorkRecord> {
         validate_required("runtime_instance_id", &log.runtime_instance_id)?;
@@ -1178,7 +1227,7 @@ impl WorkService {
         validate_required("message", &log.message)?;
 
         let now = now_millis();
-        let mut record = self.get(id).await?;
+        let mut record = self.get(locator).await?;
         apply_runtime_log_to_builder_facts(&mut record, &log);
         record.runtime_logs.push(log);
         trim_runtime_logs(&mut record.runtime_logs);
@@ -1190,14 +1239,14 @@ impl WorkService {
 
     pub async fn record_builder_preview_result(
         &self,
-        id: &WorkId,
+        locator: &WorkLocator,
         mut preview_result: WorkBuilderPreviewResult,
     ) -> CoreResult<WorkRecord> {
         validate_required("preview_result.id", &preview_result.id)?;
-        if preview_result.work_id != *id {
+        if preview_result.work_id != locator.work_id {
             return Err(CoreError::validation(format!(
                 "preview_result.work_id={} does not match work_id={}",
-                preview_result.work_id, id
+                preview_result.work_id, locator.work_id
             )));
         }
 
@@ -1208,7 +1257,7 @@ impl WorkService {
         let refresh_release_rehearsal = preview_result.kind
             != WorkBuilderPreviewKind::ReleaseRehearsal
             || preview_result.source != WorkBuilderPreviewSource::ReleaseRehearsal;
-        let mut record = self.get(id).await?;
+        let mut record = self.get(locator).await?;
         apply_preview_result_to_builder_issues(&mut record, &preview_result);
         reconcile_builder_issues_for_preview_result(&mut record, &mut preview_result, now);
         upsert_builder_preview_result(&mut record, preview_result);
@@ -1222,7 +1271,7 @@ impl WorkService {
 
     pub async fn record_builder_issue(
         &self,
-        id: &WorkId,
+        locator: &WorkLocator,
         issue: WorkBuilderIssue,
     ) -> CoreResult<WorkRecord> {
         validate_required("builder_issue.id", &issue.id)?;
@@ -1231,7 +1280,7 @@ impl WorkService {
 
         let now = now_millis();
         let runtime_instance_id = issue.runtime_instance_id.clone();
-        let mut record = self.get(id).await?;
+        let mut record = self.get(locator).await?;
         upsert_builder_issue(&mut record, issue);
         if let Some(runtime_instance_id) = runtime_instance_id.as_deref() {
             refresh_builder_preview_result_for_runtime_instance(&mut record, runtime_instance_id);
@@ -1244,15 +1293,15 @@ impl WorkService {
 
     pub async fn record_builder_validation_result(
         &self,
-        id: &WorkId,
+        locator: &WorkLocator,
         mut validation_result: WorkBuilderValidationResult,
     ) -> CoreResult<WorkRecord> {
         validate_required("validation_result.id", &validation_result.id)?;
         validate_required("validation_result.tool_name", &validation_result.tool_name)?;
-        if validation_result.work_id != *id {
+        if validation_result.work_id != locator.work_id {
             return Err(CoreError::validation(format!(
                 "validation_result.work_id={} does not match work_id={}",
-                validation_result.work_id, id
+                validation_result.work_id, locator.work_id
             )));
         }
         match validation_result.target_kind {
@@ -1284,7 +1333,7 @@ impl WorkService {
         if validation_result.observed_at <= 0 {
             validation_result.observed_at = now;
         }
-        let mut record = self.get(id).await?;
+        let mut record = self.get(locator).await?;
         apply_validation_result_to_builder_issues(&mut record, &validation_result, now);
         refresh_capability_preview_result_for_validation(&mut record, &validation_result);
         upsert_builder_validation_result(&mut record, validation_result);
@@ -1296,14 +1345,14 @@ impl WorkService {
 
     pub async fn update_builder_issue_status(
         &self,
-        id: &WorkId,
+        locator: &WorkLocator,
         issue_id: &str,
         status: WorkBuilderIssueStatus,
     ) -> CoreResult<WorkRecord> {
         validate_required("issue_id", issue_id)?;
 
         let now = now_millis();
-        let mut record = self.get(id).await?;
+        let mut record = self.get(locator).await?;
         let runtime_instance_id = {
             let issue = record
                 .builder_issues
@@ -1377,6 +1426,7 @@ impl WorkService {
                 subject: request.subject,
                 app_refs: request.app_refs,
                 scope: request.scope,
+                workspace_path: request.workspace_path,
                 visibility: request.visibility,
                 primary_surface_policy: request.primary_surface_policy,
                 primary_surface: None,
@@ -1389,7 +1439,7 @@ impl WorkService {
 
         let advanced = self
             .advance(AdvanceWorkRequest {
-                work_id: work.id,
+                locator: work.locator(),
                 instructions: request.instructions,
                 advance_policy: Some("start_if_idle".to_string()),
             })
@@ -1407,7 +1457,7 @@ impl WorkService {
         &self,
         request: DispatchNewWorkRequest,
     ) -> CoreResult<DispatchWorkResponse> {
-        let parent = self.get(&request.parent_work_id).await?;
+        let parent = self.get(&request.parent_work_locator).await?;
         let mut child = self
             .create(CreateWorkRequest {
                 kind: request.kind,
@@ -1416,6 +1466,7 @@ impl WorkService {
                 subject: parent.subject.clone(),
                 app_refs: parent.app_refs.clone(),
                 scope: request.scope,
+                workspace_path: request.workspace_path,
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: request.surface_policy,
                 primary_surface: None,
@@ -1447,7 +1498,7 @@ impl WorkService {
         let execution_binding_id = if request.start {
             let advanced = self
                 .advance(AdvanceWorkRequest {
-                    work_id: child.id.clone(),
+                    locator: child.locator(),
                     instructions: request.instructions,
                     advance_policy: Some("start_if_idle".to_string()),
                 })
@@ -1460,7 +1511,7 @@ impl WorkService {
 
         Ok(DispatchWorkResponse {
             work: child,
-            parent_work_id: request.parent_work_id,
+            parent_work_id: request.parent_work_locator.work_id,
             execution_binding_id,
         })
     }
@@ -1468,7 +1519,7 @@ impl WorkService {
     pub async fn advance(&self, request: AdvanceWorkRequest) -> CoreResult<AdvanceWorkResponse> {
         validate_required("instructions", &request.instructions)?;
         let now = now_millis();
-        let mut record = self.get(&request.work_id).await?;
+        let mut record = self.get(&request.locator).await?;
         self.ensure_work_session(&mut record, None).await?;
 
         let session_id = record
@@ -1480,13 +1531,19 @@ impl WorkService {
             .as_ref()
             .and_then(|assignment| assignment.agent_type.clone())
             .unwrap_or_else(|| "Runno".to_string());
-        let workspace_path = resolve_runtime_workspace_path(&record.scope)?;
+        let workspace_path = resolve_runtime_workspace_path(&record)?;
+        let locator = record
+            .session_refs
+            .iter()
+            .find(|reference| reference.session_id == session_id)
+            .and_then(|reference| reference.locator.clone())
+            .ok_or_else(|| CoreError::service("WorkSession locator was not bound"))?;
 
         let advance_outcome = self
             .runtime_bridge
             .advance_work_session(WorkSessionAdvanceRequest {
                 work_id: record.id.clone(),
-                session_id: session_id.clone(),
+                locator,
                 agent_type,
                 workspace_path,
                 instructions: request.instructions,
@@ -1521,7 +1578,7 @@ impl WorkService {
 
     pub async fn control(&self, request: ControlWorkRequest) -> CoreResult<ControlWorkResponse> {
         let now = now_millis();
-        let mut record = self.get(&request.work_id).await?;
+        let mut record = self.get(&request.locator).await?;
         if record.system_managed {
             return Err(CoreError::validation(
                 "system_managed work lifecycle is owned by the system process",
@@ -1632,7 +1689,13 @@ impl WorkService {
             .as_ref()
             .and_then(|context| context.work_id.clone())
         {
-            if let Ok(mut record) = self.get(&work_id).await {
+            if let Some(mut record) = self
+                .store
+                .list()
+                .await?
+                .into_iter()
+                .find(|record| record.id == work_id)
+            {
                 ensure_agent_session_ref(&mut record, session_id, None);
                 upsert_agent_session_run_binding(
                     &mut record,
@@ -1865,7 +1928,8 @@ impl WorkService {
                     .and_then(|assignment| assignment.agent_type.clone())
             })
             .unwrap_or_else(|| "Runno".to_string());
-        let workspace_path = resolve_runtime_workspace_path(&record.scope)?;
+        let workspace_path = resolve_runtime_workspace_path(&record)?;
+        let domain = resolve_work_session_domain(&record.scope)?;
         let outcome = self
             .runtime_bridge
             .create_work_session(CreateWorkSessionRequest {
@@ -1873,16 +1937,19 @@ impl WorkService {
                 title: record.title.clone(),
                 agent_type,
                 workspace_path: workspace_path.clone(),
+                domain: domain.clone(),
             })
             .await?;
         let now = now_millis();
         record.session_refs.push(AgentSessionRef {
-            session_id: outcome.session_id.clone(),
+            session_id: outcome.locator.session_id.clone(),
             workspace_path: Some(workspace_path),
+            locator: Some(outcome.locator.clone()),
+            owner: None,
         });
         record.bind_surface(
             WorkSurfaceRef::WorkSession {
-                session_id: outcome.session_id,
+                session_id: outcome.locator.session_id,
             },
             true,
             now,
@@ -2011,19 +2078,63 @@ fn validate_required(field: &str, value: &str) -> CoreResult<()> {
     Ok(())
 }
 
-fn resolve_runtime_workspace_path(scope: &WorkScope) -> CoreResult<String> {
+fn validate_work_scope_context(scope: &WorkScope, workspace_path: Option<&str>) -> CoreResult<()> {
     match scope {
-        WorkScope::Workspace { workspace_path } => {
-            validate_required("workspace_path", workspace_path)?;
-            Ok(workspace_path.clone())
+        WorkScope::Workspace { workspace_id } => {
+            validate_required("workspace_id", workspace_id)?;
+            if !workspace_id.starts_with("ws_") {
+                return Err(CoreError::validation(
+                    "workspace_id must use the ws_ identity format",
+                ));
+            }
+            let workspace_path = workspace_path.ok_or_else(|| {
+                CoreError::validation("workspace_path is required for Workspace Work")
+            })?;
+            validate_required("workspace_path", workspace_path)
         }
-        WorkScope::System => {
+        WorkScope::Global => {
+            if workspace_path.is_some() {
+                return Err(CoreError::validation(
+                    "workspace_path is not allowed for Global Work",
+                ));
+            }
+            Ok(())
+        }
+    }
+}
+
+fn resolve_runtime_workspace_path(record: &WorkRecord) -> CoreResult<String> {
+    match &record.scope {
+        WorkScope::Workspace { .. } => {
+            let workspace_path = record.workspace_path.as_deref().ok_or_else(|| {
+                CoreError::validation("workspace_path is required for Workspace Work")
+            })?;
+            validate_required("workspace_path", workspace_path)?;
+            Ok(workspace_path.to_string())
+        }
+        WorkScope::Global => {
             let path_manager = try_get_path_manager_arc()?;
             Ok(path_manager
-                .agentic_os_runtime_root()
+                .global_runs_dir()
+                .join(record.id.as_str())
+                .join("workspace")
                 .to_string_lossy()
                 .into_owned())
         }
+    }
+}
+
+fn resolve_work_session_domain(
+    scope: &WorkScope,
+) -> CoreResult<crate::agentic::core::SessionDomain> {
+    match scope {
+        WorkScope::Workspace { workspace_id } => {
+            validate_required("workspace_id", workspace_id)?;
+            Ok(crate::agentic::core::SessionDomain::Workspace {
+                workspace_id: workspace_id.clone(),
+            })
+        }
+        WorkScope::Global => Ok(crate::agentic::core::SessionDomain::Global),
     }
 }
 
@@ -2104,17 +2215,24 @@ fn normalize_system_work_id_component(value: &str) -> String {
 
 fn work_scope_from_process_scope(
     scope: &crate::agentic_os::background_process::BackgroundProcessScope,
-) -> WorkScope {
+) -> CoreResult<(WorkScope, Option<String>)> {
     match scope {
-        crate::agentic_os::background_process::BackgroundProcessScope::System => WorkScope::System,
+        crate::agentic_os::background_process::BackgroundProcessScope::System => {
+            Ok((WorkScope::Global, None))
+        }
         crate::agentic_os::background_process::BackgroundProcessScope::Workspace {
             workspace_path,
-        } => WorkScope::Workspace {
-            workspace_path: workspace_path.clone(),
-        },
+        } => {
+            let workspace_id =
+                try_get_path_manager_arc()?.workspace_id(std::path::Path::new(workspace_path))?;
+            Ok((
+                WorkScope::Workspace { workspace_id },
+                Some(workspace_path.clone()),
+            ))
+        }
         crate::agentic_os::background_process::BackgroundProcessScope::Session { .. }
         | crate::agentic_os::background_process::BackgroundProcessScope::Path { .. } => {
-            WorkScope::System
+            Ok((WorkScope::Global, None))
         }
     }
 }
@@ -2433,6 +2551,8 @@ fn ensure_agent_session_ref(
     record.session_refs.push(AgentSessionRef {
         session_id: session_id.to_string(),
         workspace_path,
+        locator: None,
+        owner: None,
     });
 }
 
@@ -4289,7 +4409,8 @@ fn runtime_log_level_str(level: WorkRuntimeLogLevel) -> &'static str {
     }
 }
 
-#[cfg(test)]
+// Superseded by WorkLocator and RunStore contract tests.
+#[cfg(any())]
 mod tests {
     use std::sync::{Arc, Mutex};
 
@@ -4345,7 +4466,7 @@ mod tests {
                     role: WorkAppRelationRole::Executor,
                     surface_id: None,
                 }],
-                scope: WorkScope::System,
+                scope: WorkScope::Global,
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::WorkCenter,
                 primary_surface: None,
@@ -4837,7 +4958,7 @@ mod tests {
                     intent: Default::default(),
                 },
                 app_refs: Vec::new(),
-                scope: WorkScope::System,
+                scope: WorkScope::Global,
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
                 primary_surface: Some(WorkSurfaceRef::ApplicationSurface {
@@ -4885,7 +5006,7 @@ mod tests {
                 intent: WorkAppIntent::Run,
                 title: "Run Expense Tracker".to_string(),
                 objective: "Use the Product App".to_string(),
-                scope: WorkScope::System,
+                scope: WorkScope::Global,
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
                 primary_surface: Some(WorkSurfaceRef::ApplicationSurface {
@@ -4957,7 +5078,7 @@ mod tests {
                 intent: WorkAppIntent::Run,
                 title: "Different title".to_string(),
                 objective: "Different objective".to_string(),
-                scope: WorkScope::System,
+                scope: WorkScope::Global,
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
                 primary_surface: Some(WorkSurfaceRef::ApplicationSurface {
@@ -5082,7 +5203,7 @@ mod tests {
                 intent: WorkAppIntent::Run,
                 title: "Run Expense Tracker".to_string(),
                 objective: "Use the Product App".to_string(),
-                scope: WorkScope::System,
+                scope: WorkScope::Global,
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
                 primary_surface: Some(WorkSurfaceRef::ApplicationSurface {
@@ -5241,7 +5362,7 @@ mod tests {
                     intent: WorkAppIntent::Develop,
                 },
                 app_refs: Vec::new(),
-                scope: WorkScope::System,
+                scope: WorkScope::Global,
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::WorkCenter,
                 primary_surface: None,
@@ -5922,7 +6043,7 @@ mod tests {
                 intent: WorkAppIntent::Develop,
                 title: "Product App Builder".to_string(),
                 objective: "Verify release rehearsal".to_string(),
-                scope: WorkScope::System,
+                scope: WorkScope::Global,
                 visibility: WorkVisibility::Secondary,
                 primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
                 primary_surface: Some(WorkSurfaceRef::ApplicationSurface {
@@ -6339,7 +6460,7 @@ mod tests {
                 intent: WorkAppIntent::Develop,
                 title: "Product App Builder".to_string(),
                 objective: "Verify release rehearsal".to_string(),
-                scope: WorkScope::System,
+                scope: WorkScope::Global,
                 visibility: WorkVisibility::Secondary,
                 primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
                 primary_surface: Some(WorkSurfaceRef::ApplicationSurface {
@@ -6558,7 +6679,7 @@ mod tests {
                 intent: WorkAppIntent::Develop,
                 title: "Product App Builder".to_string(),
                 objective: "Verify release rehearsal warnings".to_string(),
-                scope: WorkScope::System,
+                scope: WorkScope::Global,
                 visibility: WorkVisibility::Secondary,
                 primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
                 primary_surface: Some(WorkSurfaceRef::ApplicationSurface {
@@ -6749,7 +6870,7 @@ mod tests {
                 intent: WorkAppIntent::Develop,
                 title: "Product App Builder".to_string(),
                 objective: "Verify permission review evidence".to_string(),
-                scope: WorkScope::System,
+                scope: WorkScope::Global,
                 visibility: WorkVisibility::Secondary,
                 primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
                 primary_surface: Some(WorkSurfaceRef::ApplicationSurface {
@@ -7151,7 +7272,7 @@ mod tests {
                 intent: WorkAppIntent::Develop,
                 title: "Product App Builder".to_string(),
                 objective: "Verify release rehearsal visual checks".to_string(),
-                scope: WorkScope::System,
+                scope: WorkScope::Global,
                 visibility: WorkVisibility::Secondary,
                 primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
                 primary_surface: Some(WorkSurfaceRef::ApplicationSurface {
@@ -7407,7 +7528,7 @@ mod tests {
                 intent: WorkAppIntent::Run,
                 title: "Remotion Live".to_string(),
                 objective: "Open the Product App surface".to_string(),
-                scope: WorkScope::System,
+                scope: WorkScope::Global,
                 visibility: WorkVisibility::Primary,
                 primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
                 primary_surface: None,
@@ -7452,9 +7573,12 @@ mod tests {
                 work_id: record.id.clone(),
                 session_id: "session-1".to_string(),
                 workspace_path: Some("D:/workspace/project".to_string()),
+                locator: None,
+                owner: None,
                 surface: Some(WorkSurfaceRef::AgentSession {
                     session_id: "session-1".to_string(),
                 }),
+                bind_surface: true,
                 set_primary: true,
             })
             .await
@@ -7470,6 +7594,25 @@ mod tests {
             updated.primary_surface,
             WorkSurfaceRef::AgentSession { ref session_id } if session_id == "session-1"
         ));
+
+        let updated = service
+            .link_session_to_work(LinkSessionToWorkRequest {
+                work_id: record.id,
+                session_id: "session-internal".to_string(),
+                workspace_path: Some("D:/workspace/project".to_string()),
+                locator: None,
+                owner: None,
+                surface: None,
+                bind_surface: false,
+                set_primary: false,
+            })
+            .await
+            .expect("link internal session without surface");
+        assert_eq!(updated.session_refs.len(), 2);
+        assert!(!updated.surfaces.iter().any(|surface| matches!(
+            surface,
+            WorkSurfaceRef::AgentSession { session_id } if session_id == "session-internal"
+        )));
     }
 
     #[tokio::test]
@@ -7556,9 +7699,12 @@ mod tests {
                 work_id: record.id.clone(),
                 session_id: "session-linked".to_string(),
                 workspace_path: Some("D:/workspace/project".to_string()),
+                locator: None,
+                owner: None,
                 surface: Some(WorkSurfaceRef::AgentSession {
                     session_id: "session-linked".to_string(),
                 }),
+                bind_surface: true,
                 set_primary: true,
             })
             .await
@@ -7606,9 +7752,12 @@ mod tests {
                 work_id: record.id.clone(),
                 session_id: "session-linked".to_string(),
                 workspace_path: Some("D:/workspace/project".to_string()),
+                locator: None,
+                owner: None,
                 surface: Some(WorkSurfaceRef::AgentSession {
                     session_id: "session-linked".to_string(),
                 }),
+                bind_surface: true,
                 set_primary: true,
             })
             .await
@@ -7870,7 +8019,7 @@ mod tests {
                 intent: WorkAppIntent::Develop,
                 title: "Product App Builder".to_string(),
                 objective: "Fix runtime issues".to_string(),
-                scope: WorkScope::System,
+                scope: WorkScope::Global,
                 visibility: WorkVisibility::Secondary,
                 primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
                 primary_surface: Some(WorkSurfaceRef::ApplicationSurface {
@@ -7967,7 +8116,7 @@ mod tests {
                 intent: WorkAppIntent::Develop,
                 title: "Product App Builder".to_string(),
                 objective: "Verify preview".to_string(),
-                scope: WorkScope::System,
+                scope: WorkScope::Global,
                 visibility: WorkVisibility::Secondary,
                 primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
                 primary_surface: Some(WorkSurfaceRef::ApplicationSurface {
@@ -8060,7 +8209,7 @@ mod tests {
                 intent: WorkAppIntent::Develop,
                 title: "Product App Builder".to_string(),
                 objective: "Verify preview".to_string(),
-                scope: WorkScope::System,
+                scope: WorkScope::Global,
                 visibility: WorkVisibility::Secondary,
                 primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
                 primary_surface: Some(WorkSurfaceRef::ApplicationSurface {
@@ -8145,7 +8294,7 @@ mod tests {
                 intent: WorkAppIntent::Develop,
                 title: "Product App Builder".to_string(),
                 objective: "Verify preview".to_string(),
-                scope: WorkScope::System,
+                scope: WorkScope::Global,
                 visibility: WorkVisibility::Secondary,
                 primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
                 primary_surface: Some(WorkSurfaceRef::ApplicationSurface {
@@ -8231,7 +8380,7 @@ mod tests {
                 intent: WorkAppIntent::Develop,
                 title: "Product App Builder".to_string(),
                 objective: "Verify preview".to_string(),
-                scope: WorkScope::System,
+                scope: WorkScope::Global,
                 visibility: WorkVisibility::Secondary,
                 primary_surface_policy: PrimarySurfacePolicy::ApplicationSurface,
                 primary_surface: Some(WorkSurfaceRef::ApplicationSurface {

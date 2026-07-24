@@ -1,0 +1,187 @@
+.base-tool-card-header .tool-card-content:has(.ppt-design-case-card__title) {
+  flex-wrap: wrap;
+  overflow: visible;
+  white-space: normal;
+}
+
+.ppt-design-case-card__title,
+.ppt-design-case-card__status,
+.ppt-design-case-card__primary-actions,
+.ppt-design-case-card__custom-feedback {
+  display: flex;
+  align-items: center;
+}
+
+.ppt-design-case-card__title {
+  gap: 8px;
+  flex-wrap: wrap;
+  font-weight: 600;
+}
+
+.ppt-design-case-card__status {
+  gap: 5px;
+  padding: 2px 7px;
+  border-radius: var(--ds-radius-full);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.ppt-design-case-card__status.is-waiting {
+  color: var(--ds-status-surface-warning-fg);
+  background: color-mix(in srgb, var(--ds-status-surface-warning-fg) 12%, transparent);
+}
+
+.ppt-design-case-card__status.is-approved {
+  color: var(--ds-status-surface-success-fg);
+  background: color-mix(in srgb, var(--ds-status-surface-success-fg) 12%, transparent);
+}
+
+.ppt-design-case-card__status.is-revise {
+  color: var(--ds-status-surface-info-fg);
+  background: color-mix(in srgb, var(--ds-status-surface-info-fg) 12%, transparent);
+}
+
+.ppt-design-case-card__artifact {
+  min-height: 180px;
+}
+
+.ppt-design-case-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 12px;
+}
+
+.ppt-design-case-card__brief {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 18px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--ds-chat-border-subtle);
+}
+
+.ppt-design-case-card__brief > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ppt-design-case-card__brief span,
+.ppt-design-case-card__preview figcaption span {
+  color: var(--ds-chat-text-muted);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ppt-design-case-card__brief strong {
+  color: var(--ds-chat-text-primary);
+  font-size: 12px;
+  font-weight: 550;
+  line-height: 1.45;
+}
+
+.ppt-design-case-card__audience {
+  grid-column: 1 / -1;
+}
+
+.ppt-design-case-card__previews {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.ppt-design-case-card__preview {
+  min-width: 0;
+  margin: 0;
+}
+
+.ppt-design-case-card__preview img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border: 1px solid var(--ds-chat-border-strong);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-chat-surface-hover);
+}
+
+.ppt-design-case-card__preview figcaption {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+  padding-top: 7px;
+}
+
+.ppt-design-case-card__preview figcaption strong {
+  overflow: hidden;
+  color: var(--ds-chat-text-primary);
+  font-size: 11px;
+  font-weight: 550;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ppt-design-case-card__decision {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ds-chat-border-subtle);
+}
+
+.ppt-design-case-card__decision p {
+  margin: 0;
+  color: var(--ds-chat-text-secondary);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.ppt-design-case-card__primary-actions {
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ppt-design-case-card__custom-feedback {
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.ppt-design-case-card__custom-feedback .ds-textarea {
+  min-width: 0;
+  flex: 1;
+}
+
+.ppt-design-case-card__custom-feedback .ds-textarea__field {
+  min-height: 34px;
+  max-height: 100px;
+}
+
+.ppt-design-case-card__receipt {
+  padding: 10px 12px;
+  border-left: 2px solid var(--ds-status-surface-info-fg);
+  color: var(--ds-chat-text-secondary);
+  background: color-mix(in srgb, var(--ds-status-surface-info-fg) 7%, transparent);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.ppt-design-case-card__receipt.is-approved {
+  border-left-color: var(--ds-status-surface-success-fg);
+  background: color-mix(in srgb, var(--ds-status-surface-success-fg) 7%, transparent);
+}
+
+@media (max-width: 720px) {
+  .ppt-design-case-card__previews {
+    grid-template-columns: 1fr;
+  }
+
+  .ppt-design-case-card__custom-feedback {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

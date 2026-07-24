@@ -1,4 +1,4 @@
-import { Select, type SelectOption } from '@/design-system';
+import { FormField, Select, type SelectOption } from '@/design-system';
 import { dispatchSettingChange, type SettingRendererFieldProps } from './types';
 
 export interface EnumSettingRendererProps extends SettingRendererFieldProps<string | number> {
@@ -17,20 +17,25 @@ export function EnumSettingRenderer({
   onError,
 }: EnumSettingRendererProps) {
   return (
-    <Select
-      id={id}
+    <FormField
+      controlId={id}
       label={label}
-      value={value}
-      options={[...options]}
-      disabled={disabled}
-      loading={loading}
-      error={Boolean(errorMessage)}
-      errorMessage={errorMessage}
-      onChange={(nextValue) => {
-        if (!Array.isArray(nextValue)) {
-          dispatchSettingChange(onChange, nextValue, onError);
-        }
-      }}
-    />
+      error={errorMessage}
+      orientation="horizontal"
+      controlWidth="balanced"
+    >
+      <Select
+        value={value}
+        options={[...options]}
+        disabled={disabled}
+        loading={loading}
+        error={Boolean(errorMessage)}
+        onChange={(nextValue) => {
+          if (!Array.isArray(nextValue)) {
+            dispatchSettingChange(onChange, nextValue, onError);
+          }
+        }}
+      />
+    </FormField>
   );
 }

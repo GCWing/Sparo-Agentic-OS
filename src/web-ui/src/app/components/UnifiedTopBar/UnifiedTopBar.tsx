@@ -19,6 +19,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft,
   FolderOpen,
+  Globe2,
   Search,
 } from 'lucide-react';
 import {
@@ -45,7 +46,12 @@ import { useWorkStore } from '@/app/agentic-os/work/data/workStore';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import { useSessionProfile } from '../../session-profiles';
 import { getWorkspaceSceneDef } from '../../navigation/workspaceSceneRegistry';
-import { resolveWorkContextForSurface } from '../../navigation/workspaceTopBarContext';
+import {
+  resolveProductAppTopBarContext,
+  resolveSessionTopBarPresentation,
+  resolveWorkContextForSurface,
+  resolveWorkspaceTopBarTitle,
+} from '../../navigation/workspaceTopBarContext';
 import { useSessionHeaderContext } from '../../hooks/useSessionHeaderContext';
 import {
   useWorkspaceSurfaceStore,
@@ -207,25 +213,41 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
     ? `${sceneTitle} / ${sceneScopeLabel}`
     : sceneTitle;
   const contextNavOverride = activeSceneId ? contextNavOverrides[activeSceneId] : undefined;
+  const globalScopeLabel = tHeader('globalScope');
 
   const getSceneHistoryTitle = useCallback(
     (entry: WorkspaceSceneHistoryEntry): string => {
       const entryWorkContext = resolveWorkContextForSurface(entry.context, works);
-      if (entryWorkContext?.title) {
-        return entryWorkContext.title;
-      }
 
       if (entry.surface.kind === 'session') {
         const session = flowChatStore.getState().sessions.get(entry.surface.sessionId);
         const sessionLabel = session?.descriptor?.labelKey
           ? tApps(session.descriptor.labelKey)
           : (session?.title?.trim() || entry.surface.sessionId);
-        const workspaceName = session?.workspacePath
+        const productAppMetadata = session?.customMetadata?.productAppRuntime;
+        const productApp = resolveProductAppTopBarContext(productAppMetadata);
+        const productAppWorkspace = productAppMetadata?.scope.kind === 'workspace'
+          ? productAppMetadata.scope
+          : null;
+        const workspacePath = productApp
+          ? productAppWorkspace?.workspacePath
+          : session?.workspacePath;
+        const workspaceName = productAppWorkspace?.workspaceName?.trim() || workspacePath
           ?.replace(/\\/g, '/')
           .split('/')
           .filter(Boolean)
           .pop();
-        return workspaceName ? `${sessionLabel} / ${workspaceName}` : sessionLabel;
+        const presentation = resolveSessionTopBarPresentation({
+          sessionLabel,
+          workspaceLabel: workspaceName,
+          globalScopeLabel,
+          productApp,
+        });
+        return productApp ? presentation.title : (entryWorkContext?.title || presentation.title);
+      }
+
+      if (entryWorkContext?.title) {
+        return entryWorkContext.title;
       }
 
       const entrySceneDef = getWorkspaceSceneDef(entry.surface.sceneId);
@@ -239,7 +261,7 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
       const scopeLabel = runtimeScopeLabel(entry.surface.scope);
       return scopeLabel ? `${title} / ${scopeLabel}` : title;
     },
-    [tApps, tCommon, works],
+    [globalScopeLabel, tApps, tCommon, works],
   );
 
   const sessionWorkspaceName = useMemo(() => {
@@ -254,18 +276,28 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
     return sessionContext ? tApps(sessionContext.descriptor.labelKey) : '';
   }, [sessionContext, tApps]);
 
+  const sessionPresentation = useMemo(() => (
+    sessionContext
+      ? resolveSessionTopBarPresentation({
+          sessionLabel: sessionCategoryLabel,
+          workspaceLabel: sessionWorkspaceName,
+          globalScopeLabel,
+          productApp: sessionContext.productApp,
+        })
+      : null
+  ), [globalScopeLabel, sessionCategoryLabel, sessionContext, sessionWorkspaceName]);
+
   const sessionTitle = useMemo(() => {
-    if (!sessionCategoryLabel) return '';
+    if (!sessionPresentation?.identityLabel) return '';
     if (!profile.topBar.showContextNav) return '';
-    if (sessionWorkspaceName && profile.topBar.showWorkspaceName) {
-      return `${sessionCategoryLabel} / ${sessionWorkspaceName}`;
+    if (sessionPresentation.scopeLabel && profile.topBar.showWorkspaceName) {
+      return sessionPresentation.title;
     }
-    return sessionCategoryLabel;
+    return sessionPresentation.identityLabel;
   }, [
     profile.topBar.showContextNav,
     profile.topBar.showWorkspaceName,
-    sessionCategoryLabel,
-    sessionWorkspaceName,
+    sessionPresentation,
   ]);
 
   const showContextNav = hasSurfaceContext && (
@@ -274,21 +306,25 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
     || activeSurface.kind === 'scene'
     || (!!sessionContext && profile.topBar.showContextNav)
   );
-  const contextTitle =
-    workContext?.title ??
-    contextNavOverride?.title ??
-    (activeSurface.kind === 'scene'
-      ? scopedSceneTitle
-      : sessionTitle);
-  const showSessionWorkspace =
-    !workContext &&
+  const productAppOwnsSessionTitle = activeSurface.kind === 'session'
+    && sessionPresentation?.isProductApp === true;
+  const contextTitle = resolveWorkspaceTopBarTitle({
+    surfaceKind: activeSurface.kind,
+    sessionPresentation,
+    sessionTitle,
+    workTitle: workContext?.title,
+    overrideTitle: contextNavOverride?.title,
+    sceneTitle: scopedSceneTitle,
+  });
+  const showSessionScope =
+    (!workContext || productAppOwnsSessionTitle) &&
     !hasSceneSurface &&
-    !!sessionWorkspaceName &&
+    !!sessionPresentation?.scopeLabel &&
     profile.topBar.showWorkspaceName;
-  const showSessionCategoryPrefix =
+  const showSessionIdentityPrefix =
     !hasSceneSurface &&
-    !!sessionCategoryLabel &&
-    (showSessionWorkspace || !!workContext);
+    !!sessionPresentation?.identityLabel &&
+    (showSessionScope || (!!workContext && !productAppOwnsSessionTitle));
   const contextActions = contextNavOverride?.actions ?? [];
   const canGoBackScene = activeSurface.kind !== 'agentic-os-home' && sceneHistory.length > 0;
   const showContextCapsule =
@@ -501,18 +537,20 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
                         data-testid="unified-top-bar-scene-history"
                       >
                         <span className="unified-top-bar__context-title">
-                          {showSessionCategoryPrefix && (
+                          {showSessionIdentityPrefix && (
                             <span className="unified-top-bar__context-mode">
-                              {sessionCategoryLabel}
+                              {sessionPresentation?.identityLabel}
                             </span>
                           )}
-                          {showSessionCategoryPrefix && (
+                          {showSessionIdentityPrefix && (
                             <span className="unified-top-bar__context-sep" aria-hidden="true">/</span>
                           )}
-                          {showSessionWorkspace ? (
+                          {showSessionScope ? (
                             <span className="unified-top-bar__context-workspace">
-                              <FolderOpen size={11} aria-hidden="true" />
-                              <span>{sessionWorkspaceName}</span>
+                              {sessionPresentation?.scopeKind === 'global'
+                                ? <Globe2 size={11} aria-hidden="true" />
+                                : <FolderOpen size={11} aria-hidden="true" />}
+                              <span>{sessionPresentation?.scopeLabel}</span>
                             </span>
                           ) : (
                             <span className="unified-top-bar__context-label">{contextTitle}</span>

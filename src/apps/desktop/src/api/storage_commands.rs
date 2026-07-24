@@ -16,9 +16,19 @@ pub struct StoragePathsInfo {
     pub user_config_dir: PathBuf,
     pub user_state_dir: PathBuf,
     pub user_data_dir: PathBuf,
+    pub sessions_root: PathBuf,
+    pub works_root: PathBuf,
+    pub runs_root: PathBuf,
+    pub app_data_root: PathBuf,
+    pub services_root: PathBuf,
     pub workspaces_runtime_root: PathBuf,
     pub agentic_os_runtime_root: PathBuf,
     pub apps_dir: PathBuf,
+    pub components_dir: PathBuf,
+    pub agents_dir: PathBuf,
+    pub skills_dir: PathBuf,
+    pub skill_suites_dir: PathBuf,
+    pub managed_runtimes_dir: PathBuf,
     pub browser_profiles_dir: PathBuf,
     pub secrets_dir: PathBuf,
     pub backups_dir: PathBuf,
@@ -39,6 +49,11 @@ pub struct StorageStats {
     pub config_size_mb: f64,
     pub data_size_mb: f64,
     pub state_size_mb: f64,
+    pub sessions_size_mb: f64,
+    pub works_size_mb: f64,
+    pub runs_size_mb: f64,
+    pub app_data_size_mb: f64,
+    pub services_size_mb: f64,
     pub workspaces_size_mb: f64,
     pub agentic_os_size_mb: f64,
     pub apps_size_mb: f64,
@@ -69,9 +84,19 @@ pub async fn get_storage_paths(state: State<'_, AppState>) -> Result<StoragePath
         user_config_dir: path_manager.user_config_dir(),
         user_state_dir: path_manager.user_state_dir(),
         user_data_dir: path_manager.user_data_dir(),
+        sessions_root: path_manager.sessions_root(),
+        works_root: path_manager.works_root(),
+        runs_root: path_manager.runs_root(),
+        app_data_root: path_manager.app_data_root(),
+        services_root: path_manager.services_root(),
         workspaces_runtime_root: path_manager.workspaces_runtime_root(),
         agentic_os_runtime_root: path_manager.agentic_os_runtime_root(),
         apps_dir: path_manager.apps_dir(),
+        components_dir: path_manager.system_components_dir(),
+        agents_dir: path_manager.user_agents_dir(),
+        skills_dir: path_manager.user_skills_dir(),
+        skill_suites_dir: path_manager.user_skill_suites_dir(),
+        managed_runtimes_dir: path_manager.managed_runtimes_dir(),
         browser_profiles_dir: path_manager.browser_profiles_dir(),
         secrets_dir: path_manager.secrets_dir(),
         backups_dir: path_manager.backups_dir(),
@@ -94,14 +119,26 @@ pub async fn get_workspace_storage_paths(
     let path_manager = workspace_service.path_manager();
 
     let workspace_path = PathBuf::from(workspace_path);
+    let workspace_id = path_manager
+        .workspace_id(&workspace_path)
+        .map_err(|error| error.to_string())?;
+    let session_domain = sparo_core::agentic::SessionDomain::Workspace { workspace_id };
 
     Ok(WorkspaceStoragePathsInfo {
         workspace_local_root: path_manager.project_root(&workspace_path),
-        runtime_root: path_manager.workspace_runtime_root(&workspace_path),
+        runtime_root: path_manager
+            .workspace_runtime_root(&workspace_path)
+            .map_err(|error| error.to_string())?,
         agents_dir: path_manager.project_agents_dir(&workspace_path),
-        sessions_dir: path_manager.workspace_sessions_dir(&workspace_path),
-        memory_dir: path_manager.workspace_memory_dir(&workspace_path),
-        plans_dir: path_manager.workspace_plans_dir(&workspace_path),
+        sessions_dir: path_manager
+            .session_domain_root(&session_domain)
+            .map_err(|error| error.to_string())?,
+        memory_dir: path_manager
+            .workspace_memory_dir(&workspace_path)
+            .map_err(|error| error.to_string())?,
+        plans_dir: path_manager
+            .workspace_plans_dir(&workspace_path)
+            .map_err(|error| error.to_string())?,
     })
 }
 
@@ -155,6 +192,15 @@ pub async fn get_storage_statistics(state: State<'_, AppState>) -> Result<Storag
         ("config", "Configuration", path_manager.user_config_dir()),
         ("data", "Application data", path_manager.user_data_dir()),
         ("state", "Application state", path_manager.user_state_dir()),
+        ("sessions", "Sessions", path_manager.sessions_root()),
+        ("works", "Works", path_manager.works_root()),
+        ("runs", "Runs", path_manager.runs_root()),
+        (
+            "app_data",
+            "Intelligent App data",
+            path_manager.app_data_root(),
+        ),
+        ("services", "System services", path_manager.services_root()),
         (
             "workspaces",
             "Workspace runtime",
@@ -166,6 +212,23 @@ pub async fn get_storage_statistics(state: State<'_, AppState>) -> Result<Storag
             path_manager.agentic_os_runtime_root(),
         ),
         ("apps", "Apps", path_manager.apps_dir()),
+        (
+            "components",
+            "Components",
+            path_manager.system_components_dir(),
+        ),
+        ("agents", "Agents", path_manager.user_agents_dir()),
+        ("skills", "Skills", path_manager.user_skills_dir()),
+        (
+            "skill_suites",
+            "Skill suites",
+            path_manager.user_skill_suites_dir(),
+        ),
+        (
+            "runtimes",
+            "Managed runtimes",
+            path_manager.managed_runtimes_dir(),
+        ),
         (
             "browser_profiles",
             "Browser profiles",
@@ -182,7 +245,7 @@ pub async fn get_storage_statistics(state: State<'_, AppState>) -> Result<Storag
     let mut total_size = 0u64;
     for (id, label, path) in roots {
         let size = calculate_dir_size(&path).await?;
-        total_size += size;
+        total_size = total_size.saturating_add(size);
         categories.push(StorageStatsCategory {
             id: id.to_string(),
             label: label.to_string(),
@@ -199,12 +262,19 @@ pub async fn get_storage_statistics(state: State<'_, AppState>) -> Result<Storag
             .unwrap_or(0.0)
     };
 
+    let app_root_size = calculate_dir_size(&path_manager.app_root()).await?;
+
     Ok(StorageStats {
         total_size_mb: bytes_to_mb(total_size),
-        app_root_size_mb: bytes_to_mb(calculate_dir_size(&path_manager.app_root()).await?),
+        app_root_size_mb: bytes_to_mb(app_root_size),
         config_size_mb: size_for("config"),
         data_size_mb: size_for("data"),
         state_size_mb: size_for("state"),
+        sessions_size_mb: size_for("sessions"),
+        works_size_mb: size_for("works"),
+        runs_size_mb: size_for("runs"),
+        app_data_size_mb: size_for("app_data"),
+        services_size_mb: size_for("services"),
         workspaces_size_mb: size_for("workspaces"),
         agentic_os_size_mb: size_for("agentic_os"),
         apps_size_mb: size_for("apps"),

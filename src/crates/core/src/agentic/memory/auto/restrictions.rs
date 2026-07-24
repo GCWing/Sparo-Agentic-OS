@@ -12,6 +12,7 @@ pub fn build_auto_memory_runtime_restrictions(memory_dir: &str) -> ToolRuntimeRe
             write_roots: vec![memory_dir.to_string()],
             edit_roots: Vec::new(),
             delete_roots: Vec::new(),
+            ..ToolPathPolicy::default()
         },
         disable_snapshot_tracking: true,
     }
@@ -30,6 +31,7 @@ pub fn build_session_summary_runtime_restrictions(
             write_roots: vec![summary_file_path.to_string()],
             edit_roots: vec![summary_file_path.to_string()],
             delete_roots: Vec::new(),
+            ..ToolPathPolicy::default()
         },
         disable_snapshot_tracking: true,
     }

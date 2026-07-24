@@ -3,6 +3,7 @@ import {
   BarChart3,
   Check,
   Crosshair,
+  Download,
   Eye,
   FilePlus,
   Film,
@@ -10,7 +11,10 @@ import {
   History,
   Info,
   Layers,
+  Palette,
+  Presentation,
   Redo2,
+  RefreshCw,
   Save,
   Smartphone,
   Table2,
@@ -37,6 +41,7 @@ const APP_DEFINED_TOOL_ICONS: Record<string, LucideIcon> = {
   BarChart: BarChart3,
   Check,
   Crosshair,
+  Download,
   Eye,
   FilePlus,
   Film,
@@ -44,7 +49,10 @@ const APP_DEFINED_TOOL_ICONS: Record<string, LucideIcon> = {
   History,
   Info,
   Layers,
+  Palette,
+  Presentation,
   Redo2,
+  RefreshCw,
   Save,
   Smartphone,
   Table: Table2,
@@ -52,7 +60,7 @@ const APP_DEFINED_TOOL_ICONS: Record<string, LucideIcon> = {
   X,
 };
 
-function parseData(value: unknown): unknown {
+export function parseData(value: unknown): unknown {
   if (value === undefined || value === null || value === '') return {};
   try {
     return typeof value === 'string' ? JSON.parse(value) : value;
@@ -61,7 +69,7 @@ function parseData(value: unknown): unknown {
   }
 }
 
-function readPath(source: unknown, path?: string[]): unknown {
+export function readPath(source: unknown, path?: string[]): unknown {
   if (!path?.length) return undefined;
   return path.reduce<unknown>((current, key) => {
     if (current && typeof current === 'object' && key in current) {
@@ -71,7 +79,7 @@ function readPath(source: unknown, path?: string[]): unknown {
   }, source);
 }
 
-function stringifyValue(value: unknown): string | undefined {
+export function stringifyValue(value: unknown): string | undefined {
   if (value === undefined || value === null || value === '') return undefined;
   if (typeof value === 'string') return value;
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);
@@ -82,7 +90,7 @@ function stringifyValue(value: unknown): string | undefined {
   }
 }
 
-function hasVisibleValue(value: unknown): boolean {
+export function hasVisibleValue(value: unknown): boolean {
   if (value === undefined || value === null || value === '') return false;
   if (Array.isArray(value)) return value.length > 0;
   if (typeof value === 'object') return Object.keys(value).length > 0;
@@ -97,7 +105,7 @@ function interpolate(template: string | undefined, values: Record<string, unknow
   });
 }
 
-function resolveFieldValue(field: AppDefinedToolCardField, inputData: unknown, resultData: unknown): unknown {
+export function resolveFieldValue(field: AppDefinedToolCardField, inputData: unknown, resultData: unknown): unknown {
   return (
     readPath(resultData, field.path) ??
     readPath(resultData, field.resultPath) ??
@@ -105,7 +113,7 @@ function resolveFieldValue(field: AppDefinedToolCardField, inputData: unknown, r
   );
 }
 
-function resolveBridgeError(resultData: unknown, toolError?: string): string | undefined {
+export function resolveBridgeError(resultData: unknown, toolError?: string): string | undefined {
   if (toolError) return toolError;
 
   const bridgeStatus = stringifyValue(readPath(resultData, ['bridge', 'status']));
@@ -122,7 +130,7 @@ function resolveBridgeError(resultData: unknown, toolError?: string): string | u
   );
 }
 
-function resolveOutputData(resultData: unknown): unknown {
+export function resolveOutputData(resultData: unknown): unknown {
   return (
     readPath(resultData, ['bridge', 'output']) ??
     readPath(resultData, ['result']) ??
@@ -131,7 +139,7 @@ function resolveOutputData(resultData: unknown): unknown {
   );
 }
 
-function resolveSummary(
+export function resolveSummary(
   card: AppDefinedToolCardSpec,
   phase: ReturnType<typeof getToolViewState>['phase'],
   values: Record<string, unknown>,
@@ -197,15 +205,52 @@ function resolvePrimaryColor(value?: string): string | undefined {
   return /^var\(--ds-[a-z0-9-]+\)$/i.test(normalized) ? normalized : undefined;
 }
 
+function localeCandidates(locale?: string): string[] {
+  const normalized = locale?.trim().replace(/_/g, '-');
+  if (!normalized) return [];
+  const language = normalized.split('-')[0].toLowerCase();
+  const languageFallback = language === 'zh'
+    ? 'zh-CN'
+    : language === 'en'
+      ? 'en-US'
+      : undefined;
+  return Array.from(new Set([normalized, languageFallback, language].filter(Boolean) as string[]));
+}
+
+export function resolveLocalizedCard(
+  card: AppDefinedToolCardSpec,
+  locale?: string,
+): AppDefinedToolCardSpec {
+  const localeEntries = Object.entries(card.locales ?? {});
+  const localized = localeCandidates(locale)
+    .map(candidate => localeEntries.find(([key]) => key.toLowerCase() === candidate.toLowerCase())?.[1])
+    .find(Boolean);
+  if (!localized) return card;
+
+  return {
+    ...card,
+    ...localized,
+    summary: localized.summary ? { ...card.summary, ...localized.summary } : card.summary,
+    fields: card.fields?.map((field, index) => ({
+      ...field,
+      label: localized.fields?.[index]?.label?.trim() || field.label,
+    })),
+    locales: card.locales,
+  };
+}
+
 export const AppDefinedToolCard: React.FC<ToolCardProps> = React.memo(({
   toolItem,
   config,
   onConfirm,
   onReject,
 }) => {
-  const { t } = useTranslation('flow-chat');
+  const { t, i18n } = useTranslation('flow-chat');
   const { toolCall, toolResult, status } = toolItem;
-  const card = config.extensionCard ?? {};
+  const card = useMemo(
+    () => resolveLocalizedCard(config.extensionCard ?? {}, i18n.language),
+    [config.extensionCard, i18n.language],
+  );
   const viewState = useMemo(() => getToolViewState(toolItem), [toolItem]);
   const inputData = useMemo(() => parseData(toolCall?.input), [toolCall?.input]);
   const resultData = useMemo(() => parseData(toolResult?.result), [toolResult?.result]);

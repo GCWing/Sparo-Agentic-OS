@@ -2,7 +2,7 @@ import React from 'react';
 import { ChevronLeft, ChevronRight, Layers, Play, Plus, Square } from 'lucide-react';
 import { IconButton, StatusDot, type StatusTone } from '@/design-system';
 import type { WorkRecord, WorkStatus } from '@/app/agentic-os/work/domain/workTypes';
-import { AppIcon, type AppIconSource } from '../AppIcon';
+import { AppIcon, type AppIconSource } from '@/app/components/AppIcon';
 import './WorkStack.scss';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;

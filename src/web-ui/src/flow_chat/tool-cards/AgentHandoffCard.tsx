@@ -16,7 +16,6 @@ import { openMainSession } from '../services/childSessionPanels';
 import { flowChatStore } from '../store/FlowChatStore';
 import { useSessionsExecutionRunning } from '../hooks/useSessionsExecutionRunning';
 import { useFlowLayoutMutationContract } from '../scroll/useFlowLayoutMutationContract';
-import { sessionAPI } from '@/infrastructure/api';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
 import { getToolViewState } from '../runtime/toolViewState';
@@ -89,36 +88,8 @@ function normalizeAction(action: AgentHandoffInput['action']): AgentHandoffActio
 }
 
 async function ensureSessionAvailable(sessionId: string, workspace?: string): Promise<boolean> {
-  if (flowChatStore.getState().sessions.has(sessionId)) {
-    return true;
-  }
-
-  const workspacePath = workspace?.trim();
-  if (!workspacePath || workspacePath === 'global') {
-    return false;
-  }
-
-  try {
-    const metadata = await sessionAPI.loadSessionMetadata(sessionId, workspacePath);
-    if (!metadata) {
-      return false;
-    }
-
-    await flowChatStore.hydrateWorkspaceSessionsMetadata(
-      [metadata],
-      metadata.workspacePath || workspacePath,
-      metadata.storageScope
-    );
-
-    return flowChatStore.getState().sessions.has(sessionId);
-  } catch (error) {
-    log.warn('Failed to hydrate handed-off session before navigation', {
-      sessionId,
-      workspacePath,
-      error,
-    });
-    return false;
-  }
+  void workspace;
+  return flowChatStore.getState().sessions.has(sessionId);
 }
 
 // ---------------------------------------------------------------------------

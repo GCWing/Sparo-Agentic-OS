@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { SettingsPage } from '@/design-system';
+import { SceneHeader, SettingsPage } from '@/design-system';
 import { getCustomSettingsTab } from './customSettingsRegistry';
 import { SettingsProjectionHost } from './SettingsProjectionHost';
 import { useSettingsStore } from './settingsStore';
@@ -29,11 +29,12 @@ export function SettingsManualMode({ disabled = false }: SettingsManualModeProps
 
   return (
     <div className="sparo-settings-manual-mode">
-      <SettingsPage width="wide" className="sparo-settings-manual-mode__page">
-        <header className="sparo-settings-manual-mode__header">
-          <h1>{t(`tabs.${activeTab}`, { defaultValue: humanizeId(activeTab) })}</h1>
-          <p>{t(`tabDescriptions.${activeTab}`, { defaultValue: '' })}</p>
-        </header>
+      <SettingsPage width="default" className="sparo-settings-manual-mode__page">
+        <SceneHeader
+          className="sparo-settings-manual-mode__header"
+          title={t(`tabs.${activeTab}`, { defaultValue: humanizeId(activeTab) })}
+          description={t(`tabDescriptions.${activeTab}`, { defaultValue: '' })}
+        />
         <SettingsProjectionHost tabId={activeTab} disabled={disabled} />
       </SettingsPage>
     </div>

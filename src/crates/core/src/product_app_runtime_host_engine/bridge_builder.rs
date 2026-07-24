@@ -25,15 +25,6 @@ pub fn build_bridge_script(
     let platform_esc = escape_js_str(platform);
     let source_revision_esc = escape_js_str(source_revision);
     let deps_revision_esc = escape_js_str(deps_revision);
-    // Product identity is owned by the validated runtime context, not by this host-surface id.
-    // Keep the adapter methods generic and enforce the PPT capability in the desktop host.
-    let manuscript_api = r#"manuscript: {
-        get: (opts) => _call('deck.manuscript.get', { documentId: 'manuscript', ...(opts || {}) }),
-        commit: (content, opts) => _call('deck.manuscript.commit', { documentId: 'manuscript', content, ...(opts || {}) }),
-      },"#;
-    let ppt_backend_api = r#"cancelStaleRuns: () => _rpc('backend.cancelStaleRuns', {}),
-      turnText: (sessionId, turnId, opts) => _rpc('backend.turnText', { sessionId, turnId, ...(opts || {}) }),"#;
-
     format!(
         r#"
 (function() {{
@@ -259,19 +250,18 @@ pub fn build_bridge_script(
       cancel: (sessionId, turnId) => _rpc('backend.cancel', {{ sessionId, turnId }}),
       status: (actionRunId, opts) => _rpc('backend.status', {{ actionRunId, ...(opts || {{}}) }}),
       cancelRun: (actionRunId, opts) => _rpc('backend.cancelRun', {{ actionRunId, ...(opts || {{}}) }}),
-      {ppt_backend_api}
       onEvent: (fn) => app.on('backend:event', fn),
       offEvent: (fn) => app.off('backend:event', fn),
     }},
     host: {{
       fillChatInput: (text) => _rpc('host.fillChatInput', {{ text }}),
+      submitChatIntent: (intent) => _rpc('host.submitChatIntent', {{ intent }}),
       syncSpreadsheetFocus: (payload) => _rpc('host.syncSpreadsheetFocus', {{ payload: payload || {{}} }}),
       addContext: (payload) => _rpc('host.addContext', {{ payload: payload || {{}} }}),
       setPanelMode: (mode) => _rpc('host.setPanelMode', {{ mode }}),
-    }},
-    deck: {{
-      renderPage: (opts) => _rpc('sparo.deck.renderPage', opts || {{}}),
-      {manuscript_api}
+      mountView: (view) => _rpc('host.mountView', {{ view }}),
+      updateView: (view) => _rpc('host.updateView', {{ view }}),
+      unmountView: (viewId) => _rpc('host.unmountView', {{ viewId }}),
     }},
     // Clipboard namespace - proxies to host navigator.clipboard (bypasses sandbox restriction).
     clipboard: {{
@@ -878,8 +868,6 @@ pub fn build_bridge_script(
         deps_revision_esc = deps_revision_esc,
         deps_dirty = deps_dirty,
         worker_restart_required = worker_restart_required,
-        manuscript_api = manuscript_api,
-        ppt_backend_api = ppt_backend_api,
         i18n_messages_json = i18n_messages_json
     )
 }
@@ -1436,16 +1424,13 @@ mod tests {
     }
 
     #[test]
-    fn bridge_exposes_manuscript_adapter_for_runtime_gated_dispatch() {
+    fn bridge_exposes_session_bound_chat_intents() {
         let script = bridge_script();
-        assert!(script.contains("deck.manuscript.get"));
-        assert!(script.contains("deck.manuscript.commit"));
-    }
 
-    #[test]
-    fn bridge_exposes_private_backend_helpers_for_runtime_gated_dispatch() {
-        let script = bridge_script();
-        assert!(script.contains("backend.cancelStaleRuns"));
-        assert!(script.contains("backend.turnText"));
+        assert!(script.contains("submitChatIntent"));
+        assert!(script.contains("host.submitChatIntent"));
+        assert!(script.contains("host.mountView"));
+        assert!(script.contains("host.updateView"));
+        assert!(script.contains("host.unmountView"));
     }
 }

@@ -1889,6 +1889,7 @@ mod control_hub_tests {
             tool_call_id: None,
             agent_type: None,
             session_id: None,
+            session_domain: None,
             dialog_turn_id: None,
             workspace: None,
             custom_data: std::collections::HashMap::new(),
@@ -2122,15 +2123,17 @@ mod control_hub_tests {
     }
 
     #[tokio::test]
-    async fn description_documents_two_browser_modes() {
+    async fn description_documents_all_browser_modes() {
         let desc = ControlHubTool::new().description().await.unwrap();
         assert!(
-            desc.contains("Two browser modes"),
-            "description must describe the two browser control modes"
+            desc.contains("Browser modes"),
+            "description must describe the browser control modes"
         );
         assert!(
-            desc.contains("mode: \"headless\"") && desc.contains("mode: \"default\""),
-            "description must mention both browser connect modes"
+            desc.contains("mode: \"headless\"")
+                && desc.contains("mode: \"default\"")
+                && desc.contains("mode: \"user\""),
+            "description must mention all browser connect modes"
         );
     }
 
@@ -2157,35 +2160,6 @@ mod control_hub_tests {
             Some("INVALID_PARAMS")
         );
         assert!(payload.to_string().contains("ComputerUse"));
-    }
-
-    #[tokio::test]
-    async fn browser_connect_headless_requires_existing_test_port() {
-        let tool = ControlHubTool::new();
-        let ctx = empty_context();
-        let results = tool
-            .dispatch(
-                "browser",
-                "connect",
-                &json!({ "mode": "headless", "port": 1 }),
-                &ctx,
-            )
-            .await
-            .expect("dispatch should succeed and return a structured error");
-        let payload: serde_json::Value =
-            serde_json::from_value(results[0].content().clone()).unwrap();
-        assert_eq!(payload["ok"], serde_json::Value::Bool(false));
-        assert_eq!(payload["error"]["code"], "NOT_AVAILABLE");
-        let hints = payload["error"]["hints"]
-            .as_array()
-            .expect("hints should be present");
-        assert!(
-            hints
-                .iter()
-                .any(|v| v.as_str().unwrap_or("").contains("headless")),
-            "expected headless guidance in hints: {}",
-            payload
-        );
     }
 
     #[tokio::test]

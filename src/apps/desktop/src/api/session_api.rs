@@ -1,9 +1,6 @@
 //! Session persistence API
 
 use crate::api::app_state::AppState;
-use crate::api::session_storage_path::{
-    desktop_effective_session_storage_path, SessionStorageScopeDto,
-};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sparo_core::agentic::coordination::ConversationCoordinator;
@@ -11,7 +8,10 @@ use sparo_core::agentic::persistence::{
     PersistenceManager, SessionBranchRequest, SessionBranchResult,
 };
 use sparo_core::agentic::tools::{get_all_registered_tools, ToolRuntimeRestrictions};
-use sparo_core::agentic::{PromptBuilder, PromptBuilderContext, WorkspaceBinding};
+use sparo_core::agentic::{
+    PromptBuilder, PromptBuilderContext, SessionContextPolicy, SessionDomain, SessionLocator,
+    WorkspaceBinding,
+};
 use sparo_core::infrastructure::PathManager;
 use sparo_core::service::config::types::{AIConfig, ModelCapability, ModelCategory};
 use sparo_core::service::context_stats::{ContextBudgetSnapshot, ContextStatsEstimator};
@@ -27,41 +27,30 @@ use tauri::State;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ListPersistedSessionsRequest {
-    pub workspace_path: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub storage_scope: Option<SessionStorageScopeDto>,
+    pub domain: SessionDomain,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LoadSessionTurnsRequest {
-    pub session_id: String,
-    pub workspace_path: Option<String>,
+    pub locator: SessionLocator,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub limit: Option<usize>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub storage_scope: Option<SessionStorageScopeDto>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SaveSessionTurnRequest {
     pub turn_data: DialogTurnData,
-    pub workspace_path: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub storage_scope: Option<SessionStorageScopeDto>,
+    pub domain: SessionDomain,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SaveSessionMetadataRequest {
     pub metadata: SessionMetadata,
-    pub workspace_path: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub storage_scope: Option<SessionStorageScopeDto>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExportSessionTranscriptRequest {
-    pub session_id: String,
-    pub workspace_path: Option<String>,
+    pub locator: SessionLocator,
     #[serde(default = "default_tools")]
     pub tools: bool,
     #[serde(default)]
@@ -70,8 +59,6 @@ pub struct ExportSessionTranscriptRequest {
     pub thinking: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub turns: Option<Vec<String>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub storage_scope: Option<SessionStorageScopeDto>,
 }
 
 fn default_tools() -> bool {
@@ -80,36 +67,25 @@ fn default_tools() -> bool {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeletePersistedSessionRequest {
-    pub session_id: String,
-    pub workspace_path: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub storage_scope: Option<SessionStorageScopeDto>,
+    pub locator: SessionLocator,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TouchSessionActivityRequest {
-    pub session_id: String,
-    pub workspace_path: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub storage_scope: Option<SessionStorageScopeDto>,
+    pub locator: SessionLocator,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LoadPersistedSessionMetadataRequest {
-    pub session_id: String,
-    pub workspace_path: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub storage_scope: Option<SessionStorageScopeDto>,
+    pub locator: SessionLocator,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GetContextBudgetRequest {
-    pub session_id: String,
+    pub locator: SessionLocator,
     pub agent_type: String,
     pub workspace_path: Option<String>,
     pub model_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub storage_scope: Option<SessionStorageScopeDto>,
 }
 
 #[derive(Clone)]
@@ -143,8 +119,10 @@ fn context_budget_cache_key(
     agent_type: &str,
     model_name: &str,
     provider: &str,
-    context_window: usize,
-    storage_scope: Option<SessionStorageScopeDto>,
+    model_context_window: usize,
+    effective_context_window: usize,
+    context_policy: &SessionContextPolicy,
+    domain: &SessionDomain,
     workspace_path: Option<&Path>,
 ) -> String {
     [
@@ -152,8 +130,10 @@ fn context_budget_cache_key(
         agent_type.to_string(),
         model_name.to_string(),
         provider.to_string(),
-        context_window.to_string(),
-        format!("{:?}", storage_scope),
+        model_context_window.to_string(),
+        effective_context_window.to_string(),
+        format!("{context_policy:?}"),
+        format!("{domain:?}"),
         normalized_context_budget_workspace_key(workspace_path),
     ]
     .join("\u{1f}")
@@ -199,7 +179,7 @@ fn validate_public_persistence_metadata(
 async fn ensure_public_persistence_mutation(
     coordinator: &ConversationCoordinator,
     manager: &PersistenceManager,
-    workspace_path: &Path,
+    domain: &SessionDomain,
     session_id: &str,
     proposed: Option<&SessionMetadata>,
 ) -> Result<(), String> {
@@ -208,7 +188,7 @@ async fn ensure_public_persistence_mutation(
         .await
         .map_err(|_| "settings.lifecycle_owned".to_string())?;
     let existing = manager
-        .load_session_metadata(workspace_path, session_id)
+        .load_session_metadata(domain, session_id)
         .await
         .map_err(|_| "session.ownership_check_failed".to_string())?;
     validate_public_persistence_metadata(existing.as_ref(), proposed)
@@ -263,6 +243,7 @@ async fn build_tool_definitions_for_budget(
         tool_call_id: None,
         agent_type: Some(agent_type.to_string()),
         session_id: None,
+        session_domain: None,
         dialog_turn_id: None,
         workspace: workspace.cloned(),
         custom_data: tool_opts_custom,
@@ -330,11 +311,8 @@ async fn build_tool_definitions_for_budget(
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ForkSessionRequest {
-    pub source_session_id: String,
+    pub source: SessionLocator,
     pub source_turn_id: String,
-    pub workspace_path: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub storage_scope: Option<SessionStorageScopeDto>,
 }
 
 pub type ForkSessionResponse = SessionBranchResult;
@@ -342,20 +320,13 @@ pub type ForkSessionResponse = SessionBranchResult;
 #[tauri::command]
 pub async fn list_persisted_sessions(
     request: ListPersistedSessionsRequest,
-    app_state: State<'_, AppState>,
     path_manager: State<'_, Arc<PathManager>>,
 ) -> Result<Vec<SessionMetadata>, String> {
-    let workspace_path = desktop_effective_session_storage_path(
-        &app_state,
-        request.workspace_path.as_deref(),
-        request.storage_scope,
-    )
-    .await;
     let manager = PersistenceManager::new(path_manager.inner().clone())
         .map_err(|e| format!("Failed to create persistence manager: {}", e))?;
 
     manager
-        .list_session_metadata(&workspace_path)
+        .list_session_metadata(&request.domain)
         .await
         .map_err(|e| format!("Failed to list persisted sessions: {}", e))
 }
@@ -363,25 +334,18 @@ pub async fn list_persisted_sessions(
 #[tauri::command]
 pub async fn load_session_turns(
     request: LoadSessionTurnsRequest,
-    app_state: State<'_, AppState>,
     path_manager: State<'_, Arc<PathManager>>,
 ) -> Result<Vec<DialogTurnData>, String> {
-    let workspace_path = desktop_effective_session_storage_path(
-        &app_state,
-        request.workspace_path.as_deref(),
-        request.storage_scope,
-    )
-    .await;
     let manager = PersistenceManager::new(path_manager.inner().clone())
         .map_err(|e| format!("Failed to create persistence manager: {}", e))?;
 
     let turns = if let Some(limit) = request.limit {
         manager
-            .load_recent_turns(&workspace_path, &request.session_id, limit)
+            .load_recent_turns(&request.locator.domain, &request.locator.session_id, limit)
             .await
     } else {
         manager
-            .load_session_turns(&workspace_path, &request.session_id)
+            .load_session_turns(&request.locator.domain, &request.locator.session_id)
             .await
     };
 
@@ -392,48 +356,117 @@ pub async fn load_session_turns(
 pub async fn get_context_budget(
     request: GetContextBudgetRequest,
     app_state: State<'_, AppState>,
+    path_manager: State<'_, Arc<PathManager>>,
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
 ) -> Result<ContextBudgetSnapshot, String> {
-    let agent_type = normalize_context_budget_agent_type(&request.agent_type);
+    let loaded_session = match coordinator
+        .get_session_manager()
+        .get_session(&request.locator.session_id)
+    {
+        Some(session) => Some(session),
+        None => {
+            let manager = PersistenceManager::new(path_manager.inner().clone())
+                .map_err(|error| format!("Failed to open session persistence: {error}"))?;
+            if manager
+                .load_session_metadata(&request.locator.domain, &request.locator.session_id)
+                .await
+                .map_err(|error| format!("Failed to inspect session context policy: {error}"))?
+                .is_some()
+            {
+                Some(
+                    manager
+                        .load_session(&request.locator)
+                        .await
+                        .map_err(|error| {
+                            format!("Failed to load authoritative session context policy: {error}")
+                        })?,
+                )
+            } else {
+                None
+            }
+        }
+    };
+    let agent_type = normalize_context_budget_agent_type(
+        loaded_session
+            .as_ref()
+            .map(|session| session.agent_type.as_str())
+            .unwrap_or(&request.agent_type),
+    );
+    let context_policy = loaded_session
+        .as_ref()
+        .map(|session| session.config.context_policy.clone())
+        .unwrap_or_default();
+    let workspace_path = loaded_session
+        .as_ref()
+        .and_then(|session| session.config.workspace_path.as_ref())
+        .filter(|path| !path.trim().is_empty())
+        .map(PathBuf::from)
+        .or_else(|| {
+            request
+                .workspace_path
+                .as_ref()
+                .filter(|path| !path.trim().is_empty())
+                .map(PathBuf::from)
+        });
+    let workspace = workspace_path.map(|path| WorkspaceBinding::new(None, path));
+
+    let session_model_id = loaded_session
+        .as_ref()
+        .and_then(|session| session.config.model_id.as_deref())
+        .map(str::trim)
+        .filter(|model_id| !model_id.is_empty())
+        .map(str::to_string);
+    let selector = if let Some(model_id) = session_model_id {
+        model_id
+    } else if loaded_session.is_some() {
+        app_state
+            .agent_registry
+            .get_model_id_for_agent(
+                &agent_type,
+                workspace.as_ref().map(|binding| binding.root_path()),
+            )
+            .await
+            .map_err(|error| format!("Failed to resolve session model: {error}"))?
+    } else if let Some(model_id) = request
+        .model_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|model_id| !model_id.is_empty())
+    {
+        model_id.to_string()
+    } else {
+        app_state
+            .agent_registry
+            .get_model_id_for_agent(
+                &agent_type,
+                workspace.as_ref().map(|binding| binding.root_path()),
+            )
+            .await
+            .map_err(|error| format!("Failed to resolve session model: {error}"))?
+    };
     let ai_config: AIConfig = app_state
         .config_service
         .get_config(Some("ai"))
         .await
         .map_err(|error| format!("Failed to read AI settings: {error}"))?;
-    let selector = request.model_id.as_deref().unwrap_or("primary");
-    let model_config = resolve_model_config_for_budget(&ai_config, selector)
+    let model_config = resolve_model_config_for_budget(&ai_config, &selector)
         .ok_or_else(|| format!("Configured model selector is invalid: {selector}"))?;
     let model_name = model_config.model_name.clone();
     let provider = model_config.provider.clone();
-    let context_window = model_config.context_window as usize;
-
-    let workspace_path = request
-        .workspace_path
-        .as_ref()
-        .filter(|path| !path.trim().is_empty())
-        .map(PathBuf::from)
-        .or_else(|| {
-            if matches!(
-                request.storage_scope,
-                Some(SessionStorageScopeDto::AgenticOs)
-            ) {
-                Some(
-                    app_state
-                        .workspace_service
-                        .path_manager()
-                        .agentic_os_runtime_root(),
-                )
-            } else {
-                None
-            }
-        });
-    let workspace = workspace_path.map(|path| WorkspaceBinding::new(None, path));
+    let model_context_window = model_config.context_window as usize;
+    let context_window = context_policy
+        .resolve(model_context_window)
+        .map_err(|error| format!("Failed to resolve session context window: {error}"))?
+        .effective_context_window;
     let cache_key = context_budget_cache_key(
-        &request.session_id,
+        &request.locator.session_id,
         &agent_type,
         &model_name,
         &provider,
+        model_context_window,
         context_window,
-        request.storage_scope,
+        &context_policy,
+        &request.locator.domain,
         workspace.as_ref().map(|binding| binding.root_path()),
     );
     if let Some(snapshot) = cached_context_budget_snapshot(&cache_key) {
@@ -456,7 +489,7 @@ pub async fn get_context_budget(
 
     let prompt_context = workspace.as_ref().map(|binding| {
         PromptBuilderContext::new(binding.root_path_string(), Some(model_name.clone()))
-            .with_session_id(request.session_id.clone())
+            .with_session_id(request.locator.session_id.clone())
             .with_memory_scope(current_agent.memory_scope())
             .with_supports_image_understanding(primary_supports_image_understanding)
     });
@@ -490,7 +523,7 @@ pub async fn get_context_budget(
     .await?;
 
     let snapshot = ContextStatsEstimator::static_snapshot(
-        request.session_id,
+        request.locator.session_id,
         agent_type,
         model_name,
         provider,
@@ -506,29 +539,22 @@ pub async fn get_context_budget(
 #[tauri::command]
 pub async fn save_session_turn(
     request: SaveSessionTurnRequest,
-    app_state: State<'_, AppState>,
     path_manager: State<'_, Arc<PathManager>>,
     coordinator: State<'_, Arc<ConversationCoordinator>>,
 ) -> Result<(), String> {
-    let workspace_path = desktop_effective_session_storage_path(
-        &app_state,
-        request.workspace_path.as_deref(),
-        request.storage_scope,
-    )
-    .await;
     let manager = PersistenceManager::new(path_manager.inner().clone())
         .map_err(|e| format!("Failed to create persistence manager: {}", e))?;
     ensure_public_persistence_mutation(
         coordinator.inner().as_ref(),
         &manager,
-        &workspace_path,
+        &request.domain,
         &request.turn_data.session_id,
         None,
     )
     .await?;
 
     manager
-        .save_dialog_turn(&workspace_path, &request.turn_data)
+        .save_dialog_turn(&request.domain, &request.turn_data)
         .await
         .map_err(|e| format!("Failed to save session turn: {}", e))
 }
@@ -536,29 +562,22 @@ pub async fn save_session_turn(
 #[tauri::command]
 pub async fn save_session_metadata(
     request: SaveSessionMetadataRequest,
-    app_state: State<'_, AppState>,
     path_manager: State<'_, Arc<PathManager>>,
     coordinator: State<'_, Arc<ConversationCoordinator>>,
 ) -> Result<(), String> {
-    let workspace_path = desktop_effective_session_storage_path(
-        &app_state,
-        request.workspace_path.as_deref(),
-        request.storage_scope,
-    )
-    .await;
     let manager = PersistenceManager::new(path_manager.inner().clone())
         .map_err(|e| format!("Failed to create persistence manager: {}", e))?;
     ensure_public_persistence_mutation(
         coordinator.inner().as_ref(),
         &manager,
-        &workspace_path,
+        &request.metadata.domain,
         &request.metadata.session_id,
         Some(&request.metadata),
     )
     .await?;
 
     manager
-        .save_session_metadata(&workspace_path, &request.metadata)
+        .save_session_metadata(&request.metadata.domain, &request.metadata)
         .await
         .map_err(|e| format!("Failed to save session metadata: {}", e))
 }
@@ -566,22 +585,15 @@ pub async fn save_session_metadata(
 #[tauri::command]
 pub async fn export_session_transcript(
     request: ExportSessionTranscriptRequest,
-    app_state: State<'_, AppState>,
     path_manager: State<'_, Arc<PathManager>>,
 ) -> Result<SessionTranscriptExport, String> {
-    let workspace_path = desktop_effective_session_storage_path(
-        &app_state,
-        request.workspace_path.as_deref(),
-        request.storage_scope,
-    )
-    .await;
     let manager = PersistenceManager::new(path_manager.inner().clone())
         .map_err(|e| format!("Failed to create persistence manager: {}", e))?;
 
     manager
         .export_session_transcript(
-            &workspace_path,
-            &request.session_id,
+            &request.locator.domain,
+            &request.locator.session_id,
             &SessionTranscriptExportOptions {
                 tools: request.tools,
                 tool_inputs: request.tool_inputs,
@@ -596,29 +608,22 @@ pub async fn export_session_transcript(
 #[tauri::command]
 pub async fn delete_persisted_session(
     request: DeletePersistedSessionRequest,
-    app_state: State<'_, AppState>,
     path_manager: State<'_, Arc<PathManager>>,
     coordinator: State<'_, Arc<ConversationCoordinator>>,
 ) -> Result<(), String> {
-    let workspace_path = desktop_effective_session_storage_path(
-        &app_state,
-        request.workspace_path.as_deref(),
-        request.storage_scope,
-    )
-    .await;
     let manager = PersistenceManager::new(path_manager.inner().clone())
         .map_err(|e| format!("Failed to create persistence manager: {}", e))?;
     ensure_public_persistence_mutation(
         coordinator.inner().as_ref(),
         &manager,
-        &workspace_path,
-        &request.session_id,
+        &request.locator.domain,
+        &request.locator.session_id,
         None,
     )
     .await?;
 
     manager
-        .delete_session(&workspace_path, &request.session_id)
+        .delete_session(&request.locator)
         .await
         .map_err(|e| format!("Failed to delete persisted session: {}", e))
 }
@@ -626,29 +631,22 @@ pub async fn delete_persisted_session(
 #[tauri::command]
 pub async fn touch_session_activity(
     request: TouchSessionActivityRequest,
-    app_state: State<'_, AppState>,
     path_manager: State<'_, Arc<PathManager>>,
     coordinator: State<'_, Arc<ConversationCoordinator>>,
 ) -> Result<(), String> {
-    let workspace_path = desktop_effective_session_storage_path(
-        &app_state,
-        request.workspace_path.as_deref(),
-        request.storage_scope,
-    )
-    .await;
     let manager = PersistenceManager::new(path_manager.inner().clone())
         .map_err(|e| format!("Failed to create persistence manager: {}", e))?;
     ensure_public_persistence_mutation(
         coordinator.inner().as_ref(),
         &manager,
-        &workspace_path,
-        &request.session_id,
+        &request.locator.domain,
+        &request.locator.session_id,
         None,
     )
     .await?;
 
     manager
-        .touch_session(&workspace_path, &request.session_id)
+        .touch_session(&request.locator)
         .await
         .map_err(|e| format!("Failed to update session activity: {}", e))
 }
@@ -656,20 +654,13 @@ pub async fn touch_session_activity(
 #[tauri::command]
 pub async fn load_persisted_session_metadata(
     request: LoadPersistedSessionMetadataRequest,
-    app_state: State<'_, AppState>,
     path_manager: State<'_, Arc<PathManager>>,
 ) -> Result<Option<SessionMetadata>, String> {
-    let workspace_path = desktop_effective_session_storage_path(
-        &app_state,
-        request.workspace_path.as_deref(),
-        request.storage_scope,
-    )
-    .await;
     let manager = PersistenceManager::new(path_manager.inner().clone())
         .map_err(|e| format!("Failed to create persistence manager: {}", e))?;
 
     let metadata = manager
-        .load_session_metadata(&workspace_path, &request.session_id)
+        .load_session_metadata(&request.locator.domain, &request.locator.session_id)
         .await
         .map_err(|e| format!("Failed to load persisted session metadata: {}", e))?;
 
@@ -679,32 +670,25 @@ pub async fn load_persisted_session_metadata(
 #[tauri::command]
 pub async fn fork_session(
     request: ForkSessionRequest,
-    app_state: State<'_, AppState>,
     path_manager: State<'_, Arc<PathManager>>,
     coordinator: State<'_, Arc<ConversationCoordinator>>,
 ) -> Result<ForkSessionResponse, String> {
-    let workspace_path = desktop_effective_session_storage_path(
-        &app_state,
-        request.workspace_path.as_deref(),
-        request.storage_scope,
-    )
-    .await;
     let manager = PersistenceManager::new(path_manager.inner().clone())
         .map_err(|e| format!("Failed to create persistence manager: {}", e))?;
     ensure_public_persistence_mutation(
         coordinator.inner().as_ref(),
         &manager,
-        &workspace_path,
-        &request.source_session_id,
+        &request.source.domain,
+        &request.source.session_id,
         None,
     )
     .await?;
 
     manager
         .branch_session(
-            &workspace_path,
+            &request.source,
             &SessionBranchRequest {
-                source_session_id: request.source_session_id,
+                source_session_id: request.source.session_id.clone(),
                 source_turn_id: request.source_turn_id,
             },
         )
@@ -714,12 +698,13 @@ pub async fn fork_session(
 
 #[cfg(test)]
 mod ownership_tests {
-    use super::validate_public_persistence_metadata;
-    use sparo_core::agentic::core::SessionKind;
+    use super::{context_budget_cache_key, validate_public_persistence_metadata};
+    use sparo_core::agentic::core::{SessionContextPolicy, SessionDomain, SessionKind};
     use sparo_core::service::session::SessionMetadata;
 
     fn metadata(session_id: &str) -> SessionMetadata {
         SessionMetadata::new(
+            SessionDomain::Global,
             session_id.to_string(),
             "Session".to_string(),
             "Runno".to_string(),
@@ -740,5 +725,34 @@ mod ownership_tests {
         let mut subagent = metadata("subagent");
         subagent.session_kind = SessionKind::Subagent;
         assert!(validate_public_persistence_metadata(Some(&subagent), None).is_err());
+    }
+
+    #[test]
+    fn context_budget_cache_identity_includes_policy_and_effective_window() {
+        let domain = SessionDomain::Global;
+        let follow_model = context_budget_cache_key(
+            "session",
+            "Runno",
+            "model",
+            "provider",
+            1_000_000,
+            1_000_000,
+            &SessionContextPolicy::FollowModel,
+            &domain,
+            None,
+        );
+        let capped = context_budget_cache_key(
+            "session",
+            "Runno",
+            "model",
+            "provider",
+            1_000_000,
+            64_000,
+            &SessionContextPolicy::ExplicitCap { max_tokens: 64_000 },
+            &domain,
+            None,
+        );
+
+        assert_ne!(follow_model, capped);
     }
 }

@@ -1,0 +1,64 @@
+{
+  "id": "builtin-spark-board-surface",
+  "kind": "surface",
+  "name": "Spark Board Canvas",
+  "description": "The app-owned idea canvas, clustering, selection, and draft creation surface.",
+  "packageSource": "appPrivate",
+  "ownerApp": {
+    "appId": "builtin-spark-board",
+    "appVersion": "1.0.1"
+  },
+  "capabilities": [
+    {
+      "id": "interactiveSurface",
+      "title": "Interactive surface",
+      "description": "Hosts the Spark Board primary workspace.",
+      "actions": [
+        "open",
+        "createCard",
+        "clusterIdeas",
+        "draftFromSelection"
+      ]
+    }
+  ],
+  "permissions": [
+    {
+      "kind": "fs",
+      "summary": "Reads and writes app-owned canvas state.",
+      "scopes": [
+        "{appdata}"
+      ]
+    }
+  ],
+  "usedByApps": [
+    "builtin-spark-board"
+  ],
+  "visibility": "appDependency",
+  "dependencies": [
+    {
+      "componentId": "builtin-spark-board-agent",
+      "kind": "agent",
+      "source": "private",
+      "role": "assistant",
+      "capabilities": [
+        "expandIdeas",
+        "draftFromSelection"
+      ]
+    },
+    {
+      "componentId": "product-app-runtime-host",
+      "kind": "runtime",
+      "source": "shared",
+      "role": "runtimeHost",
+      "version": "^1.0.0",
+      "capabilities": [
+        "uiWorker"
+      ]
+    }
+  ],
+  "implementationRef": "app://builtin-spark-board@1.0.1/surfaces/builtin-spark-board-surface",
+  "usesCapabilities": [
+    "session.read",
+    "component.run"
+  ]
+}

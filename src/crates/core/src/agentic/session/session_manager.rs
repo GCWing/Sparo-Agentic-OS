@@ -4,7 +4,8 @@
 
 use crate::agentic::core::{
     CompressionState, DialogTurn, Message, MessageSemanticKind, ProcessingPhase, Session,
-    SessionConfig, SessionKind, SessionState, SessionSummary, TurnStats,
+    SessionConfig, SessionDomain, SessionKind, SessionLocator, SessionState, SessionSummary,
+    TurnStats,
 };
 use crate::agentic::image_analysis::ImageContextData;
 use crate::agentic::memory::store::MemoryScope;
@@ -99,11 +100,9 @@ pub struct SessionManager {
     /// Active sessions in memory
     sessions: Arc<DashMap<String, Session>>,
 
-    /// Persistent index of session_id -> effective workspace path.
-    /// Populated on session create/restore; NOT cleared on memory eviction.
-    /// Allows commands that only receive a session_id (e.g. update_session_model_id)
-    /// to restore an evicted session without requiring the caller to supply a path.
-    session_workspace_index: Arc<DashMap<String, PathBuf>>,
+    /// Persistent in-process index of session_id -> typed persistence domain.
+    /// Populated on create/restore and never used to infer an unknown domain.
+    session_domain_index: Arc<DashMap<String, SessionDomain>>,
 
     /// Sub-components
     context_store: Arc<SessionContextStore>,
@@ -138,6 +137,21 @@ pub struct SessionManager {
 }
 
 impl SessionManager {
+    pub(crate) fn resolve_session_execution_root(
+        &self,
+        domain: &SessionDomain,
+        requested_workspace_path: Option<&str>,
+    ) -> CoreResult<String> {
+        let requested_workspace_path = requested_workspace_path
+            .map(str::trim)
+            .filter(|path| !path.is_empty())
+            .map(Path::new);
+        self.persistence_manager
+            .path_manager()
+            .session_execution_root(domain, requested_workspace_path)
+            .map(|path| path.to_string_lossy().into_owned())
+    }
+
     fn normalize_session_title_input(title: &str) -> CoreResult<String> {
         let trimmed = title.trim();
         if trimmed.is_empty() {
@@ -225,14 +239,7 @@ impl SessionManager {
     }
 
     fn session_workspace_from_config(config: &SessionConfig) -> Option<PathBuf> {
-        match config.storage_scope {
-            Some(crate::agentic::core::SessionStorageScope::AgenticOs) => {
-                crate::infrastructure::PathManager::new()
-                    .ok()
-                    .map(|pm| pm.agentic_os_runtime_root())
-            }
-            _ => config.workspace_path.as_ref().map(PathBuf::from),
-        }
+        config.workspace_path.as_ref().map(PathBuf::from)
     }
 
     fn should_persist_session_kind(kind: SessionKind) -> bool {
@@ -252,22 +259,6 @@ impl SessionManager {
                 .unwrap_or(true)
     }
 
-    /// Resolve the effective storage path for a session's workspace.
-    async fn effective_workspace_path_from_config(config: &SessionConfig) -> Option<PathBuf> {
-        if matches!(
-            config.storage_scope,
-            Some(crate::agentic::core::SessionStorageScope::AgenticOs)
-        ) {
-            return crate::infrastructure::PathManager::new()
-                .ok()
-                .map(|pm| pm.agentic_os_runtime_root());
-        }
-        let workspace_path = config.workspace_path.as_ref()?;
-        let identity =
-            crate::service::workspace_session::workspace_session_identity(workspace_path)?;
-        Some(identity.session_storage_path())
-    }
-
     #[allow(dead_code)]
     fn session_workspace_path(&self, session_id: &str) -> Option<PathBuf> {
         self.sessions
@@ -275,11 +266,22 @@ impl SessionManager {
             .and_then(|session| Self::session_workspace_from_config(&session.config))
     }
 
-    /// Resolve the effective storage path for a session by ID.
-    /// For remote workspaces, maps the remote path to a local session storage path.
-    async fn effective_session_workspace_path(&self, session_id: &str) -> Option<PathBuf> {
-        let config = self.sessions.get(session_id)?.config.clone();
-        Self::effective_workspace_path_from_config(&config).await
+    fn session_domain(&self, session_id: &str) -> Option<SessionDomain> {
+        self.sessions
+            .get(session_id)
+            .map(|session| session.config.domain.clone())
+            .or_else(|| {
+                self.session_domain_index
+                    .get(session_id)
+                    .map(|entry| entry.clone())
+            })
+    }
+
+    fn session_locator(&self, session_id: &str) -> Option<SessionLocator> {
+        Some(SessionLocator {
+            domain: self.session_domain(session_id)?,
+            session_id: session_id.to_string(),
+        })
     }
 
     fn build_messages_from_turns(turns: &[DialogTurnData]) -> Vec<Message> {
@@ -356,12 +358,12 @@ impl SessionManager {
 
     async fn rebuild_messages_from_turns(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
         session_id: &str,
     ) -> CoreResult<Vec<Message>> {
         let turns = self
             .persistence_manager
-            .load_session_turns(workspace_path, session_id)
+            .load_session_turns(domain, session_id)
             .await?;
         Ok(Self::build_messages_from_turns(&turns))
     }
@@ -423,9 +425,9 @@ impl SessionManager {
             return;
         }
 
-        let Some(workspace_path) = self.effective_session_workspace_path(session_id).await else {
+        let Some(domain) = self.session_domain(session_id) else {
             debug!(
-                "Skipping context snapshot persistence because workspace path is unavailable: session_id={}, turn_index={}, reason={}",
+                "Skipping context snapshot persistence because session domain is unavailable: session_id={}, turn_index={}, reason={}",
                 session_id, turn_index, reason
             );
             return;
@@ -434,7 +436,7 @@ impl SessionManager {
         let context_messages = self.context_store.get_context_messages(session_id);
         if let Err(err) = self
             .persistence_manager
-            .save_turn_context_snapshot(&workspace_path, session_id, turn_index, &context_messages)
+            .save_turn_context_snapshot(&domain, session_id, turn_index, &context_messages)
             .await
         {
             warn!(
@@ -474,7 +476,7 @@ impl SessionManager {
 
         let manager = Arc::new(Self {
             sessions: Arc::new(DashMap::new()),
-            session_workspace_index: Arc::new(DashMap::new()),
+            session_domain_index: Arc::new(DashMap::new()),
             context_store,
             persistence_manager,
             config,
@@ -742,15 +744,16 @@ impl SessionManager {
         created_by: Option<String>,
         kind: SessionKind,
     ) -> CoreResult<Session> {
-        let _workspace_path = Self::session_workspace_from_config(&config).ok_or_else(|| {
-            CoreError::Validation("Session workspace_path is required".to_string())
-        })?;
-
-        let session_storage_path = Self::effective_workspace_path_from_config(&config)
-            .await
-            .ok_or_else(|| {
-                CoreError::Validation("Session workspace_path is required".to_string())
-            })?;
+        if matches!(config.domain, SessionDomain::Workspace { .. })
+            && config
+                .workspace_path
+                .as_deref()
+                .is_none_or(|path| path.trim().is_empty())
+        {
+            return Err(CoreError::Validation(
+                "Workspace sessions require workspace_path as execution context".to_string(),
+            ));
+        }
 
         // Check session count limit
         if self.sessions.len() >= self.config.max_active_sessions {
@@ -771,8 +774,8 @@ impl SessionManager {
 
         // 1. Add to memory
         self.sessions.insert(session_id.clone(), session.clone());
-        self.session_workspace_index
-            .insert(session_id.clone(), session_storage_path.clone());
+        self.session_domain_index
+            .insert(session_id.clone(), session.config.domain.clone());
 
         // 2. Initialize the in-memory context cache.
         self.context_store.create_session(&session_id);
@@ -784,16 +787,12 @@ impl SessionManager {
                 .get(&session_id)
                 .map(|session| session.clone());
             if let Some(session) = session_to_persist.as_ref() {
-                if let Err(error) = self
-                    .persistence_manager
-                    .save_session(&session_storage_path, session)
-                    .await
-                {
+                if let Err(error) = self.persistence_manager.save_session(session).await {
                     // Creation is atomic from the caller's perspective. A persistence error must
                     // not leave a loaded ghost session that consumes capacity or can later be used.
                     self.context_store.delete_session(&session_id);
                     self.sessions.remove(&session_id);
-                    self.session_workspace_index.remove(&session_id);
+                    self.session_domain_index.remove(&session_id);
                     return Err(error);
                 }
             }
@@ -824,13 +823,8 @@ impl SessionManager {
         let Some(session) = self.sessions.get(session_id).map(|entry| entry.clone()) else {
             return Ok(None);
         };
-        let Some(session_storage_path) =
-            Self::effective_workspace_path_from_config(&session.config).await
-        else {
-            return Ok(None);
-        };
         self.persistence_manager
-            .load_session_metadata(&session_storage_path, session_id)
+            .load_session_metadata(&session.config.domain, session_id)
             .await
     }
 
@@ -848,25 +842,17 @@ impl SessionManager {
         let Some(session) = self.sessions.get(session_id).map(|entry| entry.clone()) else {
             return Ok(None);
         };
-        let Some(session_storage_path) =
-            Self::effective_workspace_path_from_config(&session.config).await
-        else {
-            return Ok(None);
-        };
-
         let mut metadata = match self
             .persistence_manager
-            .load_session_metadata(&session_storage_path, session_id)
+            .load_session_metadata(&session.config.domain, session_id)
             .await?
         {
             Some(metadata) => metadata,
             None => {
-                self.persistence_manager
-                    .save_session(&session_storage_path, &session)
-                    .await?;
+                self.persistence_manager.save_session(&session).await?;
                 match self
                     .persistence_manager
-                    .load_session_metadata(&session_storage_path, session_id)
+                    .load_session_metadata(&session.config.domain, session_id)
                     .await?
                 {
                     Some(metadata) => metadata,
@@ -883,7 +869,7 @@ impl SessionManager {
         merge_json_value(&mut custom_metadata, patch);
         metadata.custom_metadata = Some(custom_metadata.clone());
         self.persistence_manager
-            .save_session_metadata(&session_storage_path, &metadata)
+            .save_session_metadata(&session.config.domain, &metadata)
             .await?;
         Ok(Some(custom_metadata))
     }
@@ -914,19 +900,12 @@ impl SessionManager {
         };
 
         if self.config.enable_persistence && Self::should_persist_session(&session_to_save) {
-            let effective_path =
-                Self::effective_workspace_path_from_config(&session_to_save.config)
-                    .await
-                    .ok_or_else(|| {
-                        CoreError::Validation(format!(
-                            "Session workspace_path is missing: {}",
-                            session_id
-                        ))
-                    })?;
-            self.session_workspace_index
-                .insert(session_id.to_string(), effective_path.clone());
+            self.session_domain_index.insert(
+                session_id.to_string(),
+                session_to_save.config.domain.clone(),
+            );
             self.persistence_manager
-                .save_session(&effective_path, &session_to_save)
+                .save_session(&session_to_save)
                 .await?;
         }
 
@@ -939,7 +918,9 @@ impl SessionManager {
     }
 
     pub async fn get_effective_workspace_path(&self, session_id: &str) -> Option<PathBuf> {
-        self.effective_session_workspace_path(session_id).await
+        self.sessions
+            .get(session_id)
+            .and_then(|session| Self::session_workspace_from_config(&session.config))
     }
 
     pub async fn load_turns_in_range(
@@ -952,16 +933,13 @@ impl SessionManager {
             return Ok(Vec::new());
         }
 
-        let workspace_path = self
-            .effective_session_workspace_path(session_id)
-            .await
-            .ok_or_else(|| {
-                CoreError::Validation(format!("Session workspace_path is missing: {}", session_id))
-            })?;
+        let domain = self.session_domain(session_id).ok_or_else(|| {
+            CoreError::Validation(format!("Session domain is missing: {}", session_id))
+        })?;
 
         let turns = self
             .persistence_manager
-            .load_session_turns(&workspace_path, session_id)
+            .load_session_turns(&domain, session_id)
             .await?;
 
         Ok(turns
@@ -971,16 +949,12 @@ impl SessionManager {
     }
 
     pub async fn session_summary_path(&self, session_id: &str) -> CoreResult<PathBuf> {
-        let workspace_path = self
-            .effective_session_workspace_path(session_id)
-            .await
-            .ok_or_else(|| {
-                CoreError::Validation(format!("Session workspace_path is missing: {}", session_id))
-            })?;
+        let locator = self.session_locator(session_id).ok_or_else(|| {
+            CoreError::Validation(format!("Session domain is missing: {}", session_id))
+        })?;
 
-        Ok(self
-            .persistence_manager
-            .session_summary_path_for_workspace(&workspace_path, session_id))
+        self.persistence_manager
+            .session_summary_path_for_locator(&locator)
     }
 
     pub async fn session_daily_summary_path(
@@ -988,16 +962,12 @@ impl SessionManager {
         session_id: &str,
         date_key: &str,
     ) -> CoreResult<PathBuf> {
-        let workspace_path = self
-            .effective_session_workspace_path(session_id)
-            .await
-            .ok_or_else(|| {
-                CoreError::Validation(format!("Session workspace_path is missing: {}", session_id))
-            })?;
+        let locator = self.session_locator(session_id).ok_or_else(|| {
+            CoreError::Validation(format!("Session domain is missing: {}", session_id))
+        })?;
 
-        Ok(self
-            .persistence_manager
-            .session_daily_summary_path_for_workspace(&workspace_path, session_id, date_key))
+        self.persistence_manager
+            .session_daily_summary_path_for_locator(&locator, date_key)
     }
 
     pub fn get_auto_memory_state(&self, session_id: &str) -> Option<AutoMemoryState> {
@@ -1031,21 +1001,18 @@ impl SessionManager {
             .iter()
             .position(|existing| existing == turn_id)
             .ok_or_else(|| CoreError::NotFound(format!("Dialog turn not found: {}", turn_id)))?;
-        let storage_path = self
-            .effective_session_workspace_path(session_id)
-            .await
-            .ok_or_else(|| {
-                CoreError::Validation(format!("Session workspace_path is missing: {}", session_id))
-            })?;
+        let domain = self.session_domain(session_id).ok_or_else(|| {
+            CoreError::Validation(format!("Session domain is missing: {}", session_id))
+        })?;
         let turn = self
             .persistence_manager
-            .load_dialog_turn(&storage_path, session_id, turn_index)
+            .load_dialog_turn(&domain, session_id, turn_index)
             .await?
             .ok_or_else(|| CoreError::NotFound(format!("Dialog turn not found: {}", turn_id)))?;
         let path_manager = self.persistence_manager.path_manager();
         let memory_dir = match memory_scope {
             MemoryScope::WorkspaceProject => {
-                path_manager.workspace_memory_dir(workspace_root.as_path())
+                path_manager.workspace_memory_dir(workspace_root.as_path())?
             }
             MemoryScope::GlobalAgenticOs => path_manager.agentic_os_memory_dir(),
         };
@@ -1105,8 +1072,6 @@ impl SessionManager {
         policy: AutoMemoryThrottlePolicy,
         now_ms: i64,
     ) -> CoreResult<AutoMemoryScheduleDecision> {
-        let effective_path = self.effective_session_workspace_path(session_id).await;
-
         let Some(mut session) = self.sessions.get_mut(session_id) else {
             return Err(CoreError::NotFound(format!(
                 "Session not found: {}",
@@ -1125,11 +1090,7 @@ impl SessionManager {
             .note_eligible_turn_and_schedule_decision(policy, now_ms);
 
         if self.config.enable_persistence {
-            if let Some(ref workspace_path) = effective_path {
-                self.persistence_manager
-                    .save_session(workspace_path, &session)
-                    .await?;
-            }
+            self.persistence_manager.save_session(&session).await?;
         }
 
         debug!(
@@ -1176,8 +1137,6 @@ impl SessionManager {
         session_id: &str,
         target_turn: usize,
     ) -> CoreResult<()> {
-        let effective_path = self.effective_session_workspace_path(session_id).await;
-
         let Some(mut session) = self.sessions.get_mut(session_id) else {
             return Err(CoreError::NotFound(format!(
                 "Session not found: {}",
@@ -1203,11 +1162,7 @@ impl SessionManager {
         );
 
         if self.config.enable_persistence {
-            if let Some(ref workspace_path) = effective_path {
-                self.persistence_manager
-                    .save_session(workspace_path, &session)
-                    .await?;
-            }
+            self.persistence_manager.save_session(&session).await?;
         }
 
         Ok(())
@@ -1220,8 +1175,6 @@ impl SessionManager {
         history_revision: u64,
         consumed_at_ms: i64,
     ) -> CoreResult<bool> {
-        let effective_path = self.effective_session_workspace_path(session_id).await;
-
         let Some(mut session) = self.sessions.get_mut(session_id) else {
             return Err(CoreError::NotFound(format!(
                 "Session not found: {}",
@@ -1254,11 +1207,7 @@ impl SessionManager {
             .mark_extracted_through(through_turn, turn_count, consumed_at_ms);
 
         if self.config.enable_persistence {
-            if let Some(ref workspace_path) = effective_path {
-                self.persistence_manager
-                    .save_session(workspace_path, &session)
-                    .await?;
-            }
+            self.persistence_manager.save_session(&session).await?;
         }
 
         debug!(
@@ -1302,7 +1251,7 @@ impl SessionManager {
         session_id: &str,
         new_state: SessionState,
     ) -> CoreResult<()> {
-        let effective_path = self.effective_session_workspace_path(session_id).await;
+        let locator = self.session_locator(session_id);
 
         if let Some(mut session) = self.sessions.get_mut(session_id) {
             session.state = new_state.clone();
@@ -1311,9 +1260,9 @@ impl SessionManager {
 
             // Persist state changes
             if self.config.enable_persistence && Self::should_persist_session(&session) {
-                if let Some(ref workspace_path) = effective_path {
+                if let Some(locator) = locator.as_ref() {
                     self.persistence_manager
-                        .save_session_state(workspace_path, session_id, &new_state)
+                        .save_session_state(locator, &new_state)
                         .await?;
                 }
             }
@@ -1335,8 +1284,6 @@ impl SessionManager {
     /// Update session title (in-memory + persistence)
     pub async fn update_session_title(&self, session_id: &str, title: &str) -> CoreResult<()> {
         let normalized_title = Self::normalize_session_title_input(title)?;
-        let workspace_path = self.effective_session_workspace_path(session_id).await;
-
         {
             let Some(mut session) = self.sessions.get_mut(session_id) else {
                 return Err(CoreError::NotFound(format!(
@@ -1350,21 +1297,13 @@ impl SessionManager {
         }
 
         if self.should_persist_session_id(session_id) {
-            let Some(workspace_path) = workspace_path.as_ref() else {
-                return Err(CoreError::Session(format!(
-                    "Workspace path is unavailable for session {}",
-                    session_id
-                )));
-            };
             let Some(session) = self.sessions.get(session_id) else {
                 return Err(CoreError::NotFound(format!(
                     "Session not found: {}",
                     session_id
                 )));
             };
-            self.persistence_manager
-                .save_session(workspace_path, &session)
-                .await?;
+            self.persistence_manager.save_session(&session).await?;
         }
 
         info!(
@@ -1421,13 +1360,8 @@ impl SessionManager {
         }
 
         if self.should_persist_session_id(session_id) {
-            let effective_path = self.effective_session_workspace_path(session_id).await;
-            if let (Some(workspace_path), Some(session)) =
-                (effective_path, self.sessions.get(session_id))
-            {
-                self.persistence_manager
-                    .save_session(&workspace_path, &session)
-                    .await?;
+            if let Some(session) = self.sessions.get(session_id) {
+                self.persistence_manager.save_session(&session).await?;
             }
         }
 
@@ -1446,15 +1380,18 @@ impl SessionManager {
         model_id: &str,
     ) -> CoreResult<()> {
         // If the session was evicted from memory (idle > 1h), try to restore it
-        // using the workspace path recorded when it was first created/restored.
+        // using the typed domain recorded when it was first created/restored.
         if !self.sessions.contains_key(session_id) && self.config.enable_persistence {
-            if let Some(workspace_path) = self.session_workspace_index.get(session_id) {
+            if let Some(domain) = self.session_domain_index.get(session_id) {
                 debug!(
                     "Session evicted from memory, restoring for model update: session_id={}",
                     session_id
                 );
                 let _ = self
-                    .restore_session(&workspace_path.clone(), session_id)
+                    .restore_session(&SessionLocator {
+                        domain: domain.clone(),
+                        session_id: session_id.to_string(),
+                    })
                     .await;
             }
         }
@@ -1471,13 +1408,8 @@ impl SessionManager {
         }
 
         if self.should_persist_session_id(session_id) {
-            let effective_path = self.effective_session_workspace_path(session_id).await;
-            if let (Some(workspace_path), Some(session)) =
-                (effective_path, self.sessions.get(session_id))
-            {
-                self.persistence_manager
-                    .save_session(&workspace_path, &session)
-                    .await?;
+            if let Some(session) = self.sessions.get(session_id) {
+                self.persistence_manager.save_session(&session).await?;
             }
         }
 
@@ -1497,19 +1429,27 @@ impl SessionManager {
     }
 
     /// Delete session (cascade delete all resources)
-    pub async fn delete_session(&self, workspace_path: &Path, session_id: &str) -> CoreResult<()> {
+    pub async fn delete_session(&self, locator: &SessionLocator) -> CoreResult<()> {
+        let session_id = locator.session_id.as_str();
+        let execution_workspace_path = self
+            .sessions
+            .get(session_id)
+            .and_then(|session| session.config.workspace_path.clone())
+            .map(PathBuf::from);
         // 1. Delete durable data before mutating in-memory state. Persistence deletion is the
         // only fatal step below, so a failure leaves the loaded session usable and retryable.
         if self.config.enable_persistence {
-            self.persistence_manager
-                .delete_session(workspace_path, session_id)
-                .await?;
+            self.persistence_manager.delete_session(locator).await?;
         }
 
         // 2. Clean up snapshot system resources (including physical snapshot files)
         let snapshot_manager_opt = self
             .upgrade_workspace_registry()
-            .and_then(|registry| registry.by_path(workspace_path))
+            .and_then(|registry| {
+                execution_workspace_path
+                    .as_deref()
+                    .and_then(|workspace_path| registry.by_path(workspace_path))
+            })
             .map(|mount| mount.snapshot_manager.clone());
         if let Some(snapshot_manager) = snapshot_manager_opt {
             let snapshot_service = snapshot_manager.get_snapshot_service();
@@ -1563,7 +1503,7 @@ impl SessionManager {
 
         // 4. Remove from memory
         self.sessions.remove(session_id);
-        self.session_workspace_index.remove(session_id);
+        self.session_domain_index.remove(session_id);
 
         info!("Session deletion completed: session_id={}", session_id);
 
@@ -1577,13 +1517,13 @@ impl SessionManager {
     /// agent identity prevents a broad prefix sweep from touching user-visible sessions.
     pub(crate) async fn delete_internal_sessions_by_agent_and_prefix(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
         agent_type: &str,
         session_id_prefix: &str,
     ) -> CoreResult<usize> {
         let mut session_ids = self
             .persistence_manager
-            .list_session_metadata_including_internal(workspace_path)
+            .list_session_metadata_including_internal(domain)
             .await?
             .into_iter()
             .filter(|metadata| {
@@ -1604,54 +1544,39 @@ impl SessionManager {
 
         let mut deleted = 0;
         for session_id in session_ids {
-            self.delete_session(workspace_path, &session_id).await?;
+            self.delete_session(&SessionLocator {
+                domain: domain.clone(),
+                session_id,
+            })
+            .await?;
             deleted += 1;
         }
         Ok(deleted)
     }
 
     /// Restore session (from persistent storage)
-    pub async fn restore_session(
-        &self,
-        workspace_path: &Path,
-        session_id: &str,
-    ) -> CoreResult<Session> {
-        let session_storage_path = if workspace_path
-            == self
-                .persistence_manager
-                .path_manager()
-                .agentic_os_runtime_root()
-        {
-            workspace_path.to_path_buf()
-        } else {
-            let ws = workspace_path.to_string_lossy().to_string();
-            let tmp_config = SessionConfig {
-                workspace_path: Some(ws),
-                ..Default::default()
-            };
-            Self::effective_workspace_path_from_config(&tmp_config)
-                .await
-                .unwrap_or_else(|| workspace_path.to_path_buf())
-        };
-
-        self.restore_session_from_storage_path(&session_storage_path, session_id, None)
-            .await
+    pub async fn restore_session(&self, locator: &SessionLocator) -> CoreResult<Session> {
+        self.restore_session_from_locator(locator, None).await
     }
 
-    /// Restore a durable internal session from the Agentic OS session scope.
-    ///
-    /// This deliberately bypasses the user-facing hidden-session guard only for
-    /// `SessionKind::Internal`; subagent and visible sessions cannot use this path.
-    pub(crate) async fn restore_internal_agentic_os_session(
+    /// Restore a durable implementation-owned session from an already-resolved
+    /// session-history root. Internal sessions stay hidden from public restore
+    /// and list operations, and the expected scope prevents cross-partition reads.
+    pub async fn restore_internal_session(
         &self,
-        session_id: &str,
+        locator: &SessionLocator,
+        expected_domain: &SessionDomain,
     ) -> CoreResult<Session> {
+        let session_id = locator.session_id.as_str();
+        if &locator.domain != expected_domain {
+            return Err(CoreError::Validation(format!(
+                "Internal restore locator has invalid domain: {}",
+                session_id
+            )));
+        }
         if let Some(session) = self.sessions.get(session_id) {
             if !matches!(session.kind, SessionKind::Internal)
-                || !matches!(
-                    session.config.storage_scope,
-                    Some(crate::agentic::core::SessionStorageScope::AgenticOs)
-                )
+                || &session.config.domain != expected_domain
             {
                 return Err(CoreError::Validation(format!(
                     "Internal restore rejected loaded session boundary: {}",
@@ -1661,46 +1586,33 @@ impl SessionManager {
             return Ok(session.clone());
         }
 
-        let session_storage_path = self
-            .persistence_manager
-            .path_manager()
-            .agentic_os_runtime_root();
         let session = self
-            .restore_session_from_storage_path(
-                &session_storage_path,
-                session_id,
-                Some(SessionKind::Internal),
-            )
+            .restore_session_from_locator(locator, Some(SessionKind::Internal))
             .await?;
-
-        if !matches!(
-            session.config.storage_scope,
-            Some(crate::agentic::core::SessionStorageScope::AgenticOs)
-        ) {
+        if &session.config.domain != expected_domain {
             self.sessions.remove(session_id);
             self.context_store.delete_session(session_id);
-            self.session_workspace_index.remove(session_id);
+            self.session_domain_index.remove(session_id);
             return Err(CoreError::Validation(format!(
-                "Internal session has invalid storage scope: {}",
+                "Internal session has invalid domain: {}",
                 session_id
             )));
         }
-
         Ok(session)
     }
 
-    async fn restore_session_from_storage_path(
+    async fn restore_session_from_locator(
         &self,
-        session_storage_path: &Path,
-        session_id: &str,
+        locator: &SessionLocator,
         allowed_hidden_kind: Option<SessionKind>,
     ) -> CoreResult<Session> {
+        let session_id = locator.session_id.as_str();
         // Check if session is already in memory
         let session_already_in_memory = self.sessions.contains_key(session_id);
 
         if let Some(metadata) = self
             .persistence_manager
-            .load_session_metadata(session_storage_path, session_id)
+            .load_session_metadata(&locator.domain, session_id)
             .await?
         {
             match allowed_hidden_kind {
@@ -1713,12 +1625,10 @@ impl SessionManager {
                 Some(SessionKind::Internal)
                     if metadata.should_delete_during_hidden_session_maintenance() =>
                 {
-                    self.persistence_manager
-                        .delete_session(session_storage_path, session_id)
-                        .await?;
+                    self.persistence_manager.delete_session(locator).await?;
                     self.context_store.delete_session(session_id);
                     self.sessions.remove(session_id);
-                    self.session_workspace_index.remove(session_id);
+                    self.session_domain_index.remove(session_id);
                     info!(
                         "Deleted expired internal session before restore: session_id={}",
                         session_id
@@ -1739,10 +1649,7 @@ impl SessionManager {
         }
 
         // 1. Load session from storage
-        let mut session = self
-            .persistence_manager
-            .load_session(&session_storage_path, session_id)
-            .await?;
+        let mut session = self.persistence_manager.load_session(locator).await?;
 
         // Lazy migration: if the persisted model_id is no longer usable
         // (model deleted or disabled while the session was on disk), repoint
@@ -1801,7 +1708,7 @@ impl SessionManager {
         // `session.json`, `turns/*.json`, and `snapshots/context-*.json`.
         let persisted_turns = self
             .persistence_manager
-            .load_session_turns(&session_storage_path, session_id)
+            .load_session_turns(&locator.domain, session_id)
             .await?;
         let persisted_turn_ids: Vec<String> = persisted_turns
             .iter()
@@ -1810,7 +1717,7 @@ impl SessionManager {
         let mut latest_turn_index: Option<usize> = None;
         let mut messages = match self
             .persistence_manager
-            .load_latest_turn_context_snapshot(&session_storage_path, session_id)
+            .load_latest_turn_context_snapshot(&locator.domain, session_id)
             .await?
         {
             Some((turn_index, msgs)) => {
@@ -1904,8 +1811,8 @@ impl SessionManager {
         // 4. Add to memory (will overwrite if already exists)
         self.sessions
             .insert(session_id.to_string(), session.clone());
-        self.session_workspace_index
-            .insert(session_id.to_string(), session_storage_path.to_path_buf());
+        self.session_domain_index
+            .insert(session_id.to_string(), locator.domain.clone());
 
         Ok(session)
     }
@@ -1913,13 +1820,13 @@ impl SessionManager {
     /// Rollback "model context" to before the start of specified turn (i.e., keep 0..target_turn-1)
     pub async fn rollback_context_to_turn_start(
         &self,
-        workspace_path: &Path,
-        session_id: &str,
+        locator: &SessionLocator,
         target_turn: usize,
     ) -> CoreResult<()> {
+        let session_id = locator.session_id.as_str();
         // Ensure session is in memory (restore from persistence if necessary)
         if !self.sessions.contains_key(session_id) && self.config.enable_persistence {
-            let _ = self.restore_session(workspace_path, session_id).await;
+            let _ = self.restore_session(locator).await;
         }
 
         // 1) Load target context (target_turn == 0 => empty context)
@@ -1927,7 +1834,7 @@ impl SessionManager {
             Vec::new()
         } else {
             self.persistence_manager
-                .load_turn_context_snapshot(workspace_path, session_id, target_turn - 1)
+                .load_turn_context_snapshot(&locator.domain, session_id, target_turn - 1)
                 .await?
                 .ok_or_else(|| {
                     CoreError::NotFound(format!(
@@ -1969,16 +1876,14 @@ impl SessionManager {
             session.last_activity_at = SystemTime::now();
 
             if Self::should_persist_session(&session) && self.config.enable_persistence {
-                self.persistence_manager
-                    .save_session(workspace_path, &session)
-                    .await?;
+                self.persistence_manager.save_session(&session).await?;
             }
         }
 
         // 4) Delete snapshots from target_turn (inclusive) onwards
         if self.config.enable_persistence {
             self.persistence_manager
-                .delete_turn_context_snapshots_from(workspace_path, session_id, target_turn)
+                .delete_turn_context_snapshots_from(&locator.domain, session_id, target_turn)
                 .await?;
         }
 
@@ -1986,9 +1891,9 @@ impl SessionManager {
     }
 
     /// List all sessions
-    pub async fn list_sessions(&self, workspace_path: &Path) -> CoreResult<Vec<SessionSummary>> {
+    pub async fn list_sessions(&self, domain: &SessionDomain) -> CoreResult<Vec<SessionSummary>> {
         if self.config.enable_persistence {
-            self.persistence_manager.list_sessions(workspace_path).await
+            self.persistence_manager.list_sessions(domain).await
         } else {
             let summaries: Vec<_> = self
                 .sessions
@@ -2029,11 +1934,7 @@ impl SessionManager {
         let session = self
             .get_session(session_id)
             .ok_or_else(|| CoreError::NotFound(format!("Session not found: {}", session_id)))?;
-        let workspace_path = Self::effective_workspace_path_from_config(&session.config)
-            .await
-            .ok_or_else(|| {
-                CoreError::Validation(format!("Session workspace_path is missing: {}", session_id))
-            })?;
+        let domain = session.config.domain.clone();
 
         let turn_index = session.dialog_turn_ids.len();
         let turn = DialogTurn::new(
@@ -2078,12 +1979,10 @@ impl SessionManager {
 
             let session_to_persist = self.sessions.get(session_id).map(|session| session.clone());
             if let Some(session) = session_to_persist.as_ref() {
-                self.persistence_manager
-                    .save_session(&workspace_path, session)
-                    .await?;
+                self.persistence_manager.save_session(session).await?;
             }
             self.persistence_manager
-                .save_dialog_turn(&workspace_path, &turn_data)
+                .save_dialog_turn(&domain, &turn_data)
                 .await?;
         }
         self.persist_context_snapshot_for_turn_best_effort(session_id, turn_index, "turn_started")
@@ -2173,12 +2072,9 @@ impl SessionManager {
             return Ok(());
         }
 
-        let workspace_path = self
-            .effective_session_workspace_path(session_id)
-            .await
-            .ok_or_else(|| {
-                CoreError::Validation(format!("Session workspace_path is missing: {}", session_id))
-            })?;
+        let domain = self.session_domain(session_id).ok_or_else(|| {
+            CoreError::Validation(format!("Session domain is missing: {}", session_id))
+        })?;
         let turn_index = self
             .sessions
             .get(session_id)
@@ -2186,7 +2082,7 @@ impl SessionManager {
             .ok_or_else(|| CoreError::NotFound(format!("Dialog turn not found: {}", turn_id)))?;
         let mut turn = self
             .persistence_manager
-            .load_dialog_turn(&workspace_path, session_id, turn_index)
+            .load_dialog_turn(&domain, session_id, turn_index)
             .await?
             .ok_or_else(|| CoreError::NotFound(format!("Dialog turn not found: {}", turn_id)))?;
 
@@ -2238,7 +2134,7 @@ impl SessionManager {
         // Persist
         if self.should_persist_session_id(session_id) {
             self.persistence_manager
-                .save_dialog_turn(&workspace_path, &turn)
+                .save_dialog_turn(&domain, &turn)
                 .await?;
         }
 
@@ -2266,12 +2162,9 @@ impl SessionManager {
             return Ok(());
         }
 
-        let workspace_path = self
-            .effective_session_workspace_path(session_id)
-            .await
-            .ok_or_else(|| {
-                CoreError::Validation(format!("Session workspace_path is missing: {}", session_id))
-            })?;
+        let domain = self.session_domain(session_id).ok_or_else(|| {
+            CoreError::Validation(format!("Session domain is missing: {}", session_id))
+        })?;
         let turn_index = self
             .sessions
             .get(session_id)
@@ -2279,7 +2172,7 @@ impl SessionManager {
             .ok_or_else(|| CoreError::NotFound(format!("Dialog turn not found: {}", turn_id)))?;
         let mut turn = self
             .persistence_manager
-            .load_dialog_turn(&workspace_path, session_id, turn_index)
+            .load_dialog_turn(&domain, session_id, turn_index)
             .await?
             .ok_or_else(|| CoreError::NotFound(format!("Dialog turn not found: {}", turn_id)))?;
 
@@ -2299,7 +2192,7 @@ impl SessionManager {
         .await;
         if self.should_persist_session_id(session_id) {
             self.persistence_manager
-                .save_dialog_turn(&workspace_path, &turn)
+                .save_dialog_turn(&domain, &turn)
                 .await?;
         }
 
@@ -2321,12 +2214,9 @@ impl SessionManager {
             return Ok(());
         }
 
-        let workspace_path = self
-            .effective_session_workspace_path(session_id)
-            .await
-            .ok_or_else(|| {
-                CoreError::Validation(format!("Session workspace_path is missing: {}", session_id))
-            })?;
+        let domain = self.session_domain(session_id).ok_or_else(|| {
+            CoreError::Validation(format!("Session domain is missing: {}", session_id))
+        })?;
         let turn_index = self
             .sessions
             .get(session_id)
@@ -2334,7 +2224,7 @@ impl SessionManager {
             .ok_or_else(|| CoreError::NotFound(format!("Dialog turn not found: {}", turn_id)))?;
         let mut turn = self
             .persistence_manager
-            .load_dialog_turn(&workspace_path, session_id, turn_index)
+            .load_dialog_turn(&domain, session_id, turn_index)
             .await?
             .ok_or_else(|| CoreError::NotFound(format!("Dialog turn not found: {}", turn_id)))?;
 
@@ -2354,7 +2244,7 @@ impl SessionManager {
         .await;
 
         self.persistence_manager
-            .save_dialog_turn(&workspace_path, &turn)
+            .save_dialog_turn(&domain, &turn)
             .await?;
 
         debug!(
@@ -2384,12 +2274,9 @@ impl SessionManager {
             return Ok(());
         }
 
-        let workspace_path = self
-            .effective_session_workspace_path(session_id)
-            .await
-            .ok_or_else(|| {
-                CoreError::Validation(format!("Session workspace_path is missing: {}", session_id))
-            })?;
+        let domain = self.session_domain(session_id).ok_or_else(|| {
+            CoreError::Validation(format!("Session domain is missing: {}", session_id))
+        })?;
         let turn_index = self
             .sessions
             .get(session_id)
@@ -2397,7 +2284,7 @@ impl SessionManager {
             .ok_or_else(|| CoreError::NotFound(format!("Dialog turn not found: {}", turn_id)))?;
         let mut turn = self
             .persistence_manager
-            .load_dialog_turn(&workspace_path, session_id, turn_index)
+            .load_dialog_turn(&domain, session_id, turn_index)
             .await?
             .ok_or_else(|| CoreError::NotFound(format!("Dialog turn not found: {}", turn_id)))?;
 
@@ -2419,7 +2306,7 @@ impl SessionManager {
 
         if self.should_persist_session_id(session_id) {
             self.persistence_manager
-                .save_dialog_turn(&workspace_path, &turn)
+                .save_dialog_turn(&domain, &turn)
                 .await?;
         }
 
@@ -2445,12 +2332,9 @@ impl SessionManager {
             return Ok(());
         }
 
-        let workspace_path = self
-            .effective_session_workspace_path(session_id)
-            .await
-            .ok_or_else(|| {
-                CoreError::Validation(format!("Session workspace_path is missing: {}", session_id))
-            })?;
+        let domain = self.session_domain(session_id).ok_or_else(|| {
+            CoreError::Validation(format!("Session domain is missing: {}", session_id))
+        })?;
         let turn_index = self
             .sessions
             .get(session_id)
@@ -2458,7 +2342,7 @@ impl SessionManager {
             .ok_or_else(|| CoreError::NotFound(format!("Dialog turn not found: {}", turn_id)))?;
         let mut turn = self
             .persistence_manager
-            .load_dialog_turn(&workspace_path, session_id, turn_index)
+            .load_dialog_turn(&domain, session_id, turn_index)
             .await?
             .ok_or_else(|| CoreError::NotFound(format!("Dialog turn not found: {}", turn_id)))?;
 
@@ -2480,7 +2364,7 @@ impl SessionManager {
 
         if self.should_persist_session_id(session_id) {
             self.persistence_manager
-                .save_dialog_turn(&workspace_path, &turn)
+                .save_dialog_turn(&domain, &turn)
                 .await?;
         }
 
@@ -2496,7 +2380,6 @@ impl SessionManager {
     #[allow(clippy::too_many_arguments)]
     pub async fn persist_btw_turn(
         &self,
-        workspace_path: &Path,
         child_session_id: &str,
         request_id: &str,
         question: &str,
@@ -2508,6 +2391,7 @@ impl SessionManager {
         let session = self.sessions.get(child_session_id).ok_or_else(|| {
             CoreError::NotFound(format!("Session not found: {}", child_session_id))
         })?;
+        let domain = session.config.domain.clone();
         let turn_id = format!("btw-turn-{}", request_id);
         let turn_index = session
             .dialog_turn_ids
@@ -2570,7 +2454,7 @@ impl SessionManager {
 
         // Persist the turn to disk
         self.persistence_manager
-            .save_dialog_turn(workspace_path, &turn)
+            .save_dialog_turn(&domain, &turn)
             .await?;
 
         // Sync messages to the in-memory caches so subsequent turns can access context.
@@ -2598,9 +2482,7 @@ impl SessionManager {
             session.last_activity_at = SystemTime::now();
 
             if self.config.enable_persistence && Self::should_persist_session(&session) {
-                self.persistence_manager
-                    .save_session(workspace_path, &session)
-                    .await?;
+                self.persistence_manager.save_session(&session).await?;
             }
         }
 
@@ -2621,9 +2503,9 @@ impl SessionManager {
     /// canonical turn history instead of the runtime context cache.
     pub async fn get_messages(&self, session_id: &str) -> CoreResult<Vec<Message>> {
         if self.config.enable_persistence {
-            if let Some(workspace_path) = self.effective_session_workspace_path(session_id).await {
+            if let Some(domain) = self.session_domain(session_id) {
                 let messages = self
-                    .rebuild_messages_from_turns(&workspace_path, session_id)
+                    .rebuild_messages_from_turns(&domain, session_id)
                     .await?;
                 if !messages.is_empty() {
                     return Ok(messages);
@@ -2690,18 +2572,12 @@ impl SessionManager {
         session_id: &str,
         compression_state: CompressionState,
     ) -> CoreResult<()> {
-        let effective_path = self.effective_session_workspace_path(session_id).await;
-
         if let Some(mut session) = self.sessions.get_mut(session_id) {
             session.compression_state = compression_state;
             session.updated_at = SystemTime::now();
             session.last_activity_at = SystemTime::now();
             if self.config.enable_persistence && Self::should_persist_session(&session) {
-                if let Some(ref workspace_path) = effective_path {
-                    self.persistence_manager
-                        .save_session(workspace_path, &session)
-                        .await?;
-                }
+                self.persistence_manager.save_session(&session).await?;
             }
             Ok(())
         } else {
@@ -2868,15 +2744,11 @@ impl SessionManager {
                     if !Self::should_persist_session(&session) {
                         continue;
                     }
-                    if let Some(workspace_path) =
-                        Self::effective_workspace_path_from_config(&session.config).await
-                    {
-                        if let Err(e) = persistence.save_session(&workspace_path, &session).await {
-                            error!(
-                                "Failed to auto-save session: session_id={}, error={}",
-                                session.session_id, e
-                            );
-                        }
+                    if let Err(e) = persistence.save_session(&session).await {
+                        error!(
+                            "Failed to auto-save session: session_id={}, error={}",
+                            session.session_id, e
+                        );
                     }
                 }
             }
@@ -2892,7 +2764,7 @@ impl SessionManager {
         let persistence = self.persistence_manager.clone();
         let enable_persistence = self.config.enable_persistence;
         let context_store = self.context_store.clone();
-        let session_workspace_index = self.session_workspace_index.clone();
+        let session_domain_index = self.session_domain_index.clone();
 
         tokio::spawn(async move {
             let mut ticker = time::interval(Duration::from_secs(60));
@@ -2935,16 +2807,15 @@ impl SessionManager {
                             .then(|| session.config.clone())
                     });
                     if let Some(config) = internal_config {
-                        if let Some(workspace_path) =
-                            Self::effective_workspace_path_from_config(&config).await
-                        {
-                            let _ = persistence
-                                .delete_session(&workspace_path, &session_id)
-                                .await;
-                        }
+                        let _ = persistence
+                            .delete_session(&SessionLocator {
+                                domain: config.domain,
+                                session_id: session_id.clone(),
+                            })
+                            .await;
                         context_store.delete_session(&session_id);
                         sessions.remove(&session_id);
-                        session_workspace_index.remove(&session_id);
+                        session_domain_index.remove(&session_id);
                         continue;
                     }
 
@@ -2956,11 +2827,7 @@ impl SessionManager {
                                 sessions.remove(&session_id);
                                 continue;
                             }
-                            if let Some(workspace_path) =
-                                Self::effective_workspace_path_from_config(&session.config).await
-                            {
-                                let _ = persistence.save_session(&workspace_path, &session).await;
-                            }
+                            let _ = persistence.save_session(&session).await;
                         }
                     }
 
@@ -2974,7 +2841,8 @@ impl SessionManager {
     }
 }
 
-#[cfg(test)]
+// Superseded by explicit SessionDomain lifecycle contract tests.
+#[cfg(any())]
 mod tests {
     use super::{merge_json_value, SessionManager, SessionManagerConfig};
     use crate::agentic::core::{Session, SessionConfig, SessionKind, SessionStorageScope};

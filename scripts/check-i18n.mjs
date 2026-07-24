@@ -14,6 +14,16 @@ const configCatalogPath = path.join(
   'config',
   'catalog.rs',
 );
+const customSettingsTabsDir = path.join(
+  rootDir,
+  'src',
+  'web-ui',
+  'src',
+  'app',
+  'scenes',
+  'settings',
+  'custom-tabs',
+);
 
 function listLocaleDirs(baseDir) {
   return fs.readdirSync(baseDir)
@@ -132,6 +142,49 @@ function parseFormalPublishedSettingKeys(filePath) {
   return Array.from(keys).sort();
 }
 
+function parseFormalPublishedPresentationIds(filePath) {
+  const source = fs.readFileSync(filePath, 'utf8');
+  const body = extractRustConstArrayBody(source, 'STABLE_SETTING_DECLARATIONS', filePath);
+  const pattern = /public_setting!\(\s*"[^"\r\n]+"\s*=>\s*[^,]+,\s*\(\s*"([^"\r\n]+)"\s*,\s*"([^"\r\n]+)"\s*,\s*"([^"\r\n]+)"\s*,\s*"[^"\r\n]+"\s*\)/g;
+  const categories = new Set(['advanced']);
+  const tabs = new Set();
+  const sections = new Set();
+
+  for (const match of body.matchAll(pattern)) {
+    categories.add(match[1]);
+    tabs.add(match[2]);
+    sections.add(match[3]);
+  }
+
+  if (tabs.size === 0 || sections.size === 0) {
+    throw new Error(`No formal published setting presentation IDs found in ${filePath}`);
+  }
+
+  return { categories, tabs, sections };
+}
+
+function parseCustomSettingsPresentationIds(directoryPath) {
+  const categories = new Set();
+  const tabs = new Set();
+
+  for (const entry of fs.readdirSync(directoryPath, { withFileTypes: true })) {
+    if (!entry.isFile() || !entry.name.endsWith('.settings-tab.ts')) {
+      continue;
+    }
+    const filePath = path.join(directoryPath, entry.name);
+    const source = fs.readFileSync(filePath, 'utf8');
+    const id = source.match(/\bid:\s*'([^']+)'/)?.[1];
+    const categoryId = source.match(/\bcategoryId:\s*'([^']+)'/)?.[1];
+    if (!id || !categoryId) {
+      throw new Error(`Failed to parse custom settings presentation IDs from ${filePath}`);
+    }
+    tabs.add(id);
+    categories.add(categoryId);
+  }
+
+  return { categories, tabs };
+}
+
 function resolveTranslation(localeId, translationKey) {
   const separatorIndex = translationKey.indexOf(':');
   if (separatorIndex <= 0 || separatorIndex === translationKey.length - 1) {
@@ -179,6 +232,23 @@ function main() {
   const referenceNamespaces = referenceFiles.map((file) => file.replace(/\.json$/, '')).sort();
   const declaredNamespaces = parseDeclaredNamespaces(constantsPath);
   const formalPublishedSettingKeys = parseFormalPublishedSettingKeys(configCatalogPath);
+  const formalPresentationIds = parseFormalPublishedPresentationIds(configCatalogPath);
+  const customPresentationIds = parseCustomSettingsPresentationIds(customSettingsTabsDir);
+  const settingsPresentationKeys = [
+    ...new Set([
+      ...formalPresentationIds.categories,
+      ...customPresentationIds.categories,
+    ]),
+  ].map((id) => `settings/config-center:categories.${id}`)
+    .concat([
+      ...new Set([
+        ...formalPresentationIds.tabs,
+        ...customPresentationIds.tabs,
+      ]),
+    ].map((id) => `settings/config-center:tabs.${id}`))
+    .concat([...formalPresentationIds.sections]
+      .map((id) => `settings/config-center:sections.${id}`))
+    .sort();
 
   const missingDeclaredNamespaces = diffSets(referenceNamespaces, declaredNamespaces);
   const extraDeclaredNamespaces = diffSets(declaredNamespaces, referenceNamespaces);
@@ -240,6 +310,16 @@ function main() {
           .join('\n')}`,
       );
     }
+    const missingPresentationKeys = settingsPresentationKeys.filter(
+      (translationKey) => resolveTranslation(localeId, translationKey) === undefined,
+    );
+    if (missingPresentationKeys.length > 0) {
+      issues.push(
+        `${localeId} is missing settings navigation copy:\n${missingPresentationKeys
+          .map((translationKey) => `  - ${translationKey}`)
+          .join('\n')}`,
+      );
+    }
   }
 
   if (issues.length > 0) {
@@ -250,7 +330,7 @@ function main() {
   }
 
   console.log(
-    `i18n consistency check passed for ${localeIds.length} locales, ${referenceFiles.length} namespace files, and ${formalPublishedSettingKeys.length} formal published setting keys.`,
+    `i18n consistency check passed for ${localeIds.length} locales, ${referenceFiles.length} namespace files, ${formalPublishedSettingKeys.length} formal published setting keys, and ${settingsPresentationKeys.length} settings presentation keys.`,
   );
 }
 

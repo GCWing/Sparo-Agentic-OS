@@ -527,19 +527,27 @@
     "archived": "Archived"
   },
   "kind": {
-    "one-shot": "One shot",
-    "multi-step": "Multi-step",
-    "long-running-session": "Long-running",
-    "recurring": "Recurring",
-    "tracking": "Tracking",
-    "topic": "Topic",
-    "app-workflow": "App workflow",
-    "delegated-work": "Delegated"
+    "one-shot": "Normal work",
+    "multi-step": "Multi-step work",
+    "long-running-session": "Long-running work",
+    "recurring": "Recurring work",
+    "tracking": "Tracking work",
+    "topic": "Topic work",
+    "app-workflow": "Intelligent app work",
+    "delegated-work": "Delegated work",
+    "system": "System work"
   },
   "time": {
     "today": "Today",
     "week": "This week",
     "older": "Earlier"
+  },
+  "compatibility": {
+    "unknown": "Unknown",
+    "versionIncompatible": "This work was created by {{appId}} {{createdWithVersion}} with data schema {{workDataSchemaVersion}}. The installed version {{installedVersion}} (schema {{installedDataSchemaVersion}}) cannot accept its data or runtime contract. The historical app version has been removed.",
+    "appUnavailable": "This work cannot run because {{appId}} is not installed. Its historical app version is not retained.",
+    "appDisabled": "This work cannot run because {{appId}} is disabled.",
+    "appSelectionChanged": "This work belongs to {{appId}}, but this app slot now selects {{installedAppId}}. Historical app versions are not used."
   },
   "errors": {
     "openFailed": "Failed to open work",

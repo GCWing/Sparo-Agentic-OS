@@ -75,7 +75,7 @@ pub enum ReasoningMode {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
-#[serde(deny_unknown_fields)]
+#[serde(default)]
 pub struct ProxyConfig {
     pub enabled: bool,
     pub url: String,

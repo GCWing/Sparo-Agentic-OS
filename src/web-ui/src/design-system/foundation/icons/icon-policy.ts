@@ -3,7 +3,12 @@ export const DESIGN_SYSTEM_ICON_POLICY = {
   defaultSize: 16,
   strokeWidth: 1.8,
   iconOnlyButtonRequiresLabel: true,
-  customSemanticIcons: ['SparoLogoMark', 'SparoAgentIcon', 'SparoSubagentIcon'],
+  customSemanticIcons: [
+    'SparoLogoMark',
+    'SparoAgentIcon',
+    'SparoSubagentIcon',
+    'SparoSystemIcon',
+  ],
   customSemanticIconRule:
-    'Use lucide-react for generic actions and objects. Use Sparo semantic icons only for first-party brand and agent concepts that need Sparo OS recognition.',
+    'Use lucide-react for compact generic actions and objects. Use Sparo semantic icons for first-party brand, agent, system destinations, work types, and large-format navigation, search/filter, file-transfer, or edit/manage actions that need Sparo OS recognition.',
 } as const;

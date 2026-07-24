@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-pub const WORKSPACE_RUNTIME_LAYOUT_VERSION: u32 = 1;
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WorkspaceRuntimeTarget {
     LocalWorkspace { workspace_root: PathBuf },
@@ -20,7 +18,6 @@ impl WorkspaceRuntimeTarget {
 pub struct WorkspaceRuntimeContext {
     pub target: WorkspaceRuntimeTarget,
     pub runtime_root: PathBuf,
-    pub sessions_dir: PathBuf,
     pub snapshots_dir: PathBuf,
     pub snapshot_by_hash_dir: PathBuf,
     pub snapshot_metadata_dir: PathBuf,
@@ -31,7 +28,6 @@ pub struct WorkspaceRuntimeContext {
     pub locks_dir: PathBuf,
     pub config_dir: PathBuf,
     pub isolation_status_file: PathBuf,
-    pub layout_state_file: PathBuf,
 }
 
 impl WorkspaceRuntimeContext {
@@ -41,7 +37,6 @@ impl WorkspaceRuntimeContext {
 
         Self {
             target,
-            sessions_dir: runtime_root.join("sessions"),
             snapshot_by_hash_dir: snapshots_dir.join("by_hash"),
             snapshot_metadata_dir: snapshots_dir.join("metadata"),
             snapshot_baselines_dir: snapshots_dir.join("baselines"),
@@ -50,7 +45,6 @@ impl WorkspaceRuntimeContext {
             plans_dir: runtime_root.join("plans"),
             locks_dir: runtime_root.join("locks"),
             isolation_status_file: config_dir.join("isolation_status.json"),
-            layout_state_file: config_dir.join("runtime_layout_state.json"),
             runtime_root,
             snapshots_dir,
             config_dir,
@@ -60,7 +54,6 @@ impl WorkspaceRuntimeContext {
     pub fn required_directories(&self) -> Vec<&Path> {
         vec![
             self.runtime_root.as_path(),
-            self.sessions_dir.as_path(),
             self.snapshots_dir.as_path(),
             self.snapshot_by_hash_dir.as_path(),
             self.snapshot_metadata_dir.as_path(),
@@ -72,30 +65,10 @@ impl WorkspaceRuntimeContext {
             self.config_dir.as_path(),
         ]
     }
-
-    pub fn session_dir(&self, session_id: &str) -> PathBuf {
-        self.sessions_dir.join(session_id)
-    }
-
-    pub fn session_tool_results_dir(&self, session_id: &str) -> PathBuf {
-        self.session_dir(session_id).join("tool-results")
-    }
-
-    pub fn session_tool_result_path(&self, session_id: &str, file_name: &str) -> PathBuf {
-        self.session_tool_results_dir(session_id).join(file_name)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RuntimeMigrationRecord {
-    pub source: PathBuf,
-    pub target: PathBuf,
-    pub strategy: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorkspaceRuntimeEnsureResult {
     pub context: WorkspaceRuntimeContext,
     pub created_directories: Vec<PathBuf>,
-    pub migrated_entries: Vec<RuntimeMigrationRecord>,
 }

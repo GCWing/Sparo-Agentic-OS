@@ -228,32 +228,6 @@ pub async fn initialize_agentic(
     log::info!("Global milestone service initialized and started");
     log::info!("Stage-D agentic services ready");
 
-    let ppt_cleanup_coordinator = coordinator.clone();
-    let ppt_cleanup_scheduler = scheduler.clone();
-    let ppt_cleanup_root = path_manager.agentic_os_runtime_root();
-    tokio::spawn(async move {
-        match crate::api::product_app_runtime_host_adapter::cancel_stale_ppt_runs_internal(
-            ppt_cleanup_coordinator.as_ref(),
-            ppt_cleanup_scheduler.as_ref(),
-            ppt_cleanup_root.as_path(),
-        )
-        .await
-        {
-            Ok(summary) if summary.cancelled_turns > 0 || summary.cleared_queues > 0 => {
-                log::info!(
-                    "Cancelled stale PPT Live runs on startup: sessions={}, turns={}, cleared_queues={}",
-                    summary.cancelled_sessions,
-                    summary.cancelled_turns,
-                    summary.cleared_queues
-                );
-            }
-            Ok(_) => {}
-            Err(error) => {
-                log::warn!("Stale PPT Live cleanup on startup failed: {}", error);
-            }
-        }
-    });
-
     Ok(AgenticHandles {
         coordinator,
         scheduler,
@@ -275,6 +249,7 @@ pub async fn initialize_app_state(
         .map_err(|e| anyhow::anyhow!("Failed to initialize AppState: {}", e))?;
     let app_state = Arc::new(app_state);
     container.set_app_state(app_state.clone());
+    app_state.start_system_app_sync();
     log::info!("Stage-D AppState ready");
     Ok(app_state)
 }

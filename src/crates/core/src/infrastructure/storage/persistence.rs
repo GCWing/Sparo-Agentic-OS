@@ -79,7 +79,7 @@ impl PersistenceService {
         path_manager: Arc<PathManager>,
         workspace_path: PathBuf,
     ) -> CoreResult<Self> {
-        let base_dir = path_manager.workspace_runtime_root(&workspace_path);
+        let base_dir = path_manager.workspace_runtime_root(&workspace_path)?;
 
         Ok(Self {
             base_dir,

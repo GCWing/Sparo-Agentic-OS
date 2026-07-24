@@ -155,7 +155,6 @@ describe('AppDetailScene user journeys', () => {
           managing={false}
           onInstall={vi.fn()}
           onCustomize={onCustomize}
-          onRollback={vi.fn()}
           onSyncUpstream={vi.fn()}
         />,
       );

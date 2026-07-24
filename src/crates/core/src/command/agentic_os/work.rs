@@ -5,7 +5,7 @@ use crate::agentic_os::work::{
     DispatchWorkRequest, LinkSessionToWorkRequest, ResolveAppWorkRequest,
     ResolveComponentWorkRequest, StartWorkRequest, UpdateWorkRequest, WorkAppRef,
     WorkBuilderPreviewResult, WorkBuilderValidationResult, WorkCleanupReport, WorkDeleteOptions,
-    WorkId, WorkRecord, WorkService,
+    WorkId, WorkLocator, WorkRecord, WorkService,
 };
 
 use super::super::{CommandError, CommandResult};
@@ -24,7 +24,7 @@ pub struct AgenticOsListWorksResponse {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct AgenticOsGetWorkRequest {
-    pub work_id: WorkId,
+    pub locator: WorkLocator,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -34,7 +34,7 @@ pub struct AgenticOsGetWorkResponse {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct AgenticOsDeleteWorkRequest {
-    pub work_id: WorkId,
+    pub locator: WorkLocator,
     #[serde(default)]
     pub options: WorkDeleteOptions,
 }
@@ -72,7 +72,7 @@ pub struct AgenticOsStartWorkResponse {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct AgenticOsUpdateWorkRequest {
-    pub work_id: WorkId,
+    pub locator: WorkLocator,
     #[serde(flatten)]
     pub update: UpdateWorkRequest,
 }
@@ -158,7 +158,7 @@ pub struct AgenticOsControlWorkResponse {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct AgenticOsRecordBuilderPreviewResultRequest {
-    pub work_id: WorkId,
+    pub locator: WorkLocator,
     pub preview_result: WorkBuilderPreviewResult,
 }
 
@@ -169,7 +169,7 @@ pub struct AgenticOsRecordBuilderPreviewResultResponse {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct AgenticOsRecordBuilderValidationResultRequest {
-    pub work_id: WorkId,
+    pub locator: WorkLocator,
     pub validation_result: WorkBuilderValidationResult,
 }
 
@@ -204,7 +204,7 @@ pub async fn list_works_with_service(
         .map(str::trim)
         .filter(|value| !value.is_empty())
     {
-        works.retain(|work| work.scope.workspace_path() == Some(workspace_path));
+        works.retain(|work| work.workspace_path.as_deref() == Some(workspace_path));
     }
     if let Some(app) = request.app.as_ref() {
         works.retain(|work| work.references_app(app));
@@ -215,7 +215,7 @@ pub async fn list_works_with_service(
 pub async fn get_work(request: AgenticOsGetWorkRequest) -> CommandResult<AgenticOsGetWorkResponse> {
     let service = WorkService::new(default_work_store().map_err(CommandError::session)?);
     let work = service
-        .get(&request.work_id)
+        .get(&request.locator)
         .await
         .map_err(CommandError::session)?;
     Ok(AgenticOsGetWorkResponse { work })
@@ -233,7 +233,7 @@ pub async fn delete_work_with_service(
     request: AgenticOsDeleteWorkRequest,
 ) -> CommandResult<AgenticOsDeleteWorkResponse> {
     let response = service
-        .delete_with_options(&request.work_id, request.options)
+        .delete_with_options(&request.locator, request.options)
         .await
         .map_err(CommandError::session)?;
     Ok(AgenticOsDeleteWorkResponse {
@@ -337,7 +337,7 @@ pub async fn update_work_with_service(
     request: AgenticOsUpdateWorkRequest,
 ) -> CommandResult<AgenticOsUpdateWorkResponse> {
     let work = service
-        .update(&request.work_id, request.update)
+        .update(&request.locator, request.update)
         .await
         .map_err(CommandError::session)?;
     Ok(AgenticOsUpdateWorkResponse { work })
@@ -438,7 +438,7 @@ pub async fn record_builder_preview_result_with_service(
     request: AgenticOsRecordBuilderPreviewResultRequest,
 ) -> CommandResult<AgenticOsRecordBuilderPreviewResultResponse> {
     let work = service
-        .record_builder_preview_result(&request.work_id, request.preview_result)
+        .record_builder_preview_result(&request.locator, request.preview_result)
         .await
         .map_err(CommandError::session)?;
     Ok(AgenticOsRecordBuilderPreviewResultResponse { work })
@@ -456,7 +456,7 @@ pub async fn record_builder_validation_result_with_service(
     request: AgenticOsRecordBuilderValidationResultRequest,
 ) -> CommandResult<AgenticOsRecordBuilderValidationResultResponse> {
     let work = service
-        .record_builder_validation_result(&request.work_id, request.validation_result)
+        .record_builder_validation_result(&request.locator, request.validation_result)
         .await
         .map_err(CommandError::session)?;
     Ok(AgenticOsRecordBuilderValidationResultResponse { work })

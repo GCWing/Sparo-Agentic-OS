@@ -13,7 +13,9 @@ use super::state::{
     WorkspaceOverviewRefreshTrigger,
 };
 use crate::agentic::coordination::ConversationCoordinator;
-use crate::agentic::memory::routing::build_global_workspace_overviews_context;
+use crate::agentic::memory::routing::{
+    build_global_workspace_overviews_context, workspace_overview_file_name,
+};
 use crate::agentic::tools::{ToolPathPolicy, ToolRuntimeRestrictions};
 use crate::error::CoreResult;
 use crate::service::config::{is_primary_ai_model_configured, PRIMARY_AI_MODEL_REQUIRED_REASON};
@@ -21,7 +23,6 @@ use crate::service::workspace::{get_global_workspace_service, WorkspaceInfo, Wor
 use chrono::{Local, TimeZone};
 use log::{error, info, warn};
 use serde::Serialize;
-use sha2::Digest;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -757,42 +758,7 @@ async fn collect_refresh_targets() -> CoreResult<RefreshTargetCollection> {
 }
 
 fn workspace_overview_path(overview_dir: &std::path::Path, workspace: &WorkspaceInfo) -> PathBuf {
-    let normalized_path = workspace.root_path.to_string_lossy().replace('\\', "/");
-    let digest = sha2::Sha256::digest(normalized_path.as_bytes());
-    let hash = format!("{:x}", digest)[..8].to_string();
-
-    let preferred = workspace.name.trim();
-    let fallback = workspace
-        .root_path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .map(str::trim)
-        .unwrap_or_default();
-    let seed = if preferred.is_empty() {
-        fallback
-    } else {
-        preferred
-    };
-
-    let mut slug = String::new();
-    let mut last_was_dash = false;
-    for ch in seed.chars() {
-        if ch.is_ascii_alphanumeric() {
-            slug.push(ch.to_ascii_lowercase());
-            last_was_dash = false;
-        } else if !last_was_dash && !slug.is_empty() {
-            slug.push('-');
-            last_was_dash = true;
-        }
-    }
-    let slug = slug.trim_matches('-').to_string();
-    let slug = if slug.is_empty() {
-        "workspace".to_string()
-    } else {
-        slug
-    };
-
-    overview_dir.join(format!("{slug}--{hash}.md"))
+    overview_dir.join(workspace_overview_file_name(workspace))
 }
 
 fn build_runtime_restrictions(targets: &[(WorkspaceInfo, PathBuf)]) -> ToolRuntimeRestrictions {
@@ -814,6 +780,7 @@ fn build_runtime_restrictions(targets: &[(WorkspaceInfo, PathBuf)]) -> ToolRunti
             write_roots: write_roots.clone(),
             edit_roots: write_roots,
             delete_roots: Vec::new(),
+            ..ToolPathPolicy::default()
         },
         disable_snapshot_tracking: true,
     }

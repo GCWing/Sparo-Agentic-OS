@@ -11,11 +11,13 @@ use log::debug;
 use std::path::PathBuf;
 use tokio::fs;
 
-pub(crate) fn memory_store_dir_path_for_target(target: MemoryStoreTarget<'_>) -> PathBuf {
+pub(crate) fn memory_store_dir_path_for_target(
+    target: MemoryStoreTarget<'_>,
+) -> CoreResult<PathBuf> {
     let path_manager = get_path_manager_arc();
     let path = match target {
         MemoryStoreTarget::WorkspaceProject(workspace_root) => {
-            path_manager.workspace_memory_dir(workspace_root)
+            path_manager.workspace_memory_dir(workspace_root)?
         }
         MemoryStoreTarget::GlobalAgenticOs => path_manager.agentic_os_memory_dir(),
     };
@@ -25,13 +27,13 @@ pub(crate) fn memory_store_dir_path_for_target(target: MemoryStoreTarget<'_>) ->
         path.display(),
         MEMORY_DIR_NAME
     );
-    path
+    Ok(path)
 }
 
 pub(crate) async fn ensure_memory_store_for_target(
     target: MemoryStoreTarget<'_>,
 ) -> CoreResult<()> {
-    let memory_dir = memory_store_dir_path_for_target(target);
+    let memory_dir = memory_store_dir_path_for_target(target)?;
     if !memory_dir.exists() {
         fs::create_dir_all(&memory_dir).await.map_err(|e| {
             CoreError::service(format!(
@@ -96,21 +98,21 @@ pub(crate) async fn ensure_memory_store_for_target(
 pub(crate) fn memory_journal_dir_for_date(
     target: MemoryStoreTarget<'_>,
     date: NaiveDate,
-) -> PathBuf {
-    memory_store_dir_path_for_target(target)
+) -> CoreResult<PathBuf> {
+    Ok(memory_store_dir_path_for_target(target)?
         .join(MEMORY_LOG_DIR_NAME)
         .join(format!("{:04}", date.year()))
-        .join(format!("{:02}", date.month()))
+        .join(format!("{:02}", date.month())))
 }
 
 pub(crate) fn memory_journal_file_path_for_date(
     target: MemoryStoreTarget<'_>,
     date: NaiveDate,
-) -> PathBuf {
-    memory_journal_dir_for_date(target, date).join(format!(
+) -> CoreResult<PathBuf> {
+    Ok(memory_journal_dir_for_date(target, date)?.join(format!(
         "{:04}-{:02}-{:02}.jsonl",
         date.year(),
         date.month(),
         date.day()
-    ))
+    )))
 }

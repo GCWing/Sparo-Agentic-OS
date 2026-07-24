@@ -374,7 +374,7 @@ mod tests {
             WorkVisibility::Primary,
             WorkSubject::Goal,
             Vec::new(),
-            WorkScope::System,
+            WorkScope::Global,
             WorkSurfaceRef::WorkSession {
                 session_id: "work-session".to_string(),
             },

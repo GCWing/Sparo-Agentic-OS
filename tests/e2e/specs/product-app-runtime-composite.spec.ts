@@ -275,7 +275,7 @@ describe('Product App runtime', () => {
       subjectKind: 'app',
       subjectAppKind: 'product_app',
       subjectAppId: 'builtin-remotion-live',
-      subjectAppVersion: '19.0.0',
+      subjectAppVersion: '19.0.2',
       componentLockDigest: workRecord?.componentLockDigest,
     });
     expect(workRecord?.componentLockDigest).toContain('sha256:');

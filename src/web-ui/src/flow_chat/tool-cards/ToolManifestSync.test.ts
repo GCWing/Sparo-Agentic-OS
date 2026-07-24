@@ -9,6 +9,22 @@ import type { FlowToolItem } from '../types/flow-chat';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
+vi.hoisted(() => {
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    value: vi.fn().mockImplementation(() => ({
+      matches: false,
+      media: '',
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+});
+
 const toolApiMocks = vi.hoisted(() => ({
   getAllToolsInfo: vi.fn(),
   getToolInfo: vi.fn(),
@@ -34,6 +50,7 @@ vi.mock('react-i18next', () => ({
   },
   useTranslation: () => ({
     t: (key: string) => key,
+    i18n: { language: 'en-US' },
   }),
 }));
 
@@ -60,6 +77,7 @@ vi.mock('@/design-system', () => ({
   Tooltip: ({ children }: { children: React.ReactNode }) => React.createElement(React.Fragment, null, children),
 }));
 
+import { registerProductAppRuntimeToolCardManifests } from '@/app/scenes/apps/product-app-runtime/productAppRuntimeToolCardManifests';
 import { FlowToolCard } from '../components/FlowToolCard';
 import { AppDefinedToolCard } from './AppDefinedToolCard';
 import {
@@ -72,7 +90,10 @@ import {
 } from './index';
 import {
   ensureToolCardRegistryEntry,
+  registerDeclaredToolCardManifest,
+  registerToolCardManifestSource,
   syncToolCardRegistryFromBackendManifest,
+  unregisterDeclaredToolCardManifest,
   watchToolCardRegistryEntry,
 } from './ToolManifestSync';
 
@@ -109,6 +130,7 @@ describe('ToolManifestSync', () => {
   afterEach(() => {
     vi.useRealTimers();
     for (const name of registeredNames) {
+      unregisterDeclaredToolCardManifest(name);
       unregisterToolUiRenderer(name);
       unregisterToolCardConfig(name);
     }
@@ -135,6 +157,183 @@ describe('ToolManifestSync', () => {
     });
     expect(listener).toHaveBeenCalledTimes(1);
     unsubscribe();
+  });
+
+  it('uses the dedicated Design Case renderer declared by the app-defined card family', async () => {
+    const name = 'agentcomponent__builtin-ppt-live-agent__confirm_design_case';
+    registeredNames.add(name);
+    toolApiMocks.getToolInfo.mockResolvedValue({
+      ...appDefinedToolInfo(name),
+      ui: {
+        card: {
+          kind: 'appDefined',
+          family: 'ppt-design-case-confirmation',
+          template: 'custom',
+          displayName: 'Confirm Design Case',
+        },
+      },
+    });
+
+    await expect(ensureToolCardRegistryEntry(name)).resolves.toBe(true);
+
+    const entry = getToolUiRegistryEntry(name);
+    expect(entry.component).not.toBe(AppDefinedToolCard);
+    expect(entry).toMatchObject({
+      template: 'custom',
+      family: 'ppt-design-case-confirmation',
+    });
+  });
+
+  it('uses the dedicated PPT Live renderer for compact presentation tools', async () => {
+    const name = 'agentcomponent__builtin-ppt-live-agent__inspect_presentation';
+    registeredNames.add(name);
+    toolApiMocks.getToolInfo.mockResolvedValue({
+      ...appDefinedToolInfo(name),
+      ui: {
+        card: {
+          kind: 'appDefined',
+          family: 'ppt-live',
+          template: 'compact',
+          displayName: 'Inspect presentation',
+        },
+      },
+    });
+
+    await expect(ensureToolCardRegistryEntry(name)).resolves.toBe(true);
+
+    const entry = getToolUiRegistryEntry(name);
+    expect(entry.component).not.toBe(AppDefinedToolCard);
+    expect(entry).toMatchObject({
+      template: 'custom',
+      family: 'ppt-live',
+    });
+  });
+
+  it('registers a Product App UI-only app-defined card without consulting the model ToolAPI', () => {
+    const name = 'productapp__sample-app__status';
+    registeredNames.add(name);
+
+    expect(registerDeclaredToolCardManifest({
+      name,
+      description: 'Application workflow status',
+      isReadonly: true,
+      ui: {
+        card: {
+          kind: 'appDefined',
+          family: 'sample-app',
+          displayName: 'Workflow status',
+        },
+      },
+    })).toBe(true);
+
+    expect(hasToolCardConfig(name)).toBe(true);
+    expect(getToolUiRegistryEntry(name)).toMatchObject({
+      component: AppDefinedToolCard,
+      template: 'compact',
+      family: 'sample-app',
+    });
+    expect(toolApiMocks.getToolInfo).not.toHaveBeenCalled();
+    expect(toolApiMocks.getAllToolsInfo).not.toHaveBeenCalled();
+  });
+
+  it('resolves a Product App UI-only card from its declared manifest source', async () => {
+    const name = 'productapp__sample-app__source-status';
+    registeredNames.add(name);
+    const unregisterSource = registerToolCardManifestSource('test-product-app-source', {
+      owns: toolName => toolName.startsWith('productapp__'),
+      resolve: toolName => toolName === name
+        ? {
+            name,
+            description: 'Application workflow status',
+            isReadonly: true,
+            ui: {
+              card: {
+                kind: 'appDefined',
+                family: 'sample-app',
+                displayName: 'Workflow status',
+              },
+            },
+          }
+        : null,
+    });
+
+    try {
+      await expect(ensureToolCardRegistryEntry(name)).resolves.toBe(true);
+    } finally {
+      unregisterSource();
+    }
+
+    expect(getToolUiRegistryEntry(name)).toMatchObject({
+      component: AppDefinedToolCard,
+      template: 'compact',
+      family: 'sample-app',
+    });
+    expect(toolApiMocks.getToolInfo).not.toHaveBeenCalled();
+  });
+
+  it('updates an existing Product App declaration atomically', () => {
+    const name = 'productapp__sample-app__updated-status';
+    registeredNames.add(name);
+
+    expect(registerDeclaredToolCardManifest({
+      name,
+      ui: { card: { kind: 'appDefined', displayName: 'Working' } },
+    })).toBe(true);
+    expect(registerDeclaredToolCardManifest({
+      name,
+      ui: { card: { kind: 'appDefined', displayName: 'Work complete' } },
+    })).toBe(true);
+
+    expect(getToolCardConfig(name).displayName).toBe('Work complete');
+  });
+
+  it('upgrades a mounted Product App fallback when its Host Surface declaration arrives', async () => {
+    const name = 'productapp__sample-app__status';
+    registeredNames.add(name);
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    const toolItem: FlowToolItem = {
+      id: 'app-status',
+      type: 'tool',
+      toolName: name,
+      toolCall: { id: 'app-status', input: { state: 'running' } },
+      timestamp: 1,
+      status: 'running',
+      runtime: {
+        lifecycle: 'running',
+        inputPhase: 'parsed',
+        confirmation: 'none',
+        input: { stage: 'planning' },
+      },
+    };
+
+    act(() => root.render(React.createElement(FlowToolCard, { toolItem })));
+    expect(host.textContent).toContain(`Tool: ${name}`);
+
+    await act(async () => {
+      registerProductAppRuntimeToolCardManifests({
+        appId: 'sample-app',
+        flowChatCards: [{
+          id: 'status',
+          description: 'Application workflow status',
+          ui: {
+            card: {
+              kind: 'appDefined',
+              family: 'sample-app',
+              displayName: 'Workflow status',
+            },
+          },
+        }],
+      });
+      await Promise.resolve();
+    });
+
+    expect(host.textContent).not.toContain(`Tool: ${name}`);
+    expect(toolApiMocks.getToolInfo).not.toHaveBeenCalled();
+
+    act(() => root.unmount());
+    host.remove();
   });
 
   it('upgrades an already-mounted fallback card when exact metadata arrives', async () => {

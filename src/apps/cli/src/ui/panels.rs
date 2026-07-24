@@ -1344,7 +1344,7 @@ fn panel_rows_for_width(
                 return empty_panel_rows(
                     theme,
                     "No memory files are available in this snapshot.",
-                    "Run `sparo memory list`; add notes under .sparo_os/memory; use `sparo health` if memory is missing.",
+                    "Run `sparo memory list`; add durable context through chat or the Memory surface; use `sparo health` if memory is unavailable.",
                 );
             }
             let rows = snapshot
@@ -1606,7 +1606,7 @@ fn compact_panel_rows(
                 return empty_panel_rows(
                     theme,
                     "No memory files are available in this snapshot.",
-                    "Run `sparo memory list`; add notes under .sparo_os/memory; use `sparo health` if memory is missing.",
+                    "Run `sparo memory list`; add durable context through chat or the Memory surface; use `sparo health` if memory is unavailable.",
                 );
             }
             snapshot

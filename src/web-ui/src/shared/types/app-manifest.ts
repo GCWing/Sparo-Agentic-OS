@@ -1,5 +1,7 @@
 export type ComponentKind = 'surface' | 'agent' | 'bridge' | 'runtime' | 'tool' | 'skill';
 
+export type ProductAppWorkMultiplicity = 'multiple' | 'singleton';
+
 export type AppIconSpec =
   | {
     kind: 'packageAsset';

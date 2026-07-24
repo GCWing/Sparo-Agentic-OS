@@ -315,11 +315,11 @@ async fn build_sessions_submenu(app: &AppHandle, s: &TrayStrings) -> Submenu<tau
         .unwrap_or_default();
     let sessions = match (app_state, coordinator) {
         (Some(app_state), Some(coordinator)) => {
-            let workspace_path = app_state.workspace_path.read().await.clone();
-            match workspace_path {
-                Some(path) => coordinator.list_sessions(&path).await.unwrap_or_default(),
-                None => Vec::new(),
-            }
+            let _ = app_state;
+            coordinator
+                .list_sessions(&sparo_core::agentic::core::SessionDomain::OsAgent)
+                .await
+                .unwrap_or_default()
         }
         _ => Vec::new(),
     };

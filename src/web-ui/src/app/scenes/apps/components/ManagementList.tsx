@@ -29,7 +29,7 @@ import type {
   AppManagementAction,
   ProductAppCatalogEntry,
 } from '@/infrastructure/api/service-api/AppCatalogAPI';
-import { AppIcon } from '../AppIcon';
+import { AppIcon } from '@/app/components/AppIcon';
 import './ManagementList.scss';
 
 function appHasManagementAction(app: ProductAppCatalogEntry, action: AppManagementAction): boolean {

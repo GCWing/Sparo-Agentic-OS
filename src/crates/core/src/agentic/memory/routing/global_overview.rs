@@ -3,7 +3,6 @@ use crate::error::*;
 use crate::infrastructure::get_path_manager_arc;
 use crate::service::workspace::{get_global_workspace_service, WorkspaceInfo, WorkspaceKind};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use tokio::fs;
@@ -161,7 +160,7 @@ pub async fn list_workspace_overview_bindings() -> CoreResult<Vec<WorkspaceOverv
         .await
         .into_iter()
         .map(|workspace| workspace_overview_binding(&overview_dir, &workspace))
-        .collect::<Vec<_>>();
+        .collect::<CoreResult<Vec<_>>>()?;
 
     bindings.sort_by(|left, right| {
         left.workspace_name
@@ -185,7 +184,7 @@ async fn collect_workspace_candidate_overviews() -> CoreResult<Vec<WorkspaceCand
         .await
         .into_iter()
         .map(|workspace| workspace_overview_binding(&overview_dir, &workspace))
-        .collect::<Vec<_>>();
+        .collect::<CoreResult<Vec<_>>>()?;
 
     let mut candidates = Vec::with_capacity(bindings.len());
     for binding in bindings {
@@ -218,12 +217,8 @@ async fn ensure_workspace_overview_file(
     Ok(())
 }
 
-fn workspace_overview_file_name(workspace: &WorkspaceInfo) -> String {
-    format!(
-        "{}--{}.md",
-        workspace_overview_slug(workspace),
-        workspace_overview_hash(workspace)
-    )
+pub(crate) fn workspace_overview_file_name(workspace: &WorkspaceInfo) -> String {
+    format!("{}.md", workspace.id)
 }
 
 fn format_workspace_overview(_workspace: &WorkspaceInfo) -> String {
@@ -233,18 +228,18 @@ fn format_workspace_overview(_workspace: &WorkspaceInfo) -> String {
 fn workspace_overview_binding(
     overview_dir: &Path,
     workspace: &WorkspaceInfo,
-) -> WorkspaceOverviewBinding {
+) -> CoreResult<WorkspaceOverviewBinding> {
     let file_name = workspace_overview_file_name(workspace);
     let path_manager = get_path_manager_arc();
 
-    WorkspaceOverviewBinding {
+    Ok(WorkspaceOverviewBinding {
         file_path: overview_dir.join(&file_name),
         file_name,
         workspace_id: workspace.id.clone(),
         workspace_name: workspace.name.clone(),
         workspace_root_path: workspace.root_path.clone(),
-        workspace_memory_dir: path_manager.workspace_memory_dir(&workspace.root_path),
-    }
+        workspace_memory_dir: path_manager.workspace_memory_dir(&workspace.root_path)?,
+    })
 }
 
 async fn build_workspace_overview_path_map(_overview_dir: &Path) -> HashMap<String, String> {
@@ -273,51 +268,6 @@ async fn ordered_workspace_overview_paths(
             push_workspace_overview_path(&overview_dir, &workspace, &mut ordered, &mut seen);
         }
     }
-
-    let mut remaining = Vec::new();
-    let mut entries = fs::read_dir(overview_dir).await.map_err(|e| {
-        CoreError::service(format!(
-            "Failed to read global workspace overview directory {}: {}",
-            overview_dir.display(),
-            e
-        ))
-    })?;
-
-    while let Some(entry) = entries.next_entry().await.map_err(|e| {
-        CoreError::service(format!(
-            "Failed to iterate global workspace overview directory {}: {}",
-            overview_dir.display(),
-            e
-        ))
-    })? {
-        let path = entry.path();
-        let is_md = path
-            .extension()
-            .and_then(|ext| ext.to_str())
-            .map(|ext| ext.eq_ignore_ascii_case("md"))
-            .unwrap_or(false);
-        if !is_md {
-            continue;
-        }
-
-        let key = path.to_string_lossy().to_string();
-        if seen.insert(key) {
-            remaining.push(path);
-        }
-    }
-
-    remaining.sort_by(|left, right| {
-        left.file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or_default()
-            .cmp(
-                right
-                    .file_name()
-                    .and_then(|name| name.to_str())
-                    .unwrap_or_default(),
-            )
-    });
-    ordered.extend(remaining);
 
     Ok(ordered)
 }
@@ -356,54 +306,6 @@ fn should_include_in_agentic_os_workspace_overviews(workspace: &WorkspaceInfo) -
 
 fn is_agentic_os_workspace(workspace: &WorkspaceInfo) -> bool {
     workspace.root_path == get_path_manager_arc().agentic_os_runtime_root()
-}
-
-fn workspace_overview_slug(workspace: &WorkspaceInfo) -> String {
-    let preferred = workspace.name.trim();
-    let fallback = workspace
-        .root_path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .map(str::trim)
-        .unwrap_or_default();
-    let seed = if preferred.is_empty() {
-        fallback
-    } else {
-        preferred
-    };
-
-    slugify_workspace_component(seed)
-}
-
-fn workspace_overview_hash(workspace: &WorkspaceInfo) -> String {
-    let normalized_path = format_path_for_prompt(&workspace.root_path);
-    let digest = Sha256::digest(normalized_path.as_bytes());
-    format!("{:x}", digest)[..8].to_string()
-}
-
-fn slugify_workspace_component(value: &str) -> String {
-    let mut slug = String::new();
-    let mut last_was_dash = false;
-
-    for ch in value.chars() {
-        if ch.is_ascii_alphanumeric() {
-            slug.push(ch.to_ascii_lowercase());
-            last_was_dash = false;
-            continue;
-        }
-
-        if !last_was_dash && !slug.is_empty() {
-            slug.push('-');
-            last_was_dash = true;
-        }
-    }
-
-    let slug = slug.trim_matches('-').to_string();
-    if slug.is_empty() {
-        "workspace".to_string()
-    } else {
-        slug
-    }
 }
 
 fn truncate_to_char_boundary(value: &str, max_chars: usize) -> String {
@@ -649,8 +551,8 @@ fn escape_prompt_inline(value: &str) -> String {
 mod tests {
     use super::{
         parse_workspace_overview_summary, render_workspace_candidates_context,
-        slugify_workspace_component, workspace_overview_hash, WorkspaceCandidateOverview,
-        WORKSPACE_CANDIDATES_MAX_CHARS, WORKSPACE_CANDIDATE_SUMMARY_MAX_CHARS,
+        workspace_overview_file_name, WorkspaceCandidateOverview, WORKSPACE_CANDIDATES_MAX_CHARS,
+        WORKSPACE_CANDIDATE_SUMMARY_MAX_CHARS,
     };
     use crate::service::workspace::{WorkspaceInfo, WorkspaceKind, WorkspaceStatus};
     use std::collections::HashMap;
@@ -671,21 +573,15 @@ mod tests {
     }
 
     #[test]
-    fn workspace_slug_is_human_readable() {
+    fn workspace_overview_file_name_uses_stable_workspace_id() {
+        let first = build_workspace_info("Sparo OS", "E:/Projects/work/Sparo-OS");
+        let renamed = build_workspace_info("Renamed", "D:/Moved/Sparo-OS");
+
+        assert_eq!(workspace_overview_file_name(&first), "workspace-id.md");
         assert_eq!(
-            slugify_workspace_component("Sparo OS Desktop"),
-            "sparo-os-desktop"
+            workspace_overview_file_name(&first),
+            workspace_overview_file_name(&renamed)
         );
-        assert_eq!(slugify_workspace_component("  api_core  "), "api-core");
-    }
-
-    #[test]
-    fn workspace_hash_is_short_and_stable_for_same_path() {
-        let workspace = build_workspace_info("Sparo OS", "E:/Projects/work/Sparo-OS");
-        let hash = workspace_overview_hash(&workspace);
-
-        assert_eq!(hash.len(), 8);
-        assert_eq!(hash, workspace_overview_hash(&workspace));
     }
 
     #[test]

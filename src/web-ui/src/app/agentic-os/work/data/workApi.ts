@@ -36,6 +36,7 @@ import type {
   WorkRuntimeLogLevel,
   WorkRuntimeRun,
   WorkRuntimeRunStatus,
+  WorkLocator,
   WorkScope,
   WorkBuilderFactStatus,
   WorkBuilderIssue,
@@ -58,8 +59,13 @@ import type {
 } from '../domain/workTypes';
 
 type RawWorkScope =
-  | { kind: 'system' }
-  | { kind: 'workspace'; workspace_path: string };
+  | { kind: 'global' }
+  | { kind: 'workspace'; workspaceId: string };
+
+type RawWorkLocator = {
+  scope: RawWorkScope;
+  workId: string;
+};
 
 type RawWorkSurfaceRef =
   | {
@@ -112,6 +118,27 @@ type RawWorkExecutionBinding = {
 type RawAgentSessionRef = {
   session_id: string;
   workspace_path?: string | null;
+  locator?: {
+    session_id: string;
+    domain:
+      | { kind: 'workspace'; workspace_id: string }
+      | { kind: 'global' }
+      | { kind: 'os_agent' };
+  } | null;
+  owner?:
+    | { kind: 'workspace_user' }
+    | { kind: 'agentic_os' }
+    | {
+        kind: 'product_app';
+        app_id: string;
+        work_id: string;
+        channel: {
+          channel_id: string;
+          entity_id?: string | null;
+        };
+        role: 'surface_chat' | 'backend_internal';
+      }
+    | null;
 };
 
 type RawArtifactRef = {
@@ -187,6 +214,7 @@ type RawWorkRecord = {
   subject: RawWorkSubject;
   app_refs: RawWorkAppRelation[];
   scope: RawWorkScope;
+  workspace_path?: string | null;
   primary_surface: RawWorkSurfaceRef;
   surfaces: RawWorkSurfaceRef[];
   assignment?: RawWorkAssignmentRef | null;
@@ -376,14 +404,14 @@ type RawWorkExecutionGraph = {
 
 function toRawScope(scope: WorkScope): RawWorkScope {
   return scope.kind === 'workspace'
-    ? { kind: 'workspace', workspace_path: scope.workspacePath }
-    : { kind: 'system' };
+    ? { kind: 'workspace', workspaceId: scope.workspaceId }
+    : { kind: 'global' };
 }
 
 function fromRawScope(scope: RawWorkScope): WorkScope {
   return scope.kind === 'workspace'
-    ? { kind: 'workspace', workspacePath: scope.workspace_path }
-    : { kind: 'system' };
+    ? { kind: 'workspace', workspaceId: scope.workspaceId }
+    : { kind: 'global' };
 }
 
 function toRawAppRef(app: WorkAppRef): RawWorkAppRef {
@@ -594,7 +622,31 @@ function fromRawLifecycle(lifecycle: RawWorkRecord['lifecycle']): WorkLifecycle 
 }
 
 function fromRawSessionRef(ref: RawAgentSessionRef): AgentSessionRef {
-  return { sessionId: ref.session_id, workspacePath: ref.workspace_path };
+  const owner = ref.owner?.kind === 'product_app'
+    ? {
+        kind: 'product_app' as const,
+        appId: ref.owner.app_id,
+        workId: ref.owner.work_id,
+        channel: {
+          channelId: ref.owner.channel.channel_id,
+          entityId: ref.owner.channel.entity_id,
+        },
+        role: ref.owner.role,
+      }
+    : ref.owner;
+  return {
+    sessionId: ref.session_id,
+    workspacePath: ref.workspace_path,
+    locator: ref.locator,
+    owner,
+  };
+}
+
+function toRawLocator(locator: WorkLocator): RawWorkLocator {
+  return {
+    scope: toRawScope(locator.scope),
+    workId: locator.workId,
+  };
 }
 
 function fromRawArtifactRef(ref: RawArtifactRef): ArtifactRef {
@@ -659,6 +711,7 @@ export function fromRawWorkRecord(record: RawWorkRecord): WorkRecord {
     subject: fromRawSubject(record.subject),
     appRefs: record.app_refs.map(fromRawAppRelation),
     scope: fromRawScope(record.scope),
+    workspacePath: record.workspace_path,
     primarySurface: fromRawSurface(record.primary_surface),
     surfaces: record.surfaces.map(fromRawSurface),
     assignment: fromRawAssignment(record.assignment),
@@ -717,6 +770,7 @@ function toRawCreateWorkRequest(request: CreateWorkRequest): Record<string, unkn
     subject: toRawSubject(request.subject),
     app_refs: (request.appRefs ?? []).map(toRawAppRelation),
     scope: toRawScope(request.scope),
+    workspace_path: request.workspacePath,
     visibility: request.visibility ?? 'primary',
     primary_surface_policy: request.primarySurfacePolicy ?? 'work_session',
     primary_surface: request.primarySurface ? toRawSurface(request.primarySurface) : undefined,
@@ -921,6 +975,7 @@ function toRawStartWorkRequest(request: StartWorkRequest): Record<string, unknow
     subject: toRawSubject(request.subject),
     app_refs: (request.appRefs ?? []).map(toRawAppRelation),
     scope: toRawScope(request.scope),
+    workspace_path: request.workspacePath,
     visibility: request.visibility ?? 'primary',
     primary_surface_policy: request.primarySurfacePolicy ?? 'work_session',
     assignment: toRawAssignment(request.assignment),
@@ -930,7 +985,7 @@ function toRawStartWorkRequest(request: StartWorkRequest): Record<string, unknow
 
 function toRawUpdateWorkRequest(request: UpdateWorkRequest): Record<string, unknown> {
   return {
-    work_id: request.workId,
+    locator: toRawLocator(request.locator),
     title: request.title,
     objective: request.objective,
     summary: request.summary,
@@ -982,42 +1037,42 @@ export class AgenticOsWorkApi {
     }
   }
 
-  async getWork(workId: string): Promise<WorkRecord> {
+  async getWork(locator: WorkLocator): Promise<WorkRecord> {
     try {
       const response = await api.invoke<{ work: RawWorkRecord }>('agentic_os_get_work', {
-        request: { work_id: workId },
+        request: { locator: toRawLocator(locator) },
       });
       return fromRawWorkRecord(response.work);
     } catch (error) {
-      throw createTauriCommandError('agentic_os_get_work', error, { workId });
+      throw createTauriCommandError('agentic_os_get_work', error, { locator });
     }
   }
 
-  async deleteWork(workId: string, options?: WorkDeleteOptions): Promise<WorkDeleteResult> {
+  async deleteWork(locator: WorkLocator, options?: WorkDeleteOptions): Promise<WorkDeleteResult> {
     try {
       const response = await api.invoke<{ deleted: boolean; cleanup_report?: RawWorkCleanupReport }>(
         'agentic_os_delete_work',
         {
-          request: { work_id: workId, options: toRawWorkDeleteOptions(options) },
+          request: { locator: toRawLocator(locator), options: toRawWorkDeleteOptions(options) },
         }
       );
       return {
         deleted: response.deleted,
-        cleanupReport: fromRawWorkCleanupReport(response.cleanup_report, workId),
+        cleanupReport: fromRawWorkCleanupReport(response.cleanup_report, locator.workId),
       };
     } catch (error) {
-      throw createTauriCommandError('agentic_os_delete_work', error, { workId, options });
+      throw createTauriCommandError('agentic_os_delete_work', error, { locator, options });
     }
   }
 
-  async getWorkExecutionGraph(workId: string): Promise<WorkExecutionGraph> {
+  async getWorkExecutionGraph(locator: WorkLocator): Promise<WorkExecutionGraph> {
     try {
       const response = await api.invoke<{ graph: RawWorkExecutionGraph }>('agentic_os_get_work_execution_graph', {
-        request: { workId },
+        request: { locator: toRawLocator(locator) },
       });
       return fromRawExecutionGraph(response.graph);
     } catch (error) {
-      throw createTauriCommandError('agentic_os_get_work_execution_graph', error, { workId });
+      throw createTauriCommandError('agentic_os_get_work_execution_graph', error, { locator });
     }
   }
 
@@ -1041,6 +1096,7 @@ export class AgenticOsWorkApi {
           title: request.title,
           objective: request.objective,
           scope: toRawScope(request.scope),
+          workspace_path: request.workspacePath,
           visibility: request.visibility ?? 'primary',
           primary_surface_policy: request.primarySurfacePolicy ?? 'application_surface',
           primary_surface: request.primarySurface ? toRawSurface(request.primarySurface) : undefined,
@@ -1063,6 +1119,7 @@ export class AgenticOsWorkApi {
           title: request.title,
           objective: request.objective,
           scope: toRawScope(request.scope),
+          workspace_path: request.workspacePath,
           visibility: request.visibility ?? 'secondary',
           primary_surface_policy: request.primarySurfacePolicy ?? 'work_center',
           assignment: toRawAssignment(request.assignment),
@@ -1101,9 +1158,10 @@ export class AgenticOsWorkApi {
     try {
       const response = await api.invoke<{ work: RawWorkRecord }>('agentic_os_link_session_to_work', {
         request: {
-          work_id: request.workId,
-          session_id: request.sessionId,
+          work_locator: toRawLocator(request.workLocator),
+          session_id: request.locator.session_id,
           workspace_path: request.workspacePath,
+          locator: request.locator,
           surface: request.surface ? toRawSurface(request.surface) : undefined,
           set_primary: request.setPrimary ?? false,
         },
@@ -1118,7 +1176,7 @@ export class AgenticOsWorkApi {
     try {
       const response = await api.invoke<{ work: RawWorkRecord }>('agentic_os_advance_work', {
         request: {
-          work_id: request.workId,
+          locator: toRawLocator(request.locator),
           instructions: request.instructions,
           advance_policy: request.advancePolicy,
         },
@@ -1132,7 +1190,7 @@ export class AgenticOsWorkApi {
   async controlWork(request: ControlWorkRequest): Promise<WorkRecord> {
     try {
       const response = await api.invoke<{ work: RawWorkRecord }>('agentic_os_control_work', {
-        request: { work_id: request.workId, action: request.action },
+        request: { locator: toRawLocator(request.locator), action: request.action },
       });
       return fromRawWorkRecord(response.work);
     } catch (error) {
@@ -1144,7 +1202,7 @@ export class AgenticOsWorkApi {
     try {
       const response = await api.invoke<{ work: RawWorkRecord }>('agentic_os_record_builder_preview_result', {
         request: {
-          work_id: request.workId,
+          locator: toRawLocator(request.locator),
           preview_result: toRawBuilderPreviewResult(request.previewResult),
         },
       });
@@ -1158,7 +1216,7 @@ export class AgenticOsWorkApi {
     try {
       const response = await api.invoke<{ work: RawWorkRecord }>('agentic_os_record_builder_validation_result', {
         request: {
-          work_id: request.workId,
+          locator: toRawLocator(request.locator),
           validation_result: toRawBuilderValidationResult(request.validationResult),
         },
       });

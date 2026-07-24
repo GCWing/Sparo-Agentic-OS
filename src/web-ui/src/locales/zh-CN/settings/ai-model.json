@@ -197,7 +197,16 @@
   "reasoningEffort": {
     "label": "推理深度",
     "hint": "控制 provider 支持的推理强度，适用于 Responses API 与支持自适应推理的 Claude 模型",
-    "placeholder": "使用 API 默认值"
+    "placeholder": "使用 API 默认值",
+    "options": {
+      "none": "无",
+      "minimal": "最小",
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "xhigh": "超高",
+      "max": "最大"
+    }
   },
   "details": {
     "basicInfo": "基本信息",
@@ -244,7 +253,8 @@
     "openaiCompatible": "OpenAI 兼容",
     "responsesApi": "OpenAI Responses API",
     "claudeApi": "Claude API",
-    "geminiApi": "Gemini GenerateContent API"
+    "geminiApi": "Gemini GenerateContent API",
+    "geminiCodeAssist": "Gemini Code Assist"
   },
   "providerGroup": {
     "expandModels": "展开「{{name}}」的模型列表",

@@ -85,7 +85,27 @@ pub struct DailyLetterSourceStats {
     pub git_signal_count: usize,
     #[serde(default)]
     pub explicit_count: usize,
+    #[serde(default)]
+    pub correspondence_history_count: usize,
     pub fragment_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DailyLetterHistoryReceipt {
+    pub text: String,
+    pub status: DailyLetterReceiptStatus,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DailyLetterHistoryEntry {
+    pub date: String,
+    pub title: String,
+    pub one_line: String,
+    pub body_markdown: String,
+    #[serde(default)]
+    pub receipts: Vec<DailyLetterHistoryReceipt>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -112,6 +132,8 @@ pub struct DailyLetterContextPacket {
     pub memory_context: Vec<DailyLetterSourceFragment>,
     #[serde(default)]
     pub user_preferences: Vec<String>,
+    #[serde(default)]
+    pub correspondence_history: Vec<DailyLetterHistoryEntry>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

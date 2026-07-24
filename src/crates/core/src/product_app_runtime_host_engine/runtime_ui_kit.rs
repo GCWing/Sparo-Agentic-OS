@@ -23,6 +23,7 @@ pub const RUNTIME_UI_KIT_COMPONENTS: &[&str] = &[
     "Status",
     "SegmentedControl",
     "Dialog",
+    "MarkdownEditor",
 ];
 
 /// CSS for the runtime UI kit. The class names intentionally mirror a small
@@ -654,6 +655,7 @@ pub fn build_runtime_ui_kit_script() -> &'static str {
     'Status',
     'SegmentedControl',
     'Dialog',
+    'MarkdownEditor',
   ]);
 
   const sizeClass = { small: 'sm', medium: 'base', large: 'lg' };
@@ -967,6 +969,123 @@ pub fn build_runtime_ui_kit_script() -> &'static str {
     return dialog;
   }
 
+  function hostedViewRect(target) {
+    const rect = target.getBoundingClientRect();
+    const left = Math.max(0, rect.left);
+    const top = Math.max(0, rect.top);
+    const right = Math.min(window.innerWidth, rect.right);
+    const bottom = Math.min(window.innerHeight, rect.bottom);
+    const width = Math.max(0, right - left);
+    const height = Math.max(0, bottom - top);
+    const style = window.getComputedStyle(target);
+    const visible = target.isConnected
+      && !target.closest('[hidden]')
+      && style.display !== 'none'
+      && style.visibility !== 'hidden'
+      && width > 0
+      && height > 0;
+    return { x: left, y: top, width, height, visible };
+  }
+
+  function MarkdownEditor(target, options = {}) {
+    const root = typeof target === 'string' ? document.querySelector(target) : target;
+    if (!(root instanceof HTMLElement)) {
+      throw new Error('Product App Runtime Host MarkdownEditor target not found');
+    }
+    if (!window.app?.host?.mountView || !window.app?.host?.updateView || !window.app?.host?.unmountView) {
+      throw new Error('Product App Runtime Host MarkdownEditor is unavailable');
+    }
+
+    const viewId = options.viewId || ('markdown-editor-' + Math.random().toString(36).slice(2));
+    let current = { ...options };
+    let onChange = typeof options.onChange === 'function' ? options.onChange : null;
+    let onSave = typeof options.onSave === 'function' ? options.onSave : null;
+    let disposed = false;
+    let mounted = false;
+    let frame = 0;
+
+    const serializedOptions = () => ({
+      content: typeof current.content === 'string' ? current.content : '',
+      fileName: typeof current.fileName === 'string' ? current.fileName : 'document.md',
+      readOnly: current.readOnly === true,
+      showToolbar: current.showToolbar !== false,
+      showOutline: current.showOutline !== false,
+      savedVersion: current.savedVersion,
+    });
+    const view = (includeOptions) => ({
+      viewId,
+      kind: 'markdown-editor',
+      rect: hostedViewRect(root),
+      ...(includeOptions ? { options: serializedOptions() } : {}),
+    });
+    const sendLayout = () => {
+      frame = 0;
+      if (disposed || !mounted) return;
+      window.app.host.updateView(view(false)).catch(() => {});
+    };
+    const refresh = () => {
+      if (frame) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(sendLayout);
+    };
+    const handleChange = (payload) => {
+      if (!payload || payload.viewId !== viewId) return;
+      current.content = typeof payload.content === 'string' ? payload.content : current.content;
+      onChange?.(current.content, payload.dirty === true);
+    };
+    const handleSave = (payload) => {
+      if (!payload || payload.viewId !== viewId) return;
+      onSave?.(typeof payload.content === 'string' ? payload.content : current.content);
+    };
+
+    window.app.on('hostedView:change', handleChange);
+    window.app.on('hostedView:save', handleSave);
+    root.dataset.sparoHostedView = viewId;
+    const resizeObserver = typeof ResizeObserver === 'function'
+      ? new ResizeObserver(refresh)
+      : null;
+    resizeObserver?.observe(root);
+    window.addEventListener('resize', refresh);
+    window.addEventListener('scroll', refresh, true);
+
+    const ready = window.app.host.mountView(view(true)).then((result) => {
+      if (disposed) {
+        return window.app.host.unmountView(viewId).then(() => result);
+      }
+      mounted = true;
+      refresh();
+      return result;
+    });
+
+    return Object.freeze({
+      viewId,
+      ready,
+      refresh,
+      update(next = {}) {
+        if (disposed) throw new Error('Hosted MarkdownEditor is already unmounted');
+        if (Object.prototype.hasOwnProperty.call(next, 'onChange')) {
+          onChange = typeof next.onChange === 'function' ? next.onChange : null;
+        }
+        if (Object.prototype.hasOwnProperty.call(next, 'onSave')) {
+          onSave = typeof next.onSave === 'function' ? next.onSave : null;
+        }
+        current = { ...current, ...next };
+        return ready.then(() => window.app.host.updateView(view(true)));
+      },
+      unmount() {
+        if (disposed) return Promise.resolve();
+        disposed = true;
+        if (frame) cancelAnimationFrame(frame);
+        resizeObserver?.disconnect();
+        window.removeEventListener('resize', refresh);
+        window.removeEventListener('scroll', refresh, true);
+        window.app.off('hostedView:change', handleChange);
+        window.app.off('hostedView:save', handleSave);
+        if (root.dataset.sparoHostedView === viewId) delete root.dataset.sparoHostedView;
+        return ready.then(() => window.app.host.unmountView(viewId));
+      },
+    });
+  }
+
   function mount(target, child) {
     const root = typeof target === 'string' ? document.querySelector(target) : target;
     if (!root) throw new Error('Product App Runtime Host UI Kit mount target not found');
@@ -976,7 +1095,7 @@ pub fn build_runtime_ui_kit_script() -> &'static str {
   }
 
   const ui = Object.freeze({
-    version: '0.1.0',
+    version: '0.2.0',
     components: COMPONENTS,
     createElement,
     mount,
@@ -996,6 +1115,7 @@ pub fn build_runtime_ui_kit_script() -> &'static str {
     Status,
     SegmentedControl,
     Dialog,
+    MarkdownEditor,
   });
 
   window.BitfunProductAppRuntimeHostSurfaceUI = ui;
@@ -1026,6 +1146,7 @@ mod tests {
             "Status",
             "SegmentedControl",
             "Dialog",
+            "MarkdownEditor",
         ] {
             assert!(RUNTIME_UI_KIT_COMPONENTS.contains(&component));
         }
@@ -1048,5 +1169,7 @@ mod tests {
         assert!(script.contains("Card"));
         assert!(script.contains("SegmentedControl"));
         assert!(script.contains("Dialog"));
+        assert!(script.contains("MarkdownEditor"));
+        assert!(script.contains("host.mountView"));
     }
 }

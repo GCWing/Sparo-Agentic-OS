@@ -31,7 +31,9 @@ impl DesktopPathTarget {
 }
 
 fn runtime_root_for_workspace_info(workspace: &WorkspaceInfo) -> Result<PathBuf, String> {
-    Ok(get_path_manager_arc().workspace_runtime_root(&workspace.root_path))
+    get_path_manager_arc()
+        .workspace_runtime_root(&workspace.root_path)
+        .map_err(|error| error.to_string())
 }
 
 async fn resolve_runtime_artifact_path(

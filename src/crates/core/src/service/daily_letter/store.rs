@@ -7,7 +7,7 @@ use crate::infrastructure::get_path_manager_arc;
 use std::path::{Path, PathBuf};
 use tokio::fs;
 
-const DAILY_LETTERS_DIR: &str = "daily_letters";
+const DAILY_LETTER_SERVICE_ID: &str = "daily_letter";
 
 pub(crate) fn resolve_request_scope(
     scope: Option<DailyLetterScope>,
@@ -31,14 +31,13 @@ pub(crate) fn daily_letter_root(
 ) -> CoreResult<PathBuf> {
     let path_manager = get_path_manager_arc();
     match scope {
-        DailyLetterScope::AgenticOs => Ok(path_manager
-            .agentic_os_runtime_root()
-            .join(DAILY_LETTERS_DIR)),
+        DailyLetterScope::AgenticOs => path_manager.global_service_dir(DAILY_LETTER_SERVICE_ID),
         DailyLetterScope::Workspace => {
             let workspace = workspace_path.ok_or_else(|| {
                 CoreError::validation("workspacePath is required for workspace daily letters")
             })?;
-            Ok(path_manager.project_root(workspace).join(DAILY_LETTERS_DIR))
+            let workspace_id = path_manager.workspace_id(workspace)?;
+            path_manager.workspace_service_dir(&workspace_id, DAILY_LETTER_SERVICE_ID)
         }
     }
 }
@@ -54,14 +53,15 @@ pub(crate) fn daily_letter_record_id(
     date: &str,
     scope: DailyLetterScope,
     workspace_path: Option<&Path>,
-) -> String {
+) -> CoreResult<String> {
     match scope {
-        DailyLetterScope::AgenticOs => format!("daily-letter-agentic-os-{date}"),
+        DailyLetterScope::AgenticOs => Ok(format!("daily-letter-agentic-os-{date}")),
         DailyLetterScope::Workspace => {
-            let workspace_id = workspace_path
-                .map(|path| get_path_manager_arc().workspace_runtime_id(path))
-                .unwrap_or_else(|| "workspace".to_string());
-            format!("daily-letter-{workspace_id}-{date}")
+            let workspace = workspace_path.ok_or_else(|| {
+                CoreError::validation("workspacePath is required for workspace daily letters")
+            })?;
+            let workspace_id = get_path_manager_arc().workspace_id(workspace)?;
+            Ok(format!("daily-letter-{workspace_id}-{date}"))
         }
     }
 }

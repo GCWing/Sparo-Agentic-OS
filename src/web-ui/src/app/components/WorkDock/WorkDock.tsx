@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppWindow, ArrowRight, Brush, ChevronDown, Code2, Info, LayoutDashboard, ListChecks, ListTodo, MessageSquare, Pin, Plus, Sparkles, XCircle } from 'lucide-react';
+import { ArrowRight, ChevronDown, Info, LayoutDashboard, ListChecks, Pin, Plus, XCircle } from 'lucide-react';
 import { Button, IconButton, Search } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { useWorks } from '@/app/agentic-os/work/hooks/useWorks';
+import { WorkIcon } from '@/app/agentic-os/work/presentation/WorkIcon';
 import { useWorkStore } from '@/app/agentic-os/work/data/workStore';
 import { openWork, openWorkCenterHome, openWorkInCenter } from '@/app/agentic-os/work/navigation/openWork';
 import type { WorkStatus } from '@/app/agentic-os/work/domain/workTypes';
@@ -17,7 +18,10 @@ import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
 import WorkList from '../WorkList/WorkList';
-import { WORK_DOCK_LIST_LIMIT } from '../WorkList/workListSelection';
+import {
+  getWorkToneValue,
+  WORK_DOCK_LIST_LIMIT,
+} from '../WorkList/workListSelection';
 import { NewWorkDialog } from './NewWorkDialog';
 import './WorkDock.scss';
 
@@ -70,33 +74,6 @@ function isPixelStatus(status: WorkStatus): boolean {
   return status === 'running';
 }
 
-function hasSessionLikeSurface(work: WorkProjection): boolean {
-  return work.primarySurface.kind === 'work_session'
-    || work.primarySurface.kind === 'agent_session'
-    || work.surfaces?.some((surface) => (
-      surface.kind === 'work_session' || surface.kind === 'agent_session'
-    )) === true;
-}
-
-function getWorkModeIcon(work: WorkProjection) {
-  if (work.kind === 'app_workflow') {
-    if (hasSessionLikeSurface(work)) return MessageSquare;
-    if (work.primarySurface.kind === 'application_surface') return AppWindow;
-    return Sparkles;
-  }
-  const { kind } = work;
-  if (kind === 'tracking' || kind === 'recurring') return ListTodo;
-  if (kind === 'topic') return Brush;
-  return Code2;
-}
-
-function getWorkToneValue(status: WorkStatus): string {
-  if (status === 'waiting_user' || status === 'blocked') return 'var(--ds-color-warning)';
-  if (status === 'failed') return 'var(--ds-color-danger)';
-  if (status === 'completed') return 'var(--ds-color-success)';
-  return 'var(--ds-color-accent-500)';
-}
-
 const WorkDock: React.FC = () => {
   const { t } = useI18n('common');
   const activeSurface = useWorkspaceSurfaceStore((state) => state.activeSurface);
@@ -131,13 +108,13 @@ const WorkDock: React.FC = () => {
   );
 
   const handleOpenWork = useCallback(async (work: WorkProjection) => {
-    const record = workById.get(work.id) ?? await getWork(work.id);
+    const record = workById.get(work.id) ?? await getWork({ scope: work.scope, workId: work.id });
     await openWork(record);
   }, [getWork, workById]);
 
   const handleCancelWork = useCallback(async (work: WorkProjection) => {
     try {
-      await controlWork({ workId: work.id, action: 'cancel_current_execution' });
+      await controlWork({ locator: { scope: work.scope, workId: work.id }, action: 'cancel_current_execution' });
     } catch (error) {
       log.error('Failed to cancel work from Work Dock', { workId: work.id, error });
       notificationService.error(t('nav.workDock.cancelFailed'));
@@ -377,7 +354,6 @@ const WorkDock: React.FC = () => {
           </div>
           <div className="work-dock__running-rows">
             {runningWorks.map((work) => {
-              const ModeIcon = getWorkModeIcon(work);
               const pixelStatus = isPixelStatus(work.status);
               const showCancelAction = isCancellableStatus(work.status);
               return (
@@ -404,7 +380,7 @@ const WorkDock: React.FC = () => {
                         `work-dock__mode-avatar--${work.status.replace('_', '-')}`,
                       ].filter(Boolean).join(' ')}
                     >
-                      <ModeIcon size={11} />
+                      <WorkIcon work={work} size={18} />
                     </div>
                     <div className="work-dock__running-row-copy">
                       <span className="work-dock__running-row-title">{work.title}</span>

@@ -36,7 +36,6 @@ export {
 } from './SubagentModule';
 
 export {
-  getModelMaxTokens,
   createChatSession,
   switchChatSession,
   activateSessionData,

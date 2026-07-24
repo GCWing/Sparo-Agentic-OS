@@ -1,5 +1,8 @@
 import type { ProductAppRuntimeContext } from '@/shared/types/product-app-runtime';
-import type { AppIconSpec } from '@/shared/types/app-manifest';
+import type {
+  AppIconSpec,
+  ProductAppWorkMultiplicity,
+} from '@/shared/types/app-manifest';
 import type { ProductAppHostSurface } from './ProductAppRuntimeHostAPI';
 import { createTauriCommandError } from '../errors/TauriCommandError';
 import { api } from './ApiClient';
@@ -45,7 +48,7 @@ export type AppReleaseProvenance =
 export type AppRuntimeLaunchKind = 'agentSession' | 'applicationSurface' | 'appBuilder';
 export type AppRuntimeScopeRequirement = 'systemAllowed' | 'workspaceOptional' | 'workspaceRequired';
 export type AppRuntimeSurfaceMode = 'chatPrimary' | 'sidecarLinked' | 'immersivePrimary' | 'embeddedObject';
-export type AppRuntimeWorkMultiplicity = 'multiple' | 'singleton';
+export type AppRuntimeWorkMultiplicity = ProductAppWorkMultiplicity;
 
 export interface AppRuntimeLaunch {
   kind: AppRuntimeLaunchKind;
@@ -111,7 +114,6 @@ export interface AppActivationRecord {
   slotId: string;
   selectedAppId: string;
   activeReleaseId: string;
-  previousReleaseId?: string | null;
   enabled: boolean;
 }
 
@@ -348,15 +350,6 @@ export class IntelligentAppAPI {
       await api.invoke('approve_app_release_capabilities', { request });
     } catch (error) {
       throw commandError('approve_app_release_capabilities', error, request);
-    }
-  }
-
-  async rollbackActivation(slotId: string): Promise<AppActivationRecord> {
-    const request = { slotId };
-    try {
-      return await api.invoke<AppActivationRecord>('rollback_app_activation', { request });
-    } catch (error) {
-      throw commandError('rollback_app_activation', error, request);
     }
   }
 

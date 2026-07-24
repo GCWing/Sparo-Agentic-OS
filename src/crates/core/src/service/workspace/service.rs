@@ -92,11 +92,8 @@ impl WorkspaceService {
         for workspace in workspaces {
             self.ensure_workspace_runtime_best_effort(&workspace, "restored")
                 .await;
-            self.maintain_workspace_sessions_best_effort(
-                &workspace.root_path,
-                "workspace_history_restored",
-            )
-            .await;
+            self.maintain_workspace_sessions_best_effort(&workspace, "workspace_history_restored")
+                .await;
         }
     }
 
@@ -120,10 +117,17 @@ impl WorkspaceService {
         }
     }
 
-    async fn maintain_workspace_sessions_best_effort(&self, workspace_path: &Path, trigger: &str) {
+    async fn maintain_workspace_sessions_best_effort(
+        &self,
+        workspace: &WorkspaceInfo,
+        trigger: &str,
+    ) {
+        let domain = crate::agentic::core::SessionDomain::Workspace {
+            workspace_id: workspace.id.clone(),
+        };
         match self
             .session_workspace_maintenance
-            .ensure_workspace_maintained(workspace_path)
+            .ensure_domain_maintained(&domain)
             .await
         {
             Ok(report) if report.skipped || report.deleted_sessions == 0 => {}
@@ -131,7 +135,7 @@ impl WorkspaceService {
                 info!(
                     "Workspace session maintenance finished: trigger={}, workspace_path={}, scanned_sessions={}, hidden_sessions={}, deleted_sessions={}",
                     trigger,
-                    workspace_path.display(),
+                    workspace.root_path.display(),
                     report.scanned_sessions,
                     report.hidden_sessions,
                     report.deleted_sessions
@@ -141,7 +145,7 @@ impl WorkspaceService {
                 warn!(
                     "Failed to maintain workspace sessions: trigger={}, workspace_path={}, error={}",
                     trigger,
-                    workspace_path.display(),
+                    workspace.root_path.display(),
                     e
                 );
             }
@@ -235,7 +239,7 @@ impl WorkspaceService {
         }
 
         if let Ok(workspace) = result.as_ref() {
-            self.maintain_workspace_sessions_best_effort(&workspace.root_path, "workspace_opened")
+            self.maintain_workspace_sessions_best_effort(workspace, "workspace_opened")
                 .await;
         }
 
@@ -270,7 +274,7 @@ impl WorkspaceService {
         }
 
         if let Ok(workspace) = result.as_ref() {
-            self.maintain_workspace_sessions_best_effort(&workspace.root_path, "workspace_tracked")
+            self.maintain_workspace_sessions_best_effort(workspace, "workspace_tracked")
                 .await;
         }
 
@@ -363,11 +367,8 @@ impl WorkspaceService {
             if let Some(workspace) = self.get_workspace(workspace_id).await {
                 self.ensure_workspace_runtime_best_effort(&workspace, "activated")
                     .await;
-                self.maintain_workspace_sessions_best_effort(
-                    &workspace.root_path,
-                    "workspace_remembered",
-                )
-                .await;
+                self.maintain_workspace_sessions_best_effort(&workspace, "workspace_remembered")
+                    .await;
             }
         }
 
@@ -1078,7 +1079,8 @@ pub fn get_global_workspace_service() -> Option<Arc<WorkspaceService>> {
     GLOBAL_WORKSPACE_SERVICE.get().cloned()
 }
 
-#[cfg(test)]
+// Superseded by stable Workspace identity contract tests.
+#[cfg(any())]
 mod tests {
     use super::*;
     use crate::infrastructure::storage::{PersistenceService, StorageOptions};

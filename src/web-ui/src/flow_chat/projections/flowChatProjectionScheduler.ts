@@ -154,9 +154,8 @@ let agenticOsTimelineCache: AgenticOsTimelineProjectionCache = {
 /**
  * Strict filter: only Agentic OS home sessions.
  *
- * We intentionally do NOT include other agentic_os-scoped sessions such as
- * App Builder so the timeline reflects only the Agentic OS conversation
- * lineage.
+ * The OSAgent domain is already physically isolated; this additional host
+ * identity check keeps the timeline limited to its user-facing root lineage.
  */
 function isAgenticOsSession(session: Session): boolean {
   if (session.parentSessionId) return false;

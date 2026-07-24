@@ -318,4 +318,5 @@ describe('ExecutionGraphStore', () => {
     expect(node.summary.status).toBe('preparing');
     expect(node.summary.activity).toBe('receiving_tool_input');
   });
+
 });

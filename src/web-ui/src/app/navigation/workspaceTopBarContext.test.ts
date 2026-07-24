@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { WorkRecord } from '@/app/agentic-os/work/domain/workTypes';
-import { resolveWorkContextForSurface } from './workspaceTopBarContext';
+import {
+  resolveSessionTopBarPresentation,
+  resolveWorkContextForSurface,
+  resolveWorkspaceTopBarTitle,
+} from './workspaceTopBarContext';
 
 function createWork(): WorkRecord {
   return {
@@ -53,5 +57,86 @@ describe('resolveWorkContextForSurface', () => {
     );
 
     expect(context).toBeNull();
+  });
+});
+
+describe('resolveSessionTopBarPresentation', () => {
+  it('shows an Intelligent App name and workspace for a multi-Work app', () => {
+    expect(resolveSessionTopBarPresentation({
+      sessionLabel: 'Intelligent App',
+      workspaceLabel: 'Sparo OS',
+      globalScopeLabel: 'Global',
+      productApp: {
+        appName: 'PPT Live',
+        workMultiplicity: 'multiple',
+        scopeKind: 'workspace',
+      },
+    })).toMatchObject({
+      identityLabel: 'PPT Live',
+      scopeLabel: 'Sparo OS',
+      scopeKind: 'workspace',
+      title: 'PPT Live / Sparo OS',
+      isProductApp: true,
+    });
+  });
+
+  it('uses Global as the scope for a global multi-Work Intelligent App', () => {
+    expect(resolveSessionTopBarPresentation({
+      sessionLabel: 'Intelligent App',
+      globalScopeLabel: 'Global',
+      productApp: {
+        appName: 'Deep Research',
+        workMultiplicity: 'multiple',
+        scopeKind: 'global',
+      },
+    })).toMatchObject({
+      identityLabel: 'Deep Research',
+      scopeLabel: 'Global',
+      scopeKind: 'global',
+      title: 'Deep Research / Global',
+    });
+  });
+
+  it('shows only the Intelligent App name for a singleton', () => {
+    expect(resolveSessionTopBarPresentation({
+      sessionLabel: 'Intelligent App',
+      workspaceLabel: 'Ignored workspace',
+      globalScopeLabel: 'Global',
+      productApp: {
+        appName: 'Excel Live',
+        workMultiplicity: 'singleton',
+        scopeKind: 'global',
+      },
+    })).toMatchObject({
+      identityLabel: 'Excel Live',
+      scopeLabel: '',
+      scopeKind: null,
+      title: 'Excel Live',
+    });
+  });
+});
+
+describe('resolveWorkspaceTopBarTitle', () => {
+  it('lets the Intelligent App identity own a Product App session title', () => {
+    expect(resolveWorkspaceTopBarTitle({
+      surfaceKind: 'session',
+      sessionPresentation: {
+        identityLabel: 'PPT Live',
+        scopeLabel: 'Sparo OS',
+        scopeKind: 'workspace',
+        title: 'PPT Live / Sparo OS',
+        isProductApp: true,
+      },
+      sessionTitle: 'PPT Live / Sparo OS',
+      workTitle: 'Quarterly results draft',
+    })).toBe('PPT Live / Sparo OS');
+  });
+
+  it('keeps Work title precedence for ordinary sessions', () => {
+    expect(resolveWorkspaceTopBarTitle({
+      surfaceKind: 'session',
+      sessionTitle: 'Runno / Sparo OS',
+      workTitle: 'Fix the release pipeline',
+    })).toBe('Fix the release pipeline');
   });
 });

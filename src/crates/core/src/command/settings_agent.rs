@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::agentic::coordination::ConversationCoordinator;
-use crate::agentic::core::SessionStorageScope;
+use crate::agentic::core::SessionDomain;
 use crate::command::{CommandError, CommandResult};
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -11,7 +11,7 @@ pub struct SettingsFlowSessionResponse {
     pub session_name: String,
     pub agent_type: String,
     pub workspace_path: String,
-    pub storage_scope: SessionStorageScope,
+    pub domain: SessionDomain,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -26,15 +26,12 @@ fn settings_flow_session_response(
     let workspace_path = session.config.workspace_path.ok_or_else(|| {
         CommandError::session("SettingsAgent session is missing its runtime workspace")
     })?;
-    let storage_scope = session.config.storage_scope.ok_or_else(|| {
-        CommandError::session("SettingsAgent session is missing its storage scope")
-    })?;
     Ok(SettingsFlowSessionResponse {
         session_id: session.session_id,
         session_name: session.session_name,
         agent_type: session.agent_type,
         workspace_path,
-        storage_scope,
+        domain: session.config.domain,
     })
 }
 

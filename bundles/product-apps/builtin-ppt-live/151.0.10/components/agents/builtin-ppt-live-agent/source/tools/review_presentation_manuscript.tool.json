@@ -1,0 +1,38 @@
+{
+  "name": "review_presentation_manuscript",
+  "description": "Prepare the complete Manuscript and speaker-script evidence or commit AI content ReviewFindings. Use prepare first, then commit. Runtime RuleViolations remain separate.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["mode"],
+    "properties": {
+      "mode": { "type": "string", "enum": ["prepare", "commit"] },
+      "reviewId": { "type": "string", "maxLength": 180 },
+      "decision": { "type": "string", "enum": ["passed", "needs_revision"] },
+      "findings": { "type": "array", "maxItems": 100, "items": { "$ref": "#/$defs/finding" } }
+    },
+    "$defs": {
+      "finding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["severity", "scope", "evidence", "judgment", "rootCauseLayer", "revisionStrategy"],
+        "properties": {
+          "id": { "type": "string", "maxLength": 128 },
+          "severity": { "type": "string", "enum": ["critical", "major", "minor", "note"] },
+          "scope": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "evidence": { "type": "string", "minLength": 1, "maxLength": 1200 },
+          "judgment": { "type": "string", "minLength": 1, "maxLength": 1200 },
+          "rootCauseLayer": { "type": "string", "enum": ["manuscript", "presentation-system", "asset-strategy", "recipe-family", "page"] },
+          "revisionStrategy": { "type": "string", "minLength": 1, "maxLength": 1200 }
+        }
+      }
+    }
+  },
+  "runtime": "javascript",
+  "entry": "tools/review_presentation_manuscript.js",
+  "readonly": false,
+  "permissions": {},
+  "timeoutMs": 60000,
+  "maxOutputBytes": 2200000,
+  "ui": { "card": { "kind": "appDefined", "family": "ppt-live", "template": "compact", "displayMode": "compact", "resultDisplayType": "detailed", "displayName": "Review manuscript", "icon": "ScanText", "title": "Review presentation manuscript", "summary": { "preparing": "Preparing manuscript review", "running": "Reviewing the complete argument", "completed": "Manuscript review recorded", "failed": "Manuscript review failed" }, "locales": { "zh-CN": { "displayName": "评审演示文稿文本稿", "title": "评审演示文稿文本稿", "summary": { "preparing": "正在准备文本稿评审", "running": "正在评审完整论证", "completed": "文本稿评审已记录", "failed": "文本稿评审失败" }, "fields": [ { "label": "模式" }, { "label": "状态" }, { "label": "发现" } ] } }, "fields": [ { "label": "Mode", "inputPath": ["mode"] }, { "label": "Status", "resultPath": ["bridge", "output", "status"] }, { "label": "Findings", "resultPath": ["bridge", "output", "findings"], "format": "json" } ] } }
+}

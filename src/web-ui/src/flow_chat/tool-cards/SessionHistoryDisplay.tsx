@@ -2,18 +2,16 @@
  * Compact display for SessionHistory (read another session's transcript, analogous to Read file).
  * Resolves the target session display name from:
  * 1) FlowChatStore (in-memory title)
- * 2) Persisted metadata on disk (list_sessions / metadata.json) via sessionAPI.loadSessionMetadata
  *
  * useSyncExternalStore getSnapshot must return stable string primitives (Object.is equality).
  */
 
-import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import React, { useMemo, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
 import { DefaultToolCardTemplate } from './templates';
 import { FlowChatStore } from '../store/FlowChatStore';
 import type { FlowChatState } from '../types/flow-chat';
-import { sessionAPI } from '@/infrastructure/api';
 import { getToolViewState } from '../runtime/toolViewState';
 
 /** Internal sentinels — must not collide with real session titles. */
@@ -57,11 +55,6 @@ export const SessionHistoryDisplay: React.FC<ToolCardProps> = React.memo(({
     return typeof sid === 'string' && sid.trim() ? sid.trim() : undefined;
   }, [toolCall?.input]);
 
-  const toolWorkspace = useMemo(() => {
-    const w = toolCall?.input?.workspace;
-    return typeof w === 'string' && w.trim() ? w.trim() : undefined;
-  }, [toolCall?.input]);
-
   const nameSnap = useSyncExternalStore(
     (onChange) => FlowChatStore.getInstance().subscribeSelector(
       state => readSessionNameSnapshotStringFromState(targetSessionId, state),
@@ -71,46 +64,12 @@ export const SessionHistoryDisplay: React.FC<ToolCardProps> = React.memo(({
     () => readSessionNameSnapshotString(targetSessionId)
   );
 
-  const [persistedName, setPersistedName] = useState<string | null>(null);
-
-  useEffect(() => {
-    setPersistedName(null);
-  }, [targetSessionId, toolWorkspace]);
-
-  useEffect(() => {
-    if (!targetSessionId || !toolWorkspace) {
-      return;
-    }
-    if (nameSnap !== SNAP_MISS && nameSnap !== SNAP_UNTITLED) {
-      return;
-    }
-
-    let cancelled = false;
-    (async () => {
-      try {
-        const meta = await sessionAPI.loadSessionMetadata(targetSessionId, toolWorkspace);
-        if (!cancelled && meta?.sessionName?.trim()) {
-          setPersistedName(meta.sessionName.trim());
-        }
-      } catch {
-        // Metadata unavailable (e.g. path mismatch); keep sentinel-based label.
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [targetSessionId, toolWorkspace, nameSnap]);
-
   const displaySessionName = useMemo(() => {
     if (nameSnap === SNAP_PARSE) {
       return t('toolCards.sessionHistory.parsingParams');
     }
     if (nameSnap !== SNAP_PARSE && nameSnap !== SNAP_MISS && nameSnap !== SNAP_UNTITLED) {
       return nameSnap;
-    }
-    if (persistedName) {
-      return persistedName;
     }
     if (nameSnap === SNAP_UNTITLED) {
       return t('session.untitled');
@@ -119,7 +78,7 @@ export const SessionHistoryDisplay: React.FC<ToolCardProps> = React.memo(({
       return t('toolCards.sessionHistory.fallbackDisplayName');
     }
     return t('session.untitled');
-  }, [nameSnap, persistedName, t]);
+  }, [nameSnap, t]);
 
   const renderContent = () => {
     if (nameSnap === SNAP_PARSE) {

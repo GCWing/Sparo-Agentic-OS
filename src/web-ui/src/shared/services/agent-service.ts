@@ -402,11 +402,15 @@ export class AgentService {
       if (!workspacePath) {
         throw new Error('Workspace path is required to create an agent task session');
       }
+      if (!request.workspace_id?.trim()) {
+        throw new Error('Workspace id is required to create an agent task session');
+      }
 
       const response = await agentAPI.createSession({
         sessionName: `task-${Date.now()}`,
         agentType: request.agent_type,
         workspacePath,
+        domain: { kind: 'workspace', workspace_id: request.workspace_id },
         config: {
           modelName: request.model_name,
           enableTools: true,
@@ -522,6 +526,7 @@ export class AgentService {
     options: {
       modelName?: string;
       workspacePath?: string;
+      workspaceId?: string;
       context?: Record<string, string>;
       safeMode?: boolean;
       verbose?: boolean;
@@ -533,6 +538,7 @@ export class AgentService {
       description,
       model_name: options.modelName,
       workspace_path: options.workspacePath,
+      workspace_id: options.workspaceId ?? '',
       context: options.context,
       safe_mode: options.safeMode,
       verbose: options.verbose,
@@ -559,6 +565,7 @@ export class AgentService {
     options: {
       modelName?: string;
       workspacePath?: string;
+      workspaceId?: string;
       context?: Record<string, string>;
       safeMode?: boolean;
       verbose?: boolean;
@@ -570,6 +577,7 @@ export class AgentService {
       description,
       model_name: options.modelName,
       workspace_path: options.workspacePath,
+      workspace_id: options.workspaceId ?? '',
       context: options.context,
       safe_mode: options.safeMode,
       verbose: options.verbose,
@@ -594,6 +602,7 @@ export class AgentService {
     options: {
       modelName?: string;
       workspacePath?: string;
+      workspaceId?: string;
       context?: Record<string, string>;
       safeMode?: boolean;
       verbose?: boolean;
@@ -605,6 +614,7 @@ export class AgentService {
       description,
       model_name: options.modelName,
       workspace_path: options.workspacePath,
+      workspace_id: options.workspaceId ?? '',
       context: options.context,
       safe_mode: options.safeMode,
       verbose: options.verbose,

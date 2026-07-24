@@ -14,7 +14,6 @@ use crate::service::workspace::get_global_workspace_service;
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::{json, Value};
-use std::path::Path;
 
 /// AgentHandoff tool hands work to Standard agent sessions.
 ///
@@ -360,12 +359,10 @@ Parameters for "status":
                         .agentic_os_runtime_root()
                         .to_string_lossy()
                         .into_owned();
-                    let path = Path::new(&workspace_path);
-                    let sessions: Vec<SessionSummary> = if path.exists() {
-                        coordinator.list_sessions(path).await.unwrap_or_default()
-                    } else {
-                        Vec::new()
-                    };
+                    let sessions: Vec<SessionSummary> = coordinator
+                        .list_sessions(&crate::agentic::core::SessionDomain::OsAgent)
+                        .await
+                        .unwrap_or_default();
                     workspace_entries.push(json!({
                         "name": "Agentic OS",
                         "path": workspace_path,
@@ -386,13 +383,12 @@ Parameters for "status":
                     for workspace_info in candidates {
                         let workspace_path =
                             workspace_info.root_path.to_string_lossy().into_owned();
-                        let path = Path::new(&workspace_path);
-
-                        let sessions: Vec<SessionSummary> = if path.exists() {
-                            coordinator.list_sessions(path).await.unwrap_or_default()
-                        } else {
-                            Vec::new()
-                        };
+                        let sessions: Vec<SessionSummary> = coordinator
+                            .list_sessions(&crate::agentic::core::SessionDomain::Workspace {
+                                workspace_id: workspace_info.id.clone(),
+                            })
+                            .await
+                            .unwrap_or_default();
 
                         workspace_entries.push(json!({
                             "name": workspace_info.name,
@@ -461,7 +457,12 @@ Parameters for "status":
                 };
 
                 let all_sessions: Vec<SessionSummary> = if let Some(path) = workspace_path {
-                    coordinator.list_sessions(path).await.unwrap_or_default()
+                    let workspace_id = try_get_path_manager_arc()?.workspace_id(path)?;
+                    coordinator
+                        .list_sessions(&crate::agentic::core::SessionDomain::Workspace {
+                            workspace_id,
+                        })
+                        .await?
                 } else {
                     Vec::new()
                 };
@@ -470,9 +471,9 @@ Parameters for "status":
 
                 if let Ok(path_manager) = try_get_path_manager_arc() {
                     let global_path = path_manager.agentic_os_runtime_root();
-                    if global_path.exists() {
+                    {
                         let sessions = coordinator
-                            .list_sessions(global_path.as_path())
+                            .list_sessions(&crate::agentic::core::SessionDomain::OsAgent)
                             .await
                             .unwrap_or_default();
                         for session in sessions {
@@ -498,7 +499,12 @@ Parameters for "status":
                         if !path.exists() {
                             continue;
                         }
-                        let sessions = coordinator.list_sessions(path).await.unwrap_or_default();
+                        let sessions = coordinator
+                            .list_sessions(&crate::agentic::core::SessionDomain::Workspace {
+                                workspace_id: workspace_info.id.clone(),
+                            })
+                            .await
+                            .unwrap_or_default();
                         for session in sessions {
                             if belongs_to_this_os_agent(&session) {
                                 os_agent_sessions.push(json!({

@@ -214,7 +214,7 @@ export function buildSessionMetadata(
     | 'config'
     | 'createdAt'
     | 'workspacePath'
-    | 'storageScope'
+    | 'domain'
     | 'todos'
     | 'dialogTurns'
     | 'sessionKind'
@@ -233,6 +233,7 @@ export function buildSessionMetadata(
   return {
     ...existingMetadata,
     sessionId: session.sessionId,
+    domain: session.domain,
     sessionName:
       session.title ||
       existingMetadata?.sessionName ||
@@ -270,7 +271,6 @@ export function buildSessionMetadata(
     ),
     todos: session.todos || existingMetadata?.todos || [],
     workspacePath: session.workspacePath || existingMetadata?.workspacePath,
-    storageScope: session.storageScope ?? existingMetadata?.storageScope ?? 'workspace',
     unreadCompletion: session.hasUnreadCompletion,
     needsUserAttention: session.needsUserAttention,
   };

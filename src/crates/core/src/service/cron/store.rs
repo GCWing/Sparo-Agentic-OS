@@ -13,7 +13,7 @@ pub struct CronJobStore {
 
 impl CronJobStore {
     pub async fn new(path_manager: Arc<PathManager>) -> CoreResult<Self> {
-        let cron_dir = path_manager.user_cron_dir();
+        let cron_dir = path_manager.cron_service_dir();
         path_manager.ensure_dir(&cron_dir).await?;
 
         let persistence = PersistenceService::new(cron_dir).await?;

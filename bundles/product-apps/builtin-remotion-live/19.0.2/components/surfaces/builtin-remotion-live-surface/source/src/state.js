@@ -1,0 +1,65 @@
+// Remotion Live surface state. The Player is the only preview authority.
+
+const state = {
+  locale: navigator.language || 'en-US',
+  route: '/preview',
+  tabId: null,
+  sessionId: null,
+  workspacePath: null,
+
+  phase: 'idle',
+  error: null,
+
+  project: null,
+  detection: null,
+  manifest: null,
+  selectedEntry: null,
+  activeCompositionId: null,
+  frame: 0,
+  frameTouched: false,
+  playerFrameModel: null,
+
+  playerHost: null,
+  playerHostLoading: false,
+  playerHostError: null,
+  playerHostPollTimer: null,
+  playerRuntimeReady: false,
+  playerRuntimePlaying: false,
+  playerRuntimeFrame: null,
+  playerCommittedFrame: null,
+  playerPhase: 'disconnected',
+  playerBuffering: false,
+  playerSeeking: false,
+  playerRuntimeMuted: true,
+  playerRuntimeVolume: 1,
+  playerDesiredState: null,
+  playerActualState: null,
+  playerDesiredRevision: 0,
+  playerActualRevision: 0,
+  playerPendingCommand: null,
+  playerInFlightCommand: null,
+  playerInstanceId: null,
+  playerStageKey: null,
+  playerRenderedStageKey: null,
+  playerHandshakeTimer: null,
+  playerReloadNonce: 0,
+  playerChannelConnected: false,
+  playerConnectionState: 'disconnected',
+  playerChannelNonce: null,
+
+  muted: true,
+  volume: 1,
+  interactionMode: 'preview',
+
+  selectedElementId: null,
+  selection: null,
+  selectionPointerDown: false,
+  selectionDragging: false,
+  selectionDraft: null,
+  renderQueued: false,
+
+  exportRun: null,
+  exportConfirmOpen: false,
+};
+
+export { state };

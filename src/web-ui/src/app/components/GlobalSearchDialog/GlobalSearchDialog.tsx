@@ -27,13 +27,13 @@ import { useWorks } from '@/app/agentic-os/work/hooks/useWorks';
 import { filterWorkProjections } from '@/app/agentic-os/work/data/workSelectors';
 import { openArtifactInCenter, openWorkCenterHome, openWorkInCenter } from '@/app/agentic-os/work/navigation/openWork';
 import type { WorkProjection } from '@/app/agentic-os/work/projections/workProjection';
+import { WorkIcon } from '@/app/agentic-os/work/presentation/WorkIcon';
 import { isSystemAgenticOsSession } from '@/flow_chat/domain/sessionDescriptor';
 import { notificationService } from '@/shared/notification-system';
 import { launchActiveIntelligentApp } from '@/app/scenes/apps/intelligentAppLaunchService';
 import { systemAppScope } from '@/shared/types/app-scope';
 import type { ArtifactRef, WorkRecord } from '@/app/agentic-os/work/domain/workTypes';
 import {
-  getWorkModeIcon,
   getWorkToneValue,
   isInstrumentedStatus,
   selectWorksForDockList,
@@ -244,7 +244,10 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
       try {
         const rows: Array<{ meta: SessionMetadata; workspace: WorkspaceInfo }> = [];
         for (const workspace of openedWorkspacesList) {
-          const sessionList = await sessionAPI.listSessions(workspace.rootPath);
+          const sessionList = await sessionAPI.listSessions({
+            kind: 'workspace',
+            workspace_id: workspace.id,
+          });
           for (const meta of sessionList) {
             rows.push({ meta, workspace });
           }
@@ -537,7 +540,6 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
 
   const renderWorkIcon = (item: SearchResultItem) => {
     if (!item.work) return <ListChecks size={14} />;
-    const ModeIcon = getWorkModeIcon(item.work);
     const instrumented = isInstrumentedStatus(item.work.status);
     return (
       <span
@@ -549,7 +551,7 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
         style={{ '--sparo-search-dialog-work-tone': getWorkToneValue(item.work.status) } as React.CSSProperties}
       >
         <span className="sparo-search-dialog__work-mode-glyph">
-          <ModeIcon size={14} aria-hidden />
+          <WorkIcon work={item.work} size={18} />
         </span>
         {instrumented ? <span className="sparo-search-dialog__work-state-mark" /> : null}
       </span>
